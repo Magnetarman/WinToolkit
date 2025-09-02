@@ -1,2 +1,199 @@
-# WinToolkit
-Il Tool Powershell definitivo per sopravvivere a Windows
+<p align="center">
+	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/banner.png" alt="WinToolkit-banner" width="800">
+</p>
+
+<p align="center">
+	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/Run.png" alt="Run-banner" width="800">
+</p>
+
+<p align="center">
+	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/RepairToolkit.png" alt="RepairToolkit-banner" width="800">
+</p>
+<p align="center">
+	<em><code>🛠️ WinToolkit: La Soluzione Definitiva per la Manutenzione di Windows.</code></em>
+    <br>
+    <br>
+    <code>WinToolkit è una suite di script PowerShell potente e compatta, progettata per offrire a professionisti IT, amministratori di sistema e utenti esperti un controllo granulare sulla manutenzione e sulla risoluzione dei problemi di Windows. Questo toolkit intuitivo aggrega gli strumenti di riparazione di sistema più efficaci in un'unica interfaccia, automatizzando i processi complessi per ottimizzare le prestazioni e ripristinare la stabilità del sistema con pochi clic.</code>
+</p>
+<p align="center">
+<img src="https://img.shields.io/badge/version-1.0-green.svg" alt="versione">
+<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=default&logo=git&logoColor=white&color=0080ff" alt="last-commit">
+	<img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-top-language">
+  <img src="https://img.shields.io/github/languages/count/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-language-count">
+	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=default&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
+</p>
+<p align="center"><!-- default option, no dependency badges. -->
+</p>
+<p align="center">
+	<!-- default option, no dependency badges. -->
+</p>
+<br>
+
+## 👾 Features
+
+> [!Note]
+> La versione 2.0 è in **sviluppo attivo**.
+>
+> Il ramo **Experimental** ha codice in fase Alpha Utilizzalo a tuo rischio e pericolo.
+
+- **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato sul desktop, garantendo una tracciabilità completa delle operazioni.
+- **Ripristino di Windows Update**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi. Questo script blocca e riavvia i servizi di aggiornamento, rinomina le directory di cache e ripara il registro di sistema, garantendo che il tuo sistema possa scaricare e installare gli aggiornamenti essenziali senza intoppi.
+- **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
+- **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
+- **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato sul desktop, fornendo un riassunto chiaro e professionale delle azioni eseguite, degli errori riscontrati e dei risultati finali.
+
+### Perché usare WinToolkit?
+
+Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemente mantenere il tuo PC personale in perfette condizioni, WinToolkit ti permette di:
+
+- **Risparmiare Tempo**: Automatizza ore di lavoro manuale di diagnostica e riparazione.
+- **Prevenire Malfunzionamenti**: Esegui manutenzioni preventive per evitare problemi futuri.
+- **Agire da Esperto**: Sfrutta la potenza degli strumenti di sistema professionali con un'interfaccia semplice e sicura.
+
+---
+
+## 📁 Struttura Cartelle
+
+```sh
+└── WinToolkit/
+    ├── LICENSE
+    ├── README.md
+    ├── run.ps1
+    ├── WinRepairToolkit.ps1
+    └── WinUpdateReset.ps1
+```
+
+### 📂 Index Progetto
+
+<details open>
+	<summary><b><code>WinToolkit/</code></b></summary>
+	<details> <!-- __root__ Submodule -->
+		<summary><b>__root__</b></summary>
+		<blockquote>
+			<table>
+			<tr>
+				<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/run.ps1'>run.sh</a></b></td>
+				<td><code>❯ Script di avvio generale. Segui le istruzioni per eseguire le varie funzioni del Tool.</code></td>
+			</tr>
+            <tr>
+				<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/WinReinstallStore.ps1'>WinReinstallStore.ps1</a></b></td>
+				<td><code>❯ Effettua un controllo in cerca di errori e tenta il ripristino di Winget (Installatore Paccheti Windows, simile ad APT per Ubuntu), effettua anche il ripristino dello store Microsoft in caso di errori o installazioni danneggiate.</code></td>
+			</tr>
+             <tr>
+				<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/WinRepairToolkit.ps1'>WinRepairToolkit.ps1</a></b></td>
+				<td><code>❯ Esegue una scansione generale del sistema tramite i tool microsoft DISM, CHKDSK e SCAN. Esegue Controllo disco, Ripristino immagine Windows, Pulizia Residui Aggiornamenti, Controllo file di sistema.</code></td>
+			</tr>
+                 <tr>
+				<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/WinUpdateReset.ps1'>WinUpdateReset.ps1</a></b></td>
+				<td><code>❯ Resetta alle impostazioni di fabbrica Windows Update, risolvendo la maggior parte dei problemi legati all'aggiornamento di Windows.</code></td>
+			</tr>
+			</table>
+		</blockquote>
+	</details>
+</details>
+
+---
+
+## 🚀 Getting Started
+
+### ☑️ Prerequisiti
+
+Prima di avviare il tool, assicurati che il tuo ambiente di runtime soddisfi i seguenti requisiti:
+
+- **Richiesta Connessione ad internet durante l'esecuzione del Tool**
+- Richiesto intervento manuale minimo.
+- **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema)
+
+### ⚙️ Installatione
+
+Avvia il Toolkit eseguendo il seguente metodo:
+
+1. Clona la repository WinToolkit:
+
+```powershell
+❯ git clone https://github.com/Magnetarman/WinToolkit
+```
+
+2. Utilizza il terminale per Navigare fino alla cartella:
+
+```powershell
+❯ cd WinToolkit
+```
+
+3. Lancia il Toolkit:
+
+```powershell
+❯ ./run.ps1
+```
+
+---
+
+## 📌 Project Roadmap
+
+- [x] **`V1.0`**: <strike>Release Privata</strike>
+- [x] **`V1.1.0`**: <strike>Refactor Struttura in forma modulare.</strike>
+- [x] **`V2.0.0`**: <strike>Refator totale progetto per future implementazioni. Grafica accativante aggiunta.</strike>
+
+## 🕹️ TO DO
+
+- [ ] Avvio script Chris con config personalizzata iwr -useb https://christitus.com/win | iex
+- [ ] Aggiungere esecuzione di Tron Script ed esecuzione con intervento minimo
+- [ ] Download ultima versione di DDU
+  - [ ] Estrazione
+  - [ ] Posizionamento nella cartella Downloads
+  - [ ] Riavvio modalità provvisoria
+- [ ] Installazione Driver Ottimizzato (Nvidia / AMD)
+- [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint)
+  - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata
+- [ ] Reinstallazione Installazione Store & Winget
+- [ ] Reset Rust Desk
+- [ ] Download immagine di Windows 23H2 Microwin
+  - [ ] Posizionamento nella cartella download, pronta per essere utilizzata
+
+---
+
+## 🔰 Come Contribuire
+
+- **💬 [Partecipa alle Discussioni](https://t.me/GlitchTalkGroup)**: Condividi le tue idee, fornisci feedback o fai domande.
+- **🐛 [Segnala Problemi](https://github.com/Magnetarman/WinToolkit/issues)**: Segnala i bug trovati o richiedi nuove funzionalità per il progetto \Python-Script`.
+- **💡 [ Invia Pull Request](https://github.com/Magnetarman/WinToolkit/issues)**: Revisiona le Pull Request (PR) aperte e invia le tue.
+
+<details closed>
+<summary>Linee Guida</summary>
+
+1. **Esegui il Fork della Repository**: Inizia facendo il "fork" della repository del progetto sul tuo account GitHub.
+2. **Clona in Locale**: Clona la repository di cui hai fatto il fork sulla tua macchina locale usando un client Git.
+   ```powershell
+   git clone https://github.com/Magnetarman/WinToolkit
+   ```
+
+````
+3. **Crea un Nuovo Branch**: Lavora sempre su un nuovo "branch", dandogli un nome descrittivo.
+ ```powershell
+ git checkout -b new-feature-x
+````
+
+4. **Apporta le Tue Modifiche**: Sviluppa e testa le tue modifiche in locale.
+5. **Esegui il Commit delle Tue Modifiche**: Fai il "commit" con un messaggio chiaro che descriva i tuoi aggiornamenti.
+   ```powershell
+   git commit -m 'Implementata nuova funzionalità x.'
+   ```
+6. **Esegui il Push su GitHub**: Fai il "push" delle modifiche sulla tua repository "fork".
+   ```powershell
+   git push origin nuova-funzionalita-x
+   ```
+7. **Invia una Pull Request**: Crea una "Pull Request" (PR) verso la repository originale del progetto. Descrivi chiaramente le modifiche e le loro motivazioni.
+8. **Revisione**: Una volta che la tua PR sarà revisionata e approvata, verrà unita ("merged") nel branch principale. Congratulazioni per il tuo contributo!
+</details>
+
+---
+
+## 🎗 Licenza
+
+Creato con ❤️ da [Magnetarman](https://magnetarman.com/). Licenza MIT. Se trovi questo progetto utile, considera di lasciare una ⭐
+
+---
+
+## 🙌 Personalizzazioni
+
+Segui le istruzioni che il tool ti comunicherà a video per personalizzare le funzioni.
