@@ -18,10 +18,6 @@
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkits by MagnetarMan v2.0"
 
-# Abilita funzionalità avanzate per lo script, come i parametri comuni (-Verbose, -Debug).
-[CmdletBinding()]
-param()
-
 # Imposta una gestione degli errori più rigorosa per lo script.
 # 'Stop' interrompe l'esecuzione in caso di errore, permettendo una gestione controllata tramite try/catch.
 $ErrorActionPreference = 'Stop'
@@ -176,9 +172,18 @@ function Ensure-PowerShellModern {
     # Se l'installazione è andata a buon fine (o era già presente) e siamo in una versione vecchia, riavvia.
     if (Test-Path $pwshExePath) {
         Write-StyledMessage 'Success' "PowerShell $requiredPSMajorVersion rilevato. Riavvio lo script per utilizzare la versione corretta..."
-        $scriptArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`""
-        Start-Process -FilePath $pwshExePath -ArgumentList $scriptArgs
-        exit # Termina la sessione corrente
+        
+        # Prepara gli argomenti per il nuovo processo.
+        # L'uso di `start-process` con -windowstyle hidden è fondamentale per lanciare la nuova finestra in modo pulito.
+        # Il flag -NoExit manterrà la nuova finestra aperta una volta che lo script è terminato.
+        $scriptArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`" -NoExit"
+        
+        # Avvia il nuovo processo di PowerShell 7.
+        # L'uso di Start-Process in questo modo non blocca il processo corrente.
+        Start-Process -FilePath $pwshExePath -ArgumentList $scriptArgs -WindowStyle Normal
+        
+        # Esce immediatamente dalla sessione corrente.
+        exit
     }
     else {
         Write-StyledMessage 'Error' "Installazione di PowerShell $requiredPSMajorVersion fallita. Lo script potrebbe non funzionare correttamente."
