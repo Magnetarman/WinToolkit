@@ -1,3 +1,6 @@
+# Set PowerShell window title
+$Host.UI.RawUI.WindowTitle = "Win Toolkits by MagnetarMan"
+
 # Imposto la ExecutionPolicy per l'utente corrente per permettere l'esecuzione degli script
 try {
     Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force -ErrorAction Stop
@@ -85,8 +88,8 @@ foreach ($line in $ascii) {
 
 # Menu di scelta script
 $scripts = @(
-	@{ Name = 'WinRepairToolkit.ps1'; Description = 'Riparazione Windows' },
-	@{ Name = 'WinUpdateReset.ps1'; Description = 'Reset Windows Update' }
+	@{ Name = 'WinRepairToolkit.ps1'; Description = 'Riparazione Windows'; Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/WinRepairToolkit.ps1' },
+	@{ Name = 'WinUpdateReset.ps1'; Description = 'Reset Windows Update'; Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/WinUpdateReset.ps1' }
 )
 
 Write-StyledMessage Warning 'Seleziona lo script da avviare:'
@@ -107,13 +110,27 @@ do {
 		exit
 	}
 	elseif ($choice -ge 1 -and $choice -le $scripts.Count) {
-		$scriptName = $scripts[$choice-1].Name
-		$scriptPath = Join-Path -Path (Split-Path -Parent $MyInvocation.MyCommand.Definition) -ChildPath $scriptName
-		if (Test-Path $scriptPath) {
-		Write-StyledMessage Info "Avvio di $scriptName..."
-			& $scriptPath
+		$scriptEntry = $scripts[$choice-1]
+		# If a remote Url is provided, download and execute the script from that URL
+		if ($scriptEntry.ContainsKey('Url') -and $scriptEntry.Url) {
+			$scriptUrl = $scriptEntry.Url
+			$tempPath = Join-Path $env:TEMP $scriptEntry.Name
+			try {
+				Write-StyledMessage Info "Download da $scriptUrl..."
+				Invoke-WebRequest -Uri $scriptUrl -OutFile $tempPath -UseBasicParsing -ErrorAction Stop
+				Write-StyledMessage Info "Avvio di $($scriptEntry.Name)..."
+				Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempPath`"" -Wait
+			} catch {
+				Write-StyledMessage Error "Download/avvio fallito: $_"
+			}
 		} else {
-		Write-StyledMessage Error "Script $scriptName non trovato."
+			$scriptPath = Join-Path -Path (Split-Path -Parent $MyInvocation.MyCommand.Definition) -ChildPath $scriptEntry.Name
+			if (Test-Path $scriptPath) {
+				Write-StyledMessage Info "Avvio di $($scriptEntry.Name)..."
+				& $scriptPath
+			} else {
+				Write-StyledMessage Error "Script $($scriptEntry.Name) non trovato."
+			}
 		}
 		break
 	} else {
