@@ -100,6 +100,9 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 Prima di avviare il tool, assicurati che il tuo ambiente di runtime soddisfi i seguenti requisiti:
 
+- **Git**: Necessita di git installato e configurato altrimenti il comando `git clone` non funzionerà.
+- Windows Defender di 24H2 potrebbe rilevare come pericoloso questo script **E' fortemente consigliata la disattivazione temporanea durante le operazioni**
+- **Se non hai git installato** _[Clicca QUI](https://github.com/Magnetarman/WinToolkit/archive/refs/heads/main.zip)_ Per scaricare l'archivio zip con il tool.
 - **Richiesta Connessione ad internet durante l'esecuzione del Tool**
 - Richiesto intervento manuale minimo.
 - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema)
