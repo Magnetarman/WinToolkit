@@ -18,9 +18,9 @@
 <p align="center">
 <img src="https://img.shields.io/badge/version-1.0-green.svg" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=default&logo=git&logoColor=white&color=0080ff" alt="last-commit">
-	<img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-top-language">
-  <img src="https://img.shields.io/github/languages/count/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-language-count">
-	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=default&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
+<img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-top-language">
+<img src="https://img.shields.io/github/languages/count/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-language-count">
+<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=default&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
 </p>
 <p align="center"><!-- default option, no dependency badges. -->
 </p>
@@ -32,9 +32,11 @@
 ## 👾 Features
 
 > [!Note]
-> La versione 2.0 è in **sviluppo attivo**.
+> La versione 2.0 (Prima versione Pubblica) è in **sviluppo attivo**.
 >
-> Il ramo **Experimental** ha codice in fase Alpha Utilizzalo a tuo rischio e pericolo.
+> Il ramo **Experimental** ha codice in fase Beta.
+>
+> Il ramo **Dev** ha codice e funzionalità in sviluppo attivo. **ATTENZIONE** - Utiliziare lo script presente nel ramo Dev potrebbe danneggiare il sistema.
 
 - **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato sul desktop, garantendo una tracciabilità completa delle operazioni.
 - **Ripristino di Windows Update**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi. Questo script blocca e riavvia i servizi di aggiornamento, rinomina le directory di cache e ripara il registro di sistema, garantendo che il tuo sistema possa scaricare e installare gli aggiornamenti essenziali senza intoppi.
@@ -135,7 +137,10 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 - [x] **`V1.0`**: <strike>Release Privata</strike>
 - [x] **`V1.1.0`**: <strike>Refactor Struttura in forma modulare.</strike>
-- [x] **`V2.0.0`**: <strike>Refator totale progetto per future implementazioni. Grafica accativante aggiunta.</strike>
+- [ ] **`V2.0.0`**: Refator totale progetto per future implementazioni.
+- [ ] **`V2.0.1`**: Finalizzazione "run.ps1".
+- [ ] **`V2.0.2`**: Finalizzazione "WinRepairToolkit.ps1".
+- [ ] **`V2.0.3`**: Finalizzazione "WinUpdateReset.ps1".
 
 ## 🕹️ TO DO
 
