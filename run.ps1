@@ -1,21 +1,60 @@
+# Set PowerShell window title
+$Host.UI.RawUI.WindowTitle = "Win Toolkits by MagnetarMan"
+
 # Imposto la ExecutionPolicy per l'utente corrente per permettere l'esecuzione degli script
-try {
-    Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force -ErrorAction Stop
-} catch {
-    Write-Host "⚠️ Impossibile impostare ExecutionPolicy CurrentUser: $_" -ForegroundColor Yellow
+
+# Funzione per messaggi stilizzati
+function Write-StyledMessage([string]$Type, [string]$Text) {
+	$style = @{
+		Success = @{ Color = 'Green'; Icon = '[OK]' }; Warning = @{ Color = 'Yellow'; Icon = '[!]' }
+		Error = @{ Color = 'Red'; Icon = '[X]' }; Info = @{ Color = 'Cyan'; Icon = '[i]' }
+	}[$Type]
+	Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
 }
-Write-Host "ExecutionPolicy (CurrentUser): $(Get-ExecutionPolicy -Scope CurrentUser)"
+
+# Funzione per centrare il testo (disponibile subito)
+function Center-Text($text, $width) {
+	$pad = [Math]::Max(0, ($width - $text.Length) / 2)
+	return (' ' * [Math]::Floor($pad)) + $text
+}
+
 function powershell-update {
 	Write-Host "[i] Controllo aggiornamenti PowerShell..." -ForegroundColor Cyan
 	$pwshExe = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
 	$isPwshInstalled = Test-Path $pwshExe
 	if (-not $isPwshInstalled) {
-		Write-Host "[i] PowerShell 7 non trovato. Download in corso..." -ForegroundColor Yellow
-		$installerUrl = "https://github.com/PowerShell/PowerShell/releases/latest/download/PowerShell-7.4.2-win-x64.msi"
-		$installerPath = "$env:TEMP\PowerShell-7-latest.msi"
-		Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
-		Write-Host "[i] Installazione di PowerShell 7..." -ForegroundColor Yellow
-		Start-Process msiexec.exe -ArgumentList "/i `"$installerPath`" /qn" -Wait
+		Write-StyledMessage Info 'PowerShell 7 non trovato. Download in corso...'
+		$installerUrl = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/PowerShell-7.5.2-win-x64.msi"
+		$installerPath = Join-Path $env:TEMP 'PowerShell-7-latest.msi'
+		# Forza TLS1.2 per GitHub
+		try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
+		try {
+			$wc = New-Object System.Net.WebClient
+			$wc.Headers.Add('User-Agent','Mozilla/5.0')
+			$wc.DownloadFile($installerUrl, $installerPath)
+		} catch {
+			# Fallback a Invoke-WebRequest con header se WebClient fallisce
+			try {
+				Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing -Headers @{ 'User-Agent' = 'Mozilla/5.0' } -ErrorAction Stop
+			} catch {
+				Write-StyledMessage Error "Download PowerShell con WebClient/Invoke-WebRequest fallito: $_"
+			}
+		}
+		# Ulteriore fallback con BITS se il file non esiste
+		if (-not (Test-Path $installerPath)) {
+			try {
+				Write-StyledMessage Info 'Tentativo di download con BITS...'
+				Start-BitsTransfer -Source $installerUrl -Destination $installerPath -ErrorAction Stop
+			} catch {
+				Write-StyledMessage Error "Download PowerShell non riuscito (BITS): $_"
+			}
+		}
+		if (Test-Path $installerPath) {
+			Write-StyledMessage Info 'Installazione di PowerShell 7...'
+			Start-Process msiexec.exe -ArgumentList "/i `"$installerPath`" /qn" -Wait
+		} else {
+			Write-StyledMessage Error 'Installazione saltata: file di installazione non trovato.'
+		}
 	}
 	# Installa dipendenze (moduli utili)
 	$modules = @('PSReadLine','ThreadJob')
@@ -30,15 +69,21 @@ function powershell-update {
             Write-Host "[X] $errMsg" -ForegroundColor Red
         }
 	}
-	# Se PowerShell 7 è ora installato, rilancia lo script
-	if (Test-Path $pwshExe) {
-		Write-Host "[OK] PowerShell aggiornato. Riavvio script con la nuova versione..." -ForegroundColor Green
-		Start-Process -FilePath $pwshExe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Wait
-		exit
-	} else {
-		Write-Host "[X] Aggiornamento PowerShell fallito." -ForegroundColor Red
-	}
+	# Se PowerShell 7 è installato E la versione corrente è più vecchia, rilancia lo script
+if ((Test-Path $pwshExe) -and ($PSVersionTable.PSVersion.Major -lt 7)) {
+    Write-Host "[OK] PowerShell 7 rilevato. Riavvio script con la versione corretta..." -ForegroundColor Green
+    Start-Process -FilePath $pwshExe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    exit
 }
+
+# Questo messaggio verrà mostrato solo se l'aggiornamento è fallito e PS7 non è stato trovato
+if (-not (Test-Path $pwshExe)) {
+    Write-Host "[X] Aggiornamento PowerShell fallito o PowerShell 7 non trovato." -ForegroundColor Red
+}
+}
+
+# Esegui subito il controllo/aggiornamento PowerShell all'avvio
+powershell-update
 
 # Funzione per messaggi stilizzati
 function Write-StyledMessage([string]$Type, [string]$Text) {
