@@ -141,6 +141,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [ ] **`V2.0.1`**: Finalizzazione "run.ps1".
 - [ ] **`V2.0.2`**: Finalizzazione "WinRepairToolkit.ps1".
 - [ ] **`V2.0.3`**: Finalizzazione "WinUpdateReset.ps1".
+- [ ] **`VX.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 🕹️ TO DO
 
