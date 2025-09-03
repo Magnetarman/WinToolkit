@@ -226,7 +226,7 @@ Write-StyledMessage -Type 'Warning' -Text "Attenzione: il sistema verrà riavvia
 
 # Countdown per il riavvio
 Write-StyledMessage -Type 'Info' -Text "Preparazione al riavvio del sistema..."
-for ($i = 10; $i -gt 0; $i--) {
+for ($i = 20; $i -gt 0; $i--) {
     Write-Host "Preparazione sistema al riavvio - $i secondi..." -NoNewline -ForegroundColor Yellow
     Write-Host "`r" -NoNewline
     Start-Sleep 1
