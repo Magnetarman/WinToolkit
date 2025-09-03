@@ -6,19 +6,11 @@ Genera un unico e completo script PowerShell, che sia pienamente supportato da P
 
 Analizza attentamente i blocchi di codice forniti dopo i titoli ### Code, che rappresentano porzioni di script funzionanti ma slegate. Il tuo compito è integrarli in modo coerente e logico nel nuovo script, modificando la logica esistente dove necessario.
 
-Lo script finale dovrà seguire questa struttura e rispettare le seguenti regole:
-
-Struttura e Logica dello Script
-Impostazioni e Log:
-
 Mantieni il titolo della finestra della console su "Win Toolkit by MagnetarMan".
-
 Crea una directory di log in $env:localappdata\WinToolkit\logs se non esiste.
-
 Avvia una trascrizione (Start-Transcript) del log in un file con un nome basato sulla data e ora correnti, ad esempio WinToolkit_yyyy-MM-dd_HH-mm-ss.log. Assicurati che il comando non generi errori se il file esiste già e che sia compatibile con PowerShell 5.1.
 
 Funzione di Messaggistica:
-
 Integra la funzione Write-StyledMessage per la visualizzazione di messaggi formattati. Assicurati che l'uso di questa funzione sostituisca tutti i comandi Write-Host o Write-Output esistenti nelle altre sezioni dello script, in modo da avere un'interfaccia utente uniforme e professionale. Ad esempio:
 
 Write-Host "Installing Powershell 7..." diventerà Write-StyledMessage -Type Info -Text "Installing Powershell 7...".
@@ -37,17 +29,17 @@ Schermata di Benvenuto:
 
 Pulisci la console (Clear-Host).
 
-Visualizza la schermata di benvenuto "Win Toolkits v2.0" e "By MagnetarMan", mantenendo l'allineamento e i colori originali.
+Visualizza la schermata di benvenuto mantenendo l'allineamento e i colori originali.
 
 Integrazione Funzioni:
 
-Modifica e integra la logica delle funzioni Invoke-WPFTweakPS7 e Install-CTTPowerShellProfile.
+Modifica e integra la logica delle funzioni Invoke-WPFTweakPS7 e Invoke-WinUtilInstallPSProfile.
 
 L'obiettivo generale dello script è supportare PowerShell 5.1, quindi le porzioni di codice che installano, verificano o interagiscono specificamente con PowerShell 7 devono essere rese compatibili o gestite in modo appropriato per un ambiente PS 5.1.
 
 La funzione Invoke-WPFTweakPS7 ha una dipendenza da winget e gestisce i file di configurazione di Windows Terminal, che non sono strettamente necessari per uno script che mira a funzionare in PowerShell 5.1. Modifica la logica di questa funzione per concentrarsi esclusivamente sul controllo dell'installazione di PowerShell 7 (Test-Path -Path "$env:ProgramFiles\PowerShell\7") e, se non presente, informare l'utente che è necessario installare PS7 per le funzionalità avanzate, ma senza tentare l'installazione automatica. Questo è fondamentale per la compatibilità con PS5.
 
-La funzione Install-CTTPowerShellProfile deve essere modificata per rimuovere qualsiasi dipendenza da pwsh e Invoke-WPFRunspace. Poiché lo script deve funzionare in PowerShell 5.1, la logica che verifica se il profilo richiede PS7 deve essere mantenuta, ma la chiamata a Start-Process per eseguire setup.ps1 deve essere modificata per usare powershell.exe. Rimuovi completamente l'interazione con System.Windows.Forms.MessageBox e sostituiscila con Write-StyledMessage per un'interfaccia coerente.
+La funzione Invoke-WinUtilInstallPSProfile deve essere modificata per rimuovere qualsiasi dipendenza da pwsh e Invoke-WPFRunspace. Poiché lo script deve funzionare in PowerShell 5.1, la logica che verifica se il profilo richiede PS7 deve essere mantenuta, ma la chiamata a Start-Process per eseguire setup.ps1 deve essere modificata per usare powershell.exe. Rimuovi completamente l'interazione con System.Windows.Forms.MessageBox e sostituiscila con Write-StyledMessage per un'interfaccia coerente.
 
 Avviso Utente Finale:
 
@@ -116,8 +108,8 @@ Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -NoClobber | O
 
 ```powershell
 Clear-Host
-Write-Host ('Win Toolkit Starter V2.0').PadLeft(40) -ForegroundColor Green
-Write-Host ('By MagnetarMan').PadLeft(60) -ForegroundColor Red
+Write-Host ('Win Toolkit Starter v2.0').PadLeft(40) -ForegroundColor Green
+Write-Host ('By MagnetarMan').PadLeft(40) -ForegroundColor Red
 Write-Host ''
 
 ```
