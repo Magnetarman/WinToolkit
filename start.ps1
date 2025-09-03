@@ -134,8 +134,8 @@ function Invoke-WPFTweakPS7 {
     }
 }
 
-# Funzione InstallPSProfile modificata per PS 5.1
-function InstallPSProfile {
+# Funzione Invoke-WinUtilInstallPSProfile modificata per PS 5.1
+function Invoke-WinUtilInstallPSProfile {
     <#
     .SYNOPSIS
         Installa e applica il profilo PowerShell di Chris Titus Tech
@@ -218,7 +218,7 @@ Invoke-WPFTweakPS7 -action "PS7"
 
 # Installazione automatica profilo PowerShell 7
 Write-StyledMessage -Type 'Info' -Text "Configurazione profilo PowerShell 7..."
-InstallPSProfile
+Invoke-WinUtilInstallPSProfile
 
 # Messaggio di completamento
 Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente"
