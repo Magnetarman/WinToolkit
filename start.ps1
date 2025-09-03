@@ -1,44 +1,14 @@
-<#
-.SYNOPSIS
-    Win Toolkit Start Script.
-    This script is designed to run on PowerShell 5.1 and provides a unified interface for system
-    management tasks. It handles administrative privileges, logs, user messaging, and profile setup.
-.DESCRIPTION
-    The script first checks for administrator privileges and re-launches itself if necessary.
-    It then sets the console window title, creates a log file, and displays a welcome message.
-    It includes functions to check for PowerShell 7 and to install a PowerShell profile,
-    ensuring compatibility and a consistent user experience.
-.AUTHOR
-    MagnetarMan
-.VERSION
-    2.0
-#>
+# Win Toolkit by MagnetarMan
+# Completo script PowerShell compatibile con PowerShell 5.1
 
-# S1: Funzione per la messaggistica
-# Questa funzione centralizza tutti i messaggi utente per un'interfaccia coerente.
-function Write-StyledMessage {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$Type,
-        [Parameter(Mandatory = $true)]
-        [string]$Text
-    )
+# Impostazione titolo finestra della console
+$Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan"
 
-    switch ($Type) {
-        'Success' { Write-Host "[SUCCESS] $Text" -ForegroundColor Green }
-        'Info'    { Write-Host "[INFO] $Text" -ForegroundColor Cyan }
-        'Warning' { Write-Host "[WARNING] $Text" -ForegroundColor Yellow }
-        'Error'   { Write-Host "[ERROR] $Text" -ForegroundColor Red }
-        'Custom'  { Write-Host $Text }
-    }
-}
-
-# S2: Controllo Amministratore
-# Rilancia lo script con privilegi elevati se necessario, utilizzando powershell.exe per la compatibilità con PS5.1.
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-StyledMessage -Type Error -Text "Winutil needs to be run as Administrator. Attempting to relaunch."
-    
+# Controllo privilegi amministratore
+if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Output "Winutil needs to be run as Administrator. Attempting to relaunch."
     $argList = @()
+
     $PSBoundParameters.GetEnumerator() | ForEach-Object {
         $argList += if ($_.Value -is [switch] -and $_.Value) {
             "-$($_.Key)"
@@ -48,133 +18,229 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
             "-$($_.Key) '$($_.Value)'"
         }
     }
-    
+
     $script = if ($PSCommandPath) {
         "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
     } else {
-        # Fallback per l'esecuzione da internet (non supportato in PowerShell 5.1 in questo contesto)
-        # Rimuoviamo il riferimento a `irm` per coerenza.
-        "&([ScriptBlock]::Create((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1'))) $($argList -join ' ')"
+        "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1))) $($argList -join ' ')"
     }
-    
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
+
+    # Utilizzo esclusivo di powershell.exe per compatibilità PS 5.1
+    Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
     break
 }
 
-# S3: Configurazione Iniziale e Logging
-# Imposta il titolo della finestra e avvia la trascrizione per il logging.
-$Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan"
+# Creazione directory di log e avvio trascrizione
 $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $logdir = "$env:localappdata\WinToolkit\logs"
-[System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
-Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -NoClobber | Out-Null
+try {
+    [System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
+    Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -Force | Out-Null
+} catch {
+    # Gestione errori silenziosa per compatibilità
+}
 
-# S4: Schermata di Benvenuto
-# Pulisce la console e visualizza il messaggio di benvenuto.
+# Funzione Write-StyledMessage per messaggistica uniforme
+function Write-StyledMessage {
+    param(
+        [Parameter(Mandatory=$true)]
+        [ValidateSet('Info', 'Warning', 'Error', 'Success')]
+        [string]$Type,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Text
+    )
+    
+    switch ($Type) {
+        'Info'    { Write-Host $Text -ForegroundColor Cyan }
+        'Warning' { Write-Host $Text -ForegroundColor Yellow }
+        'Error'   { Write-Host $Text -ForegroundColor Red }
+        'Success' { Write-Host $Text -ForegroundColor Green }
+    }
+}
+
+# Schermata di benvenuto
 Clear-Host
 Write-Host ('Win Toolkit Starter v2.0').PadLeft(40) -ForegroundColor Green
 Write-Host ('By MagnetarMan').PadLeft(40) -ForegroundColor Red
 Write-Host ''
 
-# S5: Funzioni ausiliarie per l'installazione e il profilo
-# Le funzioni sono definite prima di essere chiamate.
+# Controllo versione PowerShell
+$psVersion = $PSVersionTable.PSVersion.Major
+Write-StyledMessage -Type 'Info' -Text "Versione PowerShell rilevata: $($PSVersionTable.PSVersion)"
+
+if ($psVersion -lt 7) {
+    Write-StyledMessage -Type 'Warning' -Text "PowerShell 5 rilevato. PowerShell 7 è raccomandato per funzionalità avanzate."
+}
+
+# Funzione Invoke-WPFTweakPS7 modificata per PS 5.1
 function Invoke-WPFTweakPS7 {
     <#
     .SYNOPSIS
-        Installs PowerShell 7 if it's not already installed.
+        Verifica l'installazione di PowerShell 7 e informa l'utente
     .PARAMETER action
-        PS7: Installs Powershell 7.
-        PS5: Configures Powershell 5 to be the default Terminal (functionality removed for PS5.1 support).
+        PS7: Verifica configurazione per Powershell 7
+        PS5: Mantiene configurazione per Powershell 5
     #>
     param (
         [ValidateSet("PS7", "PS5")]
-        [string]$action
+        [string]$action = "PS7"
     )
 
-    if ($action -eq "PS7") {
-        if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
-            Write-StyledMessage -Type Info -Text "PowerShell 7 è già installato. L'installazione non è necessaria."
-        } else {
-            Write-StyledMessage -Type Info -Text "PowerShell 7 non è installato. Tentativo di installazione automatica..."
-
-            # Controllo e installazione di Winget
-            if (-not (Get-Command "winget.exe" -ErrorAction SilentlyContinue)) {
-                Write-StyledMessage -Type Warning -Text "Winget non è stato trovato. Tentativo di installarlo da Microsoft Store."
-                try {
-                    Start-Process -FilePath "ms-windows-store://pdp/?productid=9NBLGGH4NNS1" -Wait
-                    Write-StyledMessage -Type Success -Text "Installazione di Winget avviata. Riavvia lo script una volta completata."
-                    return
-                }
-                catch {
-                    Write-StyledMessage -Type Error -Text "Impossibile avviare l'installazione di Winget da Microsoft Store. Procedo con il metodo di fallback."
-                }
+    switch ($action) {
+        "PS7" {
+            if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
+                Write-StyledMessage -Type 'Success' -Text "PowerShell 7 è già installato."
+            } else {
+                Write-StyledMessage -Type 'Warning' -Text "PowerShell 7 non trovato. È necessario installare PS7 per le funzionalità avanzate."
+                Write-StyledMessage -Type 'Info' -Text "Puoi scaricarlo da: https://github.com/PowerShell/PowerShell/releases"
+                return
             }
-
-            # Tentativo di installazione di PowerShell 7 con Winget
-            Write-StyledMessage -Type Info -Text "Tentativo di installazione di PowerShell 7 con Winget..."
-            try {
-                Start-Process -FilePath "winget.exe" -ArgumentList "install Microsoft.PowerShell --source winget --accept-package-agreements" -Wait -NoNewWindow
-                if ($LASTEXITCODE -eq 0) {
-                    Write-StyledMessage -Type Success -Text "Installazione di PowerShell 7 completata con successo tramite Winget."
-                } else {
-                    Write-StyledMessage -Type Warning -Text "Installazione di PowerShell 7 tramite Winget fallita. Codice di uscita: $LASTEXITCODE. Passaggio al metodo manuale..."
-                    $winget_failed = $true
-                }
-            } catch {
-                Write-StyledMessage -Type Error -Text "Si è verificato un errore durante il tentativo di installazione con Winget. Passaggio al metodo manuale."
-                $winget_failed = $true
-            }
-
-            # Fallback: scarica e installa l'MSI se l'installazione di Winget fallisce o se winget non è presente.
-            if ($winget_failed -or (-not (Test-Path -Path "$env:ProgramFiles\PowerShell\7"))) {
-                Write-StyledMessage -Type Info -Text "Scarico l'installer MSI di PowerShell 7.5.2 dal repository GitHub..."
-                $url = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/PowerShell-7.5.2-win-x64.msi"
-                $msiPath = "$env:TEMP\PowerShell-7.5.2-win-x64.msi"
-
-                try {
-                    Invoke-WebRequest -Uri $url -OutFile $msiPath
-                    Write-StyledMessage -Type Success -Text "Download completato. Avvio dell'installazione MSI..."
-                    
-                    Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$msiPath`" /quiet /norestart" -Wait
-                    
-                    if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
-                        Write-StyledMessage -Type Success -Text "PowerShell 7 è stato installato con successo tramite MSI."
-                    } else {
-                        Write-StyledMessage -Type Error -Text "L'installazione tramite MSI è fallita. Si prega di installare PowerShell 7 manualmente."
-                    }
-                } catch {
-                    Write-StyledMessage -Type Error -Text "Si è verificato un errore durante il download o l'installazione del file MSI: $_"
-                    Write-StyledMessage -Type Error -Text "L'installazione automatica di PowerShell 7 non è riuscita. Installare manualmente."
-                }
-            }
+            $targetTerminalName = "PowerShell"
         }
+        "PS5" {
+            $targetTerminalName = "Windows PowerShell"
+        }
+    }
+
+    # Verifica Windows Terminal (opzionale)
+    if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
+        Write-StyledMessage -Type 'Warning' -Text "Windows Terminal non installato. Configurazione terminale saltata."
+        return
+    }
+
+    # Verifica file settings.json di Windows Terminal
+    $settingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+    if (-not (Test-Path -Path $settingsPath)) {
+        Write-StyledMessage -Type 'Warning' -Text "File impostazioni Windows Terminal non trovato."
+        return
+    }
+
+    try {
+        Write-StyledMessage -Type 'Info' -Text "File impostazioni trovato. Aggiornamento configurazione..."
+        $settingsContent = Get-Content -Path $settingsPath | ConvertFrom-Json
+        $targetProfile = $settingsContent.profiles.list | Where-Object { $_.name -eq $targetTerminalName }
+        
+        if ($targetProfile) {
+            $settingsContent.defaultProfile = $targetProfile.guid
+            $updatedSettings = $settingsContent | ConvertTo-Json -Depth 100
+            Set-Content -Path $settingsPath -Value $updatedSettings
+            Write-StyledMessage -Type 'Success' -Text "Profilo predefinito aggiornato a $targetTerminalName"
+        } else {
+            Write-StyledMessage -Type 'Warning' -Text "Profilo $targetTerminalName non trovato nelle impostazioni di Windows Terminal."
+        }
+    } catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore durante l'aggiornamento delle impostazioni: $($_.Exception.Message)"
     }
 }
 
-# S6: Esecuzione delle operazioni
-# La logica principale dello script.
-$psVersion = $PSVersionTable.PSVersion.Major
-Write-StyledMessage -Type Info -Text "Versione PowerShell rilevata: $($PSVersionTable.PSVersion)"
-
-if ($psVersion -lt 7) {
-    Write-StyledMessage -Type Warning -Text "PowerShell 5 rilevato. Installazione PowerShell 7 richiesta per funzionalità complete."
-    Invoke-WPFTweakPS7
+# Funzione Invoke-WinUtilInstallPSProfile modificata per PS 5.1
+function Invoke-WinUtilInstallPSProfile {
+    <#
+    .SYNOPSIS
+        Installa e applica il profilo PowerShell di Chris Titus Tech
+    #>
+    
+    function Invoke-PSSetup {
+        $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
+        
+        try {
+            # Ottieni hash del profilo corrente
+            $OldHash = if (Test-Path $PROFILE) { Get-FileHash $PROFILE -ErrorAction SilentlyContinue } else { $null }
+            
+            # Scarica il nuovo profilo
+            Write-StyledMessage -Type 'Info' -Text "Download del profilo PowerShell..."
+            Invoke-RestMethod $url -OutFile "$env:TEMP/Microsoft.PowerShell_profile.ps1"
+            
+            # Ottieni hash del nuovo profilo
+            $NewHash = Get-FileHash "$env:TEMP/Microsoft.PowerShell_profile.ps1"
+            
+            # Memorizza hash del nuovo profilo
+            if (!(Test-Path "$PROFILE.hash")) {
+                $NewHash.Hash | Out-File "$PROFILE.hash"
+            }
+            
+            # Verifica se è necessario aggiornare
+            if (-not $OldHash -or $NewHash.Hash -ne $OldHash.Hash) {
+                # Backup del profilo esistente
+                if (Test-Path "$env:USERPROFILE\oldprofile.ps1") {
+                    Write-StyledMessage -Type 'Warning' -Text "File di backup esistente trovato..."
+                    Copy-Item "$env:USERPROFILE\oldprofile.ps1" "$PROFILE.bak" -Force
+                    Write-StyledMessage -Type 'Success' -Text "Backup del profilo completato."
+                } elseif ((Test-Path $PROFILE) -and (-not (Test-Path "$PROFILE.bak"))) {
+                    Write-StyledMessage -Type 'Info' -Text "Creazione backup del profilo corrente..."
+                    Copy-Item -Path $PROFILE -Destination "$PROFILE.bak"
+                    Write-StyledMessage -Type 'Success' -Text "Backup del profilo completato."
+                }
+                
+                # Installazione del profilo
+                Write-StyledMessage -Type 'Info' -Text "Installazione del profilo PowerShell..."
+                
+                # Uso di powershell.exe invece di pwsh per compatibilità PS 5.1
+                Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" -WindowStyle Hidden -Wait
+                
+                Write-StyledMessage -Type 'Success' -Text "Profilo installato. Riavvia la shell per vedere i cambiamenti!"
+                Write-StyledMessage -Type 'Success' -Text "Setup del profilo completato."
+            } else {
+                Write-StyledMessage -Type 'Success' -Text "Il profilo è già aggiornato."
+            }
+        } catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione del profilo: $($_.Exception.Message)"
+        }
+    }
+    
+    # Verifica se PowerShell Core è disponibile
+    if (Get-Command "pwsh" -ErrorAction SilentlyContinue) {
+        if ($PSVersionTable.PSVersion.Major -ge 7) {
+            Invoke-PSSetup
+        } else {
+            Write-StyledMessage -Type 'Warning' -Text "Questo profilo richiede PowerShell 7, che è installato ma non in uso!"
+            Write-StyledMessage -Type 'Info' -Text "Vuoi procedere con l'installazione del profilo per PowerShell 7? (S/N)"
+            
+            $response = Read-Host
+            if ($response -match '^[Ss]$') {
+                Invoke-PSSetup
+            } else {
+                Write-StyledMessage -Type 'Warning' -Text "Setup del profilo annullato."
+            }
+        }
+    } else {
+        Write-StyledMessage -Type 'Error' -Text "Questo profilo richiede PowerShell Core, che non è attualmente installato!"
+        Write-StyledMessage -Type 'Info' -Text "Scaricalo da: https://github.com/PowerShell/PowerShell/releases"
+    }
 }
 
+# Esecuzione delle funzioni principali
+Write-StyledMessage -Type 'Info' -Text "Avvio configurazione Win Toolkit..."
+
+# Installa PowerShell 7 e configura Windows Terminal
+Invoke-WPFTweakPS7 -action "PS7"
+
+# Installazione automatica profilo PowerShell 7
+Write-StyledMessage -Type 'Info' -Text "Configurazione profilo PowerShell 7..."
 Invoke-WinUtilInstallPSProfile
 
-# S7: Avviso finale e riavvio
-# Avvisa l'utente della fine dello script e avvia il conto alla rovescia per il riavvio.
-Write-StyledMessage -Type Info -Text "Script di Start eseguito correttamente."
-Write-StyledMessage -Type Info -Text "La trascrizione del log è stata salvata in $logdir."
-Write-StyledMessage -Type Warning -Text "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche."
+# Messaggio di completamento
+Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente"
+Write-StyledMessage -Type 'Warning' -Text "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche"
 
+# Countdown per il riavvio
+Write-StyledMessage -Type 'Info' -Text "Preparazione al riavvio del sistema..."
 for ($i = 10; $i -gt 0; $i--) {
     Write-Host "Preparazione sistema al riavvio - $i secondi..." -NoNewline -ForegroundColor Yellow
+    Write-Host "`r" -NoNewline
     Start-Sleep 1
 }
-Write-Host ""
-Write-StyledMessage -Type Info -Text "Riavvio in corso..."
-# Questo comando riavvia il sistema.
-# Restart-Computer -Force
-# Decommentare la riga sopra per abilitare il riavvio.
+
+Write-StyledMessage -Type 'Info' -Text "Riavvio in corso..."
+
+# Arresto trascrizione prima del riavvio
+try {
+    Stop-Transcript | Out-Null
+    Write-StyledMessage -Type 'Success' -Text "Trascrizione del log salvata in: $logdir\WinToolkit_$dateTime.log"
+} catch {
+    # Gestione errori silenziosa
+}
+
+# Riavvio del sistema
+Restart-Computer -Force
