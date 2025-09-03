@@ -35,12 +35,12 @@ function Write-StyledMessage {
         [string]$Text
     )
 
-    # Definisce gli stili per ogni tipo di messaggio. L'uso degli emoji migliora la leggibilità.
+    # Definisce gli stili per ogni tipo di messaggio. L'uso di simboli migliora la leggibilità.
     $styles = @{
-        Success = @{ Color = 'Green' ; Icon = [char]0x2705 }  # ✅
-        Warning = @{ Color = 'Yellow'; Icon = [char]0x26A0 }  # ⚠️  
-        Error   = @{ Color = 'Red'   ; Icon = [char]0x274C }  # ❌
-        Info    = @{ Color = 'Cyan'  ; Icon = [char]0x1F4A0 } # 💠
+        Success = @{ Color = 'Green' ; Icon = '[OK]' }
+        Warning = @{ Color = 'Yellow'; Icon = '[!]' }  
+        Error   = @{ Color = 'Red'   ; Icon = '[X]' }
+        Info    = @{ Color = 'Cyan'  ; Icon = '[i]' }
     }
 
     $style = $styles[$Type]
