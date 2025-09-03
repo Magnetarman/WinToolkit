@@ -1,20 +1,24 @@
 <p align="center">
 	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/banner.png" alt="WinToolkit-banner" width="800">
 </p>
-
+<br>
 <p align="center">
 	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/Run.png" alt="Run-banner" width="800">
 </p>
-
+<br>
 <p align="center">
 	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/RepairToolkit.png" alt="RepairToolkit-banner" width="800">
 </p>
+<br>
+<br>
 <p align="center">
-	<em><code>🛠️ WinToolkit: La Soluzione Definitiva per la Manutenzione di Windows.</code></em>
+	<em><code>🛠️ WinToolkit: La Soluzione Definitiva per SOPRAVVIVERE A WINDOWS.</code></em>
     <br>
     <br>
     <code>WinToolkit è una suite di script PowerShell potente e compatta, progettata per offrire a professionisti IT, amministratori di sistema e utenti esperti un controllo granulare sulla manutenzione e sulla risoluzione dei problemi di Windows. Questo toolkit intuitivo aggrega gli strumenti di riparazione di sistema più efficaci in un'unica interfaccia, automatizzando i processi complessi per ottimizzare le prestazioni e ripristinare la stabilità del sistema con pochi clic.</code>
 </p>
+<br>
+
 <p align="center">
 <img src="https://img.shields.io/badge/version-2.0-green.svg" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=default&logo=git&logoColor=white&color=0080ff" alt="last-commit">
@@ -34,9 +38,9 @@
 > [!Note]
 > La versione 2.0 (Prima versione Pubblica) è in **sviluppo attivo**.
 >
-> Il ramo **Experimental** ha codice in fase Beta.
+> Il ramo **Experimental** ha codice in fase Beta _potrebbero essere presenti funzioni instabili_.
 >
-> Il ramo **Dev** ha codice e funzionalità in sviluppo attivo. **ATTENZIONE** - Utiliziare lo script presente nel ramo Dev potrebbe danneggiare il sistema.
+> Il ramo **Dev** ha codice e funzionalità in sviluppo attivo. **ATTENZIONE** - Utilizzare lo script presente nel ramo Dev potrebbe danneggiare il sistema.
 
 - **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato sul desktop, garantendo una tracciabilità completa delle operazioni.
 - **Ripristino di Windows Update**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi. Questo script blocca e riavvia i servizi di aggiornamento, rinomina le directory di cache e ripara il registro di sistema, garantendo che il tuo sistema possa scaricare e installare gli aggiornamenti essenziali senza intoppi.
