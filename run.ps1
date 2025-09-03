@@ -282,12 +282,47 @@ function Main {
         
         if (Install-PowerShell7) {
             Write-StyledMessage -Type 'Success' -Text "PowerShell 7 installato. Riavvio dello script..."
-            Start-Sleep -Seconds 2
+            Write-StyledMessage -Type 'Info' -Text "Attendere 5 secondi per il riavvio..."
+            Start-Sleep -Seconds 5
             
             # Riavvia lo script con PowerShell 7
             try {
                 $currentScript = $MyInvocation.MyCommand.Path
-                Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -File `"$currentScript`"" -Verb RunAs
+                
+                # Verifica se pwsh è ora disponibile
+                $pwshPath = $null
+                $possiblePaths = @(
+                    "pwsh",
+                    "$env:ProgramFiles\PowerShell\7\pwsh.exe",
+                    "$env:ProgramFiles\PowerShell\7-preview\pwsh.exe"
+                )
+                
+                foreach ($path in $possiblePaths) {
+                    try {
+                        if ($path -eq "pwsh") {
+                            if (Get-Command pwsh -ErrorAction SilentlyContinue) {
+                                $pwshPath = "pwsh"
+                                break
+                            }
+                        } else {
+                            if (Test-Path $path) {
+                                $pwshPath = $path
+                                break
+                            }
+                        }
+                    } catch { continue }
+                }
+                
+                if ($pwshPath) {
+                    Write-StyledMessage -Type 'Info' -Text "Utilizzando PowerShell 7 da: $pwshPath"
+                    Start-Process -FilePath $pwshPath -ArgumentList "-ExecutionPolicy Bypass -File `"$currentScript`"" -Verb RunAs
+                    Write-StyledMessage -Type 'Info' -Text "Nuova sessione PowerShell 7 avviata. Questo script terminerà ora."
+                    Start-Sleep -Seconds 2
+                } else {
+                    Write-StyledMessage -Type 'Error' -Text "PowerShell 7 installato ma non trovato. Riavviare manualmente."
+                    Write-StyledMessage -Type 'Info' -Text "Premere un tasto per uscire..."
+                    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                }
                 exit
             }
             catch {
