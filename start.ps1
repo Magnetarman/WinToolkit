@@ -6,7 +6,7 @@ $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan"
 
 # Controllo privilegi amministratore
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Output "Winutil needs to be run as Administrator. Attempting to relaunch."
+    Write-Output "Win Toolkit deve essere eseguito come amministratore. Tentativo di riavvio."
     $argList = @()
 
     $PSBoundParameters.GetEnumerator() | ForEach-Object {
@@ -134,8 +134,8 @@ function Invoke-WPFTweakPS7 {
     }
 }
 
-# Funzione Invoke-WinUtilInstallPSProfile modificata per PS 5.1
-function Invoke-WinUtilInstallPSProfile {
+# Funzione InstallPSProfile modificata per PS 5.1
+function InstallPSProfile {
     <#
     .SYNOPSIS
         Installa e applica il profilo PowerShell di Chris Titus Tech
@@ -218,7 +218,7 @@ Invoke-WPFTweakPS7 -action "PS7"
 
 # Installazione automatica profilo PowerShell 7
 Write-StyledMessage -Type 'Info' -Text "Configurazione profilo PowerShell 7..."
-Invoke-WinUtilInstallPSProfile
+InstallPSProfile
 
 # Messaggio di completamento
 Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente"
