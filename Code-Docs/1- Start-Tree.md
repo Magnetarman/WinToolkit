@@ -116,8 +116,8 @@ Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -NoClobber | O
 
 ```powershell
 Clear-Host
-Write-Host ('Win Toolkit v2.0').PadLeft(40) -ForegroundColor Green
-Write-Host ('By MagnetarMan').PadLeft(30) -ForegroundColor Red
+Write-Host ('Win Toolkit Starter V2.0').PadLeft(40) -ForegroundColor Green
+Write-Host ('By MagnetarMan').PadLeft(60) -ForegroundColor Red
 Write-Host ''
 
 ```
