@@ -141,7 +141,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 - [x] **`V1.0`**: <strike>Release Privata</strike>
 - [x] **`V1.1.0`**: <strike>Refactor Struttura in forma modulare.</strike>
-- [ ] **`V2.0.0`**: Refator totale progetto per future implementazioni.
+- [ ] **`V2.0.0`**: RELEASE Pubblica. Refator totale progetto per future implementazioni.
 - [ ] **`V2.0.1`**: Finalizzazione "run.ps1".
 - [ ] **`V2.0.2`**: Finalizzazione "WinRepairToolkit.ps1".
 - [ ] **`V2.0.3`**: Finalizzazione "WinUpdateReset.ps1".
@@ -160,6 +160,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
   - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata
 - [ ] Reinstallazione Installazione Store & Winget
 - [ ] Reset Rust Desk
+- [ ] Installazione e/o Aggiornamento Directx e librerie per il Gaming
 - [ ] Download immagine di Windows 23H2 Microwin
   - [ ] Posizionamento nella cartella download, pronta per essere utilizzata
 
