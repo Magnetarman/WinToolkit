@@ -12,15 +12,11 @@ Questo script:
 5. Avvia lo script WinStarter.ps1
 #>
 
-$Host.UI.RawUI.WindowTitle = "Win Toolkits by MagnetarMan"
-
-[CmdletBinding()]
-param()
-
 # ============================================================================
 # FUNZIONI DI UTILITÀ
 # ============================================================================
 
+$Host.UI.RawUI.WindowTitle = "Win Toolkits by MagnetarMan"
 function Write-StyledMessage {
     <#
     .SYNOPSIS
@@ -41,10 +37,10 @@ function Write-StyledMessage {
 
     # Definisce gli stili per ogni tipo di messaggio. L'uso degli emoji migliora la leggibilità.
     $styles = @{
-        Success = @{ Color = 'Green' ; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'   ; Icon = '❌' }
-        Info    = @{ Color = 'Cyan'  ; Icon = '💎' }
+        Success = @{ Color = 'Green' ; Icon = [char]0x2705 }  # ✅
+        Warning = @{ Color = 'Yellow'; Icon = [char]0x26A0 }  # ⚠️  
+        Error   = @{ Color = 'Red'   ; Icon = [char]0x274C }  # ❌
+        Info    = @{ Color = 'Cyan'  ; Icon = [char]0x1F4A0 } # 💠
     }
 
     $style = $styles[$Type]
@@ -136,7 +132,7 @@ function Install-CTTPowerShellProfile {
         }
         
         # Scarica il nuovo profilo
-        $tempProfile = "$env:TEMP/Microsoft.PowerShell_profile.ps1"
+        $tempProfile = "$env:TEMP\Microsoft.PowerShell_profile.ps1"
         Invoke-RestMethod $profileUrl -OutFile $tempProfile
         
         # Ottieni hash del nuovo profilo
@@ -151,7 +147,7 @@ function Install-CTTPowerShellProfile {
         if ($oldHash -eq $null -or $newHash.Hash -ne $oldHash.Hash) {
             
             # Backup del profilo esistente
-            if (Test-Path $PROFILE -and !(Test-Path "$PROFILE.bak")) {
+            if ((Test-Path $PROFILE) -and !(Test-Path "$PROFILE.bak")) {
                 Write-StyledMessage -Type 'Warning' -Text "Creazione backup del profilo esistente..."
                 Copy-Item -Path $PROFILE -Destination "$PROFILE.bak"
                 Write-StyledMessage -Type 'Success' -Text "Backup profilo completato"
@@ -165,8 +161,12 @@ function Install-CTTPowerShellProfile {
             
             Write-StyledMessage -Type 'Info' -Text "Installazione del nuovo profilo..."
             
-            # Esegui setup in background
-            $setupProcess = Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest '$setupUrl')`"" -WindowStyle Hidden -PassThru
+            # Esegui setup in background - modifica per compatibilità con PS5
+            if ($PSVersionTable.PSVersion.Major -ge 7) {
+                $setupProcess = Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest '$setupUrl')`"" -WindowStyle Hidden -PassThru
+            } else {
+                $setupProcess = Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest '$setupUrl')`"" -WindowStyle Hidden -PassThru
+            }
             
             # Attendi completamento con timeout
             $timeout = 120 # 2 minuti
@@ -205,7 +205,11 @@ function Start-WinStarterScript {
             Write-StyledMessage -Type 'Success' -Text "Avvio WinStarter.ps1..."
             
             # Avvia WinStarter con privilegi amministratore in PowerShell 7
-            Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -File `"$winStarterPath`"" -Verb RunAs
+            if (Get-Command "pwsh" -ErrorAction SilentlyContinue) {
+                Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -File `"$winStarterPath`"" -Verb RunAs
+            } else {
+                Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -File `"$winStarterPath`"" -Verb RunAs
+            }
             
             Write-StyledMessage -Type 'Info' -Text "WinStarter.ps1 avviato con successo!"
         }
@@ -235,7 +239,11 @@ function Request-AdminRestart {
     try {
         # Riavvia lo script corrente con privilegi amministratore
         $currentScript = $MyInvocation.MyCommand.Path
-        Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -File `"$currentScript`"" -Verb RunAs
+        if (Get-Command "pwsh" -ErrorAction SilentlyContinue) {
+            Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -File `"$currentScript`"" -Verb RunAs
+        } else {
+            Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -File `"$currentScript`"" -Verb RunAs
+        }
         exit
     }
     catch {
