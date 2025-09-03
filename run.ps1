@@ -121,6 +121,13 @@ function Install-CTTPowerShellProfile {
     try {
         Write-StyledMessage -Type 'Info' -Text "Installazione profilo PowerShell Chris Titus Tech..."
         
+        # Crea directory del profilo se non esiste (PRIMA di tutto)
+        $profileDir = Split-Path $PROFILE -Parent
+        if (!(Test-Path $profileDir)) {
+            Write-StyledMessage -Type 'Info' -Text "Creazione directory profilo: $profileDir"
+            New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+        }
+        
         # URL del profilo di Chris Titus Tech
         $profileUrl = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
         $setupUrl = "https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1"
@@ -133,15 +140,11 @@ function Install-CTTPowerShellProfile {
         
         # Scarica il nuovo profilo
         $tempProfile = "$env:TEMP\Microsoft.PowerShell_profile.ps1"
+        Write-StyledMessage -Type 'Info' -Text "Download profilo da GitHub..."
         Invoke-RestMethod $profileUrl -OutFile $tempProfile
         
         # Ottieni hash del nuovo profilo
         $newHash = Get-FileHash $tempProfile
-        
-        # Salva hash del nuovo profilo
-        if (!(Test-Path "$PROFILE.hash")) {
-            $newHash.Hash | Out-File "$PROFILE.hash"
-        }
         
         # Controlla se è necessario aggiornare
         if ($oldHash -eq $null -or $newHash.Hash -ne $oldHash.Hash) {
@@ -153,30 +156,52 @@ function Install-CTTPowerShellProfile {
                 Write-StyledMessage -Type 'Success' -Text "Backup profilo completato"
             }
             
-            # Crea directory del profilo se non esiste
-            $profileDir = Split-Path $PROFILE -Parent
-            if (!(Test-Path $profileDir)) {
-                New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
-            }
-            
             Write-StyledMessage -Type 'Info' -Text "Installazione del nuovo profilo..."
             
-            # Esegui setup in background - modifica per compatibilità con PS5
+            # Esegui setup in background - modifica per compatibilità con PS5/7
             if ($PSVersionTable.PSVersion.Major -ge 7) {
-                $setupProcess = Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest '$setupUrl')`"" -WindowStyle Hidden -PassThru
+                Write-StyledMessage -Type 'Info' -Text "Esecuzione setup con PowerShell 7..."
+                $setupProcess = Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest '$setupUrl').Content`"" -WindowStyle Hidden -PassThru
             } else {
-                $setupProcess = Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest '$setupUrl')`"" -WindowStyle Hidden -PassThru
+                Write-StyledMessage -Type 'Info' -Text "Esecuzione setup con PowerShell 5..."
+                $setupProcess = Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest '$setupUrl').Content`"" -WindowStyle Hidden -PassThru
             }
             
             # Attendi completamento con timeout
             $timeout = 120 # 2 minuti
+            Write-StyledMessage -Type 'Info' -Text "Attesa completamento setup (max $timeout secondi)..."
+            
             if ($setupProcess.WaitForExit($timeout * 1000)) {
-                Write-StyledMessage -Type 'Success' -Text "Profilo installato con successo!"
+                Write-StyledMessage -Type 'Success' -Text "Setup profilo completato!"
+                
+                # Salva hash del nuovo profilo DOPO l'installazione
+                try {
+                    $newHash.Hash | Out-File "$PROFILE.hash" -Encoding UTF8
+                    Write-StyledMessage -Type 'Info' -Text "Hash profilo salvato"
+                }
+                catch {
+                    Write-StyledMessage -Type 'Warning' -Text "Impossibile salvare hash profilo: $($_.Exception.Message)"
+                }
+                
                 Write-StyledMessage -Type 'Info' -Text "Riavviare PowerShell per applicare le modifiche"
             }
             else {
-                $setupProcess.Kill()
-                Write-StyledMessage -Type 'Warning' -Text "Timeout durante l'installazione. Il profilo potrebbe essere installato parzialmente."
+                Write-StyledMessage -Type 'Warning' -Text "Timeout durante setup. Tentativo installazione manuale..."
+                try {
+                    $setupProcess.Kill()
+                }
+                catch { }
+                
+                # Tentativo di installazione manuale diretta
+                try {
+                    Write-StyledMessage -Type 'Info' -Text "Installazione diretta del profilo..."
+                    Copy-Item $tempProfile $PROFILE -Force
+                    Write-StyledMessage -Type 'Success' -Text "Profilo copiato direttamente"
+                }
+                catch {
+                    Write-StyledMessage -Type 'Error' -Text "Errore nella copia diretta: $($_.Exception.Message)"
+                    return $false
+                }
             }
         }
         else {
@@ -187,6 +212,7 @@ function Install-CTTPowerShellProfile {
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione del profilo: $($_.Exception.Message)"
+        Write-StyledMessage -Type 'Info' -Text "Dettagli errore: $($_.Exception.StackTrace)"
         return $false
     }
 }
