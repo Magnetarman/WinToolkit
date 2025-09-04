@@ -9,7 +9,7 @@ Clear-Host
         '         \_/\_/    |_||_| \_|'
         ''
         ' WinUpdate Reset Toolkit By MagnetarMan'
-        '       Version 2.0 (Build 10)'
+        '       Version 2.0 (Build 5)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
