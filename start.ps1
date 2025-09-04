@@ -1,5 +1,5 @@
 # Win Toolkit Starter by MagnetarMan
-# Versione 1.4 - 2025-09-04
+# Versione 1.5 - 2025-09-04
 # Impostazione titolo finestra della console
 $Host.UI.RawUI.WindowTitle = "Win Toolkit Starter by MagnetarMan"
 
@@ -148,6 +148,7 @@ function Invoke-WPFTweakPS7 {
     }
 }
 
+# Funzione per creare la scorciatoia sul desktop
 function ToolKit-Desktop {
     Write-StyledMessage -Type 'Info' -Text "Creazione scorciatoia sul desktop..."
     
@@ -161,7 +162,7 @@ function ToolKit-Desktop {
         $Shortcut = $WshShell.CreateShortcut($shortcutPath)
         
         # Imposta la destinazione della scorciatoia
-        # NOTA: La stringa è stata corretta usando gli apici singoli per evitare errori di parsing
+        # Corretta la stringa per gestire gli apici doppi
         $Shortcut.TargetPath = 'C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/tool/WinBrain.ps1 | iex'
         $Shortcut.Save()
         
@@ -170,6 +171,8 @@ function ToolKit-Desktop {
         Write-StyledMessage -Type 'Error' -Text "Errore durante la creazione della scorciatoia: $($_.Exception.Message)"
     }
 }
+
+
 # Logica di esecuzione principale
 function Start-WinToolkit {
     param(
@@ -194,7 +197,7 @@ function Start-WinToolkit {
             "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1))) $($argList -join ' ')"
         }
         Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
-        break
+        return
     }
 
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -218,7 +221,7 @@ function Start-WinToolkit {
 
     $rebootNeeded = $false
     
-    $gitInstalled = Install-Git
+    Install-Git
     
     $ps7Installed = (Test-Path -Path "$env:ProgramFiles\PowerShell\7")
     if (-not $ps7Installed) {
@@ -231,6 +234,7 @@ function Start-WinToolkit {
     }
 
     Invoke-WPFTweakPS7 -action "PS7"
+    ToolKit-Desktop
     
     Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente."
     
@@ -247,6 +251,7 @@ function Start-WinToolkit {
         Restart-Computer -Force
     } else {
         Write-StyledMessage -Type 'Info' -Text "Non è necessario riavviare il sistema in quanto PowerShell 7 era già installato."
+        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 
