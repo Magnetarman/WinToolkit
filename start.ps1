@@ -1,7 +1,8 @@
 # Win Toolkit Starter by MagnetarMan
-# Versione 1.5 (Build 21) - 2025-09-04
+# Versione 2.0 (Build 21) - 2025-09-04
+
 # Impostazione titolo finestra della console
-$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V1.5 (Build 21) - by MagnetarMan"
+$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V2.0 (Build 21) - by MagnetarMan"
 
 # Funzione per mostrare messaggi stilizzati
 function Write-StyledMessage {
