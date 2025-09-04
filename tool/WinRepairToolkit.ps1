@@ -251,11 +251,27 @@ function Start-SystemRestart([hashtable]$RepairResult) {
     }
 }
 
-# === MAIN EXECUTION ===
-Clear-Host
-Write-Host ('Windows Repair Toolkit v2.0').PadLeft(40) -ForegroundColor Cyan
-Write-Host ('By MagnetarMan').PadLeft(30) -ForegroundColor DarkGray
-Write-Host ''
+
+$Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
+ Clear-Host
+
+    # --- Schermata di Benvenuto ---
+    $width = 60
+    $asciiArt = @(
+        ' __        __  _  _   _ '
+        ' \ \      / / | || \ | |'
+        '  \ \ /\ / /  | ||  \| |'
+        '   \ V  V /   | || |\  |'
+        '    \_/\_/    |_||_| \_|'
+        ''
+        '    Repair Toolkit By MagnetarMan'
+        '      Version 2.0 (Build 10)'
+    )
+    foreach ($line in $asciiArt) {
+        Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
+    }
+    Write-Host '' # Spazio
+
 
 Request-AdminRights
 
