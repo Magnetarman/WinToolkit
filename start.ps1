@@ -245,15 +245,8 @@ function Invoke-WinUtilInstallPSProfile {
         }
     }
     
-    # Verifica se PowerShell 7 è installato o è stato appena installato
-    $ps7Installed = Test-Path -Path "$env:ProgramFiles\PowerShell\7"
-    
-    if ($ps7Installed) {
-        Write-StyledMessage -Type 'Success' -Text "PowerShell 7 disponibile. Installazione profilo automatica..."
-        Invoke-PSSetup
-    } else {
-        Write-StyledMessage -Type 'Warning' -Text "PowerShell 7 non disponibile. Installazione profilo saltata."
-    }
+    # Esegue l'installazione del profilo. La logica interna gestirà la versione di PowerShell da utilizzare.
+    Invoke-PSSetup
 }
 
 # NUOVA FUNZIONE PER L'INSTALLAZIONE DI GIT
