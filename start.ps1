@@ -3,43 +3,7 @@
 # Impostazione titolo finestra della console
 $Host.UI.RawUI.WindowTitle = "Win Toolkit Starter by MagnetarMan"
 
-# Controllo privilegi amministratore
-if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Output "Win Toolkit deve essere eseguito come amministratore. Tentativo di riavvio."
-    $argList = @()
-
-    $PSBoundParameters.GetEnumerator() | ForEach-Object {
-        $argList += if ($_.Value -is [switch] -and $_.Value) {
-            "-$($_.Key)"
-        } elseif ($_.Value -is [array]) {
-            "-$($_.Key) $($_.Value -join ',')"
-        } elseif ($_.Value) {
-            "-$($_.Key) '$($_.Value)'"
-        }
-    }
-
-    $script = if ($PSCommandPath) {
-        "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
-    } else {
-        "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1))) $($argList -join ' ')"
-    }
-
-    # Utilizzo esclusivo di powershell.exe per compatibilità PS 5.1
-    Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
-    break
-}
-
-# Creazione directory di log e avvio trascrizione
-$dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$logdir = "$env:localappdata\WinToolkit\logs"
-try {
-    [System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
-    Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -Force | Out-Null
-} catch {
-    # Gestione errori silenziosa per compatibilità
-}
-
-# Funzione Write-StyledMessage per messaggistica uniforme
+# Funzione per mostrare messaggi stilizzati
 function Write-StyledMessage {
     param(
         [Parameter(Mandatory=$true)]
@@ -58,47 +22,71 @@ function Write-StyledMessage {
     }
 }
 
-# Schermata di benvenuto
-Clear-Host
-Write-Host ('Win Toolkit Starter').PadLeft(40) -ForegroundColor Green
-Write-Host ('By MagnetarMan').PadLeft(35) -ForegroundColor Red
-Write-Host ''
+# Funzione per installare Git
+function Install-Git {
+    Write-StyledMessage -Type 'Info' -Text "Verifica installazione di Git..."
 
-# Controllo versione PowerShell
-$psVersion = $PSVersionTable.PSVersion.Major
-Write-StyledMessage -Type 'Info' -Text "Versione PowerShell rilevata: $($PSVersionTable.PSVersion)"
+    if (Get-Command "git" -ErrorAction SilentlyContinue) {
+        Write-StyledMessage -Type 'Success' -Text "Git è già installato. Saltando l'installazione."
+        return $true
+    }
 
-if ($psVersion -lt 7) {
-    Write-StyledMessage -Type 'Warning' -Text "PowerShell 5 rilevato. PowerShell 7 è raccomandato per funzionalità avanzate."
+    Write-StyledMessage -Type 'Info' -Text "Git non trovato. Tentativo di installazione..."
+
+    if (Get-Command "winget" -ErrorAction SilentlyContinue) {
+        Write-StyledMessage -Type 'Info' -Text "Installazione di Git tramite winget..."
+        try {
+            winget install Git.Git --accept-source-agreements --accept-package-agreements --silent
+            return $LASTEXITCODE -eq 0
+        } catch {
+            Write-StyledMessage -Type 'Warning' -Text "Errore con winget: $($_.Exception.Message). Tentativo di installazione diretta..."
+        }
+    } else {
+        Write-StyledMessage -Type 'Warning' -Text "winget non disponibile. Procedendo con installazione diretta..."
+    }
+
+    try {
+        $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.1/Git-2.51.0-64-bit.exe"
+        $gitInstaller = "$env:TEMP\Git-2.51.0-64-bit.exe"
+        Write-StyledMessage -Type 'Info' -Text "Download di Git da GitHub..."
+        Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
+        
+        Write-StyledMessage -Type 'Info' -Text "Installazione di Git in corso..."
+        $installArgs = "/SILENT /NORESTART"
+        $process = Start-Process $gitInstaller -ArgumentList $installArgs -Wait -PassThru
+        
+        if ($process.ExitCode -eq 0) {
+            Write-StyledMessage -Type 'Success' -Text "Git installato con successo."
+            Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+            return $true
+        } else {
+            Write-StyledMessage -Type 'Error' -Text "Installazione di Git fallita. Codice di uscita: $($process.ExitCode)"
+            return $false
+        }
+    } catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione diretta di Git: $($_.Exception.Message)"
+        return $false
+    }
 }
 
 # Funzione per installare PowerShell 7
 function Install-PowerShell7 {
     Write-StyledMessage -Type 'Info' -Text "Tentativo installazione PowerShell 7..."
     
-    # Verifica se winget è disponibile
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
         Write-StyledMessage -Type 'Info' -Text "Installazione PowerShell 7 tramite winget..."
         try {
-            $wingetResult = winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements --silent
+            winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements --silent
             if ($LASTEXITCODE -eq 0) {
                 Write-StyledMessage -Type 'Success' -Text "PowerShell 7 installato con successo tramite winget."
                 return $true
-            } else {
-                Write-StyledMessage -Type 'Warning' -Text "Installazione winget fallita. Tentativo installazione diretta..."
             }
-        } catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore con winget: $($_.Exception.Message). Tentativo installazione diretta..."
-        }
-    } else {
-        Write-StyledMessage -Type 'Warning' -Text "winget non disponibile. Procedendo con installazione diretta..."
+        } catch {}
     }
-    
-    # Installazione diretta da GitHub
+
     try {
         $ps7Url = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/PowerShell-7.5.2-win-x64.msi"
         $ps7Installer = "$env:TEMP\PowerShell-7.5.2-win-x64.msi"
-        
         Write-StyledMessage -Type 'Info' -Text "Download PowerShell 7 da GitHub..."
         Invoke-WebRequest -Uri $ps7Url -OutFile $ps7Installer -UseBasicParsing
         
@@ -108,7 +96,6 @@ function Install-PowerShell7 {
         
         if ($process.ExitCode -eq 0) {
             Write-StyledMessage -Type 'Success' -Text "PowerShell 7 installato con successo."
-            # Cleanup
             Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
             return $true
         } else {
@@ -121,39 +108,18 @@ function Install-PowerShell7 {
     }
 }
 
-# Funzione Invoke-WPFTweakPS7 con configurazione Windows Terminal
+# Funzione per configurare Windows Terminal
 function Invoke-WPFTweakPS7 {
-    <#
-    .SYNOPSIS
-        Configura Windows Terminal per utilizzare PowerShell 7
-    .PARAMETER action
-        PS7: Configura per Powershell 7
-        PS5: Configura per Powershell 5
-    #>
-    param (
-        [ValidateSet("PS7", "PS5")]
-        [string]$action = "PS7"
-    )
-
-    switch ($action) {
-        "PS7" {
-            $targetTerminalName = "PowerShell"
-        }
-        "PS5" {
-            $targetTerminalName = "Windows PowerShell"
-        }
-    }
-
-    # Configurazione Windows Terminal sempre eseguita
+    param ([ValidateSet("PS7", "PS5")][string]$action = "PS7")
+    
+    $targetTerminalName = if ($action -eq "PS7") { "PowerShell" } else { "Windows PowerShell" }
     Write-StyledMessage -Type 'Info' -Text "Configurazione Windows Terminal per $targetTerminalName..."
     
-    # Verifica Windows Terminal
     if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
         Write-StyledMessage -Type 'Warning' -Text "Windows Terminal non installato. Saltando configurazione terminale."
         return
     }
     
-    # Verifica file settings.json di Windows Terminal
     $settingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
     if (-not (Test-Path -Path $settingsPath)) {
         Write-StyledMessage -Type 'Warning' -Text "File impostazioni Windows Terminal non trovato."
@@ -161,7 +127,6 @@ function Invoke-WPFTweakPS7 {
     }
 
     try {
-        Write-StyledMessage -Type 'Info' -Text "Aggiornamento configurazione Windows Terminal..."
         $settingsContent = Get-Content -Path $settingsPath | ConvertFrom-Json
         $targetProfile = $settingsContent.profiles.list | Where-Object { $_.name -eq $targetTerminalName }
         
@@ -178,176 +143,118 @@ function Invoke-WPFTweakPS7 {
     }
 }
 
-# Funzione Invoke-WinUtilInstallPSProfile con installazione automatica
+# Funzione per installare il profilo PowerShell
 function Invoke-WinUtilInstallPSProfile {
-    <#
-    .SYNOPSIS
-        Installa automaticamente il profilo PowerShell di Chris Titus Tech per PowerShell 7
-    #>
+    Write-StyledMessage -Type 'Info' -Text "Avvio configurazione profilo PowerShell 7..."
     
     $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/setup.ps1"
     $setupFile = "$env:TEMP\setup.ps1"
-    
+
     try {
-        # Scarica lo script di setup in un file temporaneo
         Write-StyledMessage -Type 'Info' -Text "Download dello script di installazione del profilo..."
         Invoke-WebRequest -Uri $url -OutFile $setupFile -UseBasicParsing
         
-        # Determina il percorso del profilo PowerShell 7
-        $ps7ProfilePath = "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+        Write-StyledMessage -Type 'Info' -Text "Esecuzione dello script di installazione. Segui le istruzioni nella nuova finestra..."
         
-        # Crea la directory se non esiste
-        $ps7ProfileDir = Split-Path $ps7ProfilePath -Parent
-        if (!(Test-Path $ps7ProfileDir)) {
-            New-Item -ItemType Directory -Path $ps7ProfileDir -Force | Out-Null
-            Write-StyledMessage -Type 'Info' -Text "Creata directory profilo PowerShell 7: $ps7ProfileDir"
-        }
-        
-        Write-StyledMessage -Type 'Info' -Text "Installazione del profilo PowerShell 7 in corso..."
-        
-        # Esegui lo script di setup utilizzando un blocco try/catch per gestire gli errori
-        try {
-            # Se la directory di PowerShell 7 esiste, usa pwsh.exe
-            if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
-                Write-StyledMessage -Type 'Info' -Text "Avvio installazione profilo con PowerShell 7..."
-                Start-Process -FilePath "$env:ProgramFiles\PowerShell\7\pwsh.exe" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
-            } else {
-                # Altrimenti, usa powershell.exe come fallback
-                Write-StyledMessage -Type 'Info' -Text "PowerShell 7 non trovato, uso PowerShell 5.1 per l'installazione..."
-                Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
-            }
-            
-            Write-StyledMessage -Type 'Success' -Text "Profilo PowerShell 7 installato con successo!"
-            Write-StyledMessage -Type 'Info' -Text "Il profilo sarà attivo al prossimo avvio di PowerShell 7."
-            
-        } catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante l'esecuzione del file setup.ps1: $($_.Exception.Message)"
-        }
-        
-    } catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante il download o la gestione dello script di setup: $($_.Exception.Message)"
-    } finally {
-        # Pulizia del file temporaneo
-        Remove-Item $setupFile -Force -ErrorAction SilentlyContinue
-    }
-}
-
-# NUOVA FUNZIONE PER L'INSTALLAZIONE DI GIT
-function Install-Git {
-    Write-StyledMessage -Type 'Info' -Text "Verifica installazione di Git..."
-
-    if (Get-Command "git" -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -Type 'Success' -Text "Git è già installato. Saltando l'installazione."
-        return $true
-    }
-
-    Write-StyledMessage -Type 'Info' -Text "Git non trovato. Tentativo di installazione..."
-
-    # Prova a installare con winget
-    if (Get-Command "winget" -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -Type 'Info' -Text "Installazione di Git tramite winget..."
-        try {
-            winget install Git.Git --accept-source-agreements --accept-package-agreements --silent
-            if ($LASTEXITCODE -eq 0) {
-                Write-StyledMessage -Type 'Success' -Text "Git installato con successo tramite winget."
-                return $true
-            } else {
-                Write-StyledMessage -Type 'Warning' -Text "Installazione winget fallita. Tentativo di installazione diretta..."
-            }
-        } catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore con winget: $($_.Exception.Message). Tentativo di installazione diretta..."
-        }
-    } else {
-        Write-StyledMessage -Type 'Warning' -Text "winget non disponibile. Procedendo con installazione diretta..."
-    }
-
-    # Fallback: installazione diretta dal file .exe
-    try {
-        $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.1/Git-2.51.0-64-bit.exe"
-        $gitInstaller = "$env:TEMP\Git-2.51.0-64-bit.exe"
-
-        Write-StyledMessage -Type 'Info' -Text "Download di Git da GitHub..."
-        Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
-
-        Write-StyledMessage -Type 'Info' -Text "Installazione di Git in corso..."
-        # Utilizzo del flag /SILENT per installazione non interattiva
-        $installArgs = "/SILENT /NORESTART"
-        $process = Start-Process $gitInstaller -ArgumentList $installArgs -Wait -PassThru
-
-        if ($process.ExitCode -eq 0) {
-            Write-StyledMessage -Type 'Success' -Text "Git installato con successo."
-            # Pulizia file di installazione
-            Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
-            return $true
+        $ps7Path = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
+        if (Test-Path $ps7Path) {
+            Write-StyledMessage -Type 'Info' -Text "Avvio con PowerShell 7..."
+            Start-Process -FilePath $ps7Path -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
         } else {
-            Write-StyledMessage -Type 'Error' -Text "Installazione di Git fallita. Codice di uscita: $($process.ExitCode)"
-            return $false
+            Write-StyledMessage -Type 'Info' -Text "PowerShell 7 non trovato. Avvio con PowerShell 5.1..."
+            Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
         }
+        
+        Write-StyledMessage -Type 'Success' -Text "Installazione del profilo completata!"
     } catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione diretta di Git: $($_.Exception.Message)"
-        return $false
+        Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione del profilo: $($_.Exception.Message)"
+    } finally {
+        if (Test-Path $setupFile) {
+            Remove-Item $setupFile -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
-# Esecuzione delle funzioni principali
-Write-StyledMessage -Type 'Info' -Text "Avvio configurazione Win Toolkit..."
+# Logica di esecuzione principale
+function Start-WinToolkit {
+    param(
+        [switch]$InstallProfileOnly
+    )
 
-# Prima installa Git se necessario
-Install-Git
-
-# Variabile per tracciare se è necessario il riavvio
-$rebootNeeded = $false
-
-# Poi installa PowerShell 7 se necessario
-if (-not (Test-Path -Path "$env:ProgramFiles\PowerShell\7")) {
-    Write-StyledMessage -Type 'Info' -Text "PowerShell 7 non trovato. Avvio installazione..."
-    $installSuccess = Install-PowerShell7
-    if ($installSuccess) {
-        Write-StyledMessage -Type 'Success' -Text "PowerShell 7 installato con successo."
-        # Imposta la variabile per indicare che il riavvio è necessario
-        $rebootNeeded = $true
-    } else {
-        Write-StyledMessage -Type 'Error' -Text "Installazione PowerShell 7 fallita."
-    }
-} else {
-    Write-StyledMessage -Type 'Success' -Text "PowerShell 7 già presente."
-}
-
-# Configura Windows Terminal
-Write-StyledMessage -Type 'Info' -Text "Configurazione Windows Terminal..."
-Invoke-WPFTweakPS7 -action "PS7"
-
-# Installa profilo PowerShell 7
-Write-StyledMessage -Type 'Info' -Text "Configurazione profilo PowerShell 7..."
-Invoke-WinUtilInstallPSProfile
-
-# Messaggio di completamento
-Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente"
-
-# Esegui il riavvio solo se l'installazione di PowerShell 7 è avvenuta in questa sessione
-if ($rebootNeeded) {
-    Write-StyledMessage -Type 'Warning' -Text "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche"
-
-    # Countdown per il riavvio
-    Write-StyledMessage -Type 'Info' -Text "Preparazione al riavvio del sistema..."
-    for ($i = 10; $i -gt 0; $i--) {
-        Write-Host "Preparazione sistema al riavvio - $i secondi..." -NoNewline -ForegroundColor Yellow
-        Write-Host "`r" -NoNewline
-        Start-Sleep 1
+    if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Output "Win Toolkit deve essere eseguito come amministratore. Tentativo di riavvio."
+        $argList = @()
+        $PSBoundParameters.GetEnumerator() | ForEach-Object {
+            $argList += if ($_.Value -is [switch] -and $_.Value) {
+                "-$($_.Key)"
+            } elseif ($_.Value -is [array]) {
+                "-$($_.Key) $($_.Value -join ',')"
+            } elseif ($_.Value) {
+                "-$($_.Key) '$($_.Value)'"
+            }
+        }
+        $script = if ($PSCommandPath) {
+            "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
+        } else {
+            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1))) $($argList -join ' ')"
+        }
+        Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
+        break
     }
 
-    Write-StyledMessage -Type 'Info' -Text "Riavvio in corso..."
-
-    # Arresto trascrizione prima del riavvio
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:localappdata\WinToolkit\logs"
     try {
-        Stop-Transcript | Out-Null
-        Write-StyledMessage -Type 'Success' -Text "Trascrizione del log salvata in: $logdir\WinToolkit_$dateTime.log"
-    } catch {
-        # Gestione errori silenziosa
+        [System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
+        Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -Force | Out-Null
+    } catch {}
+
+    Clear-Host
+    Write-Host ('Win Toolkit Starter').PadLeft(40) -ForegroundColor Green
+    Write-Host ('By MagnetarMan').PadLeft(35) -ForegroundColor Red
+    Write-Host ''
+    
+    Write-StyledMessage -Type 'Info' -Text "Versione PowerShell rilevata: $($PSVersionTable.PSVersion)"
+    if ($PSVersionTable.PSVersion.Major -lt 7) {
+        Write-StyledMessage -Type 'Warning' -Text "PowerShell 5 rilevato. PowerShell 7 è raccomandato per funzionalità avanzate."
     }
 
-    # Riavvio del sistema
-    Restart-Computer -Force
-} else {
-    Write-StyledMessage -Type 'Info' -Text "Non è necessario riavviare il sistema in quanto PowerShell 7 era già installato."
+    Write-StyledMessage -Type 'Info' -Text "Avvio configurazione Win Toolkit..."
+
+    $rebootNeeded = $false
+    
+    Install-Git
+    
+    if (-not (Test-Path -Path "$env:ProgramFiles\PowerShell\7")) {
+        $installSuccess = Install-PowerShell7
+        if ($installSuccess) {
+            $rebootNeeded = $true
+        }
+    } else {
+        Write-StyledMessage -Type 'Success' -Text "PowerShell 7 già presente."
+    }
+
+    Invoke-WPFTweakPS7 -action "PS7"
+    
+    Invoke-WinUtilInstallPSProfile
+    
+    Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente."
+    
+    if ($rebootNeeded) {
+        Write-StyledMessage -Type 'Warning' -Text "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche"
+        Write-StyledMessage -Type 'Info' -Text "Preparazione al riavvio del sistema..."
+        for ($i = 10; $i -gt 0; $i--) {
+            Write-Host "Preparazione sistema al riavvio - $i secondi..." -NoNewline -ForegroundColor Yellow
+            Write-Host "`r" -NoNewline
+            Start-Sleep 1
+        }
+        Write-StyledMessage -Type 'Info' -Text "Riavvio in corso..."
+        try { Stop-Transcript | Out-Null } catch {}
+        Restart-Computer -Force
+    } else {
+        Write-StyledMessage -Type 'Info' -Text "Non è necessario riavviare il sistema in quanto PowerShell 7 era già installato."
+    }
 }
+
+# Avvia lo script principale
+Start-WinToolkit
