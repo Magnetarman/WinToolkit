@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 35) - 2025-09-04
+  Versione 2.0 (Build 36) - 2025-09-04
 #>
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
@@ -33,49 +33,58 @@ function Invoke-WinUtilInstallPSProfile {
 
     # Check if PowerShell Core (pwsh) is installed and available as a command.
     if (Get-Command "pwsh" -ErrorAction SilentlyContinue) {
-        # Get the file hash for the user's current PowerShell profile, but only if the file exists.
+        # Get the file hash for the user's current PowerShell profile, but only if the file exists and the variable is not null.
         $OldHash = $null
-        if (Test-Path $PSProfile) {
-            $OldHash = Get-FileHash $PSProfile -ErrorAction SilentlyContinue
+        if ($PSProfile -and (Test-Path $PSProfile)) {
+            try {
+                $OldHash = Get-FileHash $PSProfile -ErrorAction SilentlyContinue
+            } catch {
+                # Handle cases where the path exists but might be inaccessible.
+                Write-StyledMessage -Type 'Warning' -Text "Impossibile ottenere l'hash del profilo esistente. Proveremo a reinstallare."
+            }
         }
 
         # Download Chris Titus Tech's PowerShell profile to the 'TEMP' folder.
-        Invoke-RestMethod $url -OutFile "$env:TEMP/Microsoft.PowerShell_profile.ps1"
+        $tempProfilePath = "$env:TEMP\Microsoft.PowerShell_profile.ps1"
+        try {
+            Invoke-RestMethod $url -OutFile $tempProfilePath
+        } catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore durante il download del profilo. Controlla la tua connessione a Internet."
+            return
+        }
 
         # Get the file hash for Chris Titus Tech's PowerShell profile.
-        $NewHash = Get-FileHash "$env:TEMP/Microsoft.PowerShell_profile.ps1"
+        $NewHash = Get-FileHash $tempProfilePath
 
-        # Check if the new profile's hash doesn't match the old profile's hash.
-        # This check now also correctly handles the case where $OldHash is null.
-        if ($NewHash.Hash -ne $OldHash.Hash) {
+        # Compare the hashes. If no old profile existed, this will be true.
+        if (-not $OldHash -or ($NewHash.Hash -ne $OldHash.Hash)) {
+            Write-StyledMessage -Type 'Info' -Text "Il profilo non esiste o non è aggiornato. Installazione in corso."
+            
+            # Ensure the directory for the new profile exists.
+            $profileDir = Split-Path -Path $PSProfile -Parent
+            if (-not (Test-Path $profileDir)) {
+                New-Item -Path $profileDir -ItemType Directory -Force | Out-Null
+            }
+
             # Store the file hash of Chris Titus Tech's PowerShell profile.
             $NewHash.Hash | Out-File "$PSProfile.hash"
 
-            # Check if oldprofile.ps1 exists and use it as a profile backup source.
+            # Perform profile backup logic.
             if (Test-Path "$env:USERPROFILE\oldprofile.ps1") {
                 Write-Host "===> Backup File Exists... <===" -ForegroundColor Yellow
                 Write-Host "===> Moving Backup File... <===" -ForegroundColor Yellow
                 Copy-Item "$env:USERPROFILE\oldprofile.ps1" "$PSProfile.bak"
                 Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
-            } else {
-                # If oldprofile.ps1 does not exist use $PSProfile as a profile backup source.
-                # Check if the profile backup file has not already been created on the disk.
-                if ((Test-Path $PSProfile) -and (-not (Test-Path "$PSProfile.bak"))) {
-                    # Let the user know their PowerShell profile is being backed up.
-                    Write-Host "===> Backing Up Profile... <===" -ForegroundColor Yellow
-
-                    # Copy the user's current PowerShell profile to the backup file path.
-                    Copy-Item -Path $PSProfile -Destination "$PSProfile.bak"
-
-                    # Let the user know the profile backup has been completed successfully.
-                    Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
-                }
+            } elseif ((Test-Path $PSProfile) -and (-not (Test-Path "$PSProfile.bak"))) {
+                Write-Host "===> Backing Up Profile... <===" -ForegroundColor Yellow
+                Copy-Item -Path $PSProfile -Destination "$PSProfile.bak"
+                Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
             }
 
             # Let the user know Chris Titus Tech's PowerShell profile is being installed.
             Write-Host "===> Installing Profile... <===" -ForegroundColor Yellow
 
-            # Start a new hidden PowerShell instance because setup.ps1 does not work in runspaces.
+            # Start a new hidden PowerShell instance for setup.
             Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest `'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1`')`"" -WindowStyle Hidden -Wait
 
             # Let the user know Chris Titus Tech's PowerShell profile has been installed successfully.
@@ -158,7 +167,7 @@ while ($true) {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkits By MagnetarMan'
-        '       Version 2.0 (Build 35)'
+        '       Version 2.0 (Build 36)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
