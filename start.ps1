@@ -225,7 +225,7 @@ function Start-WinToolkit {
         $Shortcut = $WshShell.CreateShortcut($shortcutPath)
         
         # Imposta la destinazione della scorciatoia
-        $Shortcut.TargetPath = '"C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/tool/WinBrain.ps1 | iex"'
+        $Shortcut.TargetPath = 'C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/tool/WinBrain.ps1 | iex'
         $Shortcut.Save()
         
         Write-StyledMessage -Type 'Success' -Text "Scorciatoia 'Win Toolkit.lnk' creata con successo sul desktop."
