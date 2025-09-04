@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.0 (Build 63) - 2025-09-04
+  Versione 2.0 (Build 64) - 2025-09-04
 #>
 
 # Impostazione titolo finestra della console
@@ -242,8 +242,18 @@ function Start-WinToolkit {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkit Starter By MagnetarMan'
-        '      Version 2.0 (Build 63)'
+        '      Version 2.0 (Build 64)'
     )
+
+    function Center-Text {
+        param(
+            [string]$Text,
+            [int]$Width = 60
+        )
+        if ($Text.Length -ge $Width) { return $Text }
+        $padding = ' ' * [Math]::Floor(($Width - $Text.Length) / 2)
+        return "$padding$Text"
+    }
 
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
