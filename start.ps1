@@ -1,8 +1,16 @@
-# Win Toolkit Starter by MagnetarMan
-# Versione 2.0 (Build 21) - 2025-09-04
+<#
+.SYNOPSIS
+    Script di Start per Win Toolkit V2.0.
+.DESCRIPTION
+    Questo script funge da punto di ingresso per l'installazione e la configurazione di Win Toolkit V2.0.
+    Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
+    Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
+.NOTES
+  Versione 2.0 (Build 61) - 2025-09-04
+#>
 
 # Impostazione titolo finestra della console
-$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V2.0 (Build 21) - by MagnetarMan"
+$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V2.0 (Build 61) - by MagnetarMan"
 
 # Funzione per mostrare messaggi stilizzati
 function Write-StyledMessage {
@@ -166,7 +174,7 @@ function ToolKit-Desktop {
         $Shortcut.TargetPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
         
         # Imposta gli argomenti della riga di comando (Arguments)
-        $Shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Experimental/WinToolkit.ps1 | iex"'
+        $Shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/WinToolkit.ps1 | iex"'
         
         # Imposta la directory di lavoro
         $Shortcut.WorkingDirectory = "C:\Program Files\PowerShell\7"
@@ -209,7 +217,7 @@ function Start-WinToolkit {
         $script = if ($PSCommandPath) {
             "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
         } else {
-            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Experimental/start.ps1))) $($argList -join ' ')"
+            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1))) $($argList -join ' ')"
         }
         Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
         return
@@ -219,13 +227,28 @@ function Start-WinToolkit {
     $logdir = "$env:localappdata\WinToolkit\logs"
     try {
         [System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
-        Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -Force | Out-Null
+        Start-Transcript -Path "$logdir\WinToolkitStarter_$dateTime.log" -Append -Force | Out-Null
     } catch {}
 
     Clear-Host
-    Write-Host ('Win Toolkit Starter').PadLeft(40) -ForegroundColor Green
-    Write-Host ('By MagnetarMan').PadLeft(35) -ForegroundColor Red
-    Write-Host ''
+
+    # --- Schermata di Benvenuto ---
+    $width = 60
+    $asciiArt = @(
+        ' __        __  _  _   _ '
+        ' \ \      / / | || \ | |'
+        '  \ \ /\ / /  | ||  \| |'
+        '   \ V  V /   | || |\  |'
+        '    \_/\_/    |_||_| \_|'
+        ''
+        '    Toolkit Starter By MagnetarMan'
+        '      Version 2.0 (Build 61)'
+    )
+
+    foreach ($line in $asciiArt) {
+        Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
+    }
+    Write-Host '' # Spazio
     
     Write-StyledMessage -Type 'Info' -Text "Versione PowerShell rilevata: $($PSVersionTable.PSVersion)"
     if ($PSVersionTable.PSVersion.Major -lt 7) {
