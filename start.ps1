@@ -155,7 +155,7 @@ function ToolKit-Desktop {
     try {
         # Determina il percorso del desktop dell'utente corrente
         $desktopPath = [System.Environment]::GetFolderPath('Desktop')
-        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.0.lnk"
+        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.0 - Experimental.lnk"
         
         # Crea un oggetto WScript.Shell per la creazione della scorciatoia
         $WshShell = New-Object -ComObject WScript.Shell
@@ -165,7 +165,7 @@ function ToolKit-Desktop {
         $Shortcut.TargetPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
         
         # Imposta gli argomenti della riga di comando (Arguments)
-        $Shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/WinBrain.ps1 | iex"'
+        $Shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Experimental/WinToolkit.ps1 | iex"'
         
         # Imposta la directory di lavoro
         $Shortcut.WorkingDirectory = "C:\Program Files\PowerShell\7"
@@ -208,7 +208,7 @@ function Start-WinToolkit {
         $script = if ($PSCommandPath) {
             "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
         } else {
-            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1))) $($argList -join ' ')"
+            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Experimental/start.ps1))) $($argList -join ' ')"
         }
         Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
         return
