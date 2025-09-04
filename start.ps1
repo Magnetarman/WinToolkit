@@ -1,4 +1,4 @@
-# Win Toolkit by MagnetarMan
+# Win Toolkit Starter by MagnetarMan
 # Completo script PowerShell compatibile con PowerShell 5.1
 
 # Impostazione titolo finestra della console
@@ -61,7 +61,7 @@ function Write-StyledMessage {
 
 # Schermata di benvenuto
 Clear-Host
-Write-Host ('Win Toolkit Starter v2.0').PadLeft(40) -ForegroundColor Green
+Write-Host ('Win Toolkit Starter').PadLeft(40) -ForegroundColor Green
 Write-Host ('By MagnetarMan').PadLeft(35) -ForegroundColor Red
 Write-Host ''
 
@@ -257,10 +257,70 @@ function Invoke-WinUtilInstallPSProfile {
     }
 }
 
+# NUOVA FUNZIONE PER L'INSTALLAZIONE DI GIT
+function Install-Git {
+    Write-StyledMessage -Type 'Info' -Text "Verifica installazione di Git..."
+
+    if (Get-Command "git" -ErrorAction SilentlyContinue) {
+        Write-StyledMessage -Type 'Success' -Text "Git è già installato. Saltando l'installazione."
+        return $true
+    }
+
+    Write-StyledMessage -Type 'Info' -Text "Git non trovato. Tentativo di installazione..."
+
+    # Prova a installare con winget
+    if (Get-Command "winget" -ErrorAction SilentlyContinue) {
+        Write-StyledMessage -Type 'Info' -Text "Installazione di Git tramite winget..."
+        try {
+            winget install Git.Git --accept-source-agreements --accept-package-agreements --silent
+            if ($LASTEXITCODE -eq 0) {
+                Write-StyledMessage -Type 'Success' -Text "Git installato con successo tramite winget."
+                return $true
+            } else {
+                Write-StyledMessage -Type 'Warning' -Text "Installazione winget fallita. Tentativo di installazione diretta..."
+            }
+        } catch {
+            Write-StyledMessage -Type 'Warning' -Text "Errore con winget: $($_.Exception.Message). Tentativo di installazione diretta..."
+        }
+    } else {
+        Write-StyledMessage -Type 'Warning' -Text "winget non disponibile. Procedendo con installazione diretta..."
+    }
+
+    # Fallback: installazione diretta dal file .exe
+    try {
+        $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.1/Git-2.51.0-64-bit.exe"
+        $gitInstaller = "$env:TEMP\Git-2.51.0-64-bit.exe"
+
+        Write-StyledMessage -Type 'Info' -Text "Download di Git da GitHub..."
+        Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
+
+        Write-StyledMessage -Type 'Info' -Text "Installazione di Git in corso..."
+        # Utilizzo del flag /SILENT per installazione non interattiva
+        $installArgs = "/SILENT /NORESTART"
+        $process = Start-Process $gitInstaller -ArgumentList $installArgs -Wait -PassThru
+
+        if ($process.ExitCode -eq 0) {
+            Write-StyledMessage -Type 'Success' -Text "Git installato con successo."
+            # Pulizia file di installazione
+            Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+            return $true
+        } else {
+            Write-StyledMessage -Type 'Error' -Text "Installazione di Git fallita. Codice di uscita: $($process.ExitCode)"
+            return $false
+        }
+    } catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione diretta di Git: $($_.Exception.Message)"
+        return $false
+    }
+}
+
 # Esecuzione delle funzioni principali
 Write-StyledMessage -Type 'Info' -Text "Avvio configurazione Win Toolkit..."
 
-# Prima installa PowerShell 7 se necessario
+# Prima installa Git se necessario
+Install-Git
+
+# Poi installa PowerShell 7 se necessario
 if (-not (Test-Path -Path "$env:ProgramFiles\PowerShell\7")) {
     Write-StyledMessage -Type 'Info' -Text "PowerShell 7 non trovato. Avvio installazione..."
     $installSuccess = Install-PowerShell7
