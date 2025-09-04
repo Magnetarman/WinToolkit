@@ -1,5 +1,5 @@
 # Win Toolkit Starter by MagnetarMan
-# Versione 1.6 - 2025-09-04
+# Versione 1.5 (Build 20) - 2025-09-04
 # Impostazione titolo finestra della console
 $Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V1.6 by MagnetarMan"
 
