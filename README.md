@@ -98,7 +98,7 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 Prima di avviare il tool, assicurati che il tuo ambiente di runtime soddisfi i seguenti requisiti:
 
-- **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script **E' fortemente consigliata la disattivazione temporanea durante le operazioni**
+- **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script. **E' fortemente consigliata la disattivazione temporanea durante le operazioni**
 - **Richiesta Connessione ad internet durante l'esecuzione del Tool**
 - Richiesto intervento manuale minimo.
 - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema)
@@ -113,7 +113,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
  irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/start.ps1 | iex
 ```
 
-1. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.0` sul desktop da cui avviare comodamente lo script in modalità amministratore.
+2. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.0` sul desktop da cui avviare comodamente lo script in modalità amministratore.
 
 ### ⚙️ Installatione Classica
 
@@ -143,7 +143,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 - [x] **`V1.0`**: <strike>Release Privata</strike>
 - [x] **`V1.1.0`**: <strike>Refactor Struttura in forma modulare.</strike>
-- [x] **`V2.0.0`**: **RELEASE Pubblica**. Refator totale progetto per future implementazioni.
+- [x] **`V2.0.0`**: <strike>**RELEASE Pubblica**. Refator totale progetto per future implementazioni.</strike>
 - [ ] **`V2.0.1`**: Finalizzazione Funzione "WinRepairToolkit".
 - [ ] **`V2.0.2`**: Finalizzazione Funzione "WinUpdateReset".
 - [ ] **`V2.0.3`**: Finalizzazione Funzione "WinReainstallStore".
