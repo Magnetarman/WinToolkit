@@ -76,53 +76,24 @@ function Center-Text {
 
 # Funzione per installare il profilo PowerShell
 function WinInstallPSProfile {
-   
-    param (
-        $PSProfile = $PROFILE
-    )
+    <#
+    .SYNOPSIS
+        Installa direttamente il profilo PowerShell di Chris Titus Tech.
+    #>
 
     function Invoke-PSSetup {
-        # URL del profilo di Chris Titus Tech
-        $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
+        Write-StyledMessage 'Info' " Installazione del profilo PowerShell in corso..." 
 
-        # Hash del profilo corrente (se esiste)
-        $OldHash = Get-FileHash $PSProfile -ErrorAction SilentlyContinue
+        # Avvia un nuovo processo pwsh che esegue lo script di setup
+        Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" -WindowStyle Hidden -Wait
 
-        # Scarica il nuovo profilo in TEMP
-        $tempProfile = "$env:TEMP/Microsoft.PowerShell_profile.ps1"
-        Invoke-RestMethod $url -OutFile $tempProfile
-
-        # Calcola hash del nuovo profilo
-        $NewHash = Get-FileHash $tempProfile
-
-        # Salva hash locale se non esiste
-        if (!(Test-Path "$PSProfile.hash")) {
-            $NewHash.Hash | Out-File "$PSProfile.hash"
-        }
-
-        # Confronta hash → aggiorna se diverso
-        if ($NewHash.Hash -ne $OldHash.Hash) {
-            # Backup vecchio profilo
-            if (Test-Path $PSProfile -and -not (Test-Path "$PSProfile.bak")) {
-                Write-Host "===> Backing Up Profile... <===" -ForegroundColor Yellow
-                Copy-Item -Path $PSProfile -Destination "$PSProfile.bak"
-                Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
-            }
-
-            # Installazione nuovo profilo
-            Write-Host "===> Installing Profile... <===" -ForegroundColor Yellow
-            Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" -WindowStyle Hidden -Wait
-
-            Write-Host "Profile has been installed. Please restart your shell to reflect the changes!" -ForegroundColor Magenta
-            Write-Host "===> Finished Profile Setup <===" -ForegroundColor Yellow
-        } else {
-            Write-Host "Profile is up to date" -ForegroundColor Magenta
-        }
+        Write-StyledMessage 'Success' "Profilo PowerShell installato con successo!"
     }
 
-    # Esegui direttamente setup (siamo su PS7)
+    # Esegui direttamente setup
     Invoke-PSSetup
 }
+
 
 # Ciclo principale del programma: mostra il menu e attende una scelta.
 # L'uso di un ciclo `while ($true)` semplifica la logica per tornare al menu principale.
