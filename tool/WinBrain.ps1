@@ -98,10 +98,10 @@ while ($true) {
 
     # --- Definizione e visualizzazione del menu ---
     $scripts = @(
-        [pscustomobject]@{ Name = 'Invoke-WinUtilInstallPSProfile'; Description = 'Installa il profilo PowerShell. - Fortemente Consigliato'; Action = 'RunFunction' }
+        [pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa il profilo PowerShell. - Fortemente Consigliato' ; Action = 'RunFunction' }
         [pscustomobject]@{ Name = 'WinRepairToolkit.ps1'; Description = 'Avvia il Toolkit di Riparazione Windows.' ; Action = 'RunFile' }
         [pscustomobject]@{ Name = 'WinUpdateReset.ps1'  ; Description = 'Esegui il Reset di Windows Update.'       ; Action = 'RunFile' }
-        [pscustomobject]@{ Name = 'WinReinstallStore.ps1'; Description = 'Reinstalla Winget ed il Windows Store.'    ; Action = 'RunFile' }
+        [pscustomobject]@{ Name = 'WinReinstallStore.ps1'; Description = 'Reinstalla Winget ed il Windows Store.'  ; Action = 'RunFile' }
         ) 
 
     Write-StyledMessage 'Warning' 'Seleziona lo script da avviare:'
@@ -155,8 +155,8 @@ while ($true) {
 }
 
 # Funzione per installare il profilo PowerShell
-function Invoke-WinUtilInstallPSProfile {
-     Write-StyledMessage -Type 'Info' -Text "Avvio configurazione profilo PowerShell 7..."
+function WinInstallPSProfile {
+     Write-StyledMessage 'Info' "Avvio configurazione profilo PowerShell 7..."
         function Invoke-PSSetup {
 
                 # Let the user know Chris Titus Tech's PowerShell profile is being installed.
