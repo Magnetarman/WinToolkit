@@ -158,6 +158,7 @@ while ($true) {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkits By MagnetarMan'
+        '       Version 2.0 (Build 35)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
