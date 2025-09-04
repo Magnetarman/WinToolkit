@@ -149,6 +149,7 @@ function Invoke-WPFTweakPS7 {
 }
 
 # Funzione per creare la scorciatoia sul desktop
+# Funzione per creare la scorciatoia sul desktop
 function ToolKit-Desktop {
     Write-StyledMessage -Type 'Info' -Text "Creazione scorciatoia sul desktop..."
     
@@ -161,9 +162,12 @@ function ToolKit-Desktop {
         $WshShell = New-Object -ComObject WScript.Shell
         $Shortcut = $WshShell.CreateShortcut($shortcutPath)
         
-        # Imposta la destinazione della scorciatoia
-        # Corretta la stringa per gestire gli apici doppi
-        $Shortcut.TargetPath = 'C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/tool/WinBrain.ps1 | iex'
+        # Imposta la destinazione del file eseguibile (TargetPath)
+        $Shortcut.TargetPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
+        
+        # Imposta gli argomenti della riga di comando (Arguments)
+        $Shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/tool/WinBrain.ps1 | iex"'
+        
         $Shortcut.Save()
         
         Write-StyledMessage -Type 'Success' -Text "Scorciatoia 'Win Toolkit.lnk' creata con successo sul desktop."
