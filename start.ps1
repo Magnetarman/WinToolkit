@@ -165,7 +165,7 @@ function ToolKit-Desktop {
         $Shortcut.TargetPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
         
         # Imposta gli argomenti della riga di comando (Arguments)
-        $Shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/tool/WinBrain.ps1 | iex"'
+        $Shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/WinBrain.ps1 | iex"'
         
         # Imposta la directory di lavoro
         $Shortcut.WorkingDirectory = "C:\Program Files\PowerShell\7"
