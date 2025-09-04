@@ -10,7 +10,7 @@
 #>
 
 # Impostazione titolo finestra della console
-$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V2.0 (Build 61) - by MagnetarMan"
+$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V2.0 (Build 64) - by MagnetarMan"
 
 # Funzione per mostrare messaggi stilizzati
 function Write-StyledMessage {
