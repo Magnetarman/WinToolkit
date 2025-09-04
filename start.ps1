@@ -1,5 +1,5 @@
 # Win Toolkit Starter by MagnetarMan
-# Versione 1.3 - 2025-09-04
+# Versione 1.4 - 2025-09-04
 # Impostazione titolo finestra della console
 $Host.UI.RawUI.WindowTitle = "Win Toolkit Starter by MagnetarMan"
 
@@ -73,12 +73,11 @@ function Install-Git {
 function Install-PowerShell7 {
     Write-StyledMessage -Type 'Info' -Text "Tentativo installazione PowerShell 7..."
     
-    # Controlla se PowerShell 7 è già installato
     if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
         Write-StyledMessage -Type 'Success' -Text "PowerShell 7 è già installato. Saltando l'installazione."
         return $true
     }
-    
+
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
         Write-StyledMessage -Type 'Info' -Text "Installazione PowerShell 7 tramite winget..."
         try {
@@ -118,7 +117,7 @@ function Install-PowerShell7 {
 function Invoke-WPFTweakPS7 {
     param ([ValidateSet("PS7", "PS5")][string]$action = "PS7")
     
-    $targetTerminalName = if ($action -eq "PS7") { "PowerShell" } else { "Windows PowerShell" }
+    $targetTerminalName = "PowerShell" # Nome corretto per PowerShell 7 in Windows Terminal
     Write-StyledMessage -Type 'Info' -Text "Configurazione Windows Terminal per $targetTerminalName..."
     
     if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
@@ -200,18 +199,17 @@ function Start-WinToolkit {
     
     $gitInstalled = Install-Git
     
-    if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
-        Write-StyledMessage -Type 'Success' -Text "PowerShell 7 già presente."
-    } else {
+    $ps7Installed = (Test-Path -Path "$env:ProgramFiles\PowerShell\7")
+    if (-not $ps7Installed) {
         $installSuccess = Install-PowerShell7
         if ($installSuccess) {
             $rebootNeeded = $true
         }
+    } else {
+        Write-StyledMessage -Type 'Success' -Text "PowerShell 7 già presente."
     }
 
     Invoke-WPFTweakPS7 -action "PS7"
-    
-    Invoke-WinUtilInstallPSProfile
     
     Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente."
     
