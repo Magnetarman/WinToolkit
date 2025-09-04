@@ -42,11 +42,11 @@
 >
 > Il ramo **Dev** ha codice e funzionalità in sviluppo attivo. **ATTENZIONE** - Utilizzare lo script presente nel ramo Dev potrebbe danneggiare il sistema.
 
-- **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato sul desktop, garantendo una tracciabilità completa delle operazioni.
-- **Ripristino di Windows Update**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi. Questo script blocca e riavvia i servizi di aggiornamento, rinomina le directory di cache e ripara il registro di sistema, garantendo che il tuo sistema possa scaricare e installare gli aggiornamenti essenziali senza intoppi.
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
-- **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato sul desktop, fornendo un riassunto chiaro e professionale delle azioni eseguite, degli errori riscontrati e dei risultati finali.
+- **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato sul desktop, garantendo una tracciabilità completa delle operazioni.
+- **Ripristino di Windows Update**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi. Questo script blocca e riavvia i servizi di aggiornamento, rinomina le directory di cache e ripara il registro di sistema, garantendo che il tuo sistema possa scaricare e installare gli aggiornamenti essenziali senza intoppi.
+- **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato nel percorso `%localappdata%\WinToolkit\logs` (Inserisci il percorso senza apici dopo aver digitato `esegui` nel menu start di windows per accedere alla cartella dei log), fornendo un riassunto chiaro e professionale delle azioni eseguite, degli errori riscontrati e dei risultati finali.
 
 ### Perché usare WinToolkit?
 
@@ -123,13 +123,12 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 Prima di avviare il tool, assicurati che il tuo ambiente di runtime soddisfi i seguenti requisiti:
 
-- **Git**: Necessita di git installato e configurato altrimenti il comando `git clone` non funzionerà.
 - **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script **E' fortemente consigliata la disattivazione temporanea durante le operazioni**
 - **Richiesta Connessione ad internet durante l'esecuzione del Tool**
 - Richiesto intervento manuale minimo.
 - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema)
 
-### ⚙️ Installatione **Consigliata**
+### ⚙️ Installatione per Neofiti **Consigliata**
 
 Avvia il Toolkit eseguendo il seguente metodo:
 
@@ -139,23 +138,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
  irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/start.ps1 | iex
 ```
 
-2. Al riavvio Clona la repository WinToolkit inserendo questo comando nel terminale:
-
-```powershell
- git clone https://github.com/Magnetarman/WinToolkit
-```
-
-3. Utilizza il terminale per Navigare fino alla cartella:
-
-```powershell
- cd WinToolkit/tool
-```
-
-3. Lancia il Toolkit:
-
-```powershell
- ./WinBrain.ps1
-```
+1. Al riavvio del tuo PC troverai la scorciatoia `Win Util` sul desktop da cui avviare comodamente lo script.
 
 ### ⚙️ Installatione Classica
 
