@@ -1,14 +1,15 @@
 <#
 .SYNOPSIS
-    Un toolkit di avvio per eseguire script di manutenzione di Windows.
+    Un toolkit per eseguire script di manutenzione e gestione di Windows.
 .DESCRIPTION
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
   Versione 2.0 (Build 61) - 2025-09-04
 #>
+
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
-$Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
+$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan v2.0 (Build 61)"
 
 # Imposta una gestione degli errori più rigorosa per lo script.
 # 'Stop' interrompe l'esecuzione in caso di errore, permettendo una gestione controllata tramite try/catch.
@@ -226,7 +227,7 @@ while ($true) {
         '   \ V  V /   | || |\  |'
         '    \_/\_/    |_||_| \_|'
         ''
-        '    Toolkits By MagnetarMan'
+        '    Toolkit By MagnetarMan'
         '      Version 2.0 (Build 61)'
     )
     foreach ($line in $asciiArt) {
