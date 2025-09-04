@@ -1,5 +1,5 @@
 <p align="center">
-	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/banner.png" alt="WinToolkit-banner" width="800">
+	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/Banner.png" alt="WinToolkit-banner" width="800">
 </p>
 <br>
 <p align="center">
@@ -62,37 +62,54 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 ```sh
 └── WinToolkit/
+    └── img
+        ├── Banner.png
+        ├── RepairToolkit.png
+        ├── Run.png
+    └── tool
+        ├── WinBrain.ps1
+        ├── WinReinstallStore.ps1
+        ├── WinRepairToolkit.ps1
     ├── LICENSE
     ├── README.md
-    ├── run.ps1
-    ├── WinRepairToolkit.ps1
-    └── WinUpdateReset.ps1
+    └── start.ps1
 ```
 
 ### 📂 Index Progetto
 
 <details open>
-	<summary><b><code>WinToolkit/</code></b></summary>
-	<details> <!-- __root__ Submodule -->
+	<summary><b><code>WinToolKit</code></b></summary>
+	<details>
 		<summary><b>__root__</b></summary>
 		<blockquote>
 			<table>
-			<tr>
-				<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/run.ps1'>run.sh</a></b></td>
-				<td><code>❯ Script di avvio generale. Segui le istruzioni per eseguire le varie funzioni del Tool.</code></td>
-			</tr>
-            <tr>
-				<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/WinReinstallStore.ps1'>WinReinstallStore.ps1</a></b></td>
-				<td><code>❯ Effettua un controllo in cerca di errori e tenta il ripristino di Winget (Installatore Paccheti Windows, simile ad APT per Ubuntu), effettua anche il ripristino dello store Microsoft in caso di errori o installazioni danneggiate.</code></td>
-			</tr>
-             <tr>
-				<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/WinRepairToolkit.ps1'>WinRepairToolkit.ps1</a></b></td>
-				<td><code>❯ Esegue una scansione generale del sistema tramite i tool microsoft DISM, CHKDSK e SCAN. Esegue Controllo disco, Ripristino immagine Windows, Pulizia Residui Aggiornamenti, Controllo file di sistema.</code></td>
-			</tr>
-                 <tr>
-				<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/WinUpdateReset.ps1'>WinUpdateReset.ps1</a></b></td>
-				<td><code>❯ Resetta alle impostazioni di fabbrica Windows Update, risolvendo la maggior parte dei problemi legati all'aggiornamento di Windows.</code></td>
-			</tr>
+				<tr>
+					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/start.ps1'>start.ps1</a></b></td>
+					<td><code>❯ Script di Start. Installa tutto il necessario automaticamente per far funzionare al meglio il ToolKit.</code></td>
+				</tr>
+			</table>
+		</blockquote>
+	</details>
+	<details>
+		<summary><b>tool</b></summary>
+		<blockquote>
+			<table>
+				<tr>
+					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/tool/WinBrain.ps1'>WinBrain.ps1</a></b></td>
+					<td><code>❯ Script generale del Toolkit.</code></td>
+				</tr>
+				<tr>
+					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/tool/WinReinstallStore.ps1'>WinReinstallStore.ps1</a></b></td>
+					<td><code>❯ Script che reinstalla Winget (Gestore Pacchetti Windows) ed il Windows Store.</code></td>
+				</tr>
+				<tr>
+					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/tool/WinRepairToolkit.ps1'>WinRepairToolkit.ps1</a></b></td>
+					<td><code>❯ Toolkit per la riparazione di windows.</code></td>
+				</tr>
+				<tr>
+					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/tool/WinUpdateReset.ps1'>WinUpdateReset.ps1</a></b></td>
+					<td><code>❯ Toolkit di reset del sistema Windows Update.</code></td>
+				</tr>
 			</table>
 		</blockquote>
 	</details>
@@ -107,32 +124,59 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 Prima di avviare il tool, assicurati che il tuo ambiente di runtime soddisfi i seguenti requisiti:
 
 - **Git**: Necessita di git installato e configurato altrimenti il comando `git clone` non funzionerà.
-- Windows Defender di 24H2 potrebbe rilevare come pericoloso questo script **E' fortemente consigliata la disattivazione temporanea durante le operazioni**
-- **Se non hai git installato** _[Clicca QUI](https://github.com/Magnetarman/WinToolkit/archive/refs/heads/main.zip)_ Per scaricare l'archivio zip con il tool.
+- **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script **E' fortemente consigliata la disattivazione temporanea durante le operazioni**
 - **Richiesta Connessione ad internet durante l'esecuzione del Tool**
 - Richiesto intervento manuale minimo.
 - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema)
 
-### ⚙️ Installatione
+### ⚙️ Installatione **Consigliata**
+
+Avvia il Toolkit eseguendo il seguente metodo:
+
+1. Avvia Powershell in modalità Amministratore ed inserisci il comando per avviare lo script di start:
+
+```powershell
+ irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/start.ps1 | iex
+```
+
+2. Al riavvio Clona la repository WinToolkit inserendo questo comando nel terminale:
+
+```powershell
+ git clone https://github.com/Magnetarman/WinToolkit
+```
+
+3. Utilizza il terminale per Navigare fino alla cartella:
+
+```powershell
+ cd WinToolkit/tool
+```
+
+3. Lancia il Toolkit:
+
+```powershell
+ ./WinBrain.ps1
+```
+
+### ⚙️ Installatione Classica
 
 Avvia il Toolkit eseguendo il seguente metodo:
 
 1. Clona la repository WinToolkit:
 
 ```powershell
-❯ git clone https://github.com/Magnetarman/WinToolkit
+ git clone https://github.com/Magnetarman/WinToolkit
 ```
 
 2. Utilizza il terminale per Navigare fino alla cartella:
 
 ```powershell
-❯ cd WinToolkit
+ cd WinToolkit/tool
 ```
 
 3. Lancia il Toolkit:
 
 ```powershell
-❯ ./run.ps1
+ ./WinBrain.ps1
 ```
 
 ---
@@ -161,6 +205,8 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [ ] Reinstallazione Installazione Store & Winget
 - [ ] Reset Rust Desk
 - [ ] Installazione e/o Aggiornamento Directx e librerie per il Gaming
+  - [ ] Installazione client di gioco
+  - [ ] Installazione Playnite ed applicazione Tema personalizzato
 - [ ] Download immagine di Windows 23H2 Microwin
   - [ ] Posizionamento nella cartella download, pronta per essere utilizzata
 
