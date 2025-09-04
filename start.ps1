@@ -212,6 +212,27 @@ function Start-WinToolkit {
     Invoke-WPFTweakPS7 -action "PS7"
     
     Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente."
+    function ToolKit-Desktop {
+    Write-StyledMessage -Type 'Info' -Text "Creazione scorciatoia sul desktop..."
+    
+    try {
+        # Determina il percorso del desktop dell'utente corrente
+        $desktopPath = [System.Environment]::GetFolderPath('Desktop')
+        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit.lnk"
+        
+        # Crea un oggetto WScript.Shell per la creazione della scorciatoia
+        $WshShell = New-Object -ComObject WScript.Shell
+        $Shortcut = $WshShell.CreateShortcut($shortcutPath)
+        
+        # Imposta la destinazione della scorciatoia
+        $Shortcut.TargetPath = ""C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/tool/WinBrain.ps1 | iex""
+        $Shortcut.Save()
+        
+        Write-StyledMessage -Type 'Success' -Text "Scorciatoia 'Win Toolkit.lnk' creata con successo sul desktop."
+    } catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore durante la creazione della scorciatoia: $($_.Exception.Message)"
+    }
+}
     
     if ($rebootNeeded) {
         Write-StyledMessage -Type 'Warning' -Text "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche"
