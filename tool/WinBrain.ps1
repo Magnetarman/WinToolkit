@@ -3,8 +3,10 @@
     Un toolkit di avvio per eseguire script di manutenzione di Windows.
 .DESCRIPTION
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
+    Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
+.NOTES
+  Versione 2.0 (Build 30) - 2025-09-04
 #>
-
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
 
@@ -21,6 +23,75 @@ try {
 } catch {
     # Gestione errori silenziosa per compatibilità
 }
+
+# Funzione per installare il profilo PowerShell
+function Invoke-WinUtilInstallPSProfile {
+    Write-StyledMessage -Type 'Info' -Text "Avvio configurazione profilo PowerShell 7..."
+    
+        # Define the URL used to download Chris Titus Tech's PowerShell profile.
+            $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
+
+            # Check if PowerShell Core (pwsh) is installed and available as a command.
+            if (Get-Command "pwsh" -ErrorAction SilentlyContinue) {
+                # Get the file hash for the user's current PowerShell profile.
+                $OldHash = Get-FileHash $PSProfile -ErrorAction SilentlyContinue
+
+                # Download Chris Titus Tech's PowerShell profile to the 'TEMP' folder.
+                Invoke-RestMethod $url -OutFile "$env:TEMP/Microsoft.PowerShell_profile.ps1"
+
+                # Get the file hash for Chris Titus Tech's PowerShell profile.
+                $NewHash = Get-FileHash "$env:TEMP/Microsoft.PowerShell_profile.ps1"
+
+                # Check if the new profile's hash doesn't match the old profile's hash.
+                if ($NewHash.Hash -ne $OldHash.Hash) {
+                    # Store the file hash of Chris Titus Tech's PowerShell profile.
+                    # This is now done unconditionally to ensure the 'up to date' check works on subsequent runs.
+                    $NewHash.Hash | Out-File "$PSProfile.hash"
+
+                    # Check if oldprofile.ps1 exists and use it as a profile backup source.
+                    if (Test-Path "$env:USERPROFILE\oldprofile.ps1") {
+                        Write-Host "===> Backup File Exists... <===" -ForegroundColor Yellow
+                        Write-Host "===> Moving Backup File... <===" -ForegroundColor Yellow
+                        Copy-Item "$env:USERPROFILE\oldprofile.ps1" "$PSProfile.bak"
+                        Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
+                    } else {
+                        # If oldprofile.ps1 does not exist use $PSProfile as a profile backup source.
+                        # Check if the profile backup file has not already been created on the disk.
+                        if ((Test-Path $PSProfile) -and (-not (Test-Path "$PSProfile.bak"))) {
+                            # Let the user know their PowerShell profile is being backed up.
+                            Write-Host "===> Backing Up Profile... <===" -ForegroundColor Yellow
+
+                            # Copy the user's current PowerShell profile to the backup file path.
+                            Copy-Item -Path $PSProfile -Destination "$PSProfile.bak"
+
+                            # Let the user know the profile backup has been completed successfully.
+                            Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
+                        }
+                    }
+
+                    # Let the user know Chris Titus Tech's PowerShell profile is being installed.
+                    Write-Host "===> Installing Profile... <===" -ForegroundColor Yellow
+
+                    # Start a new hidden PowerShell instance because setup.ps1 does not work in runspaces.
+                    Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest `'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1`')`"" -WindowStyle Hidden -Wait
+
+                    # Let the user know Chris Titus Tech's PowerShell profile has been installed successfully.
+                    Write-Host "Profile has been installed. Please restart your shell to reflect the changes!" -ForegroundColor Magenta
+
+                    # Let the user know Chris Titus Tech's PowerShell profile has been setup successfully.
+                    Write-Host "===> Finished Profile Setup <===" -ForegroundColor Yellow
+                } else {
+                    # Let the user know Chris Titus Tech's PowerShell profile is already fully up-to-date.
+                    Write-Host "Profile is up to date" -ForegroundColor Magenta
+                }
+            } else {
+                # Let the user know that the profile requires PowerShell Core but it is not currently installed.
+                Write-Host "This profile requires Powershell Core, which is currently not installed!" -ForegroundColor Red
+            }
+        }
+}
+
+
 
 function Write-StyledMessage {
     <#
@@ -95,10 +166,11 @@ while ($true) {
 
     # --- Definizione e visualizzazione del menu ---
     $scripts = @(
-        [pscustomobject]@{ Name = 'WinRepairToolkit.ps1'; Description = 'Avvia il Toolkit di Riparazione Windows.' }
-        [pscustomobject]@{ Name = 'WinUpdateReset.ps1'  ; Description = 'Esegui il Reset di Windows Update.' }
-        [pscustomobject]@{ Name = 'WinReinstallStore.ps1'  ; Description = 'Reinstalla Winget ed il Windows Store.' }
-    )
+        [pscustomobject]@{ Name = 'Invoke-WinUtilInstallPSProfile'; Description = 'Installa il profilo PowerShell. - Fortemente Consigliato'    ; Action = 'RunFunction' }
+        [pscustomobject]@{ Name = 'WinRepairToolkit.ps1'; Description = 'Avvia il Toolkit di Riparazione Windows.' ; Action = 'RunFile' }
+        [pscustomobject]@{ Name = 'WinUpdateReset.ps1'  ; Description = 'Esegui il Reset di Windows Update.'       ; Action = 'RunFile' }
+        [pscustomobject]@{ Name = 'WinReinstallStore.ps1'; Description = 'Reinstalla Winget ed il Windows Store.'    ; Action = 'RunFile' }
+        ) 
 
     Write-StyledMessage 'Warning' 'Seleziona lo script da avviare:'
     for ($i = 0; $i -lt $scripts.Count; $i++) {
@@ -120,22 +192,24 @@ while ($true) {
     # Verifica se l'input è un numero valido e rientra nel range delle opzioni.
     if (($userChoice -match '^\d+$') -and ([int]$userChoice -ge 1) -and ([int]$userChoice -le $scripts.Count)) {
         $selectedIndex = [int]$userChoice - 1
-        $selectedScript = $scripts[$selectedIndex]
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath $selectedScript.Name
+        $selectedItem = $scripts[$selectedIndex]
 
-        if (Test-Path $scriptPath) {
-            Write-StyledMessage 'Info' "Avvio di '$($selectedScript.Description)'..."
-            try {
-                # Esegue lo script selezionato.
-                & $scriptPath
-            }
-            catch {
-                Write-StyledMessage 'Error' "Si è verificato un errore durante l'esecuzione di '$($selectedScript.Name)'."
-                Write-StyledMessage 'Error' "Dettagli: $($_.Exception.Message)"
+        Write-StyledMessage 'Info' "Avvio di '$($selectedItem.Description)'..."
+        try {
+            if ($selectedItem.Action -eq 'RunFile') {
+                $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath $selectedItem.Name
+                if (Test-Path $scriptPath) {
+                    & $scriptPath
+                } else {
+                    Write-StyledMessage 'Error' "Script '$($selectedItem.Name)' non trovato nella directory '$($PSScriptRoot)'."
+                }
+            } elseif ($selectedItem.Action -eq 'RunFunction') {
+                Invoke-Expression "$($selectedItem.Name)"
             }
         }
-        else {
-            Write-StyledMessage 'Error' "Script '$($selectedScript.Name)' non trovato nella directory '$($PSScriptRoot)'."
+        catch {
+            Write-StyledMessage 'Error' "Si è verificato un errore durante l'esecuzione dell'opzione selezionata."
+            Write-StyledMessage 'Error' "Dettagli: $($_.Exception.Message)"
         }
         
         # Pausa prima di tornare al menu principale
@@ -146,4 +220,4 @@ while ($true) {
         Write-StyledMessage 'Error' 'Scelta non valida. Riprova.'
         Start-Sleep -Seconds 2
     }
-} # Fine del ciclo while
+}
