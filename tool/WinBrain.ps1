@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 53) - 2025-09-04
+  Versione 2.0 (Build 54) - 2025-09-04
 #>
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
@@ -80,27 +80,91 @@ function WinInstallPSProfile {
     .SYNOPSIS
         Installa il profilo PowerShell di Chris Titus Tech.
     #>
-
+    
     Write-StyledMessage 'Info' "Installazione del profilo PowerShell in corso..."
-
-    # URL dello script di setup
-    $setupUrl = 'https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1'
-
+    
+    # URL del profilo e dello script di setup
+    $profileUrl = 'https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1'
+    $setupUrl = 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1'
+    
     try {
-        # Esegui direttamente lo script in un nuovo processo pwsh
+        # Verifica se PowerShell 7+ è disponibile
+        if (-not (Get-Command "pwsh" -ErrorAction SilentlyContinue)) {
+            Write-StyledMessage 'Error' "Questo profilo richiede PowerShell Core, che non è attualmente installato!"
+            return
+        }
+        
+        # Verifica la versione di PowerShell
+        if ($PSVersionTable.PSVersion.Major -lt 7) {
+            Write-StyledMessage 'Warning' "Questo profilo richiede PowerShell 7 o superiore. Versione attuale: $($PSVersionTable.PSVersion)"
+            
+            # Chiedi conferma per procedere comunque
+            $choice = Read-Host "Vuoi procedere comunque con l'installazione per PowerShell 7? (S/N)"
+            if ($choice -notmatch '^[SsYy]') {
+                Write-StyledMessage 'Info' "Installazione annullata dall'utente."
+                return
+            }
+        }
+        
+        # Ottieni l'hash del profilo corrente (se esiste)
+        $currentProfile = $PROFILE
+        $oldHash = $null
+        if (Test-Path $currentProfile) {
+            $oldHash = Get-FileHash $currentProfile -ErrorAction SilentlyContinue
+        }
+        
+        # Scarica il nuovo profilo nella cartella TEMP per confronto
+        $tempProfile = "$env:TEMP\Microsoft.PowerShell_profile.ps1"
+        Invoke-RestMethod $profileUrl -OutFile $tempProfile -UseBasicParsing
+        
+        # Ottieni l'hash del nuovo profilo
+        $newHash = Get-FileHash $tempProfile
+        
+        # Controlla se il profilo è già aggiornato
+        if ($oldHash -and $newHash.Hash -eq $oldHash.Hash) {
+            Write-StyledMessage 'Info' "Il profilo è già aggiornato alla versione più recente."
+            Remove-Item $tempProfile -Force
+            return
+        }
+        
+        # Backup del profilo esistente
+        if ((Test-Path $currentProfile) -and (-not (Test-Path "$currentProfile.bak"))) {
+            Write-StyledMessage 'Info' "Backup del profilo esistente in corso..."
+            Copy-Item -Path $currentProfile -Destination "$currentProfile.bak" -Force
+            Write-StyledMessage 'Success' "Backup del profilo completato."
+        }
+        
+        # Esegui lo script di setup di Chris Titus Tech
+        Write-StyledMessage 'Info' "Esecuzione dello script di installazione..."
+        
+        $setupCommand = "Invoke-Expression (Invoke-WebRequest '$setupUrl' -UseBasicParsing).Content"
+        
         Start-Process -FilePath "pwsh" `
                       -ArgumentList @(
                           "-ExecutionPolicy", "Bypass",
                           "-NoProfile",
-                          "-Command", "Invoke-Expression (Invoke-WebRequest '$setupUrl' -UseBasicParsing).Content"
+                          "-Command", $setupCommand
                       ) `
                       -WindowStyle Hidden -Wait
-
+        
+        # Salva l'hash del nuovo profilo per confronti futuri
+        $hashFile = "$currentProfile.hash"
+        $newHash.Hash | Out-File $hashFile -Force
+        
+        # Pulisci il file temporaneo
+        Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
+        
         Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
         Write-StyledMessage 'Warning' "Riavvia PowerShell per applicare il nuovo profilo."
+        
     }
     catch {
         Write-StyledMessage 'Error' "Errore durante l'installazione del profilo: $($_.Exception.Message)"
+        
+        # Pulisci i file temporanei in caso di errore
+        if (Test-Path "$env:TEMP\Microsoft.PowerShell_profile.ps1") {
+            Remove-Item "$env:TEMP\Microsoft.PowerShell_profile.ps1" -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -122,7 +186,7 @@ while ($true) {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkits By MagnetarMan'
-        '      Version 2.0 (Build 53)'
+        '      Version 2.0 (Build 54)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
