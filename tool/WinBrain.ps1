@@ -81,6 +81,24 @@ function WinInstallPSProfile {
         Installa il profilo PowerShell di Chris Titus Tech.
     #>
     
+    # Controlla se lo script è eseguito come amministratore
+    if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+        Write-StyledMessage 'Warning' "L'installazione del profilo PowerShell richiede privilegi di amministratore."
+        Write-StyledMessage 'Info' "Riavvio come amministratore..."
+        
+        # Rilancia lo script corrente come amministratore
+        try {
+            $arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"& { WinInstallPSProfile }`""
+            Start-Process PowerShell -Verb RunAs -ArgumentList $arguments
+            return
+        }
+        catch {
+            Write-StyledMessage 'Error' "Impossibile elevare i privilegi: $($_.Exception.Message)"
+            Write-StyledMessage 'Error' "Esegui PowerShell come amministratore e riprova."
+            return
+        }
+    }
+    
     Write-StyledMessage 'Info' "Installazione del profilo PowerShell in corso..."
     
     try {
