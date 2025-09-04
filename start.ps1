@@ -320,12 +320,17 @@ Write-StyledMessage -Type 'Info' -Text "Avvio configurazione Win Toolkit..."
 # Prima installa Git se necessario
 Install-Git
 
+# Variabile per tracciare se è necessario il riavvio
+$rebootNeeded = $false
+
 # Poi installa PowerShell 7 se necessario
 if (-not (Test-Path -Path "$env:ProgramFiles\PowerShell\7")) {
     Write-StyledMessage -Type 'Info' -Text "PowerShell 7 non trovato. Avvio installazione..."
     $installSuccess = Install-PowerShell7
     if ($installSuccess) {
         Write-StyledMessage -Type 'Success' -Text "PowerShell 7 installato con successo."
+        # Imposta la variabile per indicare che il riavvio è necessario
+        $rebootNeeded = $true
     } else {
         Write-StyledMessage -Type 'Error' -Text "Installazione PowerShell 7 fallita."
     }
@@ -343,25 +348,31 @@ Invoke-WinUtilInstallPSProfile
 
 # Messaggio di completamento
 Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente"
-Write-StyledMessage -Type 'Warning' -Text "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche"
 
-# Countdown per il riavvio
-Write-StyledMessage -Type 'Info' -Text "Preparazione al riavvio del sistema..."
-for ($i = 10; $i -gt 0; $i--) {
-    Write-Host "Preparazione sistema al riavvio - $i secondi..." -NoNewline -ForegroundColor Yellow
-    Write-Host "`r" -NoNewline
-    Start-Sleep 1
+# Esegui il riavvio solo se l'installazione di PowerShell 7 è avvenuta in questa sessione
+if ($rebootNeeded) {
+    Write-StyledMessage -Type 'Warning' -Text "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche"
+
+    # Countdown per il riavvio
+    Write-StyledMessage -Type 'Info' -Text "Preparazione al riavvio del sistema..."
+    for ($i = 10; $i -gt 0; $i--) {
+        Write-Host "Preparazione sistema al riavvio - $i secondi..." -NoNewline -ForegroundColor Yellow
+        Write-Host "`r" -NoNewline
+        Start-Sleep 1
+    }
+
+    Write-StyledMessage -Type 'Info' -Text "Riavvio in corso..."
+
+    # Arresto trascrizione prima del riavvio
+    try {
+        Stop-Transcript | Out-Null
+        Write-StyledMessage -Type 'Success' -Text "Trascrizione del log salvata in: $logdir\WinToolkit_$dateTime.log"
+    } catch {
+        # Gestione errori silenziosa
+    }
+
+    # Riavvio del sistema
+    Restart-Computer -Force
+} else {
+    Write-StyledMessage -Type 'Info' -Text "Non è necessario riavviare il sistema in quanto PowerShell 7 era già installato."
 }
-
-Write-StyledMessage -Type 'Info' -Text "Riavvio in corso..."
-
-# Arresto trascrizione prima del riavvio
-try {
-    Stop-Transcript | Out-Null
-    Write-StyledMessage -Type 'Success' -Text "Trascrizione del log salvata in: $logdir\WinToolkit_$dateTime.log"
-} catch {
-    # Gestione errori silenziosa
-}
-
-# Riavvio del sistema
-Restart-Computer -Force
