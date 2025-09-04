@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 34) - 2025-09-04
+  Versione 2.0 (Build 35) - 2025-09-04
 #>
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
@@ -33,12 +33,10 @@ function Invoke-WinUtilInstallPSProfile {
 
     # Check if PowerShell Core (pwsh) is installed and available as a command.
     if (Get-Command "pwsh" -ErrorAction SilentlyContinue) {
-        # Get the file hash for the user's current PowerShell profile.
-        # Check if the profile file exists before trying to get its hash.
-        $OldHash = if (Test-Path $PSProfile) {
-            Get-FileHash $PSProfile -ErrorAction SilentlyContinue
-        } else {
-            $null
+        # Get the file hash for the user's current PowerShell profile, but only if the file exists.
+        $OldHash = $null
+        if (Test-Path $PSProfile) {
+            $OldHash = Get-FileHash $PSProfile -ErrorAction SilentlyContinue
         }
 
         # Download Chris Titus Tech's PowerShell profile to the 'TEMP' folder.
@@ -48,9 +46,9 @@ function Invoke-WinUtilInstallPSProfile {
         $NewHash = Get-FileHash "$env:TEMP/Microsoft.PowerShell_profile.ps1"
 
         # Check if the new profile's hash doesn't match the old profile's hash.
+        # This check now also correctly handles the case where $OldHash is null.
         if ($NewHash.Hash -ne $OldHash.Hash) {
             # Store the file hash of Chris Titus Tech's PowerShell profile.
-            # This is now done unconditionally to ensure the 'up to date' check works on subsequent runs.
             $NewHash.Hash | Out-File "$PSProfile.hash"
 
             # Check if oldprofile.ps1 exists and use it as a profile backup source.
