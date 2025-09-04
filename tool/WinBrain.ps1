@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 36) - 2025-09-04
+  Versione 2.0 (Build 37) - 2025-09-04
 #>
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
@@ -31,15 +31,24 @@ function Invoke-WinUtilInstallPSProfile {
     # Define the URL used to download Chris Titus Tech's PowerShell profile.
     $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
 
+    # Define the path to the PowerShell profile to make sure it's not null.
+    $profilePath = "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+    $profileDir = Split-Path -Path $profilePath -Parent
+    
     # Check if PowerShell Core (pwsh) is installed and available as a command.
     if (Get-Command "pwsh" -ErrorAction SilentlyContinue) {
-        # Get the file hash for the user's current PowerShell profile, but only if the file exists and the variable is not null.
+        # Ensure the directory for the new profile exists.
+        if (-not (Test-Path $profileDir)) {
+            Write-StyledMessage -Type 'Info' -Text "Creazione della directory del profilo: $profileDir"
+            New-Item -Path $profileDir -ItemType Directory -Force | Out-Null
+        }
+        
+        # Get the file hash for the user's current PowerShell profile, but only if the file exists.
         $OldHash = $null
-        if ($PSProfile -and (Test-Path $PSProfile)) {
+        if (Test-Path $profilePath) {
             try {
-                $OldHash = Get-FileHash $PSProfile -ErrorAction SilentlyContinue
+                $OldHash = Get-FileHash $profilePath -ErrorAction SilentlyContinue
             } catch {
-                # Handle cases where the path exists but might be inaccessible.
                 Write-StyledMessage -Type 'Warning' -Text "Impossibile ottenere l'hash del profilo esistente. Proveremo a reinstallare."
             }
         }
@@ -60,24 +69,15 @@ function Invoke-WinUtilInstallPSProfile {
         if (-not $OldHash -or ($NewHash.Hash -ne $OldHash.Hash)) {
             Write-StyledMessage -Type 'Info' -Text "Il profilo non esiste o non è aggiornato. Installazione in corso."
             
-            # Ensure the directory for the new profile exists.
-            $profileDir = Split-Path -Path $PSProfile -Parent
-            if (-not (Test-Path $profileDir)) {
-                New-Item -Path $profileDir -ItemType Directory -Force | Out-Null
-            }
-
-            # Store the file hash of Chris Titus Tech's PowerShell profile.
-            $NewHash.Hash | Out-File "$PSProfile.hash"
-
             # Perform profile backup logic.
             if (Test-Path "$env:USERPROFILE\oldprofile.ps1") {
                 Write-Host "===> Backup File Exists... <===" -ForegroundColor Yellow
                 Write-Host "===> Moving Backup File... <===" -ForegroundColor Yellow
-                Copy-Item "$env:USERPROFILE\oldprofile.ps1" "$PSProfile.bak"
+                Copy-Item "$env:USERPROFILE\oldprofile.ps1" "$profilePath.bak"
                 Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
-            } elseif ((Test-Path $PSProfile) -and (-not (Test-Path "$PSProfile.bak"))) {
+            } elseif ((Test-Path $profilePath) -and (-not (Test-Path "$profilePath.bak"))) {
                 Write-Host "===> Backing Up Profile... <===" -ForegroundColor Yellow
-                Copy-Item -Path $PSProfile -Destination "$PSProfile.bak"
+                Copy-Item -Path $profilePath -Destination "$profilePath.bak"
                 Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
             }
 
@@ -101,6 +101,7 @@ function Invoke-WinUtilInstallPSProfile {
         Write-Host "This profile requires Powershell Core, which is currently not installed!" -ForegroundColor Red
     }
 }
+
 
 function Write-StyledMessage {
     <#
@@ -167,7 +168,7 @@ while ($true) {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkits By MagnetarMan'
-        '       Version 2.0 (Build 36)'
+        '       Version 2.0 (Build 37)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
