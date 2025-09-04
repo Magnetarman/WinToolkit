@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 39) - 2025-09-04
+  Versione 2.0 (Build 40) - 2025-09-04
 #>
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
@@ -39,7 +39,13 @@ function Invoke-WinUtilInstallPSProfile {
         function Invoke-PSSetup {
             # Define the URL used to download Chris Titus Tech's PowerShell profile.
             $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
-
+    
+            # Ensure the profile directory exists
+            $profileDir = Split-Path -Parent $PSProfile
+            if (!(Test-Path $profileDir)) {
+                New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+            }
+    
             # Get the file hash for the user's current PowerShell profile.
             $OldHash = Get-FileHash $PSProfile -ErrorAction SilentlyContinue
 
@@ -256,7 +262,7 @@ while ($true) {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkits By MagnetarMan'
-        '      Version 2.0 (Build 39)'
+        '      Version 2.0 (Build 40)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
