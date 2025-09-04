@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 51) - 2025-09-04
+  Versione 2.0 (Build 52) - 2025-09-04
 #>
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
@@ -78,61 +78,32 @@ function Center-Text {
 function WinInstallPSProfile {
     <#
     .SYNOPSIS
-        Installa il profilo PowerShell di Chris Titus Tech eseguendo il setup
-        in un processo figlio e, se necessario, scrivendo direttamente il profilo.
+        Installa il profilo PowerShell di Chris Titus Tech.
     #>
-    [CmdletBinding()]
-    param(
-        [string]$PSProfile = $PROFILE
-    )
 
-    Write-StyledMessage 'Info' "Preparazione installazione profilo..."
+    Write-StyledMessage 'Info' "Installazione del profilo PowerShell in corso..."
 
-    # 1) Assicura che la directory del profilo esista
-    $profileDir = Split-Path -Parent $PSProfile
-    if (-not (Test-Path $profileDir)) {
-        New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
-    }
-
-    # 2) Determina il percorso di pwsh.exe in modo affidabile
-    try {
-        $pwshExe = (Get-Command 'pwsh' -ErrorAction Stop).Source
-    } catch {
-        $pwshExe = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
-        if (-not (Test-Path $pwshExe)) {
-            Write-StyledMessage 'Error' "Impossibile trovare 'pwsh'. Installa PowerShell 7 o aggiungilo al PATH."
-            return
-        }
-    }
-   
+    # URL dello script di setup
     $setupUrl = 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1'
-    $command  = "Invoke-Expression (Invoke-WebRequest '$setupUrl')"
 
     try {
-        # equivalente al tuo Start-Process con quoting più robusto
-        Start-Process -FilePath $pwshExe `
-                      -ArgumentList @('-ExecutionPolicy','Bypass','-NoProfile','-Command', $command) `
+        # Esegui direttamente lo script in un nuovo processo pwsh
+        Start-Process -FilePath "pwsh" `
+                      -ArgumentList @(
+                          "-ExecutionPolicy", "Bypass",
+                          "-NoProfile",
+                          "-Command", "Invoke-Expression (Invoke-WebRequest '$setupUrl' -UseBasicParsing).Content"
+                      ) `
                       -WindowStyle Hidden -Wait
-        Write-StyledMessage 'Info' "Setup eseguito. Verifica del profilo in corso..."
-    } catch {
-        Write-StyledMessage 'Warning' "Esecuzione setup fallita: $($_.Exception.Message). Procedo con installazione diretta del profilo."
-    }
 
-    # 4) Verifica che il profilo esista; se non c'è, scarica direttamente il profilo raw
-    if (-not (Test-Path $PSProfile) -or ((Get-Item $PSProfile).Length -eq 0)) {
-        try {
-            $profileRawUrl = 'https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1'
-            Invoke-RestMethod -Uri $profileRawUrl -OutFile $PSProfile -ErrorAction Stop
-            Write-StyledMessage 'Info' "Profilo scritto direttamente in: $PSProfile"
-        } catch {
-            Write-StyledMessage 'Error' "Impossibile scrivere il profilo in $PSProfile: $($_.Exception.Message)"
-            return
-        }
+        Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
+        Write-StyledMessage 'Warning' "Riavvia PowerShell per applicare il nuovo profilo."
     }
-
-    Write-StyledMessage 'Success' "Profilo installato correttamente in: $PSProfile"
-    Write-StyledMessage 'Warning' "Chiudi e riapri PowerShell per applicare il nuovo profilo."
+    catch {
+        Write-StyledMessage 'Error' "Errore durante l'installazione del profilo: $($_.Exception.Message)"
+    }
 }
+
 
 
 
@@ -151,7 +122,7 @@ while ($true) {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkits By MagnetarMan'
-        '      Version 2.0 (Build 51)'
+        '      Version 2.0 (Build 52)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
