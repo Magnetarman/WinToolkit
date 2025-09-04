@@ -1,5 +1,5 @@
 # Win Toolkit Starter by MagnetarMan
-
+# Versione 1.2 - 2024-06-15
 # Impostazione titolo finestra della console
 $Host.UI.RawUI.WindowTitle = "Win Toolkit Starter by MagnetarMan"
 
@@ -185,49 +185,51 @@ function Invoke-WinUtilInstallPSProfile {
         Installa automaticamente il profilo PowerShell di Chris Titus Tech per PowerShell 7
     #>
     
-    function Invoke-PSSetup {
-        $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/setup.ps1"
-        $setupFile = "$env:TEMP\setup.ps1"
+    $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/setup.ps1"
+    $setupFile = "$env:TEMP\setup.ps1"
+    
+    try {
+        # Scarica lo script di setup in un file temporaneo
+        Write-StyledMessage -Type 'Info' -Text "Download dello script di installazione del profilo..."
+        Invoke-WebRequest -Uri $url -OutFile $setupFile -UseBasicParsing
         
+        # Determina il percorso del profilo PowerShell 7
+        $ps7ProfilePath = "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+        
+        # Crea la directory se non esiste
+        $ps7ProfileDir = Split-Path $ps7ProfilePath -Parent
+        if (!(Test-Path $ps7ProfileDir)) {
+            New-Item -ItemType Directory -Path $ps7ProfileDir -Force | Out-Null
+            Write-StyledMessage -Type 'Info' -Text "Creata directory profilo PowerShell 7: $ps7ProfileDir"
+        }
+        
+        Write-StyledMessage -Type 'Info' -Text "Installazione del profilo PowerShell 7 in corso..."
+        
+        # Esegui lo script di setup utilizzando un blocco try/catch per gestire gli errori
         try {
-            Write-StyledMessage -Type 'Info' -Text "Download dello script di installazione del profilo..."
-            Invoke-WebRequest -Uri $url -OutFile $setupFile -UseBasicParsing
-            
-            # Determina il percorso del profilo PowerShell 7
-            $ps7ProfilePath = "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
-            
-            # Crea la directory se non esiste
-            $ps7ProfileDir = Split-Path $ps7ProfilePath -Parent
-            if (!(Test-Path $ps7ProfileDir)) {
-                New-Item -ItemType Directory -Path $ps7ProfileDir -Force | Out-Null
-                Write-StyledMessage -Type 'Info' -Text "Creata directory profilo PowerShell 7: $ps7ProfileDir"
-            }
-            
-            Write-StyledMessage -Type 'Info' -Text "Installazione del profilo PowerShell 7..."
-            
-            # Usa PowerShell 7 se disponibile, altrimenti usa PowerShell 5.1
-            $ps7Path = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
-            
-            if (Test-Path $ps7Path) {
+            # Se la directory di PowerShell 7 esiste, usa pwsh.exe
+            if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
                 Write-StyledMessage -Type 'Info' -Text "Avvio installazione profilo con PowerShell 7..."
-                Start-Process -FilePath $ps7Path -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
+                Start-Process -FilePath "$env:ProgramFiles\PowerShell\7\pwsh.exe" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
             } else {
+                # Altrimenti, usa powershell.exe come fallback
                 Write-StyledMessage -Type 'Info' -Text "PowerShell 7 non trovato, uso PowerShell 5.1 per l'installazione..."
                 Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
             }
             
-            # Pulizia file temporaneo
-            Remove-Item $setupFile -Force -ErrorAction SilentlyContinue
-            
             Write-StyledMessage -Type 'Success' -Text "Profilo PowerShell 7 installato con successo!"
             Write-StyledMessage -Type 'Info' -Text "Il profilo sarà attivo al prossimo avvio di PowerShell 7."
+            
         } catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione del profilo PowerShell 7: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'esecuzione del file setup.ps1: $($_.Exception.Message)"
         }
+        
+    } catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore durante il download o la gestione dello script di setup: $($_.Exception.Message)"
+    } finally {
+        # Pulizia del file temporaneo
+        Remove-Item $setupFile -Force -ErrorAction SilentlyContinue
     }
-    
-    # Esegue l'installazione del profilo. La logica interna gestirà la versione di PowerShell da utilizzare.
-    Invoke-PSSetup
 }
 
 # NUOVA FUNZIONE PER L'INSTALLAZIONE DI GIT
