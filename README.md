@@ -79,40 +79,18 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 <details open>
 	<summary><b><code>WinToolKit</code></b></summary>
-	<details>
-		<summary><b>__root__</b></summary>
 		<blockquote>
 			<table>
 				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/start.ps1'>start.ps1</a></b></td>
-					<td><code>❯ Script di Start. Installa tutto il necessario automaticamente per far funzionare al meglio il ToolKit.</code></td>
+					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/Experimental/start.ps1'>start.ps1</a></b></td>
+					<td><code>❯ Script di Start. Installa tutto il necessario automaticamente per far funzionare al meglio il ToolKit, Crea una scorciatoia sul Dekstop per avviare il Toolkit ed infine riavvia il PC per apportare le modifiche.</code></td>
+				<tr>
+					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/Experimental/WinToolkit.ps1'>WinToolkit.ps1</a></b></td>
+					<td><code>❯ All'interno di questo script sono contenute tutte le funzioni ed il codice del tool.</code></td>
+				</tr>
 				</tr>
 			</table>
 		</blockquote>
-	</details>
-	<details>
-		<summary><b>tool</b></summary>
-		<blockquote>
-			<table>
-				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/tool/WinBrain.ps1'>WinBrain.ps1</a></b></td>
-					<td><code>❯ Script generale del Toolkit.</code></td>
-				</tr>
-				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/tool/WinReinstallStore.ps1'>WinReinstallStore.ps1</a></b></td>
-					<td><code>❯ Script che reinstalla Winget (Gestore Pacchetti Windows) ed il Windows Store.</code></td>
-				</tr>
-				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/tool/WinRepairToolkit.ps1'>WinRepairToolkit.ps1</a></b></td>
-					<td><code>❯ Toolkit per la riparazione di windows.</code></td>
-				</tr>
-				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/master/tool/WinUpdateReset.ps1'>WinUpdateReset.ps1</a></b></td>
-					<td><code>❯ Toolkit di reset del sistema Windows Update.</code></td>
-				</tr>
-			</table>
-		</blockquote>
-	</details>
 </details>
 
 ---
@@ -138,7 +116,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
  irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/start.ps1 | iex
 ```
 
-1. Al riavvio del tuo PC troverai la scorciatoia `Win Util` sul desktop da cui avviare comodamente lo script.
+1. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.0` sul desktop da cui avviare comodamente lo script in modalità amministratore.
 
 ### ⚙️ Installatione Classica
 
@@ -153,13 +131,13 @@ Avvia il Toolkit eseguendo il seguente metodo:
 2. Utilizza il terminale per Navigare fino alla cartella:
 
 ```powershell
- cd WinToolkit/tool
+ cd WinToolkit
 ```
 
 3. Lancia il Toolkit:
 
 ```powershell
- ./WinBrain.ps1
+ ./WinToolkit.ps1
 ```
 
 ---
@@ -168,10 +146,10 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 - [x] **`V1.0`**: <strike>Release Privata</strike>
 - [x] **`V1.1.0`**: <strike>Refactor Struttura in forma modulare.</strike>
-- [ ] **`V2.0.0`**: RELEASE Pubblica. Refator totale progetto per future implementazioni.
-- [ ] **`V2.0.1`**: Finalizzazione "run.ps1".
-- [ ] **`V2.0.2`**: Finalizzazione "WinRepairToolkit.ps1".
-- [ ] **`V2.0.3`**: Finalizzazione "WinUpdateReset.ps1".
+- [x] **`V2.0.0`**: **RELEASE Pubblica**. Refator totale progetto per future implementazioni.
+- [ ] **`V2.0.1`**: Finalizzazione Funzione "WinRepairToolkit".
+- [ ] **`V2.0.2`**: Finalizzazione Funzione "WinUpdateReset".
+- [ ] **`V2.0.3`**: Finalizzazione Funzione "WinReainstallStore".
 - [ ] **`VX.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 🕹️ TO DO
