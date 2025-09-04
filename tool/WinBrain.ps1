@@ -156,34 +156,50 @@ while ($true) {
 
 # Funzione per installare il profilo PowerShell
 function WinInstallPSProfile {
-    Write-StyledMessage 'Info' "Avvio configurazione profilo PowerShell 7..."
-    $profilePath = $PROFILE
-    $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
-    $oldHash = $null
-    if (Test-Path $profilePath) {
-        $oldHash = Get-FileHash $profilePath -ErrorAction SilentlyContinue
-    }
-    Invoke-RestMethod $url -OutFile "$env:TEMP/Microsoft.PowerShell_profile.ps1"
-    $newHash = Get-FileHash "$env:TEMP/Microsoft.PowerShell_profile.ps1"
-    if (!(Test-Path "$profilePath.hash")) {
-        $newHash.Hash | Out-File "$profilePath.hash"
-    }
-    if (-not $oldHash -or $newHash.Hash -ne $oldHash.Hash) {
-        if (Test-Path "$env:USERPROFILE\\oldprofile.ps1") {
-            Write-StyledMessage 'Warning' "Backup File Exists..."
-            Write-StyledMessage 'Warning' "Moving Backup File..."
-            Copy-Item "$env:USERPROFILE\\oldprofile.ps1" "$profilePath.bak" -Force
-            Write-StyledMessage 'Success' "Profile Backup: Done."
-        } elseif ((Test-Path $profilePath) -and (-not (Test-Path "$profilePath.bak"))) {
-            Write-StyledMessage 'Warning' "Backing Up Profile..."
-            Copy-Item -Path $profilePath -Destination "$profilePath.bak" -Force
-            Write-StyledMessage 'Success' "Profile Backup: Done."
+   
+    param (
+        $PSProfile = $PROFILE
+    )
+
+    function Invoke-PSSetup {
+        # URL del profilo di Chris Titus Tech
+        $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
+
+        # Hash del profilo corrente (se esiste)
+        $OldHash = Get-FileHash $PSProfile -ErrorAction SilentlyContinue
+
+        # Scarica il nuovo profilo in TEMP
+        $tempProfile = "$env:TEMP/Microsoft.PowerShell_profile.ps1"
+        Invoke-RestMethod $url -OutFile $tempProfile
+
+        # Calcola hash del nuovo profilo
+        $NewHash = Get-FileHash $tempProfile
+
+        # Salva hash locale se non esiste
+        if (!(Test-Path "$PSProfile.hash")) {
+            $NewHash.Hash | Out-File "$PSProfile.hash"
         }
-        Write-StyledMessage 'Warning' "Sto Installando il Profilo Powershell 7..."
-        Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" -WindowStyle Hidden -Wait
-        Write-StyledMessage 'Success' "Il profilo è stato installato. Riavvia la shell per applicare le modifiche!"
-        Write-StyledMessage 'Success' "Finished Profile Setup."
-    } else {
-        Write-StyledMessage 'Warning' "Il profilo è aggiornato"
+
+        # Confronta hash → aggiorna se diverso
+        if ($NewHash.Hash -ne $OldHash.Hash) {
+            # Backup vecchio profilo
+            if (Test-Path $PSProfile -and -not (Test-Path "$PSProfile.bak")) {
+                Write-Host "===> Backing Up Profile... <===" -ForegroundColor Yellow
+                Copy-Item -Path $PSProfile -Destination "$PSProfile.bak"
+                Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
+            }
+
+            # Installazione nuovo profilo
+            Write-Host "===> Installing Profile... <===" -ForegroundColor Yellow
+            Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" -WindowStyle Hidden -Wait
+
+            Write-Host "Profile has been installed. Please restart your shell to reflect the changes!" -ForegroundColor Magenta
+            Write-Host "===> Finished Profile Setup <===" -ForegroundColor Yellow
+        } else {
+            Write-Host "Profile is up to date" -ForegroundColor Magenta
+        }
     }
+
+    # Esegui direttamente setup (siamo su PS7)
+    Invoke-PSSetup
 }
