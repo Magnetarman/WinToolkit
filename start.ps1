@@ -1,7 +1,7 @@
 # Win Toolkit Starter by MagnetarMan
 
 # Impostazione titolo finestra della console
-$Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan"
+$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter by MagnetarMan"
 
 # Controllo privilegi amministratore
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -28,11 +28,6 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
     Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
     break
 }
-
-# Parametro per l'esecuzione selettiva
-param (
-    [switch]$InstallProfileOnly
-)
 
 # Creazione directory di log e avvio trascrizione
 $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -318,18 +313,7 @@ function Install-Git {
     }
 }
 
-# ---
-## Logica di Esecuzione Principale
-# ---
-
-# Se lo script è stato chiamato per installare solo il profilo, esegue la funzione e termina.
-if ($InstallProfileOnly) {
-    Write-StyledMessage -Type 'Info' -Text "Modalità di installazione profilo: Avvio..."
-    Invoke-WinUtilInstallPSProfile
-    Write-StyledMessage -Type 'Success' -Text "Installazione del profilo completata. Uscita dalla sessione."
-    break
-}
-
+# Esecuzione delle funzioni principali
 Write-StyledMessage -Type 'Info' -Text "Avvio configurazione Win Toolkit..."
 
 # Prima installa Git se necessario
@@ -344,6 +328,7 @@ if (-not (Test-Path -Path "$env:ProgramFiles\PowerShell\7")) {
     $installSuccess = Install-PowerShell7
     if ($installSuccess) {
         Write-StyledMessage -Type 'Success' -Text "PowerShell 7 installato con successo."
+        # Imposta la variabile per indicare che il riavvio è necessario
         $rebootNeeded = $true
     } else {
         Write-StyledMessage -Type 'Error' -Text "Installazione PowerShell 7 fallita."
@@ -357,21 +342,8 @@ Write-StyledMessage -Type 'Info' -Text "Configurazione Windows Terminal..."
 Invoke-WPFTweakPS7 -action "PS7"
 
 # Installa profilo PowerShell 7
-if (-not $rebootNeeded) {
-    Write-StyledMessage -Type 'Info' -Text "Configurazione profilo PowerShell 7..."
-    Invoke-WinUtilInstallPSProfile
-} else {
-    # Se PowerShell 7 è stato appena installato, riavvia lo script in una nuova sessione di PowerShell 7 per installare il profilo.
-    Write-StyledMessage -Type 'Info' -Text "PowerShell 7 appena installato. Riavvio in una nuova sessione per installare il profilo..."
-    $ps7path = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
-    if (Test-Path -Path $ps7path) {
-        Start-Process $ps7path -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$PSCommandPath`" -InstallProfileOnly" -Wait -NoNewWindow
-        Write-StyledMessage -Type 'Success' -Text "Installazione del profilo completata nella nuova sessione."
-    } else {
-        Write-StyledMessage -Type 'Error' -Text "Non è stato possibile trovare PowerShell 7 per avviare l'installazione del profilo."
-    }
-}
-
+Write-StyledMessage -Type 'Info' -Text "Configurazione profilo PowerShell 7..."
+Invoke-WinUtilInstallPSProfile
 
 # Messaggio di completamento
 Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente"
