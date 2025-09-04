@@ -1,5 +1,5 @@
 # Win Toolkit Starter by MagnetarMan
-# Versione 1.2 - 2024-06-15
+# Versione 1.3 - 2025-09-04
 # Impostazione titolo finestra della console
 $Host.UI.RawUI.WindowTitle = "Win Toolkit Starter by MagnetarMan"
 
@@ -73,6 +73,12 @@ function Install-Git {
 function Install-PowerShell7 {
     Write-StyledMessage -Type 'Info' -Text "Tentativo installazione PowerShell 7..."
     
+    # Controlla se PowerShell 7 è già installato
+    if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
+        Write-StyledMessage -Type 'Success' -Text "PowerShell 7 è già installato. Saltando l'installazione."
+        return $true
+    }
+    
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
         Write-StyledMessage -Type 'Info' -Text "Installazione PowerShell 7 tramite winget..."
         try {
@@ -143,37 +149,6 @@ function Invoke-WPFTweakPS7 {
     }
 }
 
-# Funzione per installare il profilo PowerShell
-function Invoke-WinUtilInstallPSProfile {
-    Write-StyledMessage -Type 'Info' -Text "Avvio configurazione profilo PowerShell 7..."
-    
-    $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/setup.ps1"
-    $setupFile = "$env:TEMP\setup.ps1"
-
-    try {
-        Write-StyledMessage -Type 'Info' -Text "Download dello script di installazione del profilo..."
-        Invoke-WebRequest -Uri $url -OutFile $setupFile -UseBasicParsing
-        
-        Write-StyledMessage -Type 'Info' -Text "Esecuzione dello script di installazione. Segui le istruzioni nella nuova finestra..."
-        
-        $ps7Path = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
-        if (Test-Path $ps7Path) {
-            Write-StyledMessage -Type 'Info' -Text "Avvio con PowerShell 7..."
-            Start-Process -FilePath $ps7Path -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
-        } else {
-            Write-StyledMessage -Type 'Info' -Text "PowerShell 7 non trovato. Avvio con PowerShell 5.1..."
-            Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
-        }
-        
-        Write-StyledMessage -Type 'Success' -Text "Installazione del profilo completata!"
-    } catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione del profilo: $($_.Exception.Message)"
-    } finally {
-        if (Test-Path $setupFile) {
-            Remove-Item $setupFile -Force -ErrorAction SilentlyContinue
-        }
-    }
-}
 
 # Logica di esecuzione principale
 function Start-WinToolkit {
@@ -223,15 +198,15 @@ function Start-WinToolkit {
 
     $rebootNeeded = $false
     
-    Install-Git
+    $gitInstalled = Install-Git
     
-    if (-not (Test-Path -Path "$env:ProgramFiles\PowerShell\7")) {
+    if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
+        Write-StyledMessage -Type 'Success' -Text "PowerShell 7 già presente."
+    } else {
         $installSuccess = Install-PowerShell7
         if ($installSuccess) {
             $rebootNeeded = $true
         }
-    } else {
-        Write-StyledMessage -Type 'Success' -Text "PowerShell 7 già presente."
     }
 
     Invoke-WPFTweakPS7 -action "PS7"
