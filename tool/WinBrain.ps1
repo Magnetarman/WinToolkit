@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 56) - 2025-09-04
+  Versione 2.0 (Build 57) - 2025-09-04
 #>
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
@@ -119,6 +119,12 @@ function WinInstallPSProfile {
         # Ottieni l'hash del nuovo profilo
         $newHash = Get-FileHash $tempProfile
         
+        # Crea la directory del profilo se non esiste
+        $profileDir = Split-Path $PROFILE -Parent
+        if (!(Test-Path $profileDir)) {
+            New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+        }
+        
         # Salva l'hash per riferimenti futuri
         if (!(Test-Path "$PROFILE.hash")) {
             $newHash.Hash | Out-File "$PROFILE.hash"
@@ -180,7 +186,7 @@ while ($true) {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkits By MagnetarMan'
-        '      Version 2.0 (Build 56)'
+        '      Version 2.0 (Build 57)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
