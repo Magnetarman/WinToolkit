@@ -1,11 +1,3 @@
-# Funzione per messaggi stilizzati
-function Write-StyledMessage([string]$Type, [string]$Text) {
-    $style = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }; Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error = @{ Color = 'Red'; Icon = '❌' }; Info = @{ Color = 'Cyan'; Icon = '💎' }
-    }[$Type]
-    Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
-}
 
 Clear-Host
 Write-Host (Center-Text 'Windows Update Reset Tool v1.1' $width) -ForegroundColor Cyan
@@ -16,11 +8,6 @@ Write-Host ''
 Write-StyledMessage Info 'Esecuzione di WinUpdateReset.ps1...'
 Start-Sleep -Seconds 5
 
-# Check for admin privileges
-if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-StyledMessage Error 'Per favore esegui questo script come Amministratore.'
-    exit 1
-}
 
 Write-StyledMessage Info 'Avvio riparazione servizi Windows Update...'
 
@@ -86,6 +73,7 @@ try {
         "net stop msiserver",
         "ren C:\Windows\SoftwareDistribution SoftwareDistribution.old",
         "ren C:\Windows\System32\catroot2 catroot2.old",
+        "del /s /q C:\Windows\SoftwareDistribution.old\Download\*",
         "net start wuauserv",
         "net start cryptSvc",
         "net start bits",
@@ -115,3 +103,17 @@ catch {
     Write-StyledMessage Error "Errore: $($_.Exception.Message)"
     Write-StyledMessage Error 'Si è verificato un errore durante la riparazione. Controlla i messaggi sopra.'
 }
+
+
+Ferma il servizio di Windows Update:
+
+powershell
+net stop wuauserv
+Ferma il servizio di trasferimento intelligente in background (BITS):
+
+powershell
+net stop bits
+Pulisci la cartella Download di SoftwareDistribution (elimini i file temporanei degli update):
+
+powershell
+Remove-Item -Path C:\Windows\SoftwareDistribution.old\Download\* -Recurse -Force
