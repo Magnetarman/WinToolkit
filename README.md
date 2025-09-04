@@ -1,13 +1,13 @@
 <p align="center">
-	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/Banner.png" alt="WinToolkit-banner" width="800">
+	<img src="img/Banner.png" alt="WinToolkit-banner" width="800">
 </p>
 <br>
 <p align="center">
-	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/Run.png" alt="Run-banner" width="800">
+	<img src="img/Run.png" alt="Run-banner" width="800">
 </p>
 <br>
 <p align="center">
-	<img src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/RepairToolkit.png" alt="RepairToolkit-banner" width="800">
+	<img src="img/RepairToolkit.png" alt="RepairToolkit-banner" width="800">
 </p>
 <br>
 <br>
@@ -66,13 +66,10 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
         ├── Banner.png
         ├── RepairToolkit.png
         ├── Run.png
-    └── tool
-        ├── WinBrain.ps1
-        ├── WinReinstallStore.ps1
-        ├── WinRepairToolkit.ps1
     ├── LICENSE
     ├── README.md
-    └── start.ps1
+    ├── start.ps1
+    └── WinToolkit.ps1
 ```
 
 ### 📂 Index Progetto
