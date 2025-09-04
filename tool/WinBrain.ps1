@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 33) - 2025-09-04
+  Versione 2.0 (Build 34) - 2025-09-04
 #>
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
@@ -34,7 +34,12 @@ function Invoke-WinUtilInstallPSProfile {
     # Check if PowerShell Core (pwsh) is installed and available as a command.
     if (Get-Command "pwsh" -ErrorAction SilentlyContinue) {
         # Get the file hash for the user's current PowerShell profile.
-        $OldHash = Get-FileHash $PSProfile -ErrorAction SilentlyContinue
+        # Check if the profile file exists before trying to get its hash.
+        $OldHash = if (Test-Path $PSProfile) {
+            Get-FileHash $PSProfile -ErrorAction SilentlyContinue
+        } else {
+            $null
+        }
 
         # Download Chris Titus Tech's PowerShell profile to the 'TEMP' folder.
         Invoke-RestMethod $url -OutFile "$env:TEMP/Microsoft.PowerShell_profile.ps1"
