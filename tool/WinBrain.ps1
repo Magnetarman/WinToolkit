@@ -26,6 +26,8 @@ try {
 
 # Funzione per installare il profilo PowerShell
 function Invoke-WinUtilInstallPSProfile {
+
+    Write-StyledMessage -Type 'Info' -Text "Avvio configurazione profilo PowerShell 7..."
     <#
     .SYNOPSIS
         Backs up your original profile then installs and applies the CTT PowerShell profile.
