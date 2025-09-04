@@ -1,11 +1,22 @@
-
 Clear-Host
-Write-Host (Center-Text 'Windows Update Reset Tool v1.1' $width) -ForegroundColor Cyan
-Write-Host (Center-Text 'By MagnetarMan' $width) -ForegroundColor DarkGray
-Write-Host ''
-Write-Host ''
+ # --- Schermata di Benvenuto ---
+    $width = 60
+    $asciiArt = @(
+        '      __        __  _  _   _ '
+        '      \ \      / / | || \ | |'
+        '       \ \ /\ / /  | ||  \| |'
+        '        \ V  V /   | || |\  |'
+        '         \_/\_/    |_||_| \_|'
+        ''
+        ' WinUpdate Reset Toolkit By MagnetarMan'
+        '       Version 2.0 (Build 10)'
+    )
+    foreach ($line in $asciiArt) {
+        Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
+    }
+    Write-Host '' # Spazio
 
-Write-StyledMessage Info 'Esecuzione di WinUpdateReset.ps1...'
+Write-StyledMessage Info 'Esecuzione dello Script di Reset Windows Update...'
 Start-Sleep -Seconds 5
 
 
@@ -103,17 +114,3 @@ catch {
     Write-StyledMessage Error "Errore: $($_.Exception.Message)"
     Write-StyledMessage Error 'Si è verificato un errore durante la riparazione. Controlla i messaggi sopra.'
 }
-
-
-Ferma il servizio di Windows Update:
-
-powershell
-net stop wuauserv
-Ferma il servizio di trasferimento intelligente in background (BITS):
-
-powershell
-net stop bits
-Pulisci la cartella Download di SoftwareDistribution (elimini i file temporanei degli update):
-
-powershell
-Remove-Item -Path C:\Windows\SoftwareDistribution.old\Download\* -Recurse -Force
