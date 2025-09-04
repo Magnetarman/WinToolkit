@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 40) - 2025-09-04
+  Versione 2.0 (Build 41) - 2025-09-04
 #>
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "Win Toolkit by MagnetarMan v2.0"
@@ -22,75 +22,6 @@ try {
     Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -Force | Out-Null
 } catch {
     # Gestione errori silenziosa per compatibilità
-}
-
-# Funzione per installare il profilo PowerShell
-function Invoke-WinUtilInstallPSProfile {
-     Write-StyledMessage -Type 'Info' -Text "Avvio configurazione profilo PowerShell 7..."
-    
-    Invoke-WPFRunspace -ArgumentList $PROFILE -DebugPreference $DebugPreference -ScriptBlock {
-        # Remap the automatic built-in $PROFILE variable to the parameter named $PSProfile.
-        param ($PSProfile)
-
-        function Invoke-PSSetup {
-            # Define the URL used to download Chris Titus Tech's PowerShell profile.
-            $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
-
-            # Get the file hash for the user's current PowerShell profile.
-            $OldHash = Get-FileHash $PSProfile -ErrorAction SilentlyContinue
-
-            # Download Chris Titus Tech's PowerShell profile to the 'TEMP' folder.
-            Invoke-RestMethod $url -OutFile "$env:TEMP/Microsoft.PowerShell_profile.ps1"
-
-            # Get the file hash for Chris Titus Tech's PowerShell profile.
-            $NewHash = Get-FileHash "$env:TEMP/Microsoft.PowerShell_profile.ps1"
-
-            # Store the file hash of Chris Titus Tech's PowerShell profile.
-            if (!(Test-Path "$PSProfile.hash")) {
-                $NewHash.Hash | Out-File "$PSProfile.hash"
-            }
-
-            # Check if the new profile's hash doesn't match the old profile's hash.
-            if ($NewHash.Hash -ne $OldHash.Hash) {
-                # Check if oldprofile.ps1 exists and use it as a profile backup source.
-                if (Test-Path "$env:USERPROFILE\oldprofile.ps1") {
-                    Write-Host "===> Backup File Exists... <===" -ForegroundColor Yellow
-                    Write-Host "===> Moving Backup File... <===" -ForegroundColor Yellow
-                    Copy-Item "$env:USERPROFILE\oldprofile.ps1" "$PSProfile.bak"
-                    Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
-                } else {
-                    # If oldprofile.ps1 does not exist use $PSProfile as a profile backup source.
-                    # Check if the profile backup file has not already been created on the disk.
-                    if ((Test-Path $PSProfile) -and (-not (Test-Path "$PSProfile.bak"))) {
-                        # Let the user know their PowerShell profile is being backed up.
-                        Write-Host "===> Backing Up Profile... <===" -ForegroundColor Yellow
-
-                        # Copy the user's current PowerShell profile to the backup file path.
-                        Copy-Item -Path $PSProfile -Destination "$PSProfile.bak"
-
-                        # Let the user know the profile backup has been completed successfully.
-                        Write-Host "===> Profile Backup: Done. <===" -ForegroundColor Yellow
-                    }
-                }
-
-                # Let the user know Chris Titus Tech's PowerShell profile is being installed.
-                Write-Host "===> Installing Profile... <===" -ForegroundColor Yellow
-
-                # Start a new hidden PowerShell instance because setup.ps1 does not work in runspaces.
-                Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest `'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1`')`"" -WindowStyle Hidden -Wait
-
-                # Let the user know Chris Titus Tech's PowerShell profile has been installed successfully.
-                Write-Host "Profile has been installed. Please restart your shell to reflect the changes!" -ForegroundColor Magenta
-
-                # Let the user know Chris Titus Tech's PowerShell profile has been setup successfully.
-                Write-Host "===> Finished Profile Setup <===" -ForegroundColor Yellow
-            } else {
-                # Let the user know Chris Titus Tech's PowerShell profile is already fully up-to-date.
-                Write-Host "Profile is up to date" -ForegroundColor Magenta
-            }
-        }
-        
-    }
 }
 
 function Write-StyledMessage {
@@ -158,7 +89,7 @@ while ($true) {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkits By MagnetarMan'
-        '      Version 2.0 (Build 40)'
+        '      Version 2.0 (Build 41)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
@@ -167,7 +98,7 @@ while ($true) {
 
     # --- Definizione e visualizzazione del menu ---
     $scripts = @(
-        [pscustomobject]@{ Name = 'Invoke-WinUtilInstallPSProfile'; Description = 'Installa il profilo PowerShell. - Fortemente Consigliato'    ; Action = 'RunFunction' }
+        [pscustomobject]@{ Name = 'Invoke-WinUtilInstallPSProfile'; Description = 'Installa il profilo PowerShell. - Fortemente Consigliato'; Action = 'RunFunction' }
         [pscustomobject]@{ Name = 'WinRepairToolkit.ps1'; Description = 'Avvia il Toolkit di Riparazione Windows.' ; Action = 'RunFile' }
         [pscustomobject]@{ Name = 'WinUpdateReset.ps1'  ; Description = 'Esegui il Reset di Windows Update.'       ; Action = 'RunFile' }
         [pscustomobject]@{ Name = 'WinReinstallStore.ps1'; Description = 'Reinstalla Winget ed il Windows Store.'    ; Action = 'RunFile' }
@@ -222,3 +153,23 @@ while ($true) {
         Start-Sleep -Seconds 2
     }
 }
+
+# Funzione per installare il profilo PowerShell
+function Invoke-WinUtilInstallPSProfile {
+     Write-StyledMessage -Type 'Info' -Text "Avvio configurazione profilo PowerShell 7..."
+        function Invoke-PSSetup {
+
+                # Let the user know Chris Titus Tech's PowerShell profile is being installed.
+                Write-StyledMessage 'Warning' "Sto Installando il Profilo Powershell 7..."
+
+                # Start a new hidden PowerShell instance because setup.ps1 does not work in runspaces.
+                Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest `'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1`')`"" -WindowStyle Hidden -Wait
+
+                # Let the user know Chris Titus Tech's PowerShell profile has been installed successfully.
+                Write-StyledMessage 'Success' "Il profilo è stato installato. Riavvia la shell per applicare le modifiche!"
+                
+            } else {
+                # Let the user know Chris Titus Tech's PowerShell profile is already fully up-to-date.
+                Write-StyledMessage 'Warning' "Il profilo è aggiornato" 
+        }
+    }
