@@ -89,9 +89,6 @@ function Invoke-WinUtilInstallPSProfile {
                 Write-Host "This profile requires Powershell Core, which is currently not installed!" -ForegroundColor Red
             }
         }
-}
-
-
 
 function Write-StyledMessage {
     <#
