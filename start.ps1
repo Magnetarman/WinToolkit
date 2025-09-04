@@ -186,9 +186,13 @@ function Invoke-WinUtilInstallPSProfile {
     #>
     
     function Invoke-PSSetup {
-        $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
+        $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/setup.ps1"
+        $setupFile = "$env:TEMP\setup.ps1"
         
         try {
+            Write-StyledMessage -Type 'Info' -Text "Download dello script di installazione del profilo..."
+            Invoke-WebRequest -Uri $url -OutFile $setupFile -UseBasicParsing
+            
             # Determina il percorso del profilo PowerShell 7
             $ps7ProfilePath = "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
             
@@ -199,47 +203,24 @@ function Invoke-WinUtilInstallPSProfile {
                 Write-StyledMessage -Type 'Info' -Text "Creata directory profilo PowerShell 7: $ps7ProfileDir"
             }
             
-            # Ottieni hash del profilo corrente
-            $OldHash = if (Test-Path $ps7ProfilePath) { Get-FileHash $ps7ProfilePath -ErrorAction SilentlyContinue } else { $null }
+            Write-StyledMessage -Type 'Info' -Text "Installazione del profilo PowerShell 7..."
             
-            # Scarica il nuovo profilo
-            Write-StyledMessage -Type 'Info' -Text "Download del profilo PowerShell 7..."
-            Invoke-WebRequest -Uri $url -OutFile "$env:TEMP/Microsoft.PowerShell_profile.ps1" -UseBasicParsing
+            # Usa PowerShell 7 se disponibile, altrimenti usa PowerShell 5.1
+            $ps7Path = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
             
-            # Ottieni hash del nuovo profilo
-            $NewHash = Get-FileHash "$env:TEMP/Microsoft.PowerShell_profile.ps1"
-            
-            # Verifica se è necessario aggiornare
-            if (-not $OldHash -or $NewHash.Hash -ne $OldHash.Hash) {
-                # Backup del profilo esistente
-                if (Test-Path "$env:USERPROFILE\oldprofile.ps1") {
-                    Write-StyledMessage -Type 'Warning' -Text "File di backup esistente trovato..."
-                    Copy-Item "$env:USERPROFILE\oldprofile.ps1" "$ps7ProfilePath.bak" -Force
-                    Write-StyledMessage -Type 'Success' -Text "Backup del profilo completato."
-                } elseif ((Test-Path $ps7ProfilePath) -and (-not (Test-Path "$ps7ProfilePath.bak"))) {
-                    Write-StyledMessage -Type 'Info' -Text "Creazione backup del profilo PowerShell 7 corrente..."
-                    Copy-Item -Path $ps7ProfilePath -Destination "$ps7ProfilePath.bak"
-                    Write-StyledMessage -Type 'Success' -Text "Backup del profilo completato."
-                }
-                
-                # Installazione del profilo
-                Write-StyledMessage -Type 'Info' -Text "Installazione del profilo PowerShell 7..."
-                
-                # Verifica se PowerShell 7 è disponibile
-                $ps7Path = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
-                if (Test-Path $ps7Path) {
-                    # Usa PowerShell 7 se disponibile
-                    Start-Process -FilePath $ps7Path -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" -WindowStyle Hidden -Wait
-                } else {
-                    # Fallback su PowerShell 5.1
-                    Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1' -UseBasicParsing)`"" -WindowStyle Hidden -Wait
-                }
-                
-                Write-StyledMessage -Type 'Success' -Text "Profilo PowerShell 7 installato con successo!"
-                Write-StyledMessage -Type 'Info' -Text "Il profilo sarà attivo al prossimo avvio di PowerShell 7."
+            if (Test-Path $ps7Path) {
+                Write-StyledMessage -Type 'Info' -Text "Avvio installazione profilo con PowerShell 7..."
+                Start-Process -FilePath $ps7Path -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
             } else {
-                Write-StyledMessage -Type 'Success' -Text "Il profilo PowerShell 7 è già aggiornato."
+                Write-StyledMessage -Type 'Info' -Text "PowerShell 7 non trovato, uso PowerShell 5.1 per l'installazione..."
+                Start-Process -FilePath "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File `"$setupFile`"" -Wait
             }
+            
+            # Pulizia file temporaneo
+            Remove-Item $setupFile -Force -ErrorAction SilentlyContinue
+            
+            Write-StyledMessage -Type 'Success' -Text "Profilo PowerShell 7 installato con successo!"
+            Write-StyledMessage -Type 'Info' -Text "Il profilo sarà attivo al prossimo avvio di PowerShell 7."
         } catch {
             Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione del profilo PowerShell 7: $($_.Exception.Message)"
         }
