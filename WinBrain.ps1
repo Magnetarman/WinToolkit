@@ -213,9 +213,6 @@ function WinInstallPSProfile {
 
 #function WinReinstallStore {}
 
-
-
-
 # Ciclo principale del programma: mostra il menu e attende una scelta.
 while ($true) {
     Clear-Host
