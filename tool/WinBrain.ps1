@@ -168,6 +168,27 @@ function WinInstallPSProfile {
             
             Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
             Write-StyledMessage 'Warning' "Riavvia PowerShell per applicare il nuovo profilo."
+            Write-StyledMessage 'Info' "Per vedere tutte le modifiche (font, oh-my-posh, ecc.) è consigliato riavviare il sistema."
+            
+            # Chiedi se riavviare il sistema
+            Write-Host ""
+            $restart = Read-Host "Vuoi riavviare il sistema ora per applicare tutte le modifiche? (Y/N)"
+            
+            if ($restart -match '^[YySs]') {
+                Write-StyledMessage 'Warning' "Riavvio del sistema in corso..."
+                
+                # Countdown di 5 secondi
+                for ($i = 5; $i -gt 0; $i--) {
+                    Write-Host "Riavvio tra $i secondi..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds 1
+                }
+                
+                # Riavvia il sistema
+                Write-StyledMessage 'Info' "Riavvio del sistema..."
+                Restart-Computer -Force
+            } else {
+                Write-StyledMessage 'Info' "Riavvio annullato. Ricorda di riavviare il sistema per vedere tutte le modifiche."
+            }
         } else {
             Write-StyledMessage 'Info' "Il profilo è già aggiornato alla versione più recente."
         }
@@ -185,7 +206,6 @@ function WinInstallPSProfile {
         }
     }
 }
-
 
 
 
