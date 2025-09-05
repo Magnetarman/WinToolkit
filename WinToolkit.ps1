@@ -487,7 +487,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.0 (Build 11)'
+        '       Version 2.0 (Build 12)'
     )
     $asciiArt | ForEach-Object { Write-StyledMessage -Type 'Info' -Text (Center-Text -Text $_ -Width 60) }
     Write-Host ''
@@ -528,7 +528,19 @@ function WinUpdateReset {
                     }
                     'Start' {
                         Start-Service -Name $serviceName -ErrorAction Stop
-                        Write-StyledMessage -Type 'Success' -Text "Servizio $serviceName avviato."
+                        # Attesa avvio servizio con timeout
+                        $timeout = 10
+                        do {
+                            Start-Sleep -Milliseconds 500
+                            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                            $timeout--
+                        } while ($service.Status -ne 'Running' -and $timeout -gt 0)
+                        
+                        if ($service.Status -eq 'Running') {
+                            Write-StyledMessage -Type 'Success' -Text "Servizio $serviceName avviato."
+                        } else {
+                            Write-StyledMessage -Type 'Warning' -Text "Servizio $serviceName: avvio in corso..."
+                        }
                     }
                     'Check' {
                         $status = if ($service.Status -eq 'Running') { 'Attivo' } else { 'Inattivo' }
