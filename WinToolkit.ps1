@@ -474,8 +474,6 @@ try {
     Read-Host
 }
 
-param([int]$CountdownSeconds = 10)
-
 # Variabili globali per interfaccia grafica
 $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
 $SpinnerIntervalMs = 160
