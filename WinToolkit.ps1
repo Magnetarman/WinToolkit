@@ -473,7 +473,6 @@ try {
     Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
     Read-Host
 }
-}
 
 param([int]$CountdownSeconds = 10)
 
@@ -534,6 +533,7 @@ function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Curre
     $spinner = $spinners[$spinnerIndex]
     Show-ProgressBar "Servizi ($Current/$Total)" "$Action $ServiceName" $percent '⚙️' $spinner 'Cyan'
     Start-Sleep -Milliseconds 200
+}
 }
 
 function WinUpdateReset {
