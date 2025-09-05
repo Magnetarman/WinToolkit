@@ -3,6 +3,9 @@
 </p>
 <br>
 <p align="center">
+	<img src="img/Starter.png" alt="Starter-banner" width="800">
+</p>
+<p align="center">
 	<img src="img/Run.png" alt="Run-banner" width="800">
 </p>
 <br>
@@ -20,7 +23,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-V2.0 (Build 68)-green.svg" alt="versione">
+<img src="https://img.shields.io/badge/version-2.0 (Build 69)-green.svg" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=default&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/languages/count/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-language-count">
@@ -36,7 +39,7 @@
 ## 👾 Features
 
 > [!Note]
-> La versione 2.0 (Prima versione Pubblica) è in **sviluppo attivo**.
+> La versione 2.0 è in **sviluppo attivo**.
 >
 > Il ramo **Experimental** ha codice in fase Beta _potrebbero essere presenti funzioni instabili_.
 >
@@ -66,6 +69,7 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
         ├── Banner.png
         ├── RepairToolkit.png
         ├── Run.png
+        └── Starter.png
     ├── LICENSE
     ├── README.md
     ├── start.ps1
@@ -144,7 +148,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V1.0`**: <strike>Release Privata</strike>
 - [x] **`V1.1.0`**: <strike>Refactor Struttura in forma modulare.</strike>
 - [x] **`V2.0.0`**: <strike>**RELEASE Pubblica**. Refator totale progetto per future implementazioni.</strike>
-- [ ] **`V2.0.0 (Build 68)`**: <strike> Funzione **Repair Toolkit** Completa.</strike>
+- [x] **`V2.0.0 (Build 68)`**: <strike> Funzione **Repair Toolkit** Completa.</strike>
 - [ ] **`VX.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 🕹️ TO DO
