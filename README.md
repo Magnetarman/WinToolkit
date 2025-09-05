@@ -3,6 +3,9 @@
 </p>
 <br>
 <p align="center">
+	<img src="img/Starter.png" alt="Run-banner" width="800">
+</p>
+<p align="center">
 	<img src="img/Run.png" alt="Run-banner" width="800">
 </p>
 <br>
