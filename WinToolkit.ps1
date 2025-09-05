@@ -8,6 +8,7 @@
   Versione 2.0 (Build 72) - 2025-09-06
 #>
 
+param([int]$CountdownSeconds = 10)
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan v2.0 (Build 72)"
 
@@ -536,8 +537,6 @@ function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Curre
 
 function WinUpdateReset {
     $Host.UI.RawUI.WindowTitle = "Update Reset Toolkit By MagnetarMan"
-    param([int]$CountdownSeconds = 10)
-    
     # Variabili locali per interfaccia grafica
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $SpinnerIntervalMs = 160
@@ -652,11 +651,8 @@ function WinUpdateReset {
             Write-StyledMessage Warning "$serviceIcon Impossibile $actionText $serviceName - $($_.Exception.Message)"
         }
     }
-
-    # === INIZIO ESECUZIONE PRINCIPALE ===
+ 
     Clear-Host
-    
-    # --- Header Grafico Migliorato ---
     $width = 65
     Write-Host ('═' * $width) -ForegroundColor DarkCyan
     $asciiArt = @(
