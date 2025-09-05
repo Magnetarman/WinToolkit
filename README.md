@@ -110,7 +110,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 1. Avvia Powershell in modalità Amministratore ed inserisci il comando per avviare lo script di start:
 
 ```powershell
- irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/start.ps1 | iex
+ irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/start.ps1 | iex
 ```
 
 2. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.0` sul desktop da cui avviare comodamente lo script in modalità amministratore.
