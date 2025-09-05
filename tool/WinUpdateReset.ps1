@@ -8,8 +8,8 @@ Clear-Host
         '        \ V  V /   | || |\  |'
         '         \_/\_/    |_||_| \_|'
         ''
-        ' WinUpdate Reset Toolkit By MagnetarMan'
-        '       Version 2.0 (Build 5)'
+        '  Update Reset Toolkit By MagnetarMan'
+        '       Version 2.0 (Build 7)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
