@@ -637,7 +637,7 @@ function WinUpdateReset {
                     if ($service.Status -eq 'Running') {
                         Write-StyledMessage Success "$serviceIcon Servizio $serviceName avviato correttamente."
                     } else {
-                        Write-StyledMessage Warning "$serviceIcon Servizio $serviceName: avvio in corso..."
+                        Write-StyledMessage Warning "$serviceIcon Servizio ${serviceName}: avvio in corso..."
                     }
                 }
                 'Check' {
@@ -668,7 +668,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.0 (Build 16)'
+        '       Version 2.0 (Build 17)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
