@@ -20,7 +20,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.0-green.svg" alt="versione">
+<img src="https://img.shields.io/badge/version-V2.0 (Build 68)-green.svg" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=default&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/languages/count/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-language-count">
