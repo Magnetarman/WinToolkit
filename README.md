@@ -3,7 +3,7 @@
 </p>
 <br>
 <p align="center">
-	<img src="img/Starter.png" alt="Run-banner" width="800">
+	<img src="img/Starter.png" alt="Starter-banner" width="800">
 </p>
 <p align="center">
 	<img src="img/Run.png" alt="Run-banner" width="800">
@@ -23,7 +23,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.0-green.svg" alt="versione">
+<img src="https://img.shields.io/badge/version-2.0 (Build 69)-green.svg" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=default&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/languages/count/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-language-count">
@@ -39,7 +39,7 @@
 ## 👾 Features
 
 > [!Note]
-> La versione 2.0 (Prima versione Pubblica) è in **sviluppo attivo**.
+> La versione 2.0 è in **sviluppo attivo**.
 >
 > Il ramo **Experimental** ha codice in fase Beta _potrebbero essere presenti funzioni instabili_.
 >
@@ -69,6 +69,7 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
         ├── Banner.png
         ├── RepairToolkit.png
         ├── Run.png
+        └── Starter.png
     ├── LICENSE
     ├── README.md
     ├── start.ps1
@@ -82,10 +83,10 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 		<blockquote>
 			<table>
 				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/Experimental/start.ps1'>start.ps1</a></b></td>
+					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/main/start.ps1'>start.ps1</a></b></td>
 					<td><code>❯ Script di Start. Installa tutto il necessario automaticamente per far funzionare al meglio il ToolKit, Crea una scorciatoia sul Dekstop per avviare il Toolkit ed infine riavvia il PC per apportare le modifiche.</code></td>
 				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/Experimental/WinToolkit.ps1'>WinToolkit.ps1</a></b></td>
+					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/main/WinToolkit.ps1'>WinToolkit.ps1</a></b></td>
 					<td><code>❯ All'interno di questo script sono contenute tutte le funzioni ed il codice del tool.</code></td>
 				</tr>
 				</tr>
@@ -99,26 +100,26 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 ### ☑️ Prerequisiti
 
-Prima di avviare il tool, assicurati che il tuo ambiente di runtime soddisfi i seguenti requisiti:
+Prima di avviare il tool, assicurati che il tuo ambiente di Runtime soddisfi i seguenti requisiti:
 
 - **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script. **E' fortemente consigliata la disattivazione temporanea durante le operazioni**
 - **Richiesta Connessione ad internet durante l'esecuzione del Tool**
 - Richiesto intervento manuale minimo.
 - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema)
 
-### ⚙️ Installatione per Neofiti **Consigliata**
+### ⚙️ Installazione per Neofiti **Consigliata**
 
 Avvia il Toolkit eseguendo il seguente metodo:
 
 1. Avvia Powershell in modalità Amministratore ed inserisci il comando per avviare lo script di start:
 
 ```powershell
- irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/start.ps1 | iex
+ irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/start.ps1 | iex
 ```
 
 2. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.0` sul desktop da cui avviare comodamente lo script in modalità amministratore.
 
-### ⚙️ Installatione Classica
+### ⚙️ Installazione Classica
 
 Avvia il Toolkit eseguendo il seguente metodo:
 
@@ -147,9 +148,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V1.0`**: <strike>Release Privata</strike>
 - [x] **`V1.1.0`**: <strike>Refactor Struttura in forma modulare.</strike>
 - [x] **`V2.0.0`**: <strike>**RELEASE Pubblica**. Refator totale progetto per future implementazioni.</strike>
-- [ ] **`V2.0.1`**: Finalizzazione Funzione "WinRepairToolkit".
-- [ ] **`V2.0.2`**: Finalizzazione Funzione "WinUpdateReset".
-- [ ] **`V2.0.3`**: Finalizzazione Funzione "WinReainstallStore".
+- [x] **`V2.0.0 (Build 68)`**: <strike> Funzione **Repair Toolkit** Completa.</strike>
 - [ ] **`VX.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 🕹️ TO DO
