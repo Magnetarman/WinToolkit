@@ -6,11 +6,11 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.0 (Build 65) - 2025-09-04
+  Versione 2.0 (Build 69) - 2025-09-05
 #>
 
 # Impostazione titolo finestra della console
-$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V2.0 (Build 65) - by MagnetarMan"
+$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V2.0 (Build 69) - by MagnetarMan"
 
 # Funzione per mostrare messaggi stilizzati
 function Write-StyledMessage {
@@ -164,7 +164,7 @@ function ToolKit-Desktop {
     try {
         # Determina il percorso del desktop dell'utente corrente
         $desktopPath = [System.Environment]::GetFolderPath('Desktop')
-        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.0 - Exp.lnk"
+        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.0.lnk"
         
         # Crea un oggetto WScript.Shell per la creazione della scorciatoia
         $WshShell = New-Object -ComObject WScript.Shell
@@ -174,7 +174,7 @@ function ToolKit-Desktop {
         $Shortcut.TargetPath = 'C:\Users\' + $env:USERNAME + '\AppData\Local\Microsoft\WindowsApps\wt.exe'
         
         # Imposta gli argomenti della riga di comando (Arguments)
-        $Shortcut.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Experimental/WinToolkit.ps1 | iex"'
+        $Shortcut.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/WinToolkit.ps1 | iex"'
         
         # Imposta la directory di lavoro
         $Shortcut.WorkingDirectory = "C:\Users\" + $env:USERNAME + "\AppData\Local\Microsoft\WindowsApps"
@@ -216,7 +216,7 @@ function Start-WinToolkit {
         $script = if ($PSCommandPath) {
             "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
         } else {
-            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Experimental/start.ps1))) $($argList -join ' ')"
+            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/start.ps1))) $($argList -join ' ')"
         }
         Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
         return
@@ -241,7 +241,7 @@ function Start-WinToolkit {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkit Starter By MagnetarMan'
-        '      Version 2.0 (Build 65)'
+        '      Version 2.0 (Build 69)'
     )
 
     function Center-Text {
