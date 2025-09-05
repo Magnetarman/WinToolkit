@@ -6,11 +6,11 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.0 (Build 68) - 2025-09-04
+  Versione 2.0 (Build 69) - 2025-09-05
 #>
 
 # Impostazione titolo finestra della console
-$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V2.0 (Build 68) - by MagnetarMan"
+$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V2.0 (Build 69) - by MagnetarMan"
 
 # Funzione per mostrare messaggi stilizzati
 function Write-StyledMessage {
@@ -241,7 +241,7 @@ function Start-WinToolkit {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkit Starter By MagnetarMan'
-        '      Version 2.0 (Build 68)'
+        '      Version 2.0 (Build 69)'
     )
 
     function Center-Text {
