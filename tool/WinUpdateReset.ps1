@@ -9,7 +9,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|'
     ''
     '  Update Reset Toolkit By MagnetarMan'
-    '       Version 2.0 (Build 8)'
+    '       Version 2.0 (Build 9)'
 )
 foreach ($line in $asciiArt) {
     Write-StyledMessage -Type 'Info' -Text (Center-Text -Text $line -Width $width)
