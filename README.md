@@ -1,5 +1,5 @@
 <p align="center">
-	<img src="img/WinToolkit-icon.png" alt="WinToolkit-banner" width="160">
+	<img src="img/WinToolkit-icon.png" alt="WinToolkit-banner" width="128">
 </p>
 <br>
 <p align="center">
