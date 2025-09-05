@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 65) - 2025-09-04
+  Versione 2.0 (Build 66) - 2025-09-04
 #>
 
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
@@ -495,7 +495,7 @@ while ($true) {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkit By MagnetarMan'
-        '      Version 2.0 (Build 65)'
+        '      Version 2.0 (Build 66)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
