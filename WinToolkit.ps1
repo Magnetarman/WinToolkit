@@ -539,7 +539,7 @@ function WinUpdateReset {
                         if ($service.Status -eq 'Running') {
                             Write-StyledMessage -Type 'Success' -Text "Servizio $serviceName avviato."
                         } else {
-                            Write-StyledMessage -Type 'Warning' -Text "Servizio $serviceName: avvio in corso..."
+                            Write-StyledMessage -Type 'Warning' -Text "Servizio ${serviceName}: avvio in corso..."
                         }
                     }
                     'Check' {
