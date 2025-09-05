@@ -32,20 +32,6 @@ function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [st
     if ($Percent -eq 100) { Write-Host '' }
 }
 
-function Test-AdminRights {
-    try { 
-        return (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    } catch { $false }
-}
-
-function Request-AdminRights {
-    if (-not (Test-AdminRights)) {
-        Write-StyledMessage Warning 'Elevazione privilegi richiesta...'
-        try { Start-Process PowerShell "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs; exit }
-        catch { Write-StyledMessage Error "Impossibile elevare i privilegi: $_"; exit }
-    }
-}
-
 function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
     Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
     Write-Host ''
@@ -169,26 +155,6 @@ function Start-RepairCycle([int]$Attempt = 1) {
         Start-Sleep 1
     }
     
-    # Salvataggio log
-    $logPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "WinRepair_v2.0_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
-    $logContent = @(
-        '=== WINDOWS REPAIR TOOLKIT v2.0 LOG ==='
-        "Data: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | PC: $env:COMPUTERNAME | User: $env:USERNAME"
-        "Tentativo: $Attempt/$MaxRetryAttempts | Risultato: $successCount/$($RepairTools.Count) | Errori: $totalErrors"
-        ''
-        '=== DETTAGLI ==='
-        ($script:Log -join "`r`n")
-        ''
-        '=== FINE LOG ==='
-    ) -join "`r`n"
-    
-    try { 
-        $logContent | Out-File $logPath -Encoding UTF8
-        Write-StyledMessage Info "📋 Log: $logPath" 
-    } catch { 
-        Write-StyledMessage Warning "Impossibile salvare log: $_" 
-    }
-    
     Write-StyledMessage Info "🎯 Completati $successCount/$($RepairTools.Count) strumenti (Errori: $totalErrors)."
     
     if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
@@ -265,7 +231,7 @@ $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
         '    \_/\_/    |_||_| \_|'
         ''
         '    Repair Toolkit By MagnetarMan'
-        '      Version 2.0 (Build 10)'
+        '      Version 2.0 (Build 12)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
