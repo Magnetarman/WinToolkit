@@ -1,5 +1,23 @@
 <p align="center">
-	<img src="img/Banner.png" alt="WinToolkit-banner" width="800">
+	<img src="img/WinToolkit-icon.png" alt="WinToolkit-banner" width="128">
+</p>
+<br>
+<p align="center">
+	<em><code>🛠️ WinToolkit: La Soluzione Definitiva per SOPRAVVIVERE A WINDOWS.</code></em>
+    <br>
+    <br>
+    <code>WinToolkit è una suite di script PowerShell potente e compatta, progettata per offrire a professionisti IT, amministratori di sistema e utenti esperti un controllo granulare sulla manutenzione e sulla risoluzione dei problemi di Windows. Questo toolkit intuitivo aggrega gli strumenti di riparazione di sistema più efficaci in un'unica interfaccia, automatizzando i processi complessi per ottimizzare le prestazioni e ripristinare la stabilità del sistema con pochi clic.</code>
+</p>
+<br>
+
+<p align="center">
+<img src="https://img.shields.io/badge/version-2.0 (Build 72)-green.svg" alt="versione">
+<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=default&logo=git&logoColor=white&color=0080ff" alt="last-commit">
+<img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-top-language">
+<img src="https://img.shields.io/github/languages/count/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-language-count">
+<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=default&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
+</p>
+<p align="center">
 </p>
 <br>
 
@@ -21,30 +39,6 @@
 </div>
 
 ---
-
-<br>
-<br>
-<p align="center">
-	<em><code>🛠️ WinToolkit: La Soluzione Definitiva per SOPRAVVIVERE A WINDOWS.</code></em>
-    <br>
-    <br>
-    <code>WinToolkit è una suite di script PowerShell potente e compatta, progettata per offrire a professionisti IT, amministratori di sistema e utenti esperti un controllo granulare sulla manutenzione e sulla risoluzione dei problemi di Windows. Questo toolkit intuitivo aggrega gli strumenti di riparazione di sistema più efficaci in un'unica interfaccia, automatizzando i processi complessi per ottimizzare le prestazioni e ripristinare la stabilità del sistema con pochi clic.</code>
-</p>
-<br>
-
-<p align="center">
-<img src="https://img.shields.io/badge/version-2.0 (Build 71)-green.svg" alt="versione">
-<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=default&logo=git&logoColor=white&color=0080ff" alt="last-commit">
-<img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-top-language">
-<img src="https://img.shields.io/github/languages/count/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-language-count">
-<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=default&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
-</p>
-<p align="center"><!-- default option, no dependency badges. -->
-</p>
-<p align="center">
-	<!-- default option, no dependency badges. -->
-</p>
-<br>
 
 ## 👾 Features
 
@@ -160,6 +154,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0`**: <strike>**RELEASE Pubblica**. Refator totale progetto per future implementazioni.</strike>
 - [x] **`V2.0.0 (Build 68)`**: <strike> Funzione **Repair Toolkit** Completa.</strike>
 - [x] **`V2.0.0 (Build 71)`**: <strike> Funzione **Update Reset** Completa.</strike>
+- [ ] **`V2.0.0 (Build 72)`**: <strike> Readme Rework.</strike>
 - [ ] **`VX.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 🕹️ TO DO
