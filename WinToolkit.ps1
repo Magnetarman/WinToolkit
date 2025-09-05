@@ -475,10 +475,73 @@ try {
 }
 }
 
+param([int]$CountdownSeconds = 10)
+
+# Variabili globali per interfaccia grafica
+$spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+$SpinnerIntervalMs = 160
+$MsgStyles = @{
+    Success = @{ Color = 'Green'; Icon = '✅' }
+    Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+    Error = @{ Color = 'Red'; Icon = '❌' }
+    Info = @{ Color = 'Cyan'; Icon = '💎' }
+}
+
+function Write-StyledMessage([string]$Type, [string]$Text) {
+    $style = $MsgStyles[$Type]
+    Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+}
+
+function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
+    $barLength = 30
+    $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
+    $filled = '█' * [math]::Floor($safePercent * $barLength / 100)
+    $empty = '░' * ($barLength - $filled.Length)
+    $bar = "[$filled$empty] {0,3}%" -f $safePercent
+    Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
+    if ($Percent -eq 100) { Write-Host '' }
+}
+
+function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
+    Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
+    Write-Host ''
+    for ($i = $Seconds; $i -gt 0; $i--) {
+        if ([Console]::KeyAvailable) {
+            [Console]::ReadKey($true) | Out-Null
+            Write-Host "`n"
+            Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
+            Write-StyledMessage Info "🔄 Puoi riavviare manualmente con: shutdown /r /t 0"
+            return $false
+        }
+        $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
+        Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
+        Start-Sleep 1
+    }
+    Write-Host ''
+    Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
+    Start-Sleep 1
+    return $true
+}
+
+function Center-Text([string]$Text, [int]$Width) {
+    $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
+    return (' ' * $padding) + $Text
+}
+
+function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
+    $percent = [math]::Round(($Current / $Total) * 100)
+    $spinnerIndex = ($Current % $spinners.Length)
+    $spinner = $spinners[$spinnerIndex]
+    Show-ProgressBar "Servizi ($Current/$Total)" "$Action $ServiceName" $percent '⚙️' $spinner 'Cyan'
+    Start-Sleep -Milliseconds 200
+}
+
 function WinUpdateReset {
     Clear-Host
     
-    # --- Schermata di Benvenuto ---
+    # --- Header Grafico Migliorato ---
+    $width = 65
+    Write-Host ('═' * $width) -ForegroundColor DarkCyan
     $asciiArt = @(
         '      __        __  _  _   _ ',
         '      \ \      / / | || \ | |',
@@ -489,155 +552,228 @@ function WinUpdateReset {
         '  Update Reset Toolkit By MagnetarMan',
         '       Version 2.0 (Build 13)'
     )
-    $asciiArt | ForEach-Object { Write-StyledMessage -Type 'Info' -Text (Center-Text -Text $_ -Width 60) }
+    foreach ($line in $asciiArt) {
+        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+    }
+    Write-Host ('═' * $width) -ForegroundColor DarkCyan
     Write-Host ''
 
-    Write-StyledMessage -Type 'Info' -Text 'Esecuzione dello Script di Reset Windows Update...'
-    Start-Sleep -Seconds 5
-    Write-StyledMessage -Type 'Info' -Text 'Avvio riparazione servizi Windows Update...'
+    Write-StyledMessage Info '🔧 Inizializzazione dello Script di Reset Windows Update...'
+    Start-Sleep -Seconds 2
 
-    # Definizione servizi e configurazioni
+    # Simulazione caricamento con spinner
+    Write-Host '⚡ Caricamento moduli... ' -NoNewline -ForegroundColor Yellow
+    for ($i = 0; $i -lt 15; $i++) {
+        Write-Host $spinners[$i % $spinners.Length] -NoNewline -ForegroundColor Yellow
+        Start-Sleep -Milliseconds $SpinnerIntervalMs
+        Write-Host "`b" -NoNewline
+    }
+    Write-Host '✅ Completato!' -ForegroundColor Green
+    Write-Host ''
+
+    Write-StyledMessage Info '🛠️ Avvio riparazione servizi Windows Update...'
+
+    # Configurazione servizi con icone
     $serviceConfig = @{
-        'wuauserv' = @{ Type = 'Automatic'; Critical = $true; DisplayName = 'Windows Update' }
-        'bits' = @{ Type = 'Automatic'; Critical = $true; DisplayName = 'Background Intelligent Transfer' }
-        'cryptsvc' = @{ Type = 'Automatic'; Critical = $true; DisplayName = 'Cryptographic Services' }
-        'trustedinstaller' = @{ Type = 'Manual'; Critical = $true; DisplayName = 'Windows Modules Installer' }
-        'msiserver' = @{ Type = 'Manual'; Critical = $false; DisplayName = 'Windows Installer' }
+        'wuauserv' = @{ Type = 'Automatic'; Critical = $true; Icon = '🔄'; DisplayName = 'Windows Update' }
+        'bits' = @{ Type = 'Automatic'; Critical = $true; Icon = '📡'; DisplayName = 'Background Intelligent Transfer' }
+        'cryptsvc' = @{ Type = 'Automatic'; Critical = $true; Icon = '🔐'; DisplayName = 'Cryptographic Services' }
+        'trustedinstaller' = @{ Type = 'Manual'; Critical = $true; Icon = '🛡️'; DisplayName = 'Windows Modules Installer' }
+        'msiserver' = @{ Type = 'Manual'; Critical = $false; Icon = '📦'; DisplayName = 'Windows Installer' }
     }
     
-    $systemServices = @('appidsvc', 'gpsvc', 'DcomLaunch', 'RpcSs', 'LanmanServer', 'LanmanWorkstation', 'EventLog', 'mpssvc', 'WinDefend')
+    $systemServices = @(
+        @{ Name = 'appidsvc'; Icon = '🆔'; Display = 'Application Identity' },
+        @{ Name = 'gpsvc'; Icon = '📋'; Display = 'Group Policy Client' },
+        @{ Name = 'DcomLaunch'; Icon = '🚀'; Display = 'DCOM Server Process Launcher' },
+        @{ Name = 'RpcSs'; Icon = '📞'; Display = 'Remote Procedure Call' },
+        @{ Name = 'LanmanServer'; Icon = '🖥️'; Display = 'Server' },
+        @{ Name = 'LanmanWorkstation'; Icon = '💻'; Display = 'Workstation' },
+        @{ Name = 'EventLog'; Icon = '📝'; Display = 'Windows Event Log' },
+        @{ Name = 'mpssvc'; Icon = '🛡️'; Display = 'Windows Defender Firewall' },
+        @{ Name = 'WinDefend'; Icon = '🔒'; Display = 'Windows Defender Service' }
+    )
 
     try {
-        # Funzione helper per gestire servizi
-        function Manage-Service($serviceName, $action, $config) {
+        # Funzione helper migliorata per gestire servizi
+        function Manage-Service($serviceName, $action, $config, $currentStep, $totalSteps) {
             try {
                 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
+                
                 if (-not $service) { 
-                    Write-StyledMessage -Type 'Warning' -Text "Servizio $serviceName non trovato nel sistema."
+                    Write-StyledMessage Warning "$serviceIcon Servizio $serviceName non trovato nel sistema."
                     return
                 }
 
                 switch ($action) {
                     'Stop' { 
+                        Show-ServiceProgress $serviceName "Arresto" $currentStep $totalSteps
                         Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-                        Write-StyledMessage -Type 'Info' -Text "Servizio $serviceName arrestato."
+                        Write-StyledMessage Info "$serviceIcon Servizio $serviceName arrestato."
                     }
                     'Configure' {
+                        Show-ServiceProgress $serviceName "Configurazione" $currentStep $totalSteps
                         Set-Service -Name $serviceName -StartupType $config.Type -ErrorAction Stop
-                        Write-StyledMessage -Type 'Success' -Text "Servizio $serviceName configurato come $($config.Type)."
+                        Write-StyledMessage Success "$serviceIcon Servizio $serviceName configurato come $($config.Type)."
                     }
                     'Start' {
+                        Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
                         Start-Service -Name $serviceName -ErrorAction Stop
-                        # Attesa avvio servizio con timeout
-                        $timeout = 10
+                        
+                        # Attesa avvio con spinner
+                        $timeout = 10; $spinnerIndex = 0
                         do {
-                            Start-Sleep -Milliseconds 500
+                            Write-Host "`r$($spinners[$spinnerIndex % $spinners.Length]) 🔄 Attesa avvio $serviceName..." -NoNewline -ForegroundColor Yellow
+                            Start-Sleep -Milliseconds 300
                             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-                            $timeout--
+                            $timeout--; $spinnerIndex++
                         } while ($service.Status -ne 'Running' -and $timeout -gt 0)
+                        Write-Host "`r" -NoNewline
                         
                         if ($service.Status -eq 'Running') {
-                            Write-StyledMessage -Type 'Success' -Text "Servizio $serviceName avviato."
+                            Write-StyledMessage Success "$serviceIcon Servizio $serviceName avviato correttamente."
                         } else {
-                            Write-StyledMessage -Type 'Warning' -Text "Servizio ${serviceName} avvio in corso..."
+                            Write-StyledMessage Warning "$serviceIcon Servizio $serviceName: avvio in corso..."
                         }
                     }
                     'Check' {
-                        $status = if ($service.Status -eq 'Running') { 'Attivo' } else { 'Inattivo' }
-                        Write-StyledMessage -Type 'Info' -Text "Servizio $serviceName - Stato: $status"
+                        $status = if ($service.Status -eq 'Running') { '🟢 Attivo' } else { '🔴 Inattivo' }
+                        $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
+                        Write-StyledMessage Info "$serviceIcon $serviceName - Stato: $status"
                     }
                 }
             }
             catch {
-                $action = switch ($action) { 'Configure' { 'configurare' } 'Start' { 'avviare' } 'Check' { 'verificare' } default { $action.ToLower() } }
-                Write-StyledMessage -Type 'Warning' -Text "Impossibile $action $serviceName - $($_.Exception.Message)"
+                $actionText = switch ($action) { 'Configure' { 'configurare' } 'Start' { 'avviare' } 'Check' { 'verificare' } default { $action.ToLower() } }
+                $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
+                Write-StyledMessage Warning "$serviceIcon Impossibile $actionText $serviceName - $($_.Exception.Message)"
             }
         }
 
-        # Stop servizi Windows Update
-        Write-StyledMessage -Type 'Info' -Text 'Arresto servizi Windows Update...'
-        @('wuauserv', 'cryptsvc', 'bits', 'msiserver') | ForEach-Object { Manage-Service $_ 'Stop' }
-
-        # Configurazione servizi Windows Update
-        Write-StyledMessage -Type 'Info' -Text 'Ripristino tipo di avvio dei servizi Windows Update...'
-        $serviceConfig.Keys | Where-Object { $serviceConfig[$_].Critical } | ForEach-Object {
-            Write-StyledMessage -Type 'Info' -Text "Elaborazione servizio: $_"
-            Manage-Service $_ 'Configure' $serviceConfig[$_]
+        # Stop servizi Windows Update con progress bar
+        Write-StyledMessage Info '🛑 Arresto servizi Windows Update...'
+        $stopServices = @('wuauserv', 'cryptsvc', 'bits', 'msiserver')
+        for ($i = 0; $i -lt $stopServices.Count; $i++) {
+            Manage-Service $stopServices[$i] 'Stop' $serviceConfig[$stopServices[$i]] ($i + 1) $stopServices.Count
         }
+        Write-Host ''
+
+        # Configurazione servizi con progress bar
+        Write-StyledMessage Info '⚙️ Ripristino configurazione servizi Windows Update...'
+        $criticalServices = $serviceConfig.Keys | Where-Object { $serviceConfig[$_].Critical }
+        for ($i = 0; $i -lt $criticalServices.Count; $i++) {
+            $serviceName = $criticalServices[$i]
+            Write-StyledMessage Info "$($serviceConfig[$serviceName].Icon) Elaborazione servizio: $serviceName"
+            Manage-Service $serviceName 'Configure' $serviceConfig[$serviceName] ($i + 1) $criticalServices.Count
+        }
+        Write-Host ''
 
         # Verifica servizi di sistema
-        Write-StyledMessage -Type 'Info' -Text 'Verifica servizi di sistema critici...'
-        $systemServices | ForEach-Object { Manage-Service $_ 'Check' }
+        Write-StyledMessage Info '🔍 Verifica servizi di sistema critici...'
+        for ($i = 0; $i -lt $systemServices.Count; $i++) {
+            $sysService = $systemServices[$i]
+            Manage-Service $sysService.Name 'Check' @{ Icon = $sysService.Icon } ($i + 1) $systemServices.Count
+        }
+        Write-Host ''
 
-        # Reset registro Windows Update
-        Write-StyledMessage -Type 'Info' -Text 'Ripristino chiavi di registro Windows Update...'
+        # Reset registro con animazione
+        Write-StyledMessage Info '📋 Ripristino chiavi di registro Windows Update...'
+        Write-Host '🔄 Elaborazione registro... ' -NoNewline -ForegroundColor Cyan
+        for ($i = 0; $i -lt 10; $i++) {
+            Write-Host $spinners[$i % $spinners.Length] -NoNewline -ForegroundColor Cyan
+            Start-Sleep -Milliseconds 150
+            Write-Host "`b" -NoNewline
+        }
         try {
             @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update",
                 "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
             ) | Where-Object { Test-Path $_ } | ForEach-Object {
                 Remove-Item $_ -Recurse -Force -ErrorAction Stop
-                Write-StyledMessage -Type 'Success' -Text "Chiave rimossa: $_"
+                Write-StyledMessage Success "📝 Chiave rimossa: $_"
             }
+            Write-Host 'Completato!' -ForegroundColor Green
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore durante la modifica del registro - $($_.Exception.Message)"
+            Write-Host 'Errore!' -ForegroundColor Red
+            Write-StyledMessage Warning "⚠️ Errore durante la modifica del registro - $($_.Exception.Message)"
         }
+        Write-Host ''
 
-        # Eliminazione diretta componenti Windows Update
-        Write-StyledMessage -Type 'Info' -Text 'Ripristino componenti Windows Update...'
-        try {
-            @("C:\Windows\SoftwareDistribution", "C:\Windows\System32\catroot2") | ForEach-Object {
-                if (Test-Path $_) {
-                    Remove-Item $_ -Recurse -Force -ErrorAction Stop
-                    Write-StyledMessage -Type 'Success' -Text "Directory $(Split-Path $_ -Leaf) eliminata."
+        # Reset componenti con progress bar
+        Write-StyledMessage Info '🗂️ Eliminazione componenti Windows Update...'
+        $directories = @("C:\Windows\SoftwareDistribution", "C:\Windows\System32\catroot2")
+        for ($i = 0; $i -lt $directories.Count; $i++) {
+            $dir = $directories[$i]
+            $percent = [math]::Round((($i + 1) / $directories.Count) * 100)
+            Show-ProgressBar "Directory ($($i + 1)/$($directories.Count))" "Eliminazione $(Split-Path $dir -Leaf)" $percent '🗑️' '' 'Yellow'
+            
+            if (Test-Path $dir) {
+                try {
+                    Remove-Item $dir -Recurse -Force -ErrorAction Stop
+                    Write-StyledMessage Success "🗑️ Directory $(Split-Path $dir -Leaf) eliminata."
                 }
+                catch {
+                    Write-StyledMessage Warning "⚠️ Errore eliminando $(Split-Path $dir -Leaf) - $($_.Exception.Message)"
+                }
+            } else {
+                Write-StyledMessage Info "💭 Directory $(Split-Path $dir -Leaf) non presente."
             }
         }
-        catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore durante l'eliminazione delle directory - $($_.Exception.Message)"
-        }
+        Write-Host ''
 
         # Avvio servizi essenziali
-        Write-StyledMessage -Type 'Info' -Text 'Avvio servizi essenziali...'
-        @('wuauserv', 'cryptsvc', 'bits') | ForEach-Object { Manage-Service $_ 'Start' }
+        Write-StyledMessage Info '🚀 Avvio servizi essenziali...'
+        $essentialServices = @('wuauserv', 'cryptsvc', 'bits')
+        for ($i = 0; $i -lt $essentialServices.Count; $i++) {
+            Manage-Service $essentialServices[$i] 'Start' $serviceConfig[$essentialServices[$i]] ($i + 1) $essentialServices.Count
+        }
+        Write-Host ''
 
         # Reset client Windows Update
-        Write-StyledMessage -Type 'Info' -Text 'Reset del client Windows Update...'
+        Write-StyledMessage Info '🔄 Reset del client Windows Update...'
+        Write-Host '⚡ Esecuzione comando reset... ' -NoNewline -ForegroundColor Magenta
         try {
             Start-Process "cmd.exe" -ArgumentList "/c wuauclt /resetauthorization /detectnow" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-            Write-StyledMessage -Type 'Success' -Text "Client Windows Update reimpostato."
+            Write-Host 'Completato!' -ForegroundColor Green
+            Write-StyledMessage Success "🔄 Client Windows Update reimpostato."
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore durante il reset del client Windows Update."
+            Write-Host 'Errore!' -ForegroundColor Red
+            Write-StyledMessage Warning "⚠️ Errore durante il reset del client Windows Update."
         }
+        Write-Host ''
 
-        # Messaggi finali e countdown reboot
-        @(
-            @{ Type = 'Success'; Text = 'Riparazione completata con successo.' },
-            @{ Type = 'Warning'; Text = "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche" },
-            @{ Type = 'Info'; Text = "Preparazione al riavvio del sistema..." }
-        ) | ForEach-Object { Write-StyledMessage -Type $_.Type -Text $_.Text }
+        # Messaggi finali con stile
+        Write-Host ('═' * 65) -ForegroundColor Green
+        Write-StyledMessage Success '🎉 Riparazione completata con successo!'
+        Write-StyledMessage Success '💻 Il sistema necessita di un riavvio per applicare tutte le modifiche.'
+        Write-StyledMessage Warning "⚡ Attenzione: il sistema verrà riavviato automaticamente"
+        Write-Host ('═' * 65) -ForegroundColor Green
+        Write-Host ''
         
-        15..1 | ForEach-Object {
-            Write-Host "Preparazione sistema al riavvio - $_ secondi...`r" -NoNewline -ForegroundColor Yellow
-            Start-Sleep 1
+        # Countdown interrompibile con progress bar
+        $shouldReboot = Start-InterruptibleCountdown $CountdownSeconds "Preparazione riavvio sistema"
+        
+        if ($shouldReboot) {
+            Write-StyledMessage Info "🔄 Riavvio in corso..."
+            try { Stop-Transcript | Out-Null } catch {}
+            Restart-Computer -Force
         }
-        Write-Host ""
-        
-        Write-StyledMessage -Type 'Info' -Text "Riavvio in corso..."
-        try { Stop-Transcript | Out-Null } catch {}
-        Restart-Computer -Force
     }
     catch {
-        @(
-            @{ Type = 'Error'; Text = "Errore critico: $($_.Exception.Message)" },
-            @{ Type = 'Error'; Text = 'Si è verificato un errore durante la riparazione. Controlla i messaggi sopra.' },
-            @{ Type = 'Info'; Text = 'Premere un tasto per uscire...' }
-        ) | ForEach-Object { Write-StyledMessage -Type $_.Type -Text $_.Text }
+        Write-Host ''
+        Write-Host ('═' * 65) -ForegroundColor Red
+        Write-StyledMessage Error "💥 Errore critico: $($_.Exception.Message)"
+        Write-StyledMessage Error '❌ Si è verificato un errore durante la riparazione.'
+        Write-StyledMessage Info '🔍 Controlla i messaggi sopra per maggiori dettagli.'
+        Write-Host ('═' * 65) -ForegroundColor Red
+        Write-StyledMessage Info '⌨️ Premere un tasto per uscire...'
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
 }
+
 
 #function WinReinstallStore {}
 
