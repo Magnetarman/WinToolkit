@@ -487,7 +487,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.0 (Build 12)'
+        '       Version 2.0 (Build 13)'
     )
     $asciiArt | ForEach-Object { Write-StyledMessage -Type 'Info' -Text (Center-Text -Text $_ -Width 60) }
     Write-Host ''
@@ -539,7 +539,7 @@ function WinUpdateReset {
                         if ($service.Status -eq 'Running') {
                             Write-StyledMessage -Type 'Success' -Text "Servizio $serviceName avviato."
                         } else {
-                            Write-StyledMessage -Type 'Warning' -Text "Servizio ${serviceName}: avvio in corso..."
+                            Write-StyledMessage -Type 'Warning' -Text "Servizio ${serviceName} avvio in corso..."
                         }
                     }
                     'Check' {
@@ -584,28 +584,18 @@ function WinUpdateReset {
             Write-StyledMessage -Type 'Warning' -Text "Errore durante la modifica del registro - $($_.Exception.Message)"
         }
 
-        # Reset componenti Windows Update
+        # Eliminazione diretta componenti Windows Update
         Write-StyledMessage -Type 'Info' -Text 'Ripristino componenti Windows Update...'
         try {
-            # Pulizia backup precedenti e rename directories
-            @(
-                @{ Old = "C:\Windows\SoftwareDistribution.old"; Action = "Remove" },
-                @{ Old = "C:\Windows\System32\catroot2.old"; Action = "Remove" },
-                @{ Old = "C:\Windows\SoftwareDistribution"; New = "SoftwareDistribution.old"; Action = "Rename"; Message = "Directory SoftwareDistribution rinominata." },
-                @{ Old = "C:\Windows\System32\catroot2"; New = "catroot2.old"; Action = "Rename"; Message = "Directory catroot2 rinominata." }
-            ) | ForEach-Object {
-                if (Test-Path $_.Old) {
-                    if ($_.Action -eq "Remove") {
-                        Remove-Item $_.Old -Recurse -Force -ErrorAction SilentlyContinue
-                    } else {
-                        Rename-Item $_.Old $_.New -ErrorAction Stop
-                        Write-StyledMessage -Type 'Success' -Text $_.Message
-                    }
+            @("C:\Windows\SoftwareDistribution", "C:\Windows\System32\catroot2") | ForEach-Object {
+                if (Test-Path $_) {
+                    Remove-Item $_ -Recurse -Force -ErrorAction Stop
+                    Write-StyledMessage -Type 'Success' -Text "Directory $(Split-Path $_ -Leaf) eliminata."
                 }
             }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore durante il backup delle directory - $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Warning' -Text "Errore durante l'eliminazione delle directory - $($_.Exception.Message)"
         }
 
         # Avvio servizi essenziali
@@ -625,12 +615,11 @@ function WinUpdateReset {
         # Messaggi finali e countdown reboot
         @(
             @{ Type = 'Success'; Text = 'Riparazione completata con successo.' },
-            @{ Type = 'Success'; Text = 'Il sistema necessita di un riavvio per applicare tutte le modifiche.' },
             @{ Type = 'Warning'; Text = "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche" },
             @{ Type = 'Info'; Text = "Preparazione al riavvio del sistema..." }
         ) | ForEach-Object { Write-StyledMessage -Type $_.Type -Text $_.Text }
         
-        10..1 | ForEach-Object {
+        15..1 | ForEach-Object {
             Write-Host "Preparazione sistema al riavvio - $_ secondi...`r" -NoNewline -ForegroundColor Yellow
             Start-Sleep 1
         }
