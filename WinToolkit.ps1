@@ -5,11 +5,11 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 67) - 2025-09-04
+  Versione 2.0 (Build 68) - 2025-09-04
 #>
 
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
-$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan v2.0 (Build 67)"
+$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan v2.0 (Build 68)"
 
 # Imposta una gestione degli errori più rigorosa per lo script.
 # 'Stop' interrompe l'esecuzione in caso di errore, permettendo una gestione controllata tramite try/catch.
@@ -521,7 +521,7 @@ while ($true) {
     if ($userChoice -eq '0') {
         Write-StyledMessage 'Warning' 'In caso di problemi, contatta MagnetarMan su GitHub.'
         Write-StyledMessage 'Success' 'Grazie per aver usato il toolkit. Chiusura in corso...'
-        Start-Sleep -Seconds 5
+        Start-Sleep -Seconds 3
         break # Esce dal ciclo while ($true) e termina lo script.
     }
 
@@ -554,6 +554,6 @@ while ($true) {
     }
     else {
         Write-StyledMessage 'Error' 'Scelta non valida. Riprova.'
-        Start-Sleep -Seconds 2
+        Start-Sleep -Seconds 3
     }
 }
