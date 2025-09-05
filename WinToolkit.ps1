@@ -5,11 +5,11 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 70) - 2025-09-05
+  Versione 2.0 (Build 71) - 2025-09-05
 #>
 
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
-$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan v2.0 (Build 70)"
+$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan v2.0 (Build 71)"
 
 # Imposta una gestione degli errori più rigorosa per lo script.
 # 'Stop' interrompe l'esecuzione in caso di errore, permettendo una gestione controllata tramite try/catch.
@@ -477,194 +477,165 @@ try {
 
 function WinUpdateReset {
     Clear-Host
-# --- Schermata di Benvenuto ---
-$width = 60
-$asciiArt = @(
-    '      __        __  _  _   _ '
-    '      \ \      / / | || \ | |'
-    '       \ \ /\ / /  | ||  \| |'
-    '        \ V  V /   | || |\  |'
-    '         \_/\_/    |_||_| \_|'
-    ''
-    '  Update Reset Toolkit By MagnetarMan'
-    '       Version 2.0 (Build 9)'
-)
-foreach ($line in $asciiArt) {
-    Write-StyledMessage -Type 'Info' -Text (Center-Text -Text $line -Width $width)
-}
-Write-Host '' # Spazio
-
-Write-StyledMessage -Type 'Info' -Text 'Esecuzione dello Script di Reset Windows Update...'
-Start-Sleep -Seconds 5
-
-Write-StyledMessage -Type 'Info' -Text 'Avvio riparazione servizi Windows Update...'
-
-# Critical services that need to be running for Windows Update
-$criticalServices = @(
-    'wuauserv',          # Windows Update
-    'bits',              # Background Intelligent Transfer
-    'cryptsvc',          # Cryptographic Services
-    'trustedinstaller',  # Windows Modules Installer
-    'appidsvc',          # Application Identity
-    'gpsvc',            # Group Policy Client
-    'DcomLaunch',       # DCOM Server Process Launcher
-    'RpcSs',            # Remote Procedure Call
-    'LanmanServer',     # Server
-    'LanmanWorkstation', # Workstation
-    'EventLog',         # Windows Event Log
-    'mpssvc',           # Windows Defender Firewall
-    'WinDefend'         # Windows Defender Service
-)
-
-try {
-    # Stop services before modification
-    Write-StyledMessage -Type 'Info' -Text 'Arresto servizi Windows Update...'
-    $servicesToStop = @('wuauserv', 'cryptsvc', 'bits', 'msiserver')
-    foreach ($service in $servicesToStop) {
-        try {
-            Stop-Service -Name $service -Force -ErrorAction SilentlyContinue
-            Write-StyledMessage -Type 'Info' -Text "Servizio $service arrestato."
-        }
-        catch {
-            Write-StyledMessage -Type 'Warning' -Text "Impossibile arrestare $service - $($_.Exception.Message)"
-        }
-    }
-
-    # Reset services to their default startup type
-    Write-StyledMessage -Type 'Info' -Text 'Ripristino tipo di avvio dei servizi...'
-    foreach ($service in $criticalServices) {
-        Write-StyledMessage -Type 'Info' -Text "Elaborazione servizio: $service"
-        try {
-            # Check if service exists
-            $serviceObject = Get-Service -Name $service -ErrorAction SilentlyContinue
-            if ($serviceObject) {
-                # Set appropriate startup type based on service
-                $startupType = switch ($service) {
-                    'trustedinstaller' { 'Manual' }
-                    'appidsvc' { 'Manual' }
-                    default { 'Automatic' }
-                }
-                
-                Set-Service -Name $service -StartupType $startupType -ErrorAction Stop
-                Write-StyledMessage -Type 'Success' -Text "Servizio $service configurato come $startupType."
-            }
-            else {
-                Write-StyledMessage -Type 'Warning' -Text "Servizio $service non trovato nel sistema."
-            }
-        }
-        catch {
-            Write-StyledMessage -Type 'Warning' -Text "Impossibile configurare $service - $($_.Exception.Message)"
-        }
-    }
-
-    # Fix registry entries
-    Write-StyledMessage -Type 'Info' -Text 'Ripristino chiavi di registro...'
-    $registryPaths = @(
-        "HKLM:\SYSTEM\CurrentControlSet\Services",
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate",
-        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+    
+    # --- Schermata di Benvenuto ---
+    $asciiArt = @(
+        '      __        __  _  _   _ ',
+        '      \ \      / / | || \ | |',
+        '       \ \ /\ / /  | ||  \| |',
+        '        \ V  V /   | || |\  |',
+        '         \_/\_/    |_||_| \_|',
+        '',
+        '  Update Reset Toolkit By MagnetarMan',
+        '       Version 2.0 (Build 11)'
     )
+    $asciiArt | ForEach-Object { Write-StyledMessage -Type 'Info' -Text (Center-Text -Text $_ -Width 60) }
+    Write-Host ''
 
-    foreach ($path in $registryPaths) {
-        if (Test-Path $path) {
-            Write-StyledMessage -Type 'Info' -Text "Elaborazione registro: $path"
+    Write-StyledMessage -Type 'Info' -Text 'Esecuzione dello Script di Reset Windows Update...'
+    Start-Sleep -Seconds 5
+    Write-StyledMessage -Type 'Info' -Text 'Avvio riparazione servizi Windows Update...'
+
+    # Definizione servizi e configurazioni
+    $serviceConfig = @{
+        'wuauserv' = @{ Type = 'Automatic'; Critical = $true; DisplayName = 'Windows Update' }
+        'bits' = @{ Type = 'Automatic'; Critical = $true; DisplayName = 'Background Intelligent Transfer' }
+        'cryptsvc' = @{ Type = 'Automatic'; Critical = $true; DisplayName = 'Cryptographic Services' }
+        'trustedinstaller' = @{ Type = 'Manual'; Critical = $true; DisplayName = 'Windows Modules Installer' }
+        'msiserver' = @{ Type = 'Manual'; Critical = $false; DisplayName = 'Windows Installer' }
+    }
+    
+    $systemServices = @('appidsvc', 'gpsvc', 'DcomLaunch', 'RpcSs', 'LanmanServer', 'LanmanWorkstation', 'EventLog', 'mpssvc', 'WinDefend')
+
+    try {
+        # Funzione helper per gestire servizi
+        function Manage-Service($serviceName, $action, $config) {
             try {
-                if ($path -like "*CurrentControlSet\Services") {
-                    # Reset Windows Update service specific registry values
-                    $serviceRegPaths = @(
-                        @{ Path = "$path\wuauserv"; Value = 2 }        # Automatic
-                        @{ Path = "$path\bits"; Value = 2 }           # Automatic  
-                        @{ Path = "$path\TrustedInstaller"; Value = 3 } # Manual
-                    )
-                    
-                    foreach ($regPath in $serviceRegPaths) {
-                        if (Test-Path $regPath.Path) {
-                            Set-ItemProperty -Path $regPath.Path -Name "Start" -Value $regPath.Value -Type DWord -ErrorAction Stop
-                            Write-StyledMessage -Type 'Success' -Text "Registro aggiornato: $($regPath.Path)"
-                        }
+                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                if (-not $service) { 
+                    Write-StyledMessage -Type 'Warning' -Text "Servizio $serviceName non trovato nel sistema."
+                    return
+                }
+
+                switch ($action) {
+                    'Stop' { 
+                        Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+                        Write-StyledMessage -Type 'Info' -Text "Servizio $serviceName arrestato."
+                    }
+                    'Configure' {
+                        Set-Service -Name $serviceName -StartupType $config.Type -ErrorAction Stop
+                        Write-StyledMessage -Type 'Success' -Text "Servizio $serviceName configurato come $($config.Type)."
+                    }
+                    'Start' {
+                        Start-Service -Name $serviceName -ErrorAction Stop
+                        Write-StyledMessage -Type 'Success' -Text "Servizio $serviceName avviato."
+                    }
+                    'Check' {
+                        $status = if ($service.Status -eq 'Running') { 'Attivo' } else { 'Inattivo' }
+                        Write-StyledMessage -Type 'Info' -Text "Servizio $serviceName - Stato: $status"
                     }
                 }
             }
             catch {
-                Write-StyledMessage -Type 'Warning' -Text "Errore nella modifica del registro $path - $($_.Exception.Message)"
+                $action = switch ($action) { 'Configure' { 'configurare' } 'Start' { 'avviare' } 'Check' { 'verificare' } default { $action.ToLower() } }
+                Write-StyledMessage -Type 'Warning' -Text "Impossibile $action $serviceName - $($_.Exception.Message)"
             }
         }
-        else {
-            Write-StyledMessage -Type 'Warning' -Text "Percorso registro non trovato: $path"
-        }
-    }
 
-    # Reset Windows Update components
-    Write-StyledMessage -Type 'Info' -Text 'Ripristino componenti Windows Update...'
-    
-    # Create backup directories if they don't exist and remove old ones
-    try {
-        if (Test-Path "C:\Windows\SoftwareDistribution.old") {
-            Remove-Item "C:\Windows\SoftwareDistribution.old" -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        if (Test-Path "C:\Windows\System32\catroot2.old") {
-            Remove-Item "C:\Windows\System32\catroot2.old" -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        
-        # Rename current directories
-        if (Test-Path "C:\Windows\SoftwareDistribution") {
-            Rename-Item "C:\Windows\SoftwareDistribution" "SoftwareDistribution.old" -ErrorAction Stop
-            Write-StyledMessage -Type 'Success' -Text "Directory SoftwareDistribution rinominata."
-        }
-        if (Test-Path "C:\Windows\System32\catroot2") {
-            Rename-Item "C:\Windows\System32\catroot2" "catroot2.old" -ErrorAction Stop
-            Write-StyledMessage -Type 'Success' -Text "Directory catroot2 rinominata."
-        }
-    }
-    catch {
-        Write-StyledMessage -Type 'Warning' -Text "Errore durante il backup delle directory - $($_.Exception.Message)"
-    }
+        # Stop servizi Windows Update
+        Write-StyledMessage -Type 'Info' -Text 'Arresto servizi Windows Update...'
+        @('wuauserv', 'cryptsvc', 'bits', 'msiserver') | ForEach-Object { Manage-Service $_ 'Stop' }
 
-    # Start essential services
-    Write-StyledMessage -Type 'Info' -Text 'Avvio servizi essenziali...'
-    $essentialServices = @('wuauserv', 'cryptsvc', 'bits')
-    foreach ($service in $essentialServices) {
+        # Configurazione servizi Windows Update
+        Write-StyledMessage -Type 'Info' -Text 'Ripristino tipo di avvio dei servizi Windows Update...'
+        $serviceConfig.Keys | Where-Object { $serviceConfig[$_].Critical } | ForEach-Object {
+            Write-StyledMessage -Type 'Info' -Text "Elaborazione servizio: $_"
+            Manage-Service $_ 'Configure' $serviceConfig[$_]
+        }
+
+        # Verifica servizi di sistema
+        Write-StyledMessage -Type 'Info' -Text 'Verifica servizi di sistema critici...'
+        $systemServices | ForEach-Object { Manage-Service $_ 'Check' }
+
+        # Reset registro Windows Update
+        Write-StyledMessage -Type 'Info' -Text 'Ripristino chiavi di registro Windows Update...'
         try {
-            Start-Service -Name $service -ErrorAction Stop
-            Write-StyledMessage -Type 'Success' -Text "Servizio $service avviato."
+            @(
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update",
+                "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+            ) | Where-Object { Test-Path $_ } | ForEach-Object {
+                Remove-Item $_ -Recurse -Force -ErrorAction Stop
+                Write-StyledMessage -Type 'Success' -Text "Chiave rimossa: $_"
+            }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Impossibile avviare $service - $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Warning' -Text "Errore durante la modifica del registro - $($_.Exception.Message)"
         }
-    }
 
-    # Reset Windows Update client
-    Write-StyledMessage -Type 'Info' -Text 'Reset del client Windows Update...'
-    try {
-        Start-Process "cmd.exe" -ArgumentList "/c wuauclt /resetauthorization /detectnow" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-        Write-StyledMessage -Type 'Success' -Text "Client Windows Update reimpostato."
+        # Reset componenti Windows Update
+        Write-StyledMessage -Type 'Info' -Text 'Ripristino componenti Windows Update...'
+        try {
+            # Pulizia backup precedenti e rename directories
+            @(
+                @{ Old = "C:\Windows\SoftwareDistribution.old"; Action = "Remove" },
+                @{ Old = "C:\Windows\System32\catroot2.old"; Action = "Remove" },
+                @{ Old = "C:\Windows\SoftwareDistribution"; New = "SoftwareDistribution.old"; Action = "Rename"; Message = "Directory SoftwareDistribution rinominata." },
+                @{ Old = "C:\Windows\System32\catroot2"; New = "catroot2.old"; Action = "Rename"; Message = "Directory catroot2 rinominata." }
+            ) | ForEach-Object {
+                if (Test-Path $_.Old) {
+                    if ($_.Action -eq "Remove") {
+                        Remove-Item $_.Old -Recurse -Force -ErrorAction SilentlyContinue
+                    } else {
+                        Rename-Item $_.Old $_.New -ErrorAction Stop
+                        Write-StyledMessage -Type 'Success' -Text $_.Message
+                    }
+                }
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Errore durante il backup delle directory - $($_.Exception.Message)"
+        }
+
+        # Avvio servizi essenziali
+        Write-StyledMessage -Type 'Info' -Text 'Avvio servizi essenziali...'
+        @('wuauserv', 'cryptsvc', 'bits') | ForEach-Object { Manage-Service $_ 'Start' }
+
+        # Reset client Windows Update
+        Write-StyledMessage -Type 'Info' -Text 'Reset del client Windows Update...'
+        try {
+            Start-Process "cmd.exe" -ArgumentList "/c wuauclt /resetauthorization /detectnow" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+            Write-StyledMessage -Type 'Success' -Text "Client Windows Update reimpostato."
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Errore durante il reset del client Windows Update."
+        }
+
+        # Messaggi finali e countdown reboot
+        @(
+            @{ Type = 'Success'; Text = 'Riparazione completata con successo.' },
+            @{ Type = 'Success'; Text = 'Il sistema necessita di un riavvio per applicare tutte le modifiche.' },
+            @{ Type = 'Warning'; Text = "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche" },
+            @{ Type = 'Info'; Text = "Preparazione al riavvio del sistema..." }
+        ) | ForEach-Object { Write-StyledMessage -Type $_.Type -Text $_.Text }
+        
+        10..1 | ForEach-Object {
+            Write-Host "Preparazione sistema al riavvio - $_ secondi...`r" -NoNewline -ForegroundColor Yellow
+            Start-Sleep 1
+        }
+        Write-Host ""
+        
+        Write-StyledMessage -Type 'Info' -Text "Riavvio in corso..."
+        try { Stop-Transcript | Out-Null } catch {}
+        Restart-Computer -Force
     }
     catch {
-        Write-StyledMessage -Type 'Warning' -Text "Errore durante il reset del client Windows Update."
+        @(
+            @{ Type = 'Error'; Text = "Errore critico: $($_.Exception.Message)" },
+            @{ Type = 'Error'; Text = 'Si è verificato un errore durante la riparazione. Controlla i messaggi sopra.' },
+            @{ Type = 'Info'; Text = 'Premere un tasto per uscire...' }
+        ) | ForEach-Object { Write-StyledMessage -Type $_.Type -Text $_.Text }
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
-
-    Write-StyledMessage -Type 'Success' -Text 'Riparazione completata con successo.'
-    Write-StyledMessage -Type 'Success' -Text 'Il sistema necessita di un riavvio per applicare tutte le modifiche.'
-    Write-StyledMessage -Type 'Warning' -Text "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche"
-    Write-StyledMessage -Type 'Info' -Text "Preparazione al riavvio del sistema..."
-    
-    for ($i = 10; $i -gt 0; $i--) {
-        Write-Host "Preparazione sistema al riavvio - $i secondi..." -NoNewline -ForegroundColor Yellow
-        Write-Host "`r" -NoNewline
-        Start-Sleep 1
-    }
-    Write-Host "" # Nuova riga dopo il countdown
-    
-    Write-StyledMessage -Type 'Info' -Text "Riavvio in corso..."
-    try { Stop-Transcript | Out-Null } catch {}
-    Restart-Computer -Force
-}
-catch {
-    Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message)"
-    Write-StyledMessage -Type 'Error' -Text 'Si è verificato un errore durante la riparazione. Controlla i messaggi sopra.'
-    Write-StyledMessage -Type 'Info' -Text 'Premere un tasto per uscire...'
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-}
 }
 
 #function WinReinstallStore {}
@@ -683,7 +654,7 @@ while ($true) {
         '    \_/\_/    |_||_| \_|'
         ''
         '    Toolkit By MagnetarMan'
-        '      Version 2.0 (Build 70)'
+        '      Version 2.0 (Build 71)'
     )
     foreach ($line in $asciiArt) {
         Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
