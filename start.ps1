@@ -170,14 +170,14 @@ function ToolKit-Desktop {
         $WshShell = New-Object -ComObject WScript.Shell
         $Shortcut = $WshShell.CreateShortcut($shortcutPath)
         
-        # Imposta la destinazione del file eseguibile (TargetPath)
-        $Shortcut.TargetPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
+        # Imposta la destinazione del file eseguibile (TargetPath) - Windows Terminal
+        $Shortcut.TargetPath = 'C:\Users\' + $env:USERNAME + '\AppData\Local\Microsoft\WindowsApps\wt.exe'
         
         # Imposta gli argomenti della riga di comando (Arguments)
-        $Shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Experimental/WinToolkit.ps1 | iex"'
+        $Shortcut.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Experimental/WinToolkit.ps1 | iex"'
         
         # Imposta la directory di lavoro
-        $Shortcut.WorkingDirectory = "C:\Program Files\PowerShell\7"
+        $Shortcut.WorkingDirectory = "C:\Users\" + $env:USERNAME + "\AppData\Local\Microsoft\WindowsApps"
         
         # Salva la scorciatoia prima di modificare le proprietà avanzate
         $Shortcut.Save()
@@ -194,7 +194,6 @@ function ToolKit-Desktop {
         Write-StyledMessage -Type 'Error' -Text "Errore durante la creazione della scorciatoia: $($_.Exception.Message)"
     }
 }
-
 
 # Logica di esecuzione principale
 function Start-WinToolkit {
