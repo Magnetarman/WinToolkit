@@ -476,6 +476,8 @@ try {
 }
 
 param([int]$CountdownSeconds = 10)
+
+# Variabili globali per interfaccia grafica
 $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
 $SpinnerIntervalMs = 160
 $MsgStyles = @{
@@ -535,6 +537,7 @@ function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Curre
 }
 
 function WinUpdateReset {
+    $Host.UI.RawUI.WindowTitle = "Update Reset Toolkit By MagnetarMan"
     param([int]$CountdownSeconds = 10)
     
     # Variabili locali per interfaccia grafica
