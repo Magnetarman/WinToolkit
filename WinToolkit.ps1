@@ -537,6 +537,124 @@ function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Curre
 }
 
 function WinUpdateReset {
+    param([int]$CountdownSeconds = 10)
+    
+    # Variabili locali per interfaccia grafica
+    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+    $SpinnerIntervalMs = 160
+    $MsgStyles = @{
+        Success = @{ Color = 'Green'; Icon = '✅' }
+        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error = @{ Color = 'Red'; Icon = '❌' }
+        Info = @{ Color = 'Cyan'; Icon = '💎' }
+    }
+
+    # Funzioni helper annidate
+    function Write-StyledMessage([string]$Type, [string]$Text) {
+        $style = $MsgStyles[$Type]
+        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    }
+
+    function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
+        $barLength = 30
+        $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
+        $filled = '█' * [math]::Floor($safePercent * $barLength / 100)
+        $empty = '░' * ($barLength - $filled.Length)
+        $bar = "[$filled$empty] {0,3}%" -f $safePercent
+        Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
+        if ($Percent -eq 100) { Write-Host '' }
+    }
+
+    function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
+        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
+        Write-Host ''
+        for ($i = $Seconds; $i -gt 0; $i--) {
+            if ([Console]::KeyAvailable) {
+                [Console]::ReadKey($true) | Out-Null
+                Write-Host "`n"
+                Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
+                Write-StyledMessage Info "🔄 Puoi riavviare manualmente con: shutdown /r /t 0"
+                return $false
+            }
+            $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
+            Show-ProgressBar 'Countdown Riavvio' "${Message} - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
+            Start-Sleep 1
+        }
+        Write-Host ''
+        Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
+        Start-Sleep 1
+        return $true
+    }
+
+    function Center-Text([string]$Text, [int]$Width) {
+        $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding) + $Text
+    }
+
+    function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
+        $percent = [math]::Round(($Current / $Total) * 100)
+        $spinnerIndex = ($Current % $spinners.Length)
+        $spinner = $spinners[$spinnerIndex]
+        Show-ProgressBar "Servizi ($Current/$Total)" "$Action $ServiceName" $percent '⚙️' $spinner 'Cyan'
+        Start-Sleep -Milliseconds 200
+    }
+
+    function Manage-Service($serviceName, $action, $config, $currentStep, $totalSteps) {
+        try {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
+            
+            if (-not $service) { 
+                Write-StyledMessage Warning "$serviceIcon Servizio $serviceName non trovato nel sistema."
+                return
+            }
+
+            switch ($action) {
+                'Stop' { 
+                    Show-ServiceProgress $serviceName "Arresto" $currentStep $totalSteps
+                    Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+                    Write-StyledMessage Info "$serviceIcon Servizio $serviceName arrestato."
+                }
+                'Configure' {
+                    Show-ServiceProgress $serviceName "Configurazione" $currentStep $totalSteps
+                    Set-Service -Name $serviceName -StartupType $config.Type -ErrorAction Stop
+                    Write-StyledMessage Success "$serviceIcon Servizio $serviceName configurato come $($config.Type)."
+                }
+                'Start' {
+                    Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
+                    Start-Service -Name $serviceName -ErrorAction Stop
+                    
+                    # Attesa avvio con spinner
+                    $timeout = 10; $spinnerIndex = 0
+                    do {
+                        Write-Host "`r$($spinners[$spinnerIndex % $spinners.Length]) 🔄 Attesa avvio $serviceName..." -NoNewline -ForegroundColor Yellow
+                        Start-Sleep -Milliseconds 300
+                        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                        $timeout--; $spinnerIndex++
+                    } while ($service.Status -ne 'Running' -and $timeout -gt 0)
+                    Write-Host "`r" -NoNewline
+                    
+                    if ($service.Status -eq 'Running') {
+                        Write-StyledMessage Success "$serviceIcon Servizio $serviceName avviato correttamente."
+                    } else {
+                        Write-StyledMessage Warning "$serviceIcon Servizio $serviceName: avvio in corso..."
+                    }
+                }
+                'Check' {
+                    $status = if ($service.Status -eq 'Running') { '🟢 Attivo' } else { '🔴 Inattivo' }
+                    $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
+                    Write-StyledMessage Info "$serviceIcon $serviceName - Stato: $status"
+                }
+            }
+        }
+        catch {
+            $actionText = switch ($action) { 'Configure' { 'configurare' } 'Start' { 'avviare' } 'Check' { 'verificare' } default { $action.ToLower() } }
+            $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
+            Write-StyledMessage Warning "$serviceIcon Impossibile $actionText $serviceName - $($_.Exception.Message)"
+        }
+    }
+
+    # === INIZIO ESECUZIONE PRINCIPALE ===
     Clear-Host
     
     # --- Header Grafico Migliorato ---
@@ -550,7 +668,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.0 (Build 13)'
+        '       Version 2.0 (Build 16)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -595,62 +713,6 @@ function WinUpdateReset {
     )
 
     try {
-        # Funzione helper migliorata per gestire servizi
-        function Manage-Service($serviceName, $action, $config, $currentStep, $totalSteps) {
-            try {
-                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-                $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
-                
-                if (-not $service) { 
-                    Write-StyledMessage Warning "$serviceIcon Servizio $serviceName non trovato nel sistema."
-                    return
-                }
-
-                switch ($action) {
-                    'Stop' { 
-                        Show-ServiceProgress $serviceName "Arresto" $currentStep $totalSteps
-                        Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-                        Write-StyledMessage Info "$serviceIcon Servizio $serviceName arrestato."
-                    }
-                    'Configure' {
-                        Show-ServiceProgress $serviceName "Configurazione" $currentStep $totalSteps
-                        Set-Service -Name $serviceName -StartupType $config.Type -ErrorAction Stop
-                        Write-StyledMessage Success "$serviceIcon Servizio $serviceName configurato come $($config.Type)."
-                    }
-                    'Start' {
-                        Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
-                        Start-Service -Name $serviceName -ErrorAction Stop
-                        
-                        # Attesa avvio con spinner
-                        $timeout = 10; $spinnerIndex = 0
-                        do {
-                            Write-Host "`r$($spinners[$spinnerIndex % $spinners.Length]) 🔄 Attesa avvio $serviceName..." -NoNewline -ForegroundColor Yellow
-                            Start-Sleep -Milliseconds 300
-                            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-                            $timeout--; $spinnerIndex++
-                        } while ($service.Status -ne 'Running' -and $timeout -gt 0)
-                        Write-Host "`r" -NoNewline
-                        
-                        if ($service.Status -eq 'Running') {
-                            Write-StyledMessage Success "$serviceIcon Servizio $serviceName avviato correttamente."
-                        } else {
-                            Write-StyledMessage Warning "$serviceIcon Servizio $serviceName: avvio in corso..."
-                        }
-                    }
-                    'Check' {
-                        $status = if ($service.Status -eq 'Running') { '🟢 Attivo' } else { '🔴 Inattivo' }
-                        $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
-                        Write-StyledMessage Info "$serviceIcon $serviceName - Stato: $status"
-                    }
-                }
-            }
-            catch {
-                $actionText = switch ($action) { 'Configure' { 'configurare' } 'Start' { 'avviare' } 'Check' { 'verificare' } default { $action.ToLower() } }
-                $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
-                Write-StyledMessage Warning "$serviceIcon Impossibile $actionText $serviceName - $($_.Exception.Message)"
-            }
-        }
-
         # Stop servizi Windows Update con progress bar
         Write-StyledMessage Info '🛑 Arresto servizi Windows Update...'
         $stopServices = @('wuauserv', 'cryptsvc', 'bits', 'msiserver')
