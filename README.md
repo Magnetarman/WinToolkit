@@ -23,19 +23,13 @@
 
 ## 📸 ScreenShot
 
-<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 1700px; margin: auto;">
-  <div style="flex: 1 1 45%; text-align: center;">
-    <img src="img/Starter.png" alt="Starter-banner" width="800">
-  </div>
-  <div style="flex: 1 1 45%; text-align: center;">
-    <img src="img/Run.png" alt="Run-banner" width="800">
-  </div>
-  <div style="flex: 1 1 45%; text-align: center;">
-    <img src="img/RepairToolkit.png" alt="RepairToolkit-banner" width="800">
-  </div>
-  <div style="flex: 1 1 45%; text-align: center;">
-    <img src="img/UpdateReset.png" alt="UpdateReset-banner" width="800">
-  </div>
+<div align="center">
+
+|                                                                          |                                                                      |
+| :----------------------------------------------------------------------: | :------------------------------------------------------------------: |
+|       <img src="img/Starter.png" alt="Starter-banner" width="800">       |         <img src="img/Run.png" alt="Run-banner" width="800">         |
+| <img src="img/RepairToolkit.png" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.png" alt="UpdateReset-banner" width="800"> |
+
 </div>
 
 ---
