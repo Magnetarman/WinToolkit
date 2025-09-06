@@ -105,7 +105,7 @@ Prima di avviare il tool, assicurati che il tuo ambiente di Runtime soddisfi i s
 - Richiesto intervento manuale minimo.
 - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema)
 
-### ⚙️ Installazione per Neofiti **Consigliata**
+### ⚙️ Installazione per Neofiti _Consigliata_
 
 Avvia il Toolkit eseguendo il seguente metodo:
 
