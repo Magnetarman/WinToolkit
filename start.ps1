@@ -6,11 +6,21 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.0 (Build 69) - 2025-09-05
+  Versione 2.0 (Build 72) - 2025-09-05
 #>
 
+function Center-Text {
+    param(
+        [string]$Text,
+        [int]$Width = 80
+    )
+    $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
+    return (" " * $padding) + $Text
+}
+
+
 # Impostazione titolo finestra della console
-$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter V2.0 (Build 69) - by MagnetarMan"
+$Host.UI.RawUI.WindowTitle = "Win Toolkit Starter by MagnetarMan"
 
 # Funzione per mostrare messaggi stilizzati
 function Write-StyledMessage {
@@ -229,35 +239,24 @@ function Start-WinToolkit {
         Start-Transcript -Path "$logdir\WinToolkitStarter_$dateTime.log" -Append -Force | Out-Null
     } catch {}
 
-    Clear-Host
-
-    # --- Schermata di Benvenuto ---
-    $width = 60
+  Clear-Host
+    $width = 65
+    Write-Host ('═' * $width) -ForegroundColor Green
     $asciiArt = @(
-        ' __        __  _  _   _ '
-        ' \ \      / / | || \ | |'
-        '  \ \ /\ / /  | ||  \| |'
-        '   \ V  V /   | || |\  |'
-        '    \_/\_/    |_||_| \_|'
-        ''
-        '    Toolkit Starter By MagnetarMan'
-        '      Version 2.0 (Build 69)'
+        '      __        __  _  _   _ ',
+        '      \ \      / / | || \ | |',
+        '       \ \ /\ / /  | ||  \| |',
+        '        \ V  V /   | || |\  |',
+        '         \_/\_/    |_||_| \_|',
+        '',
+        '     Toolkit Starter By MagnetarMan',
+        '        Version 2.0 (Build 72)'
     )
-
-    function Center-Text {
-        param(
-            [string]$Text,
-            [int]$Width = 60
-        )
-        if ($Text.Length -ge $Width) { return $Text }
-        $padding = ' ' * [Math]::Floor(($Width - $Text.Length) / 2)
-        return "$padding$Text"
-    }
-
     foreach ($line in $asciiArt) {
-        Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
+        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
     }
-    Write-Host '' # Spazio
+    Write-Host ('═' * $width) -ForegroundColor Green
+    Write-Host ''
     
     Write-StyledMessage -Type 'Info' -Text "Versione PowerShell rilevata: $($PSVersionTable.PSVersion)"
     if ($PSVersionTable.PSVersion.Major -lt 7) {

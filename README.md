@@ -1,18 +1,6 @@
 <p align="center">
-	<img src="img/Banner.png" alt="WinToolkit-banner" width="800">
+	<img src="img/WinToolkit-icon.png" alt="WinToolkit-banner" width="160">
 </p>
-<br>
-<p align="center">
-	<img src="img/Starter.png" alt="Starter-banner" width="800">
-</p>
-<p align="center">
-	<img src="img/Run.png" alt="Run-banner" width="800">
-</p>
-<br>
-<p align="center">
-	<img src="img/RepairToolkit.png" alt="RepairToolkit-banner" width="800">
-</p>
-<br>
 <br>
 <p align="center">
 	<em><code>🛠️ WinToolkit: La Soluzione Definitiva per SOPRAVVIVERE A WINDOWS.</code></em>
@@ -23,18 +11,28 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.0 (Build 69)-green.svg" alt="versione">
+<img src="https://img.shields.io/badge/version-2.0 (Build 72)-green.svg" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=default&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/languages/count/Magnetarman/WinToolkit?style=default&color=0080ff" alt="repo-language-count">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=default&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
 </p>
-<p align="center"><!-- default option, no dependency badges. -->
-</p>
 <p align="center">
-	<!-- default option, no dependency badges. -->
 </p>
 <br>
+
+## 📸 ScreenShot
+
+<div align="center">
+
+|                                                                          |                                                                      |
+| :----------------------------------------------------------------------: | :------------------------------------------------------------------: |
+|       <img src="img/Starter.png" alt="Starter-banner" width="800">       |         <img src="img/Run.png" alt="Run-banner" width="800">         |
+| <img src="img/RepairToolkit.png" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.png" alt="UpdateReset-banner" width="800"> |
+
+</div>
+
+---
 
 ## 👾 Features
 
@@ -107,7 +105,7 @@ Prima di avviare il tool, assicurati che il tuo ambiente di Runtime soddisfi i s
 - Richiesto intervento manuale minimo.
 - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema)
 
-### ⚙️ Installazione per Neofiti **Consigliata**
+### ⚙️ Installazione per Neofiti _Consigliata_
 
 Avvia il Toolkit eseguendo il seguente metodo:
 
@@ -149,6 +147,8 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V1.1.0`**: <strike>Refactor Struttura in forma modulare.</strike>
 - [x] **`V2.0.0`**: <strike>**RELEASE Pubblica**. Refator totale progetto per future implementazioni.</strike>
 - [x] **`V2.0.0 (Build 68)`**: <strike> Funzione **Repair Toolkit** Completa.</strike>
+- [x] **`V2.0.0 (Build 71)`**: <strike> Funzione **Update Reset** Completa.</strike>
+- [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
 - [ ] **`VX.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 🕹️ TO DO
@@ -183,25 +183,30 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 1. **Esegui il Fork della Repository**: Inizia facendo il "fork" della repository del progetto sul tuo account GitHub.
 2. **Clona in Locale**: Clona la repository di cui hai fatto il fork sulla tua macchina locale usando un client Git.
-   ```powershell
-   git clone https://github.com/Magnetarman/WinToolkit
-   ```
 
-````
+```powershell
+   git clone https://github.com/Magnetarman/WinToolkit
+```
+
 3. **Crea un Nuovo Branch**: Lavora sempre su un nuovo "branch", dandogli un nome descrittivo.
- ```powershell
- git checkout -b new-feature-x
-````
+
+```powershell
+git checkout -b new-feature-x
+```
 
 4. **Apporta le Tue Modifiche**: Sviluppa e testa le tue modifiche in locale.
 5. **Esegui il Commit delle Tue Modifiche**: Fai il "commit" con un messaggio chiaro che descriva i tuoi aggiornamenti.
-   ```powershell
-   git commit -m 'Implementata nuova funzionalità x.'
-   ```
+
+```powershell
+  git commit -m 'Implementata nuova funzionalità x.'
+```
+
 6. **Esegui il Push su GitHub**: Fai il "push" delle modifiche sulla tua repository "fork".
-   ```powershell
+
+```powershell
    git push origin nuova-funzionalita-x
-   ```
+```
+
 7. **Invia una Pull Request**: Crea una "Pull Request" (PR) verso la repository originale del progetto. Descrivi chiaramente le modifiche e le loro motivazioni.
 8. **Revisione**: Una volta che la tua PR sarà revisionata e approvata, verrà unita ("merged") nel branch principale. Congratulazioni per il tuo contributo!
 </details>
