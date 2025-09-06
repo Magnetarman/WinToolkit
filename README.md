@@ -149,6 +149,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 68)`**: <strike> Funzione **Repair Toolkit** Completa.</strike>
 - [x] **`V2.0.0 (Build 71)`**: <strike> Funzione **Update Reset** Completa.</strike>
 - [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
+- [x] **`V2.0.0 (Build 73)`**: <strike> Start Script Potenziato, Fix Tool "WinUpdate Reset".</strike>
 - [ ] **`VX.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 🕹️ TO DO
