@@ -183,25 +183,30 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 1. **Esegui il Fork della Repository**: Inizia facendo il "fork" della repository del progetto sul tuo account GitHub.
 2. **Clona in Locale**: Clona la repository di cui hai fatto il fork sulla tua macchina locale usando un client Git.
-   ```powershell
-   git clone https://github.com/Magnetarman/WinToolkit
-   ```
 
-````
+```powershell
+   git clone https://github.com/Magnetarman/WinToolkit
+```
+
 3. **Crea un Nuovo Branch**: Lavora sempre su un nuovo "branch", dandogli un nome descrittivo.
- ```powershell
- git checkout -b new-feature-x
-````
+
+```powershell
+git checkout -b new-feature-x
+```
 
 4. **Apporta le Tue Modifiche**: Sviluppa e testa le tue modifiche in locale.
 5. **Esegui il Commit delle Tue Modifiche**: Fai il "commit" con un messaggio chiaro che descriva i tuoi aggiornamenti.
-   ```powershell
-   git commit -m 'Implementata nuova funzionalità x.'
-   ```
+
+```powershell
+  git commit -m 'Implementata nuova funzionalità x.'
+```
+
 6. **Esegui il Push su GitHub**: Fai il "push" delle modifiche sulla tua repository "fork".
-   ```powershell
+
+```powershell
    git push origin nuova-funzionalita-x
-   ```
+```
+
 7. **Invia una Pull Request**: Crea una "Pull Request" (PR) verso la repository originale del progetto. Descrivi chiaramente le modifiche e le loro motivazioni.
 8. **Revisione**: Una volta che la tua PR sarà revisionata e approvata, verrà unita ("merged") nel branch principale. Congratulazioni per il tuo contributo!
 </details>
