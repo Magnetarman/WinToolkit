@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.0 (Build 72) - 2025-09-05
+  Versione 2.0 (Build 73) - 2025-09-06
 #>
 
 function Center-Text {
@@ -168,6 +168,7 @@ function Invoke-WPFTweakPS7 {
 }
 
 # Funzione per creare la scorciatoia sul desktop
+# Funzione per creare la scorciatoia sul desktop
 function ToolKit-Desktop {
     Write-StyledMessage -Type 'Info' -Text "Creazione scorciatoia sul desktop..."
     
@@ -175,6 +176,19 @@ function ToolKit-Desktop {
         # Determina il percorso del desktop dell'utente corrente
         $desktopPath = [System.Environment]::GetFolderPath('Desktop')
         $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.0.lnk"
+        
+        # Percorso per salvare l'icona
+        $iconPath = Join-Path -Path $env:TEMP -ChildPath "WinToolkit.ico"
+        
+        # Scarica l'icona da GitHub solo se non esiste già
+        if (-not (Test-Path -Path $iconPath)) {
+            Write-StyledMessage -Type 'Info' -Text "Download icona in corso..."
+            $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
+            Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing
+            Write-StyledMessage -Type 'Success' -Text "Icona scaricata e salvata in %localappdata%\WinToolkit\."
+        } else {
+            Write-StyledMessage -Type 'Info' -Text "Icona già presente in %localappdata%\WinToolkit\."
+        }
         
         # Crea un oggetto WScript.Shell per la creazione della scorciatoia
         $WshShell = New-Object -ComObject WScript.Shell
@@ -189,6 +203,9 @@ function ToolKit-Desktop {
         # Imposta la directory di lavoro
         $Shortcut.WorkingDirectory = "C:\Users\" + $env:USERNAME + "\AppData\Local\Microsoft\WindowsApps"
         
+        # Imposta l'icona personalizzata
+        $Shortcut.IconLocation = $iconPath
+        
         # Salva la scorciatoia prima di modificare le proprietà avanzate
         $Shortcut.Save()
         
@@ -199,7 +216,7 @@ function ToolKit-Desktop {
         $bytes[21] = $bytes[21] -bor 32
         [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
         
-        Write-StyledMessage -Type 'Success' -Text "Scorciatoia 'Win Toolkit.lnk' creata con successo sul desktop con privilegi amministratore."
+        Write-StyledMessage -Type 'Success' -Text "Scorciatoia 'Win Toolkit V2.0.lnk' creata con successo sul desktop con privilegi amministratore e icona personalizzata."
     } catch {
         Write-StyledMessage -Type 'Error' -Text "Errore durante la creazione della scorciatoia: $($_.Exception.Message)"
     }
@@ -250,7 +267,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.0 (Build 72)'
+        '        Version 2.0 (Build 73)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
