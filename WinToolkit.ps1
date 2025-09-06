@@ -912,8 +912,11 @@ function WinUpdateReset {
     }
 }
 
-
 #function WinReinstallStore {}
+
+#function WinBackupDriver {}
+
+#function OfficeToolkit {}
 
 # Ciclo principale del programma: mostra il menu e attende una scelta.
 while ($true) {
@@ -942,6 +945,8 @@ while ($true) {
         [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Avvia il Toolkit di Riparazione Windows.' ; Action = 'RunFunction' }
         [pscustomobject]@{ Name = 'WinUpdateReset'  ; Description = 'Esegui il Reset di Windows Update.'       ; Action = 'RunFunction' }
         [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Reinstalla Winget ed il Windows Store.'  ; Action = 'RunFunction' }
+        [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Esegue il Backup di tutti i Driver installati.'  ; Action = 'RunFunction' }
+        [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Avvia il Toolkit di Office. Ripara o Reinstalla Office'  ; Action = 'RunFunction' }
         ) 
 
     Write-StyledMessage 'Warning' 'Seleziona lo script da avviare:'
