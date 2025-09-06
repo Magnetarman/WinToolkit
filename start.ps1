@@ -1,3 +1,12 @@
+function Center-Text {
+    param(
+        [string]$Text,
+        [int]$Width = 80
+    )
+    $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
+    return (" " * $padding) + $Text
+}
+
 <#
 .SYNOPSIS
     Script di Start per Win Toolkit V2.0.
