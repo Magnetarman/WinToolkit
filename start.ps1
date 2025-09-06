@@ -1,12 +1,3 @@
-function Center-Text {
-    param(
-        [string]$Text,
-        [int]$Width = 80
-    )
-    $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
-    return (" " * $padding) + $Text
-}
-
 <#
 .SYNOPSIS
     Script di Start per Win Toolkit V2.0.
@@ -17,6 +8,16 @@ function Center-Text {
 .NOTES
   Versione 2.0 (Build 72) - 2025-09-05
 #>
+
+function Center-Text {
+    param(
+        [string]$Text,
+        [int]$Width = 80
+    )
+    $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
+    return (" " * $padding) + $Text
+}
+
 
 # Impostazione titolo finestra della console
 $Host.UI.RawUI.WindowTitle = "Win Toolkit Starter by MagnetarMan"
