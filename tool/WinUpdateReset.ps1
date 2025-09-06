@@ -1,4 +1,8 @@
 function WinUpdateReset {
+    param(
+        [int]$CountdownSeconds = 15
+    )
+    
     $Host.UI.RawUI.WindowTitle = "Update Reset Toolkit By MagnetarMan"
     # Variabili locali per interfaccia grafica
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
