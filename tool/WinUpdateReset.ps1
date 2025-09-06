@@ -74,6 +74,15 @@ function WinUpdateReset {
                 'Stop' { 
                     Show-ServiceProgress $serviceName "Arresto" $currentStep $totalSteps
                     Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+                    
+                    # Attesa per assicurarsi che il servizio si sia fermato completamente
+                    $timeout = 10
+                    do {
+                        Start-Sleep -Milliseconds 500
+                        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                        $timeout--
+                    } while ($service.Status -eq 'Running' -and $timeout -gt 0)
+                    
                     Write-StyledMessage Info "$serviceIcon Servizio $serviceName arrestato."
                 }
                 'Configure' {
@@ -114,6 +123,58 @@ function WinUpdateReset {
             Write-StyledMessage Warning "$serviceIcon Impossibile $actionText $serviceName - $($_.Exception.Message)"
         }
     }
+
+    # NUOVA FUNZIONE per eliminazione sicura delle directory
+    function Remove-DirectorySafely([string]$Path, [string]$DisplayName) {
+        if (-not (Test-Path $Path)) {
+            Write-StyledMessage Info "💭 Directory $DisplayName non presente."
+            return $true
+        }
+
+        try {
+            # Prima prova: eliminazione diretta
+            Remove-Item $Path -Recurse -Force -ErrorAction Stop
+            Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata."
+            return $true
+        }
+        catch {
+            Write-StyledMessage Warning "⚠️ Tentativo fallito, provo con eliminazione selettiva..."
+            
+            try {
+                # Seconda prova: elimina i contenuti prima, poi la cartella
+                if (Test-Path $Path) {
+                    Get-ChildItem -Path $Path -Recurse -Force | ForEach-Object {
+                        try {
+                            if ($_.PSIsContainer) {
+                                Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                            } else {
+                                $_.Delete()
+                            }
+                        }
+                        catch {
+                            # Ignora errori su singoli file
+                        }
+                    }
+                    
+                    # Prova a eliminare la directory principale
+                    Start-Sleep -Seconds 1
+                    Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue
+                    
+                    if (-not (Test-Path $Path)) {
+                        Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata (metodo alternativo)."
+                        return $true
+                    } else {
+                        Write-StyledMessage Warning "⚠️ Directory $DisplayName parzialmente eliminata (alcuni file potrebbero essere in uso)."
+                        return $false
+                    }
+                }
+            }
+            catch {
+                Write-StyledMessage Warning "⚠️ Impossibile eliminare completamente $DisplayName - alcuni file potrebbero essere in uso."
+                return $false
+            }
+        }
+    }
  
     Clear-Host
     $width = 65
@@ -126,7 +187,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.0 (Build 18)'
+        '       Version 2.0 (Build 19)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -165,7 +226,7 @@ function WinUpdateReset {
         @{ Name = 'RpcSs'; Icon = '📞'; Display = 'Remote Procedure Call' },
         @{ Name = 'LanmanServer'; Icon = '🖥️'; Display = 'Server' },
         @{ Name = 'LanmanWorkstation'; Icon = '💻'; Display = 'Workstation' },
-        @{ Name = 'EventLog'; Icon = '📝'; Display = 'Windows Event Log' },
+        @{ Name = 'EventLog'; Icon = '📄'; Display = 'Windows Event Log' },
         @{ Name = 'mpssvc'; Icon = '🛡️'; Display = 'Windows Defender Firewall' },
         @{ Name = 'WinDefend'; Icon = '🔒'; Display = 'Windows Defender Service' }
     )
@@ -177,6 +238,10 @@ function WinUpdateReset {
         for ($i = 0; $i -lt $stopServices.Count; $i++) {
             Manage-Service $stopServices[$i] 'Stop' $serviceConfig[$stopServices[$i]] ($i + 1) $stopServices.Count
         }
+        
+        # Pausa aggiuntiva per permettere la liberazione completa delle risorse
+        Write-StyledMessage Info '⏳ Attesa liberazione risorse...'
+        Start-Sleep -Seconds 3
         Write-Host ''
 
         # Configurazione servizi con progress bar
@@ -211,7 +276,7 @@ function WinUpdateReset {
                 "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
             ) | Where-Object { Test-Path $_ } | ForEach-Object {
                 Remove-Item $_ -Recurse -Force -ErrorAction Stop
-                Write-StyledMessage Success "📝 Chiave rimossa: $_"
+                Write-StyledMessage Success "🔓 Chiave rimossa: $_"
             }
             Write-Host 'Completato!' -ForegroundColor Green
         }
@@ -221,24 +286,21 @@ function WinUpdateReset {
         }
         Write-Host ''
 
-        # Reset componenti con progress bar
+        # Reset componenti con progress bar e gestione errori migliorata
         Write-StyledMessage Info '🗂️ Eliminazione componenti Windows Update...'
-        $directories = @("C:\Windows\SoftwareDistribution", "C:\Windows\System32\catroot2")
+        $directories = @(
+            @{ Path = "C:\Windows\SoftwareDistribution"; Name = "SoftwareDistribution" },
+            @{ Path = "C:\Windows\System32\catroot2"; Name = "catroot2" }
+        )
+        
         for ($i = 0; $i -lt $directories.Count; $i++) {
             $dir = $directories[$i]
             $percent = [math]::Round((($i + 1) / $directories.Count) * 100)
-            Show-ProgressBar "Directory ($($i + 1)/$($directories.Count))" "Eliminazione $(Split-Path $dir -Leaf)" $percent '🗑️' '' 'Yellow'
+            Show-ProgressBar "Directory ($($i + 1)/$($directories.Count))" "Eliminazione $($dir.Name)" $percent '🗑️' '' 'Yellow'
             
-            if (Test-Path $dir) {
-                try {
-                    Remove-Item $dir -Recurse -Force -ErrorAction Stop
-                    Write-StyledMessage Success "🗑️ Directory $(Split-Path $dir -Leaf) eliminata."
-                }
-                catch {
-                    Write-StyledMessage Warning "⚠️ Errore eliminando $(Split-Path $dir -Leaf) - $($_.Exception.Message)"
-                }
-            } else {
-                Write-StyledMessage Info "💭 Directory $(Split-Path $dir -Leaf) non presente."
+            $success = Remove-DirectorySafely -Path $dir.Path -DisplayName $dir.Name
+            if (-not $success) {
+                Write-StyledMessage Info "💡 Suggerimento: Alcuni file potrebbero essere ricreati dopo il riavvio."
             }
         }
         Write-Host ''
