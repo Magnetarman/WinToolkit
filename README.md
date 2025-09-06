@@ -41,7 +41,7 @@
 >
 > Il ramo **Experimental** ha codice in fase Beta _potrebbero essere presenti funzioni instabili_.
 >
-> Il ramo **Dev** ha codice e funzionalità in sviluppo attivo. **ATTENZIONE** - Utilizzare lo > script presente nel ramo Dev potrebbe danneggiare il sistema.
+> Il ramo **Dev** ha codice e funzionalità in sviluppo attivo. **ATTENZIONE** - Utilizzare lo script presente nel ramo Dev potrebbe danneggiare il sistema.
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
