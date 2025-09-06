@@ -10,7 +10,7 @@
 
 param([int]$CountdownSeconds = 10)
 # Imposta il titolo della finestra di PowerShell per un'identificazione immediata.
-$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan v2.0 (Build 72)"
+$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
 
 # Imposta una gestione degli errori più rigorosa per lo script.
 # 'Stop' interrompe l'esecuzione in caso di errore, permettendo una gestione controllata tramite try/catch.
@@ -78,11 +78,26 @@ function Center-Text {
 
 # Funzione per installare il profilo PowerShell
 function WinInstallPSProfile {
-    <#
-    .SYNOPSIS
-        Installa il profilo PowerShell di Chris Titus Tech.
-    #>
-    
+    $Host.UI.RawUI.WindowTitle = "InstallPSProfile by MagnetarMan"
+    Clear-Host
+    $width = 65
+    Write-Host ('═' * $width) -ForegroundColor Green
+    $asciiArt = @(
+        '      __        __  _  _   _ ',
+        '      \ \      / / | || \ | |',
+        '       \ \ /\ / /  | ||  \| |',
+        '        \ V  V /   | || |\  |',
+        '         \_/\_/    |_||_| \_|',
+        '',
+        '   Install PSProfile By MagnetarMan',
+        '        Version 2.0 (Build 5)'
+    )
+    foreach ($line in $asciiArt) {
+        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+    }
+    Write-Host ('═' * $width) -ForegroundColor Green
+    Write-Host ''
+
     # Controlla se lo script è eseguito come amministratore
     if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
         Write-StyledMessage 'Warning' "L'installazione del profilo PowerShell richiede privilegi di amministratore."
@@ -431,24 +446,24 @@ function Start-SystemRestart([hashtable]$RepairResult) {
 
 
 $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
- Clear-Host
-
-    # --- Schermata di Benvenuto ---
-    $width = 60
+  Clear-Host
+    $width = 65
+    Write-Host ('═' * $width) -ForegroundColor Green
     $asciiArt = @(
-        ' __        __  _  _   _ '
-        ' \ \      / / | || \ | |'
-        '  \ \ /\ / /  | ||  \| |'
-        '   \ V  V /   | || |\  |'
-        '    \_/\_/    |_||_| \_|'
-        ''
-        '    Repair Toolkit By MagnetarMan'
-        '      Version 2.0 (Build 13)'
+        '      __        __  _  _   _ ',
+        '      \ \      / / | || \ | |',
+        '       \ \ /\ / /  | ||  \| |',
+        '        \ V  V /   | || |\  |',
+        '         \_/\_/    |_||_| \_|',
+        '',
+        '     Repair Toolkit By MagnetarMan',
+        '        Version 2.0 (Build 13)'
     )
     foreach ($line in $asciiArt) {
-        Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
+        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
     }
-    Write-Host '' # Spazio
+    Write-Host ('═' * $width) -ForegroundColor Green
+    Write-Host ''
 
 
 # Countdown preparazione
@@ -654,7 +669,7 @@ function WinUpdateReset {
  
     Clear-Host
     $width = 65
-    Write-Host ('═' * $width) -ForegroundColor DarkCyan
+    Write-Host ('═' * $width) -ForegroundColor Green
     $asciiArt = @(
         '      __        __  _  _   _ ',
         '      \ \      / / | || \ | |',
@@ -663,12 +678,12 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.0 (Build 17)'
+        '       Version 2.0 (Build 18)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
     }
-    Write-Host ('═' * $width) -ForegroundColor DarkCyan
+    Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
 
     Write-StyledMessage Info '🔧 Inizializzazione dello Script di Reset Windows Update...'
@@ -836,24 +851,24 @@ function WinUpdateReset {
 
 # Ciclo principale del programma: mostra il menu e attende una scelta.
 while ($true) {
-    Clear-Host
-
-    # --- Schermata di Benvenuto ---
-    $width = 60
+ Clear-Host
+    $width = 65
+    Write-Host ('═' * $width) -ForegroundColor Green
     $asciiArt = @(
-        ' __        __  _  _   _ '
-        ' \ \      / / | || \ | |'
-        '  \ \ /\ / /  | ||  \| |'
-        '   \ V  V /   | || |\  |'
-        '    \_/\_/    |_||_| \_|'
-        ''
-        '    Toolkit By MagnetarMan'
-        '      Version 2.0 (Build 72)'
+        '      __        __  _  _   _ ',
+        '      \ \      / / | || \ | |',
+        '       \ \ /\ / /  | ||  \| |',
+        '        \ V  V /   | || |\  |',
+        '         \_/\_/    |_||_| \_|',
+        '',
+        '       Toolkit By MagnetarMan',
+        '       Version 2.0 (Build 72)'
     )
     foreach ($line in $asciiArt) {
-        Write-StyledMessage 'Info' (Center-Text -Text $line -Width $width)
+        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
     }
-    Write-Host '' # Spazio
+    Write-Host ('═' * $width) -ForegroundColor Green
+    Write-Host ''
 
     # --- Definizione e visualizzazione del menu ---
     $scripts = @(
