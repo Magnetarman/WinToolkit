@@ -226,7 +226,7 @@ function Start-WinToolkit {
         $script = if ($PSCommandPath) {
             "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
         } else {
-            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Experimental/start.ps1))) $($argList -join ' ')"
+            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/start.ps1))) $($argList -join ' ')"
         }
         Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
         return
