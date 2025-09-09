@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 74) - 2025-09-09
+  Versione 2.0 (Build 75) - 2025-09-09
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -931,7 +931,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       Toolkit By MagnetarMan',
-    '       Version 2.0 (Build 74)'
+    '       Version 2.0 (Build 75)'
 )
 foreach ($line in $asciiArt) {
     Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -944,7 +944,7 @@ $menuStructure = @{
     'Operazioni Preliminari' = @{
         'Icon' = '⚠️'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa il profilo PowerShell - Fortemente Consigliato.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa il profilo PowerShell.'; Action = 'RunFunction' }
         )
     }
     'Riparazione Windows' = @{
@@ -959,7 +959,7 @@ $menuStructure = @{
         'Icon' = '📦'
         'Scripts' = @(
             [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Esegue il Backup di tutti i Driver installati.'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Avvia il Toolkit di Office. Ripara o Reinstalla Office'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Avvia il Toolkit di Office. Ripara o Reinstalla.'; Action = 'RunFunction' }
         )
     }
 }
@@ -982,7 +982,7 @@ foreach ($categoryName in $menuStructure.Keys) {
     # Visualizzazione degli script della categoria
     foreach ($script in $category.Scripts) {
         $allScripts += $script
-        Write-StyledMessage 'Info' "💎 [$scriptIndex] $($script.Description)"
+        Write-StyledMessage 'Info' " [$scriptIndex] $($script.Description)"
         $scriptIndex++
     }
     
@@ -992,7 +992,7 @@ foreach ($categoryName in $menuStructure.Keys) {
 # Sezione di uscita
 Write-Host "=== Uscita ===" -ForegroundColor Red
 Write-Host ''
-Write-StyledMessage 'Error' '❌ [0] Esci dal Toolkit'
+Write-StyledMessage 'Error' '[0] Esci dal Toolkit'
 Write-Host ''
 
 # --- Logica di gestione della scelta utente ---
