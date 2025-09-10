@@ -40,9 +40,12 @@
 ## 👾 Features
 
 > [!Note]
-> La versione 2.0 è in **sviluppo attivo**.
+> La versione 2.0 del Toolkit è in fase **RELEASE** nel ramo `main`.
 >
-> Il ramo **Dev** ha codice e funzionalità in sviluppo attivo e Testing. **ATTENZIONE** - Utilizzare lo script presente nel ramo Dev potrebbe danneggiare il sistema.
+> Il ramo `Dev` contiene modifiche e funzionalità su cui sto lavorando.
+> <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso. Potrebbe causare danni al tuo sistema.**
+
+Attenzione: Usare il codice da questo ramo è rischio e potrebbe causare danni al tuo sistema.
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
