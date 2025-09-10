@@ -950,16 +950,16 @@ $menuStructure = @{
     'Riparazione Windows' = @{
         'Icon' = '🔧'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Avvia il Toolkit di Riparazione Windows.'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Esegui il Reset di Windows Update.'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Reinstalla Winget ed il Windows Store.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset di Windows Update.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset.'; Action = 'RunFunction' }
         )
     }
     'Backup & Tool' = @{
         'Icon' = '📦'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Esegue il Backup di tutti i Driver installati.'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Avvia il Toolkit di Office. Ripara o Reinstalla.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
         )
     }
 }
@@ -967,9 +967,6 @@ $menuStructure = @{
 # Creazione dell'array ordinato degli script per mantenere la numerazione progressiva
 $allScripts = @()
 $scriptIndex = 1
-
-Write-StyledMessage 'Warning' 'Seleziona lo script da avviare:'
-Write-Host ''
 
 foreach ($categoryName in $menuStructure.Keys) {
     $category = $menuStructure[$categoryName]
@@ -996,7 +993,7 @@ Write-StyledMessage 'Error' '[0] Esci dal Toolkit'
 Write-Host ''
 
 # --- Logica di gestione della scelta utente ---
-$userChoice = Read-Host "Inserisci il numero della tua scelta"
+$userChoice = Read-Host "Quale opzione vuoi eseguire? (0-$($allScripts.Count))"
 
 if ($userChoice -eq '0') {
     Write-StyledMessage 'Warning' 'In caso di problemi, contatta MagnetarMan su GitHub.'
