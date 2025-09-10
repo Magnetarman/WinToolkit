@@ -151,7 +151,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 71)`**: <strike> Funzione **Update Reset** Completa.</strike>
 - [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
 - [x] **`V2.0.0 (Build 73)`**: <strike> Start Script Potenziato, Fix Tool "WinUpdate Reset".</strike>
-- [x] **`V2.0.0 (Build 78)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
+- [x] **`V2.0.0 (Build 80)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
 - [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 👌 Update Pianificati
