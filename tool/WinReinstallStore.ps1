@@ -1,7 +1,3 @@
-
-
-
-function Install-WinUtilWinget {
     function WinReinstallStore {
     <#
     .SYNOPSIS
@@ -359,5 +355,3 @@ function Install-WinUtilWinget {
 
 # Esempio di utilizzo:
 WinReinstallStore
-
-}
