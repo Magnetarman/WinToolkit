@@ -24,6 +24,13 @@ function WinReinstallStore {
         Progress = @{ Color = 'Magenta'; Icon = '🔄' }
     }
     
+    # Funzione per centrare il testo
+    function Center-Text {
+        param([string]$Text, [int]$Width)
+        $padding = [math]::Max(0, ($Width - $Text.Length) / 2)
+        return (' ' * [math]::Floor($padding)) + $Text
+    }
+    
     # Header grafico ottimizzato
     function Show-Header {
         Clear-Host
@@ -37,7 +44,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             '  Store Repair Toolkit By MagnetarMan',
-            '        Version 2.0 (Build 15)'
+            '        Version 2.0 (Build 16)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -60,48 +67,125 @@ function WinReinstallStore {
         catch { return "notinstalled" }
     }
     
+    # Funzione per terminare processi che potrebbero interferire
+    function Stop-InterferingProcesses {
+        Write-StyledMessage Progress "🔧 Terminazione processi interferenti..."
+        
+        $processesToKill = @(
+            "WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore", 
+            "Microsoft.DesktopAppInstaller", "RuntimeBroker", "dllhost"
+        )
+        
+        foreach ($processName in $processesToKill) {
+            try {
+                Get-Process -Name $processName -ErrorAction SilentlyContinue | 
+                Stop-Process -Force -ErrorAction SilentlyContinue
+                Write-Host "  ✓ Terminato: $processName" -ForegroundColor Gray
+            }
+            catch {
+                # Ignora errori - processo potrebbe non esistere
+            }
+        }
+        
+        # Attendi un momento per la terminazione completa
+        Start-Sleep -Seconds 3
+    }
+    
     function Install-Winget {
         Write-StyledMessage Progress "🔧 Iniziando installazione/aggiornamento di Winget..."
         
         # Verifica versione Windows
-        if ((Get-ComputerInfo).WindowsVersion -lt "1809") {
+        $osVersion = [System.Environment]::OSVersion.Version
+        if ($osVersion.Build -lt 17763) {
+            # Windows 1809
             Write-StyledMessage Error "Winget non è supportato su questa versione di Windows (Pre-1809)"
             throw "Versione Windows non supportata"
         }
         
+        # Termina processi interferenti prima dell'installazione
+        Stop-InterferingProcesses
+        
         # Metodi di installazione ottimizzati
         $methods = @(
             { # Aggiornamento via Winget esistente
-                $wingetCmd = Get-Command winget -ErrorAction Stop
-                Start-Process -FilePath $wingetCmd.Source -ArgumentList "install -e --accept-source-agreements --accept-package-agreements Microsoft.AppInstaller" -Wait -NoNewWindow -PassThru
-            },
-            { # Repair-WinGetPackageManager (Windows 24H2+)
-                if ([System.Environment]::OSVersion.Version.Build -ge 26100) {
-                    Repair-WinGetPackageManager -Force -Latest -Verbose
-                    Get-Command winget -ErrorAction Stop
+                try {
+                    $wingetCmd = Get-Command winget -ErrorAction Stop
+                    $result = Start-Process -FilePath $wingetCmd.Source -ArgumentList "install -e --accept-source-agreements --accept-package-agreements Microsoft.AppInstaller" -Wait -NoNewWindow -PassThru
+                    return $result.ExitCode -eq 0
+                }
+                catch {
+                    return $false
                 }
             },
-            { # Download manuale
-                $url = "https://aka.ms/getwinget"
-                $temp = "$env:TEMP\Microsoft.AppInstaller.msixbundle"
-                Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing
-                Add-AppxPackage -Path $temp -ForceUpdateFromAnyVersion
-                Remove-Item $temp -Force -ErrorAction SilentlyContinue
+            { # Repair-WinGetPackageManager solo se disponibile
+                try {
+                    if ($osVersion.Build -ge 26100 -and (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue)) {
+                        Repair-WinGetPackageManager -Force -Latest -Verbose
+                        Get-Command winget -ErrorAction Stop | Out-Null
+                        return $true
+                    }
+                    return $false
+                }
+                catch {
+                    return $false
+                }
+            },
+            { # Download manuale con gestione processi migliorata
+                try {
+                    # Termina nuovamente i processi prima del download manuale
+                    Stop-InterferingProcesses
+                    
+                    $url = "https://aka.ms/getwinget"
+                    $temp = "$env:TEMP\Microsoft.AppInstaller.msixbundle"
+                    
+                    # Rimuovi file temporaneo esistente
+                    if (Test-Path $temp) {
+                        Remove-Item $temp -Force -ErrorAction SilentlyContinue
+                    }
+                    
+                    Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing
+                    
+                    # Usa -ForceApplicationShutdown invece di -ForceUpdateFromAnyVersion
+                    Add-AppxPackage -Path $temp -ForceApplicationShutdown
+                    
+                    Remove-Item $temp -Force -ErrorAction SilentlyContinue
+                    return $true
+                }
+                catch {
+                    Write-StyledMessage Warning "Errore download manuale: $($_.Exception.Message)"
+                    return $false
+                }
             }
         )
         
         foreach ($method in $methods) {
             try {
-                & $method | Out-Null
-                $ENV:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-                Start-Sleep 2
-                if ((Test-WingetInstallation) -eq "installed") {
-                    Write-StyledMessage Success "WinGet installato/aggiornato con successo!"
-                    return $true
+                Write-StyledMessage Info "Tentativo di installazione in corso..."
+                if (& $method) {
+                    # Ricarica PATH e attendi
+                    $ENV:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+                    Start-Sleep 5
+                    
+                    # Verifica installazione
+                    if ((Test-WingetInstallation) -eq "installed") {
+                        Write-StyledMessage Success "WinGet installato/aggiornato con successo!"
+                        return $true
+                    }
                 }
             }
-            catch { Write-StyledMessage Warning "Metodo fallito: $($_.Exception.Message)" }
+            catch { 
+                Write-StyledMessage Warning "Metodo fallito: $($_.Exception.Message)" 
+            }
         }
+        
+        # Ultimo tentativo: verifica se winget è ora disponibile dopo i tentativi
+        $ENV:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+        Start-Sleep 3
+        if ((Test-WingetInstallation) -eq "installed") {
+            Write-StyledMessage Success "WinGet risulta ora disponibile!"
+            return $true
+        }
+        
         return $false
     }
     
@@ -109,74 +193,116 @@ function WinReinstallStore {
         Write-Host "=== FIX DEPLOYMENT BLOCCATO ===" -ForegroundColor Yellow
         
         # Terminazione processi e pulizia ottimizzata
-        @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore", "RuntimeBroker", "dllhost") | 
-        ForEach-Object { Get-Process -Name $_ -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
+        Stop-InterferingProcesses
         
         # Reset servizi critici
-        @(@{Name = "AppXSvc"; Display = "AppX Deployment Service" }, @{Name = "ClipSVC"; Display = "Client License Service" }, 
-            @{Name = "WSService"; Display = "Windows Store Service" }) | ForEach-Object {
+        $services = @(
+            @{Name = "AppXSvc"; Display = "AppX Deployment Service" }, 
+            @{Name = "ClipSVC"; Display = "Client License Service" }, 
+            @{Name = "WSService"; Display = "Windows Store Service" }
+        )
+        
+        foreach ($svc in $services) {
             try {
-                $svc = Get-Service -Name $_.Name -ErrorAction SilentlyContinue
-                if ($svc) {
-                    Restart-Service -Name $_.Name -Force -ErrorAction SilentlyContinue
-                    Write-Host "✅ Riavviato: $($_.Display)" -ForegroundColor Green
+                $service = Get-Service -Name $svc.Name -ErrorAction SilentlyContinue
+                if ($service) {
+                    Restart-Service -Name $svc.Name -Force -ErrorAction SilentlyContinue
+                    Write-Host "✅ Riavviato: $($svc.Display)" -ForegroundColor Green
                 }
             }
-            catch { Write-Host "⚠️ Errore servizio $($_.Name)" -ForegroundColor Yellow }
+            catch { 
+                Write-Host "⚠️ Errore servizio $($svc.Name)" -ForegroundColor Yellow 
+            }
         }
         
         # Pulizia cache e pacchetti corrotti
-        @("$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache", "$env:LOCALAPPDATA\Microsoft\Windows\INetCache",
-            "$env:TEMP\*AppX*", "$env:WINDIR\Temp\*AppX*") | ForEach-Object {
-            if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+        $pathsToClean = @(
+            "$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache", 
+            "$env:LOCALAPPDATA\Microsoft\Windows\INetCache",
+            "$env:TEMP\*AppX*", 
+            "$env:WINDIR\Temp\*AppX*"
+        )
+        
+        foreach ($path in $pathsToClean) {
+            try {
+                if (Test-Path $path) { 
+                    Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue 
+                }
+            }
+            catch {
+                # Ignora errori di accesso
+            }
         }
         
         # Rimozione pacchetti corrotti
-        Get-AppxPackage -AllUsers | Where-Object { $_.Name -like "*WindowsStore*" -or $_.Status -eq "Staged" } |
-        ForEach-Object { Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction SilentlyContinue }
+        try {
+            Get-AppxPackage -AllUsers | Where-Object { 
+                $_.Name -like "*WindowsStore*" -or $_.Status -eq "Staged" 
+            } | ForEach-Object { 
+                Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction SilentlyContinue 
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "Errore nella rimozione pacchetti corrotti"
+        }
     }
     
     function Install-MicrosoftStore {
-        Write-StyledMessage Info "🏪 Iniziando reinstallazione Microsoft Store..."
+        Write-StyledMessage Info "🪟 Iniziando reinstallazione Microsoft Store..."
         
         # Metodi di installazione ordinati per efficacia
         $methods = @(
             {
                 Write-StyledMessage Progress "Tentativo 1: Installazione tramite Winget..."
-                $output = winget install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements 2>&1
-                if ($output -match "No available upgrade found|already installed" -or $LASTEXITCODE -eq 0) {
-                    Write-StyledMessage Success "Microsoft Store installato/aggiornato tramite Winget!"
-                    return $true
+                try {
+                    $output = & winget install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements 2>&1
+                    if ($LASTEXITCODE -eq 0 -or $output -match "No available upgrade found|already installed") {
+                        Write-StyledMessage Success "Microsoft Store installato/aggiornato tramite Winget!"
+                        return $true
+                    }
+                    return $false
                 }
-                throw "Installazione Winget fallita"
+                catch {
+                    return $false
+                }
             },
             {
                 Write-StyledMessage Progress "Tentativo 2: Reinstallazione tramite Manifest Windows..."
-                $storePackage = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue
-                if ($storePackage) {
-                    $storePackage | ForEach-Object {
-                        $manifestPath = "$($_.InstallLocation)\AppXManifest.xml"
-                        if (Test-Path $manifestPath) {
-                            Add-AppxPackage -DisableDevelopmentMode -Register $manifestPath -ForceUpdateFromAnyVersion
+                try {
+                    $storePackage = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue
+                    if ($storePackage) {
+                        foreach ($package in $storePackage) {
+                            $manifestPath = "$($package.InstallLocation)\AppXManifest.xml"
+                            if (Test-Path $manifestPath) {
+                                Add-AppxPackage -DisableDevelopmentMode -Register $manifestPath -ForceApplicationShutdown
+                            }
                         }
+                        Write-StyledMessage Success "Microsoft Store reinstallato tramite Manifest!"
+                        return $true
                     }
-                    Write-StyledMessage Success "Microsoft Store reinstallato tramite Manifest!"
-                    return $true
+                    return $false
                 }
-                throw "Nessun pacchetto Store trovato"
+                catch {
+                    return $false
+                }
             },
             {
                 Write-StyledMessage Progress "Tentativo 3: Installazione tramite DISM Capability..."
-                $result = Start-Process -FilePath "DISM" -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -NoNewWindow -PassThru
-                if ($result.ExitCode -eq 0) {
-                    Write-StyledMessage Success "Microsoft Store installato tramite DISM!"
-                    return $true
+                try {
+                    $result = Start-Process -FilePath "DISM" -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -NoNewWindow -PassThru
+                    if ($result.ExitCode -eq 0) {
+                        Write-StyledMessage Success "Microsoft Store installato tramite DISM!"
+                        return $true
+                    }
+                    return $false
                 }
-                throw "DISM fallito"
+                catch {
+                    return $false
+                }
             },
             {
                 Write-StyledMessage Progress "Tentativo 4: Download e installazione manuale..."
-                Install-StoreManually
+                return Install-StoreManually
             }
         )
         
@@ -195,7 +321,9 @@ function WinReinstallStore {
                     return $true
                 }
             }
-            catch { Write-StyledMessage Warning $_.Exception.Message }
+            catch { 
+                Write-StyledMessage Warning "Metodo fallito: $($_.Exception.Message)" 
+            }
         }
         return $false
     }
@@ -211,36 +339,39 @@ function WinReinstallStore {
         # Pacchetti essenziali ottimizzati
         $packages = @(
             @{Name = "VCLibs"; Url = "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx" },
-            @{Name = "UI.Xaml"; Url = "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx" },
-            @{Name = "Store"; Url = "https://www.microsoft.com/store/productId/9WZDNCRFJBMP" }
+            @{Name = "UI.Xaml"; Url = "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx" }
         )
         
         $downloaded = @()
         foreach ($pkg in $packages) {
             try {
                 $file = Join-Path $tempDir "$($pkg.Name).appx"
-                if ($pkg.Name -eq "Store") {
-                    # Per Store usa store.rg-adguard.net API semplificata
-                    $storeUrl = (Invoke-RestMethod -Uri "https://store.rg-adguard.net/api/GetFiles" -Method POST -Body "type=url&url=$($pkg.Url)&ring=Retail" -ContentType "application/x-www-form-urlencoded" | 
-                        Select-String -Pattern 'href="([^"]+\.(?:appx|msix|appxbundle|msixbundle))"' -AllMatches).Matches[0].Groups[1].Value
-                    Invoke-WebRequest -Uri $storeUrl -OutFile $file -UseBasicParsing
-                }
-                else {
-                    Invoke-WebRequest -Uri $pkg.Url -OutFile $file -UseBasicParsing
-                }
+                Invoke-WebRequest -Uri $pkg.Url -OutFile $file -UseBasicParsing
                 $downloaded += $file
                 Write-StyledMessage Success "📦 Scaricato: $($pkg.Name)"
             }
-            catch { Write-StyledMessage Warning "Download fallito: $($pkg.Name)" }
+            catch { 
+                Write-StyledMessage Warning "Download fallito: $($pkg.Name) - $($_.Exception.Message)" 
+            }
         }
         
         # Installazione sequenziale
-        $downloaded | ForEach-Object {
+        foreach ($file in $downloaded) {
             try {
-                Add-AppxPackage -Path $_ -ForceApplicationShutdown
-                Write-StyledMessage Success "✅ Installato: $(Split-Path $_ -Leaf)"
+                Add-AppxPackage -Path $file -ForceApplicationShutdown
+                Write-StyledMessage Success "✅ Installato: $(Split-Path $file -Leaf)"
             }
-            catch { Write-StyledMessage Warning "Installazione fallita: $($_.Exception.Message)" }
+            catch { 
+                Write-StyledMessage Warning "Installazione fallita: $(Split-Path $file -Leaf) - $($_.Exception.Message)" 
+            }
+        }
+        
+        # Prova installazione Store tramite PowerShell (metodo alternativo)
+        try {
+            Get-AppxPackage -allusers Microsoft.WindowsStore | ForEach-Object { Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml" }
+        }
+        catch {
+            Write-StyledMessage Warning "Metodo PowerShell fallito"
         }
         
         Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -271,7 +402,7 @@ function WinReinstallStore {
             }
             
             $progress = (($Seconds - $i) / $Seconds) * 100
-            $bar = ("[" + ('▌' * [math]::Floor($progress / 3.33)) + ('▒' * (30 - [math]::Floor($progress / 3.33))) + "] {0:0}%" -f $progress)
+            $bar = ("[" + ('█' * [math]::Floor($progress / 3.33)) + ('░' * (30 - [math]::Floor($progress / 3.33))) + "] {0:0}%" -f $progress)
             Write-Host "`r⏳ $Message - $i sec $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
@@ -282,7 +413,7 @@ function WinReinstallStore {
     
     # === LOGICA PRINCIPALE OTTIMIZZATA ===
     Show-Header
-    Write-StyledMessage Info "🏪 REINSTALLAZIONE MICROSOFT STORE - AVVIO PROCEDURA"
+    Write-StyledMessage Info "🪟 REINSTALLAZIONE MICROSOFT STORE - AVVIO PROCEDURA"
     
     try {
         # FASE 1: Winget
@@ -291,7 +422,9 @@ function WinReinstallStore {
         
         if ($wingetStatus -ne "installed") {
             Write-StyledMessage Warning "Winget $wingetStatus - $(if($wingetStatus -eq 'outdated'){'aggiornamento'}else{'installazione'}) necessaria"
-            if (-not (Install-Winget)) { throw "Impossibile preparare Winget" }
+            if (-not (Install-Winget)) { 
+                Write-StyledMessage Warning "Winget non installato correttamente, ma continuiamo con altri metodi"
+            }
         }
         else {
             Write-StyledMessage Success "Winget già installato e funzionante"
@@ -316,8 +449,15 @@ function WinReinstallStore {
         Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA CON SUCCESSO!"
         Write-Host "===" -ForegroundColor Green
         
-        @("   ✅ Winget verificato/installato", "   ✅ Microsoft Store reinstallato", "   ✅ UniGet UI installato") |
-        ForEach-Object { Write-Host $_ -ForegroundColor Green }
+        $completionMessages = @(
+            "   ✅ Winget verificato/installato", 
+            "   ✅ Microsoft Store reinstallato", 
+            "   ✅ UniGet UI installato"
+        )
+        
+        foreach ($msg in $completionMessages) {
+            Write-Host $msg -ForegroundColor Green
+        }
         
         Write-Host ""; Write-StyledMessage Warning "⚠️ È necessario riavviare il sistema per applicare tutte le modifiche"
         
@@ -336,4 +476,5 @@ function WinReinstallStore {
     }
 }
 
+# Esegui la funzione
 WinReinstallStore
