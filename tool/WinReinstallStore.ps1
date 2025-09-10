@@ -44,7 +44,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             '  Store Repair Toolkit By MagnetarMan',
-            '        Version 2.0 (Build 17)'
+            '        Version 2.0 (Build 18)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -469,6 +469,7 @@ function WinReinstallStore {
         Write-Host ""; Write-StyledMessage Warning "⚠️ È necessario riavviare il sistema per applicare tutte le modifiche"
         
         if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio del sistema") {
+            Clear-ProgressOutput  # Pulizia finale
             Write-StyledMessage Info "🔄 Riavvio del sistema in corso..."
             shutdown /r /t 0
         }
