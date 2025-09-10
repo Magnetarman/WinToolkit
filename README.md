@@ -163,30 +163,31 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 ### V2.1 - "Office Toolkit"
 
-- [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint)
-  - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata
+- [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint).
+  - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata.
 
 ### V2.2 - "Windows Repair Plus"
 
-- [ ] Reinstallazione Installazione Store & Winget
-- [ ] Reset Rust Desk
-- [ ] Backup Driver Installati => Compressione in file .zip sul desktop
+- [ ] Reinstallazione Forzata Microsoft Store & Winget.
+  - [ ] Installazione di Uniget.
+- [ ] Reset Rust Desk.
+- [ ] Backup Driver Installati => Compressione in file .zip => Posizionamento archivio sul desktop.
 
 ### V2.3 - "Driver & Gaming"
 
-- [ ] Installazione Driver Ottimizzato (Nvidia / AMD)
-- [ ] Scelta Driver Video (AMD/NVIDIA)
-- [ ] Download ultima versione di DDU
-  - [ ] Estrazione
-  - [ ] Posizionamento nella cartella Downloads
-  - [ ] Riavvio modalità provvisoria
+- [ ] Scelta Driver Video (AMD/NVIDIA).
+- [ ] Installazione Driver Ottimizzato (Nvidia).
+- [ ] Download ultima versione di DDU.
+  - [ ] Estrazione.
+  - [ ] Posizionamento nella cartella Downloads.
+  - [ ] Riavvio modalità provvisoria.
 
 ### V2.4 - "Gaming Ready"
 
-- [ ] Installazione client di gioco (Amazon, Gog Galaxy, Epic Games, Steam)
-- [ ] Installazione Playnite ed applicazione Tema personalizzato
-- [ ] Installazione/Aggiornamento Directx
-- [ ] Installazione/Aggiornamento Microsoft C++ Package
+- [ ] Installazione client di gioco (Amazon, Gog Galaxy, Epic Games, Steam).
+- [ ] Installazione Playnite ed applicazione Tema personalizzato.
+- [ ] Installazione/Aggiornamento Directx.
+- [ ] Installazione/Aggiornamento Microsoft C++ Package.
 
 ### V3.0 - "MagnetarMan Mode"
 
