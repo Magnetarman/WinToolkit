@@ -533,7 +533,7 @@ function WinReinstallStore {
     # === INIZIO LOGICA PRINCIPALE ===
     
     Write-StyledMessage Info "🏪 REINSTALLAZIONE MICROSOFT STORE - AVVIO PROCEDURA"
-    Write-Host "===" -ForegroundColor Magenta
+    Write-Host "🧠"
     Write-Host ""
     
     try {
