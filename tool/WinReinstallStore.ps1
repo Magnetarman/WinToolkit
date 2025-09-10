@@ -284,7 +284,7 @@ function WinReinstallStore {
     # === INIZIO LOGICA PRINCIPALE ===
     
     Write-StyledMessage Info "🏪 REINSTALLAZIONE MICROSOFT STORE - AVVIO PROCEDURA"
-    Write-Host "="*70 -ForegroundColor Magenta
+    Write-Host "===" -ForegroundColor Magenta
     Write-Host ""
     
     try {
@@ -337,9 +337,9 @@ function WinReinstallStore {
         Write-Host ""
         
         # FASE 4: Successo e riavvio
-        Write-Host "="*70 -ForegroundColor Green
+        Write-Host "===" -ForegroundColor Green
         Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA CON SUCCESSO!"
-        Write-Host "="*70 -ForegroundColor Green
+        Write-Host "===" -ForegroundColor Green
         Write-Host ""
         
         Write-StyledMessage Info "📝 Riepilogo operazioni completate:"
@@ -360,17 +360,17 @@ function WinReinstallStore {
         
     } catch {
         Write-Host ""
-        Write-Host "="*70 -ForegroundColor Red
-        Write-StyledMessage Error "❌ ERRORE DURANTE L'ESECUZIONE"
-        Write-Host "="*70 -ForegroundColor Red
+        Write-Host "===" -ForegroundColor Red
+        Write-StyledMessage Error " ERRORE DURANTE L'ESECUZIONE"
+        Write-Host "===" -ForegroundColor Red
         Write-Host ""
         Write-StyledMessage Error "Dettagli errore: $($_.Exception.Message)"
         Write-Host ""
         Write-StyledMessage Info "💡 Per assistenza:"
-        Write-Host "   • Verifica di eseguire PowerShell come Amministratore" -ForegroundColor Gray
-        Write-Host "   • Controlla la connessione internet" -ForegroundColor Gray
-        Write-Host "   • Prova a eseguire Windows Update" -ForegroundColor Gray
-        Write-Host "   • Riavvia il sistema e riprova" -ForegroundColor Gray
+        Write-Host Info "Verifica di eseguire PowerShell come Amministratore" -ForegroundColor Yellow
+        Write-Host Info "Controlla la connessione internet" -ForegroundColor Yellow
+        Write-Host Info "Prova a eseguire Windows Update" -ForegroundColor Yellow
+        Write-Host Info "Riavvia il sistema e riprova" -ForegroundColor Yellow
     }
 }
 
