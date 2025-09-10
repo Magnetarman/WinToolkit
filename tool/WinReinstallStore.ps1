@@ -227,26 +227,256 @@ function WinReinstallStore {
         # Metodo 4: Download manuale
         try {
             Write-StyledMessage Progress "Tentativo 4: Download e installazione manuale..."
-            
+    
             $TempDir = "$env:TEMP\MSStore"
             New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
-            
-            # URL per i file necessari
-            $StoreUrl = "https://store.rg-adguard.net/api/GetFiles"
-            
-            # Download Microsoft Store Bundle (simulazione - in realtà serve logica più complessa)
+    
+            # Verifica privilegi amministratore
+            if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+                throw "Sono necessari privilegi di amministratore per l'installazione manuale"
+            }
+    
             Write-StyledMessage Info "📥 Download dei pacchetti Microsoft Store..."
+    
+            # Funzione per query a store.rg-adguard.net
+            function Get-StorePackageUrls {
+                param(
+                    [string]$PackageIdentifier,
+                    [string]$Ring = "Retail"
+                )
+        
+                $body = @{
+                    type = 'url'
+                    url  = $PackageIdentifier
+                    ring = $Ring
+                    lang = 'it-IT'
+                }
+        
+                try {
+                    $response = Invoke-RestMethod -Uri "https://store.rg-adguard.net/api/GetFiles" -Method POST -Body $body -ContentType "application/x-www-form-urlencoded"
             
-            # Questo è un esempio semplificato - nella realtà bisognerebbe:
-            # 1. Fare query a store.rg-adguard.net per ottenere link diretti
-            # 2. Scaricare VCLibs, UI.Xaml e Microsoft Store bundle
-            # 3. Installarli in ordine di dipendenza
+                    # Parsing della risposta HTML per estrarre i link di download
+                    if ($response -match '<a[^>]+href="([^"]+\.(?:appx|msix|appxbundle|msixbundle))"[^>]*>([^<]+)</a>') {
+                        $urls = @()
+                        $matches = [regex]::Matches($response, '<a[^>]+href="([^"]+\.(?:appx|msix|appxbundle|msixbundle))"[^>]*>([^<]+)</a>')
+                        foreach ($match in $matches) {
+                            $urls += @{
+                                Url      = $match.Groups[1].Value
+                                FileName = $match.Groups[2].Value.Trim()
+                            }
+                        }
+                        return $urls
+                    }
+                }
+                catch {
+                    Write-StyledMessage Warning "Errore nel recupero URL per $PackageIdentifier : $($_.Exception.Message)"
+                }
+                return @()
+            }
+    
+            # Funzione per download con retry
+            function Download-Package {
+                param(
+                    [string]$Url,
+                    [string]$FilePath,
+                    [int]$MaxRetries = 3
+                )
+        
+                for ($i = 1; $i -le $MaxRetries; $i++) {
+                    try {
+                        Write-StyledMessage Info "  -> Download tentativo $i : $(Split-Path $FilePath -Leaf)"
+                        Invoke-WebRequest -Uri $Url -OutFile $FilePath -UseBasicParsing -TimeoutSec 300
+                        if (Test-Path $FilePath) {
+                            Write-StyledMessage Success "  -> ✅ Download completato"
+                            return $true
+                        }
+                    }
+                    catch {
+                        Write-StyledMessage Warning "  -> ❌ Tentativo $i fallito: $($_.Exception.Message)"
+                        if ($i -eq $MaxRetries) {
+                            throw "Download fallito dopo $MaxRetries tentativi"
+                        }
+                        Start-Sleep -Seconds (2 * $i)
+                    }
+                }
+                return $false
+            }
+    
+            # Pacchetti da scaricare in ordine di dipendenza
+            $PackagesToDownload = @(
+                @{
+                    Name       = "Microsoft.VCLibs.140.00"
+                    Identifier = "https://www.microsoft.com/store/productId/9PGJGD53TN86"
+                    Pattern    = "*VCLibs*x64*"
+                    Required   = $true
+                },
+                @{
+                    Name       = "Microsoft.VCLibs.140.00.UWPDesktop"
+                    Identifier = "https://www.microsoft.com/store/productId/9PGJGD53TN86"
+                    Pattern    = "*VCLibs*UWPDesktop*x64*"
+                    Required   = $true
+                },
+                @{
+                    Name       = "Microsoft.UI.Xaml.2.8"
+                    Identifier = "https://www.microsoft.com/store/productId/9NXQXXLFST89"
+                    Pattern    = "*UI.Xaml*x64*"
+                    Required   = $true
+                },
+                @{
+                    Name       = "Microsoft.NET.Native.Framework.2.2"
+                    Identifier = "https://www.microsoft.com/store/productId/9NBLGGH1Z6CD"
+                    Pattern    = "*NET.Native.Framework*x64*"
+                    Required   = $false
+                },
+                @{
+                    Name       = "Microsoft.WindowsStore"
+                    Identifier = "https://www.microsoft.com/store/productId/9WZDNCRFJBMP"
+                    Pattern    = "*WindowsStore*"
+                    Required   = $true
+                }
+            )
+    
+            $DownloadedFiles = @()
+    
+            # Download dei pacchetti
+            foreach ($package in $PackagesToDownload) {
+                Write-StyledMessage Info "🔍 Ricerca pacchetto: $($package.Name)"
+        
+                $urls = Get-StorePackageUrls -PackageIdentifier $package.Identifier
+        
+                if ($urls.Count -eq 0) {
+                    if ($package.Required) {
+                        throw "Impossibile trovare URL per il pacchetto richiesto: $($package.Name)"
+                    }
+                    else {
+                        Write-StyledMessage Warning "Pacchetto opzionale non trovato: $($package.Name)"
+                        continue
+                    }
+                }
+        
+                # Filtra per architettura x64 e trova il file più appropriato
+                $targetUrl = $urls | Where-Object { 
+                    $_.FileName -like $package.Pattern -and 
+                    ($_.FileName -like "*x64*" -or $_.FileName -notlike "*arm*") 
+                } | Sort-Object FileName | Select-Object -Last 1
+        
+                if (-not $targetUrl) {
+                    if ($package.Required) {
+                        throw "Impossibile trovare file compatibile per: $($package.Name)"
+                    }
+                    else {
+                        Write-StyledMessage Warning "File compatibile non trovato per: $($package.Name)"
+                        continue
+                    }
+                }
+        
+                $fileName = $targetUrl.FileName -replace '[<>:"/\\|?*]', '_'
+                $filePath = Join-Path $TempDir $fileName
+        
+                if (Download-Package -Url $targetUrl.Url -FilePath $filePath) {
+                    $DownloadedFiles += @{
+                        Path      = $filePath
+                        Name      = $package.Name
+                        IsMainApp = ($package.Name -eq "Microsoft.WindowsStore")
+                    }
+                }
+                elseif ($package.Required) {
+                    throw "Download fallito per pacchetto richiesto: $($package.Name)"
+                }
+            }
+    
+            if ($DownloadedFiles.Count -eq 0) {
+                throw "Nessun pacchetto scaricato con successo"
+            }
+    
+            Write-StyledMessage Success "📦 Download completato. Inizio installazione..."
+    
+            # Installazione in ordine di dipendenza
+            $DependencyOrder = @(
+                "Microsoft.VCLibs.140.00",
+                "Microsoft.VCLibs.140.00.UWPDesktop", 
+                "Microsoft.NET.Native.Framework.2.2",
+                "Microsoft.UI.Xaml.2.8"
+            )
+    
+            # Prima installa le dipendenze
+            foreach ($depName in $DependencyOrder) {
+                $depFile = $DownloadedFiles | Where-Object { $_.Name -eq $depName }
+                if ($depFile) {
+                    Write-StyledMessage Info "🔧 Installazione dipendenza: $($depFile.Name)"
+                    try {
+                        Add-AppxPackage -Path $depFile.Path -ForceApplicationShutdown
+                        Write-StyledMessage Success "  -> ✅ Installato con successo"
+                    }
+                    catch {
+                        # Non bloccare per dipendenze opzionali
+                        if ($depName -like "*NET.Native*") {
+                            Write-StyledMessage Warning "  -> ⚠️ Installazione opzionale fallita: $($_.Exception.Message)"
+                        }
+                        else {
+                            Write-StyledMessage Warning "  -> ❌ Installazione fallita: $($_.Exception.Message)"
+                            # Continua comunque, potrebbe già essere installato
+                        }
+                    }
+                }
+            }
+    
+            # Poi installa Microsoft Store
+            $storeFile = $DownloadedFiles | Where-Object { $_.IsMainApp -eq $true }
+            if ($storeFile) {
+                Write-StyledMessage Info "🏪 Installazione Microsoft Store..."
+                try {
+                    Add-AppxPackage -Path $storeFile.Path -ForceApplicationShutdown
+                    Write-StyledMessage Success "✅ Microsoft Store installato con successo!"
             
-            Write-StyledMessage Warning "Download manuale richiede implementazione avanzata - metodo saltato"
+                    # Avvia il servizio Windows Store se non è in esecuzione
+                    $storeService = Get-Service -Name "WSService" -ErrorAction SilentlyContinue
+                    if ($storeService -and $storeService.Status -ne "Running") {
+                        Start-Service -Name "WSService" -ErrorAction SilentlyContinue
+                    }
             
+                    # Verifica installazione
+                    Start-Sleep -Seconds 3
+                    $storeApp = Get-AppxPackage -Name "Microsoft.WindowsStore" -ErrorAction SilentlyContinue
+                    if ($storeApp) {
+                        Write-StyledMessage Success "🎉 Installazione verificata con successo!"
+                        Write-StyledMessage Info "💡 Puoi ora aprire Microsoft Store dal menu Start"
+                    }
+                    else {
+                        Write-StyledMessage Warning "⚠️ Installazione completata ma verifica fallita"
+                    }
+                }
+                catch {
+                    throw "Installazione Microsoft Store fallita: $($_.Exception.Message)"
+                }
+            }
+            else {
+                throw "File Microsoft Store non trovato nei download"
+            }
+    
+            # Pulizia file temporanei
+            try {
+                Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
+                Write-StyledMessage Info "🧹 File temporanei rimossi"
+            }
+            catch {
+                Write-StyledMessage Warning "Impossibile rimuovere file temporanei da $TempDir"
+            }
         }
         catch {
-            Write-StyledMessage Warning "Download manuale fallito: $($_.Exception.Message)"
+            Write-StyledMessage Error "❌ Download/installazione manuale fallita: $($_.Exception.Message)"
+    
+            # Cleanup in caso di errore
+            if (Test-Path $TempDir) {
+                try {
+                    Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
+                }
+                catch {
+                    # Ignora errori di cleanup
+                }
+            }
+    
+            throw $_.Exception
         }
         
         return $false
