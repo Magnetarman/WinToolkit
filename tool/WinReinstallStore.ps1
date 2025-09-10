@@ -38,7 +38,7 @@ function WinReinstallStore {
         '         \_/\_/    |_||_| \_|',
         '',
         '    Store Repair Toolkit By MagnetarMan',
-        '        Version 2.0 (Build 11)'
+        '        Version 2.0 (Build 13)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -313,494 +313,467 @@ function WinReinstallStore {
                 Write-Host "⚠️ Errore servizio $($svc.Name): $($_.Exception.Message)" -ForegroundColor Yellow
             }
         }
+     
+    }
+    else {
+        Write-Host "ℹ️ Ricorda di riavviare il sistema quando possibile!" -ForegroundColor Cyan
+    }
+}
 
-        Write-Host ""
-        Write-Host "=== OPERAZIONI AGGIUNTIVE ===" -ForegroundColor Yellow
-
-        # COMANDO ALTERNATIVO: Reset completo Store
-        Write-Host ""
-        Write-Host "🔧 COMANDO ALTERNATIVO - Esegui se il problema persiste:" -ForegroundColor Cyan
-        Write-Host "wsreset.exe" -ForegroundColor White
-        Write-Host ""
-
-        # COMANDI DISM per riparazione
-        Write-Host "🔧 COMANDI DISM - Per riparazioni avanzate:" -ForegroundColor Cyan
-        Write-Host "DISM /Online /Cleanup-Image /RestoreHealth" -ForegroundColor White
-        Write-Host "sfc /scannow" -ForegroundColor White
-        Write-Host ""
-
-        # RIAVVIO CONSIGLIATO
-        Write-Host "⚠️ IMPORTANTE: Dopo questi fix, riavvia il sistema prima di riprovare l'installazione del Microsoft Store!" -ForegroundColor Red
-        Write-Host ""
-
-        # Countdown per riavvio opzionale
-        Write-Host "Vuoi riavviare ora il sistema? (Consigliato)" -ForegroundColor Yellow
-        $choice = Read-Host "Premi 'S' per riavviare ora, qualsiasi altro tasto per continuare"
-
-        if ($choice -eq 'S' -or $choice -eq 's') {
-            Write-Host "🔄 Riavvio sistema in 10 secondi..." -ForegroundColor Green
-            Start-Sleep -Seconds 10
-            Restart-Computer -Force
+function Install-MicrosoftStore {
+    Write-StyledMessage Info "🏪 Iniziando reinstallazione Microsoft Store..."
+        
+    # Metodo 1: Winget
+    Write-StyledMessage Progress "Tentativo 1: Installazione tramite Winget..."
+    try {
+        $output = winget install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements 2>&1
+        if ($output -match "No available upgrade found" -or $output -match "already installed") {
+            Write-StyledMessage Success "Microsoft Store risulta già installato e aggiornato tramite Winget!"
+        }
+        elseif ($LASTEXITCODE -eq 0) {
+            Write-StyledMessage Success "Microsoft Store installato con successo tramite Winget!"
         }
         else {
-            Write-Host "ℹ️ Ricorda di riavviare il sistema quando possibile!" -ForegroundColor Cyan
+            throw "Installazione Microsoft Store tramite Winget fallita. Codice uscita: $LASTEXITCODE"
         }
     }
-
-    function Install-MicrosoftStore {
-        Write-StyledMessage Info "🏪 Iniziando reinstallazione Microsoft Store..."
-        
-        # Metodo 1: Winget
-        Write-StyledMessage Progress "Tentativo 1: Installazione tramite Winget..."
-        try {
-            $output = winget install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements 2>&1
-            if ($output -match "No available upgrade found" -or $output -match "already installed") {
-                Write-StyledMessage Success "Microsoft Store risulta già installato e aggiornato tramite Winget!"
-            }
-            elseif ($LASTEXITCODE -eq 0) {
-                Write-StyledMessage Success "Microsoft Store installato con successo tramite Winget!"
-            }
-            else {
-                throw "Installazione Microsoft Store tramite Winget fallita. Codice uscita: $LASTEXITCODE"
-            }
-        }
-        catch {
-            Write-StyledMessage Warning "Installazione tramite Winget fallita: $($_.Exception.Message)"
-        }
+    catch {
+        Write-StyledMessage Warning "Installazione tramite Winget fallita: $($_.Exception.Message)"
+    }
 
         
-        # Metodo 2: Manifest Windows
-        try {
-            Write-StyledMessage Progress "Tentativo 2: Reinstallazione tramite Manifest Windows..."
-            $storePackage = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue
-            if ($storePackage) {
-                foreach ($package in $storePackage) {
-                    if (Test-Path "$($package.InstallLocation)\AppXManifest.xml") {
-                        Add-AppxPackage -DisableDevelopmentMode -Register "$($package.InstallLocation)\AppXManifest.xml" -ForceUpdateFromAnyVersion
-                    }
+    # Metodo 2: Manifest Windows
+    try {
+        Write-StyledMessage Progress "Tentativo 2: Reinstallazione tramite Manifest Windows..."
+        $storePackage = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue
+        if ($storePackage) {
+            foreach ($package in $storePackage) {
+                if (Test-Path "$($package.InstallLocation)\AppXManifest.xml") {
+                    Add-AppxPackage -DisableDevelopmentMode -Register "$($package.InstallLocation)\AppXManifest.xml" -ForceUpdateFromAnyVersion
                 }
-                Write-StyledMessage Success "Microsoft Store reinstallato tramite Manifest Windows!"
-                return $true
             }
-            else {
-                throw "Nessun pacchetto Microsoft Store trovato nel sistema"
-            }
+            Write-StyledMessage Success "Microsoft Store reinstallato tramite Manifest Windows!"
+            return $true
         }
-        catch {
-            Write-StyledMessage Warning "Reinstallazione tramite Manifest fallita: $($_.Exception.Message)"
+        else {
+            throw "Nessun pacchetto Microsoft Store trovato nel sistema"
         }
+    }
+    catch {
+        Write-StyledMessage Warning "Reinstallazione tramite Manifest fallita: $($_.Exception.Message)"
+    }
         
-        # Metodo 3: DISM Capability
-        try {
-            Write-StyledMessage Progress "Tentativo 3: Installazione tramite DISM Capability..."
-            $dismResult = Start-Process -FilePath "DISM" -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -NoNewWindow -PassThru
-            if ($dismResult.ExitCode -eq 0) {
-                Write-StyledMessage Success "Microsoft Store installato tramite DISM Capability!"
-                return $true
-            }
+    # Metodo 3: DISM Capability
+    try {
+        Write-StyledMessage Progress "Tentativo 3: Installazione tramite DISM Capability..."
+        $dismResult = Start-Process -FilePath "DISM" -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -NoNewWindow -PassThru
+        if ($dismResult.ExitCode -eq 0) {
+            Write-StyledMessage Success "Microsoft Store installato tramite DISM Capability!"
+            return $true
         }
-        catch {
-            Write-StyledMessage Warning "Installazione tramite DISM fallita: $($_.Exception.Message)"
+    }
+    catch {
+        Write-StyledMessage Warning "Installazione tramite DISM fallita: $($_.Exception.Message)"
+    }
+        
+    # Metodo 4: Download manuale
+    try {
+        Write-StyledMessage Progress "Tentativo 4: Download e installazione manuale..."
+    
+        $TempDir = "$env:TEMP\MSStore"
+        New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
+    
+        # Verifica privilegi amministratore
+        if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+            throw "Sono necessari privilegi di amministratore per l'installazione manuale"
         }
-        
-        # Metodo 4: Download manuale
-        try {
-            Write-StyledMessage Progress "Tentativo 4: Download e installazione manuale..."
     
-            $TempDir = "$env:TEMP\MSStore"
-            New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
+        Write-StyledMessage Info "📥 Download dei pacchetti Microsoft Store..."
     
-            # Verifica privilegi amministratore
-            if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-                throw "Sono necessari privilegi di amministratore per l'installazione manuale"
-            }
-    
-            Write-StyledMessage Info "📥 Download dei pacchetti Microsoft Store..."
-    
-            # Funzione per query a store.rg-adguard.net
-            function Get-StorePackageUrls {
-                param(
-                    [string]$PackageIdentifier,
-                    [string]$Ring = "Retail"
-                )
-        
-                $body = @{
-                    type = 'url'
-                    url  = $PackageIdentifier
-                    ring = $Ring
-                    lang = 'it-IT'
-                }
-        
-                try {
-                    $response = Invoke-RestMethod -Uri "https://store.rg-adguard.net/api/GetFiles" -Method POST -Body $body -ContentType "application/x-www-form-urlencoded"
-            
-                    # Parsing della risposta HTML per estrarre i link di download
-                    if ($response -match '<a[^>]+href="([^"]+\.(?:appx|msix|appxbundle|msixbundle))"[^>]*>([^<]+)</a>') {
-                        $urls = @()
-                        $matches = [regex]::Matches($response, '<a[^>]+href="([^"]+\.(?:appx|msix|appxbundle|msixbundle))"[^>]*>([^<]+)</a>')
-                        foreach ($match in $matches) {
-                            $urls += @{
-                                Url      = $match.Groups[1].Value
-                                FileName = $match.Groups[2].Value.Trim()
-                            }
-                        }
-                        return $urls
-                    }
-                }
-                catch {
-                    Write-StyledMessage Warning "Errore nel recupero URL per $PackageIdentifier : $($_.Exception.Message)"
-                }
-                return @()
-            }
-    
-            # Funzione per download con retry
-            function Download-Package {
-                param(
-                    [string]$Url,
-                    [string]$FilePath,
-                    [int]$MaxRetries = 3
-                )
-        
-                for ($i = 1; $i -le $MaxRetries; $i++) {
-                    try {
-                        Write-StyledMessage Info "  -> Download tentativo $i : $(Split-Path $FilePath -Leaf)"
-                        Invoke-WebRequest -Uri $Url -OutFile $FilePath -UseBasicParsing -TimeoutSec 300
-                        if (Test-Path $FilePath) {
-                            Write-StyledMessage Success "  -> ✅ Download completato"
-                            return $true
-                        }
-                    }
-                    catch {
-                        Write-StyledMessage Warning "  -> ❌ Tentativo $i fallito: $($_.Exception.Message)"
-                        if ($i -eq $MaxRetries) {
-                            throw "Download fallito dopo $MaxRetries tentativi"
-                        }
-                        Start-Sleep -Seconds (2 * $i)
-                    }
-                }
-                return $false
-            }
-    
-            # Pacchetti da scaricare in ordine di dipendenza
-            $PackagesToDownload = @(
-                @{
-                    Name       = "Microsoft.VCLibs.140.00"
-                    Identifier = "https://www.microsoft.com/store/productId/9PGJGD53TN86"
-                    Pattern    = "*VCLibs*x64*"
-                    Required   = $true
-                },
-                @{
-                    Name       = "Microsoft.VCLibs.140.00.UWPDesktop"
-                    Identifier = "https://www.microsoft.com/store/productId/9PGJGD53TN86"
-                    Pattern    = "*VCLibs*UWPDesktop*x64*"
-                    Required   = $true
-                },
-                @{
-                    Name       = "Microsoft.UI.Xaml.2.8"
-                    Identifier = "https://www.microsoft.com/store/productId/9NXQXXLFST89"
-                    Pattern    = "*UI.Xaml*x64*"
-                    Required   = $true
-                },
-                @{
-                    Name       = "Microsoft.NET.Native.Framework.2.2"
-                    Identifier = "https://www.microsoft.com/store/productId/9NBLGGH1Z6CD"
-                    Pattern    = "*NET.Native.Framework*x64*"
-                    Required   = $false
-                },
-                @{
-                    Name       = "Microsoft.WindowsStore"
-                    Identifier = "https://www.microsoft.com/store/productId/9WZDNCRFJBMP"
-                    Pattern    = "*WindowsStore*"
-                    Required   = $true
-                }
+        # Funzione per query a store.rg-adguard.net
+        function Get-StorePackageUrls {
+            param(
+                [string]$PackageIdentifier,
+                [string]$Ring = "Retail"
             )
-    
-            $DownloadedFiles = @()
-    
-            # Download dei pacchetti
-            foreach ($package in $PackagesToDownload) {
-                Write-StyledMessage Info "🔍 Ricerca pacchetto: $($package.Name)"
         
-                $urls = Get-StorePackageUrls -PackageIdentifier $package.Identifier
-        
-                if ($urls.Count -eq 0) {
-                    if ($package.Required) {
-                        throw "Impossibile trovare URL per il pacchetto richiesto: $($package.Name)"
-                    }
-                    else {
-                        Write-StyledMessage Warning "Pacchetto opzionale non trovato: $($package.Name)"
-                        continue
-                    }
-                }
-        
-                # Filtra per architettura x64 e trova il file più appropriato
-                $targetUrl = $urls | Where-Object { 
-                    $_.FileName -like $package.Pattern -and 
-                    ($_.FileName -like "*x64*" -or $_.FileName -notlike "*arm*") 
-                } | Sort-Object FileName | Select-Object -Last 1
-        
-                if (-not $targetUrl) {
-                    if ($package.Required) {
-                        throw "Impossibile trovare file compatibile per: $($package.Name)"
-                    }
-                    else {
-                        Write-StyledMessage Warning "File compatibile non trovato per: $($package.Name)"
-                        continue
-                    }
-                }
-        
-                $fileName = $targetUrl.FileName -replace '[<>:"/\\|?*]', '_'
-                $filePath = Join-Path $TempDir $fileName
-        
-                if (Download-Package -Url $targetUrl.Url -FilePath $filePath) {
-                    $DownloadedFiles += @{
-                        Path      = $filePath
-                        Name      = $package.Name
-                        IsMainApp = ($package.Name -eq "Microsoft.WindowsStore")
-                    }
-                }
-                elseif ($package.Required) {
-                    throw "Download fallito per pacchetto richiesto: $($package.Name)"
-                }
+            $body = @{
+                type = 'url'
+                url  = $PackageIdentifier
+                ring = $Ring
+                lang = 'it-IT'
             }
-    
-            if ($DownloadedFiles.Count -eq 0) {
-                throw "Nessun pacchetto scaricato con successo"
-            }
-    
-            Write-StyledMessage Success "📦 Download completato. Inizio installazione..."
-    
-            # Installazione in ordine di dipendenza
-            $DependencyOrder = @(
-                "Microsoft.VCLibs.140.00",
-                "Microsoft.VCLibs.140.00.UWPDesktop", 
-                "Microsoft.NET.Native.Framework.2.2",
-                "Microsoft.UI.Xaml.2.8"
-            )
-    
-            # Prima installa le dipendenze
-            foreach ($depName in $DependencyOrder) {
-                $depFile = $DownloadedFiles | Where-Object { $_.Name -eq $depName }
-                if ($depFile) {
-                    Write-StyledMessage Info "🔧 Installazione dipendenza: $($depFile.Name)"
-                    try {
-                        Add-AppxPackage -Path $depFile.Path -ForceApplicationShutdown
-                        Write-StyledMessage Success "  -> ✅ Installato con successo"
-                    }
-                    catch {
-                        # Non bloccare per dipendenze opzionali
-                        if ($depName -like "*NET.Native*") {
-                            Write-StyledMessage Warning "  -> ⚠️ Installazione opzionale fallita: $($_.Exception.Message)"
-                        }
-                        else {
-                            Write-StyledMessage Warning "  -> ❌ Installazione fallita: $($_.Exception.Message)"
-                            # Continua comunque, potrebbe già essere installato
-                        }
-                    }
-                }
-            }
-    
-            # Poi installa Microsoft Store
-            $storeFile = $DownloadedFiles | Where-Object { $_.IsMainApp -eq $true }
-            if ($storeFile) {
-                Write-StyledMessage Info "🏪 Installazione Microsoft Store..."
-                try {
-                    Add-AppxPackage -Path $storeFile.Path -ForceApplicationShutdown
-                    Write-StyledMessage Success "✅ Microsoft Store installato con successo!"
-            
-                    # Avvia il servizio Windows Store se non è in esecuzione
-                    $storeService = Get-Service -Name "WSService" -ErrorAction SilentlyContinue
-                    if ($storeService -and $storeService.Status -ne "Running") {
-                        Start-Service -Name "WSService" -ErrorAction SilentlyContinue
-                    }
-            
-                    # Verifica installazione
-                    Start-Sleep -Seconds 3
-                    $storeApp = Get-AppxPackage -Name "Microsoft.WindowsStore" -ErrorAction SilentlyContinue
-                    if ($storeApp) {
-                        Write-StyledMessage Success "🎉 Installazione verificata con successo!"
-                        Write-StyledMessage Info "💡 Puoi ora aprire Microsoft Store dal menu Start"
-                    }
-                    else {
-                        Write-StyledMessage Warning "⚠️ Installazione completata ma verifica fallita"
-                    }
-                }
-                catch {
-                    throw "Installazione Microsoft Store fallita: $($_.Exception.Message)"
-                }
-            }
-            else {
-                throw "File Microsoft Store non trovato nei download"
-            }
-    
-            # Pulizia file temporanei
+        
             try {
-                Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
-                Write-StyledMessage Info "🧹 File temporanei rimossi"
+                $response = Invoke-RestMethod -Uri "https://store.rg-adguard.net/api/GetFiles" -Method POST -Body $body -ContentType "application/x-www-form-urlencoded"
+            
+                # Parsing della risposta HTML per estrarre i link di download
+                if ($response -match '<a[^>]+href="([^"]+\.(?:appx|msix|appxbundle|msixbundle))"[^>]*>([^<]+)</a>') {
+                    $urls = @()
+                    $matches = [regex]::Matches($response, '<a[^>]+href="([^"]+\.(?:appx|msix|appxbundle|msixbundle))"[^>]*>([^<]+)</a>')
+                    foreach ($match in $matches) {
+                        $urls += @{
+                            Url      = $match.Groups[1].Value
+                            FileName = $match.Groups[2].Value.Trim()
+                        }
+                    }
+                    return $urls
+                }
             }
             catch {
-                Write-StyledMessage Warning "Impossibile rimuovere file temporanei da $TempDir"
+                Write-StyledMessage Warning "Errore nel recupero URL per $PackageIdentifier : $($_.Exception.Message)"
             }
+            return @()
         }
-        catch {
-            Write-StyledMessage Error "❌ Download/installazione manuale fallita: $($_.Exception.Message)"
     
-            # Cleanup in caso di errore
-            if (Test-Path $TempDir) {
+        # Funzione per download con retry
+        function Download-Package {
+            param(
+                [string]$Url,
+                [string]$FilePath,
+                [int]$MaxRetries = 3
+            )
+        
+            for ($i = 1; $i -le $MaxRetries; $i++) {
                 try {
-                    Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
+                    Write-StyledMessage Info "  -> Download tentativo $i : $(Split-Path $FilePath -Leaf)"
+                    Invoke-WebRequest -Uri $Url -OutFile $FilePath -UseBasicParsing -TimeoutSec 300
+                    if (Test-Path $FilePath) {
+                        Write-StyledMessage Success "  -> ✅ Download completato"
+                        return $true
+                    }
                 }
                 catch {
-                    # Ignora errori di cleanup
+                    Write-StyledMessage Warning "  -> ❌ Tentativo $i fallito: $($_.Exception.Message)"
+                    if ($i -eq $MaxRetries) {
+                        throw "Download fallito dopo $MaxRetries tentativi"
+                    }
+                    Start-Sleep -Seconds (2 * $i)
                 }
             }
-    
-            throw $_.Exception
+            return $false
         }
-        
-        return $false
-    }
     
-    function Install-UniGetUI {
+        # Pacchetti da scaricare in ordine di dipendenza
+        $PackagesToDownload = @(
+            @{
+                Name       = "Microsoft.VCLibs.140.00"
+                Identifier = "https://www.microsoft.com/store/productId/9PGJGD53TN86"
+                Pattern    = "*VCLibs*x64*"
+                Required   = $true
+            },
+            @{
+                Name       = "Microsoft.VCLibs.140.00.UWPDesktop"
+                Identifier = "https://www.microsoft.com/store/productId/9PGJGD53TN86"
+                Pattern    = "*VCLibs*UWPDesktop*x64*"
+                Required   = $true
+            },
+            @{
+                Name       = "Microsoft.UI.Xaml.2.8"
+                Identifier = "https://www.microsoft.com/store/productId/9NXQXXLFST89"
+                Pattern    = "*UI.Xaml*x64*"
+                Required   = $true
+            },
+            @{
+                Name       = "Microsoft.NET.Native.Framework.2.2"
+                Identifier = "https://www.microsoft.com/store/productId/9NBLGGH1Z6CD"
+                Pattern    = "*NET.Native.Framework*x64*"
+                Required   = $false
+            },
+            @{
+                Name       = "Microsoft.WindowsStore"
+                Identifier = "https://www.microsoft.com/store/productId/9WZDNCRFJBMP"
+                Pattern    = "*WindowsStore*"
+                Required   = $true
+            }
+        )
+    
+        $DownloadedFiles = @()
+    
+        # Download dei pacchetti
+        foreach ($package in $PackagesToDownload) {
+            Write-StyledMessage Info "🔍 Ricerca pacchetto: $($package.Name)"
+        
+            $urls = Get-StorePackageUrls -PackageIdentifier $package.Identifier
+        
+            if ($urls.Count -eq 0) {
+                if ($package.Required) {
+                    throw "Impossibile trovare URL per il pacchetto richiesto: $($package.Name)"
+                }
+                else {
+                    Write-StyledMessage Warning "Pacchetto opzionale non trovato: $($package.Name)"
+                    continue
+                }
+            }
+        
+            # Filtra per architettura x64 e trova il file più appropriato
+            $targetUrl = $urls | Where-Object { 
+                $_.FileName -like $package.Pattern -and 
+                ($_.FileName -like "*x64*" -or $_.FileName -notlike "*arm*") 
+            } | Sort-Object FileName | Select-Object -Last 1
+        
+            if (-not $targetUrl) {
+                if ($package.Required) {
+                    throw "Impossibile trovare file compatibile per: $($package.Name)"
+                }
+                else {
+                    Write-StyledMessage Warning "File compatibile non trovato per: $($package.Name)"
+                    continue
+                }
+            }
+        
+            $fileName = $targetUrl.FileName -replace '[<>:"/\\|?*]', '_'
+            $filePath = Join-Path $TempDir $fileName
+        
+            if (Download-Package -Url $targetUrl.Url -FilePath $filePath) {
+                $DownloadedFiles += @{
+                    Path      = $filePath
+                    Name      = $package.Name
+                    IsMainApp = ($package.Name -eq "Microsoft.WindowsStore")
+                }
+            }
+            elseif ($package.Required) {
+                throw "Download fallito per pacchetto richiesto: $($package.Name)"
+            }
+        }
+    
+        if ($DownloadedFiles.Count -eq 0) {
+            throw "Nessun pacchetto scaricato con successo"
+        }
+    
+        Write-StyledMessage Success "📦 Download completato. Inizio installazione..."
+    
+        # Installazione in ordine di dipendenza
+        $DependencyOrder = @(
+            "Microsoft.VCLibs.140.00",
+            "Microsoft.VCLibs.140.00.UWPDesktop", 
+            "Microsoft.NET.Native.Framework.2.2",
+            "Microsoft.UI.Xaml.2.8"
+        )
+    
+        # Prima installa le dipendenze
+        foreach ($depName in $DependencyOrder) {
+            $depFile = $DownloadedFiles | Where-Object { $_.Name -eq $depName }
+            if ($depFile) {
+                Write-StyledMessage Info "🔧 Installazione dipendenza: $($depFile.Name)"
+                try {
+                    Add-AppxPackage -Path $depFile.Path -ForceApplicationShutdown
+                    Write-StyledMessage Success "  -> ✅ Installato con successo"
+                }
+                catch {
+                    # Non bloccare per dipendenze opzionali
+                    if ($depName -like "*NET.Native*") {
+                        Write-StyledMessage Warning "  -> ⚠️ Installazione opzionale fallita: $($_.Exception.Message)"
+                    }
+                    else {
+                        Write-StyledMessage Warning "  -> ❌ Installazione fallita: $($_.Exception.Message)"
+                        # Continua comunque, potrebbe già essere installato
+                    }
+                }
+            }
+        }
+    
+        # Poi installa Microsoft Store
+        $storeFile = $DownloadedFiles | Where-Object { $_.IsMainApp -eq $true }
+        if ($storeFile) {
+            Write-StyledMessage Info "🏪 Installazione Microsoft Store..."
+            try {
+                Add-AppxPackage -Path $storeFile.Path -ForceApplicationShutdown
+                Write-StyledMessage Success "✅ Microsoft Store installato con successo!"
+            
+                # Avvia il servizio Windows Store se non è in esecuzione
+                $storeService = Get-Service -Name "WSService" -ErrorAction SilentlyContinue
+                if ($storeService -and $storeService.Status -ne "Running") {
+                    Start-Service -Name "WSService" -ErrorAction SilentlyContinue
+                }
+            
+                # Verifica installazione
+                Start-Sleep -Seconds 3
+                $storeApp = Get-AppxPackage -Name "Microsoft.WindowsStore" -ErrorAction SilentlyContinue
+                if ($storeApp) {
+                    Write-StyledMessage Success "🎉 Installazione verificata con successo!"
+                    Write-StyledMessage Info "💡 Puoi ora aprire Microsoft Store dal menu Start"
+                }
+                else {
+                    Write-StyledMessage Warning "⚠️ Installazione completata ma verifica fallita"
+                }
+            }
+            catch {
+                throw "Installazione Microsoft Store fallita: $($_.Exception.Message)"
+            }
+        }
+        else {
+            throw "File Microsoft Store non trovato nei download"
+        }
+    
+        # Pulizia file temporanei
         try {
-            Write-StyledMessage Progress "🔧 Installazione UniGet UI..."
-            $result = Start-Process -FilePath "winget" -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements" -Wait -NoNewWindow -PassThru
-            if ($result.ExitCode -eq 0) {
-                Write-StyledMessage Success "UniGet UI installato con successo!"
-                return $true
-            }
-            else {
-                Write-StyledMessage Warning "Installazione UniGet UI fallita con codice: $($result.ExitCode)"
-                return $false
-            }
+            Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
+            Write-StyledMessage Info "🧹 File temporanei rimossi"
         }
         catch {
-            Write-StyledMessage Warning "Errore installazione UniGet UI: $($_.Exception.Message)"
+            Write-StyledMessage Warning "Impossibile rimuovere file temporanei da $TempDir"
+        }
+    }
+    catch {
+        Write-StyledMessage Error "❌ Download/installazione manuale fallita: $($_.Exception.Message)"
+    
+        # Cleanup in caso di errore
+        if (Test-Path $TempDir) {
+            try {
+                Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            catch {
+                # Ignora errori di cleanup
+            }
+        }
+    
+        throw $_.Exception
+    }
+        
+    return $false
+}
+    
+function Install-UniGetUI {
+    try {
+        Write-StyledMessage Progress "🔧 Installazione UniGet UI..."
+        $result = Start-Process -FilePath "winget" -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements" -Wait -NoNewWindow -PassThru
+        if ($result.ExitCode -eq 0) {
+            Write-StyledMessage Success "UniGet UI installato con successo!"
+            return $true
+        }
+        else {
+            Write-StyledMessage Warning "Installazione UniGet UI fallita con codice: $($result.ExitCode)"
             return $false
         }
     }
-    
-    function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
-        Write-Host ''
-        
-        for ($i = $Seconds; $i -gt 0; $i--) {
-            if ([Console]::KeyAvailable) {
-                [Console]::ReadKey($true) | Out-Null
-                Write-Host "`n"
-                Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
-                Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
-                return $false
-            }
-            
-            $barLength = 30
-            $progress = (($Seconds - $i) / $Seconds) * 100
-            $filled = '█' * [math]::Floor($progress * $barLength / 100)
-            $empty = '░' * ($barLength - $filled.Length)
-            $bar = "[$filled$empty] {0,3}%" -f [math]::Round($progress)
-            
-            Write-Host "`r⏳ $Message - $i sec (Premi un tasto per annullare) $bar" -NoNewline -ForegroundColor Red
-            Start-Sleep 1
-        }
-        
-        Write-Host ''
-        Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
-        Start-Sleep 1
-        return $true
-    }
-    
-    # === INIZIO LOGICA PRINCIPALE ===
-    
-    Write-StyledMessage Info "🏪 REINSTALLAZIONE MICROSOFT STORE - AVVIO PROCEDURA"
-    Write-Host "🧠"
-    Write-Host ""
-    
-    try {
-        # FASE 1: Verifica e installazione Winget
-        Write-StyledMessage Info "📋 FASE 1: Verifica e preparazione Winget"
-        
-        $wingetStatus = Test-WingetInstallation
-        
-        switch ($wingetStatus) {
-            "installed" {
-                Write-StyledMessage Success "Winget è già installato e funzionante"
-            }
-            "outdated" {
-                Write-StyledMessage Warning "Winget è obsoleto - aggiornamento necessario"
-                if (-not (Install-Winget)) {
-                    throw "Impossibile aggiornare Winget"
-                }
-            }
-            "notinstalled" {
-                Write-StyledMessage Warning "Winget non è installato - installazione necessaria"
-                if (-not (Install-Winget)) {
-                    throw "Impossibile installare Winget"
-                }
-            }
-        }
-        
-        Write-Host ""
-        
-        # FASE 2: Reinstallazione Microsoft Store
-        Write-StyledMessage Info "📋 FASE 2: Reinstallazione Microsoft Store"
-        
-        $storeInstalled = FixBlockedDeployment; Install-MicrosoftStore
-        
-        if (-not $storeInstalled) {
-            Write-StyledMessage Error "❌ ERRORE: Tutti i metodi di installazione del Microsoft Store sono falliti!"
-            Write-StyledMessage Info "💡 Suggerimenti:"
-            Write-Host "   • Verifica la connessione internet" -ForegroundColor Gray
-            Write-Host "   • Esegui lo script come Amministratore" -ForegroundColor Gray
-            Write-Host "   • Prova a eseguire Windows Update prima di riprovare" -ForegroundColor Gray
-            Write-Host "   • Considera un ripristino del sistema" -ForegroundColor Gray
-            return
-        }
-        
-        Write-Host ""
-        
-        # FASE 3: Installazione UniGet UI
-        Write-StyledMessage Info "📋 FASE 3: Installazione UniGet UI"
-        Install-UniGetUI | Out-Null
-        
-        Write-Host ""
-        
-        # FASE 4: Successo e riavvio
-        Write-Host "===" -ForegroundColor Green
-        Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA CON SUCCESSO!"
-        Write-Host "===" -ForegroundColor Green
-        Write-Host ""
-        
-        Write-StyledMessage Info "📝 Riepilogo operazioni completate:"
-        Write-Host "   ✅ Winget verificato/installato" -ForegroundColor Green
-        Write-Host "   ✅ Microsoft Store reinstallato" -ForegroundColor Green
-        Write-Host "   ✅ UniGet UI installato" -ForegroundColor Green
-        Write-Host ""
-        
-        Write-StyledMessage Warning "⚠️ È necessario riavviare il sistema per applicare tutte le modifiche"
-        
-        # Countdown per riavvio
-        $shouldRestart = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio del sistema"
-        
-        if ($shouldRestart) {
-            Write-StyledMessage Info "🔄 Riavvio del sistema in corso..."
-            shutdown /r /t 0
-        }
-        
-    }
     catch {
-        Write-Host ""
-        Write-Host "===" -ForegroundColor Red
-        Write-StyledMessage Error " ERRORE DURANTE L'ESECUZIONE"
-        Write-Host "===" -ForegroundColor Red
-        Write-Host ""
-        Write-StyledMessage Error "Dettagli errore: $($_.Exception.Message)"
-        Write-Host ""
-        Write-StyledMessage Info "💡 Per assistenza:"
-        Write-Host Info "Verifica di eseguire PowerShell come Amministratore" -ForegroundColor Yellow
-        Write-Host Info "Controlla la connessione internet" -ForegroundColor Yellow
-        Write-Host Info "Prova a eseguire Windows Update" -ForegroundColor Yellow
-        Write-Host Info "Riavvia il sistema e riprova" -ForegroundColor Yellow
+        Write-StyledMessage Warning "Errore installazione UniGet UI: $($_.Exception.Message)"
+        return $false
     }
+}
+    
+function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
+    Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
+    Write-Host ''
+        
+    for ($i = $Seconds; $i -gt 0; $i--) {
+        if ([Console]::KeyAvailable) {
+            [Console]::ReadKey($true) | Out-Null
+            Write-Host "`n"
+            Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
+            Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
+            return $false
+        }
+            
+        $barLength = 30
+        $progress = (($Seconds - $i) / $Seconds) * 100
+        $filled = '█' * [math]::Floor($progress * $barLength / 100)
+        $empty = '░' * ($barLength - $filled.Length)
+        $bar = "[$filled$empty] {0,3}%" -f [math]::Round($progress)
+            
+        Write-Host "`r⏳ $Message - $i sec (Premi un tasto per annullare) $bar" -NoNewline -ForegroundColor Red
+        Start-Sleep 1
+    }
+        
+    Write-Host ''
+    Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
+    Start-Sleep 1
+    return $true
+}
+    
+# === INIZIO LOGICA PRINCIPALE ===
+    
+Write-StyledMessage Info "🏪 REINSTALLAZIONE MICROSOFT STORE - AVVIO PROCEDURA"
+Write-Host "🧠"
+Write-Host ""
+    
+try {
+    # FASE 1: Verifica e installazione Winget
+    Write-StyledMessage Info "📋 FASE 1: Verifica e preparazione Winget"
+        
+    $wingetStatus = Test-WingetInstallation
+        
+    switch ($wingetStatus) {
+        "installed" {
+            Write-StyledMessage Success "Winget è già installato e funzionante"
+        }
+        "outdated" {
+            Write-StyledMessage Warning "Winget è obsoleto - aggiornamento necessario"
+            if (-not (Install-Winget)) {
+                throw "Impossibile aggiornare Winget"
+            }
+        }
+        "notinstalled" {
+            Write-StyledMessage Warning "Winget non è installato - installazione necessaria"
+            if (-not (Install-Winget)) {
+                throw "Impossibile installare Winget"
+            }
+        }
+    }
+        
+    Write-Host ""
+        
+    # FASE 2: Reinstallazione Microsoft Store
+    Write-StyledMessage Info "📋 FASE 2: Reinstallazione Microsoft Store"
+        
+    $storeInstalled = FixBlockedDeployment; Install-MicrosoftStore
+        
+    if (-not $storeInstalled) {
+        Write-StyledMessage Error "❌ ERRORE: Tutti i metodi di installazione del Microsoft Store sono falliti!"
+        Write-StyledMessage Info "💡 Suggerimenti:"
+        Write-Host "   • Verifica la connessione internet" -ForegroundColor Gray
+        Write-Host "   • Esegui lo script come Amministratore" -ForegroundColor Gray
+        Write-Host "   • Prova a eseguire Windows Update prima di riprovare" -ForegroundColor Gray
+        Write-Host "   • Considera un ripristino del sistema" -ForegroundColor Gray
+        return
+    }
+        
+    Write-Host ""
+        
+    # FASE 3: Installazione UniGet UI
+    Write-StyledMessage Info "📋 FASE 3: Installazione UniGet UI"
+    Install-UniGetUI | Out-Null
+        
+    Write-Host ""
+        
+    # FASE 4: Successo e riavvio
+    Write-Host "===" -ForegroundColor Green
+    Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA CON SUCCESSO!"
+    Write-Host "===" -ForegroundColor Green
+    Write-Host ""
+        
+    Write-StyledMessage Info "📝 Riepilogo operazioni completate:"
+    Write-Host "   ✅ Winget verificato/installato" -ForegroundColor Green
+    Write-Host "   ✅ Microsoft Store reinstallato" -ForegroundColor Green
+    Write-Host "   ✅ UniGet UI installato" -ForegroundColor Green
+    Write-Host ""
+        
+    Write-StyledMessage Warning "⚠️ È necessario riavviare il sistema per applicare tutte le modifiche"
+        
+    # Countdown per riavvio
+    $shouldRestart = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio del sistema"
+        
+    if ($shouldRestart) {
+        Write-StyledMessage Info "🔄 Riavvio del sistema in corso..."
+        shutdown /r /t 0
+    }
+        
+}
+catch {
+    Write-Host ""
+    Write-Host "===" -ForegroundColor Red
+    Write-StyledMessage Error " ERRORE DURANTE L'ESECUZIONE"
+    Write-Host "===" -ForegroundColor Red
+    Write-Host ""
+    Write-StyledMessage Error "Dettagli errore: $($_.Exception.Message)"
+    Write-Host ""
+    Write-StyledMessage Info "💡 Per assistenza:"
+    Write-Host Info "Verifica di eseguire PowerShell come Amministratore" -ForegroundColor Yellow
+    Write-Host Info "Controlla la connessione internet" -ForegroundColor Yellow
+    Write-Host Info "Prova a eseguire Windows Update" -ForegroundColor Yellow
+    Write-Host Info "Riavvia il sistema e riprova" -ForegroundColor Yellow
+}
 }
 
 # Esempio di utilizzo:
