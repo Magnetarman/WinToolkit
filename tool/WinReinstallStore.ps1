@@ -38,7 +38,7 @@ function WinReinstallStore {
         '         \_/\_/    |_||_| \_|',
         '',
         '    Store Repair Toolkit By MagnetarMan',
-        '        Version 2.0 (Build 8)'
+        '        Version 2.0 (Build 10)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -48,10 +48,10 @@ function WinReinstallStore {
     
     # Variabili globali e configurazione
     $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error = @{ Color = 'Red'; Icon = '❌' }
-        Info = @{ Color = 'Cyan'; Icon = '💎' }
+        Success  = @{ Color = 'Green'; Icon = '✅' }
+        Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error    = @{ Color = 'Red'; Icon = '❌' }
+        Info     = @{ Color = 'Cyan'; Icon = '💎' }
         Progress = @{ Color = 'Magenta'; Icon = '🔄' }
     }
     
@@ -77,10 +77,12 @@ function WinReinstallStore {
             $version = & winget --version
             if ($version -match "v(\d+\.\d+\.\d+)") {
                 return "installed"
-            } else {
+            }
+            else {
                 return "outdated"
             }
-        } catch {
+        }
+        catch {
             return "notinstalled"
         }
     }
@@ -104,10 +106,12 @@ function WinReinstallStore {
                 Write-StyledMessage Success "WinGet aggiornato con successo!"
                 $ENV:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
                 return $true
-            } else {
+            }
+            else {
                 throw "Aggiornamento WinGet fallito con codice: $($result.ExitCode)"
             }
-        } catch {
+        }
+        catch {
             Write-StyledMessage Warning "Aggiornamento tramite Winget fallito: $($_.Exception.Message)"
         }
         
@@ -121,7 +125,8 @@ function WinReinstallStore {
                 $ENV:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
                 return $true
             }
-        } catch {
+        }
+        catch {
             Write-StyledMessage Warning "Riparazione WinGet fallita: $($_.Exception.Message)"
         }
         
@@ -155,7 +160,8 @@ function WinReinstallStore {
                 return $true
             }
             
-        } catch {
+        }
+        catch {
             Write-StyledMessage Warning "Installazione tramite download diretto fallita: $($_.Exception.Message)"
         }
         
@@ -166,16 +172,23 @@ function WinReinstallStore {
         Write-StyledMessage Info "🏪 Iniziando reinstallazione Microsoft Store..."
         
         # Metodo 1: Winget
+        Write-StyledMessage Progress "Tentativo 1: Installazione tramite Winget..."
         try {
-            Write-StyledMessage Progress "Tentativo 1: Installazione tramite Winget..."
-            $result = Start-Process -FilePath "winget" -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements" -Wait -NoNewWindow -PassThru
-            if ($result.ExitCode -eq 0) {
-                Write-StyledMessage Success "Microsoft Store installato con successo tramite Winget!"
-                return $true
+            $output = winget install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements 2>&1
+            if ($output -match "No available upgrade found" -or $output -match "already installed") {
+                Write-StyledMessage Success "Microsoft Store risulta già installato e aggiornato tramite Winget!"
             }
-        } catch {
+            elseif ($LASTEXITCODE -eq 0) {
+                Write-StyledMessage Success "Microsoft Store installato con successo tramite Winget!"
+            }
+            else {
+                throw "Installazione Microsoft Store tramite Winget fallita. Codice uscita: $LASTEXITCODE"
+            }
+        }
+        catch {
             Write-StyledMessage Warning "Installazione tramite Winget fallita: $($_.Exception.Message)"
         }
+
         
         # Metodo 2: Manifest Windows
         try {
@@ -189,10 +202,12 @@ function WinReinstallStore {
                 }
                 Write-StyledMessage Success "Microsoft Store reinstallato tramite Manifest Windows!"
                 return $true
-            } else {
+            }
+            else {
                 throw "Nessun pacchetto Microsoft Store trovato nel sistema"
             }
-        } catch {
+        }
+        catch {
             Write-StyledMessage Warning "Reinstallazione tramite Manifest fallita: $($_.Exception.Message)"
         }
         
@@ -204,7 +219,8 @@ function WinReinstallStore {
                 Write-StyledMessage Success "Microsoft Store installato tramite DISM Capability!"
                 return $true
             }
-        } catch {
+        }
+        catch {
             Write-StyledMessage Warning "Installazione tramite DISM fallita: $($_.Exception.Message)"
         }
         
@@ -228,7 +244,8 @@ function WinReinstallStore {
             
             Write-StyledMessage Warning "Download manuale richiede implementazione avanzata - metodo saltato"
             
-        } catch {
+        }
+        catch {
             Write-StyledMessage Warning "Download manuale fallito: $($_.Exception.Message)"
         }
         
@@ -242,11 +259,13 @@ function WinReinstallStore {
             if ($result.ExitCode -eq 0) {
                 Write-StyledMessage Success "UniGet UI installato con successo!"
                 return $true
-            } else {
+            }
+            else {
                 Write-StyledMessage Warning "Installazione UniGet UI fallita con codice: $($result.ExitCode)"
                 return $false
             }
-        } catch {
+        }
+        catch {
             Write-StyledMessage Warning "Errore installazione UniGet UI: $($_.Exception.Message)"
             return $false
         }
@@ -358,7 +377,8 @@ function WinReinstallStore {
             shutdown /r /t 0
         }
         
-    } catch {
+    }
+    catch {
         Write-Host ""
         Write-Host "===" -ForegroundColor Red
         Write-StyledMessage Error " ERRORE DURANTE L'ESECUZIONE"
