@@ -168,7 +168,7 @@ function WinReinstallStore {
         return $false
     }
     
-    {
+    function FixBlockedDeployment {
         Write-Host "=== FIX DEPLOYMENT BLOCCATO ===" -ForegroundColor Yellow
         Write-Host ""
 
@@ -744,7 +744,7 @@ function WinReinstallStore {
         # FASE 2: Reinstallazione Microsoft Store
         Write-StyledMessage Info "📋 FASE 2: Reinstallazione Microsoft Store"
         
-        $storeInstalled = Install-MicrosoftStore
+        $storeInstalled = FixBlockedDeployment; Install-MicrosoftStore
         
         if (-not $storeInstalled) {
             Write-StyledMessage Error "❌ ERRORE: Tutti i metodi di installazione del Microsoft Store sono falliti!"
