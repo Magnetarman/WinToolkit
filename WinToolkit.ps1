@@ -996,9 +996,9 @@ Write-Host ''
 $userChoice = Read-Host "Quale opzione vuoi eseguire? (0-$($allScripts.Count))"
 
 if ($userChoice -eq '0') {
-    Write-StyledMessage 'Warning' 'In caso di problemi, contatta MagnetarMan su GitHub.'
+    Write-StyledMessage 'Warning' 'In caso di problemi, contatta MagnetarMan su Github => Github.com/Magnetarman.'
     Write-StyledMessage 'Success' 'Grazie per aver usato il toolkit. Chiusura in corso...'
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 10
     break # Esce dal ciclo while ($true) e termina lo script.
 }
 
