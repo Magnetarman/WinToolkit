@@ -979,8 +979,7 @@ foreach ($categoryName in $menuStructure.Keys) {
     # Visualizzazione degli script della categoria
     foreach ($script in $category.Scripts) {
     $allScripts += $script
-    Write-StyledMessage 'Info' "[$scriptIndex] "
-    Write-Host "$($script.Description)" -ForegroundColor Green
+    Write-StyledMessage 'Info' "[$scriptIndex] " Write-Host "$($script.Description)" -ForegroundColor Green
     $scriptIndex++
     }
     
