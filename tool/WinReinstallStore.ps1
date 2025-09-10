@@ -168,6 +168,185 @@ function WinReinstallStore {
         return $false
     }
     
+    {
+        Write-Host "=== FIX DEPLOYMENT BLOCCATO ===" -ForegroundColor Yellow
+        Write-Host ""
+
+        # SOLUZIONE 1: Terminare processi bloccanti
+        Write-Host "1. Terminazione processi bloccanti..." -ForegroundColor Cyan
+
+        # Termina processi relativi a Windows Store
+        $processesToKill = @(
+            "WinStore.App",
+            "wsappx",
+            "AppInstaller", 
+            "Microsoft.WindowsStore",
+            "RuntimeBroker",
+            "dllhost"
+        )
+
+        foreach ($process in $processesToKill) {
+            try {
+                $runningProcesses = Get-Process -Name $process -ErrorAction SilentlyContinue
+                if ($runningProcesses) {
+                    $runningProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+                    Write-Host "✅ Terminato processo: $process" -ForegroundColor Green
+                }
+            }
+            catch {
+                # Ignora errori
+            }
+        }
+
+        # SOLUZIONE 2: Pulizia cache AppX
+        Write-Host ""
+        Write-Host "2. Pulizia cache AppX..." -ForegroundColor Cyan
+
+        try {
+            # Ferma il servizio AppX Deployment
+            Stop-Service -Name "AppXSvc" -Force -ErrorAction SilentlyContinue
+            Write-Host "✅ Servizio AppX fermato" -ForegroundColor Green
+    
+            # Pulizia delle cache
+            $cachePaths = @(
+                "$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
+                "$env:LOCALAPPDATA\Microsoft\Windows\INetCache",
+                "$env:TEMP\*AppX*",
+                "$env:WINDIR\Temp\*AppX*"
+            )
+    
+            foreach ($path in $cachePaths) {
+                try {
+                    if (Test-Path $path) {
+                        Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
+                        Write-Host "✅ Pulita cache: $path" -ForegroundColor Green
+                    }
+                }
+                catch {
+                    # Ignora errori
+                }
+            }
+    
+            # Riavvia il servizio
+            Start-Service -Name "AppXSvc" -ErrorAction SilentlyContinue
+            Write-Host "✅ Servizio AppX riavviato" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "⚠️ Errore pulizia cache: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+
+        # SOLUZIONE 3: Reset dello Store di deployment
+        Write-Host ""
+        Write-Host "3. Reset deployment store..." -ForegroundColor Cyan
+
+        try {
+            # Ferma Windows Update
+            Stop-Service -Name "wuauserv" -Force -ErrorAction SilentlyContinue
+    
+            # Reset del deployment store
+            $deploymentPath = "$env:WINDIR\System32\config\systemprofile\AppData\Local\Microsoft\Windows\INetCache"
+            if (Test-Path $deploymentPath) {
+                Remove-Item -Path $deploymentPath -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "✅ Reset deployment store completato" -ForegroundColor Green
+            }
+    
+            # Riavvia Windows Update
+            Start-Service -Name "wuauserv" -ErrorAction SilentlyContinue
+        }
+        catch {
+            Write-Host "⚠️ Errore reset deployment: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+
+        # SOLUZIONE 4: Rimozione pacchetti corrotti
+        Write-Host ""
+        Write-Host "4. Rimozione pacchetti corrotti..." -ForegroundColor Cyan
+
+        try {
+            # Lista pacchetti Store corrotti
+            $storePackages = Get-AppxPackage -AllUsers | Where-Object { 
+                $_.Name -like "*WindowsStore*" -or 
+                $_.Name -like "*Microsoft.Store*" -or
+                $_.Status -eq "Staged"
+            }
+    
+            foreach ($package in $storePackages) {
+                try {
+                    if ($package.Status -eq "Staged" -or $package.Status -eq "Unknown") {
+                        Write-Host "🔄 Rimozione pacchetto corrotto: $($package.Name)" -ForegroundColor Yellow
+                        Remove-AppxPackage -Package $package.PackageFullName -AllUsers -ErrorAction SilentlyContinue
+                        Write-Host "✅ Rimosso: $($package.Name)" -ForegroundColor Green
+                    }
+                }
+                catch {
+                    Write-Host "⚠️ Impossibile rimuovere: $($package.Name)" -ForegroundColor Yellow
+                }
+            }
+        }
+        catch {
+            Write-Host "⚠️ Errore rimozione pacchetti: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+
+        # SOLUZIONE 5: Reset dei servizi critici
+        Write-Host ""
+        Write-Host "5. Reset servizi critici..." -ForegroundColor Cyan
+
+        $services = @(
+            @{Name = "AppXSvc"; DisplayName = "AppX Deployment Service" },
+            @{Name = "ClipSVC"; DisplayName = "Client License Service" },
+            @{Name = "WSService"; DisplayName = "Windows Store Service" },
+            @{Name = "LicenseManager"; DisplayName = "Windows License Manager Service" }
+        )
+
+        foreach ($svc in $services) {
+            try {
+                $service = Get-Service -Name $svc.Name -ErrorAction SilentlyContinue
+                if ($service) {
+                    if ($service.Status -eq "Running") {
+                        Stop-Service -Name $svc.Name -Force -ErrorAction SilentlyContinue
+                        Start-Sleep -Seconds 2
+                    }
+                    Start-Service -Name $svc.Name -ErrorAction SilentlyContinue
+                    Write-Host "✅ Riavviato: $($svc.DisplayName)" -ForegroundColor Green
+                }
+            }
+            catch {
+                Write-Host "⚠️ Errore servizio $($svc.Name): $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
+
+        Write-Host ""
+        Write-Host "=== OPERAZIONI AGGIUNTIVE ===" -ForegroundColor Yellow
+
+        # COMANDO ALTERNATIVO: Reset completo Store
+        Write-Host ""
+        Write-Host "🔧 COMANDO ALTERNATIVO - Esegui se il problema persiste:" -ForegroundColor Cyan
+        Write-Host "wsreset.exe" -ForegroundColor White
+        Write-Host ""
+
+        # COMANDI DISM per riparazione
+        Write-Host "🔧 COMANDI DISM - Per riparazioni avanzate:" -ForegroundColor Cyan
+        Write-Host "DISM /Online /Cleanup-Image /RestoreHealth" -ForegroundColor White
+        Write-Host "sfc /scannow" -ForegroundColor White
+        Write-Host ""
+
+        # RIAVVIO CONSIGLIATO
+        Write-Host "⚠️ IMPORTANTE: Dopo questi fix, riavvia il sistema prima di riprovare l'installazione del Microsoft Store!" -ForegroundColor Red
+        Write-Host ""
+
+        # Countdown per riavvio opzionale
+        Write-Host "Vuoi riavviare ora il sistema? (Consigliato)" -ForegroundColor Yellow
+        $choice = Read-Host "Premi 'S' per riavviare ora, qualsiasi altro tasto per continuare"
+
+        if ($choice -eq 'S' -or $choice -eq 's') {
+            Write-Host "🔄 Riavvio sistema in 10 secondi..." -ForegroundColor Green
+            Start-Sleep -Seconds 10
+            Restart-Computer -Force
+        }
+        else {
+            Write-Host "ℹ️ Ricorda di riavviare il sistema quando possibile!" -ForegroundColor Cyan
+        }
+    }
+
     function Install-MicrosoftStore {
         Write-StyledMessage Info "🏪 Iniziando reinstallazione Microsoft Store..."
         
