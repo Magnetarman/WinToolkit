@@ -49,7 +49,7 @@ function Write-StyledMessage {
         Success = @{ Color = 'Green' ; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
         Error   = @{ Color = 'Red'   ; Icon = '❌' }
-        Info    = @{ Color = 'white'  ; Icon = '💎' }
+        Info    = @{ Color = 'White'  ; Icon = '💎' }
     }
 
     $style = $styles[$Type]
