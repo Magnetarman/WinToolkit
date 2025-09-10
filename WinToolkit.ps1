@@ -920,6 +920,12 @@ function WinUpdateReset {
 
 #function ResetRustDesk {}
 
+#function WinBackupDriver {}
+
+#function WinDriverInstall {}
+
+#function GamingToolkit{}
+
 
 # Ciclo principale del programma: mostra il menu e attende una scelta.
 while ($true) {
