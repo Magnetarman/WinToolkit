@@ -11,7 +11,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.0 (Build 73)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.0 (Build 82)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=for-the-badge&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -40,9 +40,10 @@
 ## 👾 Features
 
 > [!Note]
-> La versione 2.0 è in **sviluppo attivo**.
+> La versione 2.0 del Toolkit è in fase **RELEASE** nel ramo `main`.
 >
-> Il ramo **Dev** ha codice e funzionalità in sviluppo attivo e Testing. **ATTENZIONE** - Utilizzare lo script presente nel ramo Dev potrebbe danneggiare il sistema.
+> Il ramo `Dev` contiene modifiche e funzionalità su cui sto lavorando.
+> <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso. Potrebbe causare danni al tuo sistema.**
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
@@ -151,24 +152,73 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 71)`**: <strike> Funzione **Update Reset** Completa.</strike>
 - [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
 - [x] **`V2.0.0 (Build 73)`**: <strike> Start Script Potenziato, Fix Tool "WinUpdate Reset".</strike>
-- [ ] **`VX.0.0`**: Finalizzazione "MagnetarMan Mode".
+- [x] **`V2.0.0 (Build 82)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
+- [ ] **`V2.1`**: Funzione **Office Toolkit** Completa.
+- [ ] **`V2.2`**: Sezione **Windows Repair Plus** Completa.
+- [ ] **`V2.3`**: Sezione **Driver & Gaming** Completa.
+- [ ] **`V2.4`**: Sezione **Gaming Ready** Completa.
+- [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
+
+## 👌 Update Pianificati
+
+### V2.1 - "Office Toolkit"
+
+- [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint).
+  - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata.
+
+### V2.2 - "Windows Repair Plus"
+
+- [ ] Reinstallazione Forzata Microsoft Store & Winget.
+  - [ ] Installazione di Uniget.
+- [ ] Reset Rust Desk.
+- [ ] Backup Driver Installati => Compressione in file .zip => Posizionamento archivio sul desktop.
+
+### V2.3 - "Driver & Gaming"
+
+- [ ] Scelta Driver Video (AMD/NVIDIA).
+- [ ] Installazione Driver Ottimizzato (Nvidia).
+- [ ] Download ultima versione di DDU.
+  - [ ] Estrazione.
+  - [ ] Posizionamento nella cartella Downloads.
+  - [ ] Riavvio modalità provvisoria.
+
+### V2.4 - "Gaming Ready"
+
+- [ ] Installazione client di gioco (Amazon, Gog Galaxy, Epic Games, Steam).
+- [ ] Installazione Playnite ed applicazione Tema personalizzato.
+- [ ] Installazione/Aggiornamento Directx.
+- [ ] Installazione/Aggiornamento Microsoft C++ Package.
+
+### V3.0 - "MagnetarMan Mode"
+
+- [ ] Finalizzazione "MagnetarMan Mode"
+  - [ ] Avvio Script Chris con configurazione personalizzata
+  - [ ] Installazione Programmi
+    - [ ] Brave Browser
+    - [ ] Google Chrome
+    - [ ] Betterbird
+    - [ ] Fan Control
+    - [ ] PowerToys
+    - [ ] Uniget
+    - [ ] Crystal Disk info
+    - [ ] HwInfo
+    - [ ] Rust Desk
+    - [ ] Client Giochi (Amazon, Gog Galaxy, Epic Games, Steam)
+  - [ ] Installazione .NET Runtime (Dalla 4 alla 9.0)
+  - [ ] Installazione Microsoft C++ Package
+  - [ ] Installazione/Aggiornamento Directx
+  - [ ] Playnite (Lancher/Aggregatore)
+  - [ ] Revo Unistaller
+  - [ ] Tree Size
+  - [ ] Glary Utilities
+  - [ ] Pulizia Sistema
+  - [ ] Applicazione Sfondo "MagnetarMan"
+  - [ ] Riavvio PC per completare le modifiche
 
 ## 🕹️ TO DO
 
 - [ ] Avvio script Chris con config personalizzata iwr -useb https://christitus.com/win | iex
 - [ ] Aggiungere esecuzione di Tron Script ed esecuzione con intervento minimo
-- [ ] Download ultima versione di DDU
-  - [ ] Estrazione
-  - [ ] Posizionamento nella cartella Downloads
-  - [ ] Riavvio modalità provvisoria
-- [ ] Installazione Driver Ottimizzato (Nvidia / AMD)
-- [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint)
-  - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata
-- [ ] Reinstallazione Installazione Store & Winget
-- [ ] Reset Rust Desk
-- [ ] Installazione e/o Aggiornamento Directx e librerie per il Gaming
-  - [ ] Installazione client di gioco
-  - [ ] Installazione Playnite ed applicazione Tema personalizzato
 - [ ] Download immagine di Windows 23H2 Microwin
   - [ ] Posizionamento nella cartella download, pronta per essere utilizzata
 
