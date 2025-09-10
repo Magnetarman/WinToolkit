@@ -44,7 +44,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             '  Store Repair Toolkit By MagnetarMan',
-            '        Version 2.0 (Build 16)'
+            '        Version 2.0 (Build 17)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -443,7 +443,7 @@ function WinReinstallStore {
         
         # FASE 3: UniGet UI
         Write-Host ""; Write-StyledMessage Info "📋 FASE 3: Installazione UniGet UI"
-        Install-UniGetUI | Out-Null
+        $unigetInstalled = Install-UniGetUI
         
         # FASE 4: Completamento
         Write-Host ""; Write-Host "===" -ForegroundColor Green
@@ -452,12 +452,18 @@ function WinReinstallStore {
         
         $completionMessages = @(
             "   ✅ Winget verificato/installato", 
-            "   ✅ Microsoft Store reinstallato", 
-            "   ✅ UniGet UI installato"
+            "   ✅ Microsoft Store reinstallato"
         )
         
+        if ($unigetInstalled) {
+            $completionMessages += "   ✅ UniGet UI installato"
+        }
+        else {
+            $completionMessages += "   ⚠️ UniGet UI non installato (opzionale)"
+        }
+        
         foreach ($msg in $completionMessages) {
-            Write-Host $msg -ForegroundColor Green
+            Write-Host $msg -ForegroundColor $(if ($msg -like "*⚠️*") { "Yellow" } else { "Green" })
         }
         
         Write-Host ""; Write-StyledMessage Warning "⚠️ È necessario riavviare il sistema per applicare tutte le modifiche"
