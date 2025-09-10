@@ -397,6 +397,7 @@ function WinReinstallStore {
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
+                Write-Host '';
                 Write-StyledMessage Error '⏸️ Riavvio annullato - Riavvia manualmente con: shutdown /r /t 0'
                 return $false
             }
