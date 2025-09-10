@@ -1,4 +1,4 @@
-    function WinReinstallStore {
+function WinReinstallStore {
     <#
     .SYNOPSIS
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget come punto di partenza.
@@ -9,20 +9,42 @@
         2. Tenta la reinstallazione del Microsoft Store attraverso diversi metodi
         3. Installa UniGet UI come strumento aggiuntivo
         4. Gestisce il riavvio del sistema per applicare le modifiche
-    
-    .PARAMETER CountdownSeconds
-        Secondi per il countdown prima del riavvio automatico (default: 30)
-    
-    .EXAMPLE
-        WinReinstallStore
-        
-    .EXAMPLE
-        WinReinstallStore -CountdownSeconds 60
+
     #>
     
     param(
         [int]$CountdownSeconds = 30
     )
+    
+    # Inizializzazione e header grafico
+    $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
+    Clear-Host
+    
+    # Funzione per centrare il testo
+    function Center-Text {
+        param([string]$Text, [int]$Width)
+        $padding = [math]::Max(0, ($Width - $Text.Length) / 2)
+        return (' ' * $padding) + $Text
+    }
+    
+    # Header grafico
+    $width = 65
+    Write-Host ('═' * $width) -ForegroundColor Green
+    $asciiArt = @(
+        '      __        __  _  _   _ ',
+        '      \ \      / / | || \ | |',
+        '       \ \ /\ / /  | ||  \| |',
+        '        \ V  V /   | || |\  |',
+        '         \_/\_/    |_||_| \_|',
+        '',
+        '    Store Repair Toolkit By MagnetarMan',
+        '        Version 2.0 (Build 6)'
+    )
+    foreach ($line in $asciiArt) {
+        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+    }
+    Write-Host ('═' * $width) -ForegroundColor Green
+    Write-Host ''
     
     # Variabili globali e configurazione
     $MsgStyles = @{
@@ -261,7 +283,6 @@
     
     # === INIZIO LOGICA PRINCIPALE ===
     
-    Write-Host "`n" + "="*70 -ForegroundColor Magenta
     Write-StyledMessage Info "🏪 REINSTALLAZIONE MICROSOFT STORE - AVVIO PROCEDURA"
     Write-Host "="*70 -ForegroundColor Magenta
     Write-Host ""
@@ -327,7 +348,7 @@
         Write-Host "   ✅ UniGet UI installato" -ForegroundColor Green
         Write-Host ""
         
-        Write-StyledMessage Warning "È necessario riavviare il sistema per applicare tutte le modifiche"
+        Write-StyledMessage Warning "⚠️ È necessario riavviare il sistema per applicare tutte le modifiche"
         
         # Countdown per riavvio
         $shouldRestart = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio del sistema"
@@ -340,7 +361,7 @@
     } catch {
         Write-Host ""
         Write-Host "="*70 -ForegroundColor Red
-        Write-StyledMessage Error " ERRORE DURANTE L'ESECUZIONE"
+        Write-StyledMessage Error "❌ ERRORE DURANTE L'ESECUZIONE"
         Write-Host "="*70 -ForegroundColor Red
         Write-Host ""
         Write-StyledMessage Error "Dettagli errore: $($_.Exception.Message)"
@@ -355,3 +376,4 @@
 
 # Esempio di utilizzo:
 WinReinstallStore
+# WinReinstallStore -CountdownSeconds 60
