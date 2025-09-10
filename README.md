@@ -151,7 +151,16 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 71)`**: <strike> Funzione **Update Reset** Completa.</strike>
 - [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
 - [x] **`V2.0.0 (Build 73)`**: <strike> Start Script Potenziato, Fix Tool "WinUpdate Reset".</strike>
-- [ ] **`VX.0.0`**: Finalizzazione "MagnetarMan Mode".
+- [x] **`V2.0.0 (Build 78)`**: <strike> Rework Grafico.</strike>
+- [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
+
+## 👌 Update Pianificati
+
+### V 2.1
+
+- [ ] **Eliminazione del paradigma (Build xx), passaggio a versionamento unico**
+- [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint)
+  - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata
 
 ## 🕹️ TO DO
 
@@ -162,8 +171,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
   - [ ] Posizionamento nella cartella Downloads
   - [ ] Riavvio modalità provvisoria
 - [ ] Installazione Driver Ottimizzato (Nvidia / AMD)
-- [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint)
-  - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata
+
 - [ ] Reinstallazione Installazione Store & Winget
 - [ ] Reset Rust Desk
 - [ ] Installazione e/o Aggiornamento Directx e librerie per il Gaming
