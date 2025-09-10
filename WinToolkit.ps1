@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 81) - 2025-09-10
+  Versione 2.0 (Build 82) - 2025-09-10
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -918,6 +918,9 @@ function WinUpdateReset {
 
 #function OfficeToolkit {}
 
+#function ResetRustDesk {}
+
+
 # Ciclo principale del programma: mostra il menu e attende una scelta.
 while ($true) {
 Clear-Host
@@ -931,7 +934,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       Toolkit By MagnetarMan',
-    '       Version 2.0 (Build 81)'
+    '       Version 2.0 (Build 82)'
 )
 foreach ($line in $asciiArt) {
     Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -952,8 +955,9 @@ $menuStructure = @(
         'Name' = 'Backup & Tool'
         'Icon' = '📦'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver.'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'ResetRustDesk'; Description = 'Reset Rust Desk. - Planned V2.2'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC. - Planned V2.2'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit. - Planned V2.1'; Action = 'RunFunction' }
         )
     },
     @{
@@ -962,7 +966,15 @@ $menuStructure = @(
         'Scripts' = @(
             [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows.'; Action = 'RunFunction' }
             [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset di Windows Update.'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset. - Planned V2.2'; Action = 'RunFunction' }
+        )
+    },
+    @{
+        'Name' = 'Driver & Gaming'
+        'Icon' = '🎮'
+        'Scripts' = @(
+            [pscustomobject]@{ Name = 'WinDriverInstall'; Description = 'Toolkit Driver Grafici. - Planned V2.3'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit. - Planned V2.4'; Action = 'RunFunction' }
         )
     }
 )
