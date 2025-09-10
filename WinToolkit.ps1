@@ -225,7 +225,6 @@ function WinInstallPSProfile {
 }
 
 function WinRepairToolkit {
-# MagnetarMan's Windows Repair Toolkit v2.0
 param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
 
 # Variabili globali
