@@ -151,22 +151,22 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 71)`**: <strike> Funzione **Update Reset** Completa.</strike>
 - [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
 - [x] **`V2.0.0 (Build 73)`**: <strike> Start Script Potenziato, Fix Tool "WinUpdate Reset".</strike>
-- [x] **`V2.0.0 (Build 80)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
+- [x] **`V2.0.0 (Build 81)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
 - [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 👌 Update Pianificati
 
-### V 2.1
+### V 2.1 - "Office Toolkit"
 
 - [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint)
   - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata
 
-### V 2.2
+### V 2.2 - "Windows Repair Plus"
 
 - [ ] Reinstallazione Installazione Store & Winget
 - [ ] Reset Rust Desk
 
-### V 2.3
+### V 2.3 - "Driver & Gaming"
 
 - [ ] Installazione Driver Ottimizzato (Nvidia / AMD)
 - [ ] Installazione client di gioco (Amazon, Gog Galaxy, Epic Games, Steam)
@@ -174,14 +174,15 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [ ] Installazione/Aggiornamento Directx
 - [ ] Installazione/Aggiornamento Microsoft C++ Package
 
-### V 2.4
+### V 2.4 - "Display Driver Unistall"
 
+- [ ] Scelta Driver Video (AMD/NVIDIA)
 - [ ] Download ultima versione di DDU
   - [ ] Estrazione
   - [ ] Posizionamento nella cartella Downloads
   - [ ] Riavvio modalità provvisoria
 
-### V 3.0
+### V 3.0 - "MagnetarMan Mode"
 
 - [ ] Finalizzazione "MagnetarMan Mode"
   - [ ] Avvio Script Chris con configurazione personalizzata
