@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0 (Build 79) - 2025-09-10
+  Versione 2.0 (Build 80) - 2025-09-10
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -49,7 +49,7 @@ function Write-StyledMessage {
         Success = @{ Color = 'Green' ; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
         Error   = @{ Color = 'Red'   ; Icon = '❌' }
-        Info    = @{ Color = 'Cyan'  ; Icon = '💎' }
+        Info    = @{ Color = 'white'  ; Icon = '💎' }
     }
 
     $style = $styles[$Type]
@@ -931,7 +931,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       Toolkit By MagnetarMan',
-    '       Version 2.0 (Build 79)'
+    '       Version 2.0 (Build 80)'
 )
 foreach ($line in $asciiArt) {
     Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -977,10 +977,10 @@ foreach ($categoryName in $menuStructure.Keys) {
     Write-Host ''
     
     # Visualizzazione degli script della categoria
-    foreach ($script in $category.Scripts) {
-    $allScripts += $script
-    Write-StyledMessage 'Info' "[$scriptIndex] " Write-Host "$($script.Description)" -ForegroundColor Green
-    $scriptIndex++
+     foreach ($script in $category.Scripts) {
+        $allScripts += $script
+        Write-StyledMessage 'Info' "[$scriptIndex] $($script.Description)"
+        $scriptIndex++
     }
     
     Write-Host '' # Spazio tra le categorie
