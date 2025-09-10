@@ -11,7 +11,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.0 (Build 73)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.0 (Build 82)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=for-the-badge&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -151,7 +151,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 71)`**: <strike> Funzione **Update Reset** Completa.</strike>
 - [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
 - [x] **`V2.0.0 (Build 73)`**: <strike> Start Script Potenziato, Fix Tool "WinUpdate Reset".</strike>
-- [x] **`V2.0.0 (Build 81)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
+- [x] **`V2.0.0 (Build 82)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
 - [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 👌 Update Pianificati
@@ -165,22 +165,23 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 - [ ] Reinstallazione Installazione Store & Winget
 - [ ] Reset Rust Desk
+- [ ] Backup Driver Installati => Compressione in file .zip sul desktop
 
 ### V 2.3 - "Driver & Gaming"
 
 - [ ] Installazione Driver Ottimizzato (Nvidia / AMD)
-- [ ] Installazione client di gioco (Amazon, Gog Galaxy, Epic Games, Steam)
-- [ ] Installazione Playnite ed applicazione Tema personalizzato
-- [ ] Installazione/Aggiornamento Directx
-- [ ] Installazione/Aggiornamento Microsoft C++ Package
-
-### V 2.4 - "Display Driver Unistall"
-
 - [ ] Scelta Driver Video (AMD/NVIDIA)
 - [ ] Download ultima versione di DDU
   - [ ] Estrazione
   - [ ] Posizionamento nella cartella Downloads
   - [ ] Riavvio modalità provvisoria
+
+### V 2.4 - "Gaming Ready"
+
+- [ ] Installazione client di gioco (Amazon, Gog Galaxy, Epic Games, Steam)
+- [ ] Installazione Playnite ed applicazione Tema personalizzato
+- [ ] Installazione/Aggiornamento Directx
+- [ ] Installazione/Aggiornamento Microsoft C++ Package
 
 ### V 3.0 - "MagnetarMan Mode"
 
