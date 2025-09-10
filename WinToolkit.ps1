@@ -940,14 +940,24 @@ Write-Host ('═' * $width) -ForegroundColor Green
 Write-Host ''
 
 # --- Definizione e visualizzazione del menu organizzato per categorie ---
-$menuStructure = @{
-    'Operazioni Preliminari' = @{
+$menuStructure = @(
+    @{
+        'Name' = 'Operazioni Preliminari'
         'Icon' = '⚠️'
         'Scripts' = @(
             [pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa il profilo PowerShell.'; Action = 'RunFunction' }
         )
-    }
-    'Riparazione Windows' = @{
+    },
+    @{
+        'Name' = 'Backup & Tool'
+        'Icon' = '📦'
+        'Scripts' = @(
+            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit.'; Action = 'RunFunction' }
+        )
+    },
+    @{
+        'Name' = 'Riparazione Windows'
         'Icon' = '🔧'
         'Scripts' = @(
             [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows.'; Action = 'RunFunction' }
@@ -955,29 +965,20 @@ $menuStructure = @{
             [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset.'; Action = 'RunFunction' }
         )
     }
-    'Backup & Tool' = @{
-        'Icon' = '📦'
-        'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver.'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
-        )
-    }
-}
+)
 
-# Creazione dell'array ordinato degli script per mantenere la numerazione progressiva
+# Aggiorna anche il ciclo foreach per questa struttura:
 $allScripts = @()
 $scriptIndex = 1
 
-foreach ($categoryName in $menuStructure.Keys) {
-    $category = $menuStructure[$categoryName]
-    
+foreach ($category in $menuStructure) {
     # Visualizzazione del titolo della categoria
-    $categoryTitle = "=== $($category.Icon) $categoryName $($category.Icon) ==="
+    $categoryTitle = "=== $($category.Icon) $($category.Name) $($category.Icon) ==="
     Write-Host $categoryTitle -ForegroundColor DarkYellow
     Write-Host ''
     
     # Visualizzazione degli script della categoria
-     foreach ($script in $category.Scripts) {
+    foreach ($script in $category.Scripts) {
         $allScripts += $script
         Write-StyledMessage 'Info' "[$scriptIndex] $($script.Description)"
         $scriptIndex++
