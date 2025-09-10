@@ -155,22 +155,26 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
 - [x] **`V2.0.0 (Build 73)`**: <strike> Start Script Potenziato, Fix Tool "WinUpdate Reset".</strike>
 - [x] **`V2.0.0 (Build 82)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
+- [ ] **`V2.1`**: Funzione **Office Toolkit** Completa.
+- [ ] **`V2.2`**: Sezione **Windows Repair Plus** Completa.
+- [ ] **`V2.3`**: Sezione **Driver & Gaming** Completa.
+- [ ] **`V2.4`**: Sezione **Gaming Ready** Completa.
 - [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 👌 Update Pianificati
 
-### V 2.1 - "Office Toolkit"
+### V2.1 - "Office Toolkit"
 
 - [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint)
   - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata
 
-### V 2.2 - "Windows Repair Plus"
+### V2.2 - "Windows Repair Plus"
 
 - [ ] Reinstallazione Installazione Store & Winget
 - [ ] Reset Rust Desk
 - [ ] Backup Driver Installati => Compressione in file .zip sul desktop
 
-### V 2.3 - "Driver & Gaming"
+### V2.3 - "Driver & Gaming"
 
 - [ ] Installazione Driver Ottimizzato (Nvidia / AMD)
 - [ ] Scelta Driver Video (AMD/NVIDIA)
@@ -179,14 +183,14 @@ Avvia il Toolkit eseguendo il seguente metodo:
   - [ ] Posizionamento nella cartella Downloads
   - [ ] Riavvio modalità provvisoria
 
-### V 2.4 - "Gaming Ready"
+### V2.4 - "Gaming Ready"
 
 - [ ] Installazione client di gioco (Amazon, Gog Galaxy, Epic Games, Steam)
 - [ ] Installazione Playnite ed applicazione Tema personalizzato
 - [ ] Installazione/Aggiornamento Directx
 - [ ] Installazione/Aggiornamento Microsoft C++ Package
 
-### V 3.0 - "MagnetarMan Mode"
+### V3.0 - "MagnetarMan Mode"
 
 - [ ] Finalizzazione "MagnetarMan Mode"
   - [ ] Avvio Script Chris con configurazione personalizzata
