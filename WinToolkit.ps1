@@ -973,7 +973,7 @@ foreach ($categoryName in $menuStructure.Keys) {
     
     # Visualizzazione del titolo della categoria
     $categoryTitle = "=== $($category.Icon) $categoryName $($category.Icon) ==="
-    Write-Host $categoryTitle -ForegroundColor Magenta
+    Write-Host $categoryTitle -ForegroundColor Gray
     Write-Host ''
     
     # Visualizzazione degli script della categoria
