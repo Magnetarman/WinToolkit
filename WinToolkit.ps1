@@ -22,7 +22,8 @@ $logdir = "$env:localappdata\WinToolkit\logs"
 try {
     [System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
     Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -Force | Out-Null
-} catch {
+}
+catch {
     # Gestione errori silenziosa per compatibilità
 }
 
@@ -180,8 +181,8 @@ function WinInstallPSProfile {
             
             # Esegui lo script di setup che installa tutto (oh-my-posh, font, dipendenze)
             Start-Process -FilePath "pwsh" `
-                          -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" `
-                          -Wait
+                -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" `
+                -Wait
             
             Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
             Write-StyledMessage 'Warning' "Riavvia PowerShell per applicare il nuovo profilo."
@@ -203,10 +204,12 @@ function WinInstallPSProfile {
                 # Riavvia il sistema
                 Write-StyledMessage 'Info' "Riavvio del sistema..."
                 Restart-Computer -Force
-            } else {
+            }
+            else {
                 Write-StyledMessage 'Info' "Riavvio annullato. Ricorda di riavviare il sistema per vedere tutte le modifiche."
             }
-        } else {
+        }
+        else {
             Write-StyledMessage 'Info' "Il profilo è già aggiornato alla versione più recente."
         }
         
@@ -225,227 +228,235 @@ function WinInstallPSProfile {
 }
 
 function WinRepairToolkit {
-param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
+    param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
 
-# Variabili globali
-$script:Log = @(); $script:CurrentAttempt = 0
-$spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-$SpinnerIntervalMs = 160
-$MsgStyles = @{
-    Success = @{ Color = 'Green'; Icon = '✅' }; Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-    Error = @{ Color = 'Red'; Icon = '❌' }; Info = @{ Color = 'Cyan'; Icon = '💎' }
-}
-$RepairTools = @(
-    @{ Tool = 'chkdsk'; Args = @('/scan','/perf'); Name = 'Controllo disco'; Icon = '💽' }
-    @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (1)'; Icon = '🗂️' }
-    @{ Tool = 'DISM'; Args = @('/Online','/Cleanup-Image','/RestoreHealth'); Name = 'Ripristino immagine Windows'; Icon = '🛠️' }
-    @{ Tool = 'DISM'; Args = @('/Online','/Cleanup-Image','/StartComponentCleanup','/ResetBase'); Name = 'Pulizia Residui Aggiornamenti'; Icon = '🕸️' }
-    @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (2)'; Icon = '🗂️' }
-)
+    # Variabili globali
+    $script:Log = @(); $script:CurrentAttempt = 0
+    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+    $SpinnerIntervalMs = 160
+    $MsgStyles = @{
+        Success = @{ Color = 'Green'; Icon = '✅' }; Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error = @{ Color = 'Red'; Icon = '❌' }; Info = @{ Color = 'Cyan'; Icon = '💎' }
+    }
+    $RepairTools = @(
+        @{ Tool = 'chkdsk'; Args = @('/scan', '/perf'); Name = 'Controllo disco'; Icon = '💽' }
+        @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (1)'; Icon = '🗂️' }
+        @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/RestoreHealth'); Name = 'Ripristino immagine Windows'; Icon = '🛠️' }
+        @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/StartComponentCleanup', '/ResetBase'); Name = 'Pulizia Residui Aggiornamenti'; Icon = '🕸️' }
+        @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (2)'; Icon = '🗂️' }
+    )
 
-function Write-StyledMessage([string]$Type, [string]$Text) {
-    $style = $MsgStyles[$Type]
-    Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
-}
+    function Write-StyledMessage([string]$Type, [string]$Text) {
+        $style = $MsgStyles[$Type]
+        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    }
 
-function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
-    $barLength = 30
-    $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
-    $filled = '█' * [math]::Floor($safePercent * $barLength / 100)
-    $empty = '░' * ($barLength - $filled.Length)
-    $bar = "[$filled$empty] {0,3}%" -f $safePercent
-    Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
-    if ($Percent -eq 100) { Write-Host '' }
-}
+    function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
+        $barLength = 30
+        $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
+        $filled = '█' * [math]::Floor($safePercent * $barLength / 100)
+        $empty = '░' * ($barLength - $filled.Length)
+        $bar = "[$filled$empty] {0,3}%" -f $safePercent
+        Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
+        if ($Percent -eq 100) { Write-Host '' }
+    }
 
-function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-    Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
-    Write-Host ''
-    for ($i = $Seconds; $i -gt 0; $i--) {
-        if ([Console]::KeyAvailable) {
-            [Console]::ReadKey($true) | Out-Null
-            Write-Host "`n"
-            Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
-            Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
+    function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
+        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
+        Write-Host ''
+        for ($i = $Seconds; $i -gt 0; $i--) {
+            if ([Console]::KeyAvailable) {
+                [Console]::ReadKey($true) | Out-Null
+                Write-Host "`n"
+                Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
+                Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
+                return $false
+            }
+            $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
+            Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
+            Start-Sleep 1
+        }
+        Write-Host ''
+        Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
+        Start-Sleep 1
+        return $true
+    }
+
+    function Invoke-RepairCommand([hashtable]$Config, [int]$Step, [int]$Total) {
+        Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)..."
+        $percent = 0; $spinnerIndex = 0; $isChkdsk = ($Config.Tool -ieq 'chkdsk')
+        $outFile = [System.IO.Path]::GetTempFileName()
+        $errFile = [System.IO.Path]::GetTempFileName()
+    
+        try {
+            # Preparazione comando
+            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
+                $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1)
+                if (-not $drive) { $drive = $env:SystemDrive }
+                $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
+                $proc = Start-Process 'cmd.exe' @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')") -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+            }
+            else {
+                $proc = Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+            }
+        
+            # Monitoraggio progresso
+            while (-not $proc.HasExited) {
+                $spinner = $spinners[$spinnerIndex % $spinners.Length]
+                $spinnerIndex++
+            
+                if ($isChkdsk) {
+                    Show-ProgressBar $Config.Name 'Esecuzione in corso ...' 0 $Config.Icon $spinner 'Yellow'
+                }
+                else {
+                    if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
+                    Show-ProgressBar $Config.Name 'Esecuzione in corso...' $percent $Config.Icon $spinner
+                }
+                Start-Sleep -Milliseconds 600
+                $proc.Refresh()
+            }
+        
+            # Lettura risultati
+            $results = @()
+            if (Test-Path $outFile) { $results += Get-Content $outFile -ErrorAction SilentlyContinue }
+            if (Test-Path $errFile) { $results += Get-Content $errFile -ErrorAction SilentlyContinue }
+        
+            # Check scheduling per chkdsk
+            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
+                $partialText = ($results -join ' ').ToLower()
+                if ($partialText -match 'schedule|next time.*restart|volume.*in use') {
+                    Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
+                    $script:Log += "[$($Config.Name)] ℹ️ Controllo disco schedulato al prossimo riavvio"
+                    return @{ Success = $true; ErrorCount = 0 }
+                }
+            }
+        
+            Show-ProgressBar $Config.Name 'Completato con successo' 100 $Config.Icon
+            Write-Host ''
+        
+            # Analisi risultati
+            $exitCode = $proc.ExitCode
+            $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
+            $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
+        
+            $errors = @()
+            $warnings = @()
+        
+            if (-not $isSuccess) {
+                foreach ($line in $results) {
+                    if ($null -eq $line -or [string]::IsNullOrWhiteSpace($line.Trim())) { continue }
+                    $trim = $line.Trim()
+                    if ($trim -match '^\[=+\s*\d+' -or $trim -match '(?i)version:|deployment image') { continue }
+                
+                    if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
+                    elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
+                }
+            }
+        
+            $success = ($errors.Count -eq 0) -or $hasDismSuccess
+            $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
+            Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
+        
+            $logStatus = if ($success) { '✅ Successo' } else { "⚠️ $($errors.Count) errori" }
+            if ($warnings.Count -gt 0) { $logStatus += " - $($warnings.Count) avvisi" }
+            $script:Log += "[$($Config.Name)] $logStatus"
+        
+            return @{ Success = $success; ErrorCount = $errors.Count }
+        
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante $($Config.Name): $_"
+            $script:Log += "[$($Config.Name)] ❌ Errore fatale: $_"
+            return @{ Success = $false; ErrorCount = 1 }
+        }
+        finally {
+            Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
+        }
+    }
+
+    function Start-RepairCycle([int]$Attempt = 1) {
+        $script:CurrentAttempt = $Attempt
+        Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema ($($RepairTools.Count) strumenti)..."
+        Write-Host ''
+    
+        $totalErrors = 0
+        $successCount = 0
+        for ($i = 0; $i -lt $RepairTools.Count; $i++) {
+            $result = Invoke-RepairCommand $RepairTools[$i] ($i + 1) $RepairTools.Count
+            if ($result.Success) { $successCount++ }
+            $totalErrors += $result.ErrorCount
+            Start-Sleep 1
+        }
+    
+        Write-StyledMessage Info "🎯 Completati $successCount/$($RepairTools.Count) strumenti (Errori: $totalErrors)."
+    
+        if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
+            Write-Host ''
+            Write-StyledMessage Warning "🔄 $totalErrors errori rilevati. Nuovo tentativo..."
+            Start-Sleep 3
+            Write-Host ''
+            return Start-RepairCycle ($Attempt + 1)
+        }
+    
+        return @{ Success = ($totalErrors -eq 0); TotalErrors = $totalErrors; AttemptsUsed = $Attempt }
+    }
+
+    function Start-DeepDiskRepair {
+        Write-StyledMessage Warning '🔧 Vuoi eseguire una riparazione profonda del disco C:?'
+        Write-StyledMessage Info 'Questa operazione richiederà un riavvio e può richiedere diverse ore.'
+    
+        $response = Read-Host 'Procedere con la riparazione profonda? (s/n)'
+        if ($response.ToLower() -ne 's') { return $false }
+    
+        Write-StyledMessage Warning 'Segno il volume C: come "dirty" (chkdsk al prossimo riavvio) e apro una cmd per output.'
+        $script:Log += "[Controllo disco Esteso] ℹ️ Segno volume dirty e apro cmd"
+    
+        try {
+            Start-Process 'fsutil.exe' @('dirty', 'set', 'C:') -NoNewWindow -Wait
+            Start-Process 'cmd.exe' @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -WindowStyle Hidden -Wait
+            Write-StyledMessage Info 'Comando chkdsk inviato (finestra nascosta). Riavvia il sistema per eseguire la scansione profonda.'
+            $script:Log += "[Controllo disco Esteso] ✅ chkdsk eseguito in background; riavviare per applicare"
+            return $true
+        }
+        catch {
+            Write-StyledMessage Error "Errore eseguendo operazione: $_"
+            $script:Log += "[Controllo disco Esteso] ❌ Errore: $_"
             return $false
         }
-        $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
-        Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
-        Start-Sleep 1
     }
-    Write-Host ''
-    Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
-    Start-Sleep 1
-    return $true
-}
 
-function Invoke-RepairCommand([hashtable]$Config, [int]$Step, [int]$Total) {
-    Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)..."
-    $percent = 0; $spinnerIndex = 0; $isChkdsk = ($Config.Tool -ieq 'chkdsk')
-    $outFile = [System.IO.Path]::GetTempFileName()
-    $errFile = [System.IO.Path]::GetTempFileName()
+    function Start-SystemRestart([hashtable]$RepairResult) {
     
-    try {
-        # Preparazione comando
-        if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
-            $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1)
-            if (-not $drive) { $drive = $env:SystemDrive }
-            $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
-            $proc = Start-Process 'cmd.exe' @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')") -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
-        } else {
-            $proc = Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+        if ($RepairResult.Success) {
+            Write-StyledMessage Info '🎉 Riparazione completata con successo!'
+            Write-StyledMessage Info "🎯 Errori risolti in $($RepairResult.AttemptsUsed) tentativo/i."
         }
-        
-        # Monitoraggio progresso
-        while (-not $proc.HasExited) {
-            $spinner = $spinners[$spinnerIndex % $spinners.Length]
-            $spinnerIndex++
-            
-            if ($isChkdsk) {
-                Show-ProgressBar $Config.Name 'Esecuzione in corso ...' 0 $Config.Icon $spinner 'Yellow'
-            } else {
-                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                Show-ProgressBar $Config.Name 'Esecuzione in corso...' $percent $Config.Icon $spinner
+        else {
+            Write-StyledMessage Warning "⚠️ $($RepairResult.TotalErrors) errori persistenti dopo $($RepairResult.AttemptsUsed) tentativo/i."
+            Write-StyledMessage Info '📋 Controlla il log sul Desktop. 💡 Il riavvio potrebbe risolvere problemi residui.'
+        }
+    
+        Write-StyledMessage Info '🔄 Il sistema verrà riavviato per finalizzare le modifiche'
+    
+        if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
+            try { 
+                Write-StyledMessage Info '🔄 Riavvio in corso...'
+                Restart-Computer -Force 
             }
-            Start-Sleep -Milliseconds 600
-            $proc.Refresh()
-        }
-        
-        # Lettura risultati
-        $results = @()
-        if (Test-Path $outFile) { $results += Get-Content $outFile -ErrorAction SilentlyContinue }
-        if (Test-Path $errFile) { $results += Get-Content $errFile -ErrorAction SilentlyContinue }
-        
-        # Check scheduling per chkdsk
-        if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
-            $partialText = ($results -join ' ').ToLower()
-            if ($partialText -match 'schedule|next time.*restart|volume.*in use') {
-                Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
-                $script:Log += "[$($Config.Name)] ℹ️ Controllo disco schedulato al prossimo riavvio"
-                return @{ Success = $true; ErrorCount = 0 }
+            catch { 
+                Write-StyledMessage Error "❌ Errore riavvio: $_"
+                Write-StyledMessage Info '🔄 Riavviare manualmente il sistema.'
             }
         }
-        
-        Show-ProgressBar $Config.Name 'Completato con successo' 100 $Config.Icon
-        Write-Host ''
-        
-        # Analisi risultati
-        $exitCode = $proc.ExitCode
-        $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
-        $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
-        
-        $errors = @()
-        $warnings = @()
-        
-        if (-not $isSuccess) {
-            foreach ($line in $results) {
-                if ($null -eq $line -or [string]::IsNullOrWhiteSpace($line.Trim())) { continue }
-                $trim = $line.Trim()
-                if ($trim -match '^\[=+\s*\d+' -or $trim -match '(?i)version:|deployment image') { continue }
-                
-                if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
-                elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
-            }
+        else {
+            Write-StyledMessage Info '✅ Script completato. Sistema non riavviato.'
+            Write-StyledMessage Info '💡 Riavvia quando possibile per applicare le riparazioni.'
         }
-        
-        $success = ($errors.Count -eq 0) -or $hasDismSuccess
-        $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
-        Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
-        
-        $logStatus = if ($success) { '✅ Successo' } else { "⚠️ $($errors.Count) errori" }
-        if ($warnings.Count -gt 0) { $logStatus += " - $($warnings.Count) avvisi" }
-        $script:Log += "[$($Config.Name)] $logStatus"
-        
-        return @{ Success = $success; ErrorCount = $errors.Count }
-        
-    } catch {
-        Write-StyledMessage Error "Errore durante $($Config.Name): $_"
-        $script:Log += "[$($Config.Name)] ❌ Errore fatale: $_"
-        return @{ Success = $false; ErrorCount = 1 }
-    } finally {
-        Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
     }
-}
-
-function Start-RepairCycle([int]$Attempt = 1) {
-    $script:CurrentAttempt = $Attempt
-    Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema ($($RepairTools.Count) strumenti)..."
-    Write-Host ''
-    
-    $totalErrors = 0
-    $successCount = 0
-    for ($i = 0; $i -lt $RepairTools.Count; $i++) {
-        $result = Invoke-RepairCommand $RepairTools[$i] ($i + 1) $RepairTools.Count
-        if ($result.Success) { $successCount++ }
-        $totalErrors += $result.ErrorCount
-        Start-Sleep 1
-    }
-    
-    Write-StyledMessage Info "🎯 Completati $successCount/$($RepairTools.Count) strumenti (Errori: $totalErrors)."
-    
-    if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
-        Write-Host ''
-        Write-StyledMessage Warning "🔄 $totalErrors errori rilevati. Nuovo tentativo..."
-        Start-Sleep 3
-        Write-Host ''
-        return Start-RepairCycle ($Attempt + 1)
-    }
-    
-    return @{ Success = ($totalErrors -eq 0); TotalErrors = $totalErrors; AttemptsUsed = $Attempt }
-}
-
-function Start-DeepDiskRepair {
-    Write-StyledMessage Warning '🔧 Vuoi eseguire una riparazione profonda del disco C:?'
-    Write-StyledMessage Info 'Questa operazione richiederà un riavvio e può richiedere diverse ore.'
-    
-    $response = Read-Host 'Procedere con la riparazione profonda? (s/n)'
-    if ($response.ToLower() -ne 's') { return $false }
-    
-    Write-StyledMessage Warning 'Segno il volume C: come "dirty" (chkdsk al prossimo riavvio) e apro una cmd per output.'
-    $script:Log += "[Controllo disco Esteso] ℹ️ Segno volume dirty e apro cmd"
-    
-    try {
-        Start-Process 'fsutil.exe' @('dirty','set','C:') -NoNewWindow -Wait
-        Start-Process 'cmd.exe' @('/c','echo Y | chkdsk C: /f /r /v /x /b') -WindowStyle Hidden -Wait
-        Write-StyledMessage Info 'Comando chkdsk inviato (finestra nascosta). Riavvia il sistema per eseguire la scansione profonda.'
-        $script:Log += "[Controllo disco Esteso] ✅ chkdsk eseguito in background; riavviare per applicare"
-        return $true
-    } catch {
-        Write-StyledMessage Error "Errore eseguendo operazione: $_"
-        $script:Log += "[Controllo disco Esteso] ❌ Errore: $_"
-        return $false
-    }
-}
-
-function Start-SystemRestart([hashtable]$RepairResult) {
-    
-    if ($RepairResult.Success) {
-        Write-StyledMessage Info '🎉 Riparazione completata con successo!'
-        Write-StyledMessage Info "🎯 Errori risolti in $($RepairResult.AttemptsUsed) tentativo/i."
-    } else {
-        Write-StyledMessage Warning "⚠️ $($RepairResult.TotalErrors) errori persistenti dopo $($RepairResult.AttemptsUsed) tentativo/i."
-        Write-StyledMessage Info '📋 Controlla il log sul Desktop. 💡 Il riavvio potrebbe risolvere problemi residui.'
-    }
-    
-    Write-StyledMessage Info '🔄 Il sistema verrà riavviato per finalizzare le modifiche'
-    
-    if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
-        try { 
-            Write-StyledMessage Info '🔄 Riavvio in corso...'
-            Restart-Computer -Force 
-        } catch { 
-            Write-StyledMessage Error "❌ Errore riavvio: $_"
-            Write-StyledMessage Info '🔄 Riavviare manualmente il sistema.'
-        }
-    } else {
-        Write-StyledMessage Info '✅ Script completato. Sistema non riavviato.'
-        Write-StyledMessage Info '💡 Riavvia quando possibile per applicare le riparazioni.'
-    }
-}
 
 
-$Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
-  Clear-Host
+    $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
+    Clear-Host
     $width = 65
     Write-Host ('═' * $width) -ForegroundColor Green
     $asciiArt = @(
@@ -465,88 +476,90 @@ $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
     Write-Host ''
 
 
-# Countdown preparazione
-for ($i = 5; $i -gt 0; $i--) {
-    $spinner = $spinners[$i % $spinners.Length]
-    Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
-    Start-Sleep 1
-}
-Write-Host "`n"
-
-try {
-    $repairResult = Start-RepairCycle
-    $deepRepairScheduled = Start-DeepDiskRepair
-    
-    if ($deepRepairScheduled) {
-        Write-StyledMessage Warning 'Il sistema verrà riavviato per eseguire la riparazione profonda...'
-    }
-    Start-SystemRestart $repairResult
-    
-} catch {
-    Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
-} finally {
-    Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
-    Read-Host
-}
-
-# Variabili globali per interfaccia grafica
-$spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-$SpinnerIntervalMs = 160
-$MsgStyles = @{
-    Success = @{ Color = 'Green'; Icon = '✅' }
-    Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-    Error = @{ Color = 'Red'; Icon = '❌' }
-    Info = @{ Color = 'Cyan'; Icon = '💎' }
-}
-
-function Write-StyledMessage([string]$Type, [string]$Text) {
-    $style = $MsgStyles[$Type]
-    Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
-}
-
-function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
-    $barLength = 30
-    $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
-    $filled = '█' * [math]::Floor($safePercent * $barLength / 100)
-    $empty = '░' * ($barLength - $filled.Length)
-    $bar = "[$filled$empty] {0,3}%" -f $safePercent
-    Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
-    if ($Percent -eq 100) { Write-Host '' }
-}
-
-function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-    Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
-    Write-Host ''
-    for ($i = $Seconds; $i -gt 0; $i--) {
-        if ([Console]::KeyAvailable) {
-            [Console]::ReadKey($true) | Out-Null
-            Write-Host "`n"
-            Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
-            Write-StyledMessage Info "🔄 Puoi riavviare manualmente con: shutdown /r /t 0"
-            return $false
-        }
-        $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
-        Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
+    # Countdown preparazione
+    for ($i = 5; $i -gt 0; $i--) {
+        $spinner = $spinners[$i % $spinners.Length]
+        Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
         Start-Sleep 1
     }
-    Write-Host ''
-    Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
-    Start-Sleep 1
-    return $true
-}
+    Write-Host "`n"
 
-function Center-Text([string]$Text, [int]$Width) {
-    $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
-    return (' ' * $padding) + $Text
-}
+    try {
+        $repairResult = Start-RepairCycle
+        $deepRepairScheduled = Start-DeepDiskRepair
+    
+        if ($deepRepairScheduled) {
+            Write-StyledMessage Warning 'Il sistema verrà riavviato per eseguire la riparazione profonda...'
+        }
+        Start-SystemRestart $repairResult
+    
+    }
+    catch {
+        Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
+    }
+    finally {
+        Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
+        Read-Host
+    }
 
-function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
-    $percent = [math]::Round(($Current / $Total) * 100)
-    $spinnerIndex = ($Current % $spinners.Length)
-    $spinner = $spinners[$spinnerIndex]
-    Show-ProgressBar "Servizi ($Current/$Total)" "$Action $ServiceName" $percent '⚙️' $spinner 'Cyan'
-    Start-Sleep -Milliseconds 200
-}
+    # Variabili globali per interfaccia grafica
+    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+    $SpinnerIntervalMs = 160
+    $MsgStyles = @{
+        Success = @{ Color = 'Green'; Icon = '✅' }
+        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
+    }
+
+    function Write-StyledMessage([string]$Type, [string]$Text) {
+        $style = $MsgStyles[$Type]
+        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    }
+
+    function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
+        $barLength = 30
+        $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
+        $filled = '█' * [math]::Floor($safePercent * $barLength / 100)
+        $empty = '░' * ($barLength - $filled.Length)
+        $bar = "[$filled$empty] {0,3}%" -f $safePercent
+        Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
+        if ($Percent -eq 100) { Write-Host '' }
+    }
+
+    function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
+        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
+        Write-Host ''
+        for ($i = $Seconds; $i -gt 0; $i--) {
+            if ([Console]::KeyAvailable) {
+                [Console]::ReadKey($true) | Out-Null
+                Write-Host "`n"
+                Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
+                Write-StyledMessage Info "🔄 Puoi riavviare manualmente con: shutdown /r /t 0"
+                return $false
+            }
+            $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
+            Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
+            Start-Sleep 1
+        }
+        Write-Host ''
+        Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
+        Start-Sleep 1
+        return $true
+    }
+
+    function Center-Text([string]$Text, [int]$Width) {
+        $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding) + $Text
+    }
+
+    function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
+        $percent = [math]::Round(($Current / $Total) * 100)
+        $spinnerIndex = ($Current % $spinners.Length)
+        $spinner = $spinners[$spinnerIndex]
+        Show-ProgressBar "Servizi ($Current/$Total)" "$Action $ServiceName" $percent '⚙️' $spinner 'Cyan'
+        Start-Sleep -Milliseconds 200
+    }
 }
 
 function WinUpdateReset {
@@ -561,8 +574,8 @@ function WinUpdateReset {
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error = @{ Color = 'Red'; Icon = '❌' }
-        Info = @{ Color = 'Cyan'; Icon = '💎' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
 
     # Funzioni helper annidate
@@ -661,7 +674,8 @@ function WinUpdateReset {
                     
                     if ($service.Status -eq 'Running') {
                         Write-StyledMessage Success "$serviceIcon Servizio $serviceName avviato correttamente."
-                    } else {
+                    }
+                    else {
                         Write-StyledMessage Warning "$serviceIcon Servizio ${serviceName}: avvio in corso..."
                     }
                 }
@@ -702,7 +716,8 @@ function WinUpdateReset {
                         try {
                             if ($_.PSIsContainer) {
                                 Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-                            } else {
+                            }
+                            else {
                                 $_.Delete()
                             }
                         }
@@ -718,7 +733,8 @@ function WinUpdateReset {
                     if (-not (Test-Path $Path)) {
                         Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata (metodo alternativo)."
                         return $true
-                    } else {
+                    }
+                    else {
                         Write-StyledMessage Warning "⚠️ Directory $DisplayName parzialmente eliminata (alcuni file potrebbero essere in uso)."
                         return $false
                     }
@@ -767,11 +783,11 @@ function WinUpdateReset {
 
     # Configurazione servizi con icone
     $serviceConfig = @{
-        'wuauserv' = @{ Type = 'Automatic'; Critical = $true; Icon = '🔄'; DisplayName = 'Windows Update' }
-        'bits' = @{ Type = 'Automatic'; Critical = $true; Icon = '📡'; DisplayName = 'Background Intelligent Transfer' }
-        'cryptsvc' = @{ Type = 'Automatic'; Critical = $true; Icon = '🔐'; DisplayName = 'Cryptographic Services' }
+        'wuauserv'         = @{ Type = 'Automatic'; Critical = $true; Icon = '🔄'; DisplayName = 'Windows Update' }
+        'bits'             = @{ Type = 'Automatic'; Critical = $true; Icon = '📡'; DisplayName = 'Background Intelligent Transfer' }
+        'cryptsvc'         = @{ Type = 'Automatic'; Critical = $true; Icon = '🔐'; DisplayName = 'Cryptographic Services' }
         'trustedinstaller' = @{ Type = 'Manual'; Critical = $true; Icon = '🛡️'; DisplayName = 'Windows Modules Installer' }
-        'msiserver' = @{ Type = 'Manual'; Critical = $false; Icon = '📦'; DisplayName = 'Windows Installer' }
+        'msiserver'        = @{ Type = 'Manual'; Critical = $false; Icon = '📦'; DisplayName = 'Windows Installer' }
     }
     
     $systemServices = @(
@@ -928,127 +944,129 @@ function WinUpdateReset {
 
 # Ciclo principale del programma: mostra il menu e attende una scelta.
 while ($true) {
-Clear-Host
-$width = 65
-Write-Host ('═' * $width) -ForegroundColor Green
-$asciiArt = @(
-    '      __        __  _  _   _ ',
-    '      \ \      / / | || \ | |',
-    '       \ \ /\ / /  | ||  \| |',
-    '        \ V  V /   | || |\  |',
-    '         \_/\_/    |_||_| \_|',
-    '',
-    '       Toolkit By MagnetarMan',
-    '       Version 2.0 (Build 82)'
-)
-foreach ($line in $asciiArt) {
-    Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
-}
-Write-Host ('═' * $width) -ForegroundColor Green
-Write-Host ''
-
-# --- Definizione e visualizzazione del menu organizzato per categorie ---
-$menuStructure = @(
-    @{
-        'Name' = 'Operazioni Preliminari'
-        'Icon' = '⚠️'
-        'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa il profilo PowerShell.'; Action = 'RunFunction' }
-        )
-    },
-    @{
-        'Name' = 'Backup & Tool'
-        'Icon' = '📦'
-        'Scripts' = @(
-            [pscustomobject]@{ Name = 'ResetRustDesk'; Description = 'Reset Rust Desk. - Planned V2.2'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC. - Planned V2.2'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit. - Planned V2.1'; Action = 'RunFunction' }
-        )
-    },
-    @{
-        'Name' = 'Riparazione Windows'
-        'Icon' = '🔧'
-        'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows.'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset di Windows Update.'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset. - Planned V2.2'; Action = 'RunFunction' }
-        )
-    },
-    @{
-        'Name' = 'Driver & Gaming'
-        'Icon' = '🎮'
-        'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinDriverInstall'; Description = 'Toolkit Driver Grafici. - Planned V2.3'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit. - Planned V2.4'; Action = 'RunFunction' }
-        )
+    Clear-Host
+    $width = 65
+    Write-Host ('═' * $width) -ForegroundColor Green
+    $asciiArt = @(
+        '      __        __  _  _   _ ',
+        '      \ \      / / | || \ | |',
+        '       \ \ /\ / /  | ||  \| |',
+        '        \ V  V /   | || |\  |',
+        '         \_/\_/    |_||_| \_|',
+        '',
+        '       Toolkit By MagnetarMan',
+        '       Version 2.0 (Build 82)'
+    )
+    foreach ($line in $asciiArt) {
+        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
     }
-)
-
-# Aggiorna anche il ciclo foreach per questa struttura:
-$allScripts = @()
-$scriptIndex = 1
-
-foreach ($category in $menuStructure) {
-    # Visualizzazione del titolo della categoria
-    $categoryTitle = "=== $($category.Icon) $($category.Name) $($category.Icon) ==="
-    Write-Host $categoryTitle -ForegroundColor DarkYellow
+    Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
-    
-    # Visualizzazione degli script della categoria
-    foreach ($script in $category.Scripts) {
-        $allScripts += $script
-        Write-StyledMessage 'Info' "[$scriptIndex] $($script.Description)"
-        $scriptIndex++
-    }
-    
-    Write-Host '' # Spazio tra le categorie
-}
 
-# Sezione di uscita
-Write-Host "=== Uscita ===" -ForegroundColor Red
-Write-Host ''
-Write-StyledMessage 'Error' '[0] Esci dal Toolkit'
-Write-Host ''
-
-# --- Logica di gestione della scelta utente ---
-$userChoice = Read-Host "Quale opzione vuoi eseguire? (0-$($allScripts.Count))"
-
-if ($userChoice -eq '0') {
-    Write-StyledMessage 'Warning' 'In caso di problemi, contatta MagnetarMan su Github => Github.com/Magnetarman.'
-    Write-StyledMessage 'Success' 'Grazie per aver usato il toolkit. Chiusura in corso...'
-    Start-Sleep -Seconds 5
-    break # Esce dal ciclo while ($true) e termina lo script.
-}
-
-# Verifica se l'input è un numero valido e rientra nel range delle opzioni.
-if (($userChoice -match '^\d+$') -and ([int]$userChoice -ge 1) -and ([int]$userChoice -le $allScripts.Count)) {
-    $selectedIndex = [int]$userChoice - 1
-    $selectedItem = $allScripts[$selectedIndex]
-
-    Write-StyledMessage 'Info' "Avvio di '$($selectedItem.Description)'..."
-    try {
-        if ($selectedItem.Action -eq 'RunFile') {
-            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath $selectedItem.Name
-            if (Test-Path $scriptPath) {
-                & $scriptPath
-            } else {
-                Write-StyledMessage 'Error' "Script '$($selectedItem.Name)' non trovato nella directory '$($PSScriptRoot)'."
-            }
-        } elseif ($selectedItem.Action -eq 'RunFunction') {
-            Invoke-Expression "$($selectedItem.Name)"
+    # --- Definizione e visualizzazione del menu organizzato per categorie ---
+    $menuStructure = @(
+        @{
+            'Name'    = 'Operazioni Preliminari'
+            'Icon'    = '⚠️'
+            'Scripts' = @(
+                [pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa il profilo PowerShell.'; Action = 'RunFunction' }
+            )
+        },
+        @{
+            'Name'    = 'Backup & Tool'
+            'Icon'    = '📦'
+            'Scripts' = @(
+                [pscustomobject]@{ Name = 'ResetRustDesk'; Description = 'Reset Rust Desk. - Planned V2.2'; Action = 'RunFunction' }
+                [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC. - Planned V2.2'; Action = 'RunFunction' }
+                [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit. - Planned V2.1'; Action = 'RunFunction' }
+            )
+        },
+        @{
+            'Name'    = 'Riparazione Windows'
+            'Icon'    = '🔧'
+            'Scripts' = @(
+                [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows.'; Action = 'RunFunction' }
+                [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset di Windows Update.'; Action = 'RunFunction' }
+                [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset. - Planned V2.2'; Action = 'RunFunction' }
+            )
+        },
+        @{
+            'Name'    = 'Driver & Gaming'
+            'Icon'    = '🎮'
+            'Scripts' = @(
+                [pscustomobject]@{ Name = 'WinDriverInstall'; Description = 'Toolkit Driver Grafici. - Planned V2.3'; Action = 'RunFunction' }
+                [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit. - Planned V2.4'; Action = 'RunFunction' }
+            )
         }
-    }
-    catch {
-        Write-StyledMessage 'Error' "Si è verificato un errore durante l'esecuzione dell'opzione selezionata."
-        Write-StyledMessage 'Error' "Dettagli: $($_.Exception.Message)"
-    }
+    )
+
+    # Aggiorna anche il ciclo foreach per questa struttura:
+    $allScripts = @()
+    $scriptIndex = 1
+
+    foreach ($category in $menuStructure) {
+        # Visualizzazione del titolo della categoria
+        $categoryTitle = "=== $($category.Icon) $($category.Name) $($category.Icon) ==="
+        Write-Host $categoryTitle -ForegroundColor DarkYellow
+        Write-Host ''
     
-    # Pausa prima di tornare al menu principale
-    Write-Host "`nPremi un tasto per tornare al menu principale..."
-    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-}
-else {
-    Write-StyledMessage 'Error' 'Scelta non valida. Riprova.'
-    Start-Sleep -Seconds 3
-}
+        # Visualizzazione degli script della categoria
+        foreach ($script in $category.Scripts) {
+            $allScripts += $script
+            Write-StyledMessage 'Info' "[$scriptIndex] $($script.Description)"
+            $scriptIndex++
+        }
+    
+        Write-Host '' # Spazio tra le categorie
+    }
+
+    # Sezione di uscita
+    Write-Host "=== Uscita ===" -ForegroundColor Red
+    Write-Host ''
+    Write-StyledMessage 'Error' '[0] Esci dal Toolkit'
+    Write-Host ''
+
+    # --- Logica di gestione della scelta utente ---
+    $userChoice = Read-Host "Quale opzione vuoi eseguire? (0-$($allScripts.Count))"
+
+    if ($userChoice -eq '0') {
+        Write-StyledMessage 'Warning' 'In caso di problemi, contatta MagnetarMan su Github => Github.com/Magnetarman.'
+        Write-StyledMessage 'Success' 'Grazie per aver usato il toolkit. Chiusura in corso...'
+        Start-Sleep -Seconds 5
+        break # Esce dal ciclo while ($true) e termina lo script.
+    }
+
+    # Verifica se l'input è un numero valido e rientra nel range delle opzioni.
+    if (($userChoice -match '^\d+$') -and ([int]$userChoice -ge 1) -and ([int]$userChoice -le $allScripts.Count)) {
+        $selectedIndex = [int]$userChoice - 1
+        $selectedItem = $allScripts[$selectedIndex]
+
+        Write-StyledMessage 'Info' "Avvio di '$($selectedItem.Description)'..."
+        try {
+            if ($selectedItem.Action -eq 'RunFile') {
+                $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath $selectedItem.Name
+                if (Test-Path $scriptPath) {
+                    & $scriptPath
+                }
+                else {
+                    Write-StyledMessage 'Error' "Script '$($selectedItem.Name)' non trovato nella directory '$($PSScriptRoot)'."
+                }
+            }
+            elseif ($selectedItem.Action -eq 'RunFunction') {
+                Invoke-Expression "$($selectedItem.Name)"
+            }
+        }
+        catch {
+            Write-StyledMessage 'Error' "Si è verificato un errore durante l'esecuzione dell'opzione selezionata."
+            Write-StyledMessage 'Error' "Dettagli: $($_.Exception.Message)"
+        }
+    
+        # Pausa prima di tornare al menu principale
+        Write-Host "`nPremi un tasto per tornare al menu principale..."
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    }
+    else {
+        Write-StyledMessage 'Error' 'Scelta non valida. Riprova.'
+        Start-Sleep -Seconds 3
+    }
 }
