@@ -151,32 +151,66 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 71)`**: <strike> Funzione **Update Reset** Completa.</strike>
 - [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
 - [x] **`V2.0.0 (Build 73)`**: <strike> Start Script Potenziato, Fix Tool "WinUpdate Reset".</strike>
-- [x] **`V2.0.0 (Build 78)`**: <strike> Rework Grafico.</strike>
+- [x] **`V2.0.0 (Build 78)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
 - [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 👌 Update Pianificati
 
 ### V 2.1
 
-- [ ] **Eliminazione del paradigma (Build xx), passaggio a versionamento unico**
 - [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint)
   - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata
+
+### V 2.2
+
+- [ ] Reinstallazione Installazione Store & Winget
+- [ ] Reset Rust Desk
+
+### V 2.3
+
+- [ ] Installazione Driver Ottimizzato (Nvidia / AMD)
+- [ ] Installazione client di gioco (Amazon, Gog Galaxy, Epic Games, Steam)
+- [ ] Installazione Playnite ed applicazione Tema personalizzato
+- [ ] Installazione/Aggiornamento Directx
+- [ ] Installazione/Aggiornamento Microsoft C++ Package
+
+### V 2.4
+
+- [ ] Download ultima versione di DDU
+  - [ ] Estrazione
+  - [ ] Posizionamento nella cartella Downloads
+  - [ ] Riavvio modalità provvisoria
+
+### V 3.0
+
+- [ ] Finalizzazione "MagnetarMan Mode"
+  - [ ] Avvio Script Chris con configurazione personalizzata
+  - [ ] Installazione Programmi
+    - [ ] Brave Browser
+    - [ ] Google Chrome
+    - [ ] Betterbird
+    - [ ] Fan Control
+    - [ ] PowerToys
+    - [ ] Uniget
+    - [ ] Crystal Disk info
+    - [ ] HwInfo
+    - [ ] Rust Desk
+    - [ ] Client Giochi (Amazon, Gog Galaxy, Epic Games, Steam)
+  - [ ] Installazione .NET Runtime (Dalla 4 alla 9.0)
+  - [ ] Installazione Microsoft C++ Package
+  - [ ] Installazione/Aggiornamento Directx
+  - [ ] Playnite (Lancher/Aggregatore)
+  - [ ] Revo Unistaller
+  - [ ] Tree Size
+  - [ ] Glary Utilities
+  - [ ] Pulizia Sistema
+  - [ ] Applicazione Sfondo "MagnetarMan"
+  - [ ] Riavvio PC per completare le modifiche
 
 ## 🕹️ TO DO
 
 - [ ] Avvio script Chris con config personalizzata iwr -useb https://christitus.com/win | iex
 - [ ] Aggiungere esecuzione di Tron Script ed esecuzione con intervento minimo
-- [ ] Download ultima versione di DDU
-  - [ ] Estrazione
-  - [ ] Posizionamento nella cartella Downloads
-  - [ ] Riavvio modalità provvisoria
-- [ ] Installazione Driver Ottimizzato (Nvidia / AMD)
-
-- [ ] Reinstallazione Installazione Store & Winget
-- [ ] Reset Rust Desk
-- [ ] Installazione e/o Aggiornamento Directx e librerie per il Gaming
-  - [ ] Installazione client di gioco
-  - [ ] Installazione Playnite ed applicazione Tema personalizzato
 - [ ] Download immagine di Windows 23H2 Microwin
   - [ ] Posizionamento nella cartella download, pronta per essere utilizzata
 
