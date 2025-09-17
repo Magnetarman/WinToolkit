@@ -44,7 +44,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Store Repair Toolkit By MagnetarMan',
-            '        Version 2.0 (Build 20)'
+            '        Version 2.0 (Build 21)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -158,13 +158,57 @@ function WinReinstallStore {
                         Remove-Item $temp -Force -ErrorAction SilentlyContinue
                     }
                     
+                    Write-Host "   → Download in corso..." -ForegroundColor Yellow -NoNewline
                     Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing
-                    Add-AppxPackage -Path $temp -ForceApplicationShutdown
+                    Write-Host " ✓" -ForegroundColor Green
+                    
+                    # Usa PowerShell Job per nascondere l'output di Add-AppxPackage
+                    Write-Host "   → Installazione pacchetto..." -ForegroundColor Yellow -NoNewline
+                    
+                    $job = Start-Job -ScriptBlock {
+                        param($PackagePath)
+                        try {
+                            Add-AppxPackage -Path $PackagePath -ForceApplicationShutdown -ErrorAction Stop
+                            return $true
+                        }
+                        catch {
+                            return $false
+                        }
+                    } -ArgumentList $temp
+                    
+                    # Indicatore di progresso personalizzato
+                    $counter = 0
+                    while ($job.State -eq "Running") {
+                        $spinner = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')[$counter % 10]
+                        Write-Host "`r   → Installazione pacchetto $spinner" -NoNewline -ForegroundColor Yellow
+                        Start-Sleep -Milliseconds 200
+                        $counter++
+                        
+                        # Timeout di sicurezza (2 minuti)
+                        if ($counter -gt 600) {
+                            Stop-Job -Job $job
+                            Remove-Job -Job $job
+                            Write-Host " ✗ Timeout" -ForegroundColor Red
+                            Remove-Item $temp -Force -ErrorAction SilentlyContinue
+                            return $false
+                        }
+                    }
+                    
+                    $result = Receive-Job -Job $job
+                    Remove-Job -Job $job
                     Remove-Item $temp -Force -ErrorAction SilentlyContinue
                     
-                    return $true
+                    if ($result) {
+                        Write-Host "`r   → Installazione pacchetto ✓     " -ForegroundColor Green
+                        return $true
+                    }
+                    else {
+                        Write-Host "`r   → Installazione pacchetto ✗     " -ForegroundColor Red
+                        return $false
+                    }
                 }
                 catch {
+                    Write-Host "`r   → Errore installazione ✗        " -ForegroundColor Red
                     Write-StyledMessage Warning "   → Download manuale fallito: $($_.Exception.Message)"
                     return $false
                 }
@@ -320,18 +364,55 @@ function WinReinstallStore {
                 try {
                     $storePackage = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue
                     if ($storePackage) {
-                        foreach ($package in $storePackage) {
-                            $manifestPath = "$($package.InstallLocation)\AppXManifest.xml"
-                            if (Test-Path $manifestPath) {
-                                Add-AppxPackage -DisableDevelopmentMode -Register $manifestPath -ForceApplicationShutdown
+                        Write-Host "   → Reinstallazione via Manifest..." -ForegroundColor Yellow -NoNewline
+                        
+                        $job = Start-Job -ScriptBlock {
+                            param($Packages)
+                            try {
+                                foreach ($package in $Packages) {
+                                    $manifestPath = "$($package.InstallLocation)\AppXManifest.xml"
+                                    if (Test-Path $manifestPath) {
+                                        Add-AppxPackage -DisableDevelopmentMode -Register $manifestPath -ForceApplicationShutdown -ErrorAction Stop
+                                    }
+                                }
+                                return $true
+                            }
+                            catch {
+                                return $false
+                            }
+                        } -ArgumentList (, $storePackage)
+                        
+                        # Attendi con indicatore
+                        $counter = 0
+                        while ($job.State -eq "Running") {
+                            $dots = "." * (($counter % 4) + 1)
+                            Write-Host "`r   → Reinstallazione via Manifest$dots" -NoNewline -ForegroundColor Yellow
+                            Start-Sleep -Milliseconds 400
+                            $counter++
+                            
+                            if ($counter -gt 300) {
+                                # 2 minuti timeout
+                                Stop-Job -Job $job
+                                break
                             }
                         }
-                        Write-StyledMessage Success "Microsoft Store reinstallato tramite Manifest!"
-                        return $true
+                        
+                        $result = Receive-Job -Job $job
+                        Remove-Job -Job $job
+                        
+                        if ($result) {
+                            Write-Host "`r   → Reinstallazione via Manifest ✓     " -ForegroundColor Green
+                            Write-StyledMessage Success "Microsoft Store reinstallato tramite Manifest!"
+                            return $true
+                        }
+                        else {
+                            Write-Host "`r   → Reinstallazione via Manifest ✗     " -ForegroundColor Red
+                        }
                     }
                     return $false
                 }
                 catch {
+                    Write-Host "`r   → Errore Manifest ✗                  " -ForegroundColor Red
                     Write-StyledMessage Warning "Errore Manifest: $($_.Exception.Message)"
                     return $false
                 }
@@ -406,22 +487,98 @@ function WinReinstallStore {
             }
         }
         
-        # Installazione sequenziale
+        # Installazione sequenziale con Jobs
         foreach ($file in $downloaded) {
             try {
-                Add-AppxPackage -Path $file -ForceApplicationShutdown
-                Write-StyledMessage Success "✅ Installato: $(Split-Path $file -Leaf)"
+                Write-Host "   → Installazione $(Split-Path $file -Leaf)..." -ForegroundColor Yellow -NoNewline
+                
+                $job = Start-Job -ScriptBlock {
+                    param($FilePath)
+                    try {
+                        Add-AppxPackage -Path $FilePath -ForceApplicationShutdown -ErrorAction Stop
+                        return $true
+                    }
+                    catch {
+                        return $false
+                    }
+                } -ArgumentList $file
+                
+                # Attendi con spinner
+                $counter = 0
+                while ($job.State -eq "Running") {
+                    $spinner = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')[$counter % 10]
+                    Write-Host "`r   → Installazione $(Split-Path $file -Leaf) $spinner" -NoNewline -ForegroundColor Yellow
+                    Start-Sleep -Milliseconds 150
+                    $counter++
+                    
+                    if ($counter -gt 400) {
+                        # Timeout
+                        Stop-Job -Job $job
+                        break
+                    }
+                }
+                
+                $result = Receive-Job -Job $job
+                Remove-Job -Job $job
+                
+                if ($result) {
+                    Write-Host "`r   → Installazione $(Split-Path $file -Leaf) ✓     " -ForegroundColor Green
+                    Write-StyledMessage Success "✅ Installato: $(Split-Path $file -Leaf)"
+                }
+                else {
+                    Write-Host "`r   → Installazione $(Split-Path $file -Leaf) ✗     " -ForegroundColor Red
+                    Write-StyledMessage Warning "Installazione fallita: $(Split-Path $file -Leaf)"
+                }
             }
             catch { 
+                Write-Host "`r   → Errore $(Split-Path $file -Leaf) ✗              " -ForegroundColor Red
                 Write-StyledMessage Warning "Installazione fallita: $(Split-Path $file -Leaf) - $($_.Exception.Message)" 
             }
         }
         
-        # Prova installazione Store tramite PowerShell (metodo alternativo)
+        # Prova installazione Store tramite PowerShell (metodo alternativo) con Job
         try {
-            Get-AppxPackage -allusers Microsoft.WindowsStore | ForEach-Object { Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml" }
+            Write-Host "   → Tentativo PowerShell..." -ForegroundColor Yellow -NoNewline
+            
+            $job = Start-Job -ScriptBlock {
+                try {
+                    Get-AppxPackage -allusers Microsoft.WindowsStore | ForEach-Object { 
+                        Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml" -ErrorAction Stop
+                    }
+                    return $true
+                }
+                catch {
+                    return $false
+                }
+            }
+            
+            # Attendi con dots
+            $counter = 0
+            while ($job.State -eq "Running") {
+                $dots = "." * (($counter % 4) + 1)
+                Write-Host "`r   → Tentativo PowerShell$dots" -NoNewline -ForegroundColor Yellow
+                Start-Sleep -Milliseconds 300
+                $counter++
+                
+                if ($counter -gt 200) {
+                    # Timeout
+                    Stop-Job -Job $job
+                    break
+                }
+            }
+            
+            $result = Receive-Job -Job $job
+            Remove-Job -Job $job
+            
+            if ($result) {
+                Write-Host "`r   → Tentativo PowerShell ✓         " -ForegroundColor Green
+            }
+            else {
+                Write-Host "`r   → Tentativo PowerShell ✗         " -ForegroundColor Red
+            }
         }
         catch {
+            Write-Host "`r   → Errore PowerShell ✗            " -ForegroundColor Red
             Write-StyledMessage Warning "Metodo PowerShell fallito"
         }
         
