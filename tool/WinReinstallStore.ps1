@@ -39,7 +39,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Store Repair Toolkit By MagnetarMan',
-            '        Version 2.0 (Build 23)'
+            '        Version 2.0 (Build 24)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -111,7 +111,7 @@ function WinReinstallStore {
             $process = Start-Process powershell -ArgumentList @(
                 "-NoProfile", "-WindowStyle", "Hidden", "-Command",
                 "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
-            ) -Wait -PassThru -WindowStyle Hidden -NoNewWindow
+            ) -Wait -PassThru -WindowStyle Hidden
             
             Remove-Item $temp -Force -ErrorAction SilentlyContinue
             Start-Sleep 5
@@ -142,7 +142,7 @@ function WinReinstallStore {
             # Winget
             {
                 if (Test-WingetAvailable) {
-                    $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden -NoNewWindow
+                    $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
                     return $process.ExitCode -eq 0
                 }
                 return $false
@@ -157,7 +157,7 @@ function WinReinstallStore {
                             $process = Start-Process powershell -ArgumentList @(
                                 "-NoProfile", "-WindowStyle", "Hidden", "-Command",
                                 "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
-                            ) -Wait -PassThru -WindowStyle Hidden -NoNewWindow
+                            ) -Wait -PassThru -WindowStyle Hidden
                         }
                     }
                     return $true
@@ -166,7 +166,7 @@ function WinReinstallStore {
             },
             # DISM
             {
-                $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden -NoNewWindow
+                $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
                 return $process.ExitCode -eq 0
             }
         )
@@ -189,11 +189,11 @@ function WinReinstallStore {
         
         try {
             # Disinstalla se presente
-            $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden -NoNewWindow
+            $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
             Start-Sleep 2
             
             # Installa sempre
-            $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden -NoNewWindow
+            $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
             return $process.ExitCode -eq 0
         }
         catch {
