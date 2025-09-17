@@ -168,8 +168,8 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 ### V2.2 - "Windows Repair Plus"
 
-- [ ] Reinstallazione Forzata Microsoft Store & Winget.
-  - [ ] Installazione di Uniget.
+- [x] Reinstallazione Forzata Microsoft Store & Winget.
+  - [x] Installazione di Uniget.
 - [ ] Reset Rust Desk.
 - [ ] Backup Driver Installati => Compressione in file .zip => Posizionamento archivio sul desktop.
 
