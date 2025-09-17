@@ -43,8 +43,8 @@ function WinReinstallStore {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '    Store Repair Toolkit By MagnetarMan',
-            '        Version 2.0 (Build 21)'
+            '      Store Repair Toolkit By MagnetarMan',
+            '        Version 2.0 (Build 22)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -236,10 +236,41 @@ function WinReinstallStore {
         $finalCheck = Test-WingetInstallation
         if ($finalCheck -eq "installed") {
             Write-StyledMessage Success "WinGet installato/aggiornato con successo!"
+            
+            # PULIZIA FORZATA DEL TERMINALE - METODO MULTIPLO
+            Start-Sleep 2
+            Clear-Host
+            [Console]::Clear()
+            
+            # Su alcuni terminali serve anche questo
+            if ($Host.Name -eq "ConsoleHost") {
+                try { $Host.UI.RawUI.CursorPosition = @{X = 0; Y = 0 } } catch {}
+            }
+            
+            # Forza refresh del buffer
+            try { [System.Console]::SetCursorPosition(0, 0) } catch {}
+            Start-Sleep -Milliseconds 500
+            
+            Show-Header
+            Write-StyledMessage Success "✅ WinGet installazione completata!"
+            Write-Host ""
+            
             return $true
         }
         else {
             Write-StyledMessage Warning "WinGet potrebbe non essere completamente funzionante, ma procediamo"
+            
+            # PULIZIA ANCHE IN CASO DI WARNING
+            Start-Sleep 2
+            Clear-Host
+            [Console]::Clear()
+            try { [System.Console]::SetCursorPosition(0, 0) } catch {}
+            Start-Sleep -Milliseconds 500
+            
+            Show-Header
+            Write-StyledMessage Warning "⚠️ WinGet processato (continuiamo)"
+            Write-Host ""
+            
             return $false
         }
     }
@@ -681,7 +712,7 @@ function WinReinstallStore {
         $wingetInstalled = Install-Winget
         
         # FASE 2: Microsoft Store
-        Write-Host ""; Write-StyledMessage Info "📋 FASE 2: Reinstallazione Microsoft Store"
+        Write-StyledMessage Info "📋 FASE 2: Reinstallazione Microsoft Store"
         Fix-BlockedDeployment
         
         if (-not (Install-MicrosoftStore)) {
@@ -691,7 +722,7 @@ function WinReinstallStore {
         }
         
         # FASE 3: UniGet UI - SEMPRE REINSTALLATA
-        Write-Host ""; Write-StyledMessage Info "📋 FASE 3: Reinstallazione forzata UniGet UI"
+        Write-StyledMessage Info "📋 FASE 3: Reinstallazione forzata UniGet UI"
         $unigetInstalled = Install-UniGetUI
         
         # FASE 4: Completamento
