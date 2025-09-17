@@ -101,27 +101,29 @@ Write-Host "`nPremi un tasto per tornare al menu principale..."
         else {
             # Rimuovi l'ultima riga se è una chiamata alla funzione
             $lines = $fileContent -split "`r?`n"
-            $lastLineIndex = -1
             
-            # Trova l'ultima riga non vuota
+            # Trova l'ultima riga non vuota e non contenente solo spazi
+            $lastNonEmptyLine = ""
             for ($i = $lines.Count - 1; $i -ge 0; $i--) {
-                if (-not [string]::IsNullOrWhiteSpace($lines[$i])) {
-                    $lastLineIndex = $i
+                $trimmedLine = $lines[$i].Trim()
+                if (-not [string]::IsNullOrWhiteSpace($trimmedLine)) {
+                    $lastNonEmptyLine = $trimmedLine
+                    # Se l'ultima riga non vuota è la chiamata alla funzione, rimuovila
+                    if ($lastNonEmptyLine -eq $functionName) {
+                        Write-StyledMessage 'Info' "Rimossa chiamata automatica alla funzione dall'ultima riga"
+                        # Rimuovi tutte le righe vuote finali e la riga con la chiamata alla funzione
+                        $lines = $lines[0..($i - 1)]
+                        $fileContent = ($lines -join "`r`n").TrimEnd()
+                    }
                     break
                 }
-            }
-            
-            # Se l'ultima riga non vuota è la chiamata alla funzione, rimuovila
-            if ($lastLineIndex -ge 0 -and $lines[$lastLineIndex].Trim() -eq $functionName) {
-                Write-StyledMessage 'Info' "Rimossa chiamata automatica alla funzione dall'ultima riga"
-                $lines = $lines[0..($lastLineIndex - 1)]
-                $fileContent = $lines -join "`r`n"
             }
         }
         
         # Cerca la funzione corrispondente nel template
         # Pattern per trovare la funzione vuota: function NomeFunzione { } o function NomeFunzione {}
-        $functionPattern = "function\s+$([regex]::Escape($functionName))\s*\{\s*\}"
+        $escapedFunctionName = [regex]::Escape($functionName)
+        $functionPattern = "function\s+$escapedFunctionName\s*\{\s*\}"
         
         if ($compiledContent -match $functionPattern) {
             # Sostituisci la funzione vuota con quella completa
@@ -132,11 +134,35 @@ Write-Host "`nPremi un tasto per tornare al menu principale..."
             $processedCount++
         }
         else {
-            # Funzione non trovata - mostra avviso
-            Write-StyledMessage 'Warning' "La funzione '$functionName' non è stata trovata in WinToolkit.ps1 e verrà saltata"
-            Write-Host "Premi un tasto per continuare..." -ForegroundColor Yellow
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            $skippedCount++
+            # Prova con pattern più flessibile per funzioni che potrebbero avere contenuto
+            $flexiblePattern = "function\s+$escapedFunctionName\s*\{[^}]*\}"
+            if ($compiledContent -match $flexiblePattern) {
+                # Trova la posizione della funzione e sostituiscila
+                $matches = [regex]::Matches($compiledContent, $flexiblePattern)
+                if ($matches.Count -gt 0) {
+                    $match = $matches[0]
+                    $before = $compiledContent.Substring(0, $match.Index)
+                    $after = $compiledContent.Substring($match.Index + $match.Length)
+                    $newFunctionDefinition = "function $functionName {`r`n$fileContent`r`n}"
+                    $compiledContent = $before + $newFunctionDefinition + $after
+                    
+                    Write-StyledMessage 'Success' "Compilazione di '$functionName' completata (sovrascritta)"
+                    $processedCount++
+                }
+                else {
+                    Write-StyledMessage 'Warning' "La funzione '$functionName' non è stata trovata in WinToolkit.ps1 e verrà saltata"
+                    Write-Host "Premi un tasto per continuare..." -ForegroundColor Yellow
+                    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+                    $skippedCount++
+                }
+            }
+            else {
+                # Funzione non trovata - mostra avviso
+                Write-StyledMessage 'Warning' "La funzione '$functionName' non è stata trovata in WinToolkit.ps1 e verrà saltata"
+                Write-Host "Premi un tasto per continuare..." -ForegroundColor Yellow
+                $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+                $skippedCount++
+            }
         }
         
     }
