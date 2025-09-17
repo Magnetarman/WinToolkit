@@ -193,18 +193,11 @@ function WinUpdateReset {
         '        \ V  V /   | || |\  |',
         '         \_/\_/    |_||_| \_|',
         '',
-<<<<<<< HEAD
-        '    Update Reset Toolkit By MagnetarMan',
-        '         Version 2.0 (Build 22)') | ForEach-Object {
-        $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
-        Write-Host ((' ' * $padding) + $_) -ForegroundColor White
-=======
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.0 (Build 21)'
+        '       Version 2.0 (Build 22)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
->>>>>>> parent of d62756e (Update WinUpdateReset.ps1)
     }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
