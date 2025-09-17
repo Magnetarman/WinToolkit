@@ -44,7 +44,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             '  Store Repair Toolkit By MagnetarMan',
-            '        Version 2.0 (Build 18)'
+            '        Version 2.0 (Build 19)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -266,29 +266,53 @@ function WinReinstallStore {
             {
                 Write-StyledMessage Progress "Tentativo 1: Installazione tramite Winget..."
                 try {
-                    # Usa Start-Process per evitare il blocco dell'output
-                    $process = Start-Process -FilePath "winget" -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent" -Wait -NoNewWindow -PassThru -RedirectStandardOutput "$env:TEMP\winget_output.txt" -RedirectStandardError "$env:TEMP\winget_error.txt"
+                    # Metodo completamente nascosto per evitare qualsiasi output bloccante
+                    $wingetArgs = "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --no-upgrade"
                     
-                    if ($process.ExitCode -eq 0) {
-                        Write-StyledMessage Success "Microsoft Store installato tramite Winget!"
-                        return $true
-                    }
-                    else {
-                        $errorOutput = Get-Content "$env:TEMP\winget_error.txt" -ErrorAction SilentlyContinue
-                        if ($errorOutput -match "No available upgrade found|already installed") {
-                            Write-StyledMessage Success "Microsoft Store già presente e aggiornato!"
-                            return $true
+                    # Esegui Winget in background completo con tutti gli output nascosti
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "winget"
+                    $psi.Arguments = $wingetArgs
+                    $psi.UseShellExecute = $false
+                    $psi.RedirectStandardOutput = $true
+                    $psi.RedirectStandardError = $true
+                    $psi.CreateNoWindow = $true
+                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+                    
+                    $process = [System.Diagnostics.Process]::Start($psi)
+                    
+                    # Mostra indicatore di progresso personalizzato
+                    $counter = 0
+                    while (-not $process.HasExited) {
+                        $dots = "." * (($counter % 4) + 1)
+                        Write-Host "`r   → Installazione in corso$dots" -NoNewline -ForegroundColor Yellow
+                        Start-Sleep -Milliseconds 500
+                        $counter++
+                        
+                        # Timeout di sicurezza (2 minuti)
+                        if ($counter -gt 240) {
+                            $process.Kill()
+                            break
                         }
                     }
+                    
+                    $process.WaitForExit()
+                    Write-Host "`r   → Installazione completata    " -ForegroundColor Green
+                    
+                    $output = $process.StandardOutput.ReadToEnd()
+                    $error = $process.StandardError.ReadToEnd()
+                    
+                    if ($process.ExitCode -eq 0 -or $output -match "No available upgrade found|already installed" -or $error -match "No available upgrade found|already installed") {
+                        Write-StyledMessage Success "Microsoft Store installato/aggiornato tramite Winget!"
+                        return $true
+                    }
+                    
                     return $false
                 }
                 catch {
+                    Write-Host "`r   → Errore durante installazione" -ForegroundColor Red
                     Write-StyledMessage Warning "Errore Winget: $($_.Exception.Message)"
                     return $false
-                }
-                finally {
-                    # Pulizia file temporanei
-                    Remove-Item "$env:TEMP\winget_output.txt", "$env:TEMP\winget_error.txt" -ErrorAction SilentlyContinue
                 }
             },
             {
@@ -405,27 +429,65 @@ function WinReinstallStore {
         return (Get-AppxPackage -Name "Microsoft.WindowsStore" -ErrorAction SilentlyContinue) -ne $null
     }
     
-    # Funzione corretta per UniGet UI - SEMPRE reinstalla
+    # Funzione corretta per UniGet UI - SEMPRE reinstalla con output nascosto
     function Install-UniGetUI {
         Write-StyledMessage Progress "Forzando reinstallazione UniGet UI..."
         try {
-            # Prima disinstalla se esiste
-            $process1 = Start-Process -FilePath "winget" -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
-            Start-Sleep 3
+            # Prima disinstalla se esiste - completamente nascosto
+            $psi1 = New-Object System.Diagnostics.ProcessStartInfo
+            $psi1.FileName = "winget"
+            $psi1.Arguments = "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity"
+            $psi1.UseShellExecute = $false
+            $psi1.RedirectStandardOutput = $true
+            $psi1.RedirectStandardError = $true
+            $psi1.CreateNoWindow = $true
+            $psi1.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
             
-            # Poi installa sempre
-            $process2 = Start-Process -FilePath "winget" -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --force" -Wait -NoNewWindow -PassThru
+            $process1 = [System.Diagnostics.Process]::Start($psi1)
+            $process1.WaitForExit()
+            Start-Sleep 2
+            
+            # Poi installa sempre - con indicatore personalizzato
+            $psi2 = New-Object System.Diagnostics.ProcessStartInfo
+            $psi2.FileName = "winget"
+            $psi2.Arguments = "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force"
+            $psi2.UseShellExecute = $false
+            $psi2.RedirectStandardOutput = $true
+            $psi2.RedirectStandardError = $true
+            $psi2.CreateNoWindow = $true
+            $psi2.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+            
+            $process2 = [System.Diagnostics.Process]::Start($psi2)
+            
+            # Indicatore di progresso personalizzato
+            $counter = 0
+            while (-not $process2.HasExited) {
+                $spinner = @('|', '/', '-', '\')[$counter % 4]
+                Write-Host "`r   $spinner Installazione UniGet UI in corso..." -NoNewline -ForegroundColor Cyan
+                Start-Sleep -Milliseconds 300
+                $counter++
+                
+                # Timeout di sicurezza (3 minuti)
+                if ($counter -gt 600) {
+                    $process2.Kill()
+                    break
+                }
+            }
+            
+            $process2.WaitForExit()
+            Write-Host "`r   ✓ Installazione UniGet UI completata     " -ForegroundColor Green
             
             if ($process2.ExitCode -eq 0) {
                 Write-StyledMessage Success "UniGet UI reinstallato con successo!"
                 return $true
             }
             else {
-                Write-StyledMessage Warning "UniGet UI: Exit code $($process2.ExitCode)"
+                Write-StyledMessage Warning "UniGet UI: Exit code $($process2.ExitCode) (potrebbe essere già installato)"
                 return $false
             }
         }
         catch { 
+            Write-Host "`r   ✗ Errore durante installazione UniGet UI" -ForegroundColor Red
             Write-StyledMessage Warning "Errore UniGet UI: $($_.Exception.Message)"
             return $false
         }
