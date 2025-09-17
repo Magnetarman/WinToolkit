@@ -130,7 +130,7 @@ while ($true) {
     $menuStructure = @(
         @{
             'Name'    = 'Operazioni Preliminari'
-            'Icon'    = '⚠️'
+            'Icon'    = '🪄'
             'Scripts' = @(
                 [pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa il profilo PowerShell.'; Action = 'RunFunction' }
             )
