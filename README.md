@@ -11,7 +11,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.0 (Build 82)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.0.1 (Build 3)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=for-the-badge&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -43,7 +43,8 @@
 > La versione 2.0 del Toolkit è in fase **RELEASE** nel ramo `main`.
 >
 > Il ramo `Dev` contiene modifiche e funzionalità su cui sto lavorando.
-> <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso e richiede di scaricare il pacchetto ed avviare `compiler.ps1` da terminale per testare lo script completo. Potrebbe causare danni al tuo sistema.**
+> <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**.
+> <br> Richiede di scaricare il pacchetto ed avviare `compiler.ps1` da terminale per testare lo script completo. **Potrebbe causare danni al tuo sistema.**
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
@@ -153,6 +154,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
 - [x] **`V2.0.0 (Build 73)`**: <strike> Start Script Potenziato, Fix Tool "WinUpdate Reset".</strike>
 - [x] **`V2.0.0 (Build 82)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
+- [x] **`V2.0.1 (Build 3)`**: <strike> Ottimizzazione Script **WinReinstallStore.ps1**, **WinRepairToolkit.ps1**. Aggiornamento Readme.</strike>
 - [ ] **`V2.1`**: Funzione **Office Toolkit** Completa.
 - [ ] **`V2.2`**: Sezione **Windows Repair Plus** Completa.
 - [ ] **`V2.3`**: Sezione **Driver & Gaming** Completa.
@@ -189,6 +191,14 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [ ] Installazione/Aggiornamento Directx.
 - [ ] Installazione/Aggiornamento Microsoft C++ Package.
 
+### V2.5 - "Auto Debloat"
+
+- [ ] Avvio script Chris con config personalizzata iwr -useb https://christitus.com/win | iex
+
+### V2.6 - "Security Update"
+
+- [ ] Aggiungere esecuzione di Tron Script ed esecuzione con intervento minimo
+
 ### V3.0 - "MagnetarMan Mode"
 
 - [ ] Finalizzazione "MagnetarMan Mode"
@@ -217,8 +227,6 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 ## 🕹️ TO DO
 
-- [ ] Avvio script Chris con config personalizzata iwr -useb https://christitus.com/win | iex
-- [ ] Aggiungere esecuzione di Tron Script ed esecuzione con intervento minimo
 - [ ] Download immagine di Windows 23H2 Microwin
   - [ ] Posizionamento nella cartella download, pronta per essere utilizzata
 
