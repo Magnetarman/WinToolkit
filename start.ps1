@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.0 (Build 73) - 2025-09-06
+  Versione 2.1 (Build 1) - 2025-09-17
 #>
 
 function Center-Text {
@@ -177,7 +177,6 @@ function Invoke-WPFTweakPS7 {
 }
 
 # Funzione per creare la scorciatoia sul desktop
-# Funzione per creare la scorciatoia sul desktop
 function ToolKit-Desktop {
     Write-StyledMessage -Type 'Info' -Text "Creazione scorciatoia sul desktop..."
     
@@ -282,7 +281,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.0 (Build 73)'
+        '        Version 2.1 (Build 1)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
