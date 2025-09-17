@@ -10,8 +10,8 @@ function WinUpdateReset {
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error = @{ Color = 'Red'; Icon = '❌' }
-        Info = @{ Color = 'Cyan'; Icon = '💎' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
 
     # Funzioni helper annidate
@@ -110,7 +110,8 @@ function WinUpdateReset {
                     
                     if ($service.Status -eq 'Running') {
                         Write-StyledMessage Success "$serviceIcon Servizio $serviceName avviato correttamente."
-                    } else {
+                    }
+                    else {
                         Write-StyledMessage Warning "$serviceIcon Servizio ${serviceName}: avvio in corso..."
                     }
                 }
@@ -151,7 +152,8 @@ function WinUpdateReset {
                         try {
                             if ($_.PSIsContainer) {
                                 Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-                            } else {
+                            }
+                            else {
                                 $_.Delete()
                             }
                         }
@@ -167,7 +169,8 @@ function WinUpdateReset {
                     if (-not (Test-Path $Path)) {
                         Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata (metodo alternativo)."
                         return $true
-                    } else {
+                    }
+                    else {
                         Write-StyledMessage Warning "⚠️ Directory $DisplayName parzialmente eliminata (alcuni file potrebbero essere in uso)."
                         return $false
                     }
@@ -216,11 +219,11 @@ function WinUpdateReset {
 
     # Configurazione servizi con icone
     $serviceConfig = @{
-        'wuauserv' = @{ Type = 'Automatic'; Critical = $true; Icon = '🔄'; DisplayName = 'Windows Update' }
-        'bits' = @{ Type = 'Automatic'; Critical = $true; Icon = '📡'; DisplayName = 'Background Intelligent Transfer' }
-        'cryptsvc' = @{ Type = 'Automatic'; Critical = $true; Icon = '🔐'; DisplayName = 'Cryptographic Services' }
+        'wuauserv'         = @{ Type = 'Automatic'; Critical = $true; Icon = '🔄'; DisplayName = 'Windows Update' }
+        'bits'             = @{ Type = 'Automatic'; Critical = $true; Icon = '📡'; DisplayName = 'Background Intelligent Transfer' }
+        'cryptsvc'         = @{ Type = 'Automatic'; Critical = $true; Icon = '🔐'; DisplayName = 'Cryptographic Services' }
         'trustedinstaller' = @{ Type = 'Manual'; Critical = $true; Icon = '🛡️'; DisplayName = 'Windows Modules Installer' }
-        'msiserver' = @{ Type = 'Manual'; Critical = $false; Icon = '📦'; DisplayName = 'Windows Installer' }
+        'msiserver'        = @{ Type = 'Manual'; Critical = $false; Icon = '📦'; DisplayName = 'Windows Installer' }
     }
     
     $systemServices = @(
@@ -359,3 +362,5 @@ function WinUpdateReset {
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
 }
+
+WinUpdateReset
