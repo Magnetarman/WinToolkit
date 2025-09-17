@@ -25,8 +25,8 @@ function Write-StyledMessage {
 # Definizione dei percorsi (dinamici, relativi alla posizione dello script)
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $toolFolder = Join-Path $scriptPath "tool"
-$sourceFile = Join-Path $scriptPath "WinToolkit.ps1"
-$outputFile = Join-Path $scriptPath "WinToolkit_compiled.ps1"
+$sourceFile = Join-Path $scriptPath "tool/WinToolkit-template.ps1"
+$outputFile = Join-Path $scriptPath "WinToolkit.ps1"
 
 Write-StyledMessage 'Info' "Avvio processo di compilazione WinToolkit"
 Write-Host ""
@@ -255,7 +255,7 @@ foreach ($file in $toolFiles) {
 }
 
 # Salva il file compilato
-Write-StyledMessage 'Info' "Salvataggio file compilato: WinToolkit_compiled.ps1"
+Write-StyledMessage 'Info' "Salvataggio file compilato: WinToolkit.ps1"
 try {
     # Rimuovi il file di output esistente se presente
     if (Test-Path $outputFile) {
@@ -265,7 +265,7 @@ try {
     # Salva il contenuto compilato
     $templateLines | Out-File -FilePath $outputFile -Encoding UTF8
     
-    Write-StyledMessage 'Success' "File WinToolkit_compiled.ps1 creato con successo!"
+    Write-StyledMessage 'Success' "File WinToolkit.ps1 creato con successo!"
     
 }
 catch {
