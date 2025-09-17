@@ -82,8 +82,8 @@ foreach ($file in $toolFiles) {
     Write-Host "Processando: $($file.Name) → funzione '$functionName'" -ForegroundColor White
     
     try {
-        # Leggi il contenuto del file come array di righe
-        $fileLines = Get-Content $file.FullName -Encoding UTF8 -ErrorAction Stop
+        # CORREZIONE: Leggi il contenuto del file e convertilo esplicitamente in una lista di stringhe
+        $fileLines = [System.Collections.Generic.List[string]](Get-Content $file.FullName -Encoding UTF8 -ErrorAction Stop)
         
         # Trova l'indice della prima e dell'ultima riga di codice
         $firstContentIndex = $fileLines.FindIndex({ -not [string]::IsNullOrWhiteSpace($_) })
@@ -131,7 +131,9 @@ foreach ($file in $toolFiles) {
 
             # Gestisce il caso in cui il corpo della funzione sia vuoto
             if ($startIndexToCopy -le $endIndexToCopy) {
-                $fileLines = $fileLines[$startIndexToCopy..$endIndexToCopy]
+                # Usa un array temporaneo per il slicing, dato che $fileLines è ora una lista
+                $tempArray = $fileLines.ToArray()
+                $fileLines = $tempArray[$startIndexToCopy..$endIndexToCopy]
             }
             else {
                 $fileLines = @() # Il corpo della funzione è vuoto
