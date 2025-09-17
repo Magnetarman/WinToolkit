@@ -186,6 +186,42 @@ foreach ($file in $toolFiles) {
             }
             
             # Aggiungi la nuova definizione della funzione (sostituisce completamente quella esistente)
+            # Aggiungi la nuova definizione della funzione (sostituisce completamente quella esistente)
+            # Se il file tool include già la dichiarazione 'function <name> { ... }', la rileviamo anche se ci sono righe vuote/commenti iniziali
+            if ($fileLines.Count -gt 0) {
+                # Trova il primo indice con contenuto significativo
+                $firstNonEmpty = -1
+                for ($i = 0; $i -lt $fileLines.Count; $i++) {
+                    if (-not [string]::IsNullOrWhiteSpace($fileLines[$i])) { $firstNonEmpty = $i; break }
+                }
+                if ($firstNonEmpty -ge 0) {
+                    $firstLine = $fileLines[$firstNonEmpty].Trim()
+                    if ($firstLine -match ("(?i)^function\s+" + [regex]::Escape($functionName) + "\s*\{")) {
+                        # Rimuovi la riga della dichiarazione (prima non vuota)
+                        if ($firstNonEmpty -eq 0) {
+                            if ($fileLines.Count -gt 1) { $fileLines = $fileLines[1..($fileLines.Count - 1)] } else { $fileLines = @() }
+                        }
+                        else {
+                            # Rimuovi l'elemento all'indice $firstNonEmpty
+                            $fileLines = $fileLines[0..($firstNonEmpty - 1)] + $fileLines[($firstNonEmpty + 1)..($fileLines.Count - 1)]
+                        }
+                        # Rimuovi eventuale parentesi di chiusura alla fine (ultima riga non vuota)
+                        $lastNonEmpty = -1
+                        for ($j = $fileLines.Count - 1; $j -ge 0; $j--) {
+                            if (-not [string]::IsNullOrWhiteSpace($fileLines[$j])) { $lastNonEmpty = $j; break }
+                        }
+                        if ($lastNonEmpty -ge 0 -and $fileLines[$lastNonEmpty].Trim() -eq "}") {
+                            if ($lastNonEmpty -eq ($fileLines.Count - 1)) {
+                                if ($fileLines.Count -gt 1) { $fileLines = $fileLines[0..($fileLines.Count - 2)] } else { $fileLines = @() }
+                            }
+                            else {
+                                $fileLines = $fileLines[0..($lastNonEmpty - 1)] + $fileLines[($lastNonEmpty + 1)..($fileLines.Count - 1)]
+                            }
+                        }
+                    }
+                }
+            }
+
             $newLines += "function $functionName {"
             $newLines += $fileLines
             $newLines += "}"
