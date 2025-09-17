@@ -78,40 +78,31 @@ function Center-Text {
 }
 
 # Installazione del profilo PowerShell
-function WinInstallPSProfile {
- 
-}
+function WinInstallPSProfile {}
 
 # Riparazione di Windows
-function WinRepairToolkit {
-  
-}
+function WinRepairToolkit {}
+
+# Reset di RustDesk
+function ResetRustDesk {}
 
 # Reset di Windows Update
-function WinUpdateReset {
+function WinUpdateReset {}
 
-}
+# Reinstallazione del Microsoft Store & Winget
+function WinReinstallStore {}
 
-function WinReinstallStore {
+# Installazione dei driver di Windows
+function WinDriverInstall {}
 
-}
+# Backup dei driver di Windows
+function WinBackupDriver {}
 
-#function WinBackupDriver {}
+# Toolkit per Microsoft Office
+function OfficeToolkit {}
 
-
-function OfficeToolkit {
-     
-}
-
-#function ResetRustDesk {}
-
-function WinBackupDriver {
-    
-}
-
-#function WinDriverInstall {}
-
-#function GamingToolkit{}
+# Toolkit per il gaming
+function GamingToolkit {}
 
 
 # Ciclo principale del programma: mostra il menu e attende una scelta.
