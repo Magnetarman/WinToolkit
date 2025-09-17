@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.0 (Build 73) - 2025-09-06
+  Versione 2.1 (Build 1) - 2025-09-17
 #>
 
 function Center-Text {
@@ -25,18 +25,18 @@ $Host.UI.RawUI.WindowTitle = "Win Toolkit Starter by MagnetarMan"
 # Funzione per mostrare messaggi stilizzati
 function Write-StyledMessage {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateSet('Info', 'Warning', 'Error', 'Success')]
         [string]$Type,
         
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Text
     )
     
     switch ($Type) {
-        'Info'    { Write-Host $Text -ForegroundColor Cyan }
+        'Info' { Write-Host $Text -ForegroundColor Cyan }
         'Warning' { Write-Host $Text -ForegroundColor Yellow }
-        'Error'   { Write-Host $Text -ForegroundColor Red }
+        'Error' { Write-Host $Text -ForegroundColor Red }
         'Success' { Write-Host $Text -ForegroundColor Green }
     }
 }
@@ -57,10 +57,12 @@ function Install-Git {
         try {
             winget install Git.Git --accept-source-agreements --accept-package-agreements --silent
             return $LASTEXITCODE -eq 0
-        } catch {
+        }
+        catch {
             Write-StyledMessage -Type 'Warning' -Text "Errore con winget: $($_.Exception.Message). Tentativo di installazione diretta..."
         }
-    } else {
+    }
+    else {
         Write-StyledMessage -Type 'Warning' -Text "winget non disponibile. Procedendo con installazione diretta..."
     }
 
@@ -78,11 +80,13 @@ function Install-Git {
             Write-StyledMessage -Type 'Success' -Text "Git installato con successo."
             Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
             return $true
-        } else {
+        }
+        else {
             Write-StyledMessage -Type 'Error' -Text "Installazione di Git fallita. Codice di uscita: $($process.ExitCode)"
             return $false
         }
-    } catch {
+    }
+    catch {
         Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione diretta di Git: $($_.Exception.Message)"
         return $false
     }
@@ -105,7 +109,8 @@ function Install-PowerShell7 {
                 Write-StyledMessage -Type 'Success' -Text "PowerShell 7 installato con successo tramite winget."
                 return $true
             }
-        } catch {}
+        }
+        catch {}
     }
 
     try {
@@ -122,11 +127,13 @@ function Install-PowerShell7 {
             Write-StyledMessage -Type 'Success' -Text "PowerShell 7 installato con successo."
             Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
             return $true
-        } else {
+        }
+        else {
             Write-StyledMessage -Type 'Error' -Text "Installazione PowerShell 7 fallita. Codice di uscita: $($process.ExitCode)"
             return $false
         }
-    } catch {
+    }
+    catch {
         Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione di PowerShell 7: $($_.Exception.Message)"
         return $false
     }
@@ -159,15 +166,16 @@ function Invoke-WPFTweakPS7 {
             $updatedSettings = $settingsContent | ConvertTo-Json -Depth 100
             Set-Content -Path $settingsPath -Value $updatedSettings
             Write-StyledMessage -Type 'Success' -Text "Profilo predefinito Windows Terminal aggiornato a $targetTerminalName"
-        } else {
+        }
+        else {
             Write-StyledMessage -Type 'Warning' -Text "Profilo $targetTerminalName non trovato nelle impostazioni di Windows Terminal."
         }
-    } catch {
+    }
+    catch {
         Write-StyledMessage -Type 'Error' -Text "Errore durante l'aggiornamento delle impostazioni Windows Terminal: $($_.Exception.Message)"
     }
 }
 
-# Funzione per creare la scorciatoia sul desktop
 # Funzione per creare la scorciatoia sul desktop
 function ToolKit-Desktop {
     Write-StyledMessage -Type 'Info' -Text "Creazione scorciatoia sul desktop..."
@@ -186,7 +194,8 @@ function ToolKit-Desktop {
             $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
             Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing
             Write-StyledMessage -Type 'Success' -Text "Icona scaricata e salvata in %localappdata%\WinToolkit\."
-        } else {
+        }
+        else {
             Write-StyledMessage -Type 'Info' -Text "Icona già presente in %localappdata%\WinToolkit\."
         }
         
@@ -217,7 +226,8 @@ function ToolKit-Desktop {
         [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
         
         Write-StyledMessage -Type 'Success' -Text "Scorciatoia 'Win Toolkit V2.0.lnk' creata con successo sul desktop con privilegi amministratore e icona personalizzata."
-    } catch {
+    }
+    catch {
         Write-StyledMessage -Type 'Error' -Text "Errore durante la creazione della scorciatoia: $($_.Exception.Message)"
     }
 }
@@ -234,15 +244,18 @@ function Start-WinToolkit {
         $PSBoundParameters.GetEnumerator() | ForEach-Object {
             $argList += if ($_.Value -is [switch] -and $_.Value) {
                 "-$($_.Key)"
-            } elseif ($_.Value -is [array]) {
+            }
+            elseif ($_.Value -is [array]) {
                 "-$($_.Key) $($_.Value -join ',')"
-            } elseif ($_.Value) {
+            }
+            elseif ($_.Value) {
                 "-$($_.Key) '$($_.Value)'"
             }
         }
         $script = if ($PSCommandPath) {
             "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
-        } else {
+        }
+        else {
             "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/start.ps1))) $($argList -join ' ')"
         }
         Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
@@ -254,9 +267,10 @@ function Start-WinToolkit {
     try {
         [System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
         Start-Transcript -Path "$logdir\WinToolkitStarter_$dateTime.log" -Append -Force | Out-Null
-    } catch {}
+    }
+    catch {}
 
-  Clear-Host
+    Clear-Host
     $width = 65
     Write-Host ('═' * $width) -ForegroundColor Green
     $asciiArt = @(
@@ -267,7 +281,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.0 (Build 73)'
+        '        Version 2.1 (Build 1)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -292,7 +306,8 @@ function Start-WinToolkit {
         if ($installSuccess) {
             $rebootNeeded = $true
         }
-    } else {
+    }
+    else {
         Write-StyledMessage -Type 'Success' -Text "PowerShell 7 già presente."
     }
 
@@ -312,7 +327,8 @@ function Start-WinToolkit {
         Write-StyledMessage -Type 'Info' -Text "Riavvio in corso..."
         try { Stop-Transcript | Out-Null } catch {}
         Restart-Computer -Force
-    } else {
+    }
+    else {
         Write-StyledMessage -Type 'Info' -Text "Non è necessario riavviare il sistema in quanto PowerShell 7 era già installato."
         try { Stop-Transcript | Out-Null } catch {}
     }
