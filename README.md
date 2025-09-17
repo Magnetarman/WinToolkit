@@ -43,7 +43,7 @@
 > La versione 2.0 del Toolkit è in fase **RELEASE** nel ramo `main`.
 >
 > Il ramo `Dev` contiene modifiche e funzionalità su cui sto lavorando.
-> <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso. Potrebbe causare danni al tuo sistema.**
+> <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso e richiede di scaricare il pacchetto ed avviare `compiler.ps1` da terminale per testare lo script completo. Potrebbe causare danni al tuo sistema.**
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
@@ -227,7 +227,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 ## 🔰 Come Contribuire
 
 - **💬 [Partecipa alle Discussioni](https://t.me/GlitchTalkGroup)**: Condividi le tue idee, fornisci feedback o fai domande.
-- **🐛 [Segnala Problemi](https://github.com/Magnetarman/WinToolkit/issues)**: Segnala i bug trovati o richiedi nuove funzionalità per il progetto \Python-Script`.
+- **🐛 [Segnala Problemi](https://github.com/Magnetarman/WinToolkit/issues)**: Segnala i bug trovati o richiedi nuove funzionalità per il progetto `WinToolkit`.
 - **💡 [ Invia Pull Request](https://github.com/Magnetarman/WinToolkit/issues)**: Revisiona le Pull Request (PR) aperte e invia le tue.
 
 <details closed>
