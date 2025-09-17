@@ -158,7 +158,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '    Update Reset Toolkit By MagnetarMan',
-        '         Version 2.0 (Build 21)') | ForEach-Object {
+        '         Version 2.0 (Build 22)') | ForEach-Object {
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
         Write-Host ((' ' * $padding) + $_) -ForegroundColor White
     }
