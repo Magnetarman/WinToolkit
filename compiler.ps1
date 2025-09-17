@@ -276,14 +276,10 @@ catch {
 }
 
 # Statistiche finali
-Write-Host "`n" + "="*60 -ForegroundColor Cyan
 Write-StyledMessage 'Info' "COMPILAZIONE COMPLETATA"
 Write-Host "📊 Statistiche:" -ForegroundColor Cyan
 Write-Host "   • File processati con successo: $processedCount" -ForegroundColor Green
 Write-Host "   • File saltati: $skippedCount" -ForegroundColor Yellow
 Write-Host "   • Avvisi: $warningCount" -ForegroundColor Yellow
-Write-Host "   • File di output: WinToolkit_compiled.ps1" -ForegroundColor Cyan
-Write-Host "="*60 -ForegroundColor Cyan
-
 Write-Host "`nPremi un tasto per uscire..." -ForegroundColor White
 $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
