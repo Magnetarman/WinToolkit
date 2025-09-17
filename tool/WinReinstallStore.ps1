@@ -43,8 +43,8 @@ function WinReinstallStore {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '  Store Repair Toolkit By MagnetarMan',
-            '        Version 2.0 (Build 19)'
+            '    Store Repair Toolkit By MagnetarMan',
+            '        Version 2.0 (Build 20)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
