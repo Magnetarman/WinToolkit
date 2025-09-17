@@ -101,8 +101,8 @@ function WinInstallPSProfile {
             
             # Esegui lo script di setup che installa tutto (oh-my-posh, font, dipendenze)
             Start-Process -FilePath "pwsh" `
-                          -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" `
-                          -Wait
+                -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" `
+                -Wait
             
             Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
             Write-StyledMessage 'Warning' "Riavvia PowerShell per applicare il nuovo profilo."
@@ -124,10 +124,12 @@ function WinInstallPSProfile {
                 # Riavvia il sistema
                 Write-StyledMessage 'Info' "Riavvio del sistema..."
                 Restart-Computer -Force
-            } else {
+            }
+            else {
                 Write-StyledMessage 'Info' "Riavvio annullato. Ricorda di riavviare il sistema per vedere tutte le modifiche."
             }
-        } else {
+        }
+        else {
             Write-StyledMessage 'Info' "Il profilo è già aggiornato alla versione più recente."
         }
         
@@ -144,3 +146,5 @@ function WinInstallPSProfile {
         }
     }
 }
+
+WinInstallPSProfile
