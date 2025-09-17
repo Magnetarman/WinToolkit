@@ -85,9 +85,63 @@ foreach ($file in $toolFiles) {
         # Leggi il contenuto del file come array di righe
         $fileLines = Get-Content $file.FullName -Encoding UTF8 -ErrorAction Stop
         
-        # Gestione file vuoto
+        # Trova l'indice della prima e dell'ultima riga di codice
+        $firstContentIndex = $fileLines.FindIndex({ -not [string]::IsNullOrWhiteSpace($_) })
+        $lastContentIndex = $fileLines.FindLastIndex({ -not [string]::IsNullOrWhiteSpace($_) })
+
+        $declarationLineIndex = -1
+        $openBraceLineIndex = -1
+        $isWrappedFunction = $false
+
+        if ($firstContentIndex -ne -1) {
+            # Cerca una dichiarazione di funzione che inizi sulla prima riga di codice
+            # Questa regex gestisce "function Nome", "function Nome()", "function Nome ()" ecc.
+            if ($fileLines[$firstContentIndex].Trim() -match "^function\s+$([regex]::Escape($functionName))\s*\(\)?") {
+                $declarationLineIndex = $firstContentIndex
+                
+                # Cerca la parentesi graffa di apertura {
+                # Caso 1: È sulla stessa riga della dichiarazione
+                if ($fileLines[$declarationLineIndex].Contains('{')) {
+                    $openBraceLineIndex = $declarationLineIndex
+                }
+                else {
+                    # Caso 2: È su una delle righe successive
+                    for ($i = $declarationLineIndex + 1; $i -lt $fileLines.Count; $i++) {
+                        if ($fileLines[$i].Contains('{')) {
+                            $openBraceLineIndex = $i
+                            break
+                        }
+                    }
+                }
+            }
+        }
+        
+        # Se abbiamo trovato una dichiarazione e la sua { di apertura, e se l'ultima riga è la } di chiusura,
+        # allora possiamo essere sicuri che sia una funzione incapsulata da ripulire.
+        if ($openBraceLineIndex -ne -1 -and $lastContentIndex -ne -1 -and $fileLines[$lastContentIndex].Trim() -eq "}") {
+            $isWrappedFunction = $true
+        }
+
+        if ($isWrappedFunction) {
+            Write-StyledMessage 'Info' "Rilevata e rimossa dichiarazione di funzione wrapper dal file '$($file.Name)'"
+            
+            # Estrai solo le righe *interne*, dalla riga DOPO la { fino alla riga PRIMA della }
+            $startIndexToCopy = $openBraceLineIndex + 1
+            $endIndexToCopy = $lastContentIndex - 1
+
+            # Gestisce il caso in cui il corpo della funzione sia vuoto
+            if ($startIndexToCopy -le $endIndexToCopy) {
+                $fileLines = $fileLines[$startIndexToCopy..$endIndexToCopy]
+            }
+            else {
+                $fileLines = @() # Il corpo della funzione è vuoto
+            }
+        }
+     
+        
+        # Gestione file vuoto (ora controlla $fileLines dopo la potenziale pulizia)
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
-            Write-StyledMessage 'Warning' "File '$($file.Name)' è vuoto - inserimento codice di sviluppo"
+            Write-StyledMessage 'Warning' "File '$($file.Name)' è vuoto o contiene solo una funzione vuota - inserimento codice di sviluppo"
             $fileLines = @(
                 "    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso`"",
                 "    Write-Host `"`nPremi un tasto per tornare al menu principale...`"",
@@ -105,7 +159,6 @@ foreach ($file in $toolFiles) {
                 }
             }
             
-            # Se l'ultima riga non vuota è la chiamata alla funzione, rimuovila
             if ($lastNonEmptyIndex -ge 0 -and $fileLines[$lastNonEmptyIndex].Trim() -eq $functionName) {
                 Write-StyledMessage 'Info' "Rimossa chiamata automatica alla funzione dall'ultima riga"
                 $fileLines = $fileLines[0..($lastNonEmptyIndex - 1)]
@@ -117,55 +170,41 @@ foreach ($file in $toolFiles) {
         $startIndex = -1
         $endIndex = -1
         
-        # Cerca la definizione della funzione
         for ($i = 0; $i -lt $templateLines.Count; $i++) {
             $line = $templateLines[$i].Trim()
             
-            # Pattern preciso per trovare solo la dichiarazione della funzione (non chiamate o altro)
             if ($line -match "^function\s+$([regex]::Escape($functionName))\s*\{(.*)$") {
                 $startIndex = $i
                 $functionFound = $true
                 
-                # Verifica se è una funzione su una singola riga
                 $restOfLine = $matches[1].Trim()
                 if ($restOfLine -eq "}") {
-                    # Funzione vuota su una riga: function Nome { }
                     $endIndex = $i
                     Write-StyledMessage 'Info' "Trovata funzione vuota su singola riga"
                     break
                 }
                 
-                # Trova la fine della funzione contando le parentesi graffe
-                $braceCount = 1  # Iniziamo con 1 perché abbiamo già trovato la graffa di apertura
-                
-                # Conta le graffe rimanenti nella riga corrente dopo 'function Nome {'
+                $braceCount = 1
                 $remainingBraces = ($restOfLine.ToCharArray() | Where-Object { $_ -eq '{' }).Count
                 $closingBraces = ($restOfLine.ToCharArray() | Where-Object { $_ -eq '}' }).Count
                 $braceCount += $remainingBraces - $closingBraces
                 
                 if ($braceCount -eq 0) {
-                    # La funzione si chiude sulla stessa riga
                     $endIndex = $i
                     break
                 }
                 
-                # Continua a cercare la graffa di chiusura nelle righe successive
                 for ($j = $i + 1; $j -lt $templateLines.Count; $j++) {
                     $currentLine = $templateLines[$j]
-                    
-                    # Conta le parentesi graffe
                     $openBraces = ($currentLine.ToCharArray() | Where-Object { $_ -eq '{' }).Count
                     $closeBraces = ($currentLine.ToCharArray() | Where-Object { $_ -eq '}' }).Count
-                    
                     $braceCount += $openBraces - $closeBraces
                     
-                    # Se il conteggio è tornato a 0, abbiamo trovato la fine
                     if ($braceCount -eq 0) {
                         $endIndex = $j
                         break
                     }
                     
-                    # Sicurezza: se il conteggio va sotto zero, qualcosa è andato storto
                     if ($braceCount -lt 0) {
                         Write-StyledMessage 'Warning' "Errore nel conteggio delle parentesi graffe per la funzione '$functionName'"
                         $functionFound = $false
@@ -177,38 +216,25 @@ foreach ($file in $toolFiles) {
         }
         
         if ($functionFound -and $startIndex -ge 0 -and $endIndex -ge 0) {
-            # Costruisci il nuovo contenuto
             $newLines = @()
+            if ($startIndex -gt 0) { $newLines += $templateLines[0..($startIndex - 1)] }
             
-            # Aggiungi tutto prima della funzione
-            if ($startIndex -gt 0) {
-                $newLines += $templateLines[0..($startIndex - 1)]
-            }
-            
-            # Aggiungi la nuova definizione della funzione (sostituisce completamente quella esistente)
             $newLines += "function $functionName {"
             $newLines += $fileLines
             $newLines += "}"
             
-            # Aggiungi tutto dopo la funzione
-            if ($endIndex + 1 -lt $templateLines.Count) {
-                $newLines += $templateLines[($endIndex + 1)..($templateLines.Count - 1)]
-            }
+            if ($endIndex + 1 -lt $templateLines.Count) { $newLines += $templateLines[($endIndex + 1)..($templateLines.Count - 1)] }
             
-            # Aggiorna il template per le prossime iterazioni
             $templateLines = $newLines
-            
             Write-StyledMessage 'Success' "Compilazione di '$functionName' completata"
             $processedCount++
         }
         else {
-            # Funzione non trovata - mostra avviso
             Write-StyledMessage 'Warning' "La funzione '$functionName' non è stata trovata in WinToolkit.ps1 e verrà saltata"
             Write-Host "Premi un tasto per continuare..." -ForegroundColor Yellow
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
             $skippedCount++
         }
-        
     }
     catch {
         Write-StyledMessage 'Error' "Errore durante il processamento di '$($file.Name)': $($_.Exception.Message)"
@@ -217,6 +243,7 @@ foreach ($file in $toolFiles) {
     
     Write-Host ""
 }
+
 
 # Salva il file compilato
 Write-StyledMessage 'Info' "Salvataggio file compilato: WinToolkit_compiled.ps1"
