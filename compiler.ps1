@@ -46,10 +46,10 @@ if (-not (Test-Path $toolFolder)) {
     exit 1
 }
 
-# Carica il contenuto del file modello
+# Carica il contenuto del file modello come array di righe
 Write-StyledMessage 'Info' "Caricamento file modello: WinToolkit.ps1"
 try {
-    $templateContent = Get-Content $sourceFile -Raw -Encoding UTF8
+    $templateLines = Get-Content $sourceFile -Encoding UTF8 -ErrorAction Stop
 }
 catch {
     Write-StyledMessage 'Error' "Errore durante la lettura di WinToolkit.ps1: $($_.Exception.Message)"
@@ -57,9 +57,6 @@ catch {
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     exit 1
 }
-
-# Copia il contenuto del template per la compilazione
-$compiledContent = $templateContent
 
 # Trova tutti i file .ps1 nella cartella tool
 $toolFiles = Get-ChildItem -Path $toolFolder -Filter "*.ps1" -File
@@ -85,84 +82,103 @@ foreach ($file in $toolFiles) {
     Write-Host "Processando: $($file.Name) → funzione '$functionName'" -ForegroundColor White
     
     try {
-        # Leggi il contenuto del file
-        $fileContent = Get-Content $file.FullName -Raw -Encoding UTF8
+        # Leggi il contenuto del file come array di righe
+        $fileLines = Get-Content $file.FullName -Encoding UTF8 -ErrorAction Stop
         
         # Gestione file vuoto
-        if ([string]::IsNullOrWhiteSpace($fileContent)) {
+        if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
             Write-StyledMessage 'Warning' "File '$($file.Name)' è vuoto - inserimento codice di sviluppo"
-            $fileContent = @"
-Write-StyledMessage 'Warning' "Sviluppo funzione in corso"
-Write-Host "`nPremi un tasto per tornare al menu principale..."
-`$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-"@
+            $fileLines = @(
+                "    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso`"",
+                "    Write-Host `"`nPremi un tasto per tornare al menu principale...`"",
+                "    `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')"
+            )
             $warningCount++
         }
         else {
             # Rimuovi l'ultima riga se è una chiamata alla funzione
-            $lines = $fileContent -split "`r?`n"
-            
-            # Trova l'ultima riga non vuota e non contenente solo spazi
-            $lastNonEmptyLine = ""
-            for ($i = $lines.Count - 1; $i -ge 0; $i--) {
-                $trimmedLine = $lines[$i].Trim()
-                if (-not [string]::IsNullOrWhiteSpace($trimmedLine)) {
-                    $lastNonEmptyLine = $trimmedLine
-                    # Se l'ultima riga non vuota è la chiamata alla funzione, rimuovila
-                    if ($lastNonEmptyLine -eq $functionName) {
-                        Write-StyledMessage 'Info' "Rimossa chiamata automatica alla funzione dall'ultima riga"
-                        # Rimuovi tutte le righe vuote finali e la riga con la chiamata alla funzione
-                        $lines = $lines[0..($i - 1)]
-                        $fileContent = ($lines -join "`r`n").TrimEnd()
-                    }
+            $lastNonEmptyIndex = -1
+            for ($i = $fileLines.Count - 1; $i -ge 0; $i--) {
+                if (-not [string]::IsNullOrWhiteSpace($fileLines[$i])) {
+                    $lastNonEmptyIndex = $i
                     break
                 }
             }
+            
+            # Se l'ultima riga non vuota è la chiamata alla funzione, rimuovila
+            if ($lastNonEmptyIndex -ge 0 -and $fileLines[$lastNonEmptyIndex].Trim() -eq $functionName) {
+                Write-StyledMessage 'Info' "Rimossa chiamata automatica alla funzione dall'ultima riga"
+                $fileLines = $fileLines[0..($lastNonEmptyIndex - 1)]
+            }
         }
         
-        # Cerca la funzione corrispondente nel template
-        # Pattern per trovare la funzione vuota: function NomeFunzione { } o function NomeFunzione {}
-        $escapedFunctionName = [regex]::Escape($functionName)
-        $functionPattern = "function\s+$escapedFunctionName\s*\{\s*\}"
+        # Cerca la funzione nel template
+        $functionFound = $false
+        $startIndex = -1
+        $endIndex = -1
         
-        if ($compiledContent -match $functionPattern) {
-            # Sostituisci la funzione vuota con quella completa
-            $newFunctionDefinition = "function $functionName {`r`n$fileContent`r`n}"
-            $compiledContent = $compiledContent -replace $functionPattern, $newFunctionDefinition
+        # Cerca la definizione della funzione
+        for ($i = 0; $i -lt $templateLines.Count; $i++) {
+            $line = $templateLines[$i].Trim()
+            
+            # Pattern più flessibile per trovare la funzione
+            if ($line -match "^function\s+$([regex]::Escape($functionName))\s*\{") {
+                $startIndex = $i
+                $functionFound = $true
+                
+                # Trova la fine della funzione (riga con solo "}")
+                $braceCount = 0
+                $foundOpenBrace = $false
+                
+                for ($j = $i; $j -lt $templateLines.Count; $j++) {
+                    $currentLine = $templateLines[$j]
+                    
+                    # Conta le parentesi graffe
+                    $openBraces = ($currentLine.ToCharArray() | Where-Object { $_ -eq '{' }).Count
+                    $closeBraces = ($currentLine.ToCharArray() | Where-Object { $_ -eq '}' }).Count
+                    
+                    if ($openBraces -gt 0) { $foundOpenBrace = $true }
+                    $braceCount += $openBraces - $closeBraces
+                    
+                    # Se abbiamo trovato la graffa di apertura e il conteggio è tornato a 0, abbiamo trovato la fine
+                    if ($foundOpenBrace -and $braceCount -eq 0) {
+                        $endIndex = $j
+                        break
+                    }
+                }
+                break
+            }
+        }
+        
+        if ($functionFound -and $startIndex -ge 0 -and $endIndex -ge 0) {
+            # Costruisci il nuovo contenuto
+            $newLines = @()
+            
+            # Aggiungi tutto prima della funzione
+            $newLines += $templateLines[0..($startIndex - 1)]
+            
+            # Aggiungi la nuova definizione della funzione
+            $newLines += "function $functionName {"
+            $newLines += $fileLines
+            $newLines += "}"
+            
+            # Aggiungi tutto dopo la funzione
+            if ($endIndex + 1 -lt $templateLines.Count) {
+                $newLines += $templateLines[($endIndex + 1)..($templateLines.Count - 1)]
+            }
+            
+            # Aggiorna il template per le prossime iterazioni
+            $templateLines = $newLines
             
             Write-StyledMessage 'Success' "Compilazione di '$functionName' completata"
             $processedCount++
         }
         else {
-            # Prova con pattern più flessibile per funzioni che potrebbero avere contenuto
-            $flexiblePattern = "function\s+$escapedFunctionName\s*\{[^}]*\}"
-            if ($compiledContent -match $flexiblePattern) {
-                # Trova la posizione della funzione e sostituiscila
-                $matches = [regex]::Matches($compiledContent, $flexiblePattern)
-                if ($matches.Count -gt 0) {
-                    $match = $matches[0]
-                    $before = $compiledContent.Substring(0, $match.Index)
-                    $after = $compiledContent.Substring($match.Index + $match.Length)
-                    $newFunctionDefinition = "function $functionName {`r`n$fileContent`r`n}"
-                    $compiledContent = $before + $newFunctionDefinition + $after
-                    
-                    Write-StyledMessage 'Success' "Compilazione di '$functionName' completata (sovrascritta)"
-                    $processedCount++
-                }
-                else {
-                    Write-StyledMessage 'Warning' "La funzione '$functionName' non è stata trovata in WinToolkit.ps1 e verrà saltata"
-                    Write-Host "Premi un tasto per continuare..." -ForegroundColor Yellow
-                    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-                    $skippedCount++
-                }
-            }
-            else {
-                # Funzione non trovata - mostra avviso
-                Write-StyledMessage 'Warning' "La funzione '$functionName' non è stata trovata in WinToolkit.ps1 e verrà saltata"
-                Write-Host "Premi un tasto per continuare..." -ForegroundColor Yellow
-                $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-                $skippedCount++
-            }
+            # Funzione non trovata - mostra avviso
+            Write-StyledMessage 'Warning' "La funzione '$functionName' non è stata trovata in WinToolkit.ps1 e verrà saltata"
+            Write-Host "Premi un tasto per continuare..." -ForegroundColor Yellow
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            $skippedCount++
         }
         
     }
@@ -183,7 +199,7 @@ try {
     }
     
     # Salva il contenuto compilato
-    $compiledContent | Out-File -FilePath $outputFile -Encoding UTF8 -NoNewline
+    $templateLines | Out-File -FilePath $outputFile -Encoding UTF8
     
     Write-StyledMessage 'Success' "File WinToolkit_compiled.ps1 creato con successo!"
     
