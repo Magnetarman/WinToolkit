@@ -121,28 +121,54 @@ foreach ($file in $toolFiles) {
         for ($i = 0; $i -lt $templateLines.Count; $i++) {
             $line = $templateLines[$i].Trim()
             
-            # Pattern più flessibile per trovare la funzione
-            if ($line -match "^function\s+$([regex]::Escape($functionName))\s*\{") {
+            # Pattern preciso per trovare solo la dichiarazione della funzione (non chiamate o altro)
+            if ($line -match "^function\s+$([regex]::Escape($functionName))\s*\{(.*)$") {
                 $startIndex = $i
                 $functionFound = $true
                 
-                # Trova la fine della funzione (riga con solo "}")
-                $braceCount = 0
-                $foundOpenBrace = $false
+                # Verifica se è una funzione su una singola riga
+                $restOfLine = $matches[1].Trim()
+                if ($restOfLine -eq "}") {
+                    # Funzione vuota su una riga: function Nome { }
+                    $endIndex = $i
+                    Write-StyledMessage 'Info' "Trovata funzione vuota su singola riga"
+                    break
+                }
                 
-                for ($j = $i; $j -lt $templateLines.Count; $j++) {
+                # Trova la fine della funzione contando le parentesi graffe
+                $braceCount = 1  # Iniziamo con 1 perché abbiamo già trovato la graffa di apertura
+                
+                # Conta le graffe rimanenti nella riga corrente dopo 'function Nome {'
+                $remainingBraces = ($restOfLine.ToCharArray() | Where-Object { $_ -eq '{' }).Count
+                $closingBraces = ($restOfLine.ToCharArray() | Where-Object { $_ -eq '}' }).Count
+                $braceCount += $remainingBraces - $closingBraces
+                
+                if ($braceCount -eq 0) {
+                    # La funzione si chiude sulla stessa riga
+                    $endIndex = $i
+                    break
+                }
+                
+                # Continua a cercare la graffa di chiusura nelle righe successive
+                for ($j = $i + 1; $j -lt $templateLines.Count; $j++) {
                     $currentLine = $templateLines[$j]
                     
                     # Conta le parentesi graffe
                     $openBraces = ($currentLine.ToCharArray() | Where-Object { $_ -eq '{' }).Count
                     $closeBraces = ($currentLine.ToCharArray() | Where-Object { $_ -eq '}' }).Count
                     
-                    if ($openBraces -gt 0) { $foundOpenBrace = $true }
                     $braceCount += $openBraces - $closeBraces
                     
-                    # Se abbiamo trovato la graffa di apertura e il conteggio è tornato a 0, abbiamo trovato la fine
-                    if ($foundOpenBrace -and $braceCount -eq 0) {
+                    # Se il conteggio è tornato a 0, abbiamo trovato la fine
+                    if ($braceCount -eq 0) {
                         $endIndex = $j
+                        break
+                    }
+                    
+                    # Sicurezza: se il conteggio va sotto zero, qualcosa è andato storto
+                    if ($braceCount -lt 0) {
+                        Write-StyledMessage 'Warning' "Errore nel conteggio delle parentesi graffe per la funzione '$functionName'"
+                        $functionFound = $false
                         break
                     }
                 }
@@ -155,9 +181,11 @@ foreach ($file in $toolFiles) {
             $newLines = @()
             
             # Aggiungi tutto prima della funzione
-            $newLines += $templateLines[0..($startIndex - 1)]
+            if ($startIndex -gt 0) {
+                $newLines += $templateLines[0..($startIndex - 1)]
+            }
             
-            # Aggiungi la nuova definizione della funzione
+            # Aggiungi la nuova definizione della funzione (sostituisce completamente quella esistente)
             $newLines += "function $functionName {"
             $newLines += $fileLines
             $newLines += "}"
