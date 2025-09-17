@@ -484,5 +484,4 @@ function WinReinstallStore {
     }
 }
 
-# Esegui la funzione
 WinReinstallStore
