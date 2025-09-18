@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.0.1 (Build 3) - 2025-09-18
+  Versione 2.1 (Build 5) - 2025-09-18
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -111,9 +111,9 @@ function winver {
         # Visualizzazione delle informazioni con stile coerente al toolkit
         $width = 65
         Write-Host ""
-        Write-Host ('━' * $width) -ForegroundColor Cyan
-        Write-Host (Center-Text -Text "🖥️  INFORMAZIONI SISTEMA  🖥️" -Width $width) -ForegroundColor Cyan -BackgroundColor DarkBlue
-        Write-Host ('━' * $width) -ForegroundColor Cyan
+        Write-Host ('━' * $width) -ForegroundColor Red
+        Write-Host (Center-Text -Text "🖥️  INFORMAZIONI SISTEMA  🖥️" -Width $width) -ForegroundColor White
+        Write-Host ('━' * $width) -ForegroundColor Green
         
         Write-Host ""
         Write-Host "  💻 Sistema:" -ForegroundColor Yellow -NoNewline
@@ -132,7 +132,7 @@ function winver {
         Write-Host " $totalRAM GB" -ForegroundColor White
         
         Write-Host ""
-        Write-Host ('━' * $width) -ForegroundColor Cyan
+        Write-Host ('━' * $width) -ForegroundColor Green
     }
     catch {
         Write-StyledMessage 'Error' "Impossibile recuperare le informazioni di sistema: $($_.Exception.Message)"
@@ -170,7 +170,7 @@ function GamingToolkit {}
 while ($true) {
     Clear-Host
     $width = 65
-    Write-Host ('╔' * $width) -ForegroundColor Green
+    Write-Host ('═' * $width) -ForegroundColor Green
     $asciiArt = @(
         '      __        __  _  _   _ ',
         '      \ \      / / | || \ | |',
@@ -179,12 +179,12 @@ while ($true) {
         '         \_/\_/    |_||_| \_|',
         '',
         '       Toolkit By MagnetarMan',
-        '       Version 2.0.1 (Build 3)'
+        '       Version 2.1 (Build 5)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
     }
-    Write-Host ('╚' * $width) -ForegroundColor Green
+    Write-Host ('═' * $width) -ForegroundColor Green
     
     # Esecuzione automatica della funzione winver per mostrare sempre le info di sistema
     winver
