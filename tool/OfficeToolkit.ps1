@@ -67,7 +67,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '     Office Toolkit By MagnetarMan',
-            '        Version 2.1 (Build 2)'
+            '        Version 2.1 (Build 3)'
         )
         
         $asciiArt | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
@@ -78,9 +78,9 @@ function OfficeToolkit {
     function Show-MainMenu {
         Write-StyledMessage Info "🎯 Seleziona un'opzione:"
         Write-Host ''
-        Write-Host '  1️⃣  Installazione Office Basic (Word, PowerPoint, Excel)' -ForegroundColor White
-        Write-Host '  2️⃣  Ripara Installazione di Office corrotta' -ForegroundColor White
-        Write-Host '  0️⃣  Esci' -ForegroundColor Gray
+        Write-Host '  [1]  Installazione Office Basic (Word, PowerPoint, Excel)' -ForegroundColor White
+        Write-Host '  [2]  Ripara Installazione di Office corrotta' -ForegroundColor White
+        Write-Host '  [0]  Esci' -ForegroundColor Gray
         Write-Host ''
         
         do {
