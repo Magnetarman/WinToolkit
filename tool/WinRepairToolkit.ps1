@@ -1,4 +1,15 @@
 function WinRepairToolkit {
+    <#
+    .SYNOPSIS
+        Script per la riparazione del sistema Windows con strumenti integrati.
+    
+    .DESCRIPTION
+        Questo script esegue una serie di strumenti di riparazione di Windows (chkdsk, SFC, DISM) in sequenza,
+        con monitoraggio del progresso, gestione degli errori e tentativi di riparazione multipli.
+        Al termine, offre un'opzione per una riparazione profonda del disco che richiede un riavvio.
+        Infine, gestisce il riavvio del sistema con un conto alla rovescia interattivo.
+    #>
+
     param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
 
     # Variabili globali consolidate
