@@ -211,7 +211,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.1 (Build 26)'
+        '       Version 2.1 (Build 27)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -360,7 +360,7 @@ function WinUpdateReset {
 
         # SECONDO CICLO DI VERIFICA E CORREZIONE
         Write-Host ('═' * 65) -ForegroundColor Yellow
-        Write-StyledMessage Info '🔍 SECONDO CICLO - Verifica e correzione finale...'
+        Write-StyledMessage Info '🔍 SECONDO CICLO: Verifica e correzione finale...'
         Write-StyledMessage Info '🎯 Esecuzione controlli di sicurezza per garantire la completezza della riparazione.'
         Write-Host ('═' * 65) -ForegroundColor Yellow
         Write-Host ''
