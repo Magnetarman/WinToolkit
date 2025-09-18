@@ -537,5 +537,4 @@ function WinUpdateReset {
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
 }
-
 WinUpdateReset
