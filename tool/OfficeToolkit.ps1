@@ -246,31 +246,61 @@ function OfficeToolkit {
         }
         
         # Pulizia registro completa
-        $regPaths = @(
+        $userRegPaths = @(
             'HKCU:\Software\Microsoft\Office',
-            'HKLM:\SOFTWARE\Microsoft\Office',
-            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office',
             'HKCU:\Software\Microsoft\VBA',
-            'HKLM:\SOFTWARE\Microsoft\VBA',
             'HKCU:\Software\Classes\Word.Application',
             'HKCU:\Software\Classes\Excel.Application',
-            'HKCU:\Software\Classes\PowerPoint.Application',
+            'HKCU:\Software\Classes\PowerPoint.Application'
+        )
+        
+        $systemRegPaths = @(
+            'HKLM:\SOFTWARE\Microsoft\Office',
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office',
+            'HKLM:\SOFTWARE\Microsoft\VBA',
             'HKLM:\SOFTWARE\Classes\Word.Application',
             'HKLM:\SOFTWARE\Classes\Excel.Application',
             'HKLM:\SOFTWARE\Classes\PowerPoint.Application'
         )
         
         $removed = 0
-        foreach ($regPath in $regPaths) {
+        
+        # Rimozione chiavi utente (non richiedono privilegi elevati)
+        foreach ($regPath in $userRegPaths) {
             if (Test-Path $regPath) {
                 try {
-                    Remove-Item -Path $regPath -Recurse -Force
+                    Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
                     $removed++
                 }
-                catch { }
+                catch { 
+                    Write-StyledMessage Warning "Accesso negato: $(Split-Path $regPath -Leaf)"
+                }
             }
         }
+        
+        # Rimozione chiavi sistema (richiedono privilegi elevati)
+        foreach ($regPath in $systemRegPaths) {
+            if (Test-Path $regPath) {
+                try {
+                    # Verifica se abbiamo privilegi amministratore
+                    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+                    
+                    if ($isAdmin) {
+                        Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
+                        $removed++
+                    }
+                    else {
+                        Write-StyledMessage Warning "Privilegi admin necessari per: $(Split-Path $regPath -Leaf)"
+                    }
+                }
+                catch { 
+                    Write-StyledMessage Warning "Impossibile rimuovere: $(Split-Path $regPath -Leaf)"
+                }
+            }
+        }
+        
         if ($removed -gt 0) { Write-StyledMessage Success "$removed chiavi registro rimosse" }
+        else { Write-StyledMessage Warning "Esegui come Amministratore per rimozione completa registro" }
         
         # Rimozione cartelle
         $folders = @(
@@ -333,7 +363,7 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 7)'
+        '        Version 2.1 (Build 8)'
     )
     $asciiArt | ForEach-Object { 
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
