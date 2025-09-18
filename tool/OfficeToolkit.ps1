@@ -234,69 +234,142 @@ function OfficeToolkit {
         
         Stop-OfficeProcesses
         
-        # Disinstallazione tramite Winget
-        Write-StyledMessage Info '📦 Ricerca pacchetti Office tramite Winget...'
+        # Disinstallazione avanzata multi-metodo
+        Write-StyledMessage Info '📦 Analisi completa pacchetti Office...'
+        
+        # 1. Rimozione tramite Winget (tutti i pattern Office)
         try {
-            # Cerca tutti i pacchetti Office installati
-            $officePackages = winget list --source winget | Select-String -Pattern "Microsoft\.Office|Microsoft365" -AllMatches
+            $wingetOutput = & winget list 2>$null
+            $officeLines = $wingetOutput | Where-Object { $_ -match "Office|Microsoft\.Office|Microsoft365|MSIX\\Microsoft\.Office" }
             
-            if ($officePackages) {
-                Write-StyledMessage Success "Trovati $($officePackages.Count) pacchetti Office"
+            if ($officeLines) {
+                Write-StyledMessage Success "Trovati $($officeLines.Count) pacchetti Office"
                 
-                # Disinstalla ogni pacchetto trovato
-                foreach ($package in $officePackages) {
-                    $packageId = ($package -split '\s+')[0]
-                    if ($packageId -match "Microsoft\.Office|Microsoft365") {
-                        Write-StyledMessage Info "🗑️ Disinstallazione $packageId..."
+                foreach ($line in $officeLines) {
+                    # Estrazione ID pacchetto più precisa
+                    if ($line -match "MSIX\\Microsoft\.Office\.(\S+)") {
+                        $packageId = "Microsoft.Office.$($Matches[1])"
+                    }
+                    elseif ($line -match "(Microsoft\.Office\.\S+)") {
+                        $packageId = $Matches[1]
+                    }
+                    elseif ($line -match "(Microsoft\.?\d*Office\S*)") {
+                        $packageId = $Matches[1]
+                    }
+                    else {
+                        # Prova a estrarre il primo campo valido
+                        $fields = $line -split '\s+'
+                        $packageId = $fields | Where-Object { $_ -match "Microsoft|Office" } | Select-Object -First 1
+                    }
+                    
+                    if ($packageId -and $packageId.Trim()) {
+                        $cleanPackageId = $packageId.Trim()
+                        Write-StyledMessage Info "🗑️ Rimozione: $cleanPackageId"
                         
                         $spinnerIndex = 0
-                        $uninstallProcess = Start-Process -FilePath "winget" -ArgumentList "uninstall --id $packageId --silent --accept-source-agreements" -NoNewWindow -PassThru
+                        $uninstallProcess = Start-Process -FilePath "winget" -ArgumentList "uninstall `"$cleanPackageId`" --silent --accept-source-agreements --force" -NoNewWindow -PassThru -WindowStyle Hidden
                         
                         while (-not $uninstallProcess.HasExited) {
                             $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                            Write-Host "`r$spinner 🗑️ Disinstallazione $packageId..." -NoNewline -ForegroundColor Red
+                            Write-Host "`r$spinner 🗑️ Rimozione $cleanPackageId..." -NoNewline -ForegroundColor Red
                             Start-Sleep -Milliseconds 500
                         }
                         Write-Host ''
                         
                         if ($uninstallProcess.ExitCode -eq 0) {
-                            Write-StyledMessage Success "$packageId rimosso"
+                            Write-StyledMessage Success "✅ $cleanPackageId rimosso"
                         }
                         else {
-                            Write-StyledMessage Warning "Problemi rimuovendo $packageId"
+                            Write-StyledMessage Warning "⚠️ Problemi con $cleanPackageId (Exit: $($uninstallProcess.ExitCode))"
+                        }
+                        Start-Sleep 1
+                    }
+                }
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore Winget: $_"
+        }
+        
+        # 2. Rimozione forzata tramite PowerShell (pacchetti MSIX/UWP)
+        Write-StyledMessage Info '📱 Rimozione pacchetti UWP/MSIX Office...'
+        try {
+            $msixPackages = Get-AppxPackage -AllUsers | Where-Object { $_.Name -like "*Microsoft.Office*" -or $_.Name -like "*Office*" }
+            if ($msixPackages) {
+                foreach ($package in $msixPackages) {
+                    Write-StyledMessage Info "🗑️ Rimozione UWP: $($package.Name)"
+                    try {
+                        Remove-AppxPackage -Package $package.PackageFullName -AllUsers -ErrorAction Stop
+                        Write-StyledMessage Success "✅ $($package.Name) rimosso"
+                    }
+                    catch {
+                        Write-StyledMessage Warning "⚠️ Errore rimuovendo $($package.Name): $_"
+                        # Tentativo forzato
+                        try {
+                            Remove-AppxPackage -Package $package.PackageFullName -AllUsers -ForceRemoval -ErrorAction Stop
+                            Write-StyledMessage Success "✅ $($package.Name) rimosso forzatamente"
+                        }
+                        catch {
+                            Write-StyledMessage Error "❌ Impossibile rimuovere $($package.Name)"
                         }
                     }
                 }
             }
             else {
-                Write-StyledMessage Info 'Nessun pacchetto Office trovato tramite Winget'
-            }
-            
-            # Disinstallazione alternativa tramite Click-to-Run se Winget fallisce
-            Write-StyledMessage Info '🔧 Verifica Click-to-Run per rimozione residui...'
-            $client = Get-OfficeClient
-            if ($client) {
-                try {
-                    Write-StyledMessage Info '🗑️ Disinstallazione Click-to-Run...'
-                    Start-Process -FilePath $client -ArgumentList '/uninstall Office16' -Verb RunAs -WindowStyle Hidden
-                    Wait-ProcessCompletion 'OfficeC2RClient' 'Disinstallazione residui Office' '🗑️'
-                    Write-StyledMessage Success 'Click-to-Run completato'
-                }
-                catch { Write-StyledMessage Warning "Click-to-Run: $_" }
+                Write-StyledMessage Info 'Nessun pacchetto UWP Office trovato'
             }
         }
         catch {
-            Write-StyledMessage Error "Errore Winget: $_"
-            Write-StyledMessage Info 'Tentativo con metodo alternativo...'
-            
-            # Fallback su Click-to-Run se Winget non funziona
-            $client = Get-OfficeClient
-            if ($client) {
-                try {
-                    Start-Process -FilePath $client -ArgumentList '/uninstall Office16' -Verb RunAs
-                    Wait-ProcessCompletion 'OfficeC2RClient' 'Disinstallazione Office' '🗑️'
+            Write-StyledMessage Warning "Errore rimozione UWP: $_"
+        }
+        
+        # 3. Rimozione tramite programmi installati (metodo classico)
+        Write-StyledMessage Info '⚙️ Rimozione da Programmi e Funzionalità...'
+        try {
+            $officePrograms = Get-WmiObject -Class Win32_Product | Where-Object { $_.Name -like "*Office*" -or $_.Name -like "*Microsoft 365*" }
+            if ($officePrograms) {
+                foreach ($program in $officePrograms) {
+                    Write-StyledMessage Info "🗑️ Disinstallazione: $($program.Name)"
+                    try {
+                        $spinnerIndex = 0
+                        $uninstallResult = $program.Uninstall()
+                        
+                        # Attesa completamento
+                        do {
+                            $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+                            Write-Host "`r$spinner 🗑️ Disinstallazione $($program.Name)..." -NoNewline -ForegroundColor Red
+                            Start-Sleep 1
+                        } while (Get-Process -Name "msiexec" -ErrorAction SilentlyContinue)
+                        
+                        Write-Host ''
+                        if ($uninstallResult.ReturnValue -eq 0) {
+                            Write-StyledMessage Success "✅ $($program.Name) rimosso"
+                        }
+                        else {
+                            Write-StyledMessage Warning "⚠️ Codice errore $($uninstallResult.ReturnValue) per $($program.Name)"
+                        }
+                    }
+                    catch {
+                        Write-StyledMessage Warning "Errore disinstallando $($program.Name): $_"
+                    }
                 }
-                catch { Write-StyledMessage Error "Errore disinstallazione: $_" }
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "Errore Win32_Product: $_"
+        }
+        
+        # 4. Click-to-Run come ultimo tentativo
+        Write-StyledMessage Info '🔧 Rimozione Click-to-Run (cleanup finale)...'
+        $client = Get-OfficeClient
+        if ($client) {
+            try {
+                Start-Process -FilePath $client -ArgumentList '/uninstall Office16' -Verb RunAs -WindowStyle Hidden
+                Wait-ProcessCompletion 'OfficeC2RClient' 'Cleanup Click-to-Run' '🗑️'
+                Write-StyledMessage Success 'Click-to-Run cleanup completato'
+            }
+            catch { 
+                Write-StyledMessage Warning "Click-to-Run: $_" 
             }
         }
         
@@ -523,7 +596,7 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 9)'
+        '        Version 2.1 (Build 10)'
     )
     $asciiArt | ForEach-Object { 
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
