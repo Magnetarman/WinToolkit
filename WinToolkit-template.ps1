@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.1 (Build 10) - 2025-09-18
+  Versione 2.1 (Build 10) - 2025-09-19
 #>
 
 param([int]$CountdownSeconds = 10)
