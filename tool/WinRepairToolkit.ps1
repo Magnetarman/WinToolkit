@@ -99,7 +99,7 @@ function WinRepairToolkit {
             Show-ProgressBar $Config.Name 'Completato con successo' 100 $Config.Icon
             Write-Host ''
         
-            # Analisi risultati ottimizzata
+            # Analisi risultati
             $exitCode = $proc.ExitCode
             $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
             $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
