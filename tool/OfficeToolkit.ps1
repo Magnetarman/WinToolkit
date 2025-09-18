@@ -1,4 +1,15 @@
 function OfficeToolkit {
+    <#
+    .SYNOPSIS
+        Strumento di gestione Office (installazione, riparazione, rimozione).
+    
+    .DESCRIPTION
+        Questo script PowerShell fornisce un'interfaccia utente per installare, riparare o rimuovere Microsoft Office.
+        Include funzionalità avanzate come download con barra di progresso, gestione processi, pulizia registro e file temporanei.
+        Supporta l'installazione di Office Basic tramite ODT e la rimozione completa tramite Winget, AppxPackage e metodi classici.
+        Offre messaggi stilizzati e una barra di progresso interattiva per migliorare l'esperienza utente.
+    #>
+    
     param([int]$CountdownSeconds = 30)
 
     # Variabili globali
