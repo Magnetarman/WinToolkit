@@ -111,28 +111,28 @@ function winver {
         # Visualizzazione delle informazioni con stile coerente al toolkit
         $width = 65
         Write-Host ""
-        Write-Host ('━' * $width) -ForegroundColor Red
+        Write-Host ('*' * $width) -ForegroundColor Red
         Write-Host (Center-Text -Text "🖥️  INFORMAZIONI SISTEMA  🖥️" -Width $width) -ForegroundColor White
-        Write-Host ('━' * $width) -ForegroundColor Green
+        Write-Host ('*' * $width) -ForegroundColor Red
         
         Write-Host ""
-        Write-Host "  💻 Sistema:" -ForegroundColor Yellow -NoNewline
+        Write-Host "  💻 Edizione:" -ForegroundColor Yellow -NoNewline
         Write-Host " $windowsEdition" -ForegroundColor White
         
-        Write-Host "  📊 Versione:" -ForegroundColor Yellow -NoNewline  
+        Write-Host "  📊 Versione Windows:" -ForegroundColor Yellow -NoNewline  
         Write-Host " $version (Build $buildNumber)" -ForegroundColor White
         
         Write-Host "  🏗️ Architettura:" -ForegroundColor Yellow -NoNewline
         Write-Host " $architecture" -ForegroundColor White
         
-        Write-Host "  🏷️ Computer:" -ForegroundColor Yellow -NoNewline
+        Write-Host "  🏷️ Nome PC:" -ForegroundColor Yellow -NoNewline
         Write-Host " $computerName" -ForegroundColor White
         
         Write-Host "  🧠 RAM Totale:" -ForegroundColor Yellow -NoNewline
         Write-Host " $totalRAM GB" -ForegroundColor White
         
         Write-Host ""
-        Write-Host ('━' * $width) -ForegroundColor Green
+        Write-Host ('*' * $width) -ForegroundColor Red
     }
     catch {
         Write-StyledMessage 'Error' "Impossibile recuperare le informazioni di sistema: $($_.Exception.Message)"
