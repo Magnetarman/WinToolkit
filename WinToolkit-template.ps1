@@ -77,6 +77,68 @@ function Center-Text {
     return "$($padding)$($Text)"
 }
 
+function winver {
+    <#
+    .SYNOPSIS
+        Visualizza informazioni dettagliate sulla versione di Windows in modo elegante.
+    .DESCRIPTION
+        Raccoglie e visualizza le informazioni sulla versione di Windows, build e edizione
+        utilizzando lo stile grafico coerente con il resto del toolkit.
+    #>
+    try {
+        # Raccolta informazioni di sistema ottimizzata
+        $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+        $computerInfo = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
+        
+        # Estrazione delle informazioni principali
+        $productName = $osInfo.Caption -replace 'Microsoft ', ''
+        $version = $osInfo.Version
+        $buildNumber = $osInfo.BuildNumber
+        $architecture = $osInfo.OSArchitecture
+        $computerName = $computerInfo.Name
+        $totalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
+
+        # Determinazione dell'edizione Windows per una visualizzazione più pulita
+        $windowsEdition = switch -Wildcard ($productName) {
+            "*Home*" { "🏠 Home" }
+            "*Pro*" { "💼 Professional" }
+            "*Enterprise*" { "🏢 Enterprise" }
+            "*Education*" { "🎓 Education" }
+            "*Server*" { "🖥️ Server" }
+            default { "💻 $productName" }
+        }
+
+        # Visualizzazione delle informazioni con stile coerente al toolkit
+        $width = 65
+        Write-Host ""
+        Write-Host ('━' * $width) -ForegroundColor Cyan
+        Write-Host (Center-Text -Text "🖥️  INFORMAZIONI SISTEMA  🖥️" -Width $width) -ForegroundColor Cyan -BackgroundColor DarkBlue
+        Write-Host ('━' * $width) -ForegroundColor Cyan
+        
+        Write-Host ""
+        Write-Host "  💻 Sistema:" -ForegroundColor Yellow -NoNewline
+        Write-Host " $windowsEdition" -ForegroundColor White
+        
+        Write-Host "  📊 Versione:" -ForegroundColor Yellow -NoNewline  
+        Write-Host " $version (Build $buildNumber)" -ForegroundColor White
+        
+        Write-Host "  🏗️ Architettura:" -ForegroundColor Yellow -NoNewline
+        Write-Host " $architecture" -ForegroundColor White
+        
+        Write-Host "  🏷️ Computer:" -ForegroundColor Yellow -NoNewline
+        Write-Host " $computerName" -ForegroundColor White
+        
+        Write-Host "  🧠 RAM Totale:" -ForegroundColor Yellow -NoNewline
+        Write-Host " $totalRAM GB" -ForegroundColor White
+        
+        Write-Host ""
+        Write-Host ('━' * $width) -ForegroundColor Cyan
+    }
+    catch {
+        Write-StyledMessage 'Error' "Impossibile recuperare le informazioni di sistema: $($_.Exception.Message)"
+    }
+}
+
 # Installazione del profilo PowerShell
 function WinInstallPSProfile {}
 
@@ -104,12 +166,11 @@ function OfficeToolkit {}
 # Toolkit per il gaming
 function GamingToolkit {}
 
-
 # Ciclo principale del programma: mostra il menu e attende una scelta.
 while ($true) {
     Clear-Host
     $width = 65
-    Write-Host ('═' * $width) -ForegroundColor Green
+    Write-Host ('╔' * $width) -ForegroundColor Green
     $asciiArt = @(
         '      __        __  _  _   _ ',
         '      \ \      / / | || \ | |',
@@ -123,7 +184,11 @@ while ($true) {
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
     }
-    Write-Host ('═' * $width) -ForegroundColor Green
+    Write-Host ('╚' * $width) -ForegroundColor Green
+    
+    # Esecuzione automatica della funzione winver per mostrare sempre le info di sistema
+    winver
+    
     Write-Host ''
 
     # --- Definizione e visualizzazione del menu organizzato per categorie ---
