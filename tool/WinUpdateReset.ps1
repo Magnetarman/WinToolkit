@@ -1,4 +1,4 @@
-function WinUpdateResetCoding {
+function WinUpdateReset {
     <#
     .SYNOPSIS
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
