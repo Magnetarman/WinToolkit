@@ -166,9 +166,8 @@ function OfficeToolkit {
 
     function Start-OfficeRepair {
         Write-StyledMessage Info '🔧 Riparazione Office...'
-        
         Stop-OfficeProcesses
-        
+
         # Pulizia cache
         $caches = @(
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
@@ -187,37 +186,63 @@ function OfficeToolkit {
         }
         if ($cleaned -gt 0) { Write-StyledMessage Success "$cleaned cache eliminate" }
         
-        # Reset registro
-        try {
-            $regPath = 'HKCU:\Software\Microsoft\Office\16.0'
-            if (Test-Path $regPath) {
-                $backupPath = 'HKCU:\Software\Microsoft\Office\Office.16.0.bak'
-                if (Test-Path $backupPath) { Remove-Item $backupPath -Recurse -Force }
-                Rename-Item -Path $regPath -NewName 'Office.16.0.bak' -Force
-                Write-StyledMessage Success 'Registro resettato'
+        # Scegli tipo di riparazione
+        do {
+            Write-Host "Scegliere il tipo di riparazione:" -ForegroundColor Cyan
+            Write-Host "  [1] Riparazione rapida" -ForegroundColor Yellow
+            Write-Host "  [2] Riparazione online" -ForegroundColor Red
+            Write-Host ""
+            $choice = Read-Host "Scelta"
+            Write-Host ""
+            if ($choice -ne '1' -and $choice -ne '2') {
+                Write-StyledMessage Warning 'Opzione non valida. Scegliere 1 o 2.'
             }
-        }
-        catch { Write-StyledMessage Warning "Errore registro: $_" }
-        
-        # Riparazione Click-to-Run
-        $client = Get-OfficeClient
-        if ($client) {
-            try {
-                Start-Process -FilePath $client -ArgumentList '/repair Office16' -Verb RunAs
-                Write-StyledMessage Success 'Riparazione avviata'
-                Wait-ProcessCompletion 'OfficeC2RClient' 'Riparazione Office' '🔧'
-                Write-StyledMessage Success 'Riparazione completata!'
-                return $true
-            }
-            catch {
-                Write-StyledMessage Error "Errore riparazione: $_"
-                return $false
-            }
+        } while ($choice -ne '1' -and $choice -ne '2')
+
+        # Esegui riparazione in base alla scelta
+        $RepairType = if ($choice -eq '1') {
+            Write-StyledMessage Info '🚀 Avvio riparazione rapida...'
+            'QuickRepair'
         }
         else {
-            Write-StyledMessage Error 'Client Office non trovato'
-            return $false
+            Write-StyledMessage Info '🌐 Avvio riparazione online (richiede connessione internet)...'
+            'FullRepair'
         }
+
+        # Comando di riparazione
+        $OfficeRepairCommand = "& `"`$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun\OfficeClickToRun.exe`" scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$RepairType DisplayLevel=True"
+        Invoke-Expression $OfficeRepairCommand | Out-Null
+
+        $duration = if ($choice -eq '1') { 10 } else { 30 }
+        $spinnerIndex = 0
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+        Write-StyledMessage Info '⚙️ Riparazione in corso...'
+
+        do {
+            $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+            Write-Host "`r$spinner  Attendere $duration secondi..." -NoNewline -ForegroundColor Yellow
+            Start-Sleep 1
+            if ($stopwatch.Elapsed.TotalSeconds -ge $duration) { break }
+        } while ($true)
+
+        Write-Host ''
+
+        # Chiedi conferma all'utente
+        do {
+            $confirm = Read-Host "✅ Il ripristino ha funzionato correttamente? [Y/N]"
+            if ($confirm.ToLower() -eq 'y') {
+                Write-StyledMessage Success 'Riparazione completata. Avvio riavvio...'
+                return $true
+            }
+            elseif ($confirm.ToLower() -eq 'n') {
+                Write-StyledMessage Warning 'Riparazione non riuscita. Riprova o contatta il supporto.'
+                return $false
+            }
+            else {
+                Write-StyledMessage Warning 'Risposta non valida.'
+            }
+        } while ($true)
     }
 
     function Start-OfficeUninstall {
