@@ -186,99 +186,83 @@ function OfficeToolkit {
         }
         if ($cleaned -gt 0) { Write-StyledMessage Success "$cleaned cache eliminate" }
 
-        $repairDone = $false
-        $quickRepairCompleted = $false
-        $onlineRepairCompleted = $false
+        $repairSucceeded = $false
+        $quickRepairAttempted = $false
 
-        # Scegli tipo di riparazione iniziale
+        # Chiedi tipo di riparazione iniziale
         do {
             Write-Host "Scegliere il tipo di riparazione:" -ForegroundColor Cyan
             Write-Host "  [1] Riparazione rapida" -ForegroundColor Yellow
             Write-Host "  [2] Riparazione online" -ForegroundColor Red
             Write-Host ""
-            $initialChoice = Read-Host "Scelta"
+            $choice = Read-Host "Scelta"
             Write-Host ""
-            if ($initialChoice -ne '1' -and $initialChoice -ne '2') {
+            if ($choice -ne '1' -and $choice -ne '2') {
                 Write-StyledMessage Warning 'Opzione non valida. Scegliere 1 o 2.'
             }
-        } while ($initialChoice -ne '1' -and $initialChoice -ne '2')
+        } while ($choice -ne '1' -and $choice -ne '2')
 
-        # Esegui la prima riparazione
-        if ($initialChoice -eq '1') {
-            Write-StyledMessage Info '🚀 Avvio riparazione rapida...'
-            $RepairType = 'QuickRepair'
-            $duration = 10
-            $quickRepairCompleted = $true
-        }
-        else {
-            Write-StyledMessage Info '🌐 Avvio riparazione online (richiede connessione internet)...'
-            $RepairType = 'FullRepair'
-            $duration = 30
-            $onlineRepairCompleted = $true
-        }
+        # Ciclo di riparazione
+        while (-not $repairSucceeded) {
+            if ($choice -eq '1' -and -not $quickRepairAttempted) {
+                Write-StyledMessage Info '🚀 Avvio riparazione rapida...'
+                $RepairType = 'QuickRepair'
+                $duration = 10
+                $quickRepairAttempted = $true
+            }
+            else {
+                Write-StyledMessage Info '🌐 Avvio riparazione online (richiede connessione internet)...'
+                $RepairType = 'FullRepair'
+                $duration = 30
+            }
 
-        # Comando di riparazione e spinner
-        $OfficeRepairCommand = "& `"`$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun\OfficeClickToRun.exe`" scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$RepairType DisplayLevel=True"
-        Invoke-Expression $OfficeRepairCommand | Out-Null
-        $spinnerChars = '|/-\'
-        $spinnerIndex = 0
-        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        Write-Host "⚙️ Riparazione in corso..." -NoNewline -ForegroundColor Green
-        while ($stopwatch.Elapsed.TotalSeconds -lt $duration) {
-            Write-Host "`r$($spinnerChars[$spinnerIndex])" -NoNewline -ForegroundColor Green
-            $spinnerIndex = ($spinnerIndex + 1) % $spinnerChars.Length
-            Start-Sleep -Milliseconds 250
-        }
-        $stopwatch.Stop()
-        Write-Host ""
+            # Comando di riparazione e spinner
+            $OfficeRepairCommand = "& `"`$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun\OfficeClickToRun.exe`" scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$RepairType DisplayLevel=True"
+            Invoke-Expression $OfficeRepairCommand | Out-Null
+            $spinnerChars = '|/-\'
+            $spinnerIndex = 0
+            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            Write-Host "⚙️ Riparazione in corso..." -NoNewline -ForegroundColor Green
+            while ($stopwatch.Elapsed.TotalSeconds -lt $duration) {
+                Write-Host "`r$($spinnerChars[$spinnerIndex])" -NoNewline -ForegroundColor Green
+                $spinnerIndex = ($spinnerIndex + 1) % $spinnerChars.Length
+                Start-Sleep -Milliseconds 250
+            }
+            $stopwatch.Stop()
+            Write-Host ""
 
-        # Chiedi conferma all'utente
-        do {
+            # Chiedi conferma all'utente
             $confirm = Read-Host "✅ Il ripristino ha funzionato correttamente? [Y/N]"
             if ($confirm.ToLower() -eq 'y') {
                 Write-StyledMessage Success 'Riparazione completata.'
-                $repairDone = $true
+                $repairSucceeded = $true
                 break
             }
             elseif ($confirm.ToLower() -eq 'n') {
-                if ($quickRepairCompleted) {
+                if ($quickRepairAttempted -and $choice -eq '1') {
                     Write-StyledMessage Info 'La riparazione rapida non ha funzionato. Procedo con la riparazione online...'
-                    $RepairType = 'FullRepair'
-                    $duration = 30
-                    $onlineRepairCompleted = $true
-                
-                    # Esegui la riparazione online
-                    $OfficeRepairCommand = "& `"`$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun\OfficeClickToRun.exe`" scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$RepairType DisplayLevel=True"
-                    Invoke-Expression $OfficeRepairCommand | Out-Null
-                    $spinnerChars = '|/-\'
-                    $spinnerIndex = 0
-                    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-                    Write-Host "⚙️ Riparazione online in corso..." -NoNewline -ForegroundColor Green
-                    while ($stopwatch.Elapsed.TotalSeconds -lt $duration) {
-                        Write-Host "`r$($spinnerChars[$spinnerIndex])" -NoNewline -ForegroundColor Green
-                        $spinnerIndex = ($spinnerIndex + 1) % $spinnerChars.Length
-                        Start-Sleep -Milliseconds 250
-                    }
-                    $stopwatch.Stop()
-                    Write-Host ""
-                    Write-StyledMessage Success 'Riparazione online completata.'
-                    $repairDone = $true
+                    $choice = '2' # Passa alla riparazione online per il prossimo ciclo
                 }
                 else {
-                    Write-StyledMessage Info 'La riparazione online non ha funzionato. Contatta il supporto per ulteriore assistenza.'
-                    $repairDone = $false
+                    Write-StyledMessage Info 'La riparazione non ha funzionato. Contatta il supporto per ulteriore assistenza.'
+                    break
                 }
-                break
             }
             else {
                 Write-StyledMessage Warning 'Risposta non valida.'
             }
-        } while ($true)
+        }
 
-        # Sezione per il riavvio del sistema
-        if ($repairDone) {
-            Write-StyledMessage Info 'Riavvio del sistema in corso...'
-            # Shutdown.exe /r /t 0
+        # Sezione finale per il riavvio del sistema (chiede solo se la riparazione ha avuto successo)
+        if ($repairSucceeded) {
+            $rebootConfirm = Read-Host "Riparazione completata. Riavviare il sistema ora? [Y/N]"
+            if ($rebootConfirm.ToLower() -eq 'y') {
+                Write-StyledMessage Info 'Avvio riavvio del sistema...'
+                # Shutdown.exe /r /t 0
+            }
+            else {
+                Write-StyledMessage Info 'Riavvio annullato. Potrebbe essere necessario riavviare manualmente per completare l`operazione.'
+            }
         }
     }
 
@@ -386,7 +370,7 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 24)'
+        '        Version 2.1 (Build 25)'
     )
     $asciiArt | ForEach-Object { 
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
