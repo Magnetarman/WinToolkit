@@ -40,11 +40,12 @@
 ## 👾 Features
 
 > [!Note]
->
 > Ramo `main` <br> La versione 2.0 del Toolkit è in fase **RELEASE**.
 >
-> Ramo `Dev` <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**.
-> <br> **Attenzione:** Richiede di scaricare il pacchetto ed avviare `compiler.ps1` da terminale per testare lo script completo. **Potrebbe causare danni al tuo sistema.**
+> Ramo `Dev` <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**. **Potrebbe causare danni al tuo sistema.**
+
+> [!Tip]
+> Per avviare correttamente lo script nel ramo `Dev` bisogna scaricare il pacchetto ed avviare `compiler.ps1` da terminale per assemblare prendendo i pezzi di codice dalla cartella tool e inserendoli al posto giusto nel file principale. Così non serve fare copia-incolla manuale, si riducono gli errori e si mantiene più ordinata la gestione del progetto. A processo completato troverai `Wintoolkit.ps1` completo pronto da avviare.
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
