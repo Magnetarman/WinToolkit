@@ -234,16 +234,94 @@ function OfficeToolkit {
         
         Stop-OfficeProcesses
         
-        # Disinstallazione Click-to-Run
-        $client = Get-OfficeClient
-        if ($client) {
-            try {
-                Start-Process -FilePath $client -ArgumentList '/uninstall Office16' -Verb RunAs
-                Write-StyledMessage Success 'Disinstallazione avviata'
-                Wait-ProcessCompletion 'OfficeC2RClient' 'Disinstallazione Office' '🗑️'
+        # Disinstallazione tramite Winget
+        Write-StyledMessage Info '📦 Ricerca pacchetti Office tramite Winget...'
+        try {
+            # Cerca tutti i pacchetti Office installati
+            $officePackages = winget list --source winget | Select-String -Pattern "Microsoft\.Office|Microsoft365" -AllMatches
+            
+            if ($officePackages) {
+                Write-StyledMessage Success "Trovati $($officePackages.Count) pacchetti Office"
+                
+                # Disinstalla ogni pacchetto trovato
+                foreach ($package in $officePackages) {
+                    $packageId = ($package -split '\s+')[0]
+                    if ($packageId -match "Microsoft\.Office|Microsoft365") {
+                        Write-StyledMessage Info "🗑️ Disinstallazione $packageId..."
+                        
+                        $spinnerIndex = 0
+                        $uninstallProcess = Start-Process -FilePath "winget" -ArgumentList "uninstall --id $packageId --silent --accept-source-agreements" -NoNewWindow -PassThru
+                        
+                        while (-not $uninstallProcess.HasExited) {
+                            $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+                            Write-Host "`r$spinner 🗑️ Disinstallazione $packageId..." -NoNewline -ForegroundColor Red
+                            Start-Sleep -Milliseconds 500
+                        }
+                        Write-Host ''
+                        
+                        if ($uninstallProcess.ExitCode -eq 0) {
+                            Write-StyledMessage Success "$packageId rimosso"
+                        }
+                        else {
+                            Write-StyledMessage Warning "Problemi rimuovendo $packageId"
+                        }
+                    }
+                }
             }
-            catch { Write-StyledMessage Error "Errore disinstallazione: $_" }
+            else {
+                Write-StyledMessage Info 'Nessun pacchetto Office trovato tramite Winget'
+            }
+            
+            # Disinstallazione alternativa tramite Click-to-Run se Winget fallisce
+            Write-StyledMessage Info '🔧 Verifica Click-to-Run per rimozione residui...'
+            $client = Get-OfficeClient
+            if ($client) {
+                try {
+                    Write-StyledMessage Info '🗑️ Disinstallazione Click-to-Run...'
+                    Start-Process -FilePath $client -ArgumentList '/uninstall Office16' -Verb RunAs -WindowStyle Hidden
+                    Wait-ProcessCompletion 'OfficeC2RClient' 'Disinstallazione residui Office' '🗑️'
+                    Write-StyledMessage Success 'Click-to-Run completato'
+                }
+                catch { Write-StyledMessage Warning "Click-to-Run: $_" }
+            }
         }
+        catch {
+            Write-StyledMessage Error "Errore Winget: $_"
+            Write-StyledMessage Info 'Tentativo con metodo alternativo...'
+            
+            # Fallback su Click-to-Run se Winget non funziona
+            $client = Get-OfficeClient
+            if ($client) {
+                try {
+                    Start-Process -FilePath $client -ArgumentList '/uninstall Office16' -Verb RunAs
+                    Wait-ProcessCompletion 'OfficeC2RClient' 'Disinstallazione Office' '🗑️'
+                }
+                catch { Write-StyledMessage Error "Errore disinstallazione: $_" }
+            }
+        }
+        
+        # Verifica rimozione tramite Winget
+        Write-StyledMessage Info '🔍 Verifica rimozione Office...'
+        Start-Sleep 2
+        try {
+            $remainingPackages = winget list --source winget | Select-String -Pattern "Microsoft\.Office|Microsoft365" -AllMatches
+            if ($remainingPackages) {
+                Write-StyledMessage Warning "$($remainingPackages.Count) pacchetti Office ancora presenti"
+                foreach ($remaining in $remainingPackages) {
+                    $packageName = ($remaining -split '\s+')[1]
+                    Write-StyledMessage Warning "Residuo: $packageName"
+                }
+            }
+            else {
+                Write-StyledMessage Success '✅ Nessun pacchetto Office rilevato da Winget'
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "Impossibile verificare con Winget: $_"
+        }
+        
+        # Pulizia completa residui (sempre eseguita)
+        Write-StyledMessage Info '🧹 Pulizia completa residui sistema...'
         
         # Pulizia registro completa
         $userRegPaths = @(
@@ -251,7 +329,8 @@ function OfficeToolkit {
             'HKCU:\Software\Microsoft\VBA',
             'HKCU:\Software\Classes\Word.Application',
             'HKCU:\Software\Classes\Excel.Application',
-            'HKCU:\Software\Classes\PowerPoint.Application'
+            'HKCU:\Software\Classes\PowerPoint.Application',
+            'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*Office*'
         )
         
         $systemRegPaths = @(
@@ -260,49 +339,74 @@ function OfficeToolkit {
             'HKLM:\SOFTWARE\Microsoft\VBA',
             'HKLM:\SOFTWARE\Classes\Word.Application',
             'HKLM:\SOFTWARE\Classes\Excel.Application',
-            'HKLM:\SOFTWARE\Classes\PowerPoint.Application'
+            'HKLM:\SOFTWARE\Classes\PowerPoint.Application',
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*Office*',
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*Office*'
         )
         
         $removed = 0
         
         # Rimozione chiavi utente (non richiedono privilegi elevati)
         foreach ($regPath in $userRegPaths) {
-            if (Test-Path $regPath) {
-                try {
-                    Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
-                    $removed++
+            if ($regPath -like "*\*Office*") {
+                # Gestione pattern con wildcard per chiavi di disinstallazione
+                $basePath = $regPath -replace '\*Office\*', ''
+                if (Test-Path $basePath) {
+                    try {
+                        Get-ChildItem -Path $basePath -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Office*" } | ForEach-Object {
+                            Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                            $removed++
+                        }
+                    }
+                    catch { }
                 }
-                catch { 
-                    Write-StyledMessage Warning "Accesso negato: $(Split-Path $regPath -Leaf)"
+            }
+            else {
+                if (Test-Path $regPath) {
+                    try {
+                        Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
+                        $removed++
+                    }
+                    catch { }
                 }
             }
         }
         
         # Rimozione chiavi sistema (richiedono privilegi elevati)
+        $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        
         foreach ($regPath in $systemRegPaths) {
-            if (Test-Path $regPath) {
-                try {
-                    # Verifica se abbiamo privilegi amministratore
-                    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-                    
-                    if ($isAdmin) {
-                        Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
-                        $removed++
+            if ($regPath -like "*\*Office*") {
+                # Gestione pattern con wildcard per chiavi di disinstallazione
+                $basePath = $regPath -replace '\*Office\*', ''
+                if (Test-Path $basePath) {
+                    try {
+                        if ($isAdmin) {
+                            Get-ChildItem -Path $basePath -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Office*" } | ForEach-Object {
+                                Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                                $removed++
+                            }
+                        }
                     }
-                    else {
-                        Write-StyledMessage Warning "Privilegi admin necessari per: $(Split-Path $regPath -Leaf)"
-                    }
+                    catch { }
                 }
-                catch { 
-                    Write-StyledMessage Warning "Impossibile rimuovere: $(Split-Path $regPath -Leaf)"
+            }
+            else {
+                if (Test-Path $regPath) {
+                    try {
+                        if ($isAdmin) {
+                            Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
+                            $removed++
+                        }
+                    }
+                    catch { }
                 }
             }
         }
         
         if ($removed -gt 0) { Write-StyledMessage Success "$removed chiavi registro rimosse" }
-        else { Write-StyledMessage Warning "Esegui come Amministratore per rimozione completa registro" }
         
-        # Rimozione cartelle
+        # Rimozione cartelle (include cartelle aggiuntive)
         $folders = @(
             "$env:ProgramFiles\Microsoft Office",
             "${env:ProgramFiles(x86)}\Microsoft Office",
@@ -314,37 +418,93 @@ function OfficeToolkit {
             "$env:APPDATA\Microsoft\PowerPoint",
             "$env:LOCALAPPDATA\Microsoft\OneNote",
             "$env:LOCALAPPDATA\Microsoft\Outlook",
-            "$env:APPDATA\Microsoft\Outlook"
+            "$env:APPDATA\Microsoft\Outlook",
+            "$env:ProgramFiles\WindowsApps\Microsoft.Office*",
+            "${env:ProgramFiles(x86)}\WindowsApps\Microsoft.Office*",
+            "$env:LOCALAPPDATA\Packages\Microsoft.Office*"
         )
         
         $removedFolders = 0
         foreach ($folder in $folders) {
-            if (Test-Path $folder) {
-                try {
-                    Remove-Item -Path $folder -Recurse -Force
-                    $removedFolders++
+            if ($folder -like "*Microsoft.Office*") {
+                # Gestione cartelle con pattern
+                $basePath = Split-Path $folder
+                $pattern = Split-Path $folder -Leaf
+                if (Test-Path $basePath) {
+                    try {
+                        Get-ChildItem -Path $basePath -Filter $pattern -ErrorAction SilentlyContinue | ForEach-Object {
+                            Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                            $removedFolders++
+                        }
+                    }
+                    catch { }
                 }
-                catch { }
+            }
+            else {
+                if (Test-Path $folder) {
+                    try {
+                        Remove-Item -Path $folder -Recurse -Force -ErrorAction SilentlyContinue
+                        $removedFolders++
+                    }
+                    catch { }
+                }
             }
         }
         if ($removedFolders -gt 0) { Write-StyledMessage Success "$removedFolders cartelle rimosse" }
         
-        # Pulizia file temporanei
-        $tempPaths = @("$env:TEMP\*Office*", "$env:TEMP\*Word*", "$env:TEMP\*Excel*", "$env:TEMP\*PowerPoint*")
+        # Pulizia file temporanei e cache estesa
+        $tempPaths = @(
+            "$env:TEMP\*Office*", 
+            "$env:TEMP\*Word*", 
+            "$env:TEMP\*Excel*", 
+            "$env:TEMP\*PowerPoint*",
+            "$env:LOCALAPPDATA\Temp\*Office*",
+            "$env:APPDATA\Microsoft\Templates"
+        )
         $cleanedTemp = 0
         foreach ($pattern in $tempPaths) {
-            try {
-                Get-ChildItem -Path (Split-Path $pattern) -Filter (Split-Path $pattern -Leaf) -ErrorAction SilentlyContinue | 
-                ForEach-Object {
-                    Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-                    $cleanedTemp++
+            if ($pattern -like "*\**") {
+                $basePath = Split-Path $pattern
+                $filter = Split-Path $pattern -Leaf
+                if (Test-Path $basePath) {
+                    try {
+                        Get-ChildItem -Path $basePath -Filter $filter -ErrorAction SilentlyContinue | ForEach-Object {
+                            Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                            $cleanedTemp++
+                        }
+                    }
+                    catch { }
                 }
             }
-            catch { }
+            else {
+                if (Test-Path $pattern) {
+                    try {
+                        Remove-Item -Path $pattern -Recurse -Force -ErrorAction SilentlyContinue
+                        $cleanedTemp++
+                    }
+                    catch { }
+                }
+            }
         }
         if ($cleanedTemp -gt 0) { Write-StyledMessage Success "$cleanedTemp file temporanei rimossi" }
         
-        Write-StyledMessage Success '🎉 Rimozione completa terminata!'
+        # Verifica finale
+        Write-StyledMessage Info '🔍 Verifica finale rimozione...'
+        Start-Sleep 1
+        try {
+            $finalCheck = winget list --source winget 2>$null | Select-String -Pattern "Microsoft\.Office|Microsoft365" -AllMatches
+            if ($finalCheck) {
+                Write-StyledMessage Warning "⚠️ Alcuni residui Office potrebbero essere ancora presenti"
+                Write-StyledMessage Info "💡 Il riavvio dovrebbe completare la rimozione"
+            }
+            else {
+                Write-StyledMessage Success '🎉 Office completamente rimosso dal sistema!'
+            }
+        }
+        catch {
+            Write-StyledMessage Success '🎉 Rimozione completa terminata!'
+        }
+        
         return $true
     }
 
@@ -363,7 +523,7 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 8)'
+        '        Version 2.1 (Build 9)'
     )
     $asciiArt | ForEach-Object { 
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
