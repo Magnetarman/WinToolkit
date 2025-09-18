@@ -12,8 +12,9 @@ function OfficeToolkit {
     
     param([int]$CountdownSeconds = 30)
 
-    # Variabili globali
+    # Variabili globali consolidate
     $script:TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
+    $script:Log = @()
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }; Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
@@ -35,21 +36,22 @@ function OfficeToolkit {
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio...'
+        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
         Write-Host ''
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
                 Write-Host "`n"
-                Write-StyledMessage Error '⏸️ Riavvio annullato'
+                Write-StyledMessage Error '⸕️ Riavvio automatico annullato'
+                Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
                 return $false
             }
             $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
-            Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec" $remainingPercent '⏳' '' 'Red'
+            Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
             Start-Sleep 1
         }
         Write-Host ''
-        Write-StyledMessage Warning '⏰ Riavvio sistema...'
+        Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
         Start-Sleep 1
         return $true
     }
@@ -63,16 +65,26 @@ function OfficeToolkit {
     }
 
     function Stop-OfficeProcesses {
+        Write-StyledMessage Info '🔄 Chiusura processi Office attivi...'
         $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'msproject', 'lync')
         $closed = 0
         foreach ($process in $processes) {
             $running = Get-Process -Name $process -ErrorAction SilentlyContinue
             if ($running) {
-                $running | Stop-Process -Force -ErrorAction SilentlyContinue
-                $closed++
+                try {
+                    $running | Stop-Process -Force -ErrorAction SilentlyContinue
+                    $closed++
+                }
+                catch {
+                    Write-StyledMessage Warning "Impossibile chiudere processo: $process"
+                }
             }
         }
-        if ($closed -gt 0) { Write-StyledMessage Success "$closed processi Office terminati" }
+        if ($closed -gt 0) { 
+            Write-StyledMessage Success "$closed processi Office terminati con successo"
+            $script:Log += "[Gestione Processi] ✅ $closed processi Office chiusi"
+        }
+        Start-Sleep 2
     }
 
     function Wait-ProcessCompletion([string]$ProcessName, [string]$Activity, [string]$Icon) {
@@ -95,47 +107,92 @@ function OfficeToolkit {
     }
 
     function Invoke-SystemRestart([string]$Reason) {
-        Write-StyledMessage Info "🔄 $Reason - Riavvio necessario"
+        Write-StyledMessage Info "🔄 $Reason"
+        Write-StyledMessage Info '🔄 Il sistema verrà riavviato per finalizzare le modifiche'
+        
         if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
-            try { Restart-Computer -Force }
-            catch { Write-StyledMessage Error "Errore riavvio: $_" }
+            try { 
+                Write-StyledMessage Info '🔄 Riavvio in corso...'
+                $script:Log += "[Sistema] ✅ Riavvio eseguito con successo"
+                Restart-Computer -Force 
+            }
+            catch { 
+                Write-StyledMessage Error "❌ Errore riavvio: $_"
+                Write-StyledMessage Info '🔄 Riavviare manualmente il sistema.'
+                $script:Log += "[Sistema] ❌ Errore durante il riavvio: $_"
+            }
+        }
+        else {
+            Write-StyledMessage Info '✅ Script completato. Sistema non riavviato.'
+            Write-StyledMessage Info '💡 Riavvia quando possibile per applicare le modifiche.'
         }
     }
 
     function Start-OfficeInstall {
-        Write-StyledMessage Info '🏢 Installazione Office Basic...'
+        Write-StyledMessage Info '🏢 Avvio installazione Office Basic...'
+        $script:Log += "[Installazione] ℹ️ Avvio installazione Office Basic"
         
         # Crea directory e download
         try {
-            if (-not (Test-Path $script:TempDir)) { New-Item -ItemType Directory -Path $script:TempDir -Force | Out-Null }
+            if (-not (Test-Path $script:TempDir)) { 
+                New-Item -ItemType Directory -Path $script:TempDir -Force | Out-Null 
+                Write-StyledMessage Success "Directory temporanea creata: $script:TempDir"
+            }
             
             $files = @(
                 @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Setup.exe'; Name = 'Setup.exe'; Icon = '⚙️' },
                 @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Basic.xml'; Name = 'Basic.xml'; Icon = '📄' }
             )
             
+            $downloadedFiles = 0
             foreach ($file in $files) {
                 $filePath = Join-Path $script:TempDir $file.Name
                 try {
-                    Write-Host "`r📥 Download in corso: $($file.Name)..." -NoNewline -ForegroundColor 'Cyan'
+                    $spinnerIndex = 0
+                    Write-StyledMessage Info "📥 Download di $($file.Name) in corso..."
+                    
+                    # Simulazione download con progress bar
+                    for ($i = 0; $i -le 100; $i += Get-Random -Minimum 5 -Maximum 15) {
+                        if ($i -gt 100) { $i = 100 }
+                        $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+                        Show-ProgressBar "Download $($file.Name)" "In corso..." $i $file.Icon $spinner 'Cyan'
+                        Start-Sleep -Milliseconds 200
+                    }
+                    
                     Invoke-WebRequest -Uri $file.Url -OutFile $filePath -UseBasicParsing
-                    Write-Host "`r$($file.Icon) Download completato: $($file.Name)      "
+                    Write-StyledMessage Success "✅ Download completato: $($file.Name)"
+                    $downloadedFiles++
+                    $script:Log += "[Download] ✅ $($file.Name) scaricato con successo"
                 }
                 catch {
-                    Write-StyledMessage Error "Download fallito: $($file.Name)"
+                    Write-StyledMessage Error "❌ Download fallito per $($file.Name): $_"
+                    $script:Log += "[Download] ❌ Errore download $($file.Name): $_"
                     return $false
                 }
             }
             
+            if ($downloadedFiles -ne $files.Count) {
+                Write-StyledMessage Error "❌ Download incompleto. File scaricati: $downloadedFiles/$($files.Count)"
+                return $false
+            }
+            
             # Avvia installazione
-            Write-StyledMessage Info '🚀 Avvio installazione...'
+            Write-StyledMessage Info '🚀 Avvio processo di installazione...'
             $setupPath = Join-Path $script:TempDir 'Setup.exe'
             $configPath = Join-Path $script:TempDir 'Basic.xml'
-            Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -WorkingDirectory $script:TempDir
             
-            # Attesa utente
+            if (-not (Test-Path $setupPath) -or -not (Test-Path $configPath)) {
+                Write-StyledMessage Error "❌ File di installazione mancanti"
+                return $false
+            }
+            
+            Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -WorkingDirectory $script:TempDir
+            $script:Log += "[Installazione] ℹ️ Processo di installazione avviato"
+            
+            # Attesa utente con spinner migliorato
             $spinnerIndex = 0
-            Write-StyledMessage Info '💡 Premi un tasto quando completata...'
+            Write-StyledMessage Info '💡 Premi un tasto quando l'installazione è completata...'
+            Write-Host ''
             do {
                 if ([Console]::KeyAvailable) {
                     [Console]::ReadKey($true) | Out-Null
@@ -147,188 +204,302 @@ function OfficeToolkit {
             } while ($true)
             Write-Host ''
             
-            # Conferma
+            # Conferma con retry
+            $maxAttempts = 3
+            $currentAttempt = 0
             do {
-                $confirm = Read-Host "✅ Installazione completata? [Y/N]"
+                $currentAttempt++
+                $confirm = Read-Host "✅ Installazione completata con successo? [Y/N]"
                 if ($confirm.ToLower() -eq 'y') {
+                    Write-StyledMessage Success '🎉 Installazione Office completata con successo!'
                     Remove-Item $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
+                    $script:Log += "[Installazione] ✅ Installazione completata con successo"
                     return $true
                 }
-                elseif ($confirm.ToLower() -eq 'n') { return $false }
-                else { Write-StyledMessage Warning 'Risposta non valida.' }
-            } while ($true)
+                elseif ($confirm.ToLower() -eq 'n') { 
+                    Write-StyledMessage Warning '⚠️ Installazione non riuscita'
+                    $script:Log += "[Installazione] ⚠️ Installazione fallita - confermato dall'utente"
+                    return $false 
+                }
+                else { 
+                    Write-StyledMessage Warning "Risposta non valida. Tentativo $currentAttempt/$maxAttempts"
+                }
+            } while ($currentAttempt -lt $maxAttempts)
+            
+            Write-StyledMessage Error "❌ Troppi tentativi falliti"
+            return $false
         }
         catch {
-            Write-StyledMessage Error "Errore installazione: $_"
+            Write-StyledMessage Error "❌ Errore durante l'installazione: $_"
+            $script:Log += "[Installazione] ❌ Errore fatale: $_"
             return $false
         }
     }
 
     function Start-OfficeRepair {
-        Write-StyledMessage Info '🔧 Riparazione Office...'
+        Write-StyledMessage Info '🔧 Avvio riparazione Microsoft Office...'
+        $script:Log += "[Riparazione] ℹ️ Avvio processo di riparazione"
+        
         Stop-OfficeProcesses
 
-        # Pulizia cache
+        # Pulizia cache con progress
+        Write-StyledMessage Info '🧹 Pulizia cache Office...'
         $caches = @(
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache.xml",
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
         )
         $cleaned = 0
-        foreach ($cache in $caches) {
+        $totalCaches = $caches.Count
+        
+        for ($i = 0; $i -lt $totalCaches; $i++) {
+            $cache = $caches[$i]
+            $percent = [math]::Round(($i / $totalCaches) * 100)
+            Show-ProgressBar "Pulizia Cache" "Controllo cache..." $percent '🧹'
+            
             if (Test-Path $cache) {
                 try {
                     Remove-Item $cache -Recurse -Force -ErrorAction SilentlyContinue
                     $cleaned++
+                    $script:Log += "[Pulizia] ✅ Cache eliminata: $cache"
                 }
-                catch { }
+                catch { 
+                    $script:Log += "[Pulizia] ⚠️ Impossibile eliminare cache: $cache"
+                }
             }
+            Start-Sleep -Milliseconds 300
         }
-        if ($cleaned -gt 0) { Write-StyledMessage Success "$cleaned cache eliminate" }
+        
+        Show-ProgressBar "Pulizia Cache" "Completata" 100 '🧹'
+        Write-Host ''
+        
+        if ($cleaned -gt 0) { 
+            Write-StyledMessage Success "✅ $cleaned cache eliminate con successo"
+        }
+        else {
+            Write-StyledMessage Info "ℹ️ Nessuna cache da eliminare"
+        }
 
         $repairSucceeded = $false
         $quickRepairAttempted = $false
 
         # Chiedi tipo di riparazione iniziale
+        Write-StyledMessage Info "🎯 Seleziona il tipo di riparazione:"
+        Write-Host ''
         do {
-            Write-Host "Scegliere il tipo di riparazione:" -ForegroundColor Cyan
-            Write-Host "  [1] Riparazione rapida" -ForegroundColor Yellow
-            Write-Host "  [2] Riparazione online" -ForegroundColor Red
-            Write-Host ""
+            Write-Host "  [1] 🚀 Riparazione rapida (veloce, offline)" -ForegroundColor Green
+            Write-Host "  [2] 🌐 Riparazione online (completa, richiede internet)" -ForegroundColor Yellow
+            Write-Host ''
             $choice = Read-Host "Scelta"
-            Write-Host ""
+            Write-Host ''
             if ($choice -ne '1' -and $choice -ne '2') {
                 Write-StyledMessage Warning 'Opzione non valida. Scegliere 1 o 2.'
             }
         } while ($choice -ne '1' -and $choice -ne '2')
 
-        # Ciclo di riparazione
+        # Ciclo di riparazione migliorato
         while (-not $repairSucceeded) {
             if ($choice -eq '1' -and -not $quickRepairAttempted) {
                 Write-StyledMessage Info '🚀 Avvio riparazione rapida...'
                 $RepairType = 'QuickRepair'
-                $duration = 10
+                $duration = 15
                 $quickRepairAttempted = $true
+                $script:Log += "[Riparazione] ℹ️ Riparazione rapida avviata"
             }
             else {
                 Write-StyledMessage Info '🌐 Avvio riparazione online (richiede connessione internet)...'
                 $RepairType = 'FullRepair'
-                $duration = 30
+                $duration = 45
+                $script:Log += "[Riparazione] ℹ️ Riparazione online avviata"
             }
 
-            # Comando di riparazione e spinner
-            $OfficeRepairCommand = "& `"`$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun\OfficeClickToRun.exe`" scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$RepairType DisplayLevel=True"
-            Invoke-Expression $OfficeRepairCommand | Out-Null
-            $spinnerChars = '|/-\'
-            $spinnerIndex = 0
-            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-            Write-Host "⚙️ Riparazione in corso..." -NoNewline -ForegroundColor Green
-            while ($stopwatch.Elapsed.TotalSeconds -lt $duration) {
-                Write-Host "`r$($spinnerChars[$spinnerIndex])" -NoNewline -ForegroundColor Green
-                $spinnerIndex = ($spinnerIndex + 1) % $spinnerChars.Length
-                Start-Sleep -Milliseconds 250
-            }
-            $stopwatch.Stop()
-            Write-Host ""
-
-            # Chiedi conferma all'utente
-            $confirm = Read-Host "✅ Il ripristino ha funzionato correttamente? [Y/N]"
-            if ($confirm.ToLower() -eq 'y') {
-                Write-StyledMessage Success 'Riparazione completata.'
-                $repairSucceeded = $true
-                break
-            }
-            elseif ($confirm.ToLower() -eq 'n') {
-                if ($quickRepairAttempted -and $choice -eq '1') {
-                    Write-StyledMessage Info 'La riparazione rapida non ha funzionato. Procedo con la riparazione online...'
-                    $choice = '2' # Passa alla riparazione online per il prossimo ciclo
+            # Comando di riparazione
+            try {
+                $officeClient = Get-OfficeClient
+                if (-not $officeClient) {
+                    Write-StyledMessage Error "❌ Office Click-to-Run non trovato"
+                    $script:Log += "[Riparazione] ❌ Office Click-to-Run non trovato"
+                    return $false
                 }
-                else {
-                    Write-StyledMessage Info 'La riparazione non ha funzionato. Contatta il supporto per ulteriore assistenza.'
+
+                $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$RepairType DisplayLevel=True"
+                Start-Process -FilePath $officeClient -ArgumentList $arguments -NoNewWindow
+
+                # Progress bar durante la riparazione
+                $spinnerIndex = 0
+                $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                $percent = 0
+                
+                while ($stopwatch.Elapsed.TotalSeconds -lt $duration) {
+                    $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+                    $elapsed = $stopwatch.Elapsed.TotalSeconds
+                    $percent = [math]::Min(95, [math]::Round(($elapsed / $duration) * 100))
+                    
+                    $status = if ($RepairType -eq 'QuickRepair') { "Riparazione rapida in corso..." } else { "Riparazione completa in corso..." }
+                    Show-ProgressBar "Riparazione Office" $status $percent '🔧' $spinner 'Yellow'
+                    Start-Sleep -Milliseconds 600
+                }
+                
+                Show-ProgressBar "Riparazione Office" "Completata" 100 '🔧'
+                Write-Host ''
+                $stopwatch.Stop()
+            }
+            catch {
+                Write-StyledMessage Error "❌ Errore durante la riparazione: $_"
+                $script:Log += "[Riparazione] ❌ Errore durante l'esecuzione: $_"
+                return $false
+            }
+
+            # Conferma dall'utente con retry
+            $maxConfirmAttempts = 3
+            $confirmAttempt = 0
+            do {
+                $confirmAttempt++
+                $confirm = Read-Host "✅ La riparazione ha funzionato correttamente? [Y/N]"
+                if ($confirm.ToLower() -eq 'y') {
+                    Write-StyledMessage Success '🎉 Riparazione completata con successo!'
+                    $script:Log += "[Riparazione] ✅ Riparazione completata con successo"
+                    $repairSucceeded = $true
                     break
                 }
-            }
-            else {
-                Write-StyledMessage Warning 'Risposta non valida.'
+                elseif ($confirm.ToLower() -eq 'n') {
+                    if ($quickRepairAttempted -and $choice -eq '1') {
+                        Write-StyledMessage Warning '⚠️ Riparazione rapida non riuscita. Tentativo con riparazione online...'
+                        $choice = '2'
+                        $script:Log += "[Riparazione] ⚠️ Riparazione rapida fallita, passaggio alla riparazione online"
+                    }
+                    else {
+                        Write-StyledMessage Error '❌ Riparazione non riuscita. Contatta il supporto tecnico per assistenza.'
+                        $script:Log += "[Riparazione] ❌ Riparazione fallita - nessuna soluzione disponibile"
+                        return $false
+                    }
+                    break
+                }
+                else {
+                    Write-StyledMessage Warning "Risposta non valida. Tentativo $confirmAttempt/$maxConfirmAttempts"
+                }
+            } while ($confirmAttempt -lt $maxConfirmAttempts)
+            
+            if ($confirmAttempt -ge $maxConfirmAttempts) {
+                Write-StyledMessage Error "❌ Troppi tentativi falliti"
+                return $false
             }
         }
 
-        # Sezione finale per il riavvio del sistema (chiede solo se la riparazione ha avuto successo)
-        if ($repairSucceeded) {
-            $rebootConfirm = Read-Host "Riparazione completata. Riavviare il sistema ora? [Y/N]"
-            if ($rebootConfirm.ToLower() -eq 'y') {
-                Write-StyledMessage Info 'Avvio riavvio del sistema...'
-                # Shutdown.exe /r /t 0
-            }
-            else {
-                Write-StyledMessage Info 'Riavvio annullato. Potrebbe essere necessario riavviare manualmente per completare l`operazione.'
-            }
-        }
+        return $repairSucceeded
     }
 
     function Start-OfficeUninstall {
-        Write-StyledMessage Warning '🗑️ Rimozione completa Office con Microsoft SaRA'
-        Write-StyledMessage Warning '⚠️ ATTENZIONE: Verrà scaricato ed eseguito lo strumento ufficiale Microsoft.'
+        Write-StyledMessage Warning '🗑️ Avvio rimozione completa Microsoft Office'
+        Write-StyledMessage Warning '⚠️ ATTENZIONE: Verrà utilizzato lo strumento ufficiale Microsoft SaRA.'
+        Write-StyledMessage Info 'ℹ️ Questo processo rimuoverà completamente Office dal sistema.'
+        $script:Log += "[Rimozione] ℹ️ Avvio processo di rimozione completa"
         
+        # Conferma con retry
+        $maxAttempts = 3
+        $attempt = 0
         do {
-            $confirm = Read-Host "Procedere? [Y/N]"
-            if ($confirm.ToLower() -eq 'n') { return $false }
+            $attempt++
+            $confirm = Read-Host "Procedere con la rimozione completa? [Y/N]"
+            if ($confirm.ToLower() -eq 'n') { 
+                Write-StyledMessage Info '❌ Operazione annullata dall\'utente'
+                return $false 
+            }
             elseif ($confirm.ToLower() -eq 'y') { break }
-            else { Write-StyledMessage Warning 'Risposta non valida.' }
-        } while ($true)
+            else { 
+                Write-StyledMessage Warning "Risposta non valida. Tentativo $attempt/$maxAttempts"
+            }
+        } while ($attempt -lt $maxAttempts)
+        
+        if ($attempt -ge $maxAttempts) {
+            Write-StyledMessage Error "❌ Troppi tentativi falliti"
+            return $false
+        }
         
         Stop-OfficeProcesses
         
         try {
-            # 1. Preparazione della directory e download dello strumento SaRA (file zip)
-            if (-not (Test-Path $script:TempDir)) { New-Item -ItemType Directory -Path $script:TempDir -Force | Out-Null }
+            # Preparazione della directory
+            Write-StyledMessage Info '📁 Preparazione ambiente di lavoro...'
+            if (-not (Test-Path $script:TempDir)) { 
+                New-Item -ItemType Directory -Path $script:TempDir -Force | Out-Null 
+            }
             
             $saraUrl = 'https://aka.ms/SaRA_EnterpriseVersionFiles'
             $saraZipPath = Join-Path $script:TempDir 'SaRA.zip'
             $extractedPath = Join-Path $script:TempDir 'DONE'
             $saraExePath = Join-Path $extractedPath 'SaRAcmd.exe'
             
+            # Download con progress bar migliorata
             Write-StyledMessage Info '📥 Download Microsoft Support and Recovery Assistant (SaRA)...'
             try {
-                Write-Host "`r📥 Download in corso: SaRA.zip..." -NoNewline -ForegroundColor 'Cyan'
+                # Simulazione progress download
+                for ($i = 0; $i -le 100; $i += Get-Random -Minimum 3 -Maximum 8) {
+                    if ($i -gt 100) { $i = 100 }
+                    $spinnerIndex = $i % $spinners.Length
+                    $spinner = $spinners[$spinnerIndex]
+                    Show-ProgressBar "Download SaRA" "Download in corso..." $i '📥' $spinner 'Cyan'
+                    Start-Sleep -Milliseconds 150
+                }
+                
                 Invoke-WebRequest -Uri $saraUrl -OutFile $saraZipPath -UseBasicParsing
-                Write-Host "`r📥 Download completato: SaRA.zip      "
+                Write-StyledMessage Success '✅ Download SaRA completato con successo'
+                $script:Log += "[Download] ✅ SaRA scaricato con successo"
             }
             catch {
-                Write-StyledMessage Error "Download di SaRA fallito: $_"
+                Write-StyledMessage Error "❌ Download di SaRA fallito: $_"
+                $script:Log += "[Download] ❌ Errore download SaRA: $_"
                 return $false
             }
             
-            # 2. Estrazione del file zip e verifica
-            Write-StyledMessage Info '📦 Estrazione file...'
+            # Estrazione con progress
+            Write-StyledMessage Info '📦 Estrazione archivio SaRA...'
             try {
+                for ($i = 0; $i -le 100; $i += 20) {
+                    Show-ProgressBar "Estrazione" "Estrazione file in corso..." $i '📦'
+                    Start-Sleep -Milliseconds 200
+                }
+                
                 Expand-Archive -Path $saraZipPath -DestinationPath $script:TempDir -Force
+                Write-StyledMessage Success '✅ Estrazione completata'
+                $script:Log += "[Estrazione] ✅ SaRA estratto con successo"
             }
             catch {
-                Write-StyledMessage Error "Estrazione fallita: $_"
+                Write-StyledMessage Error "❌ Estrazione fallita: $_"
+                $script:Log += "[Estrazione] ❌ Errore estrazione: $_"
                 return $false
             }
             
+            # Verifica file estratti
             if (-not (Test-Path $saraExePath)) {
-                Write-StyledMessage Error "❌ Errore: File 'SaRAcmd.exe' non trovato nella cartella 'DONE'."
-                Write-StyledMessage Warning "Riprova o scarica lo strumento manualmente."
+                Write-StyledMessage Error "❌ File 'SaRAcmd.exe' non trovato nella cartella estratta"
+                Write-StyledMessage Warning "💡 Riprova l'operazione o contatta il supporto tecnico"
+                $script:Log += "[Verifica] ❌ SaRAcmd.exe non trovato"
                 return $false
             }
             
-            # 3. Esecuzione di SaRA per la disinstallazione
-            Write-StyledMessage Info '🚀 Avvio rimozione Office tramite SaRA...'
-            Write-StyledMessage Info '💡 Questo processo potrebbe richiedere molto tempo. Attendere prego...'
+            Write-StyledMessage Success "✅ Strumento SaRA preparato correttamente"
             
-            # ✅ Aggiunta di una breve pausa per la scansione di sicurezza
+            # Esecuzione di SaRA
+            Write-StyledMessage Info '🚀 Avvio rimozione Office tramite Microsoft SaRA...'
+            Write-StyledMessage Warning '⏰ Questo processo può richiedere molto tempo. Non chiudere la finestra.'
+            
+            # Pausa di sicurezza
             Write-StyledMessage Info '⏱️ Attesa di 5 secondi per la scansione di sicurezza...'
-            Start-Sleep -Seconds 5
+            for ($i = 5; $i -gt 0; $i--) {
+                Write-Host "`r⏱️ Avvio tra $i secondi..." -NoNewline -ForegroundColor Yellow
+                Start-Sleep 1
+            }
+            Write-Host ''
 
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
             Start-Process -FilePath $saraExePath -ArgumentList $arguments -WorkingDirectory $extractedPath -PassThru -Verb RunAs
+            $script:Log += "[Rimozione] ℹ️ SaRA avviato con argomenti: $arguments"
             
-            # 4. Attesa della conferma da parte dell'utente
+            # Attesa della conferma con spinner migliorato
             $spinnerIndex = 0
-            Write-StyledMessage Info '💡 Premi un tasto quando il programma SaRA ha terminato il lavoro.'
+            Write-StyledMessage Info '💡 Premi un tasto quando SaRA ha completato il lavoro di rimozione.'
+            Write-Host ''
             do {
                 if ([Console]::KeyAvailable) {
                     [Console]::ReadKey($true) | Out-Null
@@ -340,28 +511,54 @@ function OfficeToolkit {
             } while ($true)
             Write-Host ''
             
-            Write-StyledMessage Success '🎉 Rimozione tramite SaRA completata con successo!'
+            # Conferma finale
+            $finalConfirm = Read-Host "✅ La rimozione di Office è stata completata con successo? [Y/N]"
+            if ($finalConfirm.ToLower() -eq 'y') {
+                Write-StyledMessage Success '🎉 Rimozione Office completata con successo!'
+                $script:Log += "[Rimozione] ✅ Rimozione completata con successo"
+                return $true
+            }
+            else {
+                Write-StyledMessage Warning '⚠️ Rimozione potrebbe non essere completata correttamente'
+                $script:Log += "[Rimozione] ⚠️ Rimozione potrebbe essere incompleta"
+                return $false
+            }
         }
         catch {
-            Write-StyledMessage Error "Errore durante l'esecuzione di SaRA: $_"
+            Write-StyledMessage Error "❌ Errore durante l'esecuzione di SaRA: $_"
+            $script:Log += "[Rimozione] ❌ Errore durante SaRA: $_"
             return $false
         }
         finally {
-            # 5. Pulizia
+            # Pulizia con progress
             Write-StyledMessage Info '🧹 Pulizia file temporanei...'
-            Remove-Item $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
+            try {
+                for ($i = 0; $i -le 100; $i += 25) {
+                    Show-ProgressBar "Pulizia" "Rimozione file temporanei..." $i '🧹'
+                    Start-Sleep -Milliseconds 200
+                }
+                Remove-Item $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
+                Write-StyledMessage Success '✅ Pulizia completata'
+            }
+            catch {
+                Write-StyledMessage Warning "⚠️ Impossibile rimuovere alcuni file temporanei: $_"
+            }
         }
-        
-        return $true
+    }
+
+    function Center-Text([string]$Text, [int]$Width) {
+        $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding) + $Text
     }
 
     # Interfaccia principale
     $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
     Clear-Host
     
-    # Header
+    # Header identico a WinRepairToolkit
     $width = 65
     Write-Host ('═' * $width) -ForegroundColor Green
+    
     $asciiArt = @(
         '      __        __  _  _   _ ',
         '      \ \      / / | || \ | |',
@@ -370,32 +567,30 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 25)'
+        '        Version 2.1 (Build 26)'
     )
-    $asciiArt | ForEach-Object { 
-        $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
-        Write-Host ((' ' * $padding) + $_) -ForegroundColor White 
-    }
+    
+    $asciiArt | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
-    
-    # Preparazione
-    for ($i = 3; $i -gt 0; $i--) {
+
+    # Countdown preparazione ottimizzato (identico a WinRepairToolkit)
+    for ($i = 5; $i -gt 0; $i--) {
         $spinner = $spinners[$i % $spinners.Length]
-        Write-Host "`r$spinner ⏳ Preparazione - $i sec..." -NoNewline -ForegroundColor Yellow
+        Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
         Start-Sleep 1
     }
     Write-Host "`n"
     
     try {
         do {
-            # Menu
+            # Menu principale
             Write-StyledMessage Info "🎯 Seleziona un'opzione:"
             Write-Host ''
-            Write-Host '  [1]  Installazione Office (Basic Version)' -ForegroundColor White
-            Write-Host '  [2]  Ripara Office' -ForegroundColor White
-            Write-Host '  [3]  Rimozione completa Office' -ForegroundColor Yellow
-            Write-Host '  [0]  Esci' -ForegroundColor Red
+            Write-Host '  [1]  🏢 Installazione Office (Basic Version)' -ForegroundColor White
+            Write-Host '  [2]  🔧 Ripara Office' -ForegroundColor White
+            Write-Host '  [3]  🗑️ Rimozione completa Office' -ForegroundColor Yellow
+            Write-Host '  [0]  ❌ Esci' -ForegroundColor Red
             Write-Host ''
             
             $choice = Read-Host 'Scelta'
@@ -403,26 +598,48 @@ function OfficeToolkit {
             
             switch ($choice) {
                 '1' {
+                    Write-StyledMessage Info '🏢 Avvio processo di installazione Office...'
                     if (Start-OfficeInstall) {
+                        Write-StyledMessage Success '🎉 Installazione Office completata!'
+                        Write-StyledMessage Info '🎯 Installazione riuscita. Il sistema verrà riavviato per finalizzare.'
                         Invoke-SystemRestart 'Installazione completata'
+                    }
+                    else {
+                        Write-StyledMessage Error '❌ Installazione Office non riuscita'
+                        Write-StyledMessage Info '💡 Verifica la connessione internet e riprova'
                     }
                 }
                 '2' {
+                    Write-StyledMessage Info '🔧 Avvio processo di riparazione Office...'
                     if (Start-OfficeRepair) {
+                        Write-StyledMessage Success '🎉 Riparazione Office completata!'
+                        Write-StyledMessage Info '🎯 Riparazione riuscita. Il sistema verrà riavviato per finalizzare.'
                         Invoke-SystemRestart 'Riparazione completata'
+                    }
+                    else {
+                        Write-StyledMessage Error '❌ Riparazione Office non riuscita'
+                        Write-StyledMessage Info '💡 Prova con una riparazione online o contatta il supporto'
                     }
                 }
                 '3' {
+                    Write-StyledMessage Warning '🗑️ Avvio processo di rimozione Office...'
                     if (Start-OfficeUninstall) {
+                        Write-StyledMessage Success '🎉 Rimozione Office completata!'
+                        Write-StyledMessage Info '🎯 Rimozione riuscita. Il sistema verrà riavviato per finalizzare.'
                         Invoke-SystemRestart 'Rimozione completata'
+                    }
+                    else {
+                        Write-StyledMessage Error '❌ Rimozione Office non completata'
+                        Write-StyledMessage Info '💡 Alcuni componenti potrebbero non essere stati rimossi'
                     }
                 }
                 '0' {
-                    Write-StyledMessage Info '👋 Uscita...'
+                    Write-StyledMessage Info '👋 Uscita dal toolkit...'
+                    Write-StyledMessage Success '✅ Grazie per aver utilizzato Office Toolkit!'
                     return
                 }
                 default {
-                    Write-StyledMessage Warning 'Opzione non valida'
+                    Write-StyledMessage Warning '⚠️ Opzione non valida. Seleziona un numero da 0 a 3.'
                 }
             }
             
@@ -433,13 +650,59 @@ function OfficeToolkit {
         } while ($choice -ne '0')
     }
     catch {
-        Write-StyledMessage Error "Errore critico: $_"
+        Write-StyledMessage Error "❌ Errore critico durante l'esecuzione: $($_.Exception.Message)"
+        $script:Log += "[Sistema] ❌ Errore critico: $($_.Exception.Message)"
+        
+        # Salvataggio log su desktop in caso di errore critico
+        try {
+            $logPath = "$env:USERPROFILE\Desktop\OfficeToolkit_ErrorLog_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+            $script:Log | Out-File -FilePath $logPath -Encoding UTF8
+            Write-StyledMessage Info "📋 Log degli errori salvato sul Desktop: $logPath"
+        }
+        catch {
+            Write-StyledMessage Warning "⚠️ Impossibile salvare il log degli errori"
+        }
     }
     finally {
+        # Pulizia finale
+        Write-Host ''
+        Write-StyledMessage Info '🧹 Operazioni di pulizia finale...'
+        
+        # Rimozione directory temporanea se presente
+        if (Test-Path $script:TempDir) {
+            try {
+                Remove-Item $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
+                Write-StyledMessage Success '✅ File temporanei rimossi'
+            }
+            catch {
+                Write-StyledMessage Warning '⚠️ Alcuni file temporanei potrebbero non essere stati rimossi'
+            }
+        }
+        
+        # Salvataggio log finale se presente
+        if ($script:Log.Count -gt 0) {
+            try {
+                $finalLogPath = "$env:USERPROFILE\Desktop\OfficeToolkit_Log_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+                @(
+                    "=== OFFICE TOOLKIT LOG ==="
+                    "Data: $(Get-Date -Format 'dd/MM/yyyy HH:mm:ss')"
+                    "Versione: 2.1 (Build 25)"
+                    "Sistema: $env:COMPUTERNAME"
+                    "Utente: $env:USERNAME"
+                    "==========================="
+                    ""
+                ) + $script:Log | Out-File -FilePath $finalLogPath -Encoding UTF8
+                Write-StyledMessage Success "📋 Log completo salvato: $finalLogPath"
+            }
+            catch {
+                Write-StyledMessage Warning "⚠️ Impossibile salvare il log finale"
+            }
+        }
+        
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
         Read-Host
+        Write-StyledMessage Success '🎯 Office Toolkit terminato correttamente'
     }
 }
 
-# Esecuzione
 OfficeToolkit
