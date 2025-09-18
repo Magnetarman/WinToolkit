@@ -156,7 +156,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato, Fix Tool **Update Reset**.
 - [x] **`V2.0.0 (Build 82)`**: Rework Grafico `WinToolkit.ps1`.
 - [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`. Aggiornamento `Readme.md`.
-- [x] **`V2.1 (Build 10)`**: Funzione **Office Toolkit** Completa.
+- [x] **`V2.1 (Build 10)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`.
 - [ ] **`V2.2`**: Sezione **Windows Repair Plus** Completa.
 - [ ] **`V2.3`**: Sezione **Driver & Gaming** Completa.
 - [ ] **`V2.4`**: Sezione **Gaming Ready** Completa.
