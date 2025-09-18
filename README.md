@@ -30,8 +30,8 @@
 
 |                                                                          |                                                                      |
 | :----------------------------------------------------------------------: | :------------------------------------------------------------------: |
-|       <img src="img/Starter.png" alt="Starter-banner" width="800">       |         <img src="img/Run.png" alt="Run-banner" width="800">         |
-| <img src="img/RepairToolkit.png" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.png" alt="UpdateReset-banner" width="800"> |
+|       <img src="img/Starter.jpg" alt="Starter-banner" width="800">       |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
+| <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800"> |
 
 </div>
 
@@ -40,11 +40,12 @@
 ## 👾 Features
 
 > [!Note]
-> La versione 2.0 del Toolkit è in fase **RELEASE** nel ramo `main`.
+> Ramo `main` <br> La versione 2.0 del Toolkit è in fase **RELEASE**.
 >
-> Il ramo `Dev` contiene modifiche e funzionalità su cui sto lavorando.
-> <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**.
-> <br> Richiede di scaricare il pacchetto ed avviare `compiler.ps1` da terminale per testare lo script completo. **Potrebbe causare danni al tuo sistema.**
+> Ramo `Dev` <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**. **Potrebbe causare danni al tuo sistema.**
+
+> [!Tip]
+> Per far funzionare lo script nel ramo `Dev` basta scaricare il progetto, aprire PowerShell nella cartella principale e lanciare il file `compiler.ps1`. A quel punto farà tutto da solo: prende i vari pezzi di codice che si trovano nella cartella tool, li mette al posto giusto e crea il file finale `WinToolkit.ps1`, pronto per essere utilizzato. In pratica ti consegna direttamente la versione completa e ordinata del programma.
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
@@ -67,9 +68,9 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 ```sh
 └── WinToolkit/
     └── img
-        ├── Banner.png
-        ├── RepairToolkit.png
-        ├── Run.png
+        ├── WinToolkit-icon.png
+        ├── RepairToolkit.jpeg
+        ├── Run.jpeg
         └── Starter.png
     ├── LICENSE
     ├── README.md
