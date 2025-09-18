@@ -43,8 +43,7 @@
 >
 > Ramo `main` <br> La versione 2.0 del Toolkit è in fase **RELEASE**.
 >
-> Ramo `Dev` <br> Contiene modifiche e funzionalità su cui sto lavorando.
-> <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**.
+> Ramo `Dev` <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**.
 > <br> **Attenzione:** Richiede di scaricare il pacchetto ed avviare `compiler.ps1` da terminale per testare lo script completo. **Potrebbe causare danni al tuo sistema.**
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
