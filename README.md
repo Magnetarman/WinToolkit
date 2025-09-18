@@ -11,7 +11,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.0.1 (Build 3)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.1 (Build 10)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=for-the-badge&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -147,16 +147,16 @@ Avvia il Toolkit eseguendo il seguente metodo:
 
 ## 📌 Project Roadmap
 
-- [x] **`V1.0`**: <strike>Release Privata</strike>
-- [x] **`V1.1.0`**: <strike>Refactor Struttura in forma modulare.</strike>
-- [x] **`V2.0.0`**: <strike>**RELEASE Pubblica**. Refator totale progetto per future implementazioni.</strike>
-- [x] **`V2.0.0 (Build 68)`**: <strike> Funzione **Repair Toolkit** Completa.</strike>
-- [x] **`V2.0.0 (Build 71)`**: <strike> Funzione **Update Reset** Completa.</strike>
-- [x] **`V2.0.0 (Build 72)`**: <strike> Readme Rework, Rework Grafico Script.</strike>
-- [x] **`V2.0.0 (Build 73)`**: <strike> Start Script Potenziato, Fix Tool "WinUpdate Reset".</strike>
-- [x] **`V2.0.0 (Build 82)`**: <strike> Rework Grafico **WinToolkit.ps1**.</strike>
-- [x] **`V2.0.1 (Build 3)`**: <strike> Ottimizzazione Script **WinReinstallStore.ps1**, **WinRepairToolkit.ps1**. Aggiornamento Readme.</strike>
-- [ ] **`V2.1`**: Funzione **Office Toolkit** Completa.
+- [x] **`V1.0`**: Release Privata.
+- [x] **`V1.1.0`**: Refactor Struttura in forma modulare.
+- [x] **`V2.0.0`**: **RELEASE Pubblica**. Refator totale progetto per future implementazioni.
+- [x] **`V2.0.0 (Build 68)`**: Funzione **Repair Toolkit** Completa.
+- [x] **`V2.0.0 (Build 71)`**: Funzione **Update Reset** Completa.
+- [x] **`V2.0.0 (Build 72)`**: Readme Rework, Rework Grafico Script.
+- [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato, Fix Tool **Update Reset**.
+- [x] **`V2.0.0 (Build 82)`**: Rework Grafico `WinToolkit.ps1`.
+- [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`. Aggiornamento `Readme.md`.
+- [x] **`V2.1 (Build 10)`**: Funzione **Office Toolkit** Completa.
 - [ ] **`V2.2`**: Sezione **Windows Repair Plus** Completa.
 - [ ] **`V2.3`**: Sezione **Driver & Gaming** Completa.
 - [ ] **`V2.4`**: Sezione **Gaming Ready** Completa.
