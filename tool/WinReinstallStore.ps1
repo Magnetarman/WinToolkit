@@ -26,7 +26,7 @@ function WinReinstallStore {
         return (' ' * [math]::Floor($padding)) + $Text
     }
     
-    # Header grafico ottimizzato
+    # Header grafico
     function Show-Header {
         Clear-Host
         $width = 65
