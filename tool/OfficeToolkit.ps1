@@ -171,7 +171,7 @@ function OfficeToolkit {
         # Pulizia cache
         $caches = @(
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
-            "$env:LOCALAPDATA\Microsoft\Office\16.0\Lync\Lync.cache.xml",
+            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache.xml",
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
         )
         $cleaned = 0
@@ -362,7 +362,7 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 21)'
+        '        Version 2.1 (Build 22)'
     )
     $asciiArt | ForEach-Object { 
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
