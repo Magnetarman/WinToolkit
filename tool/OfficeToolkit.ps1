@@ -1,17 +1,13 @@
 function OfficeToolkit {
     param([int]$CountdownSeconds = 30)
 
-    # Variabili globali consolidate
-    $script:Log = @(); $script:TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
+    # Variabili globali
+    $script:TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }; Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
         Error = @{ Color = 'Red'; Icon = '❌' }; Info = @{ Color = 'Cyan'; Icon = '💎' }
     }
-    $DownloadFiles = @(
-        @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Setup.exe'; Name = 'Setup.exe'; Icon = '⚙️' }
-        @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Basic.xml'; Name = 'Basic.xml'; Icon = '📄' }
-    )
 
     function Write-StyledMessage([string]$Type, [string]$Text) {
         $style = $MsgStyles[$Type]
@@ -28,467 +24,379 @@ function OfficeToolkit {
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
+        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio...'
         Write-Host ''
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
                 Write-Host "`n"
-                Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
-                Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
+                Write-StyledMessage Error '⏸️ Riavvio annullato'
                 return $false
             }
             $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
-            Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
+            Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec" $remainingPercent '⏳' '' 'Red'
             Start-Sleep 1
         }
         Write-Host ''
-        Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
+        Write-StyledMessage Warning '⏰ Riavvio sistema...'
         Start-Sleep 1
         return $true
     }
 
-    function Center-Text([string]$Text, [int]$Width) {
-        $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding) + $Text
-    }
-
-    function Show-WelcomeScreen {
-        $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
-        Clear-Host
-        $width = 65
-        Write-Host ('═' * $width) -ForegroundColor Green
-        
-        $asciiArt = @(
-            '      __        __  _  _   _ ',
-            '      \ \      / / | || \ | |',
-            '       \ \ /\ / /  | ||  \| |',
-            '        \ V  V /   | || |\  |',
-            '         \_/\_/    |_||_| \_|',
-            '',
-            '     Office Toolkit By MagnetarMan',
-            '        Version 2.1 (Build 3)'
+    function Get-OfficeClient {
+        $paths = @(
+            "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun\OfficeC2RClient.exe",
+            "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun\OfficeC2RClient.exe"
         )
-        
-        $asciiArt | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
-        Write-Host ('═' * $width) -ForegroundColor Green
-        Write-Host ''
+        return $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
     }
 
-    function Show-MainMenu {
-        Write-StyledMessage Info "🎯 Seleziona un'opzione:"
-        Write-Host ''
-        Write-Host '  [1]  Installazione Office Basic (Word, PowerPoint, Excel)' -ForegroundColor White
-        Write-Host '  [2]  Ripara Installazione di Office corrotta' -ForegroundColor White
-        Write-Host '  [0]  Esci' -ForegroundColor Gray
-        Write-Host ''
-        
-        do {
-            $choice = Read-Host 'Inserisci la tua scelta'
-            switch ($choice) {
-                '1' { return 'install' }
-                '2' { return 'repair' }
-                '0' { return 'exit' }
-                default { Write-StyledMessage Warning 'Opzione non valida. Riprova.' }
+    function Stop-OfficeProcesses {
+        $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'msproject', 'lync')
+        $closed = 0
+        foreach ($process in $processes) {
+            $running = Get-Process -Name $process -ErrorAction SilentlyContinue
+            if ($running) {
+                $running | Stop-Process -Force -ErrorAction SilentlyContinue
+                $closed++
             }
-        } while ($true)
+        }
+        if ($closed -gt 0) { Write-StyledMessage Success "$closed processi Office terminati" }
     }
 
-    function New-TempDirectory {
-        try {
-            if (-not (Test-Path $script:TempDir)) {
-                New-Item -ItemType Directory -Path $script:TempDir -Force | Out-Null
-                Write-StyledMessage Info "📁 Directory temporanea creata: $script:TempDir"
-            }
-            return $true
-        }
-        catch {
-            Write-StyledMessage Error "Impossibile creare directory temporanea: $_"
-            return $false
-        }
-    }
-
-    function Invoke-FileDownload([hashtable]$FileInfo) {
-        $filePath = Join-Path $script:TempDir $FileInfo.Name
+    function Wait-ProcessCompletion([string]$ProcessName, [string]$Activity, [string]$Icon) {
         $spinnerIndex = 0
-        
-        try {
-            $webClient = New-Object System.Net.WebClient
-            $webClient.Headers.Add('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
-            
-            Write-StyledMessage Info "📥 Download di $($FileInfo.Name) in corso..."
-            
-            # Simulazione progresso download con spinner
-            $downloadTask = $webClient.DownloadFileTaskAsync($FileInfo.Url, $filePath)
-            
-            while (-not $downloadTask.IsCompleted) {
+        Start-Sleep 3
+        do {
+            $proc = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
+            if ($proc) {
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                Show-ProgressBar "Download $($FileInfo.Name)" 'In corso...' 50 $FileInfo.Icon $spinner 'Cyan'
-                Start-Sleep -Milliseconds 300
-            }
-            
-            if (Test-Path $filePath) {
-                Show-ProgressBar "Download $($FileInfo.Name)" 'Completato' 100 $FileInfo.Icon
-                Write-Host ''
-                Write-StyledMessage Success "$($FileInfo.Name) scaricato con successo"
-                $script:Log += "[Download] ✅ $($FileInfo.Name) scaricato correttamente"
-                return $true
+                Write-Host "`r$spinner $Icon $Activity..." -NoNewline -ForegroundColor Yellow
+                Start-Sleep 1
             }
             else {
-                throw "File non trovato dopo il download"
+                Start-Sleep 2
+                $proc = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
+                if (-not $proc) { break }
             }
-        }
-        catch {
-            Write-StyledMessage Error "Errore durante il download di $($FileInfo.Name): $_"
-            $script:Log += "[Download] ❌ Errore scaricando $($FileInfo.Name): $_"
-            return $false
-        }
-        finally {
-            if ($webClient) { $webClient.Dispose() }
+        } while ($proc)
+        Write-Host ''
+    }
+
+    function Invoke-SystemRestart([string]$Reason) {
+        Write-StyledMessage Info "🔄 $Reason - Riavvio necessario"
+        if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
+            try { Restart-Computer -Force }
+            catch { Write-StyledMessage Error "Errore riavvio: $_" }
         }
     }
 
-    function Start-OfficeInstallation {
-        Write-StyledMessage Info '🏢 Avvio installazione Office Basic...'
-        Write-Host ''
+    function Start-OfficeInstall {
+        Write-StyledMessage Info '🏢 Installazione Office Basic...'
         
-        # Creazione directory temporanea
-        if (-not (New-TempDirectory)) { return $false }
-        
-        # Download files
-        $downloadSuccess = $true
-        foreach ($file in $DownloadFiles) {
-            if (-not (Invoke-FileDownload $file)) {
-                $downloadSuccess = $false
-                break
-            }
-            Start-Sleep 1
-        }
-        
-        if (-not $downloadSuccess) {
-            Write-StyledMessage Error 'Errore durante il download dei file necessari'
-            return $false
-        }
-        
-        # Esecuzione installazione
-        Write-Host ''
-        Write-StyledMessage Info '🚀 Avvio del processo di installazione Office...'
-        
+        # Crea directory e download
         try {
+            if (-not (Test-Path $script:TempDir)) { New-Item -ItemType Directory -Path $script:TempDir -Force | Out-Null }
+            
+            $files = @(
+                @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Setup.exe'; Name = 'Setup.exe'; Icon = '⚙️' },
+                @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Basic.xml'; Name = 'Basic.xml'; Icon = '📄' }
+            )
+            
+            foreach ($file in $files) {
+                $filePath = Join-Path $script:TempDir $file.Name
+                $spinnerIndex = 0
+                
+                try {
+                    $webClient = New-Object System.Net.WebClient
+                    $webClient.Headers.Add('User-Agent', 'Mozilla/5.0')
+                    
+                    $downloadTask = $webClient.DownloadFileTaskAsync($file.Url, $filePath)
+                    while (-not $downloadTask.IsCompleted) {
+                        $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+                        Show-ProgressBar "Download $($file.Name)" 'In corso...' 50 $file.Icon $spinner 'Cyan'
+                        Start-Sleep -Milliseconds 300
+                    }
+                    
+                    Show-ProgressBar "Download $($file.Name)" 'Completato' 100 $file.Icon
+                    Write-Host ''
+                    $webClient.Dispose()
+                }
+                catch {
+                    Write-StyledMessage Error "Download fallito: $($file.Name)"
+                    return $false
+                }
+            }
+            
+            # Avvia installazione
+            Write-StyledMessage Info '🚀 Avvio installazione...'
             $setupPath = Join-Path $script:TempDir 'Setup.exe'
             $configPath = Join-Path $script:TempDir 'Basic.xml'
-            
             Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -WorkingDirectory $script:TempDir
-            $script:Log += "[Installazione] ✅ Processo di installazione avviato"
             
-            # Attesa manuale dell'utente
-            Write-Host ''
-            Write-StyledMessage Warning '⏳ Installazione in corso. L''interfaccia di Office potrebbe aprirsi...'
+            # Attesa utente
             $spinnerIndex = 0
-            
-            Write-StyledMessage Info '💡 Premi un tasto qualsiasi quando l''installazione è completata...'
-            
+            Write-StyledMessage Info '💡 Premi un tasto quando completata...'
             do {
                 if ([Console]::KeyAvailable) {
                     [Console]::ReadKey($true) | Out-Null
                     break
                 }
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                Write-Host "`r$spinner 🏢 Attendendo completamento installazione Office..." -NoNewline -ForegroundColor Yellow
+                Write-Host "`r$spinner 🏢 Installazione in corso..." -NoNewline -ForegroundColor Yellow
                 Start-Sleep -Milliseconds 500
             } while ($true)
-            
             Write-Host ''
             
-            # Conferma completamento
+            # Conferma
             do {
-                $confirmation = Read-Host "`n✅ L'installazione è stata completata correttamente? [Y/N]"
-                if ($confirmation.ToLower() -eq 'y') {
-                    Write-StyledMessage Success 'Installazione Office completata con successo!'
-                    $script:Log += "[Installazione] ✅ Installazione completata dall'utente"
+                $confirm = Read-Host "✅ Installazione completata? [Y/N]"
+                if ($confirm.ToLower() -eq 'y') {
+                    Remove-Item $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
                     return $true
                 }
-                elseif ($confirmation.ToLower() -eq 'n') {
-                    Write-StyledMessage Warning 'Installazione non completata'
-                    $script:Log += "[Installazione] ⚠️ Installazione non completata"
-                    return $false
-                }
-                else {
-                    Write-StyledMessage Warning 'Risposta non valida. Inserisci Y o N.'
-                }
+                elseif ($confirm.ToLower() -eq 'n') { return $false }
+                else { Write-StyledMessage Warning 'Risposta non valida.' }
             } while ($true)
         }
         catch {
-            Write-StyledMessage Error "Errore durante l'installazione: $_"
-            $script:Log += "[Installazione] ❌ Errore: $_"
+            Write-StyledMessage Error "Errore installazione: $_"
             return $false
-        }
-    }
-
-    function Stop-OfficeProcesses {
-        $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'msproject', 'lync')
-        Write-StyledMessage Info '🔄 Chiusura processi di Office in corso...'
-        
-        $closedCount = 0
-        foreach ($process in $processes) {
-            $runningProcesses = Get-Process -Name $process -ErrorAction SilentlyContinue
-            if ($runningProcesses) {
-                $runningProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
-                $closedCount++
-                Write-StyledMessage Success "Processo $process terminato"
-            }
-        }
-        
-        if ($closedCount -gt 0) {
-            Write-StyledMessage Success "$closedCount processi di Office chiusi"
-            $script:Log += "[Riparazione] ✅ $closedCount processi Office terminati"
-        }
-        else {
-            Write-StyledMessage Info 'Nessun processo Office in esecuzione'
-        }
-    }
-
-    function Clear-OfficeCache {
-        Write-StyledMessage Info '🧹 Eliminazione cache di Office...'
-        
-        $cachePaths = @(
-            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
-            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache.xml",
-            "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
-        )
-        
-        $removedCount = 0
-        foreach ($path in $cachePaths) {
-            if (Test-Path $path) {
-                try {
-                    Remove-Item $path -Recurse -Force -ErrorAction Stop
-                    Write-StyledMessage Success "Cache eliminata: $(Split-Path $path -Leaf)"
-                    $removedCount++
-                }
-                catch {
-                    Write-StyledMessage Warning "Impossibile rimuovere: $(Split-Path $path -Leaf)"
-                }
-            }
-        }
-        
-        if ($removedCount -gt 0) {
-            Write-StyledMessage Success "$removedCount elementi cache eliminati"
-            $script:Log += "[Riparazione] ✅ $removedCount cache eliminate"
-        }
-        else {
-            Write-StyledMessage Info 'Nessuna cache da eliminare'
-        }
-    }
-
-    function Reset-OfficeRegistry {
-        Write-StyledMessage Info '📝 Reset impostazioni registro Office...'
-        
-        try {
-            $regPath = 'HKCU:\Software\Microsoft\Office\16.0'
-            if (Test-Path $regPath) {
-                $backupPath = 'HKCU:\Software\Microsoft\Office\Office.16.0.bak'
-                
-                # Rimuovi backup esistente se presente
-                if (Test-Path $backupPath) {
-                    Remove-Item $backupPath -Recurse -Force
-                }
-                
-                Rename-Item -Path $regPath -NewName 'Office.16.0.bak' -Force
-                Write-StyledMessage Success 'Chiave registro rinominata in Office.16.0.bak'
-                $script:Log += "[Riparazione] ✅ Registro Office resettato (backup creato)"
-            }
-            else {
-                Write-StyledMessage Info 'Chiave registro Office non trovata'
-            }
-        }
-        catch {
-            Write-StyledMessage Warning "Errore reset registro: $_"
-            $script:Log += "[Riparazione] ⚠️ Errore reset registro: $_"
         }
     }
 
     function Start-OfficeRepair {
-        Write-StyledMessage Info '🔧 Avvio riparazione Office Click-to-Run...'
+        Write-StyledMessage Info '🔧 Riparazione Office...'
         
-        $officeC2R = "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun\OfficeC2RClient.exe"
-        $officeC2Rx64 = "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun\OfficeC2RClient.exe"
-        
-        $clientPath = $null
-        if (Test-Path $officeC2R) {
-            Write-StyledMessage Info '🖥️ Office 64-bit rilevato'
-            $clientPath = $officeC2R
-        }
-        elseif (Test-Path $officeC2Rx64) {
-            Write-StyledMessage Info '🖥️ Office 32-bit rilevato'
-            $clientPath = $officeC2Rx64
-        }
-        else {
-            Write-StyledMessage Error 'OfficeC2RClient.exe non trovato. Verifica installazione Office.'
-            return $false
-        }
-        
-        try {
-            # Avvio processo riparazione
-            Start-Process -FilePath $clientPath -ArgumentList '/repair Office16' -Verb RunAs
-            Write-StyledMessage Success 'Processo di riparazione avviato'
-            $script:Log += "[Riparazione] ✅ Riparazione Office avviata"
-            
-            # Monitoraggio processo
-            Write-Host ''
-            Write-StyledMessage Info '⏳ Monitoraggio processo di riparazione...'
-            $spinnerIndex = 0
-            
-            # Attesa iniziale per l'avvio del processo
-            Start-Sleep 3
-            
-            do {
-                $repairProcess = Get-Process -Name 'OfficeC2RClient' -ErrorAction SilentlyContinue
-                if ($repairProcess) {
-                    $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                    Write-Host "`r$spinner 🔧 Riparazione Office in corso..." -NoNewline -ForegroundColor Yellow
-                    Start-Sleep 1
-                }
-                else {
-                    # Verifica se il processo è mai partito
-                    Start-Sleep 2
-                    $repairProcess = Get-Process -Name 'OfficeC2RClient' -ErrorAction SilentlyContinue
-                    if (-not $repairProcess) {
-                        break
-                    }
-                }
-            } while ($repairProcess)
-            
-            Write-Host ''
-            Write-StyledMessage Success 'Riparazione Office completata!'
-            $script:Log += "[Riparazione] ✅ Riparazione Office completata"
-            return $true
-        }
-        catch {
-            Write-StyledMessage Error "Errore avvio riparazione: $_"
-            $script:Log += "[Riparazione] ❌ Errore riparazione: $_"
-            return $false
-        }
-    }
-
-    function Start-OfficeRepairSequence {
-        Write-StyledMessage Info '🛠️ Avvio sequenza di riparazione Office...'
-        Write-Host ''
-        
-        # Sequenza di riparazione
         Stop-OfficeProcesses
-        Start-Sleep 1
         
-        Clear-OfficeCache
-        Start-Sleep 1
-        
-        Reset-OfficeRegistry
-        Start-Sleep 1
-        
-        $repairSuccess = Start-OfficeRepair
-        
-        if ($repairSuccess) {
-            Write-Host ''
-            Write-StyledMessage Success '🎉 Riparazione Office completata con successo!'
-            Write-StyledMessage Info '💡 Verrà eseguito un riavvio per applicare le modifiche'
-            return $true
-        }
-        else {
-            Write-StyledMessage Warning '⚠️ La riparazione potrebbe non essere completata correttamente'
-            return $false
-        }
-    }
-
-    function Remove-TempDirectory {
-        try {
-            if (Test-Path $script:TempDir) {
-                Remove-Item $script:TempDir -Recurse -Force
-                Write-StyledMessage Success '🗑️ Directory temporanea eliminata'
-                $script:Log += "[Cleanup] ✅ Directory temporanea rimossa"
+        # Pulizia cache
+        $caches = @(
+            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
+            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache.xml",
+            "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
+        )
+        $cleaned = 0
+        foreach ($cache in $caches) {
+            if (Test-Path $cache) {
+                try {
+                    Remove-Item $cache -Recurse -Force
+                    $cleaned++
+                }
+                catch { }
             }
         }
-        catch {
-            Write-StyledMessage Warning "Impossibile eliminare directory temporanea: $_"
-        }
-    }
-
-    function Start-SystemRestart([string]$Reason) {
-        Write-StyledMessage Info '🔄 Il sistema verrà riavviato per finalizzare le modifiche'
+        if ($cleaned -gt 0) { Write-StyledMessage Success "$cleaned cache eliminate" }
         
-        if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
+        # Reset registro
+        try {
+            $regPath = 'HKCU:\Software\Microsoft\Office\16.0'
+            if (Test-Path $regPath) {
+                $backupPath = 'HKCU:\Software\Microsoft\Office\Office.16.0.bak'
+                if (Test-Path $backupPath) { Remove-Item $backupPath -Recurse -Force }
+                Rename-Item -Path $regPath -NewName 'Office.16.0.bak' -Force
+                Write-StyledMessage Success 'Registro resettato'
+            }
+        }
+        catch { Write-StyledMessage Warning "Errore registro: $_" }
+        
+        # Riparazione Click-to-Run
+        $client = Get-OfficeClient
+        if ($client) {
             try {
-                Write-StyledMessage Info '🔄 Riavvio in corso...'
-                Restart-Computer -Force
+                Start-Process -FilePath $client -ArgumentList '/repair Office16' -Verb RunAs
+                Write-StyledMessage Success 'Riparazione avviata'
+                Wait-ProcessCompletion 'OfficeC2RClient' 'Riparazione Office' '🔧'
+                Write-StyledMessage Success 'Riparazione completata!'
+                return $true
             }
             catch {
-                Write-StyledMessage Error "❌ Errore riavvio: $_"
-                Write-StyledMessage Info '🔄 Riavviare manualmente il sistema.'
+                Write-StyledMessage Error "Errore riparazione: $_"
+                return $false
             }
         }
         else {
-            Write-StyledMessage Info '✅ Script completato. Sistema non riavviato.'
-            Write-StyledMessage Info '💡 Riavvia quando possibile per applicare le modifiche.'
+            Write-StyledMessage Error 'Client Office non trovato'
+            return $false
         }
+    }
+
+    function Start-OfficeUninstall {
+        Write-StyledMessage Warning '🗑️ Rimozione completa Office'
+        Write-StyledMessage Warning '⚠️ ATTENZIONE: Rimozione totale del sistema!'
+        
+        do {
+            $confirm = Read-Host "Procedere? [Y/N]"
+            if ($confirm.ToLower() -eq 'n') { return $false }
+            elseif ($confirm.ToLower() -eq 'y') { break }
+            else { Write-StyledMessage Warning 'Risposta non valida.' }
+        } while ($true)
+        
+        Stop-OfficeProcesses
+        
+        # Disinstallazione Click-to-Run
+        $client = Get-OfficeClient
+        if ($client) {
+            try {
+                Start-Process -FilePath $client -ArgumentList '/uninstall Office16' -Verb RunAs
+                Write-StyledMessage Success 'Disinstallazione avviata'
+                Wait-ProcessCompletion 'OfficeC2RClient' 'Disinstallazione Office' '🗑️'
+            }
+            catch { Write-StyledMessage Error "Errore disinstallazione: $_" }
+        }
+        
+        # Pulizia registro completa
+        $regPaths = @(
+            'HKCU:\Software\Microsoft\Office',
+            'HKLM:\SOFTWARE\Microsoft\Office',
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office',
+            'HKCU:\Software\Microsoft\VBA',
+            'HKLM:\SOFTWARE\Microsoft\VBA',
+            'HKCU:\Software\Classes\Word.Application',
+            'HKCU:\Software\Classes\Excel.Application',
+            'HKCU:\Software\Classes\PowerPoint.Application',
+            'HKLM:\SOFTWARE\Classes\Word.Application',
+            'HKLM:\SOFTWARE\Classes\Excel.Application',
+            'HKLM:\SOFTWARE\Classes\PowerPoint.Application'
+        )
+        
+        $removed = 0
+        foreach ($regPath in $regPaths) {
+            if (Test-Path $regPath) {
+                try {
+                    Remove-Item -Path $regPath -Recurse -Force
+                    $removed++
+                }
+                catch { }
+            }
+        }
+        if ($removed -gt 0) { Write-StyledMessage Success "$removed chiavi registro rimosse" }
+        
+        # Rimozione cartelle
+        $folders = @(
+            "$env:ProgramFiles\Microsoft Office",
+            "${env:ProgramFiles(x86)}\Microsoft Office",
+            "$env:ProgramData\Microsoft\Office",
+            "$env:LOCALAPPDATA\Microsoft\Office",
+            "$env:APPDATA\Microsoft\Office",
+            "$env:APPDATA\Microsoft\Word",
+            "$env:APPDATA\Microsoft\Excel",
+            "$env:APPDATA\Microsoft\PowerPoint",
+            "$env:LOCALAPPDATA\Microsoft\OneNote",
+            "$env:LOCALAPPDATA\Microsoft\Outlook",
+            "$env:APPDATA\Microsoft\Outlook"
+        )
+        
+        $removedFolders = 0
+        foreach ($folder in $folders) {
+            if (Test-Path $folder) {
+                try {
+                    Remove-Item -Path $folder -Recurse -Force
+                    $removedFolders++
+                }
+                catch { }
+            }
+        }
+        if ($removedFolders -gt 0) { Write-StyledMessage Success "$removedFolders cartelle rimosse" }
+        
+        # Pulizia file temporanei
+        $tempPaths = @("$env:TEMP\*Office*", "$env:TEMP\*Word*", "$env:TEMP\*Excel*", "$env:TEMP\*PowerPoint*")
+        $cleanedTemp = 0
+        foreach ($pattern in $tempPaths) {
+            try {
+                Get-ChildItem -Path (Split-Path $pattern) -Filter (Split-Path $pattern -Leaf) -ErrorAction SilentlyContinue | 
+                ForEach-Object {
+                    Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                    $cleanedTemp++
+                }
+            }
+            catch { }
+        }
+        if ($cleanedTemp -gt 0) { Write-StyledMessage Success "$cleanedTemp file temporanei rimossi" }
+        
+        Write-StyledMessage Success '🎉 Rimozione completa terminata!'
+        return $true
     }
 
     # Interfaccia principale
-    Show-WelcomeScreen
+    $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
+    Clear-Host
     
-    # Countdown preparazione
+    # Header
+    $width = 65
+    Write-Host ('═' * $width) -ForegroundColor Green
+    $asciiArt = @(
+        '      __        __  _  _   _ ',
+        '      \ \      / / | || \ | |',
+        '       \ \ /\ / /  | ||  \| |',
+        '        \ V  V /   | || |\  |',
+        '         \_/\_/    |_||_| \_|',
+        '',
+        '     Office Toolkit By MagnetarMan',
+        '        Version 2.1 (Build 6)'
+    )
+    $ascii | ForEach-Object { 
+        $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
+        Write-Host ((' ' * $padding) + $_) -ForegroundColor White 
+    }
+    Write-Host ('═' * $width) -ForegroundColor Green
+    Write-Host ''
+    
+    # Preparazione
     for ($i = 3; $i -gt 0; $i--) {
         $spinner = $spinners[$i % $spinners.Length]
-        Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
+        Write-Host "`r$spinner ⏳ Preparazione - $i sec..." -NoNewline -ForegroundColor Yellow
         Start-Sleep 1
     }
     Write-Host "`n"
     
     try {
         do {
-            $choice = Show-MainMenu
+            # Menu
+            Write-StyledMessage Info "🎯 Seleziona un'opzione:"
+            Write-Host ''
+            Write-Host '  [1]  Installazione Office Basic' -ForegroundColor White
+            Write-Host '  [2]  Ripara Office corrotto' -ForegroundColor White
+            Write-Host '  [3]  Rimozione completa Office' -ForegroundColor Red
+            Write-Host '  [0]  Esci' -ForegroundColor Gray
+            Write-Host ''
+            
+            $choice = Read-Host 'Scelta'
             Write-Host ''
             
             switch ($choice) {
-                'install' {
-                    Write-StyledMessage Info '🏢 Avvio installazione Office Basic...'
-                    $installSuccess = Start-OfficeInstallation
-                    
-                    if ($installSuccess) {
-                        Remove-TempDirectory
-                        Start-SystemRestart 'Installazione Office completata'
+                '1' {
+                    if (Start-OfficeInstall) {
+                        Invoke-SystemRestart 'Installazione completata'
                     }
-                    else {
-                        Write-StyledMessage Warning 'Installazione non completata'
-                        Remove-TempDirectory
-                    }
-                    break
                 }
-                'repair' {
-                    Write-StyledMessage Info '🔧 Avvio riparazione Office...'
-                    $repairSuccess = Start-OfficeRepairSequence
-                    
-                    if ($repairSuccess) {
-                        Start-SystemRestart 'Riparazione Office completata'
+                '2' {
+                    if (Start-OfficeRepair) {
+                        Invoke-SystemRestart 'Riparazione completata'
                     }
-                    else {
-                        Write-StyledMessage Info '⚠️ Script completato con avvisi'
-                    }
-                    break
                 }
-                'exit' {
-                    Write-StyledMessage Info '👋 Uscita dal toolkit...'
+                '3' {
+                    if (Start-OfficeUninstall) {
+                        Invoke-SystemRestart 'Rimozione completata'
+                    }
+                }
+                '0' {
+                    Write-StyledMessage Info '👋 Uscita...'
                     return
                 }
+                default {
+                    Write-StyledMessage Warning 'Opzione non valida'
+                }
             }
             
-            if ($choice -ne 'exit') {
-                Write-Host "`n" + ('─' * 50)
-                Write-Host ''
+            if ($choice -ne '0') {
+                Write-Host "`n" + ('─' * 50) + "`n"
             }
             
-        } while ($choice -ne 'exit')
+        } while ($choice -ne '0')
     }
     catch {
-        Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
-        $script:Log += "[Sistema] ❌ Errore critico: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore critico: $_"
     }
     finally {
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
@@ -496,5 +404,5 @@ function OfficeToolkit {
     }
 }
 
-# Esecuzione del toolkit
+# Esecuzione
 OfficeToolkit
