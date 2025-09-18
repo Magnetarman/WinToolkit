@@ -1,4 +1,14 @@
 function WinInstallPSProfile {
+    <#
+    .SYNOPSIS
+        Script per installare il profilo PowerShell di ChrisTitusTech.
+    .DESCRIPTION
+        Questo script scarica e installa il profilo PowerShell personalizzato di ChrisTitusTech, che include configurazioni per oh-my-posh, font, e altre utilità.
+        Lo script verifica se è in esecuzione con privilegi di amministratore e, in caso contrario, si rilancia con i permessi necessari.
+        Inoltre, controlla se PowerShell Core è installato e se la versione di PowerShell è 7 o superiore.
+        Se il profilo esistente è diverso dalla versione più recente disponibile online, lo aggiorna e crea un backup del profilo precedente.
+        Al termine dell'installazione, offre la possibilità di riavviare il sistema per applicare tutte le modifiche.
+    #>
     $Host.UI.RawUI.WindowTitle = "InstallPSProfile by MagnetarMan"
     Clear-Host
     $width = 65
