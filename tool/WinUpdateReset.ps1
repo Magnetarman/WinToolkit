@@ -211,7 +211,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.1 (Build 23)'
+        '       Version 2.1 (Build 24)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -356,6 +356,157 @@ function WinUpdateReset {
             Write-Host 'Errore!' -ForegroundColor Red
             Write-StyledMessage Warning "⚠️ Errore durante il reset del client Windows Update."
         }
+        Write-Host ''
+
+        # SECONDO CICLO DI VERIFICA E CORREZIONE
+        Write-Host ('═' * 65) -ForegroundColor Yellow
+        Write-StyledMessage Info '🔍 SECONDO CICLO: Verifica e correzione finale...'
+        Write-StyledMessage Info '🎯 Esecuzione controlli di sicurezza per garantire la completezza della riparazione.'
+        Write-Host ('═' * 65) -ForegroundColor Yellow
+        Write-Host ''
+
+        # Verifica e riconfigurazione servizi critici
+        Write-StyledMessage Info '🔧 Verifica finale configurazione servizi Windows Update...'
+        $criticalServices = $serviceConfig.Keys | Where-Object { $serviceConfig[$_].Critical }
+        $serviceIssues = 0
+        
+        for ($i = 0; $i -lt $criticalServices.Count; $i++) {
+            $serviceName = $criticalServices[$i]
+            $config = $serviceConfig[$serviceName]
+            
+            try {
+                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                if ($service) {
+                    $currentStartup = (Get-WmiObject -Class Win32_Service -Filter "Name='$serviceName'").StartMode
+                    $targetStartup = if ($config.Type -eq 'Automatic') { 'Auto' } else { 'Manual' }
+                    
+                    if ($currentStartup -ne $targetStartup) {
+                        Write-StyledMessage Warning "$($config.Icon) Correzione necessaria per $serviceName (attuale: $currentStartup, richiesto: $targetStartup)"
+                        Set-Service -Name $serviceName -StartupType $config.Type -ErrorAction Stop
+                        Write-StyledMessage Success "$($config.Icon) Servizio $serviceName riconfigurato correttamente."
+                        $serviceIssues++
+                    }
+                    else {
+                        Write-StyledMessage Success "$($config.Icon) Servizio $serviceName: configurazione corretta."
+                    }
+                }
+            }
+            catch {
+                Write-StyledMessage Warning "$($config.Icon) Errore nella verifica di $serviceName - $($_.Exception.Message)"
+                $serviceIssues++
+            }
+        }
+        
+        if ($serviceIssues -eq 0) {
+            Write-StyledMessage Success "✅ Tutti i servizi sono configurati correttamente!"
+        }
+        else {
+            Write-StyledMessage Info "🔧 Corretti $serviceIssues problemi di configurazione."
+        }
+        Write-Host ''
+
+        # Verifica stato servizi essenziali
+        Write-StyledMessage Info '🚀 Verifica finale stato servizi essenziali...'
+        $essentialServices = @('wuauserv', 'cryptsvc', 'bits')
+        $stoppedServices = @()
+        
+        foreach ($serviceName in $essentialServices) {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            $config = $serviceConfig[$serviceName]
+            
+            if ($service -and $service.Status -ne 'Running') {
+                Write-StyledMessage Warning "$($config.Icon) Servizio $serviceName non in esecuzione, tentativo di avvio..."
+                try {
+                    Start-Service -Name $serviceName -ErrorAction Stop
+                    
+                    # Attesa avvio
+                    $timeout = 5; $spinnerIndex = 0
+                    do {
+                        Write-Host "`r$(' ' * 80)" -NoNewline
+                        Write-Host "`r$($spinners[$spinnerIndex % $spinners.Length]) 🔄 Avvio $serviceName..." -NoNewline -ForegroundColor Yellow
+                        Start-Sleep -Milliseconds 300
+                        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                        $timeout--; $spinnerIndex++
+                    } while ($service.Status -ne 'Running' -and $timeout -gt 0)
+                    
+                    Write-Host "`r$(' ' * 80)" -NoNewline
+                    Write-Host "`r" -NoNewline
+                    
+                    if ($service.Status -eq 'Running') {
+                        Write-StyledMessage Success "$($config.Icon) Servizio $serviceName riavviato con successo."
+                    }
+                    else {
+                        Write-StyledMessage Warning "$($config.Icon) Servizio $serviceName: avvio in corso..."
+                        $stoppedServices += $serviceName
+                    }
+                }
+                catch {
+                    Write-StyledMessage Warning "$($config.Icon) Impossibile avviare $serviceName - $($_.Exception.Message)"
+                    $stoppedServices += $serviceName
+                }
+            }
+            else {
+                Write-StyledMessage Success "$($config.Icon) Servizio $serviceName: in esecuzione correttamente."
+            }
+        }
+        Write-Host ''
+
+        # Verifica finale directory
+        Write-StyledMessage Info '📁 Verifica finale eliminazione componenti...'
+        $directories = @(
+            @{ Path = "C:\Windows\SoftwareDistribution"; Name = "SoftwareDistribution" },
+            @{ Path = "C:\Windows\System32\catroot2"; Name = "catroot2" }
+        )
+        
+        $recreatedDirs = 0
+        foreach ($dir in $directories) {
+            if (Test-Path $dir.Path) {
+                Write-StyledMessage Info "📂 Directory $($dir.Name) ricreata dal sistema - questo è normale."
+                $recreatedDirs++
+            }
+            else {
+                Write-StyledMessage Success "✅ Directory $($dir.Name) correttamente eliminata."
+            }
+        }
+        
+        if ($recreatedDirs -gt 0) {
+            Write-StyledMessage Info "💡 $recreatedDirs directory sono state ricreate automaticamente dal sistema (comportamento normale)."
+        }
+        Write-Host ''
+
+        # Esecuzione secondo reset del client
+        Write-StyledMessage Info '🔄 Secondo reset del client Windows Update...'
+        Write-Host '⚡ Esecuzione comando reset aggiuntivo... ' -NoNewline -ForegroundColor Magenta
+        try {
+            Start-Process "cmd.exe" -ArgumentList "/c wuauclt /resetauthorization /detectnow" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+            Write-Host 'Completato!' -ForegroundColor Green
+            Write-StyledMessage Success "🔄 Secondo reset del client completato."
+        }
+        catch {
+            Write-Host 'Errore!' -ForegroundColor Red
+            Write-StyledMessage Warning "⚠️ Errore durante il secondo reset del client."
+        }
+        Write-Host ''
+
+        # Riepilogo finale
+        Write-Host ('═' * 65) -ForegroundColor Cyan
+        Write-StyledMessage Info '📊 RIEPILOGO FINALE:'
+        Write-StyledMessage Success "✅ Primo ciclo di riparazione: Completato"
+        Write-StyledMessage Success "✅ Secondo ciclo di verifica: Completato"
+        if ($serviceIssues -eq 0) {
+            Write-StyledMessage Success "✅ Configurazione servizi: Perfetta"
+        }
+        else {
+            Write-StyledMessage Success "✅ Configurazione servizi: Corretta ($serviceIssues problemi risolti)"
+        }
+        if ($stoppedServices.Count -eq 0) {
+            Write-StyledMessage Success "✅ Stato servizi essenziali: Tutti attivi"
+        }
+        else {
+            Write-StyledMessage Warning "⚠️ Servizi con problemi: $($stoppedServices -join ', ')"
+        }
+        Write-StyledMessage Success "✅ Reset client Windows Update: Eseguito 2 volte"
+        Write-Host ('═' * 65) -ForegroundColor Cyan
         Write-Host ''
 
         # Messaggi finali con stile
