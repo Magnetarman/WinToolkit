@@ -318,7 +318,7 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 11)'
+        '        Version 2.1 (Build 13)'
     )
     $asciiArt | ForEach-Object { 
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
