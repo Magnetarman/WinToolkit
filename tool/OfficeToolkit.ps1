@@ -167,93 +167,56 @@ function OfficeToolkit {
     function Start-OfficeRepair {
         Write-StyledMessage Info '🔧 Riparazione Office...'
         
-        function Start-OfficeRepair {
-            Write-StyledMessage Info '🔧 Riparazione Office con Microsoft SaRA...'
-            Write-StyledMessage Warning '⚠️ ATTENZIONE: Verrà scaricato ed eseguito lo strumento ufficiale Microsoft.'
-    
-            do {
-                $confirm = Read-Host "Procedere? [Y/N]"
-                if ($confirm.ToLower() -eq 'n') { return $false }
-                elseif ($confirm.ToLower() -eq 'y') { break }
-                else { Write-StyledMessage Warning 'Risposta non valida.' }
-            } while ($true)
-    
-            Stop-OfficeProcesses
-    
+        Stop-OfficeProcesses
+        
+        # Pulizia cache
+        $caches = @(
+            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
+            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache.xml",
+            "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
+        )
+        $cleaned = 0
+        foreach ($cache in $caches) {
+            if (Test-Path $cache) {
+                try {
+                    Remove-Item $cache -Recurse -Force
+                    $cleaned++
+                }
+                catch { }
+            }
+        }
+        if ($cleaned -gt 0) { Write-StyledMessage Success "$cleaned cache eliminate" }
+        
+        # Reset registro
+        try {
+            $regPath = 'HKCU:\Software\Microsoft\Office\16.0'
+            if (Test-Path $regPath) {
+                $backupPath = 'HKCU:\Software\Microsoft\Office\Office.16.0.bak'
+                if (Test-Path $backupPath) { Remove-Item $backupPath -Recurse -Force }
+                Rename-Item -Path $regPath -NewName 'Office.16.0.bak' -Force
+                Write-StyledMessage Success 'Registro resettato'
+            }
+        }
+        catch { Write-StyledMessage Warning "Errore registro: $_" }
+        
+        # Riparazione Click-to-Run
+        $client = Get-OfficeClient
+        if ($client) {
             try {
-                # Copia logica di download ed estrazione da Start-OfficeUninstall
-                if (-not (Test-Path $script:TempDir)) { New-Item -ItemType Directory -Path $script:TempDir -Force | Out-Null }
-        
-                $saraUrl = 'https://aka.ms/SaRA_EnterpriseVersionFiles'
-                $saraZipPath = Join-Path $script:TempDir 'SaRA.zip'
-                $extractedPath = Join-Path $script:TempDir 'DONE'
-                $saraExePath = Join-Path $extractedPath 'SaRAcmd.exe'
-        
-                Write-StyledMessage Info '📥 Download Microsoft Support and Recovery Assistant (SaRA)...'
-                try {
-                    Write-Host "`r📥 Download in corso: SaRA.zip..." -NoNewline -ForegroundColor 'Cyan'
-                    Invoke-WebRequest -Uri $saraUrl -OutFile $saraZipPath -UseBasicParsing
-                    Write-Host "`r📥 Download completato: SaRA.zip      "
-                }
-                catch {
-                    Write-StyledMessage Error "Download di SaRA fallito: $_"
-                    return $false
-                }
-        
-                Write-StyledMessage Info '📦 Estrazione file...'
-                try {
-                    Expand-Archive -Path $saraZipPath -DestinationPath $script:TempDir -Force
-                }
-                catch {
-                    Write-StyledMessage Error "Estrazione fallita: $_"
-                    return $false
-                }
-        
-                if (-not (Test-Path $saraExePath)) {
-                    Write-StyledMessage Error "❌ Errore: File 'SaRAcmd.exe' non trovato nella cartella 'DONE'."
-                    Write-StyledMessage Warning "Riprova o scarica lo strumento manualmente."
-                    return $false
-                }
-        
-                # Logica di riparazione con SaRA
-                Write-StyledMessage Info '🚀 Avvio diagnostica e riparazione automatica Office...'
-                Write-StyledMessage Info '💡 Questo processo potrebbe richiedere molto tempo. Attendere prego...'
-        
-                # Pausa per la scansione di sicurezza
-                Write-StyledMessage Info '⏱️ Attesa di 5 secondi per la scansione di sicurezza...'
-                Start-Sleep -Seconds 5
-        
-                # Esecuzione di SaRA per la diagnostica e riparazione
-                $arguments = '-S OfficeScanScenario -AcceptEula'
-                Start-Process -FilePath $saraExePath -ArgumentList $arguments -WorkingDirectory $extractedPath -PassThru -Verb RunAs
-        
-                # Attesa della conferma da parte dell'utente
-                $spinnerIndex = 0
-                Write-StyledMessage Info '💡 Premi un tasto quando il programma SaRA ha terminato il lavoro.'
-                do {
-                    if ([Console]::KeyAvailable) {
-                        [Console]::ReadKey($true) | Out-Null
-                        break
-                    }
-                    $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                    Write-Host "`r$spinner 🔧 Diagnostica e riparazione in corso..." -NoNewline -ForegroundColor Yellow
-                    Start-Sleep -Milliseconds 500
-                } while ($true)
-                Write-Host ''
-        
-                Write-StyledMessage Success '🎉 Diagnostica e riparazione tramite SaRA completata con successo!'
+                Start-Process -FilePath $client -ArgumentList '/repair Office16' -Verb RunAs
+                Write-StyledMessage Success 'Riparazione avviata'
+                Wait-ProcessCompletion 'OfficeC2RClient' 'Riparazione Office' '🔧'
+                Write-StyledMessage Success 'Riparazione completata!'
+                return $true
             }
             catch {
-                Write-StyledMessage Error "Errore durante l'esecuzione di SaRA: $_"
+                Write-StyledMessage Error "Errore riparazione: $_"
                 return $false
             }
-            finally {
-                # Pulizia
-                Write-StyledMessage Info '🧹 Pulizia file temporanei...'
-                Remove-Item $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
-            }
-    
-            return $true
+        }
+        else {
+            Write-StyledMessage Error 'Client Office non trovato'
+            return $false
         }
     }
 
@@ -361,7 +324,7 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 19)'
+        '        Version 2.1 (Build 18)'
     )
     $asciiArt | ForEach-Object { 
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
