@@ -279,7 +279,7 @@ function OfficeToolkit {
         
         try {
             $arguments = '-S -AcceptEULA -OfficeVersion All -RemoveOffice'
-            $process = Start-Process -FilePath $saraPath -ArgumentList $arguments -PassThru -Verb RunAs
+            $process = Start-Process -FilePath $saraPath -ArgumentList $arguments -WorkingDirectory $script:TempDir -PassThru -Verb RunAs
             
             Wait-ProcessCompletion 'SaRAcmd' 'Rimozione Office in corso' '🗑️'
             
@@ -318,7 +318,7 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 13)'
+        '        Version 2.1 (Build 14)'
     )
     $asciiArt | ForEach-Object { 
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
