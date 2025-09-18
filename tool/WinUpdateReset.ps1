@@ -24,15 +24,22 @@ function WinUpdateReset {
         $barLength = 30
         $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
         $filled = '█' * [math]::Floor($safePercent * $barLength / 100)
-        $empty = '░' * ($barLength - $filled.Length)
+        $empty = '▒' * ($barLength - $filled.Length)
         $bar = "[$filled$empty] {0,3}%" -f $safePercent
+        
+        # Pulisce la riga corrente e scrive la progress bar
+        Write-Host "`r$(' ' * 120)" -NoNewline
         Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
-        if ($Percent -eq 100) { Write-Host '' }
+        
+        if ($Percent -eq 100) { 
+            Write-Host '' # Va a capo quando completa
+        }
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
         Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
         Write-Host ''
+        
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
@@ -45,7 +52,7 @@ function WinUpdateReset {
             Show-ProgressBar 'Countdown Riavvio' "${Message} - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
             Start-Sleep 1
         }
-        Write-Host ''
+        Write-Host '' # Assicura il ritorno a capo finale
         Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
         Start-Sleep 1
         return $true
@@ -87,25 +94,33 @@ function WinUpdateReset {
                         $timeout--
                     } while ($service.Status -eq 'Running' -and $timeout -gt 0)
                     
+                    Write-Host '' # Assicura il ritorno a capo
                     Write-StyledMessage Info "$serviceIcon Servizio $serviceName arrestato."
                 }
                 'Configure' {
                     Show-ServiceProgress $serviceName "Configurazione" $currentStep $totalSteps
                     Set-Service -Name $serviceName -StartupType $config.Type -ErrorAction Stop
+                    Write-Host '' # Assicura il ritorno a capo
                     Write-StyledMessage Success "$serviceIcon Servizio $serviceName configurato come $($config.Type)."
                 }
                 'Start' {
                     Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
+                    Write-Host '' # Va a capo prima di avviare
                     Start-Service -Name $serviceName -ErrorAction Stop
                     
                     # Attesa avvio con spinner
                     $timeout = 10; $spinnerIndex = 0
                     do {
+                        # Pulisce la riga prima di scrivere
+                        Write-Host "`r$(' ' * 80)" -NoNewline
                         Write-Host "`r$($spinners[$spinnerIndex % $spinners.Length]) 🔄 Attesa avvio $serviceName..." -NoNewline -ForegroundColor Yellow
                         Start-Sleep -Milliseconds 300
                         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
                         $timeout--; $spinnerIndex++
                     } while ($service.Status -ne 'Running' -and $timeout -gt 0)
+                    
+                    # Pulisce la riga dello spinner
+                    Write-Host "`r$(' ' * 80)" -NoNewline
                     Write-Host "`r" -NoNewline
                     
                     if ($service.Status -eq 'Running') {
@@ -123,6 +138,7 @@ function WinUpdateReset {
             }
         }
         catch {
+            Write-Host '' # Assicura il ritorno a capo in caso di errore
             $actionText = switch ($action) { 'Configure' { 'configurare' } 'Start' { 'avviare' } 'Check' { 'verificare' } default { $action.ToLower() } }
             $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
             Write-StyledMessage Warning "$serviceIcon Impossibile $actionText $serviceName - $($_.Exception.Message)"
@@ -143,6 +159,7 @@ function WinUpdateReset {
             return $true
         }
         catch {
+            Write-Host '' # Assicura il ritorno a capo
             Write-StyledMessage Warning "⚠️ Tentativo fallito, provo con eliminazione selettiva..."
             
             try {
@@ -194,7 +211,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.1 (Build 22)'
+        '       Version 2.1 (Build 23)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -216,6 +233,7 @@ function WinUpdateReset {
     Write-Host ''
 
     Write-StyledMessage Info '🛠️ Avvio riparazione servizi Windows Update...'
+    Write-Host ''
 
     # Configurazione servizi con icone
     $serviceConfig = @{
@@ -247,6 +265,7 @@ function WinUpdateReset {
         }
         
         # Pausa aggiuntiva per permettere la liberazione completa delle risorse
+        Write-Host ''
         Write-StyledMessage Info '⏳ Attesa liberazione risorse...'
         Start-Sleep -Seconds 3
         Write-Host ''
@@ -283,9 +302,13 @@ function WinUpdateReset {
                 "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
             ) | Where-Object { Test-Path $_ } | ForEach-Object {
                 Remove-Item $_ -Recurse -Force -ErrorAction Stop
-                Write-StyledMessage Success "🔓 Chiave rimossa: $_"
+                Write-Host 'Completato!' -ForegroundColor Green
+                Write-StyledMessage Success "🔑 Chiave rimossa: $_"
             }
-            Write-Host 'Completato!' -ForegroundColor Green
+            if (-not @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update", "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate") | Where-Object { Test-Path $_ }) {
+                Write-Host 'Completato!' -ForegroundColor Green
+                Write-StyledMessage Info "🔑 Nessuna chiave di registro da rimuovere."
+            }
         }
         catch {
             Write-Host 'Errore!' -ForegroundColor Red
@@ -304,6 +327,7 @@ function WinUpdateReset {
             $dir = $directories[$i]
             $percent = [math]::Round((($i + 1) / $directories.Count) * 100)
             Show-ProgressBar "Directory ($($i + 1)/$($directories.Count))" "Eliminazione $($dir.Name)" $percent '🗑️' '' 'Yellow'
+            Write-Host '' # Assicura il ritorno a capo dopo la progress bar
             
             $success = Remove-DirectorySafely -Path $dir.Path -DisplayName $dir.Name
             if (-not $success) {
