@@ -1,4 +1,15 @@
-function WinUpdateReset {
+function WinUpdateResetCoding {
+    <#
+    .SYNOPSIS
+        Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
+    
+    .DESCRIPTION
+        Questo script PowerShell è progettato per riparare i problemi comuni di Windows Update, 
+        inclusa la reinstallazione di componenti critici come SoftwareDistribution e catroot2. 
+        Utilizza un'interfaccia utente migliorata con barre di progresso, messaggi stilizzati e 
+        un conto alla rovescia per il riavvio del sistema che può essere interrotto premendo un tasto.
+    #>
+
     param(
         [int]$CountdownSeconds = 15
     )
