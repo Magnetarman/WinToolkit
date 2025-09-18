@@ -267,7 +267,7 @@ function OfficeToolkit {
                         Write-StyledMessage Info "🗑️ Rimozione: $cleanPackageId"
                         
                         $spinnerIndex = 0
-                        $uninstallProcess = Start-Process -FilePath "winget" -ArgumentList "uninstall `"$cleanPackageId`" --silent --accept-source-agreements --force" -NoNewWindow -PassThru -WindowStyle Hidden
+                        $uninstallProcess = Start-Process -FilePath "winget" -ArgumentList "uninstall `"$cleanPackageId`" --silent --accept-source-agreements --force" -PassThru -WindowStyle Hidden
                         
                         while (-not $uninstallProcess.HasExited) {
                             $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
@@ -596,7 +596,7 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 10)'
+        '        Version 2.1 (Build 11)'
     )
     $asciiArt | ForEach-Object { 
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
