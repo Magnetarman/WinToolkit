@@ -25,7 +25,7 @@ function Write-StyledMessage {
 # Definizione dei percorsi (dinamici, relativi alla posizione dello script)
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $toolFolder = Join-Path $scriptPath "tool"
-$sourceFile = Join-Path $scriptPath "tool/WinToolkit-template.ps1"
+$sourceFile = Join-Path $scriptPath "WinToolkit-template.ps1"
 $outputFile = Join-Path $scriptPath "WinToolkit.ps1"
 
 Write-StyledMessage 'Info' "Avvio processo di compilazione WinToolkit"
