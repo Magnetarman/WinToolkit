@@ -392,10 +392,10 @@ function OfficeToolkit {
             # Menu
             Write-StyledMessage Info "🎯 Seleziona un'opzione:"
             Write-Host ''
-            Write-Host '  [1]  Installazione Office Basic' -ForegroundColor White
-            Write-Host '  [2]  Ripara Office corrotto' -ForegroundColor White
-            Write-Host '  [3]  Rimozione completa Office' -ForegroundColor Red
-            Write-Host '  [0]  Esci' -ForegroundColor Gray
+            Write-Host '  [1]  Installazione Office (Basic Version)' -ForegroundColor White
+            Write-Host '  [2]  Ripara Office' -ForegroundColor White
+            Write-Host '  [3]  Rimozione completa Office' -ForegroundColor Yellow
+            Write-Host '  [0]  Esci' -ForegroundColor Red
             Write-Host ''
             
             $choice = Read-Host 'Scelta'
