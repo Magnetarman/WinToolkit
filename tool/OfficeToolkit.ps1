@@ -12,7 +12,6 @@ function OfficeToolkit {
 
     # Configurazione
     $TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
-    $Log = [System.Collections.ArrayList]::new()
     $Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     
     $MsgStyles = @{
@@ -26,11 +25,6 @@ function OfficeToolkit {
     function Write-StyledMessage([string]$Type, [string]$Message) {
         $style = $MsgStyles[$Type]
         Write-Host "$($style.Icon) $Message" -ForegroundColor $style.Color
-    }
-
-    function Add-LogEntry([string]$Category, [string]$Level, [string]$Message) {
-        $entry = "[{0}] {1} {2}" -f $Category, $Level, $Message
-        [void]$Log.Add($entry)
     }
 
     function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent) {
@@ -75,7 +69,6 @@ function OfficeToolkit {
                 [Console]::ReadKey($true) | Out-Null
                 Write-Host "`n"
                 Write-StyledMessage Warning "⏸️ Riavvio annullato dall'utente"
-                Add-LogEntry "Sistema" "ℹ️" "Riavvio annullato dall'utente"
                 return $false
             }
             Write-Host "`r⏰ Riavvio automatico tra $i secondi..." -NoNewline -ForegroundColor Red
@@ -84,7 +77,6 @@ function OfficeToolkit {
         
         Write-Host "`n"
         Write-StyledMessage Warning "⏰ Riavvio del sistema..."
-        Add-LogEntry "Sistema" "✅" "Riavvio eseguito"
         
         try {
             Restart-Computer -Force
@@ -92,7 +84,6 @@ function OfficeToolkit {
         }
         catch {
             Write-StyledMessage Error "❌ Errore riavvio: $_"
-            Add-LogEntry "Sistema" "❌" "Errore riavvio: $_"
             return $false
         }
     }
@@ -118,7 +109,6 @@ function OfficeToolkit {
         
         if ($closed -gt 0) {
             Write-StyledMessage Success "✅ $closed processi Office chiusi"
-            Add-LogEntry "Processi" "✅" "$closed processi Office chiusi"
         }
     }
 
@@ -140,25 +130,21 @@ function OfficeToolkit {
             
             if (Test-Path $OutputPath) {
                 Write-StyledMessage Success "✅ Download completato: $Description"
-                Add-LogEntry "Download" "✅" "$Description scaricato"
                 return $true
             }
             else {
                 Write-StyledMessage Error "❌ File non trovato dopo download: $Description"
-                Add-LogEntry "Download" "❌" "$Description - file non trovato"
                 return $false
             }
         }
         catch {
             Write-StyledMessage Error "❌ Errore download $Description`: $_"
-            Add-LogEntry "Download" "❌" "$Description - $_"
             return $false
         }
     }
 
     function Start-OfficeInstallation {
         Write-StyledMessage Info "🏢 Avvio installazione Office Basic..."
-        Add-LogEntry "Installazione" "ℹ️" "Avvio installazione Office Basic"
         
         try {
             # Preparazione directory
@@ -185,7 +171,6 @@ function OfficeToolkit {
             Write-StyledMessage Info "🚀 Avvio processo installazione..."
             $arguments = "/configure `"$configPath`""
             Start-Process -FilePath $setupPath -ArgumentList $arguments -WorkingDirectory $TempDir
-            Add-LogEntry "Installazione" "ℹ️" "Processo avviato con argomenti: $arguments"
             
             # Attesa completamento
             Write-StyledMessage Info "⏳ Attesa completamento installazione..."
@@ -195,18 +180,15 @@ function OfficeToolkit {
             # Conferma risultato
             if (Get-UserConfirmation "✅ Installazione completata con successo?" 'Y') {
                 Write-StyledMessage Success "🎉 Installazione Office completata!"
-                Add-LogEntry "Installazione" "✅" "Installazione completata con successo"
                 return $true
             }
             else {
                 Write-StyledMessage Warning "⚠️ Installazione non completata correttamente"
-                Add-LogEntry "Installazione" "⚠️" "Installazione non completata"
                 return $false
             }
         }
         catch {
             Write-StyledMessage Error "❌ Errore durante installazione: $_"
-            Add-LogEntry "Installazione" "❌" "Errore: $_"
             return $false
         }
         finally {
@@ -219,7 +201,6 @@ function OfficeToolkit {
 
     function Start-OfficeRepair {
         Write-StyledMessage Info "🔧 Avvio riparazione Office..."
-        Add-LogEntry "Riparazione" "ℹ️" "Avvio processo riparazione"
         
         Stop-OfficeProcesses
         
@@ -238,7 +219,7 @@ function OfficeToolkit {
                     $cleanedCount++
                 }
                 catch {
-                    Add-LogEntry "Pulizia" "⚠️" "Impossibile eliminare cache: $cache"
+                    # Ignora errori di cache
                 }
             }
         }
@@ -261,7 +242,6 @@ function OfficeToolkit {
             $officeClient = Get-OfficeClient
             if (-not $officeClient) {
                 Write-StyledMessage Error "❌ Office Click-to-Run non trovato"
-                Add-LogEntry "Riparazione" "❌" "Office Click-to-Run non trovato"
                 return $false
             }
             
@@ -272,7 +252,6 @@ function OfficeToolkit {
             
             $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$repairType DisplayLevel=True"
             Start-Process -FilePath $officeClient -ArgumentList $arguments -NoNewWindow
-            Add-LogEntry "Riparazione" "ℹ️" "Avviata riparazione $repairType"
             
             # Attesa completamento
             Write-StyledMessage Info "⏳ Attesa completamento riparazione..."
@@ -282,12 +261,10 @@ function OfficeToolkit {
             # Conferma risultato
             if (Get-UserConfirmation "✅ Riparazione completata con successo?" 'Y') {
                 Write-StyledMessage Success "🎉 Riparazione Office completata!"
-                Add-LogEntry "Riparazione" "✅" "Riparazione $repairType completata"
                 return $true
             }
             else {
                 Write-StyledMessage Warning "⚠️ Riparazione non completata correttamente"
-                Add-LogEntry "Riparazione" "⚠️" "Riparazione $repairType fallita"
                 
                 # Suggerimento riparazione completa se era rapida
                 if ($choice -eq '1') {
@@ -307,7 +284,6 @@ function OfficeToolkit {
         }
         catch {
             Write-StyledMessage Error "❌ Errore durante riparazione: $_"
-            Add-LogEntry "Riparazione" "❌" "Errore: $_"
             return $false
         }
     }
@@ -315,7 +291,6 @@ function OfficeToolkit {
     function Start-OfficeUninstall {
         Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office"
         Write-StyledMessage Warning "⚠️ Verrà utilizzato Microsoft Support and Recovery Assistant (SaRA)"
-        Add-LogEntry "Rimozione" "ℹ️" "Avvio processo rimozione completa"
         
         if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa?" 'N')) {
             Write-StyledMessage Info "❌ Operazione annullata"
@@ -346,7 +321,6 @@ function OfficeToolkit {
             }
             catch {
                 Write-StyledMessage Error "❌ Errore estrazione: $_"
-                Add-LogEntry "Estrazione" "❌" "Errore: $_"
                 return $false
             }
             
@@ -354,7 +328,6 @@ function OfficeToolkit {
             $saraExe = Get-ChildItem -Path $TempDir -Name "SaRAcmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $saraExe) {
                 Write-StyledMessage Error "❌ SaRAcmd.exe non trovato"
-                Add-LogEntry "Verifica" "❌" "SaRAcmd.exe non trovato"
                 return $false
             }
             
@@ -366,7 +339,6 @@ function OfficeToolkit {
             
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
             Start-Process -FilePath $saraPath -ArgumentList $arguments -Verb RunAs
-            Add-LogEntry "Rimozione" "ℹ️" "SaRA avviato con argomenti: $arguments"
             
             # Attesa completamento
             Write-Host "💡 Premi INVIO quando SaRA ha completato la rimozione..." -ForegroundColor Yellow
@@ -375,18 +347,15 @@ function OfficeToolkit {
             # Conferma risultato
             if (Get-UserConfirmation "✅ Rimozione completata con successo?" 'Y') {
                 Write-StyledMessage Success "🎉 Rimozione Office completata!"
-                Add-LogEntry "Rimozione" "✅" "Rimozione completata con successo"
                 return $true
             }
             else {
                 Write-StyledMessage Warning "⚠️ Rimozione potrebbe essere incompleta"
-                Add-LogEntry "Rimozione" "⚠️" "Rimozione potenzialmente incompleta"
                 return $false
             }
         }
         catch {
             Write-StyledMessage Error "❌ Errore durante rimozione: $_"
-            Add-LogEntry "Rimozione" "❌" "Errore: $_"
             return $false
         }
         finally {
@@ -412,7 +381,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '     Office Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 27)'
+            '        Version 2.2 (Build 28)'
         )
         
         foreach ($line in $asciiArt) {
@@ -422,29 +391,6 @@ function OfficeToolkit {
         
         Write-Host ('═' * $width) -ForegroundColor Green
         Write-Host ''
-    }
-
-    function Save-LogFile {
-        if ($Log.Count -eq 0) { return }
-        
-        try {
-            $logPath = "$env:USERPROFILE\Desktop\OfficeToolkit_Log_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
-            $logHeader = @(
-                "=== OFFICE TOOLKIT LOG ==="
-                "Data: $(Get-Date -Format 'dd/MM/yyyy HH:mm:ss')"
-                "Versione: 2.2 (Build 27)"
-                "Sistema: $env:COMPUTERNAME"
-                "Utente: $env:USERNAME"
-                "==========================="
-                ""
-            )
-            
-            ($logHeader + $Log) | Out-File -FilePath $logPath -Encoding UTF8
-            Write-StyledMessage Success "📋 Log salvato: $logPath"
-        }
-        catch {
-            Write-StyledMessage Warning "⚠️ Impossibile salvare log: $_"
-        }
     }
 
     # MAIN EXECUTION
@@ -518,7 +464,6 @@ function OfficeToolkit {
     }
     catch {
         Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
-        Add-LogEntry "Sistema" "❌" "Errore critico: $($_.Exception.Message)"
     }
     finally {
         # Pulizia finale
@@ -527,8 +472,6 @@ function OfficeToolkit {
         if (Test-Path $TempDir) {
             Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
         }
-        
-        Save-LogFile
         
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
