@@ -21,7 +21,7 @@ function WinInstallPSProfile {
         '         \_/\_/    |_||_| \_|',
         '',
         '   Install PSProfile By MagnetarMan',
-        '        Version 2.0 (Build 5)'
+        '        Version 2.1 (Build 5)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
