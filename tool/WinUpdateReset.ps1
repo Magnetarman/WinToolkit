@@ -124,7 +124,7 @@ function WinUpdateReset {
                     Write-Host "`r" -NoNewline
                     
                     if ($service.Status -eq 'Running') {
-                        Write-StyledMessage Success "$serviceIcon Servizio $serviceName avviato correttamente."
+                        Write-StyledMessage Success "$serviceIcon Servizio ${serviceName}: avviato correttamente."
                     }
                     else {
                         Write-StyledMessage Warning "$serviceIcon Servizio ${serviceName}: avvio in corso..."
@@ -211,7 +211,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.1 (Build 27)'
+        '       Version 2.1 (Build 28)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -433,10 +433,10 @@ function WinUpdateReset {
                     Write-Host "`r" -NoNewline
                     
                     if ($service.Status -eq 'Running') {
-                        Write-StyledMessage Success "$($config.Icon) Servizio $serviceName - riavviato con successo."
+                        Write-StyledMessage Success "$($config.Icon) Servizio ${serviceName}: riavviato con successo."
                     }
                     else {
-                        Write-StyledMessage Warning "$($config.Icon) Servizio $serviceName - avvio in corso..."
+                        Write-StyledMessage Warning "$($config.Icon) Servizio ${serviceName}: avvio in corso..."
                         $stoppedServices += $serviceName
                     }
                 }
@@ -446,7 +446,7 @@ function WinUpdateReset {
                 }
             }
             else {
-                Write-StyledMessage Success "$($config.Icon) Servizio $serviceName - in esecuzione correttamente."
+                Write-StyledMessage Success "$($config.Icon) Servizio ${serviceName}: in esecuzione correttamente."
             }
         }
         Write-Host ''
