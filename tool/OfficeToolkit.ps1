@@ -116,22 +116,10 @@ function OfficeToolkit {
             
             foreach ($file in $files) {
                 $filePath = Join-Path $script:TempDir $file.Name
-                $spinnerIndex = 0
-                
                 try {
-                    $webClient = New-Object System.Net.WebClient
-                    $webClient.Headers.Add('User-Agent', 'Mozilla/5.0')
-                    
-                    $downloadTask = $webClient.DownloadFileTaskAsync($file.Url, $filePath)
-                    while (-not $downloadTask.IsCompleted) {
-                        $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                        Show-ProgressBar "Download $($file.Name)" 'In corso...' 50 $file.Icon $spinner 'Cyan'
-                        Start-Sleep -Milliseconds 300
-                    }
-                    
-                    Show-ProgressBar "Download $($file.Name)" 'Completato' 100 $file.Icon
-                    Write-Host ''
-                    $webClient.Dispose()
+                    Write-Host "`r📥 Download in corso: $($file.Name)..." -NoNewline -ForegroundColor 'Cyan'
+                    Invoke-WebRequest -Uri $file.Url -OutFile $filePath -UseBasicParsing
+                    Write-Host "`r$($file.Icon) Download completato: $($file.Name)      "
                 }
                 catch {
                     Write-StyledMessage Error "Download fallito: $($file.Name)"
@@ -245,57 +233,75 @@ function OfficeToolkit {
         
         Stop-OfficeProcesses
         
-        # 1. Download SaRA
-        Write-StyledMessage Info '📥 Download Microsoft Support and Recovery Assistant (SaRA)...'
         try {
+            # 1. Preparazione della directory e download dello strumento SaRA (file zip)
             if (-not (Test-Path $script:TempDir)) { New-Item -ItemType Directory -Path $script:TempDir -Force | Out-Null }
             
-            $saraUrl = 'https://aka.ms/SaRA-Office_Uninstall'
-            $saraPath = Join-Path $script:TempDir 'SaRAcmd.exe'
+            $saraUrl = 'https://aka.ms/SaRA_EnterpriseVersionFiles'
+            $saraZipPath = Join-Path $script:TempDir 'SaRA.zip'
+            $extractedPath = Join-Path $script:TempDir 'DONE'
+            $saraExePath = Join-Path $extractedPath 'SaRAcmd.exe'
+            
+            Write-StyledMessage Info '📥 Download Microsoft Support and Recovery Assistant (SaRA)...'
+            try {
+                Write-Host "`r📥 Download in corso: SaRA.zip..." -NoNewline -ForegroundColor 'Cyan'
+                Invoke-WebRequest -Uri $saraUrl -OutFile $saraZipPath -UseBasicParsing
+                Write-Host "`r📥 Download completato: SaRA.zip      "
+            }
+            catch {
+                Write-StyledMessage Error "Download di SaRA fallito: $_"
+                return $false
+            }
+            
+            # 2. Estrazione del file zip e verifica
+            Write-StyledMessage Info '📦 Estrazione file...'
+            try {
+                Expand-Archive -Path $saraZipPath -DestinationPath $script:TempDir -Force
+            }
+            catch {
+                Write-StyledMessage Error "Estrazione fallita: $_"
+                return $false
+            }
+            
+            if (-not (Test-Path $saraExePath)) {
+                Write-StyledMessage Error "❌ Errore: File 'SaRAcmd.exe' non trovato nella cartella 'DONE'."
+                Write-StyledMessage Warning "Riprova o scarica lo strumento manualmente."
+                return $false
+            }
+            
+            # 3. Esecuzione di SaRA per la disinstallazione
+            Write-StyledMessage Info '🚀 Avvio rimozione Office tramite SaRA...'
+            Write-StyledMessage Info '💡 Questo processo potrebbe richiedere molto tempo. Attendere prego...'
+            
+            # ✅ Aggiunta di una breve pausa per la scansione di sicurezza
+            Write-StyledMessage Info '⏱️ Attesa di 5 secondi per la scansione di sicurezza...'
+            Start-Sleep -Seconds 5
+
+            $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
+            Start-Process -FilePath $saraExePath -ArgumentList $arguments -WorkingDirectory $extractedPath -PassThru -Verb RunAs
+            
+            # 4. Attesa della conferma da parte dell'utente
             $spinnerIndex = 0
-            
-            $webClient = New-Object System.Net.WebClient
-            $webClient.Headers.Add('User-Agent', 'Mozilla/5.0')
-            
-            $downloadTask = $webClient.DownloadFileTaskAsync($saraUrl, $saraPath)
-            while (-not $downloadTask.IsCompleted) {
+            Write-StyledMessage Info '💡 Premi un tasto quando il programma SaRA ha terminato il lavoro.'
+            do {
+                if ([Console]::KeyAvailable) {
+                    [Console]::ReadKey($true) | Out-Null
+                    break
+                }
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                Show-ProgressBar "Download SaRAcmd.exe" 'In corso...' 50 '📥' $spinner 'Cyan'
-                Start-Sleep -Milliseconds 300
-            }
-            
-            Show-ProgressBar "Download SaRAcmd.exe" 'Completato' 100 '📥'
+                Write-Host "`r$spinner 🗑️ Rimozione Office in corso..." -NoNewline -ForegroundColor Yellow
+                Start-Sleep -Milliseconds 500
+            } while ($true)
             Write-Host ''
-            $webClient.Dispose()
-        }
-        catch {
-            Write-StyledMessage Error "Download di SaRA fallito: $_"
-            return $false
-        }
-        
-        # 2. Esecuzione di SaRA per la disinstallazione
-        Write-StyledMessage Info '🚀 Avvio rimozione Office tramite SaRA...'
-        Write-StyledMessage Info '💡 Questo processo potrebbe richiedere molto tempo. Attendere prego...'
-        
-        try {
-            $arguments = '-S -AcceptEULA -OfficeVersion All -RemoveOffice'
-            $process = Start-Process -FilePath $saraPath -ArgumentList $arguments -WorkingDirectory $script:TempDir -PassThru -Verb RunAs
             
-            Wait-ProcessCompletion 'SaRAcmd' 'Rimozione Office in corso' '🗑️'
-            
-            if ($process.ExitCode -eq 0) {
-                Write-StyledMessage Success '🎉 Rimozione tramite SaRA completata con successo!'
-            }
-            else {
-                Write-StyledMessage Warning "SaRA ha terminato con codice: $($process.ExitCode). Un riavvio è comunque necessario."
-            }
+            Write-StyledMessage Success '🎉 Rimozione tramite SaRA completata con successo!'
         }
         catch {
             Write-StyledMessage Error "Errore durante l'esecuzione di SaRA: $_"
             return $false
         }
         finally {
-            # 3. Pulizia
+            # 5. Pulizia
             Write-StyledMessage Info '🧹 Pulizia file temporanei...'
             Remove-Item $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
         }
@@ -318,7 +324,7 @@ function OfficeToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Office Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 14)'
+        '        Version 2.1 (Build 16)'
     )
     $asciiArt | ForEach-Object { 
         $padding = [math]::Max(0, [math]::Floor(($width - $_.Length) / 2))
