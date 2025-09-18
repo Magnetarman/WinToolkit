@@ -30,8 +30,8 @@
 
 |                                                                          |                                                                      |
 | :----------------------------------------------------------------------: | :------------------------------------------------------------------: |
-|       <img src="img/Starter.png" alt="Starter-banner" width="800">       |         <img src="img/Run.png" alt="Run-banner" width="800">         |
-| <img src="img/RepairToolkit.png" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.png" alt="UpdateReset-banner" width="800"> |
+|       <img src="img/Starter.png" alt="Starter-banner" width="800">       |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
+| <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800"> |
 
 </div>
 
@@ -40,11 +40,12 @@
 ## 👾 Features
 
 > [!Note]
-> La versione 2.0 del Toolkit è in fase **RELEASE** nel ramo `main`.
 >
-> Il ramo `Dev` contiene modifiche e funzionalità su cui sto lavorando.
+> Ramo `main` <br> La versione 2.0 del Toolkit è in fase **RELEASE**.
+>
+> Ramo `Dev` <br> Contiene modifiche e funzionalità su cui sto lavorando.
 > <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**.
-> <br> Richiede di scaricare il pacchetto ed avviare `compiler.ps1` da terminale per testare lo script completo. **Potrebbe causare danni al tuo sistema.**
+> <br> **Attenzione:** Richiede di scaricare il pacchetto ed avviare `compiler.ps1` da terminale per testare lo script completo. **Potrebbe causare danni al tuo sistema.**
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
@@ -67,9 +68,9 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 ```sh
 └── WinToolkit/
     └── img
-        ├── Banner.png
-        ├── RepairToolkit.png
-        ├── Run.png
+        ├── WinToolkit-icon.png
+        ├── RepairToolkit.jpeg
+        ├── Run.jpeg
         └── Starter.png
     ├── LICENSE
     ├── README.md
