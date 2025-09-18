@@ -30,7 +30,7 @@ function OfficeToolkit {
     function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent) {
         $safePercent = [Math]::Max(0, [Math]::Min(100, $Percent))
         $filled = [Math]::Floor($safePercent * 30 / 100)
-        $bar = "[$('█' * $filled)$('░' * (30 - $filled))] $safePercent%"
+        $bar = "[$('█' * $filled)$('▒' * (30 - $filled))] $safePercent%"
         Write-Host "`r🔄 $Activity $bar $Status" -NoNewline -ForegroundColor Yellow
         if ($Percent -eq 100) { Write-Host '' }
     }
@@ -71,7 +71,14 @@ function OfficeToolkit {
                 Write-StyledMessage Warning "⏸️ Riavvio annullato dall'utente"
                 return $false
             }
-            Write-Host "`r⏰ Riavvio automatico tra $i secondi..." -NoNewline -ForegroundColor Red
+            
+            # Barra di progressione countdown con colore rosso
+            $percent = [Math]::Round((($CountdownSeconds - $i) / $CountdownSeconds) * 100)
+            $filled = [Math]::Floor($percent * 20 / 100)
+            $remaining = 20 - $filled
+            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+            
+            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
         
@@ -114,8 +121,8 @@ function OfficeToolkit {
 
     function Get-OfficeClient {
         $paths = @(
-            "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun\OfficeC2RClient.exe",
-            "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun\OfficeC2RClient.exe"
+            "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun\OfficeClickToRun.exe",
+            "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun\OfficeClickToRun.exe"
         )
         return $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
     }
@@ -250,8 +257,9 @@ function OfficeToolkit {
             
             Write-StyledMessage Info "🔧 Avvio riparazione $repairName..."
             
+            # Correzione: uso il percorso completo con & e parametri corretti
             $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$repairType DisplayLevel=True"
-            Start-Process -FilePath $officeClient -ArgumentList $arguments -NoNewWindow
+            Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
             
             # Attesa completamento
             Write-StyledMessage Info "⏳ Attesa completamento riparazione..."
@@ -271,7 +279,7 @@ function OfficeToolkit {
                     if (Get-UserConfirmation "🌐 Tentare riparazione completa online?" 'Y') {
                         Write-StyledMessage Info "🌐 Avvio riparazione completa..."
                         $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
-                        Start-Process -FilePath $officeClient -ArgumentList $arguments -NoNewWindow
+                        Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
                         
                         Write-Host "💡 Premi INVIO quando la riparazione completa è terminata..." -ForegroundColor Yellow
                         Read-Host | Out-Null
@@ -292,7 +300,7 @@ function OfficeToolkit {
         Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office"
         Write-StyledMessage Warning "⚠️ Verrà utilizzato Microsoft Support and Recovery Assistant (SaRA)"
         
-        if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa?" 'N')) {
+        if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa? [Y/N]" 'N')) {
             Write-StyledMessage Info "❌ Operazione annullata"
             return $false
         }
@@ -381,7 +389,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '     Office Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 28)'
+            '        Version 2.2 (Build 29)'
         )
         
         foreach ($line in $asciiArt) {
@@ -479,5 +487,4 @@ function OfficeToolkit {
     }
 }
 
-# Avvio automatico
 OfficeToolkit
