@@ -387,7 +387,7 @@ function WinUpdateReset {
                         $serviceIssues++
                     }
                     else {
-                        Write-StyledMessage Success "$($config.Icon) Servizio $serviceName: configurazione corretta."
+                        Write-StyledMessage Success "$($config.Icon) Servizio ${serviceName}: configurazione corretta."
                     }
                 }
             }
@@ -433,10 +433,10 @@ function WinUpdateReset {
                     Write-Host "`r" -NoNewline
                     
                     if ($service.Status -eq 'Running') {
-                        Write-StyledMessage Success "$($config.Icon) Servizio $serviceName riavviato con successo."
+                        Write-StyledMessage Success "$($config.Icon) Servizio $serviceName - riavviato con successo."
                     }
                     else {
-                        Write-StyledMessage Warning "$($config.Icon) Servizio $serviceName: avvio in corso..."
+                        Write-StyledMessage Warning "$($config.Icon) Servizio $serviceName - avvio in corso..."
                         $stoppedServices += $serviceName
                     }
                 }
@@ -446,7 +446,7 @@ function WinUpdateReset {
                 }
             }
             else {
-                Write-StyledMessage Success "$($config.Icon) Servizio $serviceName: in esecuzione correttamente."
+                Write-StyledMessage Success "$($config.Icon) Servizio $serviceName - in esecuzione correttamente."
             }
         }
         Write-Host ''
