@@ -30,7 +30,7 @@
 
 |                                                                          |                                                                      |
 | :----------------------------------------------------------------------: | :------------------------------------------------------------------: |
-|       <img src="img/Starter.png" alt="Starter-banner" width="800">       |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
+|       <img src="img/Starter.jpg" alt="Starter-banner" width="800">       |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
 | <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800"> |
 
 </div>
