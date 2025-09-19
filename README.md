@@ -11,7 +11,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.1 (Build 10)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.1 (Build 14)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=for-the-badge&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -25,6 +25,9 @@
 | <p align="center"><img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=0080ff" alt="Commit Activity Main"></p> | <p align="center"><img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/Dev?style=for-the-badge&color=CC0033" alt="Commit Activity Dev"></p> |
 
 ## 📸 ScreenShot
+
+> [!Note]
+> Gli screenshot dei vari strumenti integrati sono forniti a scopo puramente dimostrativo. Avviando lo script sul tuo PC, l'aspetto e le configurazioni dei tool si adatteranno automaticamente alle impostazioni della tua shell PowerShell. WinToolkit non modifica o sovrascrive alcuna configurazione esistente.
 
 <div align="center">
 
@@ -41,16 +44,16 @@
 ## 👾 Features
 
 > [!Note]
-> Ramo `main` <br> La versione 2.0 del Toolkit è in fase **RELEASE**.
+> Ramo `main` <br> La versione 2.1 del Toolkit è in fase **RELEASE**.
 >
 > Ramo `Dev` <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**. **Potrebbe causare danni al tuo sistema.**
 
 > [!Tip]
-> Per far funzionare lo script nel ramo `Dev` scarica il progetto [Cliccando QUI](https://github.com/Magnetarman/WinToolkit/archive/refs/heads/Dev.zip), Estrai il file .zip, apri PowerShell nella cartella principale **WinToolkit-Dev** e lancia il tool digitando `./Wintoolkit.ps1`.
+> Per far funzionare lo script del ramo `Dev` scarica il progetto [Cliccando QUI](https://github.com/Magnetarman/WinToolkit/archive/refs/heads/Dev.zip), Estrai il file .zip, avvia PowerShell nella cartella principale **WinToolkit-Dev** e lancia il tool digitando `./Wintoolkit.ps1`.
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
-- **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato sul desktop, garantendo una tracciabilità completa delle operazioni.
-- **Ripristino di Windows Update**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi. Questo script blocca e riavvia i servizi di aggiornamento, rinomina le directory di cache e ripara il registro di sistema, garantendo che il tuo sistema possa scaricare e installare gli aggiornamenti essenziali senza intoppi.
+- **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato garantendo una tracciabilità completa delle operazioni.
+- **Ripristino di Windows Update**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi. Questo script blocca e riavvia i servizi di aggiornamento, rinomina e cancella le directory di cache e ripara il registro di sistema, garantendo che il tuo sistema possa scaricare e installare gli aggiornamenti essenziali senza intoppi.
 - **Toolkit Office**: Strumento di gestione completo per Microsoft Office che semplifica l'installazione, la riparazione e la rimozione dei prodotti. Con la sua interfaccia intuitiva, ti guida attraverso ogni operazione, rendendo la gestione di Office accessibile a tutti. È possibile installare una versione "Basic" di Microsoft Office in modo semi-automatico, riparare le installazioni esistenti con due diverse modalità (Riparazione Rapida offline e Riparazione Completa online), oppure rimuovere completamente il software dal sistema utilizzando l'efficace tool ufficiale Microsoft Support and Recovery Assistant (SaRA). Questo garantisce la risoluzione dei problemi più comuni, dai malfunzionamenti minori ai conflitti più complessi che richiedono una pulizia completa, offrendo un'esperienza professionale e affidabile.
 - **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato nel percorso `%localappdata%\WinToolkit\logs` (Inserisci il percorso senza apici dopo aver digitato `esegui` nel menu start di windows per accedere alla cartella dei log), fornendo un riassunto chiaro e professionale delle azioni eseguite, degli errori riscontrati e dei risultati finali.
 
@@ -109,19 +112,26 @@ Prima di avviare il tool, assicurati che il tuo ambiente di Runtime soddisfi i s
 - **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script. **E' fortemente consigliata la disattivazione temporanea durante le operazioni**
 - **Richiesta Connessione ad internet durante l'esecuzione del Tool**
 - Richiesto intervento manuale minimo.
-- **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema)
+- **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema).
 
-### ⚙️ Installazione per Neofiti _Consigliata_
+> [!Tip]
+> Per gli utenti esperti che desiderano avviare il toolkit direttamente, è consigliabile installare il profilo PowerShell e utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
 
-Avvia il Toolkit eseguendo il seguente metodo:
+### ⚙️ Installazione per Neofiti **(Consigliata)**
 
-1. Avvia Powershell in modalità Amministratore ed inserisci il comando per avviare lo script di start:
+Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
+
+1. Premi il Tasto Windows sulla tastiera
+2. Digita Powershell nel campo della ricerca
+3. Click col tasto destro del mouse sulla voce Powershell
+4. Click sulla voce "Esegui come Amministratore" dal menù a tendina
+5. inserisci il comando sottostante per avviare lo script di start nella finestra Powershell:
 
 ```powershell
  irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/start.ps1 | iex
 ```
 
-2. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.1` sul desktop da cui avviare comodamente lo script in modalità amministratore.
+6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.1` sul desktop da cui avviare comodamente lo script in modalità amministratore con u semplice doppio click sull'icona.
 
 ### ⚙️ Installazione Classica
 
@@ -157,11 +167,13 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 72)`**: Readme Rework, Rework Grafico Script.
 - [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato, Fix Tool **Update Reset**.
 - [x] **`V2.0.0 (Build 82)`**: Rework Grafico `WinToolkit.ps1`.
-- [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`, Aggiornamento `Readme.md`, potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
-- [x] **`V2.1 (Build 14)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`.
-- [ ] **`V2.2`**: Sezione **Windows Repair Plus** Completa.
-- [ ] **`V2.3`**: Sezione **Driver & Gaming** Completa.
-- [ ] **`V2.4`**: Sezione **Gaming Ready** Completa.
+- [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`, Aggiornamento `Readme.md`, Potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
+- [x] **`V2.1 (Build 14)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`, Potenziamento Funzione **Informazioni del Sistema**.
+- [ ] **`V2.2`**: Funzione **Windows Repair Plus** Completa.
+- [ ] **`V2.3`**: Funzione **Driver & Gaming** Completa.
+- [ ] **`V2.4`**: Funzione **Gaming Ready** Completa.
+- [ ] **`V2.5`**: Funzione **Auto Debloat** Completa.
+- [ ] **`V2.6`**: Funzione **Security Update** Completa.
 - [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 👌 Update Pianificati
