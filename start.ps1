@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.1 (Build 1) - 2025-09-17
+  Versione 2.1 (Build 2) - 2025-09-19
 #>
 
 function Center-Text {
@@ -225,7 +225,7 @@ function ToolKit-Desktop {
         $bytes[21] = $bytes[21] -bor 32
         [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
         
-        Write-StyledMessage -Type 'Success' -Text "Scorciatoia 'Win Toolkit V2.0.lnk' creata con successo sul desktop con privilegi amministratore e icona personalizzata."
+        Write-StyledMessage -Type 'Success' -Text "Scorciatoia 'Win Toolkit V2.1.lnk' creata con successo sul desktop con privilegi amministratore e icona personalizzata."
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text "Errore durante la creazione della scorciatoia: $($_.Exception.Message)"
@@ -281,7 +281,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.1 (Build 1)'
+        '        Version 2.1 (Build 2)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
