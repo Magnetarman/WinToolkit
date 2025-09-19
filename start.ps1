@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.1 (Build 2) - 2025-09-19
+  Versione 2.1 (Build 3) - 2025-09-19
 #>
 
 function Center-Text {
@@ -183,7 +183,7 @@ function ToolKit-Desktop {
     try {
         # Determina il percorso del desktop dell'utente corrente
         $desktopPath = [System.Environment]::GetFolderPath('Desktop')
-        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.0.lnk"
+        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.1.lnk"
         
         # Percorso per salvare l'icona
         $iconPath = Join-Path -Path $env:TEMP -ChildPath "WinToolkit.ico"
@@ -281,7 +281,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.1 (Build 2)'
+        '        Version 2.1 (Build 3)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
