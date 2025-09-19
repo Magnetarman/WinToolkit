@@ -99,30 +99,62 @@ function winver {
         $totalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
         
         # Mappatura delle build alla versione di Windows (23H2, 24H2, ecc.)
-        $windowsVersion = switch ($buildNumber) {
-            # Windows 11
-            { $_ -ge 26100 } { "24H2" }      # Windows 11 24H2
-            { $_ -ge 22631 } { "23H2" }      # Windows 11 23H2
-            { $_ -ge 22621 } { "22H2" }      # Windows 11 22H2
-            { $_ -ge 22000 } { "21H2" }      # Windows 11 21H2
-            
-            # Windows 10
-            { $_ -ge 19045 } { "22H2" }      # Windows 10 22H2
-            { $_ -ge 19044 } { "21H2" }      # Windows 10 21H2
-            { $_ -ge 19043 } { "21H1" }      # Windows 10 21H1
-            { $_ -ge 19042 } { "20H2" }      # Windows 10 20H2
-            { $_ -ge 19041 } { "2004" }      # Windows 10 2004
-            { $_ -ge 18363 } { "1909" }      # Windows 10 1909
-            { $_ -ge 18362 } { "1903" }      # Windows 10 1903
-            { $_ -ge 17763 } { "1809" }      # Windows 10 1809
-            { $_ -ge 17134 } { "1803" }      # Windows 10 1803
-            { $_ -ge 16299 } { "1709" }      # Windows 10 1709
-            { $_ -ge 15063 } { "1703" }      # Windows 10 1703
-            { $_ -ge 14393 } { "1607" }      # Windows 10 1607
-            { $_ -ge 10586 } { "1511" }      # Windows 10 1511
-            { $_ -ge 10240 } { "1507" }      # Windows 10 1507
-            
-            default { "N/A" }
+        $windowsVersion = if ([int]$buildNumber -ge 26100) {
+            "24H2"      # Windows 11 24H2
+        }
+        elseif ([int]$buildNumber -ge 22631) {
+            "23H2"      # Windows 11 23H2
+        }
+        elseif ([int]$buildNumber -ge 22621) {
+            "22H2"      # Windows 11 22H2
+        }
+        elseif ([int]$buildNumber -ge 22000) {
+            "21H2"      # Windows 11 21H2
+        }
+        elseif ([int]$buildNumber -ge 19045) {
+            "22H2"      # Windows 10 22H2
+        }
+        elseif ([int]$buildNumber -ge 19044) {
+            "21H2"      # Windows 10 21H2
+        }
+        elseif ([int]$buildNumber -ge 19043) {
+            "21H1"      # Windows 10 21H1
+        }
+        elseif ([int]$buildNumber -ge 19042) {
+            "20H2"      # Windows 10 20H2
+        }
+        elseif ([int]$buildNumber -ge 19041) {
+            "2004"      # Windows 10 2004
+        }
+        elseif ([int]$buildNumber -ge 18363) {
+            "1909"      # Windows 10 1909
+        }
+        elseif ([int]$buildNumber -ge 18362) {
+            "1903"      # Windows 10 1903
+        }
+        elseif ([int]$buildNumber -ge 17763) {
+            "1809"      # Windows 10 1809
+        }
+        elseif ([int]$buildNumber -ge 17134) {
+            "1803"      # Windows 10 1803
+        }
+        elseif ([int]$buildNumber -ge 16299) {
+            "1709"      # Windows 10 1709
+        }
+        elseif ([int]$buildNumber -ge 15063) {
+            "1703"      # Windows 10 1703
+        }
+        elseif ([int]$buildNumber -ge 14393) {
+            "1607"      # Windows 10 1607
+        }
+        elseif ([int]$buildNumber -ge 10586) {
+            "1511"      # Windows 10 1511
+        }
+        elseif ([int]$buildNumber -ge 10240) {
+            "1507"      # Windows 10 1507
+        }
+        else {
+            "N/A"
         }
         
         # Determinazione dell'edizione Windows per una visualizzazione più pulita
@@ -147,7 +179,7 @@ function winver {
         Write-Host " $windowsEdition" -ForegroundColor White
         
         Write-Host "  📊 Versione Windows:" -ForegroundColor Yellow -NoNewline  
-        Write-Host " Ver. $windowsVersion Kernel $version (Build $buildNumber)" -ForegroundColor White
+        Write-Host " Ver. $windowsVersion Kernel $version (Build $buildNumber)" -ForegroundColor Green
         
         Write-Host "  🏗️ Architettura:" -ForegroundColor Yellow -NoNewline
         Write-Host " $architecture" -ForegroundColor White
@@ -205,7 +237,7 @@ while ($true) {
         '         \_/\_/    |_||_| \_|',
         '',
         '       Toolkit By MagnetarMan',
-        '       Version 2.1 (Build 11)'
+        '       Version 2.1 (Build 12)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
