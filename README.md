@@ -18,7 +18,7 @@
 </p>
 </br>
 
-## 👨‍💻 Status Commit Totali
+## 👨‍💻 Status Commit Rami del Progetto
 
 |                                                                               Ramo Release                                                                                |                                                                                Ramo Dev                                                                                 |
 | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
@@ -121,21 +121,21 @@ Prima di avviare il tool, assicurati che il tuo ambiente di Runtime soddisfi i s
 
 Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
 
-1. Premi il Tasto Windows sulla tastiera
-2. Digita Powershell nel campo della ricerca
-3. Click col tasto destro del mouse sulla voce Powershell
-4. Click sulla voce "Esegui come Amministratore" dal menù a tendina
+1. Premi il Tasto Windows sulla tastiera.
+2. Digita `Powershell` nel campo della ricerca.
+3. Click col tasto destro del mouse sulla voce Powershell.
+4. Click sulla voce `Esegui come Amministratore` dal menù a tendina.
 5. inserisci il comando sottostante per avviare lo script di start nella finestra Powershell:
 
 ```powershell
  irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/start.ps1 | iex
 ```
 
-6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.1` sul desktop da cui avviare comodamente lo script in modalità amministratore con u semplice doppio click sull'icona.
+6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.1` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
 
 ### ⚙️ Installazione Classica
 
-Avvia il Toolkit eseguendo il seguente metodo:
+Avvia il Toolkit eseguendo le seguenti istruzioni:
 
 1. Clona la repository WinToolkit:
 
@@ -176,16 +176,16 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [ ] **`V2.6`**: Funzione **Security Update** Completa.
 - [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
 
-## 👌 Update Pianificati
+### 🗺️ Roadmap Update Pianificati
 
-### V2.2 - "Windows Repair Plus"
+#### V2.2 - "Windows Repair Plus"
 
 - [x] Reinstallazione Forzata Microsoft Store & Winget.
   - [x] Installazione di Uniget.
 - [ ] Reset Rust Desk.
 - [ ] Backup Driver Installati => Compressione in file .zip => Posizionamento archivio sul desktop.
 
-### V2.3 - "Driver & Gaming"
+#### V2.3 - "Driver & Gaming"
 
 - [ ] Scelta Driver Video (AMD/NVIDIA).
 - [ ] Installazione Driver Ottimizzato (Nvidia).
@@ -194,22 +194,22 @@ Avvia il Toolkit eseguendo il seguente metodo:
   - [ ] Posizionamento nella cartella Downloads.
   - [ ] Riavvio modalità provvisoria.
 
-### V2.4 - "Gaming Ready"
+#### V2.4 - "Gaming Ready"
 
 - [ ] Installazione client di gioco (Amazon, Gog Galaxy, Epic Games, Steam).
 - [ ] Installazione Playnite ed applicazione Tema personalizzato.
 - [ ] Installazione/Aggiornamento Directx.
 - [ ] Installazione/Aggiornamento Microsoft C++ Package.
 
-### V2.5 - "Auto Debloat"
+#### V2.5 - "Auto Debloat"
 
 - [ ] Avvio script Chris con config personalizzata iwr -useb https://christitus.com/win | iex
 
-### V2.6 - "Security Update"
+#### V2.6 - "Security Update"
 
-- [ ] Aggiungere esecuzione di Tron Script ed esecuzione con intervento minimo
+- [ ] Download di Tron Script ed esecuzione con intervento minimo.
 
-### V3.0 - "MagnetarMan Mode"
+#### V3.0 - "MagnetarMan Mode"
 
 - [ ] Finalizzazione "MagnetarMan Mode"
   - [ ] Avvio Script Chris con configurazione personalizzata
@@ -224,7 +224,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
     - [ ] HwInfo
     - [ ] Rust Desk
     - [ ] Client Giochi (Amazon, Gog Galaxy, Epic Games, Steam)
-  - [ ] Installazione .NET Runtime (Dalla 4 alla 9.0)
+  - [ ] Installazione .NET Runtime (Dalla 4.8 alla 9.0)
   - [ ] Installazione Microsoft C++ Package
   - [ ] Installazione/Aggiornamento Directx
   - [ ] Playnite (Lancher/Aggregatore)
@@ -235,7 +235,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
   - [ ] Applicazione Sfondo "MagnetarMan"
   - [ ] Riavvio PC per completare le modifiche
 
-## 🕹️ TO DO
+#### 🕹️ TO DO (Future Implementazioni)
 
 - [ ] Download immagine di Windows 23H2 Microwin
   - [ ] Posizionamento nella cartella download, pronta per essere utilizzata
