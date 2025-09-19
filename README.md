@@ -32,6 +32,7 @@
 | :----------------------------------------------------------------------: | :------------------------------------------------------------------: |
 |       <img src="img/Starter.jpg" alt="Starter-banner" width="800">       |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
 | <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800"> |
+| <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800"> |                                                                      |
 
 </div>
 
@@ -68,10 +69,11 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 ```sh
 └── WinToolkit/
     └── img
-        ├── WinToolkit-icon.png
         ├── RepairToolkit.jpeg
         ├── Run.jpeg
-        └── Starter.png
+        ├── Starter.jpg
+        ├── Office-Toolkit.jpg
+        └── WinToolkit-icon.png
     ├── LICENSE
     ├── README.md
     ├── start.ps1
@@ -156,18 +158,13 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato, Fix Tool **Update Reset**.
 - [x] **`V2.0.0 (Build 82)`**: Rework Grafico `WinToolkit.ps1`.
 - [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`. Aggiornamento `Readme.md`.
-- [x] **`V2.1 (Build 10)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`.
+- [x] **`V2.1 (Build 14)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`.
 - [ ] **`V2.2`**: Sezione **Windows Repair Plus** Completa.
 - [ ] **`V2.3`**: Sezione **Driver & Gaming** Completa.
 - [ ] **`V2.4`**: Sezione **Gaming Ready** Completa.
 - [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
 
 ## 👌 Update Pianificati
-
-### V2.1 - "Office Toolkit"
-
-- [ ] Installazione Office Personalizzata tramite xml automatico (Versione Base con Solo Word, Excel, PowerPoint).
-  - [ ] Riparazione Installazione Office corrotta e reinstallazione forzata.
 
 ### V2.2 - "Windows Repair Plus"
 
