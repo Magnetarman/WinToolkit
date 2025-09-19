@@ -89,6 +89,7 @@ function winver {
         # Raccolta informazioni di sistema ottimizzata
         $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
         $computerInfo = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
+        $diskInfo = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction Stop
         
         # Estrazione delle informazioni principali
         $productName = $osInfo.Caption -replace 'Microsoft ', ''
@@ -97,6 +98,28 @@ function winver {
         $architecture = $osInfo.OSArchitecture
         $computerName = $computerInfo.Name
         $totalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
+        
+        # Informazioni disco C:
+        $totalDiskSpace = [Math]::Round($diskInfo.Size / 1GB, 0)
+        $freeDiskSpace = [Math]::Round($diskInfo.FreeSpace / 1GB, 0)
+        $freePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
+        
+        # Rilevazione tipo di disco (SSD/HDD)
+        try {
+            $physicalDisk = Get-CimInstance -ClassName MSFT_PhysicalDisk -Namespace "Root\Microsoft\Windows\Storage" -ErrorAction Stop |
+            Where-Object { $_.DeviceID -eq 0 -or $_.MediaType -ne $null } | Select-Object -First 1
+            $diskType = if ($physicalDisk -and $physicalDisk.MediaType -eq 4) { "SSD" } else { "HDD" }
+        }
+        catch {
+            # Fallback: prova a rilevare tramite velocità di rotazione
+            try {
+                $diskDrive = Get-CimInstance -ClassName Win32_DiskDrive -ErrorAction Stop | Where-Object { $_.Index -eq 0 }
+                $diskType = if ($diskDrive.MediaType -like "*SSD*" -or $diskDrive.MediaType -like "*Solid State*") { "SSD" } else { "HDD" }
+            }
+            catch {
+                $diskType = "Disk"
+            }
+        }
         
         # Mappatura delle build alla versione di Windows (23H2, 24H2, ecc.)
         $windowsVersion = if ([int]$buildNumber -ge 26100) {
@@ -179,7 +202,7 @@ function winver {
         Write-Host " $windowsEdition" -ForegroundColor White
         
         Write-Host "  📊 Versione Windows:" -ForegroundColor Yellow -NoNewline  
-        Write-Host " Ver. $windowsVersion Kernel $version (Build $buildNumber)" -ForegroundColor Green
+        Write-Host " Ver. $windowsVersion Kernel $version (Build $buildNumber)" -ForegroundColor White
         
         Write-Host "  🏗️ Architettura:" -ForegroundColor Yellow -NoNewline
         Write-Host " $architecture" -ForegroundColor White
@@ -189,6 +212,9 @@ function winver {
         
         Write-Host "  🧠 RAM Totale:" -ForegroundColor Yellow -NoNewline
         Write-Host " $totalRAM GB" -ForegroundColor White
+        
+        Write-Host "  💾 Disco:" -ForegroundColor Yellow -NoNewline
+        Write-Host " ($diskType) $freePercentage% Libero ($totalDiskSpace GB Totali)" -ForegroundColor White
         
         Write-Host ""
         Write-Host ('*' * $width) -ForegroundColor Red
