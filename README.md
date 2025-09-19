@@ -176,7 +176,7 @@ Avvia il Toolkit eseguendo le seguenti istruzioni:
 - [ ] **`V2.6`**: Funzione **Security Update** Completa.
 - [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
 
-### 🗺️ Roadmap Update Pianificati
+### 🗺️ Roadmap Versioni Future
 
 #### V2.2 - "Windows Repair Plus"
 
