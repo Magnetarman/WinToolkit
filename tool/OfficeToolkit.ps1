@@ -299,7 +299,7 @@ function OfficeToolkit {
     function Start-OfficeUninstall {
         Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office, Verrà utilizzato Microsoft Support and Recovery Assistant (SaRA)"
         
-        if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa? [Y/N]" 'N')) {
+        if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa? [Y/N]")) {
             Write-StyledMessage Info "❌ Operazione annullata"
             return $false
         }
@@ -343,6 +343,7 @@ function OfficeToolkit {
             # Esecuzione SaRA
             Write-StyledMessage Info "🚀 Avvio rimozione tramite SaRA..."
             Write-StyledMessage Warning "⏰ Questa operazione può richiedere molto tempo"
+            Write-StyledMessage Warning "☝️ Ad operazione avviata, non chiudere la finestra di SaRA, attendere il completamento, la finestra si chiuderà automaticamente"
             
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
             Start-Process -FilePath $saraPath -ArgumentList $arguments -Verb RunAs
@@ -388,7 +389,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '     Office Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 30)'
+            '        Version 2.2 (Build 31)'
         )
         
         foreach ($line in $asciiArt) {
