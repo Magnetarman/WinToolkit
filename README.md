@@ -72,8 +72,8 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 ```sh
 └── WinToolkit/
     └── img
-        ├── RepairToolkit.jpeg
-        ├── Run.jpeg
+        ├── RepairToolkit.jpg
+        ├── Run.jpg
         ├── Starter.jpg
         ├── Office-Toolkit.jpg
         └── WinToolkit-icon.png
