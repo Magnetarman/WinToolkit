@@ -171,7 +171,7 @@ function WinUpdateReset {
         }
         catch {
             Write-Host '' # Assicura il ritorno a capo
-            Write-StyledMessage Warning "⚠️ Tentativo fallito, provo con eliminazione selettiva..."
+            Write-StyledMessage Warning "Tentativo fallito, provo con eliminazione selettiva..."
             
             try {
                 # Seconda prova: elimina i contenuti prima, poi la cartella
@@ -199,13 +199,13 @@ function WinUpdateReset {
                         return $true
                     }
                     else {
-                        Write-StyledMessage Warning "⚠️ Directory $DisplayName parzialmente eliminata (alcuni file potrebbero essere in uso)."
+                        Write-StyledMessage Warning "Directory $DisplayName parzialmente eliminata (alcuni file potrebbero essere in uso)."
                         return $false
                     }
                 }
             }
             catch {
-                Write-StyledMessage Warning "⚠️ Impossibile eliminare completamente $DisplayName - alcuni file potrebbero essere in uso."
+                Write-StyledMessage Warning "Impossibile eliminare completamente $DisplayName - alcuni file potrebbero essere in uso."
                 return $false
             }
         }
@@ -323,7 +323,7 @@ function WinUpdateReset {
         }
         catch {
             Write-Host 'Errore!' -ForegroundColor Red
-            Write-StyledMessage Warning "⚠️ Errore durante la modifica del registro - $($_.Exception.Message)"
+            Write-StyledMessage Warning "Errore durante la modifica del registro - $($_.Exception.Message)"
         }
         Write-Host ''
 
@@ -365,7 +365,7 @@ function WinUpdateReset {
         }
         catch {
             Write-Host 'Errore!' -ForegroundColor Red
-            Write-StyledMessage Warning "⚠️ Errore durante il reset del client Windows Update."
+            Write-StyledMessage Warning "Errore durante il reset del client Windows Update."
         }
         Write-Host ''
 
@@ -495,7 +495,7 @@ function WinUpdateReset {
         }
         catch {
             Write-Host 'Errore!' -ForegroundColor Red
-            Write-StyledMessage Warning "⚠️ Errore durante il secondo reset del client."
+            Write-StyledMessage Warning "Errore durante il secondo reset del client."
         }
         Write-Host ''
 
@@ -514,7 +514,7 @@ function WinUpdateReset {
             Write-StyledMessage Success "✅ Stato servizi essenziali: Tutti attivi"
         }
         else {
-            Write-StyledMessage Warning "⚠️ Servizi con problemi: $($stoppedServices -join ', ')"
+            Write-StyledMessage Warning "Servizi con problemi: $($stoppedServices -join ', ')"
         }
         Write-StyledMessage Success "✅ Reset client Windows Update: Eseguito 2 volte"
         Write-Host ('═' * 65) -ForegroundColor Cyan
