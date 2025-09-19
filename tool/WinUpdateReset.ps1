@@ -59,11 +59,17 @@ function WinUpdateReset {
                 Write-StyledMessage Info "🔄 Puoi riavviare manualmente con: shutdown /r /t 0"
                 return $false
             }
-            $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
-            Show-ProgressBar 'Countdown Riavvio' "${Message} - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
+            
+            # Barra di progressione countdown identica a quella fornita
+            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
+            $filled = [Math]::Floor($percent * 20 / 100)
+            $remaining = 20 - $filled
+            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+            
+            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
-        Write-Host '' # Assicura il ritorno a capo finale
+        Write-Host "`n" # Assicura il ritorno a capo finale
         Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
         Start-Sleep 1
         return $true
@@ -463,7 +469,7 @@ function WinUpdateReset {
         Write-Host ''
 
         # Verifica finale directory
-        Write-StyledMessage Info '📁 Verifica finale eliminazione componenti...'
+        Write-StyledMessage Info '🔍 Verifica finale eliminazione componenti...'
         $directories = @(
             @{ Path = "C:\Windows\SoftwareDistribution"; Name = "SoftwareDistribution" },
             @{ Path = "C:\Windows\System32\catroot2"; Name = "catroot2" }
