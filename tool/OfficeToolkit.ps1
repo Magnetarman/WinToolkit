@@ -164,8 +164,8 @@ function OfficeToolkit {
             $configPath = Join-Path $TempDir 'Basic.xml'
             
             $downloads = @(
-                @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Setup.exe'; Path = $setupPath; Name = 'Setup Office' },
-                @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Basic.xml'; Path = $configPath; Name = 'Configurazione Basic' }
+                @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe'; Path = $setupPath; Name = 'Setup Office' },
+                @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml'; Path = $configPath; Name = 'Configurazione Basic' }
             )
             
             foreach ($download in $downloads) {
