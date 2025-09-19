@@ -441,7 +441,6 @@ function OfficeToolkit {
                 }
                 '0' {
                     Write-StyledMessage Info "👋 Uscita dal toolkit..."
-                    Write-StyledMessage Success "Grazie per aver utilizzato Office Toolkit!"
                     return
                 }
                 default {
