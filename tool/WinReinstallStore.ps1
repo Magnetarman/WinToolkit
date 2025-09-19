@@ -39,7 +39,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             '        Store Repair Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 24)'
+            '        Version 2.2 (Build 25)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -202,24 +202,39 @@ function WinReinstallStore {
     }
     
     function Start-CountdownReboot([int]$Seconds) {
-        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio...'
+        Write-StyledMessage Warning "⚠️ Riavvio necessario per applicare le modifiche"
+        Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
         
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
-                Write-Host ''
-                Write-StyledMessage Error 'Riavvio annullato - Riavvia manualmente: shutdown /r /t 0'
+                Write-Host "`n"
+                Write-StyledMessage Warning "⏸️ Riavvio automatico annullato"
+                Write-StyledMessage Error 'Riavvia manualmente: shutdown /r /t 0'
                 return $false
             }
             
-            $progress = (($Seconds - $i) / $Seconds) * 100
-            $bar = '[' + ('█' * [math]::Floor($progress / 3.33)) + ('░' * (30 - [math]::Floor($progress / 3.33))) + '] ' + ("{0:0}%" -f $progress)
-            Write-Host "`r⏳ Riavvio in $i secondi $bar" -NoNewline -ForegroundColor Red
+            # Barra di progressione countdown identica al riferimento
+            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
+            $filled = [Math]::Floor($percent * 20 / 100)
+            $remaining = 20 - $filled
+            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+            
+            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
         
-        Write-Host ''
-        return $true
+        Write-Host "`n"
+        Write-StyledMessage Warning "⏰ Riavvio del sistema..."
+        
+        try {
+            shutdown /r /t 0
+            return $true
+        }
+        catch {
+            Write-StyledMessage Error "Errore riavvio: $_"
+            return $false
+        }
     }
     
     # === ESECUZIONE PRINCIPALE ===
@@ -251,14 +266,10 @@ function WinReinstallStore {
         
         # Completamento
         Write-Host ""
-        Write-Host "═══════════════════════════════" -ForegroundColor Green
         Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA"
-        Write-Host "═══════════════════════════════" -ForegroundColor Green
-        Write-StyledMessage Warning "⚠️ Riavvio necessario per applicare le modifiche"
         
         if (Start-CountdownReboot -Seconds $CountdownSeconds) {
             Write-StyledMessage Info "🔄 Riavvio in corso..."
-            shutdown /r /t 0
         }
     }
     catch {
