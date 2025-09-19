@@ -202,7 +202,7 @@ function winver {
         Write-Host " $windowsEdition" -ForegroundColor White
         
         Write-Host "  📊 Versione Windows:" -ForegroundColor Yellow -NoNewline  
-        Write-Host " Ver. $windowsVersion Kernel $version (Build $buildNumber)" -ForegroundColor White
+        Write-Host " Ver. $windowsVersion Kernel $version (Build $buildNumber)" -ForegroundColor Green
         
         Write-Host "  🏗️ Architettura:" -ForegroundColor Yellow -NoNewline
         Write-Host " $architecture" -ForegroundColor White
@@ -214,7 +214,7 @@ function winver {
         Write-Host " $totalRAM GB" -ForegroundColor White
         
         Write-Host "  💾 Disco:" -ForegroundColor Yellow -NoNewline
-        Write-Host " ($diskType) $freePercentage% Libero ($totalDiskSpace GB Totali)" -ForegroundColor White
+        Write-Host " ($diskType) $freePercentage% Libero ($totalDiskSpace GB Totali)" -ForegroundColor Green
         
         Write-Host ""
         Write-Host ('*' * $width) -ForegroundColor Red
@@ -263,7 +263,7 @@ while ($true) {
         '         \_/\_/    |_||_| \_|',
         '',
         '       Toolkit By MagnetarMan',
-        '       Version 2.1 (Build 12)'
+        '       Version 2.1 (Build 14)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
