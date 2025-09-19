@@ -11,7 +11,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.1 (Build 14)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.1 (Build 15)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=for-the-badge&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -109,8 +109,8 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 Prima di avviare il tool, assicurati che il tuo ambiente di Runtime soddisfi i seguenti requisiti:
 
-- **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script. **E' fortemente consigliata la disattivazione temporanea durante le operazioni**
-- **Richiesta Connessione ad internet durante l'esecuzione del Tool**
+- **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script. **E' fortemente consigliata la disattivazione temporanea durante le operazioni**.
+- **Richiesta Connessione ad internet durante l'esecuzione del Tool**.
 - Richiesto intervento manuale minimo.
 - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema).
 
@@ -143,7 +143,7 @@ Avvia il Toolkit eseguendo le seguenti istruzioni:
  git clone https://github.com/Magnetarman/WinToolkit
 ```
 
-2. Utilizza il terminale per Navigare fino alla cartella:
+2. Utilizza il terminale in modalità Amministratore per Navigare fino alla cartella:
 
 ```powershell
  cd WinToolkit
@@ -168,7 +168,7 @@ Avvia il Toolkit eseguendo le seguenti istruzioni:
 - [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato, Fix Tool **Update Reset**.
 - [x] **`V2.0.0 (Build 82)`**: Rework Grafico `WinToolkit.ps1`.
 - [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`, Aggiornamento `Readme.md`, Potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
-- [x] **`V2.1 (Build 14)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`, Potenziamento Funzione **Informazioni del Sistema**.
+- [x] **`V2.1 (Build 15)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`, Potenziamento Funzione **Informazioni del Sistema**.
 - [ ] **`V2.2`**: Funzione **Windows Repair Plus** Completa.
 - [ ] **`V2.3`**: Funzione **Driver & Gaming** Completa.
 - [ ] **`V2.4`**: Funzione **Gaming Ready** Completa.
