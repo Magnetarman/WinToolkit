@@ -42,21 +42,29 @@ function WinRepairToolkit {
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
+        Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
         Write-Host ''
+        
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
                 Write-Host "`n"
-                Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
+                Write-StyledMessage Warning '⏸️ Riavvio automatico annullato'
                 Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
                 return $false
             }
-            $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
-            Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
+            
+            # Barra di progressione countdown con colore rosso
+            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
+            $filled = [Math]::Floor($percent * 20 / 100)
+            $remaining = 20 - $filled
+            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+            
+            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
-        Write-Host ''
+        
+        Write-Host "`n"
         Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
         Start-Sleep 1
         return $true
@@ -245,7 +253,7 @@ function WinRepairToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Repair Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 3)'
+        '        Version 2.1 (Build 4)'
     )
     
     $asciiArt | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
