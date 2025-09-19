@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.1 (Build 14) - 2025-09-19
+  Versione 2.1 (Build 15) - 2025-09-19
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -429,21 +429,29 @@ function WinRepairToolkit {
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-        Write-StyledMessage Info '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
+        Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
         Write-Host ''
+        
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
                 Write-Host "`n"
-                Write-StyledMessage Error '⏸️ Riavvio automatico annullato'
+                Write-StyledMessage Warning '⏸️ Riavvio automatico annullato'
                 Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
                 return $false
             }
-            $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
-            Show-ProgressBar 'Countdown Riavvio' "$Message - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
+            
+            # Barra di progressione countdown con colore rosso
+            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
+            $filled = [Math]::Floor($percent * 20 / 100)
+            $remaining = 20 - $filled
+            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+            
+            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
-        Write-Host ''
+        
+        Write-Host "`n"
         Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
         Start-Sleep 1
         return $true
@@ -632,7 +640,7 @@ function WinRepairToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Repair Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 3)'
+        '        Version 2.1 (Build 4)'
     )
     
     $asciiArt | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
@@ -737,11 +745,17 @@ function WinUpdateReset {
                 Write-StyledMessage Info "🔄 Puoi riavviare manualmente con: shutdown /r /t 0"
                 return $false
             }
-            $remainingPercent = 100 - [math]::Round((($Seconds - $i) / $Seconds) * 100)
-            Show-ProgressBar 'Countdown Riavvio' "${Message} - $i sec (Premi un tasto per annullare)" $remainingPercent '⏳' '' 'Red'
+            
+            # Barra di progressione countdown identica a quella fornita
+            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
+            $filled = [Math]::Floor($percent * 20 / 100)
+            $remaining = 20 - $filled
+            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+            
+            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
-        Write-Host '' # Assicura il ritorno a capo finale
+        Write-Host "`n" # Assicura il ritorno a capo finale
         Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
         Start-Sleep 1
         return $true
@@ -849,7 +863,7 @@ function WinUpdateReset {
         }
         catch {
             Write-Host '' # Assicura il ritorno a capo
-            Write-StyledMessage Warning "⚠️ Tentativo fallito, provo con eliminazione selettiva..."
+            Write-StyledMessage Warning "Tentativo fallito, provo con eliminazione selettiva..."
             
             try {
                 # Seconda prova: elimina i contenuti prima, poi la cartella
@@ -877,13 +891,13 @@ function WinUpdateReset {
                         return $true
                     }
                     else {
-                        Write-StyledMessage Warning "⚠️ Directory $DisplayName parzialmente eliminata (alcuni file potrebbero essere in uso)."
+                        Write-StyledMessage Warning "Directory $DisplayName parzialmente eliminata (alcuni file potrebbero essere in uso)."
                         return $false
                     }
                 }
             }
             catch {
-                Write-StyledMessage Warning "⚠️ Impossibile eliminare completamente $DisplayName - alcuni file potrebbero essere in uso."
+                Write-StyledMessage Warning "Impossibile eliminare completamente $DisplayName - alcuni file potrebbero essere in uso."
                 return $false
             }
         }
@@ -900,7 +914,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.1 (Build 28)'
+        '       Version 2.1 (Build 29)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -1001,7 +1015,7 @@ function WinUpdateReset {
         }
         catch {
             Write-Host 'Errore!' -ForegroundColor Red
-            Write-StyledMessage Warning "⚠️ Errore durante la modifica del registro - $($_.Exception.Message)"
+            Write-StyledMessage Warning "Errore durante la modifica del registro - $($_.Exception.Message)"
         }
         Write-Host ''
 
@@ -1043,7 +1057,7 @@ function WinUpdateReset {
         }
         catch {
             Write-Host 'Errore!' -ForegroundColor Red
-            Write-StyledMessage Warning "⚠️ Errore durante il reset del client Windows Update."
+            Write-StyledMessage Warning "Errore durante il reset del client Windows Update."
         }
         Write-Host ''
 
@@ -1141,7 +1155,7 @@ function WinUpdateReset {
         Write-Host ''
 
         # Verifica finale directory
-        Write-StyledMessage Info '📁 Verifica finale eliminazione componenti...'
+        Write-StyledMessage Info '🔍 Verifica finale eliminazione componenti...'
         $directories = @(
             @{ Path = "C:\Windows\SoftwareDistribution"; Name = "SoftwareDistribution" },
             @{ Path = "C:\Windows\System32\catroot2"; Name = "catroot2" }
@@ -1173,7 +1187,7 @@ function WinUpdateReset {
         }
         catch {
             Write-Host 'Errore!' -ForegroundColor Red
-            Write-StyledMessage Warning "⚠️ Errore durante il secondo reset del client."
+            Write-StyledMessage Warning "Errore durante il secondo reset del client."
         }
         Write-Host ''
 
@@ -1192,7 +1206,7 @@ function WinUpdateReset {
             Write-StyledMessage Success "✅ Stato servizi essenziali: Tutti attivi"
         }
         else {
-            Write-StyledMessage Warning "⚠️ Servizi con problemi: $($stoppedServices -join ', ')"
+            Write-StyledMessage Warning "Servizi con problemi: $($stoppedServices -join ', ')"
         }
         Write-StyledMessage Success "✅ Reset client Windows Update: Eseguito 2 volte"
         Write-Host ('═' * 65) -ForegroundColor Cyan
@@ -1764,7 +1778,7 @@ while ($true) {
         '         \_/\_/    |_||_| \_|',
         '',
         '       Toolkit By MagnetarMan',
-        '       Version 2.1 (Build 14)'
+        '       Version 2.1 (Build 15)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
