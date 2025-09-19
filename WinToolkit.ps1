@@ -1710,7 +1710,6 @@ function OfficeToolkit {
                 }
                 '0' {
                     Write-StyledMessage Info "👋 Uscita dal toolkit..."
-                    Write-StyledMessage Success "Grazie per aver utilizzato Office Toolkit!"
                     return
                 }
                 default {
@@ -1805,7 +1804,7 @@ while ($true) {
             'Scripts' = @(
                 [pscustomobject]@{ Name = 'ResetRustDesk'; Description = 'Reset Rust Desk. - Planned V2.2'; Action = 'RunFunction' }
                 [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC. - Planned V2.2'; Action = 'RunFunction' }
-                [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit. - Planned V2.1'; Action = 'RunFunction' }
+                [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit.'; Action = 'RunFunction' }
             )
         },
         @{
