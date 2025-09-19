@@ -48,19 +48,19 @@
 > [!Tip]
 > Per far funzionare lo script nel ramo `Dev` basta scaricare il progetto, aprire PowerShell nella cartella principale e lanciare il file `compiler.ps1`. A quel punto farà tutto da solo: prende i vari pezzi di codice che si trovano nella cartella tool, li mette al posto giusto e crea il file finale `WinToolkit.ps1`, pronto per essere utilizzato. In pratica ti consegna direttamente la versione completa e ordinata del programma.
 
-- **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da usare, che guida l'utente nella scelta dello strumento più adatto per il problema.
-- **Aggiornamenti Automatici**: Il tool può verificare e installare automaticamente l'ultima versione di PowerShell, assicurando che tutti gli script funzionino con le funzionalità più recenti e in modo efficiente.
+- **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato sul desktop, garantendo una tracciabilità completa delle operazioni.
 - **Ripristino di Windows Update**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi. Questo script blocca e riavvia i servizi di aggiornamento, rinomina le directory di cache e ripara il registro di sistema, garantendo che il tuo sistema possa scaricare e installare gli aggiornamenti essenziali senza intoppi.
+- **Toolkit Office**: Strumento di gestione completo per Microsoft Office che semplifica l'installazione, la riparazione e la rimozione dei prodotti. Con la sua interfaccia intuitiva, ti guida attraverso ogni operazione, rendendo la gestione di Office accessibile a tutti. È possibile installare una versione "Basic" di Microsoft Office in modo semi-automatico, riparare le installazioni esistenti con due diverse modalità (Riparazione Rapida offline e Riparazione Completa online), oppure rimuovere completamente il software dal sistema utilizzando l'efficace tool ufficiale Microsoft Support and Recovery Assistant (SaRA). Questo garantisce la risoluzione dei problemi più comuni, dai malfunzionamenti minori ai conflitti più complessi che richiedono una pulizia completa, offrendo un'esperienza professionale e affidabile.
 - **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato nel percorso `%localappdata%\WinToolkit\logs` (Inserisci il percorso senza apici dopo aver digitato `esegui` nel menu start di windows per accedere alla cartella dei log), fornendo un riassunto chiaro e professionale delle azioni eseguite, degli errori riscontrati e dei risultati finali.
 
-### Perché usare WinToolkit?
+### Perché WinToolkit?
 
 Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemente mantenere il tuo PC personale in perfette condizioni, WinToolkit ti permette di:
 
 - **Risparmiare Tempo**: Automatizza ore di lavoro manuale di diagnostica e riparazione.
 - **Prevenire Malfunzionamenti**: Esegui manutenzioni preventive per evitare problemi futuri.
-- **Agire da Esperto**: Sfrutta la potenza degli strumenti di sistema professionali con un'interfaccia semplice e sicura.
+- **Agire da Esperto**: Sfrutta la potenza degli strumenti di sistema ufficiali Microsoft con un'interfaccia semplice e sicura. Nessun Software Terzo, nessuno script aggressivo o non perfettamente documentato ed utilizzato dai supporti ufficiali.
 
 ---
 
@@ -157,7 +157,7 @@ Avvia il Toolkit eseguendo il seguente metodo:
 - [x] **`V2.0.0 (Build 72)`**: Readme Rework, Rework Grafico Script.
 - [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato, Fix Tool **Update Reset**.
 - [x] **`V2.0.0 (Build 82)`**: Rework Grafico `WinToolkit.ps1`.
-- [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`. Aggiornamento `Readme.md`.
+- [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`, Aggiornamento `Readme.md`, potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
 - [x] **`V2.1 (Build 14)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`.
 - [ ] **`V2.2`**: Sezione **Windows Repair Plus** Completa.
 - [ ] **`V2.3`**: Sezione **Driver & Gaming** Completa.
