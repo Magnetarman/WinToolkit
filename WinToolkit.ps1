@@ -1833,7 +1833,7 @@ while ($true) {
     foreach ($category in $menuStructure) {
         # Visualizzazione del titolo della categoria
         $categoryTitle = "=== $($category.Icon) $($category.Name) $($category.Icon) ==="
-        Write-Host $categoryTitle -ForegroundColor DarkYellow
+        Write-Host $categoryTitle -ForegroundColor Cyan
         Write-Host ''
     
         # Visualizzazione degli script della categoria
