@@ -343,7 +343,7 @@ function OfficeToolkit {
             # Esecuzione SaRA
             Write-StyledMessage Info "🚀 Avvio rimozione tramite SaRA..."
             Write-StyledMessage Warning "⏰ Questa operazione può richiedere molto tempo"
-            Write-StyledMessage Warning "☝️ Ad operazione avviata, non chiudere la finestra di SaRA, attendere il completamento, la finestra si chiuderà automaticamente"
+            Write-StyledMessage Warning "🚀 Ad operazione avviata, non chiudere la finestra di SaRA, la finestra si chiuderà automaticamente"
             
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
             Start-Process -FilePath $saraPath -ArgumentList $arguments -Verb RunAs
@@ -389,7 +389,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '     Office Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 31)'
+            '        Version 2.1 (Build 32)'
         )
         
         foreach ($line in $asciiArt) {
