@@ -90,7 +90,7 @@ function OfficeToolkit {
             return $true
         }
         catch {
-            Write-StyledMessage Error "❌ Errore riavvio: $_"
+            Write-StyledMessage Error "Errore riavvio: $_"
             return $false
         }
     }
@@ -109,13 +109,13 @@ function OfficeToolkit {
                     $closed++
                 }
                 catch {
-                    Write-StyledMessage Warning "⚠️ Impossibile chiudere: $processName"
+                    Write-StyledMessage Warning "Impossibile chiudere: $processName"
                 }
             }
         }
         
         if ($closed -gt 0) {
-            Write-StyledMessage Success "✅ $closed processi Office chiusi"
+            Write-StyledMessage Success "$closed processi Office chiusi"
         }
     }
 
@@ -136,16 +136,16 @@ function OfficeToolkit {
             $webClient.Dispose()
             
             if (Test-Path $OutputPath) {
-                Write-StyledMessage Success "✅ Download completato: $Description"
+                Write-StyledMessage Success "Download completato: $Description"
                 return $true
             }
             else {
-                Write-StyledMessage Error "❌ File non trovato dopo download: $Description"
+                Write-StyledMessage Error "File non trovato dopo download: $Description"
                 return $false
             }
         }
         catch {
-            Write-StyledMessage Error "❌ Errore download $Description`: $_"
+            Write-StyledMessage Error "Errore download $Description`: $_"
             return $false
         }
     }
@@ -190,12 +190,12 @@ function OfficeToolkit {
                 return $true
             }
             else {
-                Write-StyledMessage Warning "⚠️ Installazione non completata correttamente"
+                Write-StyledMessage Warning "Installazione non completata correttamente"
                 return $false
             }
         }
         catch {
-            Write-StyledMessage Error "❌ Errore durante installazione: $_"
+            Write-StyledMessage Error "Errore durante installazione: $_"
             return $false
         }
         finally {
@@ -232,7 +232,7 @@ function OfficeToolkit {
         }
         
         if ($cleanedCount -gt 0) {
-            Write-StyledMessage Success "✅ $cleanedCount cache eliminate"
+            Write-StyledMessage Success "$cleanedCount cache eliminate"
         }
         
         # Selezione tipo riparazione
@@ -248,7 +248,7 @@ function OfficeToolkit {
         try {
             $officeClient = Get-OfficeClient
             if (-not $officeClient) {
-                Write-StyledMessage Error "❌ Office Click-to-Run non trovato"
+                Write-StyledMessage Error "Office Click-to-Run non trovato"
                 return $false
             }
             
@@ -267,38 +267,37 @@ function OfficeToolkit {
             Read-Host | Out-Null
             
             # Conferma risultato
-            if (Get-UserConfirmation "✅ Riparazione completata con successo?" 'Y') {
+            if (Get-UserConfirmation "✅ Riparazione completata con successo?" 'Y/N') {
                 Write-StyledMessage Success "🎉 Riparazione Office completata!"
                 return $true
             }
             else {
-                Write-StyledMessage Warning "⚠️ Riparazione non completata correttamente"
+                Write-StyledMessage Warning "Riparazione non completata correttamente"
                 
                 # Suggerimento riparazione completa se era rapida
                 if ($choice -eq '1') {
                     if (Get-UserConfirmation "🌐 Tentare riparazione completa online?" 'Y') {
-                        Write-StyledMessage Info "🌐 Avvio riparazione completa..."
+                        Write-StyledMessage Info "🌐 Avvio riparazione completa (Riparazione Online)"
                         $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
                         Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
                         
                         Write-Host "💡 Premi INVIO quando la riparazione completa è terminata..." -ForegroundColor Yellow
                         Read-Host | Out-Null
                         
-                        return Get-UserConfirmation "✅ Riparazione completa riuscita?" 'Y'
+                        return Get-UserConfirmation "✅ Riparazione completa riuscita?" 'Y/N'
                     }
                 }
                 return $false
             }
         }
         catch {
-            Write-StyledMessage Error "❌ Errore durante riparazione: $_"
+            Write-StyledMessage Error "Errore durante riparazione: $_"
             return $false
         }
     }
 
     function Start-OfficeUninstall {
-        Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office"
-        Write-StyledMessage Warning "⚠️ Verrà utilizzato Microsoft Support and Recovery Assistant (SaRA)"
+        Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office, Verrà utilizzato Microsoft Support and Recovery Assistant (SaRA)"
         
         if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa? [Y/N]" 'N')) {
             Write-StyledMessage Info "❌ Operazione annullata"
@@ -325,17 +324,17 @@ function OfficeToolkit {
             Write-StyledMessage Info "📦 Estrazione SaRA..."
             try {
                 Expand-Archive -Path $saraZipPath -DestinationPath $TempDir -Force
-                Write-StyledMessage Success "✅ Estrazione completata"
+                Write-StyledMessage Success "Estrazione completata"
             }
             catch {
-                Write-StyledMessage Error "❌ Errore estrazione: $_"
+                Write-StyledMessage Error "Errore estrazione: $_"
                 return $false
             }
             
             # Ricerca eseguibile SaRA
             $saraExe = Get-ChildItem -Path $TempDir -Name "SaRAcmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $saraExe) {
-                Write-StyledMessage Error "❌ SaRAcmd.exe non trovato"
+                Write-StyledMessage Error "SaRAcmd.exe non trovato"
                 return $false
             }
             
@@ -358,12 +357,12 @@ function OfficeToolkit {
                 return $true
             }
             else {
-                Write-StyledMessage Warning "⚠️ Rimozione potrebbe essere incompleta"
+                Write-StyledMessage Warning "Rimozione potrebbe essere incompleta"
                 return $false
             }
         }
         catch {
-            Write-StyledMessage Error "❌ Errore durante rimozione: $_"
+            Write-StyledMessage Error "Errore durante rimozione: $_"
             return $false
         }
         finally {
@@ -389,7 +388,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '     Office Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 29)'
+            '        Version 2.2 (Build 30)'
         )
         
         foreach ($line in $asciiArt) {
@@ -441,11 +440,11 @@ function OfficeToolkit {
                 }
                 '0' {
                     Write-StyledMessage Info "👋 Uscita dal toolkit..."
-                    Write-StyledMessage Success "✅ Grazie per aver utilizzato Office Toolkit!"
+                    Write-StyledMessage Success "Grazie per aver utilizzato Office Toolkit!"
                     return
                 }
                 default {
-                    Write-StyledMessage Warning "⚠️ Opzione non valida. Seleziona 0-3."
+                    Write-StyledMessage Warning "Opzione non valida. Seleziona 0-3."
                     continue
                 }
             }
@@ -462,7 +461,7 @@ function OfficeToolkit {
                     }
                 }
                 else {
-                    Write-StyledMessage Error "❌ $operation non riuscita"
+                    Write-StyledMessage Error "$operation non riuscita"
                     Write-StyledMessage Info "💡 Controlla i log per dettagli o contatta il supporto"
                 }
                 Write-Host "`n" + ('─' * 50) + "`n"
@@ -471,11 +470,11 @@ function OfficeToolkit {
         } while ($choice -ne '0')
     }
     catch {
-        Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore critico: $($_.Exception.Message)"
     }
     finally {
         # Pulizia finale
-        Write-StyledMessage Info "🧹 Pulizia finale..."
+        Write-StyledMessage Success "🧹 Pulizia finale..."
         
         if (Test-Path $TempDir) {
             Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
