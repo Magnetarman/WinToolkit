@@ -49,7 +49,7 @@
 > Ramo `Dev` <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**. **Potrebbe causare danni al tuo sistema.**
 
 > [!Tip]
-> Per far funzionare lo script del ramo `Dev` scarica il progetto [Cliccando QUI](https://github.com/Magnetarman/WinToolkit/archive/refs/heads/Dev.zip), Estrai il file .zip, avvia PowerShell nella cartella principale **WinToolkit-Dev** e lancia il tool digitando `./Wintoolkit.ps1`.
+> Per eseguire lo script della versione di sviluppo (Dev) di WinToolkit, devi prima scaricare il progetto [Cliccando QUI](https://github.com/Magnetarman/WinToolkit/archive/refs/heads/Dev.zip), una volta ottenuto il file .zip, estrailo. Dopodiché, apri PowerShell in **Modalità Amministratore** all'interno di nella cartella principale **WinToolkit-Dev** e lancia il tool digitando `./Wintoolkit.ps1`.
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato garantendo una tracciabilità completa delle operazioni.
