@@ -114,9 +114,6 @@ Prima di avviare il tool, assicurati che il tuo ambiente di Runtime soddisfi i s
 - Richiesto intervento manuale minimo.
 - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema).
 
-> [!Tip]
-> Per gli utenti esperti che desiderano avviare il toolkit direttamente, è consigliabile installare il profilo PowerShell e utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
-
 ### ⚙️ Installazione per Neofiti **(Consigliata)**
 
 Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
@@ -134,6 +131,9 @@ Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
 6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.1` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
 
 ### ⚙️ Installazione Classica
+
+> [!Tip]
+> Per gli utenti esperti che desiderano avviare il toolkit direttamente, è consigliabile installare il profilo PowerShell e utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
 
 Avvia il Toolkit eseguendo le seguenti istruzioni:
 
