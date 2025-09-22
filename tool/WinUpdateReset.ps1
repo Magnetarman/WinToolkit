@@ -170,18 +170,20 @@ function WinUpdateReset {
         }
 
         try {
-            # Prima prova: eliminazione diretta usando il cmdlet nativo
-            Microsoft.PowerShell.Management\Remove-Item $Path -Recurse -Force -ErrorAction Stop
+            # Prima prova: eliminazione diretta con output soppresso
+            $null = Microsoft.PowerShell.Management\Remove-Item $Path -Recurse -Force -ErrorAction Stop 2>$null
             
-            # FIX: Assicura output pulito dopo eliminazione
-            Write-Host "`r$(' ' * 120)" -NoNewline
+            # FIX: Pulizia completa dell'output con buffer esteso
+            Write-Host "`r$(' ' * 140)" -NoNewline
+            Write-Host "`n$(' ' * 140)" -NoNewline  
             Write-Host "`r" -NoNewline
             Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata."
             return $true
         }
         catch {
-            # FIX: Pulisce output prima del messaggio di warning
-            Write-Host "`r$(' ' * 120)" -NoNewline
+            # FIX: Pulizia completa prima del messaggio di warning
+            Write-Host "`r$(' ' * 140)" -NoNewline
+            Write-Host "`n$(' ' * 140)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Warning "Tentativo fallito, provo con eliminazione selettiva..."
         
@@ -189,7 +191,7 @@ function WinUpdateReset {
                 if (Test-Path $Path) {
                     Get-ChildItem -Path $Path -Recurse -Force | ForEach-Object {
                         try {
-                            Microsoft.PowerShell.Management\Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                            $null = Microsoft.PowerShell.Management\Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue 2>$null
                         }
                         catch {
                             # Ignora errori su singoli file
@@ -198,8 +200,13 @@ function WinUpdateReset {
                 
                     # Prova finale a eliminare la directory principale
                     Start-Sleep -Seconds 1
-                    Microsoft.PowerShell.Management\Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue
+                    $null = Microsoft.PowerShell.Management\Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue 2>$null
                 
+                    # FIX: Pulizia finale dell'output
+                    Write-Host "`r$(' ' * 140)" -NoNewline
+                    Write-Host "`n$(' ' * 140)" -NoNewline
+                    Write-Host "`r" -NoNewline
+                    
                     if (-not (Test-Path $Path)) {
                         Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata (metodo alternativo)."
                         return $true
@@ -351,7 +358,11 @@ function WinUpdateReset {
                 Write-StyledMessage Info "💡 Suggerimento: Alcuni file potrebbero essere ricreati dopo il riavvio."
             }
             
-            Start-Sleep -Milliseconds 500
+            # FIX AGGIUNTIVO: Pulizia finale dell'output e forza refresh
+            Write-Host "`r$(' ' * 140)" -NoNewline
+            Write-Host "`n$(' ' * 140)" -NoNewline
+            Write-Host "`r" -NoNewline
+            Start-Sleep -Milliseconds 800
         }
         Write-Host ''
 
