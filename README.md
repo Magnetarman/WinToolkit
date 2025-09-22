@@ -196,7 +196,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
   - [x] Aggionamento Documentazione.
   - [x] Aggiunto `Github Actions` sul canale Dev per compilare automaticamente WinToolkit.
   - [x] Cambio ed attivazione nel codie nuovi Link.
-  - [ ] Aggiornamento `start.ps1`.
+  - [x] Aggiornamento `start.ps1`.
 - [ ] **`V2.2`**: Funzione **Windows Repair Plus** Completa.
 - [ ] **`V2.3`**: Funzione **Driver & Gaming** Completa.
 - [ ] **`V2.4`**: Funzione **Gaming Ready** Completa.
