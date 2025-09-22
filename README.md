@@ -48,9 +48,6 @@
 >
 > Ramo `Dev` <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**. **Potrebbe causare danni al tuo sistema.**
 
-> [!Tip]
-> Per eseguire lo script del ramo `Dev` di WinToolkit, devi prima scaricare il progetto [Cliccando QUI](https://github.com/Magnetarman/WinToolkit/archive/refs/heads/Dev.zip), una volta ottenuto il file .zip, estrailo. Dopodiché, apri PowerShell in **Modalità Amministratore** all'interno della cartella principale **WinToolkit-Dev** e lancia il tool digitando `./Wintoolkit.ps1`.
-
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato garantendo una tracciabilità completa delle operazioni.
 - **Ripristino di Windows Update**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi. Questo script blocca e riavvia i servizi di aggiornamento, rinomina e cancella le directory di cache e ripara il registro di sistema, garantendo che il tuo sistema possa scaricare e installare gli aggiornamenti essenziali senza intoppi.
@@ -130,7 +127,7 @@ Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
 
 6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.1` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
 
-### ⚙️ Installazione Classica
+### ⚙️ Avvio Classico
 
 > [!Tip]
 > Per gli utenti esperti che desiderano avviare il toolkit direttamente, è consigliabile installare il profilo PowerShell e utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
@@ -153,6 +150,20 @@ Avvia il Toolkit eseguendo le seguenti istruzioni:
 
 ```powershell
  ./WinToolkit.ps1
+```
+
+### ⚙️ Avvio Toolkit [Ramo `Dev`]
+
+**Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**. **Potrebbe causare danni al tuo sistema.** Sono presenti funzionalità in corso di sviluppo e/o in fase di test. Per utenti non esperti si consiglia **fortemente** di eseguire il ramo stabile del toolkit `main`.
+
+1. Premi il Tasto Windows sulla tastiera.
+2. Digita Powershell nel campo della ricerca.
+3. Click col tasto destro del mouse sulla voce Powershell.
+4. Click sulla voce Esegui come Amministratore dal menù a tendina.
+5. Inserisci il comando sottostante per avviare lo script di start nella finestra Powershell:
+
+```powershell
+irm https://magnetarman.com/WinToolkit-Dev | iex
 ```
 
 ---
