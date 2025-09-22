@@ -170,22 +170,22 @@ function WinUpdateReset {
         }
 
         try {
-            # Prima prova: eliminazione diretta
-            Remove-Item $Path -Recurse -Force -ErrorAction Stop
+            # Prima prova: eliminazione diretta usando il cmdlet nativo
+            Microsoft.PowerShell.Management\Remove-Item $Path -Recurse -Force -ErrorAction Stop
             Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata."
             return $true
         }
         catch {
             Write-Host '' # Assicura il ritorno a capo
             Write-StyledMessage Warning "Tentativo fallito, provo con eliminazione selettiva..."
-            
+        
             try {
                 # Seconda prova: elimina i contenuti prima, poi la cartella
                 if (Test-Path $Path) {
                     Get-ChildItem -Path $Path -Recurse -Force | ForEach-Object {
                         try {
                             if ($_.PSIsContainer) {
-                                Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                                Microsoft.PowerShell.Management\Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
                             }
                             else {
                                 $_.Delete()
@@ -195,11 +195,11 @@ function WinUpdateReset {
                             # Ignora errori su singoli file
                         }
                     }
-                    
+                
                     # Prova a eliminare la directory principale
                     Start-Sleep -Seconds 1
-                    Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue
-                    
+                    Microsoft.PowerShell.Management\Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue
+                
                     if (-not (Test-Path $Path)) {
                         Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata (metodo alternativo)."
                         return $true
