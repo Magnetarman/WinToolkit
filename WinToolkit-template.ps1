@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.1 (Build 17) - 2025-09-20
+  Versione 2.1 (Build 18) - 2025-09-22
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -186,7 +186,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       Toolkit By MagnetarMan',
-    '       Version 2.1 (Build 17)'
+    '       Version 2.1 (Build 18)'
 )
 
 # Main loop
