@@ -11,7 +11,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.1 (Build 15)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.1 (Build 16)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=for-the-badge&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -125,7 +125,7 @@ Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
 5. inserisci il comando sottostante per avviare lo script di start nella finestra Powershell:
 
 ```powershell
- irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/start.ps1 | iex
+ irm https://magnetarman.com/winstart | iex
 ```
 
 6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.1` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
@@ -169,6 +169,7 @@ Avvia il Toolkit eseguendo le seguenti istruzioni:
 - [x] **`V2.0.0 (Build 82)`**: Rework Grafico `WinToolkit.ps1`.
 - [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`, Aggiornamento `Readme.md`, Potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
 - [x] **`V2.1 (Build 15)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`, Potenziamento Funzione **Informazioni del Sistema**.
+- [x] **`V2.1 (Build 16)`**: Cambio redirect link script da github a MagnetarMan.com. Aggiornamento script `start.ps1`.
 - [ ] **`V2.2`**: Funzione **Windows Repair Plus** Completa.
 - [ ] **`V2.3`**: Funzione **Driver & Gaming** Completa.
 - [ ] **`V2.4`**: Funzione **Gaming Ready** Completa.
