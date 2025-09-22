@@ -11,14 +11,14 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.1 (Build 16)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.1.1 (Build 5)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=for-the-badge&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
 </p>
 </br>
 
-## 👨‍💻 Status Commit Rami del Progetto
+## 👨‍💻 Status Commit
 
 |                                                                               Ramo Release                                                                                |                                                                                Ramo Dev                                                                                 |
 | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
@@ -44,12 +44,9 @@
 ## 👾 Features
 
 > [!Note]
-> Ramo `main` <br> La versione 2.1 del Toolkit è in fase **RELEASE**.
+> Ramo `main` <br> La versione 2.1.1 del Toolkit è in fase **RELEASE**.
 >
 > Ramo `Dev` <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**. **Potrebbe causare danni al tuo sistema.**
-
-> [!Tip]
-> Per eseguire lo script del ramo `Dev` di WinToolkit, devi prima scaricare il progetto [Cliccando QUI](https://github.com/Magnetarman/WinToolkit/archive/refs/heads/Dev.zip), una volta ottenuto il file .zip, estrailo. Dopodiché, apri PowerShell in **Modalità Amministratore** all'interno della cartella principale **WinToolkit-Dev** e lancia il tool digitando `./Wintoolkit.ps1`.
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Riparazione del Sistema Completa**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato garantendo una tracciabilità completa delle operazioni.
@@ -130,7 +127,7 @@ Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
 
 6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.1` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
 
-### ⚙️ Installazione Classica
+### ⚙️ Avvio Classico
 
 > [!Tip]
 > Per gli utenti esperti che desiderano avviare il toolkit direttamente, è consigliabile installare il profilo PowerShell e utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
@@ -155,21 +152,51 @@ Avvia il Toolkit eseguendo le seguenti istruzioni:
  ./WinToolkit.ps1
 ```
 
+### ⚙️ Avvio Toolkit [Ramo `Dev`]
+
+**Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**. **Potrebbe causare danni al tuo sistema.** Sono presenti funzionalità in corso di sviluppo e/o in fase di test. Per utenti non esperti si consiglia **fortemente** di eseguire il ramo stabile del toolkit `main`.
+
+1. Premi il Tasto Windows sulla tastiera.
+2. Digita Powershell nel campo della ricerca.
+3. Click col tasto destro del mouse sulla voce Powershell.
+4. Click sulla voce `Esegui come Amministratore` dal menù a tendina.
+5. Inserisci il comando sottostante per avviare lo script di start nella finestra Powershell:
+
+```powershell
+irm https://magnetarman.com/WinToolkit-Dev | iex
+```
+
 ---
 
-## 📌 Project Roadmap
+## 📌 Changelog Progetto
 
 - [x] **`V1.0`**: Release Privata.
 - [x] **`V1.1.0`**: Refactor Struttura in forma modulare.
 - [x] **`V2.0.0`**: **RELEASE Pubblica**. Refator totale progetto per future implementazioni.
 - [x] **`V2.0.0 (Build 68)`**: Funzione **Repair Toolkit** Completa.
 - [x] **`V2.0.0 (Build 71)`**: Funzione **Update Reset** Completa.
-- [x] **`V2.0.0 (Build 72)`**: Readme Rework, Rework Grafico Script.
-- [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato, Fix Tool **Update Reset**.
+- [x] **`V2.0.0 (Build 72)`**: Readme Rework.
+  - [x] Rework Grafico Script.
+- [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato.
+  - [x] Fix Tool **Update Reset**.
 - [x] **`V2.0.0 (Build 82)`**: Rework Grafico `WinToolkit.ps1`.
-- [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`, Aggiornamento `Readme.md`, Potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
-- [x] **`V2.1 (Build 15)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`, Potenziamento Funzione **Informazioni del Sistema**.
-- [x] **`V2.1 (Build 16)`**: Cambio redirect link script da github a MagnetarMan.com. Aggiornamento script `start.ps1`.
+- [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script.
+  - [x] `WinReinstallStore.ps1`.
+  - [x] `WinRepairToolkit.ps1`.
+  - [x] Aggiornamento `Readme.md`.
+  - [x] Potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
+- [x] **`V2.1 (Build 15)`**: Funzione **Office Toolkit** Completa.
+  - [x] Aggiornamento `Readme.md`.
+  - [x] Potenziamento Funzione **Informazioni del Sistema**.
+- [x] **`V2.1 (Build 16)`**: Cambio redirect link script da github a MagnetarMan.com
+  - [x] Aggiornamento script `start.ps1`.
+- [x] **`V2.1.1 (Build 5)`**: Funzione **Selezione Multipla** Completa.
+  - [x] Aggiornamento `Readme.md`.
+  - [x] Ottimizzazione `WinToolkit-Template.ps1`.
+  - [x] Aggionamento Documentazione.
+  - [x] Aggiunto `Github Actions` sul canale Dev per compilare automaticamente WinToolkit.
+  - [x] Cambio ed attivazione nel codie nuovi Link.
+  - [x] Aggiornamento `start.ps1`.
 - [ ] **`V2.2`**: Funzione **Windows Repair Plus** Completa.
 - [ ] **`V2.3`**: Funzione **Driver & Gaming** Completa.
 - [ ] **`V2.4`**: Funzione **Gaming Ready** Completa.
@@ -185,6 +212,7 @@ Avvia il Toolkit eseguendo le seguenti istruzioni:
   - [x] Installazione di Uniget.
 - [ ] Reset Rust Desk.
 - [ ] Backup Driver Installati => Compressione in file .zip => Posizionamento archivio sul desktop.
+- [ ] Fix Blocco Grafico Terminale script `Update Reset`
 
 #### V2.3 - "Driver & Gaming"
 
