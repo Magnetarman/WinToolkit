@@ -274,12 +274,3 @@ catch {
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     exit 1
 }
-
-# Statistiche finali
-Write-StyledMessage 'Info' "COMPILAZIONE COMPLETATA"
-Write-Host "📊 Statistiche:" -ForegroundColor Cyan
-Write-Host "   • File processati con successo: $processedCount" -ForegroundColor Green
-Write-Host "   • File saltati: $skippedCount" -ForegroundColor Yellow
-Write-Host "   • Avvisi: $warningCount" -ForegroundColor Yellow
-Write-Host "`nPremi un tasto per uscire..." -ForegroundColor White
-$null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
