@@ -15,7 +15,7 @@ jobs:
   build_and_commit:
     # Esecuzione su macchina virtuale Ubuntu (ultima versione stabile)
     runs-on: ubuntu-latest
-    
+
     # Definizione dei passi sequenziali del job
     steps:
       # Step 1: Checkout del codice sorgente
@@ -25,14 +25,14 @@ jobs:
         with:
           # Necessario per permettere il push automatico successivo
           token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       # Step 2: Configurazione dell'ambiente PowerShell e Node.js
       # Installa Node.js che è necessario per molti runner di GitHub Actions
       - name: Setup Node.js per l'ambiente
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      
+          node-version: "20"
+
       # Step 3: Verifica e configurazione PowerShell
       # Assicura che PowerShell sia disponibile e configurato correttamente
       - name: Configurazione PowerShell
@@ -41,29 +41,44 @@ jobs:
           pwsh --version
           # Imposta i permessi di esecuzione per lo script
           chmod +x ./compiler.ps1
-      
+
       # Step 4: Esecuzione dello script compiler.ps1
       # Questo script genera il file WinToolkit.ps1 come output
       - name: Esecuzione script compiler.ps1
         run: ./compiler.ps1
         shell: pwsh
-      
+
       # Step 5: Controllo di sintassi del file generato
       # Verifica la correttezza sintattica di WinToolkit.ps1 prima del commit
       - name: Controllo sintassi WinToolkit.ps1
         run: |
-          # Controllo sintattico senza esecuzione del codice
-          # Se il parsing fallisce, il job termina con errore
+          # Controllo sintattico usando Get-Command per validare la sintassi
+          # Questo metodo è compatibile con PowerShell 7+ su Linux
           pwsh -NoProfile -NonInteractive -Command "
             try {
-              $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw -Path './WinToolkit.ps1'), [ref]$null)
-              Write-Host 'Controllo sintassi completato con successo'
+              # Verifica che il file esista
+              if (-not (Test-Path './WinToolkit.ps1')) {
+                throw 'File WinToolkit.ps1 non trovato'
+              }
+              
+              # Usa l'AST (Abstract Syntax Tree) per controllare la sintassi
+              $scriptContent = Get-Content -Raw -Path './WinToolkit.ps1'
+              $errors = @()
+              $null = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$errors)
+              
+              if ($errors.Count -gt 0) {
+                Write-Host 'Errori di sintassi trovati:'
+                $errors | ForEach-Object { Write-Host $_.Message }
+                throw 'Controllo sintassi fallito'
+              } else {
+                Write-Host 'Controllo sintassi completato con successo - Nessun errore trovato'
+              }
             } catch {
-              Write-Error 'Errore di sintassi rilevato in WinToolkit.ps1'
+              Write-Error $_.Exception.Message
               exit 1
             }
           "
-      
+
       # Step 6: Commit automatico del file aggiornato
       # Utilizza azione specializzata per commit e push automatici
       - name: Commit automatico WinToolkit.ps1
