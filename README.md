@@ -159,7 +159,7 @@ Avvia il Toolkit eseguendo le seguenti istruzioni:
 1. Premi il Tasto Windows sulla tastiera.
 2. Digita Powershell nel campo della ricerca.
 3. Click col tasto destro del mouse sulla voce Powershell.
-4. Click sulla voce Esegui come Amministratore dal menù a tendina.
+4. Click sulla voce `Esegui come Amministratore` dal menù a tendina.
 5. Inserisci il comando sottostante per avviare lo script di start nella finestra Powershell:
 
 ```powershell
