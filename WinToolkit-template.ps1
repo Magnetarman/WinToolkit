@@ -165,7 +165,7 @@ $menuStructure = @(
         'Scripts' = @(
             [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows.'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset di Windows Update.'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset. - Planned V2.2'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset.'; Action = 'RunFunction' }
         )
     },
     @{
@@ -186,7 +186,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       Toolkit By MagnetarMan',
-    '       Version 2.2 (Build 2)'
+    '       Version 2.2 (Build 3)'
 )
 
 # Main loop
