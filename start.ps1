@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Script di Start per Win Toolkit V2.0.
+    Script di Start per Win Toolkit V2.1.
 .DESCRIPTION
     Questo script funge da punto di ingresso per l'installazione e la configurazione di Win Toolkit V2.0.
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.1 (Build 16) - 2025-09-22
+  Versione 2.1.1 (Build 5) - 2025-09-22
 #>
 
 function Center-Text {
@@ -183,7 +183,7 @@ function ToolKit-Desktop {
     try {
         # Determina il percorso del desktop dell'utente corrente
         $desktopPath = [System.Environment]::GetFolderPath('Desktop')
-        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.1.lnk"
+        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.lnk"
         
         # Percorso per salvare l'icona
         $iconPath = Join-Path -Path $env:TEMP -ChildPath "WinToolkit.ico"
@@ -220,8 +220,7 @@ function ToolKit-Desktop {
         
         # Modifica il file .lnk per abilitare l'esecuzione come amministratore
         $bytes = [System.IO.File]::ReadAllBytes($shortcutPath)
-        # Il byte 21 contiene i flag della scorciatoia
-        # Impostiamo il bit 5 (valore 32 o 0x20) per "Esegui come amministratore"
+        # Il byte 21 contiene i flag della scorciatoia. Impostiamo il bit 5 (valore 32 o 0x20) per "Esegui come amministratore"
         $bytes[21] = $bytes[21] -bor 32
         [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
         
@@ -281,7 +280,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.1 (Build 16)'
+        '        Version 2.1.1 (Build 5)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White

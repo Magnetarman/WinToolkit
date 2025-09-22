@@ -11,7 +11,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.1 (Build 16)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.1.1 (Build 5)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=for-the-badge&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -44,7 +44,7 @@
 ## 👾 Features
 
 > [!Note]
-> Ramo `main` <br> La versione 2.1 del Toolkit è in fase **RELEASE**.
+> Ramo `main` <br> La versione 2.1.1 del Toolkit è in fase **RELEASE**.
 >
 > Ramo `Dev` <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**. **Potrebbe causare danni al tuo sistema.**
 
@@ -168,19 +168,35 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ---
 
-## 📌 Project Roadmap
+## 📌 Changelog Progetto
 
 - [x] **`V1.0`**: Release Privata.
 - [x] **`V1.1.0`**: Refactor Struttura in forma modulare.
 - [x] **`V2.0.0`**: **RELEASE Pubblica**. Refator totale progetto per future implementazioni.
 - [x] **`V2.0.0 (Build 68)`**: Funzione **Repair Toolkit** Completa.
 - [x] **`V2.0.0 (Build 71)`**: Funzione **Update Reset** Completa.
-- [x] **`V2.0.0 (Build 72)`**: Readme Rework, Rework Grafico Script.
-- [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato, Fix Tool **Update Reset**.
+- [x] **`V2.0.0 (Build 72)`**: Readme Rework.
+  - [x] Rework Grafico Script.
+- [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato.
+  - [x] Fix Tool **Update Reset**.
 - [x] **`V2.0.0 (Build 82)`**: Rework Grafico `WinToolkit.ps1`.
-- [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script `WinReinstallStore.ps1`, `WinRepairToolkit.ps1`, Aggiornamento `Readme.md`, Potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
-- [x] **`V2.1 (Build 15)`**: Funzione **Office Toolkit** Completa, Aggiornamento `Readme.md`, Potenziamento Funzione **Informazioni del Sistema**.
-- [x] **`V2.1 (Build 16)`**: Cambio redirect link script da github a MagnetarMan.com. Aggiornamento script `start.ps1`.
+- [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script.
+  - [x] `WinReinstallStore.ps1`.
+  - [x] `WinRepairToolkit.ps1`.
+  - [x] Aggiornamento `Readme.md`.
+  - [x] Potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
+- [x] **`V2.1 (Build 15)`**: Funzione **Office Toolkit** Completa.
+  - [x] Aggiornamento `Readme.md`.
+  - [x] Potenziamento Funzione **Informazioni del Sistema**.
+- [x] **`V2.1 (Build 16)`**: Cambio redirect link script da github a MagnetarMan.com
+  - [x] Aggiornamento script `start.ps1`.
+- [x] **`V2.1.1 (Build 5)`**: Funzione **Selezione Multipla** Completa.
+  - [x] Aggiornamento `Readme.md`.
+  - [x] Ottimizzazione `WinToolkit-Template.ps1`.
+  - [x] Aggionamento Documentazione.
+  - [x] Aggiunto `Github Actions` sul canale Dev per compilare automaticamente WinToolkit.
+  - [x] Cambio ed attivazione nel codie nuovi Link.
+  - [ ] Aggiornamento `start.ps1`.
 - [ ] **`V2.2`**: Funzione **Windows Repair Plus** Completa.
 - [ ] **`V2.3`**: Funzione **Driver & Gaming** Completa.
 - [ ] **`V2.4`**: Funzione **Gaming Ready** Completa.
@@ -196,6 +212,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
   - [x] Installazione di Uniget.
 - [ ] Reset Rust Desk.
 - [ ] Backup Driver Installati => Compressione in file .zip => Posizionamento archivio sul desktop.
+- [ ] Fix Blocco Grafico Terminale script `Update Reset`
 
 #### V2.3 - "Driver & Gaming"
 
