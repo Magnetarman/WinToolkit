@@ -16,6 +16,11 @@ jobs:
     # Esecuzione su macchina virtuale Ubuntu (ultima versione stabile)
     runs-on: ubuntu-latest
 
+    # Configurazione dei permessi necessari per il workflow
+    permissions:
+      contents: write
+      actions: read
+
     # Definizione dei passi sequenziali del job
     steps:
       # Step 1: Checkout del codice sorgente
@@ -23,8 +28,10 @@ jobs:
       - name: Checkout del repository
         uses: actions/checkout@v4
         with:
-          # Necessario per permettere il push automatico successivo
+          # Utilizza il token GitHub predefinito con i permessi necessari
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Fetch completo necessario per il commit
+          fetch-depth: 0
 
       # Step 2: Configurazione dell'ambiente PowerShell e Node.js
       # Installa Node.js che è necessario per molti runner di GitHub Actions
@@ -86,8 +93,5 @@ jobs:
           commit_message: "Update Wintoolkit-Dev"
           # Specifica solo il file da committare per evitare commit indesiderati
           file_pattern: WinToolkit.ps1
-          # Configurazione dell'autore del commit
-          commit_user_name: GitHub Actions Bot
-          commit_user_email: actions@github.com
           # Branch di destinazione (deve corrispondere al branch corrente)
           branch: Dev
