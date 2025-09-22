@@ -39,7 +39,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             '        Store Repair Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 25)'
+            '        Version 2.2 (Build 26)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -202,7 +202,7 @@ function WinReinstallStore {
     }
     
     function Start-CountdownReboot([int]$Seconds) {
-        Write-StyledMessage Warning "⚠️ Riavvio necessario per applicare le modifiche"
+        Write-StyledMessage Warning "Riavvio necessario per applicare le modifiche"
         Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
         
         for ($i = $Seconds; $i -gt 0; $i--) {

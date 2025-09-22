@@ -180,23 +180,17 @@ function WinUpdateReset {
             Write-StyledMessage Warning "Tentativo fallito, provo con eliminazione selettiva..."
         
             try {
-                # Seconda prova: elimina i contenuti prima, poi la cartella
                 if (Test-Path $Path) {
                     Get-ChildItem -Path $Path -Recurse -Force | ForEach-Object {
                         try {
-                            if ($_.PSIsContainer) {
-                                Microsoft.PowerShell.Management\Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-                            }
-                            else {
-                                $_.Delete()
-                            }
+                            Microsoft.PowerShell.Management\Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
                         }
                         catch {
                             # Ignora errori su singoli file
                         }
                     }
                 
-                    # Prova a eliminare la directory principale
+                    # Prova finale a eliminare la directory principale
                     Start-Sleep -Seconds 1
                     Microsoft.PowerShell.Management\Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue
                 
@@ -228,7 +222,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.1 (Build 29)'
+        '       Version 2.2 (Build 2)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
