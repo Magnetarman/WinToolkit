@@ -5,7 +5,7 @@
     Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
     Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
 .NOTES
-  Versione 2.1.1 (Build 5) - 2025-09-22
+  Versione 2.2 (Build 2) - 2025-09-23
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -772,23 +772,17 @@ function WinUpdateReset {
             Write-StyledMessage Warning "Tentativo fallito, provo con eliminazione selettiva..."
         
             try {
-                # Seconda prova: elimina i contenuti prima, poi la cartella
                 if (Test-Path $Path) {
                     Get-ChildItem -Path $Path -Recurse -Force | ForEach-Object {
                         try {
-                            if ($_.PSIsContainer) {
-                                Microsoft.PowerShell.Management\Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-                            }
-                            else {
-                                $_.Delete()
-                            }
+                            Microsoft.PowerShell.Management\Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
                         }
                         catch {
                             # Ignora errori su singoli file
                         }
                     }
                 
-                    # Prova a eliminare la directory principale
+                    # Prova finale a eliminare la directory principale
                     Start-Sleep -Seconds 1
                     Microsoft.PowerShell.Management\Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue
                 
@@ -820,7 +814,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.1 (Build 29)'
+        '       Version 2.2 (Build 2)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -1188,7 +1182,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             '        Store Repair Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 25)'
+            '        Version 2.2 (Build 26)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -1351,7 +1345,7 @@ function WinReinstallStore {
     }
     
     function Start-CountdownReboot([int]$Seconds) {
-        Write-StyledMessage Warning "⚠️ Riavvio necessario per applicare le modifiche"
+        Write-StyledMessage Warning "Riavvio necessario per applicare le modifiche"
         Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
         
         for ($i = $Seconds; $i -gt 0; $i--) {
@@ -1976,7 +1970,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       Toolkit By MagnetarMan',
-    '       Version 2.1.1 (Build 5)'
+    '       Version 2.2 (Build 2)'
 )
 
 # Main loop
