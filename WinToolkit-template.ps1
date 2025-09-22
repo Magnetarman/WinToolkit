@@ -227,39 +227,66 @@ while ($true) {
     Write-Host ''
     
     # Handle user choice
-    $userChoice = Read-Host "Quale opzione vuoi eseguire? (0-$($allScripts.Count))"
-    
+    $userChoice = Read-Host "Quale opzione vuoi eseguire? (es. 1, 3, 5 o 0 per uscire)"
+
     if ($userChoice -eq '0') {
         Write-StyledMessage 'Warning' 'In caso di problemi, contatta MagnetarMan su Github => Github.com/Magnetarman.'
         Write-StyledMessage 'Success' 'Grazie per aver usato il toolkit. Chiusura in corso...'
         Start-Sleep -Seconds 5
         break
     }
+
+    # Separa gli input usando spazi o virgole come delimitatori e rimuove eventuali spazi vuoti
+    $choices = $userChoice -split '[ ,]+' | Where-Object { $_ -ne '' }
+    $scriptsToRun = [System.Collections.Generic.List[object]]::new()
+    $invalidChoices = [System.Collections.Generic.List[string]]::new()
+
+    # Valida ogni scelta e la aggiunge alla lista di esecuzione
+    foreach ($choice in $choices) {
+        if (($choice -match '^\d+$') -and ([int]$choice -ge 1) -and ([int]$choice -le $allScripts.Count)) {
+            $scriptsToRun.Add($allScripts[[int]$choice - 1])
+        }
+        else {
+            $invalidChoices.Add($choice)
+        }
+    }
+
+    # Se ci sono scelte non valide, avvisa l'utente
+    if ($invalidChoices.Count -gt 0) {
+        Write-StyledMessage 'Warning' "Le seguenti opzioni non sono valide e verranno ignorate: $($invalidChoices -join ', ')"
+        Start-Sleep -Seconds 2
+    }
+
+    # Esegui gli script validi in sequenza
+    if ($scriptsToRun.Count -gt 0) {
+        foreach ($selectedItem in $scriptsToRun) {
+            Write-Host "`n" + ('-' * ($width / 2))
+            Write-StyledMessage 'Info' "Avvio di '$($selectedItem.Description)'..."
+        
+            try {
+                if ($selectedItem.Action -eq 'RunFile') {
+                    $scriptPath = Join-Path $PSScriptRoot $selectedItem.Name
+                    if (Test-Path $scriptPath) { & $scriptPath }
+                    else { Write-StyledMessage 'Error' "Script '$($selectedItem.Name)' non trovato." }
+                }
+                elseif ($selectedItem.Action -eq 'RunFunction') {
+                    Invoke-Expression $selectedItem.Name
+                }
+            }
+            catch {
+                Write-StyledMessage 'Error' "Errore durante l'esecuzione di '$($selectedItem.Description)'."
+                Write-StyledMessage 'Error' "Dettagli: $($_.Exception.Message)"
+            }
+            Write-StyledMessage 'Success' "Esecuzione di '$($selectedItem.Description)' completata."
+        }
     
-    if (($userChoice -match '^\d+$') -and ([int]$userChoice -ge 1) -and ([int]$userChoice -le $allScripts.Count)) {
-        $selectedItem = $allScripts[[int]$userChoice - 1]
-        Write-StyledMessage 'Info' "Avvio di '$($selectedItem.Description)'..."
-        
-        try {
-            if ($selectedItem.Action -eq 'RunFile') {
-                $scriptPath = Join-Path $PSScriptRoot $selectedItem.Name
-                if (Test-Path $scriptPath) { & $scriptPath }
-                else { Write-StyledMessage 'Error' "Script '$($selectedItem.Name)' non trovato nella directory '$PSScriptRoot'." }
-            }
-            elseif ($selectedItem.Action -eq 'RunFunction') {
-                Invoke-Expression $selectedItem.Name
-            }
-        }
-        catch {
-            Write-StyledMessage 'Error' "Si è verificato un errore durante l'esecuzione dell'opzione selezionata."
-            Write-StyledMessage 'Error' "Dettagli: $($_.Exception.Message)"
-        }
-        
-        Write-Host "`nPremi un tasto per tornare al menu principale..."
+        Write-Host "`nTutte le operazioni selezionate sono state completate."
+        Write-Host "Premi un tasto per tornare al menu principale..."
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
-    else {
-        Write-StyledMessage 'Error' 'Scelta non valida. Riprova.'
+    elseif ($invalidChoices.Count -eq $choices.Count) {
+        # Questo blocco viene eseguito se sono state inserite SOLO scelte non valide
+        Write-StyledMessage 'Error' 'Nessuna scelta valida inserita. Riprova.'
         Start-Sleep -Seconds 3
     }
 }
