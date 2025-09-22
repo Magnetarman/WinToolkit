@@ -173,24 +173,33 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 - [x] **`V1.0`**: Release Privata.
 - [x] **`V1.1.0`**: Refactor Struttura in forma modulare.
 - [x] **`V2.0.0`**: **RELEASE Pubblica**. Refator totale progetto per future implementazioni.
-- [x] **`V2.0.0 (Build 68)`**: Funzione **Repair Toolkit** Completa.
-- [x] **`V2.0.0 (Build 71)`**: Funzione **Update Reset** Completa.
-- [x] **`V2.0.0 (Build 72)`**: Readme Rework.
+- [x] **`V2.0.0 (Build 68)`**:
+  - [x] Funzione **Repair Toolkit** Completa.
+- [x] **`V2.0.0 (Build 71)`**:
+  - [x] Funzione **Update Reset** Completa.
+- [x] **`V2.0.0 (Build 72)`**:
+  - [x] Readme Rework.
   - [x] Rework Grafico Script.
-- [x] **`V2.0.0 (Build 73)`**: Start Script Potenziato.
+- [x] **`V2.0.0 (Build 73)`**:
+  - [x] Start Script Potenziato.
   - [x] Fix Tool **Update Reset**.
-- [x] **`V2.0.0 (Build 82)`**: Rework Grafico `WinToolkit.ps1`.
-- [x] **`V2.0.1 (Build 3)`**: Ottimizzazione Script.
+- [x] **`V2.0.0 (Build 82)`**:
+  - [x] Rework Grafico `WinToolkit.ps1`.
+- [x] **`V2.0.1 (Build 3)`**:
+  - [x] Ottimizzazione Script.
   - [x] `WinReinstallStore.ps1`.
   - [x] `WinRepairToolkit.ps1`.
   - [x] Aggiornamento `Readme.md`.
   - [x] Potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
-- [x] **`V2.1 (Build 15)`**: Funzione **Office Toolkit** Completa.
+- [x] **`V2.1 (Build 15)`**:
+  - [x] Funzione **Office Toolkit** Completa.
   - [x] Aggiornamento `Readme.md`.
   - [x] Potenziamento Funzione **Informazioni del Sistema**.
-- [x] **`V2.1 (Build 16)`**: Cambio redirect link script da github a MagnetarMan.com
+- [x] **`V2.1 (Build 16)`**:
+  - [x] Cambio redirect link script da github a MagnetarMan.com
   - [x] Aggiornamento script `start.ps1`.
-- [x] **`V2.1.1 (Build 5)`**: Funzione **Selezione Multipla** Completa.
+- [x] **`V2.1.1 (Build 5)`**:
+  - [x] Funzione **Selezione Multipla** Completa.
   - [x] Aggiornamento `Readme.md`.
   - [x] Ottimizzazione `WinToolkit-Template.ps1`.
   - [x] Aggionamento Documentazione.
