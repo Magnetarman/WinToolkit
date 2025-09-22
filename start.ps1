@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.1 (Build 3) - 2025-09-19
+  Versione 2.1 (Build 16) - 2025-09-22
 #>
 
 function Center-Text {
@@ -207,7 +207,7 @@ function ToolKit-Desktop {
         $Shortcut.TargetPath = 'C:\Users\' + $env:USERNAME + '\AppData\Local\Microsoft\WindowsApps\wt.exe'
         
         # Imposta gli argomenti della riga di comando (Arguments)
-        $Shortcut.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/WinToolkit.ps1 | iex"'
+        $Shortcut.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
         
         # Imposta la directory di lavoro
         $Shortcut.WorkingDirectory = "C:\Users\" + $env:USERNAME + "\AppData\Local\Microsoft\WindowsApps"
@@ -281,7 +281,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.1 (Build 3)'
+        '        Version 2.1 (Build 16)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
