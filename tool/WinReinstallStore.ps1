@@ -38,7 +38,7 @@ function WinReinstallStore {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '        Store Repair Toolkit By MagnetarMan',
+            ' Store Repair Toolkit By MagnetarMan',
             '        Version 2.2 (Build 26)'
         )
         foreach ($line in $asciiArt) {

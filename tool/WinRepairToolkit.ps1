@@ -253,7 +253,7 @@ function WinRepairToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Repair Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 4)'
+        '        Version 2.1 (Build 5)'
     )
     
     $asciiArt | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }

@@ -39,7 +39,7 @@ function SetRustDesk {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '   RustDesk Setup Toolkit By MagnetarMan',
+            '  RustDesk Setup Toolkit By MagnetarMan',
             '        Version 2.2 (Build 8)'
         )
         foreach ($line in $asciiArt) {

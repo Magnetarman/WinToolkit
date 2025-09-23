@@ -388,8 +388,8 @@ function OfficeToolkit {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '     Office Toolkit By MagnetarMan',
-            '        Version 2.1 (Build 32)'
+            '    Office Toolkit By MagnetarMan',
+            '        Version 2.1 (Build 33)'
         )
         
         foreach ($line in $asciiArt) {

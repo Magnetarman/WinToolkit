@@ -234,8 +234,8 @@ function WinUpdateReset {
         '        \ V  V /   | || |\  |',
         '         \_/\_/    |_||_| \_|',
         '',
-        '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2 (Build 7)'
+        ' Update Reset Toolkit By MagnetarMan',
+        '       Version 2.2 (Build 8)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
