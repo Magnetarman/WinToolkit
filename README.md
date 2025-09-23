@@ -11,7 +11,7 @@
 <br>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.1.1 (Build 5)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.2 (Build 3)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/languages/top/Magnetarman/WinToolkit?style=for-the-badge&color=0080ff" alt="repo-top-language">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -35,7 +35,7 @@
 | :----------------------------------------------------------------------: | :------------------------------------------------------------------: |
 |       <img src="img/Starter.jpg" alt="Starter-banner" width="800">       |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
 | <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800"> |
-| <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800"> |                                                                      |
+| <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800"> | <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800"> |
 
 </div>
 
@@ -44,7 +44,7 @@
 ## 👾 Features
 
 > [!Note]
-> Ramo `main` <br> La versione 2.1.1 del Toolkit è in fase **RELEASE**.
+> Ramo `main` <br> La versione 2.2 del Toolkit è in fase **RELEASE**.
 >
 > Ramo `Dev` <br> **Attenzione:** Avviare il Toolkit dal ramo `Dev` è **rischioso**. **Potrebbe causare danni al tuo sistema.**
 
@@ -73,7 +73,8 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
         ├── Run.jpg
         ├── Starter.jpg
         ├── Office-Toolkit.jpg
-        └── WinToolkit-icon.png
+        ├── WinToolkit-icon.png
+        └── StoreRepair.jpg
     ├── LICENSE
     ├── README.md
     ├── start.ps1
@@ -111,7 +112,7 @@ Prima di avviare il tool, assicurati che il tuo ambiente di Runtime soddisfi i s
 - Richiesto intervento manuale minimo.
 - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema).
 
-### ⚙️ Installazione per Neofiti **(Consigliata)**
+### ⚙️ Avvio **Consigliato**
 
 Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
 
@@ -125,31 +126,21 @@ Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
  irm https://magnetarman.com/winstart | iex
 ```
 
-6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2.1` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
+6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
 
 ### ⚙️ Avvio Classico
 
 > [!Tip]
 > Per gli utenti esperti che desiderano avviare il toolkit direttamente, è consigliabile installare il profilo PowerShell e utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
 
-Avvia il Toolkit eseguendo le seguenti istruzioni:
-
-1. Clona la repository WinToolkit:
-
-```powershell
- git clone https://github.com/Magnetarman/WinToolkit
-```
-
-2. Utilizza il terminale in modalità Amministratore per Navigare fino alla cartella:
+1. Premi il Tasto Windows sulla tastiera.
+2. Digita `Powershell` nel campo della ricerca.
+3. Click col tasto destro del mouse sulla voce Powershell.
+4. Click sulla voce `Esegui come Amministratore` dal menù a tendina.
+5. inserisci il comando sottostante per avviare lo script di start nella finestra Powershell:
 
 ```powershell
- cd WinToolkit
-```
-
-3. Lancia il Toolkit:
-
-```powershell
- ./WinToolkit.ps1
+ irm https://magnetarman.com/WinToolkit | iex
 ```
 
 ### ⚙️ Avvio Toolkit [Ramo `Dev`]
@@ -168,112 +159,9 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ---
 
-## 📌 Changelog Progetto
+## 📌 [Changelog Progetto](/CHANGELOG)
 
-- [x] **`V1.0`**: Release Privata.
-- [x] **`V1.1.0`**: Refactor Struttura in forma modulare.
-- [x] **`V2.0.0`**: **RELEASE Pubblica**. Refator totale progetto per future implementazioni.
-- [x] **`V2.0.0 (Build 68)`**:
-  - [x] Funzione **Repair Toolkit** Completa.
-- [x] **`V2.0.0 (Build 71)`**:
-  - [x] Funzione **Update Reset** Completa.
-- [x] **`V2.0.0 (Build 72)`**:
-  - [x] Readme Rework.
-  - [x] Rework Grafico Script.
-- [x] **`V2.0.0 (Build 73)`**:
-  - [x] Start Script Potenziato.
-  - [x] Fix Tool **Update Reset**.
-- [x] **`V2.0.0 (Build 82)`**:
-  - [x] Rework Grafico `WinToolkit.ps1`.
-- [x] **`V2.0.1 (Build 3)`**:
-  - [x] Ottimizzazione Script.
-  - [x] `WinReinstallStore.ps1`.
-  - [x] `WinRepairToolkit.ps1`.
-  - [x] Aggiornamento `Readme.md`.
-  - [x] Potenziamento `WinToolkit.ps1` con le **Informazioni del Sistema**.
-- [x] **`V2.1 (Build 15)`**:
-  - [x] Funzione **Office Toolkit** Completa.
-  - [x] Aggiornamento `Readme.md`.
-  - [x] Potenziamento Funzione **Informazioni del Sistema**.
-- [x] **`V2.1 (Build 16)`**:
-  - [x] Cambio redirect link script da github a MagnetarMan.com
-  - [x] Aggiornamento script `start.ps1`.
-- [x] **`V2.1.1 (Build 5)`**:
-  - [x] Funzione **Selezione Multipla** Completa.
-  - [x] Aggiornamento `Readme.md`.
-  - [x] Ottimizzazione `WinToolkit-Template.ps1`.
-  - [x] Aggionamento Documentazione.
-  - [x] Aggiunto `Github Actions` sul canale Dev per compilare automaticamente WinToolkit.
-  - [x] Cambio ed attivazione nel codie nuovi Link.
-  - [x] Aggiornamento `start.ps1`.
-- [ ] **`V2.2`**: Funzione **Windows Repair Plus** Completa.
-- [ ] **`V2.3`**: Funzione **Driver & Gaming** Completa.
-- [ ] **`V2.4`**: Funzione **Gaming Ready** Completa.
-- [ ] **`V2.5`**: Funzione **Auto Debloat** Completa.
-- [ ] **`V2.6`**: Funzione **Security Update** Completa.
-- [ ] **`V3.0.0`**: Finalizzazione "MagnetarMan Mode".
-
-### 🗺️ Roadmap Versioni Future
-
-#### V2.2 - "Windows Repair Plus"
-
-- [x] Reinstallazione Forzata Microsoft Store & Winget.
-  - [x] Installazione di Uniget.
-- [ ] Reset Rust Desk.
-- [ ] Backup Driver Installati => Compressione in file .zip => Posizionamento archivio sul desktop.
-- [ ] Fix Blocco Grafico Terminale script `Update Reset`
-
-#### V2.3 - "Driver & Gaming"
-
-- [ ] Scelta Driver Video (AMD/NVIDIA).
-- [ ] Installazione Driver Ottimizzato (Nvidia).
-- [ ] Download ultima versione di DDU.
-  - [ ] Estrazione.
-  - [ ] Posizionamento nella cartella Downloads.
-  - [ ] Riavvio modalità provvisoria.
-
-#### V2.4 - "Gaming Ready"
-
-- [ ] Installazione client di gioco (Amazon, Gog Galaxy, Epic Games, Steam).
-- [ ] Installazione Playnite ed applicazione Tema personalizzato.
-- [ ] Installazione/Aggiornamento Directx.
-- [ ] Installazione/Aggiornamento Microsoft C++ Package.
-
-#### V2.5 - "Auto Debloat"
-
-- [ ] Avvio script Chris con config personalizzata iwr -useb https://christitus.com/win | iex
-
-#### V2.6 - "Security Update"
-
-- [ ] Download di Tron Script ed esecuzione con intervento minimo.
-
-#### V3.0 - "MagnetarMan Mode"
-
-- [ ] Finalizzazione "MagnetarMan Mode"
-  - [ ] Avvio Script Chris con configurazione personalizzata
-  - [ ] Installazione Programmi
-    - [ ] Brave Browser
-    - [ ] Google Chrome
-    - [ ] Betterbird
-    - [ ] Fan Control
-    - [ ] PowerToys
-    - [ ] Uniget
-    - [ ] Crystal Disk info
-    - [ ] HwInfo
-    - [ ] Rust Desk
-    - [ ] Client Giochi (Amazon, Gog Galaxy, Epic Games, Steam)
-  - [ ] Installazione .NET Runtime (Dalla 4.8 alla 9.0)
-  - [ ] Installazione Microsoft C++ Package
-  - [ ] Installazione/Aggiornamento Directx
-  - [ ] Playnite (Lancher/Aggregatore)
-  - [ ] Revo Unistaller
-  - [ ] Tree Size
-  - [ ] Glary Utilities
-  - [ ] Pulizia Sistema
-  - [ ] Applicazione Sfondo "MagnetarMan"
-  - [ ] Riavvio PC per completare le modifiche
-
-#### 🕹️ TO DO (Future Implementazioni)
+## 🕹️ TO DO
 
 - [ ] Download immagine di Windows 23H2 Microwin
   - [ ] Posizionamento nella cartella download, pronta per essere utilizzata

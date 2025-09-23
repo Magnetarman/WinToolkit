@@ -1,0 +1,175 @@
+# Changelog
+
+Tutte le modifiche significative apportate a questo progetto saranno documentate in questo file.
+
+Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## In lavorazione
+
+Questo è lo stato attuale del progetto, che include le funzionalità in fase di sviluppo.
+
+### Aggiunte
+
+- Funzione **Windows Repair Plus (`V2.2 (Build 3)`)** completata.
+- **Funzione Driver & Gaming (`V2.3`):**
+  - Scelta Driver Video (AMD/NVIDIA).
+  - Installazione Driver Ottimizzato (Nvidia).
+  - Download ultima versione di DDU, con estrazione e posizionamento
+    nella cartella Downloads, seguito da riavvio in modalità
+    provvisoria.
+- **Funzione Gaming Ready (`V2.4`):**
+  - Installazione client di gioco (Amazon, Gog Galaxy, Epic Games,
+    Steam).
+  - Installazione di Playnite e applicazione di un tema
+    personalizzato.
+  - Installazione/Aggiornamento di Directx.
+  - Installazione/Aggiornamento di Microsoft C++ Package.
+- **Funzione Auto Debloat (`V2.5`):**
+  - Avvio dello script Chris con configurazione personalizzata
+    (`iwr -useb https://christitus.com/win | iex`).
+- **Funzione Security Update (`V2.6`):**
+  - Download ed esecuzione di Tron Script con intervento minimo.
+- **MagnetarMan Mode (`V3.0`):**
+  - Avvio Script Chris con configurazione personalizzata.
+  - Installazione programmi: Brave Browser, Google Chrome,
+    Betterbird, Fan Control, PowerToys, Uniget, Crystal Disk Info,
+    HwInfo, Rust Desk, Client Giochi (Amazon, Gog Galaxy, Epic
+    Games, Steam).
+  - Installazione .NET Runtime (dalla 4.8 alla 9.0).
+  - Installazione Microsoft C++ Package.
+  - Installazione/Aggiornamento Directx.
+  - Installazione Playnite (Lancher/Aggregatore).
+  - Installazione Revo Uninstaller.
+  - Installazione Tree Size.
+  - Installazione Glary Utilities.
+  - Pulizia del sistema.
+  - Applicazione Sfondo "MagnetarMan".
+  - Riavvio del PC per completare le modifiche.
+
+### Correzioni
+
+- Correzione del blocco grafico del terminale per lo script `Update Reset`.
+- Correzione del blocco grafico del terminale per lo script `WinReinstallStore`.
+- Fix di alcuni errori di battitura (`Typo`) e aggiornamento del file `Readme.md`.
+
+### Modifiche
+
+- Reinstallazione forzata di Microsoft Store & Winget.
+- Installazione di Uniget.
+- Reset di Rust Desk.
+- Backup dei driver installati, compressione in un file `.zip` e salvataggio sul desktop.
+- Aggiornamento della documentazione con il nuovo screenshot per la funzione `WinReinstallStore`.
+
+---
+
+## [2.1.1] - 2025-09-22 (#11)
+
+### Aggiunte
+
+- Funzione **`Selezione Multipla`** completa.
+- `Github Actions` aggiunto sul canale Dev per la compilazione automatica di WinToolkit.
+- Nuovi link attivati nel codice.
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `Readme.md`.
+- Ottimizzazione dello script `WinToolkit-Template.ps1`.
+- Aggiornamento dello script `start.ps1`.
+
+---
+
+## [2.1] - 2025-09-22 (#10)
+
+### Modifiche
+
+- I link di reindirizzamento degli script sono stati cambiati da GitHub a **MagnetarMan.com**.
+- Lo script `start.ps1` è stato aggiornato.
+
+---
+
+## [2.1] - 2025-09-19 (#9)
+
+### Aggiunte
+
+- Funzione **`Office Toolkit`** completata.
+
+### Modifiche
+
+- Il file `Readme.md` è stato aggiornato.
+- La funzione **`Informazioni del Sistema`** è stata potenziata.
+
+---
+
+## [2.0.1] - 2025-09-18 (#8)
+
+### Aggiunte
+
+- Potenziamento dello script `WinToolkit.ps1` con le **`Informazioni del Sistema`**.
+
+### Modifiche
+
+- Ottimizzazione generale degli script.
+- Aggiornamento dei file `WinReinstallStore.ps1`, `WinRepairToolkit.ps1` e `Readme.md`.
+
+---
+
+## [2.0.0] - 2025-09-10 (#7)
+
+### Modifiche
+
+- Rework grafico del file `WinToolkit.ps1`.
+
+---
+
+## [2.0.0] - 2025-09-06 (#6)
+
+### Correzioni
+
+- Correzione dello strumento Update Reset.
+
+### Modifiche
+
+- Potenziamento dello script Start Script.
+
+---
+
+## [2.0.0] - 2025-09-06 (#5)
+
+### Modifiche
+
+- Rework del file Readme.md.
+- Rework grafico dello script.
+
+---
+
+## [2.0.0] - 2025-09-05 (#2)
+
+- Funzione **`Update Reset`** completata.
+
+---
+
+## [2.0.0] - 2025-09-05 (#1)
+
+### Aggiunte
+
+- Funzione **`Repair Toolkit`** completata.
+
+---
+
+## [2.0.0] - 2025-09-02
+
+- **Rilascio Pubblico**: Ristrutturazione completa del progetto per facilitare le future implementazioni.
+
+---
+
+## [1.1.0]
+
+- Refactoring della struttura in forma modulare.
+
+---
+
+## [1.0]
+
+- **Rilascio Privato** del progetto.
