@@ -550,7 +550,7 @@ function WinRepairToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Repair Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 4)'
+        '        Version 2.1 (Build 5)'
     )
     
     $asciiArt | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
@@ -625,7 +625,7 @@ function SetRustDesk {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '   RustDesk Setup Toolkit By MagnetarMan',
+            '  RustDesk Setup Toolkit By MagnetarMan',
             '        Version 2.2 (Build 8)'
         )
         foreach ($line in $asciiArt) {
@@ -1089,8 +1089,8 @@ function WinUpdateReset {
         '        \ V  V /   | || |\  |',
         '         \_/\_/    |_||_| \_|',
         '',
-        '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2 (Build 7)'
+        ' Update Reset Toolkit By MagnetarMan',
+        '       Version 2.2 (Build 8)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -1304,7 +1304,7 @@ function WinReinstallStore {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '        Store Repair Toolkit By MagnetarMan',
+            ' Store Repair Toolkit By MagnetarMan',
             '        Version 2.2 (Build 26)'
         )
         foreach ($line in $asciiArt) {
@@ -1948,8 +1948,8 @@ function OfficeToolkit {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '     Office Toolkit By MagnetarMan',
-            '        Version 2.1 (Build 32)'
+            '    Office Toolkit By MagnetarMan',
+            '        Version 2.1 (Build 33)'
         )
         
         foreach ($line in $asciiArt) {
