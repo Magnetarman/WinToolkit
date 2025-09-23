@@ -26,27 +26,27 @@ catch { }
 function Write-StyledMessage {
     param(
         [ValidateSet('Success', 'Warning', 'Error', 'Info')]
-        [string]$Type,
-        [string]$Text
+        [string]$type,
+        [string]$text
     )
-    
-    $styles = @{
-        Success = @{ Color = 'Green' ; Icon = '✅' }
+
+    $msgStyles = @{
+        Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'   ; Icon = '❌' }
-        Info    = @{ Color = 'White' ; Icon = '🔎' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
-    
-    $style = $styles[$Type]
-    Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+
+    $style = $msgStyles[$type]
+    Write-Host "$($style.Icon) $text" -ForegroundColor $style.Color
 }
 
 function Center-Text {
-    param([string]$Text, [int]$Width = 60)
-    
-    if ($Text.Length -ge $Width) { return $Text }
-    $padding = ' ' * [Math]::Floor(($Width - $Text.Length) / 2)
-    return "$padding$Text"
+    param([string]$text, [int]$width = 60)
+
+    if ($text.Length -ge $width) { return $text }
+    $padding = ' ' * [Math]::Floor(($width - $text.Length) / 2)
+    return "$padding$text"
 }
 
 function winver {
@@ -131,7 +131,7 @@ function winver {
         Write-Host ('*' * $width) -ForegroundColor Red
     }
     catch {
-        Write-StyledMessage 'Error' "Impossibile recuperare le informazioni di sistema: $($_.Exception.Message)"
+        Write-StyledMessage -type 'Error' -text "Impossibile recuperare le informazioni di sistema: $($_.Exception.Message)"
     }
 }
 
@@ -197,7 +197,7 @@ while ($true) {
     # Header
     Write-Host ('═' * $width) -ForegroundColor Green
     foreach ($line in $asciiArt) {
-        Write-Host (Center-Text $line $width) -ForegroundColor White
+        Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
     }
     Write-Host ('═' * $width) -ForegroundColor Green
     
@@ -214,7 +214,7 @@ while ($true) {
         
         foreach ($script in $category.Scripts) {
             $allScripts += $script
-            Write-StyledMessage 'Info' "[$scriptIndex] $($script.Description)"
+            Write-StyledMessage -type 'Info' -text "[$scriptIndex] $($script.Description)"
             $scriptIndex++
         }
         Write-Host ''
@@ -223,15 +223,15 @@ while ($true) {
     # Exit section
     Write-Host "=== Uscita ===" -ForegroundColor Red
     Write-Host ''
-    Write-StyledMessage 'Error' '[0] Esci dal Toolkit'
+    Write-StyledMessage -type 'Error' -text '[0] Esci dal Toolkit'
     Write-Host ''
     
     # Handle user choice
     $userChoice = Read-Host "Quale opzione vuoi eseguire? (es. 1, 3, 5 o 0 per uscire)"
 
     if ($userChoice -eq '0') {
-        Write-StyledMessage 'Warning' 'In caso di problemi, contatta MagnetarMan su Github => Github.com/Magnetarman.'
-        Write-StyledMessage 'Success' 'Grazie per aver usato il toolkit. Chiusura in corso...'
+        Write-StyledMessage -type 'Warning' -text 'In caso di problemi, contatta MagnetarMan su Github => Github.com/Magnetarman.'
+        Write-StyledMessage -type 'Success' -text 'Grazie per aver usato il toolkit. Chiusura in corso...'
         Start-Sleep -Seconds 5
         break
     }
@@ -253,7 +253,7 @@ while ($true) {
 
     # Se ci sono scelte non valide, avvisa l'utente
     if ($invalidChoices.Count -gt 0) {
-        Write-StyledMessage 'Warning' "Le seguenti opzioni non sono valide e verranno ignorate: $($invalidChoices -join ', ')"
+        Write-StyledMessage -type 'Warning' -text "Le seguenti opzioni non sono valide e verranno ignorate: $($invalidChoices -join ', ')"
         Start-Sleep -Seconds 2
     }
 
@@ -261,23 +261,23 @@ while ($true) {
     if ($scriptsToRun.Count -gt 0) {
         foreach ($selectedItem in $scriptsToRun) {
             Write-Host "`n" + ('-' * ($width / 2))
-            Write-StyledMessage 'Info' "Avvio di '$($selectedItem.Description)'..."
+            Write-StyledMessage -type 'Info' -text "Avvio di '$($selectedItem.Description)'..."
         
             try {
                 if ($selectedItem.Action -eq 'RunFile') {
                     $scriptPath = Join-Path $PSScriptRoot $selectedItem.Name
                     if (Test-Path $scriptPath) { & $scriptPath }
-                    else { Write-StyledMessage 'Error' "Script '$($selectedItem.Name)' non trovato." }
+                    else { Write-StyledMessage -type 'Error' -text "Script '$($selectedItem.Name)' non trovato." }
                 }
                 elseif ($selectedItem.Action -eq 'RunFunction') {
                     Invoke-Expression $selectedItem.Name
                 }
             }
             catch {
-                Write-StyledMessage 'Error' "Errore durante l'esecuzione di '$($selectedItem.Description)'."
-                Write-StyledMessage 'Error' "Dettagli: $($_.Exception.Message)"
+                Write-StyledMessage -type 'Error' -text "Errore durante l'esecuzione di '$($selectedItem.Description)'."
+                Write-StyledMessage -type 'Error' -text "Dettagli: $($_.Exception.Message)"
             }
-            Write-StyledMessage 'Success' "Esecuzione di '$($selectedItem.Description)' completata."
+            Write-StyledMessage -type 'Success' -text "Esecuzione di '$($selectedItem.Description)' completata."
         }
     
         Write-Host "`nTutte le operazioni selezionate sono state completate."
@@ -286,7 +286,7 @@ while ($true) {
     }
     elseif ($invalidChoices.Count -eq $choices.Count) {
         # Questo blocco viene eseguito se sono state inserite SOLO scelte non valide
-        Write-StyledMessage 'Error' 'Nessuna scelta valida inserita. Riprova.'
+        Write-StyledMessage -type 'Error' -text 'Nessuna scelta valida inserita. Riprova.'
         Start-Sleep -Seconds 3
     }
 }

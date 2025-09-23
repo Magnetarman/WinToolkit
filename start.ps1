@@ -9,13 +9,13 @@
   Versione 2.1.1 (Build 5) - 2025-09-22
 #>
 
-function Center-Text {
+function Center-text {
     param(
-        [string]$Text,
-        [int]$Width = 80
+        [string]$text,
+        [int]$width = 80
     )
-    $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
-    return (" " * $padding) + $Text
+    $padding = [math]::Max(0, [math]::Floor(($width - $text.Length) / 2))
+    return (" " * $padding) + $text
 }
 
 
@@ -27,86 +27,86 @@ function Write-StyledMessage {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateSet('Info', 'Warning', 'Error', 'Success')]
-        [string]$Type,
-        
+        [string]$type,
+
         [Parameter(Mandatory = $true)]
-        [string]$Text
+        [string]$text
     )
-    
-    switch ($Type) {
-        'Info' { Write-Host $Text -ForegroundColor Cyan }
-        'Warning' { Write-Host $Text -ForegroundColor Yellow }
-        'Error' { Write-Host $Text -ForegroundColor Red }
-        'Success' { Write-Host $Text -ForegroundColor Green }
+
+    switch ($type) {
+        'Info' { Write-Host $text -ForegroundColor Cyan }
+        'Warning' { Write-Host $text -ForegroundColor Yellow }
+        'Error' { Write-Host $text -ForegroundColor Red }
+        'Success' { Write-Host $text -ForegroundColor Green }
     }
 }
 
 # Funzione per installare Git
 function Install-Git {
-    Write-StyledMessage -Type 'Info' -Text "Verifica installazione di Git..."
+    Write-StyledMessage -type 'Info' -text "Verifica installazione di Git..."
 
     if (Get-Command "git" -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -Type 'Success' -Text "Git è già installato. Saltando l'installazione."
+        Write-StyledMessage -type 'Success' -text "Git è già installato. Saltando l'installazione."
         return $true
     }
 
-    Write-StyledMessage -Type 'Info' -Text "Git non trovato. Tentativo di installazione..."
+    Write-StyledMessage -type 'Info' -text "Git non trovato. Tentativo di installazione..."
 
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -Type 'Info' -Text "Installazione di Git tramite winget..."
+        Write-StyledMessage -type 'Info' -text "Installazione di Git tramite winget..."
         try {
             winget install Git.Git --accept-source-agreements --accept-package-agreements --silent
             return $LASTEXITCODE -eq 0
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore con winget: $($_.Exception.Message). Tentativo di installazione diretta..."
+            Write-StyledMessage -type 'Warning' -text "Errore con winget: $($_.Exception.Message). Tentativo di installazione diretta..."
         }
     }
     else {
-        Write-StyledMessage -Type 'Warning' -Text "winget non disponibile. Procedendo con installazione diretta..."
+        Write-StyledMessage -type 'Warning' -text "winget non disponibile. Procedendo con installazione diretta..."
     }
 
     try {
         $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.1/Git-2.51.0-64-bit.exe"
         $gitInstaller = "$env:TEMP\Git-2.51.0-64-bit.exe"
-        Write-StyledMessage -Type 'Info' -Text "Download di Git da GitHub..."
+        Write-StyledMessage -type 'Info' -text "Download di Git da GitHub..."
         Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
         
-        Write-StyledMessage -Type 'Info' -Text "Installazione di Git in corso..."
+        Write-StyledMessage -type 'Info' -text "Installazione di Git in corso..."
         $installArgs = "/SILENT /NORESTART"
         $process = Start-Process $gitInstaller -ArgumentList $installArgs -Wait -PassThru
         
         if ($process.ExitCode -eq 0) {
-            Write-StyledMessage -Type 'Success' -Text "Git installato con successo."
+            Write-StyledMessage -type 'Success' -text "Git installato con successo."
             Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
             return $true
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text "Installazione di Git fallita. Codice di uscita: $($process.ExitCode)"
+            Write-StyledMessage -type 'Error' -text "Installazione di Git fallita. Codice di uscita: $($process.ExitCode)"
             return $false
         }
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione diretta di Git: $($_.Exception.Message)"
+        Write-StyledMessage -type 'Error' -text "Errore durante l'installazione diretta di Git: $($_.Exception.Message)"
         return $false
     }
 }
 
 # Funzione per installare PowerShell 7
 function Install-PowerShell7 {
-    Write-StyledMessage -Type 'Info' -Text "Tentativo installazione PowerShell 7..."
+    Write-StyledMessage -type 'Info' -text "Tentativo installazione PowerShell 7..."
     
     if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
-        Write-StyledMessage -Type 'Success' -Text "PowerShell 7 è già installato. Saltando l'installazione."
+        Write-StyledMessage -type 'Success' -text "PowerShell 7 è già installato. Saltando l'installazione."
         return $true
     }
 
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -Type 'Info' -Text "Installazione PowerShell 7 tramite winget..."
+        Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 tramite winget..."
         try {
             winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements --silent
             if ($LASTEXITCODE -eq 0) {
-                Write-StyledMessage -Type 'Success' -Text "PowerShell 7 installato con successo tramite winget."
+                Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo tramite winget."
                 return $true
             }
         }
@@ -116,25 +116,25 @@ function Install-PowerShell7 {
     try {
         $ps7Url = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/PowerShell-7.5.2-win-x64.msi"
         $ps7Installer = "$env:TEMP\PowerShell-7.5.2-win-x64.msi"
-        Write-StyledMessage -Type 'Info' -Text "Download PowerShell 7 da GitHub..."
+        Write-StyledMessage -type 'Info' -text "Download PowerShell 7 da GitHub..."
         Invoke-WebRequest -Uri $ps7Url -OutFile $ps7Installer -UseBasicParsing
         
-        Write-StyledMessage -Type 'Info' -Text "Installazione PowerShell 7 in corso..."
+        Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 in corso..."
         $installArgs = "/i `"$ps7Installer`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
         $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru
         
         if ($process.ExitCode -eq 0) {
-            Write-StyledMessage -Type 'Success' -Text "PowerShell 7 installato con successo."
+            Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo."
             Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
             return $true
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text "Installazione PowerShell 7 fallita. Codice di uscita: $($process.ExitCode)"
+            Write-StyledMessage -type 'Error' -text "Installazione PowerShell 7 fallita. Codice di uscita: $($process.ExitCode)"
             return $false
         }
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante l'installazione di PowerShell 7: $($_.Exception.Message)"
+        Write-StyledMessage -type 'Error' -text "Errore durante l'installazione di PowerShell 7: $($_.Exception.Message)"
         return $false
     }
 }
@@ -144,16 +144,16 @@ function Invoke-WPFTweakPS7 {
     param ([ValidateSet("PS7", "PS5")][string]$action = "PS7")
     
     $targetTerminalName = "PowerShell" # Nome corretto per PowerShell 7 in Windows Terminal
-    Write-StyledMessage -Type 'Info' -Text "Configurazione Windows Terminal per $targetTerminalName..."
+    Write-StyledMessage -type 'Info' -text "Configurazione Windows Terminal per $targetTerminalName..."
     
     if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
-        Write-StyledMessage -Type 'Warning' -Text "Windows Terminal non installato. Saltando configurazione terminale."
+        Write-StyledMessage -type 'Warning' -text "Windows Terminal non installato. Saltando configurazione terminale."
         return
     }
     
     $settingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
     if (-not (Test-Path -Path $settingsPath)) {
-        Write-StyledMessage -Type 'Warning' -Text "File impostazioni Windows Terminal non trovato."
+        Write-StyledMessage -type 'Warning' -text "File impostazioni Windows Terminal non trovato."
         return
     }
 
@@ -165,20 +165,20 @@ function Invoke-WPFTweakPS7 {
             $settingsContent.defaultProfile = $targetProfile.guid
             $updatedSettings = $settingsContent | ConvertTo-Json -Depth 100
             Set-Content -Path $settingsPath -Value $updatedSettings
-            Write-StyledMessage -Type 'Success' -Text "Profilo predefinito Windows Terminal aggiornato a $targetTerminalName"
+            Write-StyledMessage -type 'Success' -text "Profilo predefinito Windows Terminal aggiornato a $targetTerminalName"
         }
         else {
-            Write-StyledMessage -Type 'Warning' -Text "Profilo $targetTerminalName non trovato nelle impostazioni di Windows Terminal."
+            Write-StyledMessage -type 'Warning' -text "Profilo $targetTerminalName non trovato nelle impostazioni di Windows Terminal."
         }
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante l'aggiornamento delle impostazioni Windows Terminal: $($_.Exception.Message)"
+        Write-StyledMessage -type 'Error' -text "Errore durante l'aggiornamento delle impostazioni Windows Terminal: $($_.Exception.Message)"
     }
 }
 
 # Funzione per creare la scorciatoia sul desktop
 function ToolKit-Desktop {
-    Write-StyledMessage -Type 'Info' -Text "Creazione scorciatoia sul desktop..."
+    Write-StyledMessage -type 'Info' -text "Creazione scorciatoia sul desktop..."
     
     try {
         # Determina il percorso del desktop dell'utente corrente
@@ -190,13 +190,13 @@ function ToolKit-Desktop {
         
         # Scarica l'icona da GitHub solo se non esiste già
         if (-not (Test-Path -Path $iconPath)) {
-            Write-StyledMessage -Type 'Info' -Text "Download icona in corso..."
+            Write-StyledMessage -type 'Info' -text "Download icona in corso..."
             $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
             Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing
-            Write-StyledMessage -Type 'Success' -Text "Icona scaricata e salvata in %localappdata%\WinToolkit\."
+            Write-StyledMessage -type 'Success' -text "Icona scaricata e salvata in %localappdata%\WinToolkit\."
         }
         else {
-            Write-StyledMessage -Type 'Info' -Text "Icona già presente in %localappdata%\WinToolkit\."
+            Write-StyledMessage -type 'Info' -text "Icona già presente in %localappdata%\WinToolkit\."
         }
         
         # Crea un oggetto WScript.Shell per la creazione della scorciatoia
@@ -224,10 +224,10 @@ function ToolKit-Desktop {
         $bytes[21] = $bytes[21] -bor 32
         [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
         
-        Write-StyledMessage -Type 'Success' -Text "Scorciatoia 'Win Toolkit V2.1.lnk' creata con successo sul desktop con privilegi amministratore e icona personalizzata."
+        Write-StyledMessage -type 'Success' -text "Scorciatoia 'Win Toolkit V2.1.lnk' creata con successo sul desktop con privilegi amministratore e icona personalizzata."
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante la creazione della scorciatoia: $($_.Exception.Message)"
+        Write-StyledMessage -type 'Error' -text "Errore durante la creazione della scorciatoia: $($_.Exception.Message)"
     }
 }
 
@@ -283,17 +283,17 @@ function Start-WinToolkit {
         '        Version 2.1.1 (Build 5)'
     )
     foreach ($line in $asciiArt) {
-        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+        Write-Host (Center-text -text $line -width $width) -ForegroundColor White
     }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
     
-    Write-StyledMessage -Type 'Info' -Text "Versione PowerShell rilevata: $($PSVersionTable.PSVersion)"
+    Write-StyledMessage -type 'Info' -text "Versione PowerShell rilevata: $($PSVersionTable.PSVersion)"
     if ($PSVersionTable.PSVersion.Major -lt 7) {
-        Write-StyledMessage -Type 'Warning' -Text "PowerShell 5 rilevato. PowerShell 7 è raccomandato per funzionalità avanzate."
+        Write-StyledMessage -type 'Warning' -text "PowerShell 5 rilevato. PowerShell 7 è raccomandato per funzionalità avanzate."
     }
 
-    Write-StyledMessage -Type 'Info' -Text "Avvio configurazione Win Toolkit..."
+    Write-StyledMessage -type 'Info' -text "Avvio configurazione Win Toolkit..."
 
     $rebootNeeded = $false
     
@@ -307,28 +307,28 @@ function Start-WinToolkit {
         }
     }
     else {
-        Write-StyledMessage -Type 'Success' -Text "PowerShell 7 già presente."
+        Write-StyledMessage -type 'Success' -text "PowerShell 7 già presente."
     }
 
     Invoke-WPFTweakPS7 -action "PS7"
     ToolKit-Desktop
     
-    Write-StyledMessage -Type 'Success' -Text "Script di Start eseguito correttamente."
+    Write-StyledMessage -type 'Success' -text "Script di Start eseguito correttamente."
     
     if ($rebootNeeded) {
-        Write-StyledMessage -Type 'Warning' -Text "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche"
-        Write-StyledMessage -Type 'Info' -Text "Preparazione al riavvio del sistema..."
+        Write-StyledMessage -type 'Warning' -text "Attenzione: il sistema verrà riavviato per rendere effettive le modifiche"
+        Write-StyledMessage -type 'Info' -text "Preparazione al riavvio del sistema..."
         for ($i = 10; $i -gt 0; $i--) {
             Write-Host "Preparazione sistema al riavvio - $i secondi..." -NoNewline -ForegroundColor Yellow
             Write-Host "`r" -NoNewline
             Start-Sleep 1
         }
-        Write-StyledMessage -Type 'Info' -Text "Riavvio in corso..."
+        Write-StyledMessage -type 'Info' -text "Riavvio in corso..."
         try { Stop-Transcript | Out-Null } catch {}
         Restart-Computer -Force
     }
     else {
-        Write-StyledMessage -Type 'Info' -Text "Non è necessario riavviare il sistema in quanto PowerShell 7 era già installato."
+        Write-StyledMessage -type 'Info' -text "Non è necessario riavviare il sistema in quanto PowerShell 7 era già installato."
         try { Stop-Transcript | Out-Null } catch {}
     }
 }
