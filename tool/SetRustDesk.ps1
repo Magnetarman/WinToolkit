@@ -40,7 +40,7 @@ function SetRustDesk {
             '         \_/\_/    |_||_| \_|',
             '',
             '   RustDesk Setup Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 6)'
+            '        Version 2.2 (Build 7)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -175,27 +175,22 @@ function SetRustDesk {
         }
     }
 
-    function Install-RustDeskCustom {
+    function Install-RustDesk {
         param([string]$InstallerPath, [string]$ServerIP)
 
-        Write-StyledMessage Progress "Installazione RustDesk con configurazione personalizzata..."
+        Write-StyledMessage Progress "Installazione RustDesk"
 
         try {
             $installArgs = @(
                 "/i", "`"$InstallerPath`"",
-                "/quiet", "/norestart",
-                "RELAYSERVER=$ServerIP",
-                "RENDEZVOUSSERVER=$ServerIP",
-                "ENABLE_AUDIO=1", "ENABLE_CLIPBOARD=1",
-                "ENABLE_FILETRANSFER=1", "ENABLE_KEYBOARD=1",
-                "ENABLE_MOUSE=1", "ENABLE_DESKTOP=1"
+                "/quiet", "/norestart"
             )
 
             $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden
             Start-Sleep 10
 
             if ($process.ExitCode -eq 0) {
-                Write-StyledMessage Success "RustDesk installato con configurazione personalizzata"
+                Write-StyledMessage Success "RustDesk installato"
                 return $true
             }
 
@@ -267,11 +262,11 @@ function SetRustDesk {
         }
     }
 
-    function Start-CountdownRestart([int]$Seconds) {
-        Write-StyledMessage Info "🔄 Riavvio necessario per applicare le configurazioni"
+    function Start-CountdownRestart([string]$Reason) {
+        Write-StyledMessage Info "🔄 $Reason - Il sistema verrà riavviato"
         Write-StyledMessage Info "💡 Premi un tasto qualsiasi per annullare..."
 
-        for ($i = $Seconds; $i -gt 0; $i--) {
+        for ($i = $CountdownSeconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
                 Write-Host "`n"
@@ -279,7 +274,8 @@ function SetRustDesk {
                 return $false
             }
 
-            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
+            # Barra di progressione countdown con colore rosso
+            $percent = [Math]::Round((($CountdownSeconds - $i) / $CountdownSeconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
             $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
@@ -309,30 +305,32 @@ function SetRustDesk {
         $rustDeskDir = "$env:LOCALAPPDATA\WinToolkit\rustdesk"
         $installerPath = "$rustDeskDir\rustdesk-installer.msi"
 
-        # FASE 1: Arresto servizi e processi
-        Write-StyledMessage Info "📋 FASE 1: Arresto servizi e processi"
+        # FASE 1: Stop dei servizi relativi a rust desk in esecuzione
+        Write-StyledMessage Info "📋 FASE 1: Arresto servizi RustDesk"
         Stop-RustDeskServices
-        Stop-RustDeskProcesses
 
-        # FASE 2: Download e installazione
+        # FASE 2: Scarica ed installa Rust Desk
         Write-StyledMessage Info "📋 FASE 2: Download e installazione"
         if (-not (Download-RustDeskInstaller -DownloadPath $installerPath)) {
             Write-StyledMessage Error "Impossibile procedere senza l'installer"
             return
         }
 
-        if (-not (Install-RustDeskCustom -InstallerPath $installerPath -ServerIP $serverIP)) {
+        if (-not (Install-RustDesk -InstallerPath $installerPath -ServerIP $null)) {
             Write-StyledMessage Error "Errore durante l'installazione"
             return
         }
 
-        # FASE 3: Verifica avvio e pulizia
-        Write-StyledMessage Info "📋 FASE 3: Verifica e pulizia"
+        # FASE 3: Controlla se il programma si è avviato e termina tutti i processi
+        Write-StyledMessage Info "📋 FASE 3: Verifica processi e pulizia"
         Stop-RustDeskProcesses
+
+        # FASE 4: Cancella la cartella config
+        Write-StyledMessage Info "📋 FASE 4: Pulizia configurazioni"
         Clear-RustDeskConfig
 
-        # FASE 4: Download configurazioni
-        Write-StyledMessage Info "📋 FASE 4: Download configurazioni personalizzate"
+        # FASE 5: Scarica i file di configurazione
+        Write-StyledMessage Info "📋 FASE 5: Download configurazioni"
         Download-RustDeskConfigFiles
 
         # Completamento
@@ -340,8 +338,8 @@ function SetRustDesk {
         Write-StyledMessage Success "🎉 CONFIGURAZIONE RUSTDESK COMPLETATA"
 
         # Riavvio sistema
-        Write-StyledMessage Info "🔄 Per applicare le modifiche è necessario riavviare il sistema"
-        if (Start-CountdownRestart -Seconds $CountdownSeconds) {
+        Write-StyledMessage Info "🔄 Per applicare le modifiche il PC verrà riavviato"
+        if (Start-CountdownRestart -Reason "Per applicare le modifiche è necessario riavviare il sistema") {
             Write-StyledMessage Info "🔄 Riavvio in corso..."
         }
     }
