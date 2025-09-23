@@ -138,7 +138,7 @@ function winver {
 # Placeholder functions
 function WinInstallPSProfile {}
 function WinRepairToolkit {}
-function ResetRustDesk {}
+function SetRustDesk {}
 function WinUpdateReset {}
 function WinReinstallStore {}
 function WinDriverInstall {}
@@ -155,7 +155,7 @@ $menuStructure = @(
     @{
         'Name' = 'Backup & Tool'; 'Icon' = '📦'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'ResetRustDesk'; Description = 'Reset Rust Desk. - Planned V2.2'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting Automatico RustDesk.'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC. - Planned V2.2'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit.'; Action = 'RunFunction' }
         )
@@ -186,7 +186,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       Toolkit By MagnetarMan',
-    '       Version 2.2 (Build 3)'
+    '       Version 2.2 (Build 5)'
 )
 
 # Main loop

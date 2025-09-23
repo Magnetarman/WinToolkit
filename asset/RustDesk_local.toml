@@ -1,0 +1,17 @@
+remote_id = ''
+kb_layout_type = ''
+size = [
+    0,
+    0,
+    0,
+    0,
+]
+fav = []
+
+[options]
+theme = 'dark'
+allow-d3d-render = 'Y'
+
+[ui_flutter]
+peer-sorting = 'Remote ID'
+wm_Main = '{"width":1270.0,"height":915.0,"offsetWidth":595.0,"offsetHeight":407.0,"isMaximized":false,"isFullscreen":false}'
