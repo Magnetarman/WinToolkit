@@ -584,20 +584,20 @@ function WinRepairToolkit {
     }
 
 }
-function ResetRustDesk {
+function SetRustDesk {
     <#
     .SYNOPSIS
-        Reinstalla automaticamente RustDesk con configurazione personalizzata su Windows.
+        Configura e reinstalla RustDesk con configurazioni personalizzate su Windows.
 
     .DESCRIPTION
-        Script ottimizzato per reinstallare RustDesk con server personalizzato e configurazioni di sicurezza.
-        Scarica l'installer nella cartella temporanea e configura il client con parametri personalizzati.
+        Script ottimizzato per fermare servizi, reinstallare RustDesk e applicare configurazioni personalizzate.
+        Scarica i file di configurazione da repository GitHub e riavvia il sistema per applicare le modifiche.
     #>
 
-    param([int]$CountdownSeconds = 10)
+    param([int]$CountdownSeconds = 30)
 
     # Inizializzazione
-    $Host.UI.RawUI.WindowTitle = "RustDesk Reset Toolkit By MagnetarMan"
+    $Host.UI.RawUI.WindowTitle = "RustDesk Setup Toolkit By MagnetarMan"
 
     # Configurazione globale
     $MsgStyles = @{
@@ -625,8 +625,8 @@ function ResetRustDesk {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '   RustDesk Reset Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 3)'
+            '   RustDesk Setup Toolkit By MagnetarMan',
+            '        Version 3.0 (Build 1)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -641,8 +641,7 @@ function ResetRustDesk {
     }
 
     function Clear-Terminal {
-        # Pulizia aggressiva multi-metodo
-        1..50 | ForEach-Object { Write-Host "" }  # Forza scroll
+        1..50 | ForEach-Object { Write-Host "" }
         Clear-Host
         [Console]::Clear()
         try {
@@ -653,6 +652,52 @@ function ResetRustDesk {
         Start-Sleep -Milliseconds 200
     }
 
+    function Stop-RustDeskServices {
+        Write-StyledMessage Progress "Arresto servizi RustDesk in corso..."
+
+        $rustDeskServices = @("RustDesk", "rustdesk")
+        $servicesFound = $false
+
+        foreach ($service in $rustDeskServices) {
+            try {
+                $serviceObj = Get-Service -Name $service -ErrorAction SilentlyContinue
+                if ($serviceObj) {
+                    Stop-Service -Name $service -Force -ErrorAction SilentlyContinue
+                    Write-StyledMessage Success "✅ Servizio $service arrestato"
+                    $servicesFound = $true
+                }
+            }
+            catch {}
+        }
+
+        if (-not $servicesFound) {
+            Write-StyledMessage Warning "⚠️ Nessun servizio RustDesk trovato - Proseguo con l'installazione"
+        }
+
+        Start-Sleep 2
+    }
+
+    function Stop-RustDeskProcesses {
+        Write-StyledMessage Progress "Termine processi RustDesk in corso..."
+
+        $rustDeskProcesses = @("rustdesk", "RustDesk")
+        $processesFound = $false
+
+        foreach ($process in $rustDeskProcesses) {
+            $runningProcesses = Get-Process -Name $process -ErrorAction SilentlyContinue
+            if ($runningProcesses) {
+                $runningProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+                Write-StyledMessage Success "✅ Processi $process terminati"
+                $processesFound = $true
+            }
+        }
+
+        if (-not $processesFound) {
+            Write-StyledMessage Warning "⚠️ Nessun processo RustDesk trovato"
+        }
+
+        Start-Sleep 2
+    }
 
     function Get-LatestRustDeskRelease {
         try {
@@ -749,112 +794,142 @@ function ResetRustDesk {
         }
     }
 
-    function Configure-RustDeskSecurity {
-        param([string]$ServerIP)
+    function Clear-RustDeskConfig {
+        Write-StyledMessage Progress "Pulizia configurazioni esistenti..."
 
-        Write-StyledMessage Progress "Configurazione sicurezza RustDesk..."
+        $configDir = "$env:APPDATA\RustDesk\config"
 
-        try {
-            $configPaths = @(
-                "$env:APPDATA\RustDesk\config\RustDesk.toml",
-                "$env:APPDATA\RustDesk\config\RustDesk2.toml"
-            )
-
-            $configContent = @"
-# Configurazione RustDesk - Generata automaticamente
-[options]
-custom_rendezvous_server = '$ServerIP'
-enable_direct_ip = true
-enable_relay = true
-enable_hole_punching = true
-enable_upnp = true
-
-[security]
-enable_password = false
-enable_2fa = false
-allow_always_relay = false
-allow_desktop = true
-allow_file = true
-allow_clipboard = true
-allow_audio = true
-allow_keyboard = true
-allow_mouse = true
-"@
-
-            foreach ($configPath in $configPaths) {
-                if (Test-Path $configPath) {
-                    $configContent | Out-File $configPath -Encoding UTF8 -Force
-                    Write-StyledMessage Success "✅ Configurazione sicurezza aggiornata"
-                }
+        if (Test-Path $configDir) {
+            try {
+                Remove-Item $configDir -Recurse -Force -ErrorAction SilentlyContinue
+                Write-StyledMessage Success "✅ Cartella config eliminata"
+                Start-Sleep 1
             }
-
-            return $true
+            catch {
+                Write-StyledMessage Warning "⚠️ Errore nella rimozione della cartella config: $($_.Exception.Message)"
+            }
         }
-        catch {
-            Write-StyledMessage Warning "⚠️ Errore configurazione: $($_.Exception.Message)"
-            return $false
+        else {
+            Write-StyledMessage Warning "⚠️ Cartella config non trovata - Potrebbe essere la prima installazione"
         }
     }
 
-    function Start-CountdownReturn([int]$Seconds) {
-        Write-StyledMessage Info '💡 Ritorno allo script principale tra pochi secondi...'
+    function Download-RustDeskConfigFiles {
+        Write-StyledMessage Progress "Download file di configurazione..."
+
+        $configDir = "$env:APPDATA\RustDesk\config"
+        if (-not (Test-Path $configDir)) {
+            New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+        }
+
+        $configFiles = @(
+            @{
+                Url  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/RustDesk.toml"
+                Path = "$configDir\RustDesk.toml"
+            },
+            @{
+                Url  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/RustDesk_local.toml"
+                Path = "$configDir\RustDesk_local.toml"
+            },
+            @{
+                Url  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/RustDesk2.toml"
+                Path = "$configDir\RustDesk2.toml"
+            }
+        )
+
+        foreach ($file in $configFiles) {
+            try {
+                Invoke-WebRequest -Uri $file.Url -OutFile $file.Path -UseBasicParsing
+                if (Test-Path $file.Path) {
+                    Write-StyledMessage Success "✅ $(Split-Path $file.Path -Leaf) scaricato"
+                }
+                else {
+                    Write-StyledMessage Error "❌ Errore download $(Split-Path $file.Path -Leaf)"
+                }
+            }
+            catch {
+                Write-StyledMessage Error "❌ Errore download $($file.Path): $($_.Exception.Message)"
+            }
+        }
+    }
+
+    function Start-CountdownRestart([int]$Seconds) {
+        Write-StyledMessage Info "🔄 Riavvio necessario per applicare le configurazioni"
+        Write-StyledMessage Info "💡 Premi un tasto qualsiasi per annullare..."
 
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
                 Write-Host "`n"
-                Write-StyledMessage Warning "⏸️ Ritorno automatico interrotto"
+                Write-StyledMessage Warning "⏸️ Riavvio annullato dall'utente"
                 return $false
             }
 
-            # Barra di progressione countdown
             $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
             $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
 
-            Write-Host "`r⏰ Ritorno automatico tra $i secondi $bar" -NoNewline -ForegroundColor Cyan
+            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
 
         Write-Host "`n"
-        Write-StyledMessage Info "🔄 Ritorno allo script principale..."
-        return $true
+        Write-StyledMessage Warning "⏰ Riavvio del sistema..."
+
+        try {
+            Restart-Computer -Force
+            return $true
+        }
+        catch {
+            Write-StyledMessage Error "Errore riavvio: $_"
+            return $false
+        }
     }
 
     # === ESECUZIONE PRINCIPALE ===
     Show-Header
-    Write-StyledMessage Info "🚀 AVVIO RESET RUSTDESK"
+    Write-StyledMessage Info "🚀 AVVIO CONFIGURAZIONE RUSTDESK"
 
     try {
         $rustDeskDir = "$env:LOCALAPPDATA\WinToolkit\rustdesk"
         $installerPath = "$rustDeskDir\rustdesk-installer.msi"
         $serverIP = "89.168.23.158"
 
-        # FASE 1: Download installer
-        Write-StyledMessage Info "📋 FASE 1: Download installer"
+        # FASE 1: Arresto servizi e processi
+        Write-StyledMessage Info "📋 FASE 1: Arresto servizi e processi"
+        Stop-RustDeskServices
+        Stop-RustDeskProcesses
+
+        # FASE 2: Download e installazione
+        Write-StyledMessage Info "📋 FASE 2: Download e installazione"
         if (-not (Download-RustDeskInstaller -DownloadPath $installerPath)) {
             Write-StyledMessage Error "❌ Impossibile procedere senza l'installer"
             return
         }
 
-        # FASE 2: Installazione personalizzata
-        Write-StyledMessage Info "📋 FASE 2: Installazione con server $serverIP"
         if (-not (Install-RustDeskCustom -InstallerPath $installerPath -ServerIP $serverIP)) {
             Write-StyledMessage Error "❌ Errore durante l'installazione"
             return
         }
 
-        # FASE 3: Configurazione sicurezza
-        Write-StyledMessage Info "📋 FASE 3: Configurazione sicurezza"
-        $configResult = Configure-RustDeskSecurity -ServerIP $serverIP
-        Write-StyledMessage $(if ($configResult) { 'Success' }else { 'Warning' }) "$(if($configResult){'✅'}else{'⚠️'}) Configurazione $(if($configResult){'completata'}else{'parziale'})"
+        # FASE 3: Verifica avvio e pulizia
+        Write-StyledMessage Info "📋 FASE 3: Verifica e pulizia"
+        Stop-RustDeskProcesses
+        Clear-RustDeskConfig
 
+        # FASE 4: Download configurazioni
+        Write-StyledMessage Info "📋 FASE 4: Download configurazioni personalizzate"
+        Download-RustDeskConfigFiles
+
+        # Completamento
         Write-Host ""
-        Write-StyledMessage Success "🎉 RESET RUSTDESK COMPLETATO"
+        Write-StyledMessage Success "🎉 CONFIGURAZIONE RUSTDESK COMPLETATA"
 
-        if (Start-CountdownReturn -Seconds $CountdownSeconds) {
-            Write-StyledMessage Info "🔄 Ritorno in corso..."
+        # Riavvio sistema
+        Write-StyledMessage Info "🔄 Per applicare le modifiche è necessario riavviare il sistema"
+        if (Start-CountdownRestart -Seconds $CountdownSeconds) {
+            Write-StyledMessage Info "🔄 Riavvio in corso..."
         }
     }
     catch {
@@ -2074,7 +2149,7 @@ $menuStructure = @(
     @{
         'Name' = 'Backup & Tool'; 'Icon' = '📦'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'ResetRustDesk'; Description = 'Reset Rust Desk. - Planned V2.2'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting Automatico RustDesk.'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC. - Planned V2.2'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit.'; Action = 'RunFunction' }
         )
@@ -2105,7 +2180,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       Toolkit By MagnetarMan',
-    '       Version 2.2 (Build 3)'
+    '       Version 2.2 (Build 5)'
 )
 
 # Main loop
