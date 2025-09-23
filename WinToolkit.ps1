@@ -1935,12 +1935,19 @@ function OfficeToolkit {
     }
 
     function Show-Header {
+        # Imposta il titolo della finestra
         $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
+    
+        # Pulisce lo schermo
         Clear-Host
-        
-        $width = 65
-        Write-Host ('═' * $width) -ForegroundColor Green
-        
+    
+        # Ottiene la larghezza della finestra della console in tempo reale
+        $width = $Host.UI.RawUI.BufferSize.Width
+
+        # Disegna le linee di contorno
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+    
+        # Definizione del tuo testo ASCII art
         $asciiArt = @(
             '      __        __  _  _   _ ',
             '      \ \      / / | || \ | |',
@@ -1948,19 +1955,23 @@ function OfficeToolkit {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '    Office Toolkit By MagnetarMan',
+            '      Office Toolkit By MagnetarMan',
             '        Version 2.1 (Build 33)'
         )
-        
+    
+        # Cicla su ogni riga del testo ASCII art
         foreach ($line in $asciiArt) {
+            # Calcola il padding per centrare la riga
             $padding = [Math]::Max(0, [Math]::Floor(($width - $line.Length) / 2))
+        
+            # Scrive la riga centrata
             Write-Host (' ' * $padding + $line) -ForegroundColor White
         }
-        
-        Write-Host ('═' * $width) -ForegroundColor Green
+    
+        # Disegna la linea di contorno inferiore
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
-
     # MAIN EXECUTION
     Show-Header
     
@@ -2062,7 +2073,7 @@ $menuStructure = @(
     @{
         'Name' = 'Backup & Tool'; 'Icon' = '📦'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting RustDesk - ⚠️MagnetarMan Mode.⚠️'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting RustDesk - ⚠️ MagnetarMan Mode. ⚠️'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC. - Planned V2.2'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit.'; Action = 'RunFunction' }
         )
