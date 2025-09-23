@@ -1,7 +1,7 @@
 function SetRustDesk {
     <#
     .SYNOPSIS
-        Configura e reinstalla RustDesk con configurazioni personalizzate su Windows.
+        Configura ed installa RustDesk con configurazioni personalizzata su Windows.
 
     .DESCRIPTION
         Script ottimizzato per fermare servizi, reinstallare RustDesk e applicare configurazioni personalizzate.
@@ -40,7 +40,7 @@ function SetRustDesk {
             '         \_/\_/    |_||_| \_|',
             '',
             '   RustDesk Setup Toolkit By MagnetarMan',
-            '        Version 3.0 (Build 1)'
+            '        Version 2.2 (Build 6)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -77,7 +77,7 @@ function SetRustDesk {
                 $serviceObj = Get-Service -Name $service -ErrorAction SilentlyContinue
                 if ($serviceObj) {
                     Stop-Service -Name $service -Force -ErrorAction SilentlyContinue
-                    Write-StyledMessage Success "✅ Servizio $service arrestato"
+                    Write-StyledMessage Success "Servizio $service arrestato"
                     $servicesFound = $true
                 }
             }
@@ -85,7 +85,7 @@ function SetRustDesk {
         }
 
         if (-not $servicesFound) {
-            Write-StyledMessage Warning "⚠️ Nessun servizio RustDesk trovato - Proseguo con l'installazione"
+            Write-StyledMessage Warning "Nessun servizio RustDesk trovato - Proseguo con l'installazione"
         }
 
         Start-Sleep 2
@@ -101,13 +101,13 @@ function SetRustDesk {
             $runningProcesses = Get-Process -Name $process -ErrorAction SilentlyContinue
             if ($runningProcesses) {
                 $runningProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
-                Write-StyledMessage Success "✅ Processi $process terminati"
+                Write-StyledMessage Success "Processi $process terminati"
                 $processesFound = $true
             }
         }
 
         if (-not $processesFound) {
-            Write-StyledMessage Warning "⚠️ Nessun processo RustDesk trovato"
+            Write-StyledMessage Warning "Nessun processo RustDesk trovato"
         }
 
         Start-Sleep 2
@@ -128,11 +128,11 @@ function SetRustDesk {
                 }
             }
 
-            Write-StyledMessage Error "❌ Nessun installer .msi trovato nella release"
+            Write-StyledMessage Error "Nessun installer .msi trovato nella release"
             return $null
         }
         catch {
-            Write-StyledMessage Error "❌ Errore API GitHub: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore API GitHub: $($_.Exception.Message)"
             return $null
         }
     }
@@ -162,15 +162,15 @@ function SetRustDesk {
             Invoke-WebRequest -Uri $releaseInfo.DownloadUrl -OutFile $DownloadPath -UseBasicParsing
 
             if (Test-Path $DownloadPath) {
-                Write-StyledMessage Success "✅ Installer $($releaseInfo.FileName) scaricato con successo"
+                Write-StyledMessage Success "Installer $($releaseInfo.FileName) scaricato con successo"
                 return $true
             }
 
-            Write-StyledMessage Error "❌ Errore nel download dell'installer"
+            Write-StyledMessage Error "Errore nel download dell'installer"
             return $false
         }
         catch {
-            Write-StyledMessage Error "❌ Errore download: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore download: $($_.Exception.Message)"
             return $false
         }
     }
@@ -195,15 +195,15 @@ function SetRustDesk {
             Start-Sleep 10
 
             if ($process.ExitCode -eq 0) {
-                Write-StyledMessage Success "✅ RustDesk installato con configurazione personalizzata"
+                Write-StyledMessage Success "RustDesk installato con configurazione personalizzata"
                 return $true
             }
 
-            Write-StyledMessage Error "❌ Errore installazione (Exit Code: $($process.ExitCode))"
+            Write-StyledMessage Error "Errore installazione (Exit Code: $($process.ExitCode))"
             return $false
         }
         catch {
-            Write-StyledMessage Error "❌ Errore installazione: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore installazione: $($_.Exception.Message)"
             return $false
         }
     }
@@ -216,15 +216,15 @@ function SetRustDesk {
         if (Test-Path $configDir) {
             try {
                 Remove-Item $configDir -Recurse -Force -ErrorAction SilentlyContinue
-                Write-StyledMessage Success "✅ Cartella config eliminata"
+                Write-StyledMessage Success "Cartella config eliminata"
                 Start-Sleep 1
             }
             catch {
-                Write-StyledMessage Warning "⚠️ Errore nella rimozione della cartella config: $($_.Exception.Message)"
+                Write-StyledMessage Warning "Errore nella rimozione della cartella config: $($_.Exception.Message)"
             }
         }
         else {
-            Write-StyledMessage Warning "⚠️ Cartella config non trovata - Potrebbe essere la prima installazione"
+            Write-StyledMessage Warning "Cartella config non trovata - Potrebbe essere la prima installazione"
         }
     }
 
@@ -255,14 +255,14 @@ function SetRustDesk {
             try {
                 Invoke-WebRequest -Uri $file.Url -OutFile $file.Path -UseBasicParsing
                 if (Test-Path $file.Path) {
-                    Write-StyledMessage Success "✅ $(Split-Path $file.Path -Leaf) scaricato"
+                    Write-StyledMessage Success "$(Split-Path $file.Path -Leaf) scaricato"
                 }
                 else {
-                    Write-StyledMessage Error "❌ Errore download $(Split-Path $file.Path -Leaf)"
+                    Write-StyledMessage Error "Errore download $(Split-Path $file.Path -Leaf)"
                 }
             }
             catch {
-                Write-StyledMessage Error "❌ Errore download $($file.Path): $($_.Exception.Message)"
+                Write-StyledMessage Error "Errore download $($file.Path): $($_.Exception.Message)"
             }
         }
     }
@@ -308,7 +308,6 @@ function SetRustDesk {
     try {
         $rustDeskDir = "$env:LOCALAPPDATA\WinToolkit\rustdesk"
         $installerPath = "$rustDeskDir\rustdesk-installer.msi"
-        $serverIP = "89.168.23.158"
 
         # FASE 1: Arresto servizi e processi
         Write-StyledMessage Info "📋 FASE 1: Arresto servizi e processi"
@@ -318,12 +317,12 @@ function SetRustDesk {
         # FASE 2: Download e installazione
         Write-StyledMessage Info "📋 FASE 2: Download e installazione"
         if (-not (Download-RustDeskInstaller -DownloadPath $installerPath)) {
-            Write-StyledMessage Error "❌ Impossibile procedere senza l'installer"
+            Write-StyledMessage Error "Impossibile procedere senza l'installer"
             return
         }
 
         if (-not (Install-RustDeskCustom -InstallerPath $installerPath -ServerIP $serverIP)) {
-            Write-StyledMessage Error "❌ Errore durante l'installazione"
+            Write-StyledMessage Error "Errore durante l'installazione"
             return
         }
 
@@ -349,7 +348,7 @@ function SetRustDesk {
     catch {
         Clear-Terminal
         Show-Header
-        Write-StyledMessage Error "❌ ERRORE: $($_.Exception.Message)"
+        Write-StyledMessage Error "ERRORE: $($_.Exception.Message)"
         Write-StyledMessage Info "💡 Verifica connessione Internet e riprova"
     }
 }
