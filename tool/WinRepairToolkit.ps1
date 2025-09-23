@@ -12,12 +12,13 @@ function WinRepairToolkit {
 
     param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
 
-    # Variabili globali consolidate
     $script:Log = @(); $script:CurrentAttempt = 0
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }; Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error = @{ Color = 'Red'; Icon = '❌' }; Info = @{ Color = 'Cyan'; Icon = '💎' }
+        Success = @{ Color = 'Green'; Icon = '✅' }
+        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
     $RepairTools = @(
         @{ Tool = 'chkdsk'; Args = @('/scan', '/perf'); Name = 'Controllo disco'; Icon = '💽' }
@@ -44,7 +45,7 @@ function WinRepairToolkit {
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
         Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
         Write-Host ''
-        
+
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
@@ -53,17 +54,16 @@ function WinRepairToolkit {
                 Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
                 return $false
             }
-            
-            # Barra di progressione countdown con colore rosso
+
             $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
             $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-            
+
             Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
-        
+
         Write-Host "`n"
         Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
         Start-Sleep 1
@@ -75,9 +75,8 @@ function WinRepairToolkit {
         $percent = 0; $spinnerIndex = 0; $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
-    
+
         try {
-            # Preparazione comando ottimizzata
             $proc = if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
                 $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
                 $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
@@ -86,8 +85,7 @@ function WinRepairToolkit {
             else {
                 Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
             }
-        
-            # Monitoraggio progresso consolidato
+
             while (-not $proc.HasExited) {
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
                 if ($isChkdsk) {
@@ -100,51 +98,47 @@ function WinRepairToolkit {
                 Start-Sleep -Milliseconds 600
                 $proc.Refresh()
             }
-        
-            # Lettura risultati consolidata
+
             $results = @()
-            @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object { 
-                $results += Get-Content $_ -ErrorAction SilentlyContinue 
+            @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
+                $results += Get-Content $_ -ErrorAction SilentlyContinue
             }
-        
-            # Check scheduling per chkdsk ottimizzato
-            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and 
+
+            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and
                 ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
                 Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
                 $script:Log += "[$($Config.Name)] ℹ️ Controllo disco schedulato al prossimo riavvio"
                 return @{ Success = $true; ErrorCount = 0 }
             }
-        
+
             Show-ProgressBar $Config.Name 'Completato con successo' 100 $Config.Icon
             Write-Host ''
-        
-            # Analisi risultati
+
             $exitCode = $proc.ExitCode
             $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
             $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
-        
+
             $errors = $warnings = @()
             if (-not $isSuccess) {
                 foreach ($line in ($results | Where-Object { $_ -and ![string]::IsNullOrWhiteSpace($_.Trim()) })) {
                     $trim = $line.Trim()
                     if ($trim -match '^\[=+\s*\d+' -or $trim -match '(?i)version:|deployment image') { continue }
-                    
+
                     if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
                     elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
                 }
             }
-        
+
             $success = ($errors.Count -eq 0) -or $hasDismSuccess
             $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
             Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
-        
-            # Logging consolidato
+
             $logStatus = if ($success) { '✅ Successo' } else { "⚠️ $($errors.Count) errori" }
             if ($warnings.Count -gt 0) { $logStatus += " - $($warnings.Count) avvisi" }
             $script:Log += "[$($Config.Name)] $logStatus"
-        
+
             return @{ Success = $success; ErrorCount = $errors.Count }
-        
+
         }
         catch {
             Write-StyledMessage Error "Errore durante $($Config.Name): $_"
@@ -160,7 +154,7 @@ function WinRepairToolkit {
         $script:CurrentAttempt = $Attempt
         Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema ($($RepairTools.Count) strumenti)..."
         Write-Host ''
-    
+
         $totalErrors = $successCount = 0
         for ($i = 0; $i -lt $RepairTools.Count; $i++) {
             $result = Invoke-RepairCommand $RepairTools[$i] ($i + 1) $RepairTools.Count
@@ -168,9 +162,9 @@ function WinRepairToolkit {
             $totalErrors += $result.ErrorCount
             Start-Sleep 1
         }
-    
+
         Write-StyledMessage Info "🎯 Completati $successCount/$($RepairTools.Count) strumenti (Errori: $totalErrors)."
-    
+
         if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
             Write-Host ''
             Write-StyledMessage Warning "🔄 $totalErrors errori rilevati. Nuovo tentativo..."
@@ -178,20 +172,20 @@ function WinRepairToolkit {
             Write-Host ''
             return Start-RepairCycle ($Attempt + 1)
         }
-    
+
         return @{ Success = ($totalErrors -eq 0); TotalErrors = $totalErrors; AttemptsUsed = $Attempt }
     }
 
     function Start-DeepDiskRepair {
         Write-StyledMessage Warning '🔧 Vuoi eseguire una riparazione profonda del disco C:?'
         Write-StyledMessage Info 'Questa operazione richiederà un riavvio e può richiedere diverse ore.'
-    
+
         $response = Read-Host 'Procedere con la riparazione profonda? (s/n)'
         if ($response.ToLower() -ne 's') { return $false }
-    
+
         Write-StyledMessage Warning 'Segno il volume C: come "dirty" (chkdsk al prossimo riavvio) e apro una cmd per output.'
         $script:Log += "[Controllo disco Esteso] ℹ️ Segno volume dirty e apro cmd"
-    
+
         try {
             Start-Process 'fsutil.exe' @('dirty', 'set', 'C:') -NoNewWindow -Wait
             Start-Process 'cmd.exe' @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -WindowStyle Hidden -Wait
@@ -215,15 +209,15 @@ function WinRepairToolkit {
             Write-StyledMessage Warning "⚠️ $($RepairResult.TotalErrors) errori persistenti dopo $($RepairResult.AttemptsUsed) tentativo/i."
             Write-StyledMessage Info '📋 Controlla il log sul Desktop. 💡 Il riavvio potrebbe risolvere problemi residui.'
         }
-    
+
         Write-StyledMessage Info '🔄 Il sistema verrà riavviato per finalizzare le modifiche'
-    
+
         if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
-            try { 
+            try {
                 Write-StyledMessage Info '🔄 Riavvio in corso...'
-                Restart-Computer -Force 
+                Restart-Computer -Force
             }
-            catch { 
+            catch {
                 Write-StyledMessage Error "❌ Errore riavvio: $_"
                 Write-StyledMessage Info '🔄 Riavviare manualmente il sistema.'
             }
@@ -248,11 +242,9 @@ function WinRepairToolkit {
     }
     function Show-Header {
         Clear-Host
-    
         $width = $Host.UI.RawUI.BufferSize.Width
-    
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-    
+
         $asciiArt = @(
             '      __        __  _  _   _ ',
             '      \ \      / / | || \ | |',
@@ -263,15 +255,14 @@ function WinRepairToolkit {
             '    Repair Toolkit By MagnetarMan',
             '       Version 2.1 (Build 5)'
         )
-    
+
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
         }
-    
+
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
-    # Countdown preparazione ottimizzato
     for ($i = 5; $i -gt 0; $i--) {
         $spinner = $spinners[$i % $spinners.Length]
         Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
@@ -282,12 +273,12 @@ function WinRepairToolkit {
     try {
         $repairResult = Start-RepairCycle
         $deepRepairScheduled = Start-DeepDiskRepair
-    
+
         if ($deepRepairScheduled) {
             Write-StyledMessage Warning 'Il sistema verrà riavviato per eseguire la riparazione profonda...'
         }
         Start-SystemRestart $repairResult
-    
+
     }
     catch {
         Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"

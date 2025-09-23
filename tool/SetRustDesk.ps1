@@ -15,47 +15,28 @@ function SetRustDesk {
 
     # Configurazione globale
     $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }; Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error = @{ Color = 'Red'; Icon = '❌' }; Info = @{ Color = 'Cyan'; Icon = '💎' }
+        Success  = @{ Color = 'Green'; Icon = '✅' }
+        Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error    = @{ Color = 'Red'; Icon = '❌' }
+        Info     = @{ Color = 'Cyan'; Icon = '💎' }
         Progress = @{ Color = 'Magenta'; Icon = '🔄' }
     }
 
     # Funzione per centrare il testo
     function Center-Text {
-        param([string]$Text, [int]$Width)
-        $padding = [math]::Max(0, ($Width - $Text.Length) / 2)
-        return (' ' * [math]::Floor($padding)) + $Text
-    }
-
-    # Header grafico
-    # Funzione ausiliaria per centrare il testo
-    function Center-Text {
         param(
-            [Parameter(Mandatory = $true)]
-            [string]$Text,
-            [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width # Usa la larghezza dinamica di default
+            [Parameter(Mandatory = $true)][string]$Text,
+            [Parameter(Mandatory = $false)][int]$Width = $Host.UI.RawUI.BufferSize.Width
         )
-    
-        # Calcola il padding necessario
         $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-    
-        # Restituisce la stringa centrata
         return (' ' * $padding + $Text)
     }
-
-    #---
-
-    # Funzione principale che mostra l'header
+    
     function Show-Header {
         Clear-Host
-    
-        # Ottiene la larghezza della finestra della console
         $width = $Host.UI.RawUI.BufferSize.Width
-    
-        # Disegna la linea superiore adattandola alla larghezza
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-    
+
         $asciiArt = @(
             '      __        __  _  _   _ ',
             '      \ \      / / | || \ | |',
@@ -66,13 +47,11 @@ function SetRustDesk {
             'RustDesk Setup Toolkit By MagnetarMan',
             '       Version 2.2 (Build 9)'
         )
-    
+
         foreach ($line in $asciiArt) {
-            # Chiama la funzione Center-Text e le passa la larghezza dinamica
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
         }
-    
-        # Disegna la linea inferiore
+
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
@@ -83,11 +62,8 @@ function SetRustDesk {
     }
 
     function Stop-RustDeskComponents {
-        # Arresto servizi
-        $rustDeskServices = @("RustDesk", "rustdesk")
         $servicesFound = $false
-
-        foreach ($service in $rustDeskServices) {
+        foreach ($service in @("RustDesk", "rustdesk")) {
             $serviceObj = Get-Service -Name $service -ErrorAction SilentlyContinue
             if ($serviceObj) {
                 Stop-Service -Name $service -Force -ErrorAction SilentlyContinue
@@ -95,16 +71,12 @@ function SetRustDesk {
                 $servicesFound = $true
             }
         }
-
         if (-not $servicesFound) {
             Write-StyledMessage Warning "Nessun servizio RustDesk trovato - Proseguo con l'installazione"
         }
 
-        # Arresto processi
-        $rustDeskProcesses = @("rustdesk", "RustDesk")
         $processesFound = $false
-
-        foreach ($process in $rustDeskProcesses) {
+        foreach ($process in @("rustdesk", "RustDesk")) {
             $runningProcesses = Get-Process -Name $process -ErrorAction SilentlyContinue
             if ($runningProcesses) {
                 $runningProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
@@ -112,18 +84,15 @@ function SetRustDesk {
                 $processesFound = $true
             }
         }
-
         if (-not $processesFound) {
             Write-StyledMessage Warning "Nessun processo RustDesk trovato"
         }
-
         Start-Sleep 2
     }
 
     function Get-LatestRustDeskRelease {
         $apiUrl = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
         $response = Invoke-RestMethod -Uri $apiUrl -Method Get
-
         $msiAsset = $response.assets | Where-Object { $_.name -like "rustdesk-*-x86_64.msi" } | Select-Object -First 1
 
         if ($msiAsset) {
@@ -142,18 +111,15 @@ function SetRustDesk {
         param([string]$DownloadPath)
 
         Write-StyledMessage Progress "Download installer RustDesk in corso..."
-
         $releaseInfo = Get-LatestRustDeskRelease
         if (-not $releaseInfo) { return $false }
 
         Write-StyledMessage Info "📥 Versione rilevata: $($releaseInfo.Version)"
-
         $parentDir = Split-Path $DownloadPath -Parent
         $null = New-Item -ItemType Directory -Path $parentDir -Force
         Remove-Item $DownloadPath -Force -ErrorAction SilentlyContinue
 
         Invoke-WebRequest -Uri $releaseInfo.DownloadUrl -OutFile $DownloadPath -UseBasicParsing
-
         if (Test-Path $DownloadPath) {
             Write-StyledMessage Success "Installer $($releaseInfo.FileName) scaricato con successo"
             return $true
@@ -167,7 +133,6 @@ function SetRustDesk {
         param([string]$InstallerPath, [string]$ServerIP)
 
         Write-StyledMessage Progress "Installazione RustDesk"
-
         $installArgs = "/i", "`"$InstallerPath`"", "/quiet", "/norestart"
         $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden
         Start-Sleep 10
@@ -183,7 +148,6 @@ function SetRustDesk {
 
     function Clear-RustDeskConfig {
         Write-StyledMessage Progress "Pulizia configurazioni esistenti..."
-
         $configDir = "$env:APPDATA\RustDesk\config"
 
         if (Test-Path $configDir) {
@@ -198,7 +162,6 @@ function SetRustDesk {
 
     function Download-RustDeskConfigFiles {
         Write-StyledMessage Progress "Download file di configurazione..."
-
         $configDir = "$env:APPDATA\RustDesk\config"
         $null = New-Item -ItemType Directory -Path $configDir -Force
 
@@ -211,7 +174,6 @@ function SetRustDesk {
         foreach ($url in $configFiles) {
             $fileName = Split-Path $url -Leaf
             $filePath = Join-Path $configDir $fileName
-
             try {
                 Invoke-WebRequest -Uri $url -OutFile $filePath -UseBasicParsing
                 Write-StyledMessage Success "$fileName scaricato"
@@ -238,7 +200,6 @@ function SetRustDesk {
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
             $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-
             Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
@@ -266,7 +227,6 @@ function SetRustDesk {
             Write-StyledMessage Error "Impossibile procedere senza l'installer"
             return
         }
-
         if (-not (Install-RustDesk -InstallerPath $installerPath -ServerIP $null)) {
             Write-StyledMessage Error "Errore durante l'installazione"
             return
