@@ -159,55 +159,67 @@ function WinUpdateReset {
             return $true
         }
 
+        $originalPos = [Console]::CursorTop
         try {
-            $null = Microsoft.PowerShell.Management\Remove-Item $Path -Recurse -Force -ErrorAction Stop 2>$null
+            # Soppressione completa dell'output con redirezione a $null
+            $ErrorActionPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
+            $VerbosePreference = 'SilentlyContinue'
             
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
+            # Eliminazione con output completamente soppresso
+            Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            
+            # Reset completo del cursore alla posizione originale
+            [Console]::SetCursorPosition(0, $originalPos)
+            $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLines -NoNewline
             [Console]::Out.Flush()
-            [Console]::SetCursorPosition(0, [Console]::CursorTop)
             
             Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata."
             return $true
         }
         catch {
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
-            [Console]::Out.Flush()
-            [Console]::SetCursorPosition(0, [Console]::CursorTop)
+            # Reset cursore in caso di errore
+            [Console]::SetCursorPosition(0, $originalPos)
+            $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLines -NoNewline
             
-            Write-StyledMessage Warning "Tentativo fallito, provo con eliminazione selettiva..."
+            Write-StyledMessage Warning "Tentativo fallito, provo con eliminazione forzata..."
         
             try {
-                if (Test-Path $Path) {
-                    Get-ChildItem -Path $Path -Recurse -Force | ForEach-Object {
-                        try {
-                            $null = Microsoft.PowerShell.Management\Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue 2>$null
-                        }
-                        catch { }
-                    }
+                # Metodo alternativo con robocopy per eliminazione forzata
+                $tempDir = [System.IO.Path]::GetTempPath() + "empty_" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
+                $null = New-Item -ItemType Directory -Path $tempDir -Force
                 
-                    Start-Sleep -Seconds 1
-                    $null = Microsoft.PowerShell.Management\Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue 2>$null
+                # Usa robocopy per svuotare e poi elimina
+                $null = Start-Process "robocopy.exe" -ArgumentList "`"$tempDir`" `"$Path`" /MIR /NFL /NDL /NJH /NJS /NP /NC" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+                Remove-Item $tempDir -Force -ErrorAction SilentlyContinue
+                Remove-Item $Path -Force -ErrorAction SilentlyContinue
                 
-                    $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                    Write-Host $clearLine -NoNewline
-                    [Console]::Out.Flush()
-                    [Console]::SetCursorPosition(0, [Console]::CursorTop)
-                    
-                    if (-not (Test-Path $Path)) {
-                        Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata (metodo alternativo)."
-                        return $true
-                    }
-                    else {
-                        Write-StyledMessage Warning "Directory $DisplayName parzialmente eliminata (alcuni file potrebbero essere in uso)."
-                        return $false
-                    }
+                # Reset cursore finale
+                [Console]::SetCursorPosition(0, $originalPos)
+                $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                Write-Host $clearLines -NoNewline
+                [Console]::Out.Flush()
+                
+                if (-not (Test-Path $Path)) {
+                    Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata (metodo forzato)."
+                    return $true
+                }
+                else {
+                    Write-StyledMessage Warning "Directory $DisplayName parzialmente eliminata."
+                    return $false
                 }
             }
             catch {
-                Write-StyledMessage Warning "Impossibile eliminare completamente $DisplayName - alcuni file potrebbero essere in uso."
+                Write-StyledMessage Warning "Impossibile eliminare completamente $DisplayName - file in uso."
                 return $false
+            }
+            finally {
+                # Reset delle preferenze
+                $ErrorActionPreference = 'Continue'
+                $ProgressPreference = 'Continue'
+                $VerbosePreference = 'SilentlyContinue'
             }
         }
     }
@@ -223,7 +235,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         '  Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2 (Build 6)'
+        '       Version 2.2 (Build 7)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
