@@ -159,7 +159,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ---
 
-## 📌 [Changelog Progetto](/CHANGELOG)
+## 📌 [Changelog Progetto](/CHANGELOG.md)
 
 ## 🕹️ TO DO
 
