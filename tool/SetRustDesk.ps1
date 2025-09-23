@@ -40,7 +40,7 @@ function SetRustDesk {
             '         \_/\_/    |_||_| \_|',
             '',
             '   RustDesk Setup Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 5)'
+            '        Version 3.0 (Build 1)'
         )
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
@@ -354,4 +354,4 @@ function SetRustDesk {
     }
 }
 
-ResetRustDesk
+SetRustDesk
