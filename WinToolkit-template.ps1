@@ -155,7 +155,7 @@ $menuStructure = @(
     @{
         'Name' = 'Backup & Tool'; 'Icon' = '📦'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting RustDesk - ⚠️MagnetarMan Mode.⚠️'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting RustDesk - ⚠️ MagnetarMan Mode. ⚠️'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC. - Planned V2.2'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit.'; Action = 'RunFunction' }
         )

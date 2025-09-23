@@ -12,7 +12,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Aggiunte
 
-- Funzione **Windows Repair Plus (`V2.2 (Build 3)`)** completata.
 - **Funzione Driver & Gaming (`V2.3`):**
   - Scelta Driver Video (AMD/NVIDIA).
   - Installazione Driver Ottimizzato (Nvidia).
@@ -50,17 +49,41 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Correzioni
 
+### Modifiche
+
+- Backup dei driver installati, compressione in un file `.zip` e salvataggio sul desktop.
+- Aggiornamento della documentazione con il nuovo screenshot per la funzione `WinReinstallStore`.
+
+---
+
+## [2.2] - 2025-09-24 (#12)
+
+### Aggiunte
+
+- Funzione **Windows Repair Plus** completata.
+- Funzione **Set RustDesk** completata.
+
+### Correzioni
+
 - Correzione del blocco grafico del terminale per lo script `Update Reset`.
 - Correzione del blocco grafico del terminale per lo script `WinReinstallStore`.
-- Fix di alcuni errori di battitura (`Typo`) e aggiornamento del file `Readme.md`.
+- Fix di alcuni errori di battitura (`Typo`).
+- Fix Spaziatura Testo Ascii nei vari tool.
 
 ### Modifiche
 
+- Aggiornamento della documentazione e del file `README.md`.
+- Aggiornamento dello script `start.ps1`.
+- Aggiornamento dello script `WinToolkit-template.ps1`.
 - Reinstallazione forzata di Microsoft Store & Winget.
 - Installazione di Uniget.
-- Reset di Rust Desk.
-- Backup dei driver installati, compressione in un file `.zip` e salvataggio sul desktop.
+- Set di Rust Desk (funzione espansa rispetto al progetto originale).
+  - Controllo Versione
+  - Installazione ultima versione di Rust Desk
+  - Copia configurazione "MagnetarMan" Ready per supporto remoto
+  - Riavvio del PC ed Applicazione delle modifiche
 - Aggiornamento della documentazione con il nuovo screenshot per la funzione `WinReinstallStore`.
+- Creazione file `CHANGELOG.md` con link nel `README.md` con il changelog esaustivo dei cambiamenti
 
 ---
 
@@ -74,7 +97,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Modifiche
 
-- Aggiornamento della documentazione e del file `Readme.md`.
+- Aggiornamento della documentazione e del file `README.md`.
 - Ottimizzazione dello script `WinToolkit-Template.ps1`.
 - Aggiornamento dello script `start.ps1`.
 
@@ -97,7 +120,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Modifiche
 
-- Il file `Readme.md` è stato aggiornato.
+- Il file `README.md` è stato aggiornato.
 - La funzione **`Informazioni del Sistema`** è stata potenziata.
 
 ---
@@ -111,7 +134,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Modifiche
 
 - Ottimizzazione generale degli script.
-- Aggiornamento dei file `WinReinstallStore.ps1`, `WinRepairToolkit.ps1` e `Readme.md`.
+- Aggiornamento dei file `WinReinstallStore.ps1`, `WinRepairToolkit.ps1` e `README.md`.
 
 ---
 
