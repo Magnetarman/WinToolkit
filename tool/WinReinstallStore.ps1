@@ -22,16 +22,16 @@ function WinReinstallStore {
     function Center-Text {
         param(
             [Parameter(Mandatory = $true)]
-            [string]$Text,
+            [string]$text,
             [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width # Usa la larghezza dinamica di default
+            [int]$width = $Host.UI.RawUI.BufferSize.Width # Usa la larghezza dinamica di default
         )
-    
+
         # Calcola il padding necessario
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-    
+        $padding = [Math]::Max(0, [Math]::Floor(($width - $text.Length) / 2))
+
         # Restituisce la stringa centrata
-        return (' ' * $padding + $Text)
+        return (' ' * $padding + $text)
     }
 
     #---
@@ -53,15 +53,15 @@ function WinReinstallStore {
         )
 
         foreach ($line in $asciiArt) {
-            Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
         }
 
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
-    function Write-StyledMessage([string]$Type, [string]$Text) {
-        $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    function Write-StyledMessage([string]$type, [string]$text) {
+        $style = $MsgStyles[$type]
+        Write-Host "$($style.Icon) $text" -ForegroundColor $style.Color
     }
     
     function Clear-Terminal {

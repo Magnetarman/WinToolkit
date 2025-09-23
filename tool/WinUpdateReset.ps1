@@ -69,9 +69,9 @@ function WinUpdateReset {
         return $true
     }
 
-    function Center-Text([string]$Text, [int]$Width) {
-        $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding) + $Text
+    function Center-Text([string]$text, [int]$width) {
+        $padding = [math]::Max(0, [math]::Floor(($width - $text.Length) / 2))
+        return (' ' * $padding) + $text
     }
 
     function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
@@ -153,9 +153,9 @@ function WinUpdateReset {
         }
     }
 
-    function Remove-DirectorySafely([string]$Path, [string]$DisplayName) {
-        if (-not (Test-Path $Path)) {
-            Write-StyledMessage Info "💭 Directory $DisplayName non presente."
+    function Remove-DirectorySafely([string]$path, [string]$displayName) {
+        if (-not (Test-Path $path)) {
+            Write-StyledMessage Info "💭 Directory $displayName non presente."
             return $true
         }
 
@@ -167,7 +167,7 @@ function WinUpdateReset {
             $VerbosePreference = 'SilentlyContinue'
             
             # Eliminazione con output completamente soppresso
-            Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue *>$null
             
             # Reset completo del cursore alla posizione originale
             [Console]::SetCursorPosition(0, $originalPos)
@@ -175,7 +175,7 @@ function WinUpdateReset {
             Write-Host $clearLines -NoNewline
             [Console]::Out.Flush()
             
-            Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata."
+            Write-StyledMessage Success "🗑️ Directory $displayName eliminata."
             return $true
         }
         catch {
@@ -192,9 +192,9 @@ function WinUpdateReset {
                 $null = New-Item -ItemType Directory -Path $tempDir -Force
                 
                 # Usa robocopy per svuotare e poi elimina
-                $null = Start-Process "robocopy.exe" -ArgumentList "`"$tempDir`" `"$Path`" /MIR /NFL /NDL /NJH /NJS /NP /NC" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+                $null = Start-Process "robocopy.exe" -ArgumentList "`"$tempDir`" `"$path`" /MIR /NFL /NDL /NJH /NJS /NP /NC" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
                 Remove-Item $tempDir -Force -ErrorAction SilentlyContinue
-                Remove-Item $Path -Force -ErrorAction SilentlyContinue
+                Remove-Item $path -Force -ErrorAction SilentlyContinue
                 
                 # Reset cursore finale
                 [Console]::SetCursorPosition(0, $originalPos)
@@ -202,17 +202,17 @@ function WinUpdateReset {
                 Write-Host $clearLines -NoNewline
                 [Console]::Out.Flush()
                 
-                if (-not (Test-Path $Path)) {
-                    Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata (metodo forzato)."
+                if (-not (Test-Path $path)) {
+                    Write-StyledMessage Success "🗑️ Directory $displayName eliminata (metodo forzato)."
                     return $true
                 }
                 else {
-                    Write-StyledMessage Warning "Directory $DisplayName parzialmente eliminata."
+                    Write-StyledMessage Warning "Directory $displayName parzialmente eliminata."
                     return $false
                 }
             }
             catch {
-                Write-StyledMessage Warning "Impossibile eliminare completamente $DisplayName - file in uso."
+                Write-StyledMessage Warning "Impossibile eliminare completamente $displayName - file in uso."
                 return $false
             }
             finally {
@@ -228,14 +228,14 @@ function WinUpdateReset {
     function Center-Text {
         param(
             [Parameter(Mandatory = $true)]
-            [string]$Text,
+            [string]$text,
             [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+            [int]$width = $Host.UI.RawUI.BufferSize.Width
         )
-    
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-    
-        return (' ' * $padding + $Text)
+
+        $padding = [Math]::Max(0, [Math]::Floor(($width - $text.Length) / 2))
+
+        return (' ' * $padding + $text)
     }
 
     #---
@@ -262,7 +262,7 @@ function WinUpdateReset {
  
     foreach ($line in $asciiArt) {
         # Call the Center-Text function, passing the dynamic width.
-        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+        Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
     }
  
     # Draw the bottom border line.
@@ -372,7 +372,7 @@ function WinUpdateReset {
             
             Start-Sleep -Milliseconds 300
             
-            $success = Remove-DirectorySafely -Path $dir.Path -DisplayName $dir.Name
+            $success = Remove-DirectorySafely -path $dir.Path -displayName $dir.Name
             if (-not $success) {
                 Write-StyledMessage Info "💡 Suggerimento: Alcuni file potrebbero essere ricreati dopo il riavvio."
             }
