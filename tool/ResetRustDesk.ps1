@@ -358,5 +358,4 @@ allow_mouse = true
     }
 }
 
-# Esportazione funzione per utilizzo in altri script
 ResetRustDesk
