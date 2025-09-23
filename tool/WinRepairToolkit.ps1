@@ -234,32 +234,43 @@ function WinRepairToolkit {
         }
     }
 
-    function Center-Text([string]$Text, [int]$Width) {
-        $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding) + $Text
+    function Center-Text {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+    
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+    
+        return (' ' * $padding + $Text)
     }
-
-    # Interfaccia principale
-    $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
-    Clear-Host
-    $width = 65
-    Write-Host ('═' * $width) -ForegroundColor Green
+    function Show-Header {
+        Clear-Host
     
-    $asciiArt = @(
-        '      __        __  _  _   _ ',
-        '      \ \      / / | || \ | |',
-        '       \ \ /\ / /  | ||  \| |',
-        '        \ V  V /   | || |\  |',
-        '         \_/\_/    |_||_| \_|',
-        '',
-        '     Repair Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 5)'
-    )
+        $width = $Host.UI.RawUI.BufferSize.Width
     
-    $asciiArt | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
-    Write-Host ('═' * $width) -ForegroundColor Green
-    Write-Host ''
-
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+    
+        $asciiArt = @(
+            '      __        __  _  _   _ ',
+            '      \ \      / / | || \ | |',
+            '       \ \ /\ / /  | ||  \| |',
+            '        \ V  V /   | || |\  |',
+            '         \_/\_/    |_||_| \_|',
+            '',
+            '    Repair Toolkit By MagnetarMan',
+            '       Version 2.1 (Build 5)'
+        )
+    
+        foreach ($line in $asciiArt) {
+            Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+        }
+    
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+        Write-Host ''
+    }
     # Countdown preparazione ottimizzato
     for ($i = 5; $i -gt 0; $i--) {
         $spinner = $spinners[$i % $spinners.Length]

@@ -224,9 +224,31 @@ function WinUpdateReset {
         }
     }
  
+    # Funzione ausiliaria per centrare il testo.
+    function Center-Text {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+    
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+    
+        return (' ' * $padding + $Text)
+    }
+
+    #---
+
+    # Main script
     Clear-Host
-    $width = 65
-    Write-Host ('═' * $width) -ForegroundColor Green
+ 
+    # Get the actual console width for dynamic centering.
+    $width = $Host.UI.RawUI.BufferSize.Width
+ 
+    # Draw the top border line, adjusting for dynamic width.
+    Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+ 
     $asciiArt = @(
         '      __        __  _  _   _ ',
         '      \ \      / / | || \ | |',
@@ -235,12 +257,16 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         ' Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2 (Build 8)'
+        '       Version 2.2 (Build 9)'
     )
+ 
     foreach ($line in $asciiArt) {
+        # Call the Center-Text function, passing the dynamic width.
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
     }
-    Write-Host ('═' * $width) -ForegroundColor Green
+ 
+    # Draw the bottom border line.
+    Write-Host ('═' * ($width - 1)) -ForegroundColor Green
     Write-Host ''
 
     Write-StyledMessage Info '🔧 Inizializzazione dello Script di Reset Windows Update...'

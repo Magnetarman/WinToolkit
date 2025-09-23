@@ -396,7 +396,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.1 (Build 33)'
+            '        Version 2.1 (Build 34)'
         )
     
         # Cicla su ogni riga del testo ASCII art

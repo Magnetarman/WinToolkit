@@ -21,16 +21,32 @@ function WinReinstallStore {
     
     # Funzione per centrare il testo
     function Center-Text {
-        param([string]$Text, [int]$Width)
-        $padding = [math]::Max(0, ($Width - $Text.Length) / 2)
-        return (' ' * [math]::Floor($padding)) + $Text
-    }
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width # Usa la larghezza dinamica di default
+        )
     
-    # Header grafico
+        # Calcola il padding necessario
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+    
+        # Restituisce la stringa centrata
+        return (' ' * $padding + $Text)
+    }
+
+    #---
+
+    # Funzione principale che mostra l'header
     function Show-Header {
         Clear-Host
-        $width = 65
-        Write-Host ('═' * $width) -ForegroundColor Green
+    
+        # Ottiene la larghezza della finestra della console in tempo reale
+        $width = $Host.UI.RawUI.BufferSize.Width
+    
+        # Disegna la linea superiore adattandola alla larghezza
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+    
         $asciiArt = @(
             '      __        __  _  _   _ ',
             '      \ \      / / | || \ | |',
@@ -39,15 +55,18 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Store Repair Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 26)'
+            '       Version 2.2 (Build 27)'
         )
+    
         foreach ($line in $asciiArt) {
+            # Chiama la funzione Center-Text e le passa la larghezza dinamica
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
         }
-        Write-Host ('═' * $width) -ForegroundColor Green
+    
+        # Disegna la linea inferiore
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
-    
     function Write-StyledMessage([string]$Type, [string]$Text) {
         $style = $MsgStyles[$Type]
         Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
