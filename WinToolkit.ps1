@@ -511,11 +511,13 @@ function WinRepairToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Repair Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 3)'
+            '       Version 2.2 (Build 4)'
         )
 
         foreach ($line in $asciiArt) {
-            Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            if (-not [string]::IsNullOrEmpty($line)) {
+                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            }
         }
 
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
