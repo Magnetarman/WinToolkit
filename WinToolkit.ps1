@@ -726,9 +726,9 @@ function SetRustDesk {
         $null = New-Item -ItemType Directory -Path $configDir -Force
 
         $configFiles = @(
-            "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/RustDesk.toml",
-            "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/RustDesk_local.toml",
-            "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/RustDesk2.toml"
+            "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/RustDesk.toml",
+            "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/RustDesk_local.toml",
+            "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/RustDesk2.toml"
         )
 
         foreach ($url in $configFiles) {
