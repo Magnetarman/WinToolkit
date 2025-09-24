@@ -594,11 +594,16 @@ function SetRustDesk {
             '         \_/\_/    |_||_| \_|',
             '',
             'RustDesk Setup Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 10)'
+            '       Version 2.2 (Build 11)'
         )
 
         foreach ($line in $asciiArt) {
-            Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            if ($line -ne '') {
+                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            }
+            else {
+                Write-Host ''
+            }
         }
 
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
