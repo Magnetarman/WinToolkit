@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2 (Build 9) - 2025-09-24
+  Versione 2.2 (Build 13) - 2025-09-24
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -28,8 +28,19 @@ function Write-StyledMessage {
 }
 
 function Center-Text {
-    param([string]$text, [int]$width = 60)
+    param([string]$text, [int]$width = $Host.UI.RawUI.BufferSize.Width)
     if ($text.Length -ge $width) { $text } else { ' ' * [Math]::Floor(($width - $text.Length) / 2) + $text }
+}
+
+function Show-Header {
+    Clear-Host
+    $width = $Host.UI.RawUI.BufferSize.Width
+    Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+    foreach ($line in $asciiArt) {
+        Write-Host (Center-Text $line $width) -ForegroundColor White
+    }
+    Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+    Write-Host ''
 }
 
 function winver {
@@ -97,6 +108,18 @@ function winver {
         Write-StyledMessage -type 'Error' -text "Errore nel recupero informazioni: $($_.Exception.Message)"
     }
 }
+
+# ASCII Art
+$asciiArt = @(
+    '      __        __  _  _   _ ',
+    '      \ \      / / | || \ | |',
+    '       \ \ /\ / /  | ||  \| |',
+    '        \ V  V /   | || |\  |',
+    '         \_/\_/    |_||_| \_|',
+    '',
+    '       WinToolkit By MagnetarMan',
+    '       Version 2.2 (Build 13)'
+)
 
 # Placeholder functions (verranno automaticamente popolate dal compilatore)
 function WinInstallPSProfile {
@@ -2329,30 +2352,13 @@ $menuStructure = @(
     }
 )
 
-# ASCII Art
-$asciiArt = @(
-    '      __        __  _  _   _ ',
-    '      \ \      / / | || \ | |',
-    '       \ \ /\ / /  | ||  \| |',
-    '        \ V  V /   | || |\  |',
-    '         \_/\_/    |_||_| \_|',
-    '',
-    '       WinToolkit by MagnetarMan',
-    '       Version 2.2 (Build 9)'
-)
-
 # Main loop
 while ($true) {
     Clear-Host
     $width = 65
 
     # Header
-    Write-Host ('═' * $width) -ForegroundColor Green
-    foreach ($line in $asciiArt) {
-        Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
-    }
-    Write-Host ('═' * $width) -ForegroundColor Green
-
+    Show-Header
     winver
     Write-Host ''
 
@@ -2410,6 +2416,9 @@ while ($true) {
 
     # Execute valid scripts
     if ($scriptsToRun.Count -gt 0) {
+        $executedCount = 0
+        $errorCount = 0
+
         foreach ($selectedItem in $scriptsToRun) {
             Write-Host "`n" + ('-' * ($width / 2))
             Write-StyledMessage -type 'Info' -text "Avvio '$($selectedItem.Description)'..."
@@ -2433,6 +2442,14 @@ while ($true) {
 
         Write-Host "`nOperazioni completate. Premi un tasto per continuare..."
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+
+        # Summary
+        if ($errorCount -eq 0) {
+            Write-StyledMessage -type 'Success' -text "🎉 Tutte le operazioni completate con successo! ($executedCount/$executedCount)"
+        }
+        else {
+            Write-StyledMessage -type 'Warning' -text "⚠️ $executedCount operazioni completate, $errorCount errori"
+        }
     }
     elseif ($invalidChoices.Count -eq $choices.Count) {
         Write-StyledMessage -type 'Error' -text 'Nessuna scelta valida. Riprova.'
