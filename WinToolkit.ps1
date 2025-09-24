@@ -1922,7 +1922,7 @@ function OfficeToolkit {
 
     function Get-UserConfirmation([string]$Message, [string]$DefaultChoice = 'N') {
         do {
-            $response = Read-Host "$Message [$DefaultChoice]"
+            $response = Read-Host "$Message [Y/N]"
             if ([string]::IsNullOrEmpty($response)) { $response = $DefaultChoice }
             $response = $response.ToUpper()
         } while ($response -notin @('Y', 'N'))
