@@ -511,7 +511,7 @@ function WinRepairToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Repair Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 2)'
+            '       Version 2.2 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {
@@ -521,6 +521,9 @@ function WinRepairToolkit {
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
+
+    Show-Header
+
     for ($i = 5; $i -gt 0; $i--) {
         $spinner = $spinners[$i % $spinners.Length]
         Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
