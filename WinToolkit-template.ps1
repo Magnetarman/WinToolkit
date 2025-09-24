@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2 (Build 12) - 2025-09-24
+  Versione 2.2 (Build 13) - 2025-09-24
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -12,24 +12,13 @@ $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
 $ErrorActionPreference = 'Stop'
 
 # Setup logging
-function Initialize-Logging {
-    $script:LogStartTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $script:LogDir = "$env:localappdata\WinToolkit\logs"
-    $script:LogPath = "$script:LogDir\WinToolkit_$script:LogStartTime.log"
-
-    try {
-        if (-not (Test-Path $script:LogDir)) {
-            New-Item -ItemType Directory -Path $script:LogDir -Force | Out-Null
-        }
-        Start-Transcript -Path $script:LogPath -Append -Force | Out-Null
-        Write-StyledMessage -type 'Info' -text "Log inizializzato: $script:LogPath"
-    }
-    catch {
-        Write-Warning "Impossibile inizializzare il logging: $($_.Exception.Message)"
-    }
+$dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$logdir = "$env:localappdata\WinToolkit\logs"
+try {
+    [System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
+    Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -Force | Out-Null
 }
-
-Initialize-Logging
+catch { }
 
 function Write-StyledMessage {
     param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
@@ -39,130 +28,22 @@ function Write-StyledMessage {
 }
 
 function Center-Text {
-    param(
-        [string]$Text,
-        [Parameter(Mandatory = $false)]
-        [int]$Width = $Host.UI.RawUI.BufferSize.Width
-    )
-
-    if ([string]::IsNullOrEmpty($Text)) {
-        return ''
-    }
-
-    $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-
-    return (' ' * $padding + $Text)
+    param([string]$text, [int]$width = $Host.UI.RawUI.BufferSize.Width)
+    if ($text.Length -ge $width) { $text } else { ' ' * [Math]::Floor(($width - $text.Length) / 2) + $text }
 }
 
 function Show-Header {
     Clear-Host
     $width = $Host.UI.RawUI.BufferSize.Width
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-
     foreach ($line in $asciiArt) {
-        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+        Write-Host (Center-Text $line $width) -ForegroundColor White
     }
-
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
     Write-Host ''
 }
 
-function Get-ValidatedChoices {
-    param(
-        [string]$UserChoice,
-        [array]$AllScripts
-    )
-
-    $choices = $UserChoice -split '[ ,]+' | Where-Object { $_ -ne '' }
-    $scriptsToRun = [System.Collections.Generic.List[object]]::new()
-    $invalidChoices = [System.Collections.Generic.List[string]]::new()
-
-    foreach ($choice in $choices) {
-        if (($choice -match '^\d+$') -and ([int]$choice -ge 1) -and ([int]$choice -le $AllScripts.Count)) {
-            $scriptsToRun.Add($AllScripts[[int]$choice - 1])
-        }
-        else {
-            $invalidChoices.Add($choice)
-        }
-    }
-
-    return @{
-        ValidScripts   = $scriptsToRun
-        InvalidChoices = $invalidChoices
-    }
-}
-
-function Invoke-MenuItem {
-    param([object]$MenuItem)
-
-    try {
-        if ($MenuItem.Action -eq 'RunFile') {
-            $scriptPath = Join-Path $PSScriptRoot $MenuItem.Name
-            if (Test-Path $scriptPath) {
-                & $scriptPath
-                return @{ Success = $true }
-            }
-            else {
-                return @{
-                    Success      = $false
-                    ErrorMessage = "Script non trovato: $($MenuItem.Name)"
-                }
-            }
-        }
-        elseif ($MenuItem.Action -eq 'RunFunction') {
-            Invoke-Expression $MenuItem.Name
-            return @{ Success = $true }
-        }
-        else {
-            return @{
-                Success      = $false
-                ErrorMessage = "Azione non supportata: $($MenuItem.Action)"
-            }
-        }
-    }
-    catch {
-        return @{
-            Success      = $false
-            ErrorMessage = $_.Exception.Message
-        }
-    }
-}
-
-function Get-AllMenuScripts {
-    $allScripts = @()
-    $scriptIndex = 1
-
-    foreach ($category in $menuStructure) {
-        foreach ($script in $category.Scripts) {
-            $allScripts += $script
-            $scriptIndex++
-        }
-    }
-
-    return $allScripts
-}
-
-function Show-Menu {
-    param(
-        [array]$MenuStructure,
-        [array]$AllScripts
-    )
-
-    $scriptIndex = 1
-
-    foreach ($category in $MenuStructure) {
-        Write-Host "=== $($category.Icon) $($category.Name) $($category.Icon) ===" -ForegroundColor Cyan
-        Write-Host ''
-
-        foreach ($script in $category.Scripts) {
-            Write-StyledMessage -type 'Info' -text "[$scriptIndex] $($script.Description)"
-            $scriptIndex++
-        }
-        Write-Host ''
-    }
-}
-
-function Get-SystemInfo {
+function winver {
     try {
         $osInfo = Get-CimInstance Win32_OperatingSystem
         $computerInfo = Get-CimInstance Win32_ComputerSystem
@@ -198,59 +79,47 @@ function Get-SystemInfo {
             default { "💻 $productName" }
         }
 
-        return @{
-            OS             = $osInfo
-            Computer       = $computerInfo
-            Disk           = $diskInfo
-            ProductName    = $productName
-            BuildNumber    = $buildNumber
-            TotalRAM       = $totalRAM
-            TotalDiskSpace = $totalDiskSpace
-            FreePercentage = $freePercentage
-            WindowsVersion = $windowsVersion
-            WindowsEdition = $windowsEdition
+        # Display info
+        $width = 65
+        Write-Host ""
+        Write-Host ('*' * $width) -ForegroundColor Red
+        Write-Host (Center-Text "🖥️  INFORMAZIONI SISTEMA  🖥️" $width) -ForegroundColor White
+        Write-Host ('*' * $width) -ForegroundColor Red
+        Write-Host ""
+
+        $info = @(
+            @("💻 Edizione:", $windowsEdition, 'White'),
+            @("📊 Versione:", "Ver. $windowsVersion (Build $buildNumber)", 'Green'),
+            @("🏗️ Architettura:", $osInfo.OSArchitecture, 'White'),
+            @("🏷️ Nome PC:", $computerInfo.Name, 'White'),
+            @("🧠 RAM:", "$totalRAM GB", 'White'),
+            @("💾 Disco:", "$freePercentage% Libero ($totalDiskSpace GB)", 'Green')
+        )
+
+        foreach ($item in $info) {
+            Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
+            Write-Host " $($item[1])" -ForegroundColor $item[2]
         }
+
+        Write-Host ""
+        Write-Host ('*' * $width) -ForegroundColor Red
     }
     catch {
         Write-StyledMessage -type 'Error' -text "Errore nel recupero informazioni: $($_.Exception.Message)"
-        return $null
     }
 }
 
-function Show-SystemInfo {
-    param([hashtable]$SystemInfo)
-
-    if (-not $SystemInfo) { return }
-
-    $width = 65
-    Write-Host ""
-    Write-Host ('*' * $width) -ForegroundColor Red
-    Write-Host (Center-Text "🖥️  INFORMAZIONI SISTEMA  🖥️" $width) -ForegroundColor White
-    Write-Host ('*' * $width) -ForegroundColor Red
-    Write-Host ""
-
-    $info = @(
-        @("💻 Edizione:", $SystemInfo.WindowsEdition, 'White'),
-        @("📊 Versione:", "Ver. $($SystemInfo.WindowsVersion) (Build $($SystemInfo.BuildNumber))", 'Green'),
-        @("🏗️ Architettura:", $SystemInfo.OS.OSArchitecture, 'White'),
-        @("🏷️ Nome PC:", $SystemInfo.Computer.Name, 'White'),
-        @("🧠 RAM:", "$($SystemInfo.TotalRAM) GB", 'White'),
-        @("💾 Disco:", "$($SystemInfo.FreePercentage)% Libero ($($SystemInfo.TotalDiskSpace) GB)", 'Green')
-    )
-
-    foreach ($item in $info) {
-        Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
-        Write-Host " $($item[1])" -ForegroundColor $item[2]
-    }
-
-    Write-Host ""
-    Write-Host ('*' * $width) -ForegroundColor Red
-}
-
-function winver {
-    $systemInfo = Get-SystemInfo
-    Show-SystemInfo -SystemInfo $systemInfo
-}
+# ASCII Art
+$asciiArt = @(
+    '      __        __  _  _   _ ',
+    '      \ \      / / | || \ | |',
+    '       \ \ /\ / /  | ||  \| |',
+    '        \ V  V /   | || |\  |',
+    '         \_/\_/    |_||_| \_|',
+    '',
+    '       WinToolkit By MagnetarMan',
+    '       Version 2.2 (Build 13)'
+)
 
 # Placeholder functions (verranno automaticamente popolate dal compilatore)
 function WinInstallPSProfile {}
@@ -294,18 +163,6 @@ $menuStructure = @(
     }
 )
 
-# ASCII Art
-$asciiArt = @(
-    '      __        __  _  _   _ ',
-    '      \ \      / / | || \ | |',
-    '       \ \ /\ / /  | ||  \| |',
-    '        \ V  V /   | || |\  |',
-    '         \_/\_/    |_||_| \_|',
-    '',
-    '       WinToolkit By MagnetarMan',
-    '       Version 2.2 (Build 12)'
-)
-
 # Main loop
 while ($true) {
     Clear-Host
@@ -313,13 +170,24 @@ while ($true) {
 
     # Header
     Show-Header
-
     winver
     Write-Host ''
 
     # Build and display menu
-    $allScripts = Get-AllMenuScripts
-    Show-Menu -MenuStructure $menuStructure -AllScripts $allScripts
+    $allScripts = @()
+    $scriptIndex = 1
+
+    foreach ($category in $menuStructure) {
+        Write-Host "=== $($category.Icon) $($category.Name) $($category.Icon) ===" -ForegroundColor Cyan
+        Write-Host ''
+
+        foreach ($script in $category.Scripts) {
+            $allScripts += $script
+            Write-StyledMessage -type 'Info' -text "[$scriptIndex] $($script.Description)"
+            $scriptIndex++
+        }
+        Write-Host ''
+    }
 
     # Exit section
     Write-Host "=== Uscita ===" -ForegroundColor Red
@@ -338,9 +206,18 @@ while ($true) {
     }
 
     # Parse and validate choices
-    $result = Get-ValidatedChoices -UserChoice $userChoice -AllScripts $allScripts
-    $scriptsToRun = $result.ValidScripts
-    $invalidChoices = $result.InvalidChoices
+    $choices = $userChoice -split '[ ,]+' | Where-Object { $_ -ne '' }
+    $scriptsToRun = [System.Collections.Generic.List[object]]::new()
+    $invalidChoices = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($choice in $choices) {
+        if (($choice -match '^\d+$') -and ([int]$choice -ge 1) -and ([int]$choice -le $allScripts.Count)) {
+            $scriptsToRun.Add($allScripts[[int]$choice - 1])
+        }
+        else {
+            $invalidChoices.Add($choice)
+        }
+    }
 
     # Handle invalid choices
     if ($invalidChoices.Count -gt 0) {
@@ -357,18 +234,21 @@ while ($true) {
             Write-Host "`n" + ('-' * ($width / 2))
             Write-StyledMessage -type 'Info' -text "Avvio '$($selectedItem.Description)'..."
 
-            $executionResult = Invoke-MenuItem -MenuItem $selectedItem
-            if ($executionResult.Success) {
-                $executedCount++
-                Write-StyledMessage -type 'Success' -text "Completato: '$($selectedItem.Description)'"
-            }
-            else {
-                $errorCount++
-                Write-StyledMessage -type 'Error' -text "Errore in '$($selectedItem.Description)'"
-                if ($executionResult.ErrorMessage) {
-                    Write-StyledMessage -type 'Error' -text "Dettagli: $($executionResult.ErrorMessage)"
+            try {
+                if ($selectedItem.Action -eq 'RunFile') {
+                    $scriptPath = Join-Path $PSScriptRoot $selectedItem.Name
+                    if (Test-Path $scriptPath) { & $scriptPath }
+                    else { Write-StyledMessage -type 'Error' -text "Script non trovato: $($selectedItem.Name)" }
+                }
+                elseif ($selectedItem.Action -eq 'RunFunction') {
+                    Invoke-Expression $selectedItem.Name
                 }
             }
+            catch {
+                Write-StyledMessage -type 'Error' -text "Errore in '$($selectedItem.Description)'"
+                Write-StyledMessage -type 'Error' -text "Dettagli: $($_.Exception.Message)"
+            }
+            Write-StyledMessage -type 'Success' -text "Completato: '$($selectedItem.Description)'"
         }
 
         Write-Host "`nOperazioni completate. Premi un tasto per continuare..."
@@ -387,17 +267,3 @@ while ($true) {
         Start-Sleep -Seconds 2
     }
 }
-
-# Cleanup function
-function Stop-Logging {
-    try {
-        Stop-Transcript | Out-Null
-        Write-StyledMessage -type 'Info' -text "Log salvato: $script:LogPath"
-    }
-    catch {
-        Write-Warning "Errore durante la chiusura del log: $($_.Exception.Message)"
-    }
-}
-
-# Cleanup on exit
-Stop-Logging
