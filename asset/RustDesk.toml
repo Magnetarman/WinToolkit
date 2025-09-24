@@ -1,0 +1,11 @@
+enc_id = ''
+password = ''
+salt = ''
+key_pair = [
+    
+]
+key_confirmed = true
+
+[keys_confirmed]
+rs-ny = true
+"89.168.23.158:21116" = true
