@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2 (Build 7) - 2025-09-24
+  Versione 2.2 (Build 8) - 2025-09-24
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -149,7 +149,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit by MagnetarMan',
-    '       Version 2.2 (Build 7)'
+    '       Version 2.2 (Build 8)'
 )
 
 # Main loop

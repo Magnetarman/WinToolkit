@@ -257,7 +257,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         ' Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2 (Build 9)'
+        '       Version 2.2 (Build 10)'
     )
  
     foreach ($line in $asciiArt) {
