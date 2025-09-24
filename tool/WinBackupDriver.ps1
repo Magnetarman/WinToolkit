@@ -62,11 +62,16 @@ function WinBackupDriver {
             '         \_/\_/    |_||_| \_|',
             '',
             '   Driver Backup Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 2)'
+            '       Version 2.2 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {
-            Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            if ($line -ne '') {
+                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            }
+            else {
+                Write-Host ''
+            }
         }
 
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green

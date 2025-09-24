@@ -44,7 +44,8 @@
 ## 👾 Features
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
-- **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato nel percorso `%localappdata%\WinToolkit\logs` (Inserisci il percorso senza apici dopo aver digitato `esegui` nel menu start di windows per accedere alla cartella dei log), fornendo un riassunto chiaro e professionale delle azioni eseguite, degli errori riscontrati e dei risultati finali.
+- **Cartella di lavoro unica**: Le operazioni del programma sono centralizzate in un'unica cartella di lavoro, situata in `%localappdata%\WinToolkit`. È importante mantenere questa directory per garantire la corretta visualizzazione e il funzionamento dell'icona di collegamento sul desktop. Lo strumento è concepito per operare in modo completamente autonomo e online, eliminando la necessità di creare cartelle temporanee aggiuntive per la sua esecuzione.
+- **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato nel percorso `%localappdata%\WinToolkit\logs`, fornendo un riassunto chiaro delle azioni eseguite, degli errori riscontrati e dei risultati finali.
 
 ### ℹ️ Descrizione Funzioni Toolkit
 
@@ -53,7 +54,8 @@
 - **Office Toolkit**: Strumento di gestione completo per Microsoft Office che semplifica l'installazione, la riparazione e la rimozione dei prodotti. Con la sua interfaccia intuitiva, ti guida attraverso ogni operazione, rendendo la gestione di Office accessibile a tutti. È possibile installare una versione "Basic" di Microsoft Office in modo semi-automatico, riparare le installazioni esistenti con due diverse modalità (Riparazione Rapida offline e Riparazione Completa online), oppure rimuovere completamente il software dal sistema utilizzando l'efficace tool ufficiale Microsoft Support and Recovery Assistant (SaRA). Questo garantisce la risoluzione dei problemi più comuni, dai malfunzionamenti minori ai conflitti più complessi che richiedono una pulizia completa, offrendo un'esperienza professionale e affidabile.
 - **Windows Store Repair**: Esegue una reinstallazione di componenti critici come Microsoft Store, Winget, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando Winget). Lo script esegue questa operazione in modo silenzioso, provando più metodi (Winget, DISM e registrazione del manifest) per garantire il successo. Il processo include anche la pulizia della cache e il riavvio dei servizi necessari per una riparazione pulita e funzionale.
 - **Win Backup Driver**: Un versatile script PowerShell progettato per semplificare il processo di backup dei driver. Questo strumento automatizza l'esportazione di tutti i driver di terze parti installati, utilizzando il comando DISM per garantire un'operazione completa e affidabile. Una volta esportati, i driver vengono compressi in un singolo file ZIP, che viene automaticamente salvato sul desktop con un nome basato sulla data per una facile identificazione. Ideale per la preparazione di una nuova installazione di Windows, eliminando la necessità di scaricare ogni componente singolarmente.
-- ⚠️ **Set Rust Desk:** Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico. Lo script procede all'installazione silenziosa di RustDesk, alla cancellazione di eventuali configurazioni precedenti e al download di file di configurazione personalizzati per garantire che il software sia preconfigurato per il supporto tecnico remoto. L'intero processo è progettato per essere completamente automatizzato e si conclude con un riavvio del sistema opzionale e annullabile dall'utente per finalizzare tutte le modifiche. **Questo script è destinato esclusivamente alle macchine che richiedono assistenza tecnica futura da parte mia. Verrà installa una versione personalizzata di RustDesk preconfigurata per l'assistenza tecnica remota.**
+
+> [!IMPORTANT] > **Set Rust Desk:** Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico. Lo script procede all'installazione silenziosa di RustDesk, alla cancellazione di eventuali configurazioni precedenti e al download di file di configurazione personalizzati per garantire che il software sia preconfigurato per il supporto tecnico remoto. L'intero processo è progettato per essere completamente automatizzato e si conclude con un riavvio del sistema opzionale e annullabile dall'utente per finalizzare tutte le modifiche. **Questo script è destinato esclusivamente alle macchine che richiedono assistenza tecnica futura da parte mia. Verrà installa una versione personalizzata di RustDesk preconfigurata per l'assistenza tecnica remota.**
 
 ### 🤔 Perché WinToolkit?
 
@@ -162,7 +164,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ## 📌 Changelog Progetto
 
-Il changelog completo lo puoi visualizzare [QUI](/CHANGELOG.md)
+Per un resoconto dettagliato di ogni modifica, correzione e funzionalità introdotta, consulta il changelog completo a [questo link.](/CHANGELOG.md)
 
 ## 🕹️ TO DO
 
