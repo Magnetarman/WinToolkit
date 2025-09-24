@@ -1,16 +1,13 @@
 <#
 .SYNOPSIS
-    Un toolkit per eseguire script di manutenzione e gestione di Windows.
+    WinToolkit - Strumenti di manutenzione Windows
 .DESCRIPTION
-    Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
-    Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
+    Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2 (Build 5) - 2025-09-24
+  Versione 2.2 (Build 8) - 2025-09-24
 #>
 
 param([int]$CountdownSeconds = 10)
-
-# Configurazione iniziale
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
 $ErrorActionPreference = 'Stop'
 
@@ -24,61 +21,30 @@ try {
 catch { }
 
 function Write-StyledMessage {
-    param(
-        [ValidateSet('Success', 'Warning', 'Error', 'Info')]
-        [string]$Type,
-        [string]$Text
-    )
-    
-    $styles = @{
-        Success = @{ Color = 'Green' ; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'   ; Icon = '❌' }
-        Info    = @{ Color = 'White' ; Icon = '🔎' }
-    }
-    
-    $style = $styles[$Type]
-    Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
+    $icons = @{ Success = '✅'; Warning = '⚠️'; Error = '❌'; Info = '💎' }
+    $colors = @{ Success = 'Green'; Warning = 'Yellow'; Error = 'Red'; Info = 'Cyan' }
+    Write-Host "$($icons[$type]) $text" -ForegroundColor $colors[$type]
 }
 
 function Center-Text {
-    param([string]$Text, [int]$Width = 60)
-    
-    if ($Text.Length -ge $Width) { return $Text }
-    $padding = ' ' * [Math]::Floor(($Width - $Text.Length) / 2)
-    return "$padding$Text"
+    param([string]$text, [int]$width = 60)
+    if ($text.Length -ge $width) { $text } else { ' ' * [Math]::Floor(($width - $text.Length) / 2) + $text }
 }
 
 function winver {
     try {
-        # Raccolta dati ottimizzata con singola query CIM
-        $osInfo = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
-        $computerInfo = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
-        $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction Stop
-        
-        # Elaborazione dati
+        $osInfo = Get-CimInstance Win32_OperatingSystem
+        $computerInfo = Get-CimInstance Win32_ComputerSystem
+        $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+
         $productName = $osInfo.Caption -replace 'Microsoft ', ''
         $buildNumber = [int]$osInfo.BuildNumber
         $totalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
         $totalDiskSpace = [Math]::Round($diskInfo.Size / 1GB, 0)
         $freePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
-        
-        # Rilevazione tipo disco
-        $diskType = "HDD"
-        try {
-            $physicalDisk = Get-CimInstance MSFT_PhysicalDisk -Namespace "Root\Microsoft\Windows\Storage" -ErrorAction SilentlyContinue |
-            Where-Object { $_.DeviceID -eq 0 -or $_.MediaType -ne $null } | Select-Object -First 1
-            if ($physicalDisk -and $physicalDisk.MediaType -eq 4) { $diskType = "SSD" }
-        }
-        catch {
-            try {
-                $diskDrive = Get-CimInstance Win32_DiskDrive -ErrorAction SilentlyContinue | Where-Object { $_.Index -eq 0 }
-                if ($diskDrive.MediaType -like "*SSD*" -or $diskDrive.MediaType -like "*Solid State*") { $diskType = "SSD" }
-            }
-            catch { $diskType = "Disk" }
-        }
-        
-        # Mappatura build -> versione Windows (hashtable per performance)
+
+        # Version mapping
         $versionMap = @{
             26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
             19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"
@@ -86,16 +52,13 @@ function winver {
             17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
             10586 = "1511"; 10240 = "1507"
         }
-        
+
         $windowsVersion = "N/A"
         foreach ($build in ($versionMap.Keys | Sort-Object -Descending)) {
-            if ($buildNumber -ge $build) {
-                $windowsVersion = $versionMap[$build]
-                break
-            }
+            if ($buildNumber -ge $build) { $windowsVersion = $versionMap[$build]; break }
         }
-        
-        # Determinazione edizione
+
+        # Edition detection
         $windowsEdition = switch -Wildcard ($productName) {
             "*Home*" { "🏠 Home" }
             "*Pro*" { "💼 Professional" }
@@ -104,38 +67,38 @@ function winver {
             "*Server*" { "🖥️ Server" }
             default { "💻 $productName" }
         }
-        
-        # Output formattato
+
+        # Display info
         $width = 65
         Write-Host ""
         Write-Host ('*' * $width) -ForegroundColor Red
         Write-Host (Center-Text "🖥️  INFORMAZIONI SISTEMA  🖥️" $width) -ForegroundColor White
         Write-Host ('*' * $width) -ForegroundColor Red
         Write-Host ""
-        
+
         $info = @(
             @("💻 Edizione:", $windowsEdition, 'White'),
-            @("📊 Versione Windows:", "Ver. $windowsVersion Kernel $($osInfo.Version) (Build $buildNumber)", 'Green'),
+            @("📊 Versione:", "Ver. $windowsVersion (Build $buildNumber)", 'Green'),
             @("🏗️ Architettura:", $osInfo.OSArchitecture, 'White'),
             @("🏷️ Nome PC:", $computerInfo.Name, 'White'),
-            @("🧠 RAM Totale:", "$totalRAM GB", 'White'),
-            @("💾 Disco:", "($diskType) $freePercentage% Libero ($totalDiskSpace GB Totali)", 'Green')
+            @("🧠 RAM:", "$totalRAM GB", 'White'),
+            @("💾 Disco:", "$freePercentage% Libero ($totalDiskSpace GB)", 'Green')
         )
-        
+
         foreach ($item in $info) {
             Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
             Write-Host " $($item[1])" -ForegroundColor $item[2]
         }
-        
+
         Write-Host ""
         Write-Host ('*' * $width) -ForegroundColor Red
     }
     catch {
-        Write-StyledMessage 'Error' "Impossibile recuperare le informazioni di sistema: $($_.Exception.Message)"
+        Write-StyledMessage -type 'Error' -text "Errore nel recupero informazioni: $($_.Exception.Message)"
     }
 }
 
-# Placeholder functions
+# Placeholder functions - da implementare
 function WinInstallPSProfile {
     <#
     .SYNOPSIS
@@ -151,6 +114,7 @@ function WinInstallPSProfile {
     Clear-Host
     $width = 65
     Write-Host ('═' * $width) -ForegroundColor Green
+
     $asciiArt = @(
         '      __        __  _  _   _ ',
         '      \ \      / / | || \ | |',
@@ -159,20 +123,20 @@ function WinInstallPSProfile {
         '         \_/\_/    |_||_| \_|',
         '',
         '   Install PSProfile By MagnetarMan',
-        '        Version 2.1 (Build 5)'
+        '        Version 2.2 (Build 2)'
     )
+
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
     }
+
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
 
-    # Controlla se lo script è eseguito come amministratore
     if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
         Write-StyledMessage 'Warning' "L'installazione del profilo PowerShell richiede privilegi di amministratore."
         Write-StyledMessage 'Info' "Riavvio come amministratore..."
-        
-        # Rilancia lo script corrente come amministratore
+
         try {
             $arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"& { WinInstallPSProfile }`""
             Start-Process PowerShell -Verb RunAs -ArgumentList $arguments
@@ -186,19 +150,15 @@ function WinInstallPSProfile {
     }
     
     Write-StyledMessage 'Info' "Installazione del profilo PowerShell in corso..."
-    
+
     try {
-        # Verifica se PowerShell Core è disponibile
         if (-not (Get-Command "pwsh" -ErrorAction SilentlyContinue)) {
             Write-StyledMessage 'Error' "Questo profilo richiede PowerShell Core, che non è attualmente installato!"
             return
         }
-        
-        # Verifica la versione di PowerShell
+
         if ($PSVersionTable.PSVersion.Major -lt 7) {
             Write-StyledMessage 'Warning' "Questo profilo richiede PowerShell 7 o superiore."
-            
-            # Chiedi conferma per procedere comunque
             $choice = Read-Host "Vuoi procedere comunque con l'installazione per PowerShell 7? (S/N)"
             if ($choice -notmatch '^[SsYy]') {
                 Write-StyledMessage 'Info' "Installazione annullata dall'utente."
@@ -206,70 +166,52 @@ function WinInstallPSProfile {
             }
         }
         
-        # URL del profilo per il controllo degli aggiornamenti
         $profileUrl = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
-        
-        # Ottieni l'hash del profilo corrente (se esiste)
         $oldHash = $null
         if (Test-Path $PROFILE) {
             $oldHash = Get-FileHash $PROFILE -ErrorAction SilentlyContinue
         }
-        
-        # Scarica il nuovo profilo nella cartella TEMP per confronto
+
         Write-StyledMessage 'Info' "Controllo aggiornamenti profilo..."
         $tempProfile = "$env:TEMP\Microsoft.PowerShell_profile.ps1"
         Invoke-RestMethod $profileUrl -OutFile $tempProfile -UseBasicParsing
-        
-        # Ottieni l'hash del nuovo profilo
         $newHash = Get-FileHash $tempProfile
-        
-        # Crea la directory del profilo se non esiste
+
         $profileDir = Split-Path $PROFILE -Parent
         if (!(Test-Path $profileDir)) {
             New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
         }
-        
-        # Salva l'hash per riferimenti futuri
+
         if (!(Test-Path "$PROFILE.hash")) {
             $newHash.Hash | Out-File "$PROFILE.hash"
         }
         
-        # Controlla se il profilo deve essere aggiornato
         if ($newHash.Hash -ne $oldHash.Hash) {
-            
-            # Backup del profilo esistente
             if ((Test-Path $PROFILE) -and (-not (Test-Path "$PROFILE.bak"))) {
                 Write-StyledMessage 'Info' "Backup del profilo esistente..."
                 Copy-Item -Path $PROFILE -Destination "$PROFILE.bak" -Force
                 Write-StyledMessage 'Success' "Backup completato."
             }
-            
-            # QUESTO È IL PUNTO CRUCIALE: esegui lo script di SETUP, non solo scaricare il profilo
+
             Write-StyledMessage 'Info' "Installazione profilo e dipendenze (oh-my-posh, font, ecc.)..."
-            
-            # Esegui lo script di setup che installa tutto (oh-my-posh, font, dipendenze)
             Start-Process -FilePath "pwsh" `
                 -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" `
                 -Wait
-            
+
             Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
             Write-StyledMessage 'Warning' "Riavvia PowerShell per applicare il nuovo profilo."
             Write-StyledMessage 'Info' "Per vedere tutte le modifiche (font, oh-my-posh, ecc.) è consigliato riavviare il sistema."
-            
-            # Chiedi se riavviare il sistema
+
             Write-Host ""
             $restart = Read-Host "Vuoi riavviare il sistema ora per applicare tutte le modifiche? (Y/N)"
-            
+
             if ($restart -match '^[YySs]') {
                 Write-StyledMessage 'Warning' "Riavvio del sistema in corso..."
-                
-                # Countdown di 5 secondi
                 for ($i = 5; $i -gt 0; $i--) {
                     Write-Host "Riavvio tra $i secondi..." -ForegroundColor Yellow
                     Start-Sleep -Seconds 1
                 }
-                
-                # Riavvia il sistema
+
                 Write-StyledMessage 'Info' "Riavvio del sistema..."
                 Restart-Computer -Force
             }
@@ -281,14 +223,10 @@ function WinInstallPSProfile {
             Write-StyledMessage 'Info' "Il profilo è già aggiornato alla versione più recente."
         }
         
-        # Pulisci il file temporaneo
         Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
-        
     }
     catch {
         Write-StyledMessage 'Error' "Errore durante l'installazione del profilo: $($_.Exception.Message)"
-        
-        # Pulisci i file temporanei in caso di errore
         if (Test-Path "$env:TEMP\Microsoft.PowerShell_profile.ps1") {
             Remove-Item "$env:TEMP\Microsoft.PowerShell_profile.ps1" -Force -ErrorAction SilentlyContinue
         }
@@ -309,12 +247,13 @@ function WinRepairToolkit {
 
     param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
 
-    # Variabili globali consolidate
     $script:Log = @(); $script:CurrentAttempt = 0
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }; Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error = @{ Color = 'Red'; Icon = '❌' }; Info = @{ Color = 'Cyan'; Icon = '💎' }
+        Success = @{ Color = 'Green'; Icon = '✅' }
+        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
     $RepairTools = @(
         @{ Tool = 'chkdsk'; Args = @('/scan', '/perf'); Name = 'Controllo disco'; Icon = '💽' }
@@ -341,7 +280,7 @@ function WinRepairToolkit {
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
         Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
         Write-Host ''
-        
+
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
@@ -350,17 +289,16 @@ function WinRepairToolkit {
                 Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
                 return $false
             }
-            
-            # Barra di progressione countdown con colore rosso
+
             $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
             $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-            
+
             Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
-        
+
         Write-Host "`n"
         Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
         Start-Sleep 1
@@ -372,9 +310,8 @@ function WinRepairToolkit {
         $percent = 0; $spinnerIndex = 0; $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
-    
+
         try {
-            # Preparazione comando ottimizzata
             $proc = if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
                 $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
                 $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
@@ -383,8 +320,7 @@ function WinRepairToolkit {
             else {
                 Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
             }
-        
-            # Monitoraggio progresso consolidato
+
             while (-not $proc.HasExited) {
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
                 if ($isChkdsk) {
@@ -397,51 +333,47 @@ function WinRepairToolkit {
                 Start-Sleep -Milliseconds 600
                 $proc.Refresh()
             }
-        
-            # Lettura risultati consolidata
+
             $results = @()
-            @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object { 
-                $results += Get-Content $_ -ErrorAction SilentlyContinue 
+            @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
+                $results += Get-Content $_ -ErrorAction SilentlyContinue
             }
-        
-            # Check scheduling per chkdsk ottimizzato
-            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and 
+
+            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and
                 ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
                 Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
                 $script:Log += "[$($Config.Name)] ℹ️ Controllo disco schedulato al prossimo riavvio"
                 return @{ Success = $true; ErrorCount = 0 }
             }
-        
+
             Show-ProgressBar $Config.Name 'Completato con successo' 100 $Config.Icon
             Write-Host ''
-        
-            # Analisi risultati
+
             $exitCode = $proc.ExitCode
             $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
             $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
-        
+
             $errors = $warnings = @()
             if (-not $isSuccess) {
                 foreach ($line in ($results | Where-Object { $_ -and ![string]::IsNullOrWhiteSpace($_.Trim()) })) {
                     $trim = $line.Trim()
                     if ($trim -match '^\[=+\s*\d+' -or $trim -match '(?i)version:|deployment image') { continue }
-                    
+
                     if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
                     elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
                 }
             }
-        
+
             $success = ($errors.Count -eq 0) -or $hasDismSuccess
             $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
             Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
-        
-            # Logging consolidato
+
             $logStatus = if ($success) { '✅ Successo' } else { "⚠️ $($errors.Count) errori" }
             if ($warnings.Count -gt 0) { $logStatus += " - $($warnings.Count) avvisi" }
             $script:Log += "[$($Config.Name)] $logStatus"
-        
+
             return @{ Success = $success; ErrorCount = $errors.Count }
-        
+
         }
         catch {
             Write-StyledMessage Error "Errore durante $($Config.Name): $_"
@@ -457,7 +389,7 @@ function WinRepairToolkit {
         $script:CurrentAttempt = $Attempt
         Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema ($($RepairTools.Count) strumenti)..."
         Write-Host ''
-    
+
         $totalErrors = $successCount = 0
         for ($i = 0; $i -lt $RepairTools.Count; $i++) {
             $result = Invoke-RepairCommand $RepairTools[$i] ($i + 1) $RepairTools.Count
@@ -465,9 +397,9 @@ function WinRepairToolkit {
             $totalErrors += $result.ErrorCount
             Start-Sleep 1
         }
-    
+
         Write-StyledMessage Info "🎯 Completati $successCount/$($RepairTools.Count) strumenti (Errori: $totalErrors)."
-    
+
         if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
             Write-Host ''
             Write-StyledMessage Warning "🔄 $totalErrors errori rilevati. Nuovo tentativo..."
@@ -475,20 +407,20 @@ function WinRepairToolkit {
             Write-Host ''
             return Start-RepairCycle ($Attempt + 1)
         }
-    
+
         return @{ Success = ($totalErrors -eq 0); TotalErrors = $totalErrors; AttemptsUsed = $Attempt }
     }
 
     function Start-DeepDiskRepair {
         Write-StyledMessage Warning '🔧 Vuoi eseguire una riparazione profonda del disco C:?'
         Write-StyledMessage Info 'Questa operazione richiederà un riavvio e può richiedere diverse ore.'
-    
+
         $response = Read-Host 'Procedere con la riparazione profonda? (s/n)'
         if ($response.ToLower() -ne 's') { return $false }
-    
+
         Write-StyledMessage Warning 'Segno il volume C: come "dirty" (chkdsk al prossimo riavvio) e apro una cmd per output.'
         $script:Log += "[Controllo disco Esteso] ℹ️ Segno volume dirty e apro cmd"
-    
+
         try {
             Start-Process 'fsutil.exe' @('dirty', 'set', 'C:') -NoNewWindow -Wait
             Start-Process 'cmd.exe' @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -WindowStyle Hidden -Wait
@@ -512,15 +444,15 @@ function WinRepairToolkit {
             Write-StyledMessage Warning "⚠️ $($RepairResult.TotalErrors) errori persistenti dopo $($RepairResult.AttemptsUsed) tentativo/i."
             Write-StyledMessage Info '📋 Controlla il log sul Desktop. 💡 Il riavvio potrebbe risolvere problemi residui.'
         }
-    
+
         Write-StyledMessage Info '🔄 Il sistema verrà riavviato per finalizzare le modifiche'
-    
+
         if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
-            try { 
+            try {
                 Write-StyledMessage Info '🔄 Riavvio in corso...'
-                Restart-Computer -Force 
+                Restart-Computer -Force
             }
-            catch { 
+            catch {
                 Write-StyledMessage Error "❌ Errore riavvio: $_"
                 Write-StyledMessage Info '🔄 Riavviare manualmente il sistema.'
             }
@@ -531,33 +463,41 @@ function WinRepairToolkit {
         }
     }
 
-    function Center-Text([string]$Text, [int]$Width) {
-        $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding) + $Text
+    function Center-Text {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+    
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+    
+        return (' ' * $padding + $Text)
     }
+    function Show-Header {
+        Clear-Host
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
 
-    # Interfaccia principale
-    $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
-    Clear-Host
-    $width = 65
-    Write-Host ('═' * $width) -ForegroundColor Green
-    
-    $asciiArt = @(
-        '      __        __  _  _   _ ',
-        '      \ \      / / | || \ | |',
-        '       \ \ /\ / /  | ||  \| |',
-        '        \ V  V /   | || |\  |',
-        '         \_/\_/    |_||_| \_|',
-        '',
-        '     Repair Toolkit By MagnetarMan',
-        '        Version 2.1 (Build 5)'
-    )
-    
-    $asciiArt | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
-    Write-Host ('═' * $width) -ForegroundColor Green
-    Write-Host ''
+        $asciiArt = @(
+            '      __        __  _  _   _ ',
+            '      \ \      / / | || \ | |',
+            '       \ \ /\ / /  | ||  \| |',
+            '        \ V  V /   | || |\  |',
+            '         \_/\_/    |_||_| \_|',
+            '',
+            '    Repair Toolkit By MagnetarMan',
+            '       Version 2.2 (Build 2)'
+        )
 
-    # Countdown preparazione ottimizzato
+        foreach ($line in $asciiArt) {
+            Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+        }
+
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+        Write-Host ''
+    }
     for ($i = 5; $i -gt 0; $i--) {
         $spinner = $spinners[$i % $spinners.Length]
         Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
@@ -568,12 +508,12 @@ function WinRepairToolkit {
     try {
         $repairResult = Start-RepairCycle
         $deepRepairScheduled = Start-DeepDiskRepair
-    
+
         if ($deepRepairScheduled) {
             Write-StyledMessage Warning 'Il sistema verrà riavviato per eseguire la riparazione profonda...'
         }
         Start-SystemRestart $repairResult
-    
+
     }
     catch {
         Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
@@ -601,23 +541,28 @@ function SetRustDesk {
 
     # Configurazione globale
     $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }; Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error = @{ Color = 'Red'; Icon = '❌' }; Info = @{ Color = 'Cyan'; Icon = '💎' }
+        Success  = @{ Color = 'Green'; Icon = '✅' }
+        Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error    = @{ Color = 'Red'; Icon = '❌' }
+        Info     = @{ Color = 'Cyan'; Icon = '💎' }
         Progress = @{ Color = 'Magenta'; Icon = '🔄' }
     }
 
     # Funzione per centrare il testo
     function Center-Text {
-        param([string]$Text, [int]$Width)
-        $padding = [math]::Max(0, ($Width - $Text.Length) / 2)
-        return (' ' * [math]::Floor($padding)) + $Text
+        param(
+            [Parameter(Mandatory = $true)][string]$Text,
+            [Parameter(Mandatory = $false)][int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding + $Text)
     }
-
-    # Header grafico
+    
     function Show-Header {
         Clear-Host
-        $width = 65
-        Write-Host ('═' * $width) -ForegroundColor Green
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+
         $asciiArt = @(
             '      __        __  _  _   _ ',
             '      \ \      / / | || \ | |',
@@ -625,13 +570,15 @@ function SetRustDesk {
             '        \ V  V /   | || |\  |',
             '         \_/\_/    |_||_| \_|',
             '',
-            '  RustDesk Setup Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 8)'
+            'RustDesk Setup Toolkit By MagnetarMan',
+            '       Version 2.2 (Build 10)'
         )
+
         foreach ($line in $asciiArt) {
             Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
         }
-        Write-Host ('═' * $width) -ForegroundColor Green
+
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
 
@@ -641,11 +588,8 @@ function SetRustDesk {
     }
 
     function Stop-RustDeskComponents {
-        # Arresto servizi
-        $rustDeskServices = @("RustDesk", "rustdesk")
         $servicesFound = $false
-
-        foreach ($service in $rustDeskServices) {
+        foreach ($service in @("RustDesk", "rustdesk")) {
             $serviceObj = Get-Service -Name $service -ErrorAction SilentlyContinue
             if ($serviceObj) {
                 Stop-Service -Name $service -Force -ErrorAction SilentlyContinue
@@ -653,16 +597,12 @@ function SetRustDesk {
                 $servicesFound = $true
             }
         }
-
         if (-not $servicesFound) {
             Write-StyledMessage Warning "Nessun servizio RustDesk trovato - Proseguo con l'installazione"
         }
 
-        # Arresto processi
-        $rustDeskProcesses = @("rustdesk", "RustDesk")
         $processesFound = $false
-
-        foreach ($process in $rustDeskProcesses) {
+        foreach ($process in @("rustdesk", "RustDesk")) {
             $runningProcesses = Get-Process -Name $process -ErrorAction SilentlyContinue
             if ($runningProcesses) {
                 $runningProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
@@ -670,18 +610,15 @@ function SetRustDesk {
                 $processesFound = $true
             }
         }
-
         if (-not $processesFound) {
             Write-StyledMessage Warning "Nessun processo RustDesk trovato"
         }
-
         Start-Sleep 2
     }
 
     function Get-LatestRustDeskRelease {
         $apiUrl = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
         $response = Invoke-RestMethod -Uri $apiUrl -Method Get
-
         $msiAsset = $response.assets | Where-Object { $_.name -like "rustdesk-*-x86_64.msi" } | Select-Object -First 1
 
         if ($msiAsset) {
@@ -700,18 +637,15 @@ function SetRustDesk {
         param([string]$DownloadPath)
 
         Write-StyledMessage Progress "Download installer RustDesk in corso..."
-
         $releaseInfo = Get-LatestRustDeskRelease
         if (-not $releaseInfo) { return $false }
 
         Write-StyledMessage Info "📥 Versione rilevata: $($releaseInfo.Version)"
-
         $parentDir = Split-Path $DownloadPath -Parent
         $null = New-Item -ItemType Directory -Path $parentDir -Force
         Remove-Item $DownloadPath -Force -ErrorAction SilentlyContinue
 
         Invoke-WebRequest -Uri $releaseInfo.DownloadUrl -OutFile $DownloadPath -UseBasicParsing
-
         if (Test-Path $DownloadPath) {
             Write-StyledMessage Success "Installer $($releaseInfo.FileName) scaricato con successo"
             return $true
@@ -725,7 +659,6 @@ function SetRustDesk {
         param([string]$InstallerPath, [string]$ServerIP)
 
         Write-StyledMessage Progress "Installazione RustDesk"
-
         $installArgs = "/i", "`"$InstallerPath`"", "/quiet", "/norestart"
         $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden
         Start-Sleep 10
@@ -741,7 +674,6 @@ function SetRustDesk {
 
     function Clear-RustDeskConfig {
         Write-StyledMessage Progress "Pulizia configurazioni esistenti..."
-
         $configDir = "$env:APPDATA\RustDesk\config"
 
         if (Test-Path $configDir) {
@@ -756,7 +688,6 @@ function SetRustDesk {
 
     function Download-RustDeskConfigFiles {
         Write-StyledMessage Progress "Download file di configurazione..."
-
         $configDir = "$env:APPDATA\RustDesk\config"
         $null = New-Item -ItemType Directory -Path $configDir -Force
 
@@ -769,7 +700,6 @@ function SetRustDesk {
         foreach ($url in $configFiles) {
             $fileName = Split-Path $url -Leaf
             $filePath = Join-Path $configDir $fileName
-
             try {
                 Invoke-WebRequest -Uri $url -OutFile $filePath -UseBasicParsing
                 Write-StyledMessage Success "$fileName scaricato"
@@ -796,7 +726,6 @@ function SetRustDesk {
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
             $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-
             Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
@@ -824,7 +753,6 @@ function SetRustDesk {
             Write-StyledMessage Error "Impossibile procedere senza l'installer"
             return
         }
-
         if (-not (Install-RustDesk -InstallerPath $installerPath -ServerIP $null)) {
             Write-StyledMessage Error "Errore durante l'installazione"
             return
@@ -924,9 +852,9 @@ function WinUpdateReset {
         return $true
     }
 
-    function Center-Text([string]$Text, [int]$Width) {
-        $padding = [math]::Max(0, [math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding) + $Text
+    function Center-Text([string]$text, [int]$width) {
+        $padding = [math]::Max(0, [math]::Floor(($width - $text.Length) / 2))
+        return (' ' * $padding) + $text
     }
 
     function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
@@ -1008,9 +936,9 @@ function WinUpdateReset {
         }
     }
 
-    function Remove-DirectorySafely([string]$Path, [string]$DisplayName) {
-        if (-not (Test-Path $Path)) {
-            Write-StyledMessage Info "💭 Directory $DisplayName non presente."
+    function Remove-DirectorySafely([string]$path, [string]$displayName) {
+        if (-not (Test-Path $path)) {
+            Write-StyledMessage Info "💭 Directory $displayName non presente."
             return $true
         }
 
@@ -1022,7 +950,7 @@ function WinUpdateReset {
             $VerbosePreference = 'SilentlyContinue'
             
             # Eliminazione con output completamente soppresso
-            Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue *>$null
             
             # Reset completo del cursore alla posizione originale
             [Console]::SetCursorPosition(0, $originalPos)
@@ -1030,7 +958,7 @@ function WinUpdateReset {
             Write-Host $clearLines -NoNewline
             [Console]::Out.Flush()
             
-            Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata."
+            Write-StyledMessage Success "🗑️ Directory $displayName eliminata."
             return $true
         }
         catch {
@@ -1047,9 +975,9 @@ function WinUpdateReset {
                 $null = New-Item -ItemType Directory -Path $tempDir -Force
                 
                 # Usa robocopy per svuotare e poi elimina
-                $null = Start-Process "robocopy.exe" -ArgumentList "`"$tempDir`" `"$Path`" /MIR /NFL /NDL /NJH /NJS /NP /NC" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+                $null = Start-Process "robocopy.exe" -ArgumentList "`"$tempDir`" `"$path`" /MIR /NFL /NDL /NJH /NJS /NP /NC" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
                 Remove-Item $tempDir -Force -ErrorAction SilentlyContinue
-                Remove-Item $Path -Force -ErrorAction SilentlyContinue
+                Remove-Item $path -Force -ErrorAction SilentlyContinue
                 
                 # Reset cursore finale
                 [Console]::SetCursorPosition(0, $originalPos)
@@ -1057,17 +985,17 @@ function WinUpdateReset {
                 Write-Host $clearLines -NoNewline
                 [Console]::Out.Flush()
                 
-                if (-not (Test-Path $Path)) {
-                    Write-StyledMessage Success "🗑️ Directory $DisplayName eliminata (metodo forzato)."
+                if (-not (Test-Path $path)) {
+                    Write-StyledMessage Success "🗑️ Directory $displayName eliminata (metodo forzato)."
                     return $true
                 }
                 else {
-                    Write-StyledMessage Warning "Directory $DisplayName parzialmente eliminata."
+                    Write-StyledMessage Warning "Directory $displayName parzialmente eliminata."
                     return $false
                 }
             }
             catch {
-                Write-StyledMessage Warning "Impossibile eliminare completamente $DisplayName - file in uso."
+                Write-StyledMessage Warning "Impossibile eliminare completamente $displayName - file in uso."
                 return $false
             }
             finally {
@@ -1079,9 +1007,31 @@ function WinUpdateReset {
         }
     }
  
+    # Funzione ausiliaria per centrare il testo.
+    function Center-Text {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$text,
+            [Parameter(Mandatory = $false)]
+            [int]$width = $Host.UI.RawUI.BufferSize.Width
+        )
+
+        $padding = [Math]::Max(0, [Math]::Floor(($width - $text.Length) / 2))
+
+        return (' ' * $padding + $text)
+    }
+
+    #---
+
+    # Main script
     Clear-Host
-    $width = 65
-    Write-Host ('═' * $width) -ForegroundColor Green
+ 
+    # Get the actual console width for dynamic centering.
+    $width = $Host.UI.RawUI.BufferSize.Width
+ 
+    # Draw the top border line, adjusting for dynamic width.
+    Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+ 
     $asciiArt = @(
         '      __        __  _  _   _ ',
         '      \ \      / / | || \ | |',
@@ -1090,12 +1040,16 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         ' Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2 (Build 8)'
+        '       Version 2.2 (Build 10)'
     )
+ 
     foreach ($line in $asciiArt) {
-        Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+        # Call the Center-Text function, passing the dynamic width.
+        Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
     }
-    Write-Host ('═' * $width) -ForegroundColor Green
+ 
+    # Draw the bottom border line.
+    Write-Host ('═' * ($width - 1)) -ForegroundColor Green
     Write-Host ''
 
     Write-StyledMessage Info '🔧 Inizializzazione dello Script di Reset Windows Update...'
@@ -1201,7 +1155,7 @@ function WinUpdateReset {
             
             Start-Sleep -Milliseconds 300
             
-            $success = Remove-DirectorySafely -Path $dir.Path -DisplayName $dir.Name
+            $success = Remove-DirectorySafely -path $dir.Path -displayName $dir.Name
             if (-not $success) {
                 Write-StyledMessage Info "💡 Suggerimento: Alcuni file potrebbero essere ricreati dopo il riavvio."
             }
@@ -1275,28 +1229,38 @@ function WinReinstallStore {
     
     param([int]$CountdownSeconds = 30)
     
-    # Inizializzazione
     $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
-    
-    # Configurazione globale
     $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }; Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error = @{ Color = 'Red'; Icon = '❌' }; Info = @{ Color = 'Cyan'; Icon = '💎' }
+        Success  = @{ Color = 'Green'; Icon = '✅' }
+        Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error    = @{ Color = 'Red'; Icon = '❌' }
+        Info     = @{ Color = 'Cyan'; Icon = '💎' }
         Progress = @{ Color = 'Magenta'; Icon = '🔄' }
     }
     
     # Funzione per centrare il testo
     function Center-Text {
-        param([string]$Text, [int]$Width)
-        $padding = [math]::Max(0, ($Width - $Text.Length) / 2)
-        return (' ' * [math]::Floor($padding)) + $Text
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$text,
+            [Parameter(Mandatory = $false)]
+            [int]$width = $Host.UI.RawUI.BufferSize.Width # Usa la larghezza dinamica di default
+        )
+
+        # Calcola il padding necessario
+        $padding = [Math]::Max(0, [Math]::Floor(($width - $text.Length) / 2))
+
+        # Restituisce la stringa centrata
+        return (' ' * $padding + $text)
     }
-    
-    # Header grafico
+
+    #---
+
     function Show-Header {
         Clear-Host
-        $width = 65
-        Write-Host ('═' * $width) -ForegroundColor Green
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+
         $asciiArt = @(
             '      __        __  _  _   _ ',
             '      \ \      / / | || \ | |',
@@ -1305,26 +1269,26 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Store Repair Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 26)'
+            '       Version 2.2 (Build 28)'
         )
+
         foreach ($line in $asciiArt) {
-            Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
         }
-        Write-Host ('═' * $width) -ForegroundColor Green
+
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
-    
-    function Write-StyledMessage([string]$Type, [string]$Text) {
-        $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    function Write-StyledMessage([string]$type, [string]$text) {
+        $style = $MsgStyles[$type]
+        Write-Host "$($style.Icon) $text" -ForegroundColor $style.Color
     }
     
     function Clear-Terminal {
-        # Pulizia aggressiva multi-metodo
-        1..50 | ForEach-Object { Write-Host "" }  # Forza scroll
+        1..50 | ForEach-Object { Write-Host "" }
         Clear-Host
         [Console]::Clear()
-        try { 
+        try {
             [System.Console]::SetCursorPosition(0, 0)
             $Host.UI.RawUI.CursorPosition = @{X = 0; Y = 0 }
         }
@@ -1333,7 +1297,7 @@ function WinReinstallStore {
     }
     
     function Stop-InterferingProcesses {
-        @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore", 
+        @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore",
             "Microsoft.DesktopAppInstaller", "RuntimeBroker", "dllhost") | ForEach-Object {
             Get-Process -Name $_ -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
         }
@@ -1352,9 +1316,8 @@ function WinReinstallStore {
     function Install-WingetSilent {
         Write-StyledMessage Progress "Reinstallazione Winget in corso..."
         Stop-InterferingProcesses
-        
+
         try {
-            # Metodo 1: Repair se disponibile (Windows 11 24H2+)
             if ([System.Environment]::OSVersion.Version.Build -ge 26100) {
                 try {
                     if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
@@ -1365,23 +1328,19 @@ function WinReinstallStore {
                 }
                 catch {}
             }
-            
-            # Metodo 2: Download diretto con esecuzione completamente nascosta
+
             $url = "https://aka.ms/getwinget"
             $temp = "$env:TEMP\WingetInstaller.msixbundle"
             if (Test-Path $temp) { Remove-Item $temp -Force }
-            
+
             Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing
-            
-            # Esecuzione in subprocess completamente isolato
             $process = Start-Process powershell -ArgumentList @(
                 "-NoProfile", "-WindowStyle", "Hidden", "-Command",
                 "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
             ) -Wait -PassThru -WindowStyle Hidden
-            
+
             Remove-Item $temp -Force -ErrorAction SilentlyContinue
             Start-Sleep 5
-            
             return (Test-WingetAvailable)
         }
         catch {
@@ -1391,21 +1350,16 @@ function WinReinstallStore {
     
     function Install-MicrosoftStoreSilent {
         Write-StyledMessage Progress "Reinstallazione Microsoft Store in corso..."
-        
-        # Reset servizi
         @("AppXSvc", "ClipSVC", "WSService") | ForEach-Object {
             try { Restart-Service $_ -Force -ErrorAction SilentlyContinue } catch {}
         }
-        
-        # Pulizia cache
+
         @("$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
             "$env:LOCALAPPDATA\Microsoft\Windows\INetCache") | ForEach-Object {
             if (Test-Path $_) { Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue }
         }
-        
-        # Metodi di installazione
+
         $methods = @(
-            # Winget
             {
                 if (Test-WingetAvailable) {
                     $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
@@ -1413,7 +1367,6 @@ function WinReinstallStore {
                 }
                 return $false
             },
-            # Manifest
             {
                 $store = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue
                 if ($store) {
@@ -1430,13 +1383,12 @@ function WinReinstallStore {
                 }
                 return $false
             },
-            # DISM
             {
                 $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
                 return $process.ExitCode -eq 0
             }
         )
-        
+
         foreach ($method in $methods) {
             try {
                 if (& $method) {
@@ -1452,13 +1404,10 @@ function WinReinstallStore {
     function Install-UniGetUISilent {
         Write-StyledMessage Progress "Reinstallazione UniGet UI in corso..."
         if (-not (Test-WingetAvailable)) { return $false }
-        
+
         try {
-            # Disinstalla se presente
             $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
             Start-Sleep 2
-            
-            # Installa sempre
             $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
             return $process.ExitCode -eq 0
         }
@@ -1470,7 +1419,7 @@ function WinReinstallStore {
     function Start-CountdownReboot([int]$Seconds) {
         Write-StyledMessage Warning "Riavvio necessario per applicare le modifiche"
         Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
-        
+
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
@@ -1479,20 +1428,19 @@ function WinReinstallStore {
                 Write-StyledMessage Error 'Riavvia manualmente: shutdown /r /t 0'
                 return $false
             }
-            
-            # Barra di progressione countdown identica al riferimento
+
             $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
             $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-            
+
             Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
-        
+
         Write-Host "`n"
         Write-StyledMessage Warning "⏰ Riavvio del sistema..."
-        
+
         try {
             shutdown /r /t 0
             return $true
@@ -1503,20 +1451,15 @@ function WinReinstallStore {
         }
     }
     
-    # === ESECUZIONE PRINCIPALE ===
     Show-Header
     Write-StyledMessage Info "🚀 AVVIO REINSTALLAZIONE STORE"
-    
+
     try {
-        # FASE 1: Winget
-        Write-StyledMessage Info "📋 FASE 1: Winget"
         $wingetResult = Install-WingetSilent
         Clear-Terminal
         Show-Header
         Write-StyledMessage $(if ($wingetResult) { 'Success' }else { 'Warning' }) "$(if($wingetResult){'✅'}else{'⚠️'}) Winget $(if($wingetResult){'installato'}else{'processato'})"
-        
-        # FASE 2: Microsoft Store  
-        Write-StyledMessage Info "📋 FASE 2: Microsoft Store"
+
         $storeResult = Install-MicrosoftStoreSilent
         if (-not $storeResult) {
             Write-StyledMessage Error "❌ Errore installazione Microsoft Store"
@@ -1524,16 +1467,13 @@ function WinReinstallStore {
             return
         }
         Write-StyledMessage Success "✅ Microsoft Store installato"
-        
-        # FASE 3: UniGet UI
-        Write-StyledMessage Info "📋 FASE 3: UniGet UI" 
+
         $unigetResult = Install-UniGetUISilent
         Write-StyledMessage $(if ($unigetResult) { 'Success' }else { 'Warning' }) "$(if($unigetResult){'✅'}else{'⚠️'}) UniGet UI $(if($unigetResult){'installato'}else{'processato'})"
-        
-        # Completamento
+
         Write-Host ""
         Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA"
-        
+
         if (Start-CountdownReboot -Seconds $CountdownSeconds) {
             Write-StyledMessage Info "🔄 Riavvio in corso..."
         }
@@ -1573,7 +1513,7 @@ function OfficeToolkit {
     # Configurazione
     $TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
     $Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-    
+
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
@@ -1598,13 +1538,13 @@ function OfficeToolkit {
     function Show-Spinner([string]$Activity, [scriptblock]$Action) {
         $spinnerIndex = 0
         $job = Start-Job -ScriptBlock $Action
-        
+
         while ($job.State -eq 'Running') {
             $spinner = $Spinners[$spinnerIndex++ % $Spinners.Length]
             Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
             Start-Sleep -Milliseconds 200
         }
-        
+
         $result = Receive-Job $job -Wait
         Remove-Job $job
         Write-Host ''
@@ -1623,7 +1563,7 @@ function OfficeToolkit {
     function Start-CountdownRestart([string]$Reason) {
         Write-StyledMessage Info "🔄 $Reason - Il sistema verrà riavviato"
         Write-StyledMessage Info "💡 Premi un tasto qualsiasi per annullare..."
-        
+
         for ($i = $CountdownSeconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
@@ -1631,20 +1571,19 @@ function OfficeToolkit {
                 Write-StyledMessage Warning "⏸️ Riavvio annullato dall'utente"
                 return $false
             }
-            
-            # Barra di progressione countdown con colore rosso
+
             $percent = [Math]::Round((($CountdownSeconds - $i) / $CountdownSeconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
             $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-            
+
             Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
-        
+
         Write-Host "`n"
         Write-StyledMessage Warning "⏰ Riavvio del sistema..."
-        
+
         try {
             Restart-Computer -Force
             return $true
@@ -1658,9 +1597,8 @@ function OfficeToolkit {
     function Stop-OfficeProcesses {
         $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
         $closed = 0
-        
+
         Write-StyledMessage Info "📋 Chiusura processi Office..."
-        
         foreach ($processName in $processes) {
             $runningProcesses = Get-Process -Name $processName -ErrorAction SilentlyContinue
             if ($runningProcesses) {
@@ -1673,7 +1611,7 @@ function OfficeToolkit {
                 }
             }
         }
-        
+
         if ($closed -gt 0) {
             Write-StyledMessage Success "$closed processi Office chiusi"
         }
@@ -1690,11 +1628,10 @@ function OfficeToolkit {
     function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
         try {
             Write-StyledMessage Info "📥 Download $Description..."
-            
             $webClient = New-Object System.Net.WebClient
             $webClient.DownloadFile($Url, $OutputPath)
             $webClient.Dispose()
-            
+
             if (Test-Path $OutputPath) {
                 Write-StyledMessage Success "Download completato: $Description"
                 return $true
@@ -1712,39 +1649,34 @@ function OfficeToolkit {
 
     function Start-OfficeInstallation {
         Write-StyledMessage Info "🏢 Avvio installazione Office Basic..."
-        
+
         try {
-            # Preparazione directory
             if (-not (Test-Path $TempDir)) {
                 New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
             }
-            
-            # Download file necessari
+
             $setupPath = Join-Path $TempDir 'Setup.exe'
             $configPath = Join-Path $TempDir 'Basic.xml'
-            
+
             $downloads = @(
                 @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe'; Path = $setupPath; Name = 'Setup Office' },
                 @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml'; Path = $configPath; Name = 'Configurazione Basic' }
             )
-            
+
             foreach ($download in $downloads) {
                 if (-not (Invoke-DownloadFile $download.Url $download.Path $download.Name)) {
                     return $false
                 }
             }
-            
-            # Avvio installazione
+
             Write-StyledMessage Info "🚀 Avvio processo installazione..."
             $arguments = "/configure `"$configPath`""
             Start-Process -FilePath $setupPath -ArgumentList $arguments -WorkingDirectory $TempDir
-            
-            # Attesa completamento
+
             Write-StyledMessage Info "⏳ Attesa completamento installazione..."
             Write-Host "💡 Premi INVIO quando l'installazione è completata..." -ForegroundColor Yellow
             Read-Host | Out-Null
-            
-            # Conferma risultato
+
             if (Get-UserConfirmation "✅ Installazione completata con successo?" 'Y') {
                 Write-StyledMessage Success "🎉 Installazione Office completata!"
                 return $true
@@ -1759,7 +1691,6 @@ function OfficeToolkit {
             return $false
         }
         finally {
-            # Pulizia
             if (Test-Path $TempDir) {
                 Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
             }
@@ -1768,16 +1699,14 @@ function OfficeToolkit {
 
     function Start-OfficeRepair {
         Write-StyledMessage Info "🔧 Avvio riparazione Office..."
-        
         Stop-OfficeProcesses
-        
-        # Pulizia cache
+
         Write-StyledMessage Info "🧹 Pulizia cache Office..."
         $caches = @(
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
         )
-        
+
         $cleanedCount = 0
         foreach ($cache in $caches) {
             if (Test-Path $cache) {
@@ -1790,60 +1719,52 @@ function OfficeToolkit {
                 }
             }
         }
-        
+
         if ($cleanedCount -gt 0) {
             Write-StyledMessage Success "$cleanedCount cache eliminate"
         }
-        
-        # Selezione tipo riparazione
+
         Write-StyledMessage Info "🎯 Tipo di riparazione:"
         Write-Host "  [1] 🚀 Riparazione rapida (offline)" -ForegroundColor Green
         Write-Host "  [2] 🌐 Riparazione completa (online)" -ForegroundColor Yellow
-        
+
         do {
             $choice = Read-Host "Scelta [1-2]"
         } while ($choice -notin @('1', '2'))
-        
-        # Esecuzione riparazione
+
         try {
             $officeClient = Get-OfficeClient
             if (-not $officeClient) {
                 Write-StyledMessage Error "Office Click-to-Run non trovato"
                 return $false
             }
-            
+
             $repairType = if ($choice -eq '1') { 'QuickRepair' } else { 'FullRepair' }
             $repairName = if ($choice -eq '1') { 'rapida' } else { 'completa' }
-            
+
             Write-StyledMessage Info "🔧 Avvio riparazione $repairName..."
-            
-            # Correzione: uso il percorso completo con & e parametri corretti
             $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$repairType DisplayLevel=True"
             Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
-            
-            # Attesa completamento
+
             Write-StyledMessage Info "⏳ Attesa completamento riparazione..."
             Write-Host "💡 Premi INVIO quando la riparazione è completata..." -ForegroundColor Yellow
             Read-Host | Out-Null
-            
-            # Conferma risultato
+
             if (Get-UserConfirmation "✅ Riparazione completata con successo?" 'Y/N') {
                 Write-StyledMessage Success "🎉 Riparazione Office completata!"
                 return $true
             }
             else {
                 Write-StyledMessage Warning "Riparazione non completata correttamente"
-                
-                # Suggerimento riparazione completa se era rapida
                 if ($choice -eq '1') {
                     if (Get-UserConfirmation "🌐 Tentare riparazione completa online?" 'Y') {
                         Write-StyledMessage Info "🌐 Avvio riparazione completa (Riparazione Online)"
                         $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
                         Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
-                        
+
                         Write-Host "💡 Premi INVIO quando la riparazione completa è terminata..." -ForegroundColor Yellow
                         Read-Host | Out-Null
-                        
+
                         return Get-UserConfirmation "✅ Riparazione completa riuscita?" 'Y/N'
                     }
                 }
@@ -1858,29 +1779,26 @@ function OfficeToolkit {
 
     function Start-OfficeUninstall {
         Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office, Verrà utilizzato Microsoft Support and Recovery Assistant (SaRA)"
-        
+
         if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa? [Y/N]")) {
             Write-StyledMessage Info "❌ Operazione annullata"
             return $false
         }
-        
+
         Stop-OfficeProcesses
-        
+
         try {
-            # Preparazione directory
             if (-not (Test-Path $TempDir)) {
                 New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
             }
-            
-            # Download SaRA
+
             $saraUrl = 'https://aka.ms/SaRA_EnterpriseVersionFiles'
             $saraZipPath = Join-Path $TempDir 'SaRA.zip'
-            
+
             if (-not (Invoke-DownloadFile $saraUrl $saraZipPath 'Microsoft SaRA')) {
                 return $false
             }
-            
-            # Estrazione
+
             Write-StyledMessage Info "📦 Estrazione SaRA..."
             try {
                 Expand-Archive -Path $saraZipPath -DestinationPath $TempDir -Force
@@ -1890,29 +1808,24 @@ function OfficeToolkit {
                 Write-StyledMessage Error "Errore estrazione: $_"
                 return $false
             }
-            
-            # Ricerca eseguibile SaRA
+
             $saraExe = Get-ChildItem -Path $TempDir -Name "SaRAcmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $saraExe) {
                 Write-StyledMessage Error "SaRAcmd.exe non trovato"
                 return $false
             }
-            
+
             $saraPath = Join-Path $TempDir $saraExe
-            
-            # Esecuzione SaRA
             Write-StyledMessage Info "🚀 Avvio rimozione tramite SaRA..."
             Write-StyledMessage Warning "⏰ Questa operazione può richiedere molto tempo"
             Write-StyledMessage Warning "🚀 Ad operazione avviata, non chiudere la finestra di SaRA, la finestra si chiuderà automaticamente"
-            
+
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
             Start-Process -FilePath $saraPath -ArgumentList $arguments -Verb RunAs
-            
-            # Attesa completamento
+
             Write-Host "💡 Premi INVIO quando SaRA ha completato la rimozione..." -ForegroundColor Yellow
             Read-Host | Out-Null
-            
-            # Conferma risultato
+
             if (Get-UserConfirmation "✅ Rimozione completata con successo?" 'Y') {
                 Write-StyledMessage Success "🎉 Rimozione Office completata!"
                 return $true
@@ -1927,7 +1840,6 @@ function OfficeToolkit {
             return $false
         }
         finally {
-            # Pulizia
             if (Test-Path $TempDir) {
                 Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
             }
@@ -1935,19 +1847,11 @@ function OfficeToolkit {
     }
 
     function Show-Header {
-        # Imposta il titolo della finestra
         $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
-    
-        # Pulisce lo schermo
         Clear-Host
-    
-        # Ottiene la larghezza della finestra della console in tempo reale
         $width = $Host.UI.RawUI.BufferSize.Width
-
-        # Disegna le linee di contorno
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-    
-        # Definizione del tuo testo ASCII art
+
         $asciiArt = @(
             '      __        __  _  _   _ ',
             '      \ \      / / | || \ | |',
@@ -1956,33 +1860,25 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.1 (Build 33)'
+            '        Version 2.2 (Build 2)'
         )
-    
-        # Cicla su ogni riga del testo ASCII art
+
         foreach ($line in $asciiArt) {
-            # Calcola il padding per centrare la riga
             $padding = [Math]::Max(0, [Math]::Floor(($width - $line.Length) / 2))
-        
-            # Scrive la riga centrata
             Write-Host (' ' * $padding + $line) -ForegroundColor White
         }
-    
-        # Disegna la linea di contorno inferiore
+
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
     # MAIN EXECUTION
     Show-Header
-    
-    # Inizializzazione
     Write-Host "⏳ Inizializzazione sistema..." -ForegroundColor Yellow
     Start-Sleep 2
     Write-Host "✅ Sistema pronto`n" -ForegroundColor Green
-    
+
     try {
         do {
-            # Menu principale
             Write-StyledMessage Info "🎯 Seleziona un'opzione:"
             Write-Host ''
             Write-Host '  [1]  🏢 Installazione Office (Basic Version)' -ForegroundColor White
@@ -1990,13 +1886,13 @@ function OfficeToolkit {
             Write-Host '  [3]  🗑️ Rimozione completa Office' -ForegroundColor Yellow
             Write-Host '  [0]  ❌ Esci' -ForegroundColor Red
             Write-Host ''
-            
+
             $choice = Read-Host 'Scelta [0-3]'
             Write-Host ''
-            
+
             $success = $false
             $operation = ''
-            
+
             switch ($choice) {
                 '1' {
                     $operation = 'Installazione'
@@ -2019,8 +1915,7 @@ function OfficeToolkit {
                     continue
                 }
             }
-            
-            # Gestione post-operazione
+
             if ($choice -in @('1', '2', '3')) {
                 if ($success) {
                     Write-StyledMessage Success "🎉 $operation completata!"
@@ -2037,20 +1932,18 @@ function OfficeToolkit {
                 }
                 Write-Host "`n" + ('─' * 50) + "`n"
             }
-            
+
         } while ($choice -ne '0')
     }
     catch {
         Write-StyledMessage Error "Errore critico: $($_.Exception.Message)"
     }
     finally {
-        # Pulizia finale
         Write-StyledMessage Success "🧹 Pulizia finale..."
-        
         if (Test-Path $TempDir) {
             Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
         }
-        
+
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
         Write-StyledMessage Success "🎯 Office Toolkit terminato"
@@ -2068,29 +1961,29 @@ Premi un tasto per tornare al menu principale..."
 $menuStructure = @(
     @{
         'Name' = 'Operazioni Preliminari'; 'Icon' = '🪄'
-        'Scripts' = @([pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa il profilo PowerShell.'; Action = 'RunFunction' })
+        'Scripts' = @([pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa profilo PowerShell'; Action = 'RunFunction' })
     },
     @{
         'Name' = 'Backup & Tool'; 'Icon' = '📦'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting RustDesk - ⚠️ MagnetarMan Mode. ⚠️'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC. - Planned V2.2'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting RustDesk - MagnetarMan Mode'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC - Planned V2.2'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
         )
     },
     @{
         'Name' = 'Riparazione Windows'; 'Icon' = '🔧'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows.'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset di Windows Update.'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' }
         )
     },
     @{
         'Name' = 'Driver & Gaming'; 'Icon' = '🎮'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinDriverInstall'; Description = 'Toolkit Driver Grafici. - Planned V2.3'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit. - Planned V2.4'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinDriverInstall'; Description = 'Toolkit Driver Grafici - Planned V2.3'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit - Planned V2.4'; Action = 'RunFunction' }
         )
     }
 )
@@ -2103,63 +1996,62 @@ $asciiArt = @(
     '        \ V  V /   | || |\  |',
     '         \_/\_/    |_||_| \_|',
     '',
-    '       Toolkit By MagnetarMan',
-    '       Version 2.2 (Build 5)'
+    '       WinToolkit by MagnetarMan',
+    '       Version 2.2 (Build 8)'
 )
 
 # Main loop
 while ($true) {
     Clear-Host
     $width = 65
-    
+
     # Header
     Write-Host ('═' * $width) -ForegroundColor Green
     foreach ($line in $asciiArt) {
-        Write-Host (Center-Text $line $width) -ForegroundColor White
+        Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
     }
     Write-Host ('═' * $width) -ForegroundColor Green
-    
+
     winver
     Write-Host ''
-    
+
     # Build and display menu
     $allScripts = @()
     $scriptIndex = 1
-    
+
     foreach ($category in $menuStructure) {
         Write-Host "=== $($category.Icon) $($category.Name) $($category.Icon) ===" -ForegroundColor Cyan
         Write-Host ''
-        
+
         foreach ($script in $category.Scripts) {
             $allScripts += $script
-            Write-StyledMessage 'Info' "[$scriptIndex] $($script.Description)"
+            Write-StyledMessage -type 'Info' -text "[$scriptIndex] $($script.Description)"
             $scriptIndex++
         }
         Write-Host ''
     }
-    
+
     # Exit section
     Write-Host "=== Uscita ===" -ForegroundColor Red
     Write-Host ''
-    Write-StyledMessage 'Error' '[0] Esci dal Toolkit'
+    Write-StyledMessage -type 'Error' -text '[0] Esci dal Toolkit'
     Write-Host ''
-    
+
     # Handle user choice
-    $userChoice = Read-Host "Quale opzione vuoi eseguire? (es. 1, 3, 5 o 0 per uscire)"
+    $userChoice = Read-Host "Scegli un'opzione (es. 1, 3, 5 o 0 per uscire)"
 
     if ($userChoice -eq '0') {
-        Write-StyledMessage 'Warning' 'In caso di problemi, contatta MagnetarMan su Github => Github.com/Magnetarman.'
-        Write-StyledMessage 'Success' 'Grazie per aver usato il toolkit. Chiusura in corso...'
-        Start-Sleep -Seconds 5
+        Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
+        Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
+        Start-Sleep -Seconds 3
         break
     }
 
-    # Separa gli input usando spazi o virgole come delimitatori e rimuove eventuali spazi vuoti
+    # Parse and validate choices
     $choices = $userChoice -split '[ ,]+' | Where-Object { $_ -ne '' }
     $scriptsToRun = [System.Collections.Generic.List[object]]::new()
     $invalidChoices = [System.Collections.Generic.List[string]]::new()
 
-    # Valida ogni scelta e la aggiunge alla lista di esecuzione
     foreach ($choice in $choices) {
         if (($choice -match '^\d+$') -and ([int]$choice -ge 1) -and ([int]$choice -le $allScripts.Count)) {
             $scriptsToRun.Add($allScripts[[int]$choice - 1])
@@ -2169,42 +2061,40 @@ while ($true) {
         }
     }
 
-    # Se ci sono scelte non valide, avvisa l'utente
+    # Handle invalid choices
     if ($invalidChoices.Count -gt 0) {
-        Write-StyledMessage 'Warning' "Le seguenti opzioni non sono valide e verranno ignorate: $($invalidChoices -join ', ')"
+        Write-StyledMessage -type 'Warning' -text "Opzioni non valide ignorate: $($invalidChoices -join ', ')"
         Start-Sleep -Seconds 2
     }
 
-    # Esegui gli script validi in sequenza
+    # Execute valid scripts
     if ($scriptsToRun.Count -gt 0) {
         foreach ($selectedItem in $scriptsToRun) {
             Write-Host "`n" + ('-' * ($width / 2))
-            Write-StyledMessage 'Info' "Avvio di '$($selectedItem.Description)'..."
-        
+            Write-StyledMessage -type 'Info' -text "Avvio '$($selectedItem.Description)'..."
+
             try {
                 if ($selectedItem.Action -eq 'RunFile') {
                     $scriptPath = Join-Path $PSScriptRoot $selectedItem.Name
                     if (Test-Path $scriptPath) { & $scriptPath }
-                    else { Write-StyledMessage 'Error' "Script '$($selectedItem.Name)' non trovato." }
+                    else { Write-StyledMessage -type 'Error' -text "Script non trovato: $($selectedItem.Name)" }
                 }
                 elseif ($selectedItem.Action -eq 'RunFunction') {
                     Invoke-Expression $selectedItem.Name
                 }
             }
             catch {
-                Write-StyledMessage 'Error' "Errore durante l'esecuzione di '$($selectedItem.Description)'."
-                Write-StyledMessage 'Error' "Dettagli: $($_.Exception.Message)"
+                Write-StyledMessage -type 'Error' -text "Errore in '$($selectedItem.Description)'"
+                Write-StyledMessage -type 'Error' -text "Dettagli: $($_.Exception.Message)"
             }
-            Write-StyledMessage 'Success' "Esecuzione di '$($selectedItem.Description)' completata."
+            Write-StyledMessage -type 'Success' -text "Completato: '$($selectedItem.Description)'"
         }
-    
-        Write-Host "`nTutte le operazioni selezionate sono state completate."
-        Write-Host "Premi un tasto per tornare al menu principale..."
+
+        Write-Host "`nOperazioni completate. Premi un tasto per continuare..."
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     elseif ($invalidChoices.Count -eq $choices.Count) {
-        # Questo blocco viene eseguito se sono state inserite SOLO scelte non valide
-        Write-StyledMessage 'Error' 'Nessuna scelta valida inserita. Riprova.'
-        Start-Sleep -Seconds 3
+        Write-StyledMessage -type 'Error' -text 'Nessuna scelta valida. Riprova.'
+        Start-Sleep -Seconds 2
     }
 }
