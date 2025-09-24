@@ -1556,7 +1556,7 @@ function WinBackupDriver {
             '         \_/\_/    |_||_| \_|',
             '',
             '   Driver Backup Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 3)'
+            '       Version 2.2 (Build 4)'
         )
 
         foreach ($line in $asciiArt) {
@@ -1662,10 +1662,11 @@ function WinBackupDriver {
 
             $progress = 0
             $compressAction = {
-                Compress-Archive -Path $BackupDir -DestinationPath $tempZipPath -CompressionLevel Optimal -Force
+                param($backupDir, $tempZipPath)
+                Compress-Archive -Path $backupDir -DestinationPath $tempZipPath -CompressionLevel Optimal -Force
             }
 
-            $job = Start-Job -ScriptBlock $compressAction
+            $job = Start-Job -ScriptBlock $compressAction -ArgumentList $BackupDir, $tempZipPath
 
             while ($job.State -eq 'Running') {
                 $progress += Get-Random -Minimum 1 -Maximum 5
