@@ -51,9 +51,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Modifiche
 
-- Backup dei driver installati, compressione in un file `.zip` e salvataggio sul desktop.
-- Aggiornamento della documentazione con il nuovo screenshot per la funzione `WinReinstallStore`.
-
 ---
 
 ## [2.2] - 2025-09-24 (#12)
@@ -62,6 +59,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 - Funzione **Windows Repair Plus** completata.
 - Funzione **Set RustDesk** completata.
+- Funzione **WinBackupDriver** Completa
 
 ### Correzioni
 
@@ -84,6 +82,13 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Riavvio del PC ed Applicazione delle modifiche
 - Aggiornamento della documentazione con il nuovo screenshot per la funzione `WinReinstallStore`.
 - Creazione file `CHANGELOG.md` con link nel `README.md` con il changelog esaustivo dei cambiamenti
+- Ottimizzazione script `OfficeToolkit`
+- Ottimizzazione script `WinToolkit-template`
+- Ottimizzazione script `SetRustDesk`
+- Ottimizzazione script `WinInstallaPsProfile`
+- Ottimizzazione script `WinReinstallStore`
+- Ottimizzazione script `WinRepairToolkit`
+- Ottimizzazione script `WinUpdateReset`
 
 ---
 

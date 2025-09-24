@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2 (Build 8) - 2025-09-24
+  Versione 2.2 (Build 9) - 2025-09-24
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -98,7 +98,7 @@ function winver {
     }
 }
 
-# Placeholder functions - da implementare
+# Placeholder functions (verranno automaticamente popolate dal compilatore)
 function WinInstallPSProfile {}
 function WinRepairToolkit {}
 function SetRustDesk {}
@@ -119,7 +119,7 @@ $menuStructure = @(
         'Name' = 'Backup & Tool'; 'Icon' = '📦'
         'Scripts' = @(
             [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting RustDesk - MagnetarMan Mode'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC - Planned V2.2'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
         )
     },
@@ -149,7 +149,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit by MagnetarMan',
-    '       Version 2.2 (Build 8)'
+    '       Version 2.2 (Build 9)'
 )
 
 # Main loop
