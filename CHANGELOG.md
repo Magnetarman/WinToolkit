@@ -59,7 +59,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 - Funzione **Windows Repair Plus** completata.
 - Funzione **Set RustDesk** completata.
-- Funzione **WinBackupDriver** Completa
+- Funzione **WinBackupDriver** completata.
 
 ### Correzioni
 
@@ -67,6 +67,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - Correzione del blocco grafico del terminale per lo script `WinReinstallStore`.
 - Fix di alcuni errori di battitura (`Typo`).
 - Fix Spaziatura Testo Ascii nei vari tool.
+- Fix Messaggio poco chiaro in `OfficeToolkit`
 
 ### Modifiche
 
