@@ -1,16 +1,13 @@
 <#
 .SYNOPSIS
-    Un toolkit per eseguire script di manutenzione e gestione di Windows.
+    WinToolkit - Strumenti di manutenzione Windows
 .DESCRIPTION
-    Questo script funge da menu principale per un insieme di strumenti di manutenzione e gestione di Windows.
-    Permette agli utenti di selezionare ed eseguire vari script PowerShell per compiti specifici.
+    Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2 (Build 5) - 2025-09-24
+  Versione 2.2 (Build 7) - 2025-09-24
 #>
 
 param([int]$CountdownSeconds = 10)
-
-# Configurazione iniziale
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
 $ErrorActionPreference = 'Stop'
 
@@ -24,61 +21,30 @@ try {
 catch { }
 
 function Write-StyledMessage {
-    param(
-        [ValidateSet('Success', 'Warning', 'Error', 'Info')]
-        [string]$type,
-        [string]$text
-    )
-
-    $msgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'; Icon = '❌' }
-        Info    = @{ Color = 'Cyan'; Icon = '💎' }
-    }
-
-    $style = $msgStyles[$type]
-    Write-Host "$($style.Icon) $text" -ForegroundColor $style.Color
+    param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
+    $icons = @{ Success = '✅'; Warning = '⚠️'; Error = '❌'; Info = '💎' }
+    $colors = @{ Success = 'Green'; Warning = 'Yellow'; Error = 'Red'; Info = 'Cyan' }
+    Write-Host "$($icons[$type]) $text" -ForegroundColor $colors[$type]
 }
 
 function Center-Text {
     param([string]$text, [int]$width = 60)
-
-    if ($text.Length -ge $width) { return $text }
-    $padding = ' ' * [Math]::Floor(($width - $text.Length) / 2)
-    return "$padding$text"
+    if ($text.Length -ge $width) { $text } else { ' ' * [Math]::Floor(($width - $text.Length) / 2) + $text }
 }
 
 function winver {
     try {
-        # Raccolta dati ottimizzata con singola query CIM
-        $osInfo = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
-        $computerInfo = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
-        $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction Stop
-        
-        # Elaborazione dati
+        $osInfo = Get-CimInstance Win32_OperatingSystem
+        $computerInfo = Get-CimInstance Win32_ComputerSystem
+        $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+
         $productName = $osInfo.Caption -replace 'Microsoft ', ''
         $buildNumber = [int]$osInfo.BuildNumber
         $totalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
         $totalDiskSpace = [Math]::Round($diskInfo.Size / 1GB, 0)
         $freePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
-        
-        # Rilevazione tipo disco
-        $diskType = "HDD"
-        try {
-            $physicalDisk = Get-CimInstance MSFT_PhysicalDisk -Namespace "Root\Microsoft\Windows\Storage" -ErrorAction SilentlyContinue |
-            Where-Object { $_.DeviceID -eq 0 -or $_.MediaType -ne $null } | Select-Object -First 1
-            if ($physicalDisk -and $physicalDisk.MediaType -eq 4) { $diskType = "SSD" }
-        }
-        catch {
-            try {
-                $diskDrive = Get-CimInstance Win32_DiskDrive -ErrorAction SilentlyContinue | Where-Object { $_.Index -eq 0 }
-                if ($diskDrive.MediaType -like "*SSD*" -or $diskDrive.MediaType -like "*Solid State*") { $diskType = "SSD" }
-            }
-            catch { $diskType = "Disk" }
-        }
-        
-        # Mappatura build -> versione Windows (hashtable per performance)
+
+        # Version mapping
         $versionMap = @{
             26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
             19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"
@@ -86,16 +52,13 @@ function winver {
             17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
             10586 = "1511"; 10240 = "1507"
         }
-        
+
         $windowsVersion = "N/A"
         foreach ($build in ($versionMap.Keys | Sort-Object -Descending)) {
-            if ($buildNumber -ge $build) {
-                $windowsVersion = $versionMap[$build]
-                break
-            }
+            if ($buildNumber -ge $build) { $windowsVersion = $versionMap[$build]; break }
         }
-        
-        # Determinazione edizione
+
+        # Edition detection
         $windowsEdition = switch -Wildcard ($productName) {
             "*Home*" { "🏠 Home" }
             "*Pro*" { "💼 Professional" }
@@ -104,38 +67,38 @@ function winver {
             "*Server*" { "🖥️ Server" }
             default { "💻 $productName" }
         }
-        
-        # Output formattato
+
+        # Display info
         $width = 65
         Write-Host ""
         Write-Host ('*' * $width) -ForegroundColor Red
         Write-Host (Center-Text "🖥️  INFORMAZIONI SISTEMA  🖥️" $width) -ForegroundColor White
         Write-Host ('*' * $width) -ForegroundColor Red
         Write-Host ""
-        
+
         $info = @(
             @("💻 Edizione:", $windowsEdition, 'White'),
-            @("📊 Versione Windows:", "Ver. $windowsVersion Kernel $($osInfo.Version) (Build $buildNumber)", 'Green'),
+            @("📊 Versione:", "Ver. $windowsVersion (Build $buildNumber)", 'Green'),
             @("🏗️ Architettura:", $osInfo.OSArchitecture, 'White'),
             @("🏷️ Nome PC:", $computerInfo.Name, 'White'),
-            @("🧠 RAM Totale:", "$totalRAM GB", 'White'),
-            @("💾 Disco:", "($diskType) $freePercentage% Libero ($totalDiskSpace GB Totali)", 'Green')
+            @("🧠 RAM:", "$totalRAM GB", 'White'),
+            @("💾 Disco:", "$freePercentage% Libero ($totalDiskSpace GB)", 'Green')
         )
-        
+
         foreach ($item in $info) {
             Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
             Write-Host " $($item[1])" -ForegroundColor $item[2]
         }
-        
+
         Write-Host ""
         Write-Host ('*' * $width) -ForegroundColor Red
     }
     catch {
-        Write-StyledMessage -type 'Error' -text "Impossibile recuperare le informazioni di sistema: $($_.Exception.Message)"
+        Write-StyledMessage -type 'Error' -text "Errore nel recupero informazioni: $($_.Exception.Message)"
     }
 }
 
-# Placeholder functions
+# Placeholder functions - da implementare
 function WinInstallPSProfile {}
 function WinRepairToolkit {}
 function SetRustDesk {}
@@ -150,29 +113,29 @@ function GamingToolkit {}
 $menuStructure = @(
     @{
         'Name' = 'Operazioni Preliminari'; 'Icon' = '🪄'
-        'Scripts' = @([pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa il profilo PowerShell.'; Action = 'RunFunction' })
+        'Scripts' = @([pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa profilo PowerShell'; Action = 'RunFunction' })
     },
     @{
         'Name' = 'Backup & Tool'; 'Icon' = '📦'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting RustDesk - ⚠️ MagnetarMan Mode. ⚠️'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC. - Planned V2.2'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting RustDesk - MagnetarMan Mode'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC - Planned V2.2'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
         )
     },
     @{
         'Name' = 'Riparazione Windows'; 'Icon' = '🔧'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows.'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset di Windows Update.'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset.'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' }
         )
     },
     @{
         'Name' = 'Driver & Gaming'; 'Icon' = '🎮'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinDriverInstall'; Description = 'Toolkit Driver Grafici. - Planned V2.3'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit. - Planned V2.4'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'WinDriverInstall'; Description = 'Toolkit Driver Grafici - Planned V2.3'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit - Planned V2.4'; Action = 'RunFunction' }
         )
     }
 )
@@ -185,33 +148,33 @@ $asciiArt = @(
     '        \ V  V /   | || |\  |',
     '         \_/\_/    |_||_| \_|',
     '',
-    '       Toolkit By MagnetarMan',
-    '       Version 2.2 (Build 5)'
+    '       WinToolkit by MagnetarMan',
+    '       Version 2.2 (Build 7)'
 )
 
 # Main loop
 while ($true) {
     Clear-Host
     $width = 65
-    
+
     # Header
     Write-Host ('═' * $width) -ForegroundColor Green
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
     }
     Write-Host ('═' * $width) -ForegroundColor Green
-    
+
     winver
     Write-Host ''
-    
+
     # Build and display menu
     $allScripts = @()
     $scriptIndex = 1
-    
+
     foreach ($category in $menuStructure) {
         Write-Host "=== $($category.Icon) $($category.Name) $($category.Icon) ===" -ForegroundColor Cyan
         Write-Host ''
-        
+
         foreach ($script in $category.Scripts) {
             $allScripts += $script
             Write-StyledMessage -type 'Info' -text "[$scriptIndex] $($script.Description)"
@@ -219,29 +182,28 @@ while ($true) {
         }
         Write-Host ''
     }
-    
+
     # Exit section
     Write-Host "=== Uscita ===" -ForegroundColor Red
     Write-Host ''
     Write-StyledMessage -type 'Error' -text '[0] Esci dal Toolkit'
     Write-Host ''
-    
+
     # Handle user choice
-    $userChoice = Read-Host "Quale opzione vuoi eseguire? (es. 1, 3, 5 o 0 per uscire)"
+    $userChoice = Read-Host "Scegli un'opzione (es. 1, 3, 5 o 0 per uscire)"
 
     if ($userChoice -eq '0') {
-        Write-StyledMessage -type 'Warning' -text 'In caso di problemi, contatta MagnetarMan su Github => Github.com/Magnetarman.'
-        Write-StyledMessage -type 'Success' -text 'Grazie per aver usato il toolkit. Chiusura in corso...'
-        Start-Sleep -Seconds 5
+        Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
+        Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
+        Start-Sleep -Seconds 3
         break
     }
 
-    # Separa gli input usando spazi o virgole come delimitatori e rimuove eventuali spazi vuoti
+    # Parse and validate choices
     $choices = $userChoice -split '[ ,]+' | Where-Object { $_ -ne '' }
     $scriptsToRun = [System.Collections.Generic.List[object]]::new()
     $invalidChoices = [System.Collections.Generic.List[string]]::new()
 
-    # Valida ogni scelta e la aggiunge alla lista di esecuzione
     foreach ($choice in $choices) {
         if (($choice -match '^\d+$') -and ([int]$choice -ge 1) -and ([int]$choice -le $allScripts.Count)) {
             $scriptsToRun.Add($allScripts[[int]$choice - 1])
@@ -251,42 +213,40 @@ while ($true) {
         }
     }
 
-    # Se ci sono scelte non valide, avvisa l'utente
+    # Handle invalid choices
     if ($invalidChoices.Count -gt 0) {
-        Write-StyledMessage -type 'Warning' -text "Le seguenti opzioni non sono valide e verranno ignorate: $($invalidChoices -join ', ')"
+        Write-StyledMessage -type 'Warning' -text "Opzioni non valide ignorate: $($invalidChoices -join ', ')"
         Start-Sleep -Seconds 2
     }
 
-    # Esegui gli script validi in sequenza
+    # Execute valid scripts
     if ($scriptsToRun.Count -gt 0) {
         foreach ($selectedItem in $scriptsToRun) {
             Write-Host "`n" + ('-' * ($width / 2))
-            Write-StyledMessage -type 'Info' -text "Avvio di '$($selectedItem.Description)'..."
-        
+            Write-StyledMessage -type 'Info' -text "Avvio '$($selectedItem.Description)'..."
+
             try {
                 if ($selectedItem.Action -eq 'RunFile') {
                     $scriptPath = Join-Path $PSScriptRoot $selectedItem.Name
                     if (Test-Path $scriptPath) { & $scriptPath }
-                    else { Write-StyledMessage -type 'Error' -text "Script '$($selectedItem.Name)' non trovato." }
+                    else { Write-StyledMessage -type 'Error' -text "Script non trovato: $($selectedItem.Name)" }
                 }
                 elseif ($selectedItem.Action -eq 'RunFunction') {
                     Invoke-Expression $selectedItem.Name
                 }
             }
             catch {
-                Write-StyledMessage -type 'Error' -text "Errore durante l'esecuzione di '$($selectedItem.Description)'."
+                Write-StyledMessage -type 'Error' -text "Errore in '$($selectedItem.Description)'"
                 Write-StyledMessage -type 'Error' -text "Dettagli: $($_.Exception.Message)"
             }
-            Write-StyledMessage -type 'Success' -text "Esecuzione di '$($selectedItem.Description)' completata."
+            Write-StyledMessage -type 'Success' -text "Completato: '$($selectedItem.Description)'"
         }
-    
-        Write-Host "`nTutte le operazioni selezionate sono state completate."
-        Write-Host "Premi un tasto per tornare al menu principale..."
+
+        Write-Host "`nOperazioni completate. Premi un tasto per continuare..."
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     elseif ($invalidChoices.Count -eq $choices.Count) {
-        # Questo blocco viene eseguito se sono state inserite SOLO scelte non valide
-        Write-StyledMessage -type 'Error' -text 'Nessuna scelta valida inserita. Riprova.'
-        Start-Sleep -Seconds 3
+        Write-StyledMessage -type 'Error' -text 'Nessuna scelta valida. Riprova.'
+        Start-Sleep -Seconds 2
     }
 }
