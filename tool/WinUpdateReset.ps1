@@ -257,12 +257,14 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         ' Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2 (Build 10)'
+        '       Version 2.2 (Build 12)'
     )
  
     foreach ($line in $asciiArt) {
         # Call the Center-Text function, passing the dynamic width.
-        Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
+        if (-not [string]::IsNullOrEmpty($line)) {
+            Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
+        }
     }
  
     # Draw the bottom border line.

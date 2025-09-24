@@ -12,6 +12,7 @@ function WinBackupDriver {
 
     param([int]$CountdownSeconds = 10)
 
+    $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
     # Configurazione
     $BackupDir = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
     $ZipName = "DriverBackup_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
@@ -62,7 +63,7 @@ function WinBackupDriver {
             '         \_/\_/    |_||_| \_|',
             '',
             '   Driver Backup Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 4)'
+            '       Version 2.2 (Build 5)'
         )
 
         foreach ($line in $asciiArt) {

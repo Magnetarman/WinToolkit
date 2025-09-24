@@ -12,6 +12,7 @@ function WinRepairToolkit {
 
     param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
 
+    $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
     $script:Log = @(); $script:CurrentAttempt = 0
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
@@ -253,7 +254,7 @@ function WinRepairToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Repair Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 4)'
+            '       Version 2.2 (Build 5)'
         )
 
         foreach ($line in $asciiArt) {
