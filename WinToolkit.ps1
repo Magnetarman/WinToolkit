@@ -270,6 +270,7 @@ function WinRepairToolkit {
 
     param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
 
+    $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
     $script:Log = @(); $script:CurrentAttempt = 0
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
@@ -511,7 +512,7 @@ function WinRepairToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Repair Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 4)'
+            '       Version 2.2 (Build 5)'
         )
 
         foreach ($line in $asciiArt) {
@@ -1073,12 +1074,14 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         ' Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2 (Build 10)'
+        '       Version 2.2 (Build 12)'
     )
  
     foreach ($line in $asciiArt) {
         # Call the Center-Text function, passing the dynamic width.
-        Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
+        if (-not [string]::IsNullOrEmpty($line)) {
+            Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
+        }
     }
  
     # Draw the bottom border line.
@@ -1302,11 +1305,13 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 28)'
+            '       Version 2.2 (Build 30)'
         )
 
         foreach ($line in $asciiArt) {
-            Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
+            if (-not [string]::IsNullOrEmpty($line)) {
+                Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
+            }
         }
 
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
@@ -1539,6 +1544,7 @@ function WinBackupDriver {
 
     param([int]$CountdownSeconds = 10)
 
+    $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
     # Configurazione
     $BackupDir = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
     $ZipName = "DriverBackup_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
@@ -1589,7 +1595,7 @@ function WinBackupDriver {
             '         \_/\_/    |_||_| \_|',
             '',
             '   Driver Backup Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 4)'
+            '       Version 2.2 (Build 5)'
         )
 
         foreach ($line in $asciiArt) {
