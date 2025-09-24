@@ -2149,7 +2149,7 @@ function OfficeToolkit {
     function Start-OfficeUninstall {
         Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office, Verrà utilizzato Microsoft Support and Recovery Assistant (SaRA)"
 
-        if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa? [Y/N]")) {
+        if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa?")) {
             Write-StyledMessage Info "❌ Operazione annullata"
             return $false
         }
@@ -2229,7 +2229,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 3)'
+            '        Version 2.2 (Build 4)'
         )
 
         foreach ($line in $asciiArt) {
