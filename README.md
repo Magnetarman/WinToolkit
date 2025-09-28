@@ -9,11 +9,11 @@
     WinToolkit è una suite di script PowerShell potente e compatta, progettata per offrire a professionisti IT, amministratori di sistema e utenti esperti un controllo granulare sulla manutenzione e sulla risoluzione dei problemi di Windows e della Suite Office. Questo toolkit intuitivo aggrega gli strumenti di riparazione di sistema più efficaci in un'unica interfaccia, automatizzando i processi complessi per ottimizzare le prestazioni e ripristinare la stabilità del sistema con pochi passaggi automatizzati.
      <br>
      <br>
-    <b> OS Supportati:</b> Da Windows 10 versione 1809 (build 17763) in poi.
+    <b> OS Supportati:</b> Windows 10 versione 1809 (build 17763) e successivi.
 </p>
 <br>
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.2 (Build 13)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.2.1 (Build 13)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Update%20WinToolkit.ps1" alt="Update WinToolkit">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -47,7 +47,7 @@
 
 > [!Warning]
 >
-> A causa di limitazione tecniche e tecnologiche, il Toolkit su sistemi precedenti come **Windows 10 Pre 1809**, **Windows 8.1** e **Windows 8** risulta **parzialmente supportato**. Per avviare il toolkit è richiesta il download e l'installazione manuale di [Powershell 7](https://github.com/PowerShell/PowerShell/releases/tag/v7.5.3). Una volta installato Powershell avviare Powershell 7 ed inserire i comandi di Bypass per l'esecuzione di script non firmati `Set-ExecutionPolicy -Scope LocalMachine -ExecutionPolicy Bypass` & `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Bypass`. L'unico metodo di avvio supportato è **l'avvio Classico** altri metodi non sono supportati. L'esecuzione del Toolkit su sistemi non supportati è sconsigliato, potrebbero verificarsi errori di runtime oppure gli script potrebbero non funzionare correttamente, eseguitelo a vostro rischio e pericolo.
+> A causa di limitazione tecniche e tecnologiche, il Toolkit su sistemi precedenti come **Windows 10 Pre 1809**, **Windows 8.1** e **Windows 8** risulta **parzialmente supportato**. Per avviare il toolkit è richiesto il download e l'installazione manuale di [Powershell 7](https://github.com/PowerShell/PowerShell/releases/tag/v7.5.3). Avviare successivamente Powershell 7 ed inserire i comandi di Bypass per l'esecuzione di script non firmati `Set-ExecutionPolicy -Scope LocalMachine -ExecutionPolicy Bypass` & `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Bypass`. L'unico metodo di avvio supportato è **l'avvio Classico**, altri metodi non sono supportati. L'esecuzione del Toolkit su sistemi non supportati è sconsigliato, potrebbero verificarsi errori di runtime oppure gli script potrebbero non funzionare correttamente, eseguitelo a vostro rischio e pericolo.
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Cartella di lavoro unica**: Le operazioni del programma sono centralizzate in un'unica cartella di lavoro, situata in `%localappdata%\WinToolkit`. È importante mantenere questa directory per garantire la corretta visualizzazione e il funzionamento dell'icona di collegamento sul desktop. Lo strumento è concepito per operare in modo completamente autonomo e online, eliminando la necessità di creare cartelle temporanee aggiuntive per la sua esecuzione.
@@ -173,7 +173,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ## 📌 Changelog Progetto
 
-Per un resoconto dettagliato di ogni modifica, correzione e funzionalità introdotta, consulta il changelog completo a [questo link.](/CHANGELOG.md)
+Per un resoconto dettagliato di ogni modifica, correzione e funzionalità introdotta, consulta il changelog completo a [QUI](/CHANGELOG.md).
 
 ## 🕹️ TO DO
 
@@ -220,6 +220,12 @@ git checkout -b new-feature-x
 7. **Invia una Pull Request**: Crea una "Pull Request" (PR) verso la repository originale del progetto. Descrivi chiaramente le modifiche e le loro motivazioni.
 8. **Revisione**: Una volta che la tua PR sarà revisionata e approvata, verrà unita ("merged") nel branch principale. Congratulazioni per il tuo contributo!
 </details>
+
+---
+
+## 🌟 Lista dei Contributori
+
+Guarda la lista delle fantastiche persone che hanno deciso di investire le loro energie per migliorare questo progetto [QUI](/CONTRIBUTORS.md).
 
 ---
 
