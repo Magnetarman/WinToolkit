@@ -87,6 +87,8 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
         ├── Office-Toolkit.jpg
         ├── WinToolkit-icon.png
         └── StoreRepair.jpg
+    ├── CHANGELOG.md
+    ├── CONTRIBUTORS.md
     ├── LICENSE
     ├── README.md
     ├── start.ps1
