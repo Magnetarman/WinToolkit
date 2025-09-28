@@ -30,6 +30,10 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     (`iwr -useb https://christitus.com/win | iex`).
 - **Funzione Security Update (`V2.6`):**
   - Download ed esecuzione di Tron Script con intervento minimo.
+- **Funzione Security Update (`V2.7`):**
+  - Reset dei servizi Windows
+  - Pulizia Cache, File Temporanei e Cache dei Browser
+  - Potenziamento Toolkit di Riparazione Windows
 - **MagnetarMan Mode (`V3.0`):**
   - Avvio Script Chris con configurazione personalizzata.
   - Installazione programmi: Brave Browser, Google Chrome,
