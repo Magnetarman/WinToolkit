@@ -256,21 +256,37 @@ function ToolKit-Desktop {
         $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.lnk"
         $iconPath = Join-Path -Path $env:TEMP -ChildPath "WinToolkit.ico"
 
+        # Verifica se wt.exe è disponibile nel PATH
+        $wtPath = Get-Command "wt.exe" -ErrorAction SilentlyContinue
+        if (-not $wtPath) {
+            Write-StyledMessage -type 'Warning' -text "Windows Terminal non trovato nel PATH. Installazione necessaria."
+            return $false
+        }
+
         # Download icona se non presente
         if (-not (Test-Path -Path $iconPath)) {
             Write-StyledMessage -type 'Info' -text "Download icona..."
-            $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
-            Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing
+            try {
+                $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
+                Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing
+            }
+            catch {
+                Write-StyledMessage -type 'Warning' -text "Download icona fallito. Utilizzo icona predefinita."
+                $iconPath = ""
+            }
         }
 
         # Crea scorciatoia
         $WshShell = New-Object -ComObject WScript.Shell
         $Shortcut = $WshShell.CreateShortcut($shortcutPath)
 
-        $Shortcut.TargetPath = 'C:\Users\' + $env:USERNAME + '\AppData\Local\Microsoft\WindowsApps\wt.exe'
+        $Shortcut.TargetPath = 'wt.exe'
         $Shortcut.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
-        $Shortcut.WorkingDirectory = "C:\Users\" + $env:USERNAME + "\AppData\Local\Microsoft\WindowsApps"
-        $Shortcut.IconLocation = $iconPath
+        $Shortcut.WorkingDirectory = "%USERPROFILE%"
+        if ($iconPath -and (Test-Path $iconPath)) {
+            $Shortcut.IconLocation = $iconPath
+        }
+        $Shortcut.Description = "Win Toolkit V2 - Strumenti di configurazione Windows"
         $Shortcut.Save()
 
         # Abilita esecuzione come amministratore
@@ -279,9 +295,11 @@ function ToolKit-Desktop {
         [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
 
         Write-StyledMessage -type 'Success' -text "Scorciatoia creata con privilegi amministratore."
+        return $true
     }
     catch {
         Write-StyledMessage -type 'Error' -text "Errore creazione scorciatoia: $($_.Exception.Message)"
+        return $false
     }
 }
 
