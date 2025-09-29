@@ -128,6 +128,58 @@ function Restore-WebSearch {
         $percent = 0; $spinnerIndex = 0
 
         try {
+            # Verifica se il modulo Appx è disponibile
+            if (-not (Get-Module -Name Appx -ErrorAction SilentlyContinue)) {
+                try {
+                    Import-Module Appx -ErrorAction Stop
+                    Write-StyledMessage Info "💎 Modulo Appx importato con successo"
+                }
+                catch {
+                    Write-StyledMessage Warning "⚠️ Impossibile importare il modulo Appx: $($_.Exception.Message)"
+                    Write-StyledMessage Info "💡 Tentativo metodo alternativo tramite PowerShell..."
+
+                    # Metodo alternativo tramite PowerShell
+                    $psScript = @"
+try {
+    `$packages = Get-AppxPackage -allusers Microsoft.Windows.Cortana -ErrorAction SilentlyContinue
+    if (`$packages) {
+        foreach (`$package in `$packages) {
+            try {
+                Add-AppxPackage -DisableDevelopmentMode -Register "`$(`$package.InstallLocation)\AppXManifest.xml" -ErrorAction SilentlyContinue
+                Write-Output "SUCCESS: `$($package.Name)"
+            }
+            catch {
+                Write-Output "WARNING: `$($package.Name) - $($_.Exception.Message)"
+            }
+        }
+    }
+    else {
+        Write-Output "INFO: Pacchetto Cortana non trovato"
+    }
+}
+catch {
+    Write-Output "ERROR: $($_.Exception.Message)"
+}
+"@
+
+                    $result = & "powershell" "-Command $psScript" 2>&1
+                    $resultText = $result -join "`n"
+
+                    if ($resultText -like "*SUCCESS:*") {
+                        $successCount = ($resultText -split "`n" | Where-Object { $_ -like "SUCCESS:*" }).Count
+                        Write-StyledMessage Success "✅ Cortana/SearchUI reinstallati ($successCount pacchetti) tramite metodo alternativo"
+                        $script:Log += "[CortanaReinstall] ✅ Reinstallazione alternativa completata ($successCount pacchetti)"
+                        return @{ Success = $true; ErrorCount = 0 }
+                    }
+                    else {
+                        Write-StyledMessage Warning "⚠️ Metodo alternativo fallito: $resultText"
+                        $script:Log += "[CortanaReinstall] ⚠️ Reinstallazione alternativa fallita"
+                        return @{ Success = $false; ErrorCount = 1 }
+                    }
+                }
+            }
+
+            # Metodo principale con modulo Appx
             $cortanaPackages = Get-AppxPackage -allusers Microsoft.Windows.Cortana -ErrorAction SilentlyContinue
 
             if (-not $cortanaPackages) {
@@ -144,7 +196,7 @@ function Restore-WebSearch {
                     $reinstalled++
                 }
                 catch {
-                    Write-StyledMessage Warning "⚠️ Impossibile reinstallare $($package.Name) - $_"
+                    Write-StyledMessage Warning "⚠️ Impossibile reinstallare $($package.Name) - $($_.Exception.Message)"
                 }
             }
 
@@ -160,8 +212,8 @@ function Restore-WebSearch {
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante reinstallazione Cortana: $_"
-            $script:Log += "[CortanaReinstall] ❌ Errore: $_"
+            Write-StyledMessage Error "Errore durante reinstallazione Cortana: $($_.Exception.Message)"
+            $script:Log += "[CortanaReinstall] ❌ Errore: $($_.Exception.Message)"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -371,7 +423,7 @@ function Restore-WebSearch {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Web Search Restore By MagnetarMan',
-            '       Version 2.0 (Build 1)'
+            '       Version 2.2.2 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {

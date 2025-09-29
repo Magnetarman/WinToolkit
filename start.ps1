@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 1) - 2025-09-29
+  Versione 2.2.2 (Build 3) - 2025-09-29
 #>
 
 function Center-text {
@@ -235,6 +235,16 @@ function Invoke-WPFTweakPS7 {
 
         if ($targetProfile) {
             $settingsContent.defaultProfile = $targetProfile.guid
+
+            # Abilita modalità amministratore per PowerShell 7
+            if ($action -eq "PS7") {
+                $ps7Profile = $settingsContent.profiles.list | Where-Object { $_.name -eq "PowerShell" -and $_.commandline -like "*pwsh*" }
+                if ($ps7Profile) {
+                    $ps7Profile.elevate = $true
+                    Write-StyledMessage -type 'Success' -text "Modalità amministratore abilitata per PowerShell 7"
+                }
+            }
+
             $settingsContent | ConvertTo-Json -Depth 100 | Set-Content -Path $settingsPath
             Write-StyledMessage -type 'Success' -text "Profilo predefinito aggiornato a $targetTerminalName"
         }
@@ -244,6 +254,61 @@ function Invoke-WPFTweakPS7 {
     }
     catch {
         Write-StyledMessage -type 'Error' -text "Errore configurazione: $($_.Exception.Message)"
+    }
+}
+
+# Funzione per impostare Windows Terminal come terminal predefinito
+function Set-WindowsTerminalAsDefault {
+    Write-StyledMessage -type 'Info' -text "Impostazione Windows Terminal come terminal predefinito..."
+
+    try {
+        # Percorso di Windows Terminal
+        $wtPath = Get-Command "wt.exe" -ErrorAction SilentlyContinue
+        if (-not $wtPath) {
+            Write-StyledMessage -type 'Warning' -text "Windows Terminal non trovato nel PATH."
+            return $false
+        }
+
+        $wtFullPath = $wtPath.Source
+        Write-StyledMessage -type 'Info' -text "Windows Terminal trovato: $wtFullPath"
+
+        # Imposta Windows Terminal come handler predefinito per console
+        $regPaths = @(
+            "HKCU:\Console\%%Startup",
+            "HKCR:\Directory\shell\cmd",
+            "HKCR:\Directory\Background\shell\cmd",
+            "HKCR:\Drive\shell\cmd"
+        )
+
+        foreach ($regPath in $regPaths) {
+            try {
+                if (-not (Test-Path $regPath)) {
+                    New-Item -Path $regPath -Force | Out-Null
+                }
+
+                # Crea la chiave command se non esiste
+                $commandPath = Join-Path -Path $regPath -ChildPath "command"
+                if (-not (Test-Path $commandPath)) {
+                    New-Item -Path $commandPath -Force | Out-Null
+                }
+
+                # Imposta il comando per avviare Windows Terminal
+                Set-ItemProperty -Path $regPath -Name "(Default)" -Value "Apri in Windows Terminal" -Type String
+                Set-ItemProperty -Path $commandPath -Name "(Default)" -Value "`"$wtFullPath`" %1" -Type ExpandString
+
+                Write-StyledMessage -type 'Info' -text "Configurato: $regPath"
+            }
+            catch {
+                Write-StyledMessage -type 'Warning' -text "Errore configurazione $regPath`: $($_.Exception.Message)"
+            }
+        }
+
+        Write-StyledMessage -type 'Success' -text "Windows Terminal impostato come terminal predefinito"
+        return $true
+    }
+    catch {
+        Write-StyledMessage -type 'Error' -text "Errore impostazione terminal predefinito: $($_.Exception.Message)"
+        return $false
     }
 }
 
@@ -379,6 +444,7 @@ function Start-WinToolkit {
 
     Install-WindowsTerminal
     Invoke-WPFTweakPS7 -action "PS7"
+    Set-WindowsTerminalAsDefault
     ToolKit-Desktop
 
     Write-StyledMessage -type 'Success' -text "Configurazione completata."

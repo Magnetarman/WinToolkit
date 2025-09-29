@@ -13,7 +13,7 @@
 </p>
 <br>
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.2.1 (Build 13)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.2.2 (Build 13)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Update%20WinToolkit.ps1" alt="Update WinToolkit">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -123,7 +123,9 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 > - **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script. **E' fortemente consigliata la disattivazione temporanea durante le operazioni**.
 > - **Richiesta Connessione ad internet durante l'esecuzione del Tool**.
 > - Richiesto intervento manuale minimo.
-> - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema).
+> - **Spazio su disco Consigliato**: 50GB Liberi.
+>
+> **P.S** Ti consiglio di avere circa 50 Gigabyte di spazio libero sul tuo disco rigido (SSD o HDD) prima di iniziare. È essenziale capire che questo spazio non è per lo strumento: il toolkit è totalmente online, pesa pochissimi kilobyte e non scarica 50 GB di dati. Questo ampio margine di 50 GB è necessario esclusivamente per garantire la stabilità e il corretto funzionamento di Windows durante le operazioni di riparazione. Quando il sistema operativo lavora su componenti critici, ha bisogno di spazio vitale per gestire diversi processi in background: ad esempio, Windows crea e gestisce file temporanei e copie di backup interne durante la manutenzione. Soprattutto, lo spazio è cruciale per la gestione del file di paging (o memoria virtuale), che Windows utilizza come "sostituto" temporaneo della RAM quando la memoria fisica si esaurisce; se questo spazio è insufficiente, si possono verificare errori di sistema. Avere un margine così ampio previene anche i problemi legati alla cache e assicura che il sistema non sia rallentato o instabile, poiché operare con poco spazio libero (tipicamente meno del 10−15%) è una causa comune di malfunzionamenti generici in Windows. In sintesi, i 50 GB sono una misura cautelativa per fornire a Windows l'ambiente di lavoro ideale per completare le operazioni senza interruzioni dovute a una gestione inefficiente dello spazio su disco.
 
 ### ⚙️ Avvio **Consigliato**
 
