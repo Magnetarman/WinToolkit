@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Script di Start per Win Toolkit V2.1.
+    Script di Start per Win Toolkit V2.
 .DESCRIPTION
     Questo script funge da punto di ingresso per l'installazione e la configurazione di Win Toolkit V2.0.
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.1.1 (Build 5) - 2025-09-22
+  Versione 2.2.2 (Build 1) - 2025-09-29
 #>
 
 function Center-text {
@@ -139,13 +139,96 @@ function Install-PowerShell7 {
     }
 }
 
+# Funzione per installare Windows Terminal
+function Install-WindowsTerminal {
+    Write-StyledMessage -type 'Info' -text "Verifica installazione di Windows Terminal..."
+
+    if (Get-Command "wt" -ErrorAction SilentlyContinue) {
+        Write-StyledMessage -type 'Success' -text "Windows Terminal è già installato. Saltando l'installazione."
+        return $true
+    }
+
+    Write-StyledMessage -type 'Info' -text "Windows Terminal non trovato. Tentativo di installazione..."
+
+    # Metodo 1: Installazione tramite winget
+    if (Get-Command "winget" -ErrorAction SilentlyContinue) {
+        Write-StyledMessage -type 'Info' -text "Installazione di Windows Terminal tramite winget..."
+        try {
+            winget install --id Microsoft.WindowsTerminal --accept-source-agreements --accept-package-agreements --silent
+            if ($LASTEXITCODE -eq 0) {
+                Write-StyledMessage -type 'Success' -text "Windows Terminal installato con successo tramite winget."
+                return $true
+            }
+        }
+        catch {
+            Write-StyledMessage -type 'Warning' -text "Errore con winget: $($_.Exception.Message). Tentativo di metodi alternativi..."
+        }
+    }
+    else {
+        Write-StyledMessage -type 'Warning' -text "winget non disponibile. Tentativo di metodi alternativi..."
+    }
+
+    # Metodo 2: Installazione tramite Microsoft Store (wsreset)
+    Write-StyledMessage -type 'Info' -text "Tentativo di apertura Microsoft Store per Windows Terminal..."
+    try {
+        # Reimposta Windows Store cache
+        Start-Process "wsreset.exe" -Wait
+
+        # Avvia Microsoft Store con l'URL specifico di Windows Terminal
+        $storeUrl = "https://apps.microsoft.com/detail/9N0DX20HK701"
+        Start-Process "ms-windows-store://pdp/?productid=9N0DX20HK701"
+
+        Write-StyledMessage -type 'Info' -text "Apertura Microsoft Store per Windows Terminal completata."
+        Write-StyledMessage -type 'Info' -text "Se l'installazione non si avvia automaticamente, cercare 'Windows Terminal' nel Microsoft Store."
+        return $true
+    }
+    catch {
+        Write-StyledMessage -type 'Warning' -text "Errore con Microsoft Store: $($_.Exception.Message). Tentativo di installazione diretta..."
+    }
+
+    # Metodo 3: Installazione tramite download diretto (fallback)
+    try {
+        $wtUrl = "https://github.com/microsoft/terminal/releases/download/v1.21.3231.0/Microsoft.WindowsTerminal_1.21.3231.0_x64.zip"
+        $wtZip = "$env:TEMP\Microsoft.WindowsTerminal_1.21.3231.0_x64.zip"
+        $wtExtractPath = "$env:TEMP\WindowsTerminal"
+
+        Write-StyledMessage -type 'Info' -text "Download Windows Terminal da GitHub..."
+        Invoke-WebRequest -Uri $wtUrl -OutFile $wtZip -UseBasicParsing
+
+        Write-StyledMessage -type 'Info' -text "Estrazione Windows Terminal..."
+        Expand-Archive -Path $wtZip -DestinationPath $wtExtractPath -Force
+
+        Write-StyledMessage -type 'Info' -text "Installazione Windows Terminal tramite Add-AppxPackage..."
+        $msixbundle = Get-ChildItem -Path $wtExtractPath -Name "*.msixbundle" | Select-Object -First 1
+        if ($msixbundle) {
+            $msixPath = Join-Path -Path $wtExtractPath -ChildPath $msixbundle
+            Add-AppxPackage -Path $msixPath
+
+            Write-StyledMessage -type 'Success' -text "Windows Terminal installato con successo tramite download diretto."
+
+            # Pulizia file temporanei
+            Remove-Item $wtZip -Force -ErrorAction SilentlyContinue
+            Remove-Item $wtExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+            return $true
+        }
+        else {
+            Write-StyledMessage -type 'Error' -text "File di installazione Windows Terminal non trovato nell'archivio."
+            return $false
+        }
+    }
+    catch {
+        Write-StyledMessage -type 'Error' -text "Errore durante l'installazione diretta di Windows Terminal: $($_.Exception.Message)"
+        return $false
+    }
+}
+
 # Funzione per configurare Windows Terminal
 function Invoke-WPFTweakPS7 {
     param ([ValidateSet("PS7", "PS5")][string]$action = "PS7")
-    
+
     $targetTerminalName = "PowerShell" # Nome corretto per PowerShell 7 in Windows Terminal
     Write-StyledMessage -type 'Info' -text "Configurazione Windows Terminal per $targetTerminalName..."
-    
+
     if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
         Write-StyledMessage -type 'Warning' -text "Windows Terminal non installato. Saltando configurazione terminale."
         return
@@ -224,7 +307,7 @@ function ToolKit-Desktop {
         $bytes[21] = $bytes[21] -bor 32
         [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
         
-        Write-StyledMessage -type 'Success' -text "Scorciatoia 'Win Toolkit V2.1.lnk' creata con successo sul desktop con privilegi amministratore e icona personalizzata."
+        Write-StyledMessage -type 'Success' -text "Scorciatoia 'Win Toolkit V2.lnk' creata con successo sul desktop con privilegi amministratore e icona personalizzata."
     }
     catch {
         Write-StyledMessage -type 'Error' -text "Errore durante la creazione della scorciatoia: $($_.Exception.Message)"
@@ -309,6 +392,9 @@ function Start-WinToolkit {
     else {
         Write-StyledMessage -type 'Success' -text "PowerShell 7 già presente."
     }
+
+    # Installa Windows Terminal dopo PowerShell 7
+    Install-WindowsTerminal
 
     Invoke-WPFTweakPS7 -action "PS7"
     ToolKit-Desktop
