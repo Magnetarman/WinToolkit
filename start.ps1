@@ -352,7 +352,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2 (Build 2)'
+        '        Version 2.2.2 (Build 3)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
