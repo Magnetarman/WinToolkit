@@ -31,9 +31,10 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - **Funzione Security Update (`V2.6`):**
   - Download ed esecuzione di Tron Script con intervento minimo.
 - **Funzione Security Update (`V2.7`):**
-  - Reset dei servizi Windows [Tnks @sicolla]
+  - Reset dei servizi Windows **[Tnks @sicolla]**
+  - Riparazione avanzata Windows Search **[Tnks @sicolla]**
   - Pulizia Cache, File Temporanei e Cache dei Browser
-  - Potenziamento Toolkit di Riparazione Windows [Tnks @Progressfy]
+  - Potenziamento Toolkit di Riparazione Windows **[Tnks @Progressfy]**
 - **MagnetarMan Mode (`V3.0`):**
   - Avvio Script Chris con configurazione personalizzata.
   - Installazione programmi: Brave Browser, Google Chrome,
@@ -54,6 +55,21 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Correzioni
 
 ### Modifiche
+
+---
+
+## [2.2.2] - 2025-09-28 (#13)
+
+### Aggiunte
+
+### Correzioni
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+- Aggiornamento `CONTRIBUTORS.md`
+- Migliorato Supporto script `start.ps1` su Windows 10 **[Tnks @sicolla]**
+- Migliorate Sezioni `WinToolkit-Template.ps1`
 
 ---
 

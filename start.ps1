@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 3) - 2025-09-29
+  Versione 2.2.2 (Build 4) - 2025-09-30
 #>
 
 function Center-text {
@@ -318,7 +318,7 @@ function ToolKit-Desktop {
 
     try {
         $desktopPath = [System.Environment]::GetFolderPath('Desktop')
-        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit V2.lnk"
+        $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit.lnk"
         $iconPath = Join-Path -Path $env:TEMP -ChildPath "WinToolkit.ico"
 
         # Verifica se wt.exe è disponibile nel PATH
@@ -351,7 +351,7 @@ function ToolKit-Desktop {
         if ($iconPath -and (Test-Path $iconPath)) {
             $Shortcut.IconLocation = $iconPath
         }
-        $Shortcut.Description = "Win Toolkit V2 - Strumenti di configurazione Windows"
+        $Shortcut.Description = "Win Toolkit - SOPRAVVIVI A Windows"
         $Shortcut.Save()
 
         # Abilita esecuzione come amministratore
@@ -417,7 +417,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 3)'
+        '        Version 2.2.2 (Build 4)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
