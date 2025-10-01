@@ -18,6 +18,7 @@ function WinCleaner {
         - Cache Miniature Explorer
         - Cache web WinInet
         - Cookie Internet
+        - Cache DNS
     #>
 
     param([int]$CountdownSeconds = 30)
@@ -45,6 +46,7 @@ function WinCleaner {
         @{ Task = 'ThumbnailCache'; Name = 'Cache miniature Explorer'; Icon = '🖼️'; Auto = $false }
         @{ Task = 'WinInetCache'; Name = 'Cache web WinInet'; Icon = '🌐'; Auto = $false }
         @{ Task = 'InternetCookies'; Name = 'Cookie Internet'; Icon = '🍪'; Auto = $false }
+        @{ Task = 'DNSFlush'; Name = 'Flush cache DNS'; Icon = '🔄'; Auto = $false }
     )
 
     function Write-StyledMessage([string]$Type, [string]$Text) {
@@ -486,6 +488,30 @@ function WinCleaner {
         }
     }
 
+    function Invoke-DNSFlush {
+        Write-StyledMessage Info "🔄 Flush cache DNS..."
+        try {
+            # Esegue il flush della cache DNS
+            $result = ipconfig /flushdns 2>&1
+            
+            if ($LASTEXITCODE -eq 0) {
+                Write-StyledMessage Success "✅ Cache DNS svuotata con successo"
+                $script:Log += "[DNSFlush] ✅ Flush completato"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+            else {
+                Write-StyledMessage Warning "⚠️ Flush DNS completato con warnings"
+                $script:Log += "[DNSFlush] ⚠️ Completato con warnings"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "⚠️ Errore durante flush DNS: $_"
+            $script:Log += "[DNSFlush] ⚠️ Errore: $_"
+            return @{ Success = $false; ErrorCount = 1 }
+        }
+    }
+
     function Invoke-CleanupTask([hashtable]$Task, [int]$Step, [int]$Total) {
         Write-StyledMessage Info "[$Step/$Total] Avvio $($Task.Name)..."
         $percent = 0; $spinnerIndex = 0
@@ -504,6 +530,7 @@ function WinCleaner {
                 'ThumbnailCache' { Invoke-ThumbnailCacheCleanup }
                 'WinInetCache' { Invoke-WinInetCacheCleanup }
                 'InternetCookies' { Invoke-InternetCookiesCleanup }
+                'DNSFlush' { Invoke-DNSFlush }
             }
 
             if ($result.Success) {
