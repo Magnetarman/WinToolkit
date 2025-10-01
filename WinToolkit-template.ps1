@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2.2 (Build 14) - 2025-10-01
+  Versione 2.2.2 (Build 15) - 2025-10-01
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -118,7 +118,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.2.2 (Build 14)'
+    '       Version 2.2.2 (Build 15)'
 )
 
 # Placeholder functions (verranno automaticamente popolate dal compilatore)
@@ -131,6 +131,7 @@ function WinDriverInstall {}
 function WinBackupDriver {}
 function OfficeToolkit {}
 function GamingToolkit {}
+function WinCleaner {}
 
 # Menu structure
 $menuStructure = @(
@@ -145,6 +146,7 @@ $menuStructure = @(
             [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
         )
     },

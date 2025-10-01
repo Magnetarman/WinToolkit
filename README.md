@@ -13,7 +13,7 @@
 </p>
 <br>
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.2.2 (Build 14)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.2.2 (Build 15)-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
 <img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Update%20WinToolkit.ps1" alt="Update WinToolkit">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -61,6 +61,7 @@
 - **Windows Store Repair**: Esegue una reinstallazione di componenti critici come Microsoft Store, Winget, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando Winget). Lo script esegue questa operazione in modo silenzioso, provando più metodi (Winget, DISM e registrazione del manifest) per garantire il successo. Il processo include anche la pulizia della cache e il riavvio dei servizi necessari per una riparazione pulita e funzionale.
 - **Win Backup Driver**: Un versatile script PowerShell progettato per semplificare il processo di backup dei driver. Questo strumento automatizza l'esportazione di tutti i driver di terze parti installati, utilizzando il comando DISM per garantire un'operazione completa e affidabile. Una volta esportati, i driver vengono compressi in un singolo file ZIP, che viene automaticamente salvato sul desktop con un nome basato sulla data per una facile identificazione. Ideale per la preparazione di una nuova installazione di Windows, eliminando la necessità di scaricare ogni componente singolarmente.
 - **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico. Lo script procede all'installazione silenziosa di RustDesk, alla cancellazione di eventuali configurazioni precedenti e al download di file di configurazione personalizzati per garantire che il software sia preconfigurato per il supporto tecnico remoto. L'intero processo è progettato per essere completamente automatizzato e si conclude con un riavvio del sistema opzionale e annullabile dall'utente per finalizzare tutte le modifiche.
+- **Cleaner Toolkit**: Il suo scopo è liberare spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda attraverso una serie di azioni automatizzate. Lo script non solo utilizza la Pulizia Disco avanzata (CleanMgr), ma interviene manualmente per eliminare i file di sistema obsoleti, come gli assembly di WinSxS, la cache Prefetch, e i vari log (eventi, errori, sistema). Inoltre, rimuove file temporanei di sistema e utente, svuota le cache di navigazione web, inclusi cookie e cache WinInet, cancella la cronologia di Windows Update, e pulisce la coda di stampa. Infine, per assicurare l'applicazione completa delle modifiche e la massimizzazione dello spazio recuperato, lo script svuota la cache DNS e richiede un riavvio del sistema al termine dell'intero processo.
 
 > [!IMPORTANT]
 >

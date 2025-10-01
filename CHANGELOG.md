@@ -33,7 +33,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - **Funzione Security Update (`V2.7`):**
   - Reset dei servizi Windows **[Tnks @sicolla]**
   - Riparazione avanzata Windows Search **[Tnks @sicolla]**
-  - Pulizia Cache, File Temporanei e Cache dei Browser
+  - Pulizia Cache dei Browser
   - Potenziamento Toolkit di Riparazione Windows **[Tnks @Progressfy]**
 - **MagnetarMan Mode (`V3.0`):**
   - Avvio Script Chris con configurazione personalizzata.
@@ -61,6 +61,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ## [2.2.2] - 2025-09-28 (#13)
 
 ### Aggiunte
+
+- Aggiunta Funzione `WinCleaner`.
 
 ### Correzioni
 

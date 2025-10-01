@@ -19,6 +19,10 @@ function WinCleaner {
         - Cache web WinInet
         - Cookie Internet
         - Cache DNS
+        - File Temporanei Windows
+        - File Temporanei Utente
+        - Coda di Stampa
+        - Log di Sistema
     #>
 
     param([int]$CountdownSeconds = 30)
@@ -47,6 +51,10 @@ function WinCleaner {
         @{ Task = 'WinInetCache'; Name = 'Cache web WinInet'; Icon = '🌐'; Auto = $false }
         @{ Task = 'InternetCookies'; Name = 'Cookie Internet'; Icon = '🍪'; Auto = $false }
         @{ Task = 'DNSFlush'; Name = 'Flush cache DNS'; Icon = '🔄'; Auto = $false }
+        @{ Task = 'WindowsTemp'; Name = 'File temporanei Windows'; Icon = '🗂️'; Auto = $false }
+        @{ Task = 'UserTemp'; Name = 'File temporanei utente'; Icon = '📁'; Auto = $false }
+        @{ Task = 'PrintQueue'; Name = 'Coda di stampa'; Icon = '🖨️'; Auto = $false }
+        @{ Task = 'SystemLogs'; Name = 'Log di sistema'; Icon = '📄'; Auto = $false }
     )
 
     function Write-StyledMessage([string]$Type, [string]$Text) {
@@ -512,6 +520,163 @@ function WinCleaner {
         }
     }
 
+    function Invoke-WindowsTempCleanup {
+        Write-StyledMessage Info "🗂️ Pulizia file temporanei Windows..."
+        $tempPath = "C:\WINDOWS\Temp"
+
+        try {
+            if (Test-Path $tempPath) {
+                $files = Get-ChildItem -Path $tempPath -Recurse -File -ErrorAction SilentlyContinue
+                $totalSize = ($files | Measure-Object -Property Length -Sum).Sum / 1MB
+                $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+
+                Write-StyledMessage Success "✅ File temporanei Windows puliti ($($files.Count) file, $([math]::Round($totalSize, 2)) MB)"
+                $script:Log += "[WindowsTemp] ✅ Pulizia completata ($($files.Count) file)"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+            else {
+                Write-StyledMessage Info "💭 Cartella temporanei Windows non presente"
+                $script:Log += "[WindowsTemp] ℹ️ Directory non presente"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "⚠️ Errore durante pulizia file temporanei Windows: $_"
+            $script:Log += "[WindowsTemp] ⚠️ Errore: $_"
+            return @{ Success = $false; ErrorCount = 1 }
+        }
+    }
+
+    function Invoke-UserTempCleanup {
+        Write-StyledMessage Info "📁 Pulizia file temporanei utente..."
+        try {
+            # Pulisce i file temporanei per tutti gli utenti
+            $users = Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue
+            $totalCleaned = 0
+            $totalSize = 0
+
+            foreach ($user in $users) {
+                $tempPaths = @(
+                    "$($user.FullName)\AppData\Local\Temp",
+                    "$($user.FullName)\AppData\LocalLow\Temp"
+                )
+
+                foreach ($path in $tempPaths) {
+                    if (Test-Path $path) {
+                        try {
+                            $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue
+                            $size = ($files | Measure-Object -Property Length -Sum).Sum / 1MB
+                            $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                            $totalCleaned += $files.Count
+                            $totalSize += $size
+                        }
+                        catch {
+                            Write-StyledMessage Warning "⚠️ Impossibile pulire temp per utente $($user.Name)"
+                        }
+                    }
+                }
+            }
+
+            if ($totalCleaned -gt 0) {
+                Write-StyledMessage Success "✅ File temporanei utente puliti ($totalCleaned file, $([math]::Round($totalSize, 2)) MB)"
+                $script:Log += "[UserTemp] ✅ Pulizia completata ($totalCleaned file)"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+            else {
+                Write-StyledMessage Info "💭 Nessun file temporaneo utente da pulire"
+                $script:Log += "[UserTemp] ℹ️ Nessun file da pulire"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "⚠️ Errore durante pulizia file temporanei utente: $_"
+            $script:Log += "[UserTemp] ⚠️ Errore: $_"
+            return @{ Success = $false; ErrorCount = 1 }
+        }
+    }
+
+    function Invoke-PrintQueueCleanup {
+        Write-StyledMessage Info "🖨️ Pulizia coda di stampa..."
+        try {
+            # Ferma il servizio spooler
+            Write-StyledMessage Info "⏸️ Arresto servizio spooler..."
+            Stop-Service -Name Spooler -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+
+            # Pulisce la coda di stampa
+            $spoolPath = "C:\WINDOWS\System32\spool\PRINTERS"
+            $totalCleaned = 0
+
+            if (Test-Path $spoolPath) {
+                $files = Get-ChildItem -Path $spoolPath -File -ErrorAction SilentlyContinue
+                $files | Remove-Item -Force -ErrorAction SilentlyContinue
+                $totalCleaned = $files.Count
+            }
+
+            # Riavvia il servizio spooler
+            Write-StyledMessage Info "▶️ Riavvio servizio spooler..."
+            Start-Service -Name Spooler -ErrorAction SilentlyContinue
+
+            if ($totalCleaned -gt 0) {
+                Write-StyledMessage Success "✅ Coda di stampa pulita ($totalCleaned file)"
+                $script:Log += "[PrintQueue] ✅ Pulizia completata ($totalCleaned file)"
+            }
+            else {
+                Write-StyledMessage Info "💭 Nessun file in coda di stampa"
+                $script:Log += "[PrintQueue] ℹ️ Nessun file da pulire"
+            }
+
+            return @{ Success = $true; ErrorCount = 0 }
+        }
+        catch {
+            # Assicura che il servizio spooler sia riavviato anche in caso di errore
+            Start-Service -Name Spooler -ErrorAction SilentlyContinue
+            Write-StyledMessage Warning "⚠️ Errore durante pulizia coda di stampa: $_"
+            $script:Log += "[PrintQueue] ⚠️ Errore: $_"
+            return @{ Success = $false; ErrorCount = 1 }
+        }
+    }
+
+    function Invoke-SystemLogsCleanup {
+        Write-StyledMessage Info "📄 Pulizia log di sistema..."
+        $logPaths = @(
+            "C:\WINDOWS\Logs",
+            "C:\WINDOWS\System32\LogFiles",
+            "C:\WINDOWS\Panther",
+            "C:\ProgramData\Microsoft\Windows\WER\ReportQueue"
+        )
+
+        $totalCleaned = 0
+        $totalSize = 0
+
+        foreach ($path in $logPaths) {
+            if (Test-Path $path) {
+                try {
+                    $files = Get-ChildItem -Path $path -Recurse -File -Include "*.log", "*.etl", "*.txt" -ErrorAction SilentlyContinue
+                    $size = ($files | Measure-Object -Property Length -Sum).Sum / 1MB
+                    $files | Remove-Item -Force -ErrorAction SilentlyContinue
+                    $totalCleaned += $files.Count
+                    $totalSize += $size
+                    Write-StyledMessage Info "🗑️ Puliti log da: $path"
+                }
+                catch {
+                    Write-StyledMessage Warning "⚠️ Impossibile pulire alcuni log in $path"
+                }
+            }
+        }
+
+        if ($totalCleaned -gt 0) {
+            Write-StyledMessage Success "✅ Log di sistema puliti ($totalCleaned file, $([math]::Round($totalSize, 2)) MB)"
+            $script:Log += "[SystemLogs] ✅ Pulizia completata ($totalCleaned file)"
+            return @{ Success = $true; ErrorCount = 0 }
+        }
+        else {
+            Write-StyledMessage Info "💭 Nessun log di sistema da pulire"
+            $script:Log += "[SystemLogs] ℹ️ Nessun file da pulire"
+            return @{ Success = $true; ErrorCount = 0 }
+        }
+    }
+
     function Invoke-CleanupTask([hashtable]$Task, [int]$Step, [int]$Total) {
         Write-StyledMessage Info "[$Step/$Total] Avvio $($Task.Name)..."
         $percent = 0; $spinnerIndex = 0
@@ -531,6 +696,10 @@ function WinCleaner {
                 'WinInetCache' { Invoke-WinInetCacheCleanup }
                 'InternetCookies' { Invoke-InternetCookiesCleanup }
                 'DNSFlush' { Invoke-DNSFlush }
+                'WindowsTemp' { Invoke-WindowsTempCleanup }
+                'UserTemp' { Invoke-UserTempCleanup }
+                'PrintQueue' { Invoke-PrintQueueCleanup }
+                'SystemLogs' { Invoke-SystemLogsCleanup }
             }
 
             if ($result.Success) {
@@ -575,7 +744,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 8)'
+            '       Version 2.3 (Build 11)'
         )
 
         foreach ($line in $asciiArt) {
