@@ -33,16 +33,12 @@ Write-Host ""
 
 # Verifica esistenza file e cartelle
 if (-not (Test-Path $sourceFile)) {
-    Write-StyledMessage 'Error' "File WinToolkit.ps1 non trovato in: $sourceFile"
-    Write-Host "`nPremi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    Write-StyledMessage 'Error' "File WinToolkit-template.ps1 non trovato in: $sourceFile"
     exit 1
 }
 
 if (-not (Test-Path $toolFolder)) {
     Write-StyledMessage 'Error' "Cartella tool non trovata in: $toolFolder"
-    Write-Host "`nPremi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     exit 1
 }
 
@@ -52,9 +48,7 @@ try {
     $templateLines = Get-Content $sourceFile -Encoding UTF8 -ErrorAction Stop
 }
 catch {
-    Write-StyledMessage 'Error' "Errore durante la lettura di WinToolkit.ps1: $($_.Exception.Message)"
-    Write-Host "`nPremi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    Write-StyledMessage 'Error' "Errore durante la lettura di WinToolkit-template.ps1: $($_.Exception.Message)"
     exit 1
 }
 
@@ -63,8 +57,6 @@ $toolFiles = Get-ChildItem -Path $toolFolder -Filter "*.ps1" -File
 
 if ($toolFiles.Count -eq 0) {
     Write-StyledMessage 'Warning' "Nessun file .ps1 trovato nella cartella tool"
-    Write-Host "`nPremi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     exit 0
 }
 
@@ -89,9 +81,7 @@ foreach ($file in $toolFiles) {
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
             Write-StyledMessage 'Warning' "File '$($file.Name)' è vuoto - inserimento codice di sviluppo"
             $fileLines = @(
-                "    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso`"",
-                "    Write-Host `"`nPremi un tasto per tornare al menu principale...`"",
-                "    `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')"
+                "    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso`""
             )
             $warningCount++
         }
@@ -239,9 +229,7 @@ foreach ($file in $toolFiles) {
         }
         else {
             # Funzione non trovata - mostra avviso
-            Write-StyledMessage 'Warning' "La funzione '$functionName' non è stata trovata in WinToolkit.ps1 e verrà saltata"
-            Write-Host "Premi un tasto per continuare..." -ForegroundColor Yellow
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            Write-StyledMessage 'Warning' "La funzione '$functionName' non è stata trovata in WinToolkit-template.ps1 e verrà saltata"
             $skippedCount++
         }
         
@@ -270,7 +258,5 @@ try {
 }
 catch {
     Write-StyledMessage 'Error' "Errore durante il salvataggio: $($_.Exception.Message)"
-    Write-Host "`nPremi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     exit 1
 }
