@@ -144,6 +144,7 @@ jobs:
 
       # Step 5: Test estesi del file compilato
       - name: Test Estesi WinToolkit Compilato
+        id: test_compiled_wintoolkit
         if: steps.check_changes.outputs.has_relevant_changes == 'true'
         shell: pwsh
         run: |
@@ -298,7 +299,7 @@ jobs:
 
       # Step 6: Commit automatico del file compilato (solo se i test passano)
       - name: Commit WinToolkit.ps1
-        if: steps.check_changes.outputs.has_relevant_changes == 'true' && steps.Test Estesi WinToolkit Compilato.outputs.tests_passed == 'true'
+        if: steps.check_changes.outputs.has_relevant_changes == 'true' && steps.test_compiled_wintoolkit.outputs.tests_passed == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
