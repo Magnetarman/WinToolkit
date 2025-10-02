@@ -262,7 +262,7 @@ function Set-WindowsTerminalAsDefault {
     Write-StyledMessage -type 'Info' -text "Impostazione Windows Terminal come terminal predefinito..."
 
     try {
-        # Percorso di Windows Terminal
+        # Verifica disponibilità Windows Terminal
         $wtPath = Get-Command "wt.exe" -ErrorAction SilentlyContinue
         if (-not $wtPath) {
             Write-StyledMessage -type 'Warning' -text "Windows Terminal non trovato nel PATH."
@@ -272,34 +272,68 @@ function Set-WindowsTerminalAsDefault {
         $wtFullPath = $wtPath.Source
         Write-StyledMessage -type 'Info' -text "Windows Terminal trovato: $wtFullPath"
 
-        # Imposta Windows Terminal come handler predefinito per console
-        $regPaths = @(
-            "HKCU:\Console\%%Startup",
-            "HKCR:\Directory\shell\cmd",
-            "HKCR:\Directory\Background\shell\cmd",
-            "HKCR:\Drive\shell\cmd"
-        )
-
-        foreach ($regPath in $regPaths) {
+        # CRITICO: Monta il drive HKCR: se non esiste
+        if (-not (Test-Path "HKCR:\")) {
+            Write-StyledMessage -type 'Info' -text "Creazione drive HKCR:..."
             try {
-                if (-not (Test-Path $regPath)) {
-                    New-Item -Path $regPath -Force | Out-Null
-                }
-
-                # Crea la chiave command se non esiste
-                $commandPath = Join-Path -Path $regPath -ChildPath "command"
-                if (-not (Test-Path $commandPath)) {
-                    New-Item -Path $commandPath -Force | Out-Null
-                }
-
-                # Imposta il comando per avviare Windows Terminal
-                Set-ItemProperty -Path $regPath -Name "(Default)" -Value "Apri in Windows Terminal" -Type String
-                Set-ItemProperty -Path $commandPath -Name "(Default)" -Value "`"$wtFullPath`" %1" -Type ExpandString
-
-                Write-StyledMessage -type 'Info' -text "Configurato: $regPath"
+                New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction Stop | Out-Null
+                Write-StyledMessage -type 'Success' -text "Drive HKCR: montato correttamente"
             }
             catch {
-                Write-StyledMessage -type 'Warning' -text "Errore configurazione $regPath`: $($_.Exception.Message)"
+                Write-StyledMessage -type 'Error' -text "Impossibile montare HKCR: $($_.Exception.Message)"
+                Write-StyledMessage -type 'Warning' -text "Saltando configurazione chiavi HKCR"
+                # Continua comunque con HKCU
+            }
+        }
+
+        # Configurazione percorsi del registro
+        $regPaths = @(
+            @{Path = "HKCU:\Console\%%Startup"; Description = "Console Startup" }
+        )
+
+        # Aggiungi percorsi HKCR solo se il drive è montato
+        if (Test-Path "HKCR:\") {
+            $regPaths += @(
+                @{Path = "HKCR:\Directory\shell\cmd"; Description = "Directory Context Menu" },
+                @{Path = "HKCR:\Directory\Background\shell\cmd"; Description = "Directory Background Context Menu" },
+                @{Path = "HKCR:\Drive\shell\cmd"; Description = "Drive Context Menu" }
+            )
+        }
+
+        foreach ($regEntry in $regPaths) {
+            $regPath = $regEntry.Path
+            $description = $regEntry.Description
+
+            try {
+                # Crea la chiave principale se non esiste
+                if (-not (Test-Path $regPath)) {
+                    New-Item -Path $regPath -Force -ErrorAction Stop | Out-Null
+                }
+
+                # Crea la sottochiave command
+                $commandPath = Join-Path -Path $regPath -ChildPath "command"
+                if (-not (Test-Path $commandPath)) {
+                    New-Item -Path $commandPath -Force -ErrorAction Stop | Out-Null
+                }
+
+                # Imposta i valori
+                Set-ItemProperty -Path $regPath -Name "(Default)" -Value "Apri in Windows Terminal" -Type String -ErrorAction Stop
+                Set-ItemProperty -Path $commandPath -Name "(Default)" -Value "`"$wtFullPath`" %1" -Type ExpandString -ErrorAction Stop
+
+                Write-StyledMessage -type 'Success' -text "Configurato: $description"
+            }
+            catch {
+                Write-StyledMessage -type 'Warning' -text "Errore configurazione $description`: $($_.Exception.Message)"
+            }
+        }
+
+        # Rimuovi il drive HKCR: se lo abbiamo creato noi
+        if (Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue) {
+            try {
+                Remove-PSDrive -Name HKCR -Force -ErrorAction SilentlyContinue
+            }
+            catch {
+                # Ignora errori di rimozione
             }
         }
 
