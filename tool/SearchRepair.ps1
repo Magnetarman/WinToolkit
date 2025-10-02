@@ -145,6 +145,7 @@ function Restore-WebSearch {
             }
             catch {
                 $appxSupported = $false
+                Write-StyledMessage Warning "⚠️ Impossibile verificare supporto Appx: $($_.Exception.Message)"
             }
 
             if (-not $appxSupported) {
@@ -234,6 +235,11 @@ catch {
                     $script:Log += "[CortanaReinstall] ⚠️ Reinstallazione alternativa fallita: $resultText"
                     return @{ Success = $false; ErrorCount = 1 }
                 }
+            }
+            catch {
+                Write-StyledMessage Error "Errore durante esecuzione metodo alternativo: $($_.Exception.Message)"
+                $script:Log += "[CortanaReinstall] ❌ Errore metodo alternativo: $($_.Exception.Message)"
+                return @{ Success = $false; ErrorCount = 1 }
             }
             finally {
                 # Pulisce il file temporaneo
@@ -617,12 +623,14 @@ catch {
         Write-Host ''
         Write-StyledMessage Info "📋 Log di errore disponibile in: $logPath"
     }
-}
-finally {
+
     if (-not $SkipConfirmation) {
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
         Read-Host
     }
+}
+finally {
+    # Cleanup code here if needed
 }
 
 Restore-WebSearch
