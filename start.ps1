@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 25) - 2025-10-02
+  Versione 2.2.2 (Build 26) - 2025-10-02
 #>
 
 function Center-text {
@@ -590,7 +590,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 25)'
+        '        Version 2.2.2 (Build 26)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
@@ -606,7 +606,9 @@ function Start-WinToolkit {
     Write-StyledMessage -type 'Info' -text "Avvio configurazione Win Toolkit..."
 
     $rebootNeeded = $false
-    
+  
+    Install-WingetSilent
+
     Install-Git
     
     $ps7Installed = (Test-Path -Path "$env:ProgramFiles\PowerShell\7")
