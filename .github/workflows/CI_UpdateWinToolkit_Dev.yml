@@ -1,5 +1,6 @@
-# GitHub Actions Workflow per Continuous Integration
-# Questo workflow gestisce l'aggiornamento automatico di WinToolkit.ps1 sul branch dev
+# GitHub Actions Workflow per Continuous Integration con Test PowerShell
+# Questo workflow esegue test estesi di tutti gli script PowerShell nella cartella /tool
+# e gestisce l'aggiornamento automatico di WinToolkit.ps1 sul branch dev
 
 name: CI_UpdateWinToolkit_Dev
 
@@ -33,14 +34,80 @@ jobs:
           # Fetch completo necessario per il commit
           fetch-depth: 0
 
-      # Step 2: Configurazione dell'ambiente PowerShell e Node.js
+      # Step 2: Test estesi di tutti gli script PowerShell nella cartella /tool
+      # Verifica sintassi, logica e struttura per evitare push di codice non funzionante
+      - name: Test Estesi PowerShell
+        shell: pwsh
+        run: |
+          Write-Host "🔍 INIZIO TEST ESTESI POWERSHELL" -ForegroundColor Cyan
+          Write-Host "=" * 70 -ForegroundColor Yellow
+
+          $toolPath = "tool"
+          $scriptFiles = Get-ChildItem -Path $toolPath -Name "*.ps1" -Recurse
+
+          if ($scriptFiles.Count -eq 0) {
+            Write-Error "❌ Nessun file PowerShell trovato nella cartella $toolPath"
+            exit 1
+          }
+
+          Write-Host "📋 Script da testare ($($scriptFiles.Count)):" -ForegroundColor Green
+          $scriptFiles | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+
+          $totalErrors = 0
+
+          foreach ($file in $scriptFiles) {
+            $fullPath = Join-Path $toolPath $file
+            Write-Host "🔍 Testing: $file" -ForegroundColor Blue
+
+            try {
+              # Test sintassi
+              $scriptContent = Get-Content -Raw -Path $fullPath
+              $parseErrors = $null
+              $null = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$parseErrors)
+
+              if ($parseErrors.Count -gt 0) {
+                Write-Host "  ❌ Errori di sintassi in $file" -ForegroundColor Red
+                $parseErrors | ForEach-Object { Write-Host "    $($_.Message)" -ForegroundColor Red }
+                $totalErrors += $parseErrors.Count
+              }
+              else {
+                Write-Host "  ✅ Sintassi OK" -ForegroundColor Green
+              }
+
+              # Test presenza funzioni principali
+              $functions = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$null) |
+                          Where-Object { $_.GetType().Name -eq "FunctionDefinitionAst" }
+
+              if ($functions.Count -gt 0) {
+                Write-Host "  📋 Funzioni: $($functions.Count)" -ForegroundColor Gray
+              }
+              else {
+                Write-Host "  ⚠️ Nessuna funzione trovata" -ForegroundColor Yellow
+              }
+
+            }
+            catch {
+              Write-Host "  ❌ Errore nel test di $file`: $($_.Exception.Message)" -ForegroundColor Red
+              $totalErrors++
+            }
+          }
+
+          if ($totalErrors -gt 0) {
+            Write-Host "❌ TEST FALLITI: $totalErrors errori trovati" -ForegroundColor Red
+            Write-Host "💡 Verifica la sintassi degli script PowerShell" -ForegroundColor Cyan
+            exit 1
+          }
+
+          Write-Host "✅ TUTTI I TEST SUPERATI!" -ForegroundColor Green
+
+      # Step 3: Configurazione dell'ambiente PowerShell e Node.js
       # Installa Node.js che è necessario per molti runner di GitHub Actions
       - name: Setup Node.js per l'ambiente
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      # Step 3: Verifica e configurazione PowerShell
+      # Step 4: Verifica e configurazione PowerShell
       # Assicura che PowerShell sia disponibile e configurato correttamente
       - name: Configurazione PowerShell
         run: |
@@ -49,13 +116,13 @@ jobs:
           # Imposta i permessi di esecuzione per lo script
           chmod +x ./compiler.ps1
 
-      # Step 4: Esecuzione dello script compiler.ps1
+      # Step 5: Esecuzione dello script compiler.ps1
       # Questo script genera il file WinToolkit.ps1 come output
       - name: Esecuzione script compiler.ps1
         run: ./compiler.ps1
         shell: pwsh
 
-      # Step 5: Controllo di sintassi del file generato
+      # Step 6: Controllo di sintassi del file generato
       # Verifica la correttezza sintattica di WinToolkit.ps1 prima del commit
       - name: Controllo sintassi WinToolkit.ps1
         shell: pwsh
@@ -84,7 +151,7 @@ jobs:
             exit 1
           }
 
-      # Step 6: Commit automatico del file aggiornato
+      # Step 7: Commit automatico del file aggiornato
       # Utilizza azione specializzata per commit e push automatici
       - name: Commit automatico WinToolkit.ps1
         uses: stefanzweifel/git-auto-commit-action@v5

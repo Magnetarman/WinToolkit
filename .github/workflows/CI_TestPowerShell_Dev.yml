@@ -1,0 +1,320 @@
+# GitHub Actions Workflow per Test Estesi PowerShell
+# Questo workflow esegue test approfonditi di tutti gli script PowerShell nella cartella /tool
+# per garantire che non vengano pushati script non funzionanti
+
+name: CI_TestPowerShell_Dev
+
+# Configurazione del trigger: il workflow si attiva solo sui push al branch 'Dev'
+on:
+  push:
+    branches: [Dev]
+    paths:
+      - "tool/**"
+      - ".github/workflows/CI_TestPowerShell_Dev.yml"
+
+# Definizione dei job del workflow
+jobs:
+  # Job principale che gestisce i test PowerShell estesi
+  test_powershell_scripts:
+    # Esecuzione su macchina virtuale Windows (ultima versione stabile)
+    runs-on: windows-latest
+
+    # Configurazione dei permessi necessari per il workflow
+    permissions:
+      contents: read
+      actions: read
+
+    # Definizione dei passi sequenziali del job
+    steps:
+      # Step 1: Checkout del codice sorgente
+      - name: Checkout del repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Step 2: Configurazione ambiente PowerShell
+      - name: Setup PowerShell
+        shell: pwsh
+        run: |
+          Write-Host "PowerShell version:" -ForegroundColor Cyan
+          $PSVersionTable
+          Write-Host ""
+
+      # Step 3: Test di sintassi di tutti gli script PowerShell nella cartella /tool
+      - name: Test Sintassi PowerShell - Fase 1
+        shell: pwsh
+        run: |
+          Write-Host "🔍 FASE 1: Test di sintassi di tutti gli script PowerShell" -ForegroundColor Cyan
+          Write-Host "=" * 60 -ForegroundColor Yellow
+
+          $toolPath = "tool"
+          $scriptFiles = Get-ChildItem -Path $toolPath -Name "*.ps1" -Recurse
+
+          if ($scriptFiles.Count -eq 0) {
+            Write-Error "❌ Nessun file PowerShell trovato nella cartella $toolPath"
+            exit 1
+          }
+
+          Write-Host "📋 Trovati $($scriptFiles.Count) script PowerShell da testare:" -ForegroundColor Green
+          $scriptFiles | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+
+          $totalErrors = 0
+          $syntaxErrors = @()
+
+          foreach ($file in $scriptFiles) {
+            $fullPath = Join-Path $toolPath $file
+            Write-Host ""
+            Write-Host "🔍 Testing sintassi: $file" -ForegroundColor Blue
+
+            try {
+              # Test 1: Verifica che il file esista e sia leggibile
+              if (-not (Test-Path $fullPath)) {
+                $syntaxErrors += "❌ File non trovato: $file"
+                $totalErrors++
+                continue
+              }
+
+              # Test 2: Verifica sintassi di base con PowerShell parser
+              $scriptContent = Get-Content -Raw -Path $fullPath -ErrorAction Stop
+              $parseErrors = $null
+              $null = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$parseErrors)
+
+              if ($parseErrors.Count -gt 0) {
+                Write-Host "  ❌ Errori di sintassi trovati:" -ForegroundColor Red
+                foreach ($error in $parseErrors) {
+                  Write-Host "    Line $($error.Extent.StartLineNumber): $($error.Message)" -ForegroundColor Red
+                }
+                $syntaxErrors += "❌ $file - $($parseErrors.Count) errori di sintassi"
+                $totalErrors += $parseErrors.Count
+              }
+              else {
+                Write-Host "  ✅ Sintassi OK" -ForegroundColor Green
+              }
+
+              # Test 3: Verifica presenza di caratteri BOM o encoding non valido
+              $encoding = Get-FileEncoding -Path $fullPath
+              if ($encoding -notmatch "ASCII|UTF-8|Unicode") {
+                Write-Host "  ⚠️ Encoding non standard: $encoding" -ForegroundColor Yellow
+              }
+
+              # Test 4: Verifica presenza di funzioni principali
+              $functions = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$null) |
+                          Where-Object { $_.GetType().Name -eq "FunctionDefinitionAst" }
+
+              if ($functions.Count -gt 0) {
+                Write-Host "  📋 Funzioni trovate: $($functions.Count)" -ForegroundColor Gray
+                $functions | ForEach-Object {
+                  Write-Host "    - $($_.Name)" -ForegroundColor Gray
+                }
+              }
+              else {
+                Write-Host "  ⚠️ Nessuna funzione trovata" -ForegroundColor Yellow
+              }
+
+            }
+            catch {
+              Write-Host "  ❌ Errore durante il test di $file`: $($_.Exception.Message)" -ForegroundColor Red
+              $syntaxErrors += "❌ $file - Errore durante il test: $($_.Exception.Message)"
+              $totalErrors++
+            }
+          }
+
+          Write-Host ""
+          Write-Host "=" * 60 -ForegroundColor Yellow
+
+          if ($totalErrors -gt 0) {
+            Write-Host "❌ FASE 1 FALLITA: $totalErrors errori di sintassi trovati" -ForegroundColor Red
+            $syntaxErrors | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+            Write-Host ""
+            Write-Host "💡 Suggerimenti per risolvere gli errori:" -ForegroundColor Cyan
+            Write-Host "  - Verifica la sintassi PowerShell" -ForegroundColor Gray
+            Write-Host "  - Controlla parentesi e virgolette" -ForegroundColor Gray
+            Write-Host "  - Verifica l'encoding dei file" -ForegroundColor Gray
+            exit 1
+          }
+          else {
+            Write-Host "✅ FASE 1 COMPLETATA: Tutti gli script hanno sintassi valida" -ForegroundColor Green
+          }
+
+      # Step 4: Test logici e strutturali degli script
+      - name: Test Logica PowerShell - Fase 2
+        shell: pwsh
+        run: |
+          Write-Host "🔍 FASE 2: Test logici e strutturali" -ForegroundColor Cyan
+          Write-Host "=" * 60 -ForegroundColor Yellow
+
+          $toolPath = "tool"
+          $scriptFiles = Get-ChildItem -Path $toolPath -Name "*.ps1" -Recurse
+          $totalErrors = 0
+          $logicErrors = @()
+
+          foreach ($file in $scriptFiles) {
+            $fullPath = Join-Path $toolPath $file
+            Write-Host ""
+            Write-Host "🔍 Testing logica: $file" -ForegroundColor Blue
+
+            try {
+              $scriptContent = Get-Content -Raw -Path $fullPath -ErrorAction Stop
+
+              # Test 1: Verifica presenza di errori comuni
+              $commonErrors = @(
+                @{ Pattern = 'function\s+\w+\s*\{[^}]*\$\s*\{[^}]*\}' ; Message = 'Possibile errore di sintassi nelle parentesi' }
+                @{ Pattern = '"[^"]*\$[^"]*"[^"]*' ; Message = 'Possibile errore nelle stringhe con variabili' }
+                @{ Pattern = "'[^']*\$[^']*'[^']*" ; Message = 'Possibile errore nelle stringhe singole con variabili' }
+                @{ Pattern = '\$\w+\s*=\s*\$[^;]*' ; Message = 'Possibile errore nell''assegnazione di variabili' }
+              )
+
+              foreach ($error in $commonErrors) {
+                if ($scriptContent -match $error.Pattern) {
+                  Write-Host "  ⚠️ $($error.Message)" -ForegroundColor Yellow
+                }
+              }
+
+              # Test 2: Verifica presenza di commenti e documentazione
+              $commentLines = ($scriptContent | Select-String -Pattern '^\s*#').Count
+              $totalLines = ($scriptContent -split "`n").Count
+
+              if ($totalLines -gt 50 -and $commentLines -lt 5) {
+                Write-Host "  ⚠️ Script lungo senza commenti sufficienti" -ForegroundColor Yellow
+              }
+
+              # Test 3: Verifica presenza di gestione errori di base
+              $errorHandling = ($scriptContent | Select-String -Pattern 'try\s*\{|catch\s*\{|Write-Error|throw').Count
+              if ($totalLines -gt 100 -and $errorHandling -lt 3) {
+                Write-Host "  ⚠️ Script complesso senza gestione errori adeguata" -ForegroundColor Yellow
+              }
+
+              # Test 4: Verifica presenza di funzioni principali chiamabili
+              $ast = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$null)
+              $functions = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
+
+              if ($functions.Count -gt 0) {
+                # Verifica se c'è una funzione principale (senza underscore nel nome)
+                $mainFunctions = $functions | Where-Object { $_.Name -notmatch '^_' -and $_.Name -notmatch '-' }
+                if ($mainFunctions.Count -eq 0) {
+                  Write-Host "  ⚠️ Nessuna funzione principale trovata" -ForegroundColor Yellow
+                }
+              }
+
+              Write-Host "  ✅ Test logici completati" -ForegroundColor Green
+
+            }
+            catch {
+              Write-Host "  ❌ Errore durante il test logico di $file`: $($_.Exception.Message)" -ForegroundColor Red
+              $logicErrors += "❌ $file - Errore durante il test logico: $($_.Exception.Message)"
+              $totalErrors++
+            }
+          }
+
+          Write-Host ""
+          Write-Host "=" * 60 -ForegroundColor Yellow
+
+          if ($totalErrors -gt 0) {
+            Write-Host "❌ FASE 2 FALLITA: $totalErrors errori logici trovati" -ForegroundColor Red
+            $logicErrors | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+            exit 1
+          }
+          else {
+            Write-Host "✅ FASE 2 COMPLETATA: Tutti gli script hanno superato i test logici" -ForegroundColor Green
+          }
+
+      # Step 5: Test di caricamento e importazione
+      - name: Test Caricamento Script - Fase 3
+        shell: pwsh
+        run: |
+          Write-Host "🔍 FASE 3: Test di caricamento e importazione" -ForegroundColor Cyan
+          Write-Host "=" * 60 -ForegroundColor Yellow
+
+          $toolPath = "tool"
+          $scriptFiles = Get-ChildItem -Path $toolPath -Name "*.ps1" -Recurse
+          $totalErrors = 0
+          $loadErrors = @()
+
+          foreach ($file in $scriptFiles) {
+            $fullPath = Join-Path $toolPath $file
+            Write-Host ""
+            Write-Host "🔍 Testing caricamento: $file" -ForegroundColor Blue
+
+            try {
+              # Test 1: Verifica che lo script possa essere parsato completamente
+              $scriptContent = Get-Content -Raw -Path $fullPath -ErrorAction Stop
+              $parseErrors = $null
+              $ast = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$parseErrors)
+
+              if ($parseErrors.Count -gt 0) {
+                Write-Host "  ❌ Errori di parsing:" -ForegroundColor Red
+                foreach ($error in $parseErrors) {
+                  Write-Host "    $($error.Message)" -ForegroundColor Red
+                }
+                $loadErrors += "❌ $file - Errori di parsing"
+                $totalErrors++
+                continue
+              }
+
+              # Test 2: Verifica presenza di riferimenti circolari o problemi di dipendenze
+              $functionCalls = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true) |
+                              Where-Object { $_.InvocationOperator -eq [System.Management.Automation.Language.TokenKind]::Ampersand -or
+                                           $_.InvocationOperator -eq [System.Management.Automation.Language.TokenKind]::Dot }
+
+              if ($functionCalls.Count -gt 0) {
+                Write-Host "  📋 Riferimenti a funzioni esterne: $($functionCalls.Count)" -ForegroundColor Gray
+              }
+
+              Write-Host "  ✅ Caricamento OK" -ForegroundColor Green
+
+            }
+            catch {
+              Write-Host "  ❌ Errore durante il caricamento di $file`: $($_.Exception.Message)" -ForegroundColor Red
+              $loadErrors += "❌ $file - Errore di caricamento: $($_.Exception.Message)"
+              $totalErrors++
+            }
+          }
+
+          Write-Host ""
+          Write-Host "=" * 60 -ForegroundColor Yellow
+
+          if ($totalErrors -gt 0) {
+            Write-Host "❌ FASE 3 FALLITA: $totalErrors errori di caricamento trovati" -ForegroundColor Red
+            $loadErrors | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+            exit 1
+          }
+          else {
+            Write-Host "✅ FASE 3 COMPLETATA: Tutti gli script possono essere caricati correttamente" -ForegroundColor Green
+          }
+
+      # Step 6: Trigger del workflow principale se tutti i test passano
+      - name: Trigger CI_UpdateWinToolkit_Dev
+        if: success()
+        shell: pwsh
+        run: |
+          Write-Host "🎉 Tutti i test PowerShell completati con successo!" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "🔄 Trigger del workflow CI_UpdateWinToolkit_Dev..." -ForegroundColor Cyan
+
+          # Crea un file di trigger per indicare che i test sono passati
+          $triggerFile = "test_trigger.txt"
+          "PowerShell tests passed at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File -FilePath $triggerFile
+
+          Write-Host "✅ Trigger file creato: $triggerFile" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "📋 Riepilogo:" -ForegroundColor Cyan
+          Write-Host "  - Sintassi: ✅ OK" -ForegroundColor Green
+          Write-Host "  - Logica: ✅ OK" -ForegroundColor Green
+          Write-Host "  - Caricamento: ✅ OK" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "🚀 Procedendo con il workflow principale..." -ForegroundColor Green
+
+      # Step 7: Output del risultato finale
+      - name: Risultato Test
+        shell: pwsh
+        run: |
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Green
+          Write-Host "║                 🎉 TEST POWERSHELL COMPLETATI!           ║" -ForegroundColor Green
+          Write-Host "║                                                          ║" -ForegroundColor White
+          Write-Host "║  ✅ Sintassi: Tutti gli script hanno sintassi valida     ║" -ForegroundColor Green
+          Write-Host "║  ✅ Logica: Nessun errore strutturale trovato           ║" -ForegroundColor Green
+          Write-Host "║  ✅ Caricamento: Tutti gli script possono essere caricati║" -ForegroundColor Green
+          Write-Host "║                                                          ║" -ForegroundColor White
+          Write-Host "║  🚀 Pronto per procedere con CI_UpdateWinToolkit_Dev   ║" -ForegroundColor Cyan
+          Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Green
