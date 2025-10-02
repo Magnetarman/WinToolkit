@@ -219,7 +219,7 @@ jobs:
             # Test 3: Struttura del menu
             Write-Host "🔍 Test 3: Verifica struttura menu..." -ForegroundColor Blue
             $menuTests = @(
-              @{ Pattern = "while.*true"; Name = "Menu principale" },
+              @{ Pattern = "while \(\$true\)"; Name = "Menu principale" },
               @{ Pattern = "Operazioni Preliminari"; Name = "Categoria Operazioni Preliminari" },
               @{ Pattern = "Windows & Office"; Name = "Categoria Windows & Office" },
               @{ Pattern = "Driver & Gaming"; Name = "Categoria Driver & Gaming" },
