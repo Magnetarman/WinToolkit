@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 20) - 2025-10-02
+  Versione 2.2.2 (Build 21) - 2025-10-02
 #>
 
 function Center-text {
@@ -55,11 +55,26 @@ function Install-Git {
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
         Write-StyledMessage -type 'Info' -text "Installazione di Git tramite winget..."
         try {
-            winget install Git.Git --accept-source-agreements --accept-package-agreements --silent
-            return $LASTEXITCODE -eq 0
+            winget install Git.Git --accept-source-agreements --accept-package-agreements --silent 2>$null
+            $success = $LASTEXITCODE -eq 0
+
+            # Verifica se Git è stato effettivamente installato anche se winget ha restituito errore
+            Start-Sleep -Seconds 2
+            if (Get-Command "git" -ErrorAction SilentlyContinue) {
+                Write-StyledMessage -type 'Success' -text "Git installato con successo tramite winget (verifica completata)."
+                return $true
+            }
+
+            if ($success) {
+                Write-StyledMessage -type 'Success' -text "Git installato con successo tramite winget."
+                return $true
+            }
+            else {
+                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $LASTEXITCODE. Tentativo installazione diretta..."
+            }
         }
         catch {
-            Write-StyledMessage -type 'Warning' -text "Errore con winget: $($_.Exception.Message). Tentativo di installazione diretta..."
+            Write-StyledMessage -type 'Warning' -text "Errore con winget: $($_.Exception.Message). Tentativo installazione diretta..."
         }
     }
     else {
@@ -104,13 +119,27 @@ function Install-PowerShell7 {
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
         Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 tramite winget..."
         try {
-            winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements --silent
-            if ($LASTEXITCODE -eq 0) {
+            winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements --silent 2>$null
+            $success = $LASTEXITCODE -eq 0
+
+            # Verifica se PowerShell 7 è stato effettivamente installato anche se winget ha restituito errore
+            Start-Sleep -Seconds 2
+            if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
+                Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo tramite winget (verifica completata)."
+                return $true
+            }
+
+            if ($success) {
                 Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo tramite winget."
                 return $true
             }
+            else {
+                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $LASTEXITCODE. Tentativo installazione diretta..."
+            }
         }
-        catch {}
+        catch {
+            Write-StyledMessage -type 'Warning' -text "Errore con winget: $($_.Exception.Message). Tentativo installazione diretta..."
+        }
     }
 
     try {
@@ -162,13 +191,25 @@ function Install-WindowsTerminal {
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
         Write-StyledMessage -type 'Info' -text "Installazione tramite winget..."
         try {
-            winget install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent
-            if ($LASTEXITCODE -eq 0) {
+            winget install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent 2>$null
+            $success = $LASTEXITCODE -eq 0
+
+            # Verifica se Windows Terminal è stato effettivamente installato anche se winget ha restituito errore
+            Start-Sleep -Seconds 2
+            if (Get-Command "wt" -ErrorAction SilentlyContinue) {
+                Write-StyledMessage -type 'Success' -text "Windows Terminal installato tramite winget (verifica completata)."
+                return
+            }
+
+            if ($success) {
                 Write-StyledMessage -type 'Success' -text "Windows Terminal installato tramite winget."
+            }
+            else {
+                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $LASTEXITCODE. Tentativo download diretto..."
             }
         }
         catch {
-            Write-StyledMessage -type 'Warning' -text "Installazione winget fallita: $($_.Exception.Message)"
+            Write-StyledMessage -type 'Warning' -text "Installazione winget fallita: $($_.Exception.Message). Tentativo download diretto..."
         }
     }
 
@@ -338,7 +379,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 20)'
+        '        Version 2.2.2 (Build 21)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
