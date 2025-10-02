@@ -66,6 +66,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Correzioni
 
+- Correzione del blocco grafico del terminale per lo script `WinReinstallStore`.
+
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
