@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 18) - 2025-10-02
+  Versione 2.2.2 (Build 19) - 2025-10-02
 #>
 
 function Center-text {
@@ -49,10 +49,27 @@ function Install-WingetPackage {
     )
     try {
         winget install $PackageId --accept-source-agreements --accept-package-agreements --silent 2>$null
-        return $LASTEXITCODE -eq 0
+        $success = $LASTEXITCODE -eq 0
+        if (-not $success) {
+            Write-StyledMessage -type 'Warning' -text "winget fallito per $Name (codice: $LASTEXITCODE). Tentativo alternativo..."
+        }
+        return $success
     }
     catch {
-        Write-StyledMessage -type 'Warning' -text "Errore con winget per $Name. Tentativo alternativo..."
+        $isAccessDenied = $_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato|UnauthorizedAccess"
+        $isAdministrator = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+        if ($isAccessDenied -and -not $isAdministrator) {
+            Write-StyledMessage -type 'Error' -text "Permessi insufficienti per $Name. Riavvio come amministratore richiesto."
+            Restart-WithAdministratorPrivileges
+            return $false
+        }
+        elseif ($isAccessDenied -and $isAdministrator) {
+            Write-StyledMessage -type 'Info' -text "Winget richiede privilegi speciali anche come amministratore. Tentativo alternativo..."
+        }
+        else {
+            Write-StyledMessage -type 'Warning' -text "Errore con winget per $Name. Tentativo alternativo..."
+        }
         return $false
     }
 }
@@ -301,11 +318,29 @@ function Set-WindowsTerminalAsDefault {
                 Write-StyledMessage -type 'Success' -text "Configurato: $($reg.Desc)"
             }
             catch {
-                $msg = if ($_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato") {
-                    "Saltato $($reg.Desc) (permessi insufficienti)"
+                $isAccessDenied = $_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato"
+                $isUnauthorizedAccess = $_.Exception.Message -match "UnauthorizedAccess"
+
+                if ($isAccessDenied -or $isUnauthorizedAccess) {
+                    # Se siamo già amministratori e abbiamo errori HKCR, è normale su alcuni sistemi
+                    $isAdministrator = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+                    if ($isAdministrator -and $reg.Path.StartsWith("HKCR:")) {
+                        Write-StyledMessage -type 'Info' -text "Saltato $($reg.Desc) - Normale con privilegi amministrativi su alcuni sistemi"
+                    }
+                    elseif ($isAdministrator) {
+                        Write-StyledMessage -type 'Warning' -text "Saltato $($reg.Desc) - Potrebbe richiedere privilegi di sistema superiori"
+                    }
+                    else {
+                        Write-StyledMessage -type 'Error' -text "Permessi insufficienti per $($reg.Desc). Riavvio come amministratore richiesto."
+                        Restart-WithAdministratorPrivileges
+                        return $false
+                    }
                 }
-                else { "Errore $($reg.Desc): $($_.Exception.Message)" }
-                Write-StyledMessage -type 'Info' -text $msg
+                else {
+                    $msg = "Errore $($reg.Desc): $($_.Exception.Message)"
+                    Write-StyledMessage -type 'Warning' -text $msg
+                }
             }
         }
 
@@ -399,7 +434,7 @@ function Start-WinToolkit {
             "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
         }
         else {
-            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1))) $($argList -join ' ')"
+            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/start.ps1))) $($argList -join ' ')"
         }
         Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
         return
@@ -424,7 +459,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 18)'
+        '        Version 2.2.2 (Build 19)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
