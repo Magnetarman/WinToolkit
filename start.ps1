@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 29) - 2025-10-03
+  Versione 2.2.2 (Build 30) - 2025-10-03
 #>
 
 function Center-text {
@@ -526,10 +526,20 @@ function Install-PowerShell7 {
 
         # Usa un job per monitorare il processo con timeout
         $job = Start-Job -ScriptBlock {
-            param($installer, $args)
+            param($installerPath, $installerArgs)
             try {
-                Write-Verbose "Avvio processo msiexec.exe con argomenti: $args"
-                $process = Start-Process "msiexec.exe" -ArgumentList $args -Wait -PassThru -ErrorAction Stop
+                Write-Verbose "Avvio processo msiexec.exe con argomenti: $installerArgs"
+                Write-Verbose "Installer path: $installerPath"
+
+                # Verifica finale che i parametri non siano null o vuoti
+                if ([string]::IsNullOrEmpty($installerArgs)) {
+                    throw "Argomenti di installazione nulli o vuoti"
+                }
+                if ([string]::IsNullOrEmpty($installerPath) -or -not (Test-Path $installerPath)) {
+                    throw "Percorso installer non valido: $installerPath"
+                }
+
+                $process = Start-Process "msiexec.exe" -ArgumentList $installerArgs -Wait -PassThru -ErrorAction Stop
                 return @{
                     ExitCode  = $process.ExitCode
                     ProcessId = $process.Id
@@ -849,7 +859,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 29)'
+        '        Version 2.2.2 (Build 30)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
