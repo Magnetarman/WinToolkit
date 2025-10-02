@@ -2,17 +2,28 @@ function WinUpdateReset {
     <#
     .SYNOPSIS
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI.
-    
+
     .DESCRIPTION
-        Questo script PowerShell è progettato per riparare i problemi comuni di Windows Update, 
-        inclusa la reinstallazione di componenti critici come SoftwareDistribution e catroot2. 
-        Utilizza un'interfaccia utente migliorata con barre di progresso, messaggi stilizzati e 
+        Questo script PowerShell è progettato per riparare i problemi comuni di Windows Update,
+        inclusa la reinstallazione di componenti critici come SoftwareDistribution e catroot2.
+        Utilizza un'interfaccia utente migliorata con barre di progresso, messaggi stilizzati e
         un conto alla rovescia per il riavvio del sistema che può essere interrotto premendo un tasto.
     #>
     param([int]$CountdownSeconds = 15)
 
     $Host.UI.RawUI.WindowTitle = "Update Reset Toolkit By MagnetarMan"
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+
+    # Setup logging specifico per WinUpdateReset
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinUpdateReset_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
@@ -421,7 +432,6 @@ function WinUpdateReset {
         
         if ($shouldReboot) {
             Write-StyledMessage Info "🔄 Riavvio in corso..."
-            try { Stop-Transcript | Out-Null } catch {}
             Restart-Computer -Force
         }
     }
@@ -434,6 +444,7 @@ function WinUpdateReset {
         Write-Host ('═' * 65) -ForegroundColor Red
         Write-StyledMessage Info '⌨️ Premere un tasto per uscire...'
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 

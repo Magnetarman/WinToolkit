@@ -13,6 +13,17 @@ function WinBackupDriver {
     param([int]$CountdownSeconds = 10)
 
     $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
+
+    # Setup logging specifico per WinBackupDriver
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinBackupDriver_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     # Configurazione
     $BackupDir = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
     $ZipName = "DriverBackup_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
@@ -380,6 +391,7 @@ function WinBackupDriver {
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
+        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 

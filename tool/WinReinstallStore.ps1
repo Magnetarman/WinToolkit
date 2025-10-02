@@ -2,14 +2,25 @@ function WinReinstallStore {
     <#
     .SYNOPSIS
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
-    
+
     .DESCRIPTION
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
     #>
-    
+
     param([int]$CountdownSeconds = 30)
-    
+
     $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
+
+    # Setup logging specifico per WinReinstallStore
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinReinstallStore_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     $MsgStyles = @{
         Success  = @{ Color = 'Green'; Icon = '✅' }
         Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
@@ -323,6 +334,7 @@ function WinReinstallStore {
         Show-Header
         Write-StyledMessage Error "❌ ERRORE: $($_.Exception.Message)"
         Write-StyledMessage Info "💡 Esegui come Admin, verifica Internet e Windows Update"
+        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 

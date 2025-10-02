@@ -2,17 +2,28 @@ function OfficeToolkit {
     <#
     .SYNOPSIS
         Strumento di gestione Microsoft Office (installazione, riparazione, rimozione)
-    
+
     .DESCRIPTION
         Script PowerShell per gestire Microsoft Office tramite interfaccia utente semplificata.
         Supporta installazione Office Basic, riparazione Click-to-Run e rimozione completa con SaRA.
     #>
-    
+
     param([int]$CountdownSeconds = 30)
 
     # Configurazione
     $TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
     $Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+
+    # Setup logging specifico per OfficeToolkit
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\OfficeToolkit_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
 
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
@@ -447,6 +458,7 @@ function OfficeToolkit {
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
         Write-StyledMessage Success "🎯 Office Toolkit terminato"
+        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 

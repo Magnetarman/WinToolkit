@@ -1,17 +1,17 @@
 function Restore-WebSearch {
     <#
-   .SYNOPSIS
-       Script per il ripristino della ricerca web su Windows 10/11.
+    .SYNOPSIS
+        Script per il ripristino della ricerca web su Windows 10/11.
 
-   .DESCRIPTION
-       Questo script esegue una serie di operazioni per ripristinare la funzionalità di ricerca web:
-       - Correzione chiavi di registro che bloccano la ricerca web
-       - Controllo del file hosts per eventuali blocchi di Bing o Microsoft
-       - Reset della cache DNS per eliminare eventuali blocchi
-       - Reinstallazione di Cortana/SearchUI
-       - Riavvio del servizio Windows Search
-       Al termine, mostra le istruzioni per riavviare manualmente il sistema.
-   #>
+    .DESCRIPTION
+        Questo script esegue una serie di operazioni per ripristinare la funzionalità di ricerca web:
+        - Correzione chiavi di registro che bloccano la ricerca web
+        - Controllo del file hosts per eventuali blocchi di Bing o Microsoft
+        - Reset della cache DNS per eliminare eventuali blocchi
+        - Reinstallazione di Cortana/SearchUI
+        - Riavvio del servizio Windows Search
+        Al termine, mostra le istruzioni per riavviare manualmente il sistema.
+    #>
 
     param([switch]$SkipConfirmation)
 
@@ -24,6 +24,14 @@ function Restore-WebSearch {
         Error   = @{ Color = 'Red'; Icon = '❌' }
         Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
+
+    # Setup logging specifico per SearchRepair
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    if (-not (Test-Path -Path $logdir)) {
+        New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+    }
+    Start-Transcript -Path "$logdir\SearchRepair_$dateTime.log" -Append -Force | Out-Null
 
     $SearchTasks = @(
         @{ Task = 'RegistryFix'; Name = 'Correzione chiavi registro'; Icon = '🔧' }

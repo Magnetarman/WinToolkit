@@ -2,7 +2,7 @@ function WinRepairToolkit {
     <#
     .SYNOPSIS
         Script per la riparazione del sistema Windows con strumenti integrati.
-    
+
     .DESCRIPTION
         Questo script esegue una serie di strumenti di riparazione di Windows (chkdsk, SFC, DISM) in sequenza,
         con monitoraggio del progresso, gestione degli errori e tentativi di riparazione multipli.
@@ -14,6 +14,17 @@ function WinRepairToolkit {
 
     $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
     $script:Log = @(); $script:CurrentAttempt = 0
+
+    # Setup logging specifico per WinRepairToolkit
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinRepairToolkit_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
@@ -292,6 +303,7 @@ function WinRepairToolkit {
     finally {
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
         Read-Host
+        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 

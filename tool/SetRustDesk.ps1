@@ -13,6 +13,17 @@ function SetRustDesk {
     # Inizializzazione
     $Host.UI.RawUI.WindowTitle = "RustDesk Setup Toolkit By MagnetarMan"
 
+    # Setup logging specifico per SetRustDesk
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\SetRustDesk_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
+
     # Configurazione globale
     $MsgStyles = @{
         Success  = @{ Color = 'Green'; Icon = '✅' }
@@ -257,6 +268,7 @@ function SetRustDesk {
     catch {
         Write-StyledMessage Error "ERRORE: $($_.Exception.Message)"
         Write-StyledMessage Info "💡 Verifica connessione Internet e riprova"
+        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 

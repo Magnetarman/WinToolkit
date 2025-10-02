@@ -10,6 +10,17 @@ function WinInstallPSProfile {
         Al termine dell'installazione, offre la possibilità di riavviare il sistema per applicare tutte le modifiche.
     #>
     $Host.UI.RawUI.WindowTitle = "InstallPSProfile by MagnetarMan"
+
+    # Setup logging specifico per WinInstallPSProfile
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinInstallPSProfile_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     Clear-Host
     $width = 65
     Write-Host ('═' * $width) -ForegroundColor Green
@@ -129,6 +140,7 @@ function WinInstallPSProfile {
         if (Test-Path "$env:TEMP\Microsoft.PowerShell_profile.ps1") {
             Remove-Item "$env:TEMP\Microsoft.PowerShell_profile.ps1" -Force -ErrorAction SilentlyContinue
         }
+        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 

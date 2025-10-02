@@ -29,6 +29,17 @@ function WinCleaner {
 
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
     $script:Log = @(); $script:CurrentAttempt = 0
+
+    # Setup logging specifico per WinCleaner
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinCleaner_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
@@ -1125,6 +1136,7 @@ function WinCleaner {
     finally {
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
         Read-Host
+        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 
