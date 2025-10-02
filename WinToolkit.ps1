@@ -134,6 +134,17 @@ function WinInstallPSProfile {
         Al termine dell'installazione, offre la possibilità di riavviare il sistema per applicare tutte le modifiche.
     #>
     $Host.UI.RawUI.WindowTitle = "InstallPSProfile by MagnetarMan"
+
+    # Setup logging specifico per WinInstallPSProfile
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinInstallPSProfile_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     Clear-Host
     $width = 65
     Write-Host ('═' * $width) -ForegroundColor Green
@@ -146,7 +157,7 @@ function WinInstallPSProfile {
         '         \_/\_/    |_||_| \_|',
         '',
         '   Install PSProfile By MagnetarMan',
-        '        Version 2.2 (Build 2)'
+        '        Version 2.2.2 (Build 3)'
     )
 
     foreach ($line in $asciiArt) {
@@ -216,12 +227,65 @@ function WinInstallPSProfile {
                 Write-StyledMessage 'Success' "Backup completato."
             }
 
-            Write-StyledMessage 'Info' "Installazione profilo e dipendenze (oh-my-posh, font, ecc.)..."
-            Start-Process -FilePath "pwsh" `
-                -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" `
-                -Wait
+            Write-StyledMessage 'Info' "Installazione dipendenze (oh-my-posh, zoxide, ecc.)..."
 
-            Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
+            # Install oh-my-posh
+            try {
+                Write-StyledMessage 'Info' "Installazione oh-my-posh..."
+                winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent
+                Write-StyledMessage 'Success' "oh-my-posh installato correttamente."
+            }
+            catch {
+                Write-StyledMessage 'Warning' "Installazione oh-my-posh fallita, tentativo alternativo..."
+                try {
+                    # Fallback: download and install manually
+                    $ohMyPoshUrl = "https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/oh-my-posh.zip"
+                    $zipPath = "$env:TEMP\oh-my-posh.zip"
+                    Invoke-WebRequest -Uri $ohMyPoshUrl -OutFile $zipPath
+                    Expand-Archive -Path $zipPath -DestinationPath "$env:LOCALAPPDATA\Microsoft\WindowsApps" -Force
+                    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+                    Write-StyledMessage 'Success' "oh-my-posh installato tramite download diretto."
+                }
+                catch {
+                    Write-StyledMessage 'Error' "Impossibile installare oh-my-posh: $($_.Exception.Message)"
+                }
+            }
+
+            # Install zoxide
+            try {
+                Write-StyledMessage 'Info' "Installazione zoxide..."
+                winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent
+                Write-StyledMessage 'Success' "zoxide installato correttamente."
+            }
+            catch {
+                Write-StyledMessage 'Warning' "Installazione zoxide fallita, tentativo tramite cargo..."
+                try {
+                    # Fallback: install via cargo if Rust is available
+                    if (Get-Command cargo -ErrorAction SilentlyContinue) {
+                        cargo install zoxide --locked
+                        Write-StyledMessage 'Success' "zoxide installato tramite cargo."
+                    }
+                    else {
+                        Write-StyledMessage 'Warning' "Cargo non disponibile. Installa manualmente zoxide da: https://github.com/ajeetdsouza/zoxide"
+                    }
+                }
+                catch {
+                    Write-StyledMessage 'Error' "Impossibile installare zoxide: $($_.Exception.Message)"
+                }
+            }
+
+            # Installazione profilo tramite script ChrisTitusTech
+            Write-StyledMessage 'Info' "Installazione profilo PowerShell..."
+            try {
+                Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1' -UseBasicParsing)
+                Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
+            }
+            catch {
+                Write-StyledMessage 'Warning' "Installazione profilo fallita, copia manuale del profilo..."
+                Copy-Item -Path $tempProfile -Destination $PROFILE -Force
+                Write-StyledMessage 'Success' "Profilo copiato manualmente."
+            }
+
             Write-StyledMessage 'Warning' "Riavvia PowerShell per applicare il nuovo profilo."
             Write-StyledMessage 'Info' "Per vedere tutte le modifiche (font, oh-my-posh, ecc.) è consigliato riavviare il sistema."
 
@@ -253,6 +317,7 @@ function WinInstallPSProfile {
         if (Test-Path "$env:TEMP\Microsoft.PowerShell_profile.ps1") {
             Remove-Item "$env:TEMP\Microsoft.PowerShell_profile.ps1" -Force -ErrorAction SilentlyContinue
         }
+        try { Stop-Transcript | Out-Null } catch {}
     }
 
 }
@@ -260,7 +325,7 @@ function WinRepairToolkit {
     <#
     .SYNOPSIS
         Script per la riparazione del sistema Windows con strumenti integrati.
-    
+
     .DESCRIPTION
         Questo script esegue una serie di strumenti di riparazione di Windows (chkdsk, SFC, DISM) in sequenza,
         con monitoraggio del progresso, gestione degli errori e tentativi di riparazione multipli.
@@ -272,6 +337,17 @@ function WinRepairToolkit {
 
     $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
     $script:Log = @(); $script:CurrentAttempt = 0
+
+    # Setup logging specifico per WinRepairToolkit
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinRepairToolkit_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
@@ -550,6 +626,7 @@ function WinRepairToolkit {
     finally {
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
         Read-Host
+        try { Stop-Transcript | Out-Null } catch {}
     }
 
 }
@@ -567,6 +644,17 @@ function SetRustDesk {
 
     # Inizializzazione
     $Host.UI.RawUI.WindowTitle = "RustDesk Setup Toolkit By MagnetarMan"
+
+    # Setup logging specifico per SetRustDesk
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\SetRustDesk_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
 
     # Configurazione globale
     $MsgStyles = @{
@@ -812,6 +900,7 @@ function SetRustDesk {
     catch {
         Write-StyledMessage Error "ERRORE: $($_.Exception.Message)"
         Write-StyledMessage Info "💡 Verifica connessione Internet e riprova"
+        try { Stop-Transcript | Out-Null } catch {}
     }
 
 }
@@ -819,17 +908,28 @@ function WinUpdateReset {
     <#
     .SYNOPSIS
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI.
-    
+
     .DESCRIPTION
-        Questo script PowerShell è progettato per riparare i problemi comuni di Windows Update, 
-        inclusa la reinstallazione di componenti critici come SoftwareDistribution e catroot2. 
-        Utilizza un'interfaccia utente migliorata con barre di progresso, messaggi stilizzati e 
+        Questo script PowerShell è progettato per riparare i problemi comuni di Windows Update,
+        inclusa la reinstallazione di componenti critici come SoftwareDistribution e catroot2.
+        Utilizza un'interfaccia utente migliorata con barre di progresso, messaggi stilizzati e
         un conto alla rovescia per il riavvio del sistema che può essere interrotto premendo un tasto.
     #>
     param([int]$CountdownSeconds = 15)
 
     $Host.UI.RawUI.WindowTitle = "Update Reset Toolkit By MagnetarMan"
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+
+    # Setup logging specifico per WinUpdateReset
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinUpdateReset_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
@@ -1238,7 +1338,6 @@ function WinUpdateReset {
         
         if ($shouldReboot) {
             Write-StyledMessage Info "🔄 Riavvio in corso..."
-            try { Stop-Transcript | Out-Null } catch {}
             Restart-Computer -Force
         }
     }
@@ -1251,6 +1350,7 @@ function WinUpdateReset {
         Write-Host ('═' * 65) -ForegroundColor Red
         Write-StyledMessage Info '⌨️ Premere un tasto per uscire...'
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        try { Stop-Transcript | Out-Null } catch {}
     }
 
 }
@@ -1258,14 +1358,25 @@ function WinReinstallStore {
     <#
     .SYNOPSIS
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
-    
+
     .DESCRIPTION
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
     #>
-    
+
     param([int]$CountdownSeconds = 30)
-    
+
     $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
+
+    # Setup logging specifico per WinReinstallStore
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinReinstallStore_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     $MsgStyles = @{
         Success  = @{ Color = 'Green'; Icon = '✅' }
         Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
@@ -1579,11 +1690,86 @@ function WinReinstallStore {
         Show-Header
         Write-StyledMessage Error "❌ ERRORE: $($_.Exception.Message)"
         Write-StyledMessage Info "💡 Esegui come Admin, verifica Internet e Windows Update"
+        try { Stop-Transcript | Out-Null } catch {}
     }
 
 }
 function WinDriverInstall {
-    Write-StyledMessage 'Warning' "Sviluppo funzione in corso"
+    <#
+    .SYNOPSIS
+        Toolkit Driver Grafici - Installazione e configurazione driver GPU.
+
+    .DESCRIPTION
+        Script per l'installazione e configurazione ottimale dei driver grafici:
+        - Rilevamento automatico GPU (NVIDIA, AMD, Intel)
+        - Download driver più recenti dal sito ufficiale
+        - Installazione pulita con pulizia precedente
+        - Configurazione ottimale per gaming e prestazioni
+        - Installazione software di controllo (GeForce Experience, AMD Software)
+    #>
+
+    param([int]$CountdownSeconds = 30)
+
+    $Host.UI.RawUI.WindowTitle = "Driver Install Toolkit By MagnetarMan"
+    $script:Log = @(); $script:CurrentAttempt = 0
+    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+    $MsgStyles = @{
+        Success = @{ Color = 'Green'; Icon = '✅' }
+        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
+    }
+
+    function Write-StyledMessage([string]$Type, [string]$Text) {
+        $style = $MsgStyles[$Type]
+        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    }
+
+    function Show-Header {
+        Clear-Host
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('=' * ($width - 1)) -ForegroundColor Green
+
+        $asciiArt = @(
+            '      __        __  _  _   _ ',
+            '      \\ \\      / / | || \\ | |',
+            '       \\ \\ /\\ / /  | ||  \\| |',
+            '        \\ V  V /   | || |\\  |',
+            '         \\_/\\_/    |_||_| \\_|',
+            '',
+            ' Driver Install Toolkit By MagnetarMan',
+            '       Version 2.3 (Build 1)'
+        )
+
+        foreach ($line in $asciiArt) {
+            if (-not [string]::IsNullOrEmpty($line)) {
+                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            }
+        }
+
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+        Write-Host ''
+    }
+
+    function Center-Text {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding + $Text)
+    }
+
+    Show-Header
+
+    Write-StyledMessage 'Info' 'Driver Install Toolkit - Funzione in sviluppo'
+    Write-StyledMessage 'Info' 'Questa funzione sarà implementata nella versione 2.3'
+    Write-Host ''
+    Write-StyledMessage 'Warning' 'Sviluppo funzione in corso'
+
     Write-Host "
 Premi un tasto per tornare al menu principale..."
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
@@ -1603,6 +1789,17 @@ function WinBackupDriver {
     param([int]$CountdownSeconds = 10)
 
     $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
+
+    # Setup logging specifico per WinBackupDriver
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinBackupDriver_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     # Configurazione
     $BackupDir = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
     $ZipName = "DriverBackup_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
@@ -1970,6 +2167,7 @@ function WinBackupDriver {
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
+        try { Stop-Transcript | Out-Null } catch {}
     }
 
 }
@@ -1977,17 +2175,28 @@ function OfficeToolkit {
     <#
     .SYNOPSIS
         Strumento di gestione Microsoft Office (installazione, riparazione, rimozione)
-    
+
     .DESCRIPTION
         Script PowerShell per gestire Microsoft Office tramite interfaccia utente semplificata.
         Supporta installazione Office Basic, riparazione Click-to-Run e rimozione completa con SaRA.
     #>
-    
+
     param([int]$CountdownSeconds = 30)
 
     # Configurazione
     $TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
     $Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+
+    # Setup logging specifico per OfficeToolkit
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\OfficeToolkit_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
 
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
@@ -2422,11 +2631,86 @@ function OfficeToolkit {
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
         Write-StyledMessage Success "🎯 Office Toolkit terminato"
+        try { Stop-Transcript | Out-Null } catch {}
     }
 
 }
 function GamingToolkit {
-    Write-StyledMessage 'Warning' "Sviluppo funzione in corso"
+    <#
+    .SYNOPSIS
+        Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
+
+    .DESCRIPTION
+        Script per ottimizzare le prestazioni del sistema per il gaming:
+        - Ottimizzazione servizi di sistema
+        - Configurazione alimentazione alta prestazione
+        - Disabilitazione notifiche durante il gaming
+        - Ottimizzazione rete per gaming online
+        - Configurazione priorità processi gaming
+    #>
+
+    param([int]$CountdownSeconds = 30)
+
+    $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
+    $script:Log = @(); $script:CurrentAttempt = 0
+    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+    $MsgStyles = @{
+        Success = @{ Color = 'Green'; Icon = '✅' }
+        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
+    }
+
+    function Write-StyledMessage([string]$Type, [string]$Text) {
+        $style = $MsgStyles[$Type]
+        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    }
+
+    function Show-Header {
+        Clear-Host
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('=' * ($width - 1)) -ForegroundColor Green
+
+        $asciiArt = @(
+            '      __        __  _  _   _ ',
+            '      \\ \\      / / | || \\ | |',
+            '       \\ \\ /\\ / /  | ||  \\| |',
+            '        \\ V  V /   | || |\\  |',
+            '         \\_/\\_/    |_||_| \\_|',
+            '',
+            '    Gaming Toolkit By MagnetarMan',
+            '       Version 2.2 (Build 1)'
+        )
+
+        foreach ($line in $asciiArt) {
+            if (-not [string]::IsNullOrEmpty($line)) {
+                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            }
+        }
+
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+        Write-Host ''
+    }
+
+    function Center-Text {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding + $Text)
+    }
+
+    Show-Header
+
+    Write-StyledMessage 'Info' 'Gaming Toolkit - Funzione in sviluppo'
+    Write-StyledMessage 'Info' 'Questa funzione sarà implementata nella versione 2.4'
+    Write-Host ''
+    Write-StyledMessage 'Warning' 'Sviluppo funzione in corso'
+
     Write-Host "
 Premi un tasto per tornare al menu principale..."
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
@@ -2462,6 +2746,17 @@ function WinCleaner {
 
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
     $script:Log = @(); $script:CurrentAttempt = 0
+
+    # Setup logging specifico per WinCleaner
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\WinCleaner_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
@@ -3558,6 +3853,7 @@ function WinCleaner {
     finally {
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
         Read-Host
+        try { Stop-Transcript | Out-Null } catch {}
     }
 
 }
