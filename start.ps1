@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 24) - 2025-10-02
+  Versione 2.2.2 (Build 25) - 2025-10-02
 #>
 
 function Center-text {
@@ -175,6 +175,8 @@ try {
 function Install-Git {
     Write-StyledMessage -type 'Info' -text "Verifica installazione di Git..."
 
+    # Verifica se Git è già disponibile nel PATH aggiornato
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
     if (Get-Command "git" -ErrorAction SilentlyContinue) {
         Write-StyledMessage -type 'Success' -text "Git è già installato. Saltando l'installazione."
         return $true
@@ -182,57 +184,120 @@ function Install-Git {
 
     Write-StyledMessage -type 'Info' -text "Git non trovato. Tentativo di installazione..."
 
+    # Verifica se Winget è disponibile e funzionante
+    $wingetAvailable = $false
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -type 'Info' -text "Installazione di Git tramite winget..."
+        try {
+            $wingetTest = winget --version 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                $wingetAvailable = $true
+            }
+        }
+        catch {
+            $wingetAvailable = $false
+        }
+    }
+
+    if ($wingetAvailable) {
+        Write-StyledMessage -type 'Info' -text "Tentativo installazione Git tramite winget..."
         try {
             $wingetOutput = winget install Git.Git --accept-source-agreements --accept-package-agreements --silent 2>&1
             $exitCode = $LASTEXITCODE
 
-            # Verifica se Git è stato effettivamente installato
-            Start-Sleep -Seconds 3
+            # Verifica se l'installazione ha avuto successo
+            Start-Sleep -Seconds 5
             $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-            
+
             if (Get-Command "git" -ErrorAction SilentlyContinue) {
                 Write-StyledMessage -type 'Success' -text "Git installato con successo tramite winget."
                 return $true
             }
 
-            if ($exitCode -eq 0) {
-                Write-StyledMessage -type 'Success' -text "Git installato con successo tramite winget."
-                return $true
+            # Se winget restituisce errore, passa all'installazione diretta
+            if ($exitCode -ne 0) {
+                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $exitCode. Tentativo installazione diretta..."
             }
             else {
-                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $exitCode. Tentativo installazione diretta..."
+                Write-StyledMessage -type 'Warning' -text "winget completato ma Git non trovato. Tentativo installazione diretta..."
             }
         }
         catch {
-            Write-StyledMessage -type 'Warning' -text "Errore con winget: $($_.Exception.Message). Tentativo installazione diretta..."
+            Write-StyledMessage -type 'Warning' -text "Errore durante l'esecuzione di winget: $($_.Exception.Message). Tentativo installazione diretta..."
         }
     }
     else {
-        Write-StyledMessage -type 'Warning' -text "winget non disponibile. Procedendo con installazione diretta..."
+        Write-StyledMessage -type 'Warning' -text "winget non disponibile o non funzionante. Procedendo con installazione diretta..."
     }
+
+    # Installazione diretta da GitHub
+    Write-StyledMessage -type 'Info' -text "Avvio installazione diretta di Git..."
 
     try {
         $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.1/Git-2.51.0-64-bit.exe"
         $gitInstaller = "$env:TEMP\Git-2.51.0-64-bit.exe"
+
         Write-StyledMessage -type 'Info' -text "Download di Git da GitHub..."
-        Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
-        
+
+        # Verifica se il file esiste già e rimuovilo
+        if (Test-Path $gitInstaller) {
+            Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+        }
+
+        # Download con timeout e retry
+        $downloadSuccess = $false
+        $maxRetries = 3
+        for ($i = 1; $i -le $maxRetries; $i++) {
+            try {
+                Write-StyledMessage -type 'Info' -text "Tentativo di download $i di $maxRetries..."
+                Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing -TimeoutSec 60
+                $downloadSuccess = $true
+                break
+            }
+            catch {
+                Write-StyledMessage -type 'Warning' -text "Tentativo $i fallito: $($_.Exception.Message)"
+                if ($i -lt $maxRetries) {
+                    Start-Sleep -Seconds 2
+                }
+            }
+        }
+
+        if (-not $downloadSuccess) {
+            Write-StyledMessage -type 'Error' -text "Impossibile scaricare Git dopo $maxRetries tentativi."
+            return $false
+        }
+
+        # Verifica che il file sia stato scaricato correttamente
+        if (-not (Test-Path $gitInstaller)) {
+            Write-StyledMessage -type 'Error' -text "File installer non trovato dopo il download."
+            return $false
+        }
+
         Write-StyledMessage -type 'Info' -text "Installazione di Git in corso..."
-        $installArgs = "/SILENT /NORESTART"
+        $installArgs = "/SILENT /NORESTART /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS"
         $process = Start-Process $gitInstaller -ArgumentList $installArgs -Wait -PassThru
-        
+
         if ($process.ExitCode -eq 0) {
             Write-StyledMessage -type 'Success' -text "Git installato con successo."
+
+            # Pulizia file temporaneo
             Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
-            
+
             # Aggiorna il PATH della sessione corrente
             $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-            return $true
+
+            # Verifica finale
+            if (Get-Command "git" -ErrorAction SilentlyContinue) {
+                Write-StyledMessage -type 'Success' -text "Git è ora disponibile nel PATH."
+                return $true
+            }
+            else {
+                Write-StyledMessage -type 'Warning' -text "Installazione completata ma Git non trovato nel PATH. Potrebbe essere necessario un riavvio."
+                return $true
+            }
         }
         else {
             Write-StyledMessage -type 'Error' -text "Installazione di Git fallita. Codice di uscita: $($process.ExitCode)"
+            Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
             return $false
         }
     }
@@ -525,7 +590,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 24)'
+        '        Version 2.2.2 (Build 25)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
