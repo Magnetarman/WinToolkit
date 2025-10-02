@@ -346,19 +346,119 @@ function Install-PowerShell7 {
         $ps7Url = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/PowerShell-7.5.2-win-x64.msi"
         $ps7Installer = "$env:TEMP\PowerShell-7.5.2-win-x64.msi"
         Write-StyledMessage -type 'Info' -text "Download PowerShell 7 da GitHub..."
-        Invoke-WebRequest -Uri $ps7Url -OutFile $ps7Installer -UseBasicParsing
+        try {
+            Write-StyledMessage -type 'Info' -text "Download in corso con timeout di 5 minuti..."
+            Invoke-WebRequest -Uri $ps7Url -OutFile $ps7Installer -UseBasicParsing -TimeoutSec 300
+        }
+        catch {
+            Write-StyledMessage -type 'Error' -text "Errore durante il download di PowerShell 7: $($_.Exception.Message)"
+            if (Test-Path $ps7Installer) {
+                Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
+            }
+            return $false
+        }
+
+        # Verifica che il file sia stato scaricato correttamente
+        if (-not (Test-Path $ps7Installer)) {
+            Write-StyledMessage -type 'Error' -text "File installer non trovato dopo il download."
+            return $false
+        }
+
+        # Verifica dimensione del file (PowerShell 7 MSI dovrebbe essere > 100MB)
+        $fileSize = (Get-Item $ps7Installer).Length
+        if ($fileSize -lt 100MB) {
+            Write-StyledMessage -type 'Error' -text "File installer scaricato è troppo piccolo ($([math]::Round($fileSize/1MB, 2)) MB). Possibile download incompleto."
+            Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
+            return $false
+        }
+
+        Write-StyledMessage -type 'Success' -text "Download completato. Dimensione file: $([math]::Round($fileSize/1MB, 2)) MB"
+
+        # Verifica se ci sono processi msiexec in esecuzione che potrebbero interferire
+        $existingMsiExec = Get-Process -Name "msiexec" -ErrorAction SilentlyContinue
+        if ($existingMsiExec) {
+            Write-StyledMessage -type 'Warning' -text "Rilevati processi MSI esistenti in esecuzione. Possibile conflitto."
+        }
         
         Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 in corso..."
         $installArgs = "/i `"$ps7Installer`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
-        $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru
-        
-        if ($process.ExitCode -eq 0) {
-            Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo."
-            Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
-            return $true
+
+        # Usa un job per monitorare il processo con timeout
+        $job = Start-Job -ScriptBlock {
+            param($installer, $args)
+            $process = Start-Process "msiexec.exe" -ArgumentList $args -Wait -PassThru
+            return @{
+                ExitCode  = $process.ExitCode
+                ProcessId = $process.Id
+            }
+        } -ArgumentList $ps7Installer, $installArgs
+
+        # Attendere il completamento con timeout di 10 minuti (600 secondi)
+        $timeoutSeconds = 600
+        $jobResult = $null
+        $completed = $false
+
+        try {
+            Write-StyledMessage -type 'Info' -text "Monitoraggio installazione in corso (timeout: $timeoutSeconds secondi)..."
+            $jobResult = Wait-Job -Job $job -Timeout $timeoutSeconds
+            $completed = $true
+        }
+        catch {
+            Write-StyledMessage -type 'Warning' -text "Timeout raggiunto durante l'installazione. Possibile processo bloccato."
+            $completed = $false
+        }
+
+        if ($completed -and $jobResult.State -eq 'Completed') {
+            $result = Receive-Job -Job $job
+            if ($result.ExitCode -eq 0) {
+                Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo."
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+                Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
+                return $true
+            }
+            else {
+                Write-StyledMessage -type 'Error' -text "Installazione PowerShell 7 fallita. Codice di uscita: $($result.ExitCode)"
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+                return $false
+            }
         }
         else {
-            Write-StyledMessage -type 'Error' -text "Installazione PowerShell 7 fallita. Codice di uscita: $($process.ExitCode)"
+            # Timeout o errore - termina il processo se ancora in esecuzione
+            Write-StyledMessage -type 'Warning' -text "Tentativo di terminazione processo di installazione..."
+            try {
+                $runningProcess = Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*PowerShell-7*" }
+                if ($runningProcess) {
+                    Stop-Process -Id $runningProcess.Id -Force -ErrorAction SilentlyContinue
+                    Write-StyledMessage -type 'Info' -text "Processo msiexec terminato forzatamente."
+                }
+            }
+            catch {
+                Write-StyledMessage -type 'Warning' -text "Impossibile terminare il processo: $($_.Exception.Message)"
+            }
+
+            # Cleanup del job
+            try {
+                if ($job) {
+                    Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+                }
+            }
+            catch {
+                Write-StyledMessage -type 'Warning' -text "Errore durante la pulizia del job: $($_.Exception.Message)"
+            }
+
+            # Cleanup del file installer
+            if (Test-Path $ps7Installer) {
+                Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
+            }
+
+            # Verifica se PowerShell 7 è stato installato nonostante il timeout
+            Start-Sleep -Seconds 5
+            if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
+                Write-StyledMessage -type 'Success' -text "PowerShell 7 è stato installato nonostante il timeout. Possibile completamento ritardato."
+                return $true
+            }
+
+            Write-StyledMessage -type 'Error' -text "Installazione PowerShell 7 interrotta per timeout o errore."
             return $false
         }
     }
