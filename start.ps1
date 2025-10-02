@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 26) - 2025-10-02
+  Versione 2.2.2 (Build 27) - 2025-10-03
 #>
 
 function Center-text {
@@ -346,15 +346,79 @@ function Install-PowerShell7 {
         $ps7Url = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/PowerShell-7.5.2-win-x64.msi"
         $ps7Installer = "$env:TEMP\PowerShell-7.5.2-win-x64.msi"
         Write-StyledMessage -type 'Info' -text "Download PowerShell 7 da GitHub..."
-        try {
-            Write-StyledMessage -type 'Info' -text "Download in corso con timeout di 5 minuti..."
-            Invoke-WebRequest -Uri $ps7Url -OutFile $ps7Installer -UseBasicParsing -TimeoutSec 300
-        }
-        catch {
-            Write-StyledMessage -type 'Error' -text "Errore durante il download di PowerShell 7: $($_.Exception.Message)"
-            if (Test-Path $ps7Installer) {
-                Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
+        # Funzione per download ottimizzato con retry e metodi multipli
+        function Invoke-OptimizedDownload {
+            param(
+                [string]$Url,
+                [string]$OutputPath,
+                [int]$MaxRetries = 3
+            )
+
+            $methods = @("BITS", "WebClient", "Curl", "Invoke-WebRequest")
+            $lastError = $null
+
+            foreach ($method in $methods) {
+                for ($retry = 1; $retry -le $MaxRetries; $retry++) {
+                    try {
+                        Write-StyledMessage -type 'Info' -text "Download tentativo $retry/3 con metodo: $method"
+
+                        switch ($method) {
+                            "BITS" {
+                                if (Get-Command "Start-BitsTransfer" -ErrorAction SilentlyContinue) {
+                                    $bitsJob = Start-BitsTransfer -Source $Url -Destination $OutputPath -Asynchronous -ErrorAction Stop
+                                    while ($bitsJob.JobState -eq "Transferring") {
+                                        Start-Sleep -Seconds 1
+                                        $progress = [math]::Round((($bitsJob.BytesTransferred / $bitsJob.BytesTotal) * 100), 1)
+                                        Write-Progress -Activity "Download PowerShell 7" -Status "$progress% completato" -PercentComplete $progress
+                                    }
+                                    Complete-BitsTransfer -BitsJob $bitsJob -ErrorAction Stop
+                                    Write-Progress -Activity "Download PowerShell 7" -Completed
+                                    return $true
+                                }
+                            }
+                            "WebClient" {
+                                $webClient = New-Object System.Net.WebClient
+                                $webClient.DownloadFile($Url, $OutputPath)
+                                return $true
+                            }
+                            "Curl" {
+                                if (Get-Command "curl.exe" -ErrorAction SilentlyContinue) {
+                                    curl.exe -L -o $OutputPath $Url --progress-bar -S
+                                    if ($LASTEXITCODE -eq 0) {
+                                        return $true
+                                    }
+                                }
+                            }
+                            "Invoke-WebRequest" {
+                                Invoke-WebRequest -Uri $Url -OutFile $OutputPath -UseBasicParsing -TimeoutSec 600 -ErrorAction Stop
+                                return $true
+                            }
+                        }
+                    }
+                    catch {
+                        $lastError = $_.Exception.Message
+                        Write-StyledMessage -type 'Warning' -text "Tentativo $retry fallito con $method`: $($_.Exception.Message)"
+
+                        # Rimuovi file parziale se esiste
+                        if (Test-Path $OutputPath) {
+                            Remove-Item $OutputPath -Force -ErrorAction SilentlyContinue
+                        }
+
+                        if ($retry -lt $MaxRetries) {
+                            $waitSeconds = [math]::Pow(2, $retry)  # Exponential backoff
+                            Write-StyledMessage -type 'Info' -text "Attesa $waitSeconds secondi prima del prossimo tentativo..."
+                            Start-Sleep -Seconds $waitSeconds
+                        }
+                    }
+                }
             }
+
+            Write-StyledMessage -type 'Error' -text "Tutti i tentativi di download sono falliti. Ultimo errore: $lastError"
+            return $false
+        }
+
+        # Esegui il download ottimizzato
+        if (-not (Invoke-OptimizedDownload -Url $ps7Url -OutputPath $ps7Installer)) {
             return $false
         }
 
@@ -377,7 +441,16 @@ function Install-PowerShell7 {
         # Verifica se ci sono processi msiexec in esecuzione che potrebbero interferire
         $existingMsiExec = Get-Process -Name "msiexec" -ErrorAction SilentlyContinue
         if ($existingMsiExec) {
-            Write-StyledMessage -type 'Warning' -text "Rilevati processi MSI esistenti in esecuzione. Possibile conflitto."
+            Write-StyledMessage -type 'Warning' -text "Rilevati $($existingMsiExec.Count) processi MSI esistenti in esecuzione. Possibile conflitto."
+        }
+
+        # Verifica connessione di rete
+        try {
+            $connectionTest = Test-Connection -ComputerName "github.com" -Count 1 -ErrorAction Stop
+            Write-StyledMessage -type 'Success' -text "Connessione di rete verificata. Latenza: $($connectionTest.ResponseTime)ms"
+        }
+        catch {
+            Write-StyledMessage -type 'Warning' -text "Possibili problemi di connessione di rete: $($_.Exception.Message)"
         }
         
         Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 in corso..."
@@ -690,7 +763,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 26)'
+        '        Version 2.2.2 (Build 27)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
