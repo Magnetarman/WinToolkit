@@ -49,7 +49,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 2)'
+            '       Version 2.2.2 (Build 4)'
         )
 
         foreach ($line in $asciiArt) {
@@ -298,20 +298,18 @@ function WinReinstallStore {
 
     try {
         $wingetResult = Install-WingetSilent
-        Clear-Terminal
-        Show-Header
-        Write-StyledMessage $(if ($wingetResult) { 'Success' }else { 'Warning' }) "$(if($wingetResult){'✅'}else{'⚠️'}) Winget $(if($wingetResult){'installato'}else{'processato'})"
+        Write-StyledMessage $(if ($wingetResult) { 'Success' }else { 'Warning' }) "Winget $(if($wingetResult){'installato'}else{'processato'})"
 
         $storeResult = Install-MicrosoftStoreSilent
         if (-not $storeResult) {
-            Write-StyledMessage Error "❌ Errore installazione Microsoft Store"
-            Write-StyledMessage Info "💡 Verifica: Internet, Admin, Windows Update"
+            Write-StyledMessage Error "Errore installazione Microsoft Store"
+            Write-StyledMessage Info "Verifica: Internet, Admin, Windows Update"
             return
         }
-        Write-StyledMessage Success "✅ Microsoft Store installato"
+        Write-StyledMessage Success "Microsoft Store installato"
 
         $unigetResult = Install-UniGetUISilent
-        Write-StyledMessage $(if ($unigetResult) { 'Success' }else { 'Warning' }) "$(if($unigetResult){'✅'}else{'⚠️'}) UniGet UI $(if($unigetResult){'installato'}else{'processato'})"
+        Write-StyledMessage $(if ($unigetResult) { 'Success' }else { 'Warning' }) "UniGet UI $(if($unigetResult){'installato'}else{'processato'})"
 
         Write-Host ""
         Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA"
