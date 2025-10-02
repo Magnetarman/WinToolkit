@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 23) - 2025-10-02
+  Versione 2.2.2 (Build 24) - 2025-10-02
 #>
 
 function Center-text {
@@ -40,10 +40,43 @@ function Write-StyledMessage {
     }
 }
 
+# Funzione per verificare se Winget è disponibile e funzionante
+function Test-WingetAvailable {
+    try {
+        $wingetTest = winget --version 2>$null
+        return $LASTEXITCODE -eq 0
+    }
+    catch {
+        return $false
+    }
+}
+
 # Funzione per reinstallare Winget silenziosamente
 function Install-WingetSilent {
-    Write-StyledMessage Progress "Reinstallazione Winget in corso..."
-    Stop-InterferingProcesses
+    Write-StyledMessage -type 'Info' -text "Verifica disponibilità Winget..."
+
+    # Prima verifica se Winget è già disponibile e funzionante
+    if (Test-WingetAvailable) {
+        Write-StyledMessage -type 'Success' -text "Winget è già disponibile e funzionante."
+        return $true
+    }
+
+    Write-StyledMessage -type 'Warning' -text "Winget non trovato o non funzionante. Tentativo di installazione/riparazione..."
+
+    # Verifica compatibilità Windows per Winget
+    $osInfo = [System.Environment]::OSVersion
+    $buildNumber = $osInfo.Version.Build
+
+    # Winget richiede Windows 10 1709+ o Windows 11
+    if ($osInfo.Version.Major -eq 10 -and $buildNumber -lt 16299) {
+        Write-StyledMessage -type 'Error' -text "Windows 10 build $buildNumber non supporta Winget. È richiesto Windows 10 1709 o successivo."
+        return $false
+    }
+
+    if ($osInfo.Version.Major -lt 10) {
+        Write-StyledMessage -type 'Error' -text "Winget non è supportato su Windows $($osInfo.Version.Major). È richiesto Windows 10 o successivo."
+        return $false
+    }
 
     $originalPos = [Console]::CursorTop
     try {
@@ -52,42 +85,85 @@ function Install-WingetSilent {
         $ProgressPreference = 'SilentlyContinue'
         $VerbosePreference = 'SilentlyContinue'
 
-        if ([System.Environment]::OSVersion.Version.Build -ge 26100) {
+        # Tentativo di riparazione per Windows 11 24H2+ (build 26100+)
+        if ($buildNumber -ge 26100) {
+            Write-StyledMessage -type 'Info' -text "Rilevato Windows 11 24H2+. Tentativo riparazione Winget..."
             try {
                 if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
                     $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
                     Start-Sleep 5
-                    if (Test-WingetAvailable) { return $true }
+                    if (Test-WingetAvailable) {
+                        Write-StyledMessage -type 'Success' -text "Winget riparato con successo su Windows 11 24H2+."
+                        return $true
+                    }
                 }
             }
-            catch {}
+            catch {
+                Write-StyledMessage -type 'Warning' -text "Riparazione automatica fallita. Procedendo con installazione completa..."
+            }
         }
 
+        # Installazione tramite Microsoft Store / App Installer (metodo universale)
+        Write-StyledMessage -type 'Info' -text "Download e installazione Winget in corso..."
         $url = "https://aka.ms/getwinget"
         $temp = "$env:TEMP\WingetInstaller.msixbundle"
-        if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
 
-        Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
+        # Rimuovi file esistente se presente
+        if (Test-Path $temp) {
+            Remove-Item $temp -Force *>$null
+        }
+
+        # Download del installer
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing -TimeoutSec 30 *>$null
+        }
+        catch {
+            Write-StyledMessage -type 'Error' -text "Errore durante il download di Winget: $($_.Exception.Message)"
+            return $false
+        }
+
+        # Installazione tramite PowerShell nascosto
+        $installScript = @"
+try {
+    Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop
+    exit 0
+} catch {
+    exit 1
+}
+"@
+
         $process = Start-Process powershell -ArgumentList @(
-            "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-            "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
+            "-NoProfile", "-WindowStyle", "Hidden", "-Command", $installScript
         ) -Wait -PassThru -WindowStyle Hidden
 
+        # Pulizia file temporaneo
         Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
 
-        # Reset cursore e flush output
-        [Console]::SetCursorPosition(0, $originalPos)
-        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-        Write-Host $clearLine -NoNewline
-        [Console]::Out.Flush()
-
-        Start-Sleep 5
-        return (Test-WingetAvailable)
+        # Verifica installazione
+        Start-Sleep 3
+        if (Test-WingetAvailable) {
+            Write-StyledMessage -type 'Success' -text "Winget installato con successo."
+            return $true
+        }
+        else {
+            Write-StyledMessage -type 'Error' -text "Installazione completata ma Winget non è disponibile. Codice uscita: $($process.ExitCode)"
+            return $false
+        }
     }
     catch {
+        Write-StyledMessage -type 'Error' -text "Errore durante l'installazione di Winget: $($_.Exception.Message)"
         return $false
     }
     finally {
+        # Reset cursore e preferenze
+        try {
+            [Console]::SetCursorPosition(0, $originalPos)
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
+        }
+        catch {}
+
         # Reset delle preferenze
         $ErrorActionPreference = 'Continue'
         $ProgressPreference = 'Continue'
@@ -449,7 +525,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 23)'
+        '        Version 2.2.2 (Build 24)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
