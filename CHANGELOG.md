@@ -67,6 +67,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Correzioni
 
 - Correzione del blocco grafico del terminale per lo script `WinReinstallStore.ps1`.
+- Correzione del blocco grafico del terminale per lo script `WinBackupDriver.ps1`.
 
 ### Modifiche
 

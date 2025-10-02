@@ -63,7 +63,7 @@ function WinBackupDriver {
             '         \_/\_/    |_||_| \_|',
             '',
             '   Driver Backup Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 5)'
+            '       Version 2.2.2 (Build 2)'
         )
 
         foreach ($line in $asciiArt) {
@@ -92,7 +92,26 @@ function WinBackupDriver {
             # Verifica se la cartella esiste già
             if (Test-Path $BackupDir) {
                 Write-StyledMessage Warning "Cartella backup esistente trovata, rimozione in corso..."
-                Remove-Item $BackupDir -Recurse -Force -ErrorAction Stop
+                
+                $originalPos = [Console]::CursorTop
+                # Soppressione completa dell'output
+                $ErrorActionPreference = 'SilentlyContinue'
+                $ProgressPreference = 'SilentlyContinue'
+                $VerbosePreference = 'SilentlyContinue'
+                
+                Remove-Item $BackupDir -Recurse -Force -ErrorAction SilentlyContinue *>$null
+                
+                # Reset cursore e flush output
+                [Console]::SetCursorPosition(0, $originalPos)
+                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                Write-Host $clearLine -NoNewline
+                [Console]::Out.Flush()
+                
+                # Reset delle preferenze
+                $ErrorActionPreference = 'Continue'
+                $ProgressPreference = 'Continue'
+                $VerbosePreference = 'SilentlyContinue'
+                
                 Start-Sleep 1
             }
 
@@ -337,7 +356,25 @@ function WinBackupDriver {
         # Pulizia cartella temporanea
         Write-StyledMessage Info "🧹 Pulizia cartella temporanea..."
         if (Test-Path $BackupDir) {
-            Remove-Item $BackupDir -Recurse -Force -ErrorAction SilentlyContinue
+            $originalPos = [Console]::CursorTop
+            
+            # Soppressione completa dell'output
+            $ErrorActionPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
+            $VerbosePreference = 'SilentlyContinue'
+            
+            Remove-Item $BackupDir -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            
+            # Reset cursore e flush output
+            [Console]::SetCursorPosition(0, $originalPos)
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
+            
+            # Reset delle preferenze
+            $ErrorActionPreference = 'Continue'
+            $ProgressPreference = 'Continue'
+            $VerbosePreference = 'SilentlyContinue'
         }
 
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
