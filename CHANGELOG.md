@@ -68,12 +68,13 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 - Correzione del blocco grafico del terminale per lo script `WinReinstallStore.ps1`.
 - Correzione del blocco grafico del terminale per lo script `WinBackupDriver.ps1`.
+- Correzione di alcuni problemi di affidabilità nello script `start.ps1`
 
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
 - Aggiornamento `CONTRIBUTORS.md`.
-- Migliorato Supporto script `start.ps1` su Windows 10. **[Tnks @sicolla]**
+- Migliorato Supporto script `start.ps1` per Windows 10. **[Tnks @sicolla]**
 - Migliorate Sezioni `WinToolkit-Template.ps1`.
 - Eliminata la pulizia forzata del terminale in `WinReinstallStore.ps1`.
 
