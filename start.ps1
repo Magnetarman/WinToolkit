@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Script di Start per Win Toolkit V2.
+    Script di Start per Win Toolkit.
 .DESCRIPTION
     Questo script funge da punto di ingresso per l'installazione e la configurazione di Win Toolkit V2.0.
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 16) - 2025-10-01
+  Versione 2.2.2 (Build 17) - 2025-10-02
 #>
 
 function Center-text {
