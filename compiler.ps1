@@ -67,6 +67,7 @@ Write-Host ""
 $processedCount = 0
 $skippedCount = 0
 $warningCount = 0
+$errorCount = 0
 
 # Ciclo principale: processa ogni file .ps1
 foreach ($file in $toolFiles) {
@@ -236,11 +237,48 @@ foreach ($file in $toolFiles) {
     }
     catch {
         Write-StyledMessage 'Error' "Errore durante il processamento di '$($file.Name)': $($_.Exception.Message)"
-        $skippedCount++
+        $errorCount++
     }
     
     Write-Host ""
 }
+
+# Mostra riepilogo finale
+Write-Host ""
+Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║                 📊 RIEPILOGO COMPILAZIONE               ║" -ForegroundColor Cyan
+Write-Host "║                                                          ║" -ForegroundColor White
+
+if ($processedCount -gt 0) {
+    Write-Host "║  ✅ Processati: $processedCount funzioni" -ForegroundColor Green
+}
+else {
+    Write-Host "║  ❌ Processati: $processedCount funzioni" -ForegroundColor Red
+}
+
+if ($skippedCount -gt 0) {
+    Write-Host "║  ⚠️  Saltati: $skippedCount funzioni (non presenti nel template)" -ForegroundColor Yellow
+}
+else {
+    Write-Host "║  ✅ Saltati: $skippedCount funzioni" -ForegroundColor Green
+}
+
+if ($warningCount -gt 0) {
+    Write-Host "║  ⚠️  Avvisi: $warningCount file vuoti" -ForegroundColor Yellow
+}
+else {
+    Write-Host "║  ✅ Avvisi: $warningCount file vuoti" -ForegroundColor Green
+}
+
+if ($errorCount -gt 0) {
+    Write-Host "║  ❌ Errori: $errorCount durante l'elaborazione" -ForegroundColor Red
+}
+else {
+    Write-Host "║  ✅ Errori: $errorCount durante l'elaborazione" -ForegroundColor Green
+}
+
+Write-Host "║                                                          ║" -ForegroundColor White
+Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 
 # Salva il file compilato
 Write-StyledMessage 'Info' "Salvataggio file compilato: WinToolkit.ps1"
@@ -249,12 +287,22 @@ try {
     if (Test-Path $outputFile) {
         Remove-Item $outputFile -Force
     }
-    
+
     # Salva il contenuto compilato
     $templateLines | Out-File -FilePath $outputFile -Encoding UTF8
-    
+
     Write-StyledMessage 'Success' "File WinToolkit.ps1 creato con successo!"
-    
+
+    # Esci con codice di errore solo se ci sono stati errori reali, non per funzioni saltate
+    if ($errorCount -gt 0) {
+        Write-StyledMessage 'Error' "Compilazione completata con errori"
+        exit 1
+    }
+    else {
+        Write-StyledMessage 'Success' "Compilazione completata con successo"
+        exit 0
+    }
+
 }
 catch {
     Write-StyledMessage 'Error' "Errore durante il salvataggio: $($_.Exception.Message)"
