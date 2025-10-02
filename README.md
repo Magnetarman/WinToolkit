@@ -142,7 +142,7 @@ Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
  irm https://magnetarman.com/winstart | iex
 ```
 
-6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
+6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
 
 ### ⚙️ Avvio Classico
 
