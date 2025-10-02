@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 22) - 2025-10-02
+  Versione 2.2.2 (Build 23) - 2025-10-02
 #>
 
 function Center-text {
@@ -37,6 +37,61 @@ function Write-StyledMessage {
         'Warning' { Write-Host $text -ForegroundColor Yellow }
         'Error' { Write-Host $text -ForegroundColor Red }
         'Success' { Write-Host $text -ForegroundColor Green }
+    }
+}
+
+# Funzione per reinstallare Winget silenziosamente
+function Install-WingetSilent {
+    Write-StyledMessage Progress "Reinstallazione Winget in corso..."
+    Stop-InterferingProcesses
+
+    $originalPos = [Console]::CursorTop
+    try {
+        # Soppressione completa dell'output
+        $ErrorActionPreference = 'SilentlyContinue'
+        $ProgressPreference = 'SilentlyContinue'
+        $VerbosePreference = 'SilentlyContinue'
+
+        if ([System.Environment]::OSVersion.Version.Build -ge 26100) {
+            try {
+                if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
+                    $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
+                    Start-Sleep 5
+                    if (Test-WingetAvailable) { return $true }
+                }
+            }
+            catch {}
+        }
+
+        $url = "https://aka.ms/getwinget"
+        $temp = "$env:TEMP\WingetInstaller.msixbundle"
+        if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
+
+        Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
+        $process = Start-Process powershell -ArgumentList @(
+            "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+            "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
+        ) -Wait -PassThru -WindowStyle Hidden
+
+        Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
+
+        # Reset cursore e flush output
+        [Console]::SetCursorPosition(0, $originalPos)
+        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+        Write-Host $clearLine -NoNewline
+        [Console]::Out.Flush()
+
+        Start-Sleep 5
+        return (Test-WingetAvailable)
+    }
+    catch {
+        return $false
+    }
+    finally {
+        # Reset delle preferenze
+        $ErrorActionPreference = 'Continue'
+        $ProgressPreference = 'Continue'
+        $VerbosePreference = 'SilentlyContinue'
     }
 }
 
@@ -394,7 +449,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 22)'
+        '        Version 2.2.2 (Build 23)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
