@@ -60,10 +60,10 @@ function WinCleaner {
     function Write-StyledMessage([string]$Type, [string]$Text) {
         $style = $MsgStyles[$Type]
         $timestamp = Get-Date -Format "HH:mm:ss"
-        
+
         # Rimuovi emoji duplicati dal testo se presenti
         $cleanText = $Text -replace '^(✅|||💎|🔍|🚀|⚙️|🧹|📦|📋|📜|📝|💾|⬇️|🔧|⚡|🖼️|🌐|🍪|🔄|🗂️|📁|🖨️|📄|🗑️|💭|⏸️|▶️|💡|⏰|🎉|💻|📊)\s*', ''
-        
+
         Write-Host "[$timestamp] $($style.Icon) $cleanText" -ForegroundColor $style.Color
 
         # Log dettagliato per operazioni importanti
@@ -71,6 +71,36 @@ function WinCleaner {
             $logEntry = "[$timestamp] [$Type] $cleanText"
             $script:Log += $logEntry
         }
+    }
+
+    function Test-ExcludedPath {
+        param([string]$Path)
+
+        # Esclusioni tassative
+        $excludedPaths = @(
+            "$env:LOCALAPPDATA\WinToolkit",
+            "$env:APPDATA\WinToolkit"
+        )
+
+        $fullPath = $Path
+        if (-not [System.IO.Path]::IsPathRooted($Path)) {
+            $fullPath = Join-Path (Get-Location) $Path
+        }
+
+        foreach ($excluded in $excludedPaths) {
+            $excludedFull = $excluded
+            if (-not [System.IO.Path]::IsPathRooted($excluded)) {
+                $excludedFull = [Environment]::ExpandEnvironmentVariables($excluded)
+            }
+
+            # Verifica se il path è dentro una directory esclusa
+            if ($fullPath -like "$excludedFull*" -or $fullPath -eq $excludedFull) {
+                Write-StyledMessage Info "🛡️ Cartella esclusa dalla pulizia: $fullPath"
+                return $true
+            }
+        }
+
+        return $false
     }
 
     function Start-ProcessWithTimeout {
@@ -172,11 +202,28 @@ function WinCleaner {
             Write-StyledMessage Info "⚙️ Verifica configurazione CleanMgr nel registro..."
             $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
 
-            # Verifica se esistono già configurazioni
+            # Verifica se esistono già configurazioni valide
             $existingConfigs = Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue |
-            Where-Object { (Get-ItemProperty -Path $_.PSPath -Name "StateFlags0065" -ErrorAction SilentlyContinue).StateFlags0065 -eq 2 }
+            Where-Object {
+                $stateFlag = $null
+                try {
+                    $stateFlag = Get-ItemProperty -Path $_.PSPath -Name "StateFlags0065" -ErrorAction SilentlyContinue
+                }
+                catch {}
+                $stateFlag -and $stateFlag.StateFlags0065 -eq 2
+            }
 
-            if (-not $existingConfigs) {
+            # Conta quante opzioni valide sono configurate
+            $validOptions = 0
+            Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue | ForEach-Object {
+                try {
+                    $stateFlag = Get-ItemProperty -Path $_.PSPath -Name "StateFlags0065" -ErrorAction SilentlyContinue
+                    if ($stateFlag -and $stateFlag.StateFlags0065 -eq 2) { $validOptions++ }
+                }
+                catch {}
+            }
+
+            if (-not $existingConfigs -or $validOptions -lt 3) {
                 Write-StyledMessage Info "📝 Configurazione opzioni di pulizia nel registro..."
                 
                 # Abilita tutte le opzioni di pulizia disponibili con StateFlags0065
@@ -200,16 +247,28 @@ function WinCleaner {
                 )
 
                 $configuredCount = 0
+                $availableOptions = @()
+
+                # Prima verifica quali opzioni sono effettivamente disponibili
                 foreach ($option in $cleanOptions) {
                     $optionPath = Join-Path $regPath $option
                     if (Test-Path $optionPath) {
-                        try {
-                            Set-ItemProperty -Path $optionPath -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction Stop
-                            $configuredCount++
-                        }
-                        catch {
-                            # Ignora errori silenziosamente
-                        }
+                        $availableOptions += $option
+                    }
+                }
+
+                Write-StyledMessage Info "📋 Trovate $($availableOptions.Count) opzioni di pulizia disponibili"
+
+                # Configura solo le opzioni disponibili
+                foreach ($option in $availableOptions) {
+                    $optionPath = Join-Path $regPath $option
+                    try {
+                        Set-ItemProperty -Path $optionPath -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction Stop
+                        $configuredCount++
+                        Write-StyledMessage Info "✅ Configurata: $option"
+                    }
+                    catch {
+                        Write-StyledMessage Warning "❌ Impossibile configurare: $option - $($_.Exception.Message)"
                     }
                 }
 
@@ -219,13 +278,21 @@ function WinCleaner {
                 Write-StyledMessage Info "✅ Configurazione esistente trovata nel registro"
             }
 
-            # Esecuzione pulizia con configurazione automatica
+            # Verifica se ci sono effettivamente file da pulire
+            Write-StyledMessage Info "🔍 Verifica se ci sono file da pulire..."
+            $testProc = Start-Process 'cleanmgr.exe' -ArgumentList '/sagerun:65' -PassThru -WindowStyle Hidden -Wait
+
+            if ($testProc.ExitCode -eq 0 -and (Get-Date) - $startTime -lt [TimeSpan]::FromSeconds(5)) {
+                Write-StyledMessage Info "�� CleanMgr completato rapidamente - probabilmente nessun file da pulire"
+                Write-StyledMessage Success "✅ Verifica pulizia completata - sistema già pulito"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+
+            # Esecuzione pulizia con configurazione automatica (se necessario)
             Write-StyledMessage Info "🚀 Avvio pulizia disco (questo può richiedere diversi minuti)..."
-            
-            # Usa cleanmgr con /sagerun:65 e /VERYLOWDISK per esecuzione automatica
             $startTime = Get-Date
             $proc = Start-Process 'cleanmgr.exe' -ArgumentList '/sagerun:65' -PassThru -WindowStyle Minimized
-            
+
             Write-StyledMessage Info "🔍 Processo CleanMgr avviato (PID: $($proc.Id))"
             
             # Attendi che il processo si stabilizzi
@@ -344,9 +411,16 @@ function WinCleaner {
 
         $totalCleaned = 0
         foreach ($path in $werPaths) {
+            # Verifica esclusione cartella WinToolkit
+            if (Test-ExcludedPath $path) {
+                continue
+            }
+
             if (Test-Path $path) {
                 try {
-                    $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue
+                    $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+                        -not (Test-ExcludedPath $_.FullName)
+                    }
                     $files | Remove-Item -Force -ErrorAction SilentlyContinue
                     $totalCleaned += $files.Count
                     Write-StyledMessage Info "🗑️ Rimosso $($files.Count) file da $path"
@@ -401,10 +475,17 @@ function WinCleaner {
 
         $totalCleaned = 0
         foreach ($path in $updatePaths) {
+            # Verifica esclusione cartella WinToolkit
+            if (Test-ExcludedPath $path) {
+                continue
+            }
+
             try {
                 if (Test-Path $path) {
                     if (Test-Path -Path $path -PathType Container) {
-                        $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue
+                        $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+                            -not (Test-ExcludedPath $_.FullName)
+                        }
                         $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
                         $totalCleaned += $files.Count
                         Write-StyledMessage Info "🗑️ Rimossa directory: $path"
@@ -458,8 +539,17 @@ function WinCleaner {
         $downloadPath = "C:\WINDOWS\SoftwareDistribution\Download"
 
         try {
+            # Verifica esclusione cartella WinToolkit
+            if (Test-ExcludedPath $downloadPath) {
+                Write-StyledMessage Info "💭 Cache download esclusa dalla pulizia"
+                $script:Log += "[DownloadCache] ℹ️ Directory esclusa"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+
             if (Test-Path $downloadPath) {
-                $files = Get-ChildItem -Path $downloadPath -Recurse -File -ErrorAction SilentlyContinue
+                $files = Get-ChildItem -Path $downloadPath -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+                    -not (Test-ExcludedPath $_.FullName)
+                }
                 $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
                 Write-StyledMessage Success "✅ Cache download pulita ($($files.Count) file)"
@@ -488,9 +578,16 @@ function WinCleaner {
 
         $totalCleaned = 0
         foreach ($path in $dotnetPaths) {
+            # Verifica esclusione cartella WinToolkit
+            if (Test-ExcludedPath $path) {
+                continue
+            }
+
             try {
                 if (Test-Path $path) {
-                    $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue
+                    $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+                        -not (Test-ExcludedPath $_.FullName)
+                    }
                     $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
                     $totalCleaned += $files.Count
                     Write-StyledMessage Info "🗑️ Pulita cache .NET: $path"
@@ -553,9 +650,17 @@ function WinCleaner {
         )
 
         foreach ($path in $thumbnailPaths) {
+            # Verifica esclusione cartella WinToolkit
+            if (Test-ExcludedPath $path) {
+                continue
+            }
+
             foreach ($pattern in $thumbnailFiles) {
                 try {
-                    $files = Get-ChildItem -Path $path -Name $pattern -ErrorAction SilentlyContinue
+                    $files = Get-ChildItem -Path $path -Name $pattern -ErrorAction SilentlyContinue | Where-Object {
+                        $fullPath = Join-Path $path $_
+                        -not (Test-ExcludedPath $fullPath)
+                    }
                     $files | ForEach-Object {
                         $fullPath = Join-Path $path $_
                         Remove-Item -Path $fullPath -Force -ErrorAction SilentlyContinue
@@ -589,9 +694,17 @@ function WinCleaner {
 
             foreach ($user in $users) {
                 $localAppData = "$($user.FullName)\AppData\Local\Microsoft\Windows\INetCache"
+
+                # Verifica esclusione cartella WinToolkit
+                if (Test-ExcludedPath $localAppData) {
+                    continue
+                }
+
                 if (Test-Path $localAppData) {
                     try {
-                        $files = Get-ChildItem -Path $localAppData -Recurse -File -ErrorAction SilentlyContinue
+                        $files = Get-ChildItem -Path $localAppData -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+                            -not (Test-ExcludedPath $_.FullName)
+                        }
                         $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
                         $totalCleaned += $files.Count
                     }
@@ -630,9 +743,16 @@ function WinCleaner {
                 )
 
                 foreach ($path in $cookiesPaths) {
+                    # Verifica esclusione cartella WinToolkit
+                    if (Test-ExcludedPath $path) {
+                        continue
+                    }
+
                     if (Test-Path $path) {
                         try {
-                            $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue
+                            $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+                                -not (Test-ExcludedPath $_.FullName)
+                            }
                             $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
                             $totalCleaned += $files.Count
                         }
@@ -686,8 +806,17 @@ function WinCleaner {
         $tempPath = "C:\WINDOWS\Temp"
 
         try {
+            # Verifica esclusione cartella WinToolkit
+            if (Test-ExcludedPath $tempPath) {
+                Write-StyledMessage Info "💭 Cartella temporanei Windows esclusa dalla pulizia"
+                $script:Log += "[WindowsTemp] ℹ️ Directory esclusa"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+
             if (Test-Path $tempPath) {
-                $files = Get-ChildItem -Path $tempPath -Recurse -File -ErrorAction SilentlyContinue
+                $files = Get-ChildItem -Path $tempPath -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+                    -not (Test-ExcludedPath $_.FullName)
+                }
                 $totalSize = ($files | Measure-Object -Property Length -Sum).Sum / 1MB
                 $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
@@ -725,7 +854,14 @@ function WinCleaner {
                 foreach ($path in $tempPaths) {
                     if (Test-Path $path) {
                         try {
-                            $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue
+                            # Verifica esclusione cartella WinToolkit
+                            if (Test-ExcludedPath $path) {
+                                continue
+                            }
+
+                            $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+                                -not (Test-ExcludedPath $_.FullName)
+                            }
                             $size = ($files | Measure-Object -Property Length -Sum).Sum / 1MB
                             $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
                             $totalCleaned += $files.Count
@@ -811,9 +947,16 @@ function WinCleaner {
         $totalSize = 0
 
         foreach ($path in $logPaths) {
+            # Verifica esclusione cartella WinToolkit
+            if (Test-ExcludedPath $path) {
+                continue
+            }
+
             if (Test-Path $path) {
                 try {
-                    $files = Get-ChildItem -Path $path -Recurse -File -Include "*.log", "*.etl", "*.txt" -ErrorAction SilentlyContinue
+                    $files = Get-ChildItem -Path $path -Recurse -File -Include "*.log", "*.etl", "*.txt" -ErrorAction SilentlyContinue | Where-Object {
+                        -not (Test-ExcludedPath $_.FullName)
+                    }
                     $size = ($files | Measure-Object -Property Length -Sum).Sum / 1MB
                     $files | Remove-Item -Force -ErrorAction SilentlyContinue
                     $totalCleaned += $files.Count
@@ -905,7 +1048,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 15)'
+            '       Version 2.2.2 (Build 16)'
         )
 
         foreach ($line in $asciiArt) {
