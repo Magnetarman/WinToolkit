@@ -99,11 +99,17 @@ function WinReinstallStore {
         Write-StyledMessage Progress "Reinstallazione Winget in corso..."
         Stop-InterferingProcesses
 
+        $originalPos = [Console]::CursorTop
         try {
+            # Soppressione completa dell'output
+            $ErrorActionPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
+            $VerbosePreference = 'SilentlyContinue'
+            
             if ([System.Environment]::OSVersion.Version.Build -ge 26100) {
                 try {
                     if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-                        $null = Repair-WinGetPackageManager -Force -Latest 2>$null
+                        $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
                         Start-Sleep 5
                         if (Test-WingetAvailable) { return $true }
                     }
@@ -113,88 +119,142 @@ function WinReinstallStore {
 
             $url = "https://aka.ms/getwinget"
             $temp = "$env:TEMP\WingetInstaller.msixbundle"
-            if (Test-Path $temp) { Remove-Item $temp -Force }
+            if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
 
-            Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing
+            Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
             $process = Start-Process powershell -ArgumentList @(
                 "-NoProfile", "-WindowStyle", "Hidden", "-Command",
                 "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
             ) -Wait -PassThru -WindowStyle Hidden
 
-            Remove-Item $temp -Force -ErrorAction SilentlyContinue
+            Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
+            
+            # Reset cursore e flush output
+            [Console]::SetCursorPosition(0, $originalPos)
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
+            
             Start-Sleep 5
             return (Test-WingetAvailable)
         }
         catch {
             return $false
         }
+        finally {
+            # Reset delle preferenze
+            $ErrorActionPreference = 'Continue'
+            $ProgressPreference = 'Continue'
+            $VerbosePreference = 'SilentlyContinue'
+        }
     }
     
     function Install-MicrosoftStoreSilent {
         Write-StyledMessage Progress "Reinstallazione Microsoft Store in corso..."
-        @("AppXSvc", "ClipSVC", "WSService") | ForEach-Object {
-            try { Restart-Service $_ -Force -ErrorAction SilentlyContinue } catch {}
-        }
+        
+        $originalPos = [Console]::CursorTop
+        try {
+            # Soppressione completa dell'output
+            $ErrorActionPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
+            $VerbosePreference = 'SilentlyContinue'
+            
+            @("AppXSvc", "ClipSVC", "WSService") | ForEach-Object {
+                try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch {}
+            }
 
-        @("$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
-            "$env:LOCALAPPDATA\Microsoft\Windows\INetCache") | ForEach-Object {
-            if (Test-Path $_) { Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue }
-        }
+            @("$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
+                "$env:LOCALAPPDATA\Microsoft\Windows\INetCache") | ForEach-Object {
+                if (Test-Path $_) { Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null }
+            }
 
-        $methods = @(
-            {
-                if (Test-WingetAvailable) {
-                    $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+            $methods = @(
+                {
+                    if (Test-WingetAvailable) {
+                        $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                        return $process.ExitCode -eq 0
+                    }
+                    return $false
+                },
+                {
+                    $store = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue
+                    if ($store) {
+                        $store | ForEach-Object {
+                            $manifest = "$($_.InstallLocation)\AppXManifest.xml"
+                            if (Test-Path $manifest) {
+                                $process = Start-Process powershell -ArgumentList @(
+                                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                                    "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
+                                ) -Wait -PassThru -WindowStyle Hidden
+                            }
+                        }
+                        return $true
+                    }
+                    return $false
+                },
+                {
+                    $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
                     return $process.ExitCode -eq 0
                 }
-                return $false
-            },
-            {
-                $store = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue
-                if ($store) {
-                    $store | ForEach-Object {
-                        $manifest = "$($_.InstallLocation)\AppXManifest.xml"
-                        if (Test-Path $manifest) {
-                            $process = Start-Process powershell -ArgumentList @(
-                                "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                                "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
-                            ) -Wait -PassThru -WindowStyle Hidden
-                        }
-                    }
-                    return $true
-                }
-                return $false
-            },
-            {
-                $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
-                return $process.ExitCode -eq 0
-            }
-        )
+            )
 
-        foreach ($method in $methods) {
-            try {
-                if (& $method) {
-                    Start-Process wsreset.exe -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-                    return $true
+            foreach ($method in $methods) {
+                try {
+                    if (& $method) {
+                        Start-Process wsreset.exe -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue *>$null
+                        
+                        # Reset cursore e flush output
+                        [Console]::SetCursorPosition(0, $originalPos)
+                        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                        Write-Host $clearLine -NoNewline
+                        [Console]::Out.Flush()
+                        
+                        return $true
+                    }
                 }
+                catch { continue }
             }
-            catch { continue }
+            return $false
         }
-        return $false
+        finally {
+            # Reset delle preferenze
+            $ErrorActionPreference = 'Continue'
+            $ProgressPreference = 'Continue'
+            $VerbosePreference = 'SilentlyContinue'
+        }
     }
     
     function Install-UniGetUISilent {
         Write-StyledMessage Progress "Reinstallazione UniGet UI in corso..."
         if (-not (Test-WingetAvailable)) { return $false }
 
+        $originalPos = [Console]::CursorTop
         try {
+            # Soppressione completa dell'output
+            $ErrorActionPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
+            $VerbosePreference = 'SilentlyContinue'
+            
             $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
             Start-Sleep 2
             $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
+            
+            # Reset cursore e flush output
+            [Console]::SetCursorPosition(0, $originalPos)
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
+            
             return $process.ExitCode -eq 0
         }
         catch {
             return $false
+        }
+        finally {
+            # Reset delle preferenze
+            $ErrorActionPreference = 'Continue'
+            $ProgressPreference = 'Continue'
+            $VerbosePreference = 'SilentlyContinue'
         }
     }
     
