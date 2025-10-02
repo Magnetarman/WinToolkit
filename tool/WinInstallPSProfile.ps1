@@ -33,7 +33,7 @@ function WinInstallPSProfile {
         '         \_/\_/    |_||_| \_|',
         '',
         '   Install PSProfile By MagnetarMan',
-        '        Version 2.2 (Build 2)'
+        '        Version 2.2.2 (Build 2)'
     )
 
     foreach ($line in $asciiArt) {
@@ -103,12 +103,65 @@ function WinInstallPSProfile {
                 Write-StyledMessage 'Success' "Backup completato."
             }
 
-            Write-StyledMessage 'Info' "Installazione profilo e dipendenze (oh-my-posh, font, ecc.)..."
-            Start-Process -FilePath "pwsh" `
-                -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1')`"" `
-                -Wait
+            Write-StyledMessage 'Info' "Installazione dipendenze (oh-my-posh, zoxide, ecc.)..."
 
-            Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
+            # Install oh-my-posh
+            try {
+                Write-StyledMessage 'Info' "Installazione oh-my-posh..."
+                winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent
+                Write-StyledMessage 'Success' "oh-my-posh installato correttamente."
+            }
+            catch {
+                Write-StyledMessage 'Warning' "Installazione oh-my-posh fallita, tentativo alternativo..."
+                try {
+                    # Fallback: download and install manually
+                    $ohMyPoshUrl = "https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/oh-my-posh.zip"
+                    $zipPath = "$env:TEMP\oh-my-posh.zip"
+                    Invoke-WebRequest -Uri $ohMyPoshUrl -OutFile $zipPath
+                    Expand-Archive -Path $zipPath -DestinationPath "$env:LOCALAPPDATA\Microsoft\WindowsApps" -Force
+                    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+                    Write-StyledMessage 'Success' "oh-my-posh installato tramite download diretto."
+                }
+                catch {
+                    Write-StyledMessage 'Error' "Impossibile installare oh-my-posh: $($_.Exception.Message)"
+                }
+            }
+
+            # Install zoxide
+            try {
+                Write-StyledMessage 'Info' "Installazione zoxide..."
+                winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent
+                Write-StyledMessage 'Success' "zoxide installato correttamente."
+            }
+            catch {
+                Write-StyledMessage 'Warning' "Installazione zoxide fallita, tentativo tramite cargo..."
+                try {
+                    # Fallback: install via cargo if Rust is available
+                    if (Get-Command cargo -ErrorAction SilentlyContinue) {
+                        cargo install zoxide --locked
+                        Write-StyledMessage 'Success' "zoxide installato tramite cargo."
+                    }
+                    else {
+                        Write-StyledMessage 'Warning' "Cargo non disponibile. Installa manualmente zoxide da: https://github.com/ajeetdsouza/zoxide"
+                    }
+                }
+                catch {
+                    Write-StyledMessage 'Error' "Impossibile installare zoxide: $($_.Exception.Message)"
+                }
+            }
+
+            # Installazione profilo tramite script ChrisTitusTech
+            Write-StyledMessage 'Info' "Installazione profilo PowerShell..."
+            try {
+                Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1' -UseBasicParsing)
+                Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
+            }
+            catch {
+                Write-StyledMessage 'Warning' "Installazione profilo fallita, copia manuale del profilo..."
+                Copy-Item -Path $tempProfile -Destination $PROFILE -Force
+                Write-StyledMessage 'Success' "Profilo copiato manualmente."
+            }
+
             Write-StyledMessage 'Warning' "Riavvia PowerShell per applicare il nuovo profilo."
             Write-StyledMessage 'Info' "Per vedere tutte le modifiche (font, oh-my-posh, ecc.) è consigliato riavviare il sistema."
 
