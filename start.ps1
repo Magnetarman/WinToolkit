@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 21) - 2025-10-02
+  Versione 2.2.2 (Build 22) - 2025-10-02
 #>
 
 function Center-text {
@@ -17,7 +17,6 @@ function Center-text {
     $padding = [math]::Max(0, [math]::Floor(($width - $text.Length) / 2))
     return (" " * $padding) + $text
 }
-
 
 # Impostazione titolo finestra della console
 $Host.UI.RawUI.WindowTitle = "Toolkit Starter by MagnetarMan"
@@ -55,22 +54,24 @@ function Install-Git {
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
         Write-StyledMessage -type 'Info' -text "Installazione di Git tramite winget..."
         try {
-            winget install Git.Git --accept-source-agreements --accept-package-agreements --silent 2>$null
-            $success = $LASTEXITCODE -eq 0
+            $wingetOutput = winget install Git.Git --accept-source-agreements --accept-package-agreements --silent 2>&1
+            $exitCode = $LASTEXITCODE
 
-            # Verifica se Git è stato effettivamente installato anche se winget ha restituito errore
-            Start-Sleep -Seconds 2
+            # Verifica se Git è stato effettivamente installato
+            Start-Sleep -Seconds 3
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+            
             if (Get-Command "git" -ErrorAction SilentlyContinue) {
-                Write-StyledMessage -type 'Success' -text "Git installato con successo tramite winget (verifica completata)."
+                Write-StyledMessage -type 'Success' -text "Git installato con successo tramite winget."
                 return $true
             }
 
-            if ($success) {
+            if ($exitCode -eq 0) {
                 Write-StyledMessage -type 'Success' -text "Git installato con successo tramite winget."
                 return $true
             }
             else {
-                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $LASTEXITCODE. Tentativo installazione diretta..."
+                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $exitCode. Tentativo installazione diretta..."
             }
         }
         catch {
@@ -94,6 +95,9 @@ function Install-Git {
         if ($process.ExitCode -eq 0) {
             Write-StyledMessage -type 'Success' -text "Git installato con successo."
             Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+            
+            # Aggiorna il PATH della sessione corrente
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
             return $true
         }
         else {
@@ -119,22 +123,22 @@ function Install-PowerShell7 {
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
         Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 tramite winget..."
         try {
-            winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements --silent 2>$null
-            $success = $LASTEXITCODE -eq 0
+            $wingetOutput = winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements --silent 2>&1
+            $exitCode = $LASTEXITCODE
 
-            # Verifica se PowerShell 7 è stato effettivamente installato anche se winget ha restituito errore
-            Start-Sleep -Seconds 2
+            # Verifica se PowerShell 7 è stato effettivamente installato
+            Start-Sleep -Seconds 3
             if (Test-Path -Path "$env:ProgramFiles\PowerShell\7") {
-                Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo tramite winget (verifica completata)."
+                Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo tramite winget."
                 return $true
             }
 
-            if ($success) {
+            if ($exitCode -eq 0) {
                 Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo tramite winget."
                 return $true
             }
             else {
-                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $LASTEXITCODE. Tentativo installazione diretta..."
+                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $exitCode. Tentativo installazione diretta..."
             }
         }
         catch {
@@ -174,38 +178,23 @@ function Install-WindowsTerminal {
     
     $wtInstalled = Get-Command "wt" -ErrorAction SilentlyContinue
     if ($wtInstalled) {
-        Write-StyledMessage -type 'Success' -text "Windows Terminal già presente. Reinstallazione in corso..."
+        Write-StyledMessage -type 'Success' -text "Windows Terminal già presente. Verifica configurazione..."
     }
 
-    # Tentativo 1: Microsoft Store
-    try {
-        Write-StyledMessage -type 'Info' -text "Tentativo installazione tramite Microsoft Store..."
-        Start-Process "ms-windows-store://pdp/?ProductId=9N0DX20HK701"
-        Start-Sleep -Seconds 3
-    }
-    catch {
-        Write-StyledMessage -type 'Warning' -text "Impossibile aprire Microsoft Store."
-    }
-
-    # Tentativo 2: winget
+    # Tentativo 1: winget (metodo più affidabile)
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
         Write-StyledMessage -type 'Info' -text "Installazione tramite winget..."
         try {
-            winget install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent 2>$null
-            $success = $LASTEXITCODE -eq 0
+            $wingetOutput = winget install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent 2>&1
+            $exitCode = $LASTEXITCODE
 
-            # Verifica se Windows Terminal è stato effettivamente installato anche se winget ha restituito errore
-            Start-Sleep -Seconds 2
+            # Verifica se Windows Terminal è stato installato
+            Start-Sleep -Seconds 3
             if (Get-Command "wt" -ErrorAction SilentlyContinue) {
-                Write-StyledMessage -type 'Success' -text "Windows Terminal installato tramite winget (verifica completata)."
-                return
-            }
-
-            if ($success) {
                 Write-StyledMessage -type 'Success' -text "Windows Terminal installato tramite winget."
             }
-            else {
-                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $LASTEXITCODE. Tentativo download diretto..."
+            elseif ($exitCode -ne 0) {
+                Write-StyledMessage -type 'Warning' -text "winget ha restituito codice errore: $exitCode. Tentativo download diretto..."
             }
         }
         catch {
@@ -213,31 +202,49 @@ function Install-WindowsTerminal {
         }
     }
 
-    # Tentativo 3: GitHub Release
-    try {
-        Write-StyledMessage -type 'Info' -text "Download ultima versione da GitHub..."
-        $releaseUrl = "https://api.github.com/repos/microsoft/terminal/releases/latest"
-        $release = Invoke-RestMethod -Uri $releaseUrl -UseBasicParsing
-        $asset = $release.assets | Where-Object { $_.name -like "*Win10*msixbundle" } | Select-Object -First 1
-        
-        if ($asset) {
-            $installerPath = "$env:TEMP\$($asset.name)"
-            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -UseBasicParsing
-            Add-AppxPackage -Path $installerPath
-            Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
-            Write-StyledMessage -type 'Success' -text "Windows Terminal installato da GitHub."
+    # Tentativo 2: Microsoft Store
+    if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
+        try {
+            Write-StyledMessage -type 'Info' -text "Tentativo installazione tramite Microsoft Store..."
+            Start-Process "ms-windows-store://pdp/?ProductId=9N0DX20HK701"
+            Start-Sleep -Seconds 5
+        }
+        catch {
+            Write-StyledMessage -type 'Warning' -text "Impossibile aprire Microsoft Store."
         }
     }
-    catch {
-        Write-StyledMessage -type 'Warning' -text "Installazione da GitHub fallita: $($_.Exception.Message)"
+
+    # Tentativo 3: GitHub Release
+    if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
+        try {
+            Write-StyledMessage -type 'Info' -text "Download ultima versione da GitHub..."
+            $releaseUrl = "https://api.github.com/repos/microsoft/terminal/releases/latest"
+            $release = Invoke-RestMethod -Uri $releaseUrl -UseBasicParsing
+            $asset = $release.assets | Where-Object { $_.name -like "*Win10*msixbundle" } | Select-Object -First 1
+            
+            if ($asset) {
+                $installerPath = "$env:TEMP\$($asset.name)"
+                Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -UseBasicParsing
+                Add-AppxPackage -Path $installerPath
+                Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+                Write-StyledMessage -type 'Success' -text "Windows Terminal installato da GitHub."
+            }
+        }
+        catch {
+            Write-StyledMessage -type 'Warning' -text "Installazione da GitHub fallita: $($_.Exception.Message)"
+        }
     }
 
     # Imposta Windows Terminal come applicazione terminale predefinita
     try {
         $terminalPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
         if (Test-Path $terminalPath) {
-            Set-ItemProperty -Path "HKCU:\Console\%%Startup" -Name "DelegationConsole" -Value "{2EACA947-7F5F-4CFA-BA87-8F7FBEEFBE69}" -Force -ErrorAction SilentlyContinue
-            Set-ItemProperty -Path "HKCU:\Console\%%Startup" -Name "DelegationTerminal" -Value "{E12CFF52-A866-4C77-9A90-F570A7AA2C6B}" -Force -ErrorAction SilentlyContinue
+            $registryPath = "HKCU:\Console\%%Startup"
+            if (-not (Test-Path $registryPath)) {
+                New-Item -Path $registryPath -Force | Out-Null
+            }
+            Set-ItemProperty -Path $registryPath -Name "DelegationConsole" -Value "{2EACA947-7F5F-4CFA-BA87-8F7FBEEFBE69}" -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $registryPath -Name "DelegationTerminal" -Value "{E12CFF52-A866-4C77-9A90-F570A7AA2C6B}" -Force -ErrorAction SilentlyContinue
             Write-StyledMessage -type 'Success' -text "Windows Terminal impostato come terminale predefinito."
         }
     }
@@ -249,14 +256,14 @@ function Install-WindowsTerminal {
     $settingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
     if (Test-Path $settingsPath) {
         try {
-            $settings = Get-Content $settingsPath | ConvertFrom-Json
+            $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
             $ps7Profile = $settings.profiles.list | Where-Object { $_.name -eq "PowerShell" }
             
             if ($ps7Profile) {
                 $settings.defaultProfile = $ps7Profile.guid
                 $ps7Profile | Add-Member -NotePropertyName "elevate" -NotePropertyValue $true -Force
                 
-                $settings | ConvertTo-Json -Depth 100 | Set-Content $settingsPath
+                $settings | ConvertTo-Json -Depth 100 | Set-Content $settingsPath -Force
                 Write-StyledMessage -type 'Success' -text "PowerShell 7 configurato come profilo predefinito con privilegi amministratore."
             }
             else {
@@ -282,17 +289,23 @@ function ToolKit-Desktop {
         $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Win Toolkit.lnk"
         
         # Percorso per salvare l'icona
-        $iconPath = Join-Path -Path $env:TEMP -ChildPath "WinToolkit.ico"
+        $iconDir = "$env:LOCALAPPDATA\WinToolkit"
+        $iconPath = Join-Path -Path $iconDir -ChildPath "WinToolkit.ico"
+        
+        # Crea la directory se non esiste
+        if (-not (Test-Path -Path $iconDir)) {
+            New-Item -Path $iconDir -ItemType Directory -Force | Out-Null
+        }
         
         # Scarica l'icona da GitHub solo se non esiste già
         if (-not (Test-Path -Path $iconPath)) {
             Write-StyledMessage -type 'Info' -text "Download icona in corso..."
             $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
             Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing
-            Write-StyledMessage -type 'Success' -text "Icona scaricata e salvata in %localappdata%\WinToolkit\."
+            Write-StyledMessage -type 'Success' -text "Icona scaricata e salvata in $iconDir."
         }
         else {
-            Write-StyledMessage -type 'Info' -text "Icona già presente in %localappdata%\WinToolkit\."
+            Write-StyledMessage -type 'Info' -text "Icona già presente in $iconDir."
         }
         
         # Crea un oggetto WScript.Shell per la creazione della scorciatoia
@@ -300,13 +313,13 @@ function ToolKit-Desktop {
         $Shortcut = $WshShell.CreateShortcut($shortcutPath)
         
         # Imposta la destinazione del file eseguibile (TargetPath) - Windows Terminal
-        $Shortcut.TargetPath = 'C:\Users\' + $env:USERNAME + '\AppData\Local\Microsoft\WindowsApps\wt.exe'
+        $Shortcut.TargetPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
         
         # Imposta gli argomenti della riga di comando (Arguments)
         $Shortcut.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
         
         # Imposta la directory di lavoro
-        $Shortcut.WorkingDirectory = "C:\Users\" + $env:USERNAME + "\AppData\Local\Microsoft\WindowsApps"
+        $Shortcut.WorkingDirectory = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
         
         # Imposta l'icona personalizzata
         $Shortcut.IconLocation = $iconPath
@@ -323,7 +336,7 @@ function ToolKit-Desktop {
         $bytes[21] = $bytes[21] -bor 32
         [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
         
-        Write-StyledMessage -type 'Success' -text "Scorciatoia 'Win Toolkit.lnk' creata con successo sul desktop con privilegi amministratore e icona personalizzata."
+        Write-StyledMessage -type 'Success' -text "Scorciatoia 'Win Toolkit.lnk' creata con successo sul desktop."
     }
     catch {
         Write-StyledMessage -type 'Error' -text "Errore durante la creazione della scorciatoia: $($_.Exception.Message)"
@@ -361,9 +374,11 @@ function Start-WinToolkit {
     }
 
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:localappdata\WinToolkit\logs"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
     try {
-        [System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
         Start-Transcript -Path "$logdir\WinToolkitStarter_$dateTime.log" -Append -Force | Out-Null
     }
     catch {}
@@ -379,7 +394,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 21)'
+        '        Version 2.2.2 (Build 22)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
