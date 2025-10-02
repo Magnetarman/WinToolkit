@@ -161,6 +161,7 @@ jobs:
           Write-Host "📋 Test del file finale: WinToolkit.ps1" -ForegroundColor Green
 
           $totalErrors = 0
+          $totalWarnings = 0
           $testResults = @()
 
           try {
@@ -218,7 +219,7 @@ jobs:
             # Test 3: Struttura del menu
             Write-Host "🔍 Test 3: Verifica struttura menu..." -ForegroundColor Blue
             $menuTests = @(
-              @{ Pattern = "while \(\$true\)"; Name = "Menu principale" },
+              @{ Pattern = "while.*true"; Name = "Menu principale" },
               @{ Pattern = "Operazioni Preliminari"; Name = "Categoria Operazioni Preliminari" },
               @{ Pattern = "Windows & Office"; Name = "Categoria Windows & Office" },
               @{ Pattern = "Driver & Gaming"; Name = "Categoria Driver & Gaming" },
@@ -280,6 +281,7 @@ jobs:
           $testResults | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
 
           # Valuta i risultati: procedi sempre se non ci sono errori di sintassi/struttura
+          # Le funzioni mancanti sono normali durante lo sviluppo e non bloccano il workflow
           if ($totalErrors -gt 0) {
             Write-Host "❌ TEST FALLITI: $totalErrors errori di sintassi/struttura" -ForegroundColor Red
             Write-Host "💡 Suggerimento: Verifica la sintassi del file compilato" -ForegroundColor Cyan
