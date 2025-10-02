@@ -2598,114 +2598,137 @@ function WinCleaner {
     }
 
     function Invoke-CleanMgrAuto {
-        Write-StyledMessage Info "🧹 Configurazione pulizia automatica CleanMgr..."
+        Write-StyledMessage Info "🧹 Pulizia disco tramite CleanMgr..."
         $percent = 0; $spinnerIndex = 0
 
         try {
-            # Crea configurazione automatica nel registro per evitare interazione utente
-            Write-StyledMessage Info "⚙️ Configurazione registro CleanMgr automatico..."
+            Write-StyledMessage Info "⚙️ Verifica configurazione CleanMgr nel registro..."
             $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
 
-            # Abilita tutte le opzioni di pulizia disponibili
-            $cleanOptions = @(
-                "Active Setup Temp Folders",
-                "BranchCache",
-                "D3D Shader Cache",
-                "Delivery Optimization Files",
-                "Diagnostic Data Viewer database files",
-                "Downloaded Program Files",
-                "GameNewsFiles",
-                "GameStatisticsFiles",
-                "GameUpdateFiles",
-                "Internet Cache Files",
-                "Memory Dump Files",
-                "Offline Pages Files",
-                "Old ChkDsk Files",
-                "Previous Installations",
-                "Recycle Bin",
-                "Service Pack Cleanup",
-                "Setup Log Files",
-                "System error memory dump files",
-                "System error minidump files",
-                "Temporary Files",
-                "Temporary Setup Files",
-                "Temporary Sync Files",
-                "Thumbnail Cache",
-                "Update Cleanup",
-                "Upgrade Discarded Files",
-                "User file versions",
-                "Windows Defender",
-                "Windows Error Reporting Files",
-                "Windows ESD installation files",
-                "Windows Upgrade Log Files"
-            )
+            # Verifica se esistono già configurazioni
+            $existingConfigs = Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue |
+            Where-Object { (Get-ItemProperty -Path $_.PSPath -Name "StateFlags0065" -ErrorAction SilentlyContinue).StateFlags0065 -eq 2 }
 
-            $configuredCount = 0
-            foreach ($option in $cleanOptions) {
-                $optionPath = Join-Path $regPath $option
-                try {
-                    if (-not (Test-Path $optionPath)) {
-                        New-Item -Path $optionPath -Force | Out-Null
+            if (-not $existingConfigs) {
+                Write-StyledMessage Info "📝 Configurazione opzioni di pulizia nel registro..."
+                
+                # Abilita tutte le opzioni di pulizia disponibili con StateFlags0065
+                $cleanOptions = @(
+                    "Active Setup Temp Folders",
+                    "BranchCache",
+                    "D3D Shader Cache",
+                    "Delivery Optimization Files",
+                    "Downloaded Program Files",
+                    "Internet Cache Files",
+                    "Memory Dump Files",
+                    "Recycle Bin",
+                    "Setup Log Files",
+                    "System error memory dump files",
+                    "System error minidump files",
+                    "Temporary Files",
+                    "Temporary Setup Files",
+                    "Thumbnail Cache",
+                    "Windows Error Reporting Files",
+                    "Windows Upgrade Log Files"
+                )
+
+                $configuredCount = 0
+                foreach ($option in $cleanOptions) {
+                    $optionPath = Join-Path $regPath $option
+                    if (Test-Path $optionPath) {
+                        try {
+                            Set-ItemProperty -Path $optionPath -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction Stop
+                            $configuredCount++
+                        }
+                        catch {
+                            # Ignora errori silenziosamente
+                        }
                     }
-                    Set-ItemProperty -Path $optionPath -Name "StateFlags0001" -Value 2 -Type DWORD -ErrorAction SilentlyContinue
-                    $configuredCount++
                 }
-                catch {
-                    Write-StyledMessage Warning "Impossibile configurare opzione: $option"
-                }
-            }
 
-            Write-StyledMessage Info "✅ Configurate $configuredCount opzioni di pulizia nel registro"
+                Write-StyledMessage Info "✅ Configurate $configuredCount opzioni di pulizia"
+            }
+            else {
+                Write-StyledMessage Info "✅ Configurazione esistente trovata nel registro"
+            }
 
             # Esecuzione pulizia con configurazione automatica
-            Write-StyledMessage Info "🚀 Avvio pulizia automatica CleanMgr..."
+            Write-StyledMessage Info "🚀 Avvio pulizia disco (questo può richiedere diversi minuti)..."
             
-            # CleanMgr lancia un processo separato, quindi dobbiamo monitorare cleanmgr.exe in esecuzione
-            $proc = Start-Process 'cleanmgr.exe' -ArgumentList '/d C: /sagerun:1' -PassThru
-            
-            # Attendi che il processo principale si chiuda (lancia il processo reale)
-            Start-Sleep -Seconds 2
-            
-            # Timeout di sicurezza (10 minuti max)
-            $timeout = 600
+            # Usa cleanmgr con /sagerun:65 e /VERYLOWDISK per esecuzione automatica
             $startTime = Get-Date
-            $cleanmgrRunning = $true
+            $proc = Start-Process 'cleanmgr.exe' -ArgumentList '/sagerun:65' -PassThru -WindowStyle Minimized
             
-            while ($cleanmgrRunning -and ((Get-Date) - $startTime).TotalSeconds -lt $timeout) {
-                # Verifica se cleanmgr.exe è ancora in esecuzione
-                $cleanmgrProcesses = Get-Process -Name "cleanmgr" -ErrorAction SilentlyContinue
+            Write-StyledMessage Info "🔍 Processo CleanMgr avviato (PID: $($proc.Id))"
+            
+            # Attendi che il processo si stabilizzi
+            Start-Sleep -Seconds 3
+            
+            # Timeout di sicurezza (15 minuti max per CleanMgr)
+            $timeout = 900
+            $lastCheck = Get-Date
+            
+            while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeout) {
+                $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
                 
-                if ($cleanmgrProcesses) {
-                    $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                    $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
-                    if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
-                    Show-ProgressBar "Pulizia CleanMgr" "Esecuzione in corso... ($elapsed s)" $percent '🧹' $spinner
-                    Start-Sleep -Milliseconds 800
+                # Verifica se il processo è ancora attivo
+                try {
+                    $proc.Refresh()
+                    $cpuUsage = (Get-Process -Id $proc.Id -ErrorAction Stop).CPU
+                    
+                    # Aggiorna percentuale in base al tempo trascorso (stima)
+                    if ($elapsed -lt 60) {
+                        $percent = [math]::Min(30, $elapsed / 2)
+                    }
+                    elseif ($elapsed -lt 180) {
+                        $percent = 30 + (($elapsed - 60) / 4)
+                    }
+                    else {
+                        $percent = [math]::Min(95, 60 + (($elapsed - 180) / 10))
+                    }
+                    
+                    Show-ProgressBar "Pulizia CleanMgr" "Analisi e pulizia in corso... ($elapsed s)" ([int]$percent) '🧹' $spinner
+                    Start-Sleep -Milliseconds 1000
                 }
-                else {
-                    $cleanmgrRunning = $false
+                catch {
+                    # Processo terminato
+                    break
                 }
             }
 
-            if ($cleanmgrRunning) {
-                Write-StyledMessage Warning "Timeout raggiunto, terminazione processo..."
-                Get-Process -Name "cleanmgr" -ErrorAction SilentlyContinue | Stop-Process -Force
-                Start-Sleep -Seconds 2
+            if (-not $proc.HasExited) {
+                Write-StyledMessage Warning "Timeout raggiunto dopo $([math]::Round($timeout/60, 0)) minuti"
+                try {
+                    $proc.Kill()
+                    Start-Sleep -Seconds 2
+                }
+                catch {
+                    # Processo già terminato
+                }
                 $script:Log += "[CleanMgrAuto] Timeout dopo $timeout secondi"
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
-            Show-ProgressBar "Pulizia CleanMgr" 'Completato con successo' 100 '🧹'
+            $exitCode = $proc.ExitCode
+            Show-ProgressBar "Pulizia CleanMgr" 'Completato' 100 '🧹'
             Write-Host ''
-            Write-StyledMessage Success "Pulizia automatica CleanMgr completata"
-
-            $script:Log += "[CleanMgrAuto] ✅ Pulizia automatica completata (Exit code: $($proc.ExitCode))"
+            
+            if ($exitCode -eq 0) {
+                Write-StyledMessage Success "Pulizia disco completata con successo"
+                $script:Log += "[CleanMgrAuto] ✅ Pulizia completata (Exit code: $exitCode, Durata: $([math]::Round(((Get-Date) - $startTime).TotalSeconds, 0))s)"
+            }
+            else {
+                Write-StyledMessage Warning "Pulizia disco completata con warnings (Exit code: $exitCode)"
+                $script:Log += "[CleanMgrAuto] Completato con warnings (Exit code: $exitCode)"
+            }
+            
             return @{ Success = $true; ErrorCount = 0 }
         }
         catch {
             Write-StyledMessage Error "Errore durante pulizia CleanMgr: $($_.Exception.Message)"
-            Write-StyledMessage Info "💡 Suggerimento: Eseguire manualmente 'cleanmgr.exe /sageset:1' per configurare le opzioni"
-            $script:Log += "[CleanMgrAuto]  Errore: $($_.Exception.Message)"
+            Write-StyledMessage Info "💡 Suggerimento: Eseguire manualmente 'cleanmgr.exe' per verificare"
+            $script:Log += "[CleanMgrAuto] Errore: $($_.Exception.Message)"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -3315,7 +3338,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 14)'
+            '       Version 2.2.2 (Build 15)'
         )
 
         foreach ($line in $asciiArt) {
