@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 17) - 2025-10-02
+  Versione 2.2.2 (Build 18) - 2025-10-02
 #>
 
 function Center-text {
@@ -49,18 +49,9 @@ function Install-WingetPackage {
     )
     try {
         winget install $PackageId --accept-source-agreements --accept-package-agreements --silent 2>$null
-        $success = $LASTEXITCODE -eq 0
-        if (-not $success) {
-            Write-StyledMessage -type 'Warning' -text "winget fallito per $Name (codice: $LASTEXITCODE). Tentativo alternativo..."
-        }
-        return $success
+        return $LASTEXITCODE -eq 0
     }
     catch {
-        if ($_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato|UnauthorizedAccess") {
-            Write-StyledMessage -type 'Error' -text "Permessi insufficienti per $Name. Riavvio come amministratore richiesto."
-            Restart-WithAdministratorPrivileges
-            return $false
-        }
         Write-StyledMessage -type 'Warning' -text "Errore con winget per $Name. Tentativo alternativo..."
         return $false
     }
@@ -106,11 +97,6 @@ function Install-Git {
         return $success
     }
     catch {
-        if ($_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato|UnauthorizedAccess") {
-            Write-StyledMessage -type 'Error' -text "Permessi insufficienti per installare Git. Riavvio come amministratore richiesto."
-            Restart-WithAdministratorPrivileges
-            return $false
-        }
         Write-StyledMessage -type 'Error' -text "Errore installazione Git: $($_.Exception.Message)"
         return $false
     }
@@ -157,11 +143,6 @@ function Install-PowerShell7 {
         return $success
     }
     catch {
-        if ($_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato|UnauthorizedAccess") {
-            Write-StyledMessage -type 'Error' -text "Permessi insufficienti per installare PowerShell 7. Riavvio come amministratore richiesto."
-            Restart-WithAdministratorPrivileges
-            return $false
-        }
         Write-StyledMessage -type 'Error' -text "Errore installazione PowerShell 7: $($_.Exception.Message)"
         return $false
     }
@@ -212,23 +193,12 @@ function Install-WindowsTerminal {
         $msixbundle = Get-ChildItem -Path $wtExtractPath -Name "*.msixbundle" | Select-Object -First 1
         if ($msixbundle) {
             $msixPath = Join-Path -Path $wtExtractPath -ChildPath $msixbundle
-            try {
-                Add-AppxPackage -Path $msixPath
-                Write-StyledMessage -type 'Success' -text "Windows Terminal installato."
+            Add-AppxPackage -Path $msixPath
+            Write-StyledMessage -type 'Success' -text "Windows Terminal installato."
 
-                # Pulizia
-                Remove-Item $wtZip, $wtExtractPath -Recurse -Force -ErrorAction SilentlyContinue
-                return $true
-            }
-            catch {
-                if ($_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato|UnauthorizedAccess|Deployment failed") {
-                    Write-StyledMessage -type 'Error' -text "Permessi insufficienti per installare Windows Terminal. Riavvio come amministratore richiesto."
-                    Restart-WithAdministratorPrivileges
-                    return $false
-                }
-                Write-StyledMessage -type 'Error' -text "Errore installazione Windows Terminal: $($_.Exception.Message)"
-                return $false
-            }
+            # Pulizia
+            Remove-Item $wtZip, $wtExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+            return $true
         }
         else {
             Write-StyledMessage -type 'Error' -text "File installazione non trovato."
@@ -236,12 +206,7 @@ function Install-WindowsTerminal {
         }
     }
     catch {
-        if ($_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato|UnauthorizedAccess") {
-            Write-StyledMessage -type 'Error' -text "Permessi insufficienti per estrarre Windows Terminal. Riavvio come amministratore richiesto."
-            Restart-WithAdministratorPrivileges
-            return $false
-        }
-        Write-StyledMessage -type 'Error' -text "Errore estrazione Windows Terminal: $($_.Exception.Message)"
+        Write-StyledMessage -type 'Error' -text "Errore installazione Windows Terminal: $($_.Exception.Message)"
         return $false
     }
 }
@@ -288,11 +253,6 @@ function Invoke-WPFTweakPS7 {
         }
     }
     catch {
-        if ($_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato|UnauthorizedAccess") {
-            Write-StyledMessage -type 'Error' -text "Permessi insufficienti per configurare Windows Terminal. Riavvio come amministratore richiesto."
-            Restart-WithAdministratorPrivileges
-            return
-        }
         Write-StyledMessage -type 'Error' -text "Errore configurazione: $($_.Exception.Message)"
     }
 }
@@ -335,21 +295,17 @@ function Set-WindowsTerminalAsDefault {
                 if (-not (Test-Path $reg.Path)) { New-Item -Path $reg.Path -Force -ErrorAction Stop | Out-Null }
                 $cmdPath = Join-Path $reg.Path "command"
                 if (-not (Test-Path $cmdPath)) { New-Item -Path $cmdPath -Force -ErrorAction Stop | Out-Null }
-
+                
                 Set-ItemProperty -Path $reg.Path -Name "(Default)" -Value "Apri in Windows Terminal" -Type String -ErrorAction Stop
                 Set-ItemProperty -Path $cmdPath -Name "(Default)" -Value "`"$($wtPath.Source)`" %1" -Type ExpandString -ErrorAction Stop
                 Write-StyledMessage -type 'Success' -text "Configurato: $($reg.Desc)"
             }
             catch {
-                if ($_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato|UnauthorizedAccess") {
-                    Write-StyledMessage -type 'Error' -text "Permessi insufficienti per $($reg.Desc). Riavvio come amministratore richiesto."
-                    Restart-WithAdministratorPrivileges
-                    return $false
+                $msg = if ($_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato") {
+                    "Saltato $($reg.Desc) (permessi insufficienti)"
                 }
-                else {
-                    $msg = "Errore $($reg.Desc): $($_.Exception.Message)"
-                    Write-StyledMessage -type 'Warning' -text $msg
-                }
+                else { "Errore $($reg.Desc): $($_.Exception.Message)" }
+                Write-StyledMessage -type 'Info' -text $msg
             }
         }
 
@@ -414,82 +370,8 @@ function ToolKit-Desktop {
         return $true
     }
     catch {
-        if ($_.Exception.Message -match "Accesso.*non consentito|Access denied|Accesso negato|UnauthorizedAccess") {
-            Write-StyledMessage -type 'Error' -text "Permessi insufficienti per creare la scorciatoia. Riavvio come amministratore richiesto."
-            Restart-WithAdministratorPrivileges
-            return $false
-        }
         Write-StyledMessage -type 'Error' -text "Errore creazione scorciatoia: $($_.Exception.Message)"
         return $false
-    }
-}
-
-# Funzione per verificare se sono necessari privilegi amministrativi
-function Test-AdministratorPrivileges {
-    return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
-# Funzione per ottenere il percorso di PowerShell disponibile (preferisce PS7)
-function Get-PowerShellPath {
-    # Verifica PowerShell 7
-    $ps7Path = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
-    if (Test-Path $ps7Path) {
-        return $ps7Path
-    }
-
-    # Verifica PowerShell 5/Core
-    try {
-        $psCorePath = Get-Command "pwsh" -ErrorAction SilentlyContinue
-        if ($psCorePath) {
-            return $psCorePath.Source
-        }
-    }
-    catch {}
-
-    # Fallback a PowerShell 5
-    return "powershell.exe"
-}
-
-# Funzione per riavviare lo script con privilegi amministrativi
-function Restart-WithAdministratorPrivileges {
-    param(
-        [switch]$InstallProfileOnly
-    )
-
-    Write-StyledMessage -type 'Warning' -text "Privilegi amministrativi richiesti. Riavvio con privilegi elevati..."
-
-    $argList = @()
-    $PSBoundParameters.GetEnumerator() | ForEach-Object {
-        $argList += if ($_.Value -is [switch] -and $_.Value) {
-            "-$($_.Key)"
-        }
-        elseif ($_.Value -is [array]) {
-            "-$($_.Key) $($_.Value -join ',')"
-        }
-        elseif ($_.Value) {
-            "-$($_.Key) '$($_.Value)'"
-        }
-    }
-
-    $script = if ($PSCommandPath) {
-        "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
-    }
-    else {
-        "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1))) $($argList -join ' ')"
-    }
-
-    $psPath = Get-PowerShellPath
-    Write-StyledMessage -type 'Info' -text "Utilizzo: $psPath"
-
-    try {
-        Start-Process $psPath -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
-        Write-StyledMessage -type 'Success' -text "Script riavviato con privilegi amministrativi."
-        exit 0
-    }
-    catch {
-        Write-StyledMessage -type 'Error' -text "Errore nel riavvio con privilegi amministrativi: $($_.Exception.Message)"
-        Write-StyledMessage -type 'Warning' -text "Tentare esecuzione manuale come amministratore."
-        exit 1
     }
 }
 
@@ -499,9 +381,27 @@ function Start-WinToolkit {
         [switch]$InstallProfileOnly
     )
 
-    # Verifica privilegi amministrativi
-    if (-not (Test-AdministratorPrivileges)) {
-        Restart-WithAdministratorPrivileges -InstallProfileOnly:$InstallProfileOnly
+    if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Output "Win Toolkit deve essere eseguito come amministratore. Tentativo di riavvio."
+        $argList = @()
+        $PSBoundParameters.GetEnumerator() | ForEach-Object {
+            $argList += if ($_.Value -is [switch] -and $_.Value) {
+                "-$($_.Key)"
+            }
+            elseif ($_.Value -is [array]) {
+                "-$($_.Key) $($_.Value -join ',')"
+            }
+            elseif ($_.Value) {
+                "-$($_.Key) '$($_.Value)'"
+            }
+        }
+        $script = if ($PSCommandPath) {
+            "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
+        }
+        else {
+            "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1))) $($argList -join ' ')"
+        }
+        Start-Process "powershell" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
         return
     }
 
@@ -524,7 +424,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 17)'
+        '        Version 2.2.2 (Build 18)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
