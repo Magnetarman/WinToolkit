@@ -59,7 +59,65 @@ function WinCleaner {
 
     function Write-StyledMessage([string]$Type, [string]$Text) {
         $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+        $timestamp = Get-Date -Format "HH:mm:ss"
+        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
+
+        # Log dettagliato per operazioni importanti
+        if ($Type -in @('Info', 'Warning', 'Error')) {
+            $logEntry = "[$timestamp] [$Type] $Text"
+            $script:Log += $logEntry
+        }
+    }
+
+    function Start-ProcessWithTimeout {
+        param(
+            [string]$FilePath,
+            [string[]]$ArgumentList,
+            [int]$TimeoutSeconds = 300,
+            [string]$Activity = "Processo in esecuzione",
+            [switch]$Hidden
+        )
+
+        $startTime = Get-Date
+        $spinnerIndex = 0
+        $percent = 0
+
+        try {
+            $processParams = @{
+                FilePath     = $FilePath
+                ArgumentList = $ArgumentList
+                NoNewWindow  = $true
+                PassThru     = $true
+            }
+
+            if ($Hidden) {
+                $processParams.Add('WindowStyle', 'Hidden')
+            }
+
+            $proc = Start-Process @processParams
+
+            while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
+                $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
+                if ($percent -lt 90) { $percent += Get-Random -Minimum 1 -Maximum 3 }
+                Show-ProgressBar $Activity "In esecuzione... ($elapsed secondi)" $percent '⏳' $spinner
+                Start-Sleep -Milliseconds 500
+                $proc.Refresh()
+            }
+
+            if (-not $proc.HasExited) {
+                Write-StyledMessage Warning "⚠️ Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
+                $proc.Kill()
+                Start-Sleep -Seconds 2
+                return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
+            }
+
+            return @{ Success = $true; TimedOut = $false; ExitCode = $proc.ExitCode }
+        }
+        catch {
+            Write-StyledMessage Error "❌ Errore nell'avvio del processo: $($_.Exception.Message)"
+            return @{ Success = $false; TimedOut = $false; ExitCode = -1 }
+        }
     }
 
     function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
@@ -104,32 +162,97 @@ function WinCleaner {
         $percent = 0; $spinnerIndex = 0
 
         try {
-            # Configurazione sageset:1 con tutte le opzioni
-            Write-StyledMessage Info "⚙️ Configurazione opzioni pulizia (sageset:1)..."
-            Start-Process 'cleanmgr.exe' -ArgumentList '/d C: /sageset:1' -Wait -WindowStyle Hidden
+            # Crea configurazione automatica nel registro per evitare interazione utente
+            Write-StyledMessage Info "⚙️ Configurazione registro CleanMgr automatico..."
+            $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
 
-            # Esecuzione sagerun:1
-            Write-StyledMessage Info "🚀 Avvio pulizia automatica (sagerun:1)..."
-            $proc = Start-Process 'cleanmgr.exe' -ArgumentList '/sagerun:1' -NoNewWindow -PassThru
+            # Abilita tutte le opzioni di pulizia disponibili
+            $cleanOptions = @(
+                "Active Setup Temp Folders",
+                "BranchCache",
+                "D3D Shader Cache",
+                "Delivery Optimization Files",
+                "Diagnostic Data Viewer database files",
+                "Downloaded Program Files",
+                "GameNewsFiles",
+                "GameStatisticsFiles",
+                "GameUpdateFiles",
+                "Internet Cache Files",
+                "Memory Dump Files",
+                "Offline Pages Files",
+                "Old ChkDsk Files",
+                "Previous Installations",
+                "Recycle Bin",
+                "Service Pack Cleanup",
+                "Setup Log Files",
+                "System error memory dump files",
+                "System error minidump files",
+                "Temporary Files",
+                "Temporary Setup Files",
+                "Temporary Sync Files",
+                "Thumbnail Cache",
+                "Update Cleanup",
+                "Upgrade Discarded Files",
+                "User file versions",
+                "Windows Defender",
+                "Windows Error Reporting Files",
+                "Windows ESD installation files",
+                "Windows Upgrade Log Files"
+            )
 
-            while (-not $proc.HasExited) {
+            $configuredCount = 0
+            foreach ($option in $cleanOptions) {
+                $optionPath = Join-Path $regPath $option
+                try {
+                    if (-not (Test-Path $optionPath)) {
+                        New-Item -Path $optionPath -Force | Out-Null
+                    }
+                    Set-ItemProperty -Path $optionPath -Name "StateFlags0001" -Value 2 -Type DWORD -ErrorAction SilentlyContinue
+                    $configuredCount++
+                }
+                catch {
+                    Write-StyledMessage Warning "⚠️ Impossibile configurare opzione: $option"
+                }
+            }
+
+            Write-StyledMessage Info "✅ Configurate $configuredCount opzioni di pulizia nel registro"
+
+            # Esecuzione pulizia con configurazione automatica
+            Write-StyledMessage Info "🚀 Avvio pulizia automatica CleanMgr..."
+            $proc = Start-Process 'cleanmgr.exe' -ArgumentList '/d C: /sagerun:1' -NoNewWindow -PassThru
+
+            # Timeout di sicurezza (10 minuti max)
+            $timeout = 600
+            $elapsed = 0
+
+            while (-not $proc.HasExited -and $elapsed -lt $timeout) {
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
                 if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                Show-ProgressBar "Pulizia CleanMgr" 'Esecuzione in corso...' $percent '🧹' $spinner
+                Show-ProgressBar "Pulizia CleanMgr" "Esecuzione in corso... ($([math]::Round($elapsed, 0))s)" $percent '🧹' $spinner
                 Start-Sleep -Milliseconds 800
                 $proc.Refresh()
+                $elapsed += 0.8
+            }
+
+            if (-not $proc.HasExited) {
+                Write-StyledMessage Warning "⚠️ Timeout raggiunto, terminazione processo..."
+                $proc.Kill()
+                Start-Sleep -Seconds 2
+                $script:Log += "[CleanMgrAuto] ⚠️ Timeout dopo $timeout secondi"
+                return @{ Success = $true; ErrorCount = 0 }
             }
 
             Show-ProgressBar "Pulizia CleanMgr" 'Completato con successo' 100 '🧹'
             Write-Host ''
-            Write-StyledMessage Success "✅ Pulizia automatica CleanMgr completata"
+            Write-StyledMessage Success "✅ Pulizia automatica CleanMgr completata (Exit code: $($proc.ExitCode))"
 
-            $script:Log += "[CleanMgrAuto] ✅ Pulizia automatica completata"
+            $script:Log += "[CleanMgrAuto] ✅ Pulizia automatica completata (Exit code: $($proc.ExitCode))"
             return @{ Success = $true; ErrorCount = 0 }
         }
         catch {
-            Write-StyledMessage Error "Errore durante pulizia CleanMgr: $_"
-            $script:Log += "[CleanMgrAuto] ❌ Errore: $_"
+            Write-StyledMessage Error "❌ Errore durante pulizia CleanMgr: $($_.Exception.Message)"
+            Write-StyledMessage Info "💡 Suggerimento: Eseguire manualmente 'cleanmgr.exe /sageset:1' per configurare le opzioni"
+            $script:Log += "[CleanMgrAuto] ❌ Errore: $($_.Exception.Message)"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -139,23 +262,21 @@ function WinCleaner {
         $percent = 0; $spinnerIndex = 0
 
         try {
-            $proc = Start-Process 'DISM.exe' -ArgumentList '/Online /Cleanup-Image /StartComponentCleanup /ResetBase' -NoNewWindow -PassThru -RedirectStandardOutput "$env:TEMP\dism_out.txt" -RedirectStandardError "$env:TEMP\dism_err.txt"
+            Write-StyledMessage Info "🔍 Avvio analisi componenti WinSxS..."
 
-            while (-not $proc.HasExited) {
-                $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
-                Show-ProgressBar "WinSxS Cleanup" 'Analisi componenti...' $percent '📦' $spinner
-                Start-Sleep -Milliseconds 1000
-                $proc.Refresh()
+            $result = Start-ProcessWithTimeout -FilePath 'DISM.exe' -ArgumentList '/Online /Cleanup-Image /StartComponentCleanup /ResetBase' -TimeoutSeconds 900 -Activity "WinSxS Cleanup" -Hidden
+
+            if ($result.TimedOut) {
+                Write-StyledMessage Warning "⚠️ Pulizia WinSxS interrotta per timeout"
+                $script:Log += "[WinSxS] ⚠️ Timeout dopo 15 minuti"
+                return @{ Success = $true; ErrorCount = 0 }
             }
 
-            $exitCode = $proc.ExitCode
-            Show-ProgressBar "WinSxS Cleanup" 'Completato' 100 '📦'
-            Write-Host ''
+            $exitCode = $result.ExitCode
 
             if ($exitCode -eq 0) {
                 Write-StyledMessage Success "✅ Componenti WinSxS puliti con successo"
-                $script:Log += "[WinSxS] ✅ Pulizia completata"
+                $script:Log += "[WinSxS] ✅ Pulizia completata (Exit code: $exitCode)"
                 return @{ Success = $true; ErrorCount = 0 }
             }
             else {
@@ -165,12 +286,9 @@ function WinCleaner {
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante pulizia WinSxS: $_"
-            $script:Log += "[WinSxS] ❌ Errore: $_"
+            Write-StyledMessage Error "❌ Errore durante pulizia WinSxS: $($_.Exception.Message)"
+            $script:Log += "[WinSxS] ❌ Errore: $($_.Exception.Message)"
             return @{ Success = $false; ErrorCount = 1 }
-        }
-        finally {
-            Remove-Item "$env:TEMP\dism_out.txt", "$env:TEMP\dism_err.txt" -ErrorAction SilentlyContinue
         }
     }
 
@@ -744,7 +862,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.3 (Build 11)'
+            '       Version 2.2.2 (Build 12)'
         )
 
         foreach ($line in $asciiArt) {
@@ -779,14 +897,25 @@ function WinCleaner {
         }
 
         Write-Host ''
-        Write-Host ('═' * 65) -ForegroundColor Green
+        Write-Host ('═' * 80) -ForegroundColor Green
         Write-StyledMessage Success "🎉 Pulizia completata con successo!"
         Write-StyledMessage Success "💻 Completati $successCount/$($CleanupTasks.Count) task di pulizia"
+
         if ($totalErrors -gt 0) {
             Write-StyledMessage Warning "⚠️ $totalErrors errori durante la pulizia"
         }
+
+        # Mostra riepilogo dettagliato
+        Write-Host ''
+        Write-StyledMessage Info "📊 RIEPILOGO OPERAZIONI:"
+        foreach ($logEntry in $script:Log) {
+            if ($logEntry -match '✅|⚠️|❌|ℹ️') {
+                Write-Host "  $logEntry" -ForegroundColor Gray
+            }
+        }
+
         Write-StyledMessage Info "🔄 Il sistema verrà riavviato per applicare tutte le modifiche"
-        Write-Host ('═' * 65) -ForegroundColor Green
+        Write-Host ('═' * 80) -ForegroundColor Green
         Write-Host ''
 
         $shouldReboot = Start-InterruptibleCountdown $CountdownSeconds "Preparazione riavvio sistema"
