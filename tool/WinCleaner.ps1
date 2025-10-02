@@ -32,8 +32,8 @@ function WinCleaner {
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '' }
-        Error   = @{ Color = 'Red'; Icon = '' }
+        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
         Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
 
@@ -226,32 +226,45 @@ function WinCleaner {
 
             # Esecuzione pulizia con configurazione automatica
             Write-StyledMessage Info "🚀 Avvio pulizia automatica CleanMgr..."
-            $proc = Start-Process 'cleanmgr.exe' -ArgumentList '/d C: /sagerun:1' -NoNewWindow -PassThru
-
+            
+            # CleanMgr lancia un processo separato, quindi dobbiamo monitorare cleanmgr.exe in esecuzione
+            $proc = Start-Process 'cleanmgr.exe' -ArgumentList '/d C: /sagerun:1' -PassThru
+            
+            # Attendi che il processo principale si chiuda (lancia il processo reale)
+            Start-Sleep -Seconds 2
+            
             # Timeout di sicurezza (10 minuti max)
             $timeout = 600
-            $elapsed = 0
-
-            while (-not $proc.HasExited -and $elapsed -lt $timeout) {
-                $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                Show-ProgressBar "Pulizia CleanMgr" "Esecuzione in corso... ($([math]::Round($elapsed, 0))s)" $percent '🧹' $spinner
-                Start-Sleep -Milliseconds 800
-                $proc.Refresh()
-                $elapsed += 0.8
+            $startTime = Get-Date
+            $cleanmgrRunning = $true
+            
+            while ($cleanmgrRunning -and ((Get-Date) - $startTime).TotalSeconds -lt $timeout) {
+                # Verifica se cleanmgr.exe è ancora in esecuzione
+                $cleanmgrProcesses = Get-Process -Name "cleanmgr" -ErrorAction SilentlyContinue
+                
+                if ($cleanmgrProcesses) {
+                    $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+                    $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
+                    if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
+                    Show-ProgressBar "Pulizia CleanMgr" "Esecuzione in corso... ($elapsed s)" $percent '🧹' $spinner
+                    Start-Sleep -Milliseconds 800
+                }
+                else {
+                    $cleanmgrRunning = $false
+                }
             }
 
-            if (-not $proc.HasExited) {
+            if ($cleanmgrRunning) {
                 Write-StyledMessage Warning "Timeout raggiunto, terminazione processo..."
-                $proc.Kill()
+                Get-Process -Name "cleanmgr" -ErrorAction SilentlyContinue | Stop-Process -Force
                 Start-Sleep -Seconds 2
-                $script:Log += "[CleanMgrAuto]  Timeout dopo $timeout secondi"
+                $script:Log += "[CleanMgrAuto] Timeout dopo $timeout secondi"
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
             Show-ProgressBar "Pulizia CleanMgr" 'Completato con successo' 100 '🧹'
             Write-Host ''
-            Write-StyledMessage Success "✅ Pulizia automatica CleanMgr completata (Exit code: $($proc.ExitCode))"
+            Write-StyledMessage Success "Pulizia automatica CleanMgr completata"
 
             $script:Log += "[CleanMgrAuto] ✅ Pulizia automatica completata (Exit code: $($proc.ExitCode))"
             return @{ Success = $true; ErrorCount = 0 }
@@ -869,7 +882,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 13)'
+            '       Version 2.2.2 (Build 14)'
         )
 
         foreach ($line in $asciiArt) {
