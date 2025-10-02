@@ -68,8 +68,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 - Correzione del blocco grafico del terminale per lo script `WinReinstallStore.ps1`.
 - Correzione del blocco grafico del terminale per lo script `WinBackupDriver.ps1`.
-- Correzione di alcuni problemi di affidabilità nello script `start.ps1`
-- Correzione di alcuni problemi di affidabilità nella funzione `InstallPSProfile`
+- Correzione di alcuni problemi di affidabilità nello script `start.ps1`.
+- Correzione di alcuni problemi di affidabilità nella funzione `InstallPSProfile`.
 
 ### Modifiche
 
