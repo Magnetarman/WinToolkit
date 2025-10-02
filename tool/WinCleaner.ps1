@@ -32,8 +32,8 @@ function WinCleaner {
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Warning = @{ Color = 'Yellow'; Icon = '' }
+        Error   = @{ Color = 'Red'; Icon = '' }
         Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
 
@@ -60,11 +60,15 @@ function WinCleaner {
     function Write-StyledMessage([string]$Type, [string]$Text) {
         $style = $MsgStyles[$Type]
         $timestamp = Get-Date -Format "HH:mm:ss"
-        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
+        
+        # Rimuovi emoji duplicati dal testo se presenti
+        $cleanText = $Text -replace '^(✅|||💎|🔍|🚀|⚙️|🧹|📦|📋|📜|📝|💾|⬇️|🔧|⚡|🖼️|🌐|🍪|🔄|🗂️|📁|🖨️|📄|🗑️|💭|⏸️|▶️|💡|⏰|🎉|💻|📊)\s*', ''
+        
+        Write-Host "[$timestamp] $($style.Icon) $cleanText" -ForegroundColor $style.Color
 
         # Log dettagliato per operazioni importanti
         if ($Type -in @('Info', 'Warning', 'Error')) {
-            $logEntry = "[$timestamp] [$Type] $Text"
+            $logEntry = "[$timestamp] [$Type] $cleanText"
             $script:Log += $logEntry
         }
     }
@@ -86,12 +90,15 @@ function WinCleaner {
             $processParams = @{
                 FilePath     = $FilePath
                 ArgumentList = $ArgumentList
-                NoNewWindow  = $true
                 PassThru     = $true
             }
 
+            # Usa WindowStyle Hidden OPPURE NoNewWindow, non entrambi
             if ($Hidden) {
                 $processParams.Add('WindowStyle', 'Hidden')
+            }
+            else {
+                $processParams.Add('NoNewWindow', $true)
             }
 
             $proc = Start-Process @processParams
@@ -106,7 +113,7 @@ function WinCleaner {
             }
 
             if (-not $proc.HasExited) {
-                Write-StyledMessage Warning "⚠️ Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
+                Write-StyledMessage Warning "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
                 $proc.Kill()
                 Start-Sleep -Seconds 2
                 return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
@@ -115,7 +122,7 @@ function WinCleaner {
             return @{ Success = $true; TimedOut = $false; ExitCode = $proc.ExitCode }
         }
         catch {
-            Write-StyledMessage Error "❌ Errore nell'avvio del processo: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore nell'avvio del processo: $($_.Exception.Message)"
             return @{ Success = $false; TimedOut = $false; ExitCode = -1 }
         }
     }
@@ -211,7 +218,7 @@ function WinCleaner {
                     $configuredCount++
                 }
                 catch {
-                    Write-StyledMessage Warning "⚠️ Impossibile configurare opzione: $option"
+                    Write-StyledMessage Warning "Impossibile configurare opzione: $option"
                 }
             }
 
@@ -235,10 +242,10 @@ function WinCleaner {
             }
 
             if (-not $proc.HasExited) {
-                Write-StyledMessage Warning "⚠️ Timeout raggiunto, terminazione processo..."
+                Write-StyledMessage Warning "Timeout raggiunto, terminazione processo..."
                 $proc.Kill()
                 Start-Sleep -Seconds 2
-                $script:Log += "[CleanMgrAuto] ⚠️ Timeout dopo $timeout secondi"
+                $script:Log += "[CleanMgrAuto]  Timeout dopo $timeout secondi"
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
@@ -250,9 +257,9 @@ function WinCleaner {
             return @{ Success = $true; ErrorCount = 0 }
         }
         catch {
-            Write-StyledMessage Error "❌ Errore durante pulizia CleanMgr: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore durante pulizia CleanMgr: $($_.Exception.Message)"
             Write-StyledMessage Info "💡 Suggerimento: Eseguire manualmente 'cleanmgr.exe /sageset:1' per configurare le opzioni"
-            $script:Log += "[CleanMgrAuto] ❌ Errore: $($_.Exception.Message)"
+            $script:Log += "[CleanMgrAuto]  Errore: $($_.Exception.Message)"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -267,8 +274,8 @@ function WinCleaner {
             $result = Start-ProcessWithTimeout -FilePath 'DISM.exe' -ArgumentList '/Online /Cleanup-Image /StartComponentCleanup /ResetBase' -TimeoutSeconds 900 -Activity "WinSxS Cleanup" -Hidden
 
             if ($result.TimedOut) {
-                Write-StyledMessage Warning "⚠️ Pulizia WinSxS interrotta per timeout"
-                $script:Log += "[WinSxS] ⚠️ Timeout dopo 15 minuti"
+                Write-StyledMessage Warning "Pulizia WinSxS interrotta per timeout"
+                $script:Log += "[WinSxS]  Timeout dopo 15 minuti"
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
@@ -280,14 +287,14 @@ function WinCleaner {
                 return @{ Success = $true; ErrorCount = 0 }
             }
             else {
-                Write-StyledMessage Warning "⚠️ Pulizia WinSxS completata con warnings (Exit code: $exitCode)"
-                $script:Log += "[WinSxS] ⚠️ Completato con warnings (Exit code: $exitCode)"
+                Write-StyledMessage Warning "Pulizia WinSxS completata con warnings (Exit code: $exitCode)"
+                $script:Log += "[WinSxS]  Completato con warnings (Exit code: $exitCode)"
                 return @{ Success = $true; ErrorCount = 0 }
             }
         }
         catch {
-            Write-StyledMessage Error "❌ Errore durante pulizia WinSxS: $($_.Exception.Message)"
-            $script:Log += "[WinSxS] ❌ Errore: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore durante pulizia WinSxS: $($_.Exception.Message)"
+            $script:Log += "[WinSxS]  Errore: $($_.Exception.Message)"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -309,7 +316,7 @@ function WinCleaner {
                     Write-StyledMessage Info "🗑️ Rimosso $($files.Count) file da $path"
                 }
                 catch {
-                    Write-StyledMessage Warning "⚠️ Impossibile pulire $path - $_"
+                    Write-StyledMessage Warning "Impossibile pulire $path - $_"
                 }
             }
         }
@@ -342,8 +349,8 @@ function WinCleaner {
             return @{ Success = $true; ErrorCount = 0 }
         }
         catch {
-            Write-StyledMessage Warning "⚠️ Errore durante pulizia registro eventi: $_"
-            $script:Log += "[EventLogs] ⚠️ Errore: $_"
+            Write-StyledMessage Warning "Errore durante pulizia registro eventi: $_"
+            $script:Log += "[EventLogs]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -374,7 +381,7 @@ function WinCleaner {
                 }
             }
             catch {
-                Write-StyledMessage Warning "⚠️ Impossibile rimuovere $path - $_"
+                Write-StyledMessage Warning " Impossibile rimuovere $path - $_"
             }
         }
 
@@ -404,8 +411,8 @@ function WinCleaner {
             return @{ Success = $true; ErrorCount = 0 }
         }
         catch {
-            Write-StyledMessage Warning "⚠️ Errore durante disattivazione punti ripristino: $_"
-            $script:Log += "[RestorePoints] ⚠️ Errore: $_"
+            Write-StyledMessage Warning " Errore durante disattivazione punti ripristino: $_"
+            $script:Log += "[RestorePoints]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -430,8 +437,8 @@ function WinCleaner {
             }
         }
         catch {
-            Write-StyledMessage Warning "⚠️ Errore durante pulizia cache download: $_"
-            $script:Log += "[DownloadCache] ⚠️ Errore: $_"
+            Write-StyledMessage Warning " Errore durante pulizia cache download: $_"
+            $script:Log += "[DownloadCache]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -454,7 +461,7 @@ function WinCleaner {
                 }
             }
             catch {
-                Write-StyledMessage Warning "⚠️ Impossibile pulire $path - $_"
+                Write-StyledMessage Warning "Impossibile pulire $path - $_"
             }
         }
 
@@ -490,8 +497,8 @@ function WinCleaner {
             }
         }
         catch {
-            Write-StyledMessage Warning "⚠️ Errore durante pulizia Prefetch: $_"
-            $script:Log += "[Prefetch] ⚠️ Errore: $_"
+            Write-StyledMessage Warning " Errore durante pulizia Prefetch: $_"
+            $script:Log += "[Prefetch]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -520,7 +527,7 @@ function WinCleaner {
                     }
                 }
                 catch {
-                    Write-StyledMessage Warning "⚠️ Impossibile rimuovere alcuni file in $path"
+                    Write-StyledMessage Warning " Impossibile rimuovere alcuni file in $path"
                 }
             }
         }
@@ -553,7 +560,7 @@ function WinCleaner {
                         $totalCleaned += $files.Count
                     }
                     catch {
-                        Write-StyledMessage Warning "⚠️ Impossibile pulire cache per utente $($user.Name)"
+                        Write-StyledMessage Warning " Impossibile pulire cache per utente $($user.Name)"
                     }
                 }
             }
@@ -567,8 +574,8 @@ function WinCleaner {
             return @{ Success = $true; ErrorCount = 0 }
         }
         catch {
-            Write-StyledMessage Warning "⚠️ Errore durante pulizia cache WinInet: $_"
-            $script:Log += "[WinInetCache] ⚠️ Errore: $_"
+            Write-StyledMessage Warning " Errore durante pulizia cache WinInet: $_"
+            $script:Log += "[WinInetCache]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -594,7 +601,7 @@ function WinCleaner {
                             $totalCleaned += $files.Count
                         }
                         catch {
-                            Write-StyledMessage Warning "⚠️ Impossibile pulire cookie per utente $($user.Name)"
+                            Write-StyledMessage Warning " Impossibile pulire cookie per utente $($user.Name)"
                         }
                     }
                 }
@@ -608,8 +615,8 @@ function WinCleaner {
             return @{ Success = $true; ErrorCount = 0 }
         }
         catch {
-            Write-StyledMessage Warning "⚠️ Errore durante pulizia cookie: $_"
-            $script:Log += "[InternetCookies] ⚠️ Errore: $_"
+            Write-StyledMessage Warning " Errore durante pulizia cookie: $_"
+            $script:Log += "[InternetCookies]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -626,14 +633,14 @@ function WinCleaner {
                 return @{ Success = $true; ErrorCount = 0 }
             }
             else {
-                Write-StyledMessage Warning "⚠️ Flush DNS completato con warnings"
-                $script:Log += "[DNSFlush] ⚠️ Completato con warnings"
+                Write-StyledMessage Warning " Flush DNS completato con warnings"
+                $script:Log += "[DNSFlush]  Completato con warnings"
                 return @{ Success = $true; ErrorCount = 0 }
             }
         }
         catch {
-            Write-StyledMessage Warning "⚠️ Errore durante flush DNS: $_"
-            $script:Log += "[DNSFlush] ⚠️ Errore: $_"
+            Write-StyledMessage Warning " Errore durante flush DNS: $_"
+            $script:Log += "[DNSFlush]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -659,8 +666,8 @@ function WinCleaner {
             }
         }
         catch {
-            Write-StyledMessage Warning "⚠️ Errore durante pulizia file temporanei Windows: $_"
-            $script:Log += "[WindowsTemp] ⚠️ Errore: $_"
+            Write-StyledMessage Warning " Errore durante pulizia file temporanei Windows: $_"
+            $script:Log += "[WindowsTemp]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -689,7 +696,7 @@ function WinCleaner {
                             $totalSize += $size
                         }
                         catch {
-                            Write-StyledMessage Warning "⚠️ Impossibile pulire temp per utente $($user.Name)"
+                            Write-StyledMessage Warning " Impossibile pulire temp per utente $($user.Name)"
                         }
                     }
                 }
@@ -707,8 +714,8 @@ function WinCleaner {
             }
         }
         catch {
-            Write-StyledMessage Warning "⚠️ Errore durante pulizia file temporanei utente: $_"
-            $script:Log += "[UserTemp] ⚠️ Errore: $_"
+            Write-StyledMessage Warning " Errore durante pulizia file temporanei utente: $_"
+            $script:Log += "[UserTemp]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -749,8 +756,8 @@ function WinCleaner {
         catch {
             # Assicura che il servizio spooler sia riavviato anche in caso di errore
             Start-Service -Name Spooler -ErrorAction SilentlyContinue
-            Write-StyledMessage Warning "⚠️ Errore durante pulizia coda di stampa: $_"
-            $script:Log += "[PrintQueue] ⚠️ Errore: $_"
+            Write-StyledMessage Warning " Errore durante pulizia coda di stampa: $_"
+            $script:Log += "[PrintQueue]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -778,7 +785,7 @@ function WinCleaner {
                     Write-StyledMessage Info "🗑️ Puliti log da: $path"
                 }
                 catch {
-                    Write-StyledMessage Warning "⚠️ Impossibile pulire alcuni log in $path"
+                    Write-StyledMessage Warning " Impossibile pulire alcuni log in $path"
                 }
             }
         }
@@ -831,7 +838,7 @@ function WinCleaner {
         }
         catch {
             Write-StyledMessage Error "Errore durante $($Task.Name): $_"
-            $script:Log += "[$($Task.Name)] ❌ Errore fatale: $_"
+            $script:Log += "[$($Task.Name)]  Errore fatale: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -862,7 +869,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 12)'
+            '       Version 2.2.2 (Build 13)'
         )
 
         foreach ($line in $asciiArt) {
@@ -902,14 +909,14 @@ function WinCleaner {
         Write-StyledMessage Success "💻 Completati $successCount/$($CleanupTasks.Count) task di pulizia"
 
         if ($totalErrors -gt 0) {
-            Write-StyledMessage Warning "⚠️ $totalErrors errori durante la pulizia"
+            Write-StyledMessage Warning " $totalErrors errori durante la pulizia"
         }
 
         # Mostra riepilogo dettagliato
         Write-Host ''
         Write-StyledMessage Info "📊 RIEPILOGO OPERAZIONI:"
         foreach ($logEntry in $script:Log) {
-            if ($logEntry -match '✅|⚠️|❌|ℹ️') {
+            if ($logEntry -match '✅|||ℹ️') {
                 Write-Host "  $logEntry" -ForegroundColor Gray
             }
         }
@@ -933,7 +940,7 @@ function WinCleaner {
         Write-Host ''
         Write-Host ('═' * 65) -ForegroundColor Red
         Write-StyledMessage Error "💥 Errore critico: $($_.Exception.Message)"
-        Write-StyledMessage Error '❌ Si è verificato un errore durante la pulizia.'
+        Write-StyledMessage Error ' Si è verificato un errore durante la pulizia.'
         Write-Host ('═' * 65) -ForegroundColor Red
     }
     finally {
