@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 27) - 2025-10-03
+  Versione 2.2.2 (Build 28) - 2025-10-03
 #>
 
 function Center-text {
@@ -354,26 +354,74 @@ function Install-PowerShell7 {
                 [int]$MaxRetries = 3
             )
 
-            $methods = @("BITS", "WebClient", "Curl", "Invoke-WebRequest")
+            $methods = @("WebClient", "BITS-Simple", "BITS", "Curl", "Invoke-WebRequest")
             $lastError = $null
 
             foreach ($method in $methods) {
+                $bitsJob = $null
                 for ($retry = 1; $retry -le $MaxRetries; $retry++) {
                     try {
                         Write-StyledMessage -type 'Info' -text "Download tentativo $retry/3 con metodo: $method"
 
                         switch ($method) {
+                            "BITS-Simple" {
+                                if (Get-Command "Start-BitsTransfer" -ErrorAction SilentlyContinue) {
+                                    try {
+                                        Write-StyledMessage -type 'Info' -text "Tentativo download BITS semplice..."
+                                        Start-BitsTransfer -Source $Url -Destination $OutputPath -ErrorAction Stop
+                                        Write-StyledMessage -type 'Success' -text "Download BITS completato."
+                                        return $true
+                                    }
+                                    catch {
+                                        Write-StyledMessage -type 'Warning' -text "BITS semplice fallito: $($_.Exception.Message)"
+                                        throw
+                                    }
+                                }
+                            }
                             "BITS" {
                                 if (Get-Command "Start-BitsTransfer" -ErrorAction SilentlyContinue) {
-                                    $bitsJob = Start-BitsTransfer -Source $Url -Destination $OutputPath -Asynchronous -ErrorAction Stop
-                                    while ($bitsJob.JobState -eq "Transferring") {
-                                        Start-Sleep -Seconds 1
-                                        $progress = [math]::Round((($bitsJob.BytesTransferred / $bitsJob.BytesTotal) * 100), 1)
-                                        Write-Progress -Activity "Download PowerShell 7" -Status "$progress% completato" -PercentComplete $progress
+                                    try {
+                                        Write-StyledMessage -type 'Info' -text "Avvio trasferimento BITS..."
+                                        $bitsJob = Start-BitsTransfer -Source $Url -Destination $OutputPath -ErrorAction Stop
+
+                                        # Attendere il completamento del job BITS
+                                        while ($bitsJob.JobState -in @("Connecting", "Transferring", "Queued")) {
+                                            Start-Sleep -Seconds 2
+                                            $bitsJob = Get-BitsTransfer -JobId $bitsJob.JobId -ErrorAction SilentlyContinue
+                                            if ($bitsJob) {
+                                                $progress = 0
+                                                if ($bitsJob.BytesTotal -gt 0) {
+                                                    $progress = [math]::Round((($bitsJob.BytesTransferred / $bitsJob.BytesTotal) * 100), 1)
+                                                }
+                                                Write-Progress -Activity "Download PowerShell 7 (BITS)" -Status "$progress% completato ($([math]::Round($bitsJob.BytesTransferred/1MB, 2)) MB / $([math]::Round($bitsJob.BytesTotal/1MB, 2)) MB)" -PercentComplete $progress
+                                            }
+                                        }
+
+                                        Write-Progress -Activity "Download PowerShell 7 (BITS)" -Completed
+
+                                        # Verifica stato finale
+                                        if ($bitsJob.JobState -eq "Transferred") {
+                                            Complete-BitsTransfer -BitsJob $bitsJob -ErrorAction Stop
+                                            Write-StyledMessage -type 'Success' -text "Trasferimento BITS completato con successo."
+                                            return $true
+                                        }
+                                        else {
+                                            throw "BITS transfer failed with state: $($bitsJob.JobState)"
+                                        }
                                     }
-                                    Complete-BitsTransfer -BitsJob $bitsJob -ErrorAction Stop
-                                    Write-Progress -Activity "Download PowerShell 7" -Completed
-                                    return $true
+                                    catch {
+                                        Write-StyledMessage -type 'Warning' -text "BITS transfer failed: $($_.Exception.Message)"
+                                        # Cleanup BITS job se esiste ancora
+                                        try {
+                                            if ($bitsJob) {
+                                                Remove-BitsTransfer -BitsJob $bitsJob -ErrorAction SilentlyContinue
+                                            }
+                                        }
+                                        catch {
+                                            Write-StyledMessage -type 'Warning' -text "Errore durante cleanup BITS: $($_.Exception.Message)"
+                                        }
+                                        throw
+                                    }
                                 }
                             }
                             "WebClient" {
@@ -412,6 +460,12 @@ function Install-PowerShell7 {
                     }
                 }
             }
+
+            # Cleanup eventuali BITS jobs pendenti prima di uscire
+            try {
+                Get-BitsTransfer -AllUsers -ErrorAction SilentlyContinue | Remove-BitsTransfer -ErrorAction SilentlyContinue
+            }
+            catch {}
 
             Write-StyledMessage -type 'Error' -text "Tutti i tentativi di download sono falliti. Ultimo errore: $lastError"
             return $false
@@ -763,7 +817,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 27)'
+        '        Version 2.2.2 (Build 28)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
