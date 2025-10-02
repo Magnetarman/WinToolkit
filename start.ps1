@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 28) - 2025-10-03
+  Versione 2.2.2 (Build 29) - 2025-10-03
 #>
 
 function Center-text {
@@ -510,13 +510,37 @@ function Install-PowerShell7 {
         Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 in corso..."
         $installArgs = "/i `"$ps7Installer`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
 
+        # Verifica che gli argomenti di installazione non siano null o vuoti
+        if ([string]::IsNullOrEmpty($installArgs)) {
+            Write-StyledMessage -type 'Error' -text "Argomenti di installazione non validi o vuoti."
+            return $false
+        }
+
+        # Verifica che il file installer esista
+        if (-not (Test-Path $ps7Installer)) {
+            Write-StyledMessage -type 'Error' -text "File installer non trovato: $ps7Installer"
+            return $false
+        }
+
+        Write-StyledMessage -type 'Info' -text "Avvio installazione MSI con timeout monitoring..."
+
         # Usa un job per monitorare il processo con timeout
         $job = Start-Job -ScriptBlock {
             param($installer, $args)
-            $process = Start-Process "msiexec.exe" -ArgumentList $args -Wait -PassThru
-            return @{
-                ExitCode  = $process.ExitCode
-                ProcessId = $process.Id
+            try {
+                Write-Verbose "Avvio processo msiexec.exe con argomenti: $args"
+                $process = Start-Process "msiexec.exe" -ArgumentList $args -Wait -PassThru -ErrorAction Stop
+                return @{
+                    ExitCode  = $process.ExitCode
+                    ProcessId = $process.Id
+                }
+            }
+            catch {
+                return @{
+                    ExitCode  = -1
+                    ProcessId = 0
+                    Error     = $_.Exception.Message
+                }
             }
         } -ArgumentList $ps7Installer, $installArgs
 
@@ -537,6 +561,14 @@ function Install-PowerShell7 {
 
         if ($completed -and $jobResult.State -eq 'Completed') {
             $result = Receive-Job -Job $job
+
+            # Verifica se c'è stato un errore nel job
+            if ($result.Error) {
+                Write-StyledMessage -type 'Error' -text "Errore durante l'esecuzione del job di installazione: $($result.Error)"
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+                return $false
+            }
+
             if ($result.ExitCode -eq 0) {
                 Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo."
                 Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
@@ -817,7 +849,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 28)'
+        '        Version 2.2.2 (Build 29)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
