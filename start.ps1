@@ -475,7 +475,7 @@ function Restart-WithAdministratorPrivileges {
         "& { & `'$($PSCommandPath)`' $($argList -join ' ') }"
     }
     else {
-        "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/start.ps1))) $($argList -join ' ')"
+        "&([ScriptBlock]::Create((irm https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1))) $($argList -join ' ')"
     }
 
     $psPath = Get-PowerShellPath
@@ -524,7 +524,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 16)'
+        '        Version 2.2.2 (Build 17)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
