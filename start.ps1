@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 30) - 2025-10-03
+  Versione 2.2.2 (Build 31) - 2025-10-03
 #>
 
 function Center-text {
@@ -524,26 +524,44 @@ function Install-PowerShell7 {
 
         Write-StyledMessage -type 'Info' -text "Avvio installazione MSI con timeout monitoring..."
 
-        # Usa un job per monitorare il processo con timeout
+        # Crea uno script temporaneo per evitare problemi con ArgumentList
+        $tempScript = @"
+        try {
+            Write-Host "Avvio processo msiexec.exe con argomenti: $installArgs"
+            Write-Host "Installer path: $ps7Installer"
+
+            # Verifica finale che i parametri non siano null o vuoti
+            if ([string]::IsNullOrEmpty('$installArgs')) {
+                throw "Argomenti di installazione nulli o vuoti"
+            }
+            if ([string]::IsNullOrEmpty('$ps7Installer') -or -not (Test-Path '$ps7Installer')) {
+                throw "Percorso installer non valido: $ps7Installer"
+            }
+
+            `$process = Start-Process "msiexec.exe" -ArgumentList '$installArgs' -Wait -PassThru -ErrorAction Stop
+            return @{
+                ExitCode  = `$process.ExitCode
+                ProcessId = `$process.Id
+            }
+        }
+        catch {
+            return @{
+                ExitCode  = -1
+                ProcessId = 0
+                Error     = `$_.Exception.Message
+            }
+        }
+"@
+
+        $tempScriptPath = "$env:TEMP\ps7install.ps1"
+        $tempScript | Out-File -FilePath $tempScriptPath -Encoding UTF8 -Force
+
+        # Usa un job senza ArgumentList per evitare problemi di validazione
         $job = Start-Job -ScriptBlock {
-            param($installerPath, $installerArgs)
+            param($scriptPath)
             try {
-                Write-Verbose "Avvio processo msiexec.exe con argomenti: $installerArgs"
-                Write-Verbose "Installer path: $installerPath"
-
-                # Verifica finale che i parametri non siano null o vuoti
-                if ([string]::IsNullOrEmpty($installerArgs)) {
-                    throw "Argomenti di installazione nulli o vuoti"
-                }
-                if ([string]::IsNullOrEmpty($installerPath) -or -not (Test-Path $installerPath)) {
-                    throw "Percorso installer non valido: $installerPath"
-                }
-
-                $process = Start-Process "msiexec.exe" -ArgumentList $installerArgs -Wait -PassThru -ErrorAction Stop
-                return @{
-                    ExitCode  = $process.ExitCode
-                    ProcessId = $process.Id
-                }
+                $result = & $scriptPath
+                return $result
             }
             catch {
                 return @{
@@ -552,7 +570,7 @@ function Install-PowerShell7 {
                     Error     = $_.Exception.Message
                 }
             }
-        } -ArgumentList $ps7Installer, $installArgs
+        } -ArgumentList $tempScriptPath
 
         # Attendere il completamento con timeout di 10 minuti (600 secondi)
         $timeoutSeconds = 600
@@ -583,11 +601,14 @@ function Install-PowerShell7 {
                 Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo."
                 Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
                 Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
+                Remove-Item $tempScriptPath -Force -ErrorAction SilentlyContinue
                 return $true
             }
             else {
                 Write-StyledMessage -type 'Error' -text "Installazione PowerShell 7 fallita. Codice di uscita: $($result.ExitCode)"
                 Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+                Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
+                Remove-Item $tempScriptPath -Force -ErrorAction SilentlyContinue
                 return $false
             }
         }
@@ -615,9 +636,12 @@ function Install-PowerShell7 {
                 Write-StyledMessage -type 'Warning' -text "Errore durante la pulizia del job: $($_.Exception.Message)"
             }
 
-            # Cleanup del file installer
+            # Cleanup del file installer e script temporaneo
             if (Test-Path $ps7Installer) {
                 Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
+            }
+            if (Test-Path $tempScriptPath) {
+                Remove-Item $tempScriptPath -Force -ErrorAction SilentlyContinue
             }
 
             # Verifica se PowerShell 7 è stato installato nonostante il timeout
@@ -859,7 +883,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 30)'
+        '        Version 2.2.2 (Build 31)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
