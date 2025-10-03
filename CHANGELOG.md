@@ -12,6 +12,10 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Aggiunte
 
+- **Potenziamento Avvisi compatibilità Windows(`V2.2.3`):**
+  - Windows 11 (dalla versione 23H2 in poi): Tutto bene (Verde). Lo script funziona alla massima velocità ed efficienza perché usa le funzioni più recenti.
+  - Windows 11 (prima della 23H2) o Windows 10: Attenzione, possibile rischio (Giallo). Il sistema non è completamente aggiornato, ma lo script farà del suo meglio per funzionare. Userà soluzioni alternative (workaround) e funzioni di riserva per garantire la massima compatibilità, anche se con un'efficienza leggermente inferiore.
+  - Windows 10 (prima della 1809), Windows 8.1 o Windows 8: Sconsigliato, sistema troppo vecchio (Rosso). Lo script potrebbe avere gravi problemi di affidabilità.
 - **Funzione Driver & Gaming (`V2.3`):**
   - Scelta Driver Video (AMD/NVIDIA).
   - Installazione Driver Ottimizzato (Nvidia).
