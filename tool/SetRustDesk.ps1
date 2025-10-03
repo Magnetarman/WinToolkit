@@ -56,7 +56,7 @@ function SetRustDesk {
             '         \_/\_/    |_||_| \_|',
             '',
             'RustDesk Setup Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 11)'
+            '       Version 2.2.2 (Build 2)'
         )
 
         foreach ($line in $asciiArt) {
@@ -165,6 +165,13 @@ function SetRustDesk {
     function Clear-RustDeskConfig {
         Write-StyledMessage Progress "Pulizia configurazioni esistenti..."
         $configDir = "$env:APPDATA\RustDesk\config"
+        $rustDeskDir = "$env:APPDATA\RustDesk"
+
+        # Crea la cartella RustDesk se non esiste
+        if (-not (Test-Path $rustDeskDir)) {
+            New-Item -ItemType Directory -Path $rustDeskDir -Force | Out-Null
+            Write-StyledMessage Info "Cartella RustDesk creata"
+        }
 
         if (Test-Path $configDir) {
             Remove-Item $configDir -Recurse -Force -ErrorAction SilentlyContinue
