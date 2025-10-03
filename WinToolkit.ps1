@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2.2 (Build 15) - 2025-10-01
+  Versione 2.2.2 (Build 16) - 2025-10-03
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -118,7 +118,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.2.2 (Build 15)'
+    '       Version 2.2.2 (Build 16)'
 )
 
 # Placeholder functions (verranno automaticamente popolate dal compilatore)
@@ -1363,7 +1363,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         ' Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2.2 (Build 10)'
+        '       Version 2.2.2 (Build 12)'
     )
  
     foreach ($line in $asciiArt) {
@@ -1655,7 +1655,7 @@ function Invoke-WPFUpdatesEnable {
 
                 # Rename back to original
                 Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue
-                Write-StyledMessage Success "✅ Ripristinato ${dll}_BAK.dll a $dll.dll"
+                Write-StyledMessage Success "Ripristinato ${dll}_BAK.dll a $dll.dll"
 
                 # Restore ownership to TrustedInstaller
                 Start-Process -FilePath "icacls.exe" -ArgumentList "`"$dllPath`" /setowner `"NT SERVICE\TrustedInstaller`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
@@ -1690,7 +1690,7 @@ function Invoke-WPFUpdatesEnable {
             $tasks = Get-ScheduledTask -TaskPath $taskPath -ErrorAction SilentlyContinue
             foreach ($task in $tasks) {
                 Enable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction SilentlyContinue
-                Write-StyledMessage Success "✅ Task abilitato: $($task.TaskName)"
+                Write-StyledMessage Success "Task abilitato: $($task.TaskName)"
             }
         }
         catch {
@@ -3447,17 +3447,17 @@ function WinCleaner {
 
             # Verifica se ci sono effettivamente file da pulire
             Write-StyledMessage Info "🔍 Verifica se ci sono file da pulire..."
+            $startTime = Get-Date
             $testProc = Start-Process 'cleanmgr.exe' -ArgumentList '/sagerun:65' -PassThru -WindowStyle Hidden -Wait
 
             if ($testProc.ExitCode -eq 0 -and (Get-Date) - $startTime -lt [TimeSpan]::FromSeconds(5)) {
-                Write-StyledMessage Info "�� CleanMgr completato rapidamente - probabilmente nessun file da pulire"
+                Write-StyledMessage Info "💨 CleanMgr completato rapidamente - probabilmente nessun file da pulire"
                 Write-StyledMessage Success "✅ Verifica pulizia completata - sistema già pulito"
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
             # Esecuzione pulizia con configurazione automatica (se necessario)
             Write-StyledMessage Info "🚀 Avvio pulizia disco (questo può richiedere diversi minuti)..."
-            $startTime = Get-Date
             $proc = Start-Process 'cleanmgr.exe' -ArgumentList '/sagerun:65' -PassThru -WindowStyle Minimized
 
             Write-StyledMessage Info "🔍 Processo CleanMgr avviato (PID: $($proc.Id))"
@@ -4215,7 +4215,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 16)'
+            '       Version 2.2.2 (Build 17)'
         )
 
         foreach ($line in $asciiArt) {
@@ -4296,6 +4296,8 @@ function WinCleaner {
     }
 
 }
+
+#function WinForceUpdate {}
 
 # Menu structure
 $menuStructure = @(
