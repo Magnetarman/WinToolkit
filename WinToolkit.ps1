@@ -877,7 +877,7 @@ function SetRustDesk {
             '         \_/\_/    |_||_| \_|',
             '',
             'RustDesk Setup Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 11)'
+            '       Version 2.2.2 (Build 2)'
         )
 
         foreach ($line in $asciiArt) {
@@ -986,6 +986,13 @@ function SetRustDesk {
     function Clear-RustDeskConfig {
         Write-StyledMessage Progress "Pulizia configurazioni esistenti..."
         $configDir = "$env:APPDATA\RustDesk\config"
+        $rustDeskDir = "$env:APPDATA\RustDesk"
+
+        # Crea la cartella RustDesk se non esiste
+        if (-not (Test-Path $rustDeskDir)) {
+            New-Item -ItemType Directory -Path $rustDeskDir -Force | Out-Null
+            Write-StyledMessage Info "Cartella RustDesk creata"
+        }
 
         if (Test-Path $configDir) {
             Remove-Item $configDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -2664,10 +2671,29 @@ function OfficeToolkit {
         }
     }
 
+    function Show-CleanProgress([string]$Activity, [string]$Status) {
+        Clear-ConsoleLines 2
+        Write-Host "📊 $Activity - $Status" -ForegroundColor Yellow
+        [Console]::Out.Flush()
+    }
+
+    function Clear-ScreenArea {
+        # Pulisce le ultime 10 righe della console per rimuovere eventuali messaggi residui
+        for ($i = 0; $i -lt 10; $i++) {
+            Clear-ConsoleLine
+        }
+    }
+
     function Clear-ConsoleLine {
         $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
         Write-Host $clearLine -NoNewline
         [Console]::Out.Flush()
+    }
+
+    function Clear-ConsoleLines([int]$Lines = 1) {
+        for ($i = 0; $i -lt $Lines; $i++) {
+            Clear-ConsoleLine
+        }
     }
 
     function Show-Spinner([string]$Activity, [scriptblock]$Action) {
@@ -2683,7 +2709,8 @@ function OfficeToolkit {
 
         $result = Receive-Job $job -Wait
         Remove-Job $job
-        Write-Host ''
+        Clear-ConsoleLine
+        Write-Host "✅ $Activity completato" -ForegroundColor Green
         [Console]::Out.Flush()
         return $result
     }
@@ -3078,17 +3105,26 @@ function OfficeToolkit {
             )
             
             $cleanedFolders = 0
+            $foldersRemoved = @()
             foreach ($folder in $foldersToClean) {
                 if (Test-Path $folder) {
                     try {
                         Remove-Item -Path $folder -Recurse -Force -ErrorAction Stop
                         $cleanedFolders++
-                        Write-StyledMessage Success "Rimossa: $folder"
+                        $foldersRemoved += $folder
                     }
                     catch {
                         Write-StyledMessage Warning "Impossibile rimuovere: $folder"
                     }
                 }
+            }
+
+            if ($foldersRemoved.Count -gt 0) {
+                Show-CleanProgress "Pulizia cartelle Office" "$cleanedFolders cartelle rimosse"
+                foreach ($folder in $foldersRemoved) {
+                    Write-StyledMessage Success "Rimossa: $folder"
+                }
+                Start-Sleep -Milliseconds 500
             }
             
             # Metodo 5: Pulizia registro Office
@@ -3105,17 +3141,26 @@ function OfficeToolkit {
             )
             
             $cleanedKeys = 0
+            $keysRemoved = @()
             foreach ($regPath in $registryPaths) {
                 if (Test-Path $regPath) {
                     try {
                         Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
                         $cleanedKeys++
-                        Write-StyledMessage Success "Rimossa chiave: $regPath"
+                        $keysRemoved += $regPath
                     }
                     catch {
                         Write-StyledMessage Warning "Impossibile rimuovere: $regPath"
                     }
                 }
+            }
+
+            if ($keysRemoved.Count -gt 0) {
+                Show-CleanProgress "Pulizia registro Office" "$cleanedKeys chiavi rimosse"
+                foreach ($key in $keysRemoved) {
+                    Write-StyledMessage Success "Rimossa chiave: $key"
+                }
+                Start-Sleep -Milliseconds 500
             }
             
             # Metodo 6: Pulizia attività pianificate Office
@@ -3161,6 +3206,8 @@ function OfficeToolkit {
             )
 
             $removedShortcuts = 0
+            $desktopShortcuts = @()
+            $startMenuShortcuts = @()
 
             # Desktop pubblico e utente
             $desktopPaths = @(
@@ -3176,7 +3223,7 @@ function OfficeToolkit {
                             try {
                                 Remove-Item -Path (Join-Path $desktopPath $file) -Force -ErrorAction Stop
                                 $removedShortcuts++
-                                Write-StyledMessage Success "Desktop: $file"
+                                $desktopShortcuts += $file
                             }
                             catch {
                                 Write-StyledMessage Warning "Impossibile rimuovere: $file"
@@ -3184,6 +3231,14 @@ function OfficeToolkit {
                         }
                     }
                 }
+            }
+
+            if ($desktopShortcuts.Count -gt 0) {
+                Show-CleanProgress "Rimozione collegamenti Desktop" "$($desktopShortcuts.Count) collegamenti rimossi"
+                foreach ($shortcut in $desktopShortcuts) {
+                    Write-StyledMessage Success "Desktop: $shortcut"
+                }
+                Start-Sleep -Milliseconds 300
             }
 
             # Menu Start - Tiles e collegamenti
@@ -3203,7 +3258,7 @@ function OfficeToolkit {
                                 try {
                                     Remove-Item -Path $file.FullName -Force -ErrorAction Stop
                                     $removedShortcuts++
-                                    Write-StyledMessage Success "Start Menu: $($file.Name)"
+                                    $startMenuShortcuts += $file.Name
                                 }
                                 catch {
                                     Write-StyledMessage Warning "Impossibile rimuovere: $($file.Name)"
@@ -3211,6 +3266,14 @@ function OfficeToolkit {
                             }
                         }
                     }
+                }
+
+                if ($startMenuShortcuts.Count -gt 0) {
+                    Show-CleanProgress "Pulizia Menu Start" "$($startMenuShortcuts.Count) collegamenti rimossi"
+                    foreach ($shortcut in $startMenuShortcuts) {
+                        Write-StyledMessage Success "Start Menu: $shortcut"
+                    }
+                    Start-Sleep -Milliseconds 300
                 }
             }
             catch {
@@ -3269,6 +3332,8 @@ function OfficeToolkit {
 
             $cleanedFiles = 0
             $cleanedFolders = 0
+            $filesRemoved = @()
+            $foldersRemoved = @()
 
             # Scansione percorsi comuni per file Office residui
             $scanPaths = @(
@@ -3296,7 +3361,7 @@ function OfficeToolkit {
                                         # Evita file di sistema di grandi dimensioni
                                         Remove-Item -Path $fullPath -Force -ErrorAction Stop
                                         $cleanedFiles++
-                                        Write-StyledMessage Success "File residuo rimosso: $($file.Name)"
+                                        $filesRemoved += $file.Name
                                     }
                                 }
                                 catch {
@@ -3318,7 +3383,7 @@ function OfficeToolkit {
                                     if ($folderSize -eq $null -or $folderSize -lt 50MB) {
                                         Remove-Item -Path $folderPath -Recurse -Force -ErrorAction Stop
                                         $cleanedFolders++
-                                        Write-StyledMessage Success "Cartella residua rimossa: $($folder.Name)"
+                                        $foldersRemoved += $folder.Name
                                     }
                                 }
                                 catch {
@@ -3331,6 +3396,33 @@ function OfficeToolkit {
                         Write-StyledMessage Warning "Errore scansione percorso $scanPath`: $_"
                     }
                 }
+            }
+
+            # Mostra risultati pulizia disco in modo pulito
+            if ($filesRemoved.Count -gt 0) {
+                Show-CleanProgress "Pulizia file residui" "$cleanedFiles file rimossi"
+                # Mostra solo i primi 10 file per non intasare la console
+                $filesToShow = $filesRemoved | Select-Object -First 10
+                foreach ($file in $filesToShow) {
+                    Write-StyledMessage Success "File: $file"
+                }
+                if ($filesRemoved.Count -gt 10) {
+                    Write-StyledMessage Info "... e altri $($filesRemoved.Count - 10) file"
+                }
+                Start-Sleep -Milliseconds 500
+            }
+
+            if ($foldersRemoved.Count -gt 0) {
+                Show-CleanProgress "Pulizia cartelle residue" "$cleanedFolders cartelle rimosse"
+                # Mostra solo le prime 5 cartelle per non intasare la console
+                $foldersToShow = $foldersRemoved | Select-Object -First 5
+                foreach ($folder in $foldersToShow) {
+                    Write-StyledMessage Success "Cartella: $folder"
+                }
+                if ($foldersRemoved.Count -gt 5) {
+                    Write-StyledMessage Info "... e altre $($foldersRemoved.Count - 5) cartelle"
+                }
+                Start-Sleep -Milliseconds 500
             }
 
             # Pulizia specifica percorsi Office aggiuntivi
@@ -3364,9 +3456,9 @@ function OfficeToolkit {
             if ($cleanedFiles -gt 0 -or $cleanedFolders -gt 0) {
                 Write-StyledMessage Success "Pulizia disco completata: $cleanedFiles file, $cleanedFolders cartelle rimosse"
             }
-            
+
             Write-StyledMessage Success "✅ Rimozione diretta completata"
-            Write-StyledMessage Info "📊 Riepilogo completo: $cleanedFolders cartelle sistema, $cleanedKeys chiavi registro, $removedShortcuts collegamenti, $cleanedFiles file residui, $cleanedFolders cartelle residue rimosse"
+            Write-StyledMessage Info "📊 Riepilogo completo: $cleanedFolders cartelle sistema, $cleanedKeys chiavi registro, $($removedShortcuts + $desktopShortcuts.Count + $startMenuShortcuts.Count) collegamenti, $cleanedFiles file residui, $cleanedFolders cartelle residue rimosse"
             
             return $true
         }
@@ -3475,7 +3567,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.2.2 (Build 13)'
+            '        Version 2.2.2 (Build 14)'
         )
 
         foreach ($line in $asciiArt) {
