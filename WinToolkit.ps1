@@ -3029,6 +3029,41 @@ function OfficeToolkit {
         }
     }
 
+    function Repair-SaRAConfig([string]$ConfigPath) {
+        try {
+            Write-StyledMessage Info "🔧 Correzione configurazione SaRA per compatibilità..."
+            
+            $configContent = @'
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <startup>
+    <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.8.1"/>
+  </startup>
+  <system.diagnostics>
+    <sources>
+      <source name="SaRATraceSource" switchValue="All">
+        <listeners>
+          <add name="console"/>
+        </listeners>
+      </source>
+    </sources>
+    <sharedListeners>
+      <add name="console" type="System.Diagnostics.ConsoleTraceListener"/>
+    </sharedListeners>
+  </system.diagnostics>
+</configuration>
+'@
+            
+            Set-Content -Path $ConfigPath -Value $configContent -Encoding UTF8 -Force
+            Write-StyledMessage Success "Configurazione SaRA corretta"
+            return $true
+        }
+        catch {
+            Write-StyledMessage Warning "Impossibile correggere configurazione: $_"
+            return $false
+        }
+    }
+
     function Start-OfficeUninstallWithSaRA {
         try {
             # Installa .NET Framework 4.8.1 se necessario
@@ -3070,6 +3105,12 @@ function OfficeToolkit {
             if (-not $saraExe) {
                 Write-StyledMessage Error "SaRAcmd.exe non trovato"
                 return $false
+            }
+
+            # Correggi configurazione SaRA per Windows 11 22H2
+            $configPath = "$($saraExe.FullName).config"
+            if (Test-Path $configPath) {
+                Repair-SaRAConfig -ConfigPath $configPath
             }
 
             Write-StyledMessage Info "🚀 Avvio rimozione tramite SaRA..."
@@ -3172,7 +3213,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 5)'
+            '        Version 2.3 (Build 8)'
         )
 
         foreach ($line in $asciiArt) {
