@@ -75,6 +75,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - Correzione del blocco grafico del terminale per lo script `WinBackupDriver.ps1`.
 - Correzione di alcuni problemi di affidabilità (Windows 11 Pre 24H2) nello script `start.ps1`.
 - Correzione di alcuni problemi di affidabilità (Windows 11 Pre 24H2) nella funzione `InstallPSProfile`.
+- Correzione di alcuni problemi di affidabilità (Windows 11 Pre 24H2) nella funzione `OfficeToolkit`.
 
 ### Modifiche
 
