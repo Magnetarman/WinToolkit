@@ -33,7 +33,7 @@ function WinInstallPSProfile {
         '         \_/\_/    |_||_| \_|',
         '',
         '   Install PSProfile By MagnetarMan',
-        '        Version 2.2.2 (Build 3)'
+        '        Version 2.2.2 (Build 4)'
     )
 
     foreach ($line in $asciiArt) {
@@ -108,52 +108,45 @@ function WinInstallPSProfile {
             # Install oh-my-posh
             try {
                 Write-StyledMessage 'Info' "Installazione oh-my-posh..."
-                winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent
+                $ohMyPoshInstalled = winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent 2>&1
+                
+                # Aggiungi oh-my-posh al PATH della sessione corrente
+                $ohMyPoshPath = "$env:LOCALAPPDATA\Programs\oh-my-posh\bin"
+                if (Test-Path $ohMyPoshPath) {
+                    $env:PATH = "$ohMyPoshPath;$env:PATH"
+                }
+                
                 Write-StyledMessage 'Success' "oh-my-posh installato correttamente."
             }
             catch {
-                Write-StyledMessage 'Warning' "Installazione oh-my-posh fallita, tentativo alternativo..."
-                try {
-                    # Fallback: download and install manually
-                    $ohMyPoshUrl = "https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/oh-my-posh.zip"
-                    $zipPath = "$env:TEMP\oh-my-posh.zip"
-                    Invoke-WebRequest -Uri $ohMyPoshUrl -OutFile $zipPath
-                    Expand-Archive -Path $zipPath -DestinationPath "$env:LOCALAPPDATA\Microsoft\WindowsApps" -Force
-                    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-                    Write-StyledMessage 'Success' "oh-my-posh installato tramite download diretto."
-                }
-                catch {
-                    Write-StyledMessage 'Error' "Impossibile installare oh-my-posh: $($_.Exception.Message)"
-                }
+                Write-StyledMessage 'Warning' "Installazione oh-my-posh fallita: $($_.Exception.Message)"
             }
 
             # Install zoxide
             try {
                 Write-StyledMessage 'Info' "Installazione zoxide..."
-                winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent
+                $zoxideInstalled = winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent 2>&1
+                
+                # Aggiungi zoxide al PATH della sessione corrente
+                $zoxidePath = "$env:LOCALAPPDATA\Programs\zoxide"
+                if (Test-Path $zoxidePath) {
+                    $env:PATH = "$zoxidePath;$env:PATH"
+                }
+                
                 Write-StyledMessage 'Success' "zoxide installato correttamente."
             }
             catch {
-                Write-StyledMessage 'Warning' "Installazione zoxide fallita, tentativo tramite cargo..."
-                try {
-                    # Fallback: install via cargo if Rust is available
-                    if (Get-Command cargo -ErrorAction SilentlyContinue) {
-                        cargo install zoxide --locked
-                        Write-StyledMessage 'Success' "zoxide installato tramite cargo."
-                    }
-                    else {
-                        Write-StyledMessage 'Warning' "Cargo non disponibile. Installa manualmente zoxide da: https://github.com/ajeetdsouza/zoxide"
-                    }
-                }
-                catch {
-                    Write-StyledMessage 'Error' "Impossibile installare zoxide: $($_.Exception.Message)"
-                }
+                Write-StyledMessage 'Warning' "Installazione zoxide fallita: $($_.Exception.Message)"
             }
+
+            # Refresh environment variables
+            Write-StyledMessage 'Info' "Aggiornamento variabili d'ambiente..."
+            $env:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 
             # Installazione profilo tramite script ChrisTitusTech
             Write-StyledMessage 'Info' "Installazione profilo PowerShell..."
             try {
-                Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1' -UseBasicParsing)
+                Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1' -UseBasicParsing).Content
                 Write-StyledMessage 'Success' "Profilo PowerShell installato correttamente!"
             }
             catch {
@@ -162,16 +155,24 @@ function WinInstallPSProfile {
                 Write-StyledMessage 'Success' "Profilo copiato manualmente."
             }
 
-            Write-StyledMessage 'Warning' "Riavvia PowerShell per applicare il nuovo profilo."
-            Write-StyledMessage 'Info' "Per vedere tutte le modifiche (font, oh-my-posh, ecc.) è consigliato riavviare il sistema."
-
             Write-Host ""
-            $restart = Read-Host "Vuoi riavviare il sistema ora per applicare tutte le modifiche? (Y/N)"
+            Write-StyledMessage 'Warning' "═══════════════════════════════════════════════════════════════"
+            Write-StyledMessage 'Warning' "  ATTENZIONE: È NECESSARIO RIAVVIARE IL SISTEMA!"
+            Write-StyledMessage 'Warning' "═══════════════════════════════════════════════════════════════"
+            Write-Host ""
+            Write-StyledMessage 'Info' "Il riavvio è necessario per:"
+            Write-Host "  • Caricare correttamente oh-my-posh nel PATH" -ForegroundColor Cyan
+            Write-Host "  • Caricare correttamente zoxide nel PATH" -ForegroundColor Cyan
+            Write-Host "  • Applicare tutti i font installati" -ForegroundColor Cyan
+            Write-Host "  • Attivare completamente il nuovo profilo PowerShell" -ForegroundColor Cyan
+            Write-Host ""
 
-            if ($restart -match '^[YySs]') {
+            $restart = Read-Host "Vuoi riavviare il sistema ORA per applicare tutte le modifiche? (S/N)"
+
+            if ($restart -match '^[SsYy]') {
                 Write-StyledMessage 'Warning' "Riavvio del sistema in corso..."
                 for ($i = 5; $i -gt 0; $i--) {
-                    Write-Host "Riavvio tra $i secondi..." -ForegroundColor Yellow
+                    Write-Host "Riavvio tra $i secondi... (Premi Ctrl+C per annullare)" -ForegroundColor Yellow
                     Start-Sleep -Seconds 1
                 }
 
@@ -179,7 +180,17 @@ function WinInstallPSProfile {
                 Restart-Computer -Force
             }
             else {
-                Write-StyledMessage 'Info' "Riavvio annullato. Ricorda di riavviare il sistema per vedere tutte le modifiche."
+                Write-Host ""
+                Write-StyledMessage 'Warning' "═══════════════════════════════════════════════════════════════"
+                Write-StyledMessage 'Warning' "  RIAVVIO POSTICIPATO"
+                Write-StyledMessage 'Warning' "═══════════════════════════════════════════════════════════════"
+                Write-Host ""
+                Write-StyledMessage 'Error' "IMPORTANTE: Il profilo NON funzionerà correttamente finché non riavvii!"
+                Write-Host ""
+                Write-StyledMessage 'Info' "Dopo il riavvio, apri PowerShell e verifica l'installazione con:"
+                Write-Host "  oh-my-posh --version" -ForegroundColor Cyan
+                Write-Host "  zoxide --version" -ForegroundColor Cyan
+                Write-Host ""
             }
         }
         else {
