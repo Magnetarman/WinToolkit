@@ -146,7 +146,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|',
             '',
             '   InstallPSProfile By MagnetarMan',
-            '      Version 2.2.2 (Build 6)'
+            '      Version 2.2.2 (Build 7)'
         )
 
         foreach ($line in $asciiArt) {
@@ -250,14 +250,30 @@ function WinInstallPSProfile {
                 Show-ProgressBar "Installazione oh-my-posh" "Completato" 100 '📦'
                 Write-Host ''
 
-                # Aggiungi oh-my-posh al PATH di sistema in modo permanente
-                $ohMyPoshPath = "$env:LOCALAPPDATA\Programs\oh-my-posh\bin"
-                if (Test-Path $ohMyPoshPath) {
-                    Add-ToSystemPath -PathToAdd $ohMyPoshPath
-                    Write-StyledMessage 'Success' "oh-my-posh aggiunto al PATH di sistema."
+                # Cerca oh-my-posh in vari percorsi possibili
+                $ohMyPoshPaths = @(
+                    "$env:LOCALAPPDATA\Programs\oh-my-posh\bin",
+                    "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\JanDeDobbeleer.OhMyPosh_Microsoft.Winget.Source_*\bin",
+                    "$env:ProgramFiles\oh-my-posh\bin",
+                    "${env:ProgramFiles(x86)}\oh-my-posh\bin"
+                )
+
+                $foundPath = $null
+                foreach ($path in $ohMyPoshPaths) {
+                    $resolved = Resolve-Path $path -ErrorAction SilentlyContinue
+                    if ($resolved -and (Test-Path "$resolved\oh-my-posh.exe")) {
+                        $foundPath = $resolved.Path
+                        break
+                    }
+                }
+
+                if ($foundPath) {
+                    Add-ToSystemPath -PathToAdd $foundPath
+                    Write-StyledMessage 'Success' "oh-my-posh trovato e aggiunto al PATH: $foundPath"
                 }
                 else {
-                    Write-StyledMessage 'Warning' "Percorso oh-my-posh non trovato: $ohMyPoshPath"
+                    Write-StyledMessage 'Warning' "oh-my-posh installato ma percorso non trovato automaticamente."
+                    Write-StyledMessage 'Info' "Dopo il riavvio dovrebbe funzionare comunque."
                 }
 
                 Write-StyledMessage 'Success' "oh-my-posh installato correttamente."
@@ -284,14 +300,30 @@ function WinInstallPSProfile {
                 Show-ProgressBar "Installazione zoxide" "Completato" 100 '⚡'
                 Write-Host ''
 
-                # Aggiungi zoxide al PATH di sistema in modo permanente
-                $zoxidePath = "$env:LOCALAPPDATA\Programs\zoxide"
-                if (Test-Path $zoxidePath) {
-                    Add-ToSystemPath -PathToAdd $zoxidePath
-                    Write-StyledMessage 'Success' "zoxide aggiunto al PATH di sistema."
+                # Cerca zoxide in vari percorsi possibili
+                $zoxidePaths = @(
+                    "$env:LOCALAPPDATA\Programs\zoxide",
+                    "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\ajeetdsouza.zoxide_Microsoft.Winget.Source_*",
+                    "$env:ProgramFiles\zoxide",
+                    "${env:ProgramFiles(x86)}\zoxide"
+                )
+
+                $foundPath = $null
+                foreach ($path in $zoxidePaths) {
+                    $resolved = Resolve-Path $path -ErrorAction SilentlyContinue
+                    if ($resolved -and (Test-Path "$resolved\zoxide.exe")) {
+                        $foundPath = $resolved.Path
+                        break
+                    }
+                }
+
+                if ($foundPath) {
+                    Add-ToSystemPath -PathToAdd $foundPath
+                    Write-StyledMessage 'Success' "zoxide trovato e aggiunto al PATH: $foundPath"
                 }
                 else {
-                    Write-StyledMessage 'Warning' "Percorso zoxide non trovato: $zoxidePath"
+                    Write-StyledMessage 'Warning' "zoxide installato ma percorso non trovato automaticamente."
+                    Write-StyledMessage 'Info' "Dopo il riavvio dovrebbe funzionare comunque."
                 }
 
                 Write-StyledMessage 'Success' "zoxide installato correttamente."
