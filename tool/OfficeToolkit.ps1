@@ -460,40 +460,102 @@ function OfficeToolkit {
         Write-StyledMessage Info "🔧 Avvio rimozione diretta Office..."
         
         try {
-            # Metodo 1: Rimozione tramite PowerShell/WMI
+            # Metodo 1: Rimozione tramite Get-Package (più affidabile)
             Write-StyledMessage Info "📋 Ricerca installazioni Office..."
             
-            $officeProducts = Get-WmiObject -Class Win32_Product -ErrorAction SilentlyContinue | 
-            Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" }
+            $officePackages = Get-Package -ErrorAction SilentlyContinue | 
+            Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" -or $_.Name -like "*Office*" }
             
-            if ($officeProducts) {
-                Write-StyledMessage Info "Trovati $($officeProducts.Count) prodotti Office"
-                foreach ($product in $officeProducts) {
-                    Write-StyledMessage Info "🗑️ Rimozione: $($product.Name)..."
+            if ($officePackages) {
+                Write-StyledMessage Info "Trovati $($officePackages.Count) pacchetti Office"
+                foreach ($package in $officePackages) {
+                    Write-StyledMessage Info "🗑️ Rimozione: $($package.Name)..."
                     try {
-                        $product.Uninstall() | Out-Null
-                        Write-StyledMessage Success "Rimosso: $($product.Name)"
+                        Uninstall-Package -Name $package.Name -Force -ErrorAction Stop | Out-Null
+                        Write-StyledMessage Success "Rimosso: $($package.Name)"
                     }
                     catch {
-                        Write-StyledMessage Warning "Errore rimozione: $($product.Name)"
+                        Write-StyledMessage Warning "Errore rimozione pacchetto: $($package.Name)"
                     }
                 }
             }
             
-            # Metodo 2: Pulizia cartelle residue
+            # Metodo 2: Rimozione tramite registro Uninstall
+            Write-StyledMessage Info "🔍 Ricerca nel registro..."
+            
+            $uninstallKeys = @(
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+            )
+            
+            foreach ($keyPath in $uninstallKeys) {
+                try {
+                    $items = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue |
+                    Where-Object { $_.DisplayName -like "*Office*" -or $_.DisplayName -like "*Microsoft 365*" }
+                    
+                    foreach ($item in $items) {
+                        if ($item.UninstallString) {
+                            Write-StyledMessage Info "🗑️ Disinstallazione: $($item.DisplayName)..."
+                            try {
+                                $uninstallString = $item.UninstallString -replace '"', ''
+                                if ($uninstallString -match "msiexec") {
+                                    $productCode = $item.PSChildName
+                                    Start-Process -FilePath "msiexec.exe" -ArgumentList "/x $productCode /qn /norestart" -Wait -NoNewWindow -ErrorAction Stop
+                                    Write-StyledMessage Success "Disinstallato: $($item.DisplayName)"
+                                }
+                            }
+                            catch {
+                                Write-StyledMessage Warning "Impossibile disinstallare: $($item.DisplayName)"
+                            }
+                        }
+                    }
+                }
+                catch {
+                    # Continua con il prossimo percorso
+                }
+            }
+            
+            # Metodo 3: Stop servizi Office
+            Write-StyledMessage Info "🛑 Arresto servizi Office..."
+            
+            $officeServices = @('ClickToRunSvc', 'OfficeSvc', 'OSE')
+            foreach ($serviceName in $officeServices) {
+                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                if ($service) {
+                    try {
+                        Stop-Service -Name $serviceName -Force -ErrorAction Stop
+                        Set-Service -Name $serviceName -StartupType Disabled -ErrorAction Stop
+                        Write-StyledMessage Success "Servizio arrestato: $serviceName"
+                    }
+                    catch {
+                        Write-StyledMessage Warning "Impossibile arrestare: $serviceName"
+                    }
+                }
+            }
+            
+            # Metodo 4: Pulizia cartelle Office
             Write-StyledMessage Info "🧹 Pulizia cartelle Office..."
             
             $foldersToClean = @(
                 "$env:ProgramFiles\Microsoft Office",
                 "${env:ProgramFiles(x86)}\Microsoft Office",
+                "$env:ProgramFiles\Microsoft Office 15",
+                "${env:ProgramFiles(x86)}\Microsoft Office 15",
+                "$env:ProgramFiles\Microsoft Office 16",
+                "${env:ProgramFiles(x86)}\Microsoft Office 16",
                 "$env:ProgramData\Microsoft\Office",
-                "$env:LOCALAPPDATA\Microsoft\Office"
+                "$env:LOCALAPPDATA\Microsoft\Office",
+                "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun",
+                "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun"
             )
             
+            $cleanedFolders = 0
             foreach ($folder in $foldersToClean) {
                 if (Test-Path $folder) {
                     try {
                         Remove-Item -Path $folder -Recurse -Force -ErrorAction Stop
+                        $cleanedFolders++
                         Write-StyledMessage Success "Rimossa: $folder"
                     }
                     catch {
@@ -502,19 +564,25 @@ function OfficeToolkit {
                 }
             }
             
-            # Metodo 3: Pulizia registro
+            # Metodo 5: Pulizia registro Office
             Write-StyledMessage Info "🔧 Pulizia registro Office..."
             
             $registryPaths = @(
                 "HKCU:\Software\Microsoft\Office",
                 "HKLM:\SOFTWARE\Microsoft\Office",
-                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office"
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office",
+                "HKCU:\Software\Microsoft\Office\16.0",
+                "HKLM:\SOFTWARE\Microsoft\Office\16.0",
+                "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun"
             )
             
+            $cleanedKeys = 0
             foreach ($regPath in $registryPaths) {
                 if (Test-Path $regPath) {
                     try {
                         Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
+                        $cleanedKeys++
                         Write-StyledMessage Success "Rimossa chiave: $regPath"
                     }
                     catch {
@@ -523,7 +591,30 @@ function OfficeToolkit {
                 }
             }
             
+            # Metodo 6: Pulizia attività pianificate Office
+            Write-StyledMessage Info "📅 Pulizia attività pianificate..."
+            
+            try {
+                $officeTasks = Get-ScheduledTask -ErrorAction SilentlyContinue | 
+                Where-Object { $_.TaskName -like "*Office*" }
+                
+                foreach ($task in $officeTasks) {
+                    try {
+                        Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false -ErrorAction Stop
+                        Write-StyledMessage Success "Attività rimossa: $($task.TaskName)"
+                    }
+                    catch {
+                        Write-StyledMessage Warning "Impossibile rimuovere attività: $($task.TaskName)"
+                    }
+                }
+            }
+            catch {
+                Write-StyledMessage Warning "Errore durante pulizia attività pianificate"
+            }
+            
             Write-StyledMessage Success "✅ Rimozione diretta completata"
+            Write-StyledMessage Info "📊 Riepilogo: $cleanedFolders cartelle, $cleanedKeys chiavi registro rimosse"
+            
             return $true
         }
         catch {
@@ -685,7 +776,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.2.2 (Build 9)'
+            '        Version 2.2.2 (Build 10)'
         )
 
         foreach ($line in $asciiArt) {
