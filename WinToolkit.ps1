@@ -1541,6 +1541,212 @@ function WinUpdateReset {
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         try { Stop-Transcript | Out-Null } catch {}
     }
+}
+
+function Invoke-WPFUpdatesEnable {
+    <#
+
+    .SYNOPSIS
+        Re-enables Windows Update after it has been disabled
+
+    .DESCRIPTION
+        This function reverses the changes made by Invoke-WPFUpdatesdisable, restoring
+        Windows Update functionality by re-enabling services, registry settings,
+        scheduled tasks, and restoring renamed system files.
+
+    .NOTES
+        This function requires administrator privileges and will attempt to run as SYSTEM for certain operations.
+        A system restart may be required for all changes to take full effect.
+
+    #>
+
+    $Host.UI.RawUI.WindowTitle = "Update Enable Toolkit By MagnetarMan"
+
+    Write-StyledMessage Info '🔧 Inizializzazione ripristino Windows Update...'
+
+    # Restore registry settings to default values
+    Write-Host "Ripristino chiavi di registro..." -ForegroundColor Yellow
+
+    try {
+        # Remove the NoAutoUpdate and AUOptions settings to re-enable automatic updates
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -ErrorAction SilentlyContinue
+
+        # Remove the entire AU key if it's empty or reset to defaults
+        $auKey = Get-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ErrorAction SilentlyContinue
+        if ($auKey -and $auKey.Property.Count -eq 0) {
+            Remove-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ErrorAction SilentlyContinue
+        }
+
+        # Restore Delivery Optimization to default (enabled)
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -ErrorAction SilentlyContinue
+
+        # Restore WaaSMedicSvc service settings
+        Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc" -Name "Start" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc" -Name "FailureActions" -ErrorAction SilentlyContinue
+
+        Write-StyledMessage Success "🔑 Chiavi di registro ripristinate ai valori predefiniti."
+    }
+    catch {
+        Write-StyledMessage Warning "Avviso: Impossibile ripristinare alcune chiavi di registro - $($_.Exception.Message)"
+    }
+
+    # Re-enable and start update related services
+    Write-Host "Riabilitazione servizi di update..." -ForegroundColor Yellow
+
+    $services = @(
+        "BITS",
+        "wuauserv",
+        "UsoSvc",
+        "uhssvc",
+        "WaaSMedicSvc"
+    )
+
+    foreach ($service in $services) {
+        try {
+            Write-Host "Riabilitazione servizio $service..."
+            $serviceObj = Get-Service -Name $service -ErrorAction SilentlyContinue
+            if ($serviceObj) {
+                # Set service startup type to Automatic (delayed for WaaSMedicSvc)
+                $startupType = "Automatic"
+                if ($service -eq "WaaSMedicSvc") {
+                    $startupType = "AutomaticDelayedStart"
+                }
+
+                Set-Service -Name $service -StartupType $startupType -ErrorAction SilentlyContinue
+                Start-Service -Name $service -ErrorAction SilentlyContinue
+
+                # Restore failure actions using sc command
+                Start-Process -FilePath "sc.exe" -ArgumentList "failure `"$service`" reset= 30 actions= restart/60000/restart/60000/restart/60000" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+
+                Write-StyledMessage Success "✅ Servizio $service riabilitato e avviato."
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "Avviso: Impossibile elaborare servizio $service - $($_.Exception.Message)"
+        }
+    }
+
+    # Restore renamed critical update service DLLs
+    Write-Host "Ripristino DLL di sistema rinominate..." -ForegroundColor Yellow
+
+    $dlls = @("WaaSMedicSvc", "wuaueng")
+
+    foreach ($dll in $dlls) {
+        $dllPath = "C:\Windows\System32\$dll.dll"
+        $backupPath = "C:\Windows\System32\${dll}_BAK.dll"
+
+        if (Test-Path $backupPath) {
+            try {
+                # Take ownership of backup file
+                Start-Process -FilePath "takeown.exe" -ArgumentList "/f `"$backupPath`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+
+                # Grant full control to everyone
+                Start-Process -FilePath "icacls.exe" -ArgumentList "`"$backupPath`" /grant *S-1-1-0:F" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+
+                # Stop the related service if running
+                $serviceName = $dll
+                if ($dll -eq "wuaueng") { $serviceName = "wuauserv" }
+                Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+
+                # Remove original file if it exists
+                if (Test-Path $dllPath) {
+                    Remove-Item -Path $dllPath -Force -ErrorAction SilentlyContinue
+                }
+
+                # Rename backup file to original
+                Rename-Item -Path $backupPath -NewName $dllPath -ErrorAction SilentlyContinue
+
+                # Restore ownership to TrustedInstaller
+                Start-Process -FilePath "icacls.exe" -ArgumentList "`"$dllPath`" /setowner `"NT SERVICE\TrustedInstaller`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+                Start-Process -FilePath "icacls.exe" -ArgumentList "`"$dllPath`" /remove *S-1-1-0" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+
+                # Start the service again
+                Start-Service -Name $serviceName -ErrorAction SilentlyContinue
+
+                Write-StyledMessage Success "✅ $dll.dll ripristinato dalla versione backup."
+            }
+            catch {
+                Write-StyledMessage Warning "Avviso: Impossibile ripristinare $dll.dll - $($_.Exception.Message)"
+            }
+        }
+        elseif (Test-Path $dllPath) {
+            Write-StyledMessage Info "💭 $dll.dll già presente nella posizione originale."
+        }
+        else {
+            Write-StyledMessage Warning "⚠️ $dll.dll non trovato e nessun backup disponibile."
+        }
+    }
+
+    # Recreate SoftwareDistribution folder if needed
+    Write-Host "Verifica cartella SoftwareDistribution..." -ForegroundColor Yellow
+
+    try {
+        $softwareDistPath = "C:\Windows\SoftwareDistribution"
+        if (-not (Test-Path $softwareDistPath)) {
+            New-Item -Path $softwareDistPath -ItemType Directory -Force | Out-Null
+            Write-StyledMessage Success "🗂️ Cartella SoftwareDistribution ricreata."
+        }
+        else {
+            Write-StyledMessage Info "💭 Cartella SoftwareDistribution già presente."
+        }
+
+        # Set proper permissions
+        Start-Process -FilePath "icacls.exe" -ArgumentList "`"$softwareDistPath`" /setowner `"NT SERVICE\TrustedInstaller`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+        Start-Process -FilePath "icacls.exe" -ArgumentList "`"$softwareDistPath`" /grant Administrators:F" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+    }
+    catch {
+        Write-StyledMessage Warning "Avviso: Impossibile configurare SoftwareDistribution - $($_.Exception.Message)"
+    }
+
+    # Re-enable update related scheduled tasks
+    Write-Host "Riabilitazione task pianificati..." -ForegroundColor Yellow
+
+    $taskPaths = @(
+        '\Microsoft\Windows\InstallService\*'
+        '\Microsoft\Windows\UpdateOrchestrator\*'
+        '\Microsoft\Windows\UpdateAssistant\*'
+        '\Microsoft\Windows\WaaSMedic\*'
+        '\Microsoft\Windows\WindowsUpdate\*'
+        '\Microsoft\WindowsUpdate\*'
+    )
+
+    foreach ($taskPath in $taskPaths) {
+        try {
+            $tasks = Get-ScheduledTask -TaskPath $taskPath -ErrorAction SilentlyContinue
+            foreach ($task in $tasks) {
+                Enable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction SilentlyContinue
+                Write-StyledMessage Success "✅ Task riabilitato: $($task.TaskName)"
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "Avviso: Impossibile riabilitare task in $taskPath - $($_.Exception.Message)"
+        }
+    }
+
+    # Final verification and status
+    Write-Host ""
+    Write-Host ('═' * 65) -ForegroundColor Green
+    Write-StyledMessage Success '🎉 Windows Update è stato RIABILITATO con successo!'
+    Write-StyledMessage Success '🔄 Servizi, registro e task pianificati sono stati ripristinati.'
+    Write-StyledMessage Warning "⚡ Nota: Potrebbe essere necessario un riavvio per applicare completamente tutte le modifiche."
+    Write-Host ('═' * 65) -ForegroundColor Green
+    Write-Host ""
+
+    Write-StyledMessage Info '🔍 Verifica finale dello stato dei servizi...'
+
+    $verificationServices = @('wuauserv', 'BITS', 'UsoSvc', 'WaaSMedicSvc')
+    foreach ($service in $verificationServices) {
+        $svc = Get-Service -Name $service -ErrorAction SilentlyContinue
+        if ($svc) {
+            $status = if ($svc.Status -eq 'Running') { '🟢 ATTIVO' } else { '🟡 INATTIVO' }
+            Write-StyledMessage Info "📊 $service - Stato: $status"
+        }
+    }
+
+    Write-Host ""
+    Write-StyledMessage Info '💡 Windows Update dovrebbe ora funzionare normalmente.'
+    Write-StyledMessage Info '🔧 Puoi verificare manualmente aprendo Impostazioni > Aggiornamento e sicurezza.'
 
 }
 function WinReinstallStore {
