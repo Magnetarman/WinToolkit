@@ -41,8 +41,8 @@ function OfficeToolkit {
     function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent) {
         $safePercent = [Math]::Max(0, [Math]::Min(100, $Percent))
         $filled = [Math]::Floor($safePercent * 30 / 100)
-        $bar = "[$('█' * $filled)$('▒' * (30 - $filled))] $safePercent%"
-        Write-Host "`r🔄 $Activity $bar $Status" -NoNewline -ForegroundColor Yellow
+        $bar = "[$('█' * $filled)$('░' * (30 - $filled))] $safePercent%"
+        Write-Host "`r📊 $Activity $bar $Status" -NoNewline -ForegroundColor Yellow
         if ($Percent -eq 100) { Write-Host '' }
     }
 
@@ -86,7 +86,7 @@ function OfficeToolkit {
             $percent = [Math]::Round((($CountdownSeconds - $i) / $CountdownSeconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+            $bar = "[$('█' * $filled)$('░' * $remaining)] $percent%"
 
             Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
@@ -154,6 +154,100 @@ function OfficeToolkit {
         }
         catch {
             Write-StyledMessage Error "Errore download $Description`: $_"
+            return $false
+        }
+    }
+
+    function Test-DotNetFramework481 {
+        try {
+            $release = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" -ErrorAction Stop).Release
+            return $release -ge 533320
+        }
+        catch {
+            return $false
+        }
+    }
+
+    function Install-DotNetFramework481 {
+        Write-StyledMessage Info "🔧 Verifica .NET Framework 4.8.1..."
+
+        if (Test-DotNetFramework481) {
+            Write-StyledMessage Success ".NET Framework 4.8.1 già installato"
+            return $true
+        }
+
+        Write-StyledMessage Warning ".NET Framework 4.8.1 non trovato"
+        Write-StyledMessage Info "📦 Preparazione installazione .NET Framework 4.8.1 per SaRA..."
+
+        if (-not (Test-Path $TempDir)) {
+            New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
+        }
+
+        $dotnetInstaller = Join-Path $TempDir 'ndp481-x86-x64-allos-enu.exe'
+        $installed = $false
+
+        # Metodo 1: Winget
+        Write-StyledMessage Info "🎯 Tentativo installazione tramite Winget..."
+        try {
+            $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
+            if ($wingetPath) {
+                $process = Start-Process -FilePath "winget" -ArgumentList "install --id Microsoft.DotNet.Framework.DeveloperPack_4 --silent --accept-package-agreements --accept-source-agreements" -Wait -PassThru -NoNewWindow
+                
+                Start-Sleep -Seconds 5
+                
+                if (Test-DotNetFramework481) {
+                    Write-StyledMessage Success "✅ .NET Framework 4.8.1 installato tramite Winget"
+                    $installed = $true
+                }
+            }
+            else {
+                Write-StyledMessage Warning "Winget non disponibile"
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "Errore Winget: $_"
+        }
+
+        # Metodo 2: Download diretto
+        if (-not $installed) {
+            Write-StyledMessage Info "📥 Download diretto .NET Framework 4.8.1..."
+            
+            $dotnetUrl = 'https://go.microsoft.com/fwlink/?linkid=2203306'
+            
+            if (Invoke-DownloadFile $dotnetUrl $dotnetInstaller '.NET Framework 4.8.1') {
+                Write-StyledMessage Info "🚀 Avvio installazione .NET Framework 4.8.1..."
+                Write-StyledMessage Warning "⏳ L'installazione può richiedere diversi minuti..."
+                
+                try {
+                    $process = Start-Process -FilePath $dotnetInstaller -ArgumentList "/q /norestart" -Wait -PassThru
+                    
+                    if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
+                        Write-StyledMessage Success "✅ .NET Framework 4.8.1 installato"
+                        $installed = $true
+                        
+                        if ($process.ExitCode -eq 3010) {
+                            Write-StyledMessage Warning "⚠️ Riavvio necessario per completare l'installazione"
+                        }
+                    }
+                    else {
+                        Write-StyledMessage Warning "Codice uscita installazione: $($process.ExitCode)"
+                    }
+                }
+                catch {
+                    Write-StyledMessage Error "Errore durante installazione: $_"
+                }
+            }
+        }
+
+        # Verifica finale
+        Start-Sleep -Seconds 2
+        if (Test-DotNetFramework481) {
+            Write-StyledMessage Success "🎉 .NET Framework 4.8.1 pronto"
+            return $true
+        }
+        else {
+            Write-StyledMessage Error "Impossibile installare .NET Framework 4.8.1"
+            Write-StyledMessage Info "💡 Installazione manuale necessaria da: https://dotnet.microsoft.com/download/dotnet-framework/net481"
             return $false
         }
     }
@@ -261,7 +355,7 @@ function OfficeToolkit {
             Write-Host "💡 Premi INVIO quando la riparazione è completata..." -ForegroundColor Yellow
             Read-Host | Out-Null
 
-            if (Get-UserConfirmation "✅ Riparazione completata con successo?" 'Y/N') {
+            if (Get-UserConfirmation "✅ Riparazione completata con successo?" 'Y') {
                 Write-StyledMessage Success "🎉 Riparazione Office completata!"
                 return $true
             }
@@ -269,14 +363,14 @@ function OfficeToolkit {
                 Write-StyledMessage Warning "Riparazione non completata correttamente"
                 if ($choice -eq '1') {
                     if (Get-UserConfirmation "🌐 Tentare riparazione completa online?" 'Y') {
-                        Write-StyledMessage Info "🌐 Avvio riparazione completa (Riparazione Online)"
+                        Write-StyledMessage Info "🌐 Avvio riparazione completa..."
                         $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
                         Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
 
                         Write-Host "💡 Premi INVIO quando la riparazione completa è terminata..." -ForegroundColor Yellow
                         Read-Host | Out-Null
 
-                        return Get-UserConfirmation "✅ Riparazione completa riuscita?" 'Y/N'
+                        return Get-UserConfirmation "✅ Riparazione completa riuscita?" 'Y'
                     }
                 }
                 return $false
@@ -289,7 +383,7 @@ function OfficeToolkit {
     }
 
     function Start-OfficeUninstall {
-        Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office, Verrà utilizzato Microsoft Support and Recovery Assistant (SaRA)"
+        Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office"
 
         if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa?")) {
             Write-StyledMessage Info "❌ Operazione annullata"
@@ -298,7 +392,47 @@ function OfficeToolkit {
 
         Stop-OfficeProcesses
 
+        # Prima tenta con SaRA
+        $saraSuccess = Start-OfficeUninstallWithSaRA
+
+        if ($saraSuccess) {
+            Write-StyledMessage Success "🎉 Rimozione Office completata con SaRA!"
+            return $true
+        }
+        else {
+            Write-StyledMessage Warning "SaRA non riuscito, tentativo con metodo alternativo..."
+
+            # Fallback al metodo Click-to-Run
+            $clickToRunSuccess = Start-OfficeUninstallClickToRun
+
+            if ($clickToRunSuccess) {
+                Write-StyledMessage Success "🎉 Rimozione Office completata con Click-to-Run!"
+                return $true
+            }
+            else {
+                Write-StyledMessage Error "Entrambi i metodi di rimozione non riusciti"
+                Write-StyledMessage Info "💡 Rimozione manuale necessaria tramite Impostazioni > App > Office"
+                return $false
+            }
+        }
+    }
+
+    function Start-OfficeUninstallWithSaRA {
         try {
+            # Installa .NET Framework 4.8.1 se necessario
+            if (-not (Install-DotNetFramework481)) {
+                Write-StyledMessage Error ".NET Framework 4.8.1 richiesto per SaRA non disponibile"
+                return $false
+            }
+
+            # Riavvio dopo installazione .NET se necessario
+            if (-not (Test-DotNetFramework481)) {
+                Write-StyledMessage Warning "🔄 Riavvio necessario per completare configurazione .NET Framework"
+                if (Start-CountdownRestart ".NET Framework 4.8.1 installato") {
+                    return $false
+                }
+            }
+
             if (-not (Test-Path $TempDir)) {
                 New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
             }
@@ -320,19 +454,25 @@ function OfficeToolkit {
                 return $false
             }
 
-            $saraExe = Get-ChildItem -Path $TempDir -Name "SaRAcmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            $saraExe = Get-ChildItem -Path $TempDir -Filter "SaRAcmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $saraExe) {
                 Write-StyledMessage Error "SaRAcmd.exe non trovato"
                 return $false
             }
 
-            $saraPath = Join-Path $TempDir $saraExe
             Write-StyledMessage Info "🚀 Avvio rimozione tramite SaRA..."
             Write-StyledMessage Warning "⏰ Questa operazione può richiedere molto tempo"
-            Write-StyledMessage Warning "🚀 Ad operazione avviata, non chiudere la finestra di SaRA, la finestra si chiuderà automaticamente"
+            Write-StyledMessage Warning "🚫 Non chiudere la finestra di SaRA, si chiuderà automaticamente"
 
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
-            Start-Process -FilePath $saraPath -ArgumentList $arguments -Verb RunAs
+            $process = Start-Process -FilePath $saraExe.FullName -ArgumentList $arguments -Verb RunAs -PassThru -ErrorAction Stop
+
+            Start-Sleep -Seconds 5
+
+            if ($process.HasExited -and $process.ExitCode -ne 0) {
+                Write-StyledMessage Warning "SaRA terminato con codice errore: $($process.ExitCode)"
+                return $false
+            }
 
             Write-Host "💡 Premi INVIO quando SaRA ha completato la rimozione..." -ForegroundColor Yellow
             Read-Host | Out-Null
@@ -347,13 +487,62 @@ function OfficeToolkit {
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante rimozione: $_"
+            Write-StyledMessage Warning "Errore durante SaRA: $_"
             return $false
         }
         finally {
             if (Test-Path $TempDir) {
                 Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
             }
+        }
+    }
+
+    function Start-OfficeUninstallClickToRun {
+        Write-StyledMessage Info "🔧 Tentativo rimozione tramite Office Click-to-Run..."
+
+        try {
+            $officeClient = Get-OfficeClient
+            if (-not $officeClient) {
+                Write-StyledMessage Error "Office Click-to-Run non trovato"
+                return $false
+            }
+
+            Write-StyledMessage Info "🎯 Selezione metodo di rimozione:"
+            Write-Host "  [1] 🗑️ Disinstallazione completa" -ForegroundColor Red
+            Write-Host "  [2] 🔧 Rimozione prodotti Office" -ForegroundColor Yellow
+
+            do {
+                $choice = Read-Host "Scelta [1-2]"
+            } while ($choice -notin @('1', '2'))
+
+            switch ($choice) {
+                '1' {
+                    Write-StyledMessage Info "🗑️ Avvio disinstallazione completa..."
+                    $arguments = "scenario=Uninstall platform=x64 culture=it-it forceappshutdown=True DisplayLevel=True"
+                }
+                '2' {
+                    Write-StyledMessage Info "🔧 Avvio rimozione prodotti Office..."
+                    $arguments = "scenario=RemoveProducts platform=x64 culture=it-it forceappshutdown=True DisplayLevel=True"
+                }
+            }
+
+            Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
+
+            Write-Host "💡 Premi INVIO quando la rimozione è completata..." -ForegroundColor Yellow
+            Read-Host | Out-Null
+
+            if (Get-UserConfirmation "✅ Rimozione completata con successo?" 'Y') {
+                Write-StyledMessage Success "🎉 Rimozione Office completata!"
+                return $true
+            }
+            else {
+                Write-StyledMessage Warning "Rimozione potrebbe essere incompleta"
+                return $false
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante rimozione Click-to-Run: $_"
+            return $false
         }
     }
 
@@ -371,7 +560,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.2 (Build 4)'
+            '        Version 2.2 (Build 5)'
         )
 
         foreach ($line in $asciiArt) {
@@ -382,6 +571,7 @@ function OfficeToolkit {
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
+
     # MAIN EXECUTION
     Show-Header
     Write-Host "⏳ Inizializzazione sistema..." -ForegroundColor Yellow
