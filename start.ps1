@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 33) - 2025-10-03
+  Versione 2.2.2 (Build 34) - 2025-10-03
 #>
 
 function Center-text {
@@ -386,21 +386,102 @@ function Install-WindowsTerminal {
     }
     catch {}
 
+    # Attesa per assicurare che Windows Terminal sia completamente installato
+    Start-Sleep -Seconds 3
+
     # Configurazione PowerShell 7 come profilo predefinito
     $settingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+    
+    # Crea la directory se non esiste
+    $settingsDir = Split-Path $settingsPath -Parent
+    if (-not (Test-Path $settingsDir)) {
+        try {
+            New-Item -Path $settingsDir -ItemType Directory -Force | Out-Null
+            Write-StyledMessage -type 'Info' -text "Directory settings creata."
+        }
+        catch {
+            Write-StyledMessage -type 'Warning' -text "Impossibile creare directory settings: $($_.Exception.Message)"
+        }
+    }
+
+    # Attendi che il file settings.json venga creato (max 10 secondi)
+    $maxWait = 10
+    $waited = 0
+    while (-not (Test-Path $settingsPath) -and $waited -lt $maxWait) {
+        Start-Sleep -Seconds 1
+        $waited++
+    }
+
     if (Test-Path $settingsPath) {
         try {
-            $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
-            $ps7Profile = $settings.profiles.list | Where-Object { $_.name -eq "PowerShell" }
+            Write-StyledMessage -type 'Info' -text "Configurazione profilo PowerShell 7..."
+            
+            # Leggi il file JSON
+            $settingsContent = Get-Content $settingsPath -Raw -Encoding UTF8
+            $settings = $settingsContent | ConvertFrom-Json
+            
+            # Cerca il profilo PowerShell 7
+            # Possibili nomi: "PowerShell", "pwsh", o source che contiene "PowerShell.PowerShell_7"
+            $ps7Profile = $null
+            
+            foreach ($profile in $settings.profiles.list) {
+                # Verifica source per PowerShell 7
+                if ($profile.source -like "*PowerShell.PowerShell_7*") {
+                    $ps7Profile = $profile
+                    break
+                }
+                # Verifica commandline per pwsh.exe
+                if ($profile.commandline -like "*pwsh.exe*") {
+                    $ps7Profile = $profile
+                    break
+                }
+                # Fallback: cerca per nome
+                if ($profile.name -eq "PowerShell" -and $profile.source) {
+                    $ps7Profile = $profile
+                    break
+                }
+            }
             
             if ($ps7Profile) {
+                Write-StyledMessage -type 'Success' -text "Profilo PowerShell 7 trovato: $($ps7Profile.name)"
+                
+                # Imposta come profilo predefinito
                 $settings.defaultProfile = $ps7Profile.guid
-                $ps7Profile | Add-Member -NotePropertyName "elevate" -NotePropertyValue $true -Force
-                $settings | ConvertTo-Json -Depth 100 | Set-Content $settingsPath -Force
-                Write-StyledMessage -type 'Success' -text "PowerShell 7 configurato con privilegi amministratore."
+                
+                # Aggiungi o modifica la proprietà elevate
+                if ($ps7Profile.PSObject.Properties.Name -contains "elevate") {
+                    $ps7Profile.elevate = $true
+                }
+                else {
+                    $ps7Profile | Add-Member -MemberType NoteProperty -Name "elevate" -Value $true -Force
+                }
+                
+                # Assicurati che startingDirectory sia impostato (opzionale)
+                if (-not ($ps7Profile.PSObject.Properties.Name -contains "startingDirectory")) {
+                    $ps7Profile | Add-Member -MemberType NoteProperty -Name "startingDirectory" -Value "%USERPROFILE%" -Force
+                }
+                
+                # Salva le modifiche con formattazione corretta
+                $settings | ConvertTo-Json -Depth 100 | Set-Content $settingsPath -Encoding UTF8 -Force
+                
+                Write-StyledMessage -type 'Success' -text "PowerShell 7 configurato come predefinito con privilegi amministratore."
+            }
+            else {
+                Write-StyledMessage -type 'Warning' -text "Profilo PowerShell 7 non trovato. Potrebbe essere necessaria configurazione manuale."
+                Write-StyledMessage -type 'Info' -text "Profili disponibili:"
+                foreach ($profile in $settings.profiles.list) {
+                    Write-Host "  - $($profile.name) [Source: $($profile.source)]" -ForegroundColor Gray
+                }
             }
         }
-        catch {}
+        catch {
+            Write-StyledMessage -type 'Error' -text "Errore configurazione settings.json: $($_.Exception.Message)"
+            Write-StyledMessage -type 'Info' -text "Sarà necessaria configurazione manuale."
+        }
+    }
+    else {
+        Write-StyledMessage -type 'Warning' -text "File settings.json non trovato. Windows Terminal potrebbe non essere completamente installato."
+        Write-StyledMessage -type 'Info' -text "Avviare Windows Terminal manualmente per generare il file di configurazione."
     }
 }
 
@@ -483,7 +564,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.2 (Build 33)'
+        '        Version 2.2.2 (Build 34)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
