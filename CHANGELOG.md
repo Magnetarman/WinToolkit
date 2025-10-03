@@ -63,7 +63,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.2.2] - 2025-10-02 (#14)
+## [2.2.2] - 2025-10-03 (#14)
 
 ### Aggiunte
 
@@ -73,8 +73,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 - Correzione del blocco grafico del terminale per lo script `WinReinstallStore.ps1`.
 - Correzione del blocco grafico del terminale per lo script `WinBackupDriver.ps1`.
-- Correzione di alcuni problemi di affidabilità nello script `start.ps1`.
-- Correzione di alcuni problemi di affidabilità nella funzione `InstallPSProfile`.
+- Correzione di alcuni problemi di affidabilità (Windows 11 Pre 24H2) nello script `start.ps1`.
+- Correzione di alcuni problemi di affidabilità (Windows 11 Pre 24H2) nella funzione `InstallPSProfile`.
 
 ### Modifiche
 

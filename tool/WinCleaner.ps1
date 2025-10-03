@@ -291,17 +291,17 @@ function WinCleaner {
 
             # Verifica se ci sono effettivamente file da pulire
             Write-StyledMessage Info "🔍 Verifica se ci sono file da pulire..."
+            $startTime = Get-Date
             $testProc = Start-Process 'cleanmgr.exe' -ArgumentList '/sagerun:65' -PassThru -WindowStyle Hidden -Wait
 
             if ($testProc.ExitCode -eq 0 -and (Get-Date) - $startTime -lt [TimeSpan]::FromSeconds(5)) {
-                Write-StyledMessage Info "�� CleanMgr completato rapidamente - probabilmente nessun file da pulire"
+                Write-StyledMessage Info "💨 CleanMgr completato rapidamente - probabilmente nessun file da pulire"
                 Write-StyledMessage Success "✅ Verifica pulizia completata - sistema già pulito"
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
             # Esecuzione pulizia con configurazione automatica (se necessario)
             Write-StyledMessage Info "🚀 Avvio pulizia disco (questo può richiedere diversi minuti)..."
-            $startTime = Get-Date
             $proc = Start-Process 'cleanmgr.exe' -ArgumentList '/sagerun:65' -PassThru -WindowStyle Minimized
 
             Write-StyledMessage Info "🔍 Processo CleanMgr avviato (PID: $($proc.Id))"
@@ -1059,7 +1059,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 16)'
+            '       Version 2.2.2 (Build 17)'
         )
 
         foreach ($line in $asciiArt) {

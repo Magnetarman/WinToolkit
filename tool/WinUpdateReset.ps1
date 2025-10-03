@@ -268,7 +268,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         ' Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2.2 (Build 10)'
+        '       Version 2.2.2 (Build 12)'
     )
  
     foreach ($line in $asciiArt) {
@@ -560,7 +560,7 @@ function Invoke-WPFUpdatesEnable {
 
                 # Rename back to original
                 Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue
-                Write-StyledMessage Success "✅ Ripristinato ${dll}_BAK.dll a $dll.dll"
+                Write-StyledMessage Success "Ripristinato ${dll}_BAK.dll a $dll.dll"
 
                 # Restore ownership to TrustedInstaller
                 Start-Process -FilePath "icacls.exe" -ArgumentList "`"$dllPath`" /setowner `"NT SERVICE\TrustedInstaller`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
@@ -595,7 +595,7 @@ function Invoke-WPFUpdatesEnable {
             $tasks = Get-ScheduledTask -TaskPath $taskPath -ErrorAction SilentlyContinue
             foreach ($task in $tasks) {
                 Enable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction SilentlyContinue
-                Write-StyledMessage Success "✅ Task abilitato: $($task.TaskName)"
+                Write-StyledMessage Success "Task abilitato: $($task.TaskName)"
             }
         }
         catch {

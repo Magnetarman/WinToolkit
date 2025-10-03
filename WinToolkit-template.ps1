@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2.2 (Build 15) - 2025-10-01
+  Versione 2.2.2 (Build 16) - 2025-10-03
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -118,7 +118,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.2.2 (Build 15)'
+    '       Version 2.2.2 (Build 16)'
 )
 
 # Placeholder functions (verranno automaticamente popolate dal compilatore)
@@ -132,6 +132,8 @@ function WinBackupDriver {}
 function OfficeToolkit {}
 function GamingToolkit {}
 function WinCleaner {}
+
+#function WinForceUpdate {}
 
 # Menu structure
 $menuStructure = @(
