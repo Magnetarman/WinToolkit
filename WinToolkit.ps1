@@ -195,17 +195,31 @@ function WinInstallPSProfile {
             $currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
             
             # Verifica se il percorso è già presente
-            if ($currentPath -split ';' | Where-Object { $_.TrimEnd('\') -eq $PathToAdd.TrimEnd('\') }) {
+            $pathExists = $false
+            foreach ($existingPath in ($currentPath -split ';')) {
+                if ($existingPath.TrimEnd('\') -eq $PathToAdd.TrimEnd('\')) {
+                    $pathExists = $true
+                    break
+                }
+            }
+
+            if ($pathExists) {
                 Write-StyledMessage 'Info' "Il percorso è già nel PATH di sistema: $PathToAdd"
                 return $true
             }
 
             # Aggiungi il nuovo percorso
-            $newPath = "$currentPath;$PathToAdd"
+            $newPath = if ($currentPath.EndsWith(';')) {
+                "$currentPath$PathToAdd"
+            }
+            else {
+                "$currentPath;$PathToAdd"
+            }
+            
             [Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
             
             # Aggiorna anche la sessione corrente
-            $env:PATH = "$PathToAdd;$env:PATH"
+            $env:PATH = "$env:PATH;$PathToAdd"
             
             Write-StyledMessage 'Success' "Percorso aggiunto al PATH di sistema: $PathToAdd"
             return $true
@@ -214,6 +228,67 @@ function WinInstallPSProfile {
             Write-StyledMessage 'Error' "Errore nell'aggiunta del percorso al PATH: $($_.Exception.Message)"
             return $false
         }
+    }
+
+    function Find-ProgramPath {
+        param(
+            [string]$ProgramName,
+            [string[]]$SearchPaths,
+            [string]$ExecutableName
+        )
+
+        foreach ($path in $SearchPaths) {
+            # Espandi wildcards
+            $resolvedPaths = @()
+            try {
+                $resolvedPaths = Get-ChildItem -Path (Split-Path $path -Parent) -Directory -ErrorAction SilentlyContinue | 
+                Where-Object { $_.Name -like (Split-Path $path -Leaf) }
+            }
+            catch {
+                continue
+            }
+
+            foreach ($resolved in $resolvedPaths) {
+                $fullPath = Join-Path $resolved.FullName (Split-Path $path -Leaf).Replace('*', '')
+                if ($fullPath -notmatch '\*') {
+                    $testPath = $fullPath
+                }
+                else {
+                    $testPath = $resolved.FullName
+                }
+
+                if (Test-Path "$testPath\$ExecutableName") {
+                    return $testPath
+                }
+            }
+
+            # Prova anche il path diretto senza wildcard
+            $directPath = $path -replace '\*.*$', ''
+            if (Test-Path "$directPath\$ExecutableName") {
+                return $directPath
+            }
+        }
+
+        return $null
+    }
+
+    function Wait-ForInstallation {
+        param(
+            [string]$ProcessName,
+            [int]$TimeoutSeconds = 60
+        )
+
+        $elapsed = 0
+        while ($elapsed -lt $TimeoutSeconds) {
+            $process = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
+            if (-not $process) {
+                Start-Sleep -Seconds 2
+                return $true
+            }
+            Start-Sleep -Seconds 1
+            $elapsed++
+        }
+        return $false
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
@@ -270,7 +345,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|',
             '',
             '   InstallPSProfile By MagnetarMan',
-            '      Version 2.2.2 (Build 7)'
+            '      Version 2.2.3 (Build 8)'
         )
 
         foreach ($line in $asciiArt) {
@@ -362,14 +437,17 @@ function WinInstallPSProfile {
                 $spinnerIndex = 0; $percent = 0
                 
                 # Installa oh-my-posh
-                $ohMyPoshInstalled = winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent 2>&1
+                $installProcess = Start-Process -FilePath "winget" -ArgumentList "install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent" -NoNewWindow -PassThru
 
-                while ($percent -lt 90) {
+                while (-not $installProcess.HasExited -and $percent -lt 90) {
                     $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                    $percent += Get-Random -Minimum 5 -Maximum 15
+                    $percent += 2
                     Show-ProgressBar "Installazione oh-my-posh" "Download e installazione..." $percent '📦' $spinner
                     Start-Sleep -Milliseconds 300
                 }
+
+                $installProcess.WaitForExit()
+                Start-Sleep -Seconds 2
 
                 Show-ProgressBar "Installazione oh-my-posh" "Completato" 100 '📦'
                 Write-Host ''
@@ -377,27 +455,33 @@ function WinInstallPSProfile {
                 # Cerca oh-my-posh in vari percorsi possibili
                 $ohMyPoshPaths = @(
                     "$env:LOCALAPPDATA\Programs\oh-my-posh\bin",
-                    "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\JanDeDobbeleer.OhMyPosh_Microsoft.Winget.Source_*\bin",
+                    "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\JanDeDobbeleer.OhMyPosh_Microsoft.Winget.Source_*",
                     "$env:ProgramFiles\oh-my-posh\bin",
                     "${env:ProgramFiles(x86)}\oh-my-posh\bin"
                 )
 
-                $foundPath = $null
-                foreach ($path in $ohMyPoshPaths) {
-                    $resolved = Resolve-Path $path -ErrorAction SilentlyContinue
-                    if ($resolved -and (Test-Path "$resolved\oh-my-posh.exe")) {
-                        $foundPath = $resolved.Path
-                        break
-                    }
-                }
+                $foundPath = Find-ProgramPath -ProgramName "oh-my-posh" -SearchPaths $ohMyPoshPaths -ExecutableName "oh-my-posh.exe"
 
                 if ($foundPath) {
-                    Add-ToSystemPath -PathToAdd $foundPath
-                    Write-StyledMessage 'Success' "oh-my-posh trovato e aggiunto al PATH: $foundPath"
+                    $added = Add-ToSystemPath -PathToAdd $foundPath
+                    if ($added) {
+                        Write-StyledMessage 'Success' "oh-my-posh trovato e aggiunto al PATH: $foundPath"
+                    }
                 }
                 else {
                     Write-StyledMessage 'Warning' "oh-my-posh installato ma percorso non trovato automaticamente."
-                    Write-StyledMessage 'Info' "Dopo il riavvio dovrebbe funzionare comunque."
+                    Write-StyledMessage 'Info' "Provo a cercare in percorsi alternativi..."
+                    
+                    # Cerca in tutto il sistema
+                    $searchResult = Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "oh-my-posh.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+                    if ($searchResult) {
+                        $foundPath = Split-Path $searchResult.FullName -Parent
+                        Add-ToSystemPath -PathToAdd $foundPath
+                        Write-StyledMessage 'Success' "oh-my-posh trovato in: $foundPath"
+                    }
+                    else {
+                        Write-StyledMessage 'Warning' "Impossibile localizzare oh-my-posh. Verrà aggiunto al PATH dopo il riavvio."
+                    }
                 }
 
                 Write-StyledMessage 'Success' "oh-my-posh installato correttamente."
@@ -412,14 +496,17 @@ function WinInstallPSProfile {
                 $spinnerIndex = 0; $percent = 0
                 
                 # Installa zoxide
-                $zoxideInstalled = winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent 2>&1
+                $installProcess = Start-Process -FilePath "winget" -ArgumentList "install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent" -NoNewWindow -PassThru
 
-                while ($percent -lt 90) {
+                while (-not $installProcess.HasExited -and $percent -lt 90) {
                     $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                    $percent += Get-Random -Minimum 5 -Maximum 15
+                    $percent += 2
                     Show-ProgressBar "Installazione zoxide" "Download e installazione..." $percent '⚡' $spinner
                     Start-Sleep -Milliseconds 300
                 }
+
+                $installProcess.WaitForExit()
+                Start-Sleep -Seconds 2
 
                 Show-ProgressBar "Installazione zoxide" "Completato" 100 '⚡'
                 Write-Host ''
@@ -432,22 +519,28 @@ function WinInstallPSProfile {
                     "${env:ProgramFiles(x86)}\zoxide"
                 )
 
-                $foundPath = $null
-                foreach ($path in $zoxidePaths) {
-                    $resolved = Resolve-Path $path -ErrorAction SilentlyContinue
-                    if ($resolved -and (Test-Path "$resolved\zoxide.exe")) {
-                        $foundPath = $resolved.Path
-                        break
-                    }
-                }
+                $foundPath = Find-ProgramPath -ProgramName "zoxide" -SearchPaths $zoxidePaths -ExecutableName "zoxide.exe"
 
                 if ($foundPath) {
-                    Add-ToSystemPath -PathToAdd $foundPath
-                    Write-StyledMessage 'Success' "zoxide trovato e aggiunto al PATH: $foundPath"
+                    $added = Add-ToSystemPath -PathToAdd $foundPath
+                    if ($added) {
+                        Write-StyledMessage 'Success' "zoxide trovato e aggiunto al PATH: $foundPath"
+                    }
                 }
                 else {
                     Write-StyledMessage 'Warning' "zoxide installato ma percorso non trovato automaticamente."
-                    Write-StyledMessage 'Info' "Dopo il riavvio dovrebbe funzionare comunque."
+                    Write-StyledMessage 'Info' "Provo a cercare in percorsi alternativi..."
+                    
+                    # Cerca in tutto il sistema
+                    $searchResult = Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "zoxide.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+                    if ($searchResult) {
+                        $foundPath = Split-Path $searchResult.FullName -Parent
+                        Add-ToSystemPath -PathToAdd $foundPath
+                        Write-StyledMessage 'Success' "zoxide trovato in: $foundPath"
+                    }
+                    else {
+                        Write-StyledMessage 'Warning' "Impossibile localizzare zoxide. Verrà aggiunto al PATH dopo il riavvio."
+                    }
                 }
 
                 Write-StyledMessage 'Success' "zoxide installato correttamente."
@@ -459,7 +552,11 @@ function WinInstallPSProfile {
             # Refresh environment variables
             Write-StyledMessage 'Info' "Aggiornamento variabili d'ambiente..."
             $spinnerIndex = 0; $percent = 0
-            $env:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+            
+            # Forza il refresh delle variabili d'ambiente
+            $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+            $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+            $env:PATH = "$machinePath;$userPath"
 
             while ($percent -lt 90) {
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
