@@ -159,7 +159,7 @@ function WinInstallPSProfile {
         $timestamp = Get-Date -Format "HH:mm:ss"
 
         # Rimuovi emoji duplicati dal testo se presenti
-        $cleanText = $Text -replace '^(✅|⚠️|❌|💎|🔍|🚀|⚙️|🧹|📦|📋|📜|📝|💾|⬇️|🔧|⚡|🖼️|🌐|🍪|🔄|🗂️|📁|🖨️|📄|🗑️|💭|⏸️|▶️|💡|⏰|🎉|💻|📊|🛡️|🔧|🔍|📦|🧹|💎|⚙️|🚀)\s*', ''
+        $cleanText = $Text -replace '^(✅|⚠️|❌|💎|🔥|🚀|⚙️|🧹|📦|📋|📜|🔒|💾|⬇️|🔧|⚡|🖼️|🌐|🪟|🔄|🗂️|📁|🖨️|📄|🗑️|💭|⏸️|▶️|💡|⏰|🎉|💻|📊|🛡️|🔧|🔑|📦|🧹|💎|⚙️|🚀)\s*', ''
 
         Write-Host "[$timestamp] $($style.Icon) $cleanText" -ForegroundColor $style.Color
 
@@ -173,10 +173,47 @@ function WinInstallPSProfile {
     function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
         $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
         $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-        $empty = '▒' * (30 - $filled.Length)
+        $empty = '░' * (30 - $filled.Length)
         $bar = "[$filled$empty] {0,3}%" -f $safePercent
         Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
         if ($Percent -eq 100) { Write-Host '' }
+    }
+
+    function Add-ToSystemPath {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$PathToAdd
+        )
+
+        try {
+            if (-not (Test-Path $PathToAdd)) {
+                Write-StyledMessage 'Warning' "Il percorso non esiste: $PathToAdd"
+                return $false
+            }
+
+            # Ottieni il PATH attuale dal sistema (Machine)
+            $currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+            
+            # Verifica se il percorso è già presente
+            if ($currentPath -split ';' | Where-Object { $_.TrimEnd('\') -eq $PathToAdd.TrimEnd('\') }) {
+                Write-StyledMessage 'Info' "Il percorso è già nel PATH di sistema: $PathToAdd"
+                return $true
+            }
+
+            # Aggiungi il nuovo percorso
+            $newPath = "$currentPath;$PathToAdd"
+            [Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
+            
+            # Aggiorna anche la sessione corrente
+            $env:PATH = "$PathToAdd;$env:PATH"
+            
+            Write-StyledMessage 'Success' "Percorso aggiunto al PATH di sistema: $PathToAdd"
+            return $true
+        }
+        catch {
+            Write-StyledMessage 'Error' "Errore nell'aggiunta del percorso al PATH: $($_.Exception.Message)"
+            return $false
+        }
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
@@ -195,7 +232,7 @@ function WinInstallPSProfile {
             $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+            $bar = "[$('█' * $filled)$('░' * $remaining)] $percent%"
 
             Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
@@ -233,7 +270,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|',
             '',
             '   InstallPSProfile By MagnetarMan',
-            '      Version 2.2.2 (Build 5)'
+            '      Version 2.2.2 (Build 6)'
         )
 
         foreach ($line in $asciiArt) {
@@ -323,6 +360,8 @@ function WinInstallPSProfile {
             try {
                 Write-StyledMessage 'Info' "Installazione oh-my-posh..."
                 $spinnerIndex = 0; $percent = 0
+                
+                # Installa oh-my-posh
                 $ohMyPoshInstalled = winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent 2>&1
 
                 while ($percent -lt 90) {
@@ -332,14 +371,19 @@ function WinInstallPSProfile {
                     Start-Sleep -Milliseconds 300
                 }
 
-                # Aggiungi oh-my-posh al PATH della sessione corrente
-                $ohMyPoshPath = "$env:LOCALAPPDATA\Programs\oh-my-posh\bin"
-                if (Test-Path $ohMyPoshPath) {
-                    $env:PATH = "$ohMyPoshPath;$env:PATH"
-                }
-
                 Show-ProgressBar "Installazione oh-my-posh" "Completato" 100 '📦'
                 Write-Host ''
+
+                # Aggiungi oh-my-posh al PATH di sistema in modo permanente
+                $ohMyPoshPath = "$env:LOCALAPPDATA\Programs\oh-my-posh\bin"
+                if (Test-Path $ohMyPoshPath) {
+                    Add-ToSystemPath -PathToAdd $ohMyPoshPath
+                    Write-StyledMessage 'Success' "oh-my-posh aggiunto al PATH di sistema."
+                }
+                else {
+                    Write-StyledMessage 'Warning' "Percorso oh-my-posh non trovato: $ohMyPoshPath"
+                }
+
                 Write-StyledMessage 'Success' "oh-my-posh installato correttamente."
             }
             catch {
@@ -350,6 +394,8 @@ function WinInstallPSProfile {
             try {
                 Write-StyledMessage 'Info' "Installazione zoxide..."
                 $spinnerIndex = 0; $percent = 0
+                
+                # Installa zoxide
                 $zoxideInstalled = winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent 2>&1
 
                 while ($percent -lt 90) {
@@ -359,14 +405,19 @@ function WinInstallPSProfile {
                     Start-Sleep -Milliseconds 300
                 }
 
-                # Aggiungi zoxide al PATH della sessione corrente
-                $zoxidePath = "$env:LOCALAPPDATA\Programs\zoxide"
-                if (Test-Path $zoxidePath) {
-                    $env:PATH = "$zoxidePath;$env:PATH"
-                }
-
                 Show-ProgressBar "Installazione zoxide" "Completato" 100 '⚡'
                 Write-Host ''
+
+                # Aggiungi zoxide al PATH di sistema in modo permanente
+                $zoxidePath = "$env:LOCALAPPDATA\Programs\zoxide"
+                if (Test-Path $zoxidePath) {
+                    Add-ToSystemPath -PathToAdd $zoxidePath
+                    Write-StyledMessage 'Success' "zoxide aggiunto al PATH di sistema."
+                }
+                else {
+                    Write-StyledMessage 'Warning' "Percorso zoxide non trovato: $zoxidePath"
+                }
+
                 Write-StyledMessage 'Success' "zoxide installato correttamente."
             }
             catch {
@@ -411,11 +462,12 @@ function WinInstallPSProfile {
 
             Write-Host ""
             Write-Host ('═' * 80) -ForegroundColor Green
-            Write-StyledMessage 'Warning' "Il riavvio è necessario per:"
+            Write-StyledMessage 'Warning' "Il riavvio è OBBLIGATORIO per:"
             Write-Host "  • Caricare correttamente oh-my-posh nel PATH" -ForegroundColor Cyan
             Write-Host "  • Caricare correttamente zoxide nel PATH" -ForegroundColor Cyan
             Write-Host "  • Applicare tutti i font installati" -ForegroundColor Cyan
             Write-Host "  • Attivare completamente il nuovo profilo PowerShell" -ForegroundColor Cyan
+            Write-Host "  • Aggiornare tutte le variabili d'ambiente di sistema" -ForegroundColor Cyan
             Write-Host ""
             Write-StyledMessage 'Info' "Il sistema verrà riavviato per applicare tutte le modifiche"
             Write-Host ('═' * 80) -ForegroundColor Green
@@ -438,6 +490,9 @@ function WinInstallPSProfile {
                 Write-StyledMessage 'Info' "Dopo il riavvio, apri PowerShell e verifica l'installazione con:"
                 Write-Host "  oh-my-posh --version" -ForegroundColor Cyan
                 Write-Host "  zoxide --version" -ForegroundColor Cyan
+                Write-Host ""
+                Write-StyledMessage 'Info' "Se i comandi non funzionano ancora, verifica il PATH con:"
+                Write-Host "  `$env:PATH -split ';' | Select-String 'oh-my-posh|zoxide'" -ForegroundColor Cyan
                 Write-Host ""
             }
         }
