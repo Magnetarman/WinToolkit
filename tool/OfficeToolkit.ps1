@@ -392,28 +392,40 @@ function OfficeToolkit {
 
         Stop-OfficeProcesses
 
-        # Prima tenta con SaRA
-        $saraSuccess = Start-OfficeUninstallWithSaRA
+        Write-StyledMessage Info "🎯 Seleziona metodo di rimozione:"
+        Write-Host "  [1] 🤖 SaRA Tool (Automatico - Consigliato)" -ForegroundColor Green
+        Write-Host "  [2] 🔧 Click-to-Run (Manuale con GUI)" -ForegroundColor Yellow
+        Write-Host "  [3] ⚡ Rimozione Diretta (Veloce)" -ForegroundColor Cyan
 
-        if ($saraSuccess) {
-            Write-StyledMessage Success "🎉 Rimozione Office completata con SaRA!"
+        do {
+            $choice = Read-Host "Scelta [1-3]"
+        } while ($choice -notin @('1', '2', '3'))
+
+        $success = $false
+
+        switch ($choice) {
+            '1' {
+                $success = Start-OfficeUninstallWithSaRA
+            }
+            '2' {
+                $success = Start-OfficeUninstallClickToRun
+            }
+            '3' {
+                Write-StyledMessage Warning "⚠️ Questo metodo rimuove file e registro direttamente"
+                if (Get-UserConfirmation "Confermi rimozione diretta?" 'Y') {
+                    $success = Remove-OfficeDirectly
+                }
+            }
+        }
+
+        if ($success) {
+            Write-StyledMessage Success "🎉 Rimozione Office completata!"
             return $true
         }
         else {
-            Write-StyledMessage Warning "SaRA non riuscito, tentativo con metodo alternativo..."
-
-            # Fallback al metodo Click-to-Run
-            $clickToRunSuccess = Start-OfficeUninstallClickToRun
-
-            if ($clickToRunSuccess) {
-                Write-StyledMessage Success "🎉 Rimozione Office completata con Click-to-Run!"
-                return $true
-            }
-            else {
-                Write-StyledMessage Error "Entrambi i metodi di rimozione non riusciti"
-                Write-StyledMessage Info "💡 Rimozione manuale necessaria tramite Impostazioni > App > Office"
-                return $false
-            }
+            Write-StyledMessage Error "Rimozione non completata"
+            Write-StyledMessage Info "💡 Puoi provare un metodo alternativo o rimozione manuale"
+            return $false
         }
     }
 
@@ -424,21 +436,13 @@ function OfficeToolkit {
             $configContent = @'
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
-  <startup>
-    <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.8.1"/>
+  <startup useLegacyV2RuntimeActivationPolicy="true">
+    <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.8"/>
   </startup>
-  <system.diagnostics>
-    <sources>
-      <source name="SaRATraceSource" switchValue="All">
-        <listeners>
-          <add name="console"/>
-        </listeners>
-      </source>
-    </sources>
-    <sharedListeners>
-      <add name="console" type="System.Diagnostics.ConsoleTraceListener"/>
-    </sharedListeners>
-  </system.diagnostics>
+  <runtime>
+    <loadFromRemoteSources enabled="true"/>
+    <AppContextSwitchOverrides value="Switch.System.Security.Cryptography.UseLegacyFipsThrow=false"/>
+  </runtime>
 </configuration>
 '@
             
@@ -452,20 +456,88 @@ function OfficeToolkit {
         }
     }
 
+    function Remove-OfficeDirectly {
+        Write-StyledMessage Info "🔧 Avvio rimozione diretta Office..."
+        
+        try {
+            # Metodo 1: Rimozione tramite PowerShell/WMI
+            Write-StyledMessage Info "📋 Ricerca installazioni Office..."
+            
+            $officeProducts = Get-WmiObject -Class Win32_Product -ErrorAction SilentlyContinue | 
+            Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" }
+            
+            if ($officeProducts) {
+                Write-StyledMessage Info "Trovati $($officeProducts.Count) prodotti Office"
+                foreach ($product in $officeProducts) {
+                    Write-StyledMessage Info "🗑️ Rimozione: $($product.Name)..."
+                    try {
+                        $product.Uninstall() | Out-Null
+                        Write-StyledMessage Success "Rimosso: $($product.Name)"
+                    }
+                    catch {
+                        Write-StyledMessage Warning "Errore rimozione: $($product.Name)"
+                    }
+                }
+            }
+            
+            # Metodo 2: Pulizia cartelle residue
+            Write-StyledMessage Info "🧹 Pulizia cartelle Office..."
+            
+            $foldersToClean = @(
+                "$env:ProgramFiles\Microsoft Office",
+                "${env:ProgramFiles(x86)}\Microsoft Office",
+                "$env:ProgramData\Microsoft\Office",
+                "$env:LOCALAPPDATA\Microsoft\Office"
+            )
+            
+            foreach ($folder in $foldersToClean) {
+                if (Test-Path $folder) {
+                    try {
+                        Remove-Item -Path $folder -Recurse -Force -ErrorAction Stop
+                        Write-StyledMessage Success "Rimossa: $folder"
+                    }
+                    catch {
+                        Write-StyledMessage Warning "Impossibile rimuovere: $folder"
+                    }
+                }
+            }
+            
+            # Metodo 3: Pulizia registro
+            Write-StyledMessage Info "🔧 Pulizia registro Office..."
+            
+            $registryPaths = @(
+                "HKCU:\Software\Microsoft\Office",
+                "HKLM:\SOFTWARE\Microsoft\Office",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office"
+            )
+            
+            foreach ($regPath in $registryPaths) {
+                if (Test-Path $regPath) {
+                    try {
+                        Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
+                        Write-StyledMessage Success "Rimossa chiave: $regPath"
+                    }
+                    catch {
+                        Write-StyledMessage Warning "Impossibile rimuovere: $regPath"
+                    }
+                }
+            }
+            
+            Write-StyledMessage Success "✅ Rimozione diretta completata"
+            return $true
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante rimozione diretta: $_"
+            return $false
+        }
+    }
+
     function Start-OfficeUninstallWithSaRA {
         try {
             # Installa .NET Framework 4.8.1 se necessario
             if (-not (Install-DotNetFramework481)) {
                 Write-StyledMessage Error ".NET Framework 4.8.1 richiesto per SaRA non disponibile"
                 return $false
-            }
-
-            # Riavvio dopo installazione .NET se necessario
-            if (-not (Test-DotNetFramework481)) {
-                Write-StyledMessage Warning "🔄 Riavvio necessario per completare configurazione .NET Framework"
-                if (Start-CountdownRestart ".NET Framework 4.8.1 installato") {
-                    return $false
-                }
             }
 
             if (-not (Test-Path $TempDir)) {
@@ -495,35 +567,47 @@ function OfficeToolkit {
                 return $false
             }
 
-            # Correggi configurazione SaRA per Windows 11 22H2
+            # Correggi configurazione SaRA
             $configPath = "$($saraExe.FullName).config"
             if (Test-Path $configPath) {
                 Repair-SaRAConfig -ConfigPath $configPath
             }
 
-            Write-StyledMessage Info "🚀 Avvio rimozione tramite SaRA..."
-            Write-StyledMessage Warning "⏰ Questa operazione può richiedere molto tempo"
-            Write-StyledMessage Warning "🚫 Non chiudere la finestra di SaRA, si chiuderà automaticamente"
+            Write-StyledMessage Info "🚀 Tentativo 1: Rimozione tramite SaRA..."
+            Write-StyledMessage Warning "⏰ Questa operazione può richiedere alcuni minuti"
 
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
-            $process = Start-Process -FilePath $saraExe.FullName -ArgumentList $arguments -Verb RunAs -PassThru -ErrorAction Stop
-
-            Start-Sleep -Seconds 5
-
-            if ($process.HasExited -and $process.ExitCode -ne 0) {
-                Write-StyledMessage Warning "SaRA terminato con codice errore: $($process.ExitCode)"
-                return $false
+            
+            try {
+                $process = Start-Process -FilePath $saraExe.FullName -ArgumentList $arguments -Verb RunAs -PassThru -Wait -ErrorAction Stop
+                
+                $exitCode = $process.ExitCode
+                
+                if ($exitCode -eq 0) {
+                    Write-StyledMessage Success "✅ SaRA completato con successo"
+                    return $true
+                }
+                else {
+                    Write-StyledMessage Warning "SaRA terminato con codice: $exitCode"
+                    Write-StyledMessage Info "💡 Tentativo metodo alternativo..."
+                    
+                    # Tentativo con rimozione diretta
+                    if (Remove-OfficeDirectly) {
+                        return $true
+                    }
+                    
+                    return $false
+                }
             }
-
-            Write-Host "💡 Premi INVIO quando SaRA ha completato la rimozione..." -ForegroundColor Yellow
-            Read-Host | Out-Null
-
-            if (Get-UserConfirmation "✅ Rimozione completata con successo?" 'Y') {
-                Write-StyledMessage Success "🎉 Rimozione Office completata!"
-                return $true
-            }
-            else {
-                Write-StyledMessage Warning "Rimozione potrebbe essere incompleta"
+            catch {
+                Write-StyledMessage Warning "Errore esecuzione SaRA: $_"
+                Write-StyledMessage Info "💡 Passaggio a metodo alternativo..."
+                
+                # Fallback immediato a rimozione diretta
+                if (Remove-OfficeDirectly) {
+                    return $true
+                }
+                
                 return $false
             }
         }
@@ -601,7 +685,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.3 (Build 8)'
+            '        Version 2.2.2 (Build 9)'
         )
 
         foreach ($line in $asciiArt) {
