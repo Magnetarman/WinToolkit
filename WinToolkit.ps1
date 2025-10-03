@@ -3310,15 +3310,18 @@ function WinCleaner {
             }
 
             if (-not $proc.HasExited) {
+                Clear-ProgressLine
                 Write-StyledMessage Warning "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
                 $proc.Kill()
                 Start-Sleep -Seconds 2
                 return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
             }
 
+            Clear-ProgressLine
             return @{ Success = $true; TimedOut = $false; ExitCode = $proc.ExitCode }
         }
         catch {
+            Clear-ProgressLine
             Write-StyledMessage Error "Errore nell'avvio del processo: $($_.Exception.Message)"
             return @{ Success = $false; TimedOut = $false; ExitCode = -1 }
         }
@@ -3331,6 +3334,11 @@ function WinCleaner {
         $bar = "[$filled$empty] {0,3}%" -f $safePercent
         Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
         if ($Percent -eq 100) { Write-Host '' }
+    }
+
+    function Clear-ProgressLine {
+        Write-Host "`r$(' ' * 120)" -NoNewline
+        Write-Host "`r" -NoNewline
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
@@ -3499,6 +3507,7 @@ function WinCleaner {
             }
 
             if (-not $proc.HasExited) {
+                Clear-ProgressLine
                 Write-StyledMessage Warning "Timeout raggiunto dopo $([math]::Round($timeout/60, 0)) minuti"
                 try {
                     $proc.Kill()
@@ -3512,6 +3521,7 @@ function WinCleaner {
             }
 
             $exitCode = $proc.ExitCode
+            Clear-ProgressLine
             Show-ProgressBar "Pulizia CleanMgr" 'Completato' 100 '🧹'
             Write-Host ''
             
@@ -3527,6 +3537,7 @@ function WinCleaner {
             return @{ Success = $true; ErrorCount = 0 }
         }
         catch {
+            Clear-ProgressLine
             Write-StyledMessage Error "Errore durante pulizia CleanMgr: $($_.Exception.Message)"
             Write-StyledMessage Info "💡 Suggerimento: Eseguire manualmente 'cleanmgr.exe' per verificare"
             $script:Log += "[CleanMgrAuto] Errore: $($_.Exception.Message)"
@@ -4215,7 +4226,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 17)'
+            '       Version 2.2.2 (Build 18)'
         )
 
         foreach ($line in $asciiArt) {
