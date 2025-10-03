@@ -5,7 +5,7 @@ function OfficeToolkit {
 
     .DESCRIPTION
         Script PowerShell per gestire Microsoft Office tramite interfaccia utente semplificata.
-        Supporta installazione Office Basic, riparazione Click-to-Run e rimozione completa con SaRA.
+        Supporta installazione Office Basic, riparazione Click-to-Run e rimozione automatica basata sulla versione Windows.
     #>
 
     param([int]$CountdownSeconds = 30)
@@ -71,6 +71,31 @@ function OfficeToolkit {
         return $response -eq 'Y'
     }
 
+    function Get-WindowsVersion {
+        try {
+            $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
+            $buildNumber = [int]$osInfo.BuildNumber
+
+            # Windows 11 23H2 o superiori = build 22631 o superiore
+            # Windows 11 22H2 o precedenti = build 22621 o inferiore
+            # Windows 10 = build inferiore a 22000
+
+            if ($buildNumber -ge 22631) {
+                return "Windows11_23H2_Plus"
+            }
+            elseif ($buildNumber -ge 22000) {
+                return "Windows11_22H2_Or_Older"
+            }
+            else {
+                return "Windows10_Or_Older"
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "Impossibile rilevare versione Windows: $_"
+            return "Unknown"
+        }
+    }
+
     function Start-CountdownRestart([string]$Reason) {
         Write-StyledMessage Info "🔄 $Reason - Il sistema verrà riavviato"
         Write-StyledMessage Info "💡 Premi un tasto qualsiasi per annullare..."
@@ -128,13 +153,6 @@ function OfficeToolkit {
         }
     }
 
-    function Get-OfficeClient {
-        $paths = @(
-            "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun\OfficeClickToRun.exe",
-            "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun\OfficeClickToRun.exe"
-        )
-        return $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
-    }
 
     function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
         try {
@@ -158,99 +176,6 @@ function OfficeToolkit {
         }
     }
 
-    function Test-DotNetFramework481 {
-        try {
-            $release = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" -ErrorAction Stop).Release
-            return $release -ge 533320
-        }
-        catch {
-            return $false
-        }
-    }
-
-    function Install-DotNetFramework481 {
-        Write-StyledMessage Info "🔧 Verifica .NET Framework 4.8.1..."
-
-        if (Test-DotNetFramework481) {
-            Write-StyledMessage Success ".NET Framework 4.8.1 già installato"
-            return $true
-        }
-
-        Write-StyledMessage Warning ".NET Framework 4.8.1 non trovato"
-        Write-StyledMessage Info "📦 Preparazione installazione .NET Framework 4.8.1 per SaRA..."
-
-        if (-not (Test-Path $TempDir)) {
-            New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
-        }
-
-        $dotnetInstaller = Join-Path $TempDir 'ndp481-x86-x64-allos-enu.exe'
-        $installed = $false
-
-        # Metodo 1: Winget
-        Write-StyledMessage Info "🎯 Tentativo installazione tramite Winget..."
-        try {
-            $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
-            if ($wingetPath) {
-                $process = Start-Process -FilePath "winget" -ArgumentList "install --id Microsoft.DotNet.Framework.DeveloperPack_4 --silent --accept-package-agreements --accept-source-agreements" -Wait -PassThru -NoNewWindow
-                
-                Start-Sleep -Seconds 5
-                
-                if (Test-DotNetFramework481) {
-                    Write-StyledMessage Success "✅ .NET Framework 4.8.1 installato tramite Winget"
-                    $installed = $true
-                }
-            }
-            else {
-                Write-StyledMessage Warning "Winget non disponibile"
-            }
-        }
-        catch {
-            Write-StyledMessage Warning "Errore Winget: $_"
-        }
-
-        # Metodo 2: Download diretto
-        if (-not $installed) {
-            Write-StyledMessage Info "📥 Download diretto .NET Framework 4.8.1..."
-            
-            $dotnetUrl = 'https://go.microsoft.com/fwlink/?linkid=2203306'
-            
-            if (Invoke-DownloadFile $dotnetUrl $dotnetInstaller '.NET Framework 4.8.1') {
-                Write-StyledMessage Info "🚀 Avvio installazione .NET Framework 4.8.1..."
-                Write-StyledMessage Warning "⏳ L'installazione può richiedere diversi minuti..."
-                
-                try {
-                    $process = Start-Process -FilePath $dotnetInstaller -ArgumentList "/q /norestart" -Wait -PassThru
-                    
-                    if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
-                        Write-StyledMessage Success "✅ .NET Framework 4.8.1 installato"
-                        $installed = $true
-                        
-                        if ($process.ExitCode -eq 3010) {
-                            Write-StyledMessage Warning "⚠️ Riavvio necessario per completare l'installazione"
-                        }
-                    }
-                    else {
-                        Write-StyledMessage Warning "Codice uscita installazione: $($process.ExitCode)"
-                    }
-                }
-                catch {
-                    Write-StyledMessage Error "Errore durante installazione: $_"
-                }
-            }
-        }
-
-        # Verifica finale
-        Start-Sleep -Seconds 2
-        if (Test-DotNetFramework481) {
-            Write-StyledMessage Success "🎉 .NET Framework 4.8.1 pronto"
-            return $true
-        }
-        else {
-            Write-StyledMessage Error "Impossibile installare .NET Framework 4.8.1"
-            Write-StyledMessage Info "💡 Installazione manuale necessaria da: https://dotnet.microsoft.com/download/dotnet-framework/net481"
-            return $false
-        }
-    }
 
     function Start-OfficeInstallation {
         Write-StyledMessage Info "🏢 Avvio installazione Office Basic..."
@@ -338,10 +263,13 @@ function OfficeToolkit {
         } while ($choice -notin @('1', '2'))
 
         try {
-            $officeClient = Get-OfficeClient
-            if (-not $officeClient) {
-                Write-StyledMessage Error "Office Click-to-Run non trovato"
-                return $false
+            Write-StyledMessage Info "🔍 Ricerca installazione Office..."
+            $officeProcesses = Get-Process -Name "winword", "excel", "powerpnt", "outlook", "onenote", "msaccess", "visio", "lync" -ErrorAction SilentlyContinue
+            if ($officeProcesses) {
+                Write-StyledMessage Success "Office è in esecuzione, procedo con la riparazione"
+            }
+            else {
+                Write-StyledMessage Warning "Nessun processo Office rilevato, ma procedo comunque"
             }
 
             $repairType = if ($choice -eq '1') { 'QuickRepair' } else { 'FullRepair' }
@@ -392,25 +320,23 @@ function OfficeToolkit {
 
         Stop-OfficeProcesses
 
-        Write-StyledMessage Info "🎯 Seleziona metodo di rimozione:"
-        Write-Host "  [1] 🤖 SaRA Tool (Automatico - Consigliato)" -ForegroundColor Green
-        Write-Host "  [2] 🔧 Click-to-Run (Manuale con GUI)" -ForegroundColor Yellow
-        Write-Host "  [3] ⚡ Rimozione Diretta (Veloce)" -ForegroundColor Cyan
+        # Rilevamento automatico versione Windows
+        Write-StyledMessage Info "🔍 Rilevamento versione Windows..."
+        $windowsVersion = Get-WindowsVersion
 
-        do {
-            $choice = Read-Host "Scelta [1-3]"
-        } while ($choice -notin @('1', '2', '3'))
+        Write-StyledMessage Info "🎯 Versione rilevata: $windowsVersion"
 
         $success = $false
 
-        switch ($choice) {
-            '1' {
+        switch ($windowsVersion) {
+            'Windows11_23H2_Plus' {
+                Write-StyledMessage Info "🚀 Utilizzo metodo SaRA per Windows 11 23H2+..."
+                Write-StyledMessage Info "💡 Questo metodo è ottimizzato per la tua versione di Windows"
                 $success = Start-OfficeUninstallWithSaRA
             }
-            '2' {
-                $success = Start-OfficeUninstallClickToRun
-            }
-            '3' {
+            default {
+                Write-StyledMessage Info "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti..."
+                Write-StyledMessage Info "💡 Questo metodo è ottimizzato per la tua versione di Windows"
                 Write-StyledMessage Warning "⚠️ Questo metodo rimuove file e registro direttamente"
                 if (Get-UserConfirmation "Confermi rimozione diretta?" 'Y') {
                     $success = Remove-OfficeDirectly
@@ -429,32 +355,6 @@ function OfficeToolkit {
         }
     }
 
-    function Repair-SaRAConfig([string]$ConfigPath) {
-        try {
-            Write-StyledMessage Info "🔧 Correzione configurazione SaRA per compatibilità..."
-            
-            $configContent = @'
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <startup useLegacyV2RuntimeActivationPolicy="true">
-    <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.8"/>
-  </startup>
-  <runtime>
-    <loadFromRemoteSources enabled="true"/>
-    <AppContextSwitchOverrides value="Switch.System.Security.Cryptography.UseLegacyFipsThrow=false"/>
-  </runtime>
-</configuration>
-'@
-            
-            Set-Content -Path $ConfigPath -Value $configContent -Encoding UTF8 -Force
-            Write-StyledMessage Success "Configurazione SaRA corretta"
-            return $true
-        }
-        catch {
-            Write-StyledMessage Warning "Impossibile correggere configurazione: $_"
-            return $false
-        }
-    }
 
     function Remove-OfficeDirectly {
         Write-StyledMessage Info "🔧 Avvio rimozione diretta Office..."
@@ -593,11 +493,11 @@ function OfficeToolkit {
             
             # Metodo 6: Pulizia attività pianificate Office
             Write-StyledMessage Info "📅 Pulizia attività pianificate..."
-            
+
             try {
-                $officeTasks = Get-ScheduledTask -ErrorAction SilentlyContinue | 
+                $officeTasks = Get-ScheduledTask -ErrorAction SilentlyContinue |
                 Where-Object { $_.TaskName -like "*Office*" }
-                
+
                 foreach ($task in $officeTasks) {
                     try {
                         Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false -ErrorAction Stop
@@ -611,9 +511,52 @@ function OfficeToolkit {
             catch {
                 Write-StyledMessage Warning "Errore durante pulizia attività pianificate"
             }
+
+            # Metodo 7: Rimozione collegamenti desktop Office
+            Write-StyledMessage Info "🖥️ Rimozione collegamenti desktop Office..."
+
+            $desktopPaths = @(
+                "$env:USERPROFILE\Desktop",
+                "$env:PUBLIC\Desktop"
+            )
+
+            $officeShortcuts = @(
+                "Microsoft Word*.lnk",
+                "Microsoft Excel*.lnk",
+                "Microsoft PowerPoint*.lnk",
+                "Microsoft Outlook*.lnk",
+                "Microsoft OneNote*.lnk",
+                "Microsoft Access*.lnk",
+                "Microsoft Publisher*.lnk",
+                "OneDrive*.lnk",
+                "Office*.lnk"
+            )
+
+            $removedShortcuts = 0
+            foreach ($desktopPath in $desktopPaths) {
+                if (Test-Path $desktopPath) {
+                    foreach ($shortcut in $officeShortcuts) {
+                        $shortcutFiles = Get-ChildItem -Path $desktopPath -Name $shortcut -ErrorAction SilentlyContinue
+                        foreach ($file in $shortcutFiles) {
+                            try {
+                                Remove-Item -Path (Join-Path $desktopPath $file) -Force -ErrorAction Stop
+                                $removedShortcuts++
+                                Write-StyledMessage Success "Collegamento rimosso: $file"
+                            }
+                            catch {
+                                Write-StyledMessage Warning "Impossibile rimuovere: $file"
+                            }
+                        }
+                    }
+                }
+            }
+
+            if ($removedShortcuts -gt 0) {
+                Write-StyledMessage Success "$removedShortcuts collegamenti desktop rimossi"
+            }
             
             Write-StyledMessage Success "✅ Rimozione diretta completata"
-            Write-StyledMessage Info "📊 Riepilogo: $cleanedFolders cartelle, $cleanedKeys chiavi registro rimosse"
+            Write-StyledMessage Info "📊 Riepilogo: $cleanedFolders cartelle, $cleanedKeys chiavi registro, $removedShortcuts collegamenti desktop rimossi"
             
             return $true
         }
@@ -625,12 +568,6 @@ function OfficeToolkit {
 
     function Start-OfficeUninstallWithSaRA {
         try {
-            # Installa .NET Framework 4.8.1 se necessario
-            if (-not (Install-DotNetFramework481)) {
-                Write-StyledMessage Error ".NET Framework 4.8.1 richiesto per SaRA non disponibile"
-                return $false
-            }
-
             if (-not (Test-Path $TempDir)) {
                 New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
             }
@@ -713,54 +650,6 @@ function OfficeToolkit {
         }
     }
 
-    function Start-OfficeUninstallClickToRun {
-        Write-StyledMessage Info "🔧 Tentativo rimozione tramite Office Click-to-Run..."
-
-        try {
-            $officeClient = Get-OfficeClient
-            if (-not $officeClient) {
-                Write-StyledMessage Error "Office Click-to-Run non trovato"
-                return $false
-            }
-
-            Write-StyledMessage Info "🎯 Selezione metodo di rimozione:"
-            Write-Host "  [1] 🗑️ Disinstallazione completa" -ForegroundColor Red
-            Write-Host "  [2] 🔧 Rimozione prodotti Office" -ForegroundColor Yellow
-
-            do {
-                $choice = Read-Host "Scelta [1-2]"
-            } while ($choice -notin @('1', '2'))
-
-            switch ($choice) {
-                '1' {
-                    Write-StyledMessage Info "🗑️ Avvio disinstallazione completa..."
-                    $arguments = "scenario=Uninstall platform=x64 culture=it-it forceappshutdown=True DisplayLevel=True"
-                }
-                '2' {
-                    Write-StyledMessage Info "🔧 Avvio rimozione prodotti Office..."
-                    $arguments = "scenario=RemoveProducts platform=x64 culture=it-it forceappshutdown=True DisplayLevel=True"
-                }
-            }
-
-            Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
-
-            Write-Host "💡 Premi INVIO quando la rimozione è completata..." -ForegroundColor Yellow
-            Read-Host | Out-Null
-
-            if (Get-UserConfirmation "✅ Rimozione completata con successo?" 'Y') {
-                Write-StyledMessage Success "🎉 Rimozione Office completata!"
-                return $true
-            }
-            else {
-                Write-StyledMessage Warning "Rimozione potrebbe essere incompleta"
-                return $false
-            }
-        }
-        catch {
-            Write-StyledMessage Error "Errore durante rimozione Click-to-Run: $_"
-            return $false
-        }
-    }
 
     function Show-Header {
         $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
@@ -776,7 +665,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.2.2 (Build 10)'
+            '        Version 2.2.2 (Build 11)'
         )
 
         foreach ($line in $asciiArt) {
