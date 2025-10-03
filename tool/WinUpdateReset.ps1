@@ -268,7 +268,7 @@ function WinUpdateReset {
         '         \_/\_/    |_||_| \_|',
         '',
         ' Update Reset Toolkit By MagnetarMan',
-        '       Version 2.2.2 (Build 3)'
+        '       Version 2.2.2 (Build 5)'
     )
  
     foreach ($line in $asciiArt) {
@@ -456,8 +456,9 @@ function Invoke-WPFUpdatesEnable {
 
     .DESCRIPTION
         This function reverses the changes made by Invoke-WPFUpdatesdisable, restoring
-        Windows Update functionality by re-enabling services, registry settings,
-        scheduled tasks, and restoring renamed system files.
+        Windows Update functionality by resetting registry settings to defaults,
+        configuring services with correct startup types, restoring renamed DLLs,
+        and enabling scheduled tasks.
 
     .NOTES
         This function requires administrator privileges and will attempt to run as SYSTEM for certain operations.
@@ -469,71 +470,75 @@ function Invoke-WPFUpdatesEnable {
 
     Write-StyledMessage Info '🔧 Inizializzazione ripristino Windows Update...'
 
-    # Restore registry settings to default values
-    Write-Host "Ripristino chiavi di registro..." -ForegroundColor Yellow
+    # Restore Windows Update registry settings to defaults
+    Write-StyledMessage Info '📋 Ripristino impostazioni registro Windows Update...'
 
     try {
-        # Remove the NoAutoUpdate and AUOptions settings to re-enable automatic updates
-        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -ErrorAction SilentlyContinue
-        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -ErrorAction SilentlyContinue
-
-        # Remove the entire AU key if it's empty or reset to defaults
-        $auKey = Get-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ErrorAction SilentlyContinue
-        if ($auKey -and $auKey.Property.Count -eq 0) {
-            Remove-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ErrorAction SilentlyContinue
+        If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU")) {
+            New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Force | Out-Null
         }
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -Type DWord -Value 0
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -Type DWord -Value 3
 
-        # Restore Delivery Optimization to default (enabled)
-        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -ErrorAction SilentlyContinue
+        If (!(Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config")) {
+            New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Force | Out-Null
+        }
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -Type DWord -Value 1
 
-        # Restore WaaSMedicSvc service settings
-        Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc" -Name "Start" -ErrorAction SilentlyContinue
-        Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc" -Name "FailureActions" -ErrorAction SilentlyContinue
-
-        Write-StyledMessage Success "🔑 Chiavi di registro ripristinate ai valori predefiniti."
+        Write-StyledMessage Success "🔑 Impostazioni registro Windows Update ripristinate."
     }
     catch {
         Write-StyledMessage Warning "Avviso: Impossibile ripristinare alcune chiavi di registro - $($_.Exception.Message)"
     }
 
-    # Re-enable and start update related services
-    Write-Host "Riabilitazione servizi di update..." -ForegroundColor Yellow
+    # Reset WaaSMedicSvc registry settings to defaults
+    Write-StyledMessage Info '🔧 Ripristino impostazioni WaaSMedicSvc...'
+
+    try {
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc" -Name "Start" -Type DWord -Value 3 -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc" -Name "FailureActions" -ErrorAction SilentlyContinue
+        Write-StyledMessage Success "⚙️ Impostazioni WaaSMedicSvc ripristinate."
+    }
+    catch {
+        Write-StyledMessage Warning "Avviso: Impossibile ripristinare WaaSMedicSvc - $($_.Exception.Message)"
+    }
+
+    # Restore update services to their default state
+    Write-StyledMessage Info '🔄 Ripristino servizi di update...'
 
     $services = @(
-        "BITS",
-        "wuauserv",
-        "UsoSvc",
-        "uhssvc",
-        "WaaSMedicSvc"
+        @{Name = "BITS"; StartupType = "Manual"; Icon = "📡" },
+        @{Name = "wuauserv"; StartupType = "Manual"; Icon = "🔄" },
+        @{Name = "UsoSvc"; StartupType = "Automatic"; Icon = "🚀" },
+        @{Name = "uhssvc"; StartupType = "Disabled"; Icon = "⭕" },
+        @{Name = "WaaSMedicSvc"; StartupType = "Manual"; Icon = "🛡️" }
     )
 
     foreach ($service in $services) {
         try {
-            Write-Host "Riabilitazione servizio $service..."
-            $serviceObj = Get-Service -Name $service -ErrorAction SilentlyContinue
+            Write-StyledMessage Info "$($service.Icon) Ripristino $($service.Name) a $($service.StartupType)..."
+            $serviceObj = Get-Service -Name $service.Name -ErrorAction SilentlyContinue
             if ($serviceObj) {
-                # Set service startup type to Automatic (delayed for WaaSMedicSvc)
-                $startupType = "Automatic"
-                if ($service -eq "WaaSMedicSvc") {
-                    $startupType = "AutomaticDelayedStart"
+                Set-Service -Name $service.Name -StartupType $service.StartupType -ErrorAction SilentlyContinue
+
+                # Reset failure actions to default using sc command
+                Start-Process -FilePath "sc.exe" -ArgumentList "failure `"$($service.Name)`" reset= 86400 actions= restart/60000/restart/60000/restart/60000" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+
+                # Start the service if it should be running
+                if ($service.StartupType -eq "Automatic") {
+                    Start-Service -Name $service.Name -ErrorAction SilentlyContinue
                 }
 
-                Set-Service -Name $service -StartupType $startupType -ErrorAction SilentlyContinue
-                Start-Service -Name $service -ErrorAction SilentlyContinue
-
-                # Restore failure actions using sc command
-                Start-Process -FilePath "sc.exe" -ArgumentList "failure `"$service`" reset= 30 actions= restart/60000/restart/60000/restart/60000" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-
-                Write-StyledMessage Success "✅ Servizio $service riabilitato e avviato."
+                Write-StyledMessage Success "$($service.Icon) Servizio $($service.Name) ripristinato."
             }
         }
         catch {
-            Write-StyledMessage Warning "Avviso: Impossibile elaborare servizio $service - $($_.Exception.Message)"
+            Write-StyledMessage Warning "Avviso: Impossibile ripristinare servizio $($service.Name) - $($_.Exception.Message)"
         }
     }
 
-    # Restore renamed critical update service DLLs
-    Write-Host "Ripristino DLL di sistema rinominate..." -ForegroundColor Yellow
+    # Restore renamed DLLs if they exist
+    Write-StyledMessage Info '📁 Ripristino DLL rinominate...'
 
     $dlls = @("WaaSMedicSvc", "wuaueng")
 
@@ -541,7 +546,7 @@ function Invoke-WPFUpdatesEnable {
         $dllPath = "C:\Windows\System32\$dll.dll"
         $backupPath = "C:\Windows\System32\${dll}_BAK.dll"
 
-        if (Test-Path $backupPath) {
+        if ((Test-Path $backupPath) -and !(Test-Path $dllPath)) {
             try {
                 # Take ownership of backup file
                 Start-Process -FilePath "takeown.exe" -ArgumentList "/f `"$backupPath`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
@@ -549,27 +554,13 @@ function Invoke-WPFUpdatesEnable {
                 # Grant full control to everyone
                 Start-Process -FilePath "icacls.exe" -ArgumentList "`"$backupPath`" /grant *S-1-1-0:F" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
 
-                # Stop the related service if running
-                $serviceName = $dll
-                if ($dll -eq "wuaueng") { $serviceName = "wuauserv" }
-                Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-
-                # Remove original file if it exists
-                if (Test-Path $dllPath) {
-                    Remove-Item -Path $dllPath -Force -ErrorAction SilentlyContinue
-                }
-
-                # Rename backup file to original
-                Rename-Item -Path $backupPath -NewName $dllPath -ErrorAction SilentlyContinue
+                # Rename back to original
+                Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue
+                Write-StyledMessage Success "✅ Ripristinato ${dll}_BAK.dll a $dll.dll"
 
                 # Restore ownership to TrustedInstaller
                 Start-Process -FilePath "icacls.exe" -ArgumentList "`"$dllPath`" /setowner `"NT SERVICE\TrustedInstaller`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
                 Start-Process -FilePath "icacls.exe" -ArgumentList "`"$dllPath`" /remove *S-1-1-0" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-
-                # Start the service again
-                Start-Service -Name $serviceName -ErrorAction SilentlyContinue
-
-                Write-StyledMessage Success "✅ $dll.dll ripristinato dalla versione backup."
             }
             catch {
                 Write-StyledMessage Warning "Avviso: Impossibile ripristinare $dll.dll - $($_.Exception.Message)"
@@ -583,29 +574,8 @@ function Invoke-WPFUpdatesEnable {
         }
     }
 
-    # Recreate SoftwareDistribution folder if needed
-    Write-Host "Verifica cartella SoftwareDistribution..." -ForegroundColor Yellow
-
-    try {
-        $softwareDistPath = "C:\Windows\SoftwareDistribution"
-        if (-not (Test-Path $softwareDistPath)) {
-            New-Item -Path $softwareDistPath -ItemType Directory -Force | Out-Null
-            Write-StyledMessage Success "🗂️ Cartella SoftwareDistribution ricreata."
-        }
-        else {
-            Write-StyledMessage Info "💭 Cartella SoftwareDistribution già presente."
-        }
-
-        # Set proper permissions
-        Start-Process -FilePath "icacls.exe" -ArgumentList "`"$softwareDistPath`" /setowner `"NT SERVICE\TrustedInstaller`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-        Start-Process -FilePath "icacls.exe" -ArgumentList "`"$softwareDistPath`" /grant Administrators:F" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-    }
-    catch {
-        Write-StyledMessage Warning "Avviso: Impossibile configurare SoftwareDistribution - $($_.Exception.Message)"
-    }
-
-    # Re-enable update related scheduled tasks
-    Write-Host "Riabilitazione task pianificati..." -ForegroundColor Yellow
+    # Enable update related scheduled tasks
+    Write-StyledMessage Info '📅 Riabilitazione task pianificati...'
 
     $taskPaths = @(
         '\Microsoft\Windows\InstallService\*'
@@ -621,21 +591,89 @@ function Invoke-WPFUpdatesEnable {
             $tasks = Get-ScheduledTask -TaskPath $taskPath -ErrorAction SilentlyContinue
             foreach ($task in $tasks) {
                 Enable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction SilentlyContinue
-                Write-StyledMessage Success "✅ Task riabilitato: $($task.TaskName)"
+                Write-StyledMessage Success "✅ Task abilitato: $($task.TaskName)"
             }
         }
         catch {
-            Write-StyledMessage Warning "Avviso: Impossibile riabilitare task in $taskPath - $($_.Exception.Message)"
+            Write-StyledMessage Warning "Avviso: Impossibile abilitare task in $taskPath - $($_.Exception.Message)"
         }
     }
 
-    # Final verification and status
+    # Enable driver offering through Windows Update
+    Write-StyledMessage Info '🖨️ Abilitazione driver tramite Windows Update...'
+
+    try {
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata" -Name "PreventDeviceMetadataFromNetwork" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DontPromptForWindowsUpdate" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DontSearchWindowsUpdate" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DriverUpdateWizardWuSearchEnabled" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -Name "ExcludeWUDriversInQualityUpdate" -ErrorAction SilentlyContinue
+        Write-StyledMessage Success "🖨️ Driver tramite Windows Update abilitati."
+    }
+    catch {
+        Write-StyledMessage Warning "Avviso: Impossibile abilitare driver - $($_.Exception.Message)"
+    }
+
+    # Enable Windows Update automatic restart
+    Write-StyledMessage Info '🔄 Abilitazione riavvio automatico Windows Update...'
+
+    try {
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoRebootWithLoggedOnUsers" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUPowerManagement" -ErrorAction SilentlyContinue
+        Write-StyledMessage Success "🔄 Riavvio automatico Windows Update abilitato."
+    }
+    catch {
+        Write-StyledMessage Warning "Avviso: Impossibile abilitare riavvio automatico - $($_.Exception.Message)"
+    }
+
+    # Reset Windows Update settings to default
+    Write-StyledMessage Info '⚙️ Ripristino impostazioni Windows Update...'
+
+    try {
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "BranchReadinessLevel" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "DeferFeatureUpdatesPeriodInDays" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "DeferQualityUpdatesPeriodInDays" -ErrorAction SilentlyContinue
+        Write-StyledMessage Success "⚙️ Impostazioni Windows Update ripristinate."
+    }
+    catch {
+        Write-StyledMessage Warning "Avviso: Impossibile ripristinare alcune impostazioni - $($_.Exception.Message)"
+    }
+
+    # Reset Windows Local Policies to Default
+    Write-StyledMessage Info '📋 Ripristino criteri locali Windows...'
+
+    try {
+        Start-Process -FilePath "secedit" -ArgumentList "/configure /cfg $env:windir\inf\defltbase.inf /db defltbase.sdb /verbose" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+        Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicyUsers" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+        Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicy" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+        Start-Process -FilePath "gpupdate" -ArgumentList "/force" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+
+        # Clean up registry keys
+        Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKCU:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKCU:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKLM:\Software\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKLM:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKLM:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue
+
+        Write-StyledMessage Success "📋 Criteri locali Windows ripristinati."
+    }
+    catch {
+        Write-StyledMessage Warning "Avviso: Impossibile ripristinare alcuni criteri - $($_.Exception.Message)"
+    }
+
+    # Final status and verification
     Write-Host ""
-    Write-Host ('═' * 65) -ForegroundColor Green
-    Write-StyledMessage Success '🎉 Windows Update è stato RIABILITATO con successo!'
-    Write-StyledMessage Success '🔄 Servizi, registro e task pianificati sono stati ripristinati.'
-    Write-StyledMessage Warning "⚡ Nota: Potrebbe essere necessario un riavvio per applicare completamente tutte le modifiche."
-    Write-Host ('═' * 65) -ForegroundColor Green
+    Write-Host ('═' * 70) -ForegroundColor Green
+    Write-StyledMessage Success '🎉 Windows Update è stato RIPRISTINATO ai valori predefiniti!'
+    Write-StyledMessage Success '🔄 Servizi, registro e criteri sono stati configurati correttamente.'
+    Write-StyledMessage Warning "⚡ Nota: È necessario un riavvio per applicare completamente tutte le modifiche."
+    Write-Host ('═' * 70) -ForegroundColor Green
     Write-Host ""
 
     Write-StyledMessage Info '🔍 Verifica finale dello stato dei servizi...'
@@ -645,13 +683,15 @@ function Invoke-WPFUpdatesEnable {
         $svc = Get-Service -Name $service -ErrorAction SilentlyContinue
         if ($svc) {
             $status = if ($svc.Status -eq 'Running') { '🟢 ATTIVO' } else { '🟡 INATTIVO' }
-            Write-StyledMessage Info "📊 $service - Stato: $status"
+            $startup = $svc.StartType
+            Write-StyledMessage Info "📊 $service - Stato: $status | Avvio: $startup"
         }
     }
 
     Write-Host ""
     Write-StyledMessage Info '💡 Windows Update dovrebbe ora funzionare normalmente.'
-    Write-StyledMessage Info '🔧 Puoi verificare manualmente aprendo Impostazioni > Aggiornamento e sicurezza.'
+    Write-StyledMessage Info '🔧 Verifica aprendo Impostazioni > Aggiornamento e sicurezza.'
+    Write-StyledMessage Info '📝 Se necessario, riavvia il sistema per applicare tutte le modifiche.'
 }
 
 WinUpdateReset
