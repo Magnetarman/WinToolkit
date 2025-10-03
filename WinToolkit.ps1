@@ -2655,7 +2655,19 @@ function OfficeToolkit {
         $filled = [Math]::Floor($safePercent * 30 / 100)
         $bar = "[$('█' * $filled)$('░' * (30 - $filled))] $safePercent%"
         Write-Host "`r📊 $Activity $bar $Status" -NoNewline -ForegroundColor Yellow
-        if ($Percent -eq 100) { Write-Host '' }
+        if ($Percent -eq 100) {
+            Write-Host ''
+            [Console]::Out.Flush()
+        }
+        else {
+            [Console]::Out.Flush()
+        }
+    }
+
+    function Clear-ConsoleLine {
+        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+        Write-Host $clearLine -NoNewline
+        [Console]::Out.Flush()
     }
 
     function Show-Spinner([string]$Activity, [scriptblock]$Action) {
@@ -2665,12 +2677,14 @@ function OfficeToolkit {
         while ($job.State -eq 'Running') {
             $spinner = $Spinners[$spinnerIndex++ % $Spinners.Length]
             Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
+            [Console]::Out.Flush()
             Start-Sleep -Milliseconds 200
         }
 
         $result = Receive-Job $job -Wait
         Remove-Job $job
         Write-Host ''
+        [Console]::Out.Flush()
         return $result
     }
 
@@ -2726,6 +2740,7 @@ function OfficeToolkit {
             $bar = "[$('█' * $filled)$('░' * $remaining)] $percent%"
 
             Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
+            [Console]::Out.Flush()
             Start-Sleep 1
         }
 
@@ -3176,7 +3191,8 @@ function OfficeToolkit {
             try {
                 $startMenuPaths = @(
                     "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
-                    "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs"
+                    "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs",
+                    "C:\ProgramData\Microsoft\Windows\Start Menu\Programs"
                 )
 
                 foreach ($startPath in $startMenuPaths) {
@@ -3459,7 +3475,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.2.2 (Build 12)'
+            '        Version 2.2.2 (Build 13)'
         )
 
         foreach ($line in $asciiArt) {
