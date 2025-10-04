@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2.3 (Build 5) - 2025-10-04
+  Versione 2.2.3 (Build 6) - 2025-10-04
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.2.3 (Build 5)'
+    '       Version 2.2.3 (Build 6)'
 )
 
 # Version mapping (usato da più funzioni)
@@ -209,7 +209,7 @@ function WinOSCheck {
         Write-Host "  Lo script userà workaround e funzioni alternative per garantire" -ForegroundColor Yellow
         Write-Host "  la massima compatibilità, con efficienza leggermente ridotta." -ForegroundColor Yellow
         Write-Host ''
-        Start-Sleep -Seconds 5
+        Start-Sleep -Seconds 10
         return
     }
     
