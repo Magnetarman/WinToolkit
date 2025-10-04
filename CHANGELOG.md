@@ -12,6 +12,11 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Aggiunte
 
+- **Potenziamento Avvisi compatibilità Windows (`V2.2.3`):**
+  - Windows 11 (dalla versione 24H2 in poi): Tutto bene (Verde). Lo script funziona alla massima velocità ed efficienza perché usa le funzioni più recenti.
+  - Windows 11 (prima della 24H2) o Windows 10: Attenzione, possibile rischio (Giallo). Il sistema non è completamente aggiornato, ma lo script farà del suo meglio per funzionare. Userà soluzioni alternative (workaround) e funzioni di riserva per garantire la massima compatibilità, anche se con un'efficienza leggermente inferiore.
+  - Windows 10 (prima della 1809) o Windows 8.1: Sconsigliato, sistema troppo vecchio (Rosso). Lo script potrebbe avere gravi problemi di affidabilità. Chiedi con una richiesta specifica se proseguire oppure terminare lo script.
+  - Qualsiasi Windows precedente a Windows 8.1: sistema troppo vecchio (Rosso). Scrivi un messaggio sul terminale "Davvero pensi che questo script possa fare qualcosa per questa versione di Windows ? E' già un miracolo che tu riesca a vedere questo messaggio di errore senza che il pc sia esploso 🤣. Aggiorna Windows o passa a linux" parte un countdown di 10 secondi ed il terminale si chiude. **[Tnks @pomodori92]**
 - **Funzione Driver & Gaming (`V2.3`):**
   - Scelta Driver Video (AMD/NVIDIA).
   - Installazione Driver Ottimizzato (Nvidia).
@@ -31,9 +36,10 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - **Funzione Security Update (`V2.6`):**
   - Download ed esecuzione di Tron Script con intervento minimo.
 - **Funzione Security Update (`V2.7`):**
-  - Reset dei servizi Windows [Tnks @sicolla]
-  - Pulizia Cache, File Temporanei e Cache dei Browser
-  - Potenziamento Toolkit di Riparazione Windows [Tnks @Progressfy]
+  - Reset dei servizi Windows **[Tnks @sicolla]**
+  - Riparazione avanzata Windows Search **[Tnks @sicolla]**
+  - Pulizia Cache dei Browser
+  - Potenziamento Toolkit di Riparazione Windows **[Tnks @Progressfy]**
 - **MagnetarMan Mode (`V3.0`):**
   - Avvio Script Chris con configurazione personalizzata.
   - Installazione programmi: Brave Browser, Google Chrome,
@@ -54,6 +60,35 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Correzioni
 
 ### Modifiche
+
+---
+
+## [2.2.2] - 2025-10-04 (#14)
+
+### Aggiunte
+
+- Aggiunta Funzione `WinCleaner`.
+
+### Correzioni
+
+- Correzione del blocco grafico del terminale per lo script `WinReinstallStore.ps1`.
+- Correzione del blocco grafico del terminale per lo script `WinBackupDriver.ps1`.
+- Correzione di alcuni problemi di affidabilità (Windows 11 Pre 24H2) nello script `start.ps1`.
+- Correzione di alcuni problemi di affidabilità (Windows 11 Pre 24H2) nella funzione `InstallPSProfile`.
+- Correzione di alcuni problemi di affidabilità (Windows 11 Pre 24H2) nella funzione `OfficeToolkit`.
+- Correzione del blocco grafico del terminale per lo script `OfficeToolkit.ps1`.
+- Errore applicazione configurazione corretta script `SetRustdesk.ps1`.
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+- Aggiornamento `CONTRIBUTORS.md`.
+- Migliorato Supporto script `start.ps1` per Windows 10 22H2 e versioni precedenti. **[Tnks @sicolla]**
+- Migliorato Supporto script `start.ps1` per Windows 11 pre 24H2.
+- Migliorate Sezioni `WinToolkit-Template.ps1`.
+- Potenziamento Script `WinUpdateReset.ps1`.
+- Eliminata la pulizia forzata del terminale in `WinReinstallStore.ps1`.
+- Aggiornamento Tono e Stile generale degli script.
 
 ---
 
