@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2.2 (Build 16) - 2025-10-03
+  Versione 2.2.2 (Build 16) - 2025-10-04
 #>
 
 param([int]$CountdownSeconds = 10)
