@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2.2 (Build 16) - 2025-10-04
+  Versione 2.2.3 (Build 3) - 2025-10-04
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -15,21 +15,48 @@ $ErrorActionPreference = 'Stop'
 $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $logdir = "$env:localappdata\WinToolkit\logs"
 try {
-    [System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
+    [System.IO.Directory]::CreateDirectory($logdir) | Out-Null
     Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -Force | Out-Null
 }
-catch { }
+catch {}
 
+# ASCII Art
+$asciiArt = @(
+    '      __        __  _  _   _ ',
+    '      \ \      / / | || \ | |',
+    '       \ \ /\ / /  | ||  \| |',
+    '        \ V  V /   | || |\  |',
+    '         \_/\_/    |_||_| \_|',
+    '',
+    '       WinToolkit By MagnetarMan',
+    '       Version 2.2.3 (Build 3)'
+)
+
+# Version mapping (usato da più funzioni)
+$versionMap = @{
+    26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
+    19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"
+    19041 = "2004"; 18363 = "1909"; 18362 = "1903"; 17763 = "1809"
+    17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
+    10586 = "1511"; 10240 = "1507"
+}
+
+# Utility Functions
 function Write-StyledMessage {
     param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
-    $icons = @{ Success = '✅'; Warning = '⚠️'; Error = '❌'; Info = '💎' }
-    $colors = @{ Success = 'Green'; Warning = 'Yellow'; Error = 'Red'; Info = 'Cyan' }
-    Write-Host "$($icons[$type]) $text" -ForegroundColor $colors[$type]
+    $config = @{
+        Success = @{ Icon = '✅'; Color = 'Green' }
+        Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
+        Error   = @{ Icon = '❌'; Color = 'Red' }
+        Info    = @{ Icon = '💎'; Color = 'Cyan' }
+    }
+    Write-Host "$($config[$type].Icon) $text" -ForegroundColor $config[$type].Color
 }
 
 function Center-Text {
     param([string]$text, [int]$width = $Host.UI.RawUI.BufferSize.Width)
-    if ($text.Length -ge $width) { $text } else { ' ' * [Math]::Floor(($width - $text.Length) / 2) + $text }
+    if ($text.Length -ge $width) { return $text }
+    ' ' * [Math]::Floor(($width - $text.Length) / 2) + $text
 }
 
 function Show-Header {
@@ -43,83 +70,212 @@ function Show-Header {
     Write-Host ''
 }
 
-function winver {
+function Get-WindowsVersion {
+    param([int]$buildNumber)
+    
+    foreach ($build in ($versionMap.Keys | Sort-Object -Descending)) {
+        if ($buildNumber -ge $build) { return $versionMap[$build] }
+    }
+    return "N/A"
+}
+
+function Get-SystemInfo {
     try {
         $osInfo = Get-CimInstance Win32_OperatingSystem
         $computerInfo = Get-CimInstance Win32_ComputerSystem
         $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
 
-        $productName = $osInfo.Caption -replace 'Microsoft ', ''
-        $buildNumber = [int]$osInfo.BuildNumber
-        $totalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
-        $totalDiskSpace = [Math]::Round($diskInfo.Size / 1GB, 0)
-        $freePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
-
-        # Version mapping
-        $versionMap = @{
-            26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
-            19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"
-            19041 = "2004"; 18363 = "1909"; 18362 = "1903"; 17763 = "1809"
-            17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
-            10586 = "1511"; 10240 = "1507"
+        return @{
+            ProductName    = $osInfo.Caption -replace 'Microsoft ', ''
+            BuildNumber    = [int]$osInfo.BuildNumber
+            Architecture   = $osInfo.OSArchitecture
+            ComputerName   = $computerInfo.Name
+            TotalRAM       = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
+            TotalDisk      = [Math]::Round($diskInfo.Size / 1GB, 0)
+            FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
         }
-
-        $windowsVersion = "N/A"
-        foreach ($build in ($versionMap.Keys | Sort-Object -Descending)) {
-            if ($buildNumber -ge $build) { $windowsVersion = $versionMap[$build]; break }
-        }
-
-        # Edition detection
-        $windowsEdition = switch -Wildcard ($productName) {
-            "*Home*" { "🏠 Home" }
-            "*Pro*" { "💼 Professional" }
-            "*Enterprise*" { "🏢 Enterprise" }
-            "*Education*" { "🎓 Education" }
-            "*Server*" { "🖥️ Server" }
-            default { "💻 $productName" }
-        }
-
-        # Display info
-        $width = 65
-        Write-Host ""
-        Write-Host ('*' * $width) -ForegroundColor Red
-        Write-Host (Center-Text "🖥️  INFORMAZIONI SISTEMA  🖥️" $width) -ForegroundColor White
-        Write-Host ('*' * $width) -ForegroundColor Red
-        Write-Host ""
-
-        $info = @(
-            @("💻 Edizione:", $windowsEdition, 'White'),
-            @("📊 Versione:", "Ver. $windowsVersion (Build $buildNumber)", 'Green'),
-            @("🏗️ Architettura:", $osInfo.OSArchitecture, 'White'),
-            @("🏷️ Nome PC:", $computerInfo.Name, 'White'),
-            @("🧠 RAM:", "$totalRAM GB", 'White'),
-            @("💾 Disco:", "$freePercentage% Libero ($totalDiskSpace GB)", 'Green')
-        )
-
-        foreach ($item in $info) {
-            Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
-            Write-Host " $($item[1])" -ForegroundColor $item[2]
-        }
-
-        Write-Host ""
-        Write-Host ('*' * $width) -ForegroundColor Red
     }
     catch {
         Write-StyledMessage -type 'Error' -text "Errore nel recupero informazioni: $($_.Exception.Message)"
+        return $null
     }
 }
 
-# ASCII Art
-$asciiArt = @(
-    '      __        __  _  _   _ ',
-    '      \ \      / / | || \ | |',
-    '       \ \ /\ / /  | ||  \| |',
-    '        \ V  V /   | || |\  |',
-    '         \_/\_/    |_||_| \_|',
-    '',
-    '       WinToolkit By MagnetarMan',
-    '       Version 2.2.2 (Build 16)'
-)
+function winver {
+    $sysInfo = Get-SystemInfo
+    if (-not $sysInfo) { return }
+
+    $buildNumber = $sysInfo.BuildNumber
+    $windowsVersion = Get-WindowsVersion $buildNumber
+
+    # Edition detection
+    $windowsEdition = switch -Wildcard ($sysInfo.ProductName) {
+        "*Home*" { "🏠 Home" }
+        "*Pro*" { "💼 Professional" }
+        "*Enterprise*" { "🏢 Enterprise" }
+        "*Education*" { "🎓 Education" }
+        "*Server*" { "🖥️ Server" }
+        default { "💻 $($sysInfo.ProductName)" }
+    }
+
+    # Display info
+    $width = 65
+    Write-Host ""
+    Write-Host ('*' * $width) -ForegroundColor Red
+    Write-Host (Center-Text "🖥️  INFORMAZIONI SISTEMA  🖥️" $width) -ForegroundColor White
+    Write-Host ('*' * $width) -ForegroundColor Red
+    Write-Host ""
+
+    $info = @(
+        @("💻 Edizione:", $windowsEdition, 'White'),
+        @("📊 Versione:", "Ver. $windowsVersion (Build $buildNumber)", 'Green'),
+        @("🗝️ Architettura:", $sysInfo.Architecture, 'White'),
+        @("🏷️ Nome PC:", $sysInfo.ComputerName, 'White'),
+        @("🧠 RAM:", "$($sysInfo.TotalRAM) GB", 'White'),
+        @("💾 Disco:", "$($sysInfo.FreePercentage)% Libero ($($sysInfo.TotalDisk) GB)", 'Green')
+    )
+
+    foreach ($item in $info) {
+        Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
+        Write-Host " $($item[1])" -ForegroundColor $item[2]
+    }
+
+    Write-Host ""
+    Write-Host ('*' * $width) -ForegroundColor Red
+}
+
+function Show-Countdown {
+    param([string]$message = "Chiusura in")
+    
+    Write-Host ''
+    Write-StyledMessage -type 'Success' -text 'Grazie per aver utilizzato WinToolkit!'
+    Write-StyledMessage -type 'Info' -text 'Per supporto: Github.com/Magnetarman'
+    Write-Host ''
+    
+    for ($i = $CountdownSeconds; $i -gt 0; $i--) {
+        Write-Host "  $message $i secondi..." -ForegroundColor Cyan
+        Start-Sleep -Seconds 1
+    }
+    
+    Stop-Transcript -ErrorAction SilentlyContinue
+    exit
+}
+
+function WinOSCheck {
+    Show-Header
+    Write-StyledMessage -type 'Info' -text 'Verifica Sistema Operativo'
+    Write-Host ''
+    
+    $sysInfo = Get-SystemInfo
+    if (-not $sysInfo) {
+        Write-StyledMessage -type 'Warning' -text 'Impossibile verificare il sistema. Prosecuzione con compatibilità limitata...'
+        Start-Sleep -Seconds 3
+        return
+    }
+
+    $buildNumber = $sysInfo.BuildNumber
+    $windowsVersion = Get-WindowsVersion $buildNumber
+    
+    # Determina categoria Windows
+    $isWin11 = $buildNumber -ge 22000
+    $isWin10 = ($buildNumber -ge 10240) -and ($buildNumber -lt 22000)
+    $isWin81 = $buildNumber -eq 9600
+    $isWin8 = $buildNumber -eq 9200
+    
+    $osDisplay = if ($isWin11) { "Windows 11" } 
+    elseif ($isWin10) { "Windows 10" }
+    elseif ($isWin81) { "Windows 8.1" }
+    elseif ($isWin8) { "Windows 8" }
+    else { $sysInfo.ProductName }
+    
+    Write-Host "  Sistema rilevato: " -NoNewline -ForegroundColor Yellow
+    Write-Host "$osDisplay (Build $buildNumber - Ver. $windowsVersion)" -ForegroundColor White
+    Write-Host ''
+    
+    # Logica di compatibilità
+    if ($isWin11 -and $buildNumber -ge 26100) {
+        # Windows 11 24H2+
+        Write-StyledMessage -type 'Success' -text 'Sistema completamente compatibile!'
+        Write-Host "  Lo script funzionerà alla massima velocità ed efficienza." -ForegroundColor Green
+        Write-Host ''
+        Start-Sleep -Seconds 2
+        return
+    }
+    
+    if (($isWin11 -and $buildNumber -lt 26100) -or $isWin10) {
+        # Windows 11 pre-24H2 o Windows 10
+        Write-StyledMessage -type 'Warning' -text 'Sistema parzialmente compatibile'
+        Write-Host "  Il sistema non è completamente aggiornato." -ForegroundColor Yellow
+        Write-Host "  Lo script userà workaround e funzioni alternative per garantire" -ForegroundColor Yellow
+        Write-Host "  la massima compatibilità, con efficienza leggermente ridotta." -ForegroundColor Yellow
+        Write-Host ''
+        Start-Sleep -Seconds 3
+        return
+    }
+    
+    if ($isWin10 -and $buildNumber -lt 17763) {
+        # Windows 10 pre-1809
+        Write-StyledMessage -type 'Error' -text 'Sistema troppo vecchio - Sconsigliato'
+        Write-Host "  Lo script potrebbe avere gravi problemi di affidabilità!" -ForegroundColor Red
+        Write-Host ''
+        
+        Write-Host "  Vuoi proseguire a tuo rischio e pericolo? " -NoNewline -ForegroundColor Yellow
+        Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
+        $response = Read-Host
+        
+        if ($response -notmatch '^[Yy]$') { Show-Countdown }
+        
+        Write-StyledMessage -type 'Warning' -text 'Prosecuzione confermata - Buona fortuna!'
+        Start-Sleep -Seconds 2
+        return
+    }
+    
+    if ($isWin81 -or $isWin8) {
+        # Windows 8.1 o 8
+        Write-StyledMessage -type 'Error' -text 'Sistema obsoleto - Fortemente sconsigliato'
+        Write-Host "  Windows 8.1/8 non è più supportato ufficialmente." -ForegroundColor Red
+        Write-Host "  Lo script avrà gravi problemi di affidabilità e stabilità!" -ForegroundColor Red
+        Write-Host ''
+        
+        Write-Host "  Vuoi davvero proseguire a tuo rischio e pericolo? " -NoNewline -ForegroundColor Yellow
+        Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
+        $response = Read-Host
+        
+        if ($response -notmatch '^[Yy]$') { Show-Countdown }
+        
+        Write-StyledMessage -type 'Warning' -text 'Hai scelto la strada difficile... In bocca al lupo!'
+        Start-Sleep -Seconds 2
+        return
+    }
+    
+    # Windows 7 o precedenti
+    Write-Host ''
+    Write-Host ('*' * 65) -ForegroundColor Red
+    Write-Host (Center-Text "🤣 ERRORE CRITICO 🤣" 65) -ForegroundColor Red
+    Write-Host ('*' * 65) -ForegroundColor Red
+    Write-Host ''
+    Write-Host "  Davvero pensi che questo script possa fare qualcosa" -ForegroundColor Red
+    Write-Host "  per questa versione di Windows?" -ForegroundColor Red
+    Write-Host ''
+    Write-Host "  E' già un miracolo che tu riesca a vedere questo" -ForegroundColor Yellow
+    Write-Host "  messaggio di errore senza che il pc sia esploso 🤣" -ForegroundColor Yellow
+    Write-Host ''
+    Write-Host "  💡 Suggerimento: Aggiorna Windows o passa a Linux!" -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host ('*' * 65) -ForegroundColor Red
+    Write-Host ''
+    
+    Write-Host "  Vuoi comunque tentare l'impossibile? " -NoNewline -ForegroundColor Magenta
+    Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
+    $response = Read-Host
+    
+    if ($response -notmatch '^[Yy]$') { Show-Countdown }
+    
+    Write-StyledMessage -type 'Warning' -text 'Ok, ma non dire che non ti avevo avvertito! 😅'
+    Write-Host "  La maggior parte delle funzioni NON funzioneranno." -ForegroundColor Red
+    Write-Host "  Potrebbero verificarsi errori e instabilità del sistema." -ForegroundColor Red
+    Start-Sleep -Seconds 3
+}
 
 # Placeholder functions (verranno automaticamente popolate dal compilatore)
 function WinInstallPSProfile {}
@@ -132,8 +288,6 @@ function WinBackupDriver {}
 function OfficeToolkit {}
 function GamingToolkit {}
 function WinCleaner {}
-
-#function WinForceUpdate {}
 
 # Menu structure
 $menuStructure = @(
@@ -166,6 +320,9 @@ $menuStructure = @(
         )
     }
 )
+
+# Esegui verifica compatibilità sistema
+WinOSCheck
 
 # Main loop
 while ($true) {
@@ -231,9 +388,6 @@ while ($true) {
 
     # Execute valid scripts
     if ($scriptsToRun.Count -gt 0) {
-        $executedCount = 0
-        $errorCount = 0
-
         foreach ($selectedItem in $scriptsToRun) {
             Write-Host "`n" + ('-' * ($width / 2))
             Write-StyledMessage -type 'Info' -text "Avvio '$($selectedItem.Description)'..."
@@ -241,30 +395,26 @@ while ($true) {
             try {
                 if ($selectedItem.Action -eq 'RunFile') {
                     $scriptPath = Join-Path $PSScriptRoot $selectedItem.Name
-                    if (Test-Path $scriptPath) { & $scriptPath }
-                    else { Write-StyledMessage -type 'Error' -text "Script non trovato: $($selectedItem.Name)" }
+                    if (Test-Path $scriptPath) { 
+                        & $scriptPath 
+                    }
+                    else { 
+                        Write-StyledMessage -type 'Error' -text "Script non trovato: $($selectedItem.Name)" 
+                    }
                 }
                 elseif ($selectedItem.Action -eq 'RunFunction') {
                     Invoke-Expression $selectedItem.Name
                 }
+                Write-StyledMessage -type 'Success' -text "Completato: '$($selectedItem.Description)'"
             }
             catch {
                 Write-StyledMessage -type 'Error' -text "Errore in '$($selectedItem.Description)'"
                 Write-StyledMessage -type 'Error' -text "Dettagli: $($_.Exception.Message)"
             }
-            Write-StyledMessage -type 'Success' -text "Completato: '$($selectedItem.Description)'"
         }
 
         Write-Host "`nOperazioni completate. Premi un tasto per continuare..."
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-
-        # Summary
-        if ($errorCount -eq 0) {
-            Write-StyledMessage -type 'Success' -text "🎉 Tutte le operazioni completate con successo! ($executedCount/$executedCount)"
-        }
-        else {
-            Write-StyledMessage -type 'Warning' -text "⚠️ $executedCount operazioni completate, $errorCount errori"
-        }
     }
     elseif ($invalidChoices.Count -eq $choices.Count) {
         Write-StyledMessage -type 'Error' -text 'Nessuna scelta valida. Riprova.'
