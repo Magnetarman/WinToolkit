@@ -280,14 +280,14 @@ function WinOSCheck {
 # Placeholder functions (verranno automaticamente popolate dal compilatore)
 function WinInstallPSProfile {}
 function WinRepairToolkit {}
-function SetRustDesk {}
 function WinUpdateReset {}
 function WinReinstallStore {}
-function WinDriverInstall {}
 function WinBackupDriver {}
+function WinDriverInstall {}
 function OfficeToolkit {}
-function GamingToolkit {}
 function WinCleaner {}
+function SetRustDesk {}
+function GamingToolkit {}
 
 # Menu structure
 $menuStructure = @(
