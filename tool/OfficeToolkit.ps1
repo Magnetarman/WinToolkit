@@ -14,7 +14,7 @@ function OfficeToolkit {
     $TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
     $Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
 
-    # Setup logging specifico per OfficeToolkit
+    # Setup logging
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
     try {
@@ -52,19 +52,6 @@ function OfficeToolkit {
         }
     }
 
-    function Show-CleanProgress([string]$Activity, [string]$Status) {
-        Clear-ConsoleLines 2
-        Write-Host "📊 $Activity - $Status" -ForegroundColor Yellow
-        [Console]::Out.Flush()
-    }
-
-    function Clear-ScreenArea {
-        # Pulisce le ultime 10 righe della console per rimuovere eventuali messaggi residui
-        for ($i = 0; $i -lt 10; $i++) {
-            Clear-ConsoleLine
-        }
-    }
-
     function Clear-ConsoleLine {
         $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
         Write-Host $clearLine -NoNewline
@@ -74,6 +61,40 @@ function OfficeToolkit {
     function Clear-ConsoleLines([int]$Lines = 1) {
         for ($i = 0; $i -lt $Lines; $i++) {
             Clear-ConsoleLine
+        }
+    }
+
+    function Invoke-SilentRemoval {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Path,
+            [switch]$Recurse
+        )
+
+        if (-not (Test-Path $Path)) { return $false }
+
+        try {
+            $originalPos = [Console]::CursorTop
+            $ErrorActionPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
+            
+            if ($Recurse) {
+                Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            }
+            else {
+                Remove-Item $Path -Force -ErrorAction SilentlyContinue *>$null
+            }
+            
+            [Console]::SetCursorPosition(0, $originalPos)
+            Clear-ConsoleLine
+            
+            $ErrorActionPreference = 'Continue'
+            $ProgressPreference = 'Continue'
+            
+            return $true
+        }
+        catch {
+            return $false
         }
     }
 
@@ -109,10 +130,6 @@ function OfficeToolkit {
         try {
             $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
             $buildNumber = [int]$osInfo.BuildNumber
-
-            # Windows 11 23H2 o superiori = build 22631 o superiore
-            # Windows 11 22H2 o precedenti = build 22621 o inferiore
-            # Windows 10 = build inferiore a 22000
 
             if ($buildNumber -ge 22631) {
                 return "Windows11_23H2_Plus"
@@ -188,7 +205,6 @@ function OfficeToolkit {
         }
     }
 
-
     function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
         try {
             Write-StyledMessage Info "📥 Download $Description..."
@@ -210,7 +226,6 @@ function OfficeToolkit {
             return $false
         }
     }
-
 
     function Start-OfficeInstallation {
         Write-StyledMessage Info "🏢 Avvio installazione Office Basic..."
@@ -256,9 +271,7 @@ function OfficeToolkit {
             return $false
         }
         finally {
-            if (Test-Path $TempDir) {
-                Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
-            }
+            Invoke-SilentRemoval -Path $TempDir -Recurse
         }
     }
 
@@ -274,14 +287,8 @@ function OfficeToolkit {
 
         $cleanedCount = 0
         foreach ($cache in $caches) {
-            if (Test-Path $cache) {
-                try {
-                    Remove-Item $cache -Recurse -Force -ErrorAction Stop
-                    $cleanedCount++
-                }
-                catch {
-                    # Ignora errori di cache
-                }
+            if (Invoke-SilentRemoval -Path $cache -Recurse) {
+                $cleanedCount++
             }
         }
 
@@ -298,20 +305,17 @@ function OfficeToolkit {
         } while ($choice -notin @('1', '2'))
 
         try {
-            Write-StyledMessage Info "🔍 Ricerca installazione Office..."
-            $officeProcesses = Get-Process -Name "winword", "excel", "powerpnt", "outlook", "onenote", "msaccess", "visio", "lync" -ErrorAction SilentlyContinue
-            if ($officeProcesses) {
-                Write-StyledMessage Success "Office è in esecuzione, procedo con la riparazione"
-            }
-            else {
-                Write-StyledMessage Warning "Nessun processo Office rilevato, ma procedo comunque"
-            }
-
             $repairType = if ($choice -eq '1') { 'QuickRepair' } else { 'FullRepair' }
             $repairName = if ($choice -eq '1') { 'rapida' } else { 'completa' }
 
             Write-StyledMessage Info "🔧 Avvio riparazione $repairName..."
             $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$repairType DisplayLevel=True"
+            
+            $officeClient = "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+            if (-not (Test-Path $officeClient)) {
+                $officeClient = "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+            }
+
             Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
 
             Write-StyledMessage Info "⏳ Attesa completamento riparazione..."
@@ -355,10 +359,8 @@ function OfficeToolkit {
 
         Stop-OfficeProcesses
 
-        # Rilevamento automatico versione Windows
         Write-StyledMessage Info "🔍 Rilevamento versione Windows..."
         $windowsVersion = Get-WindowsVersion
-
         Write-StyledMessage Info "🎯 Versione rilevata: $windowsVersion"
 
         $success = $false
@@ -366,12 +368,10 @@ function OfficeToolkit {
         switch ($windowsVersion) {
             'Windows11_23H2_Plus' {
                 Write-StyledMessage Info "🚀 Utilizzo metodo SaRA per Windows 11 23H2+..."
-                Write-StyledMessage Info "💡 Questo metodo è ottimizzato per la tua versione di Windows"
                 $success = Start-OfficeUninstallWithSaRA
             }
             default {
                 Write-StyledMessage Info "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti..."
-                Write-StyledMessage Info "💡 Questo metodo è ottimizzato per la tua versione di Windows"
                 Write-StyledMessage Warning "⚠️ Questo metodo rimuove file e registro direttamente"
                 if (Get-UserConfirmation "Confermi rimozione diretta?" 'Y') {
                     $success = Remove-OfficeDirectly
@@ -390,12 +390,38 @@ function OfficeToolkit {
         }
     }
 
+    function Remove-ItemsSilently {
+        param(
+            [string[]]$Paths,
+            [string]$ItemType = "cartella"
+        )
+
+        $removed = @()
+        $failed = @()
+
+        foreach ($path in $Paths) {
+            if (Test-Path $path) {
+                if (Invoke-SilentRemoval -Path $path -Recurse) {
+                    $removed += $path
+                }
+                else {
+                    $failed += $path
+                }
+            }
+        }
+
+        return @{
+            Removed = $removed
+            Failed  = $failed
+            Count   = $removed.Count
+        }
+    }
 
     function Remove-OfficeDirectly {
         Write-StyledMessage Info "🔧 Avvio rimozione diretta Office..."
         
         try {
-            # Metodo 1: Rimozione tramite Get-Package (più affidabile)
+            # Metodo 1: Rimozione pacchetti
             Write-StyledMessage Info "📋 Ricerca installazioni Office..."
             
             $officePackages = Get-Package -ErrorAction SilentlyContinue | 
@@ -404,18 +430,15 @@ function OfficeToolkit {
             if ($officePackages) {
                 Write-StyledMessage Info "Trovati $($officePackages.Count) pacchetti Office"
                 foreach ($package in $officePackages) {
-                    Write-StyledMessage Info "🗑️ Rimozione: $($package.Name)..."
                     try {
                         Uninstall-Package -Name $package.Name -Force -ErrorAction Stop | Out-Null
                         Write-StyledMessage Success "Rimosso: $($package.Name)"
                     }
-                    catch {
-                        Write-StyledMessage Warning "Errore rimozione pacchetto: $($package.Name)"
-                    }
+                    catch {}
                 }
             }
             
-            # Metodo 2: Rimozione tramite registro Uninstall
+            # Metodo 2: Rimozione tramite registro
             Write-StyledMessage Info "🔍 Ricerca nel registro..."
             
             $uninstallKeys = @(
@@ -430,31 +453,23 @@ function OfficeToolkit {
                     Where-Object { $_.DisplayName -like "*Office*" -or $_.DisplayName -like "*Microsoft 365*" }
                     
                     foreach ($item in $items) {
-                        if ($item.UninstallString) {
-                            Write-StyledMessage Info "🗑️ Disinstallazione: $($item.DisplayName)..."
+                        if ($item.UninstallString -and $item.UninstallString -match "msiexec") {
                             try {
-                                $uninstallString = $item.UninstallString -replace '"', ''
-                                if ($uninstallString -match "msiexec") {
-                                    $productCode = $item.PSChildName
-                                    Start-Process -FilePath "msiexec.exe" -ArgumentList "/x $productCode /qn /norestart" -Wait -NoNewWindow -ErrorAction Stop
-                                    Write-StyledMessage Success "Disinstallato: $($item.DisplayName)"
-                                }
+                                $productCode = $item.PSChildName
+                                Start-Process -FilePath "msiexec.exe" -ArgumentList "/x $productCode /qn /norestart" -Wait -NoNewWindow -ErrorAction Stop
                             }
-                            catch {
-                                Write-StyledMessage Warning "Impossibile disinstallare: $($item.DisplayName)"
-                            }
+                            catch {}
                         }
                     }
                 }
-                catch {
-                    # Continua con il prossimo percorso
-                }
+                catch {}
             }
             
             # Metodo 3: Stop servizi Office
             Write-StyledMessage Info "🛑 Arresto servizi Office..."
             
             $officeServices = @('ClickToRunSvc', 'OfficeSvc', 'OSE')
+            $stoppedServices = 0
             foreach ($serviceName in $officeServices) {
                 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
                 if ($service) {
@@ -462,10 +477,9 @@ function OfficeToolkit {
                         Stop-Service -Name $serviceName -Force -ErrorAction Stop
                         Set-Service -Name $serviceName -StartupType Disabled -ErrorAction Stop
                         Write-StyledMessage Success "Servizio arrestato: $serviceName"
+                        $stoppedServices++
                     }
-                    catch {
-                        Write-StyledMessage Warning "Impossibile arrestare: $serviceName"
-                    }
+                    catch {}
                 }
             }
             
@@ -485,27 +499,14 @@ function OfficeToolkit {
                 "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun"
             )
             
-            $cleanedFolders = 0
-            $foldersRemoved = @()
-            foreach ($folder in $foldersToClean) {
-                if (Test-Path $folder) {
-                    try {
-                        Remove-Item -Path $folder -Recurse -Force -ErrorAction Stop
-                        $cleanedFolders++
-                        $foldersRemoved += $folder
-                    }
-                    catch {
-                        Write-StyledMessage Warning "Impossibile rimuovere: $folder"
-                    }
-                }
+            $folderResult = Remove-ItemsSilently -Paths $foldersToClean -ItemType "cartella"
+            
+            if ($folderResult.Count -gt 0) {
+                Write-StyledMessage Success "$($folderResult.Count) cartelle Office rimosse"
             }
-
-            if ($foldersRemoved.Count -gt 0) {
-                Show-CleanProgress "Pulizia cartelle Office" "$cleanedFolders cartelle rimosse"
-                foreach ($folder in $foldersRemoved) {
-                    Write-StyledMessage Success "Rimossa: $folder"
-                }
-                Start-Sleep -Milliseconds 500
+            
+            if ($folderResult.Failed.Count -gt 0) {
+                Write-StyledMessage Warning "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)"
             }
             
             # Metodo 5: Pulizia registro Office
@@ -521,325 +522,82 @@ function OfficeToolkit {
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun"
             )
             
-            $cleanedKeys = 0
-            $keysRemoved = @()
-            foreach ($regPath in $registryPaths) {
-                if (Test-Path $regPath) {
-                    try {
-                        Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
-                        $cleanedKeys++
-                        $keysRemoved += $regPath
-                    }
-                    catch {
-                        Write-StyledMessage Warning "Impossibile rimuovere: $regPath"
-                    }
-                }
-            }
-
-            if ($keysRemoved.Count -gt 0) {
-                Show-CleanProgress "Pulizia registro Office" "$cleanedKeys chiavi rimosse"
-                foreach ($key in $keysRemoved) {
-                    Write-StyledMessage Success "Rimossa chiave: $key"
-                }
-                Start-Sleep -Milliseconds 500
+            $regResult = Remove-ItemsSilently -Paths $registryPaths -ItemType "chiave"
+            
+            if ($regResult.Count -gt 0) {
+                Write-StyledMessage Success "$($regResult.Count) chiavi registro Office rimosse"
             }
             
-            # Metodo 6: Pulizia attività pianificate Office
+            # Metodo 6: Pulizia attività pianificate
             Write-StyledMessage Info "📅 Pulizia attività pianificate..."
 
             try {
                 $officeTasks = Get-ScheduledTask -ErrorAction SilentlyContinue |
                 Where-Object { $_.TaskName -like "*Office*" }
 
+                $tasksRemoved = 0
                 foreach ($task in $officeTasks) {
                     try {
                         Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false -ErrorAction Stop
-                        Write-StyledMessage Success "Attività rimossa: $($task.TaskName)"
-                    }
-                    catch {
-                        Write-StyledMessage Warning "Impossibile rimuovere attività: $($task.TaskName)"
-                    }
-                }
-            }
-            catch {
-                Write-StyledMessage Warning "Errore durante pulizia attività pianificate"
-            }
-
-            # Metodo 7: Rimozione collegamenti Office da tutto il sistema
-            Write-StyledMessage Info "🖥️ Rimozione collegamenti Office da tutto il sistema..."
-
-            $officeShortcuts = @(
-                "Microsoft Word*.lnk",
-                "Microsoft Excel*.lnk",
-                "Microsoft PowerPoint*.lnk",
-                "Microsoft Outlook*.lnk",
-                "Microsoft OneNote*.lnk",
-                "Microsoft Access*.lnk",
-                "Microsoft Publisher*.lnk",
-                "Microsoft Visio*.lnk",
-                "Microsoft Project*.lnk",
-                "OneDrive*.lnk",
-                "Office*.lnk",
-                "Word*.lnk",
-                "Excel*.lnk",
-                "PowerPoint*.lnk",
-                "Outlook*.lnk"
-            )
-
-            $removedShortcuts = 0
-            $desktopShortcuts = @()
-            $startMenuShortcuts = @()
-
-            # Desktop pubblico e utente
-            $desktopPaths = @(
-                "$env:USERPROFILE\Desktop",
-                "$env:PUBLIC\Desktop"
-            )
-
-            foreach ($desktopPath in $desktopPaths) {
-                if (Test-Path $desktopPath) {
-                    foreach ($shortcut in $officeShortcuts) {
-                        $shortcutFiles = Get-ChildItem -Path $desktopPath -Name $shortcut -ErrorAction SilentlyContinue
-                        foreach ($file in $shortcutFiles) {
-                            try {
-                                Remove-Item -Path (Join-Path $desktopPath $file) -Force -ErrorAction Stop
-                                $removedShortcuts++
-                                $desktopShortcuts += $file
-                            }
-                            catch {
-                                Write-StyledMessage Warning "Impossibile rimuovere: $file"
-                            }
-                        }
-                    }
-                }
-            }
-
-            if ($desktopShortcuts.Count -gt 0) {
-                Show-CleanProgress "Rimozione collegamenti Desktop" "$($desktopShortcuts.Count) collegamenti rimossi"
-                foreach ($shortcut in $desktopShortcuts) {
-                    Write-StyledMessage Success "Desktop: $shortcut"
-                }
-                Start-Sleep -Milliseconds 300
-            }
-
-            # Menu Start - Tiles e collegamenti
-            Write-StyledMessage Info "🔍 Pulizia Menu Start..."
-            try {
-                $startMenuPaths = @(
-                    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
-                    "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs",
-                    "C:\ProgramData\Microsoft\Windows\Start Menu\Programs"
-                )
-
-                foreach ($startPath in $startMenuPaths) {
-                    if (Test-Path $startPath) {
-                        foreach ($shortcut in $officeShortcuts) {
-                            $shortcutFiles = Get-ChildItem -Path $startPath -Name $shortcut -Recurse -ErrorAction SilentlyContinue
-                            foreach ($file in $shortcutFiles) {
-                                try {
-                                    Remove-Item -Path $file.FullName -Force -ErrorAction Stop
-                                    $removedShortcuts++
-                                    $startMenuShortcuts += $file.Name
-                                }
-                                catch {
-                                    Write-StyledMessage Warning "Impossibile rimuovere: $($file.Name)"
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if ($startMenuShortcuts.Count -gt 0) {
-                    Show-CleanProgress "Pulizia Menu Start" "$($startMenuShortcuts.Count) collegamenti rimossi"
-                    foreach ($shortcut in $startMenuShortcuts) {
-                        Write-StyledMessage Success "Start Menu: $shortcut"
-                    }
-                    Start-Sleep -Milliseconds 300
-                }
-            }
-            catch {
-                Write-StyledMessage Warning "Errore pulizia Menu Start: $_"
-            }
-
-            # Taskbar - Rimozione pin
-            Write-StyledMessage Info "📌 Rimozione pin dalla barra delle applicazioni..."
-            try {
-                # Rimuovi eventuali pin Office dalla taskbar tramite registro
-                $taskbarKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband"
-                if (Test-Path $taskbarKey) {
-                    try {
-                        $taskbarItems = Get-ItemProperty -Path $taskbarKey -Name "Favorites" -ErrorAction SilentlyContinue
-                        # Questo è un processo complesso, quindi segnaliamo solo l'operazione
-                        Write-StyledMessage Info "Pin taskbar contrassegnati per rimozione (riavvio richiesto)"
+                        $tasksRemoved++
                     }
                     catch {}
                 }
+                
+                if ($tasksRemoved -gt 0) {
+                    Write-StyledMessage Success "$tasksRemoved attività Office rimosse"
+                }
             }
-            catch {
-                Write-StyledMessage Warning "Errore gestione taskbar: $_"
-            }
+            catch {}
 
-            if ($removedShortcuts -gt 0) {
-                Write-StyledMessage Success "$removedShortcuts collegamenti rimossi dal sistema"
-            }
+            # Metodo 7: Rimozione collegamenti
+            Write-StyledMessage Info "🖥️ Rimozione collegamenti Office..."
 
-            # Metodo 8: Pulizia generale disco C: per residui Office
-            Write-StyledMessage Info "💽 Scansione completa disco C: per residui Office..."
-
-            $officeFilePatterns = @(
-                "office*.exe",
-                "winword*.exe",
-                "excel*.exe",
-                "powerpnt*.exe",
-                "outlook*.exe",
-                "onenote*.exe",
-                "msaccess*.exe",
-                "mspub*.exe",
-                "visio*.exe",
-                "project*.exe",
-                "lync*.exe",
-                "office*.dll",
-                "mso*.dll",
-                "msi*.dll"
+            $officeShortcuts = @(
+                "Microsoft Word*.lnk", "Microsoft Excel*.lnk", "Microsoft PowerPoint*.lnk",
+                "Microsoft Outlook*.lnk", "Microsoft OneNote*.lnk", "Microsoft Access*.lnk",
+                "Office*.lnk", "Word*.lnk", "Excel*.lnk", "PowerPoint*.lnk", "Outlook*.lnk"
             )
 
-            $officeFolderPatterns = @(
-                "*office*",
-                "*microsoft office*",
-                "*onedrive*",
-                "*skype for business*",
-                "*lync*"
+            $desktopPaths = @(
+                "$env:USERPROFILE\Desktop",
+                "$env:PUBLIC\Desktop",
+                "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
+                "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs"
             )
 
-            $cleanedFiles = 0
-            $cleanedFolders = 0
-            $filesRemoved = @()
-            $foldersRemoved = @()
-
-            # Scansione percorsi comuni per file Office residui
-            $scanPaths = @(
-                "$env:ProgramFiles",
-                "${env:ProgramFiles(x86)}",
-                "$env:ProgramData",
-                "$env:LOCALAPPDATA",
-                "$env:APPDATA",
-                "$env:TEMP",
-                "$env:SystemDrive"
-            )
-
-            foreach ($scanPath in $scanPaths) {
-                if (Test-Path $scanPath) {
-                    try {
-                        # Cerca e rimuovi file Office residui
-                        foreach ($pattern in $officeFilePatterns) {
-                            $files = Get-ChildItem -Path $scanPath -Name $pattern -Recurse -File -ErrorAction SilentlyContinue |
-                            Where-Object { $_.Name -notlike "*system32*" -and $_.Name -notlike "*winsxs*" }
-
-                            foreach ($file in $files) {
-                                try {
-                                    $fullPath = $file.FullName
-                                    if ((Get-Item $fullPath).Length -lt 100MB) {
-                                        # Evita file di sistema di grandi dimensioni
-                                        Remove-Item -Path $fullPath -Force -ErrorAction Stop
-                                        $cleanedFiles++
-                                        $filesRemoved += $file.Name
-                                    }
-                                }
-                                catch {
-                                    Write-StyledMessage Warning "Impossibile rimuovere file: $($file.Name)"
-                                }
-                            }
-                        }
-
-                        # Cerca e rimuovi cartelle Office residue (solo se vuote o piccole)
-                        foreach ($pattern in $officeFolderPatterns) {
-                            $folders = Get-ChildItem -Path $scanPath -Name $pattern -Recurse -Directory -ErrorAction SilentlyContinue |
-                            Where-Object { $_.FullName -notlike "*system32*" -and $_.FullName -notlike "*winsxs*" }
-
-                            foreach ($folder in $folders) {
-                                try {
-                                    $folderPath = $folder.FullName
-                                    $folderSize = (Get-ChildItem -Path $folderPath -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
-
-                                    if ($folderSize -eq $null -or $folderSize -lt 50MB) {
-                                        Remove-Item -Path $folderPath -Recurse -Force -ErrorAction Stop
-                                        $cleanedFolders++
-                                        $foldersRemoved += $folder.Name
-                                    }
-                                }
-                                catch {
-                                    Write-StyledMessage Warning "Impossibile rimuovere cartella: $($folder.Name)"
-                                }
+            $shortcutsRemoved = 0
+            foreach ($desktopPath in $desktopPaths) {
+                if (Test-Path $desktopPath) {
+                    foreach ($shortcut in $officeShortcuts) {
+                        $shortcutFiles = Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue
+                        foreach ($file in $shortcutFiles) {
+                            if (Invoke-SilentRemoval -Path $file.FullName) {
+                                $shortcutsRemoved++
                             }
                         }
                     }
-                    catch {
-                        Write-StyledMessage Warning "Errore scansione percorso $scanPath`: $_"
-                    }
                 }
             }
 
-            # Mostra risultati pulizia disco in modo pulito
-            if ($filesRemoved.Count -gt 0) {
-                Show-CleanProgress "Pulizia file residui" "$cleanedFiles file rimossi"
-                # Mostra solo i primi 10 file per non intasare la console
-                $filesToShow = $filesRemoved | Select-Object -First 10
-                foreach ($file in $filesToShow) {
-                    Write-StyledMessage Success "File: $file"
-                }
-                if ($filesRemoved.Count -gt 10) {
-                    Write-StyledMessage Info "... e altri $($filesRemoved.Count - 10) file"
-                }
-                Start-Sleep -Milliseconds 500
+            if ($shortcutsRemoved -gt 0) {
+                Write-StyledMessage Success "$shortcutsRemoved collegamenti Office rimossi"
             }
 
-            if ($foldersRemoved.Count -gt 0) {
-                Show-CleanProgress "Pulizia cartelle residue" "$cleanedFolders cartelle rimosse"
-                # Mostra solo le prime 5 cartelle per non intasare la console
-                $foldersToShow = $foldersRemoved | Select-Object -First 5
-                foreach ($folder in $foldersToShow) {
-                    Write-StyledMessage Success "Cartella: $folder"
-                }
-                if ($foldersRemoved.Count -gt 5) {
-                    Write-StyledMessage Info "... e altre $($foldersRemoved.Count - 5) cartelle"
-                }
-                Start-Sleep -Milliseconds 500
-            }
-
-            # Pulizia specifica percorsi Office aggiuntivi
-            Write-StyledMessage Info "🧹 Pulizia percorsi Office aggiuntivi..."
+            # Metodo 8: Pulizia residui aggiuntivi
+            Write-StyledMessage Info "💽 Pulizia residui Office..."
+            
             $additionalPaths = @(
-                "$env:LOCALAPPDATA\Microsoft\Office",
                 "$env:LOCALAPPDATA\Microsoft\OneDrive",
-                "$env:APPDATA\Microsoft\Office",
                 "$env:APPDATA\Microsoft\OneDrive",
-                "$env:ProgramData\Microsoft\Office",
                 "$env:TEMP\Office*",
-                "$env:TEMP\MSO*",
-                "$env:TEMP\WinToolkit\Office"
+                "$env:TEMP\MSO*"
             )
 
-            foreach ($path in $additionalPaths) {
-                if (Test-Path $path) {
-                    try {
-                        $items = Get-ChildItem -Path $path -ErrorAction SilentlyContinue
-                        if ($items.Count -eq 0) {
-                            Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
-                            Write-StyledMessage Success "Cartella vuota rimossa: $(Split-Path $path -Leaf)"
-                        }
-                    }
-                    catch {
-                        Write-StyledMessage Warning "Impossibile pulire: $(Split-Path $path -Leaf)"
-                    }
-                }
-            }
-
-            if ($cleanedFiles -gt 0 -or $cleanedFolders -gt 0) {
-                Write-StyledMessage Success "Pulizia disco completata: $cleanedFiles file, $cleanedFolders cartelle rimosse"
-            }
+            $residualsResult = Remove-ItemsSilently -Paths $additionalPaths -ItemType "residuo"
 
             Write-StyledMessage Success "✅ Rimozione diretta completata"
-            Write-StyledMessage Info "📊 Riepilogo completo: $cleanedFolders cartelle sistema, $cleanedKeys chiavi registro, $($removedShortcuts + $desktopShortcuts.Count + $startMenuShortcuts.Count) collegamenti, $cleanedFiles file residui, $cleanedFolders cartelle residue rimosse"
+            Write-StyledMessage Info "📊 Riepilogo: $($folderResult.Count) cartelle, $($regResult.Count) chiavi registro, $shortcutsRemoved collegamenti, $tasksRemoved attività rimosse"
             
             return $true
         }
@@ -878,13 +636,7 @@ function OfficeToolkit {
                 return $false
             }
 
-            # Correggi configurazione SaRA
-            $configPath = "$($saraExe.FullName).config"
-            if (Test-Path $configPath) {
-                Repair-SaRAConfig -ConfigPath $configPath
-            }
-
-            Write-StyledMessage Info "🚀 Tentativo 1: Rimozione tramite SaRA..."
+            Write-StyledMessage Info "🚀 Rimozione tramite SaRA..."
             Write-StyledMessage Warning "⏰ Questa operazione può richiedere alcuni minuti"
 
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
@@ -892,34 +644,20 @@ function OfficeToolkit {
             try {
                 $process = Start-Process -FilePath $saraExe.FullName -ArgumentList $arguments -Verb RunAs -PassThru -Wait -ErrorAction Stop
                 
-                $exitCode = $process.ExitCode
-                
-                if ($exitCode -eq 0) {
+                if ($process.ExitCode -eq 0) {
                     Write-StyledMessage Success "✅ SaRA completato con successo"
                     return $true
                 }
                 else {
-                    Write-StyledMessage Warning "SaRA terminato con codice: $exitCode"
+                    Write-StyledMessage Warning "SaRA terminato con codice: $($process.ExitCode)"
                     Write-StyledMessage Info "💡 Tentativo metodo alternativo..."
-                    
-                    # Tentativo con rimozione diretta
-                    if (Remove-OfficeDirectly) {
-                        return $true
-                    }
-                    
-                    return $false
+                    return Remove-OfficeDirectly
                 }
             }
             catch {
                 Write-StyledMessage Warning "Errore esecuzione SaRA: $_"
                 Write-StyledMessage Info "💡 Passaggio a metodo alternativo..."
-                
-                # Fallback immediato a rimozione diretta
-                if (Remove-OfficeDirectly) {
-                    return $true
-                }
-                
-                return $false
+                return Remove-OfficeDirectly
             }
         }
         catch {
@@ -927,12 +665,9 @@ function OfficeToolkit {
             return $false
         }
         finally {
-            if (Test-Path $TempDir) {
-                Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
-            }
+            Invoke-SilentRemoval -Path $TempDir -Recurse
         }
     }
-
 
     function Show-Header {
         $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
@@ -948,7 +683,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.2.2 (Build 14)'
+            '        Version 2.2.2 (Build 15)'
         )
 
         foreach ($line in $asciiArt) {
@@ -1029,9 +764,7 @@ function OfficeToolkit {
     }
     finally {
         Write-StyledMessage Success "🧹 Pulizia finale..."
-        if (Test-Path $TempDir) {
-            Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
-        }
+        Invoke-SilentRemoval -Path $TempDir -Recurse
 
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
