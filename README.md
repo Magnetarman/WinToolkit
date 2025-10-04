@@ -46,7 +46,8 @@
 | :----------------------------------------------------------------------: | :------------------------------------------------------------------: |
 |       <img src="img/Starter.jpg" alt="Starter-banner" width="800">       |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
 | <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800"> |
-| <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800"> | <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800"> |
+|   <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800">   |  <img src="img/WinCleaner.jpg" alt="WinCleaner-banner" width="800">  |
+| <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800"> | <img src="img/SetRustDesk.jpg" alt="SetRustDesk-banner" width="800"> |
 
 </div>
 
@@ -60,13 +61,13 @@
 
 ### ℹ️ Descrizione Funzioni Toolkit
 
-- **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco. Il tool esegue più tentativi e genera un log dettagliato garantendo una tracciabilità completa delle operazioni.
-- **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi. Questo script blocca e riavvia i servizi di aggiornamento, rinomina e cancella le directory di cache e ripara il registro di sistema, garantendo che il tuo sistema possa scaricare e installare gli aggiornamenti essenziali senza intoppi.
-- **Office Toolkit**: Strumento di gestione completo per Microsoft Office che semplifica l'installazione, la riparazione e la rimozione dei prodotti. Con la sua interfaccia intuitiva, ti guida attraverso ogni operazione, rendendo la gestione di Office accessibile a tutti. È possibile installare una versione "Basic" di Microsoft Office in modo semi-automatico, riparare le installazioni esistenti con due diverse modalità (Riparazione Rapida offline e Riparazione Completa online), oppure rimuovere completamente il software dal sistema utilizzando l'efficace tool ufficiale Microsoft Support and Recovery Assistant (SaRA). Questo garantisce la risoluzione dei problemi più comuni, dai malfunzionamenti minori ai conflitti più complessi che richiedono una pulizia completa, offrendo un'esperienza professionale e affidabile.
-- **Windows Store Repair**: Esegue una reinstallazione di componenti critici come Microsoft Store, Winget, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando Winget). Lo script esegue questa operazione in modo silenzioso, provando più metodi (Winget, DISM e registrazione del manifest) per garantire il successo. Il processo include anche la pulizia della cache e il riavvio dei servizi necessari per una riparazione pulita e funzionale.
-- **Win Backup Driver**: Un versatile script PowerShell progettato per semplificare il processo di backup dei driver. Questo strumento automatizza l'esportazione di tutti i driver di terze parti installati, utilizzando il comando DISM per garantire un'operazione completa e affidabile. Una volta esportati, i driver vengono compressi in un singolo file ZIP, che viene automaticamente salvato sul desktop con un nome basato sulla data per una facile identificazione. Ideale per la preparazione di una nuova installazione di Windows, eliminando la necessità di scaricare ogni componente singolarmente.
-- **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico. Lo script procede all'installazione silenziosa di RustDesk, alla cancellazione di eventuali configurazioni precedenti e al download di file di configurazione personalizzati per garantire che il software sia preconfigurato per il supporto tecnico remoto. L'intero processo è progettato per essere completamente automatizzato e si conclude con un riavvio del sistema opzionale e annullabile dall'utente per finalizzare tutte le modifiche.
-- **Cleaner Toolkit**: Il suo scopo è liberare spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda attraverso una serie di azioni automatizzate. Lo script non solo utilizza la Pulizia Disco avanzata (CleanMgr), ma interviene manualmente per eliminare i file di sistema obsoleti, come gli assembly di WinSxS, la cache Prefetch, e i vari log (eventi, errori, sistema). Inoltre, rimuove file temporanei di sistema e utente, svuota le cache di navigazione web, inclusi cookie e cache WinInet, cancella la cronologia di Windows Update, e pulisce la coda di stampa. Infine, per assicurare l'applicazione completa delle modifiche e la massimizzazione dello spazio recuperato, lo script svuota la cache DNS e richiede un riavvio del sistema al termine dell'intero processo.
+- **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
+- **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
+- **Office Toolkit**: Strumento di gestione completo per Microsoft Office che semplifica l'installazione, la riparazione e la rimozione dei prodotti. È possibile installare una versione "Basic" di Microsoft Office in modo semi-automatico, riparare le installazioni esistenti con due diverse modalità (Riparazione Rapida offline e Riparazione Completa online), oppure rimuovere completamente il software dal sistema utilizzando l'efficace tool ufficiale Microsoft Support and Recovery Assistant (SaRA).
+- **Windows Store Repair**: Esegue una reinstallazione di componenti critici come Microsoft Store, Winget, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando Winget).
+- **Win Backup Driver**: Un versatile script PowerShell progettato per semplificare il processo di backup dei driver. Questo strumento automatizza l'esportazione di tutti i driver di terze parti installati, utilizzando il comando DISM per garantire un'operazione completa e affidabile.
+- **Cleaner Toolkit**: Il suo scopo è liberare spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda attraverso una serie di azioni automatizzate.
+- **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico.
 
 > [!IMPORTANT]
 >
@@ -135,7 +136,8 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 È fondamentale capire che questo spazio non serve per lo strumento (che è online e pesa pochissimi kilobyte), né per scaricare dati. I 50 GB servono esclusivamente a Windows per garantire la sua stabilità e il corretto funzionamento durante le operazioni di riparazione.
 
-Perché è Necessario Questo Ampio Margine?
+#### Perché è Necessario Questo Ampio Margine?
+
 Quando il sistema operativo lavora su componenti critici, ha bisogno di spazio vitale per gestire diversi processi in background:
 
 - File Temporanei e Backup Interni: Windows crea e gestisce file temporanei, copie di backup interne e cache durante la manutenzione.
