@@ -6,7 +6,11 @@ function WinCleaner {
     .DESCRIPTION
         Questo script esegue una pulizia completa e automatica del sistema Windows,
         utilizzando cleanmgr.exe con configurazione automatica (/sageset e /sagerun)
-        e pulendo manualmente tutti i componenti specificati:
+        e pulendo manualmente tutti i componenti specificati.
+
+        POLITICA ESCLUSIONI VITALI:
+        - %LOCALAPPDATA%\WinToolkit: CARTELLA VITALE - Contiene toolkit, log e dati essenziali
+        Queste cartelle sono protette e NON verranno mai cancellate durante la pulizia.
         - WinSxS Assemblies sostituiti
         - Rapporti Errori Windows
         - Registro Eventi Windows
@@ -87,10 +91,9 @@ function WinCleaner {
     function Test-ExcludedPath {
         param([string]$Path)
 
-        # Esclusioni tassative
+        # Esclusioni tassative - QUESTE CARTELLE SONO VITALI E NON DEVONO MAI ESSERE CANCELLATE
         $excludedPaths = @(
-            "$env:LOCALAPPDATA\WinToolkit",
-            "$env:APPDATA\WinToolkit"
+            "$env:LOCALAPPDATA\WinToolkit",  # CARTELLA VITALE: Contiene toolkit, log e dati essenziali
         )
 
         $fullPath = $Path
@@ -106,7 +109,8 @@ function WinCleaner {
 
             # Verifica se il path è dentro una directory esclusa
             if ($fullPath -like "$excludedFull*" -or $fullPath -eq $excludedFull) {
-                Write-StyledMessage Info "🛡️ Cartella esclusa dalla pulizia: $fullPath"
+                Write-StyledMessage Info "🛡️ CARTELLA VITALE PROTETTA: $fullPath"
+                $script:Log += "[EXCLUSION] 🛡️ Cartella vitale protetta dalla pulizia: $fullPath"
                 return $true
             }
         }
@@ -1070,7 +1074,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 18)'
+            '       Version 2.2.3 (Build 2)'
         )
 
         foreach ($line in $asciiArt) {
