@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2.3 (Build 4) - 2025-10-04
+  Versione 2.2.3 (Build 5) - 2025-10-04
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.2.3 (Build 4)'
+    '       Version 2.2.3 (Build 5)'
 )
 
 # Version mapping (usato da più funzioni)
@@ -44,9 +44,13 @@ $versionMap = @{
 # Utility Functions
 function Write-StyledMessage {
     param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
-    $icons = @{ Success = '✅'; Warning = '⚠️'; Error = '❌'; Info = '💎' }
-    $colors = @{ Success = 'Green'; Warning = 'Yellow'; Error = 'Red'; Info = 'Cyan' }
-    Write-Host "$($icons[$type]) $text" -ForegroundColor $colors[$type]
+    $config = @{
+        Success = @{ Icon = '✅'; Color = 'Green' }
+        Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
+        Error   = @{ Icon = '❌'; Color = 'Red' }
+        Info    = @{ Icon = '💎'; Color = 'Cyan' }
+    }
+    Write-Host "$($config[$type].Icon) $text" -ForegroundColor $config[$type].Color
 }
 
 function Center-Text {
@@ -3358,7 +3362,7 @@ function WinCleaner {
 
         # Esclusioni tassative - QUESTE CARTELLE SONO VITALI E NON DEVONO MAI ESSERE CANCELLATE
         $excludedPaths = @(
-            "$env:LOCALAPPDATA\WinToolkit",  # CARTELLA VITALE: Contiene toolkit, log e dati essenziali
+            "$env:LOCALAPPDATA\WinToolkit"  # CARTELLA VITALE: Contiene toolkit, log e dati essenziali
         )
 
         $fullPath = $Path
@@ -4339,7 +4343,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.3 (Build 3)'
+            '       Version 2.2.3 (Build 4)'
         )
 
         foreach ($line in $asciiArt) {
