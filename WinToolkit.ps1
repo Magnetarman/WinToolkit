@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2.2 (Build 16) - 2025-10-04
+  Versione 2.2.3 (Build 3) - 2025-10-04
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -15,21 +15,48 @@ $ErrorActionPreference = 'Stop'
 $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $logdir = "$env:localappdata\WinToolkit\logs"
 try {
-    [System.IO.Directory]::CreateDirectory("$logdir") | Out-Null
+    [System.IO.Directory]::CreateDirectory($logdir) | Out-Null
     Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -Force | Out-Null
 }
-catch { }
+catch {}
 
+# ASCII Art
+$asciiArt = @(
+    '      __        __  _  _   _ ',
+    '      \ \      / / | || \ | |',
+    '       \ \ /\ / /  | ||  \| |',
+    '        \ V  V /   | || |\  |',
+    '         \_/\_/    |_||_| \_|',
+    '',
+    '       WinToolkit By MagnetarMan',
+    '       Version 2.2.3 (Build 3)'
+)
+
+# Version mapping (usato da più funzioni)
+$versionMap = @{
+    26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
+    19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"
+    19041 = "2004"; 18363 = "1909"; 18362 = "1903"; 17763 = "1809"
+    17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
+    10586 = "1511"; 10240 = "1507"
+}
+
+# Utility Functions
 function Write-StyledMessage {
     param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
-    $icons = @{ Success = '✅'; Warning = '⚠️'; Error = '❌'; Info = '💎' }
-    $colors = @{ Success = 'Green'; Warning = 'Yellow'; Error = 'Red'; Info = 'Cyan' }
-    Write-Host "$($icons[$type]) $text" -ForegroundColor $colors[$type]
+    $config = @{
+        Success = @{ Icon = '✅'; Color = 'Green' }
+        Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
+        Error   = @{ Icon = '❌'; Color = 'Red' }
+        Info    = @{ Icon = '💎'; Color = 'Cyan' }
+    }
+    Write-Host "$($config[$type].Icon) $text" -ForegroundColor $config[$type].Color
 }
 
 function Center-Text {
     param([string]$text, [int]$width = $Host.UI.RawUI.BufferSize.Width)
-    if ($text.Length -ge $width) { $text } else { ' ' * [Math]::Floor(($width - $text.Length) / 2) + $text }
+    if ($text.Length -ge $width) { return $text }
+    ' ' * [Math]::Floor(($width - $text.Length) / 2) + $text
 }
 
 function Show-Header {
@@ -43,83 +70,212 @@ function Show-Header {
     Write-Host ''
 }
 
-function winver {
+function Get-WindowsVersion {
+    param([int]$buildNumber)
+    
+    foreach ($build in ($versionMap.Keys | Sort-Object -Descending)) {
+        if ($buildNumber -ge $build) { return $versionMap[$build] }
+    }
+    return "N/A"
+}
+
+function Get-SystemInfo {
     try {
         $osInfo = Get-CimInstance Win32_OperatingSystem
         $computerInfo = Get-CimInstance Win32_ComputerSystem
         $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
 
-        $productName = $osInfo.Caption -replace 'Microsoft ', ''
-        $buildNumber = [int]$osInfo.BuildNumber
-        $totalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
-        $totalDiskSpace = [Math]::Round($diskInfo.Size / 1GB, 0)
-        $freePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
-
-        # Version mapping
-        $versionMap = @{
-            26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
-            19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"
-            19041 = "2004"; 18363 = "1909"; 18362 = "1903"; 17763 = "1809"
-            17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
-            10586 = "1511"; 10240 = "1507"
+        return @{
+            ProductName    = $osInfo.Caption -replace 'Microsoft ', ''
+            BuildNumber    = [int]$osInfo.BuildNumber
+            Architecture   = $osInfo.OSArchitecture
+            ComputerName   = $computerInfo.Name
+            TotalRAM       = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
+            TotalDisk      = [Math]::Round($diskInfo.Size / 1GB, 0)
+            FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
         }
-
-        $windowsVersion = "N/A"
-        foreach ($build in ($versionMap.Keys | Sort-Object -Descending)) {
-            if ($buildNumber -ge $build) { $windowsVersion = $versionMap[$build]; break }
-        }
-
-        # Edition detection
-        $windowsEdition = switch -Wildcard ($productName) {
-            "*Home*" { "🏠 Home" }
-            "*Pro*" { "💼 Professional" }
-            "*Enterprise*" { "🏢 Enterprise" }
-            "*Education*" { "🎓 Education" }
-            "*Server*" { "🖥️ Server" }
-            default { "💻 $productName" }
-        }
-
-        # Display info
-        $width = 65
-        Write-Host ""
-        Write-Host ('*' * $width) -ForegroundColor Red
-        Write-Host (Center-Text "🖥️  INFORMAZIONI SISTEMA  🖥️" $width) -ForegroundColor White
-        Write-Host ('*' * $width) -ForegroundColor Red
-        Write-Host ""
-
-        $info = @(
-            @("💻 Edizione:", $windowsEdition, 'White'),
-            @("📊 Versione:", "Ver. $windowsVersion (Build $buildNumber)", 'Green'),
-            @("🏗️ Architettura:", $osInfo.OSArchitecture, 'White'),
-            @("🏷️ Nome PC:", $computerInfo.Name, 'White'),
-            @("🧠 RAM:", "$totalRAM GB", 'White'),
-            @("💾 Disco:", "$freePercentage% Libero ($totalDiskSpace GB)", 'Green')
-        )
-
-        foreach ($item in $info) {
-            Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
-            Write-Host " $($item[1])" -ForegroundColor $item[2]
-        }
-
-        Write-Host ""
-        Write-Host ('*' * $width) -ForegroundColor Red
     }
     catch {
         Write-StyledMessage -type 'Error' -text "Errore nel recupero informazioni: $($_.Exception.Message)"
+        return $null
     }
 }
 
-# ASCII Art
-$asciiArt = @(
-    '      __        __  _  _   _ ',
-    '      \ \      / / | || \ | |',
-    '       \ \ /\ / /  | ||  \| |',
-    '        \ V  V /   | || |\  |',
-    '         \_/\_/    |_||_| \_|',
-    '',
-    '       WinToolkit By MagnetarMan',
-    '       Version 2.2.2 (Build 16)'
-)
+function winver {
+    $sysInfo = Get-SystemInfo
+    if (-not $sysInfo) { return }
+
+    $buildNumber = $sysInfo.BuildNumber
+    $windowsVersion = Get-WindowsVersion $buildNumber
+
+    # Edition detection
+    $windowsEdition = switch -Wildcard ($sysInfo.ProductName) {
+        "*Home*" { "🏠 Home" }
+        "*Pro*" { "💼 Professional" }
+        "*Enterprise*" { "🏢 Enterprise" }
+        "*Education*" { "🎓 Education" }
+        "*Server*" { "🖥️ Server" }
+        default { "💻 $($sysInfo.ProductName)" }
+    }
+
+    # Display info
+    $width = 65
+    Write-Host ""
+    Write-Host ('*' * $width) -ForegroundColor Red
+    Write-Host (Center-Text "🖥️  INFORMAZIONI SISTEMA  🖥️" $width) -ForegroundColor White
+    Write-Host ('*' * $width) -ForegroundColor Red
+    Write-Host ""
+
+    $info = @(
+        @("💻 Edizione:", $windowsEdition, 'White'),
+        @("📊 Versione:", "Ver. $windowsVersion (Build $buildNumber)", 'Green'),
+        @("🗝️ Architettura:", $sysInfo.Architecture, 'White'),
+        @("🏷️ Nome PC:", $sysInfo.ComputerName, 'White'),
+        @("🧠 RAM:", "$($sysInfo.TotalRAM) GB", 'White'),
+        @("💾 Disco:", "$($sysInfo.FreePercentage)% Libero ($($sysInfo.TotalDisk) GB)", 'Green')
+    )
+
+    foreach ($item in $info) {
+        Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
+        Write-Host " $($item[1])" -ForegroundColor $item[2]
+    }
+
+    Write-Host ""
+    Write-Host ('*' * $width) -ForegroundColor Red
+}
+
+function Show-Countdown {
+    param([string]$message = "Chiusura in")
+    
+    Write-Host ''
+    Write-StyledMessage -type 'Success' -text 'Grazie per aver utilizzato WinToolkit!'
+    Write-StyledMessage -type 'Info' -text 'Per supporto: Github.com/Magnetarman'
+    Write-Host ''
+    
+    for ($i = $CountdownSeconds; $i -gt 0; $i--) {
+        Write-Host "  $message $i secondi..." -ForegroundColor Cyan
+        Start-Sleep -Seconds 1
+    }
+    
+    Stop-Transcript -ErrorAction SilentlyContinue
+    exit
+}
+
+function WinOSCheck {
+    Show-Header
+    Write-StyledMessage -type 'Info' -text 'Verifica Sistema Operativo'
+    Write-Host ''
+    
+    $sysInfo = Get-SystemInfo
+    if (-not $sysInfo) {
+        Write-StyledMessage -type 'Warning' -text 'Impossibile verificare il sistema. Prosecuzione con compatibilità limitata...'
+        Start-Sleep -Seconds 3
+        return
+    }
+
+    $buildNumber = $sysInfo.BuildNumber
+    $windowsVersion = Get-WindowsVersion $buildNumber
+    
+    # Determina categoria Windows
+    $isWin11 = $buildNumber -ge 22000
+    $isWin10 = ($buildNumber -ge 10240) -and ($buildNumber -lt 22000)
+    $isWin81 = $buildNumber -eq 9600
+    $isWin8 = $buildNumber -eq 9200
+    
+    $osDisplay = if ($isWin11) { "Windows 11" } 
+    elseif ($isWin10) { "Windows 10" }
+    elseif ($isWin81) { "Windows 8.1" }
+    elseif ($isWin8) { "Windows 8" }
+    else { $sysInfo.ProductName }
+    
+    Write-Host "  Sistema rilevato: " -NoNewline -ForegroundColor Yellow
+    Write-Host "$osDisplay (Build $buildNumber - Ver. $windowsVersion)" -ForegroundColor White
+    Write-Host ''
+    
+    # Logica di compatibilità
+    if ($isWin11 -and $buildNumber -ge 26100) {
+        # Windows 11 24H2+
+        Write-StyledMessage -type 'Success' -text 'Sistema completamente compatibile!'
+        Write-Host "  Lo script funzionerà alla massima velocità ed efficienza." -ForegroundColor Green
+        Write-Host ''
+        Start-Sleep -Seconds 2
+        return
+    }
+    
+    if (($isWin11 -and $buildNumber -lt 26100) -or $isWin10) {
+        # Windows 11 pre-24H2 o Windows 10
+        Write-StyledMessage -type 'Warning' -text 'Sistema parzialmente compatibile'
+        Write-Host "  Il sistema non è completamente aggiornato." -ForegroundColor Yellow
+        Write-Host "  Lo script userà workaround e funzioni alternative per garantire" -ForegroundColor Yellow
+        Write-Host "  la massima compatibilità, con efficienza leggermente ridotta." -ForegroundColor Yellow
+        Write-Host ''
+        Start-Sleep -Seconds 3
+        return
+    }
+    
+    if ($isWin10 -and $buildNumber -lt 17763) {
+        # Windows 10 pre-1809
+        Write-StyledMessage -type 'Error' -text 'Sistema troppo vecchio - Sconsigliato'
+        Write-Host "  Lo script potrebbe avere gravi problemi di affidabilità!" -ForegroundColor Red
+        Write-Host ''
+        
+        Write-Host "  Vuoi proseguire a tuo rischio e pericolo? " -NoNewline -ForegroundColor Yellow
+        Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
+        $response = Read-Host
+        
+        if ($response -notmatch '^[Yy]$') { Show-Countdown }
+        
+        Write-StyledMessage -type 'Warning' -text 'Prosecuzione confermata - Buona fortuna!'
+        Start-Sleep -Seconds 2
+        return
+    }
+    
+    if ($isWin81 -or $isWin8) {
+        # Windows 8.1 o 8
+        Write-StyledMessage -type 'Error' -text 'Sistema obsoleto - Fortemente sconsigliato'
+        Write-Host "  Windows 8.1/8 non è più supportato ufficialmente." -ForegroundColor Red
+        Write-Host "  Lo script avrà gravi problemi di affidabilità e stabilità!" -ForegroundColor Red
+        Write-Host ''
+        
+        Write-Host "  Vuoi davvero proseguire a tuo rischio e pericolo? " -NoNewline -ForegroundColor Yellow
+        Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
+        $response = Read-Host
+        
+        if ($response -notmatch '^[Yy]$') { Show-Countdown }
+        
+        Write-StyledMessage -type 'Warning' -text 'Hai scelto la strada difficile... In bocca al lupo!'
+        Start-Sleep -Seconds 2
+        return
+    }
+    
+    # Windows 7 o precedenti
+    Write-Host ''
+    Write-Host ('*' * 65) -ForegroundColor Red
+    Write-Host (Center-Text "🤣 ERRORE CRITICO 🤣" 65) -ForegroundColor Red
+    Write-Host ('*' * 65) -ForegroundColor Red
+    Write-Host ''
+    Write-Host "  Davvero pensi che questo script possa fare qualcosa" -ForegroundColor Red
+    Write-Host "  per questa versione di Windows?" -ForegroundColor Red
+    Write-Host ''
+    Write-Host "  E' già un miracolo che tu riesca a vedere questo" -ForegroundColor Yellow
+    Write-Host "  messaggio di errore senza che il pc sia esploso 🤣" -ForegroundColor Yellow
+    Write-Host ''
+    Write-Host "  💡 Suggerimento: Aggiorna Windows o passa a Linux!" -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host ('*' * 65) -ForegroundColor Red
+    Write-Host ''
+    
+    Write-Host "  Vuoi comunque tentare l'impossibile? " -NoNewline -ForegroundColor Magenta
+    Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
+    $response = Read-Host
+    
+    if ($response -notmatch '^[Yy]$') { Show-Countdown }
+    
+    Write-StyledMessage -type 'Warning' -text 'Ok, ma non dire che non ti avevo avvertito! 😅'
+    Write-Host "  La maggior parte delle funzioni NON funzioneranno." -ForegroundColor Red
+    Write-Host "  Potrebbero verificarsi errori e instabilità del sistema." -ForegroundColor Red
+    Start-Sleep -Seconds 3
+}
 
 # Placeholder functions (verranno automaticamente popolate dal compilatore)
 function WinInstallPSProfile {
@@ -815,287 +971,6 @@ function WinRepairToolkit {
     finally {
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
         Read-Host
-        try { Stop-Transcript | Out-Null } catch {}
-    }
-
-}
-function SetRustDesk {
-    <#
-    .SYNOPSIS
-        Configura ed installa RustDesk con configurazioni personalizzata su Windows.
-
-    .DESCRIPTION
-        Script ottimizzato per fermare servizi, reinstallare RustDesk e applicare configurazioni personalizzate.
-        Scarica i file di configurazione da repository GitHub e riavvia il sistema per applicare le modifiche.
-    #>
-
-    param([int]$CountdownSeconds = 30)
-
-    # Inizializzazione
-    $Host.UI.RawUI.WindowTitle = "RustDesk Setup Toolkit By MagnetarMan"
-
-    # Setup logging specifico per SetRustDesk
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
-    try {
-        if (-not (Test-Path -Path $logdir)) {
-            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-        }
-        Start-Transcript -Path "$logdir\SetRustDesk_$dateTime.log" -Append -Force | Out-Null
-    }
-    catch {}
-
-    # Configurazione globale
-    $MsgStyles = @{
-        Success  = @{ Color = 'Green'; Icon = '✅' }
-        Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error    = @{ Color = 'Red'; Icon = '❌' }
-        Info     = @{ Color = 'Cyan'; Icon = '💎' }
-        Progress = @{ Color = 'Magenta'; Icon = '🔄' }
-    }
-
-    # Funzione per centrare il testo
-    function Center-Text {
-        param(
-            [Parameter(Mandatory = $true)][string]$Text,
-            [Parameter(Mandatory = $false)][int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding + $Text)
-    }
-    
-    function Show-Header {
-        Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-
-        $asciiArt = @(
-            '      __        __  _  _   _ ',
-            '      \ \      / / | || \ | |',
-            '       \ \ /\ / /  | ||  \| |',
-            '        \ V  V /   | || |\  |',
-            '         \_/\_/    |_||_| \_|',
-            '',
-            'RustDesk Setup Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 2)'
-        )
-
-        foreach ($line in $asciiArt) {
-            if ($line -ne '') {
-                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
-            }
-            else {
-                Write-Host ''
-            }
-        }
-
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-        Write-Host ''
-    }
-
-    function Write-StyledMessage([string]$Type, [string]$Text) {
-        $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
-    }
-
-    function Stop-RustDeskComponents {
-        $servicesFound = $false
-        foreach ($service in @("RustDesk", "rustdesk")) {
-            $serviceObj = Get-Service -Name $service -ErrorAction SilentlyContinue
-            if ($serviceObj) {
-                Stop-Service -Name $service -Force -ErrorAction SilentlyContinue
-                Write-StyledMessage Success "Servizio $service arrestato"
-                $servicesFound = $true
-            }
-        }
-        if (-not $servicesFound) {
-            Write-StyledMessage Warning "Nessun servizio RustDesk trovato - Proseguo con l'installazione"
-        }
-
-        $processesFound = $false
-        foreach ($process in @("rustdesk", "RustDesk")) {
-            $runningProcesses = Get-Process -Name $process -ErrorAction SilentlyContinue
-            if ($runningProcesses) {
-                $runningProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
-                Write-StyledMessage Success "Processi $process terminati"
-                $processesFound = $true
-            }
-        }
-        if (-not $processesFound) {
-            Write-StyledMessage Warning "Nessun processo RustDesk trovato"
-        }
-        Start-Sleep 2
-    }
-
-    function Get-LatestRustDeskRelease {
-        $apiUrl = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
-        $response = Invoke-RestMethod -Uri $apiUrl -Method Get
-        $msiAsset = $response.assets | Where-Object { $_.name -like "rustdesk-*-x86_64.msi" } | Select-Object -First 1
-
-        if ($msiAsset) {
-            return @{
-                Version     = $response.tag_name
-                DownloadUrl = $msiAsset.browser_download_url
-                FileName    = $msiAsset.name
-            }
-        }
-
-        Write-StyledMessage Error "Nessun installer .msi trovato nella release"
-        return $null
-    }
-
-    function Download-RustDeskInstaller {
-        param([string]$DownloadPath)
-
-        Write-StyledMessage Progress "Download installer RustDesk in corso..."
-        $releaseInfo = Get-LatestRustDeskRelease
-        if (-not $releaseInfo) { return $false }
-
-        Write-StyledMessage Info "📥 Versione rilevata: $($releaseInfo.Version)"
-        $parentDir = Split-Path $DownloadPath -Parent
-        $null = New-Item -ItemType Directory -Path $parentDir -Force
-        Remove-Item $DownloadPath -Force -ErrorAction SilentlyContinue
-
-        Invoke-WebRequest -Uri $releaseInfo.DownloadUrl -OutFile $DownloadPath -UseBasicParsing
-        if (Test-Path $DownloadPath) {
-            Write-StyledMessage Success "Installer $($releaseInfo.FileName) scaricato con successo"
-            return $true
-        }
-
-        Write-StyledMessage Error "Errore nel download dell'installer"
-        return $false
-    }
-
-    function Install-RustDesk {
-        param([string]$InstallerPath, [string]$ServerIP)
-
-        Write-StyledMessage Progress "Installazione RustDesk"
-        $installArgs = "/i", "`"$InstallerPath`"", "/quiet", "/norestart"
-        $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden
-        Start-Sleep 10
-
-        if ($process.ExitCode -eq 0) {
-            Write-StyledMessage Success "RustDesk installato"
-            return $true
-        }
-
-        Write-StyledMessage Error "Errore installazione (Exit Code: $($process.ExitCode))"
-        return $false
-    }
-
-    function Clear-RustDeskConfig {
-        Write-StyledMessage Progress "Pulizia configurazioni esistenti..."
-        $configDir = "$env:APPDATA\RustDesk\config"
-        $rustDeskDir = "$env:APPDATA\RustDesk"
-
-        # Crea la cartella RustDesk se non esiste
-        if (-not (Test-Path $rustDeskDir)) {
-            New-Item -ItemType Directory -Path $rustDeskDir -Force | Out-Null
-            Write-StyledMessage Info "Cartella RustDesk creata"
-        }
-
-        if (Test-Path $configDir) {
-            Remove-Item $configDir -Recurse -Force -ErrorAction SilentlyContinue
-            Write-StyledMessage Success "Cartella config eliminata"
-            Start-Sleep 1
-        }
-        else {
-            Write-StyledMessage Warning "Cartella config non trovata - Potrebbe essere la prima installazione"
-        }
-    }
-
-    function Download-RustDeskConfigFiles {
-        Write-StyledMessage Progress "Download file di configurazione..."
-        $configDir = "$env:APPDATA\RustDesk\config"
-        $null = New-Item -ItemType Directory -Path $configDir -Force
-
-        $configFiles = @(
-            "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/RustDesk.toml",
-            "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/RustDesk_local.toml",
-            "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/RustDesk2.toml"
-        )
-
-        foreach ($url in $configFiles) {
-            $fileName = Split-Path $url -Leaf
-            $filePath = Join-Path $configDir $fileName
-            try {
-                Invoke-WebRequest -Uri $url -OutFile $filePath -UseBasicParsing
-                Write-StyledMessage Success "$fileName scaricato"
-            }
-            catch {
-                Write-StyledMessage Error "Errore download $fileName`: $($_.Exception.Message)"
-            }
-        }
-    }
-
-    function Start-CountdownRestart([string]$Reason) {
-        Write-StyledMessage Info "🔄 $Reason - Il sistema verrà riavviato"
-        Write-StyledMessage Info "💡 Premi un tasto qualsiasi per annullare..."
-
-        for ($i = $CountdownSeconds; $i -gt 0; $i--) {
-            if ([Console]::KeyAvailable) {
-                $null = [Console]::ReadKey($true)
-                Write-Host "`n"
-                Write-StyledMessage Warning "⏸️ Riavvio annullato dall'utente"
-                return $false
-            }
-
-            $percent = [Math]::Round((($CountdownSeconds - $i) / $CountdownSeconds) * 100)
-            $filled = [Math]::Floor($percent * 20 / 100)
-            $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
-            Start-Sleep 1
-        }
-
-        Write-Host "`n"
-        Write-StyledMessage Warning "⏰ Riavvio del sistema..."
-        Restart-Computer -Force
-        return $true
-    }
-
-    # === ESECUZIONE PRINCIPALE ===
-    Show-Header
-    Write-StyledMessage Info "🚀 AVVIO CONFIGURAZIONE RUSTDESK"
-
-    try {
-        $installerPath = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
-
-        # FASE 1: Stop servizi e processi
-        Write-StyledMessage Info "📋 FASE 1: Arresto servizi e processi RustDesk"
-        Stop-RustDeskComponents
-
-        # FASE 2: Download e installazione
-        Write-StyledMessage Info "📋 FASE 2: Download e installazione"
-        if (-not (Download-RustDeskInstaller -DownloadPath $installerPath)) {
-            Write-StyledMessage Error "Impossibile procedere senza l'installer"
-            return
-        }
-        if (-not (Install-RustDesk -InstallerPath $installerPath -ServerIP $null)) {
-            Write-StyledMessage Error "Errore durante l'installazione"
-            return
-        }
-
-        # FASE 3: Verifica processi e pulizia
-        Write-StyledMessage Info "📋 FASE 3: Verifica processi e pulizia"
-        Stop-RustDeskComponents
-
-        # FASE 4: Pulizia configurazioni
-        Write-StyledMessage Info "📋 FASE 4: Pulizia configurazioni"
-        Clear-RustDeskConfig
-
-        # FASE 5: Download configurazioni
-        Write-StyledMessage Info "📋 FASE 5: Download configurazioni"
-        Download-RustDeskConfigFiles
-
-        Write-Host ""
-        Write-StyledMessage Success "🎉 CONFIGURAZIONE RUSTDESK COMPLETATA"
-        Write-StyledMessage Info "🔄 Per applicare le modifiche il PC verrà riavviato"
-        Start-CountdownRestart -Reason "Per applicare le modifiche è necessario riavviare il sistema"
-    }
-    catch {
-        Write-StyledMessage Error "ERRORE: $($_.Exception.Message)"
-        Write-StyledMessage Info "💡 Verifica connessione Internet e riprova"
         try { Stop-Transcript | Out-Null } catch {}
     }
 
@@ -2140,86 +2015,6 @@ function WinReinstallStore {
     }
 
 }
-function WinDriverInstall {
-    <#
-    .SYNOPSIS
-        Toolkit Driver Grafici - Installazione e configurazione driver GPU.
-
-    .DESCRIPTION
-        Script per l'installazione e configurazione ottimale dei driver grafici:
-        - Rilevamento automatico GPU (NVIDIA, AMD, Intel)
-        - Download driver più recenti dal sito ufficiale
-        - Installazione pulita con pulizia precedente
-        - Configurazione ottimale per gaming e prestazioni
-        - Installazione software di controllo (GeForce Experience, AMD Software)
-    #>
-
-    param([int]$CountdownSeconds = 30)
-
-    $Host.UI.RawUI.WindowTitle = "Driver Install Toolkit By MagnetarMan"
-    $script:Log = @(); $script:CurrentAttempt = 0
-    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-    $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'; Icon = '❌' }
-        Info    = @{ Color = 'Cyan'; Icon = '💎' }
-    }
-
-    function Write-StyledMessage([string]$Type, [string]$Text) {
-        $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
-    }
-
-    function Show-Header {
-        Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('=' * ($width - 1)) -ForegroundColor Green
-
-        $asciiArt = @(
-            '      __        __  _  _   _ ',
-            '      \\ \\      / / | || \\ | |',
-            '       \\ \\ /\\ / /  | ||  \\| |',
-            '        \\ V  V /   | || |\\  |',
-            '         \\_/\\_/    |_||_| \\_|',
-            '',
-            ' Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3 (Build 1)'
-        )
-
-        foreach ($line in $asciiArt) {
-            if (-not [string]::IsNullOrEmpty($line)) {
-                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
-            }
-        }
-
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-        Write-Host ''
-    }
-
-    function Center-Text {
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$Text,
-            [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
-
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding + $Text)
-    }
-
-    Show-Header
-
-    Write-StyledMessage 'Info' 'Driver Install Toolkit - Funzione in sviluppo'
-    Write-StyledMessage 'Info' 'Questa funzione sarà implementata nella versione 2.3'
-    Write-Host ''
-    Write-StyledMessage 'Warning' 'Sviluppo funzione in corso'
-
-    Write-Host "
-Premi un tasto per tornare al menu principale..."
-    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-}
 function WinBackupDriver {
     <#
     .SYNOPSIS
@@ -2616,6 +2411,86 @@ function WinBackupDriver {
         try { Stop-Transcript | Out-Null } catch {}
     }
 
+}
+function WinDriverInstall {
+    <#
+    .SYNOPSIS
+        Toolkit Driver Grafici - Installazione e configurazione driver GPU.
+
+    .DESCRIPTION
+        Script per l'installazione e configurazione ottimale dei driver grafici:
+        - Rilevamento automatico GPU (NVIDIA, AMD, Intel)
+        - Download driver più recenti dal sito ufficiale
+        - Installazione pulita con pulizia precedente
+        - Configurazione ottimale per gaming e prestazioni
+        - Installazione software di controllo (GeForce Experience, AMD Software)
+    #>
+
+    param([int]$CountdownSeconds = 30)
+
+    $Host.UI.RawUI.WindowTitle = "Driver Install Toolkit By MagnetarMan"
+    $script:Log = @(); $script:CurrentAttempt = 0
+    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+    $MsgStyles = @{
+        Success = @{ Color = 'Green'; Icon = '✅' }
+        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
+    }
+
+    function Write-StyledMessage([string]$Type, [string]$Text) {
+        $style = $MsgStyles[$Type]
+        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    }
+
+    function Show-Header {
+        Clear-Host
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('=' * ($width - 1)) -ForegroundColor Green
+
+        $asciiArt = @(
+            '      __        __  _  _   _ ',
+            '      \\ \\      / / | || \\ | |',
+            '       \\ \\ /\\ / /  | ||  \\| |',
+            '        \\ V  V /   | || |\\  |',
+            '         \\_/\\_/    |_||_| \\_|',
+            '',
+            ' Driver Install Toolkit By MagnetarMan',
+            '       Version 2.3 (Build 1)'
+        )
+
+        foreach ($line in $asciiArt) {
+            if (-not [string]::IsNullOrEmpty($line)) {
+                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            }
+        }
+
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+        Write-Host ''
+    }
+
+    function Center-Text {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding + $Text)
+    }
+
+    Show-Header
+
+    Write-StyledMessage 'Info' 'Driver Install Toolkit - Funzione in sviluppo'
+    Write-StyledMessage 'Info' 'Questa funzione sarà implementata nella versione 2.3'
+    Write-Host ''
+    Write-StyledMessage 'Warning' 'Sviluppo funzione in corso'
+
+    Write-Host "
+Premi un tasto per tornare al menu principale..."
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 }
 function OfficeToolkit {
     <#
@@ -3392,86 +3267,6 @@ function OfficeToolkit {
     }
 
 }
-function GamingToolkit {
-    <#
-    .SYNOPSIS
-        Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
-
-    .DESCRIPTION
-        Script per ottimizzare le prestazioni del sistema per il gaming:
-        - Ottimizzazione servizi di sistema
-        - Configurazione alimentazione alta prestazione
-        - Disabilitazione notifiche durante il gaming
-        - Ottimizzazione rete per gaming online
-        - Configurazione priorità processi gaming
-    #>
-
-    param([int]$CountdownSeconds = 30)
-
-    $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
-    $script:Log = @(); $script:CurrentAttempt = 0
-    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-    $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'; Icon = '❌' }
-        Info    = @{ Color = 'Cyan'; Icon = '💎' }
-    }
-
-    function Write-StyledMessage([string]$Type, [string]$Text) {
-        $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
-    }
-
-    function Show-Header {
-        Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('=' * ($width - 1)) -ForegroundColor Green
-
-        $asciiArt = @(
-            '      __        __  _  _   _ ',
-            '      \\ \\      / / | || \\ | |',
-            '       \\ \\ /\\ / /  | ||  \\| |',
-            '        \\ V  V /   | || |\\  |',
-            '         \\_/\\_/    |_||_| \\_|',
-            '',
-            '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 1)'
-        )
-
-        foreach ($line in $asciiArt) {
-            if (-not [string]::IsNullOrEmpty($line)) {
-                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
-            }
-        }
-
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-        Write-Host ''
-    }
-
-    function Center-Text {
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$Text,
-            [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
-
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding + $Text)
-    }
-
-    Show-Header
-
-    Write-StyledMessage 'Info' 'Gaming Toolkit - Funzione in sviluppo'
-    Write-StyledMessage 'Info' 'Questa funzione sarà implementata nella versione 2.4'
-    Write-Host ''
-    Write-StyledMessage 'Warning' 'Sviluppo funzione in corso'
-
-    Write-Host "
-Premi un tasto per tornare al menu principale..."
-    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-}
 function WinCleaner {
     <#
     .SYNOPSIS
@@ -3480,7 +3275,11 @@ function WinCleaner {
     .DESCRIPTION
         Questo script esegue una pulizia completa e automatica del sistema Windows,
         utilizzando cleanmgr.exe con configurazione automatica (/sageset e /sagerun)
-        e pulendo manualmente tutti i componenti specificati:
+        e pulendo manualmente tutti i componenti specificati.
+
+        POLITICA ESCLUSIONI VITALI:
+        - %LOCALAPPDATA%\WinToolkit: CARTELLA VITALE - Contiene toolkit, log e dati essenziali
+        Queste cartelle sono protette e NON verranno mai cancellate durante la pulizia.
         - WinSxS Assemblies sostituiti
         - Rapporti Errori Windows
         - Registro Eventi Windows
@@ -3561,10 +3360,9 @@ function WinCleaner {
     function Test-ExcludedPath {
         param([string]$Path)
 
-        # Esclusioni tassative
+        # Esclusioni tassative - QUESTE CARTELLE SONO VITALI E NON DEVONO MAI ESSERE CANCELLATE
         $excludedPaths = @(
-            "$env:LOCALAPPDATA\WinToolkit",
-            "$env:APPDATA\WinToolkit"
+            "$env:LOCALAPPDATA\WinToolkit",  # CARTELLA VITALE: Contiene toolkit, log e dati essenziali
         )
 
         $fullPath = $Path
@@ -3580,7 +3378,8 @@ function WinCleaner {
 
             # Verifica se il path è dentro una directory esclusa
             if ($fullPath -like "$excludedFull*" -or $fullPath -eq $excludedFull) {
-                Write-StyledMessage Info "🛡️ Cartella esclusa dalla pulizia: $fullPath"
+                Write-StyledMessage Info "🛡️ CARTELLA VITALE PROTETTA: $fullPath"
+                $script:Log += "[EXCLUSION] 🛡️ Cartella vitale protetta dalla pulizia: $fullPath"
                 return $true
             }
         }
@@ -4544,7 +4343,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 18)'
+            '       Version 2.2.3 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {
@@ -4625,8 +4424,444 @@ function WinCleaner {
     }
 
 }
+#function SearchRepair {}
+function SetRustDesk {
+    <#
+    .SYNOPSIS
+        Configura ed installa RustDesk con configurazioni personalizzata su Windows.
 
-#function WinForceUpdate {}
+    .DESCRIPTION
+        Script ottimizzato per fermare servizi, reinstallare RustDesk e applicare configurazioni personalizzate.
+        Scarica i file di configurazione da repository GitHub e riavvia il sistema per applicare le modifiche.
+    #>
+
+    param([int]$CountdownSeconds = 30)
+
+    # Inizializzazione
+    $Host.UI.RawUI.WindowTitle = "RustDesk Setup Toolkit By MagnetarMan"
+
+    # Setup logging
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\SetRustDesk_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
+
+    # Configurazione
+    $MsgStyles = @{
+        Success  = @{ Color = 'Green'; Icon = '✅' }
+        Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error    = @{ Color = 'Red'; Icon = '❌' }
+        Info     = @{ Color = 'Cyan'; Icon = '💡' }
+        Progress = @{ Color = 'Magenta'; Icon = '🔄' }
+    }
+
+    # Funzioni Helper
+    function Center-Text {
+        param(
+            [Parameter(Mandatory = $true)][string]$Text,
+            [Parameter(Mandatory = $false)][int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding + $Text)
+    }
+    
+    function Show-Header {
+        Clear-Host
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+
+        $asciiArt = @(
+            '      __        __  _  _   _ ',
+            '      \ \      / / | || \ | |',
+            '       \ \ /\ / /  | ||  \| |',
+            '        \ V  V /   | || |\  |',
+            '         \_/\_/    |_||_| \_|',
+            '',
+            'RustDesk Setup Toolkit By MagnetarMan',
+            '       Version 2.2.2 (Build 3)'
+        )
+
+        foreach ($line in $asciiArt) {
+            if ($line -ne '') {
+                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            }
+            else {
+                Write-Host ''
+            }
+        }
+
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+        Write-Host ''
+    }
+
+    function Write-StyledMessage([string]$Type, [string]$Text) {
+        $style = $MsgStyles[$Type]
+        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    }
+
+    function Clear-ConsoleLine {
+        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+        Write-Host $clearLine -NoNewline
+        [Console]::Out.Flush()
+    }
+
+    function Stop-RustDeskComponents {
+        $servicesFound = $false
+        foreach ($service in @("RustDesk", "rustdesk")) {
+            $serviceObj = Get-Service -Name $service -ErrorAction SilentlyContinue
+            if ($serviceObj) {
+                Stop-Service -Name $service -Force -ErrorAction SilentlyContinue
+                $servicesFound = $true
+            }
+        }
+        
+        if ($servicesFound) {
+            Write-StyledMessage Success "Servizi RustDesk arrestati"
+        }
+
+        $processesFound = $false
+        foreach ($process in @("rustdesk", "RustDesk")) {
+            $runningProcesses = Get-Process -Name $process -ErrorAction SilentlyContinue
+            if ($runningProcesses) {
+                $runningProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+                $processesFound = $true
+            }
+        }
+        
+        if ($processesFound) {
+            Write-StyledMessage Success "Processi RustDesk terminati"
+        }
+        
+        if (-not $servicesFound -and -not $processesFound) {
+            Write-StyledMessage Warning "Nessun componente RustDesk attivo trovato"
+        }
+        
+        Start-Sleep 2
+    }
+
+    function Get-LatestRustDeskRelease {
+        try {
+            $apiUrl = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
+            $response = Invoke-RestMethod -Uri $apiUrl -Method Get -ErrorAction Stop
+            $msiAsset = $response.assets | Where-Object { $_.name -like "rustdesk-*-x86_64.msi" } | Select-Object -First 1
+
+            if ($msiAsset) {
+                return @{
+                    Version     = $response.tag_name
+                    DownloadUrl = $msiAsset.browser_download_url
+                    FileName    = $msiAsset.name
+                }
+            }
+
+            Write-StyledMessage Error "Nessun installer .msi trovato nella release"
+            return $null
+        }
+        catch {
+            Write-StyledMessage Error "Errore connessione GitHub API: $($_.Exception.Message)"
+            return $null
+        }
+    }
+
+    function Download-RustDeskInstaller {
+        param([string]$DownloadPath)
+
+        Write-StyledMessage Progress "Download installer RustDesk in corso..."
+        $releaseInfo = Get-LatestRustDeskRelease
+        if (-not $releaseInfo) { return $false }
+
+        Write-StyledMessage Info "📥 Versione rilevata: $($releaseInfo.Version)"
+        $parentDir = Split-Path $DownloadPath -Parent
+        
+        try {
+            if (-not (Test-Path $parentDir)) {
+                New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+            }
+            
+            if (Test-Path $DownloadPath) {
+                Remove-Item $DownloadPath -Force -ErrorAction Stop
+            }
+
+            Invoke-WebRequest -Uri $releaseInfo.DownloadUrl -OutFile $DownloadPath -UseBasicParsing -ErrorAction Stop
+            
+            if (Test-Path $DownloadPath) {
+                Write-StyledMessage Success "Installer $($releaseInfo.FileName) scaricato con successo"
+                return $true
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore download: $($_.Exception.Message)"
+        }
+
+        return $false
+    }
+
+    function Install-RustDesk {
+        param([string]$InstallerPath)
+
+        Write-StyledMessage Progress "Installazione RustDesk"
+        
+        try {
+            $installArgs = "/i", "`"$InstallerPath`"", "/quiet", "/norestart"
+            $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop
+            Start-Sleep 10
+
+            if ($process.ExitCode -eq 0) {
+                Write-StyledMessage Success "RustDesk installato"
+                return $true
+            }
+            else {
+                Write-StyledMessage Error "Errore installazione (Exit Code: $($process.ExitCode))"
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante installazione: $($_.Exception.Message)"
+        }
+
+        return $false
+    }
+
+    function Clear-RustDeskConfig {
+        Write-StyledMessage Progress "Pulizia configurazioni esistenti..."
+        $rustDeskDir = "$env:APPDATA\RustDesk"
+        $configDir = "$rustDeskDir\config"
+
+        try {
+            if (-not (Test-Path $rustDeskDir)) {
+                New-Item -ItemType Directory -Path $rustDeskDir -Force | Out-Null
+                Write-StyledMessage Info "Cartella RustDesk creata"
+            }
+
+            if (Test-Path $configDir) {
+                Remove-Item $configDir -Recurse -Force -ErrorAction Stop
+                Write-StyledMessage Success "Cartella config eliminata"
+                Start-Sleep 1
+            }
+            else {
+                Write-StyledMessage Warning "Cartella config non trovata"
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore pulizia config: $($_.Exception.Message)"
+        }
+    }
+
+    function Download-RustDeskConfigFiles {
+        Write-StyledMessage Progress "Download file di configurazione..."
+        $configDir = "$env:APPDATA\RustDesk\config"
+        
+        try {
+            if (-not (Test-Path $configDir)) {
+                New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+            }
+
+            $configFiles = @(
+                "RustDesk.toml",
+                "RustDesk_local.toml",
+                "RustDesk2.toml"
+            )
+
+            $baseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset"
+            $downloaded = 0
+
+            foreach ($fileName in $configFiles) {
+                $url = "$baseUrl/$fileName"
+                $filePath = Join-Path $configDir $fileName
+                
+                try {
+                    Invoke-WebRequest -Uri $url -OutFile $filePath -UseBasicParsing -ErrorAction Stop
+                    $downloaded++
+                }
+                catch {
+                    Write-StyledMessage Error "Errore download $fileName`: $($_.Exception.Message)"
+                }
+            }
+
+            if ($downloaded -eq $configFiles.Count) {
+                Write-StyledMessage Success "Tutti i file di configurazione scaricati ($downloaded/$($configFiles.Count))"
+            }
+            else {
+                Write-StyledMessage Warning "Scaricati $downloaded/$($configFiles.Count) file di configurazione"
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante download configurazioni: $($_.Exception.Message)"
+        }
+    }
+
+    function Start-CountdownRestart([string]$Reason) {
+        Write-StyledMessage Info "🔄 $Reason - Il sistema verrà riavviato"
+        Write-StyledMessage Info "💡 Premi un tasto qualsiasi per annullare..."
+
+        for ($i = $CountdownSeconds; $i -gt 0; $i--) {
+            if ([Console]::KeyAvailable) {
+                [Console]::ReadKey($true) | Out-Null
+                Write-Host "`n"
+                Write-StyledMessage Warning "⏸️ Riavvio annullato dall'utente"
+                return $false
+            }
+
+            $percent = [Math]::Round((($CountdownSeconds - $i) / $CountdownSeconds) * 100)
+            $filled = [Math]::Floor($percent * 20 / 100)
+            $remaining = 20 - $filled
+            $bar = "[$('█' * $filled)$('░' * $remaining)] $percent%"
+            
+            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
+            [Console]::Out.Flush()
+            Start-Sleep 1
+        }
+
+        Clear-ConsoleLine
+        Write-Host "`n"
+        Write-StyledMessage Warning "⏰ Riavvio del sistema..."
+        
+        try {
+            Restart-Computer -Force
+            return $true
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante riavvio: $($_.Exception.Message)"
+            return $false
+        }
+    }
+
+    # === ESECUZIONE PRINCIPALE ===
+    Show-Header
+    Write-StyledMessage Info "🚀 AVVIO CONFIGURAZIONE RUSTDESK"
+
+    try {
+        $installerPath = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
+
+        # FASE 1: Stop servizi e processi
+        Write-StyledMessage Info "📋 FASE 1: Arresto servizi e processi RustDesk"
+        Stop-RustDeskComponents
+
+        # FASE 2: Download e installazione
+        Write-StyledMessage Info "📋 FASE 2: Download e installazione"
+        if (-not (Download-RustDeskInstaller -DownloadPath $installerPath)) {
+            Write-StyledMessage Error "Impossibile procedere senza l'installer"
+            return
+        }
+        
+        if (-not (Install-RustDesk -InstallerPath $installerPath)) {
+            Write-StyledMessage Error "Errore durante l'installazione"
+            return
+        }
+
+        # FASE 3: Verifica processi e pulizia
+        Write-StyledMessage Info "📋 FASE 3: Verifica processi e pulizia"
+        Stop-RustDeskComponents
+
+        # FASE 4: Pulizia configurazioni
+        Write-StyledMessage Info "📋 FASE 4: Pulizia configurazioni"
+        Clear-RustDeskConfig
+
+        # FASE 5: Download configurazioni
+        Write-StyledMessage Info "📋 FASE 5: Download configurazioni"
+        Download-RustDeskConfigFiles
+
+        Write-Host ""
+        Write-StyledMessage Success "🎉 CONFIGURAZIONE RUSTDESK COMPLETATA"
+        Write-StyledMessage Info "🔄 Per applicare le modifiche il PC verrà riavviato"
+        Start-CountdownRestart -Reason "Per applicare le modifiche è necessario riavviare il sistema"
+    }
+    catch {
+        Write-StyledMessage Error "ERRORE CRITICO: $($_.Exception.Message)"
+        Write-StyledMessage Info "💡 Verifica connessione Internet e riprova"
+    }
+    finally {
+        Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+        Read-Host | Out-Null
+        Write-StyledMessage Success "🎯 Setup RustDesk terminato"
+        try { Stop-Transcript | Out-Null } catch {}
+    }
+
+}
+function GamingToolkit {
+    <#
+    .SYNOPSIS
+        Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
+
+    .DESCRIPTION
+        Script per ottimizzare le prestazioni del sistema per il gaming:
+        - Ottimizzazione servizi di sistema
+        - Configurazione alimentazione alta prestazione
+        - Disabilitazione notifiche durante il gaming
+        - Ottimizzazione rete per gaming online
+        - Configurazione priorità processi gaming
+    #>
+
+    param([int]$CountdownSeconds = 30)
+
+    $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
+    $script:Log = @(); $script:CurrentAttempt = 0
+    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+    $MsgStyles = @{
+        Success = @{ Color = 'Green'; Icon = '✅' }
+        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
+    }
+
+    function Write-StyledMessage([string]$Type, [string]$Text) {
+        $style = $MsgStyles[$Type]
+        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    }
+
+    function Show-Header {
+        Clear-Host
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('=' * ($width - 1)) -ForegroundColor Green
+
+        $asciiArt = @(
+            '      __        __  _  _   _ ',
+            '      \\ \\      / / | || \\ | |',
+            '       \\ \\ /\\ / /  | ||  \\| |',
+            '        \\ V  V /   | || |\\  |',
+            '         \\_/\\_/    |_||_| \\_|',
+            '',
+            '    Gaming Toolkit By MagnetarMan',
+            '       Version 2.2 (Build 1)'
+        )
+
+        foreach ($line in $asciiArt) {
+            if (-not [string]::IsNullOrEmpty($line)) {
+                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            }
+        }
+
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+        Write-Host ''
+    }
+
+    function Center-Text {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding + $Text)
+    }
+
+    Show-Header
+
+    Write-StyledMessage 'Info' 'Gaming Toolkit - Funzione in sviluppo'
+    Write-StyledMessage 'Info' 'Questa funzione sarà implementata nella versione 2.4'
+    Write-Host ''
+    Write-StyledMessage 'Warning' 'Sviluppo funzione in corso'
+
+    Write-Host "
+Premi un tasto per tornare al menu principale..."
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+}
+
 
 # Menu structure
 $menuStructure = @(
@@ -4659,6 +4894,9 @@ $menuStructure = @(
         )
     }
 )
+
+# Esegui verifica compatibilità sistema
+WinOSCheck
 
 # Main loop
 while ($true) {
@@ -4724,9 +4962,6 @@ while ($true) {
 
     # Execute valid scripts
     if ($scriptsToRun.Count -gt 0) {
-        $executedCount = 0
-        $errorCount = 0
-
         foreach ($selectedItem in $scriptsToRun) {
             Write-Host "`n" + ('-' * ($width / 2))
             Write-StyledMessage -type 'Info' -text "Avvio '$($selectedItem.Description)'..."
@@ -4734,30 +4969,26 @@ while ($true) {
             try {
                 if ($selectedItem.Action -eq 'RunFile') {
                     $scriptPath = Join-Path $PSScriptRoot $selectedItem.Name
-                    if (Test-Path $scriptPath) { & $scriptPath }
-                    else { Write-StyledMessage -type 'Error' -text "Script non trovato: $($selectedItem.Name)" }
+                    if (Test-Path $scriptPath) { 
+                        & $scriptPath 
+                    }
+                    else { 
+                        Write-StyledMessage -type 'Error' -text "Script non trovato: $($selectedItem.Name)" 
+                    }
                 }
                 elseif ($selectedItem.Action -eq 'RunFunction') {
                     Invoke-Expression $selectedItem.Name
                 }
+                Write-StyledMessage -type 'Success' -text "Completato: '$($selectedItem.Description)'"
             }
             catch {
                 Write-StyledMessage -type 'Error' -text "Errore in '$($selectedItem.Description)'"
                 Write-StyledMessage -type 'Error' -text "Dettagli: $($_.Exception.Message)"
             }
-            Write-StyledMessage -type 'Success' -text "Completato: '$($selectedItem.Description)'"
         }
 
         Write-Host "`nOperazioni completate. Premi un tasto per continuare..."
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-
-        # Summary
-        if ($errorCount -eq 0) {
-            Write-StyledMessage -type 'Success' -text "🎉 Tutte le operazioni completate con successo! ($executedCount/$executedCount)"
-        }
-        else {
-            Write-StyledMessage -type 'Warning' -text "⚠️ $executedCount operazioni completate, $errorCount errori"
-        }
     }
     elseif ($invalidChoices.Count -eq $choices.Count) {
         Write-StyledMessage -type 'Error' -text 'Nessuna scelta valida. Riprova.'
