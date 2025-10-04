@@ -372,7 +372,7 @@ function OfficeToolkit {
             }
             default {
                 Write-StyledMessage Info "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti..."
-                Write-StyledMessage Warning "⚠️ Questo metodo rimuove file e registro direttamente"
+                Write-StyledMessage Warning "Questo metodo rimuove file e registro direttamente"
                 if (Get-UserConfirmation "Confermi rimozione diretta?" 'Y') {
                     $success = Remove-OfficeDirectly
                 }
@@ -683,7 +683,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.2.2 (Build 15)'
+            '        Version 2.2.2 (Build 16)'
         )
 
         foreach ($line in $asciiArt) {
