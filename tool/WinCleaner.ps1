@@ -93,7 +93,7 @@ function WinCleaner {
 
         # Esclusioni tassative - QUESTE CARTELLE SONO VITALI E NON DEVONO MAI ESSERE CANCELLATE
         $excludedPaths = @(
-            "$env:LOCALAPPDATA\WinToolkit",  # CARTELLA VITALE: Contiene toolkit, log e dati essenziali
+            "$env:LOCALAPPDATA\WinToolkit"  # CARTELLA VITALE: Contiene toolkit, log e dati essenziali
         )
 
         $fullPath = $Path
@@ -1074,7 +1074,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.3 (Build 3)'
+            '       Version 2.2.3 (Build 4)'
         )
 
         foreach ($line in $asciiArt) {
