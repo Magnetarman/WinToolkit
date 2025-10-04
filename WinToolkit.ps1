@@ -169,7 +169,7 @@ function WinOSCheck {
     $sysInfo = Get-SystemInfo
     if (-not $sysInfo) {
         Write-StyledMessage -type 'Warning' -text 'Impossibile verificare il sistema. Prosecuzione con compatibilità limitata...'
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 5
         return
     }
 
@@ -198,7 +198,7 @@ function WinOSCheck {
         Write-StyledMessage -type 'Success' -text 'Sistema completamente compatibile!'
         Write-Host "  Lo script funzionerà alla massima velocità ed efficienza." -ForegroundColor Green
         Write-Host ''
-        Start-Sleep -Seconds 2
+        Start-Sleep -Seconds 5
         return
     }
     
@@ -209,7 +209,7 @@ function WinOSCheck {
         Write-Host "  Lo script userà workaround e funzioni alternative per garantire" -ForegroundColor Yellow
         Write-Host "  la massima compatibilità, con efficienza leggermente ridotta." -ForegroundColor Yellow
         Write-Host ''
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 5
         return
     }
     
