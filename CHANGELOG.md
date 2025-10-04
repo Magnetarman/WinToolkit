@@ -61,7 +61,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Aggiunte
 
 - Aggiunti Screeshot delle nuove Funzionalità.
-- Potenziamento Avvisi compatibilità Windows **[Tnks @pomodori92]**
+- Potenziamento Avvisi compatibilità Windows. **[Tnks @pomodori92]**
+- Aggiunto Avviso di Compatibilità nello script `WinToolkit.ps1`.
 
 ### Correzioni
 
@@ -72,6 +73,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
+- Aggiornati tutti gli ScreenShot presenti nel `README.md`.
+- Semplificate alcune sezioni del `README.md` per una maggiore comprensione.
 - Aggiornamento `CONTRIBUTORS.md`.
 
 ---
