@@ -7,16 +7,25 @@
     <br>
     <br>
     WinToolkit è una suite di script PowerShell potente e compatta, progettata per offrire a professionisti IT, amministratori di sistema e utenti esperti un controllo granulare sulla manutenzione e sulla risoluzione dei problemi di Windows e della Suite Office. Questo toolkit intuitivo aggrega gli strumenti di riparazione di sistema più efficaci in un'unica interfaccia, automatizzando i processi complessi per ottimizzare le prestazioni e ripristinare la stabilità del sistema con pochi passaggi automatizzati.
-     <br>
-     <br>
-    <b> OS Supportati:</b> Windows 10 versione 1809 (build 17763) e successivi.
 </p>
 <br>
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.2.1 (Build 13)-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.2.2-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
-<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Update%20WinToolkit.ps1" alt="Update WinToolkit">
+<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
+</p>
+<p align="center">
+  <br>
+     <br>
+    <b>🪟 Versioni di Windows Supportate: 🪟</b><br><br>
+    <b>🔴 Windows 7 - Non Supportato.</b><br>
+    <b>🔴 Windows 8 - Non Supportato.</b><br>
+    <b>🟠 Windows 8.1 - Supporto Parziale.</b><br>
+    <b>🟠 Windows 10 (< 1809) - Supporto Parziale.</b><br>
+    <b>🟡 Windows 10 (> 1809) - Supporto Completo con eccezioni.</b><br>
+    <b>🟡 Windows 11 (< 23H2) - Supporto Completo con eccezioni.</b><br>
+    <b>🟢 Windows 11 (> 23H2) - Supporto Completo.</b><br>
 </p>
 </br>
 
@@ -45,10 +54,6 @@
 
 ## 👾 Features
 
-> [!Warning]
->
-> A causa di limitazione tecniche e tecnologiche, il Toolkit su sistemi precedenti come **Windows 10 Pre 1809**, **Windows 8.1** e **Windows 8** risulta **parzialmente supportato**. Per avviare il toolkit è richiesto il download e l'installazione manuale di [Powershell 7](https://github.com/PowerShell/PowerShell/releases/tag/v7.5.3). Avviare successivamente Powershell 7 ed inserire i comandi di Bypass per l'esecuzione di script non firmati `Set-ExecutionPolicy -Scope LocalMachine -ExecutionPolicy Bypass` & `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Bypass`. L'unico metodo di avvio supportato è **l'avvio Classico**, altri metodi non sono supportati. L'esecuzione del Toolkit su sistemi non supportati è sconsigliato, potrebbero verificarsi errori di runtime oppure gli script potrebbero non funzionare correttamente, eseguitelo a vostro rischio e pericolo.
-
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Cartella di lavoro unica**: Le operazioni del programma sono centralizzate in un'unica cartella di lavoro, situata in `%localappdata%\WinToolkit`. È importante mantenere questa directory per garantire la corretta visualizzazione e il funzionamento dell'icona di collegamento sul desktop. Lo strumento è concepito per operare in modo completamente autonomo e online, eliminando la necessità di creare cartelle temporanee aggiuntive per la sua esecuzione.
 - **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato nel percorso `%localappdata%\WinToolkit\logs`, fornendo un riassunto chiaro delle azioni eseguite, degli errori riscontrati e dei risultati finali.
@@ -61,6 +66,7 @@
 - **Windows Store Repair**: Esegue una reinstallazione di componenti critici come Microsoft Store, Winget, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando Winget). Lo script esegue questa operazione in modo silenzioso, provando più metodi (Winget, DISM e registrazione del manifest) per garantire il successo. Il processo include anche la pulizia della cache e il riavvio dei servizi necessari per una riparazione pulita e funzionale.
 - **Win Backup Driver**: Un versatile script PowerShell progettato per semplificare il processo di backup dei driver. Questo strumento automatizza l'esportazione di tutti i driver di terze parti installati, utilizzando il comando DISM per garantire un'operazione completa e affidabile. Una volta esportati, i driver vengono compressi in un singolo file ZIP, che viene automaticamente salvato sul desktop con un nome basato sulla data per una facile identificazione. Ideale per la preparazione di una nuova installazione di Windows, eliminando la necessità di scaricare ogni componente singolarmente.
 - **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico. Lo script procede all'installazione silenziosa di RustDesk, alla cancellazione di eventuali configurazioni precedenti e al download di file di configurazione personalizzati per garantire che il software sia preconfigurato per il supporto tecnico remoto. L'intero processo è progettato per essere completamente automatizzato e si conclude con un riavvio del sistema opzionale e annullabile dall'utente per finalizzare tutte le modifiche.
+- **Cleaner Toolkit**: Il suo scopo è liberare spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda attraverso una serie di azioni automatizzate. Lo script non solo utilizza la Pulizia Disco avanzata (CleanMgr), ma interviene manualmente per eliminare i file di sistema obsoleti, come gli assembly di WinSxS, la cache Prefetch, e i vari log (eventi, errori, sistema). Inoltre, rimuove file temporanei di sistema e utente, svuota le cache di navigazione web, inclusi cookie e cache WinInet, cancella la cronologia di Windows Update, e pulisce la coda di stampa. Infine, per assicurare l'applicazione completa delle modifiche e la massimizzazione dello spazio recuperato, lo script svuota la cache DNS e richiede un riavvio del sistema al termine dell'intero processo.
 
 > [!IMPORTANT]
 >
@@ -123,7 +129,20 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 > - **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script. **E' fortemente consigliata la disattivazione temporanea durante le operazioni**.
 > - **Richiesta Connessione ad internet durante l'esecuzione del Tool**.
 > - Richiesto intervento manuale minimo.
-> - **Spazio su disco necessario**: 50GB Liberi (Windows durante le operazioni di riparazione occuperà temporaneamente dello spazio. L'indicazione di 50GB è sovrastimata ed utile per avere un certo margine di spazio libero ulteriore per il corretto funzionamento del Sistema).
+> - **Spazio su disco Consigliato**: 50GB Liberi.
+
+### 💾 Perche almeno 50 GB liberi ?
+
+È fondamentale capire che questo spazio non serve per lo strumento (che è online e pesa pochissimi kilobyte), né per scaricare dati. I 50 GB servono esclusivamente a Windows per garantire la sua stabilità e il corretto funzionamento durante le operazioni di riparazione.
+
+Perché è Necessario Questo Ampio Margine?
+Quando il sistema operativo lavora su componenti critici, ha bisogno di spazio vitale per gestire diversi processi in background:
+
+- File Temporanei e Backup Interni: Windows crea e gestisce file temporanei, copie di backup interne e cache durante la manutenzione.
+- Gestione del File di Paging (Memoria Virtuale): Lo spazio è cruciale per il file di paging, che Windows utilizza come "sostituto" temporaneo della RAM quando la memoria fisica si esaurisce. Se questo spazio è insufficiente, si possono verificare gravi errori di sistema.
+- Prevenzione di Malfunzionamenti: Operare con poco spazio libero (tipicamente meno del 10–15% dello spazio totale) è una causa comune di rallentamenti e malfunzionamenti generici in Windows. Avere un margine così ampio previene questi problemi e assicura che il sistema non diventi instabile.
+
+In sintesi, i 50 GB sono una misura cautelativa per fornire a Windows l'ambiente di lavoro ideale e completare le operazioni senza interruzioni o errori dovuti alla gestione inefficiente dello spazio su disco.
 
 ### ⚙️ Avvio **Consigliato**
 
@@ -139,12 +158,12 @@ Installa L'eseguibile del Toolkit sul Desktop seguendo queste istruzioni:
  irm https://magnetarman.com/winstart | iex
 ```
 
-6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit V2` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
+6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
 
 ### ⚙️ Avvio Classico
 
 > [!CAUTION]
-> Per gli utenti esperti che desiderano avviare il toolkit direttamente, è consigliabile installare il profilo PowerShell e utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
+> Per gli utenti esperti che desiderano avviare il toolkit direttamente oppure utilizzano il ToolKit su versioni parzialmente supportate come Windows 8.1 & Windows 10 < 1809, è consigliabile installare il profilo PowerShell e utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
 
 1. Premi il Tasto Windows sulla tastiera.
 2. Digita `Powershell` nel campo della ricerca.
