@@ -88,12 +88,16 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 ```sh
 └── WinToolkit/
     └── img
+        ├── OfficeToolkit.jpg
         ├── RepairToolkit.jpg
         ├── Run.jpg
+        ├── SetRustDesk.jpg
         ├── Starter.jpg
-        ├── Office-Toolkit.jpg
-        ├── WinToolkit-icon.png
-        └── StoreRepair.jpg
+        ├── StoreRepair.jpg
+        ├── UpdateReset.jpg
+        ├── WinCleaner.jpg
+        ├── WinToolkit.ico
+        └── WinToolkit-icon.png
     ├── CHANGELOG.md
     ├── CONTRIBUTORS.md
     ├── LICENSE
