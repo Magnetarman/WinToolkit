@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.2.3 (Build 3) - 2025-10-04
+  Versione 2.2.3 (Build 4) - 2025-10-04
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.2.3 (Build 3)'
+    '       Version 2.2.3 (Build 4)'
 )
 
 # Version mapping (usato da più funzioni)
@@ -44,13 +44,9 @@ $versionMap = @{
 # Utility Functions
 function Write-StyledMessage {
     param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
-    $config = @{
-        Success = @{ Icon = '✅'; Color = 'Green' }
-        Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
-        Error   = @{ Icon = '❌'; Color = 'Red' }
-        Info    = @{ Icon = '💎'; Color = 'Cyan' }
-    }
-    Write-Host "$($config[$type].Icon) $text" -ForegroundColor $config[$type].Color
+    $icons = @{ Success = '✅'; Warning = '⚠️'; Error = '❌'; Info = '💎' }
+    $colors = @{ Success = 'Green'; Warning = 'Yellow'; Error = 'Red'; Info = 'Cyan' }
+    Write-Host "$($icons[$type]) $text" -ForegroundColor $colors[$type]
 }
 
 function Center-Text {
@@ -286,7 +282,7 @@ function WinBackupDriver {}
 function WinDriverInstall {}
 function OfficeToolkit {}
 function WinCleaner {}
-#function SearchRepair {}
+# function SearchRepair {}
 function SetRustDesk {}
 function GamingToolkit {}
 
