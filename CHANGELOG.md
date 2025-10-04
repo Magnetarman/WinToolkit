@@ -12,11 +12,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Aggiunte
 
-- **Potenziamento Avvisi compatibilità Windows (`V2.2.3`):**
-  - Windows 11 (dalla versione 24H2 in poi): Tutto bene (Verde). Lo script funziona alla massima velocità ed efficienza perché usa le funzioni più recenti.
-  - Windows 11 (prima della 24H2) o Windows 10: Attenzione, possibile rischio (Giallo). Il sistema non è completamente aggiornato, ma lo script farà del suo meglio per funzionare. Userà soluzioni alternative (workaround) e funzioni di riserva per garantire la massima compatibilità, anche se con un'efficienza leggermente inferiore.
-  - Windows 10 (prima della 1809) o Windows 8.1: Sconsigliato, sistema troppo vecchio (Rosso). Lo script potrebbe avere gravi problemi di affidabilità. Chiedi con una richiesta specifica se proseguire oppure terminare lo script.
-  - Qualsiasi Windows precedente a Windows 8.1: sistema troppo vecchio (Rosso). Scrivi un messaggio sul terminale "Davvero pensi che questo script possa fare qualcosa per questa versione di Windows ? E' già un miracolo che tu riesca a vedere questo messaggio di errore senza che il pc sia esploso 🤣. Aggiorna Windows o passa a linux" parte un countdown di 10 secondi ed il terminale si chiude. **[Tnks @pomodori92]**
 - **Funzione Driver & Gaming (`V2.3`):**
   - Scelta Driver Video (AMD/NVIDIA).
   - Installazione Driver Ottimizzato (Nvidia).
@@ -60,6 +55,27 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Correzioni
 
 ### Modifiche
+
+## [2.2.3] - 2025-10-04 (#15)
+
+### Aggiunte
+
+- Aggiunti Screeshot delle nuove Funzionalità.
+- Potenziamento Avvisi compatibilità Windows. **[Tnks @pomodori92]**
+- Aggiunto Avviso di Compatibilità nello script `WinToolkit.ps1`.
+
+### Correzioni
+
+- Correzione Aspetto Screenshot nel `Readme.md`.
+- Correzione del blocco grafico del terminale per lo script `SetRustDesk.ps1`.
+- Correzione cancellazione accidentale cartella WinToolkit durante la pulizia di `Wincleaner.ps1`
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+- Aggiornati tutti gli ScreenShot presenti nel `README.md`.
+- Semplificate alcune sezioni del `README.md` per una maggiore comprensione.
+- Aggiornamento `CONTRIBUTORS.md`.
 
 ---
 
