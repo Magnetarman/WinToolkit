@@ -1074,7 +1074,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.3 (Build 2)'
+            '       Version 2.2.3 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {
