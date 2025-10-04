@@ -77,6 +77,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - Correzione di alcuni problemi di affidabilità (Windows 11 Pre 24H2) nella funzione `InstallPSProfile`.
 - Correzione di alcuni problemi di affidabilità (Windows 11 Pre 24H2) nella funzione `OfficeToolkit`.
 - Correzione del blocco grafico del terminale per lo script `OfficeToolkit.ps1`.
+- Errore applicazione configurazione corretta script `SetRustdesk.ps1`
 
 ### Modifiche
 
