@@ -286,8 +286,10 @@ function WinBackupDriver {}
 function WinDriverInstall {}
 function OfficeToolkit {}
 function WinCleaner {}
+#function SearchRepair {}
 function SetRustDesk {}
 function GamingToolkit {}
+
 
 # Menu structure
 $menuStructure = @(
