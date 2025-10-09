@@ -276,7 +276,4 @@ function Test-WinToolkitConfiguration {
     return $errors
 }
 
-# Esporta le configurazioni se caricato come modulo
-if ($MyInvocation.ScriptName) {
-    Export-ModuleMember -Function Get-WinToolkitConfig, Get-WinToolkitCategories, Get-WinToolkitScripts, Get-WinToolkitAdvancedSettings, Get-WinToolkitExportImportSettings, Get-WinToolkitReportingSettings, Get-WinToolkitCurrentTheme, Test-WinToolkitConfiguration
-}
+# Le funzioni sono disponibili tramite dot-sourcing del file
