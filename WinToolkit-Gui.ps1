@@ -66,14 +66,14 @@ $versionMap = @{
 function Write-StyledMessage {
     param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
     $config = @{
-        Success = @{ Icon = '✅'; Color = 'Green' }
-        Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
-        Error   = @{ Icon = '❌'; Color = 'Red' }
-        Info    = @{ Icon = '💎'; Color = 'Cyan' }
+        Success = @{ Icon = '✓'; Color = 'Green' }
+        Warning = @{ Icon = '⚠'; Color = 'Yellow' }
+        Error   = @{ Icon = '✗'; Color = 'Red' }
+        Info    = @{ Icon = 'ℹ'; Color = 'Cyan' }
     }
 
     $timestamp = Get-Date -Format "HH:mm:ss"
-    $cleanText = $text -replace '^(✅|⚠️|❌|💎|🔥|🚀|⚙️|🧹|📦|📋|📜|🔒|💾|⬇️|🔧|⚡|🖼️|🌐|🪟|🔄|🗂️|📁|🖨️|📄|🗑️|💭|⏸️|▶️|💡|⏰|🎉|💻|📊|🛡️|🔧|🔑|📦|🧹|💎|⚙️|🚀)\s*', ''
+    $cleanText = $text -replace '^(✓|⚠|✗|ℹ|🔥|▶|⚙|🧹|📦|📋|📜|🔒|💾|⬇|🔧|⚡|🖼|🌐|🪟|🔄|🗂|📁|🖨|📄|🗑|💭|⏸|▶|💡|⏰|🎉|💻|📊|🛡|🔧|🔑|📦|🧹|ℹ|⚙|▶)\s*', ''
     $message = "[$timestamp] $($config[$type].Icon) $cleanText"
 
     if ($global:logTextBox) {
@@ -233,6 +233,7 @@ function Apply-Theme {
     # Aggiorna colori della progress bar
     if ($global:progressBar) {
         $global:progressBar.ForeColor = $themeColors.AccentColor
+        $global:progressBar.BackColor = [System.Drawing.Color]::FromArgb(60, 60, 60)
     }
 
     # Aggiorna colori della barra di stato
@@ -688,7 +689,7 @@ function WinDriverInstall { Write-StyledMessage 'Info' 'WinDriverInstall - Toolk
 function GamingToolkit { Write-StyledMessage 'Info' 'GamingToolkit - Gaming Toolkit' }
 function SetRustDesk { Write-StyledMessage 'Info' 'SetRustDesk - Setting RustDesk' }
 
-# Script definitions
+# Script definitions with modern Unicode icons
 $scriptDefinitions = @(
     @{ Name = 'WinInstallPSProfile'; Description = 'Installa profilo PowerShell'; Category = 'Operazioni Preliminari'; Icon = '⚡' },
     @{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows'; Category = 'Windows & Office'; Icon = '🔧' },
@@ -699,35 +700,43 @@ $scriptDefinitions = @(
     @{ Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Category = 'Windows & Office'; Icon = '📝' },
     @{ Name = 'WinDriverInstall'; Description = 'Toolkit Driver Grafici'; Category = 'Driver & Gaming'; Icon = '🎮' },
     @{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Category = 'Driver & Gaming'; Icon = '🎯' },
-    @{ Name = 'SetRustDesk'; Description = 'Setting RustDesk'; Category = 'Supporto'; Icon = '🖥️' }
+    @{ Name = 'SetRustDesk'; Description = 'Setting RustDesk'; Category = 'Supporto'; Icon = '🖥' }
 )
 
 # Crea la finestra principale
 $mainForm = New-Object System.Windows.Forms.Form
 $mainForm.Text = "WinToolkit-GUI by MagnetarMan"
-$mainForm.Size = New-Object System.Drawing.Size(1200, 800)
+$mainForm.Size = New-Object System.Drawing.Size(1280, 900)
+$mainForm.MinimumSize = New-Object System.Drawing.Size(1000, 700)
 $mainForm.StartPosition = "CenterScreen"
-$mainForm.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$mainForm.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Regular)
+$mainForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Sizable
+$mainForm.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($PSCommandPath)
 
 # Inizializza il tema
 Apply-Theme
 
-# Crea il TabControl principale
+# Crea il TabControl principale con design moderno
 $tabControl = New-Object System.Windows.Forms.TabControl
 $tabControl.Location = New-Object System.Drawing.Point(10, 10)
-$tabControl.Size = New-Object System.Drawing.Size(1160, 600)
+$tabControl.Size = New-Object System.Drawing.Size(1240, 650)
 $tabControl.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
 $tabControl.ForeColor = [System.Drawing.Color]::White
+$tabControl.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$tabControl.ItemSize = New-Object System.Drawing.Size(120, 35)
+$tabControl.Padding = New-Object System.Drawing.Point(10, 5)
 
-# Crea le categorie come tab
+# Crea le categorie come tab con design moderno
 $categories = @("Operazioni Preliminari", "Windows & Office", "Driver & Gaming", "Supporto")
 $categoryTabs = @{}
 
 foreach ($category in $categories) {
     $tabPage = New-Object System.Windows.Forms.TabPage
     $tabPage.Text = $category
-    $tabPage.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+    $tabPage.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
     $tabPage.ForeColor = [System.Drawing.Color]::White
+    $tabPage.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
+    $tabPage.Padding = New-Object System.Windows.Forms.Padding(10)
 
     $categoryTabs[$category] = $tabPage
     $tabControl.Controls.Add($tabPage)
@@ -735,13 +744,14 @@ foreach ($category in $categories) {
 
 $mainForm.Controls.Add($tabControl)
 
-# Crea il pannello delle informazioni di sistema
+# Crea il pannello delle informazioni di sistema con design moderno
 $systemInfoPanel = New-Object System.Windows.Forms.GroupBox
-$systemInfoPanel.Location = New-Object System.Drawing.Point(10, 620)
-$systemInfoPanel.Size = New-Object System.Drawing.Size(400, 150)
-$systemInfoPanel.Text = "🖥️ Informazioni Sistema"
-$systemInfoPanel.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+$systemInfoPanel.Location = New-Object System.Drawing.Point(10, 670)
+$systemInfoPanel.Size = New-Object System.Drawing.Size(420, 160)
+$systemInfoPanel.Text = "🖥 Informazioni Sistema"
+$systemInfoPanel.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
 $systemInfoPanel.ForeColor = [System.Drawing.Color]::White
+$systemInfoPanel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 
 # Crea le label per le informazioni di sistema
 $systemInfoLabels = @{}
@@ -770,13 +780,14 @@ foreach ($item in $infoItems) {
 
 $mainForm.Controls.Add($systemInfoPanel)
 
-# Crea il pannello di controllo
+# Crea il pannello di controllo con design moderno
 $controlPanel = New-Object System.Windows.Forms.GroupBox
-$controlPanel.Location = New-Object System.Drawing.Point(420, 620)
-$controlPanel.Size = New-Object System.Drawing.Size(400, 150)
+$controlPanel.Location = New-Object System.Drawing.Point(440, 670)
+$controlPanel.Size = New-Object System.Drawing.Size(400, 160)
 $controlPanel.Text = "🎮 Controlli"
-$controlPanel.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+$controlPanel.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
 $controlPanel.ForeColor = [System.Drawing.Color]::White
+$controlPanel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 
 # Variabili globali per controlli avanzati
 $global:executionPaused = $false
@@ -792,6 +803,8 @@ $refreshButton.Text = "🔄 Aggiorna"
 $refreshButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
 $refreshButton.ForeColor = [System.Drawing.Color]::White
 $refreshButton.FlatStyle = "Flat"
+$refreshButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$refreshButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $refreshButton.Add_Click({
         Update-SystemInfoPanel
         Write-StyledMessage -type 'Info' -text "Informazioni di sistema aggiornate"
@@ -802,10 +815,12 @@ $controlPanel.Controls.Add($refreshButton)
 $executeButton = New-Object System.Windows.Forms.Button
 $executeButton.Location = New-Object System.Drawing.Point(130, 25)
 $executeButton.Size = New-Object System.Drawing.Size(120, 30)
-$executeButton.Text = "▶️ Esegui Selezionati"
+$executeButton.Text = "▶ Esegui Selezionati"
 $executeButton.BackColor = [System.Drawing.Color]::FromArgb(0, 120, 0)
 $executeButton.ForeColor = [System.Drawing.Color]::White
 $executeButton.FlatStyle = "Flat"
+$executeButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$executeButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $executeButton.Add_Click({
         $selectedScripts = [System.Collections.Generic.List[object]]::new()
 
@@ -838,10 +853,12 @@ $controlPanel.Controls.Add($executeButton)
 $selectAllButton = New-Object System.Windows.Forms.Button
 $selectAllButton.Location = New-Object System.Drawing.Point(265, 25)
 $selectAllButton.Size = New-Object System.Drawing.Size(100, 30)
-$selectAllButton.Text = "☑️ Seleziona Tutto"
+$selectAllButton.Text = "☑ Seleziona Tutto"
 $selectAllButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
 $selectAllButton.ForeColor = [System.Drawing.Color]::White
 $selectAllButton.FlatStyle = "Flat"
+$selectAllButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$selectAllButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $selectAllButton.Add_Click({
         foreach ($script in $scriptDefinitions) {
             $checkBoxName = "$($script.Name)CheckBox"
@@ -860,6 +877,8 @@ $deselectAllButton.Text = "☐ Deseleziona"
 $deselectAllButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
 $deselectAllButton.ForeColor = [System.Drawing.Color]::White
 $deselectAllButton.FlatStyle = "Flat"
+$deselectAllButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$deselectAllButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $deselectAllButton.Add_Click({
         foreach ($script in $scriptDefinitions) {
             $checkBoxName = "$($script.Name)CheckBox"
@@ -884,6 +903,7 @@ $searchTextBox.Size = New-Object System.Drawing.Size(185, 25)
 $searchTextBox.BackColor = [System.Drawing.Color]::FromArgb(50, 50, 50)
 $searchTextBox.ForeColor = [System.Drawing.Color]::White
 $searchTextBox.BorderStyle = "FixedSingle"
+$searchTextBox.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 $searchTextBox.Add_TextChanged({
         $searchTerm = $searchTextBox.Text.ToLower()
         foreach ($script in $scriptDefinitions) {
@@ -905,6 +925,8 @@ $openLogButton.Text = "📂 Log"
 $openLogButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
 $openLogButton.ForeColor = [System.Drawing.Color]::White
 $openLogButton.FlatStyle = "Flat"
+$openLogButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$openLogButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $openLogButton.Add_Click({
         $logDir = "$env:LOCALAPPDATA\WinToolkit\logs"
         if (Test-Path $logDir) {
@@ -917,21 +939,24 @@ $openLogButton.Add_Click({
     })
 $controlPanel.Controls.Add($openLogButton)
 
-# Pulsante per cambiare tema
+# Pulsante per cambiare tema (modern design)
 $themeButton = New-Object System.Windows.Forms.Button
 $themeButton.Location = New-Object System.Drawing.Point(15, 105)
-$themeButton.Size = New-Object System.Drawing.Size(100, 30)
+$themeButton.Size = New-Object System.Drawing.Size(50, 30)
 $currentTheme = Get-CurrentTheme
-$themeButton.Text = "🌙 $currentTheme"
+$themeButton.Text = if ($currentTheme -eq "Dark") { "☀" } else { "🌙" }
 $themeButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
 $themeButton.ForeColor = [System.Drawing.Color]::White
 $themeButton.FlatStyle = "Flat"
+$themeButton.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
 $themeButton.Add_Click({
         $currentTheme = Get-CurrentTheme
         $newTheme = if ($currentTheme -eq "Dark") { "Light" } else { "Dark" }
         Apply-Theme -Theme $newTheme
-        $this.Text = "🌙 $newTheme"
+        $this.Text = if ($newTheme -eq "Dark") { "☀" } else { "🌙" }
+        $this.ToolTipText = "$newTheme Mode"
     })
+$themeButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $controlPanel.Controls.Add($themeButton)
 
 # Pulsante per esportare configurazione
@@ -942,6 +967,8 @@ $exportConfigButton.Text = "📤 Esporta"
 $exportConfigButton.BackColor = [System.Drawing.Color]::FromArgb(0, 100, 150)
 $exportConfigButton.ForeColor = [System.Drawing.Color]::White
 $exportConfigButton.FlatStyle = "Flat"
+$exportConfigButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$exportConfigButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $exportConfigButton.Add_Click({
         $saveDialog = New-Object System.Windows.Forms.SaveFileDialog
         $saveDialog.Filter = "WinToolkit Config Files (*.$($exportImportSettings.ConfigFileExtension))|*.$($exportImportSettings.ConfigFileExtension)"
@@ -964,6 +991,8 @@ $importConfigButton.Text = "📥 Importa"
 $importConfigButton.BackColor = [System.Drawing.Color]::FromArgb(150, 100, 0)
 $importConfigButton.ForeColor = [System.Drawing.Color]::White
 $importConfigButton.FlatStyle = "Flat"
+$importConfigButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$importConfigButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $importConfigButton.Add_Click({
         $openDialog = New-Object System.Windows.Forms.OpenFileDialog
         $openDialog.Filter = "WinToolkit Config Files (*.$($exportImportSettings.ConfigFileExtension))|*.$($exportImportSettings.ConfigFileExtension)"
@@ -992,6 +1021,8 @@ $reportButton.Text = "📊 Report"
 $reportButton.BackColor = [System.Drawing.Color]::FromArgb(100, 50, 100)
 $reportButton.ForeColor = [System.Drawing.Color]::White
 $reportButton.FlatStyle = "Flat"
+$reportButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$reportButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $reportButton.Add_Click({
         $reportDialog = New-Object System.Windows.Forms.Form
         $reportDialog.Text = "Genera Report"
@@ -1066,10 +1097,11 @@ $controlPanel.Controls.Add($reportButton)
 $stopButton = New-Object System.Windows.Forms.Button
 $stopButton.Location = New-Object System.Drawing.Point(130, 65)
 $stopButton.Size = New-Object System.Drawing.Size(60, 30)
-$stopButton.Text = "⏹️ Stop"
+$stopButton.Text = "⏹ Stop"
 $stopButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
 $stopButton.ForeColor = [System.Drawing.Color]::White
 $stopButton.FlatStyle = "Flat"
+$stopButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 $stopButton.Enabled = $false
 $stopButton.Add_Click({
         $global:executionStopped = $true
@@ -1090,10 +1122,11 @@ $controlPanel.Controls.Add($stopButton)
 $pauseButton = New-Object System.Windows.Forms.Button
 $pauseButton.Location = New-Object System.Drawing.Point(195, 65)
 $pauseButton.Size = New-Object System.Drawing.Size(60, 30)
-$pauseButton.Text = "⏸️ Pausa"
+$pauseButton.Text = "⏸ Pausa"
 $pauseButton.BackColor = [System.Drawing.Color]::FromArgb(150, 100, 0)
 $pauseButton.ForeColor = [System.Drawing.Color]::White
 $pauseButton.FlatStyle = "Flat"
+$pauseButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 $pauseButton.Enabled = $false
 $pauseButton.Add_Click({
         $global:executionPaused = $true
@@ -1107,10 +1140,11 @@ $controlPanel.Controls.Add($pauseButton)
 $resumeButton = New-Object System.Windows.Forms.Button
 $resumeButton.Location = New-Object System.Drawing.Point(195, 65)
 $resumeButton.Size = New-Object System.Drawing.Size(60, 30)
-$resumeButton.Text = "▶️ Riprendi"
+$resumeButton.Text = "▶ Riprendi"
 $resumeButton.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
 $resumeButton.ForeColor = [System.Drawing.Color]::White
 $resumeButton.FlatStyle = "Flat"
+$resumeButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 $resumeButton.Enabled = $false
 $resumeButton.Add_Click({
         $global:executionPaused = $false
@@ -1127,21 +1161,22 @@ $global:resumeButton = $resumeButton
 
 $mainForm.Controls.Add($controlPanel)
 
-# Crea il pannello del log
+# Crea il pannello del log con design moderno
 $logPanel = New-Object System.Windows.Forms.GroupBox
-$logPanel.Location = New-Object System.Drawing.Point(830, 620)
-$logPanel.Size = New-Object System.Drawing.Size(340, 150)
+$logPanel.Location = New-Object System.Drawing.Point(850, 670)
+$logPanel.Size = New-Object System.Drawing.Size(400, 160)
 $logPanel.Text = "📋 Log"
-$logPanel.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+$logPanel.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
 $logPanel.ForeColor = [System.Drawing.Color]::White
+$logPanel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 
 $logTextBox = New-Object System.Windows.Forms.RichTextBox
 $logTextBox.Location = New-Object System.Drawing.Point(10, 20)
-$logTextBox.Size = New-Object System.Drawing.Size(320, 120)
+$logTextBox.Size = New-Object System.Drawing.Size(380, 130)
 $logTextBox.BackColor = [System.Drawing.Color]::FromArgb(20, 20, 20)
 $logTextBox.ForeColor = [System.Drawing.Color]::White
 $logTextBox.ReadOnly = $true
-$logTextBox.Font = New-Object System.Drawing.Font("Consolas", 8)
+$logTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
 $logTextBox.BorderStyle = "None"
 $logPanel.Controls.Add($logTextBox)
 
@@ -1150,17 +1185,18 @@ $global:logTextBox = $logTextBox
 
 $mainForm.Controls.Add($logPanel)
 
-# Crea il pannello della progress bar
+# Crea il pannello della progress bar con design moderno
 $progressPanel = New-Object System.Windows.Forms.GroupBox
-$progressPanel.Location = New-Object System.Drawing.Point(10, 780)
-$progressPanel.Size = New-Object System.Drawing.Size(1160, 50)
+$progressPanel.Location = New-Object System.Drawing.Point(10, 840)
+$progressPanel.Size = New-Object System.Drawing.Size(1240, 50)
 $progressPanel.Text = "📊 Progresso"
-$progressPanel.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+$progressPanel.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
 $progressPanel.ForeColor = [System.Drawing.Color]::White
+$progressPanel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
 $progressBar.Location = New-Object System.Drawing.Point(10, 20)
-$progressBar.Size = New-Object System.Drawing.Size(1140, 20)
+$progressBar.Size = New-Object System.Drawing.Size(1220, 20)
 $progressBar.Style = "Continuous"
 $progressBar.ForeColor = [System.Drawing.Color]::Lime
 $progressPanel.Controls.Add($progressBar)
@@ -1175,13 +1211,13 @@ foreach ($script in $scriptDefinitions) {
     $category = $script.Category
     $tabPage = $categoryTabs[$category]
 
-    # Crea un pannello per ogni script
+    # Crea un pannello per ogni script con design moderno
     $scriptPanel = New-Object System.Windows.Forms.Panel
     $scriptPanel.Size = New-Object System.Drawing.Size(280, 80)
     $scriptPanel.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 40)
     $scriptPanel.BorderStyle = "FixedSingle"
 
-    # Pulsante per eseguire il singolo script
+    # Pulsante per eseguire il singolo script con design moderno
     $scriptButton = New-Object System.Windows.Forms.Button
     $scriptButton.Location = New-Object System.Drawing.Point(10, 10)
     $scriptButton.Size = New-Object System.Drawing.Size(200, 25)
@@ -1189,6 +1225,7 @@ foreach ($script in $scriptDefinitions) {
     $scriptButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
     $scriptButton.ForeColor = [System.Drawing.Color]::White
     $scriptButton.FlatStyle = "Flat"
+    $scriptButton.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Regular)
     $scriptButton.Tag = $script.Name
     $scriptButton.Add_Click({
             $scriptName = $this.Tag
@@ -1200,12 +1237,13 @@ foreach ($script in $scriptDefinitions) {
     # Nome del controllo per riferimento
     $scriptButton.Name = "$($script.Name)Button"
 
-    # Checkbox per selezione multipla
+    # Checkbox per selezione multipla con design moderno
     $checkBox = New-Object System.Windows.Forms.CheckBox
     $checkBox.Location = New-Object System.Drawing.Point(220, 10)
     $checkBox.Size = New-Object System.Drawing.Size(50, 25)
     $checkBox.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 40)
     $checkBox.ForeColor = [System.Drawing.Color]::White
+    $checkBox.Font = New-Object System.Drawing.Font("Segoe UI", 8)
     $checkBox.Tag = $script.Name
     $checkBox.Name = "$($script.Name)CheckBox"
     $scriptPanel.Controls.Add($checkBox)
@@ -1245,14 +1283,17 @@ foreach ($category in $categories) {
     }
 }
 
-# Crea la barra di stato
+# Crea la barra di stato con design moderno
 $statusStrip = New-Object System.Windows.Forms.StatusStrip
-$statusStrip.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+$statusStrip.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
 $statusStrip.ForeColor = [System.Drawing.Color]::White
+$statusStrip.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$statusStrip.Height = 25
 
 $statusLabel = New-Object System.Windows.Forms.ToolStripStatusLabel
 $statusLabel.Text = "Pronto - Seleziona gli script da eseguire"
 $statusLabel.ForeColor = [System.Drawing.Color]::White
+$statusLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 $statusStrip.Items.Add($statusLabel)
 
 $mainForm.Controls.Add($statusStrip)
