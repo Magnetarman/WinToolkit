@@ -30,6 +30,8 @@ if (Test-Path $configPath) {
         $categories = Get-WinToolkitCategories
         $scriptDefinitions = Get-WinToolkitScripts
         $advancedSettings = Get-WinToolkitAdvancedSettings
+        $exportImportSettings = Get-WinToolkitExportImportSettings
+        $reportingSettings = Get-WinToolkitReportingSettings
 
         # Verifica configurazione
         $configErrors = Test-WinToolkitConfiguration
@@ -140,11 +142,388 @@ function Update-SystemInfoPanel {
     }
 }
 
+# Theme management functions
+function Get-CurrentTheme {
+    if ($guiConfig -and $guiConfig.Theme.CurrentTheme) {
+        return $guiConfig.Theme.CurrentTheme
+    }
+    return "Dark"
+}
+
+function Get-ThemeColors {
+    $currentTheme = Get-CurrentTheme
+    if ($guiConfig -and $guiConfig.Theme.$currentTheme) {
+        return $guiConfig.Theme.$currentTheme
+    }
+    # Fallback to dark theme colors
+    return @{
+        BackgroundColor    = [System.Drawing.Color]::FromArgb(45, 45, 48)
+        PanelColor         = [System.Drawing.Color]::FromArgb(30, 30, 30)
+        ButtonColor        = [System.Drawing.Color]::FromArgb(70, 70, 70)
+        AccentColor        = [System.Drawing.Color]::FromArgb(0, 120, 0)
+        TextColor          = [System.Drawing.Color]::White
+        TextColorSecondary = [System.Drawing.Color]::Yellow
+    }
+}
+
+function Apply-Theme {
+    param([string]$Theme = $null)
+
+    if ($Theme) {
+        $guiConfig.Theme.CurrentTheme = $Theme
+    }
+
+    $themeColors = Get-ThemeColors
+
+    # Applica i colori del tema a tutti i controlli
+    if ($global:mainForm) {
+        $global:mainForm.BackColor = $themeColors.BackgroundColor
+        $global:mainForm.ForeColor = $themeColors.TextColor
+    }
+
+    # Applica colori ai pannelli
+    $panels = @($global:systemInfoPanel, $global:controlPanel, $global:logPanel, $global:progressPanel)
+    foreach ($panel in $panels) {
+        if ($panel) {
+            $panel.BackColor = $themeColors.PanelColor
+            $panel.ForeColor = $themeColors.TextColor
+        }
+    }
+
+    # Applica colori ai pulsanti
+    $buttons = @($global:refreshButton, $global:executeButton, $global:selectAllButton, $global:deselectAllButton,
+        $global:openLogButton, $global:stopButton, $global:pauseButton, $global:resumeButton)
+    foreach ($button in $buttons) {
+        if ($button) {
+            $button.BackColor = $themeColors.ButtonColor
+            $button.ForeColor = $themeColors.TextColor
+        }
+    }
+
+    # Colori speciali per pulsanti di azione
+    if ($global:executeButton) { $global:executeButton.BackColor = $themeColors.AccentColor }
+    if ($global:stopButton) { $global:stopButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0) }
+    if ($global:pauseButton) { $global:pauseButton.BackColor = [System.Drawing.Color]::FromArgb(150, 100, 0) }
+
+    # Applica colori alle tab
+    if ($global:tabControl) {
+        $global:tabControl.BackColor = $themeColors.PanelColor
+        $global:tabControl.ForeColor = $themeColors.TextColor
+        foreach ($tabPage in $global:tabControl.Controls) {
+            $tabPage.BackColor = $themeColors.PanelColor
+            $tabPage.ForeColor = $themeColors.TextColor
+        }
+    }
+
+    # Aggiorna colori delle label di sistema
+    if ($global:systemInfoLabels) {
+        foreach ($label in $global:systemInfoLabels.Values) {
+            if ($label) {
+                $label.ForeColor = $themeColors.TextColor
+            }
+        }
+    }
+
+    # Aggiorna colori del log
+    if ($global:logTextBox) {
+        $global:logTextBox.BackColor = [System.Drawing.Color]::FromArgb(20, 20, 20)
+        $global:logTextBox.ForeColor = $themeColors.TextColor
+    }
+
+    # Aggiorna colori della progress bar
+    if ($global:progressBar) {
+        $global:progressBar.ForeColor = $themeColors.AccentColor
+    }
+
+    # Aggiorna colori della barra di stato
+    if ($global:statusStrip) {
+        $global:statusStrip.BackColor = $themeColors.PanelColor
+        $global:statusStrip.ForeColor = $themeColors.TextColor
+        foreach ($item in $global:statusStrip.Items) {
+            $item.ForeColor = $themeColors.TextColor
+        }
+    }
+
+    Write-StyledMessage -type 'Info' -text "Tema cambiato a: $Theme"
+}
+
+# Configuration Export/Import functions
+function Export-WinToolkitConfiguration {
+    param([string]$FilePath = $null)
+
+    if (-not $FilePath) {
+        $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        $fileName = "WinToolkit_Config_$timestamp.$($exportImportSettings.ConfigFileExtension)"
+        $FilePath = Join-Path $exportImportSettings.DefaultExportPath $fileName
+    }
+
+    try {
+        # Crea la directory se non esiste
+        $configDir = Split-Path $FilePath -Parent
+        if (-not (Test-Path $configDir)) {
+            New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+        }
+
+        # Raccogli la configurazione corrente
+        $exportConfig = @{
+            Version          = $guiConfig.Version
+            ExportDate       = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            Theme            = $guiConfig.Theme.CurrentTheme
+            ScriptSelections = @{}
+            SystemInfo       = Get-SystemInfo
+            AdvancedSettings = $advancedSettings
+        }
+
+        # Salva le selezioni degli script
+        foreach ($script in $scriptDefinitions) {
+            $checkBoxName = "$($script.Name)CheckBox"
+            $isChecked = $false
+            if ($global:categoryTabs[$script.Category].Controls[$checkBoxName]) {
+                $isChecked = $global:categoryTabs[$script.Category].Controls[$checkBoxName].Checked
+            }
+            $exportConfig.ScriptSelections[$script.Name] = $isChecked
+        }
+
+        # Esporta in JSON
+        $exportConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $FilePath -Encoding UTF8
+
+        Write-StyledMessage -type 'Success' -text "Configurazione esportata: $FilePath"
+        return $true
+    }
+    catch {
+        Write-StyledMessage -type 'Error' -text "Errore nell'esportazione: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Import-WinToolkitConfiguration {
+    param([string]$FilePath)
+
+    if (-not (Test-Path $FilePath)) {
+        Write-StyledMessage -type 'Error' -text "File di configurazione non trovato: $FilePath"
+        return $false
+    }
+
+    try {
+        # Importa la configurazione
+        $importConfig = Get-Content $FilePath -Encoding UTF8 | ConvertFrom-Json
+
+        # Backup configurazione corrente se abilitato
+        if ($exportImportSettings.BackupOnImport) {
+            $backupPath = $FilePath -replace "\.$($exportImportSettings.ConfigFileExtension)$", "_backup_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').$($exportImportSettings.ConfigFileExtension)"
+            Copy-Item $FilePath $backupPath
+            Write-StyledMessage -type 'Info' -text "Backup creato: $(Split-Path $backupPath -Leaf)"
+        }
+
+        # Applica il tema
+        if ($importConfig.Theme) {
+            Apply-Theme -Theme $importConfig.Theme
+        }
+
+        # Applica le selezioni degli script
+        if ($importConfig.ScriptSelections) {
+            foreach ($script in $scriptDefinitions) {
+                $checkBoxName = "$($script.Name)CheckBox"
+                if ($importConfig.ScriptSelections.ContainsKey($script.Name) -and $global:categoryTabs[$script.Category].Controls[$checkBoxName]) {
+                    $global:categoryTabs[$script.Category].Controls[$checkBoxName].Checked = $importConfig.ScriptSelections[$script.Name]
+                }
+            }
+        }
+
+        Write-StyledMessage -type 'Success' -text "Configurazione importata: $FilePath"
+        return $true
+    }
+    catch {
+        Write-StyledMessage -type 'Error' -text "Errore nell'importazione: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+# Reporting functions
+function New-WinToolkitReport {
+    param(
+        [string]$Format = "PDF",
+        [string]$OutputPath = $null,
+        [switch]$IncludeExecutionLog,
+        [switch]$IncludeSystemInfo,
+        [switch]$IncludeScriptDetails
+    )
+
+    if (-not $reportingSettings.Enabled) {
+        Write-StyledMessage -type 'Warning' -text "Reporting disabilitato nelle impostazioni"
+        return $false
+    }
+
+    try {
+        # Crea la directory dei report se non esiste
+        if (-not $OutputPath) {
+            $reportDir = $reportingSettings.ReportDirectory
+            if (-not (Test-Path $reportDir)) {
+                New-Item -ItemType Directory -Path $reportDir -Force | Out-Null
+            }
+            $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+            $extension = $Format.ToLower()
+            $fileName = "$($reportingSettings.ReportFilePrefix)$timestamp.$extension"
+            $OutputPath = Join-Path $reportDir $fileName
+        }
+
+        # Raccogli i dati del report
+        $reportData = @{
+            GeneratedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            Version       = $guiConfig.Version
+            Format        = $Format
+        }
+
+        if ($IncludeSystemInfo -or $reportingSettings.IncludeSystemInfo) {
+            $reportData.SystemInfo = Get-SystemInfo
+        }
+
+        if ($IncludeExecutionLog -or $reportingSettings.IncludeExecutionLog) {
+            $reportData.ExecutionLog = $global:executionHistory
+        }
+
+        if ($IncludeScriptDetails -or $reportingSettings.IncludeScriptDetails) {
+            $reportData.ScriptDetails = $scriptDefinitions
+            $reportData.ScriptSelections = @{}
+            foreach ($script in $scriptDefinitions) {
+                $checkBoxName = "$($script.Name)CheckBox"
+                $isChecked = $false
+                if ($global:categoryTabs[$script.Category].Controls[$checkBoxName]) {
+                    $isChecked = $global:categoryTabs[$script.Category].Controls[$checkBoxName].Checked
+                }
+                $reportData.ScriptSelections[$script.Name] = $isChecked
+            }
+        }
+
+        switch ($Format) {
+            "PDF" {
+                return Export-ReportToPDF -Data $reportData -OutputPath $OutputPath
+            }
+            "Excel" {
+                return Export-ReportToExcel -Data $reportData -OutputPath $OutputPath
+            }
+            default {
+                Write-StyledMessage -type 'Error' -text "Formato non supportato: $Format"
+                return $false
+            }
+        }
+    }
+    catch {
+        Write-StyledMessage -type 'Error' -text "Errore nella generazione del report: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Export-ReportToPDF {
+    param($Data, $OutputPath)
+
+    try {
+        # Crea un documento PDF semplice usando iTextSharp se disponibile
+        # Altrimenti crea un file HTML che può essere convertito in PDF
+        $htmlContent = @"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WinToolkit Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        .section { margin-bottom: 20px; }
+        .system-info { background-color: #f9f9f9; padding: 10px; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>WinToolkit Report</h1>
+        <p>Generato il: $($Data.GeneratedDate)</p>
+        <p>Versione: $($Data.Version)</p>
+    </div>
+
+    <div class="section">
+        <h2>Informazioni di Sistema</h2>
+        <div class="system-info">
+            <table>
+                <tr><th>Prodotto</th><td>$($Data.SystemInfo.ProductName)</td></tr>
+                <tr><th>Build</th><td>$($Data.SystemInfo.BuildNumber)</td></tr>
+                <tr><th>Architettura</th><td>$($Data.SystemInfo.Architecture)</td></tr>
+                <tr><th>Nome Computer</th><td>$($Data.SystemInfo.ComputerName)</td></tr>
+                <tr><th>RAM Totale</th><td>$($Data.SystemInfo.TotalRAM) GB</td></tr>
+                <tr><th>Spazio Disco</th><td>$($Data.SystemInfo.FreePercentage)% libero ($($Data.SystemInfo.TotalDisk) GB)</td></tr>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
+"@
+
+        $htmlContent | Out-File -FilePath $OutputPath.Replace(".pdf", ".html") -Encoding UTF8
+
+        Write-StyledMessage -type 'Success' -text "Report HTML creato: $($OutputPath.Replace('.pdf', '.html'))"
+        Write-StyledMessage -type 'Info' -text "Per convertire in PDF, apri il file HTML e stampalo come PDF"
+
+        return $true
+    }
+    catch {
+        Write-StyledMessage -type 'Error' -text "Errore nella creazione PDF: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Export-ReportToExcel {
+    param($Data, $OutputPath)
+
+    try {
+        # Crea un file CSV come alternativa semplice a Excel
+        $csvContent = @"
+"WinToolkit Report"
+"Generato il:",$($Data.GeneratedDate)
+"Versione:",$($Data.Version)
+""
+"Informazioni di Sistema"
+"Prodotto:",$($Data.SystemInfo.ProductName)
+"Build:",$($Data.SystemInfo.BuildNumber)
+"Architettura:",$($Data.SystemInfo.Architecture)
+"Nome Computer:",$($Data.SystemInfo.ComputerName)
+"RAM Totale (GB):",$($Data.SystemInfo.TotalRAM)
+"Spazio Disco Libero (%):",$($Data.SystemInfo.FreePercentage)
+"Spazio Disco Totale (GB):",$($Data.SystemInfo.TotalDisk)
+"@
+
+        $csvContent | Out-File -FilePath $OutputPath.Replace(".xlsx", ".csv") -Encoding UTF8
+
+        Write-StyledMessage -type 'Success' -text "Report CSV creato: $($OutputPath.Replace('.xlsx', '.csv'))"
+        Write-StyledMessage -type 'Info' -text "Per convertire in Excel, apri il file CSV con Microsoft Excel"
+
+        return $true
+    }
+    catch {
+        Write-StyledMessage -type 'Error' -text "Errore nella creazione Excel: $($_.Exception.Message)"
+        return $false
+    }
+}
+
 # Script execution functions
 function Execute-Script {
     param([string]$ScriptName, [string]$Description)
 
+    $startTime = Get-Date
     Write-StyledMessage -type 'Info' -text "Avvio '$Description'..."
+
+    # Aggiungi alla cronologia
+    $historyEntry = @{
+        ScriptName  = $ScriptName
+        Description = $Description
+        StartTime   = $startTime
+        EndTime     = $null
+        Success     = $false
+        Output      = ""
+        ErrorOutput = ""
+        ExitCode    = $null
+    }
+    $global:executionHistory.Add($historyEntry)
 
     try {
         # Crea un nuovo processo PowerShell per eseguire lo script
@@ -165,15 +544,25 @@ function Execute-Script {
         $errorOutput = $process.StandardError.ReadToEnd()
         $process.WaitForExit()
 
+        $endTime = Get-Date
+        $duration = $endTime - $startTime
+
+        # Aggiorna la cronologia
+        $historyEntry.EndTime = $endTime
+        $historyEntry.Success = ($process.ExitCode -eq 0)
+        $historyEntry.Output = $output
+        $historyEntry.ErrorOutput = $errorOutput
+        $historyEntry.ExitCode = $process.ExitCode
+
         if ($process.ExitCode -eq 0) {
-            Write-StyledMessage -type 'Success' -text "Completato: '$Description'"
+            Write-StyledMessage -type 'Success' -text "Completato: '$Description' ($([Math]::Round($duration.TotalSeconds, 2))s)"
             if ($output) {
                 Write-StyledMessage -type 'Info' -text "Output: $output"
             }
             return $true
         }
         else {
-            Write-StyledMessage -type 'Error' -text "Errore in '$Description' (Exit Code: $($process.ExitCode))"
+            Write-StyledMessage -type 'Error' -text "Errore in '$Description' (Exit Code: $($process.ExitCode)) - Durata: $([Math]::Round($duration.TotalSeconds, 2))s"
             if ($errorOutput) {
                 Write-StyledMessage -type 'Error' -text "Error Details: $errorOutput"
             }
@@ -181,7 +570,17 @@ function Execute-Script {
         }
     }
     catch {
-        Write-StyledMessage -type 'Error' -text "Errore nell'esecuzione di '$Description': $($_.Exception.Message)"
+        $endTime = Get-Date
+        $duration = $endTime - $startTime
+
+        # Aggiorna la cronologia con l'errore
+        $historyEntry.EndTime = $endTime
+        $historyEntry.Success = $false
+        $historyEntry.Output = ""
+        $historyEntry.ErrorOutput = $_.Exception.Message
+        $historyEntry.ExitCode = -1
+
+        Write-StyledMessage -type 'Error' -text "Errore nell'esecuzione di '$Description': $($_.Exception.Message) - Durata: $([Math]::Round($duration.TotalSeconds, 2))s"
         return $false
     }
 }
@@ -191,6 +590,19 @@ function Execute-MultipleScripts {
 
     $totalScripts = $Scripts.Count
     $completedScripts = 0
+    $startTime = Get-Date
+
+    # Aggiungi sessione alla cronologia
+    $sessionEntry = @{
+        Type             = "Session"
+        StartTime        = $startTime
+        EndTime          = $null
+        TotalScripts     = $totalScripts
+        CompletedScripts = 0
+        Success          = $false
+        Scripts          = $Scripts
+    }
+    $global:executionHistory.Add($sessionEntry)
 
     # Inizializza variabili di controllo
     $global:executionStopped = $false
@@ -248,11 +660,19 @@ function Execute-MultipleScripts {
         $global:mainForm.Refresh()
     }
 
+    $endTime = Get-Date
+    $duration = $endTime - $startTime
+
+    # Aggiorna la sessione nella cronologia
+    $sessionEntry.EndTime = $endTime
+    $sessionEntry.CompletedScripts = $completedScripts
+    $sessionEntry.Success = -not $global:executionStopped
+
     if ($global:executionStopped) {
-        Write-StyledMessage -type 'Warning' -text "Esecuzione interrotta! ($completedScripts/$totalScripts script eseguiti)"
+        Write-StyledMessage -type 'Warning' -text "Esecuzione interrotta! ($completedScripts/$totalScripts script eseguiti) - Durata totale: $([Math]::Round($duration.TotalSeconds, 2))s"
     }
     else {
-        Write-StyledMessage -type 'Success' -text "Esecuzione batch completata! ($completedScripts/$totalScripts script eseguiti)"
+        Write-StyledMessage -type 'Success' -text "Esecuzione batch completata! ($completedScripts/$totalScripts script eseguiti) - Durata totale: $([Math]::Round($duration.TotalSeconds, 2))s"
     }
 }
 
@@ -287,9 +707,10 @@ $mainForm = New-Object System.Windows.Forms.Form
 $mainForm.Text = "WinToolkit-GUI by MagnetarMan"
 $mainForm.Size = New-Object System.Drawing.Size(1200, 800)
 $mainForm.StartPosition = "CenterScreen"
-$mainForm.BackColor = [System.Drawing.Color]::FromArgb(45, 45, 48)
-$mainForm.ForeColor = [System.Drawing.Color]::White
 $mainForm.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+
+# Inizializza il tema
+Apply-Theme
 
 # Crea il TabControl principale
 $tabControl = New-Object System.Windows.Forms.TabControl
@@ -361,6 +782,7 @@ $controlPanel.ForeColor = [System.Drawing.Color]::White
 $global:executionPaused = $false
 $global:executionStopped = $false
 $global:currentJob = $null
+$global:executionHistory = [System.Collections.Generic.List[object]]::new()
 
 # Pulsante per aggiornare informazioni di sistema
 $refreshButton = New-Object System.Windows.Forms.Button
@@ -494,6 +916,152 @@ $openLogButton.Add_Click({
         }
     })
 $controlPanel.Controls.Add($openLogButton)
+
+# Pulsante per cambiare tema
+$themeButton = New-Object System.Windows.Forms.Button
+$themeButton.Location = New-Object System.Drawing.Point(15, 105)
+$themeButton.Size = New-Object System.Drawing.Size(100, 30)
+$currentTheme = Get-CurrentTheme
+$themeButton.Text = "🌙 $currentTheme"
+$themeButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
+$themeButton.ForeColor = [System.Drawing.Color]::White
+$themeButton.FlatStyle = "Flat"
+$themeButton.Add_Click({
+        $currentTheme = Get-CurrentTheme
+        $newTheme = if ($currentTheme -eq "Dark") { "Light" } else { "Dark" }
+        Apply-Theme -Theme $newTheme
+        $this.Text = "🌙 $newTheme"
+    })
+$controlPanel.Controls.Add($themeButton)
+
+# Pulsante per esportare configurazione
+$exportConfigButton = New-Object System.Windows.Forms.Button
+$exportConfigButton.Location = New-Object System.Drawing.Point(130, 105)
+$exportConfigButton.Size = New-Object System.Drawing.Size(100, 30)
+$exportConfigButton.Text = "📤 Esporta"
+$exportConfigButton.BackColor = [System.Drawing.Color]::FromArgb(0, 100, 150)
+$exportConfigButton.ForeColor = [System.Drawing.Color]::White
+$exportConfigButton.FlatStyle = "Flat"
+$exportConfigButton.Add_Click({
+        $saveDialog = New-Object System.Windows.Forms.SaveFileDialog
+        $saveDialog.Filter = "WinToolkit Config Files (*.$($exportImportSettings.ConfigFileExtension))|*.$($exportImportSettings.ConfigFileExtension)"
+        $saveDialog.DefaultExt = $exportImportSettings.ConfigFileExtension
+        $saveDialog.InitialDirectory = $exportImportSettings.DefaultExportPath
+        $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        $saveDialog.FileName = "WinToolkit_Config_$timestamp"
+
+        if ($saveDialog.ShowDialog() -eq "OK") {
+            Export-WinToolkitConfiguration -FilePath $saveDialog.FileName
+        }
+    })
+$controlPanel.Controls.Add($exportConfigButton)
+
+# Pulsante per importare configurazione
+$importConfigButton = New-Object System.Windows.Forms.Button
+$importConfigButton.Location = New-Object System.Drawing.Point(245, 105)
+$importConfigButton.Size = New-Object System.Drawing.Size(100, 30)
+$importConfigButton.Text = "📥 Importa"
+$importConfigButton.BackColor = [System.Drawing.Color]::FromArgb(150, 100, 0)
+$importConfigButton.ForeColor = [System.Drawing.Color]::White
+$importConfigButton.FlatStyle = "Flat"
+$importConfigButton.Add_Click({
+        $openDialog = New-Object System.Windows.Forms.OpenFileDialog
+        $openDialog.Filter = "WinToolkit Config Files (*.$($exportImportSettings.ConfigFileExtension))|*.$($exportImportSettings.ConfigFileExtension)"
+        $openDialog.InitialDirectory = $exportImportSettings.DefaultExportPath
+
+        if ($openDialog.ShowDialog() -eq "OK") {
+            $result = [System.Windows.Forms.MessageBox]::Show(
+                "Importare la configurazione? Questo sovrascriverà le selezioni attuali.",
+                "Conferma importazione",
+                "YesNo",
+                "Question"
+            )
+
+            if ($result -eq "Yes") {
+                Import-WinToolkitConfiguration -FilePath $openDialog.FileName
+            }
+        }
+    })
+$controlPanel.Controls.Add($importConfigButton)
+
+# Pulsante per generare report
+$reportButton = New-Object System.Windows.Forms.Button
+$reportButton.Location = New-Object System.Windows.Forms.Button
+$reportButton.Location = New-Object System.Drawing.Point(15, 145)
+$reportButton.Size = New-Object System.Drawing.Size(100, 30)
+$reportButton.Text = "📊 Report"
+$reportButton.BackColor = [System.Drawing.Color]::FromArgb(100, 50, 100)
+$reportButton.ForeColor = [System.Drawing.Color]::White
+$reportButton.FlatStyle = "Flat"
+$reportButton.Add_Click({
+        $reportDialog = New-Object System.Windows.Forms.Form
+        $reportDialog.Text = "Genera Report"
+        $reportDialog.Size = New-Object System.Drawing.Size(300, 200)
+        $reportDialog.StartPosition = "CenterParent"
+        $reportDialog.BackColor = $global:mainForm.BackColor
+        $reportDialog.ForeColor = $global:mainForm.ForeColor
+
+        # Radio buttons per formato
+        $pdfRadio = New-Object System.Windows.Forms.RadioButton
+        $pdfRadio.Location = New-Object System.Drawing.Point(20, 20)
+        $pdfRadio.Size = New-Object System.Drawing.Size(80, 20)
+        $pdfRadio.Text = "PDF"
+        $pdfRadio.Checked = $true
+
+        $excelRadio = New-Object System.Windows.Forms.RadioButton
+        $excelRadio.Location = New-Object System.Drawing.Point(20, 45)
+        $excelRadio.Size = New-Object System.Drawing.Size(80, 20)
+        $excelRadio.Text = "Excel"
+
+        # Checkboxes per opzioni
+        $systemInfoCheck = New-Object System.Windows.Forms.CheckBox
+        $systemInfoCheck.Location = New-Object System.Drawing.Point(120, 20)
+        $systemInfoCheck.Size = New-Object System.Drawing.Size(150, 20)
+        $systemInfoCheck.Text = "Includi Info Sistema"
+        $systemInfoCheck.Checked = $true
+
+        $executionLogCheck = New-Object System.Windows.Forms.CheckBox
+        $executionLogCheck.Location = New-Object System.Drawing.Point(120, 45)
+        $executionLogCheck.Size = New-Object System.Drawing.Size(150, 20)
+        $executionLogCheck.Text = "Includi Log Esecuzione"
+        $executionLogCheck.Checked = $true
+
+        $scriptDetailsCheck = New-Object System.Windows.Forms.CheckBox
+        $scriptDetailsCheck.Location = New-Object System.Drawing.Point(120, 70)
+        $scriptDetailsCheck.Size = New-Object System.Drawing.Size(150, 20)
+        $scriptDetailsCheck.Text = "Includi Dettagli Script"
+        $scriptDetailsCheck.Checked = $true
+
+        # Pulsanti
+        $generateButton = New-Object System.Windows.Forms.Button
+        $generateButton.Location = New-Object System.Drawing.Point(50, 110)
+        $generateButton.Size = New-Object System.Drawing.Size(80, 30)
+        $generateButton.Text = "Genera"
+        $generateButton.Add_Click({
+                $format = if ($pdfRadio.Checked) { "PDF" } else { "Excel" }
+                $includeSystemInfo = $systemInfoCheck.Checked
+                $includeExecutionLog = $executionLogCheck.Checked
+                $includeScriptDetails = $scriptDetailsCheck.Checked
+
+                $reportDialog.Close()
+                $reportDialog.Dispose()
+
+                New-WinToolkitReport -Format $format -IncludeSystemInfo:$includeSystemInfo -IncludeExecutionLog:$includeExecutionLog -IncludeScriptDetails:$includeScriptDetails
+            })
+
+        $cancelButton = New-Object System.Windows.Forms.Button
+        $cancelButton.Location = New-Object System.Drawing.Point(150, 110)
+        $cancelButton.Size = New-Object System.Drawing.Size(80, 30)
+        $cancelButton.Text = "Annulla"
+        $cancelButton.Add_Click({
+                $reportDialog.Close()
+                $reportDialog.Dispose()
+            })
+
+        $reportDialog.Controls.AddRange(@($pdfRadio, $excelRadio, $systemInfoCheck, $executionLogCheck, $scriptDetailsCheck, $generateButton, $cancelButton))
+        $reportDialog.ShowDialog()
+    })
+$controlPanel.Controls.Add($reportButton)
 
 # Pulsante Stop esecuzione
 $stopButton = New-Object System.Windows.Forms.Button

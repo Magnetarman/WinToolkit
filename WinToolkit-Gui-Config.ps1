@@ -15,12 +15,23 @@ $config = @{
     WindowTitle = "WinToolkit-GUI by MagnetarMan"
     WindowSize  = @{ Width = 1200; Height = 800 }
     Theme       = @{
-        BackgroundColor    = [System.Drawing.Color]::FromArgb(45, 45, 48)
-        PanelColor         = [System.Drawing.Color]::FromArgb(30, 30, 30)
-        ButtonColor        = [System.Drawing.Color]::FromArgb(70, 70, 70)
-        AccentColor        = [System.Drawing.Color]::FromArgb(0, 120, 0)
-        TextColor          = [System.Drawing.Color]::White
-        TextColorSecondary = [System.Drawing.Color]::Yellow
+        CurrentTheme = "Dark"  # "Dark" or "Light"
+        Dark         = @{
+            BackgroundColor    = [System.Drawing.Color]::FromArgb(45, 45, 48)
+            PanelColor         = [System.Drawing.Color]::FromArgb(30, 30, 30)
+            ButtonColor        = [System.Drawing.Color]::FromArgb(70, 70, 70)
+            AccentColor        = [System.Drawing.Color]::FromArgb(0, 120, 0)
+            TextColor          = [System.Drawing.Color]::White
+            TextColorSecondary = [System.Drawing.Color]::Yellow
+        }
+        Light        = @{
+            BackgroundColor    = [System.Drawing.Color]::FromArgb(240, 240, 240)
+            PanelColor         = [System.Drawing.Color]::FromArgb(255, 255, 255)
+            ButtonColor        = [System.Drawing.Color]::FromArgb(220, 220, 220)
+            AccentColor        = [System.Drawing.Color]::FromArgb(0, 150, 0)
+            TextColor          = [System.Drawing.Color]::Black
+            TextColorSecondary = [System.Drawing.Color]::FromArgb(0, 100, 0)
+        }
     }
 }
 
@@ -183,6 +194,27 @@ $advancedSettings = @{
         RequireAdministrator    = $false
         CheckInternetConnection = $true
     }
+    ExportImport  = @{
+        ConfigDirectory     = "$env:LOCALAPPDATA\WinToolkit\configs"
+        DefaultExportPath   = "$env:USERPROFILE\Desktop"
+        AutoSaveOnExit      = $false
+        BackupOnImport      = $true
+        MaxConfigFiles      = 50
+        ConfigFileExtension = "wtkconfig"
+    }
+    Reporting     = @{
+        Enabled                    = $true
+        ReportDirectory            = "$env:LOCALAPPDATA\WinToolkit\reports"
+        DefaultFormat              = "PDF"  # PDF, Excel, or Both
+        IncludeSystemInfo          = $true
+        IncludeExecutionLog        = $true
+        IncludeScriptDetails       = $true
+        IncludeTimestamps          = $true
+        IncludePerformanceData     = $true
+        AutoGenerateAfterExecution = $false
+        MaxReportFiles             = 100
+        ReportFilePrefix           = "WinToolkit_Report_"
+    }
 }
 
 # Funzione per ottenere la configurazione
@@ -203,6 +235,22 @@ function Get-WinToolkitScripts {
 # Funzione per ottenere le impostazioni avanzate
 function Get-WinToolkitAdvancedSettings {
     return $advancedSettings
+}
+
+# Funzione per ottenere le impostazioni di export/import
+function Get-WinToolkitExportImportSettings {
+    return $advancedSettings.ExportImport
+}
+
+# Funzione per ottenere le impostazioni di reporting
+function Get-WinToolkitReportingSettings {
+    return $advancedSettings.Reporting
+}
+
+# Funzione per ottenere i colori del tema corrente
+function Get-WinToolkitCurrentTheme {
+    $currentTheme = $config.Theme.CurrentTheme
+    return $config.Theme.$currentTheme
 }
 
 # Funzione per validare la configurazione
@@ -230,5 +278,5 @@ function Test-WinToolkitConfiguration {
 
 # Esporta le configurazioni se caricato come modulo
 if ($MyInvocation.ScriptName) {
-    Export-ModuleMember -Function Get-WinToolkitConfig, Get-WinToolkitCategories, Get-WinToolkitScripts, Get-WinToolkitAdvancedSettings, Test-WinToolkitConfiguration
+    Export-ModuleMember -Function Get-WinToolkitConfig, Get-WinToolkitCategories, Get-WinToolkitScripts, Get-WinToolkitAdvancedSettings, Get-WinToolkitExportImportSettings, Get-WinToolkitReportingSettings, Get-WinToolkitCurrentTheme, Test-WinToolkitConfiguration
 }
