@@ -244,7 +244,7 @@ function Apply-Theme {
         }
     }
 
-    Write-StyledMessage -type 'Info' -text "Tema cambiato a: $Theme"
+    Write-StyledMessage -type 'Info' -text "Tema cambiato a: $($Theme)"
 }
 
 # Configuration Export/Import functions
@@ -986,7 +986,6 @@ $controlPanel.Controls.Add($importConfigButton)
 
 # Pulsante per generare report
 $reportButton = New-Object System.Windows.Forms.Button
-$reportButton.Location = New-Object System.Windows.Forms.Button
 $reportButton.Location = New-Object System.Drawing.Point(15, 145)
 $reportButton.Size = New-Object System.Drawing.Size(100, 30)
 $reportButton.Text = "📊 Report"
@@ -1231,13 +1230,17 @@ foreach ($category in $categories) {
     $categoryScripts = $scriptDefinitions | Where-Object { $_.Category -eq $category }
 
     foreach ($script in $categoryScripts) {
-        $scriptPanel = $tabPage.Controls["$($script.Name)Button"].Parent
-        $scriptPanel.Location = New-Object System.Drawing.Point($xPos, $yPos)
+        $buttonName = "$($script.Name)Button"
+        if ($tabPage.Controls.ContainsKey($buttonName)) {
+            $scriptButton = $tabPage.Controls[$buttonName]
+            $scriptPanel = $scriptButton.Parent
+            $scriptPanel.Location = New-Object System.Drawing.Point($xPos, $yPos)
 
-        $xPos += 290
-        if ($xPos + 280 -gt $tabPage.Width) {
-            $xPos = 10
-            $yPos += 90
+            $xPos += 290
+            if ($xPos + 280 -gt $tabPage.Width) {
+                $xPos = 10
+                $yPos += 90
+            }
         }
     }
 }
@@ -1253,7 +1256,6 @@ $statusLabel.ForeColor = [System.Drawing.Color]::White
 $statusStrip.Items.Add($statusLabel)
 
 $mainForm.Controls.Add($statusStrip)
-$mainForm.MainStatusStrip = $statusStrip
 
 # Salva i riferimenti globali
 $global:mainForm = $mainForm
