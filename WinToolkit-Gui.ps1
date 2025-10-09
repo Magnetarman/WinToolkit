@@ -21,9 +21,6 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName Microsoft.VisualBasic
 
-# Inizializza Nerd Fonts
-Initialize-NerdFonts
-
 # Carica la configurazione se disponibile
 $configPath = Join-Path $PSScriptRoot "WinToolkit-Gui-Config.ps1"
 if (Test-Path $configPath) {
@@ -831,6 +828,9 @@ $scriptDefinitions = @(
     @{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Category = 'Driver & Gaming'; Icon = '🎯' },
     @{ Name = 'SetRustDesk'; Description = 'Setting RustDesk'; Category = 'Supporto'; Icon = '🖥' }
 )
+
+# Inizializza Nerd Fonts (dopo la definizione delle funzioni)
+Initialize-NerdFonts
 
 # Crea la finestra principale
 $mainForm = New-Object System.Windows.Forms.Form
