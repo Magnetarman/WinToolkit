@@ -73,26 +73,54 @@ $versionMap = @{
 }
 
 # Utility Functions
-function Write-StyledMessage {
-    param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
-    $config = @{
-        Success = @{ Icon = '✓'; Color = 'Green' }
-        Warning = @{ Icon = '⚠'; Color = 'Yellow' }
-        Error   = @{ Icon = '✗'; Color = 'Red' }
-        Info    = @{ Icon = 'ℹ'; Color = 'Cyan' }
-    }
+# Centralized Update-Log Function (Specification Compliant)
+function Update-Log {
+    param(
+        [string]$Message,
+        [int]$Percentage = -1,
+        [ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$Type = 'Info'
+    )
 
     $timestamp = Get-Date -Format "HH:mm:ss"
-    $cleanText = $text -replace '^(✓|⚠|✗|ℹ|🔥|▶|⚙|🧹|📦|📋|📜|🔒|💾|⬇|🔧|⚡|🖼|🌐|🪟|🔄|🗂|📁|🖨|📄|🗑|💭|⏸|▶|💡|⏰|🎉|💻|📊|🛡|🔧|🔑|📦|🧹|ℹ|⚙|▶)\s*', ''
-    $message = "[$timestamp] $($config[$type].Icon) $cleanText"
+    $typeIcons = @{
+        Success = '✓'
+        Warning = '⚠'
+        Error   = '✗'
+        Info    = 'ℹ'
+    }
 
+    $typeColors = @{
+        Success = 'Green'
+        Warning = 'Yellow'
+        Error   = 'Red'
+        Info    = 'Cyan'
+    }
+
+    $icon = $typeIcons[$Type]
+    $color = $typeColors[$Type]
+    $logEntry = "[$timestamp] $icon $Message"
+
+    # Update log textbox if available
     if ($global:logTextBox) {
-        $global:logTextBox.AppendText("$message`r`n")
+        $global:logTextBox.AppendText("$logEntry`r`n")
         $global:logTextBox.SelectionStart = $global:logTextBox.Text.Length
         $global:logTextBox.ScrollToCaret()
     }
 
-    Write-Host $message -ForegroundColor $config[$type].Color
+    # Update progress bar if percentage specified
+    if ($Percentage -ge 0 -and $global:progressBar) {
+        $global:progressBar.Value = $Percentage
+        $global:mainForm.Refresh()
+    }
+
+    # Console output
+    Write-Host $logEntry -ForegroundColor $color
+}
+
+function Write-StyledMessage {
+    param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
+    $cleanText = $text -replace '^(✓|⚠|✗|ℹ|🔥|▶|⚙|🧹|📦|📋|📜|🔒|💾|⬇|🔧|⚡|🖼|🌐|🪟|🔄|🗂|📁|🖨|📄|🗑|💭|⏸|▶|💡|⏰|🎉|💻|📊|🛡|🔧|🔑|📦|🧹|ℹ|⚙|▶)\s*', ''
+    Update-Log -Message $cleanText -Type $type
 }
 
 function Get-WindowsVersion {
@@ -150,21 +178,41 @@ function Update-SystemInfoPanel {
     }
 }
 
-# New Dark Mode Minimalist Color Scheme (Specification Compliant)
+# WinToolkit-GUI Color Scheme (Specification Compliant)
 $WinToolkitColors = @{
-    BackgroundColor      = [System.Drawing.ColorTranslator]::FromHtml("#2D2D30")    # Dark Gray Background
-    PanelColor           = [System.Drawing.ColorTranslator]::FromHtml("#2D2D30")          # Panel Background
-    TextColor            = [System.Drawing.Color]::WhiteSmoke                             # Primary Text
-    AccentColor          = [System.Drawing.ColorTranslator]::FromHtml("#0078D4")         # Modern Blue Accent
-    ButtonColor          = [System.Drawing.ColorTranslator]::FromHtml("#2D2D30")         # Button Background
-    ButtonSecondaryColor = [System.Drawing.ColorTranslator]::FromHtml("#444444") # Secondary Button
-    LogBackgroundColor   = [System.Drawing.ColorTranslator]::FromHtml("#1E1E1E")  # Darker Log Background
-    SidebarColor         = [System.Drawing.ColorTranslator]::FromHtml("#252526")       # VS Code-like Sidebar
-    BorderColor          = [System.Drawing.ColorTranslator]::FromHtml("#3E3E42")        # Subtle Border
+    # Colori di Base
+    BackgroundColor      = [System.Drawing.ColorTranslator]::FromHtml("#2D2D30")    # Sfondo principale
+    SidebarColor         = [System.Drawing.ColorTranslator]::FromHtml("#252526")    # Sfondo navigazione
+    LogBackgroundColor   = [System.Drawing.ColorTranslator]::FromHtml("#1E1E1E")    # Sfondo log
+
+    # Colori di Testo
+    TextColor            = [System.Drawing.Color]::WhiteSmoke                       # Testo principale
+    TextSecondaryColor   = [System.Drawing.ColorTranslator]::FromHtml("#CCCCCC")   # Testo secondario
+    TextMutedColor       = [System.Drawing.Color]::LightGray                       # Testo descrizione
+
+    # Colori di Accento
+    AccentColor          = [System.Drawing.ColorTranslator]::FromHtml("#0078D4")    # Azioni primarie
+    SuccessColor         = [System.Drawing.Color]::FromArgb(0, 150, 0)             # Operazioni riuscite
+    WarningColor         = [System.Drawing.Color]::FromArgb(150, 100, 0)           # Avvertenze
+    ErrorColor           = [System.Drawing.Color]::FromArgb(150, 0, 0)             # Errori
+
+    # Colori Pulsanti
+    ButtonPrimaryColor   = [System.Drawing.ColorTranslator]::FromHtml("#0078D4")    # Pulsanti primari
+    ButtonSecondaryColor = [System.Drawing.ColorTranslator]::FromHtml("#444444")   # Pulsanti secondari
+    ButtonDisabledColor  = [System.Drawing.ColorTranslator]::FromHtml("#333333")   # Pulsanti disabilitati
+
+    # Colori Speciali
+    BorderColor          = [System.Drawing.ColorTranslator]::FromHtml("#3E3E42")    # Bordi sottili
+    HoverColor           = [System.Drawing.ColorTranslator]::FromHtml("#404040")   # Effetto hover
 }
 
-# Typography (Specification Compliant)
-$WinToolkitFont = New-Object System.Drawing.Font("Segoe UI", 9.75)
+# Typography Specification (Segoe UI Required)
+$WinToolkitTypography = @{
+    PrimaryFont = New-Object System.Drawing.Font("Segoe UI", 9.75)
+    LogFont     = New-Object System.Drawing.Font("Consolas", 9)
+    HeadingFont = New-Object System.Drawing.Font("Segoe UI", 9.75, [System.Drawing.FontStyle]::Bold)
+    SmallFont   = New-Object System.Drawing.Font("Segoe UI", 8.25)
+}
 
 # Nerd Fonts Management Functions
 function Test-NerdFontsInstalled {
@@ -852,7 +900,7 @@ $mainForm.Text = "WinToolkit-GUI by MagnetarMan"
 $mainForm.Size = New-Object System.Drawing.Size(1000, 700)
 $mainForm.MinimumSize = New-Object System.Drawing.Size(800, 600)
 $mainForm.StartPosition = "CenterScreen"
-$mainForm.Font = $WinToolkitFont
+$mainForm.Font = $WinToolkitTypography.PrimaryFont
 $mainForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Sizable
 $mainForm.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($PSCommandPath)
 $mainForm.BackColor = $WinToolkitColors.BackgroundColor
@@ -887,26 +935,27 @@ $mainForm.Controls.Add($sidebarPanel)
 $categories = @("Operazioni Preliminari", "Windows & Office", "Driver & Gaming", "Supporto")
 $categoryTabs = @{}
 
-# Crea i pulsanti di navigazione nella sidebar
+# Crea i pulsanti di navigazione nella sidebar (Specification Compliant)
 $sidebarButtons = @{}
 $yPos = 20
 
 foreach ($category in $categories) {
     $button = New-Object System.Windows.Forms.Button
     $button.Location = New-Object System.Drawing.Point(10, $yPos)
-    $button.Size = New-Object System.Drawing.Size(160, 40)
+    $button.Size = New-Object System.Drawing.Size(160, 45)
     $button.Text = $category
     $button.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $button.FlatAppearance.BorderSize = 0
     $button.BackColor = $WinToolkitColors.SidebarColor
     $button.ForeColor = $WinToolkitColors.TextColor
-    $button.Font = $WinToolkitFont
+    $button.Font = $WinToolkitTypography.PrimaryFont
     $button.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
     $button.Tag = $category
 
-    # Event handler per il cambio sezione
+    # Event handler per il cambio modulo
     $button.Add_Click({
-            $categoryName = $this.Tag
-            Load-Section -SectionName $categoryName
+            $moduleName = $this.Tag
+            Load-Module -ModuleName $moduleName
         })
 
     $sidebarPanel.Controls.Add($button)
@@ -922,7 +971,7 @@ $systemInfoPanel.Text = "🖥 Sistema"
 $systemInfoPanel.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
 $systemInfoPanel.BackColor = $WinToolkitColors.SidebarColor
 $systemInfoPanel.ForeColor = $WinToolkitColors.TextColor
-$systemInfoPanel.Font = $WinToolkitFont
+$systemInfoPanel.Font = $WinToolkitTypography.PrimaryFont
 
 # Crea le label per le informazioni di sistema (versione compatta per sidebar)
 $systemInfoLabels = @{}
@@ -930,19 +979,21 @@ $infoItems = @("Edition", "Version", "RAM", "ComputerName")
 $yPos = 25
 
 foreach ($item in $infoItems) {
+    # Label descrizione
     $labelTitle = New-Object System.Windows.Forms.Label
     $labelTitle.Location = New-Object System.Drawing.Point(10, $yPos)
     $labelTitle.Size = New-Object System.Drawing.Size(60, 18)
     $labelTitle.Text = "$item`:"
-    $labelTitle.ForeColor = $WinToolkitColors.TextColor
-    $labelTitle.Font = $WinToolkitFont
+    $labelTitle.ForeColor = $WinToolkitColors.TextMutedColor
+    $labelTitle.Font = $WinToolkitTypography.SmallFont
     $systemInfoPanel.Controls.Add($labelTitle)
 
+    # Label valore
     $labelValue = New-Object System.Windows.Forms.Label
     $labelValue.Location = New-Object System.Drawing.Point(75, $yPos)
     $labelValue.Size = New-Object System.Drawing.Size(75, 18)
     $labelValue.ForeColor = $WinToolkitColors.TextColor
-    $labelValue.Font = $WinToolkitFont
+    $labelValue.Font = $WinToolkitTypography.PrimaryFont
     $systemInfoPanel.Controls.Add($labelValue)
 
     $systemInfoLabels[$item] = $labelValue
@@ -954,28 +1005,28 @@ $sidebarPanel.Controls.Add($systemInfoPanel)
 # Crea il pannello di controllo (nella parte alta del main content)
 $controlPanel = New-Object System.Windows.Forms.GroupBox
 $controlPanel.Location = New-Object System.Drawing.Point(10, 10)
-$controlPanel.Size = New-Object System.Drawing.Size(600, 80)
+$controlPanel.Size = New-Object System.Drawing.Size(760, 80)
 $controlPanel.Text = "🎮 Controlli"
 $controlPanel.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$controlPanel.BackColor = $WinToolkitColors.PanelColor
+$controlPanel.BackColor = $WinToolkitColors.BackgroundColor
 $controlPanel.ForeColor = $WinToolkitColors.TextColor
-$controlPanel.Font = $WinToolkitFont
+$controlPanel.Font = $WinToolkitTypography.PrimaryFont
 
 # Crea il pannello per i controlli azione (parte destra del main content)
 $actionPanel = New-Object System.Windows.Forms.Panel
-$actionPanel.Location = New-Object System.Drawing.Point(620, 10)
-$actionPanel.Size = New-Object System.Drawing.Size(150, 80)
-$actionPanel.BackColor = $WinToolkitColors.PanelColor
+$actionPanel.Location = New-Object System.Drawing.Point(780, 10)
+$actionPanel.Size = New-Object System.Drawing.Size(200, 80)
+$actionPanel.BackColor = $WinToolkitColors.BackgroundColor
 $actionPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 
-# Crea il footer panel con log e progress bar
+# Crea il footer panel con log e progress bar (Specification Compliant)
 $footerPanel.Controls.Clear()
 
 # Progress Bar nella parte alta del footer
 $progressBar = New-Object System.Windows.Forms.ProgressBar
 $progressBar.Dock = [System.Windows.Forms.DockStyle]::Top
 $progressBar.Height = 15
-$progressBar.BackColor = $WinToolkitColors.PanelColor
+$progressBar.BackColor = $WinToolkitColors.BackgroundColor
 $progressBar.ForeColor = $WinToolkitColors.AccentColor
 $footerPanel.Controls.Add($progressBar)
 
@@ -985,7 +1036,7 @@ $logTextBox.Dock = [System.Windows.Forms.DockStyle]::Fill
 $logTextBox.BackColor = $WinToolkitColors.LogBackgroundColor
 $logTextBox.ForeColor = $WinToolkitColors.TextColor
 $logTextBox.ReadOnly = $true
-$logTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+$logTextBox.Font = $WinToolkitTypography.LogFont
 $logTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::None
 $footerPanel.Controls.Add($logTextBox)
 
@@ -1005,12 +1056,13 @@ $refreshButton.Location = New-Object System.Drawing.Point(15, 25)
 $refreshButton.Size = New-Object System.Drawing.Size(100, 30)
 $refreshButton.Text = "🔄 Aggiorna"
 $refreshButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$refreshButton.FlatAppearance.BorderSize = 0
 $refreshButton.BackColor = $WinToolkitColors.ButtonSecondaryColor
 $refreshButton.ForeColor = $WinToolkitColors.TextColor
-$refreshButton.Font = $WinToolkitFont
+$refreshButton.Font = $WinToolkitTypography.PrimaryFont
 $refreshButton.Add_Click({
         Update-SystemInfoPanel
-        Write-StyledMessage -type 'Info' -text "Informazioni di sistema aggiornate"
+        Update-Log -Message "Informazioni di sistema aggiornate" -Type Info
     })
 $controlPanel.Controls.Add($refreshButton)
 
@@ -1020,9 +1072,10 @@ $executeButton.Location = New-Object System.Drawing.Point(130, 25)
 $executeButton.Size = New-Object System.Drawing.Size(120, 30)
 $executeButton.Text = "▶ Esegui Selezionati"
 $executeButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$executeButton.FlatAppearance.BorderSize = 0
 $executeButton.BackColor = $WinToolkitColors.AccentColor
 $executeButton.ForeColor = $WinToolkitColors.TextColor
-$executeButton.Font = $WinToolkitFont
+$executeButton.Font = $WinToolkitTypography.PrimaryFont
 $executeButton.Add_Click({
         $selectedScripts = [System.Collections.Generic.List[object]]::new()
 
@@ -1366,44 +1419,146 @@ $global:resumeButton = $resumeButton
 $mainContentPanel.Controls.Add($controlPanel)
 $mainContentPanel.Controls.Add($actionPanel)
 
-# Funzione per caricare dinamicamente le sezioni nel main content panel
-function Load-Section {
-    param([string]$SectionName)
+# Load-Module Function (Specification Compliant)
+function Load-Module {
+    param([string]$ModuleName)
 
-    # Rimuovi tutti i controlli esistenti dal main content panel
+    # 1. Pulisce il contenuto esistente
     $mainContentPanel.Controls.Clear()
 
-    # Evidenzia il pulsante attivo nella sidebar
+    # 2. Reset stato navigazione
     foreach ($category in $categories) {
-        $button = $sidebarButtons[$category]
-        if ($category -eq $SectionName) {
-            $button.BackColor = $WinToolkitColors.AccentColor
-            $button.ForeColor = $WinToolkitColors.TextColor
-        }
-        else {
-            $button.BackColor = $WinToolkitColors.SidebarColor
-            $button.ForeColor = $WinToolkitColors.TextColor
-        }
+        $sidebarButtons[$category].BackColor = $WinToolkitColors.SidebarColor
+        $sidebarButtons[$category].ForeColor = $WinToolkitColors.TextColor
     }
 
-    # Carica la sezione richiesta
-    switch ($SectionName) {
+    # 3. Evidenzia sezione attiva con colore accento
+    if ($sidebarButtons.ContainsKey($ModuleName)) {
+        $sidebarButtons[$ModuleName].BackColor = $WinToolkitColors.AccentColor
+        $sidebarButtons[$ModuleName].ForeColor = $WinToolkitColors.TextColor
+    }
+
+    # 4. Carica controlli specifici del modulo
+    switch ($ModuleName) {
         "Operazioni Preliminari" {
-            Load-PreliminariSection
+            $groupBox = New-Object System.Windows.Forms.GroupBox
+            $groupBox.Text = "⚡ Operazioni Preliminari"
+            $groupBox.Dock = [System.Windows.Forms.DockStyle]::Fill
+            $groupBox.BackColor = $WinToolkitColors.BackgroundColor
+            $groupBox.ForeColor = $WinToolkitColors.TextColor
+            $groupBox.Font = $WinToolkitTypography.PrimaryFont
+            $groupBox.Padding = New-Object System.Windows.Forms.Padding(10)
+
+            # Carica controlli specifici
+            $scripts = $scriptDefinitions | Where-Object { $_.Category -eq $ModuleName }
+            Load-ModuleControls -Scripts $scripts -Parent $groupBox
+
+            $mainContentPanel.Controls.Add($groupBox)
         }
         "Windows & Office" {
-            Load-WindowsOfficeSection
+            $groupBox = New-Object System.Windows.Forms.GroupBox
+            $groupBox.Text = "🔧 Windows & Office"
+            $groupBox.Dock = [System.Windows.Forms.DockStyle]::Fill
+            $groupBox.BackColor = $WinToolkitColors.BackgroundColor
+            $groupBox.ForeColor = $WinToolkitColors.TextColor
+            $groupBox.Font = $WinToolkitTypography.PrimaryFont
+            $groupBox.Padding = New-Object System.Windows.Forms.Padding(10)
+
+            $scripts = $scriptDefinitions | Where-Object { $_.Category -eq $ModuleName }
+            Load-ModuleControls -Scripts $scripts -Parent $groupBox
+
+            $mainContentPanel.Controls.Add($groupBox)
         }
         "Driver & Gaming" {
-            Load-DriverGamingSection
+            $groupBox = New-Object System.Windows.Forms.GroupBox
+            $groupBox.Text = "🎮 Driver & Gaming"
+            $groupBox.Dock = [System.Windows.Forms.DockStyle]::Fill
+            $groupBox.BackColor = $WinToolkitColors.BackgroundColor
+            $groupBox.ForeColor = $WinToolkitColors.TextColor
+            $groupBox.Font = $WinToolkitTypography.PrimaryFont
+            $groupBox.Padding = New-Object System.Windows.Forms.Padding(10)
+
+            $scripts = $scriptDefinitions | Where-Object { $_.Category -eq $ModuleName }
+            Load-ModuleControls -Scripts $scripts -Parent $groupBox
+
+            $mainContentPanel.Controls.Add($groupBox)
         }
         "Supporto" {
-            Load-SupportoSection
+            $groupBox = New-Object System.Windows.Forms.GroupBox
+            $groupBox.Text = "🖥 Supporto"
+            $groupBox.Dock = [System.Windows.Forms.DockStyle]::Fill
+            $groupBox.BackColor = $WinToolkitColors.BackgroundColor
+            $groupBox.ForeColor = $WinToolkitColors.TextColor
+            $groupBox.Font = $WinToolkitTypography.PrimaryFont
+            $groupBox.Padding = New-Object System.Windows.Forms.Padding(10)
+
+            $scripts = $scriptDefinitions | Where-Object { $_.Category -eq $ModuleName }
+            Load-ModuleControls -Scripts $scripts -Parent $groupBox
+
+            $mainContentPanel.Controls.Add($groupBox)
         }
     }
 
-    # Aggiorna il log
-    Write-StyledMessage -type 'Info' -text "Sezione caricata: $SectionName"
+    # 5. Aggiorna log con progresso
+    Update-Log -Message "Modulo caricato: $ModuleName" -Percentage 0 -Type Info
+}
+
+# Load-ModuleControls Function
+function Load-ModuleControls {
+    param([array]$Scripts, [System.Windows.Forms.Control]$Parent)
+
+    $currentX = 10
+    $currentY = 20
+    $itemsPerRow = 2
+
+    foreach ($script in $Scripts) {
+        # Crea pannello script
+        $scriptPanel = New-Object System.Windows.Forms.Panel
+        $scriptPanel.Location = New-Object System.Drawing.Point($currentX, $currentY)
+        $scriptPanel.Size = New-Object System.Drawing.Size(280, 80)
+        $scriptPanel.BackColor = $WinToolkitColors.BackgroundColor
+        $scriptPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+
+        # Pulsante script
+        $scriptButton = New-Object System.Windows.Forms.Button
+        $scriptButton.Location = New-Object System.Drawing.Point(10, 10)
+        $scriptButton.Size = New-Object System.Drawing.Size(200, 25)
+        $scriptButton.Text = "$($script.Icon) $($script.Description)"
+        $scriptButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $scriptButton.BackColor = $WinToolkitColors.ButtonSecondaryColor
+        $scriptButton.ForeColor = $WinToolkitColors.TextColor
+        $scriptButton.Font = $WinToolkitTypography.PrimaryFont
+        $scriptButton.Tag = $script.Name
+        $scriptButton.Add_Click({
+                $scriptName = $this.Tag
+                $scriptDef = $scriptDefinitions | Where-Object { $_.Name -eq $scriptName }
+                Execute-Script -ScriptName $scriptName -Description $scriptDef.Description
+            })
+        $scriptPanel.Controls.Add($scriptButton)
+
+        # Checkbox selezione
+        $checkBox = New-Object System.Windows.Forms.CheckBox
+        $checkBox.Location = New-Object System.Drawing.Point(220, 10)
+        $checkBox.Size = New-Object System.Drawing.Size(50, 25)
+        $checkBox.BackColor = $WinToolkitColors.BackgroundColor
+        $checkBox.ForeColor = $WinToolkitColors.TextColor
+        $checkBox.Font = $WinToolkitTypography.PrimaryFont
+        $checkBox.Tag = $script.Name
+        $scriptPanel.Controls.Add($checkBox)
+
+        # Tooltip
+        $toolTip = New-Object System.Windows.Forms.ToolTip
+        $toolTip.SetToolTip($scriptButton, "Clicca per eseguire solo questo script")
+
+        $Parent.Controls.Add($scriptPanel)
+
+        # Layout griglia
+        $currentX += 290
+        if ($currentX + 280 -gt $Parent.Width) {
+            $currentX = 10
+            $currentY += 90
+        }
+    }
 }
 
 # Funzioni per caricare le sezioni
@@ -1484,20 +1639,20 @@ function Load-ScriptSection {
     }
 }
 
-# Inizializza la prima sezione al caricamento
-Load-Section -SectionName "Operazioni Preliminari"
+# Inizializza il primo modulo al caricamento
+Load-Module -ModuleName "Operazioni Preliminari"
 
-# Crea la barra di stato con design moderno
+# Crea la barra di stato con design moderno (Specification Compliant)
 $statusStrip = New-Object System.Windows.Forms.StatusStrip
-$statusStrip.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
-$statusStrip.ForeColor = [System.Drawing.Color]::White
-$statusStrip.Font = Get-NerdFont -Size 9
+$statusStrip.BackColor = $WinToolkitColors.BackgroundColor
+$statusStrip.ForeColor = $WinToolkitColors.TextColor
+$statusStrip.Font = $WinToolkitTypography.PrimaryFont
 $statusStrip.Height = 25
 
 $statusLabel = New-Object System.Windows.Forms.ToolStripStatusLabel
 $statusLabel.Text = "Pronto - Seleziona gli script da eseguire"
-$statusLabel.ForeColor = [System.Drawing.Color]::White
-$statusLabel.Font = Get-NerdFont -Size 9
+$statusLabel.ForeColor = $WinToolkitColors.TextColor
+$statusLabel.Font = $WinToolkitTypography.PrimaryFont
 $statusStrip.Items.Add($statusLabel)
 
 $mainForm.Controls.Add($statusStrip)
@@ -1510,8 +1665,8 @@ $global:systemInfoLabels = $systemInfoLabels
 Update-SystemInfoPanel
 
 # Messaggio di benvenuto nel log
-Write-StyledMessage -type 'Info' -text "WinToolkit-GUI avviato con successo"
-Write-StyledMessage -type 'Info' -text "Versione 2.2.3 (Build 7) - GUI Edition"
+Update-Log -Message "WinToolkit-GUI avviato con successo" -Type Info
+Update-Log -Message "Versione 2.2.3 (Build 7) - GUI Edition" -Type Info
 
 # Mostra la finestra
 [void]$mainForm.ShowDialog()
