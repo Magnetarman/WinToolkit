@@ -694,12 +694,12 @@ function Export-ReportToExcel {
     }
 }
 
-# Script execution functions
+# Enhanced Script Execution with Environment Error Handling
 function Execute-Script {
     param([string]$ScriptName, [string]$Description)
 
     $startTime = Get-Date
-    Write-StyledMessage -type 'Info' -text "Avvio '$Description'..."
+    Update-Log -Message "Avvio '$Description'..." -Type Info
 
     # Aggiungi alla cronologia
     $historyEntry = @{
@@ -715,46 +715,42 @@ function Execute-Script {
     $global:executionHistory.Add($historyEntry)
 
     try {
-        # Crea un nuovo processo PowerShell per eseguire lo script
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = "powershell.exe"
-        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command & { $ScriptName }"
-        $psi.UseShellExecute = $false
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.CreateNoWindow = $true
+        # Pre-flight check: Test PowerShell environment
+        $environmentTest = Test-PowerShellEnvironment
+        if (-not $environmentTest.Success) {
+            Update-Log -Message "Problema ambiente PowerShell rilevato: $($environmentTest.Error)" -Type Warning
+            Update-Log -Message "Tentativo esecuzione alternativa..." -Type Info
 
-        $process = New-Object System.Diagnostics.Process
-        $process.StartInfo = $psi
-        $process.Start() | Out-Null
+            # Fallback: try alternative execution method
+            return Execute-ScriptAlternative -ScriptName $ScriptName -Description $Description -HistoryEntry $historyEntry
+        }
 
-        # Legge l'output in tempo reale
-        $output = $process.StandardOutput.ReadToEnd()
-        $errorOutput = $process.StandardError.ReadToEnd()
-        $process.WaitForExit()
+        # Primary execution method with enhanced error handling
+        $result = Execute-ScriptPrimary -ScriptName $ScriptName -Description $Description -HistoryEntry $historyEntry
 
         $endTime = Get-Date
         $duration = $endTime - $startTime
-
-        # Aggiorna la cronologia
         $historyEntry.EndTime = $endTime
-        $historyEntry.Success = ($process.ExitCode -eq 0)
-        $historyEntry.Output = $output
-        $historyEntry.ErrorOutput = $errorOutput
-        $historyEntry.ExitCode = $process.ExitCode
 
-        if ($process.ExitCode -eq 0) {
-            Write-StyledMessage -type 'Success' -text "Completato: '$Description' ($([Math]::Round($duration.TotalSeconds, 2))s)"
-            if ($output) {
-                Write-StyledMessage -type 'Info' -text "Output: $output"
+        if ($result.Success) {
+            Update-Log -Message "Completato: '$Description' ($([Math]::Round($duration.TotalSeconds, 2))s)" -Type Success
+            if ($result.Output) {
+                Update-Log -Message "Output: $($result.Output)" -Type Info
             }
+            $historyEntry.Success = $true
+            $historyEntry.Output = $result.Output
+            $historyEntry.ExitCode = 0
             return $true
         }
         else {
-            Write-StyledMessage -type 'Error' -text "Errore in '$Description' (Exit Code: $($process.ExitCode)) - Durata: $([Math]::Round($duration.TotalSeconds, 2))s"
-            if ($errorOutput) {
-                Write-StyledMessage -type 'Error' -text "Error Details: $errorOutput"
+            Update-Log -Message "Errore in '$Description' (Exit Code: $($result.ExitCode)) - Durata: $([Math]::Round($duration.TotalSeconds, 2))s" -Type Error
+            if ($result.ErrorOutput) {
+                Update-Log -Message "Dettagli errore: $($result.ErrorOutput)" -Type Error
             }
+            $historyEntry.Success = $false
+            $historyEntry.Output = $result.Output
+            $historyEntry.ErrorOutput = $result.ErrorOutput
+            $historyEntry.ExitCode = $result.ExitCode
             return $false
         }
     }
@@ -769,7 +765,150 @@ function Execute-Script {
         $historyEntry.ErrorOutput = $_.Exception.Message
         $historyEntry.ExitCode = -1
 
-        Write-StyledMessage -type 'Error' -text "Errore nell'esecuzione di '$Description': $($_.Exception.Message) - Durata: $([Math]::Round($duration.TotalSeconds, 2))s"
+        Update-Log -Message "Errore nell'esecuzione di '$Description': $($_.Exception.Message) - Durata: $([Math]::Round($duration.TotalSeconds, 2))s" -Type Error
+        return $false
+    }
+}
+
+# Test PowerShell Environment Function
+function Test-PowerShellEnvironment {
+    try {
+        # Simple environment test
+        $testResult = powershell -NoProfile -Command "Write-Output 'Test OK'" 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            return @{ Success = $true; Error = "" }
+        }
+        else {
+            return @{ Success = $false; Error = "PowerShell environment error" }
+        }
+    }
+    catch {
+        return @{ Success = $false; Error = $_.Exception.Message }
+    }
+}
+
+# Primary Script Execution Method
+function Execute-ScriptPrimary {
+    param([string]$ScriptName, [string]$Description, $HistoryEntry)
+
+    try {
+        # Crea un nuovo processo PowerShell con parametri ottimizzati
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "powershell.exe"
+        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"& { `$ScriptName }`""
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.CreateNoWindow = $true
+        $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+        $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+
+        # Aggiungi variabili ambiente per stabilità
+        $psi.EnvironmentVariables["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+        $psi.EnvironmentVariables["POWERSHELL_TELEMETRY_OPTOUT"] = "1"
+
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $psi
+
+        if (-not $process.Start()) {
+            return @{ Success = $false; ExitCode = -1; Output = ""; ErrorOutput = "Impossibile avviare il processo PowerShell" }
+        }
+
+        # Legge l'output con timeout
+        $output = ""
+        $errorOutput = ""
+
+        try {
+            $output = $process.StandardOutput.ReadToEnd()
+            $errorOutput = $process.StandardError.ReadToEnd()
+        }
+        catch {
+            $errorOutput += "`nErrore lettura output: $($_.Exception.Message)"
+        }
+
+        # Attendi completamento con timeout
+        $timeout = 30000 # 30 secondi
+        if (-not $process.WaitForExit($timeout)) {
+            $process.Kill()
+            return @{ Success = $false; ExitCode = -2; Output = $output; ErrorOutput = "Timeout esecuzione script" }
+        }
+
+        return @{
+            Success     = ($process.ExitCode -eq 0)
+            ExitCode    = $process.ExitCode
+            Output      = $output
+            ErrorOutput = $errorOutput
+        }
+    }
+    catch {
+        return @{
+            Success     = $false
+            ExitCode    = -1
+            Output      = ""
+            ErrorOutput = "Errore esecuzione primaria: $($_.Exception.Message)"
+        }
+    }
+}
+
+# Alternative Script Execution Method (Fallback)
+function Execute-ScriptAlternative {
+    param([string]$ScriptName, [string]$Description, $HistoryEntry)
+
+    try {
+        Update-Log -Message "Tentativo esecuzione tramite Start-Process..." -Type Info
+
+        # Metodo alternativo: usa Start-Process direttamente
+        $startTime = Get-Date
+        $output = ""
+
+        try {
+            # Crea un processo temporaneo per testare l'ambiente
+            $testProcess = Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command Write-Output 'Environment OK'" -NoNewWindow -PassThru -Wait
+            if ($testProcess.ExitCode -eq 0) {
+                # Ambiente OK, esegui lo script
+                $process = Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command & { $ScriptName }" -NoNewWindow -PassThru -Wait -RedirectStandardOutput "$env:TEMP\script_output.txt"
+
+                if (Test-Path "$env:TEMP\script_output.txt") {
+                    $output = Get-Content "$env:TEMP\script_output.txt" -Raw
+                    Remove-Item "$env:TEMP\script_output.txt" -Force -ErrorAction SilentlyContinue
+                }
+
+                $endTime = Get-Date
+                $duration = $endTime - $startTime
+
+                if ($process.ExitCode -eq 0) {
+                    Update-Log -Message "Completato (alternativo): '$Description' ($([Math]::Round($duration.TotalSeconds, 2))s)" -Type Success
+                    $HistoryEntry.Success = $true
+                    $HistoryEntry.Output = $output
+                    $HistoryEntry.ExitCode = 0
+                    return $true
+                }
+                else {
+                    Update-Log -Message "Errore alternativo in '$Description' (Exit Code: $($process.ExitCode))" -Type Error
+                    $HistoryEntry.Success = $false
+                    $HistoryEntry.ErrorOutput = "Errore esecuzione alternativa"
+                    $HistoryEntry.ExitCode = $process.ExitCode
+                    return $false
+                }
+            }
+            else {
+                Update-Log -Message "Ambiente PowerShell non disponibile per l'esecuzione" -Type Error
+                $HistoryEntry.Success = $false
+                $HistoryEntry.ErrorOutput = "Ambiente PowerShell non funzionante"
+                $HistoryEntry.ExitCode = -65536
+                return $false
+            }
+        }
+        catch {
+            Update-Log -Message "Errore nel metodo alternativo: $($_.Exception.Message)" -Type Error
+            $HistoryEntry.Success = $false
+            $HistoryEntry.ErrorOutput = $_.Exception.Message
+            $HistoryEntry.ExitCode = -1
+            return $false
+        }
+    }
+    catch {
+        Update-Log -Message "Errore generale esecuzione alternativa: $($_.Exception.Message)" -Type Error
         return $false
     }
 }
