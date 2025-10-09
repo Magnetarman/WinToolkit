@@ -21,6 +21,9 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName Microsoft.VisualBasic
 
+# Inizializza Nerd Fonts
+Initialize-NerdFonts
+
 # Carica la configurazione se disponibile
 $configPath = Join-Path $PSScriptRoot "WinToolkit-Gui-Config.ps1"
 if (Test-Path $configPath) {
@@ -52,6 +55,16 @@ try {
     Start-Transcript -Path "$logdir\WinToolkit-Gui_$dateTime.log" -Append -Force | Out-Null
 }
 catch {}
+
+# Nerd Fonts Configuration and Installation
+$nerdFontsConfig = @{
+    FontName      = "JetBrainsMono NF"
+    FontSize      = 9
+    FallbackFonts = @("Consolas", "Courier New", "Lucida Console")
+    DownloadUrl   = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/JetBrainsMono.zip"
+    InstallPath   = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+    FontFileName  = "JetBrainsMonoNerdFont-Regular.ttf"
+}
 
 # Version mapping (usato da più funzioni)
 $versionMap = @{
@@ -140,6 +153,122 @@ function Update-SystemInfoPanel {
             $global:systemInfoLabels['Disk'].Text = "$($sysInfo.FreePercentage)% Libero ($($sysInfo.TotalDisk) GB)"
         }
     }
+}
+
+# Nerd Fonts Management Functions
+function Test-NerdFontsInstalled {
+    try {
+        # Try to create a test font object with Nerd Fonts
+        $testFont = New-Object System.Drawing.Font($nerdFontsConfig.FontName, 12)
+        $testFont.Dispose()
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+function Get-AvailableFont {
+    param([string]$PreferredFont, [string[]]$FallbackFonts)
+
+    foreach ($font in $FallbackFonts) {
+        try {
+            $testFont = New-Object System.Drawing.Font($font, 10)
+            $testFont.Dispose()
+            return $font
+        }
+        catch {
+            continue
+        }
+    }
+
+    # If no fonts work, return a system default
+    return "Microsoft Sans Serif"
+}
+
+function Install-NerdFonts {
+    Write-StyledMessage -type 'Info' -text "Installazione Nerd Fonts in corso..."
+
+    try {
+        # Create temp directory for download
+        $tempDir = "$env:TEMP\NerdFonts"
+        if (Test-Path $tempDir) {
+            Remove-Item $tempDir -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+
+        # Download Nerd Fonts
+        $zipPath = "$tempDir\JetBrainsMono.zip"
+        Write-StyledMessage -type 'Info' -text "Downloading Nerd Fonts..."
+
+        Invoke-WebRequest -Uri $nerdFontsConfig.DownloadUrl -OutFile $zipPath -UseBasicParsing
+
+        # Extract the zip file
+        Write-StyledMessage -type 'Info' -text "Extracting fonts..."
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $tempDir)
+
+        # Find the TTF file
+        $fontFile = Get-ChildItem $tempDir -Recurse -Filter "*.ttf" | Where-Object {
+            $_.Name -like "*$($nerdFontsConfig.FontFileName)*"
+        } | Select-Object -First 1
+
+        if (-not $fontFile) {
+            Write-StyledMessage -type 'Error' -text "Font file not found in archive"
+            return $false
+        }
+
+        # Install the font (requires admin privileges)
+        Write-StyledMessage -type 'Info' -text "Installing font..."
+        try {
+            Copy-Item $fontFile.FullName $nerdFontsConfig.InstallPath -Force -ErrorAction Stop
+
+            # Refresh system fonts (Windows specific)
+            $shell = New-Object -ComObject Shell.Application
+            $fontsFolder = $shell.NameSpace(0x14) # Fonts folder
+            $copiedFont = Get-Item "$($nerdFontsConfig.InstallPath)\$($fontFile.Name)" -ErrorAction SilentlyContinue
+            if ($copiedFont) {
+                $fontsFolder.ParseName($fontFile.Name)
+            }
+        }
+        catch {
+            Write-StyledMessage -type 'Warning' -text "Font installation requires administrator privileges. Font copied but may need manual installation."
+        }
+
+        # Clean up
+        Remove-Item $tempDir -Recurse -Force
+
+        Write-StyledMessage -type 'Success' -text "Nerd Fonts installed successfully"
+        return $true
+    }
+    catch {
+        Write-StyledMessage -type 'Error' -text "Errore nell'installazione Nerd Fonts: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Initialize-NerdFonts {
+    # Check if Nerd Fonts are installed
+    if (-not (Test-NerdFontsInstalled)) {
+        Write-StyledMessage -type 'Warning' -text "Nerd Fonts non rilevate. Installazione in corso..."
+
+        # Try to install Nerd Fonts
+        $installed = Install-NerdFonts
+
+        if (-not $installed) {
+            Write-StyledMessage -type 'Warning' -text "Installazione automatica fallita. Uso font di fallback."
+        }
+    }
+    else {
+        Write-StyledMessage -type 'Info' -text "Nerd Fonts rilevate e pronte all'uso"
+    }
+}
+
+function Get-NerdFont {
+    param([int]$Size = $nerdFontsConfig.FontSize)
+
+    $fontName = Get-AvailableFont -PreferredFont $nerdFontsConfig.FontName -FallbackFonts $nerdFontsConfig.FallbackFonts
+    return New-Object System.Drawing.Font($fontName, $Size, [System.Drawing.FontStyle]::Regular)
 }
 
 # Theme management functions
@@ -709,7 +838,7 @@ $mainForm.Text = "WinToolkit-GUI by MagnetarMan"
 $mainForm.Size = New-Object System.Drawing.Size(1280, 900)
 $mainForm.MinimumSize = New-Object System.Drawing.Size(1000, 700)
 $mainForm.StartPosition = "CenterScreen"
-$mainForm.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Regular)
+$mainForm.Font = Get-NerdFont -Size 10
 $mainForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Sizable
 $mainForm.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($PSCommandPath)
 
@@ -722,7 +851,7 @@ $tabControl.Location = New-Object System.Drawing.Point(10, 10)
 $tabControl.Size = New-Object System.Drawing.Size(1240, 650)
 $tabControl.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
 $tabControl.ForeColor = [System.Drawing.Color]::White
-$tabControl.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$tabControl.Font = Get-NerdFont -Size 9
 $tabControl.ItemSize = New-Object System.Drawing.Size(120, 35)
 $tabControl.Padding = New-Object System.Drawing.Point(10, 5)
 
@@ -735,7 +864,7 @@ foreach ($category in $categories) {
     $tabPage.Text = $category
     $tabPage.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
     $tabPage.ForeColor = [System.Drawing.Color]::White
-    $tabPage.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
+    $tabPage.Font = Get-NerdFont -Size 9
     $tabPage.Padding = New-Object System.Windows.Forms.Padding(10)
 
     $categoryTabs[$category] = $tabPage
@@ -751,7 +880,7 @@ $systemInfoPanel.Size = New-Object System.Drawing.Size(420, 160)
 $systemInfoPanel.Text = "🖥 Informazioni Sistema"
 $systemInfoPanel.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
 $systemInfoPanel.ForeColor = [System.Drawing.Color]::White
-$systemInfoPanel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$systemInfoPanel.Font = Get-NerdFont -Size 9
 
 # Crea le label per le informazioni di sistema
 $systemInfoLabels = @{}
@@ -764,14 +893,14 @@ foreach ($item in $infoItems) {
     $labelTitle.Size = New-Object System.Drawing.Size(80, 20)
     $labelTitle.Text = "$item`:"
     $labelTitle.ForeColor = [System.Drawing.Color]::Yellow
-    $labelTitle.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $labelTitle.Font = Get-NerdFont -Size 9
     $systemInfoPanel.Controls.Add($labelTitle)
 
     $labelValue = New-Object System.Windows.Forms.Label
     $labelValue.Location = New-Object System.Drawing.Point(100, $yPos)
     $labelValue.Size = New-Object System.Drawing.Size(280, 20)
     $labelValue.ForeColor = [System.Drawing.Color]::White
-    $labelValue.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $labelValue.Font = Get-NerdFont -Size 9
     $systemInfoPanel.Controls.Add($labelValue)
 
     $systemInfoLabels[$item] = $labelValue
@@ -787,7 +916,7 @@ $controlPanel.Size = New-Object System.Drawing.Size(400, 160)
 $controlPanel.Text = "🎮 Controlli"
 $controlPanel.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
 $controlPanel.ForeColor = [System.Drawing.Color]::White
-$controlPanel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$controlPanel.Font = Get-NerdFont -Size 9
 
 # Variabili globali per controlli avanzati
 $global:executionPaused = $false
@@ -803,7 +932,7 @@ $refreshButton.Text = "🔄 Aggiorna"
 $refreshButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
 $refreshButton.ForeColor = [System.Drawing.Color]::White
 $refreshButton.FlatStyle = "Flat"
-$refreshButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$refreshButton.Font = Get-NerdFont -Size 9
 $refreshButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $refreshButton.Add_Click({
         Update-SystemInfoPanel
@@ -819,7 +948,7 @@ $executeButton.Text = "▶ Esegui Selezionati"
 $executeButton.BackColor = [System.Drawing.Color]::FromArgb(0, 120, 0)
 $executeButton.ForeColor = [System.Drawing.Color]::White
 $executeButton.FlatStyle = "Flat"
-$executeButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$executeButton.Font = Get-NerdFont -Size 9
 $executeButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $executeButton.Add_Click({
         $selectedScripts = [System.Collections.Generic.List[object]]::new()
@@ -857,7 +986,7 @@ $selectAllButton.Text = "☑ Seleziona Tutto"
 $selectAllButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
 $selectAllButton.ForeColor = [System.Drawing.Color]::White
 $selectAllButton.FlatStyle = "Flat"
-$selectAllButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$selectAllButton.Font = Get-NerdFont -Size 9
 $selectAllButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $selectAllButton.Add_Click({
         foreach ($script in $scriptDefinitions) {
@@ -877,7 +1006,7 @@ $deselectAllButton.Text = "☐ Deseleziona"
 $deselectAllButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
 $deselectAllButton.ForeColor = [System.Drawing.Color]::White
 $deselectAllButton.FlatStyle = "Flat"
-$deselectAllButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$deselectAllButton.Font = Get-NerdFont -Size 9
 $deselectAllButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $deselectAllButton.Add_Click({
         foreach ($script in $scriptDefinitions) {
@@ -903,7 +1032,7 @@ $searchTextBox.Size = New-Object System.Drawing.Size(185, 25)
 $searchTextBox.BackColor = [System.Drawing.Color]::FromArgb(50, 50, 50)
 $searchTextBox.ForeColor = [System.Drawing.Color]::White
 $searchTextBox.BorderStyle = "FixedSingle"
-$searchTextBox.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$searchTextBox.Font = Get-NerdFont -Size 9
 $searchTextBox.Add_TextChanged({
         $searchTerm = $searchTextBox.Text.ToLower()
         foreach ($script in $scriptDefinitions) {
@@ -925,7 +1054,7 @@ $openLogButton.Text = "📂 Log"
 $openLogButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
 $openLogButton.ForeColor = [System.Drawing.Color]::White
 $openLogButton.FlatStyle = "Flat"
-$openLogButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$openLogButton.Font = Get-NerdFont -Size 9
 $openLogButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $openLogButton.Add_Click({
         $logDir = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -948,7 +1077,7 @@ $themeButton.Text = if ($currentTheme -eq "Dark") { "☀" } else { "🌙" }
 $themeButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
 $themeButton.ForeColor = [System.Drawing.Color]::White
 $themeButton.FlatStyle = "Flat"
-$themeButton.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+$themeButton.Font = Get-NerdFont -Size 12
 $themeButton.Add_Click({
         $currentTheme = Get-CurrentTheme
         $newTheme = if ($currentTheme -eq "Dark") { "Light" } else { "Dark" }
@@ -967,7 +1096,7 @@ $exportConfigButton.Text = "📤 Esporta"
 $exportConfigButton.BackColor = [System.Drawing.Color]::FromArgb(0, 100, 150)
 $exportConfigButton.ForeColor = [System.Drawing.Color]::White
 $exportConfigButton.FlatStyle = "Flat"
-$exportConfigButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$exportConfigButton.Font = Get-NerdFont -Size 9
 $exportConfigButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $exportConfigButton.Add_Click({
         $saveDialog = New-Object System.Windows.Forms.SaveFileDialog
@@ -991,7 +1120,7 @@ $importConfigButton.Text = "📥 Importa"
 $importConfigButton.BackColor = [System.Drawing.Color]::FromArgb(150, 100, 0)
 $importConfigButton.ForeColor = [System.Drawing.Color]::White
 $importConfigButton.FlatStyle = "Flat"
-$importConfigButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$importConfigButton.Font = Get-NerdFont -Size 9
 $importConfigButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $importConfigButton.Add_Click({
         $openDialog = New-Object System.Windows.Forms.OpenFileDialog
@@ -1021,7 +1150,7 @@ $reportButton.Text = "📊 Report"
 $reportButton.BackColor = [System.Drawing.Color]::FromArgb(100, 50, 100)
 $reportButton.ForeColor = [System.Drawing.Color]::White
 $reportButton.FlatStyle = "Flat"
-$reportButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$reportButton.Font = Get-NerdFont -Size 9
 $reportButton.Cursor = [System.Windows.Forms.Cursors]::Hand
 $reportButton.Add_Click({
         $reportDialog = New-Object System.Windows.Forms.Form
@@ -1101,7 +1230,7 @@ $stopButton.Text = "⏹ Stop"
 $stopButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
 $stopButton.ForeColor = [System.Drawing.Color]::White
 $stopButton.FlatStyle = "Flat"
-$stopButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$stopButton.Font = Get-NerdFont -Size 9
 $stopButton.Enabled = $false
 $stopButton.Add_Click({
         $global:executionStopped = $true
@@ -1126,7 +1255,7 @@ $pauseButton.Text = "⏸ Pausa"
 $pauseButton.BackColor = [System.Drawing.Color]::FromArgb(150, 100, 0)
 $pauseButton.ForeColor = [System.Drawing.Color]::White
 $pauseButton.FlatStyle = "Flat"
-$pauseButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$pauseButton.Font = Get-NerdFont -Size 9
 $pauseButton.Enabled = $false
 $pauseButton.Add_Click({
         $global:executionPaused = $true
@@ -1144,7 +1273,7 @@ $resumeButton.Text = "▶ Riprendi"
 $resumeButton.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
 $resumeButton.ForeColor = [System.Drawing.Color]::White
 $resumeButton.FlatStyle = "Flat"
-$resumeButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$resumeButton.Font = Get-NerdFont -Size 9
 $resumeButton.Enabled = $false
 $resumeButton.Add_Click({
         $global:executionPaused = $false
@@ -1168,7 +1297,7 @@ $logPanel.Size = New-Object System.Drawing.Size(400, 160)
 $logPanel.Text = "📋 Log"
 $logPanel.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
 $logPanel.ForeColor = [System.Drawing.Color]::White
-$logPanel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$logPanel.Font = Get-NerdFont -Size 9
 
 $logTextBox = New-Object System.Windows.Forms.RichTextBox
 $logTextBox.Location = New-Object System.Drawing.Point(10, 20)
@@ -1192,7 +1321,7 @@ $progressPanel.Size = New-Object System.Drawing.Size(1240, 50)
 $progressPanel.Text = "📊 Progresso"
 $progressPanel.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
 $progressPanel.ForeColor = [System.Drawing.Color]::White
-$progressPanel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$progressPanel.Font = Get-NerdFont -Size 9
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
 $progressBar.Location = New-Object System.Drawing.Point(10, 20)
@@ -1225,7 +1354,7 @@ foreach ($script in $scriptDefinitions) {
     $scriptButton.BackColor = [System.Drawing.Color]::FromArgb(70, 70, 70)
     $scriptButton.ForeColor = [System.Drawing.Color]::White
     $scriptButton.FlatStyle = "Flat"
-    $scriptButton.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Regular)
+    $scriptButton.Font = Get-NerdFont -Size 8
     $scriptButton.Tag = $script.Name
     $scriptButton.Add_Click({
             $scriptName = $this.Tag
@@ -1243,7 +1372,7 @@ foreach ($script in $scriptDefinitions) {
     $checkBox.Size = New-Object System.Drawing.Size(50, 25)
     $checkBox.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 40)
     $checkBox.ForeColor = [System.Drawing.Color]::White
-    $checkBox.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+    $checkBox.Font = Get-NerdFont -Size 8
     $checkBox.Tag = $script.Name
     $checkBox.Name = "$($script.Name)CheckBox"
     $scriptPanel.Controls.Add($checkBox)
@@ -1287,13 +1416,13 @@ foreach ($category in $categories) {
 $statusStrip = New-Object System.Windows.Forms.StatusStrip
 $statusStrip.BackColor = [System.Drawing.Color]::FromArgb(35, 35, 35)
 $statusStrip.ForeColor = [System.Drawing.Color]::White
-$statusStrip.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$statusStrip.Font = Get-NerdFont -Size 9
 $statusStrip.Height = 25
 
 $statusLabel = New-Object System.Windows.Forms.ToolStripStatusLabel
 $statusLabel.Text = "Pronto - Seleziona gli script da eseguire"
 $statusLabel.ForeColor = [System.Drawing.Color]::White
-$statusLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$statusLabel.Font = Get-NerdFont -Size 9
 $statusStrip.Items.Add($statusLabel)
 
 $mainForm.Controls.Add($statusStrip)
