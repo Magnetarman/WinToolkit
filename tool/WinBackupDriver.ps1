@@ -74,7 +74,7 @@ function WinBackupDriver {
             '         \_/\_/    |_||_| \_|',
             '',
             '   Driver Backup Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 2)'
+            '       Version 2.2.4 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
