@@ -36,10 +36,10 @@ function WinDriverInstall {
 
         $asciiArt = @(
             '      __        __  _  _   _ ',
-            '      \\ \\      / / | || \\ | |',
-            '       \\ \\ /\\ / /  | ||  \\| |',
-            '        \\ V  V /   | || |\\  |',
-            '         \\_/\\_/    |_||_| \\_|',
+            '      \ \      / / | || \ | |',
+            '       \ \ /\ / /  | ||  \| |',
+            '        \ V  V /   | || |\  |',
+            '         \_/\_/    |_||_| \_|',
             '',
             ' Driver Install Toolkit By MagnetarMan',
             '       Version 2.3 (Build 1)'
