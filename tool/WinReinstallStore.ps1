@@ -60,7 +60,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 4)'
+            '       Version 2.2.4 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
