@@ -133,7 +133,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|',
             '',
             '   InstallPSProfile By MagnetarMan',
-            '      Version 2.2.2 (Build 9)'
+            '      Version 2.2.4 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
