@@ -265,7 +265,7 @@ function WinRepairToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Repair Toolkit By MagnetarMan',
-            '       Version 2.2 (Build 5)'
+            '       Version 2.2.4 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
