@@ -31,10 +31,10 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - **Funzione Security Update (`V2.6`):**
   - Download ed esecuzione di Tron Script con intervento minimo.
 - **Funzione Security Update (`V2.7`):**
-  - Reset dei servizi Windows **[Tnks @sicolla]**
-  - Riparazione avanzata Windows Search **[Tnks @sicolla]**
+  - Reset dei servizi Windows **[Thanks to @sicolla]**
+  - Riparazione avanzata Windows Search **[Thanks to @sicolla]**
   - Pulizia Cache dei Browser
-  - Potenziamento Toolkit di Riparazione Windows **[Tnks @Progressfy]**
+  - Potenziamento Toolkit di Riparazione Windows **[Thanks to @Progressfy]**
 - **MagnetarMan Mode (`V3.0`):**
   - Avvio Script Chris con configurazione personalizzata.
   - Installazione programmi: Brave Browser, Google Chrome,
@@ -56,12 +56,28 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Modifiche
 
+---
+
+## [2.2.4] - 2025-10-11 (#16)
+
+### Aggiunte
+
+### Correzioni
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+- Aumentata la compatilità dello script con versioni precedenti di windows.
+- Migliorati i messaggi di avviso.
+
+---
+
 ## [2.2.3] - 2025-10-04 (#15)
 
 ### Aggiunte
 
 - Aggiunti Screeshot delle nuove Funzionalità.
-- Potenziamento Avvisi compatibilità Windows. **[Tnks @pomodori92]**
+- Potenziamento Avvisi compatibilità Windows. **[Thanks to @pomodori92]**
 - Aggiunto Avviso di Compatibilità nello script `WinToolkit.ps1`.
 
 ### Correzioni
@@ -99,7 +115,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 - Aggiornamento della documentazione e del file `README.md`.
 - Aggiornamento `CONTRIBUTORS.md`.
-- Migliorato Supporto script `start.ps1` per Windows 10 22H2 e versioni precedenti. **[Tnks @sicolla]**
+- Migliorato Supporto script `start.ps1` per Windows 10 22H2 e versioni precedenti. **[Thanks to @sicolla]**
 - Migliorato Supporto script `start.ps1` per Windows 11 pre 24H2.
 - Migliorate Sezioni `WinToolkit-Template.ps1`.
 - Potenziamento Script `WinUpdateReset.ps1`.
