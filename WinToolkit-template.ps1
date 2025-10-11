@@ -192,18 +192,54 @@ function WinOSCheck {
     Write-Host "$osDisplay (Build $buildNumber - Ver. $windowsVersion)" -ForegroundColor White
     Write-Host ''
     
-    # Logica di compatibilità
-    if ($isWin11 -and $buildNumber -ge 26100) {
-        # Windows 11 24H2+
+    # Logica di compatibilità aggiornata
+    if ($isWin11 -and $buildNumber -ge 22621) {
+        # Windows 11 22H2+
         Write-StyledMessage -type 'Success' -text 'Sistema completamente compatibile!'
         Write-Host "  Lo script funzionerà alla massima velocità ed efficienza." -ForegroundColor Green
         Write-Host ''
         Start-Sleep -Seconds 5
         return
     }
-    
-    if (($isWin11 -and $buildNumber -lt 26100) -or $isWin10) {
-        # Windows 11 pre-24H2 o Windows 10
+
+    if ($isWin11 -and $buildNumber -ge 22000) {
+        # Windows 11 21H2 - Supporto completo con eccezioni
+        Write-StyledMessage -type 'Success' -text 'Sistema compatibile con eccezioni'
+        Write-Host "  Lo script è completamente supportato con alcune eccezioni minori." -ForegroundColor Green
+        Write-Host "  Potrebbero essere necessarie lievi ottimizzazioni." -ForegroundColor Yellow
+        Write-Host ''
+        Start-Sleep -Seconds 7
+        return
+    }
+
+    if ($isWin10 -and $buildNumber -ge 17763) {
+        # Windows 10 1809+ - Supporto completo
+        Write-StyledMessage -type 'Success' -text 'Sistema completamente compatibile!'
+        Write-Host "  Lo script funzionerà alla massima velocità ed efficienza." -ForegroundColor Green
+        Write-Host ''
+        Start-Sleep -Seconds 5
+        return
+    }
+
+    if ($isWin10 -and $buildNumber -lt 17763) {
+        # Windows 10 pre-1809
+        Write-StyledMessage -type 'Error' -text 'Sistema troppo vecchio - Sconsigliato'
+        Write-Host "  Lo script potrebbe avere gravi problemi di affidabilità!" -ForegroundColor Red
+        Write-Host ''
+
+        Write-Host "  Vuoi proseguire a tuo rischio e pericolo? " -NoNewline -ForegroundColor Yellow
+        Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
+        $response = Read-Host
+
+        if ($response -notmatch '^[Yy]$') { Show-Countdown }
+
+        Write-StyledMessage -type 'Warning' -text 'Prosecuzione confermata - Buona fortuna!'
+        Start-Sleep -Seconds 2
+        return
+    }
+
+    if ($isWin81) {
+        # Windows 8.1 - Supporto parziale
         Write-StyledMessage -type 'Warning' -text 'Sistema parzialmente compatibile'
         Write-Host "  Il sistema non è completamente aggiornato." -ForegroundColor Yellow
         Write-Host "  Lo script userà workaround e funzioni alternative per garantire" -ForegroundColor Yellow
@@ -212,37 +248,20 @@ function WinOSCheck {
         Start-Sleep -Seconds 10
         return
     }
-    
-    if ($isWin10 -and $buildNumber -lt 17763) {
-        # Windows 10 pre-1809
-        Write-StyledMessage -type 'Error' -text 'Sistema troppo vecchio - Sconsigliato'
-        Write-Host "  Lo script potrebbe avere gravi problemi di affidabilità!" -ForegroundColor Red
-        Write-Host ''
-        
-        Write-Host "  Vuoi proseguire a tuo rischio e pericolo? " -NoNewline -ForegroundColor Yellow
-        Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
-        $response = Read-Host
-        
-        if ($response -notmatch '^[Yy]$') { Show-Countdown }
-        
-        Write-StyledMessage -type 'Warning' -text 'Prosecuzione confermata - Buona fortuna!'
-        Start-Sleep -Seconds 2
-        return
-    }
-    
-    if ($isWin81 -or $isWin8) {
-        # Windows 8.1 o 8
-        Write-StyledMessage -type 'Error' -text 'Sistema obsoleto - Fortemente sconsigliato'
-        Write-Host "  Windows 8.1/8 non è più supportato ufficialmente." -ForegroundColor Red
+
+    if ($isWin8) {
+        # Windows 8 - Non supportato
+        Write-StyledMessage -type 'Error' -text 'Sistema obsoleto - Non supportato'
+        Write-Host "  Windows 8 non è più supportato ufficialmente." -ForegroundColor Red
         Write-Host "  Lo script avrà gravi problemi di affidabilità e stabilità!" -ForegroundColor Red
         Write-Host ''
-        
+
         Write-Host "  Vuoi davvero proseguire a tuo rischio e pericolo? " -NoNewline -ForegroundColor Yellow
         Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
         $response = Read-Host
-        
+
         if ($response -notmatch '^[Yy]$') { Show-Countdown }
-        
+
         Write-StyledMessage -type 'Warning' -text 'Hai scelto la strada difficile... In bocca al lupo!'
         Start-Sleep -Seconds 2
         return
