@@ -56,6 +56,22 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Modifiche
 
+---
+
+## [2.2.4] - 2025-10-11 (#16)
+
+### Aggiunte
+
+### Correzioni
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+- Aumentata la compatilità dello script con versioni precedenti di windows.
+- Migliorati i messaggi di avviso.
+
+---
+
 ## [2.2.3] - 2025-10-04 (#15)
 
 ### Aggiunte
