@@ -56,7 +56,7 @@ function SetRustDesk {
             '         \_/\_/    |_||_| \_|',
             '',
             'RustDesk Setup Toolkit By MagnetarMan',
-            '       Version 2.2.2 (Build 3)'
+            '       Version 2.2.4 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
