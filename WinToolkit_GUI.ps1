@@ -144,7 +144,7 @@ $xaml = @"
                         Content="📧 Invia Log Errori"
                         Background="#FFDC143C"
                         Foreground="White"
-                        FontSize="12"
+                        FontSize="13"
                         FontFamily="Cascadia Code"
                         Padding="8,4"
                         BorderThickness="0"
@@ -467,88 +467,14 @@ function Execute-Script {
 
                 # Esegui la funzione corrispondente
                 switch ($functionName) {
-                    "WinInstallPSProfile" {
-                        Add-OutputText -Text "Installazione profilo PowerShell avviata..." -Color "#00CED1"
-                        Start-Sleep -Seconds 2
-                        Add-OutputText -Text "oh-my-posh configurato" -Color "#00FF00"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "zoxide configurato" -Color "#00FF00"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "Profilo PowerShell installato!" -Color "#00FF00"
-                    }
-                    "WinRepairToolkit" {
-                        Add-OutputText -Text "Toolkit riparazione Windows avviato..." -Color "#00CED1"
-                        $repairTools = @("Controllo disco", "Controllo file di sistema (1)", "Ripristino immagine Windows", "Pulizia Residui Aggiornamenti", "Controllo file di sistema (2)")
-                        foreach ($tool in $repairTools) {
-                            Add-OutputText -Text "Esecuzione: $tool" -Color "#00CED1"
-                            Start-Sleep -Seconds 1
-                            Add-OutputText -Text "$tool completato con successo" -Color "#00FF00"
-                        }
-                    }
-                    "WinUpdateReset" {
-                        Add-OutputText -Text "Reset Windows Update avviato..." -Color "#00CED1"
-                        $services = @("wuauserv", "cryptsvc", "bits", "msiserver")
-                        foreach ($service in $services) {
-                            Add-OutputText -Text "Arresto servizio: $service" -Color "#00CED1"
-                            Start-Sleep -Milliseconds 500
-                        }
-                        Add-OutputText -Text "Pulizia componenti Windows Update..." -Color "#00CED1"
-                        Start-Sleep -Seconds 2
-                        Add-OutputText -Text "Ripristino chiavi di registro..." -Color "#00CED1"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "Avvio servizi essenziali..." -Color "#00CED1"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "Riparazione completata con successo!" -Color "#00FF00"
-                    }
-                    "WinReinstallStore" {
-                        Add-OutputText -Text "Reinstallazione Store avviata..." -Color "#00CED1"
-                        Add-OutputText -Text "Verifica Winget..." -Color "#00CED1"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "Reinstallazione Microsoft Store..." -Color "#00CED1"
-                        Start-Sleep -Seconds 2
-                        Add-OutputText -Text "Microsoft Store installato" -Color "#00FF00"
-                    }
-                    "WinBackupDriver" {
-                        Add-OutputText -Text "Backup driver avviato..." -Color "#00CED1"
-                        Add-OutputText -Text "Esportazione driver di terze parti..." -Color "#00CED1"
-                        Start-Sleep -Seconds 2
-                        Add-OutputText -Text "Compressione archivio..." -Color "#00CED1"
-                        Start-Sleep -Seconds 2
-                        Add-OutputText -Text "Spostamento archivio sul desktop..." -Color "#00CED1"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "Backup driver completato con successo!" -Color "#00FF00"
-                    }
-                    "WinCleaner" {
-                        Add-OutputText -Text "Pulizia sistema avviata..." -Color "#00CED1"
-                        $cleanupTasks = @("Pulizia automatica CleanMgr", "WinSxS - Assembly sostituiti", "Rapporti errori Windows", "Registro eventi Windows", "Cache download Windows", "Cache .NET Framework", "File temporanei Windows", "File temporanei utente")
-                        foreach ($task in $cleanupTasks) {
-                            Add-OutputText -Text "Esecuzione: $task" -Color "#00CED1"
-                            Start-Sleep -Seconds 1
-                            Add-OutputText -Text "$task completato" -Color "#00FF00"
-                        }
-                    }
-                    "OfficeToolkit" {
-                        Add-OutputText -Text "Office Toolkit avviato..." -Color "#00CED1"
-                        Add-OutputText -Text "Chiusura processi Office..." -Color "#00CED1"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "Pulizia cache Office..." -Color "#00CED1"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "Riparazione Office completata..." -Color "#00CED1"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "Office Toolkit completato!" -Color "#00FF00"
-                    }
-                    "SetRustDesk" {
-                        Add-OutputText -Text "Configurazione RustDesk avviata..." -Color "#00CED1"
-                        Add-OutputText -Text "Arresto servizi e processi RustDesk..." -Color "#00CED1"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "Download installer RustDesk..." -Color "#00CED1"
-                        Start-Sleep -Seconds 2
-                        Add-OutputText -Text "Installazione RustDesk..." -Color "#00CED1"
-                        Start-Sleep -Seconds 2
-                        Add-OutputText -Text "Download file di configurazione..." -Color "#00CED1"
-                        Start-Sleep -Seconds 1
-                        Add-OutputText -Text "Configurazione RustDesk completata!" -Color "#00FF00"
-                    }
+                    "WinInstallPSProfile" {}
+                    "WinRepairToolkit" {}
+                    "WinUpdateReset" {}
+                    "WinReinstallStore" {}
+                    "WinBackupDriver" {}
+                    "WinCleaner" {}
+                    "OfficeToolkit" {}
+                    "SetRustDesk" {}
                 }
 
                 Add-OutputText -Text "Completato: $functionName" -Color "#00FF00"
@@ -601,9 +527,6 @@ $window.Add_Loaded({
 
             Update-ActionsPanel
             Add-OutputText -Text "WinToolKit By MagnetarMan - V 5.0 (GUI Edition) [Build 6 - ALPHA]" -Color "#00FF00"
-            Add-OutputText -Text "Sistema operativo verificato e GUI pronta per l'uso!" -Color "#00CED1"
-            Add-OutputText -Text "Seleziona le funzioni da eseguire e premi 'Esegui Script'" -Color "#00CED1"
-
             Write-DebugMessage -Type 'Success' -Message "GUI initialized successfully"
         }
         catch {
