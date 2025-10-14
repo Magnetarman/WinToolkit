@@ -51,6 +51,15 @@
 
 ## </div>
 
+## V 5.0 - Gui Mode (Sneak Peak)
+
+> [!CAUTION]
+> Lo screen seguente della versione grafica di WinToolkit sottostate è relativo alla versione Alpha in stadio di pre-produzione. La grafica finale potrebbe subire variazioni anche significative, ho deciso di inserirla per gli utenti che mi hanno chiesto a gran voce di implementarla in futuro.
+
+<div align="center">
+ <img src="img/Gui-Mode.jpg" alt="Gui-Mode-banner" width="1200">
+</div>
+
 ## 👾 Features
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
@@ -78,15 +87,6 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 - **Risparmiare Tempo**: Automatizza ore di lavoro manuale di diagnostica e riparazione.
 - **Prevenire Malfunzionamenti**: Esegui manutenzioni preventive per evitare problemi futuri.
 - **Agire da Esperto**: Sfrutta la potenza degli strumenti di sistema ufficiali Microsoft con un'interfaccia semplice e sicura. Nessun Software Terzo, nessuno script aggressivo o non perfettamente documentato ed utilizzato dai supporti ufficiali.
-
-## V 5.0 - Gui Mode (Sneak Peak)
-
-> [!CAUTION]
-> Lo screen seguente della versione grafica di WinToolkit sottostate è relativo alla versione Alpha in stadio di pre-produzione. La grafica finale potrebbe subire variazioni anche significative, ho deciso di inserirla per gli utenti che mi hanno chiesto a gran voce di implementarla in futuro.
-
-<div align="center">
- <img src="img/Gui-Mode.jpg" alt="Gui-Mode-banner" width="1200">
-</div>
 
 ---
 
