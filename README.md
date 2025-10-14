@@ -49,9 +49,7 @@
 |   <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800">   |  <img src="img/WinCleaner.jpg" alt="WinCleaner-banner" width="800">  |
 | <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800"> | <img src="img/SetRustDesk.jpg" alt="SetRustDesk-banner" width="800"> |
 
-</div>
-
----
+## </div>
 
 ## 👾 Features
 
@@ -81,6 +79,15 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 - **Prevenire Malfunzionamenti**: Esegui manutenzioni preventive per evitare problemi futuri.
 - **Agire da Esperto**: Sfrutta la potenza degli strumenti di sistema ufficiali Microsoft con un'interfaccia semplice e sicura. Nessun Software Terzo, nessuno script aggressivo o non perfettamente documentato ed utilizzato dai supporti ufficiali.
 
+## V 5.0 - Gui Mode (Sneak Peak)
+
+> [!CAUTION]
+> Lo screen seguente della versione grafica di WinToolkit sottostate è relativo alla versione Alpha in stadio di pre-produzione. La grafica finale potrebbe subire variazioni anche significative, ho deciso di inserirla per gli utenti che mi hanno chiesto a gran voce di implementarla in futuro.
+
+<div align="center">
+ <img src="img/Gui-Mode.jpg" alt="Gui-Mode-banner" width="1200">
+</div>
+
 ---
 
 ## 📁 Struttura Cartelle
@@ -88,6 +95,7 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 ```sh
 └── WinToolkit/
     └── img
+        ├── Gui-Mode.jpg
         ├── OfficeToolkit.jpg
         ├── RepairToolkit.jpg
         ├── Run.jpg
