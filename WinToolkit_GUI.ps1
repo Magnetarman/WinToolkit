@@ -12,12 +12,12 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 12 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 15 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
-$WindowWidth = 1200
-$WindowHeight = 850
+$WindowWidth = 1500
+$WindowHeight = 950
 $FontFamily = "Cascadia Code"
 $FontSize = @{Small = 12; Medium = 14; Large = 16; Title = 18 }
 
@@ -36,6 +36,7 @@ $SysInfoComputerName = $null
 $SysInfoRAM = $null
 $SysInfoDisk = $null
 $SysInfoScriptCompatibility = $null
+$ScriptCompatibilityIndicator = $null
 
 # =============================================================================
 # LOGGING AND UTILITY FUNCTIONS
@@ -237,6 +238,7 @@ $xaml = @"
         <SolidColorBrush x:Key="ErrorButtonPressedColor" Color="#FF8B0000"/>
         <SolidColorBrush x:Key="BorderColor" Color="#FF0078D4"/>
         <SolidColorBrush x:Key="OutputBackgroundColor" Color="#FF1A1A1A"/>
+        <SolidColorBrush x:Key="YellowColor" Color="#FFFFFF00"/>
         <FontFamily x:Key="PrimaryFont">Cascadia Code</FontFamily>
     </Window.Resources>
 
@@ -324,39 +326,60 @@ $xaml = @"
                                    Margin="0,0,0,15"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="  💻 Edizione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
+                            <!-- Left Section: Edition, Version, Architecture -->
+                            <Border Grid.Column="0" Background="{StaticResource OutputBackgroundColor}" CornerRadius="6" Padding="10" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="💻 Edizione Windows:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8" TextWrapping="Wrap"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="  📊 Versione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
+                                    <TextBlock Text="📊 Versione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8" TextWrapping="Wrap"/>
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="  🗝️ Architettura:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="SysInfoArchitecture" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
+                                    <TextBlock Text="🗝️ Architettura:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="SysInfoArchitecture" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="  🏷️ Nome PC:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
+                            <!-- Center Section: Script Compatibility -->
+                            <Border Grid.Column="1" Background="{StaticResource OutputBackgroundColor}" CornerRadius="6" Padding="10" Margin="4,0">
+                                <StackPanel>
+                                    <TextBlock Text="✨ Funzionalità Script:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,8">
+                                        <Border x:Name="ScriptCompatibilityIndicator"
+                                                Width="16" Height="16" CornerRadius="8"
+                                                BorderBrush="{StaticResource AccentColor}"
+                                                BorderThickness="1"
+                                                Background="{StaticResource TextColor}"
+                                                Margin="0,0,8,0"/>
+                                        <TextBlock x:Name="SysInfoScriptCompatibility"
+                                                   Text="Caricamento..."
+                                                   Foreground="{StaticResource TextColor}"
+                                                   FontSize="13"
+                                                   FontFamily="{StaticResource PrimaryFont}"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
 
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="  🧠 RAM:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
+                            <!-- Right Section: Computer Name, RAM, Disk -->
+                            <Border Grid.Column="2" Background="{StaticResource OutputBackgroundColor}" CornerRadius="6" Padding="10" Margin="8,0,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="🏷️ Nome PC:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8" TextWrapping="Wrap"/>
 
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="  💾 Disco:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="5" Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
+                                    <TextBlock Text="🧠 RAM:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8" TextWrapping="Wrap"/>
 
-                            <TextBlock Grid.Row="6" Grid.Column="0" Text="  Funzionalità Script:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="6" Grid.Column="1" x:Name="SysInfoScriptCompatibility" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
+                                    <TextBlock Text="💾 Disco:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -489,6 +512,7 @@ $SysInfoComputerName = $window.FindName("SysInfoComputerName")
 $SysInfoRAM = $window.FindName("SysInfoRAM")
 $SysInfoDisk = $window.FindName("SysInfoDisk")
 $SysInfoScriptCompatibility = $window.FindName("SysInfoScriptCompatibility")
+$ScriptCompatibilityIndicator = $window.FindName("ScriptCompatibilityIndicator")
 
 # Load and set logos
 try {
@@ -545,6 +569,9 @@ if (-not $SysInfoDisk) {
 if (-not $SysInfoScriptCompatibility) {
     Write-DebugMessage -Type 'Warning' -Message "SysInfoScriptCompatibility not found"
 }
+if (-not $ScriptCompatibilityIndicator) {
+    Write-DebugMessage -Type 'Warning' -Message "ScriptCompatibilityIndicator not found"
+}
 
 # Function to add text to output
 function Add-OutputText {
@@ -579,6 +606,7 @@ function Update-SystemInformationPanel {
                 $SysInfoDisk.Text = "Caricamento..."
                 $SysInfoScriptCompatibility.Text = "Caricamento..."
                 $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::White) # Default
+                $ScriptCompatibilityIndicator.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Gray) # Default indicator color
             })
 
         $sysInfo = Get-SystemInfo
@@ -593,6 +621,7 @@ function Update-SystemInformationPanel {
                     $SysInfoDisk.Text = "N/A"
                     $SysInfoScriptCompatibility.Text = "Errore di recupero"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
+                    $ScriptCompatibilityIndicator.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                 })
             return
         }
@@ -621,27 +650,27 @@ function Update-SystemInformationPanel {
 
         if ($isWin11 -and $buildNumber -ge 22621) {
             $scriptCompatibilityText = "Completa"
-            $scriptCompatibilityColor = [System.Windows.Media.Colors]::LimeGreen # Success equivalent
+            $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0x00, 0xFF, 0x00) # Success (LimeGreen)
         }
         elseif ($isWin11 -and $buildNumber -ge 22000) {
             $scriptCompatibilityText = "Compatibile con eccezioni"
-            $scriptCompatibilityColor = [System.Windows.Media.Colors]::Orange # Warning equivalent
+            $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0xFF, 0x00) # Yellow
         }
         elseif ($isWin10 -and $buildNumber -ge 17763) {
             $scriptCompatibilityText = "Completa"
-            $scriptCompatibilityColor = [System.Windows.Media.Colors]::LimeGreen
+            $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0x00, 0xFF, 0x00) # Success (LimeGreen)
         }
         elseif ($isWin10 -and $buildNumber -lt 17763) {
             $scriptCompatibilityText = "Sconsigliata (troppo vecchia)"
-            $scriptCompatibilityColor = [System.Windows.Media.Colors]::Red # Error equivalent
+            $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0x00, 0x00) # Error (Red)
         }
         elseif ($isWin81) {
             $scriptCompatibilityText = "Parziale (obsoleta)"
-            $scriptCompatibilityColor = [System.Windows.Media.Colors]::Orange
+            $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0xA5, 0x00) # Warning (Orange)
         }
         elseif ($isWin8) {
             $scriptCompatibilityText = "Non supportata (obsoleta)"
-            $scriptCompatibilityColor = [System.Windows.Media.Colors]::Red
+            $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0x00, 0x00) # Error (Red)
         }
         else {
             $scriptCompatibilityText = "Estremamente obsoleta (non supportata)"
@@ -658,6 +687,7 @@ function Update-SystemInformationPanel {
                 $SysInfoDisk.Text = "$($sysInfo.FreePercentage)% Libero ($($sysInfo.TotalDisk) GB)"
                 $SysInfoScriptCompatibility.Text = "$scriptCompatibilityText"
                 $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush($scriptCompatibilityColor)
+                $ScriptCompatibilityIndicator.Background = New-Object System.Windows.Media.SolidColorBrush($scriptCompatibilityColor)
             })
         Write-UnifiedLog -Type 'Success' -Message "System information panel updated." -GuiColor "#00FF00"
     }
