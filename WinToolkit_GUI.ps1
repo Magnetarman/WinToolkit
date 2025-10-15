@@ -4,7 +4,7 @@
 .DESCRIPTION
     Enhanced WinToolkit GUI with modern interface, logo integration, progress tracking, and email error reporting
 .NOTES
-    Version 5.0.0 - GUI Edition with enhanced features and modern UI [Build 41 - ALPHA]
+    Version 5.0.0 - GUI Edition with enhanced features and modern UI [Build 42 - ALPHA]
 #>
 
 #Requires -Version 5.1
@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 41 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 42 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -41,6 +41,9 @@ $SysInfoEdition = $null
 $SysInfoVersion = $null
 $SysInfoArchitecture = $null
 $SysInfoComputerName = $null
+$SysInfoEditionValueImage = $null
+$SysInfoEditionLabelImage = $null
+$SysInfoArchitectureImage = $null
 $SysInfoRAM = $null
 $SysInfoDisk = $null
 $SysInfoScriptCompatibility = $null
@@ -107,11 +110,6 @@ function Write-UnifiedLog {
     }
 }
 
-# Legacy function for backward compatibility
-function Write-DebugMessage {
-    param([string]$Type, [string]$Message)
-    Write-UnifiedLog -Type $Type -Message $Message -GuiColor "#00CED1"
-}
 
 # =============================================================================
 # EMOJI ICONS HELPER FUNCTIONS
@@ -193,21 +191,21 @@ catch {
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-DebugMessage -Type 'Error' -Message "Administrator privileges required"
+    Write-UnifiedLog -Type 'Error' -Message "Administrator privileges required" -GuiColor "#FF0000"
     exit
 }
 
-Write-DebugMessage -Type 'Info' -Message "Administrator privileges confirmed"
+Write-UnifiedLog -Type 'Info' -Message "Administrator privileges confirmed" -GuiColor "#00CED1"
 
 # Load WPF assemblies
 $assemblies = @("PresentationFramework", "PresentationCore", "WindowsBase", "System.Windows.Forms")
 foreach ($assembly in $assemblies) {
     try {
         Add-Type -AssemblyName $assembly -ErrorAction Stop
-        Write-DebugMessage -Type 'Success' -Message "Loaded: $assembly"
+        Write-UnifiedLog -Type 'Success' -Message "Loaded: $assembly" -GuiColor "#00FF00"
     }
     catch {
-        Write-DebugMessage -Type 'Error' -Message "Failed to load: $assembly - $($_.Exception.Message)"
+        Write-UnifiedLog -Type 'Error' -Message "Failed to load: $assembly - $($_.Exception.Message)" -GuiColor "#FF0000"
     }
 }
 
@@ -409,6 +407,8 @@ $xaml = @"
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
                                     <!-- Edizione Windows -->
@@ -418,10 +418,13 @@ $xaml = @"
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,1,8,1">
-                                            <Image x:Name="SysInfoEditionImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <Image x:Name="SysInfoEditionLabelImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                             <TextBlock Text="Edizione Windows:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" VerticalAlignment="Center"/>
                                         </StackPanel>
-                                        <TextBlock Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,1,0,1">
+                                            <Image x:Name="SysInfoEditionValueImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </Grid>
 
                                     <!-- Separatore -->
@@ -438,6 +441,22 @@ $xaml = @"
                                             <TextBlock Text="Versione:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" VerticalAlignment="Center"/>
                                         </StackPanel>
                                         <TextBlock Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
+                                    </Grid>
+
+                                    <!-- Separatore -->
+                                    <Border Grid.Row="3" Height="1" Background="{StaticResource BorderColor}" Margin="2,3,2,3" Opacity="0.3"/>
+
+                                    <!-- Architettura -->
+                                    <Grid Grid.Row="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,1,8,1">
+                                            <Image x:Name="SysInfoArchitectureImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Architettura:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" x:Name="SysInfoArchitecture" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -659,12 +678,12 @@ $xaml = @"
 
 # Create window
 try {
-    Write-DebugMessage -Type 'Info' -Message "Creating WPF window..."
+    Write-UnifiedLog -Type 'Info' -Message "Creating WPF window..." -GuiColor "#00CED1"
     $window = [Windows.Markup.XamlReader]::Parse($xaml)
-    Write-DebugMessage -Type 'Success' -Message "Window created successfully"
+    Write-UnifiedLog -Type 'Success' -Message "Window created successfully" -GuiColor "#00FF00"
 }
 catch {
-    Write-DebugMessage -Type 'Error' -Message "Failed to create window: $($_.Exception.Message)"
+    Write-UnifiedLog -Type 'Error' -Message "Failed to create window: $($_.Exception.Message)" -GuiColor "#FF0000"
     exit
 }
 
@@ -680,9 +699,11 @@ $funzioniDisponibiliImage = $window.FindName("FunzioniDisponibiliImage")
 $outputLogImage = $window.FindName("OutputLogImage")
 $sysInfoTitleImage1 = $window.FindName("SysInfoTitleImage1")
 $sysInfoTitleImage2 = $window.FindName("SysInfoTitleImage2")
-$sysInfoEditionImage = $window.FindName("SysInfoEditionImage")
+$sysInfoEditionLabelImage = $window.FindName("SysInfoEditionLabelImage")
+$sysInfoEditionValueImage = $window.FindName("SysInfoEditionValueImage")
 $sysInfoVersionImage = $window.FindName("SysInfoVersionImage")
 $sysInfoScriptImage = $window.FindName("SysInfoScriptImage")
+$sysInfoArchitectureImage = $window.FindName("SysInfoArchitectureImage")
 $sysInfoComputerNameImage = $window.FindName("SysInfoComputerNameImage")
 $sysInfoRAMImage = $window.FindName("SysInfoRAMImage")
 $sysInfoDiskImage = $window.FindName("SysInfoDiskImage")
@@ -704,10 +725,10 @@ try {
         $appLogo.Source.UriSource = New-Object System.Uri($logoPath)
         $appLogo.Source.EndInit()
 
-        Write-DebugMessage -Type 'Success' -Message "Logos loaded successfully"
+        Write-UnifiedLog -Type 'Success' -Message "Logos loaded successfully" -GuiColor "#00FF00"
     }
     else {
-        Write-DebugMessage -Type 'Warning' -Message "Logo file not found: $logoPath"
+        Write-UnifiedLog -Type 'Warning' -Message "Logo file not found: $logoPath" -GuiColor "#FFA500"
     }
 
     # Load emoji images for static elements
@@ -718,9 +739,11 @@ try {
         "ExecuteButtonImage"       = "▶️"
         "SysInfoTitleImage1"       = "🖥️"
         "SysInfoTitleImage2"       = "🖥️"
-        "SysInfoEditionImage"      = "💻"
+        "SysInfoEditionLabelImage" = "💻"
+        "SysInfoEditionValueImage" = ""
         "SysInfoVersionImage"      = "📊"
         "SysInfoScriptImage"       = "✨"
+        "SysInfoArchitectureImage" = "⚡"
         "SysInfoComputerNameImage" = "🏷️"
         "SysInfoRAMImage"          = "🧠"
         "SysInfoDiskImage"         = "💾"
@@ -752,91 +775,74 @@ try {
     }
 }
 catch {
-    Write-DebugMessage -Type 'Warning' -Message "Error loading logos or emoji images: $($_.Exception.Message)"
+    Write-UnifiedLog -Type 'Warning' -Message "Error loading logos or emoji images: $($_.Exception.Message)" -GuiColor "#FFA500"
 }
 
 if (-not $appLogo) {
-    Write-DebugMessage -Type 'Warning' -Message "AppLogo not found"
+    Write-UnifiedLog -Type 'Warning' -Message "AppLogo not found" -GuiColor "#FFA500"
 }
 if (-not $actionsPanel) {
-    Write-DebugMessage -Type 'Warning' -Message "ActionsPanel not found"
+    Write-UnifiedLog -Type 'Warning' -Message "ActionsPanel not found" -GuiColor "#FFA500"
 }
 if (-not $outputTextBox) {
-    Write-DebugMessage -Type 'Warning' -Message "OutputTextBox not found"
+    Write-UnifiedLog -Type 'Warning' -Message "OutputTextBox not found" -GuiColor "#FFA500"
 }
 if (-not $executeButton) {
-    Write-DebugMessage -Type 'Warning' -Message "ExecuteButton not found"
+    Write-UnifiedLog -Type 'Warning' -Message "ExecuteButton not found" -GuiColor "#FFA500"
 }
 if (-not $sendErrorLogsButton) {
-    Write-DebugMessage -Type 'Warning' -Message "SendErrorLogsButton not found"
+    Write-UnifiedLog -Type 'Warning' -Message "SendErrorLogsButton not found" -GuiColor "#FFA500"
+}
+if (-not $SysInfoEditionLabelImage) {
+    Write-UnifiedLog -Type 'Warning' -Message "SysInfoEditionLabelImage not found" -GuiColor "#FFA500"
+}
+if (-not $SysInfoEditionValueImage) {
+    Write-UnifiedLog -Type 'Warning' -Message "SysInfoEditionValueImage not found" -GuiColor "#FFA500"
 }
 if (-not $SysInfoEdition) {
-    Write-DebugMessage -Type 'Warning' -Message "SysInfoEdition not found"
+    Write-UnifiedLog -Type 'Warning' -Message "SysInfoEdition not found" -GuiColor "#FFA500"
 }
 if (-not $SysInfoVersion) {
-    Write-DebugMessage -Type 'Warning' -Message "SysInfoVersion not found"
+    Write-UnifiedLog -Type 'Warning' -Message "SysInfoVersion not found" -GuiColor "#FFA500"
+}
+if (-not $SysInfoArchitectureImage) {
+    Write-UnifiedLog -Type 'Warning' -Message "SysInfoArchitectureImage not found" -GuiColor "#FFA500"
 }
 if (-not $SysInfoArchitecture) {
-    Write-DebugMessage -Type 'Warning' -Message "SysInfoArchitecture not found"
+    Write-UnifiedLog -Type 'Warning' -Message "SysInfoArchitecture not found" -GuiColor "#FFA500"
 }
 if (-not $SysInfoComputerName) {
-    Write-DebugMessage -Type 'Warning' -Message "SysInfoComputerName not found"
+    Write-UnifiedLog -Type 'Warning' -Message "SysInfoComputerName not found" -GuiColor "#FFA500"
 }
 if (-not $SysInfoRAM) {
-    Write-DebugMessage -Type 'Warning' -Message "SysInfoRAM not found"
+    Write-UnifiedLog -Type 'Warning' -Message "SysInfoRAM not found" -GuiColor "#FFA500"
 }
 if (-not $SysInfoDisk) {
-    Write-DebugMessage -Type 'Warning' -Message "SysInfoDisk not found"
+    Write-UnifiedLog -Type 'Warning' -Message "SysInfoDisk not found" -GuiColor "#FFA500"
 }
 if (-not $SysInfoScriptCompatibility) {
-    Write-DebugMessage -Type 'Warning' -Message "SysInfoScriptCompatibility not found"
+    Write-UnifiedLog -Type 'Warning' -Message "SysInfoScriptCompatibility not found" -GuiColor "#FFA500"
 }
 if (-not $ScriptCompatibilityIndicator) {
-    Write-DebugMessage -Type 'Warning' -Message "ScriptCompatibilityIndicator not found"
+    Write-UnifiedLog -Type 'Warning' -Message "ScriptCompatibilityIndicator not found" -GuiColor "#FFA500"
 }
 
-# Function to add text to output
-function Add-OutputText {
-    param([string]$Text, [string]$Color = "#FFFFFF")
-
-    try {
-        $window.Dispatcher.Invoke([Action] {
-                $paragraph = New-Object System.Windows.Documents.Paragraph
-                $run = New-Object System.Windows.Documents.Run
-                $run.Text = "$(Get-Date -Format 'HH:mm:ss'): $Text"
-                $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($Color))
-                $paragraph.Inlines.Add($run)
-                $outputTextBox.Document.Blocks.Add($paragraph)
-                $outputTextBox.ScrollToEnd()
-            })
-    }
-    catch {
-        Write-DebugMessage -Type 'Error' -Message "Error adding output text: $($_.Exception.Message)"
-    }
-}
 
 # Function to update the system information panel in the GUI
 function Update-SystemInformationPanel {
     try {
         # Initialize UI elements with a loading state on the UI thread
         $window.Dispatcher.Invoke([Action] {
-                # Find TextBlocks inside the Grid structures
-                $editionTextBlock = $SysInfoEdition.Parent.Children | Where-Object { $_.Name -eq "SysInfoEdition" }
-                $versionTextBlock = $SysInfoVersion.Parent.Children | Where-Object { $_.Name -eq "SysInfoVersion" }
-                $architectureTextBlock = $SysInfoArchitecture.Parent.Children | Where-Object { $_.Name -eq "SysInfoArchitecture" }
-                $computerNameTextBlock = $SysInfoComputerName.Parent.Children | Where-Object { $_.Name -eq "SysInfoComputerName" }
-                $ramTextBlock = $SysInfoRAM.Parent.Children | Where-Object { $_.Name -eq "SysInfoRAM" }
-                $diskTextBlock = $SysInfoDisk.Parent.Children | Where-Object { $_.Name -eq "SysInfoDisk" }
-                $scriptCompatibilityTextBlock = $SysInfoScriptCompatibility.Parent.Children | Where-Object { $_.Name -eq "SysInfoScriptCompatibility" }
+                $SysInfoEdition.Text = "Caricamento..."
+                $SysInfoVersion.Text = "Caricamento..."
+                $SysInfoArchitecture.Text = "Caricamento..."
+                $SysInfoComputerName.Text = "Caricamento..."
+                $SysInfoRAM.Text = "Caricamento..."
+                $SysInfoDisk.Text = "Caricamento..."
+                $SysInfoScriptCompatibility.Text = "Caricamento..."
 
-                if ($editionTextBlock) { $editionTextBlock.Text = "Caricamento..." }
-                if ($versionTextBlock) { $versionTextBlock.Text = "Caricamento..." }
-                if ($architectureTextBlock) { $architectureTextBlock.Text = "Caricamento..." }
-                if ($computerNameTextBlock) { $computerNameTextBlock.Text = "Caricamento..." }
-                if ($ramTextBlock) { $ramTextBlock.Text = "Caricamento..." }
-                if ($diskTextBlock) { $diskTextBlock.Text = "Caricamento..." }
-                if ($scriptCompatibilityTextBlock) { $scriptCompatibilityTextBlock.Text = "Caricamento..." }
-
+                # Reset specific images/indicators
+                $SysInfoEditionValueImage.Source = $null # Clear existing image
                 $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::White) # Default
                 $ScriptCompatibilityIndicator.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Gray) # Default indicator color
             })
@@ -845,22 +851,13 @@ function Update-SystemInformationPanel {
         if (-not $sysInfo) {
             Write-UnifiedLog -Type 'Error' -Message "Failed to retrieve system information." -GuiColor "#FF0000"
             $window.Dispatcher.Invoke([Action] {
-                    # Find TextBlocks inside the Grid structures for error state
-                    $editionTextBlock = $SysInfoEdition.Parent.Children | Where-Object { $_.Name -eq "SysInfoEdition" }
-                    $versionTextBlock = $SysInfoVersion.Parent.Children | Where-Object { $_.Name -eq "SysInfoVersion" }
-                    $architectureTextBlock = $SysInfoArchitecture.Parent.Children | Where-Object { $_.Name -eq "SysInfoArchitecture" }
-                    $computerNameTextBlock = $SysInfoComputerName.Parent.Children | Where-Object { $_.Name -eq "SysInfoComputerName" }
-                    $ramTextBlock = $SysInfoRAM.Parent.Children | Where-Object { $_.Name -eq "SysInfoRAM" }
-                    $diskTextBlock = $SysInfoDisk.Parent.Children | Where-Object { $_.Name -eq "SysInfoDisk" }
-                    $scriptCompatibilityTextBlock = $SysInfoScriptCompatibility.Parent.Children | Where-Object { $_.Name -eq "SysInfoScriptCompatibility" }
-
-                    if ($editionTextBlock) { $editionTextBlock.Text = "N/A" }
-                    if ($versionTextBlock) { $versionTextBlock.Text = "N/A" }
-                    if ($architectureTextBlock) { $architectureTextBlock.Text = "N/A" }
-                    if ($computerNameTextBlock) { $computerNameTextBlock.Text = "N/A" }
-                    if ($ramTextBlock) { $ramTextBlock.Text = "N/A" }
-                    if ($diskTextBlock) { $diskTextBlock.Text = "N/A" }
-                    if ($scriptCompatibilityTextBlock) { $scriptCompatibilityTextBlock.Text = "Errore di recupero" }
+                    $SysInfoEdition.Text = "N/A"
+                    $SysInfoVersion.Text = "N/A"
+                    $SysInfoArchitecture.Text = "N/A"
+                    $SysInfoComputerName.Text = "N/A"
+                    $SysInfoRAM.Text = "N/A"
+                    $SysInfoDisk.Text = "N/A"
+                    $SysInfoScriptCompatibility.Text = "Errore di recupero"
 
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                     $ScriptCompatibilityIndicator.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
@@ -871,14 +868,16 @@ function Update-SystemInformationPanel {
         $buildNumber = $sysInfo.BuildNumber
         $windowsVersion = Get-WindowsVersion $buildNumber
 
-        # Edition detection
-        $windowsEdition = switch -Wildcard ($sysInfo.ProductName) {
-            "*Home*" { "🏠 Home" }
-            "*Pro*" { "💼 Professional" }
-            "*Enterprise*" { "🏢 Enterprise" }
-            "*Education*" { "🎓 Education" }
-            "*Server*" { "🖥️ Server" }
-            default { "💻 $($sysInfo.ProductName)" }
+        # Edition detection and emoji
+        $windowsEditionEmoji = ""
+        $windowsEditionText = $sysInfo.ProductName -replace 'Microsoft ', ''
+        switch -Wildcard ($sysInfo.ProductName) {
+            "*Home*" { $windowsEditionEmoji = "🏠"; $windowsEditionText = "Home" }
+            "*Pro*" { $windowsEditionEmoji = "💼"; $windowsEditionText = "Professional" }
+            "*Enterprise*" { $windowsEditionEmoji = "🏢"; $windowsEditionText = "Enterprise" }
+            "*Education*" { $windowsEditionEmoji = "🎓"; $windowsEditionText = "Education" }
+            "*Server*" { $windowsEditionEmoji = "🖥️"; $windowsEditionText = "Server" }
+            default { $windowsEditionEmoji = "💻"; $windowsEditionText = $sysInfo.ProductName } # Fallback, keep full product name
         }
 
         # Determine Script Compatibility based on WinOSCheck logic
@@ -929,86 +928,38 @@ function Update-SystemInformationPanel {
 
         # Update GUI elements on the UI thread
         $window.Dispatcher.Invoke([Action] {
-                # Find TextBlocks inside the Grid structures for system info update
-                $editionTextBlock = $SysInfoEdition.Parent.Children | Where-Object { $_.Name -eq "SysInfoEdition" }
-                $versionTextBlock = $SysInfoVersion.Parent.Children | Where-Object { $_.Name -eq "SysInfoVersion" }
-                $architectureTextBlock = $SysInfoArchitecture.Parent.Children | Where-Object { $_.Name -eq "SysInfoArchitecture" }
-                $computerNameTextBlock = $SysInfoComputerName.Parent.Children | Where-Object { $_.Name -eq "SysInfoComputerName" }
-                $ramTextBlock = $SysInfoRAM.Parent.Children | Where-Object { $_.Name -eq "SysInfoRAM" }
-                $diskTextBlock = $SysInfoDisk.Parent.Children | Where-Object { $_.Name -eq "SysInfoDisk" }
-                $scriptCompatibilityTextBlock = $SysInfoScriptCompatibility.Parent.Children | Where-Object { $_.Name -eq "SysInfoScriptCompatibility" }
-
-                if ($editionTextBlock) {
-                    # Clear existing content and create a StackPanel with icon + text
-                    $parentGrid = $editionTextBlock.Parent
-                    $columnIndex = [System.Windows.Controls.Grid]::GetColumn($editionTextBlock)
-
-                    # Remove the old TextBlock
-                    $parentGrid.Children.Remove($editionTextBlock)
-
-                    # Create a StackPanel to hold icon + text, right-aligned
-                    $editionStackPanel = New-Object System.Windows.Controls.StackPanel
-                    $editionStackPanel.Orientation = 'Horizontal'
-                    $editionStackPanel.VerticalAlignment = 'Center'
-                    $editionStackPanel.HorizontalAlignment = 'Right'
-
-                    # Extract emoji and text using the existing function
-                    $splitResult = Split-EmojiAndText -InputString $windowsEdition
-                    $emoji = $splitResult.Emoji
-                    $text = $splitResult.Text
-
-                    # Create image for emoji if available
-                    if ($emoji -and $emoji.Length -gt 0) {
-                        $editionImage = New-Object System.Windows.Controls.Image
-                        $editionImage.Width = 16
-                        $editionImage.Height = 16
-                        $editionImage.Margin = '0,0,4,0'
-                        $editionImage.VerticalAlignment = 'Center'
-
-                        # Get the icon path
-                        $iconPath = Get-EmojiIconPath -EmojiCharacter $emoji
-
-                        if ($iconPath -and (Test-Path $iconPath)) {
-                            try {
-                                $bitmapImage = New-Object System.Windows.Media.Imaging.BitmapImage
-                                $bitmapImage.BeginInit()
-                                $bitmapImage.UriSource = [System.Uri]($iconPath)
-                                $bitmapImage.EndInit()
-                                $editionImage.Source = $bitmapImage
-                                $editionStackPanel.Children.Add($editionImage) | Out-Null
-                            }
-                            catch {
-                                # If image fails to load, hide it
-                                $editionImage.Visibility = 'Collapsed'
-                            }
+                $SysInfoEdition.Text = $windowsEditionText
+                if ($SysInfoEditionValueImage -and $windowsEditionEmoji) {
+                    $iconPath = Get-EmojiIconPath -EmojiCharacter $windowsEditionEmoji
+                    if ($iconPath -and (Test-Path $iconPath)) {
+                        try {
+                            $bitmapImage = New-Object System.Windows.Media.Imaging.BitmapImage
+                            $bitmapImage.BeginInit()
+                            $bitmapImage.UriSource = [System.Uri]($iconPath)
+                            $bitmapImage.EndInit()
+                            $SysInfoEditionValueImage.Source = $bitmapImage
+                            $SysInfoEditionValueImage.Visibility = 'Visible'
                         }
-                        else {
-                            # If file doesn't exist, hide the image
-                            $editionImage.Visibility = 'Collapsed'
+                        catch {
+                            Write-UnifiedLog -Type 'Warning' -Message "Failed to load edition emoji image: $($_.Exception.Message)" -GuiColor "#FFA500"
+                            $SysInfoEditionValueImage.Visibility = 'Collapsed'
                         }
                     }
-
-                    # Create TextBlock for the edition text
-                    $editionTextBlock = New-Object System.Windows.Controls.TextBlock
-                    $editionTextBlock.Text = $text
-                    $editionTextBlock.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0xFF, 0xFF))
-                    $editionTextBlock.FontSize = 13
-                    $editionTextBlock.FontFamily = [System.Windows.Media.FontFamily]::new("Cascadia Code")
-                    $editionTextBlock.VerticalAlignment = 'Center'
-                    $editionTextBlock.Name = "SysInfoEdition"
-
-                    $editionStackPanel.Children.Add($editionTextBlock) | Out-Null
-
-                    # Add the StackPanel to the Grid
-                    [System.Windows.Controls.Grid]::SetColumn($editionStackPanel, $columnIndex)
-                    $parentGrid.Children.Add($editionStackPanel) | Out-Null
+                    else {
+                        Write-UnifiedLog -Type 'Warning' -Message "Edition emoji icon file not found: $iconPath" -GuiColor "#FFA500"
+                        $SysInfoEditionValueImage.Visibility = 'Collapsed'
+                    }
                 }
-                if ($versionTextBlock) { $versionTextBlock.Text = "Ver. $windowsVersion (Build $buildNumber)" }
-                if ($architectureTextBlock) { $architectureTextBlock.Text = $sysInfo.Architecture }
-                if ($computerNameTextBlock) { $computerNameTextBlock.Text = $sysInfo.ComputerName }
-                if ($ramTextBlock) { $ramTextBlock.Text = "$($sysInfo.TotalRAM) GB" }
-                if ($diskTextBlock) { $diskTextBlock.Text = "$($sysInfo.FreePercentage)% Libero ($($sysInfo.TotalDisk) GB)" }
-                if ($scriptCompatibilityTextBlock) { $scriptCompatibilityTextBlock.Text = "$scriptCompatibilityText - $scriptCompatibilityDescription" }
+                else {
+                    $SysInfoEditionValueImage.Visibility = 'Collapsed' # Hide if no emoji
+                }
+
+                $SysInfoVersion.Text = "Ver. $windowsVersion (Build $buildNumber)"
+                $SysInfoArchitecture.Text = $sysInfo.Architecture
+                $SysInfoComputerName.Text = $sysInfo.ComputerName
+                $SysInfoRAM.Text = "$($sysInfo.TotalRAM) GB"
+                $SysInfoDisk.Text = "$($sysInfo.FreePercentage)% Libero ($($sysInfo.TotalDisk) GB)"
+                $SysInfoScriptCompatibility.Text = "$scriptCompatibilityText - $scriptCompatibilityDescription"
 
                 $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush($scriptCompatibilityColor)
                 $ScriptCompatibilityIndicator.Background = New-Object System.Windows.Media.SolidColorBrush($scriptCompatibilityColor)
@@ -1186,10 +1137,10 @@ function Update-ActionsPanel {
                 }
             })
 
-        Write-DebugMessage -Type 'Success' -Message "Actions panel updated with emoji icons"
+        Write-UnifiedLog -Type 'Success' -Message "Actions panel updated with emoji icons" -GuiColor "#00FF00"
     }
     catch {
-        Write-DebugMessage -Type 'Error' -Message "Error updating actions panel: $($_.Exception.Message)"
+        Write-UnifiedLog -Type 'Error' -Message "Error updating actions panel: $($_.Exception.Message)" -GuiColor "#FF0000"
     }
 }
 
@@ -1342,8 +1293,7 @@ try {
                 Execute-Script
             }
             catch {
-                Write-DebugMessage -Type 'Error' -Message "Error in execute script: $($_.Exception.Message)"
-                Add-OutputText -Text "Errore durante esecuzione: $($_.Exception.Message)" -Color "#FF0000"
+                Write-UnifiedLog -Type 'Error' -Message "Error in execute script: $($_.Exception.Message)" -GuiColor "#FF0000"
             }
         })
 
@@ -1352,40 +1302,39 @@ try {
                 Send-ErrorLogs
             }
             catch {
-                Write-DebugMessage -Type 'Error' -Message "Error sending error logs: $($_.Exception.Message)"
-                Add-OutputText -Text "Errore durante invio log: $($_.Exception.Message)" -Color "#FF0000"
+                Write-UnifiedLog -Type 'Error' -Message "Error sending error logs: $($_.Exception.Message)" -GuiColor "#FF0000"
             }
         })
 
-    Write-DebugMessage -Type 'Success' -Message "Event handlers registered"
+    Write-UnifiedLog -Type 'Success' -Message "Event handlers registered" -GuiColor "#00FF00"
 }
 catch {
-    Write-DebugMessage -Type 'Error' -Message "Error registering event handlers: $($_.Exception.Message)"
+    Write-UnifiedLog -Type 'Error' -Message "Error registering event handlers: $($_.Exception.Message)" -GuiColor "#FF0000"
 }
 
 # Window loaded event
 $window.Add_Loaded({
         try {
-            Write-DebugMessage -Type 'Info' -Message "Window loaded, initializing..."
+            Write-UnifiedLog -Type 'Info' -Message "Window loaded, initializing..." -GuiColor "#00CED1"
 
             Update-ActionsPanel
             Update-SystemInformationPanel # Add this line
-            Add-OutputText -Text "$($ScriptTitle) - V $($ScriptVersion)" -Color "#00FF00"
-            Write-DebugMessage -Type 'Success' -Message "GUI initialized successfully"
+            Write-UnifiedLog -Type 'Info' -Message "$($ScriptTitle) - V $($ScriptVersion)" -GuiColor "#00FF00"
+            Write-UnifiedLog -Type 'Success' -Message "GUI initialized successfully" -GuiColor "#00FF00"
         }
         catch {
-            Write-DebugMessage -Type 'Error' -Message "Error initializing GUI: $($_.Exception.Message)"
+            Write-UnifiedLog -Type 'Error' -Message "Error initializing GUI: $($_.Exception.Message)" -GuiColor "#FF0000"
         }
     })
 
 # Show window
 try {
-    Write-DebugMessage -Type 'Info' -Message "Showing GUI window..."
+    Write-UnifiedLog -Type 'Info' -Message "Showing GUI window..." -GuiColor "#00CED1"
     $window.ShowDialog() | Out-Null
-    Write-DebugMessage -Type 'Success' -Message "GUI closed normally"
+    Write-UnifiedLog -Type 'Success' -Message "GUI closed normally" -GuiColor "#00FF00"
 }
 catch {
-    Write-DebugMessage -Type 'Error' -Message "Error showing GUI: $($_.Exception.Message)"
+    Write-UnifiedLog -Type 'Error' -Message "Error showing GUI: $($_.Exception.Message)" -GuiColor "#FF0000"
 }
 
 # Cleanup
