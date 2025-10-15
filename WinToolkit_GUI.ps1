@@ -875,6 +875,7 @@ function Update-SystemInformationPanel {
 
         # Determine Script Compatibility based on WinOSCheck logic
         $scriptCompatibilityText = "Non rilevato"
+        $scriptCompatibilityDescription = ""
         $scriptCompatibilityColor = [System.Windows.Media.Colors]::White # Default color
 
         $isWin11 = $buildNumber -ge 22000
@@ -884,30 +885,37 @@ function Update-SystemInformationPanel {
 
         if ($isWin11 -and $buildNumber -ge 22621) {
             $scriptCompatibilityText = "Completa"
+            $scriptCompatibilityDescription = "Massima velocità ed efficienza"
             $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0x00, 0xFF, 0x00) # Success (LimeGreen)
         }
         elseif ($isWin11 -and $buildNumber -ge 22000) {
             $scriptCompatibilityText = "Compatibile con eccezioni"
+            $scriptCompatibilityDescription = "Supporto completo con lievi ottimizzazioni"
             $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0xFF, 0x00) # Yellow
         }
         elseif ($isWin10 -and $buildNumber -ge 17763) {
             $scriptCompatibilityText = "Completa"
+            $scriptCompatibilityDescription = "Massima velocità ed efficienza"
             $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0x00, 0xFF, 0x00) # Success (LimeGreen)
         }
         elseif ($isWin10 -and $buildNumber -lt 17763) {
             $scriptCompatibilityText = "Sconsigliata (troppo vecchia)"
+            $scriptCompatibilityDescription = "Possibili problemi di affidabilità"
             $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0x00, 0x00) # Error (Red)
         }
         elseif ($isWin81) {
             $scriptCompatibilityText = "Parziale (obsoleta)"
+            $scriptCompatibilityDescription = "Funzionamento con workaround"
             $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0xA5, 0x00) # Warning (Orange)
         }
         elseif ($isWin8) {
             $scriptCompatibilityText = "Non supportata (obsoleta)"
+            $scriptCompatibilityDescription = "Gravi problemi di affidabilità"
             $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0x00, 0x00) # Error (Red)
         }
         else {
             $scriptCompatibilityText = "Estremamente obsoleta (non supportata)"
+            $scriptCompatibilityDescription = "Funzionalità limitate o nulle"
             $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0x8B, 0x00, 0x00) # DarkRed custom color
         }
 
@@ -992,7 +1000,7 @@ function Update-SystemInformationPanel {
                 if ($computerNameTextBlock) { $computerNameTextBlock.Text = $sysInfo.ComputerName }
                 if ($ramTextBlock) { $ramTextBlock.Text = "$($sysInfo.TotalRAM) GB" }
                 if ($diskTextBlock) { $diskTextBlock.Text = "$($sysInfo.FreePercentage)% Libero ($($sysInfo.TotalDisk) GB)" }
-                if ($scriptCompatibilityTextBlock) { $scriptCompatibilityTextBlock.Text = "$scriptCompatibilityText" }
+                if ($scriptCompatibilityTextBlock) { $scriptCompatibilityTextBlock.Text = "$scriptCompatibilityText - $scriptCompatibilityDescription" }
 
                 $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush($scriptCompatibilityColor)
                 $ScriptCompatibilityIndicator.Background = New-Object System.Windows.Media.SolidColorBrush($scriptCompatibilityColor)
