@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 10 - ALPHA]
+    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 19 - ALPHA]
 .DESCRIPTION
     Enhanced WinToolkit GUI with modern interface, logo integration, progress tracking, and email error reporting
 .NOTES
@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 15 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 19 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -334,21 +334,21 @@ $xaml = @"
                             <!-- Left Section: Edition, Version, Architecture -->
                             <Border Grid.Column="0" Background="{StaticResource OutputBackgroundColor}" CornerRadius="6" Padding="10" Margin="0,0,8,0">
                                 <StackPanel>
-                                    <TextBlock Text="💻 Edizione Windows:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                    <TextBlock x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                                    <TextBlock Text="💻 Edizione Windows:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8"/>
 
-                                    <TextBlock Text="📊 Versione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                    <TextBlock x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                                    <TextBlock Text="📊 Versione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8"/>
 
-                                    <TextBlock Text="🗝️ Architettura:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                    <TextBlock x:Name="SysInfoArchitecture" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" TextWrapping="Wrap"/>
+                                    <TextBlock Text="🗝️ Architettura:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="SysInfoArchitecture" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
                                 </StackPanel>
                             </Border>
 
                             <!-- Center Section: Script Compatibility -->
                             <Border Grid.Column="1" Background="{StaticResource OutputBackgroundColor}" CornerRadius="6" Padding="10" Margin="4,0">
                                 <StackPanel>
-                                    <TextBlock Text="✨ Funzionalità Script:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock Text="✨ Funzionalità Script:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold"/>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,8">
                                         <Border x:Name="ScriptCompatibilityIndicator"
                                                 Width="16" Height="16" CornerRadius="8"
@@ -361,8 +361,8 @@ $xaml = @"
                                                    Foreground="{StaticResource TextColor}"
                                                    FontSize="13"
                                                    FontFamily="{StaticResource PrimaryFont}"
-                                                   TextWrapping="Wrap"
-                                                   VerticalAlignment="Center"/>
+                                                   VerticalAlignment="Center"
+                                                   TextWrapping="NoWrap"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -370,14 +370,14 @@ $xaml = @"
                             <!-- Right Section: Computer Name, RAM, Disk -->
                             <Border Grid.Column="2" Background="{StaticResource OutputBackgroundColor}" CornerRadius="6" Padding="10" Margin="8,0,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="🏷️ Nome PC:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                    <TextBlock x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                                    <TextBlock Text="🏷️ Nome PC:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8"/>
 
-                                    <TextBlock Text="🧠 RAM:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                    <TextBlock x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                                    <TextBlock Text="🧠 RAM:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2,0,8"/>
 
-                                    <TextBlock Text="💾 Disco:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                    <TextBlock x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" TextWrapping="Wrap"/>
+                                    <TextBlock Text="💾 Disco:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
                                 </StackPanel>
                             </Border>
                         </Grid>
