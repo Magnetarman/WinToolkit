@@ -103,6 +103,10 @@ function Write-DebugMessage {
 
 try {
     [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null
+
+    # Stop any existing transcript to avoid file lock issues
+    try { Stop-Transcript -ErrorAction SilentlyContinue | Out-Null } catch {}
+
     Start-Transcript -Path $mainLog -Append -Force | Out-Null
     Write-UnifiedLog -Type 'Info' -Message "Logging initialized to $mainLog" -GuiColor "#00CED1"
 }
@@ -497,7 +501,26 @@ function Send-ErrorLogs {
 
         # Create zip file with logs
         try {
-            Compress-Archive -Path $logFiles -DestinationPath $zipFilePath -Force
+            # Filter out files that might be in use or not readable
+            $validLogFiles = $logFiles | Where-Object {
+                try {
+                    # Test if file is readable and not in use
+                    $fileStream = [System.IO.File]::Open($_, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+                    $fileStream.Close()
+                    return $true
+                }
+                catch {
+                    Write-UnifiedLog -Type 'Warning' -Message "Skipping file $($_.Name): $($_.Exception.Message)" -GuiColor "#FFA500"
+                    return $false
+                }
+            }
+
+            if ($validLogFiles.Count -eq 0) {
+                Write-UnifiedLog -Type 'Warning' -Message "No valid log files found to compress." -GuiColor "#FFA500"
+                return
+            }
+
+            Compress-Archive -Path $validLogFiles -DestinationPath $zipFilePath -Force
             Write-UnifiedLog -Type 'Success' -Message "Error logs compressed to: $zipFilePath" -GuiColor "#00FF00"
         }
         catch {
@@ -778,7 +801,12 @@ catch {
 
 # Cleanup
 try {
-    Stop-Transcript | Out-Null
+    # Stop transcript and close any open file handles
+    Stop-Transcript -ErrorAction SilentlyContinue | Out-Null
+
+    # Small delay to ensure file handles are released
+    Start-Sleep -Milliseconds 500
+
     Write-UnifiedLog -Type 'Success' -Message "Cleanup completed" -GuiColor "#00FF00"
 }
 catch {
