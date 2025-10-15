@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 24 - ALPHA]
+    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 40 - ALPHA]
 .DESCRIPTION
     Enhanced WinToolkit GUI with modern interface, logo integration, progress tracking, and email error reporting
 .NOTES
-    Version 5.0.0 - GUI Edition with enhanced features and modern UI
+    Version 5.0.0 - GUI Edition with enhanced features and modern UI [Build 40 - ALPHA]
 #>
 
 #Requires -Version 5.1
@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 35 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 40 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -461,7 +461,7 @@ $xaml = @"
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,1,0,1">
                                             <Border x:Name="ScriptCompatibilityIndicator"
-                                                    Width="14" Height="14" CornerRadius="7"
+                                                    Width="16" Height="16" CornerRadius="7"
                                                     BorderBrush="{StaticResource AccentColor}"
                                                     BorderThickness="1"
                                                     Background="{StaticResource TextColor}"
@@ -472,7 +472,8 @@ $xaml = @"
                                                        FontSize="13"
                                                        FontFamily="{StaticResource PrimaryFont}"
                                                        VerticalAlignment="Center"
-                                                       TextWrapping="NoWrap"/>
+                                                       TextWrapping="Wrap"
+                                                       MaxWidth="300"/>
                                         </StackPanel>
                                     </Grid>
                                 </Grid>
@@ -617,7 +618,6 @@ $xaml = @"
         <!-- Bottom Section - Execute Button -->
         <Border Grid.Row="2" Background="{StaticResource HeaderBackgroundColor}" CornerRadius="8" Margin="16,8,16,16">
             <Button x:Name="ExecuteButton"
-                    Content="▶️ Esegui Script"
                     Background="{StaticResource AccentColor}"
                     Foreground="{StaticResource TextColor}"
                     FontSize="16"
@@ -628,6 +628,12 @@ $xaml = @"
                     HorizontalAlignment="Center"
                     Cursor="Hand"
                     Margin="16">
+                <Button.Content>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Image x:Name="ExecuteButtonImage" Width="20" Height="20" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Esegui Script" Foreground="{StaticResource TextColor}" FontSize="16" FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button.Content>
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
@@ -667,6 +673,7 @@ $appLogo = $window.FindName("AppLogo")
 $actionsPanel = $window.FindName("ActionsPanel")
 $outputTextBox = $window.FindName("OutputTextBox")
 $executeButton = $window.FindName("ExecuteButton")
+$executeButtonImage = $window.FindName("ExecuteButtonImage")
 $sendErrorLogsButton = $window.FindName("SendErrorLogsButton")
 $sendErrorLogsImage = $window.FindName("SendErrorLogsImage")
 $funzioniDisponibiliImage = $window.FindName("FunzioniDisponibiliImage")
@@ -708,6 +715,7 @@ try {
         "SendErrorLogsImage"       = "📡"
         "FunzioniDisponibiliImage" = "⚙️"
         "OutputLogImage"           = "📋"
+        "ExecuteButtonImage"       = "▶️"
         "SysInfoTitleImage1"       = "🖥️"
         "SysInfoTitleImage2"       = "🖥️"
         "SysInfoEditionImage"      = "💻"
@@ -1158,6 +1166,7 @@ function Update-ActionsPanel {
                     $textBlock.Margin = "4"
                     $textBlock.Padding = "2"
                     $textBlock.VerticalAlignment = 'Center'
+                    $textBlock.MaxWidth = 400
 
                     $stackPanel.Children.Add($textBlock) | Out-Null
 
