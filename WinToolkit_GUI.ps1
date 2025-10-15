@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 45 - ALPHA]
+    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 50 - ALPHA]
 .DESCRIPTION
     Enhanced WinToolkit GUI with modern interface, logo integration, progress tracking, and email error reporting
 .NOTES
-    Version 5.0.0 - GUI Edition with enhanced features and modern UI [Build 45 - ALPHA]
+    Version 5.0.0 - GUI Edition with enhanced features and modern UI [Build 50 - ALPHA]
 #>
 
 #Requires -Version 5.1
@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 45 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 50 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -658,10 +658,32 @@ $xaml = @"
                              Background="{StaticResource PanelBackgroundColor}"
                              BorderBrush="{StaticResource AccentColor}"
                              BorderThickness="1"
-                             Foreground="{StaticResource AccentColor}"
+                             Foreground="{StaticResource SuccessColor}"
                              Minimum="0"
                              Maximum="100"
-                             Value="0"/>
+                             Value="0">
+                    <ProgressBar.Template>
+                        <ControlTemplate TargetType="ProgressBar">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8">
+                                <Grid>
+                                    <Border x:Name="PART_Track" CornerRadius="7"/>
+                                    <Border x:Name="PART_Indicator"
+                                            Background="{TemplateBinding Foreground}"
+                                            CornerRadius="7"
+                                            HorizontalAlignment="Left"/>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger SourceName="PART_Indicator" Property="IsVisible" Value="False">
+                                    <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </ProgressBar.Template>
+                </ProgressBar>
 
                 <!-- Execute Button -->
                 <Button x:Name="ExecuteButton"
