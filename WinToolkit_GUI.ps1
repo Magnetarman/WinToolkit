@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 10 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 11 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -29,6 +29,13 @@ $mainLog = "$LogDirectory\WinToolkit_GUI_$dateTime.log"
 $window = $null
 $outputTextBox = $null
 $executeButton = $null
+$SysInfoEdition = $null
+$SysInfoVersion = $null
+$SysInfoArchitecture = $null
+$SysInfoComputerName = $null
+$SysInfoRAM = $null
+$SysInfoDisk = $null
+$SysInfoScriptCompatibility = $null
 
 # =============================================================================
 # LOGGING AND UTILITY FUNCTIONS
@@ -242,67 +249,118 @@ $xaml = @"
 
         <!-- Header with Logo -->
         <Border Grid.Row="0" Background="{StaticResource HeaderBackgroundColor}" Padding="16">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <StackPanel>
+                <!-- Existing Header Grid -->
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <!-- Logo -->
-                <Image Grid.Column="0"
-                       x:Name="AppLogo"
-                       Width="48"
-                       Height="48"
-                       Margin="0,0,16,0"
-                       Stretch="Uniform"/>
+                    <!-- Logo -->
+                    <Image Grid.Column="0"
+                           x:Name="AppLogo"
+                           Width="48"
+                           Height="48"
+                           Margin="0,0,16,0"
+                           Stretch="Uniform"/>
 
-                <!-- Title and Version -->
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="WinToolKit By MagnetarMan"
-                               Foreground="{StaticResource TextColor}"
-                               FontSize="18"
-                               FontWeight="Bold"
-                               FontFamily="{StaticResource PrimaryFont}"
-                               HorizontalAlignment="Center"/>
-                    <TextBlock Text="V $($ScriptVersion)"
-                               Foreground="{StaticResource AccentColor}"
-                               FontSize="12"
-                               FontFamily="{StaticResource PrimaryFont}"
-                               HorizontalAlignment="Center"/>
-                </StackPanel>
+                    <!-- Title and Version -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="WinToolKit By MagnetarMan"
+                                   Foreground="{StaticResource TextColor}"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   FontFamily="{StaticResource PrimaryFont}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="V $($ScriptVersion)"
+                                   Foreground="{StaticResource AccentColor}"
+                                   FontSize="12"
+                                   FontFamily="{StaticResource PrimaryFont}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
 
-                <!-- Send Error Logs Button -->
-                <Button x:Name="SendErrorLogsButton"
-                        Grid.Column="2"
-                        Content="📧 Invia Log Errori"
-                        Background="{StaticResource ErrorButtonColor}"
-                        Foreground="{StaticResource TextColor}"
-                        FontSize="13"
-                        FontFamily="Cascadia Code"
-                        Padding="8,4"
-                        BorderThickness="0"
-                        Cursor="Hand"
-                        ToolTip="Invia log di errore a me@magnetarman.com">
-                    <Button.Template>
-                        <ControlTemplate TargetType="Button">
-                            <Border Background="{TemplateBinding Background}"
-                                    CornerRadius="8"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource ErrorButtonHoverColor}"/>
-                                </Trigger>
-                                <Trigger Property="IsPressed" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource ErrorButtonPressedColor}"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Button.Template>
-                </Button>
-            </Grid>
+                    <!-- Send Error Logs Button -->
+                    <Button x:Name="SendErrorLogsButton"
+                            Grid.Column="2"
+                            Content="📧 Invia Log Errori"
+                            Background="{StaticResource ErrorButtonColor}"
+                            Foreground="{StaticResource TextColor}"
+                            FontSize="13"
+                            FontFamily="Cascadia Code"
+                            Padding="8,4"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            ToolTip="Invia log di errore a me@magnetarman.com">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}"
+                                        CornerRadius="8"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource ErrorButtonHoverColor}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource ErrorButtonPressedColor}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+
+                <!-- System Information Panel -->
+                <Border Background="{StaticResource PanelBackgroundColor}" CornerRadius="8" Padding="10" HorizontalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock Text="🖥️ INFORMAZIONI SISTEMA 🖥️"
+                                   Foreground="{StaticResource TextColor}"
+                                   FontSize="14"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,8"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="  💻 Edizione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="  📊 Versione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="  🗝️ Architettura:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="SysInfoArchitecture" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="  🏷️ Nome PC:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="  🧠 RAM:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="  💾 Disco:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="  Funzionalità Script:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="6" Grid.Column="1" x:Name="SysInfoScriptCompatibility" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
         </Border>
 
         <!-- Main Content -->
@@ -424,6 +482,13 @@ $actionsPanel = $window.FindName("ActionsPanel")
 $outputTextBox = $window.FindName("OutputTextBox")
 $executeButton = $window.FindName("ExecuteButton")
 $sendErrorLogsButton = $window.FindName("SendErrorLogsButton")
+$SysInfoEdition = $window.FindName("SysInfoEdition")
+$SysInfoVersion = $window.FindName("SysInfoVersion")
+$SysInfoArchitecture = $window.FindName("SysInfoArchitecture")
+$SysInfoComputerName = $window.FindName("SysInfoComputerName")
+$SysInfoRAM = $window.FindName("SysInfoRAM")
+$SysInfoDisk = $window.FindName("SysInfoDisk")
+$SysInfoScriptCompatibility = $window.FindName("SysInfoScriptCompatibility")
 
 # Load and set logos
 try {
@@ -459,6 +524,27 @@ if (-not $executeButton) {
 if (-not $sendErrorLogsButton) {
     Write-DebugMessage -Type 'Warning' -Message "SendErrorLogsButton not found"
 }
+if (-not $SysInfoEdition) {
+    Write-DebugMessage -Type 'Warning' -Message "SysInfoEdition not found"
+}
+if (-not $SysInfoVersion) {
+    Write-DebugMessage -Type 'Warning' -Message "SysInfoVersion not found"
+}
+if (-not $SysInfoArchitecture) {
+    Write-DebugMessage -Type 'Warning' -Message "SysInfoArchitecture not found"
+}
+if (-not $SysInfoComputerName) {
+    Write-DebugMessage -Type 'Warning' -Message "SysInfoComputerName not found"
+}
+if (-not $SysInfoRAM) {
+    Write-DebugMessage -Type 'Warning' -Message "SysInfoRAM not found"
+}
+if (-not $SysInfoDisk) {
+    Write-DebugMessage -Type 'Warning' -Message "SysInfoDisk not found"
+}
+if (-not $SysInfoScriptCompatibility) {
+    Write-DebugMessage -Type 'Warning' -Message "SysInfoScriptCompatibility not found"
+}
 
 # Function to add text to output
 function Add-OutputText {
@@ -477,6 +563,106 @@ function Add-OutputText {
     }
     catch {
         Write-DebugMessage -Type 'Error' -Message "Error adding output text: $($_.Exception.Message)"
+    }
+}
+
+# Function to update the system information panel in the GUI
+function Update-SystemInformationPanel {
+    try {
+        # Initialize UI elements with a loading state on the UI thread
+        $window.Dispatcher.Invoke([Action] {
+                $SysInfoEdition.Text = "Caricamento..."
+                $SysInfoVersion.Text = "Caricamento..."
+                $SysInfoArchitecture.Text = "Caricamento..."
+                $SysInfoComputerName.Text = "Caricamento..."
+                $SysInfoRAM.Text = "Caricamento..."
+                $SysInfoDisk.Text = "Caricamento..."
+                $SysInfoScriptCompatibility.Text = "Caricamento..."
+                $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::White) # Default
+            })
+
+        $sysInfo = Get-SystemInfo
+        if (-not $sysInfo) {
+            Write-UnifiedLog -Type 'Error' -Message "Failed to retrieve system information." -GuiColor "#FF0000"
+            $window.Dispatcher.Invoke([Action] {
+                    $SysInfoEdition.Text = "N/A"
+                    $SysInfoVersion.Text = "N/A"
+                    $SysInfoArchitecture.Text = "N/A"
+                    $SysInfoComputerName.Text = "N/A"
+                    $SysInfoRAM.Text = "N/A"
+                    $SysInfoDisk.Text = "N/A"
+                    $SysInfoScriptCompatibility.Text = "Errore di recupero"
+                    $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
+                })
+            return
+        }
+
+        $buildNumber = $sysInfo.BuildNumber
+        $windowsVersion = Get-WindowsVersion $buildNumber
+
+        # Edition detection
+        $windowsEdition = switch -Wildcard ($sysInfo.ProductName) {
+            "*Home*" { "🏠 Home" }
+            "*Pro*" { "💼 Professional" }
+            "*Enterprise*" { "🏢 Enterprise" }
+            "*Education*" { "🎓 Education" }
+            "*Server*" { "🖥️ Server" }
+            default { "💻 $($sysInfo.ProductName)" }
+        }
+
+        # Determine Script Compatibility based on WinOSCheck logic
+        $scriptCompatibilityText = "Non rilevato"
+        $scriptCompatibilityColor = [System.Windows.Media.Colors]::White # Default color
+
+        $isWin11 = $buildNumber -ge 22000
+        $isWin10 = ($buildNumber -ge 10240) -and ($buildNumber -lt 22000)
+        $isWin81 = $buildNumber -eq 9600
+        $isWin8 = $buildNumber -eq 9200
+
+        if ($isWin11 -and $buildNumber -ge 22621) {
+            $scriptCompatibilityText = "Completa"
+            $scriptCompatibilityColor = [System.Windows.Media.Colors]::LimeGreen # Success equivalent
+        }
+        elseif ($isWin11 -and $buildNumber -ge 22000) {
+            $scriptCompatibilityText = "Compatibile con eccezioni"
+            $scriptCompatibilityColor = [System.Windows.Media.Colors]::Orange # Warning equivalent
+        }
+        elseif ($isWin10 -and $buildNumber -ge 17763) {
+            $scriptCompatibilityText = "Completa"
+            $scriptCompatibilityColor = [System.Windows.Media.Colors]::LimeGreen
+        }
+        elseif ($isWin10 -and $buildNumber -lt 17763) {
+            $scriptCompatibilityText = "Sconsigliata (troppo vecchia)"
+            $scriptCompatibilityColor = [System.Windows.Media.Colors]::Red # Error equivalent
+        }
+        elseif ($isWin81) {
+            $scriptCompatibilityText = "Parziale (obsoleta)"
+            $scriptCompatibilityColor = [System.Windows.Media.Colors]::Orange
+        }
+        elseif ($isWin8) {
+            $scriptCompatibilityText = "Non supportata (obsoleta)"
+            $scriptCompatibilityColor = [System.Windows.Media.Colors]::Red
+        }
+        else {
+            $scriptCompatibilityText = "Estremamente obsoleta (non supportata)"
+            $scriptCompatibilityColor = [System.Windows.Media.Color]::FromArgb(0xFF, 0x8B, 0x00, 0x00) # DarkRed custom color
+        }
+
+        # Update GUI elements on the UI thread
+        $window.Dispatcher.Invoke([Action] {
+                $SysInfoEdition.Text = "$windowsEdition"
+                $SysInfoVersion.Text = "Ver. $windowsVersion (Build $buildNumber)"
+                $SysInfoArchitecture.Text = $sysInfo.Architecture
+                $SysInfoComputerName.Text = $sysInfo.ComputerName
+                $SysInfoRAM.Text = "$($sysInfo.TotalRAM) GB"
+                $SysInfoDisk.Text = "$($sysInfo.FreePercentage)% Libero ($($sysInfo.TotalDisk) GB)"
+                $SysInfoScriptCompatibility.Text = "$scriptCompatibilityText"
+                $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush($scriptCompatibilityColor)
+            })
+        Write-UnifiedLog -Type 'Success' -Message "System information panel updated." -GuiColor "#00FF00"
+    }
+    catch {
+        Write-UnifiedLog -Type 'Error' -Message "Error updating system information panel: $($_.Exception.Message)" -GuiColor "#FF0000"
     }
 }
 
@@ -781,6 +967,7 @@ $window.Add_Loaded({
             Write-DebugMessage -Type 'Info' -Message "Window loaded, initializing..."
 
             Update-ActionsPanel
+            Update-SystemInformationPanel # Add this line
             Add-OutputText -Text "$($ScriptTitle) - V $($ScriptVersion)" -Color "#00FF00"
             Write-DebugMessage -Type 'Success' -Message "GUI initialized successfully"
         }
