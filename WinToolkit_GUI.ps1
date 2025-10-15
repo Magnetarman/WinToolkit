@@ -922,7 +922,71 @@ function Update-SystemInformationPanel {
                 $diskTextBlock = $SysInfoDisk.Parent.Children | Where-Object { $_.Name -eq "SysInfoDisk" }
                 $scriptCompatibilityTextBlock = $SysInfoScriptCompatibility.Parent.Children | Where-Object { $_.Name -eq "SysInfoScriptCompatibility" }
 
-                if ($editionTextBlock) { $editionTextBlock.Text = "$windowsEdition" }
+                if ($editionTextBlock) {
+                    # Clear existing content and create a StackPanel with icon + text
+                    $parentGrid = $editionTextBlock.Parent
+                    $columnIndex = [System.Windows.Controls.Grid]::GetColumn($editionTextBlock)
+
+                    # Remove the old TextBlock
+                    $parentGrid.Children.Remove($editionTextBlock)
+
+                    # Create a StackPanel to hold icon + text, right-aligned
+                    $editionStackPanel = New-Object System.Windows.Controls.StackPanel
+                    $editionStackPanel.Orientation = 'Horizontal'
+                    $editionStackPanel.VerticalAlignment = 'Center'
+                    $editionStackPanel.HorizontalAlignment = 'Right'
+
+                    # Extract emoji and text using the existing function
+                    $splitResult = Split-EmojiAndText -InputString $windowsEdition
+                    $emoji = $splitResult.Emoji
+                    $text = $splitResult.Text
+
+                    # Create image for emoji if available
+                    if ($emoji -and $emoji.Length -gt 0) {
+                        $editionImage = New-Object System.Windows.Controls.Image
+                        $editionImage.Width = 16
+                        $editionImage.Height = 16
+                        $editionImage.Margin = '0,0,4,0'
+                        $editionImage.VerticalAlignment = 'Center'
+
+                        # Get the icon path
+                        $iconPath = Get-EmojiIconPath -EmojiCharacter $emoji
+
+                        if ($iconPath -and (Test-Path $iconPath)) {
+                            try {
+                                $bitmapImage = New-Object System.Windows.Media.Imaging.BitmapImage
+                                $bitmapImage.BeginInit()
+                                $bitmapImage.UriSource = [System.Uri]($iconPath)
+                                $bitmapImage.EndInit()
+                                $editionImage.Source = $bitmapImage
+                                $editionStackPanel.Children.Add($editionImage) | Out-Null
+                            }
+                            catch {
+                                # If image fails to load, hide it
+                                $editionImage.Visibility = 'Collapsed'
+                            }
+                        }
+                        else {
+                            # If file doesn't exist, hide the image
+                            $editionImage.Visibility = 'Collapsed'
+                        }
+                    }
+
+                    # Create TextBlock for the edition text
+                    $editionTextBlock = New-Object System.Windows.Controls.TextBlock
+                    $editionTextBlock.Text = $text
+                    $editionTextBlock.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0xFF, 0xFF))
+                    $editionTextBlock.FontSize = 13
+                    $editionTextBlock.FontFamily = [System.Windows.Media.FontFamily]::new("Cascadia Code")
+                    $editionTextBlock.VerticalAlignment = 'Center'
+                    $editionTextBlock.Name = "SysInfoEdition"
+
+                    $editionStackPanel.Children.Add($editionTextBlock) | Out-Null
+
+                    # Add the StackPanel to the Grid
+                    [System.Windows.Controls.Grid]::SetColumn($editionStackPanel, $columnIndex)
+                    $parentGrid.Children.Add($editionStackPanel) | Out-Null
+                }
                 if ($versionTextBlock) { $versionTextBlock.Text = "Ver. $windowsVersion (Build $buildNumber)" }
                 if ($architectureTextBlock) { $architectureTextBlock.Text = $sysInfo.Architecture }
                 if ($computerNameTextBlock) { $computerNameTextBlock.Text = $sysInfo.ComputerName }
