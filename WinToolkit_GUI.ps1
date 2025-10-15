@@ -30,17 +30,6 @@ $window = $null
 $outputTextBox = $null
 $executeButton = $null
 
-try {
-    [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null
-    Start-Transcript -Path $mainLog -Append -Force | Out-Null
-    Write-UnifiedLog -Type 'Info' -Message "Logging initialized to $mainLog" -GuiColor "#00CED1"
-}
-catch {
-    Write-UnifiedLog -Type 'Error' -Message "Failed to initialize logging. $($_.Exception.Message)" -GuiColor "#FF0000"
-    # Fallback for logging if transcript failed
-    Add-Content -Path "C:\temp\WinToolkit_Error_Fallback.log" -Value "[$([DateTime]::Now)] ERROR: Failed to initialize logging: $($_.Exception.Message)"
-}
-
 # =============================================================================
 # LOGGING AND UTILITY FUNCTIONS
 # =============================================================================
@@ -106,6 +95,21 @@ function Write-UnifiedLog {
 function Write-DebugMessage {
     param([string]$Type, [string]$Message)
     Write-UnifiedLog -Type $Type -Message $Message -GuiColor "#00CED1"
+}
+
+# =============================================================================
+# LOGGING INITIALIZATION
+# =============================================================================
+
+try {
+    [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null
+    Start-Transcript -Path $mainLog -Append -Force | Out-Null
+    Write-UnifiedLog -Type 'Info' -Message "Logging initialized to $mainLog" -GuiColor "#00CED1"
+}
+catch {
+    Write-UnifiedLog -Type 'Error' -Message "Failed to initialize logging. $($_.Exception.Message)" -GuiColor "#FF0000"
+    # Fallback for logging if transcript failed
+    Add-Content -Path "C:\temp\WinToolkit_Error_Fallback.log" -Value "[$([DateTime]::Now)] ERROR: Failed to initialize logging: $($_.Exception.Message)"
 }
 
 # =============================================================================
