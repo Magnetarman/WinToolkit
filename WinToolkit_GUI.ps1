@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 6 - ALPHA]
+    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 7 - ALPHA]
 .DESCRIPTION
     Enhanced WinToolkit GUI with modern interface, logo integration, progress tracking, and email error reporting
 .NOTES
@@ -9,22 +9,108 @@
 
 #Requires -Version 5.1
 
-# Setup logging
+# =============================================================================
+# CONFIGURATION AND CONSTANTS
+# =============================================================================
+$ScriptVersion = "5.0 (GUI Edition) [Build 7 - ALPHA]"
+$ScriptTitle = "WinToolKit By MagnetarMan"
+$SupportEmail = "me@magnetarman.com"
+$LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
+$WindowWidth = 1200
+$WindowHeight = 850
+$FontFamily = "Cascadia Code"
+$FontSize = @{Small = 12; Medium = 14; Large = 16; Title = 18 }
+
+# =============================================================================
+# GLOBAL VARIABLES
+# =============================================================================
 $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$logDir = "$env:LOCALAPPDATA\WinToolkit\logs"
-$mainLog = "$logDir\WinToolkit_GUI_$dateTime.log"
+$mainLog = "$LogDirectory\WinToolkit_GUI_$dateTime.log"
+$window = $null
+$outputTextBox = $null
+$executeButton = $null
 
 try {
-    [System.IO.Directory]::CreateDirectory($logDir) | Out-Null
+    [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null
     Start-Transcript -Path $mainLog -Append -Force | Out-Null
+    Write-UnifiedLog -Type 'Info' -Message "Logging initialized to $mainLog" -GuiColor "#00CED1"
 }
-catch {}
+catch {
+    Write-UnifiedLog -Type 'Error' -Message "Failed to initialize logging. $($_.Exception.Message)" -GuiColor "#FF0000"
+    # Fallback for logging if transcript failed
+    Add-Content -Path "C:\temp\WinToolkit_Error_Fallback.log" -Value "[$([DateTime]::Now)] ERROR: Failed to initialize logging: $($_.Exception.Message)"
+}
 
+# =============================================================================
+# LOGGING AND UTILITY FUNCTIONS
+# =============================================================================
+
+# Unified logging function that handles GUI, transcript, and console output
+function Write-UnifiedLog {
+    param(
+        [Parameter(Mandatory = $true)][string]$Message,
+        [Parameter(Mandatory = $true)][string]$Type, # e.g., 'Info', 'Warning', 'Error', 'Success'
+        [string]$GuiColor = "#FFFFFF" # Default white for GUI
+    )
+
+    $consoleColors = @{
+        Info    = 'Cyan'
+        Warning = 'Yellow'
+        Error   = 'Red'
+        Success = 'Green'
+    }
+
+    $currentDateTime = Get-Date -Format 'HH:mm:ss'
+    $formattedMessage = "[$Type] $Message"
+
+    # 1. Write to GUI OutputTextBox (if available)
+    if ($outputTextBox -and $window -and $window.Dispatcher) {
+        try {
+            $window.Dispatcher.Invoke([Action] {
+                    $paragraph = New-Object System.Windows.Documents.Paragraph
+                    $run = New-Object System.Windows.Documents.Run
+                    $run.Text = "${currentDateTime}: $formattedMessage"
+                    $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($GuiColor))
+                    $paragraph.Inlines.Add($run)
+                    $outputTextBox.Document.Blocks.Add($paragraph)
+                    $outputTextBox.ScrollToEnd()
+                })
+        }
+        catch {
+            # Silently fail GUI logging if there are issues
+        }
+    }
+
+    # 2. Write to Start-Transcript (and console via Write-Verbose/Write-Error)
+    try {
+        switch ($Type) {
+            'Error' { Write-Error $formattedMessage -ErrorAction Continue }
+            'Warning' { Write-Warning $formattedMessage -ErrorAction Continue }
+            default { Write-Verbose $formattedMessage -Verbose } # Use -Verbose to ensure it goes to transcript
+        }
+    }
+    catch {
+        # Fallback if transcript is not available
+    }
+
+    # 3. Write to console directly (for immediate feedback, even if transcript is off or verbose not set)
+    try {
+        Write-Host $formattedMessage -ForegroundColor $consoleColors[$Type]
+    }
+    catch {
+        # Silently fail console output
+    }
+}
+
+# Legacy function for backward compatibility
 function Write-DebugMessage {
     param([string]$Type, [string]$Message)
-    $colors = @{Info = 'Cyan'; Warning = 'Yellow'; Error = 'Red'; Success = 'Green' }
-    Write-Host "[$Type] $Message" -ForegroundColor $colors[$Type]
+    Write-UnifiedLog -Type $Type -Message $Message -GuiColor "#00CED1"
 }
+
+# =============================================================================
+# INITIALIZATION AND VALIDATION
+# =============================================================================
 
 # Check administrator privileges
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -67,39 +153,79 @@ function Get-WindowsVersion {
 }
 
 function Get-SystemInfo {
-    try {
-        $osInfo = Get-CimInstance Win32_OperatingSystem
-        $computerInfo = Get-CimInstance Win32_ComputerSystem
-        $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+    $systemInfo = @{}
 
-        return @{
-            ProductName    = $osInfo.Caption -replace 'Microsoft ', ''
-            BuildNumber    = [int]$osInfo.BuildNumber
-            Architecture   = $osInfo.OSArchitecture
-            ComputerName   = $computerInfo.Name
-            TotalRAM       = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
-            TotalDisk      = [Math]::Round($diskInfo.Size / 1GB, 0)
-            FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
-        }
+    try {
+        $osInfo = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+        $systemInfo.ProductName = $osInfo.Caption -replace 'Microsoft ', ''
+        $systemInfo.BuildNumber = [int]$osInfo.BuildNumber
+        $systemInfo.Architecture = $osInfo.OSArchitecture
     }
     catch {
-        Write-DebugMessage -Type 'Error' -Message "Errore nel recupero informazioni: $($_.Exception.Message)"
-        return $null
+        Write-UnifiedLog -Type 'Error' -Message "Error retrieving OS info: $($_.Exception.Message)" -GuiColor "#FF0000"
     }
+
+    try {
+        $computerInfo = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+        $systemInfo.ComputerName = $computerInfo.Name
+        $systemInfo.TotalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
+    }
+    catch {
+        Write-UnifiedLog -Type 'Error' -Message "Error retrieving Computer info: $($_.Exception.Message)" -GuiColor "#FF0000"
+    }
+
+    try {
+        $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction Stop
+        $systemInfo.TotalDisk = [Math]::Round($diskInfo.Size / 1GB, 0)
+        $systemInfo.FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
+    }
+    catch {
+        Write-UnifiedLog -Type 'Error' -Message "Error retrieving Disk info: $($_.Exception.Message)" -GuiColor "#FF0000"
+    }
+
+    # Return the partially filled object, or null if nothing worked
+    if ($systemInfo.Keys.Count -gt 0) {
+        return [PSCustomObject]$systemInfo
+    }
+    return $null
 }
+
+# =============================================================================
+# WPF GUI DEFINITION
+# =============================================================================
 
 # Enhanced XAML with logo and improved styling
 $xaml = @"
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="WinToolKit By MagnetarMan - Version 5.0 (GUI Edition) [Build 6 - ALPHA]"
-    Height="850"
-    Width="1200"
+    Title="$($ScriptTitle) - Version $($ScriptVersion)"
+    Height="$($WindowHeight)"
+    Width="$($WindowWidth)"
     WindowStartupLocation="CenterScreen"
     FontFamily="Cascadia Code">
 
-    <Grid Background="#FF2D2D2D">
+    <Window.Resources>
+        <SolidColorBrush x:Key="BackgroundColor" Color="#FF2D2D2D"/>
+        <SolidColorBrush x:Key="HeaderBackgroundColor" Color="#FF1A1A1A"/>
+        <SolidColorBrush x:Key="PanelBackgroundColor" Color="#FF3D3D3D"/>
+        <SolidColorBrush x:Key="TextColor" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="AccentColor" Color="#FF0078D4"/>
+        <SolidColorBrush x:Key="SuccessColor" Color="#FF00FF00"/>
+        <SolidColorBrush x:Key="WarningColor" Color="#FFFFA500"/>
+        <SolidColorBrush x:Key="ErrorColor" Color="#FFFF0000"/>
+        <SolidColorBrush x:Key="InfoColor" Color="#FF00CED1"/>
+        <SolidColorBrush x:Key="ButtonHoverColor" Color="#FF005A9E"/>
+        <SolidColorBrush x:Key="ButtonPressedColor" Color="#FF004080"/>
+        <SolidColorBrush x:Key="ErrorButtonColor" Color="#FFDC143C"/>
+        <SolidColorBrush x:Key="ErrorButtonHoverColor" Color="#FFB22222"/>
+        <SolidColorBrush x:Key="ErrorButtonPressedColor" Color="#FF8B0000"/>
+        <SolidColorBrush x:Key="BorderColor" Color="#FF0078D4"/>
+        <SolidColorBrush x:Key="OutputBackgroundColor" Color="#FF1A1A1A"/>
+        <FontFamily x:Key="PrimaryFont">Cascadia Code</FontFamily>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource BackgroundColor}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -107,7 +233,7 @@ $xaml = @"
         </Grid.RowDefinitions>
 
         <!-- Header with Logo -->
-        <Border Grid.Row="0" Background="#FF1A1A1A" Padding="16">
+        <Border Grid.Row="0" Background="{StaticResource HeaderBackgroundColor}" Padding="16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -126,15 +252,15 @@ $xaml = @"
                 <!-- Title and Version -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="WinToolKit By MagnetarMan"
-                               Foreground="White"
+                               Foreground="{StaticResource TextColor}"
                                FontSize="18"
                                FontWeight="Bold"
-                               FontFamily="Cascadia Code"
+                               FontFamily="{StaticResource PrimaryFont}"
                                HorizontalAlignment="Center"/>
-                    <TextBlock Text="V 5.0 (GUI Edition) [Build 6 - ALPHA]"
-                               Foreground="#FF0078D4"
+                    <TextBlock Text="V $($ScriptVersion)"
+                               Foreground="{StaticResource AccentColor}"
                                FontSize="12"
-                               FontFamily="Cascadia Code"
+                               FontFamily="{StaticResource PrimaryFont}"
                                HorizontalAlignment="Center"/>
                 </StackPanel>
 
@@ -142,8 +268,8 @@ $xaml = @"
                 <Button x:Name="SendErrorLogsButton"
                         Grid.Column="2"
                         Content="📧 Invia Log Errori"
-                        Background="#FFDC143C"
-                        Foreground="White"
+                        Background="{StaticResource ErrorButtonColor}"
+                        Foreground="{StaticResource TextColor}"
                         FontSize="13"
                         FontFamily="Cascadia Code"
                         Padding="8,4"
@@ -159,10 +285,10 @@ $xaml = @"
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="#FFB22222"/>
+                                    <Setter Property="Background" Value="{StaticResource ErrorButtonHoverColor}"/>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter Property="Background" Value="#FF8B0000"/>
+                                    <Setter Property="Background" Value="{StaticResource ErrorButtonPressedColor}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -188,7 +314,7 @@ $xaml = @"
                 </Grid.ColumnDefinitions>
 
                 <!-- Left Panel - Actions -->
-                <Border Grid.Column="0" Background="#FF3D3D3D" CornerRadius="8" Margin="0,0,8,0">
+                <Border Grid.Column="0" Background="{StaticResource PanelBackgroundColor}" CornerRadius="8" Margin="0,0,8,0">
                     <Grid Margin="8">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -196,10 +322,10 @@ $xaml = @"
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Text="⚙️ Funzioni Disponibili"
-                                   Foreground="White"
+                                   Foreground="{StaticResource TextColor}"
                                    FontSize="14"
                                    FontWeight="Bold"
-                                   FontFamily="Cascadia Code"
+                                   FontFamily="{StaticResource PrimaryFont}"
                                    Margin="0,0,0,8"/>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -209,7 +335,7 @@ $xaml = @"
                 </Border>
 
                 <!-- Right Panel - Output and Log -->
-                <Border Grid.Column="1" Background="#FF3D3D3D" CornerRadius="8">
+                <Border Grid.Column="1" Background="{StaticResource PanelBackgroundColor}" CornerRadius="8">
                     <Grid Margin="8">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -217,34 +343,34 @@ $xaml = @"
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Text="📋 Output e Log"
-                                   Foreground="White"
+                                   Foreground="{StaticResource TextColor}"
                                    FontSize="14"
                                    FontWeight="Bold"
-                                   FontFamily="Cascadia Code"
+                                   FontFamily="{StaticResource PrimaryFont}"
                                    Margin="0,0,0,8"/>
 
                         <RichTextBox x:Name="OutputTextBox"
                                      Grid.Row="1"
-                                     Background="#FF1A1A1A"
-                                     Foreground="White"
-                                     BorderBrush="#FF0078D4"
+                                     Background="{StaticResource OutputBackgroundColor}"
+                                     Foreground="{StaticResource TextColor}"
+                                     BorderBrush="{StaticResource BorderColor}"
                                      BorderThickness="1"
                                      IsReadOnly="True"
-                                     FontFamily="Cascadia Code"/>
+                                     FontFamily="{StaticResource PrimaryFont}"/>
                     </Grid>
                 </Border>
             </Grid>
         </Grid>
 
         <!-- Bottom Section - Execute Button -->
-        <Border Grid.Row="2" Background="#FF1A1A1A" CornerRadius="8" Margin="16,8,16,16">
+        <Border Grid.Row="2" Background="{StaticResource HeaderBackgroundColor}" CornerRadius="8" Margin="16,8,16,16">
             <Button x:Name="ExecuteButton"
                     Content="▶️ Esegui Script"
-                    Background="#FF0078D4"
-                    Foreground="White"
+                    Background="{StaticResource AccentColor}"
+                    Foreground="{StaticResource TextColor}"
                     FontSize="16"
                     FontWeight="Bold"
-                    FontFamily="Cascadia Code"
+                    FontFamily="{StaticResource PrimaryFont}"
                     Padding="20,12"
                     BorderThickness="0"
                     HorizontalAlignment="Center"
@@ -259,10 +385,10 @@ $xaml = @"
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#FF005A9E"/>
+                                <Setter Property="Background" Value="{StaticResource ButtonHoverColor}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#FF004080"/>
+                                <Setter Property="Background" Value="{StaticResource ButtonPressedColor}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -347,38 +473,55 @@ function Add-OutputText {
 }
 
 
-# Function to send error logs via email
+# Function to send error logs via email (improved version)
 function Send-ErrorLogs {
     try {
-        $logDir = "$env:LOCALAPPDATA\WinToolkit\logs"
-        $logFiles = Get-ChildItem -Path $logDir -Name "*.log" -ErrorAction SilentlyContinue
+        $logDir = $LogDirectory
+        $logFiles = Get-ChildItem -Path $logDir -Filter "*.log" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
 
         if ($logFiles.Count -eq 0) {
-            Add-OutputText -Text "Nessun log di errore trovato da inviare" -Color "#FFA500"
+            Write-UnifiedLog -Type 'Warning' -Message "No error logs found to send." -GuiColor "#FFA500"
             return
         }
 
-        Add-OutputText -Text "Preparazione invio log di errore..." -Color "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message "Preparing error logs for sending..." -GuiColor "#00CED1"
 
-        # Crea una lista dei file di log da allegare
-        $attachments = $logFiles | ForEach-Object { Join-Path $logDir $_ } | Where-Object { Test-Path $_ }
+        # Generate timestamp for zip file
+        $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        $zipFileName = "WinToolkit_Logs_$timestamp.zip"
+        $zipFilePath = Join-Path $logDir $zipFileName
 
-        if ($attachments.Count -gt 0) {
-            # Crea il comando mailto con allegati
-            $mailto = "mailto:me@magnetarman.com?subject=WinToolkit- Crash Logs&body=Log di errore allegati automaticamente da WinToolkit GUI"
-            $mailto += "&attachment=" + ($attachments -join ",")
-
-            # Avvia il client email predefinito
-            Start-Process $mailto
-
-            Add-OutputText -Text "Log di errore aperti nel client email predefinito" -Color "#00FF00"
+        # Create zip file with logs
+        try {
+            Compress-Archive -Path $logFiles -DestinationPath $zipFilePath -Force
+            Write-UnifiedLog -Type 'Success' -Message "Error logs compressed to: $zipFilePath" -GuiColor "#00FF00"
         }
-        else {
-            Add-OutputText -Text "Nessun file di log valido trovato da allegare" -Color "#FFA500"
+        catch {
+            Write-UnifiedLog -Type 'Error' -Message "Failed to create zip file: $($_.Exception.Message)" -GuiColor "#FF0000"
+            return
+        }
+
+        # Open the directory containing the zip file
+        try {
+            Start-Process $logDir
+            Write-UnifiedLog -Type 'Info' -Message "Opened log folder. Please manually attach the file '$zipFileName' to an email." -GuiColor "#00CED1"
+        }
+        catch {
+            Write-UnifiedLog -Type 'Warning' -Message "Could not open log folder: $($_.Exception.Message)" -GuiColor "#FFA500"
+        }
+
+        # Provide a simple mailto link (without attachments for reliability)
+        try {
+            $mailto = "mailto:$($SupportEmail)?subject=WinToolkit - Error Logs&body=Error logs attached manually from WinToolkit GUI"
+            Start-Process $mailto
+            Write-UnifiedLog -Type 'Info' -Message "Email client opened for manual attachment." -GuiColor "#00CED1"
+        }
+        catch {
+            Write-UnifiedLog -Type 'Warning' -Message "Could not open email client: $($_.Exception.Message)" -GuiColor "#FFA500"
         }
     }
     catch {
-        Add-OutputText -Text "Errore durante preparazione invio log: $($_.Exception.Message)" -Color "#FF0000"
+        Write-UnifiedLog -Type 'Error' -Message "Error during log preparation: $($_.Exception.Message)" -GuiColor "#FF0000"
     }
 }
 
@@ -407,7 +550,7 @@ function Update-ActionsPanel {
                     $textBlock.Text = $function.Description
                     $textBlock.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0xFF, 0xFF))
                     $textBlock.FontSize = 13
-                    $textBlock.FontFamily = "Cascadia Code"
+                    $textBlock.FontFamily = [System.Windows.Media.FontFamily]::new("Cascadia Code")
                     $textBlock.TextWrapping = [System.Windows.TextWrapping]::Wrap
                     $textBlock.Margin = "4"
                     $textBlock.Padding = "2"
@@ -435,10 +578,14 @@ function Update-ActionsPanel {
     }
 }
 
-# Execute script function
-function Execute-Script {
+# Async script execution function to prevent UI blocking
+function Execute-ScriptAsync {
     try {
-        # Trova tutte le checkbox selezionate
+        # Disable button to prevent re-execution
+        $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $false })
+        Write-UnifiedLog -Type 'Info' -Message "Starting script execution in background..." -GuiColor "#00CED1"
+
+        # Get selected checkboxes
         $selectedCheckboxes = $window.Dispatcher.Invoke([Func[object]] {
                 $result = @()
                 foreach ($child in $actionsPanel.Children) {
@@ -450,47 +597,128 @@ function Execute-Script {
             })
 
         if ($selectedCheckboxes.Count -eq 0) {
-            Add-OutputText -Text "Nessuna funzione selezionata!" -Color "#FFA500"
+            $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $true })
+            Write-UnifiedLog -Type 'Warning' -Message "No functions selected!" -GuiColor "#FFA500"
             return
         }
 
-        Add-OutputText -Text "Avvio esecuzione $($selectedCheckboxes.Count) funzione/i selezionata/e..." -Color "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message "Starting execution of $($selectedCheckboxes.Count) selected function(s)..." -GuiColor "#00CED1"
 
-        $totalFunctions = $selectedCheckboxes.Count
-        $completedFunctions = 0
+        # Start a background job
+        $job = Start-Job -ScriptBlock {
+            param($selectedFunctions, $scriptRoot, $mainLog)
 
-        foreach ($functionName in $selectedCheckboxes) {
-            try {
+            # Function to send output back to main thread
+            function Write-JobOutput {
+                param($message, $color, $type = 'Output')
+                Write-Output ([PSCustomObject]@{ Message = $message; Color = $color; Type = $type })
+            }
+
+            $totalFunctions = $selectedFunctions.Count
+            $completedFunctions = 0
+
+            foreach ($functionName in $selectedFunctions) {
                 $completedFunctions++
+                Write-JobOutput -Message "[$completedFunctions/$totalFunctions] Executing: $functionName" -Color "#00CED1" -Type 'Progress'
 
-                Add-OutputText -Text "[$completedFunctions/$totalFunctions] Esecuzione: $functionName" -Color "#00CED1"
-
-                # Esegui la funzione corrispondente
-                switch ($functionName) {
-                    "WinInstallPSProfile" {}
-                    "WinRepairToolkit" {}
-                    "WinUpdateReset" {}
-                    "WinReinstallStore" {}
-                    "WinBackupDriver" {}
-                    "WinCleaner" {}
-                    "OfficeToolkit" {}
-                    "SetRustDesk" {}
+                try {
+                    switch ($functionName) {
+                        "WinInstallPSProfile" {
+                            Write-JobOutput -Message "Executing WinInstallPSProfile logic..." -Color "#ADD8E6" -Type 'Info'
+                            # Simulate work - replace with actual function call
+                            Start-Sleep -Seconds 2
+                        }
+                        "WinRepairToolkit" {
+                            Write-JobOutput -Message "Executing WinRepairToolkit logic..." -Color "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 3
+                        }
+                        "WinUpdateReset" {
+                            Write-JobOutput -Message "Executing WinUpdateReset logic..." -Color "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 2
+                        }
+                        "WinReinstallStore" {
+                            Write-JobOutput -Message "Executing WinReinstallStore logic..." -Color "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 4
+                        }
+                        "WinBackupDriver" {
+                            Write-JobOutput -Message "Executing WinBackupDriver logic..." -Color "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 3
+                        }
+                        "WinCleaner" {
+                            Write-JobOutput -Message "Executing WinCleaner logic..." -Color "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 5
+                        }
+                        "OfficeToolkit" {
+                            Write-JobOutput -Message "Executing OfficeToolkit logic..." -Color "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 4
+                        }
+                        "SetRustDesk" {
+                            Write-JobOutput -Message "Executing SetRustDesk logic..." -Color "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 2
+                        }
+                        default {
+                            Write-JobOutput -Message "Unknown function: $functionName" -Color "#FFA500" -Type 'Warning'
+                        }
+                    }
+                    Write-JobOutput -Message "Completed: $functionName" -Color "#00FF00" -Type 'Success'
                 }
-
-                Add-OutputText -Text "Completato: $functionName" -Color "#00FF00"
-                Start-Sleep -Milliseconds 500
+                catch {
+                    Write-JobOutput -Message "Error in $functionName`: $($_.Exception.Message)" -Color "#FF0000" -Type 'Error'
+                }
             }
-            catch {
-                Add-OutputText -Text "Errore in $functionName`: $($_.Exception.Message)" -Color "#FF0000"
-            }
-        }
+            Write-JobOutput -Message "Script execution completed!" -Color "#00FF00" -Type 'Success'
+        } -ArgumentList $selectedCheckboxes, $PSScriptRoot, $mainLog -ErrorAction Stop
 
-        Add-OutputText -Text "Esecuzione completata!" -Color "#00FF00"
+        # Register a handler to process job output
+        Register-ObjectEvent -InputObject $job -EventName StateChanged -Action {
+            if ($job.State -eq 'Completed' -or $job.State -eq 'Failed' -or $job.State -eq 'Stopped') {
+                try {
+                    # Process results from the job
+                    $jobOutput = Receive-Job -Job $job -Keep
+                    foreach ($item in $jobOutput) {
+                        if ($item -is [PSCustomObject] -and $item.Type -eq 'Output') {
+                            $window.Dispatcher.Invoke([Action] {
+                                    $paragraph = New-Object System.Windows.Documents.Paragraph
+                                    $run = New-Object System.Windows.Documents.Run
+                                    $run.Text = "$(Get-Date -Format 'HH:mm:ss'): $($item.Message)"
+                                    $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($item.Color))
+                                    $paragraph.Inlines.Add($run)
+                                    $outputTextBox.Document.Blocks.Add($paragraph)
+                                    $outputTextBox.ScrollToEnd()
+                                })
+                        }
+                    }
+
+                    # Clean up
+                    Remove-Job -Job $job -Force
+                    $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $true })
+                    Write-UnifiedLog -Type 'Success' -Message "Script execution finished." -GuiColor "#00FF00"
+                }
+                catch {
+                    Write-UnifiedLog -Type 'Error' -Message "Error processing job results: $($_.Exception.Message)" -GuiColor "#FF0000"
+                }
+                finally {
+                    # Clean up event registration
+                    Unregister-Event -SourceIdentifier $job.Id -ErrorAction SilentlyContinue
+                }
+            }
+        } -SourceIdentifier "JobStateChanged_$($job.Id)"
     }
     catch {
-        Add-OutputText -Text "Errore durante esecuzione: $($_.Exception.Message)" -Color "#FF0000"
+        # Re-enable button if there was an error
+        try { $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $true }) } catch {}
+        Write-UnifiedLog -Type 'Error' -Message "Error starting script execution: $($_.Exception.Message)" -GuiColor "#FF0000"
     }
 }
+
+# Legacy synchronous function for backward compatibility
+function Execute-Script {
+    Execute-ScriptAsync
+}
+
+# =============================================================================
+# APPLICATION LOGIC
+# =============================================================================
 
 # Event handlers
 try {
@@ -526,7 +754,7 @@ $window.Add_Loaded({
             Write-DebugMessage -Type 'Info' -Message "Window loaded, initializing..."
 
             Update-ActionsPanel
-            Add-OutputText -Text "WinToolKit By MagnetarMan - V 5.0 (GUI Edition) [Build 6 - ALPHA]" -Color "#00FF00"
+            Add-OutputText -Text "$($ScriptTitle) - V $($ScriptVersion)" -Color "#00FF00"
             Write-DebugMessage -Type 'Success' -Message "GUI initialized successfully"
         }
         catch {
@@ -547,10 +775,12 @@ catch {
 # Cleanup
 try {
     Stop-Transcript | Out-Null
-    Write-DebugMessage -Type 'Success' -Message "Cleanup completed"
+    Write-UnifiedLog -Type 'Success' -Message "Cleanup completed" -GuiColor "#00FF00"
 }
-catch {}
+catch {
+    Write-UnifiedLog -Type 'Warning' -Message "Failed to stop transcript during cleanup: $($_.Exception.Message)" -GuiColor "#FFA500"
+}
 
 Write-Host ""
-Write-Host "WinToolKit By MagnetarMan - V 5.0 (GUI Edition) [Build 6 - ALPHA]" -ForegroundColor Cyan
+Write-Host "$($ScriptTitle) - V $($ScriptVersion)" -ForegroundColor Cyan
 Write-Host "Log file: $mainLog" -ForegroundColor Cyan
