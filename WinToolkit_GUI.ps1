@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 24 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 25 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -230,7 +230,7 @@ $xaml = @"
         <SolidColorBrush x:Key="SuccessColor" Color="#FF00FF00"/>
         <SolidColorBrush x:Key="WarningColor" Color="#FFFFA500"/>
         <SolidColorBrush x:Key="ErrorColor" Color="#FFFF0000"/>
-        <SolidColorBrush x:Key="InfoColor" Color="#FF00CED1"/>
+        <SolidColorBrush x:Key="InfoColor" Color="#FF4FC3F7"/>
         <SolidColorBrush x:Key="ButtonHoverColor" Color="#FF005A9E"/>
         <SolidColorBrush x:Key="ButtonPressedColor" Color="#FF004080"/>
         <SolidColorBrush x:Key="ErrorButtonColor" Color="#FFDC143C"/>
@@ -346,8 +346,8 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="💻 Edizione Windows:" Foreground="{StaticResource InfoColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
-                                        <TextBlock Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="0" Text="💻 Edizione Windows:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <TextBlock Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
 
                                     <!-- Separatore -->
@@ -359,8 +359,8 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="📊 Versione:" Foreground="{StaticResource InfoColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
-                                        <TextBlock Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="0" Text="📊 Versione:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <TextBlock Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -378,7 +378,7 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="✨ Funzionalità Script:" Foreground="{StaticResource InfoColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <TextBlock Grid.Column="0" Text="✨ Funzionalità Script:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,1,0,1">
                                             <Border x:Name="ScriptCompatibilityIndicator"
                                                     Width="14" Height="14" CornerRadius="7"
@@ -389,7 +389,7 @@ $xaml = @"
                                             <TextBlock x:Name="SysInfoScriptCompatibility"
                                                        Text="Caricamento..."
                                                        Foreground="{StaticResource TextColor}"
-                                                       FontSize="12"
+                                                       FontSize="13"
                                                        FontFamily="{StaticResource PrimaryFont}"
                                                        VerticalAlignment="Center"
                                                        TextWrapping="NoWrap"/>
@@ -415,8 +415,8 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="🏷️ Nome PC:" Foreground="{StaticResource InfoColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
-                                        <TextBlock Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="0" Text="🏷️ Nome PC:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <TextBlock Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
 
                                     <!-- Separatore -->
@@ -428,8 +428,8 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="🧠 RAM:" Foreground="{StaticResource InfoColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
-                                        <TextBlock Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="0" Text="🧠 RAM:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <TextBlock Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
 
                                     <!-- Separatore -->
@@ -441,8 +441,8 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="💾 Disco:" Foreground="{StaticResource InfoColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
-                                        <TextBlock Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="0" Text="💾 Disco:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <TextBlock Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
                                 </Grid>
                             </Border>
