@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 30 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 35 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -565,12 +565,16 @@ $xaml = @"
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Text="⚙️ Funzioni Disponibili"
-                                   Foreground="{StaticResource TextColor}"
+                        <TextBlock Grid.Row="0" Foreground="{StaticResource TextColor}"
                                    FontSize="14"
                                    FontWeight="Bold"
                                    FontFamily="{StaticResource PrimaryFont}"
-                                   Margin="0,0,0,8"/>
+                                   Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal">
+                                <Image x:Name="FunzioniDisponibiliImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Funzioni Disponibili" Foreground="{StaticResource TextColor}" FontSize="14" FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </TextBlock>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <StackPanel x:Name="ActionsPanel" Margin="0,0,0,8"/>
@@ -586,12 +590,16 @@ $xaml = @"
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Text="📋 Output e Log"
-                                   Foreground="{StaticResource TextColor}"
+                        <TextBlock Grid.Row="0" Foreground="{StaticResource TextColor}"
                                    FontSize="14"
                                    FontWeight="Bold"
                                    FontFamily="{StaticResource PrimaryFont}"
-                                   Margin="0,0,0,8"/>
+                                   Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal">
+                                <Image x:Name="OutputLogImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Output e Log" Foreground="{StaticResource TextColor}" FontSize="14" FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </TextBlock>
 
                         <RichTextBox x:Name="OutputTextBox"
                                      Grid.Row="1"
@@ -661,6 +669,8 @@ $outputTextBox = $window.FindName("OutputTextBox")
 $executeButton = $window.FindName("ExecuteButton")
 $sendErrorLogsButton = $window.FindName("SendErrorLogsButton")
 $sendErrorLogsImage = $window.FindName("SendErrorLogsImage")
+$funzioniDisponibiliImage = $window.FindName("FunzioniDisponibiliImage")
+$outputLogImage = $window.FindName("OutputLogImage")
 $sysInfoTitleImage1 = $window.FindName("SysInfoTitleImage1")
 $sysInfoTitleImage2 = $window.FindName("SysInfoTitleImage2")
 $sysInfoEditionImage = $window.FindName("SysInfoEditionImage")
@@ -696,6 +706,8 @@ try {
     # Load emoji images for static elements
     $emojiMappings = @{
         "SendErrorLogsImage"       = "📧"
+        "FunzioniDisponibiliImage" = "⚙️"
+        "OutputLogImage"           = "📋"
         "SysInfoTitleImage1"       = "🖥️"
         "SysInfoTitleImage2"       = "🖥️"
         "SysInfoEditionImage"      = "💻"
