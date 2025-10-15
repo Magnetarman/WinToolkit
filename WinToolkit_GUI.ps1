@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 11 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 12 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -314,14 +314,14 @@ $xaml = @"
                 </Grid>
 
                 <!-- System Information Panel -->
-                <Border Background="{StaticResource PanelBackgroundColor}" CornerRadius="8" Padding="10" HorizontalAlignment="Center">
+                <Border Background="{StaticResource PanelBackgroundColor}" CornerRadius="8" Padding="15" Margin="0,10,0,0">
                     <StackPanel>
                         <TextBlock Text="🖥️ INFORMAZIONI SISTEMA 🖥️"
                                    Foreground="{StaticResource TextColor}"
                                    FontSize="14"
                                    FontWeight="Bold"
                                    HorizontalAlignment="Center"
-                                   Margin="0,0,0,8"/>
+                                   Margin="0,0,0,15"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -337,26 +337,26 @@ $xaml = @"
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="  💻 Edizione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="  💻 Edizione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="  📊 Versione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="  📊 Versione:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="  🗝️ Architettura:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="SysInfoArchitecture" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="  🗝️ Architettura:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="SysInfoArchitecture" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="  🏷️ Nome PC:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
-                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="  🏷️ Nome PC:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="  🧠 RAM:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
-                            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="  🧠 RAM:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="  💾 Disco:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
-                            <TextBlock Grid.Row="5" Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="  💾 Disco:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="6" Grid.Column="0" Text="  Funzionalità Script:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
-                            <TextBlock Grid.Row="6" Grid.Column="1" x:Name="SysInfoScriptCompatibility" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,2"/>
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="  Funzionalità Script:" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="6" Grid.Column="1" x:Name="SysInfoScriptCompatibility" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,4" VerticalAlignment="Center"/>
                         </Grid>
                     </StackPanel>
                 </Border>
