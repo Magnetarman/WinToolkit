@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 41 - ALPHA]
+    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 45 - ALPHA]
 .DESCRIPTION
     Enhanced WinToolkit GUI with modern interface, logo integration, progress tracking, and email error reporting
 .NOTES
-    Version 5.0.0 - GUI Edition with enhanced features and modern UI [Build 42 - ALPHA]
+    Version 5.0.0 - GUI Edition with enhanced features and modern UI [Build 45 - ALPHA]
 #>
 
 #Requires -Version 5.1
@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 42 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 45 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -749,7 +749,6 @@ try {
         "SysInfoTitleImage1"       = "🖥️"
         "SysInfoTitleImage2"       = "🖥️"
         "SysInfoEditionLabelImage" = "💻"
-        "SysInfoEditionValueImage" = ""
         "SysInfoVersionImage"      = "📊"
         "SysInfoScriptImage"       = "✨"
         "SysInfoArchitectureImage" = "⚡"
