@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 7 - ALPHA]
+    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 10 - ALPHA]
 .DESCRIPTION
     Enhanced WinToolkit GUI with modern interface, logo integration, progress tracking, and email error reporting
 .NOTES
@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 7 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 10 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
