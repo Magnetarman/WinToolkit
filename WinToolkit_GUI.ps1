@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 25 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 30 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -20,6 +20,14 @@ $WindowWidth = 1500
 $WindowHeight = 950
 $FontFamily = "Cascadia Code"
 $FontSize = @{Small = 12; Medium = 14; Large = 16; Title = 18 }
+
+# =============================================================================
+# EMOJI ICONS CONFIGURATION
+# =============================================================================
+# Percorso base per le icone emoji - facilmente modificabile per GitHub Raw
+# Per utilizzare icone da GitHub Raw, sostituire con:
+# $iconBasePath = "https://raw.githubusercontent.com/TuoUtente/TuoRepo/main/asset/png"
+$iconBasePath = Join-Path $PSScriptRoot "asset/png"
 
 # =============================================================================
 # GLOBAL VARIABLES
@@ -103,6 +111,59 @@ function Write-UnifiedLog {
 function Write-DebugMessage {
     param([string]$Type, [string]$Message)
     Write-UnifiedLog -Type $Type -Message $Message -GuiColor "#00CED1"
+}
+
+# =============================================================================
+# EMOJI ICONS HELPER FUNCTIONS
+# =============================================================================
+
+# Funzione Helper per ottenere il percorso dell'icona dall'emoji
+function Get-EmojiIconPath {
+    param (
+        [string]$EmojiCharacter
+    )
+
+    try {
+        # Converte il carattere nel suo codepoint esadecimale completo
+        $bytes = [System.Text.Encoding]::UTF32.GetBytes($EmojiCharacter)
+        $codepoint = [BitConverter]::ToUInt32($bytes, 0).ToString("X")
+        $fileName = "U+$codepoint.png"
+        $fullPath = Join-Path $iconBasePath $fileName
+
+        Write-UnifiedLog -Type 'Info' -Message "Emoji '$EmojiCharacter' -> Codepoint: $codepoint -> File: $fileName" -GuiColor "#00CED1"
+
+        return $fullPath
+    }
+    catch {
+        Write-UnifiedLog -Type 'Warning' -Message "Error processing emoji '$EmojiCharacter': $($_.Exception.Message)" -GuiColor "#FFA500"
+        return $null
+    }
+}
+
+# Funzione Helper per estrarre emoji e testo da una stringa
+function Split-EmojiAndText {
+    param (
+        [string]$InputString
+    )
+
+    # Split on the first space to separate emoji from text
+    $parts = $InputString -split ' ', 2
+
+    if ($parts.Length -ge 2) {
+        $emoji = $parts[0]
+        $text = $parts[1]
+        return @{
+            Emoji = $emoji
+            Text  = $text
+        }
+    }
+    else {
+        # If no space found, consider the whole string as text
+        return @{
+            Emoji = ""
+            Text  = $InputString
+        }
+    }
 }
 
 # =============================================================================
@@ -884,17 +945,64 @@ function Update-ActionsPanel {
                 foreach ($function in $functions) {
                     $checkBox = New-Object System.Windows.Controls.CheckBox
 
-                    # Create TextBlock with text wrapping for the content
+                    # Estrai emoji e testo dalla descrizione
+                    $splitResult = Split-EmojiAndText -InputString $function.Description
+                    $emoji = $splitResult.Emoji
+                    $text = $splitResult.Text
+
+                    # Crea il contenuto dinamico (StackPanel, Image, TextBlock)
+                    $stackPanel = New-Object System.Windows.Controls.StackPanel
+                    $stackPanel.Orientation = 'Horizontal'
+
+                    # Crea l'immagine solo se abbiamo un emoji valido
+                    if ($emoji -and $emoji.Length -gt 0) {
+                        $image = New-Object System.Windows.Controls.Image
+                        $image.Width = 24
+                        $image.Height = 24
+                        $image.Margin = '0,0,8,0'
+
+                        # Ottieni il percorso dell'icona
+                        $iconPath = Get-EmojiIconPath -EmojiCharacter $emoji
+
+                        if ($iconPath -and (Test-Path $iconPath)) {
+                            try {
+                                $bitmapImage = New-Object System.Windows.Media.Imaging.BitmapImage
+                                $bitmapImage.BeginInit()
+                                $bitmapImage.UriSource = [System.Uri]($iconPath)
+                                $bitmapImage.EndInit()
+                                $image.Source = $bitmapImage
+
+                                Write-UnifiedLog -Type 'Success' -Message "Icon loaded successfully for $($function.Name): $iconPath" -GuiColor "#00FF00"
+                            }
+                            catch {
+                                Write-UnifiedLog -Type 'Warning' -Message "Failed to load icon for $($function.Name): $($_.Exception.Message)" -GuiColor "#FFA500"
+                                # Se l'immagine non si carica, nascondila
+                                $image.Visibility = 'Collapsed'
+                            }
+                        }
+                        else {
+                            Write-UnifiedLog -Type 'Warning' -Message "Icon file not found for $($function.Name): $iconPath" -GuiColor "#FFA500"
+                            # Se il file non esiste, nascondi l'immagine
+                            $image.Visibility = 'Collapsed'
+                        }
+
+                        $stackPanel.Children.Add($image) | Out-Null
+                    }
+
+                    # Crea il TextBlock con il testo
                     $textBlock = New-Object System.Windows.Controls.TextBlock
-                    $textBlock.Text = $function.Description
+                    $textBlock.Text = $text
                     $textBlock.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromArgb(0xFF, 0xFF, 0xFF, 0xFF))
                     $textBlock.FontSize = 13
                     $textBlock.FontFamily = [System.Windows.Media.FontFamily]::new("Cascadia Code")
                     $textBlock.TextWrapping = [System.Windows.TextWrapping]::Wrap
                     $textBlock.Margin = "4"
                     $textBlock.Padding = "2"
+                    $textBlock.VerticalAlignment = 'Center'
 
-                    $checkBox.Content = $textBlock
+                    $stackPanel.Children.Add($textBlock) | Out-Null
+
+                    $checkBox.Content = $stackPanel
                     $checkBox.Tag = $function.Name
 
                     $actionsPanel.Children.Add($checkBox) | Out-Null
@@ -910,7 +1018,7 @@ function Update-ActionsPanel {
                 }
             })
 
-        Write-DebugMessage -Type 'Success' -Message "Actions panel updated"
+        Write-DebugMessage -Type 'Success' -Message "Actions panel updated with emoji icons"
     }
     catch {
         Write-DebugMessage -Type 'Error' -Message "Error updating actions panel: $($_.Exception.Message)"
