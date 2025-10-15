@@ -121,9 +121,18 @@ function Get-EmojiIconPath {
         [string]$EmojiCharacter
     )
 
+    # Skip processing if emoji is empty or null
+    if ([string]::IsNullOrEmpty($EmojiCharacter)) {
+        return $null
+    }
+
     try {
         # Converte il carattere nel suo codepoint esadecimale completo
         $bytes = [System.Text.Encoding]::UTF32.GetBytes($EmojiCharacter)
+        if ($bytes.Length -lt 4) {
+            Write-UnifiedLog -Type 'Warning' -Message "Invalid emoji character '$EmojiCharacter': insufficient bytes" -GuiColor "#FFA500"
+            return $null
+        }
         $codepoint = [BitConverter]::ToUInt32($bytes, 0).ToString("X")
         $fileName = "U+$codepoint.png"
         $fullPath = Join-Path $iconBasePath $fileName
