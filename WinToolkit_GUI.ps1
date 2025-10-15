@@ -357,7 +357,7 @@ $xaml = @"
                             ToolTip="Invia log di errore a me@magnetarman.com">
                         <Button.Content>
                             <StackPanel Orientation="Horizontal">
-                                <Image x:Name="SendErrorLogsImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <Image x:Name="SendErrorLogsImage" Width="24" Height="24" Margin="0,0,10,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Invia Log Errori" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button.Content>
@@ -705,7 +705,7 @@ try {
 
     # Load emoji images for static elements
     $emojiMappings = @{
-        "SendErrorLogsImage"       = "📧"
+        "SendErrorLogsImage"       = "📡"
         "FunzioniDisponibiliImage" = "⚙️"
         "OutputLogImage"           = "📋"
         "SysInfoTitleImage1"       = "🖥️"
