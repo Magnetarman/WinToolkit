@@ -347,7 +347,6 @@ $xaml = @"
                     <!-- Send Error Logs Button -->
                     <Button x:Name="SendErrorLogsButton"
                             Grid.Column="2"
-                            Content="📧 Invia Log Errori"
                             Background="{StaticResource ErrorButtonColor}"
                             Foreground="{StaticResource TextColor}"
                             FontSize="13"
@@ -356,6 +355,12 @@ $xaml = @"
                             BorderThickness="0"
                             Cursor="Hand"
                             ToolTip="Invia log di errore a me@magnetarman.com">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal">
+                                <Image x:Name="SendErrorLogsImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Invia Log Errori" Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button.Content>
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}"
@@ -379,12 +384,17 @@ $xaml = @"
                 <!-- System Information Panel -->
                 <Border Background="{StaticResource PanelBackgroundColor}" CornerRadius="8" Padding="12" Margin="0,8,0,0">
                     <StackPanel>
-                        <TextBlock Text="🖥️ INFORMAZIONI SISTEMA 🖥️"
-                                   Foreground="{StaticResource TextColor}"
+                        <TextBlock Foreground="{StaticResource TextColor}"
                                    FontSize="14"
                                    FontWeight="Bold"
                                    HorizontalAlignment="Center"
-                                   Margin="0,0,0,10"/>
+                                   Margin="0,0,0,10">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Image x:Name="SysInfoTitleImage1" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="INFORMAZIONI SISTEMA" Foreground="{StaticResource TextColor}" FontSize="14" FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                <Image x:Name="SysInfoTitleImage2" Width="16" Height="16" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </TextBlock>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -407,7 +417,10 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="💻 Edizione Windows:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,1,8,1">
+                                            <Image x:Name="SysInfoEditionImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Edizione Windows:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
 
@@ -420,7 +433,10 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="📊 Versione:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,1,8,1">
+                                            <Image x:Name="SysInfoVersionImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Versione:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
                                 </Grid>
@@ -439,7 +455,10 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="✨ Funzionalità Script:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,1,8,1">
+                                            <Image x:Name="SysInfoScriptImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Funzionalità Script:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,1,0,1">
                                             <Border x:Name="ScriptCompatibilityIndicator"
                                                     Width="14" Height="14" CornerRadius="7"
@@ -476,7 +495,10 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="🏷️ Nome PC:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,1,8,1">
+                                            <Image x:Name="SysInfoComputerNameImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Nome PC:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
 
@@ -489,7 +511,10 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="🧠 RAM:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,1,8,1">
+                                            <Image x:Name="SysInfoRAMImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="RAM:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
 
@@ -502,7 +527,10 @@ $xaml = @"
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="💾 Disco:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" Margin="0,1,8,1"/>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,1,8,1">
+                                            <Image x:Name="SysInfoDiskImage" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Disco:" Foreground="{StaticResource InfoColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="13" FontFamily="{StaticResource PrimaryFont}" Margin="0,1,0,1" TextAlignment="Right"/>
                                     </Grid>
                                 </Grid>
@@ -632,6 +660,15 @@ $actionsPanel = $window.FindName("ActionsPanel")
 $outputTextBox = $window.FindName("OutputTextBox")
 $executeButton = $window.FindName("ExecuteButton")
 $sendErrorLogsButton = $window.FindName("SendErrorLogsButton")
+$sendErrorLogsImage = $window.FindName("SendErrorLogsImage")
+$sysInfoTitleImage1 = $window.FindName("SysInfoTitleImage1")
+$sysInfoTitleImage2 = $window.FindName("SysInfoTitleImage2")
+$sysInfoEditionImage = $window.FindName("SysInfoEditionImage")
+$sysInfoVersionImage = $window.FindName("SysInfoVersionImage")
+$sysInfoScriptImage = $window.FindName("SysInfoScriptImage")
+$sysInfoComputerNameImage = $window.FindName("SysInfoComputerNameImage")
+$sysInfoRAMImage = $window.FindName("SysInfoRAMImage")
+$sysInfoDiskImage = $window.FindName("SysInfoDiskImage")
 $SysInfoEdition = $window.FindName("SysInfoEdition")
 $SysInfoVersion = $window.FindName("SysInfoVersion")
 $SysInfoArchitecture = $window.FindName("SysInfoArchitecture")
@@ -641,7 +678,7 @@ $SysInfoDisk = $window.FindName("SysInfoDisk")
 $SysInfoScriptCompatibility = $window.FindName("SysInfoScriptCompatibility")
 $ScriptCompatibilityIndicator = $window.FindName("ScriptCompatibilityIndicator")
 
-# Load and set logos
+# Load and set logos and emoji images
 try {
     $logoPath = "$PSScriptRoot\img\WinToolkit.ico"
     if (Test-Path $logoPath) {
@@ -655,9 +692,47 @@ try {
     else {
         Write-DebugMessage -Type 'Warning' -Message "Logo file not found: $logoPath"
     }
+
+    # Load emoji images for static elements
+    $emojiMappings = @{
+        "SendErrorLogsImage"       = "📧"
+        "SysInfoTitleImage1"       = "🖥️"
+        "SysInfoTitleImage2"       = "🖥️"
+        "SysInfoEditionImage"      = "💻"
+        "SysInfoVersionImage"      = "📊"
+        "SysInfoScriptImage"       = "✨"
+        "SysInfoComputerNameImage" = "🏷️"
+        "SysInfoRAMImage"          = "🧠"
+        "SysInfoDiskImage"         = "💾"
+    }
+
+    foreach ($mapping in $emojiMappings.GetEnumerator()) {
+        $imageControl = Get-Variable -Name $mapping.Key -ValueOnly -ErrorAction SilentlyContinue
+        if ($imageControl) {
+            $iconPath = Get-EmojiIconPath -EmojiCharacter $mapping.Value
+            if ($iconPath -and (Test-Path $iconPath)) {
+                try {
+                    $bitmapImage = New-Object System.Windows.Media.Imaging.BitmapImage
+                    $bitmapImage.BeginInit()
+                    $bitmapImage.UriSource = [System.Uri]($iconPath)
+                    $bitmapImage.EndInit()
+                    $imageControl.Source = $bitmapImage
+                    Write-UnifiedLog -Type 'Success' -Message "Loaded emoji image for $($mapping.Key): $iconPath" -GuiColor "#00FF00"
+                }
+                catch {
+                    Write-UnifiedLog -Type 'Warning' -Message "Failed to load emoji image for $($mapping.Key): $($_.Exception.Message)" -GuiColor "#FFA500"
+                    $imageControl.Visibility = 'Collapsed'
+                }
+            }
+            else {
+                Write-UnifiedLog -Type 'Warning' -Message "Emoji icon file not found for $($mapping.Key): $iconPath" -GuiColor "#FFA500"
+                $imageControl.Visibility = 'Collapsed'
+            }
+        }
+    }
 }
 catch {
-    Write-DebugMessage -Type 'Warning' -Message "Error loading logos: $($_.Exception.Message)"
+    Write-DebugMessage -Type 'Warning' -Message "Error loading logos or emoji images: $($_.Exception.Message)"
 }
 
 if (-not $appLogo) {
@@ -957,8 +1032,8 @@ function Update-ActionsPanel {
                     # Crea l'immagine solo se abbiamo un emoji valido
                     if ($emoji -and $emoji.Length -gt 0) {
                         $image = New-Object System.Windows.Controls.Image
-                        $image.Width = 24
-                        $image.Height = 24
+                        $image.Width = 16
+                        $image.Height = 16
                         $image.Margin = '0,0,8,0'
 
                         # Ottieni il percorso dell'icona
