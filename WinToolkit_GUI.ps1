@@ -49,6 +49,11 @@ $SysInfoDisk = $null
 $SysInfoScriptCompatibility = $null
 $ScriptCompatibilityIndicator = $null
 
+# New global variables for progress bar and job management
+$progressBar = $null
+$progressTimer = $null
+$currentJob = $null
+
 # =============================================================================
 # LOGGING AND UTILITY FUNCTIONS
 # =============================================================================
@@ -643,9 +648,23 @@ $xaml = @"
             </Grid>
         </Grid>
 
-        <!-- Bottom Section - Execute Button -->
+        <!-- Bottom Section - Execute Button and Progress Bar -->
         <Border Grid.Row="2" Background="{StaticResource HeaderBackgroundColor}" CornerRadius="8" Margin="16,8,16,16">
-            <Button x:Name="ExecuteButton"
+            <StackPanel Orientation="Vertical" Margin="16">
+                <!-- Progress Bar -->
+                <ProgressBar x:Name="MainProgressBar"
+                             Height="20"
+                             Margin="0,0,0,10"
+                             Background="{StaticResource PanelBackgroundColor}"
+                             BorderBrush="{StaticResource AccentColor}"
+                             BorderThickness="1"
+                             Foreground="{StaticResource AccentColor}"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="0"/>
+
+                <!-- Execute Button -->
+                <Button x:Name="ExecuteButton"
                     Background="{StaticResource AccentColor}"
                     Foreground="{StaticResource TextColor}"
                     FontSize="16"
@@ -654,8 +673,7 @@ $xaml = @"
                     Padding="20,12"
                     BorderThickness="0"
                     HorizontalAlignment="Center"
-                    Cursor="Hand"
-                    Margin="16">
+                    Cursor="Hand">
                 <Button.Content>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Image x:Name="ExecuteButtonImage" Width="20" Height="20" Margin="0,0,8,0" VerticalAlignment="Center"/>
@@ -679,7 +697,8 @@ $xaml = @"
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Button.Template>
-            </Button>
+                </Button>
+            </StackPanel>
         </Border>
     </Grid>
 </Window>
@@ -724,6 +743,9 @@ $SysInfoRAM = $window.FindName("SysInfoRAM")
 $SysInfoDisk = $window.FindName("SysInfoDisk")
 $SysInfoScriptCompatibility = $window.FindName("SysInfoScriptCompatibility")
 $ScriptCompatibilityIndicator = $window.FindName("ScriptCompatibilityIndicator")
+
+# Find ProgressBar control
+$progressBar = $window.FindName("MainProgressBar")
 
 # Load and set logos and emoji images
 try {
@@ -833,6 +855,9 @@ if (-not $SysInfoScriptCompatibility) {
 }
 if (-not $ScriptCompatibilityIndicator) {
     Write-UnifiedLog -Type 'Warning' -Message "ScriptCompatibilityIndicator not found" -GuiColor "#FFA500"
+}
+if (-not $progressBar) {
+    Write-UnifiedLog -Type 'Warning' -Message "MainProgressBar not found" -GuiColor "#FFA500"
 }
 
 
@@ -1051,6 +1076,20 @@ function Send-ErrorLogs {
     }
 }
 
+# Function to safely update the ProgressBar from any thread
+function Update-ProgressBar {
+    param(
+        [double]$Value
+    )
+    if ($progressBar -and $window -and $window.Dispatcher) {
+        $window.Dispatcher.Invoke([Action] {
+                # Ensure value is within bounds
+                $clampedValue = [Math]::Max(0, [Math]::Min(100, $Value))
+                $progressBar.Value = $clampedValue
+            })
+    }
+}
+
 # Function to populate actions panel
 function Update-ActionsPanel {
     try {
@@ -1156,7 +1195,10 @@ function Update-ActionsPanel {
 function Execute-ScriptAsync {
     try {
         # Disable button to prevent re-execution
-        $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $false })
+        $window.Dispatcher.Invoke([Action] {
+                $executeButton.IsEnabled = $false
+                Update-ProgressBar -Value 0 # Reset progress bar
+            })
         Write-UnifiedLog -Type 'Info' -Message "Starting script execution in background..." -GuiColor "#00CED1"
 
         # Get selected checkboxes
@@ -1171,7 +1213,10 @@ function Execute-ScriptAsync {
             })
 
         if ($selectedCheckboxes.Count -eq 0) {
-            $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $true })
+            $window.Dispatcher.Invoke([Action] {
+                    $executeButton.IsEnabled = $true
+                    Update-ProgressBar -Value 0 # Ensure it's reset
+                })
             Write-UnifiedLog -Type 'Warning' -Message "No functions selected!" -GuiColor "#FFA500"
             return
         }
@@ -1184,68 +1229,188 @@ function Execute-ScriptAsync {
 
             # Function to send output back to main thread
             function Write-JobOutput {
-                param($message, $color, $type = 'Output')
-                Write-Output ([PSCustomObject]@{ Message = $message; Color = $color; Type = $type })
+                param(
+                    [string]$Message,
+                    [string]$GuiColor = "#FFFFFF", # Default white for GUI, now passed from job
+                    [string]$Type = 'Output', # e.g., 'Info', 'Warning', 'Error', 'Success', 'Progress'
+                    [double]$ProgressValue = $null # New parameter for progress percentage
+                )
+                Write-Output ([PSCustomObject]@{ Message = $message; GuiColor = $GuiColor; Type = $Type; ProgressValue = $ProgressValue })
             }
+
+            $totalFunctions = $selectedFunctions.Count
+            $completedFunctions = 0
+            $scriptContribution = 100.0 / $totalFunctions # Calculate contribution of each script
 
             $totalFunctions = $selectedFunctions.Count
             $completedFunctions = 0
 
             foreach ($functionName in $selectedFunctions) {
                 $completedFunctions++
-                Write-JobOutput -Message "[$completedFunctions/$totalFunctions] Executing: $functionName" -Color "#00CED1" -Type 'Progress'
+                $currentBaseProgress = ($completedFunctions - 1) * $scriptContribution
+
+                # Update progress to 25% of this script's contribution (Start)
+                $progressStart = $currentBaseProgress + (0.25 * $scriptContribution)
+                Write-JobOutput -Message "[$completedFunctions/$totalFunctions] Starting: $functionName" -GuiColor "#00CED1" -Type 'Progress' -ProgressValue $progressStart
 
                 try {
                     switch ($functionName) {
                         "WinInstallPSProfile" {
-                            Write-JobOutput -Message "Executing WinInstallPSProfile logic..." -Color "#ADD8E6" -Type 'Info'
-                            # Simulate work - replace with actual function call
-                            Start-Sleep -Seconds 2
+                            Write-JobOutput -Message "Executing WinInstallPSProfile logic..." -GuiColor "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 1 # Simulate 25% work
+                            # Update progress to 50% of this script's contribution (Mid-point)
+                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
+                            Write-JobOutput -Message "WinInstallPSProfile in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
+                            Start-Sleep -Seconds 1 # Simulate remaining work
                         }
                         "WinRepairToolkit" {
-                            Write-JobOutput -Message "Executing WinRepairToolkit logic..." -Color "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 3
+                            Write-JobOutput -Message "Executing WinRepairToolkit logic..." -GuiColor "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 1.5
+                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
+                            Write-JobOutput -Message "WinRepairToolkit in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
+                            Start-Sleep -Seconds 1.5
                         }
                         "WinUpdateReset" {
-                            Write-JobOutput -Message "Executing WinUpdateReset logic..." -Color "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 2
+                            Write-JobOutput -Message "Executing WinUpdateReset logic..." -GuiColor "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 1
+                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
+                            Write-JobOutput -Message "WinUpdateReset in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
+                            Start-Sleep -Seconds 1
                         }
                         "WinReinstallStore" {
-                            Write-JobOutput -Message "Executing WinReinstallStore logic..." -Color "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 4
+                            Write-JobOutput -Message "Executing WinReinstallStore logic..." -GuiColor "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 2
+                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
+                            Write-JobOutput -Message "WinReinstallStore in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
+                            Start-Sleep -Seconds 2
                         }
                         "WinBackupDriver" {
-                            Write-JobOutput -Message "Executing WinBackupDriver logic..." -Color "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 3
+                            Write-JobOutput -Message "Executing WinBackupDriver logic..." -GuiColor "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 1.5
+                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
+                            Write-JobOutput -Message "WinBackupDriver in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
+                            Start-Sleep -Seconds 1.5
                         }
                         "WinCleaner" {
-                            Write-JobOutput -Message "Executing WinCleaner logic..." -Color "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 5
+                            Write-JobOutput -Message "Executing WinCleaner logic..." -GuiColor "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 2.5
+                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
+                            Write-JobOutput -Message "WinCleaner in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
+                            Start-Sleep -Seconds 2.5
                         }
                         "OfficeToolkit" {
-                            Write-JobOutput -Message "Executing OfficeToolkit logic..." -Color "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 4
+                            Write-JobOutput -Message "Executing OfficeToolkit logic..." -GuiColor "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 2
+                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
+                            Write-JobOutput -Message "OfficeToolkit in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
+                            Start-Sleep -Seconds 2
                         }
                         "SetRustDesk" {
-                            Write-JobOutput -Message "Executing SetRustDesk logic..." -Color "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 2
+                            Write-JobOutput -Message "Executing SetRustDesk logic..." -GuiColor "#ADD8E6" -Type 'Info'
+                            Start-Sleep -Seconds 1
+                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
+                            Write-JobOutput -Message "SetRustDesk in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
+                            Start-Sleep -Seconds 1
                         }
                         default {
                             Write-JobOutput -Message "Unknown function: $functionName" -Color "#FFA500" -Type 'Warning'
                         }
                     }
-                    Write-JobOutput -Message "Completed: $functionName" -Color "#00FF00" -Type 'Success'
+                    Write-JobOutput -Message "Completed: $functionName" -GuiColor "#00FF00" -Type 'Success'
                 }
                 catch {
-                    Write-JobOutput -Message "Error in $functionName`: $($_.Exception.Message)" -Color "#FF0000" -Type 'Error'
+                    Write-JobOutput -Message "Error in $functionName`: $($_.Exception.Message)" -GuiColor "#FF0000" -Type 'Error'
                 }
+                # Update progress to 100% for this script
+                $progressComplete = $completedFunctions * $scriptContribution
+                Write-JobOutput -Message "[$completedFunctions/$totalFunctions] Progress: $progressComplete% (Function $functionName complete)" -GuiColor "#00FF00" -Type 'Progress' -ProgressValue $progressComplete
             }
-            Write-JobOutput -Message "Script execution completed!" -Color "#00FF00" -Type 'Success'
+            Write-JobOutput -Message "Script execution completed!" -GuiColor "#00FF00" -Type 'Success'
+            # Final progress update to ensure 100% on job completion
+            Write-JobOutput -Message "Final Progress: 100%" -GuiColor "#00FF00" -Type 'Progress' -ProgressValue 100
         } -ArgumentList $selectedCheckboxes, $PSScriptRoot, $mainLog -ErrorAction Stop
+
+        $global:currentJob = $job # Store job reference globally
+
+        # Initialize and start a DispatcherTimer to poll job output
+        $progressTimer = New-Object System.Windows.Threading.DispatcherTimer
+        $progressTimer.Interval = [TimeSpan]::FromMilliseconds(200) # Poll every 200ms
+        $progressTimer.Add_Tick({
+                param($sender, $eventArgs)
+
+                if ($global:currentJob -ne $null) {
+                    try {
+                        # Receive all currently available output from the job without waiting
+                        $jobOutput = Receive-Job -Job $global:currentJob -NoWait -Keep
+
+                        foreach ($item in $jobOutput) {
+                            if ($item -is [PSCustomObject]) {
+                                # Update progress bar if a progress item is received
+                                if ($item.Type -eq 'Progress' -and $item.ProgressValue -ne $null) {
+                                    Update-ProgressBar -Value $item.ProgressValue
+                                }
+                                # Log other messages to the GUI output box via Write-UnifiedLog
+                                Write-UnifiedLog -Message $item.Message -Type $item.Type -GuiColor $item.GuiColor
+                            }
+                        }
+
+                        # Check if the job has completed or failed
+                        if ($global:currentJob.State -eq 'Completed' -or $global:currentJob.State -eq 'Failed' -or $global:currentJob.JobStateInfo.Reason -ne $null) {
+                            $sender.Stop() # Stop the timer
+                            # Ensure final progress update
+                            Update-ProgressBar -Value 100
+                            $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $true })
+                            Write-UnifiedLog -Type 'Success' -Message "Script execution finished." -GuiColor "#00FF00"
+
+                            # Final cleanup of the job
+                            Remove-Job -Job $global:currentJob -Force -ErrorAction SilentlyContinue
+                            $global:currentJob = $null
+                            Unregister-Event -SourceIdentifier "JobStateChanged_$($job.Id)" -ErrorAction SilentlyContinue
+                        }
+                    }
+                    catch {
+                        Write-UnifiedLog -Type 'Error' -Message "Error polling job output: $($_.Exception.Message)" -GuiColor "#FF0000"
+                        $sender.Stop()
+                        $window.Dispatcher.Invoke([Action] {
+                                $executeButton.IsEnabled = $true
+                                Update-ProgressBar -Value 0
+                            })
+                        if ($global:currentJob -ne $null) {
+                            Remove-Job -Job $global:currentJob -Force -ErrorAction SilentlyContinue
+                            $global:currentJob = $null
+                        }
+                    }
+                }
+                else {
+                    $sender.Stop() # If job is null, stop timer
+                }
+            })
+        $progressTimer.Start() # Start polling
 
         # Register a handler to process job output
         Register-ObjectEvent -InputObject $job -EventName StateChanged -Action {
-            if ($job.State -eq 'Completed' -or $job.State -eq 'Failed' -or $job.State -eq 'Stopped') {
+            # This event now serves as a fallback/final cleanup trigger
+            # All real-time processing handled by DispatcherTimer
+            if ($global:currentJob -ne $null -and ($global:currentJob.State -eq 'Completed' -or $global:currentJob.State -eq 'Failed' -or $global:currentJob.JobStateInfo.Reason -ne $null)) {
+                if ($progressTimer.IsEnabled) { $progressTimer.Stop() }
+                Update-ProgressBar -Value 100 # Ensure it's 100% on completion
+                $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $true })
+                Write-UnifiedLog -Type 'Info' -Message "Job state changed to $($global:currentJob.State). Finalizing." -GuiColor "#00CED1"
+
+                # Ensure all remaining output is processed
+                $remainingOutput = Receive-Job -Job $global:currentJob -Keep -ErrorAction SilentlyContinue
+                foreach ($item in $remainingOutput) {
+                    if ($item -is [PSCustomObject]) {
+                        if ($item.Type -eq 'Progress' -and $item.ProgressValue -ne $null) {
+                            Update-ProgressBar -Value $item.ProgressValue
+                        }
+                        Write-UnifiedLog -Message $item.Message -Type $item.Type -GuiColor $item.GuiColor
+                    }
+                }
+
+                Remove-Job -Job $global:currentJob -Force -ErrorAction SilentlyContinue
+                $global:currentJob = $null
+                Unregister-Event -SourceIdentifier "JobStateChanged_$($job.Id)" -ErrorAction SilentlyContinue
                 try {
                     # Process results from the job
                     $jobOutput = Receive-Job -Job $job -Keep
@@ -1347,6 +1512,20 @@ catch {
 
 # Cleanup
 try {
+    # Stop progress timer if active
+    if ($progressTimer -ne $null -and $progressTimer.IsEnabled) {
+        $progressTimer.Stop()
+        $progressTimer = $null
+    }
+
+    # Remove any running job
+    if ($global:currentJob -ne $null) {
+        Write-UnifiedLog -Type 'Warning' -Message "Force stopping background job on application exit." -GuiColor "#FFA500"
+        Stop-Job -Job $global:currentJob -ErrorAction SilentlyContinue
+        Remove-Job -Job $global:currentJob -Force -ErrorAction SilentlyContinue
+        $global:currentJob = $null
+    }
+
     # Stop transcript and close any open file handles
     Stop-Transcript -ErrorAction SilentlyContinue | Out-Null
 
