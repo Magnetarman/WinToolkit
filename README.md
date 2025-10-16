@@ -54,7 +54,9 @@
 ## V 5.0 - Gui Mode (Sneak Peak)
 
 > [!CAUTION]
-> Lo screen seguente della versione grafica di WinToolkit sottostate è relativo alla versione Alpha in stadio di pre-produzione. La grafica finale potrebbe subire variazioni anche significative, ho deciso di inserirla per gli utenti che mi hanno chiesto a gran voce di implementarla in futuro.
+> L'immagine mostrata di seguito è un'anteprima della versione grafica (GUI) di WinToolkit, attualmente in uno stadio Alpha di pre-produzione.
+>
+> Si fa notare che la veste grafica definitiva potrebbe subire variazioni, anche significative. L'inclusione di questa screenshot in questa fase risponde alle numerose richieste degli utenti che hanno espresso un forte interesse per l'implementazione futura di un'interfaccia grafica.
 
 <div align="center">
  <img src="img/Gui-Mode.jpg" alt="Gui-Mode-banner" width="1200">
