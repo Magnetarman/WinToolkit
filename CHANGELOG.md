@@ -61,6 +61,21 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
+## [2.2.5] - 2025-10-11 (#17)
+
+### Aggiunte
+
+- Aggiunti nuovi Screenshot della V5.0 GUI (In Sviluppo)
+- Aggiunto il supporto Emoji per la versione GUI
+
+### Correzioni
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+
+---
+
 ## [2.2.4] - 2025-10-11 (#16)
 
 ### Aggiunte
