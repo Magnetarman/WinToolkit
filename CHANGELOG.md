@@ -62,7 +62,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Correzioni
 
 - Fix duplicazione in `CONTRIBUTORS.md`.
-- Fix Errore date in `CHANGELOG.md`
+- Fix Errore date in `CHANGELOG.md`.
+- Fix Pulizia troppo aggressiva di `Wincleaner.ps1` (Rompeva il funzionamento di .Net Framework)
 
 ### Modifiche
 
