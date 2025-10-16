@@ -49,9 +49,22 @@
 |   <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800">   |  <img src="img/WinCleaner.jpg" alt="WinCleaner-banner" width="800">  |
 | <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800"> | <img src="img/SetRustDesk.jpg" alt="SetRustDesk-banner" width="800"> |
 
+## </div>
+
+## V 5.0 - Gui Mode (Coming Soon)
+
+> [!CAUTION]
+> L'immagine mostrata di seguito è un'anteprima della versione grafica (GUI) di WinToolkit, attualmente in uno stadio Alpha di pre-produzione.
+>
+> Si fa notare che la veste grafica definitiva potrebbe subire variazioni, anche significative. L'inclusione di questa screenshot in questa fase risponde alle numerose richieste degli utenti che hanno espresso un forte interesse per l'implementazione futura di un'interfaccia grafica.
+
+<div align="center">
+ <img src="img/Gui-Mode.jpg" alt="Gui-Mode-banner" width="1200">
 </div>
 
----
+|                                 Before                                  |                                 After                                 |
+| :---------------------------------------------------------------------: | :-------------------------------------------------------------------: |
+| <img src="img/Gui-Before.jpg" alt="Gui-Mode-Before-banner" width="800"> | <img src="img/Gui-After.jpg" alt="Gui-Mode-After-banner" width="800"> |
 
 ## 👾 Features
 
@@ -88,6 +101,9 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 ```sh
 └── WinToolkit/
     └── img
+        ├── Gui-After.jpg
+        ├── Gui-Before.jpg
+        ├── Gui-Mode.jpg
         ├── OfficeToolkit.jpg
         ├── RepairToolkit.jpg
         ├── Run.jpg

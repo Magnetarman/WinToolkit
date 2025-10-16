@@ -51,10 +51,28 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Pulizia del sistema.
   - Applicazione Sfondo "MagnetarMan".
   - Riavvio del PC per completare le modifiche.
+- **GUI Mode (`V5.0`):**
+  - Win toolkit con tutta la semplicità della GUI
+  - Nessun comando da terminale da inserire
 
 ### Correzioni
 
 ### Modifiche
+
+---
+
+## [2.2.5] - 2025-10-11 (#17)
+
+### Aggiunte
+
+- Aggiunti nuovi Screenshot della V5.0 GUI (In Sviluppo)
+- Aggiunto il supporto Emoji per la versione GUI
+
+### Correzioni
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
 
 ---
 
