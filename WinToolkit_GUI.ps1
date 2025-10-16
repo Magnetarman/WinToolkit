@@ -51,54 +51,6 @@ $emojiMappings = @{
 $localIconBasePath = Join-Path $env:LOCALAPPDATA "WinToolkit\asset\png"
 $remoteIconBasePath = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/png" # Using 'main' branch
 
-# 1. Controlla e crea le cartelle locali per le icone
-try {
-    if (-not (Test-Path $localIconBasePath)) {
-        [System.IO.Directory]::CreateDirectory($localIconBasePath) | Out-Null
-        Write-UnifiedLog -Type 'Info' -Message "Created local emoji icon directory: $localIconBasePath" -GuiColor "#00CED1"
-    }
-    else {
-        Write-UnifiedLog -Type 'Info' -Message "Local emoji icon directory already exists: $localIconBasePath" -GuiColor "#00CED1"
-    }
-}
-catch {
-    Write-UnifiedLog -Type 'Error' -Message "Failed to create local emoji icon directory: $($_.Exception.Message)" -GuiColor "#FF0000"
-}
-
-# 2. Scarica le icone dalla cartella GitHub Raw, se non esistono localmente
-Write-UnifiedLog -Type 'Info' -Message "Checking for and downloading emoji icons from GitHub..." -GuiColor "#00CED1"
-foreach ($emojiChar in $emojiMappings.Values | Select-Object -Unique) {
-    # Helper to convert emoji to filename (similar to Get-EmojiIconPath logic)
-    $bytes = [System.Text.Encoding]::UTF32.GetBytes($emojiChar)
-    if ($bytes.Length -lt 4) {
-        Write-UnifiedLog -Type 'Warning' -Message "Skipping invalid emoji character for download: '$emojiChar'" -GuiColor "#FFA500"
-        continue
-    }
-    $codepoint = [BitConverter]::ToUInt32($bytes, 0).ToString("X")
-    $fileName = "U+$codepoint.png"
-
-    $localFilePath = Join-Path $localIconBasePath $fileName
-    $remoteFileUrl = "$remoteIconBasePath/$fileName"
-
-    if (-not (Test-Path $localFilePath)) {
-        try {
-            Write-UnifiedLog -Type 'Info' -Message "Downloading '$fileName' from $remoteFileUrl to $localFilePath" -GuiColor "#00CED1"
-            # Add UserAgent to prevent potential 403 Forbidden errors from GitHub
-            Invoke-WebRequest -Uri $remoteFileUrl -OutFile $localFilePath -ErrorAction Stop -UserAgent ([Microsoft.PowerShell.Commands.PSUserAgent]::Chrome)
-            Write-UnifiedLog -Type 'Success' -Message "Downloaded '$fileName'" -GuiColor "#00FF00"
-        }
-        catch {
-            Write-UnifiedLog -Type 'Error' -Message "Failed to download '$fileName' from '$remoteFileUrl': $($_.Exception.Message)" -GuiColor "#FF0000"
-        }
-    }
-    else {
-        Write-UnifiedLog -Type 'Info' -Message "Emoji icon '$fileName' already exists locally. Skipping download." -GuiColor "#00CED1"
-    }
-}
-
-# 3. Aggiorna il $iconBasePath per caricare dalla cartella locale
-$iconBasePath = $localIconBasePath
-
 # =============================================================================
 # GLOBAL VARIABLES
 # =============================================================================
