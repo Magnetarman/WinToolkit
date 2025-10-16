@@ -62,6 +62,10 @@
  <img src="img/Gui-Mode.jpg" alt="Gui-Mode-banner" width="1200">
 </div>
 
+|                                 Before                                  |                                 After                                 |
+| :---------------------------------------------------------------------: | :-------------------------------------------------------------------: |
+| <img src="img/Gui-Before.jpg" alt="Gui-Mode-Before-banner" width="800"> | <img src="img/Gui-After.jpg" alt="Gui-Mode-After-banner" width="800"> |
+
 ## 👾 Features
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
