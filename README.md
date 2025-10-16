@@ -51,7 +51,7 @@
 
 ## </div>
 
-## V 5.0 - Gui Mode (Sneak Peak)
+## V 5.0 - Gui Mode (Coming Soon)
 
 > [!CAUTION]
 > L'immagine mostrata di seguito è un'anteprima della versione grafica (GUI) di WinToolkit, attualmente in uno stadio Alpha di pre-produzione.
