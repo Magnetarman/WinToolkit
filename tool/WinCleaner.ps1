@@ -17,6 +17,7 @@ function WinCleaner {
         - Cronologia Installazioni Windows Update
         - Punti di Ripristino del sistema
         - Cache Download Windows
+        - Cache .NET
         - Prefetch Windows
         - Cache Miniature Explorer
         - Cache web WinInet
@@ -59,6 +60,7 @@ function WinCleaner {
         @{ Task = 'UpdateHistory'; Name = 'Cronologia Windows Update'; Icon = '📝'; Auto = $false }
         @{ Task = 'RestorePoints'; Name = 'Punti ripristino sistema'; Icon = '💾'; Auto = $false }
         @{ Task = 'DownloadCache'; Name = 'Cache download Windows'; Icon = '⬇️'; Auto = $false }
+        @{ Task = 'DotNetCache'; Name = 'Cache .NET Framework'; Icon = '🔧'; Auto = $false }
         @{ Task = 'Prefetch'; Name = 'Cache Prefetch Windows'; Icon = '⚡'; Auto = $false }
         @{ Task = 'ThumbnailCache'; Name = 'Cache miniature Explorer'; Icon = '🖼️'; Auto = $false }
         @{ Task = 'WinInetCache'; Name = 'Cache web WinInet'; Icon = '🌐'; Auto = $false }
@@ -590,6 +592,47 @@ function WinCleaner {
             Write-StyledMessage Warning " Errore durante pulizia cache download: $_"
             $script:Log += "[DownloadCache]  Errore: $_"
             return @{ Success = $false; ErrorCount = 1 }
+        }
+    }
+
+    function Invoke-DotNetCacheCleanup {
+        Write-StyledMessage Info "🔧 Pulizia cache .NET Framework..."
+        $dotnetPaths = @(
+            "C:\WINDOWS\assembly",
+            "$env:WINDIR\Microsoft.NET"
+        )
+
+        $totalCleaned = 0
+        foreach ($path in $dotnetPaths) {
+            # Verifica esclusione cartella WinToolkit
+            if (Test-ExcludedPath $path) {
+                continue
+            }
+
+            try {
+                if (Test-Path $path) {
+                    $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+                        -not (Test-ExcludedPath $_.FullName)
+                    }
+                    $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                    $totalCleaned += $files.Count
+                    Write-StyledMessage Info "🗑️ Pulita cache .NET: $path"
+                }
+            }
+            catch {
+                Write-StyledMessage Warning "Impossibile pulire $path - $_"
+            }
+        }
+
+        if ($totalCleaned -gt 0) {
+            Write-StyledMessage Success "✅ Cache .NET pulita ($totalCleaned file)"
+            $script:Log += "[DotNetCache] ✅ Pulizia completata ($totalCleaned file)"
+            return @{ Success = $true; ErrorCount = 0 }
+        }
+        else {
+            Write-StyledMessage Info "💭 Nessuna cache .NET da pulire"
+            $script:Log += "[DotNetCache] ℹ️ Nessun file da pulire"
+            return @{ Success = $true; ErrorCount = 0 }
         }
     }
 
