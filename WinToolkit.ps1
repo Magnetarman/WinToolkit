@@ -3299,6 +3299,7 @@ function WinCleaner {
         POLITICA ESCLUSIONI VITALI:
         - %LOCALAPPDATA%\WinToolkit: CARTELLA VITALE - Contiene toolkit, log e dati essenziali
         Queste cartelle sono protette e NON verranno mai cancellate durante la pulizia.
+        - WinSxS Assemblies sostituiti
         - Rapporti Errori Windows
         - Registro Eventi Windows
         - Cronologia Installazioni Windows Update
@@ -3341,6 +3342,7 @@ function WinCleaner {
 
     $CleanupTasks = @(
         @{ Task = 'CleanMgrAuto'; Name = 'Pulizia automatica CleanMgr'; Icon = '🧹'; Auto = $true }
+        @{ Task = 'WinSxS'; Name = 'WinSxS - Assembly sostituiti'; Icon = '📦'; Auto = $false }
         @{ Task = 'ErrorReports'; Name = 'Rapporti errori Windows'; Icon = '📋'; Auto = $false }
         @{ Task = 'EventLogs'; Name = 'Registro eventi Windows'; Icon = '📜'; Auto = $false }
         @{ Task = 'UpdateHistory'; Name = 'Cronologia Windows Update'; Icon = '📝'; Auto = $false }
@@ -3678,7 +3680,42 @@ function WinCleaner {
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
-    
+
+    function Invoke-WinSxSCleanup {
+        Write-StyledMessage Info "📦 Pulizia componenti WinSxS sostituiti..."
+        $percent = 0; $spinnerIndex = 0
+
+        try {
+            Write-StyledMessage Info "🔍 Avvio analisi componenti WinSxS..."
+
+            $result = Start-ProcessWithTimeout -FilePath 'DISM.exe' -ArgumentList '/Online /Cleanup-Image /StartComponentCleanup /ResetBase' -TimeoutSeconds 900 -Activity "WinSxS Cleanup" -Hidden
+
+            if ($result.TimedOut) {
+                Write-StyledMessage Warning "Pulizia WinSxS interrotta per timeout"
+                $script:Log += "[WinSxS]  Timeout dopo 15 minuti"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+
+            $exitCode = $result.ExitCode
+
+            if ($exitCode -eq 0) {
+                Write-StyledMessage Success "✅ Componenti WinSxS puliti con successo"
+                $script:Log += "[WinSxS] ✅ Pulizia completata (Exit code: $exitCode)"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+            else {
+                Write-StyledMessage Warning "Pulizia WinSxS completata con warnings (Exit code: $exitCode)"
+                $script:Log += "[WinSxS]  Completato con warnings (Exit code: $exitCode)"
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante pulizia WinSxS: $($_.Exception.Message)"
+            $script:Log += "[WinSxS]  Errore: $($_.Exception.Message)"
+            return @{ Success = $false; ErrorCount = 1 }
+        }
+    }
+
     function Invoke-ErrorReportsCleanup {
         Write-StyledMessage Info "📋 Pulizia rapporti errori Windows..."
         $werPaths = @(
@@ -4339,6 +4376,7 @@ function WinCleaner {
         try {
             $result = switch ($Task.Task) {
                 'CleanMgrAuto' { Invoke-CleanMgrAuto }
+                'WinSxS' { Invoke-WinSxSCleanup }
                 'ErrorReports' { Invoke-ErrorReportsCleanup }
                 'EventLogs' { Invoke-EventLogsCleanup }
                 'UpdateHistory' { Invoke-UpdateHistoryCleanup }
@@ -4399,7 +4437,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.3.0 (Build 4)'
+            '       Version 2.3.0 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
