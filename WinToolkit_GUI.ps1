@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 50 - ALPHA]
+    WinToolkit GUI - Version 5.0 (GUI Edition) [Build 54 - ALPHA]
 .DESCRIPTION
     Enhanced WinToolkit GUI with modern interface, logo integration, progress tracking, and email error reporting
 .NOTES
-    Version 5.0.0 - GUI Edition with enhanced features and modern UI [Build 50 - ALPHA]
+    Version 5.0.0 - GUI Edition with enhanced features and modern UI [Build 54 - ALPHA]
 #>
 
 #Requires -Version 5.1
@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptVersion = "5.0 (GUI Edition) [Build 50 - ALPHA]"
+$ScriptVersion = "5.0 (GUI Edition) [Build 54 - ALPHA]"
 $ScriptTitle = "WinToolKit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -21,13 +21,84 @@ $WindowHeight = 950
 $FontFamily = "Cascadia Code"
 $FontSize = @{Small = 12; Medium = 14; Large = 16; Title = 18 }
 
+# Emoji mappings for GUI elements
+$emojiMappings = @{
+    "SendErrorLogsImage"       = "📡"
+    "FunzioniDisponibiliImage" = "⚙️"
+    "OutputLogImage"           = "📋"
+    "ExecuteButtonImage"       = "▶️"
+    "SysInfoTitleImage1"       = "🖥️"
+    "SysInfoTitleImage2"       = "🖥️"
+    "SysInfoEditionLabelImage" = "💻"
+    "SysInfoVersionImage"      = "📊"
+    "SysInfoScriptImage"       = "✨"
+    "SysInfoArchitectureImage" = "⚡"
+    "SysInfoComputerNameImage" = "🏷️"
+    "SysInfoRAMImage"          = "🧠"
+    "SysInfoDiskImage"         = "💾"
+    # Additional emojis for actions panel and system info
+    "WinInstallPSProfile"      = "💙"
+    "WinRepairToolkit"         = "🔧"
+    "WinUpdateReset"           = "🔄"
+    "WinReinstallStore"        = "🛒"
+    "WinCleaner"               = "🧹"
+    "ProfessionalEdition"      = "💼"
+}
+
 # =============================================================================
 # EMOJI ICONS CONFIGURATION
 # =============================================================================
-# Percorso base per le icone emoji - facilmente modificabile per GitHub Raw
-# Per utilizzare icone da GitHub Raw, sostituire con:
-$iconBasePath = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/png"
-#$iconBasePath = Join-Path $PSScriptRoot "asset/png"
+# Percorso base per le icone emoji - gestione locale con cache da GitHub
+$localIconBasePath = Join-Path $env:LOCALAPPDATA "WinToolkit\asset\png"
+$remoteIconBasePath = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/png" # Using 'main' branch
+
+# 1. Controlla e crea le cartelle locali per le icone
+try {
+    if (-not (Test-Path $localIconBasePath)) {
+        [System.IO.Directory]::CreateDirectory($localIconBasePath) | Out-Null
+        Write-UnifiedLog -Type 'Info' -Message "Created local emoji icon directory: $localIconBasePath" -GuiColor "#00CED1"
+    }
+    else {
+        Write-UnifiedLog -Type 'Info' -Message "Local emoji icon directory already exists: $localIconBasePath" -GuiColor "#00CED1"
+    }
+}
+catch {
+    Write-UnifiedLog -Type 'Error' -Message "Failed to create local emoji icon directory: $($_.Exception.Message)" -GuiColor "#FF0000"
+}
+
+# 2. Scarica le icone dalla cartella GitHub Raw, se non esistono localmente
+Write-UnifiedLog -Type 'Info' -Message "Checking for and downloading emoji icons from GitHub..." -GuiColor "#00CED1"
+foreach ($emojiChar in $emojiMappings.Values | Select-Object -Unique) {
+    # Helper to convert emoji to filename (similar to Get-EmojiIconPath logic)
+    $bytes = [System.Text.Encoding]::UTF32.GetBytes($emojiChar)
+    if ($bytes.Length -lt 4) {
+        Write-UnifiedLog -Type 'Warning' -Message "Skipping invalid emoji character for download: '$emojiChar'" -GuiColor "#FFA500"
+        continue
+    }
+    $codepoint = [BitConverter]::ToUInt32($bytes, 0).ToString("X")
+    $fileName = "U+$codepoint.png"
+
+    $localFilePath = Join-Path $localIconBasePath $fileName
+    $remoteFileUrl = "$remoteIconBasePath/$fileName"
+
+    if (-not (Test-Path $localFilePath)) {
+        try {
+            Write-UnifiedLog -Type 'Info' -Message "Downloading '$fileName' from $remoteFileUrl to $localFilePath" -GuiColor "#00CED1"
+            # Add UserAgent to prevent potential 403 Forbidden errors from GitHub
+            Invoke-WebRequest -Uri $remoteFileUrl -OutFile $localFilePath -ErrorAction Stop -UserAgent ([Microsoft.PowerShell.Commands.PSUserAgent]::Chrome)
+            Write-UnifiedLog -Type 'Success' -Message "Downloaded '$fileName'" -GuiColor "#00FF00"
+        }
+        catch {
+            Write-UnifiedLog -Type 'Error' -Message "Failed to download '$fileName' from '$remoteFileUrl': $($_.Exception.Message)" -GuiColor "#FF0000"
+        }
+    }
+    else {
+        Write-UnifiedLog -Type 'Info' -Message "Emoji icon '$fileName' already exists locally. Skipping download." -GuiColor "#00CED1"
+    }
+}
+
+# 3. Aggiorna il $iconBasePath per caricare dalla cartella locale
+$iconBasePath = $localIconBasePath
 
 # =============================================================================
 # GLOBAL VARIABLES
@@ -196,6 +267,59 @@ catch {
     # Fallback for logging if transcript failed
     Add-Content -Path "C:\temp\WinToolkit_Error_Fallback.log" -Value "[$([DateTime]::Now)] ERROR: Failed to initialize logging: $($_.Exception.Message)"
 }
+
+# =============================================================================
+# ICON CACHE INITIALIZATION
+# =============================================================================
+# Now that Write-UnifiedLog is available, initialize the emoji icon cache
+
+# 1. Controlla e crea le cartelle locali per le icone
+try {
+    if (-not (Test-Path $localIconBasePath)) {
+        [System.IO.Directory]::CreateDirectory($localIconBasePath) | Out-Null
+        Write-UnifiedLog -Type 'Info' -Message "Created local emoji icon directory: $localIconBasePath" -GuiColor "#00CED1"
+    }
+    else {
+        Write-UnifiedLog -Type 'Info' -Message "Local emoji icon directory already exists: $localIconBasePath" -GuiColor "#00CED1"
+    }
+}
+catch {
+    Write-UnifiedLog -Type 'Error' -Message "Failed to create local emoji icon directory: $($_.Exception.Message)" -GuiColor "#FF0000"
+}
+
+# 2. Scarica le icone dalla cartella GitHub Raw, se non esistono localmente
+Write-UnifiedLog -Type 'Info' -Message "Checking for and downloading emoji icons from GitHub..." -GuiColor "#00CED1"
+foreach ($emojiChar in $emojiMappings.Values | Select-Object -Unique) {
+    # Helper to convert emoji to filename (similar to Get-EmojiIconPath logic)
+    $bytes = [System.Text.Encoding]::UTF32.GetBytes($emojiChar)
+    if ($bytes.Length -lt 4) {
+        Write-UnifiedLog -Type 'Warning' -Message "Skipping invalid emoji character for download: '$emojiChar'" -GuiColor "#FFA500"
+        continue
+    }
+    $codepoint = [BitConverter]::ToUInt32($bytes, 0).ToString("X")
+    $fileName = "U+$codepoint.png"
+
+    $localFilePath = Join-Path $localIconBasePath $fileName
+    $remoteFileUrl = "$remoteIconBasePath/$fileName"
+
+    if (-not (Test-Path $localFilePath)) {
+        try {
+            Write-UnifiedLog -Type 'Info' -Message "Downloading '$fileName' from $remoteFileUrl to $localFilePath" -GuiColor "#00CED1"
+            # Add UserAgent to prevent potential 403 Forbidden errors from GitHub
+            Invoke-WebRequest -Uri $remoteFileUrl -OutFile $localFilePath -ErrorAction Stop -UserAgent ([Microsoft.PowerShell.Commands.PSUserAgent]::Chrome)
+            Write-UnifiedLog -Type 'Success' -Message "Downloaded '$fileName'" -GuiColor "#00FF00"
+        }
+        catch {
+            Write-UnifiedLog -Type 'Error' -Message "Failed to download '$fileName' from '$remoteFileUrl': $($_.Exception.Message)" -GuiColor "#FF0000"
+        }
+    }
+    else {
+        Write-UnifiedLog -Type 'Info' -Message "Emoji icon '$fileName' already exists locally. Skipping download." -GuiColor "#00CED1"
+    }
+}
+
+# 3. Aggiorna il $iconBasePath per caricare dalla cartella locale
+$iconBasePath = $localIconBasePath
 
 # =============================================================================
 # INITIALIZATION AND VALIDATION
@@ -784,22 +908,6 @@ try {
         Write-UnifiedLog -Type 'Warning' -Message "Logo file not found: $logoPath" -GuiColor "#FFA500"
     }
 
-    # Load emoji images for static elements
-    $emojiMappings = @{
-        "SendErrorLogsImage"       = "📡"
-        "FunzioniDisponibiliImage" = "⚙️"
-        "OutputLogImage"           = "📋"
-        "ExecuteButtonImage"       = "▶️"
-        "SysInfoTitleImage1"       = "🖥️"
-        "SysInfoTitleImage2"       = "🖥️"
-        "SysInfoEditionLabelImage" = "💻"
-        "SysInfoVersionImage"      = "📊"
-        "SysInfoScriptImage"       = "✨"
-        "SysInfoArchitectureImage" = "⚡"
-        "SysInfoComputerNameImage" = "🏷️"
-        "SysInfoRAMImage"          = "🧠"
-        "SysInfoDiskImage"         = "💾"
-    }
 
     foreach ($mapping in $emojiMappings.GetEnumerator()) {
         $imageControl = Get-Variable -Name $mapping.Key -ValueOnly -ErrorAction SilentlyContinue
