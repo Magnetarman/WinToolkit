@@ -6,18 +6,12 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 
 ---
 
-## In lavorazione
+## Versioni Pianificate [In sviluppo]
 
 Questo è lo stato attuale del progetto, che include le funzionalità in fase di sviluppo.
 
 ### Aggiunte
 
-- **Funzione Driver & Gaming (`V2.3`):**
-  - Scelta Driver Video (AMD/NVIDIA).
-  - Installazione Driver Ottimizzato (Nvidia).
-  - Download ultima versione di DDU, con estrazione e posizionamento
-    nella cartella Downloads, seguito da riavvio in modalità
-    provvisoria.
 - **Funzione Gaming Ready (`V2.4`):**
   - Installazione client di gioco (Amazon, Gog Galaxy, Epic Games,
     Steam).
@@ -61,7 +55,23 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.2.5] - 2025-10-11 (#17)
+## [2.3.0] - 2025-10-16 (#18)
+
+### Aggiunte
+
+### Correzioni
+
+- Fix duplicazione in `CONTRIBUTORS.md`.
+- Fix Errore date in `CHANGELOG.md`
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+- Potenziamento script `WinCleaner.ps1` con cacellazione della cartella Windows.old.
+
+---
+
+## [2.2.5] - 2025-10-16 (#17)
 
 ### Aggiunte
 
