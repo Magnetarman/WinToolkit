@@ -70,14 +70,14 @@ function WinCleaner {
         @{ Task = 'UserTemp'; Name = 'File temporanei utente'; Icon = '📁'; Auto = $false }
         @{ Task = 'PrintQueue'; Name = 'Coda di stampa'; Icon = '🖨️'; Auto = $false }
         @{ Task = 'SystemLogs'; Name = 'Log di sistema'; Icon = '📄'; Auto = $false }
-    )
+        @{ Task = 'WindowsOld'; Name = 'Cartella Windows.old'; Icon = '🗑️'; Auto = $false } )
 
     function Write-StyledMessage([string]$Type, [string]$Text) {
         $style = $MsgStyles[$Type]
         $timestamp = Get-Date -Format "HH:mm:ss"
 
         # Rimuovi emoji duplicati dal testo se presenti
-        $cleanText = $Text -replace '^(✅|||💎|🔍|🚀|⚙️|🧹|📦|📋|📜|📝|💾|⬇️|🔧|⚡|🖼️|🌐|🍪|🔄|🗂️|📁|🖨️|📄|🗑️|💭|⏸️|▶️|💡|⏰|🎉|💻|📊)\s*', ''
+        $cleanText = $Text -replace '^(✅|||💎|🔍|🚀|⚙️|🧹|📦|📋|📜|📝|💾|⬇️|🔧|⚡|🖼️|🌐|🍪|🔄|🗂️|📁|🖨️|📄|🗑️|💭|⏸️|▶️|💡|⏰|🎉|💻|📊|❌)\s*', ''
 
         Write-Host "[$timestamp] $($style.Icon) $cleanText" -ForegroundColor $style.Color
 
@@ -1006,7 +1006,81 @@ function WinCleaner {
             return @{ Success = $true; ErrorCount = 0 }
         }
     }
-
+    
+    function Invoke-WindowsOldCleanup {
+        Write-StyledMessage Info "🗑️ Pulizia cartella Windows.old..."
+        $windowsOldPath = "C:\Windows.old"
+        $errorCount = 0
+    
+        try {
+            if (Test-Path -Path $windowsOldPath) {
+                Write-StyledMessage Info "🔍 Trovata cartella Windows.old. Tentativo di rimozione forzata..."
+                $script:Log += "[WindowsOld] 🔍 Trovata cartella Windows.old. Tentativo di rimozione forzata..."
+    
+                # 1. Assumere la proprietà (Take Ownership)
+                Write-StyledMessage Info "1. Assunzione della proprietà (Take Ownership)..."
+                $takeownResult = cmd /c takeown /F $windowsOldPath /R /A /D Y 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-StyledMessage Warning "❌ Errore durante l'assunzione della proprietà: $takeownResult"
+                    $script:Log += "[WindowsOld] ❌ Errore takeown: $takeownResult"
+                    $errorCount++
+                }
+                else {
+                    Write-StyledMessage Info "✅ Proprietà assunta."
+                    $script:Log += "[WindowsOld] ✅ Proprietà assunta."
+                }
+                Start-Sleep -Milliseconds 500 # Give system a moment
+    
+                # 2. Assegnare i permessi di controllo completo agli amministratori
+                Write-StyledMessage Info "2. Assegnazione dei permessi di Controllo Completo (Full Control)..."
+                $icaclsResult = cmd /c icacls $windowsOldPath /T /grant Administrators:F 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-StyledMessage Warning "❌ Errore durante l'assegnazione permessi: $icaclsResult"
+                    $script:Log += "[WindowsOld] ❌ Errore icacls: $icaclsResult"
+                    $errorCount++
+                }
+                else {
+                    Write-StyledMessage Info "✅ Permessi di controllo completo assegnati agli Amministratori."
+                    $script:Log += "[WindowsOld] ✅ Permessi di controllo completo assegnati agli Amministratori."
+                }
+                Start-Sleep -Milliseconds 500 # Give system a moment
+    
+                # 3. Rimuovere la cartella con la forzatura
+                Write-StyledMessage Info "3. Rimozione forzata della cartella..."
+                try {
+                    Remove-Item -Path $windowsOldPath -Recurse -Force -ErrorAction Stop
+                }
+                catch {
+                    Write-StyledMessage Error "❌ ERRORE durante la rimozione di Windows.old: $($_.Exception.Message)"
+                    $script:Log += "[WindowsOld] ❌ ERRORE durante la rimozione: $($_.Exception.Message)"
+                    $errorCount++
+                }
+                
+                # 4. Verifica finale
+                if (Test-Path -Path $windowsOldPath) {
+                    Write-StyledMessage Error "❌ ERRORE: La cartella $windowsOldPath non è stata rimossa."
+                    $script:Log += "[WindowsOld] ❌ Cartella non rimossa dopo tentativi forzati."
+                    $errorCount++
+                }
+                else {
+                    Write-StyledMessage Success "✅ La cartella Windows.old è stata rimossa con successo."
+                    $script:Log += "[WindowsOld] ✅ Rimozione completata."
+                }
+            }
+            else {
+                Write-StyledMessage Info "💭 La cartella Windows.old non è presente. Nessuna azione necessaria."
+                $script:Log += "[WindowsOld] ℹ️ Non presente, nessuna azione."
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore fatale durante la pulizia di Windows.old: $($_.Exception.Message)"
+            $script:Log += "[WindowsOld] 💥 Errore fatale: $($_.Exception.Message)"
+            $errorCount++
+        }
+    
+        return @{ Success = ($errorCount -eq 0); ErrorCount = $errorCount }
+    }
+    
     function Invoke-CleanupTask([hashtable]$Task, [int]$Step, [int]$Total) {
         Write-StyledMessage Info "[$Step/$Total] Avvio $($Task.Name)..."
         $percent = 0; $spinnerIndex = 0
@@ -1030,6 +1104,7 @@ function WinCleaner {
                 'UserTemp' { Invoke-UserTempCleanup }
                 'PrintQueue' { Invoke-PrintQueueCleanup }
                 'SystemLogs' { Invoke-SystemLogsCleanup }
+                'WindowsOld' { Invoke-WindowsOldCleanup }
             }
 
             if ($result.Success) {
@@ -1074,7 +1149,7 @@ function WinCleaner {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Cleaner Toolkit By MagnetarMan',
-            '       Version 2.2.4 (Build 1)'
+            '       Version 2.3.0 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
