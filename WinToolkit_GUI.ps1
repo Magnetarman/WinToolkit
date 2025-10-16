@@ -36,7 +36,6 @@ $emojiMappings = @{
     "SysInfoComputerNameImage" = "🏷️"
     "SysInfoRAMImage"          = "🧠"
     "SysInfoDiskImage"         = "💾"
-    # Additional emojis for actions panel and system info
     "WinInstallPSProfile"      = "💙"
     "WinRepairToolkit"         = "🔧"
     "WinUpdateReset"           = "🔄"
