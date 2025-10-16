@@ -69,6 +69,13 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - Aggiornamento della documentazione e del file `README.md`.
 - Potenziamento script `WinCleaner.ps1` con cacellazione della cartella Windows.old.
 
+- **Funzione Driver & Gaming (`V2.3`):**
+  - Scelta Driver Video (AMD/NVIDIA).
+  - Installazione Driver Ottimizzato (Nvidia).
+  - Download ultima versione di DDU, con estrazione e posizionamento
+    nella cartella Downloads, seguito da riavvio in modalità
+    provvisoria.
+
 ---
 
 ## [2.2.5] - 2025-10-16 (#17)
