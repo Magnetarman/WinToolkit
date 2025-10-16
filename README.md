@@ -101,6 +101,8 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 ```sh
 └── WinToolkit/
     └── img
+        ├── Gui-After.jpg
+        ├── Gui-Before.jpg
         ├── Gui-Mode.jpg
         ├── OfficeToolkit.jpg
         ├── RepairToolkit.jpg
