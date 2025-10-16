@@ -26,8 +26,8 @@ $FontSize = @{Small = 12; Medium = 14; Large = 16; Title = 18 }
 # =============================================================================
 # Percorso base per le icone emoji - facilmente modificabile per GitHub Raw
 # Per utilizzare icone da GitHub Raw, sostituire con:
-# $iconBasePath = "https://raw.githubusercontent.com/TuoUtente/TuoRepo/main/asset/png"
-$iconBasePath = Join-Path $PSScriptRoot "asset/png"
+$iconBasePath = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/png"
+#$iconBasePath = Join-Path $PSScriptRoot "asset/png"
 
 # =============================================================================
 # GLOBAL VARIABLES
