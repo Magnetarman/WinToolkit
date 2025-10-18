@@ -307,7 +307,7 @@ function OfficeToolkit {}
 function WinCleaner {}
 # function SearchRepair {}
 function SetRustDesk {}
-function WinDriverInstall {}
+function VideoDriverInstall {}
 function GamingToolkit {}
 
 
@@ -331,7 +331,7 @@ $menuStructure = @(
     @{
         'Name' = 'Driver & Gaming'; 'Icon' = '🎮'
         'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinDriverInstall'; Description = 'Toolkit Driver Grafici - Planned V2.3'; Action = 'RunFunction' },
+            [pscustomobject]@{ Name = 'VideoDriverInstall'; Description = 'Toolkit Driver Grafici'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit - Planned V2.4'; Action = 'RunFunction' }
         )
     },
