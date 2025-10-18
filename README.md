@@ -86,13 +86,7 @@
 > [!IMPORTANT]
 > Una volta riavviato il PC per utilizzare DDU (Display Driver Uninstall) in modalità provvisoria esegui questi passaggi :
 >
-> Risoluzione dei Problemi =>
->
-> Opzioni Avanzate =>
->
-> Impostazioni di Avvio =>
->
-> Riavvia => Al riavvio selezionare opzione 4 (Riavvia in modalità Provvisoria)
+> Risoluzione dei Problemi => Opzioni Avanzate => Impostazioni di Avvio => Riavvia => Al riavvio selezionare opzione 4 (Riavvia in modalità Provvisoria)
 >
 > Al caricamento della modalità provvisoria eseguire DDU dalla cartella sul desktop ed eseguire la rimozione completa e sicura dei driver vecchi
 
