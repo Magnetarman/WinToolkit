@@ -48,7 +48,7 @@ function WinDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3.0 (Build 1)'
+            '       Version 2.3.0 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {
@@ -152,17 +152,18 @@ function WinDriverInstall {
             [Parameter(Mandatory = $true)]
             [string]$Message
         )
-        $barWidth = 50
-        for ($i = $Seconds; $i -ge 0; $i--) {
-            $progress = $i / $Seconds # 1.0 down to 0.0
-            $filledWidth = [int]($barWidth * $progress)
-            $emptyWidth = $barWidth - $filledWidth
-            $progressBar = ('█' * $filledWidth) + ('░' * $emptyWidth)
 
-            Write-Host "`r $($MsgStyles.Error.Icon) $Message [$progressBar] $($i)s " -NoNewline -ForegroundColor Red
+        for ($i = $Seconds; $i -gt 0; $i--) {
+            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
+            $filled = [Math]::Floor($percent * 20 / 100)
+            $remaining = 20 - $filled
+            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+
+            Write-Host "`r$($MsgStyles.Error.Icon) $Message tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep -Seconds 1
         }
-        Write-Host "`r $($MsgStyles.Error.Icon) $Message [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0s `n" -ForegroundColor Red # Clear bar at 0
+
+        Write-Host "`r$($MsgStyles.Error.Icon) $Message tra 0 secondi [$('█' * 20)] 100%`n" -ForegroundColor Red
     }
 
     function Handle-InstallVideoDrivers {
