@@ -48,7 +48,7 @@ function VideoDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Video Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3.0 (Build 6)'
+            '       Version 2.3.0 (Build 7)'
         )
 
         foreach ($line in $asciiArt) {
@@ -127,7 +127,7 @@ function VideoDriverInstall {
             }
 
             # Set the registry key to block driver downloads
-            Set-ItemProperty -Path $regPath -Name $propertyName -Value $propertyValue -PropertyType DWord -Force -ErrorAction Stop
+            Set-ItemProperty -Path $regPath -Name $propertyName -Value $propertyValue -Type DWord -Force -ErrorAction Stop
             Write-StyledMessage 'Success' "Blocco download driver da Windows Update impostato correttamente nel registro."
             Write-StyledMessage 'Info' "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
         }
