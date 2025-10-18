@@ -38,7 +38,7 @@ function VideoDriverInstall {
     function Show-Header {
         Clear-Host
         $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('=' * ($width - 1)) -ForegroundColor Green
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
 
         $asciiArt = @(
             '      __        __  _  _   _ ',
@@ -48,7 +48,7 @@ function VideoDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Video Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3.0 (Build 7)'
+            '       Version 2.3.0 (Build 8)'
         )
 
         foreach ($line in $asciiArt) {
