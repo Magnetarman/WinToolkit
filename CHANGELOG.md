@@ -59,23 +59,18 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Aggiunte
 
+- Funzione **Video Driver Install** Completa.
+
 ### Correzioni
 
 - Fix duplicazione in `CONTRIBUTORS.md`.
 - Fix Errore date in `CHANGELOG.md`.
-- Fix Pulizia troppo aggressiva di `Wincleaner.ps1` (Rompeva il funzionamento di .Net Framework)
+- Fix Pulizia troppo aggressiva di `Wincleaner.ps1` (Rompeva il funzionamento di .Net Framework).
 
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
 - Potenziamento script `WinCleaner.ps1` con cacellazione della cartella Windows.old.
-
-- **Funzione Driver & Gaming (`V2.3`):**
-  - Scelta Driver Video (AMD/NVIDIA).
-  - Installazione Driver Ottimizzato (Nvidia).
-  - Download ultima versione di DDU, con estrazione e posizionamento
-    nella cartella Downloads, seguito da riavvio in modalità
-    provvisoria.
 
 ---
 
