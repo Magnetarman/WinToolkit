@@ -55,7 +55,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.3.0] (Pixel Debh Part I) - 2025-10-16 (#18)
+## [2.3.0] (Pixel Debh Part I) - 2025-10-18 (#18)
 
 ### Aggiunte
 
