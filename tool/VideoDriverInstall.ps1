@@ -48,7 +48,7 @@ function VideoDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Video Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3.0 (Build 8)'
+            '       Version 2.3.0 (Build 9)'
         )
 
         foreach ($line in $asciiArt) {
@@ -333,7 +333,7 @@ function VideoDriverInstall {
         Write-StyledMessage 'Info' 'Seleziona un''opzione:'
         Write-Host "  1) Installa Driver Video"
         Write-Host "  2) Reinstalla/Ripara Driver Video"
-        Write-Host "  Q) Torna al menu principale"
+        Write-Host "  0) Torna al menu principale"
         Write-Host ""
         $choice = Read-Host "La tua scelta"
         Write-Host ""
@@ -341,17 +341,17 @@ function VideoDriverInstall {
         switch ($choice.ToUpper()) {
             "1" { Handle-InstallVideoDrivers }
             "2" { Handle-ReinstallRepairVideoDrivers }
-            "Q" { Write-StyledMessage 'Info' 'Tornando al menu principale.' }
+            "0" { Write-StyledMessage 'Info' 'Tornando al menu principale.' }
             default { Write-StyledMessage 'Warning' "Scelta non valida. Riprova." }
         }
 
-        if ($choice.ToUpper() -ne "Q") {
+        if ($choice.ToUpper() -ne "0") {
             Write-Host "Premi un tasto per continuare..."
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
             Clear-Host
             Show-Header
         }
 
-    } while ($choice.ToUpper() -ne "Q")
+    } while ($choice.ToUpper() -ne "0")
     # --- END NEW ---
 }
