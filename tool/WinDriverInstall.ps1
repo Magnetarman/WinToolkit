@@ -48,7 +48,7 @@ function WinDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3.0 (Build 3)'
+            '       Version 2.3.0 (Build 4)'
         )
 
         foreach ($line in $asciiArt) {
@@ -102,6 +102,58 @@ function WinDriverInstall {
             }
         }
         return 'Unknown'
+    }
+
+    function Set-BlockWindowsUpdateDrivers {
+        <#
+        .SYNOPSIS
+            Blocks Windows Update from automatically downloading and installing drivers.
+        .DESCRIPTION
+            This function sets a registry key that prevents Windows Update from
+            including drivers in quality updates, reducing conflicts with
+            manufacturer-specific driver installations. It then forces a Group Policy update.
+            Requires administrative privileges.
+        #>
+        Write-StyledMessage 'Info' "Configurazione per bloccare download driver da Windows Update..."
+
+        $regPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+        $propertyName = "ExcludeWUDriversInQualityUpdate"
+        $propertyValue = 1
+
+        try {
+            # Ensure the parent path exists
+            if (-not (Test-Path $regPath)) {
+                New-Item -Path $regPath -Force | Out-Null
+            }
+
+            # Set the registry key to block driver downloads
+            Set-ItemProperty -Path $regPath -Name $propertyName -Value $propertyValue -PropertyType DWord -Force -ErrorAction Stop
+            Write-StyledMessage 'Success' "Blocco download driver da Windows Update impostato correttamente nel registro."
+            Write-StyledMessage 'Info' "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
+        }
+        catch {
+            Write-StyledMessage 'Error' "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)"
+            Write-StyledMessage 'Warning' "Potrebbe essere necessario eseguire lo script come amministratore."
+            # Continue without forcing gpupdate if registry failed, as gpupdate won't reflect the change anyway.
+            return
+        }
+
+        # Force Group Policy update
+        Write-StyledMessage 'Info' "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche..."
+        try {
+            # Use Start-Process with -Wait for gpupdate as it's an external executable
+            $gpupdateProcess = Start-Process -FilePath "gpupdate.exe" -ArgumentList "/force" -Wait -NoNewWindow -PassThru -ErrorAction Stop
+            if ($gpupdateProcess.ExitCode -eq 0) {
+                Write-StyledMessage 'Success' "Criteri di gruppo aggiornati con successo."
+            }
+            else {
+                Write-StyledMessage 'Warning' "Aggiornamento dei criteri di gruppo completato con codice di uscita non zero: $($gpupdateProcess.ExitCode)."
+            }
+        }
+        catch {
+            Write-StyledMessage 'Error' "Errore durante l'aggiornamento dei criteri di gruppo: $($_.Exception.Message)"
+            Write-StyledMessage 'Warning' "Le modifiche ai criteri potrebbero richiedere un riavvio o del tempo per essere applicate."
+        }
     }
 
     function Download-FileWithProgress {
@@ -269,6 +321,10 @@ function WinDriverInstall {
     }
 
     Show-Header
+
+    # --- NEW: Call function to block Windows Update driver downloads ---
+    Set-BlockWindowsUpdateDrivers
+    # --- END NEW ---
 
     # --- NEW: Main Menu Logic ---
     $choice = ""
