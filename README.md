@@ -100,6 +100,16 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 ```sh
 └── WinToolkit/
+    └── asset
+        ├── AMD-Autodetect.exe
+        ├── Setup.exe
+        ├── NVCleanstall_1.19.0.exe
+        ├── DDU-18.1.3.5.zip
+        ├── Basic.xml
+        ├── RustDesk_local.toml
+        ├── RustDesk2.toml
+        ├── RustDesk.toml
+        ├── png (Cartella icone GUI)
     └── img
         ├── Gui-After.jpg
         ├── Gui-Before.jpg
