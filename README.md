@@ -10,8 +10,8 @@
 </p>
 <br>
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.2.5-dgreen.svg?style=for-the-badge" alt="versione">
-<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=0080ff" alt="last-commit">
+<img src="https://img.shields.io/badge/version-2.3.0-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
 <img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
 </p>
@@ -33,7 +33,7 @@
 
 |                                                                               Ramo Release                                                                                |                                                                                Ramo Dev                                                                                 |
 | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-| <p align="center"><img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=0080ff" alt="Commit Activity Main"></p> | <p align="center"><img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/Dev?style=for-the-badge&color=CC0033" alt="Commit Activity Dev"></p> |
+| <p align="center"><img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main"></p> | <p align="center"><img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/Dev?style=for-the-badge&color=CC0033" alt="Commit Activity Dev"></p> |
 
 ## 📸 ScreenShot
 
@@ -42,12 +42,13 @@
 
 <div align="center">
 
-|                                                                          |                                                                      |
-| :----------------------------------------------------------------------: | :------------------------------------------------------------------: |
-|       <img src="img/Starter.jpg" alt="Starter-banner" width="800">       |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
-| <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800"> | <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800"> |
-|   <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800">   |  <img src="img/WinCleaner.jpg" alt="WinCleaner-banner" width="800">  |
-| <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800"> | <img src="img/SetRustDesk.jpg" alt="SetRustDesk-banner" width="800"> |
+|                                                                            |                                                                      |
+| :------------------------------------------------------------------------: | :------------------------------------------------------------------: |
+|        <img src="img/Starter.jpg" alt="Starter-banner" width="800">        |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
+|  <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800">  | <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800"> |
+|    <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800">    |  <img src="img/WinCleaner.jpg" alt="WinCleaner-banner" width="800">  |
+|  <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800">  | <img src="img/SetRustDesk.jpg" alt="SetRustDesk-banner" width="800"> |
+| <img src="img/Driver-Install.jpg" alt="Driver-Install-banner" width="800"> |                                                                      |
 
 ## </div>
 
@@ -80,6 +81,15 @@
 - **Windows Store Repair**: Esegue una reinstallazione di componenti critici come Microsoft Store, Winget, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando Winget).
 - **Win Backup Driver**: Un versatile script PowerShell progettato per semplificare il processo di backup dei driver. Questo strumento automatizza l'esportazione di tutti i driver di terze parti installati, utilizzando il comando DISM per garantire un'operazione completa e affidabile.
 - **Cleaner Toolkit**: Il suo scopo è liberare spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda attraverso una serie di azioni automatizzate.
+- **Video Driver Install**: Il suo scopo è semplificare l'installazione, l'aggiornamento, la reinstallazione e la configurazione ottimale dei driver video (GPU) per sistemi NVIDIA e AMD, gestendo anche la pulizia precedente e bloccando gli aggiornamenti automatici dei driver da Windows Update, spesso fonte di instabilità.
+
+> [!WARNING]
+> Una volta riavviato il PC per utilizzare DDU (Display Driver Uninstall) in modalità provvisoria esegui questi passaggi :
+>
+> **Risoluzione dei Problemi** => **Opzioni Avanzate** => **Impostazioni di Avvio** => **Riavvia** => Al riavvio selezionare **opzione 4 (Riavvia in modalità Provvisoria)**
+>
+> Al caricamento della modalità provvisoria eseguire DDU dalla cartella sul desktop ed eseguire la rimozione completa e sicura dei driver vecchi
+
 - **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico.
 
 > [!IMPORTANT]
@@ -100,7 +110,18 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 ```sh
 └── WinToolkit/
+    └── asset
+        ├── AMD-Autodetect.exe
+        ├── Setup.exe
+        ├── NVCleanstall_1.19.0.exe
+        ├── DDU-18.1.3.5.zip
+        ├── Basic.xml
+        ├── RustDesk_local.toml
+        ├── RustDesk2.toml
+        ├── RustDesk.toml
+        ├── png (Cartella icone GUI)
     └── img
+        ├── Driver-Install.jpg
         ├── Gui-After.jpg
         ├── Gui-Before.jpg
         ├── Gui-Mode.jpg
