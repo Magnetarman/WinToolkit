@@ -42,7 +42,7 @@ function WinDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3 (Build 1)'
+            '       Version 2.3.0 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
