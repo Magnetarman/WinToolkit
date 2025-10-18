@@ -25,7 +25,7 @@ function VideoDriverInstall {
     }
 
     # --- NEW: Define Constants and Paths ---
-    $GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
+    $GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
     $DriverToolsLocalPath = Join-Path $env:LOCALAPPDATA "WinToolkit\Drivers"
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
     # --- END NEW ---
@@ -48,7 +48,7 @@ function VideoDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Video Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3.0 (Build 9)'
+            '       Version 2.3.0 (Build 10)'
         )
 
         foreach ($line in $asciiArt) {
