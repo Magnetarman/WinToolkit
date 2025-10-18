@@ -25,7 +25,7 @@ function WinDriverInstall {
     }
 
     # --- NEW: Define Constants and Paths ---
-    $GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
+    $GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
     $DriverToolsLocalPath = Join-Path $env:LOCALAPPDATA "WinToolkit\Drivers"
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
     # --- END NEW ---
