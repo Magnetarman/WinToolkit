@@ -82,11 +82,22 @@
 - **Win Backup Driver**: Un versatile script PowerShell progettato per semplificare il processo di backup dei driver. Questo strumento automatizza l'esportazione di tutti i driver di terze parti installati, utilizzando il comando DISM per garantire un'operazione completa e affidabile.
 - **Cleaner Toolkit**: Il suo scopo è liberare spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda attraverso una serie di azioni automatizzate.
 - **Video Driver Install**: Il suo scopo è semplificare l'installazione, l'aggiornamento, la reinstallazione e la configurazione ottimale dei driver video (GPU) per sistemi NVIDIA e AMD, gestendo anche la pulizia precedente e bloccando gli aggiornamenti automatici dei driver da Windows Update, spesso fonte di instabilità.
+  > [!IMPORTANT]
+  > Una volta riavviato il PC per utilizzare DDU (Display Driver Uninstall) in modalità provvisoria esegui questi passaggi :
+  >
+  > Risoluzione dei Problemi =>
+  >
+  > Opzioni Avanzate =>
+  >
+  > Impostazioni di Avvio =>
+  >
+  > Riavvia => Al riavvio selezionare opzione 4 (Riavvia in modalità Provvisoria)
+  >
+  > Al caricamento della modalità provvisoria eseguire DDU dalla cartella sul desktop ed eseguire la rimozione completa e sicura dei driver vecchi
 - **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico.
-
-> [!IMPORTANT]
->
-> **Lo script di setting di Rust Desk è destinato esclusivamente alle macchine che richiedono assistenza tecnica futura da parte mia. Verrà installa una versione personalizzata di RustDesk preconfigurata per l'assistenza tecnica remota.**
+  > [!IMPORTANT]
+  >
+  > **Lo script di setting di Rust Desk è destinato esclusivamente alle macchine che richiedono assistenza tecnica futura da parte mia. Verrà installa una versione personalizzata di RustDesk preconfigurata per l'assistenza tecnica remota.**
 
 ### 🤔 Perché WinToolkit?
 
