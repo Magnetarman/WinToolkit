@@ -307,6 +307,7 @@ function OfficeToolkit {}
 function WinCleaner {}
 # function SearchRepair {}
 function SetRustDesk {}
+function WinDriverInstall {}
 function GamingToolkit {}
 
 
