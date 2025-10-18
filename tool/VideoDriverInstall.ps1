@@ -1,4 +1,4 @@
-function WinDriverInstall {
+function VideoDriverInstall {
     <#
     .SYNOPSIS
         Toolkit Driver Grafici - Installazione e configurazione driver GPU.
@@ -48,7 +48,7 @@ function WinDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Video Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3.0 (Build 5)'
+            '       Version 2.3.0 (Build 6)'
         )
 
         foreach ($line in $asciiArt) {
