@@ -29,6 +29,17 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Riparazione avanzata Windows Search **[Thanks to @sicolla]**
   - Pulizia Cache dei Browser
   - Potenziamento Toolkit di Riparazione Windows **[Thanks to @Progressfy]**
+- **Funzione WinDownloader (`V2.8`):**
+  - Download script preconfigurati dal sito UUP Dump.
+  - Avvio Creazione automatica ISO di Windows 10/11
+    - <del>Windows 11 25H2</del> **(Instabile)**
+    - Windows 11 24H2
+    - Windows 11 23H2
+    - Windows 10 22H2
+    - Windows 10 21H2
+  - Implementazione Download ISO Ufficiale di Windows 8.1
+  - Implementazione Download ISO Ufficiale di Windows 7 SP1
+  - Implementazione Download ISO Ufficiale di Windows XP SP3
 - **MagnetarMan Mode (`V3.0`):**
   - Avvio Script Chris con configurazione personalizzata.
   - Installazione programmi: Brave Browser, Google Chrome,
@@ -45,6 +56,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Pulizia del sistema.
   - Applicazione Sfondo "MagnetarMan".
   - Riavvio del PC per completare le modifiche.
+- **Bugfix e Conversione per la GUI Mode (`V4.0`)**
 - **GUI Mode (`V5.0`):**
   - Win toolkit con tutta la semplicità della GUI
   - Nessun comando da terminale da inserire
