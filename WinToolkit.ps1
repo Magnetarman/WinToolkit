@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.3.0 (Build 2)'
+    '       Version 2.3.0 (Build 3)'
 )
 
 # Version mapping (usato da più funzioni)
@@ -4754,7 +4754,6 @@ function SetRustDesk {
 
 }
 function VideoDriverInstall {
-function WinDriverInstall {
     <#
     .SYNOPSIS
         Toolkit Driver Grafici - Installazione e configurazione driver GPU.
@@ -4804,7 +4803,7 @@ function WinDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Video Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3.0 (Build 5)'
+            '       Version 2.3.0 (Build 6)'
         )
 
         foreach ($line in $asciiArt) {
@@ -5110,7 +5109,6 @@ function WinDriverInstall {
 
     } while ($choice.ToUpper() -ne "Q")
     # --- END NEW ---
-}
 }
 function GamingToolkit {
     <#
