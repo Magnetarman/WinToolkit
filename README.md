@@ -80,6 +80,7 @@
 - **Windows Store Repair**: Esegue una reinstallazione di componenti critici come Microsoft Store, Winget, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando Winget).
 - **Win Backup Driver**: Un versatile script PowerShell progettato per semplificare il processo di backup dei driver. Questo strumento automatizza l'esportazione di tutti i driver di terze parti installati, utilizzando il comando DISM per garantire un'operazione completa e affidabile.
 - **Cleaner Toolkit**: Il suo scopo è liberare spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda attraverso una serie di azioni automatizzate.
+- **Video Driver Install**: Il suo scopo è semplificare l'installazione, l'aggiornamento, la reinstallazione e la configurazione ottimale dei driver video (GPU) per sistemi NVIDIA e AMD, gestendo anche la pulizia precedente e bloccando gli aggiornamenti automatici dei driver da Windows Update, spesso fonte di instabilità.
 - **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico.
 
 > [!IMPORTANT]
