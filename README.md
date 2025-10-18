@@ -83,10 +83,10 @@
 - **Cleaner Toolkit**: Il suo scopo è liberare spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda attraverso una serie di azioni automatizzate.
 - **Video Driver Install**: Il suo scopo è semplificare l'installazione, l'aggiornamento, la reinstallazione e la configurazione ottimale dei driver video (GPU) per sistemi NVIDIA e AMD, gestendo anche la pulizia precedente e bloccando gli aggiornamenti automatici dei driver da Windows Update, spesso fonte di instabilità.
 
-> [!IMPORTANT]
+> [!WARNING]
 > Una volta riavviato il PC per utilizzare DDU (Display Driver Uninstall) in modalità provvisoria esegui questi passaggi :
 >
-> Risoluzione dei Problemi => Opzioni Avanzate => Impostazioni di Avvio => Riavvia => Al riavvio selezionare opzione 4 (Riavvia in modalità Provvisoria)
+> **Risoluzione dei Problemi** => **Opzioni Avanzate** => **Impostazioni di Avvio** => **Riavvia** => Al riavvio selezionare **opzione 4 (Riavvia in modalità Provvisoria)**
 >
 > Al caricamento della modalità provvisoria eseguire DDU dalla cartella sul desktop ed eseguire la rimozione completa e sicura dei driver vecchi
 
