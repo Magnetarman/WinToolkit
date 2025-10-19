@@ -293,7 +293,7 @@ Guarda la lista delle fantastiche persone che hanno deciso di investire le loro 
 
 ---
 
-## 💀 Dove tutto è iniziato
+## 💀 Dove tutto è iniziato (V 1.0)
 
 <div align="center">
 
