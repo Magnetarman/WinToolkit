@@ -5,11 +5,6 @@ function GamingToolkit {
 
     .DESCRIPTION
         Script per ottimizzare le prestazioni del sistema per il gaming:
-        - Ottimizzazione servizi di sistema
-        - Configurazione alimentazione alta prestazione
-        - Disabilitazione notifiche durante il gaming
-        - Ottimizzazione rete per gaming online
-        - Configurazione priorità processi gaming
     #>
 
     param([int]$CountdownSeconds = 30)
@@ -32,7 +27,7 @@ function GamingToolkit {
     function Show-Header {
         Clear-Host
         $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('=' * ($width - 1)) -ForegroundColor Green
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
 
         $asciiArt = @(
             '      __        __  _  _   _ ',
@@ -42,7 +37,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.2.4 (Build 1)'
+            '       Version 2.4.0 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
