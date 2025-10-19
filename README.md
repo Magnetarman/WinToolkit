@@ -50,7 +50,7 @@
 |  <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800">  | <img src="img/SetRustDesk.jpg" alt="SetRustDesk-banner" width="800"> |
 | <img src="img/Driver-Install.jpg" alt="Driver-Install-banner" width="800"> |                                                                      |
 
-## </div>
+</div>
 
 ## V 5.0 - Gui Mode (Coming Soon)
 
@@ -292,6 +292,16 @@ git checkout -b new-feature-x
 Guarda la lista delle fantastiche persone che hanno deciso di investire le loro energie per migliorare questo progetto [QUI](/CONTRIBUTORS.md).
 
 ---
+
+## 💀 Dove tutto è iniziato
+
+<div align="center">
+
+|                                                              |                                                                                   |
+| :----------------------------------------------------------: | :-------------------------------------------------------------------------------: |
+| <img src="img/Run-old.jpg" alt="Run-banner-Old" width="800"> | <img src="img/RepairToolkit-old.jpg" alt="Repair-Toolkit-banner-Old" width="800"> |
+
+## </div>
 
 ## 🎗 Licenza
 
