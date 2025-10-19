@@ -9,6 +9,7 @@ function Restore-WebSearch {
         - Controllo del file hosts per eventuali blocchi di Bing o Microsoft
         - Reset della cache DNS per eliminare eventuali blocchi
         - Reinstallazione di Cortana/SearchUI
+        - Reinstallazione del pacchetto BingSearch **TODO**
         - Riavvio del servizio Windows Search
         Al termine, mostra le istruzioni per riavviare manualmente il sistema.
     #>
