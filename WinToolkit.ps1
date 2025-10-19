@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.3.0 (Build 3) - 2025-10-18
+  Versione 2.4.0 (Build 3) - 2025-10-19
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.3.0 (Build 3)'
+    '       Version 2.4.0 (Build 1)'
 )
 
 # Version mapping (usato da più funzioni)
@@ -5541,7 +5541,7 @@ $menuStructure = @(
         'Name' = 'Driver & Gaming'; 'Icon' = '🎮'
         'Scripts' = @(
             [pscustomobject]@{ Name = 'VideoDriverInstall'; Description = 'Toolkit Driver Grafici'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit - Planned V2.4'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
         )
     },
     @{
