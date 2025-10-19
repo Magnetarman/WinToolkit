@@ -112,7 +112,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 2)'
+            '       Version 2.4.0 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {
@@ -218,7 +218,7 @@ function GamingToolkit {
         New-Item -Path $dxTempDir -ItemType Directory -Force | Out-Null
     }
     $dxInstallerPath = Join-Path $dxTempDir 'dxwebsetup.exe'
-    $dxDownloadUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe'
+    $dxDownloadUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/dxwebsetup.exe'
 
     Write-StyledMessage 'Info' "⬇️ Download di dxwebsetup.exe in '$dxInstallerPath'..."
     try {
