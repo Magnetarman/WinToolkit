@@ -40,35 +40,23 @@ function GamingToolkit {
 
     function Write-StyledMessage([string]$Type, [string]$Text) {
         $style = $MsgStyles[$Type]
-        $timestamp = Get-Date -Format "HH:mm:ss"
-
-        # Rimuovi emoji duplicati dal testo se presenti
-        $cleanText = $Text -replace '^(✅|⚠️|❌|💎|🔍|🚀|⚙️|🧹|📦|📋|📜|📝|💾|⬇️|🔧|⚡|🖼️|🌐|🍪|🔄|🗂️|📁|🖨️|📄|🗑️|💭|⏸️|▶️|💡|⏰|🎉|💻|📊|🎮|🕹️|📥|🔗|🛠️|🎯|⭐|🔥|💪|🚀)\s*', ''
-
-        Write-Host "[$timestamp] $($style.Icon) $cleanText" -ForegroundColor $style.Color
+        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
 
         # Log dettagliato per operazioni importanti
         if ($Type -in @('Info', 'Warning', 'Error')) {
-            $logEntry = "[$timestamp] [$Type] $cleanText"
+            $timestamp = Get-Date -Format "HH:mm:ss"
+            $logEntry = "[$timestamp] [$Type] $Text"
             $script:Log += $logEntry
         }
     }
 
     function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
-        $barLength = 30
         $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
-        $filled = '█' * [math]::Floor($safePercent * $barLength / 100)
-        $empty = '░' * ($barLength - $filled.Length)
+        $filled = '█' * [math]::Floor($safePercent * 30 / 100)
+        $empty = '▒' * (30 - $filled.Length)
         $bar = "[$filled$empty] {0,3}%" -f $safePercent
-
-        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-        Write-Host $clearLine -NoNewline
-        Write-Host "$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
-
-        if ($Percent -eq 100) {
-            Write-Host ''
-            [Console]::Out.Flush()
-        }
+        Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
+        if ($Percent -eq 100) { Write-Host '' }
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
@@ -87,7 +75,7 @@ function GamingToolkit {
             $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('░' * $remaining)] $percent%"
+            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
 
             Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
@@ -112,7 +100,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 3)'
+            '       Version 2.4.0 (Build 4)'
         )
 
         foreach ($line in $asciiArt) {
