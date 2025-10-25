@@ -50,6 +50,17 @@ function GamingToolkit {
         }
     }
 
+    function Test-WingetPackageAvailable {
+        param([string]$PackageId)
+        try {
+            $searchResult = winget search $PackageId 2>&1
+            return $LASTEXITCODE -eq 0 -and $searchResult -match $PackageId
+        }
+        catch {
+            return $false
+        }
+    }
+
     function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
         $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
         $filled = '█' * [math]::Floor($safePercent * 30 / 100)
@@ -100,7 +111,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 4)'
+            '       Version 2.4.0 (Build 5)'
         )
 
         foreach ($line in $asciiArt) {
@@ -180,18 +191,26 @@ function GamingToolkit {
         Write-Progress -Activity "Installazione pacchetti Winget" -Status "Installazione: $package" -PercentComplete $percentage
 
         Write-StyledMessage 'Info' "🎯 Tentativo di installazione: $package"
-        try {
-            winget install --id "$package" --silent --accept-package-agreements --accept-source-agreements | Out-Null
-            if ($LASTEXITCODE -eq 0) {
-                Write-StyledMessage 'Success' "✅ Installato con successo: $package"
+        if (Test-WingetPackageAvailable $package) {
+            try {
+                winget install --id "$package" --silent --accept-package-agreements --accept-source-agreements | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-StyledMessage 'Success' "✅ Installato con successo: $package"
+                }
+                elseif ($LASTEXITCODE -eq -1073741819) {
+                    Write-StyledMessage 'Warning' "⚠️ Installazione di $package terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
+                }
+                else {
+                    Write-StyledMessage 'Error' "❌ Errore durante l'installazione di $package. Codice di uscita: $LASTEXITCODE"
+                }
             }
-            else {
-                Write-StyledMessage 'Error' "❌ Errore durante l'installazione di $package. Codice di uscita: $LASTEXITCODE"
+            catch {
+                Write-StyledMessage 'Error' "❌ Eccezione durante l'installazione di $package"
+                Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
             }
         }
-        catch {
-            Write-StyledMessage 'Error' "❌ Eccezione durante l'installazione di $package"
-            Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
+        else {
+            Write-StyledMessage 'Warning' "⚠️ Pacchetto $package non disponibile in Winget. Saltando."
         }
         Write-Host ''
     }
@@ -217,6 +236,9 @@ function GamingToolkit {
         Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q' -Wait -PassThru -ErrorAction Stop | Out-Null
         if ($LASTEXITCODE -eq 0) {
             Write-StyledMessage 'Success' '✅ Installazione DirectX completata con successo.'
+        }
+        elseif ($LASTEXITCODE -eq -1073741819) {
+            Write-StyledMessage 'Warning' "⚠️ Installazione DirectX terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
         }
         else {
             Write-StyledMessage 'Error' "❌ Installazione DirectX terminata con codice di uscita: $LASTEXITCODE."
@@ -248,18 +270,26 @@ function GamingToolkit {
         Write-Progress -Activity "Installazione client di gioco" -Status "Installazione: $client" -PercentComplete $percentage
 
         Write-StyledMessage 'Info' "🎯 Tentativo di installazione: $client"
-        try {
-            winget install --id "$client" --silent --accept-package-agreements --accept-source-agreements | Out-Null
-            if ($LASTEXITCODE -eq 0) {
-                Write-StyledMessage 'Success' "✅ Installato con successo: $client"
+        if (Test-WingetPackageAvailable $client) {
+            try {
+                winget install --id "$client" --silent --accept-package-agreements --accept-source-agreements | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-StyledMessage 'Success' "✅ Installato con successo: $client"
+                }
+                elseif ($LASTEXITCODE -eq -1073741819) {
+                    Write-StyledMessage 'Warning' "⚠️ Installazione di $client terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
+                }
+                else {
+                    Write-StyledMessage 'Warning' "⚠️ Installazione di $client terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o aver riscontrato un problema minore."
+                }
             }
-            else {
-                Write-StyledMessage 'Warning' "⚠️ Installazione di $client terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o aver riscontrato un problema minore."
+            catch {
+                Write-StyledMessage 'Error' "❌ Eccezione durante l'installazione di $client"
+                Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
             }
         }
-        catch {
-            Write-StyledMessage 'Error' "❌ Eccezione durante l'installazione di $client"
-            Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
+        else {
+            Write-StyledMessage 'Warning' "⚠️ Pacchetto $client non disponibile in Winget. Saltando."
         }
         Write-Host ''
     }
@@ -270,7 +300,7 @@ function GamingToolkit {
     # Step 5: Installazione Battle.Net (Download alternativo)
     Write-StyledMessage 'Info' '🎮 Installazione Battle.Net Launcher...'
     $bnInstallerPath = Join-Path $env:TEMP 'Battle.net-Setup.exe'
-    $bnDownloadUrl = 'https://downloader.battle.net//download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live'
+    $bnDownloadUrl = 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live'
 
     Write-StyledMessage 'Info' "⬇️ Download di Battle.net Launcher in '$bnInstallerPath'..."
     try {
@@ -281,6 +311,9 @@ function GamingToolkit {
         Start-Process -FilePath $bnInstallerPath -ArgumentList '/S' -Wait -PassThru -ErrorAction Stop | Out-Null
         if ($LASTEXITCODE -eq 0) {
             Write-StyledMessage 'Success' '✅ Installazione Battle.net Launcher completata con successo.'
+        }
+        elseif ($LASTEXITCODE -eq -1073741819) {
+            Write-StyledMessage 'Warning' "⚠️ Installazione Battle.net Launcher terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
         }
         else {
             Write-StyledMessage 'Error' "❌ Installazione Battle.net Launcher terminata con codice di uscita: $LASTEXITCODE."
@@ -305,14 +338,16 @@ function GamingToolkit {
         if (Test-Path $folder) {
             Write-StyledMessage 'Info' "🔍 Ricerca in: $folder"
             foreach ($launcher in $launchersToClean) {
-                $linkPath = Get-ChildItem -Path $folder -Filter "$launcher*.lnk" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
-                if ($linkPath) {
-                    try {
-                        Remove-Item -Path $linkPath -Force -ErrorAction Stop
-                        Write-StyledMessage 'Success' "✅ Rimosso collegamento di avvio per '$launcher': $linkPath"
-                    }
-                    catch {
-                        Write-StyledMessage 'Error' "❌ Errore durante la rimozione del collegamento per '$launcher' in '$folder': $($_.Exception.Message)"
+                $linkPaths = Get-ChildItem -Path $folder -Filter "$launcher*.lnk" -ErrorAction SilentlyContinue
+                if ($linkPaths) {
+                    foreach ($link in $linkPaths) {
+                        try {
+                            Remove-Item -Path $link.FullName -Force -ErrorAction Stop
+                            Write-StyledMessage 'Success' "✅ Rimosso collegamento di avvio per '$launcher': $($link.FullName)"
+                        }
+                        catch {
+                            Write-StyledMessage 'Error' "❌ Errore durante la rimozione del collegamento per '$launcher' in '$folder': $($_.Exception.Message)"
+                        }
                     }
                 }
                 else {
