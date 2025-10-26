@@ -5138,22 +5138,14 @@ function GamingToolkit {
     $isWindows11Pre23H2 = $isWindows11BuildRange -and ($buildNumber -lt 22631) # True for Windows 11 builds older than 23H2 (e.g., 21H2, 22H2)
     $isWindows10OrOlder = -not $isWindows11BuildRange # True for any build less than 22000 (i.e., Windows 10 or earlier)
 
-    if ($isWindows10OrOlder -or $isWindows11Pre23H2) {
-        if ($isWindows11Pre23H2) {
-            # If it's Windows 11, but older than 23H2
-            $message = "Rilevato Windows 11 <23H2. In queste versioni di Windows a causa di Winget non completamente funzionante potresti non riuscire a far funzionare questa sezione dello script. Posso eseguire prima la funzione Winget/WinStore Reset e poi continuare ?"
-        }
-        else {
-            # This path implicitly means $isWindows10OrOlder is true
-            $message = "Rilevato Windows 10 o versione precedente. In queste versioni di Windows a causa di Winget non completamente funzionante potresti non riuscire a far funzionare questa sezione dello script. Posso eseguire prima la funzione Winget/WinStore Reset e poi continuare ?"
-        }
+    if ($isWindows11Pre23H2) {
+        $message = "Rilevata versione obsoleta. A Causa di questo Winget potrebbe non funzionare correttamente impedendo a questo script di funzionare. Scrivi Y se vuoi eseguire la funzione di riparazione in modo da rendere funzionante Winget, altrimenti se lo hai già fatto o se vuoi proseguire scrivi N."
         Write-Host $message -ForegroundColor Yellow
-        $response = Read-Host "Si/No"
-        if ($response -eq 'Si' -or $response -eq 'si') {
-            # Call the function
+        $response = Read-Host "Y/N"
+        if ($response -eq 'Y' -or $response -eq 'y') {
             WinReinstallStore
         }
-        # If 'No', proceed with the script anyway
+        # If 'N' or other, proceed with the script anyway
     }
 
     $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
@@ -5251,7 +5243,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 17)'
+            '       Version 2.4.0 (Build 18)'
         )
 
         foreach ($line in $asciiArt) {
@@ -5564,32 +5556,58 @@ function GamingToolkit {
     Write-Host ''
 
     # Step 8: Abilitazione Profilo Energetico Massimo
-    Write-StyledMessage 'Info' '⚡ Configurazione profilo energetico Performance Massime...'
-    $ultimatePlanGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61" # GUID for Ultimate Performance
+    $ultimateTemplateGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61" # GUID for the hidden Ultimate Performance template
+    $customUltimatePlanName = "WinToolkit Gaming Performance" # A unique, identifiable name for our duplicated plan
+    $activePlanGUID = $null # Variable to store the GUID of the plan we'll activate
 
-    # Check if Ultimate Performance plan is installed
-    $ultimatePlan = powercfg -list | Select-String -Pattern "e9a42b02-d5df-448d-aa00-03f14749eb61" -ErrorAction SilentlyContinue
-    if ($ultimatePlan) {
-        Write-StyledMessage 'Info' "💭 Piano 'Performance Massime' già installato."
+    Write-StyledMessage 'Info' '⚡ Configurazione profilo energetico Performance Massime...'
+
+    # Check if a custom "WinToolkit Gaming Performance" plan already exists
+    $existingPlan = powercfg -list | Select-String -Pattern "$customUltimatePlanName" -ErrorAction SilentlyContinue
+
+    if ($existingPlan) {
+        # Extract GUID of the existing custom plan
+        # The GUID is typically the 4th token in the output line (index 3 for 0-based array)
+        $activePlanGUID = ($existingPlan.Line -split '\s+')[3]
+        Write-StyledMessage 'Info' "💭 Piano '$customUltimatePlanName' già presente. GUID: $activePlanGUID"
     }
     else {
-        Write-StyledMessage 'Info' "🔧 Installazione piano 'Performance Massime'..."
+        Write-StyledMessage 'Info' "🔧 Installazione e configurazione piano '$customUltimatePlanName'..."
         try {
-            powercfg -duplicatescheme $ultimatePlanGUID | Out-Null
-            Write-StyledMessage 'Success' "Piano 'Performance Massime' installato."
+            # Duplicate the hidden Ultimate Performance plan
+            $duplicateOutput = powercfg /duplicatescheme $ultimateTemplateGUID | Out-String # Capture output for GUID extraction
+
+            # Extract the newly generated GUID from the output
+            if ($duplicateOutput -match "\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b") {
+                $newlyCreatedGUID = $matches[0]
+                Write-StyledMessage 'Info' "GUID del nuovo piano generato: $newlyCreatedGUID"
+
+                # Rename the newly created plan for better identification
+                powercfg /changename $newlyCreatedGUID "$customUltimatePlanName" "Ottimizzato per Gaming dal WinToolkit" | Out-Null
+                $activePlanGUID = $newlyCreatedGUID
+                Write-StyledMessage 'Success' "Piano '$customUltimatePlanName' installato e rinominato."
+            }
+            else {
+                Write-StyledMessage 'Error' "Errore: Impossibile estrarre il GUID dal nuovo piano energetico creato."
+            }
         }
         catch {
-            Write-StyledMessage 'Error' "Errore durante l'installazione del piano 'Performance Massime': $($_.Exception.Message)"
+            Write-StyledMessage 'Error' "Errore durante la duplicazione o rinomina del piano energetico: $($_.Exception.Message)"
         }
     }
 
-    # Set the Ultimate Performance plan as active
-    try {
-        powercfg -setactive $ultimatePlanGUID | Out-Null
-        Write-StyledMessage 'Success' "Piano 'Performance Massime' impostato come attivo."
+    # Now, activate the plan if its GUID was successfully identified or created
+    if ($null -ne $activePlanGUID) {
+        try {
+            powercfg -setactive $activePlanGUID | Out-Null
+            Write-StyledMessage 'Success' "Piano '$customUltimatePlanName' impostato come attivo."
+        }
+        catch {
+            Write-StyledMessage 'Error' "Errore durante l'attivazione del piano '$customUltimatePlanName': $($_.Exception.Message)"
+        }
     }
-    catch {
-        Write-StyledMessage 'Error' "Errore durante l'attivazione del piano 'Performance Massime': $($_.Exception.Message)"
+    else {
+        Write-StyledMessage 'Error' "Impossibile attivare il piano energetico: nessun GUID disponibile per '$customUltimatePlanName'."
     }
     Write-Host ''
 
