@@ -5223,7 +5223,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 9)'
+            '       Version 2.4.0 (Build 10)'
         )
 
         foreach ($line in $asciiArt) {
@@ -5385,7 +5385,7 @@ function GamingToolkit {
 
     # Step 4: Scarica ed installa DirectX End-User Runtime
     Write-StyledMessage 'Info' '🎮 Installazione DirectX End-User Runtime...'
-    $dxTempDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\Directx'
+    $dxTempDir = Join-Path ([string]$env:LOCALAPPDATA) 'WinToolkit\Directx'
     if (-not (Test-Path $dxTempDir)) {
         New-Item -Path $dxTempDir -ItemType Directory -Force | Out-Null
     }
@@ -5464,7 +5464,7 @@ function GamingToolkit {
 
     # Step 6: Installazione Battle.Net (Download alternativo)
     Write-StyledMessage 'Info' '🎮 Installazione Battle.Net Launcher...'
-    $bnInstallerPath = Join-Path $env:TEMP 'Battle.net-Setup.exe'
+    $bnInstallerPath = Join-Path ([string]$env:TEMP) 'Battle.net-Setup.exe'
     $bnDownloadUrl = 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live'
 
     Write-StyledMessage 'Info' "⬇️ Download di Battle.net Launcher in '$bnInstallerPath'..."
@@ -5488,8 +5488,8 @@ function GamingToolkit {
     # Step 7: Pulizia Collegamenti Avvio Automatico Launcher
     Write-StyledMessage 'Info' '🧹 Rimozione collegamenti di avvio automatico per i launcher di gioco...'
     $startupFolders = @(
-        Join-Path $env:USERPROFILE 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup',
-        Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\Startup'
+        Join-Path ([string]$env:USERPROFILE) 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup',
+        Join-Path ([string]$env:ProgramData) 'Microsoft\Windows\Start Menu\Programs\Startup'
     )
     $launchersToClean = @(
         'Amazon Games', 'GOG Galaxy', 'EpicGamesLauncher', 'EADesktop', 'Playnite', 'Steam', 'Ubisoft Connect', 'Battle.net'
