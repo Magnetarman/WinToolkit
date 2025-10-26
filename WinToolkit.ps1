@@ -5223,7 +5223,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 10)'
+            '       Version 2.4.0 (Build 11)'
         )
 
         foreach ($line in $asciiArt) {
@@ -5423,7 +5423,7 @@ function GamingToolkit {
         "Playnite.Playnite",
         "Valve.Steam",
         "Ubisoft.Connect",
-        "Microsoft.XboxApp"
+        "9MV0B5HZVK9Z"
     )
 
     Write-StyledMessage 'Info' '🎮 Installazione client di gioco via Winget...'
@@ -5434,7 +5434,6 @@ function GamingToolkit {
 
         Write-Progress -Activity "Installazione client di gioco" -Status "Installazione: $client" -PercentComplete $percentage
 
-        Write-StyledMessage 'Info' "🎯 Tentativo di installazione: $client"
         if (Test-WingetPackageAvailable $client) {
             try {
                 winget install --id "$client" --silent --accept-package-agreements --accept-source-agreements | Out-Null
