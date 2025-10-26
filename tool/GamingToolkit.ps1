@@ -74,7 +74,8 @@ function GamingToolkit {
         }
 
         try {
-            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -ErrorAction Stop
+            # Redirect all winget output to null to prevent interference with progress bar
+            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_stdout_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_stderr_$PackageId.log" -ErrorAction Stop
 
             while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
@@ -91,6 +92,9 @@ function GamingToolkit {
                 Write-StyledMessage 'Warning' "⚠️ Timeout per l'installazione di $DisplayName ($PackageId). Processo terminato."
                 $proc.Kill()
                 Start-Sleep -Seconds 2
+                # Cleanup temporary log files
+                Remove-Item "$env:TEMP\winget_stdout_$PackageId.log" -ErrorAction SilentlyContinue
+                Remove-Item "$env:TEMP\winget_stderr_$PackageId.log" -ErrorAction SilentlyContinue
                 $script:Log += "[Winget] ⚠️ Timeout per l'installazione: $PackageId."
                 return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
             }
@@ -117,6 +121,9 @@ function GamingToolkit {
             Clear-ProgressLine
             Write-StyledMessage 'Error' "Eccezione durante l'installazione di $DisplayName ($PackageId): $($_.Exception.Message)"
             $script:Log += "[Winget] ❌ Eccezione: $PackageId - $($_.Exception.Message)."
+            # Cleanup temporary log files
+            Remove-Item "$env:TEMP\winget_stdout_$PackageId.log" -ErrorAction SilentlyContinue
+            Remove-Item "$env:TEMP\winget_stderr_$PackageId.log" -ErrorAction SilentlyContinue
             return @{ Success = $false; ExitCode = -1 }
         }
     }
@@ -162,7 +169,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 26)'
+            '       Version 2.4.0 (Build 27)'
         )
 
         foreach ($line in $asciiArt) {
@@ -341,6 +348,9 @@ function GamingToolkit {
         }
         else {
             $exitCode = $proc.ExitCode
+            # Cleanup temporary log files
+            Remove-Item "$env:TEMP\winget_stdout_$PackageId.log" -ErrorAction SilentlyContinue
+            Remove-Item "$env:TEMP\winget_stderr_$PackageId.log" -ErrorAction SilentlyContinue
             if ($exitCode -eq 0) {
                 Write-StyledMessage 'Success' 'Installazione DirectX completata con successo.'
                 $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode)."
