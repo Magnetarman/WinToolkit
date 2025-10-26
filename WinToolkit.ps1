@@ -5223,7 +5223,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 5)'
+            '       Version 2.4.0 (Build 7)'
         )
 
         foreach ($line in $asciiArt) {
@@ -5253,26 +5253,68 @@ function GamingToolkit {
     # Step 0: Winget Installation Check
     Write-StyledMessage 'Info' '🔍 Verifica installazione e funzionalità di Winget...'
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-StyledMessage 'Error' '❌ Winget non è installato o non è accessibile nel PATH.'
-        Write-StyledMessage 'Warning' '⚠️ Alcune funzioni di Windows potrebbero non essere funzionanti al 100%.'
-        Write-StyledMessage 'Info' '💡 Si prega di eseguire lo script di reset dello Store/Winget e riprovare.'
+        Write-StyledMessage 'Error' 'Winget non è installato o non è accessibile nel PATH.'
+        Write-StyledMessage 'Warning' 'Alcune funzioni di Windows potrebbero non essere funzionanti al 100%.'
+        Write-StyledMessage 'Info' 'Si prega di eseguire lo script di reset dello Store/Winget e riprovare.'
         Write-Host ''
         Write-Host "Premi un tasto per tornare al menu principale..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
         return # Exit the function if Winget is not found
     }
-    Write-StyledMessage 'Success' '✅ Winget è installato e funzionante.'
+    Write-StyledMessage 'Success' 'Winget è installato e funzionante.'
     Write-Host ''
 
     # Step 1: Abilitazione NetFramework dalle funzionalità di Windows
     Write-StyledMessage 'Info' '🔧 Abilitazione funzionalità NetFramework (NetFx4-AdvSrvs, NetFx3)...'
     try {
         Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop | Out-Null
-        Write-StyledMessage 'Success' '✅ Funzionalità NetFramework abilitate con successo.'
+        Write-StyledMessage 'Success' 'Funzionalità NetFramework abilitate con successo.'
     }
     catch {
-        Write-StyledMessage 'Error' "❌ Errore durante l'abilitazione di NetFramework: $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore durante l'abilitazione di NetFramework: $($_.Exception.Message)"
     }
+    Write-Host ''
+
+    # Step 1.5: Installa Microsoft.AppInstaller e Microsoft.Winget.Client via Winget
+    $wingetPackagesToInstall = @(
+        "Microsoft.AppInstaller",
+        "Microsoft.Winget.Client"
+    )
+
+    Write-StyledMessage 'Info' '📥 Installazione Microsoft.AppInstaller e Microsoft.Winget.Client via Winget...'
+    $totalWingetPackages = $wingetPackagesToInstall.Count
+    for ($i = 0; $i -lt $totalWingetPackages; $i++) {
+        $package = $wingetPackagesToInstall[$i]
+        $percentage = [int](($i / $totalWingetPackages) * 100)
+
+        Write-Progress -Activity "Installazione pacchetti Winget" -Status "Installazione: $package" -PercentComplete $percentage
+
+        Write-StyledMessage 'Info' "🎯 Tentativo di installazione: $package"
+        if (Test-WingetPackageAvailable $package) {
+            try {
+                winget install --id "$package" --silent --accept-package-agreements --accept-source-agreements | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-StyledMessage 'Success' "Installato con successo: $package"
+                }
+                elseif ($LASTEXITCODE -eq -1073741819) {
+                    Write-StyledMessage 'Warning' "Installazione di $package terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
+                }
+                else {
+                    Write-StyledMessage 'Error' "Errore durante l'installazione di $package. Codice di uscita: $LASTEXITCODE"
+                }
+            }
+            catch {
+                Write-StyledMessage 'Error' "Eccezione durante l'installazione di $package"
+                Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
+            }
+        }
+        else {
+            Write-StyledMessage 'Warning' "Pacchetto $package non disponibile in Winget. Saltando."
+        }
+        Write-Host ''
+    }
+    Write-Progress -Activity "Installazione pacchetti Winget" -Status "Completato" -PercentComplete 100 -Completed
+    Write-StyledMessage 'Success' 'Installazione Microsoft.AppInstaller e Microsoft.Winget.Client completata.'
     Write-Host ''
 
     # Step 2: Scarica ed installa pacchetti .NET Runtimes e VCRedist via Winget
@@ -5307,27 +5349,27 @@ function GamingToolkit {
             try {
                 winget install --id "$package" --silent --accept-package-agreements --accept-source-agreements | Out-Null
                 if ($LASTEXITCODE -eq 0) {
-                    Write-StyledMessage 'Success' "✅ Installato con successo: $package"
+                    Write-StyledMessage 'Success' "Installato con successo: $package"
                 }
                 elseif ($LASTEXITCODE -eq -1073741819) {
-                    Write-StyledMessage 'Warning' "⚠️ Installazione di $package terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
+                    Write-StyledMessage 'Warning' "Installazione di $package terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
                 }
                 else {
-                    Write-StyledMessage 'Error' "❌ Errore durante l'installazione di $package. Codice di uscita: $LASTEXITCODE"
+                    Write-StyledMessage 'Error' "Errore durante l'installazione di $package. Codice di uscita: $LASTEXITCODE"
                 }
             }
             catch {
-                Write-StyledMessage 'Error' "❌ Eccezione durante l'installazione di $package"
+                Write-StyledMessage 'Error' "Eccezione durante l'installazione di $package"
                 Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
             }
         }
         else {
-            Write-StyledMessage 'Warning' "⚠️ Pacchetto $package non disponibile in Winget. Saltando."
+            Write-StyledMessage 'Warning' "Pacchetto $package non disponibile in Winget. Saltando."
         }
         Write-Host ''
     }
     Write-Progress -Activity "Installazione pacchetti Winget" -Status "Completato" -PercentComplete 100 -Completed
-    Write-StyledMessage 'Success' '✅ Installazione runtime .NET e Visual C++ Redistributables completata.'
+    Write-StyledMessage 'Success' 'Installazione runtime .NET e Visual C++ Redistributables completata.'
     Write-Host ''
 
     # Step 3: Scarica ed installa DirectX End-User Runtime
@@ -5342,22 +5384,22 @@ function GamingToolkit {
     Write-StyledMessage 'Info' "⬇️ Download di dxwebsetup.exe in '$dxInstallerPath'..."
     try {
         Invoke-WebRequest -Uri $dxDownloadUrl -OutFile $dxInstallerPath -ErrorAction Stop
-        Write-StyledMessage 'Success' '✅ Download di dxwebsetup.exe completato.'
+        Write-StyledMessage 'Success' 'Download di dxwebsetup.exe completato.'
 
         Write-StyledMessage 'Info' '🚀 Avvio installazione DirectX (silent)...'
         Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q' -Wait -PassThru -ErrorAction Stop | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-StyledMessage 'Success' '✅ Installazione DirectX completata con successo.'
+            Write-StyledMessage 'Success' 'Installazione DirectX completata con successo.'
         }
         elseif ($LASTEXITCODE -eq -1073741819) {
-            Write-StyledMessage 'Warning' "⚠️ Installazione DirectX terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
+            Write-StyledMessage 'Warning' "Installazione DirectX terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
         }
         else {
-            Write-StyledMessage 'Error' "❌ Installazione DirectX terminata con codice di uscita: $LASTEXITCODE."
+            Write-StyledMessage 'Error' "Installazione DirectX terminata con codice di uscita: $LASTEXITCODE."
         }
     }
     catch {
-        Write-StyledMessage 'Error' "❌ Errore durante il download o l'installazione di DirectX: $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore durante il download o l'installazione di DirectX: $($_.Exception.Message)"
     }
     Write-Host ''
 
@@ -5386,27 +5428,27 @@ function GamingToolkit {
             try {
                 winget install --id "$client" --silent --accept-package-agreements --accept-source-agreements | Out-Null
                 if ($LASTEXITCODE -eq 0) {
-                    Write-StyledMessage 'Success' "✅ Installato con successo: $client"
+                    Write-StyledMessage 'Success' "Installato con successo: $client"
                 }
                 elseif ($LASTEXITCODE -eq -1073741819) {
-                    Write-StyledMessage 'Warning' "⚠️ Installazione di $client terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
+                    Write-StyledMessage 'Warning' "Installazione di $client terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
                 }
                 else {
-                    Write-StyledMessage 'Warning' "⚠️ Installazione di $client terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o aver riscontrato un problema minore."
+                    Write-StyledMessage 'Warning' "Installazione di $client terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o aver riscontrato un problema minore."
                 }
             }
             catch {
-                Write-StyledMessage 'Error' "❌ Eccezione durante l'installazione di $client"
+                Write-StyledMessage 'Error' "Eccezione durante l'installazione di $client"
                 Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
             }
         }
         else {
-            Write-StyledMessage 'Warning' "⚠️ Pacchetto $client non disponibile in Winget. Saltando."
+            Write-StyledMessage 'Warning' "Pacchetto $client non disponibile in Winget. Saltando."
         }
         Write-Host ''
     }
     Write-Progress -Activity "Installazione client di gioco" -Status "Completato" -PercentComplete 100 -Completed
-    Write-StyledMessage 'Success' '✅ Installazione client di gioco via Winget completata.'
+    Write-StyledMessage 'Success' 'Installazione client di gioco via Winget completata.'
     Write-Host ''
 
     # Step 5: Installazione Battle.Net (Download alternativo)
@@ -5417,22 +5459,22 @@ function GamingToolkit {
     Write-StyledMessage 'Info' "⬇️ Download di Battle.net Launcher in '$bnInstallerPath'..."
     try {
         Invoke-WebRequest -Uri $bnDownloadUrl -OutFile $bnInstallerPath -ErrorAction Stop
-        Write-StyledMessage 'Success' '✅ Download di Battle.net Launcher completato.'
+        Write-StyledMessage 'Success' 'Download di Battle.net Launcher completato.'
 
         Write-StyledMessage 'Info' '🚀 Avvio installazione Battle.net Launcher (silent)...'
         Start-Process -FilePath $bnInstallerPath -ArgumentList '/S' -Wait -PassThru -ErrorAction Stop | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-StyledMessage 'Success' '✅ Installazione Battle.net Launcher completata con successo.'
+            Write-StyledMessage 'Success' 'Installazione Battle.net Launcher completata con successo.'
         }
         elseif ($LASTEXITCODE -eq -1073741819) {
-            Write-StyledMessage 'Warning' "⚠️ Installazione Battle.net Launcher terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
+            Write-StyledMessage 'Warning' "Installazione Battle.net Launcher terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
         }
         else {
-            Write-StyledMessage 'Error' "❌ Installazione Battle.net Launcher terminata con codice di uscita: $LASTEXITCODE."
+            Write-StyledMessage 'Error' "Installazione Battle.net Launcher terminata con codice di uscita: $LASTEXITCODE."
         }
     }
     catch {
-        Write-StyledMessage 'Error' "❌ Errore durante il download o l'installazione di Battle.net Launcher: $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore durante il download o l'installazione di Battle.net Launcher: $($_.Exception.Message)"
     }
     Write-Host ''
 
@@ -5455,10 +5497,10 @@ function GamingToolkit {
                     foreach ($link in $linkPaths) {
                         try {
                             Remove-Item -Path $link.FullName -Force -ErrorAction Stop
-                            Write-StyledMessage 'Success' "✅ Rimosso collegamento di avvio per '$launcher': $($link.FullName)"
+                            Write-StyledMessage 'Success' "Rimosso collegamento di avvio per '$launcher': $($link.FullName)"
                         }
                         catch {
-                            Write-StyledMessage 'Error' "❌ Errore durante la rimozione del collegamento per '$launcher' in '$folder': $($_.Exception.Message)"
+                            Write-StyledMessage 'Error' "Errore durante la rimozione del collegamento per '$launcher' in '$folder': $($_.Exception.Message)"
                         }
                     }
                 }
@@ -5468,10 +5510,10 @@ function GamingToolkit {
             }
         }
         else {
-            Write-StyledMessage 'Warning' "⚠️ Cartella di avvio non trovata: $folder"
+            Write-StyledMessage 'Warning' "Cartella di avvio non trovata: $folder"
         }
     }
-    Write-StyledMessage 'Success' '✅ Pulizia collegamenti di avvio automatico completata.'
+    Write-StyledMessage 'Success' 'Pulizia collegamenti di avvio automatico completata.'
     Write-Host ''
 
     # Step 7: Abilitazione Profilo Energetico Massimo
@@ -5487,20 +5529,20 @@ function GamingToolkit {
         Write-StyledMessage 'Info' "🔧 Installazione piano 'Performance Massime'..."
         try {
             powercfg -duplicatescheme $ultimatePlanGUID | Out-Null
-            Write-StyledMessage 'Success' "✅ Piano 'Performance Massime' installato."
+            Write-StyledMessage 'Success' "Piano 'Performance Massime' installato."
         }
         catch {
-            Write-StyledMessage 'Error' "❌ Errore durante l'installazione del piano 'Performance Massime': $($_.Exception.Message)"
+            Write-StyledMessage 'Error' "Errore durante l'installazione del piano 'Performance Massime': $($_.Exception.Message)"
         }
     }
 
     # Set the Ultimate Performance plan as active
     try {
         powercfg -setactive $ultimatePlanGUID | Out-Null
-        Write-StyledMessage 'Success' "✅ Piano 'Performance Massime' impostato come attivo."
+        Write-StyledMessage 'Success' "Piano 'Performance Massime' impostato come attivo."
     }
     catch {
-        Write-StyledMessage 'Error' "❌ Errore durante l'attivazione del piano 'Performance Massime': $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore durante l'attivazione del piano 'Performance Massime': $($_.Exception.Message)"
     }
     Write-Host ''
 
@@ -5510,10 +5552,10 @@ function GamingToolkit {
     $propName = "NOC_GLOBAL_SETTING_SUPPRESSION_ACTIVE"
     try {
         Set-ItemProperty -Path $regPath -Name $propName -Value 1 -Force -ErrorAction Stop
-        Write-StyledMessage 'Success' '✅ Profilo "Non disturbare" attivato.'
+        Write-StyledMessage 'Success' 'Profilo "Non disturbare" attivato.'
     }
     catch {
-        Write-StyledMessage 'Error' "❌ Errore durante l'attivazione del profilo 'Non disturbare': $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore durante l'attivazione del profilo 'Non disturbare': $($_.Exception.Message)"
     }
     Write-Host ''
 
@@ -5535,7 +5577,7 @@ function GamingToolkit {
         Restart-Computer -Force
     }
     else {
-        Write-StyledMessage 'Warning' '⚠️ Riavvio annullato. Le modifiche potrebbero non essere completamente applicate fino al prossimo riavvio.'
+        Write-StyledMessage 'Warning' 'Riavvio annullato. Le modifiche potrebbero non essere completamente applicate fino al prossimo riavvio.'
         Write-Host ''
         Write-Host "Premi un tasto per tornare al menu principale..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
