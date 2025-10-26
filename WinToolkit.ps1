@@ -5111,6 +5111,28 @@ function VideoDriverInstall {
     # --- END NEW ---
 }
 function GamingToolkit {
+function Check-OSVersion {
+    $osInfo = Get-ComputerInfo
+    $isWindows11 = $osInfo.WindowsProductName -like "*Windows 11*"
+    $buildNumber = $osInfo.OsBuildNumber
+
+    if ($isWindows11 -and $buildNumber -lt 22631) {
+        $message = "Rilevato Windows 11 <23H2. In queste versioni di Windows a causa di Winget non completamente funzionante potresti non riuscire a far funzionare questa sezione dello script. Posso eseguire prima la funzione Winget/WinStore Reset e poi continuare ?"
+        Write-Host $message -ForegroundColor Yellow
+        $response = Read-Host "Si/No"
+        if ($response -eq 'Si' -or $response -eq 'si') {
+            # Dot-source the script and call the function
+            WinReinstallStore
+        }
+        else {
+            exit
+        }
+        Check-OSVersion
+
+    }
+}
+
+function GamingToolkit {
     <#
     .SYNOPSIS
         Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
@@ -5223,7 +5245,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 11)'
+            '       Version 2.4.0 (Build 12)'
         )
 
         foreach ($line in $asciiArt) {
@@ -5385,11 +5407,11 @@ function GamingToolkit {
 
     # Step 4: Scarica ed installa DirectX End-User Runtime
     Write-StyledMessage 'Info' '🎮 Installazione DirectX End-User Runtime...'
-    $dxTempDir = Join-Path ([string]$env:LOCALAPPDATA) 'WinToolkit\Directx'
+    $dxTempDir = "$env:LOCALAPPDATA\WinToolkit\Directx"
     if (-not (Test-Path $dxTempDir)) {
         New-Item -Path $dxTempDir -ItemType Directory -Force | Out-Null
     }
-    $dxInstallerPath = Join-Path $dxTempDir 'dxwebsetup.exe'
+    $dxInstallerPath = "$dxTempDir\dxwebsetup.exe"
     $dxDownloadUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/dxwebsetup.exe'
 
     Write-StyledMessage 'Info' "⬇️ Download di dxwebsetup.exe in '$dxInstallerPath'..."
@@ -5463,7 +5485,7 @@ function GamingToolkit {
 
     # Step 6: Installazione Battle.Net (Download alternativo)
     Write-StyledMessage 'Info' '🎮 Installazione Battle.Net Launcher...'
-    $bnInstallerPath = Join-Path ([string]$env:TEMP) 'Battle.net-Setup.exe'
+    $bnInstallerPath = "$env:TEMP\Battle.net-Setup.exe"
     $bnDownloadUrl = 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live'
 
     Write-StyledMessage 'Info' "⬇️ Download di Battle.net Launcher in '$bnInstallerPath'..."
@@ -5487,8 +5509,8 @@ function GamingToolkit {
     # Step 7: Pulizia Collegamenti Avvio Automatico Launcher
     Write-StyledMessage 'Info' '🧹 Rimozione collegamenti di avvio automatico per i launcher di gioco...'
     $startupFolders = @(
-        Join-Path ([string]$env:USERPROFILE) 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup',
-        Join-Path ([string]$env:ProgramData) 'Microsoft\Windows\Start Menu\Programs\Startup'
+        "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup",
+        "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
     )
     $launchersToClean = @(
         'Amazon Games', 'GOG Galaxy', 'EpicGamesLauncher', 'EADesktop', 'Playnite', 'Steam', 'Ubisoft Connect', 'Battle.net'
@@ -5588,6 +5610,7 @@ function GamingToolkit {
         Write-Host "Premi un tasto per tornare al menu principale..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
+}
 }
 
 
