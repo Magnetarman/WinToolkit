@@ -162,7 +162,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 25)'
+            '       Version 2.4.0 (Build 26)'
         )
 
         foreach ($line in $asciiArt) {
