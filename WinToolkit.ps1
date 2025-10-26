@@ -5186,7 +5186,7 @@ function GamingToolkit {
         }
 
         try {
-            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -ErrorAction Stop -RedirectStandardOutput $null -RedirectStandardError $null
+            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -ErrorAction Stop
 
             while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
@@ -5274,7 +5274,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 24)'
+            '       Version 2.4.0 (Build 26)'
         )
 
         foreach ($line in $asciiArt) {
@@ -5430,7 +5430,7 @@ function GamingToolkit {
         $percent = 0; $spinnerIndex = 0; $startTime = Get-Date
         $timeoutSeconds = 600 # 10 minutes timeout for DirectX installation
 
-        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q' -PassThru -WindowStyle Hidden -ErrorAction Stop # Use Hidden window for truly silent, capture process object
+        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q', '/nobing' -PassThru -WindowStyle Hidden -ErrorAction Stop # Use Hidden window for truly silent, capture process object
 
         while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
             $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
