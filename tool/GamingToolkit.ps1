@@ -131,7 +131,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 18)'
+            '       Version 2.4.0 (Build 19)'
         )
 
         foreach ($line in $asciiArt) {
@@ -158,47 +158,6 @@ function GamingToolkit {
 
     Show-Header
 
-    # Step 0: Install Microsoft.Winget.Client and Microsoft.AppInstaller
-    Write-StyledMessage 'Info' '📥 Installazione Microsoft.Winget.Client e Microsoft.AppInstaller via Winget...'
-    $wingetPackagesToInstall = @(
-        "Microsoft.Winget.Client",
-        "Microsoft.AppInstaller"
-    )
-
-    $totalWingetPackages = $wingetPackagesToInstall.Count
-    for ($i = 0; $i -lt $totalWingetPackages; $i++) {
-        $package = $wingetPackagesToInstall[$i]
-        $percentage = [int](($i / $totalWingetPackages) * 100)
-
-        Write-Progress -Activity "Installazione pacchetti Winget" -Status "Installazione: $package" -PercentComplete $percentage
-
-        Write-StyledMessage 'Info' "🎯 Tentativo di installazione: $package"
-        if (Test-WingetPackageAvailable $package) {
-            try {
-                winget install --id "$package" --silent --accept-package-agreements --accept-source-agreements | Out-Null
-                if ($LASTEXITCODE -eq 0) {
-                    Write-StyledMessage 'Success' "Installato con successo: $package"
-                }
-                elseif ($LASTEXITCODE -eq -1073741819 -or $LASTEXITCODE -eq -1978335189) {
-                    Write-StyledMessage 'Warning' "Installazione di $package terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
-                }
-                else {
-                    Write-StyledMessage 'Error' "Errore durante l'installazione di $package. Codice di uscita: $LASTEXITCODE"
-                }
-            }
-            catch {
-                Write-StyledMessage 'Error' "Eccezione durante l'installazione di $package"
-                Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
-            }
-        }
-        else {
-            Write-StyledMessage 'Warning' "Pacchetto $package non disponibile in Winget. Saltando."
-        }
-        Write-Host ''
-    }
-    Write-Progress -Activity "Installazione pacchetti Winget" -Status "Completato" -PercentComplete 100 -Completed
-    Write-StyledMessage 'Success' 'Installazione Microsoft.Winget.Client e Microsoft.AppInstaller completata.'
-    Write-Host ''
 
     # Step 1: Winget Installation Check
     Write-StyledMessage 'Info' '🔍 Verifica installazione e funzionalità di Winget...'
