@@ -5223,7 +5223,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 7)'
+            '       Version 2.4.0 (Build 9)'
         )
 
         foreach ($line in $asciiArt) {
@@ -5250,38 +5250,13 @@ function GamingToolkit {
 
     Show-Header
 
-    # Step 0: Winget Installation Check
-    Write-StyledMessage 'Info' '🔍 Verifica installazione e funzionalità di Winget...'
-    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-StyledMessage 'Error' 'Winget non è installato o non è accessibile nel PATH.'
-        Write-StyledMessage 'Warning' 'Alcune funzioni di Windows potrebbero non essere funzionanti al 100%.'
-        Write-StyledMessage 'Info' 'Si prega di eseguire lo script di reset dello Store/Winget e riprovare.'
-        Write-Host ''
-        Write-Host "Premi un tasto per tornare al menu principale..." -ForegroundColor Gray
-        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-        return # Exit the function if Winget is not found
-    }
-    Write-StyledMessage 'Success' 'Winget è installato e funzionante.'
-    Write-Host ''
-
-    # Step 1: Abilitazione NetFramework dalle funzionalità di Windows
-    Write-StyledMessage 'Info' '🔧 Abilitazione funzionalità NetFramework (NetFx4-AdvSrvs, NetFx3)...'
-    try {
-        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop | Out-Null
-        Write-StyledMessage 'Success' 'Funzionalità NetFramework abilitate con successo.'
-    }
-    catch {
-        Write-StyledMessage 'Error' "Errore durante l'abilitazione di NetFramework: $($_.Exception.Message)"
-    }
-    Write-Host ''
-
-    # Step 1.5: Installa Microsoft.AppInstaller e Microsoft.Winget.Client via Winget
+    # Step 0: Install Microsoft.Winget.Client and Microsoft.AppInstaller
+    Write-StyledMessage 'Info' '📥 Installazione Microsoft.Winget.Client e Microsoft.AppInstaller via Winget...'
     $wingetPackagesToInstall = @(
-        "Microsoft.AppInstaller",
-        "Microsoft.Winget.Client"
+        "Microsoft.Winget.Client",
+        "Microsoft.AppInstaller"
     )
 
-    Write-StyledMessage 'Info' '📥 Installazione Microsoft.AppInstaller e Microsoft.Winget.Client via Winget...'
     $totalWingetPackages = $wingetPackagesToInstall.Count
     for ($i = 0; $i -lt $totalWingetPackages; $i++) {
         $package = $wingetPackagesToInstall[$i]
@@ -5296,7 +5271,7 @@ function GamingToolkit {
                 if ($LASTEXITCODE -eq 0) {
                     Write-StyledMessage 'Success' "Installato con successo: $package"
                 }
-                elseif ($LASTEXITCODE -eq -1073741819) {
+                elseif ($LASTEXITCODE -eq -1073741819 -or $LASTEXITCODE -eq -1978335189) {
                     Write-StyledMessage 'Warning' "Installazione di $package terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
                 }
                 else {
@@ -5314,10 +5289,46 @@ function GamingToolkit {
         Write-Host ''
     }
     Write-Progress -Activity "Installazione pacchetti Winget" -Status "Completato" -PercentComplete 100 -Completed
-    Write-StyledMessage 'Success' 'Installazione Microsoft.AppInstaller e Microsoft.Winget.Client completata.'
+    Write-StyledMessage 'Success' 'Installazione Microsoft.Winget.Client e Microsoft.AppInstaller completata.'
     Write-Host ''
 
-    # Step 2: Scarica ed installa pacchetti .NET Runtimes e VCRedist via Winget
+    # Step 1: Winget Installation Check
+    Write-StyledMessage 'Info' '🔍 Verifica installazione e funzionalità di Winget...'
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-StyledMessage 'Error' 'Winget non è installato o non è accessibile nel PATH.'
+        Write-StyledMessage 'Warning' 'Alcune funzioni di Windows potrebbero non essere funzionanti al 100%.'
+        Write-StyledMessage 'Info' 'Si prega di eseguire lo script di reset dello Store/Winget e riprovare.'
+        Write-Host ''
+        Write-Host "Premi un tasto per tornare al menu principale..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        return # Exit the function if Winget is not found
+    }
+    Write-StyledMessage 'Success' 'Winget è installato e funzionante.'
+
+    # Update Winget sources to ensure latest package list
+    Write-StyledMessage 'Info' '🔄 Aggiornamento sorgenti Winget per garantire la disponibilità dei pacchetti...'
+    try {
+        winget source update | Out-Null
+        Write-StyledMessage 'Success' 'Sorgenti Winget aggiornate.'
+    }
+    catch {
+        Write-StyledMessage 'Warning' "Errore durante l'aggiornamento delle sorgenti Winget: $($_.Exception.Message)"
+    }
+    Write-Host ''
+
+    # Step 2: Abilitazione NetFramework dalle funzionalità di Windows
+    Write-StyledMessage 'Info' '🔧 Abilitazione funzionalità NetFramework (NetFx4-AdvSrvs, NetFx3)...'
+    try {
+        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop | Out-Null
+        Write-StyledMessage 'Success' 'Funzionalità NetFramework abilitate con successo.'
+    }
+    catch {
+        Write-StyledMessage 'Error' "Errore durante l'abilitazione di NetFramework: $($_.Exception.Message)"
+    }
+    Write-Host ''
+
+
+    # Step 3: Scarica ed installa pacchetti .NET Runtimes e VCRedist via Winget
     $packagesToInstall_Runtimes = @(
         "Microsoft.DotNet.DesktopRuntime.3_1",
         "Microsoft.DotNet.DesktopRuntime.5",
@@ -5351,7 +5362,7 @@ function GamingToolkit {
                 if ($LASTEXITCODE -eq 0) {
                     Write-StyledMessage 'Success' "Installato con successo: $package"
                 }
-                elseif ($LASTEXITCODE -eq -1073741819) {
+                elseif ($LASTEXITCODE -eq -1073741819 -or $LASTEXITCODE -eq -1978335189) {
                     Write-StyledMessage 'Warning' "Installazione di $package terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
                 }
                 else {
@@ -5372,7 +5383,7 @@ function GamingToolkit {
     Write-StyledMessage 'Success' 'Installazione runtime .NET e Visual C++ Redistributables completata.'
     Write-Host ''
 
-    # Step 3: Scarica ed installa DirectX End-User Runtime
+    # Step 4: Scarica ed installa DirectX End-User Runtime
     Write-StyledMessage 'Info' '🎮 Installazione DirectX End-User Runtime...'
     $dxTempDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\Directx'
     if (-not (Test-Path $dxTempDir)) {
@@ -5391,7 +5402,7 @@ function GamingToolkit {
         if ($LASTEXITCODE -eq 0) {
             Write-StyledMessage 'Success' 'Installazione DirectX completata con successo.'
         }
-        elseif ($LASTEXITCODE -eq -1073741819) {
+        elseif ($LASTEXITCODE -eq -1073741819 -or $LASTEXITCODE -eq -1978335189) {
             Write-StyledMessage 'Warning' "Installazione DirectX terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
         }
         else {
@@ -5403,7 +5414,7 @@ function GamingToolkit {
     }
     Write-Host ''
 
-    # Step 4: Installa i vari client di gioco tramite Winget
+    # Step 5: Installa i vari client di gioco tramite Winget
     $gameClientsToInstall = @(
         "Amazon.Games",
         "GOG.Galaxy",
@@ -5430,7 +5441,7 @@ function GamingToolkit {
                 if ($LASTEXITCODE -eq 0) {
                     Write-StyledMessage 'Success' "Installato con successo: $client"
                 }
-                elseif ($LASTEXITCODE -eq -1073741819) {
+                elseif ($LASTEXITCODE -eq -1073741819 -or $LASTEXITCODE -eq -1978335189) {
                     Write-StyledMessage 'Warning' "Installazione di $client terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
                 }
                 else {
@@ -5451,7 +5462,7 @@ function GamingToolkit {
     Write-StyledMessage 'Success' 'Installazione client di gioco via Winget completata.'
     Write-Host ''
 
-    # Step 5: Installazione Battle.Net (Download alternativo)
+    # Step 6: Installazione Battle.Net (Download alternativo)
     Write-StyledMessage 'Info' '🎮 Installazione Battle.Net Launcher...'
     $bnInstallerPath = Join-Path $env:TEMP 'Battle.net-Setup.exe'
     $bnDownloadUrl = 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live'
@@ -5462,23 +5473,19 @@ function GamingToolkit {
         Write-StyledMessage 'Success' 'Download di Battle.net Launcher completato.'
 
         Write-StyledMessage 'Info' '🚀 Avvio installazione Battle.net Launcher (silent)...'
-        Start-Process -FilePath $bnInstallerPath -ArgumentList '/S' -Wait -PassThru -ErrorAction Stop | Out-Null
-        if ($LASTEXITCODE -eq 0) {
-            Write-StyledMessage 'Success' 'Installazione Battle.net Launcher completata con successo.'
-        }
-        elseif ($LASTEXITCODE -eq -1073741819) {
-            Write-StyledMessage 'Warning' "Installazione Battle.net Launcher terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
-        }
-        else {
-            Write-StyledMessage 'Error' "Installazione Battle.net Launcher terminata con codice di uscita: $LASTEXITCODE."
-        }
+        Start-Process -FilePath $bnInstallerPath -ArgumentList '/S' -PassThru -ErrorAction Stop | Out-Null
+        Write-StyledMessage 'Info' 'Installazione Battle.net Launcher avviata. Essendo un installazione esterna, attendi il completamento e premi un tasto per proseguire con il resto dello script.'
+        Write-Host ''
+        Write-Host "Premi un tasto quando l'installazione di Battle.net è completa..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        Write-StyledMessage 'Success' 'Installazione Battle.net Launcher completata. Proseguimento con il resto dello script.'
     }
     catch {
-        Write-StyledMessage 'Error' "Errore durante il download o l'installazione di Battle.net Launcher: $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore durante il download o l'avvio dell'installazione di Battle.net Launcher: $($_.Exception.Message)"
     }
     Write-Host ''
 
-    # Step 6: Pulizia Collegamenti Avvio Automatico Launcher
+    # Step 7: Pulizia Collegamenti Avvio Automatico Launcher
     Write-StyledMessage 'Info' '🧹 Rimozione collegamenti di avvio automatico per i launcher di gioco...'
     $startupFolders = @(
         Join-Path $env:USERPROFILE 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup',
@@ -5516,7 +5523,7 @@ function GamingToolkit {
     Write-StyledMessage 'Success' 'Pulizia collegamenti di avvio automatico completata.'
     Write-Host ''
 
-    # Step 7: Abilitazione Profilo Energetico Massimo
+    # Step 8: Abilitazione Profilo Energetico Massimo
     Write-StyledMessage 'Info' '⚡ Configurazione profilo energetico Performance Massime...'
     $ultimatePlanGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61" # GUID for Ultimate Performance
 
@@ -5546,7 +5553,7 @@ function GamingToolkit {
     }
     Write-Host ''
 
-    # Step 8: Attivazione Profilo Non Disturbare (Focus Assist)
+    # Step 9: Attivazione Profilo Non Disturbare (Focus Assist)
     Write-StyledMessage 'Info' '🔕 Attivazione profilo "Non disturbare" (Focus Assist)...'
     $regPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings"
     $propName = "NOC_GLOBAL_SETTING_SUPPRESSION_ACTIVE"
@@ -5559,14 +5566,14 @@ function GamingToolkit {
     }
     Write-Host ''
 
-    # Step 9: Messaggio di completamento delle operazioni
+    # Step 10: Messaggio di completamento delle operazioni
     Write-Host ('═' * 80) -ForegroundColor Green
     Write-StyledMessage 'Success' '🎉 Tutte le operazioni del Gaming Toolkit sono state completate!'
     Write-StyledMessage 'Success' '🎮 Il sistema è stato ottimizzato per il gaming con tutti i componenti necessari.'
     Write-Host ('═' * 80) -ForegroundColor Green
     Write-Host ''
 
-    # Step 10: Barra di countdown di 30 secondi e richiesta di riavvio
+    # Step 11: Barra di countdown di 30 secondi e richiesta di riavvio
     Write-Host "Il sistema deve essere riavviato per applicare tutte le modifiche." -ForegroundColor Red
     Write-Host "Riavvio automatico in $CountdownSeconds secondi..." -ForegroundColor Red
 
