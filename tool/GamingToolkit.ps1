@@ -16,40 +16,6 @@ function GamingToolkit {
 
     param([int]$CountdownSeconds = 30)
 
-    # OS Version Check
-    $osInfo = Get-ComputerInfo
-    # $isWindows11 = $osInfo.WindowsProductName -like "*Windows 11*" # <-- REMOVE OR COMMENT OUT THIS LINE
-    $buildNumber = $osInfo.OsBuildNumber
-
-    # New OS Classification Variables for robust detection
-    $isWindows11BuildRange = ($buildNumber -ge 22000) # True for all Windows 11 builds (build 22000 and higher)
-    $isWindows11Pre23H2 = $isWindows11BuildRange -and ($buildNumber -lt 22631) # True for Windows 11 builds older than 23H2 (e.g., 21H2, 22H2)
-    $isWindows10OrOlder = -not $isWindows11BuildRange # True for any build less than 22000 (i.e., Windows 10 or earlier)
-
-    if ($isWindows11Pre23H2) {
-        $message = "Rilevata versione obsoleta. A Causa di questo Winget potrebbe non funzionare correttamente impedendo a questo script di funzionare. Scrivi Y se vuoi eseguire la funzione di riparazione in modo da rendere funzionante Winget, altrimenti se lo hai già fatto o se vuoi proseguire scrivi N."
-        Write-StyledMessage 'Warning' $message
-        $response = Read-Host "Y/N"
-        if ($response -eq 'Y' -or $response -eq 'y') {
-            WinReinstallStore
-        }
-        # If 'N' or other, proceed with the script anyway
-    }
-
-    $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
-
-    # Setup logging specifico per GamingToolkit
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
-    try {
-        if (-not (Test-Path -Path $logdir)) {
-            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-        }
-        Start-Transcript -Path "$logdir\GamingToolkit_$dateTime.log" -Append -Force | Out-Null
-    }
-    catch {}
-
-    $script:Log = @(); $script:CurrentAttempt = 0
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
@@ -127,25 +93,25 @@ function GamingToolkit {
 
                 $exitCode = $proc.ExitCode
                 if ($exitCode -eq 0) {
-                    Write-StyledMessage 'Success' "✅ Installato con successo: $DisplayName ($PackageId)"
+                    Write-StyledMessage 'Success' "Installato con successo: $DisplayName ($PackageId)"
                     $script:Log += "[Winget] ✅ Installato: $PackageId (Exit code: $exitCode)."
                     return @{ Success = $true; ExitCode = $exitCode }
                 }
                 elseif ($exitCode -eq 1638 -or $exitCode -eq 3010) {
                     # Common codes for "already installed" or "reboot needed"
-                    Write-StyledMessage 'Success' "✅ Installazione di $DisplayName ($PackageId) completata (già installato o richiede riavvio, codice: $exitCode)."
+                    Write-StyledMessage 'Success' "Installazione di $DisplayName ($PackageId) completata (già installato o richiede riavvio, codice: $exitCode)."
                     $script:Log += "[Winget] ✅ Installato/Ignorato: $PackageId (Exit code: $exitCode)."
                     return @{ Success = $true; ExitCode = $exitCode }
                 }
                 else {
-                    Write-StyledMessage 'Error' "❌ Errore durante l'installazione di $DisplayName ($PackageId). Codice di uscita: $exitCode"
+                    Write-StyledMessage 'Error' "Errore durante l'installazione di $DisplayName ($PackageId). Codice di uscita: $exitCode"
                     $script:Log += "[Winget] ❌ Errore installazione: $PackageId (Exit code: $exitCode)."
                     return @{ Success = $false; ExitCode = $exitCode }
                 }
             }
             catch {
                 Clear-ProgressLine
-                Write-StyledMessage 'Error' "❌ Eccezione durante l'installazione di $DisplayName ($PackageId): $($_.Exception.Message)"
+                Write-StyledMessage 'Error' "Eccezione durante l'installazione di $DisplayName ($PackageId): $($_.Exception.Message)"
                 $script:Log += "[Winget] ❌ Eccezione: $PackageId - $($_.Exception.Message)."
                 return @{ Success = $false; ExitCode = -1 }
             }
@@ -195,7 +161,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 20)'
+            '       Version 2.4.0 (Build 21)'
         )
 
         foreach ($line in $asciiArt) {
@@ -219,6 +185,49 @@ function GamingToolkit {
         $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
         return (' ' * $padding + $Text)
     }
+
+    # OS Version Check
+    $osInfo = Get-ComputerInfo
+    # $isWindows11 = $osInfo.WindowsProductName -like "*Windows 11*" # <-- REMOVE OR COMMENT OUT THIS LINE
+    $buildNumber = $osInfo.OsBuildNumber
+
+    # New OS Classification Variables for robust detection
+    $isWindows11BuildRange = ($buildNumber -ge 22000) # True for all Windows 11 builds (build 22000 and higher)
+    $isWindows11Pre23H2 = $isWindows11BuildRange -and ($buildNumber -lt 22631) # True for Windows 11 builds older than 23H2 (e.g., 21H2, 22H2)
+    $isWindows10OrOlder = -not $isWindows11BuildRange # True for any build less than 22000 (i.e., Windows 10 or earlier)
+
+    if ($isWindows11Pre23H2) {
+        $message = "Rilevata versione obsoleta. A Causa di questo Winget potrebbe non funzionare correttamente impedendo a questo script di funzionare. Scrivi Y se vuoi eseguire la funzione di riparazione in modo da rendere funzionante Winget, altrimenti se lo hai già fatto o se vuoi proseguire scrivi N."
+        Write-StyledMessage 'Warning' $message
+        $response = Read-Host "Y/N"
+        if ($response -eq 'Y' -or $response -eq 'y') {
+            WinReinstallStore
+        }
+        # If 'N' or other, proceed with the script anyway
+    }
+
+    $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
+
+    # Setup logging specifico per GamingToolkit
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\GamingToolkit_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
+
+    $script:Log = @(); $script:CurrentAttempt = 0
+
+    # Add countdown before Show-Header
+    for ($i = 5; $i -gt 0; $i--) {
+        $spinner = $spinners[$i % $spinners.Length]
+        Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
+        Start-Sleep 1
+    }
+    Write-Host "`n"
 
     Show-Header
 
@@ -285,7 +294,7 @@ function GamingToolkit {
         Invoke-WingetInstallWithProgress $package $package ($i + 1) $totalPackages
         Write-Host '' # Add a newline after each package for better readability
     }
-    Write-StyledMessage 'Success' '✅ Installazione runtime .NET e Visual C++ Redistributables completata.'
+    Write-StyledMessage 'Success' 'Installazione runtime .NET e Visual C++ Redistributables completata.'
     Write-Host ''
 
     # Step 4: Scarica ed installa DirectX End-User Runtime
@@ -302,7 +311,7 @@ function GamingToolkit {
     Write-StyledMessage 'Info' "⬇️ Download di dxwebsetup.exe in '$dxInstallerPath'..."
     try {
         Invoke-WebRequest -Uri $dxDownloadUrl -OutFile $dxInstallerPath -ErrorAction Stop
-        Write-StyledMessage 'Success' '✅ Download di dxwebsetup.exe completato.'
+        Write-StyledMessage 'Success' 'Download di dxwebsetup.exe completato.'
         $script:Log += "[DirectX] ✅ Download dxwebsetup.exe completato."
 
         Write-StyledMessage 'Info' '🚀 Avvio installazione DirectX (silenziosa)...'
@@ -333,28 +342,28 @@ function GamingToolkit {
         else {
             $exitCode = $proc.ExitCode
             if ($exitCode -eq 0) {
-                Write-StyledMessage 'Success' '✅ Installazione DirectX completata con successo.'
+                Write-StyledMessage 'Success' 'Installazione DirectX completata con successo.'
                 $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode)."
             }
             elseif ($exitCode -eq 3010) {
                 # Common code for "reboot required"
-                Write-StyledMessage 'Success' "✅ Installazione DirectX completata (richiede riavvio per finalizzare, codice: $exitCode)."
+                Write-StyledMessage 'Success' "Installazione DirectX completata (richiede riavvio per finalizzare, codice: $exitCode)."
                 $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode, riavvio richiesto)."
             }
             elseif ($exitCode -eq 5100) {
                 # Common code for "already installed"
-                Write-StyledMessage 'Success' "✅ DirectX è già installato o una versione più recente è presente (codice: $exitCode)."
+                Write-StyledMessage 'Success' "DirectX è già installato o una versione più recente è presente (codice: $exitCode)."
                 $script:Log += "[DirectX] ✅ DirectX già installato (Exit code: $exitCode)."
             }
             else {
-                Write-StyledMessage 'Error' "❌ Installazione DirectX terminata con codice di uscita non previsto: $exitCode."
+                Write-StyledMessage 'Error' "Installazione DirectX terminata con codice di uscita non previsto: $exitCode."
                 $script:Log += "[DirectX] ❌ Installazione DirectX fallita (Exit code: $exitCode)."
             }
         }
     }
     catch {
         Clear-ProgressLine
-        Write-StyledMessage 'Error' "❌ Errore durante il download o l'installazione di DirectX: $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore durante il download o l'installazione di DirectX: $($_.Exception.Message)"
         $script:Log += "[DirectX] ❌ Errore critico: $($_.Exception.Message)."
     }
     Write-Host ''
@@ -379,7 +388,7 @@ function GamingToolkit {
         Invoke-WingetInstallWithProgress $client $client ($i + 1) $totalClients
         Write-Host '' # Add a newline after each client.
     }
-    Write-StyledMessage 'Success' '✅ Installazione client di gioco via Winget completata.'
+    Write-StyledMessage 'Success' 'Installazione client di gioco via Winget completata.'
     Write-Host ''
 
     # Step 6: Installazione Battle.Net (Download alternativo)
@@ -527,8 +536,8 @@ function GamingToolkit {
 
     # Step 10: Messaggio di completamento delle operazioni
     Write-Host ('═' * 80) -ForegroundColor Green
-    Write-StyledMessage 'Success' '🎉 Tutte le operazioni del Gaming Toolkit sono state completate!'
-    Write-StyledMessage 'Success' '🎮 Il sistema è stato ottimizzato per il gaming con tutti i componenti necessari.'
+    Write-StyledMessage 'Success' 'Tutte le operazioni del Gaming Toolkit sono state completate!'
+    Write-StyledMessage 'Success' 'Il sistema è stato ottimizzato per il gaming con tutti i componenti necessari.'
     Write-Host ('═' * 80) -ForegroundColor Green
     Write-Host ''
 
