@@ -74,7 +74,7 @@ function GamingToolkit {
         }
 
         try {
-            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -ErrorAction Stop
+            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -ErrorAction Stop -RedirectStandardOutput $null -RedirectStandardError $null
 
             while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
@@ -162,7 +162,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 22)'
+            '       Version 2.4.0 (Build 24)'
         )
 
         foreach ($line in $asciiArt) {
@@ -306,8 +306,7 @@ function GamingToolkit {
         $script:Log += "[DirectX] ℹ️ Creata directory: $dxTempDir"
     }
     $dxInstallerPath = "$dxTempDir\dxwebsetup.exe"
-    # --- CRITICAL CHANGE: Update URL to /main/asset/ ---
-    $dxDownloadUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe'
+    $dxDownloadUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/dxwebsetup.exe'
 
     Write-StyledMessage 'Info' "⬇️ Download di dxwebsetup.exe in '$dxInstallerPath'..."
     try {
@@ -404,11 +403,11 @@ function GamingToolkit {
 
         Write-StyledMessage 'Info' '🚀 Avvio installazione Battle.net Launcher (silent)...'
         Start-Process -FilePath $bnInstallerPath -ArgumentList '/S' -PassThru -ErrorAction Stop | Out-Null
-        Write-StyledMessage 'Info' 'Installazione Battle.net Launcher avviata. Essendo un installazione esterna, attendi il completamento e premi un tasto per proseguire con il resto dello script.'
+        Write-StyledMessage 'Info' 'Installazione Battle.net avviata. Essendo un programma esterno non monitorabile da Winget, attendi il completamento manuale.'
         Write-Host ''
-        Write-Host "Premi un tasto quando l'installazione di Battle.net è completa..." -ForegroundColor Gray
+        Write-Host "Premi un tasto per proseguire con il resto dello script..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-        Write-StyledMessage 'Success' 'Installazione Battle.net Launcher completata. Proseguimento con il resto dello script.'
+        Write-StyledMessage 'Success' 'Installazione Battle.net completata. Proseguimento con il resto dello script.'
     }
     catch {
         Write-StyledMessage 'Error' "Errore durante il download o l'avvio dell'installazione di Battle.net Launcher: $($_.Exception.Message)"
