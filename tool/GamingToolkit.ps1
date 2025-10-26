@@ -56,68 +56,69 @@ function GamingToolkit {
         if ($Percent -eq 100) { Write-Host '' }
     }
     function Clear-ProgressLine {
-        function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
-            Write-StyledMessage 'Info' "[$Step/$Total] 📦 Avvio installazione: $DisplayName ($PackageId)..."
-            $spinnerIndex = 0
-            $percent = 0
-            $startTime = Get-Date
-            $timeoutSeconds = 600 # 10 minutes per package installation
-
-            if (-not (Test-WingetPackageAvailable $PackageId)) {
-                Write-StyledMessage 'Warning' "⚠️ Pacchetto $DisplayName ($PackageId) non disponibile in Winget. Saltando."
-                $script:Log += "[Winget] ⚠️ Pacchetto non disponibile: $PackageId."
-                return @{ Success = $true; Skipped = $true; ExitCode = -1 }
-            }
-
-            try {
-                $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -ErrorAction Stop
-
-                while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
-                    $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                    $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
-                    if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 } # Simulate progress
-                    Show-ProgressBar $DisplayName "Installazione in corso... ($elapsed s)" $percent '📦' $spinner
-                    Start-Sleep -Milliseconds 700
-                    $proc.Refresh()
-                }
-
-                Clear-ProgressLine # Clear the progress line before writing final message
-
-                if (-not $proc.HasExited) {
-                    Write-StyledMessage 'Warning' "⚠️ Timeout per l'installazione di $DisplayName ($PackageId). Processo terminato."
-                    $proc.Kill()
-                    Start-Sleep -Seconds 2
-                    $script:Log += "[Winget] ⚠️ Timeout per l'installazione: $PackageId."
-                    return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
-                }
-
-                $exitCode = $proc.ExitCode
-                if ($exitCode -eq 0) {
-                    Write-StyledMessage 'Success' "Installato con successo: $DisplayName ($PackageId)"
-                    $script:Log += "[Winget] ✅ Installato: $PackageId (Exit code: $exitCode)."
-                    return @{ Success = $true; ExitCode = $exitCode }
-                }
-                elseif ($exitCode -eq 1638 -or $exitCode -eq 3010) {
-                    # Common codes for "already installed" or "reboot needed"
-                    Write-StyledMessage 'Success' "Installazione di $DisplayName ($PackageId) completata (già installato o richiede riavvio, codice: $exitCode)."
-                    $script:Log += "[Winget] ✅ Installato/Ignorato: $PackageId (Exit code: $exitCode)."
-                    return @{ Success = $true; ExitCode = $exitCode }
-                }
-                else {
-                    Write-StyledMessage 'Error' "Errore durante l'installazione di $DisplayName ($PackageId). Codice di uscita: $exitCode"
-                    $script:Log += "[Winget] ❌ Errore installazione: $PackageId (Exit code: $exitCode)."
-                    return @{ Success = $false; ExitCode = $exitCode }
-                }
-            }
-            catch {
-                Clear-ProgressLine
-                Write-StyledMessage 'Error' "Eccezione durante l'installazione di $DisplayName ($PackageId): $($_.Exception.Message)"
-                $script:Log += "[Winget] ❌ Eccezione: $PackageId - $($_.Exception.Message)."
-                return @{ Success = $false; ExitCode = -1 }
-            }
-        }
         Write-Host "`r$(' ' * 120)" -NoNewline
         Write-Host "`r" -NoNewline
+    }
+
+    function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
+        Write-StyledMessage 'Info' "[$Step/$Total] 📦 Avvio installazione: $DisplayName ($PackageId)..."
+        $spinnerIndex = 0
+        $percent = 0
+        $startTime = Get-Date
+        $timeoutSeconds = 600 # 10 minutes per package installation
+
+        if (-not (Test-WingetPackageAvailable $PackageId)) {
+            Write-StyledMessage 'Warning' "⚠️ Pacchetto $DisplayName ($PackageId) non disponibile in Winget. Saltando."
+            $script:Log += "[Winget] ⚠️ Pacchetto non disponibile: $PackageId."
+            return @{ Success = $true; Skipped = $true; ExitCode = -1 }
+        }
+
+        try {
+            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -ErrorAction Stop
+
+            while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
+                $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
+                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 } # Simulate progress
+                Show-ProgressBar $DisplayName "Installazione in corso... ($elapsed s)" $percent '📦' $spinner
+                Start-Sleep -Milliseconds 700
+                $proc.Refresh()
+            }
+
+            Clear-ProgressLine # Clear the progress line before writing final message
+
+            if (-not $proc.HasExited) {
+                Write-StyledMessage 'Warning' "⚠️ Timeout per l'installazione di $DisplayName ($PackageId). Processo terminato."
+                $proc.Kill()
+                Start-Sleep -Seconds 2
+                $script:Log += "[Winget] ⚠️ Timeout per l'installazione: $PackageId."
+                return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
+            }
+
+            $exitCode = $proc.ExitCode
+            if ($exitCode -eq 0) {
+                Write-StyledMessage 'Success' "Installato con successo: $DisplayName ($PackageId)"
+                $script:Log += "[Winget] ✅ Installato: $PackageId (Exit code: $exitCode)."
+                return @{ Success = $true; ExitCode = $exitCode }
+            }
+            elseif ($exitCode -eq 1638 -or $exitCode -eq 3010) {
+                # Common codes for "already installed" or "reboot needed"
+                Write-StyledMessage 'Success' "Installazione di $DisplayName ($PackageId) completata (già installato o richiede riavvio, codice: $exitCode)."
+                $script:Log += "[Winget] ✅ Installato/Ignorato: $PackageId (Exit code: $exitCode)."
+                return @{ Success = $true; ExitCode = $exitCode }
+            }
+            else {
+                Write-StyledMessage 'Error' "Errore durante l'installazione di $DisplayName ($PackageId). Codice di uscita: $exitCode"
+                $script:Log += "[Winget] ❌ Errore installazione: $PackageId (Exit code: $exitCode)."
+                return @{ Success = $false; ExitCode = $exitCode }
+            }
+        }
+        catch {
+            Clear-ProgressLine
+            Write-StyledMessage 'Error' "Eccezione durante l'installazione di $DisplayName ($PackageId): $($_.Exception.Message)"
+            $script:Log += "[Winget] ❌ Eccezione: $PackageId - $($_.Exception.Message)."
+            return @{ Success = $false; ExitCode = -1 }
+        }
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
@@ -161,7 +162,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 21)'
+            '       Version 2.4.0 (Build 22)'
         )
 
         foreach ($line in $asciiArt) {
