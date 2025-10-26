@@ -111,7 +111,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 6)'
+            '       Version 2.4.0 (Build 7)'
         )
 
         foreach ($line in $asciiArt) {
@@ -161,6 +161,48 @@ function GamingToolkit {
     catch {
         Write-StyledMessage 'Error' "Errore durante l'abilitazione di NetFramework: $($_.Exception.Message)"
     }
+    Write-Host ''
+
+    # Step 1.5: Installa Microsoft.AppInstaller e Microsoft.Winget.Client via Winget
+    $wingetPackagesToInstall = @(
+        "Microsoft.AppInstaller",
+        "Microsoft.Winget.Client"
+    )
+
+    Write-StyledMessage 'Info' '📥 Installazione Microsoft.AppInstaller e Microsoft.Winget.Client via Winget...'
+    $totalWingetPackages = $wingetPackagesToInstall.Count
+    for ($i = 0; $i -lt $totalWingetPackages; $i++) {
+        $package = $wingetPackagesToInstall[$i]
+        $percentage = [int](($i / $totalWingetPackages) * 100)
+
+        Write-Progress -Activity "Installazione pacchetti Winget" -Status "Installazione: $package" -PercentComplete $percentage
+
+        Write-StyledMessage 'Info' "🎯 Tentativo di installazione: $package"
+        if (Test-WingetPackageAvailable $package) {
+            try {
+                winget install --id "$package" --silent --accept-package-agreements --accept-source-agreements | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-StyledMessage 'Success' "Installato con successo: $package"
+                }
+                elseif ($LASTEXITCODE -eq -1073741819) {
+                    Write-StyledMessage 'Warning' "Installazione di $package terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
+                }
+                else {
+                    Write-StyledMessage 'Error' "Errore durante l'installazione di $package. Codice di uscita: $LASTEXITCODE"
+                }
+            }
+            catch {
+                Write-StyledMessage 'Error' "Eccezione durante l'installazione di $package"
+                Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
+            }
+        }
+        else {
+            Write-StyledMessage 'Warning' "Pacchetto $package non disponibile in Winget. Saltando."
+        }
+        Write-Host ''
+    }
+    Write-Progress -Activity "Installazione pacchetti Winget" -Status "Completato" -PercentComplete 100 -Completed
+    Write-StyledMessage 'Success' 'Installazione Microsoft.AppInstaller e Microsoft.Winget.Client completata.'
     Write-Host ''
 
     # Step 2: Scarica ed installa pacchetti .NET Runtimes e VCRedist via Winget
