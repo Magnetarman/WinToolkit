@@ -1,24 +1,3 @@
-function Check-OSVersion {
-    $osInfo = Get-ComputerInfo
-    $isWindows11 = $osInfo.WindowsProductName -like "*Windows 11*"
-    $buildNumber = $osInfo.OsBuildNumber
-
-    if ($isWindows11 -and $buildNumber -lt 22631) {
-        $message = "Rilevato Windows 11 <23H2. In queste versioni di Windows a causa di Winget non completamente funzionante potresti non riuscire a far funzionare questa sezione dello script. Posso eseguire prima la funzione Winget/WinStore Reset e poi continuare ?"
-        Write-Host $message -ForegroundColor Yellow
-        $response = Read-Host "Si/No"
-        if ($response -eq 'Si' -or $response -eq 'si') {
-            # Dot-source the script and call the function
-            WinReinstallStore
-        }
-        else {
-            exit
-        }
-        Check-OSVersion
-
-    }
-}
-
 function GamingToolkit {
     <#
     .SYNOPSIS
@@ -36,6 +15,25 @@ function GamingToolkit {
     #>
 
     param([int]$CountdownSeconds = 30)
+
+    # OS Version Check
+    $osInfo = Get-ComputerInfo
+    $isWindows11 = $osInfo.WindowsProductName -like "*Windows 11*"
+    $buildNumber = $osInfo.OsBuildNumber
+
+    if ($isWindows11 -and $buildNumber -lt 22631) {
+        $message = "Rilevato Windows 11 <23H2. In queste versioni di Windows a causa di Winget non completamente funzionante potresti non riuscire a far funzionare questa sezione dello script. Posso eseguire prima la funzione Winget/WinStore Reset e poi continuare ?"
+        Write-Host $message -ForegroundColor Yellow
+        $response = Read-Host "Si/No"
+        if ($response -eq 'Si' -or $response -eq 'si') {
+            # Call the function
+            WinReinstallStore
+        }
+        else {
+            return
+        }
+        GamingToolkit
+    }
 
     $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
 
@@ -132,7 +130,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 12)'
+            '       Version 2.4.0 (Build 13)'
         )
 
         foreach ($line in $asciiArt) {
