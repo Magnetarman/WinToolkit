@@ -28,7 +28,7 @@ function GamingToolkit {
 
     if ($isWindows11Pre23H2) {
         $message = "Rilevata versione obsoleta. A Causa di questo Winget potrebbe non funzionare correttamente impedendo a questo script di funzionare. Scrivi Y se vuoi eseguire la funzione di riparazione in modo da rendere funzionante Winget, altrimenti se lo hai già fatto o se vuoi proseguire scrivi N."
-        Write-Host $message -ForegroundColor Yellow
+        Write-StyledMessage 'Warning' $message
         $response = Read-Host "Y/N"
         if ($response -eq 'Y' -or $response -eq 'y') {
             WinReinstallStore
@@ -63,7 +63,7 @@ function GamingToolkit {
         Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
 
         # Log dettagliato per operazioni importanti
-        if ($Type -in @('Info', 'Warning', 'Error')) {
+        if ($Type -in @('Info', 'Warning', 'Error', 'Success')) {
             $timestamp = Get-Date -Format "HH:mm:ss"
             $logEntry = "[$timestamp] [$Type] $Text"
             $script:Log += $logEntry
@@ -88,6 +88,70 @@ function GamingToolkit {
         $bar = "[$filled$empty] {0,3}%" -f $safePercent
         Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
         if ($Percent -eq 100) { Write-Host '' }
+    }
+    function Clear-ProgressLine {
+        function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
+            Write-StyledMessage 'Info' "[$Step/$Total] 📦 Avvio installazione: $DisplayName ($PackageId)..."
+            $spinnerIndex = 0
+            $percent = 0
+            $startTime = Get-Date
+            $timeoutSeconds = 600 # 10 minutes per package installation
+
+            if (-not (Test-WingetPackageAvailable $PackageId)) {
+                Write-StyledMessage 'Warning' "⚠️ Pacchetto $DisplayName ($PackageId) non disponibile in Winget. Saltando."
+                $script:Log += "[Winget] ⚠️ Pacchetto non disponibile: $PackageId."
+                return @{ Success = $true; Skipped = $true; ExitCode = -1 }
+            }
+
+            try {
+                $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -ErrorAction Stop
+
+                while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
+                    $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+                    $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
+                    if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 } # Simulate progress
+                    Show-ProgressBar $DisplayName "Installazione in corso... ($elapsed s)" $percent '📦' $spinner
+                    Start-Sleep -Milliseconds 700
+                    $proc.Refresh()
+                }
+
+                Clear-ProgressLine # Clear the progress line before writing final message
+
+                if (-not $proc.HasExited) {
+                    Write-StyledMessage 'Warning' "⚠️ Timeout per l'installazione di $DisplayName ($PackageId). Processo terminato."
+                    $proc.Kill()
+                    Start-Sleep -Seconds 2
+                    $script:Log += "[Winget] ⚠️ Timeout per l'installazione: $PackageId."
+                    return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
+                }
+
+                $exitCode = $proc.ExitCode
+                if ($exitCode -eq 0) {
+                    Write-StyledMessage 'Success' "✅ Installato con successo: $DisplayName ($PackageId)"
+                    $script:Log += "[Winget] ✅ Installato: $PackageId (Exit code: $exitCode)."
+                    return @{ Success = $true; ExitCode = $exitCode }
+                }
+                elseif ($exitCode -eq 1638 -or $exitCode -eq 3010) {
+                    # Common codes for "already installed" or "reboot needed"
+                    Write-StyledMessage 'Success' "✅ Installazione di $DisplayName ($PackageId) completata (già installato o richiede riavvio, codice: $exitCode)."
+                    $script:Log += "[Winget] ✅ Installato/Ignorato: $PackageId (Exit code: $exitCode)."
+                    return @{ Success = $true; ExitCode = $exitCode }
+                }
+                else {
+                    Write-StyledMessage 'Error' "❌ Errore durante l'installazione di $DisplayName ($PackageId). Codice di uscita: $exitCode"
+                    $script:Log += "[Winget] ❌ Errore installazione: $PackageId (Exit code: $exitCode)."
+                    return @{ Success = $false; ExitCode = $exitCode }
+                }
+            }
+            catch {
+                Clear-ProgressLine
+                Write-StyledMessage 'Error' "❌ Eccezione durante l'installazione di $DisplayName ($PackageId): $($_.Exception.Message)"
+                $script:Log += "[Winget] ❌ Eccezione: $PackageId - $($_.Exception.Message)."
+                return @{ Success = $false; ExitCode = -1 }
+            }
+        }
+        Write-Host "`r$(' ' * 120)" -NoNewline
+        Write-Host "`r" -NoNewline
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
@@ -131,7 +195,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 19)'
+            '       Version 2.4.0 (Build 20)'
         )
 
         foreach ($line in $asciiArt) {
@@ -218,36 +282,10 @@ function GamingToolkit {
     $totalPackages = $packagesToInstall_Runtimes.Count
     for ($i = 0; $i -lt $totalPackages; $i++) {
         $package = $packagesToInstall_Runtimes[$i]
-        $percentage = [int](($i / $totalPackages) * 100)
-
-        Write-Progress -Activity "Installazione pacchetti Winget" -Status "Installazione: $package" -PercentComplete $percentage
-
-        Write-StyledMessage 'Info' "🎯 Tentativo di installazione: $package"
-        if (Test-WingetPackageAvailable $package) {
-            try {
-                winget install --id "$package" --silent --accept-package-agreements --accept-source-agreements | Out-Null
-                if ($LASTEXITCODE -eq 0) {
-                    Write-StyledMessage 'Success' "Installato con successo: $package"
-                }
-                elseif ($LASTEXITCODE -eq -1073741819 -or $LASTEXITCODE -eq -1978335189) {
-                    Write-StyledMessage 'Warning' "Installazione di $package terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
-                }
-                else {
-                    Write-StyledMessage 'Error' "Errore durante l'installazione di $package. Codice di uscita: $LASTEXITCODE"
-                }
-            }
-            catch {
-                Write-StyledMessage 'Error' "Eccezione durante l'installazione di $package"
-                Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
-            }
-        }
-        else {
-            Write-StyledMessage 'Warning' "Pacchetto $package non disponibile in Winget. Saltando."
-        }
-        Write-Host ''
+        Invoke-WingetInstallWithProgress $package $package ($i + 1) $totalPackages
+        Write-Host '' # Add a newline after each package for better readability
     }
-    Write-Progress -Activity "Installazione pacchetti Winget" -Status "Completato" -PercentComplete 100 -Completed
-    Write-StyledMessage 'Success' 'Installazione runtime .NET e Visual C++ Redistributables completata.'
+    Write-StyledMessage 'Success' '✅ Installazione runtime .NET e Visual C++ Redistributables completata.'
     Write-Host ''
 
     # Step 4: Scarica ed installa DirectX End-User Runtime
@@ -255,29 +293,69 @@ function GamingToolkit {
     $dxTempDir = "$env:LOCALAPPDATA\WinToolkit\Directx"
     if (-not (Test-Path $dxTempDir)) {
         New-Item -Path $dxTempDir -ItemType Directory -Force | Out-Null
+        $script:Log += "[DirectX] ℹ️ Creata directory: $dxTempDir"
     }
     $dxInstallerPath = "$dxTempDir\dxwebsetup.exe"
-    $dxDownloadUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/dxwebsetup.exe'
+    # --- CRITICAL CHANGE: Update URL to /main/asset/ ---
+    $dxDownloadUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe'
 
     Write-StyledMessage 'Info' "⬇️ Download di dxwebsetup.exe in '$dxInstallerPath'..."
     try {
         Invoke-WebRequest -Uri $dxDownloadUrl -OutFile $dxInstallerPath -ErrorAction Stop
-        Write-StyledMessage 'Success' 'Download di dxwebsetup.exe completato.'
+        Write-StyledMessage 'Success' '✅ Download di dxwebsetup.exe completato.'
+        $script:Log += "[DirectX] ✅ Download dxwebsetup.exe completato."
 
-        Write-StyledMessage 'Info' '🚀 Avvio installazione DirectX (silent)...'
-        Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q' -Wait -PassThru -ErrorAction Stop | Out-Null
-        if ($LASTEXITCODE -eq 0) {
-            Write-StyledMessage 'Success' 'Installazione DirectX completata con successo.'
+        Write-StyledMessage 'Info' '🚀 Avvio installazione DirectX (silenziosa)...'
+        $percent = 0; $spinnerIndex = 0; $startTime = Get-Date
+        $timeoutSeconds = 600 # 10 minutes timeout for DirectX installation
+
+        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q' -PassThru -WindowStyle Hidden -ErrorAction Stop # Use Hidden window for truly silent, capture process object
+
+        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
+            $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
+            
+            # Simple progress estimation for installation
+            if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
+            Show-ProgressBar "Installazione DirectX" "In corso... ($elapsed s)" $percent '🎮' $spinner 'Yellow'
+            Start-Sleep -Milliseconds 700
+            $proc.Refresh()
         }
-        elseif ($LASTEXITCODE -eq -1073741819 -or $LASTEXITCODE -eq -1978335189) {
-            Write-StyledMessage 'Warning' "Installazione DirectX terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
+
+        Clear-ProgressLine # Clear the progress line before writing final message
+
+        if (-not $proc.HasExited) {
+            Write-StyledMessage 'Warning' "⚠️ Timeout raggiunto dopo $([math]::Round($timeoutSeconds/60, 0)) minuti. Terminazione installazione DirectX."
+            $proc.Kill()
+            Start-Sleep -Seconds 2
+            $script:Log += "[DirectX] ⚠️ Installazione DirectX interrotta per timeout."
         }
         else {
-            Write-StyledMessage 'Error' "Installazione DirectX terminata con codice di uscita: $LASTEXITCODE."
+            $exitCode = $proc.ExitCode
+            if ($exitCode -eq 0) {
+                Write-StyledMessage 'Success' '✅ Installazione DirectX completata con successo.'
+                $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode)."
+            }
+            elseif ($exitCode -eq 3010) {
+                # Common code for "reboot required"
+                Write-StyledMessage 'Success' "✅ Installazione DirectX completata (richiede riavvio per finalizzare, codice: $exitCode)."
+                $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode, riavvio richiesto)."
+            }
+            elseif ($exitCode -eq 5100) {
+                # Common code for "already installed"
+                Write-StyledMessage 'Success' "✅ DirectX è già installato o una versione più recente è presente (codice: $exitCode)."
+                $script:Log += "[DirectX] ✅ DirectX già installato (Exit code: $exitCode)."
+            }
+            else {
+                Write-StyledMessage 'Error' "❌ Installazione DirectX terminata con codice di uscita non previsto: $exitCode."
+                $script:Log += "[DirectX] ❌ Installazione DirectX fallita (Exit code: $exitCode)."
+            }
         }
     }
     catch {
-        Write-StyledMessage 'Error' "Errore durante il download o l'installazione di DirectX: $($_.Exception.Message)"
+        Clear-ProgressLine
+        Write-StyledMessage 'Error' "❌ Errore durante il download o l'installazione di DirectX: $($_.Exception.Message)"
+        $script:Log += "[DirectX] ❌ Errore critico: $($_.Exception.Message)."
     }
     Write-Host ''
 
@@ -297,35 +375,11 @@ function GamingToolkit {
     $totalClients = $gameClientsToInstall.Count
     for ($i = 0; $i -lt $totalClients; $i++) {
         $client = $gameClientsToInstall[$i]
-        $percentage = [int](($i / $totalClients) * 100)
-
-        Write-Progress -Activity "Installazione client di gioco" -Status "Installazione: $client" -PercentComplete $percentage
-
-        if (Test-WingetPackageAvailable $client) {
-            try {
-                winget install --id "$client" --silent --accept-package-agreements --accept-source-agreements | Out-Null
-                if ($LASTEXITCODE -eq 0) {
-                    Write-StyledMessage 'Success' "Installato con successo: $client"
-                }
-                elseif ($LASTEXITCODE -eq -1073741819 -or $LASTEXITCODE -eq -1978335189) {
-                    Write-StyledMessage 'Warning' "Installazione di $client terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o incompatibile."
-                }
-                else {
-                    Write-StyledMessage 'Warning' "Installazione di $client terminata con codice di uscita: $LASTEXITCODE. Potrebbe essere già installato o aver riscontrato un problema minore."
-                }
-            }
-            catch {
-                Write-StyledMessage 'Error' "Eccezione durante l'installazione di $client"
-                Write-StyledMessage 'Error' "   Dettagli: $($_.Exception.Message)"
-            }
-        }
-        else {
-            Write-StyledMessage 'Warning' "Pacchetto $client non disponibile in Winget. Saltando."
-        }
-        Write-Host ''
+        # Using the package ID as display name for now, or map to friendlier names if preferred.
+        Invoke-WingetInstallWithProgress $client $client ($i + 1) $totalClients
+        Write-Host '' # Add a newline after each client.
     }
-    Write-Progress -Activity "Installazione client di gioco" -Status "Completato" -PercentComplete 100 -Completed
-    Write-StyledMessage 'Success' 'Installazione client di gioco via Winget completata.'
+    Write-StyledMessage 'Success' '✅ Installazione client di gioco via Winget completata.'
     Write-Host ''
 
     # Step 6: Installazione Battle.Net (Download alternativo)
