@@ -5281,7 +5281,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 30)'
+            '       Version 2.4.0 (Build 31)'
         )
 
         foreach ($line in $asciiArt) {
@@ -5411,7 +5411,7 @@ function GamingToolkit {
     $totalPackages = $packagesToInstall_Runtimes.Count
     for ($i = 0; $i -lt $totalPackages; $i++) {
         $package = $packagesToInstall_Runtimes[$i]
-        Invoke-WingetInstallWithProgress $package $package ($i + 1) $totalPackages
+        $null = Invoke-WingetInstallWithProgress $package $package ($i + 1) $totalPackages
         Write-Host '' # Add a newline after each package for better readability
     }
     Write-StyledMessage 'Success' 'Installazione runtime .NET e Visual C++ Redistributables completata.'
@@ -5438,7 +5438,7 @@ function GamingToolkit {
         $timeoutSeconds = 600 # 10 minutes timeout for DirectX installation
 
         # Run DirectX installer silently without /nobing flag
-        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q' -PassThru -WindowStyle Hidden -ErrorAction Stop
+        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/silent' -PassThru -WindowStyle Hidden -Verb RunAs -ErrorAction Stop
 
         while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
             $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
@@ -5474,6 +5474,11 @@ function GamingToolkit {
                 # Common code for "already installed"
                 Write-StyledMessage 'Success' "DirectX è già installato o una versione più recente è presente (codice: $exitCode)."
                 $script:Log += "[DirectX] ✅ DirectX già installato (Exit code: $exitCode)."
+            }
+            elseif ($exitCode -eq -9 -or $exitCode -eq 9) {
+                Write-StyledMessage 'Warning' "DirectX: codice $exitCode - Componenti potrebbero essere già presenti o servono privilegi admin."
+                Write-StyledMessage 'Info' "💡 Suggerimento: Esegui lo script come Amministratore se necessario."
+                $script:Log += "[DirectX] ⚠️ Exit code: $exitCode (non fatale)."
             }
             else {
                 Write-StyledMessage 'Error' "Installazione DirectX terminata con codice di uscita non previsto: $exitCode."
@@ -5601,7 +5606,7 @@ function GamingToolkit {
     for ($i = 0; $i -lt $totalClients; $i++) {
         $client = $gameClientsToInstall[$i]
         # Using the package ID as display name for now, or map to friendlier names if preferred.
-        Invoke-WingetInstallWithProgress $client $client ($i + 1) $totalClients
+        $null = Invoke-WingetInstallWithProgress $client $client ($i + 1) $totalClients
         Write-Host '' # Add a newline after each client.
     }
     Write-StyledMessage 'Success' 'Installazione client di gioco via Winget completata.'
