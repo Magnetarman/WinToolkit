@@ -318,7 +318,7 @@ function GamingToolkit {
         $percent = 0; $spinnerIndex = 0; $startTime = Get-Date
         $timeoutSeconds = 600 # 10 minutes timeout for DirectX installation
 
-        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q' -PassThru -WindowStyle Hidden -ErrorAction Stop # Use Hidden window for truly silent, capture process object
+        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q', '/nobing' -PassThru -WindowStyle Hidden -ErrorAction Stop # Use Hidden window for truly silent, capture process object
 
         while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
             $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
