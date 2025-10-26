@@ -88,7 +88,12 @@
 >
 > **Risoluzione dei Problemi** => **Opzioni Avanzate** => **Impostazioni di Avvio** => **Riavvia** => Al riavvio selezionare **opzione 4 (Riavvia in modalità Provvisoria)**
 >
-> Al caricamento della modalità provvisoria eseguire DDU dalla cartella sul desktop ed eseguire la rimozione completa e sicura dei driver vecchi
+> Al caricamento della modalità provvisoria eseguire DDU dalla cartella sul desktop ed eseguire la rimozione completa e sicura dei driver vecchi.
+
+- **Gaming Toolkit**:
+
+> [!WARNING]
+> A causa dell'installazione non completa di Winget nei sistemi precedenti a Windows 11 23H2 lo script consiglierà di effettuare la funzione riparazione Winget e poi procederà in modo da avere funzionalità Massime. Per Windows 11 superiori a 23H2 lo script verrà eseguito normalmente.
 
 - **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico.
 
