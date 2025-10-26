@@ -169,7 +169,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 27)'
+            '       Version 2.4.0 (Build 30)'
         )
 
         foreach ($line in $asciiArt) {
@@ -325,7 +325,8 @@ function GamingToolkit {
         $percent = 0; $spinnerIndex = 0; $startTime = Get-Date
         $timeoutSeconds = 600 # 10 minutes timeout for DirectX installation
 
-        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q' -PassThru -WindowStyle Hidden -ErrorAction Stop # Use Hidden window for truly silent, capture process object
+        # Run DirectX installer silently without /nobing flag
+        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q' -PassThru -WindowStyle Hidden -ErrorAction Stop
 
         while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
             $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
@@ -348,9 +349,6 @@ function GamingToolkit {
         }
         else {
             $exitCode = $proc.ExitCode
-            # Cleanup temporary log files
-            Remove-Item "$env:TEMP\winget_stdout_$PackageId.log" -ErrorAction SilentlyContinue
-            Remove-Item "$env:TEMP\winget_stderr_$PackageId.log" -ErrorAction SilentlyContinue
             if ($exitCode -eq 0) {
                 Write-StyledMessage 'Success' 'Installazione DirectX completata con successo.'
                 $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode)."
@@ -371,78 +369,101 @@ function GamingToolkit {
             }
         }
 
-        # Uninstall Bing Toolbar
-        Write-StyledMessage 'Info' '🧹 Disinstallazione Bing Toolbar...'
+        # Uninstall Bing Toolbar if present
+        Write-StyledMessage 'Info' '🧹 Verifica e rimozione Bing Toolbar (se installata)...'
         try {
-            $bingProducts = Get-WmiObject -Class Win32_Product -Filter "Name like '%Bing%'"
-            $removedCount = 0
-            foreach ($product in $bingProducts) {
-                Write-StyledMessage 'Info' "Rimuovendo prodotto Bing: $($product.Name)"
-                $product.Uninstall() | Out-Null
-                $removedCount++
-                Write-StyledMessage 'Success' "Rimosso $($product.Name)"
-                $script:Log += "[DirectX] ✅ Rimosso prodotto Bing: $($product.Name)"
+            $bingProducts = Get-WmiObject -Class Win32_Product -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Bing*" }
+            
+            if ($bingProducts) {
+                foreach ($product in $bingProducts) {
+                    Write-StyledMessage 'Info' "🗑️ Disinstallazione di: $($product.Name)..."
+                    $uninstallResult = $product.Uninstall()
+                    if ($uninstallResult.ReturnValue -eq 0) {
+                        Write-StyledMessage 'Success' "Bing Toolbar '$($product.Name)' disinstallata con successo."
+                        $script:Log += "[DirectX] ✅ Bing Toolbar disinstallata: $($product.Name)."
+                    }
+                    else {
+                        Write-StyledMessage 'Warning' "Codice di ritorno disinstallazione: $($uninstallResult.ReturnValue) per '$($product.Name)'."
+                        $script:Log += "[DirectX] ⚠️ Disinstallazione Bing Toolbar parziale: $($product.Name) (Codice: $($uninstallResult.ReturnValue))."
+                    }
+                }
             }
-            if ($removedCount -eq 0) {
-                Write-StyledMessage 'Info' 'Nessun prodotto Bing trovato da rimuovere.'
+            else {
+                Write-StyledMessage 'Info' '💭 Nessuna Bing Toolbar trovata (non necessaria rimozione).'
+                $script:Log += "[DirectX] ℹ️ Nessuna Bing Toolbar rilevata."
             }
+
+            # Clean up Bing registry keys
+            Write-StyledMessage 'Info' '🧹 Pulizia chiavi di registro Bing residue...'
+            $bingRegPaths = @(
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
+                "HKCU:\Software\Microsoft\Internet Explorer\Toolbar\*Bing*",
+                "HKLM:\SOFTWARE\Microsoft\Internet Explorer\Toolbar\*Bing*"
+            )
+
+            $removedKeys = 0
+            foreach ($regPath in $bingRegPaths) {
+                $keys = Get-Item -Path $regPath -ErrorAction SilentlyContinue
+                if ($keys) {
+                    foreach ($key in $keys) {
+                        try {
+                            Remove-Item -Path $key.PSPath -Recurse -Force -ErrorAction Stop
+                            $removedKeys++
+                            $script:Log += "[DirectX] ✅ Rimossa chiave registro: $($key.PSPath)."
+                        }
+                        catch {
+                            Write-StyledMessage 'Warning' "Impossibile rimuovere chiave registro: $($key.PSPath) - $($_.Exception.Message)"
+                            $script:Log += "[DirectX] ⚠️ Errore rimozione chiave registro: $($key.PSPath)."
+                        }
+                    }
+                }
+            }
+
+            if ($removedKeys -gt 0) {
+                Write-StyledMessage 'Success' "Rimosse $removedKeys chiavi di registro Bing."
+            }
+            else {
+                Write-StyledMessage 'Info' '💭 Nessuna chiave di registro Bing trovata.'
+            }
+
+            # Clean up temporary Bing files
+            Write-StyledMessage 'Info' '🧹 Pulizia file temporanei Bing...'
+            $tempBingPaths = @(
+                "$env:TEMP\*Bing*",
+                "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*Bing*"
+            )
+
+            $removedFiles = 0
+            foreach ($tempPath in $tempBingPaths) {
+                $files = Get-ChildItem -Path $tempPath -ErrorAction SilentlyContinue
+                if ($files) {
+                    foreach ($file in $files) {
+                        try {
+                            Remove-Item -Path $file.FullName -Recurse -Force -ErrorAction Stop
+                            $removedFiles++
+                        }
+                        catch {
+                            # Silently continue if files are in use
+                        }
+                    }
+                }
+            }
+
+            if ($removedFiles -gt 0) {
+                Write-StyledMessage 'Success' "Rimossi $removedFiles file/cartelle temporanee Bing."
+                $script:Log += "[DirectX] ✅ Puliti $removedFiles file temporanei Bing."
+            }
+            else {
+                Write-StyledMessage 'Info' '💭 Nessun file temporaneo Bing trovato.'
+            }
+
+            Write-StyledMessage 'Success' 'Pulizia Bing Toolbar completata.'
         }
         catch {
-            Write-StyledMessage 'Error' "Errore durante la rimozione dei prodotti Bing: $($_.Exception.Message)"
-            $script:Log += "[DirectX] ❌ Errore rimozione Bing: $($_.Exception.Message)"
+            Write-StyledMessage 'Warning' "Errore durante la rimozione Bing Toolbar: $($_.Exception.Message)"
+            $script:Log += "[DirectX] ⚠️ Errore pulizia Bing: $($_.Exception.Message)."
         }
-
-        # Pulizia chiavi di registro Bing
-        Write-StyledMessage 'Info' '🧹 Pulizia chiavi di registro Bing...'
-        $regPaths = @(
-            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
-        )
-        $removedKeysCount = 0
-        foreach ($path in $regPaths) {
-            try {
-                $keys = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | Where-Object { $_.GetValue('DisplayName') -like '*Bing*' -or $_.GetValue('DisplayName') -like '*Toolbar*' }
-                foreach ($key in $keys) {
-                    Remove-Item -Path $key.PSPath -Force -Recurse -ErrorAction SilentlyContinue
-                    Write-StyledMessage 'Success' "Rimosso chiave di registro: $($key.PSPath)"
-                    $removedKeysCount++
-                    $script:Log += "[DirectX] ✅ Rimosso chiave registro: $($key.PSPath)"
-                }
-            }
-            catch {
-                Write-StyledMessage 'Error' "Errore durante la pulizia delle chiavi di registro in '$path': $($_.Exception.Message)"
-            }
-        }
-        if ($removedKeysCount -eq 0) {
-            Write-StyledMessage 'Info' 'Nessuna chiave di registro Bing trovata da rimuovere.'
-        }
-
-        # Pulizia file temporanei Bing
-        Write-StyledMessage 'Info' '🧹 Pulizia file temporanei Bing...'
-        $tempPaths = @(
-            $env:TEMP,
-            "$env:LOCALAPPDATA\Microsoft\Windows\INetCache"
-        )
-        $removedFilesCount = 0
-        foreach ($path in $tempPaths) {
-            try {
-                $files = Get-ChildItem -Path $path -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*Bing*' -or $_.Name -like '*Toolbar*' }
-                foreach ($file in $files) {
-                    Remove-Item -Path $file.FullName -Force -ErrorAction SilentlyContinue
-                    Write-StyledMessage 'Success' "Rimosso file: $($file.FullName)"
-                    $removedFilesCount++
-                    $script:Log += "[DirectX] ✅ Rimosso file: $($file.FullName)"
-                }
-            }
-            catch {
-                Write-StyledMessage 'Error' "Errore durante la pulizia dei file in '$path': $($_.Exception.Message)"
-            }
-        }
-        if ($removedFilesCount -eq 0) {
-            Write-StyledMessage 'Info' 'Nessun file temporaneo Bing trovato da rimuovere.'
-        }
-
-        Write-StyledMessage 'Success' 'Pulizia Bing completata. Totale rimosso: $removedKeysCount chiavi, $removedFilesCount file.'
     }
     catch {
         Clear-ProgressLine
