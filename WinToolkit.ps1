@@ -5130,14 +5130,21 @@ function GamingToolkit {
 
     # OS Version Check
     $osInfo = Get-ComputerInfo
-    $isWindows11 = $osInfo.WindowsProductName -like "*Windows 11*"
+    # $isWindows11 = $osInfo.WindowsProductName -like "*Windows 11*" # <-- REMOVE OR COMMENT OUT THIS LINE
     $buildNumber = $osInfo.OsBuildNumber
 
-    if (-not $isWindows11 -or ($isWindows11 -and $buildNumber -lt 22631)) {
-        if ($isWindows11) {
+    # New OS Classification Variables for robust detection
+    $isWindows11BuildRange = ($buildNumber -ge 22000) # True for all Windows 11 builds (build 22000 and higher)
+    $isWindows11Pre23H2 = $isWindows11BuildRange -and ($buildNumber -lt 22631) # True for Windows 11 builds older than 23H2 (e.g., 21H2, 22H2)
+    $isWindows10OrOlder = -not $isWindows11BuildRange # True for any build less than 22000 (i.e., Windows 10 or earlier)
+
+    if ($isWindows10OrOlder -or $isWindows11Pre23H2) {
+        if ($isWindows11Pre23H2) {
+            # If it's Windows 11, but older than 23H2
             $message = "Rilevato Windows 11 <23H2. In queste versioni di Windows a causa di Winget non completamente funzionante potresti non riuscire a far funzionare questa sezione dello script. Posso eseguire prima la funzione Winget/WinStore Reset e poi continuare ?"
         }
         else {
+            # This path implicitly means $isWindows10OrOlder is true
             $message = "Rilevato Windows 10 o versione precedente. In queste versioni di Windows a causa di Winget non completamente funzionante potresti non riuscire a far funzionare questa sezione dello script. Posso eseguire prima la funzione Winget/WinStore Reset e poi continuare ?"
         }
         Write-Host $message -ForegroundColor Yellow
@@ -5146,10 +5153,7 @@ function GamingToolkit {
             # Call the function
             WinReinstallStore
         }
-        else {
-            return
-        }
-        GamingToolkit
+        # If 'No', proceed with the script anyway
     }
 
     $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
@@ -5247,7 +5251,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 16)'
+            '       Version 2.4.0 (Build 17)'
         )
 
         foreach ($line in $asciiArt) {
