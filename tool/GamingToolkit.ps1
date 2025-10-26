@@ -21,8 +21,13 @@ function GamingToolkit {
     $isWindows11 = $osInfo.WindowsProductName -like "*Windows 11*"
     $buildNumber = $osInfo.OsBuildNumber
 
-    if ($isWindows11 -and $buildNumber -lt 22631) {
-        $message = "Rilevato Windows 11 <23H2. In queste versioni di Windows a causa di Winget non completamente funzionante potresti non riuscire a far funzionare questa sezione dello script. Posso eseguire prima la funzione Winget/WinStore Reset e poi continuare ?"
+    if (-not $isWindows11 -or ($isWindows11 -and $buildNumber -lt 22631)) {
+        if ($isWindows11) {
+            $message = "Rilevato Windows 11 <23H2. In queste versioni di Windows a causa di Winget non completamente funzionante potresti non riuscire a far funzionare questa sezione dello script. Posso eseguire prima la funzione Winget/WinStore Reset e poi continuare ?"
+        }
+        else {
+            $message = "Rilevato Windows 10 o versione precedente. In queste versioni di Windows a causa di Winget non completamente funzionante potresti non riuscire a far funzionare questa sezione dello script. Posso eseguire prima la funzione Winget/WinStore Reset e poi continuare ?"
+        }
         Write-Host $message -ForegroundColor Yellow
         $response = Read-Host "Si/No"
         if ($response -eq 'Si' -or $response -eq 'si') {
@@ -130,7 +135,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 13)'
+            '       Version 2.4.0 (Build 14)'
         )
 
         foreach ($line in $asciiArt) {
@@ -462,7 +467,7 @@ function GamingToolkit {
     # Step 9: Attivazione Profilo Non Disturbare (Focus Assist)
     Write-StyledMessage 'Info' '🔕 Attivazione profilo "Non disturbare" (Focus Assist)...'
     $regPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings"
-    $propName = "NOC_GLOBAL_SETTING_SUPPRESSION_ACTIVE"
+    $propName = "NOC_GLOBAL_SETTING_SUPPRESSION"
     try {
         Set-ItemProperty -Path $regPath -Name $propName -Value 1 -Force -ErrorAction Stop
         Write-StyledMessage 'Success' 'Profilo "Non disturbare" attivato.'
