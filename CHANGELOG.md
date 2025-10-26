@@ -67,6 +67,22 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
+## [2.4.0] (Pixel Debh Part II) - 2025-10-26 (#19)
+
+### Aggiunte
+
+- Funzione **Gaming Toolkit** Completa.
+- Aggiunto ScreenShot del Gaming Toolkit al `Readme.md`.
+
+### Correzioni
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+- Aggiunto Messaggio di Avviso per l'utilizzo del Gaming Toolkit. A causa dell'installazione non completa di Winget nei sistemi precedenti a Windows 11 23H2 lo script consiglierà di effettuare la funzione riparazione Winget e poi procedere in modo da avere funzionalità Massime. Per Windows 11 superiori a 23H2 lo script verrà eseguito normalmente.
+
+---
+
 ## [2.3.0] (Pixel Debh Part I) - 2025-10-18 (#18)
 
 ### Aggiunte
