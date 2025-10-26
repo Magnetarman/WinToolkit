@@ -12,13 +12,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Aggiunte
 
-- **Funzione Gaming Ready (`V2.4`):**
-  - Installazione client di gioco (Amazon, Gog Galaxy, Epic Games,
-    Steam).
-  - Installazione di Playnite e applicazione di un tema
-    personalizzato.
-  - Installazione/Aggiornamento di Directx.
-  - Installazione/Aggiornamento di Microsoft C++ Package.
 - **Funzione Auto Debloat (`V2.5`):**
   - Avvio dello script Chris con configurazione personalizzata
     (`iwr -useb https://christitus.com/win | iex`).
@@ -49,7 +42,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Installazione .NET Runtime (dalla 4.8 alla 9.0).
   - Installazione Microsoft C++ Package.
   - Installazione/Aggiornamento Directx.
-  - Installazione Playnite (Lancher/Aggregatore).
+  - Installazione Playnite (Launcher/Aggregatore).
   - Installazione Revo Uninstaller.
   - Installazione Tree Size.
   - Installazione Glary Utilities.
@@ -72,6 +65,12 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Aggiunte
 
 - Funzione **Gaming Toolkit** Completa.
+  - Attivazione .Net Framework (3, 4 e 4.8)
+  - Installazione Tramite Winget dei Net Framework (5, 6, 7, 8, 9)
+  - Installazione/Aggiornamento di Microsoft C++ Package.
+  - Installazione/Aggiornamento di Directx.
+  - Installazione client di gioco (Amazon Games, Gog Galaxy, Epic Games, Steam).
+  - Installazione di Playnite.
 - Aggiunto ScreenShot del Gaming Toolkit al `Readme.md`.
 
 ### Correzioni
@@ -79,7 +78,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
-- Aggiunto Messaggio di Avviso per l'utilizzo del Gaming Toolkit. A causa dell'installazione non completa di Winget nei sistemi precedenti a Windows 11 23H2 lo script consiglierà di effettuare la funzione riparazione Winget e poi procedere in modo da avere funzionalità Massime. Per Windows 11 superiori a 23H2 lo script verrà eseguito normalmente.
+- **Aggiunto Messaggio di Avviso per l'utilizzo del Gaming Toolkit**. A causa dell'installazione non completa di Winget nei sistemi precedenti a Windows 11 23H2 lo script consiglierà di effettuare la funzione riparazione Winget e poi procedere in modo da avere funzionalità Massime. Per Windows 11 superiori a 23H2 lo script verrà eseguito normalmente.
 
 ---
 
