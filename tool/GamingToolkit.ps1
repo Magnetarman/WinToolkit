@@ -135,7 +135,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 14)'
+            '       Version 2.4.0 (Build 16)'
         )
 
         foreach ($line in $asciiArt) {
@@ -396,42 +396,55 @@ function GamingToolkit {
     }
     Write-Host ''
 
-    # Step 7: Pulizia Collegamenti Avvio Automatico Launcher
-    Write-StyledMessage 'Info' '🧹 Rimozione collegamenti di avvio automatico per i launcher di gioco...'
-    $startupFolders = @(
-        "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup",
-        "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
-    )
-    $launchersToClean = @(
-        'Amazon Games', 'GOG Galaxy', 'EpicGamesLauncher', 'EADesktop', 'Playnite', 'Steam', 'Ubisoft Connect', 'Battle.net'
-    )
+    # Step 7: Pulizia Chiavi di Avvio Automatico nel Registro e Collegamenti Startup
+    Write-StyledMessage 'Info' '🧹 Rimozione chiavi di avvio automatico nel registro per i launcher di gioco...'
+    $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    $regKeysToClean = @('Steam', 'Battle.net', 'GOG Galaxy')
 
-    foreach ($folder in $startupFolders) {
-        if (Test-Path $folder) {
-            Write-StyledMessage 'Info' "🔍 Ricerca in: $folder"
-            foreach ($launcher in $launchersToClean) {
-                $linkPaths = Get-ChildItem -Path $folder -Filter "$launcher*.lnk" -ErrorAction SilentlyContinue
-                if ($linkPaths) {
-                    foreach ($link in $linkPaths) {
-                        try {
-                            Remove-Item -Path $link.FullName -Force -ErrorAction Stop
-                            Write-StyledMessage 'Success' "Rimosso collegamento di avvio per '$launcher': $($link.FullName)"
-                        }
-                        catch {
-                            Write-StyledMessage 'Error' "Errore durante la rimozione del collegamento per '$launcher' in '$folder': $($_.Exception.Message)"
-                        }
-                    }
+    foreach ($keyName in $regKeysToClean) {
+        try {
+            if (Test-Path -Path $runKey -ErrorAction SilentlyContinue) {
+                # Check if the property exists before attempting to remove it
+                if (Get-ItemProperty -Path $runKey -Name $keyName -ErrorAction SilentlyContinue) {
+                    Remove-ItemProperty -Path $runKey -Name $keyName -ErrorAction Stop
+                    Write-StyledMessage 'Success' "Rimosso chiave di avvio automatico per '$keyName' dal registro."
                 }
                 else {
-                    Write-StyledMessage 'Info' "💭 Nessun collegamento trovato per '$launcher' in '$folder'."
+                    Write-StyledMessage 'Info' "💭 Chiave di avvio automatico per '$keyName' non trovata nel registro (non necessaria rimozione)."
                 }
             }
+            else {
+                Write-StyledMessage 'Warning' "Percorso del registro '$runKey' non trovato."
+            }
         }
-        else {
-            Write-StyledMessage 'Warning' "Cartella di avvio non trovata: $folder"
+        catch {
+            Write-StyledMessage 'Error' "Errore durante la rimozione della chiave di registro per '$keyName': $($_.Exception.Message)"
         }
     }
-    Write-StyledMessage 'Success' 'Pulizia collegamenti di avvio automatico completata.'
+    Write-Host ''
+
+    Write-StyledMessage 'Info' '🧹 Rimozione collegamenti di avvio automatico dalla cartella Startup per i launcher di gioco...'
+    $startupPath = [Environment]::GetFolderPath('Startup')
+    $linkNamesToClean = @('Steam.lnk', 'Battle.net.lnk', 'GOG Galaxy.lnk')
+
+    foreach ($linkName in $linkNamesToClean) {
+        $fullPath = Join-Path -Path $startupPath -ChildPath $linkName
+        try {
+            if (Test-Path -Path $fullPath -PathType Leaf -ErrorAction SilentlyContinue) {
+                Remove-Item -Path $fullPath -Force -ErrorAction Stop
+                Write-StyledMessage 'Success' "Rimosso collegamento di avvio automatico per '$linkName' dalla cartella Startup."
+            }
+            else {
+                Write-StyledMessage 'Info' "💭 Collegamento di avvio automatico per '$linkName' non trovato nella cartella Startup (non necessaria rimozione)."
+            }
+        }
+        catch {
+            Write-StyledMessage 'Error' "Errore durante la rimozione del collegamento per '$linkName': $($_.Exception.Message)"
+        }
+    }
+    Write-Host ''
+
+    Write-StyledMessage 'Success' 'Pulizia chiavi e collegamenti di avvio automatico completata.'
     Write-Host ''
 
     # Step 8: Abilitazione Profilo Energetico Massimo
