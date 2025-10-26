@@ -74,7 +74,7 @@ function GamingToolkit {
         }
 
         try {
-            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -ErrorAction Stop -RedirectStandardOutput $null -RedirectStandardError $null
+            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -ErrorAction Stop
 
             while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
@@ -162,7 +162,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 24)'
+            '       Version 2.4.0 (Build 25)'
         )
 
         foreach ($line in $asciiArt) {
