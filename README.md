@@ -90,7 +90,7 @@
 >
 > Al caricamento della modalità provvisoria eseguire DDU dalla cartella sul desktop ed eseguire la rimozione completa e sicura dei driver vecchi.
 
-- **Gaming Toolkit**:
+- **Gaming Toolkit**: Progettato per ottimizzare rapidamente il tuo PC Windows per le massime prestazioni di gioco. Si occupa di installare tutti i componenti essenziali (come DirectX, .NET e Visual C++ redistributables), installa i client di gioco più comuni (Steam, Epic, GOG, ecc.), attiva il profilo energetico 'Performance Massime' e disattiva le interruzioni con la modalità "Non disturbare". Essenzialmente, prepara il tuo sistema per giocare senza distrazioni e con la massima potenza.
 
 > [!WARNING]
 > A causa dell'installazione non completa di Winget nei sistemi precedenti a Windows 11 23H2 lo script consiglierà di effettuare la funzione riparazione Winget e poi procederà in modo da avere funzionalità Massime. Per Windows 11 superiori a 23H2 lo script verrà eseguito normalmente.
@@ -117,13 +117,14 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 └── WinToolkit/
     └── asset
         ├── AMD-Autodetect.exe
-        ├── Setup.exe
-        ├── NVCleanstall_1.19.0.exe
-        ├── DDU-18.1.3.5.zip
         ├── Basic.xml
+        ├── DDU-18.1.3.5.zip
+        ├── dxwebsetup.exe
+        ├── NVCleanstall_1.19.0.exe
+        ├── RustDesk.toml
         ├── RustDesk_local.toml
         ├── RustDesk2.toml
-        ├── RustDesk.toml
+        ├── Setup.exe
         ├── png (Cartella icone GUI)
     └── img
         ├── Driver-Install.jpg
@@ -132,7 +133,9 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
         ├── Gui-Mode.jpg
         ├── OfficeToolkit.jpg
         ├── RepairToolkit.jpg
+        ├── RepairToolkit-old.jpg
         ├── Run.jpg
+        ├── Run-old.jpg
         ├── SetRustDesk.jpg
         ├── Starter.jpg
         ├── StoreRepair.jpg
@@ -243,11 +246,6 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 ## 📌 Changelog Progetto
 
 Per un resoconto dettagliato di ogni modifica, correzione e funzionalità introdotta, consulta il changelog completo a [QUI](/CHANGELOG.md).
-
-## 🕹️ TO DO
-
-- [ ] Download immagine di Windows 23H2 Microwin
-  - [ ] Posizionamento nella cartella download, pronta per essere utilizzata
 
 ---
 
