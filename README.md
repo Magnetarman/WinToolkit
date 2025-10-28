@@ -42,13 +42,13 @@
 
 <div align="center">
 
-|                                                                            |                                                                      |
-| :------------------------------------------------------------------------: | :------------------------------------------------------------------: |
-|        <img src="img/Starter.jpg" alt="Starter-banner" width="800">        |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
-|  <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800">  | <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800"> |
-|    <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800">    |  <img src="img/WinCleaner.jpg" alt="WinCleaner-banner" width="800">  |
-|  <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800">  | <img src="img/SetRustDesk.jpg" alt="SetRustDesk-banner" width="800"> |
-| <img src="img/Driver-Install.jpg" alt="Driver-Install-banner" width="800"> |                                                                      |
+|                                                                            |                                                                           |
+| :------------------------------------------------------------------------: | :-----------------------------------------------------------------------: |
+|        <img src="img/Starter.jpg" alt="Starter-banner" width="800">        |           <img src="img/Run.jpg" alt="Run-banner" width="800">            |
+|  <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800">  |   <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800">    |
+|    <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800">    |    <img src="img/WinCleaner.jpg" alt="WinCleaner-banner" width="800">     |
+|  <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800">  |   <img src="img/SetRustDesk.jpg" alt="SetRustDesk-banner" width="800">    |
+| <img src="img/Driver-Install.jpg" alt="Driver-Install-banner" width="800"> | <img src="img/GamingToolkit.jpg" alt="Gaming-Toolkit-banner" width="800"> |
 
 </div>
 
@@ -128,6 +128,7 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
         ├── png (Cartella icone GUI)
     └── img
         ├── Driver-Install.jpg
+        ├── GamingToolkit.jpg
         ├── Gui-After.jpg
         ├── Gui-Before.jpg
         ├── Gui-Mode.jpg
