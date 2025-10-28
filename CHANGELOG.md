@@ -33,6 +33,10 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Implementazione Download ISO Ufficiale di Windows 8.1
   - Implementazione Download ISO Ufficiale di Windows 7 SP1
   - Implementazione Download ISO Ufficiale di Windows XP SP3
+- **Funzione WinDownloader+ (`V2.9`):**
+  - Potenziamento Funzione WinDownloader
+  - Download Automatico di Rufus
+  - Creazione di dispositivo USB Bootable
 - **MagnetarMan Mode (`V3.0`):**
   - Avvio Script Chris con configurazione personalizzata.
   - Installazione programmi: Brave Browser, Google Chrome,
