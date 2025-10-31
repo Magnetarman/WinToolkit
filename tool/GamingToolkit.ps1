@@ -105,8 +105,8 @@ function GamingToolkit {
                 $script:Log += "[Winget] ✅ Installato: $PackageId (Exit code: $exitCode)."
                 return @{ Success = $true; ExitCode = $exitCode }
             }
-            elseif ($exitCode -eq 1638 -or $exitCode -eq 3010) {
-                # Common codes for "already installed" or "reboot needed"
+            elseif ($exitCode -eq 1638 -or $exitCode -eq 3010 -or $exitCode -eq -1978335189) {
+                # Common codes for "already installed", "reboot needed", or "app already present and correctly installed"
                 Write-StyledMessage 'Success' "Installazione di $DisplayName ($PackageId) completata (già installato o richiede riavvio, codice: $exitCode)."
                 $script:Log += "[Winget] ✅ Installato/Ignorato: $PackageId (Exit code: $exitCode)."
                 return @{ Success = $true; ExitCode = $exitCode }
@@ -367,6 +367,10 @@ function GamingToolkit {
                 Write-StyledMessage 'Warning' "DirectX: codice $exitCode - Componenti potrebbero essere già presenti o servono privilegi admin."
                 Write-StyledMessage 'Info' "💡 Suggerimento: Esegui lo script come Amministratore se necessario."
                 $script:Log += "[DirectX] ⚠️ Exit code: $exitCode (non fatale)."
+            }
+            elseif ($exitCode -eq -1442840576) {
+                Write-StyledMessage 'Success' "Installazione DirectX completata (codice: $exitCode, considerato come successo)."
+                $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode, soppresso)."
             }
             else {
                 Write-StyledMessage 'Error' "Installazione DirectX terminata con codice di uscita non previsto: $exitCode."
@@ -632,10 +636,10 @@ function GamingToolkit {
 
     # Step 9: Attivazione Profilo Non Disturbare (Focus Assist)
     Write-StyledMessage 'Info' '🔕 Attivazione profilo "Non disturbare" (Focus Assist)...'
-    $regPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings"
-    $propName = "NOC_GLOBAL_SETTING_SUPPRESSION"
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings"
+    $propName = "NOC_GLOBAL_SETTING_TOASTS_ENABLED"
     try {
-        Set-ItemProperty -Path $regPath -Name $propName -Value 1 -Force -ErrorAction Stop
+        Set-ItemProperty -Path $regPath -Name $propName -Value 0 -Force -ErrorAction Stop
         Write-StyledMessage 'Success' 'Profilo "Non disturbare" attivato.'
     }
     catch {
