@@ -2,20 +2,13 @@ function GamingToolkit {
     <#
     .SYNOPSIS
         Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
-
     .DESCRIPTION
-        Script completo per ottimizzare le prestazioni del sistema per il gaming:
-        - Abilitazione funzionalità NetFramework
-        - Installazione runtime .NET e Visual C++ Redistributables
-        - Installazione DirectX End-User Runtime
-        - Installazione client di gioco tramite Winget
-        - Configurazione profilo energetico Performance Massime
-        - Attivazione profilo Non disturbare (Focus Assist)
-        - Pulizia collegamenti avvio automatico launcher
+        Script completo per ottimizzare le prestazioni del sistema per il gaming
     #>
 
     param([int]$CountdownSeconds = 30)
 
+    # Configurazione globale
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
@@ -23,136 +16,114 @@ function GamingToolkit {
         Error   = @{ Color = 'Red'; Icon = '❌' }
         Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
+    $script:Log = @()
 
+    # Funzioni helper unificate
     function Write-StyledMessage([string]$Type, [string]$Text) {
         $style = $MsgStyles[$Type]
         Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
-
-        # Log dettagliato per operazioni importanti
         if ($Type -in @('Info', 'Warning', 'Error', 'Success')) {
-            $timestamp = Get-Date -Format "HH:mm:ss"
-            $logEntry = "[$timestamp] [$Type] $Text"
-            $script:Log += $logEntry
-        }
-    }
-
-    function Test-WingetPackageAvailable {
-        param([string]$PackageId)
-        try {
-            $searchResult = winget search $PackageId 2>&1
-            return $LASTEXITCODE -eq 0 -and $searchResult -match $PackageId
-        }
-        catch {
-            return $false
+            $script:Log += "[$(Get-Date -Format 'HH:mm:ss')] [$Type] $Text"
         }
     }
 
     function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
         $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
         $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-        $empty = '▒' * (30 - $filled.Length)
-        $bar = "[$filled$empty] {0,3}%" -f $safePercent
-        Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
+        $empty = '░' * (30 - $filled.Length)
+        Write-Host "`r$Spinner $Icon $Activity [$filled$empty] $safePercent% $Status" -NoNewline -ForegroundColor $Color
         if ($Percent -eq 100) { Write-Host '' }
     }
+
     function Clear-ProgressLine {
-        Write-Host "`r$(' ' * 120)" -NoNewline
-        Write-Host "`r" -NoNewline
+        Write-Host "`r$(' ' * 120)`r" -NoNewline
+    }
+
+    function Test-WingetPackageAvailable([string]$PackageId) {
+        try {
+            $result = winget search $PackageId 2>&1
+            return $LASTEXITCODE -eq 0 -and $result -match $PackageId
+        }
+        catch { return $false }
     }
 
     function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
-        Write-StyledMessage 'Info' "[$Step/$Total] 📦 Avvio installazione: $DisplayName ($PackageId)..."
-        $spinnerIndex = 0
-        $percent = 0
-        $startTime = Get-Date
-        $timeoutSeconds = 600 # 10 minutes per package installation
-
+        Write-StyledMessage 'Info' "[$Step/$Total] 📦 Installazione: $DisplayName..."
+        
         if (-not (Test-WingetPackageAvailable $PackageId)) {
-            Write-StyledMessage 'Warning' "⚠️ Pacchetto $DisplayName ($PackageId) non disponibile in Winget. Saltando."
-            $script:Log += "[Winget] ⚠️ Pacchetto non disponibile: $PackageId."
-            return @{ Success = $true; Skipped = $true; ExitCode = -1 }
+            Write-StyledMessage 'Warning' "Pacchetto $DisplayName non disponibile. Saltando."
+            return @{ Success = $true; Skipped = $true }
         }
 
         try {
-            # Redirect all winget output to null to prevent interference with progress bar
-            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_stdout_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_stderr_$PackageId.log" -ErrorAction Stop
+            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_err_$PackageId.log"
+            
+            $spinnerIndex = 0
+            $percent = 0
+            $startTime = Get-Date
+            $timeout = 600
 
-            while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
+            while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeout) {
                 $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
-                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 } # Simulate progress
-                Show-ProgressBar $DisplayName "Installazione in corso... ($elapsed s)" $percent '📦' $spinner
+                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
+                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
+                Show-ProgressBar $DisplayName "($elapsed s)" $percent '📦' $spinner
                 Start-Sleep -Milliseconds 700
                 $proc.Refresh()
             }
 
-            Clear-ProgressLine # Clear the progress line before writing final message
+            Clear-ProgressLine
 
             if (-not $proc.HasExited) {
-                Write-StyledMessage 'Warning' "⚠️ Timeout per l'installazione di $DisplayName ($PackageId). Processo terminato."
+                Write-StyledMessage 'Warning' "Timeout per $DisplayName. Terminato."
                 $proc.Kill()
-                Start-Sleep -Seconds 2
-                # Cleanup temporary log files
-                Remove-Item "$env:TEMP\winget_stdout_$PackageId.log" -ErrorAction SilentlyContinue
-                Remove-Item "$env:TEMP\winget_stderr_$PackageId.log" -ErrorAction SilentlyContinue
-                $script:Log += "[Winget] ⚠️ Timeout per l'installazione: $PackageId."
-                return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
+                return @{ Success = $false; TimedOut = $true }
             }
 
             $exitCode = $proc.ExitCode
-            if ($exitCode -eq 0) {
-                Write-StyledMessage 'Success' "Installato con successo: $DisplayName ($PackageId)"
-                $script:Log += "[Winget] ✅ Installato: $PackageId (Exit code: $exitCode)."
-                return @{ Success = $true; ExitCode = $exitCode }
-            }
-            elseif ($exitCode -eq 1638 -or $exitCode -eq 3010 -or $exitCode -eq -1978335189) {
-                # Common codes for "already installed", "reboot needed", or "app already present and correctly installed"
-                Write-StyledMessage 'Success' "Installazione di $DisplayName ($PackageId) completata (già installato o richiede riavvio, codice: $exitCode)."
-                $script:Log += "[Winget] ✅ Installato/Ignorato: $PackageId (Exit code: $exitCode)."
+            $successCodes = @(0, 1638, 3010, -1978335189)
+            
+            if ($exitCode -in $successCodes) {
+                Write-StyledMessage 'Success' "Installato: $DisplayName"
                 return @{ Success = $true; ExitCode = $exitCode }
             }
             else {
-                Write-StyledMessage 'Error' "Errore durante l'installazione di $DisplayName ($PackageId). Codice di uscita: $exitCode"
-                $script:Log += "[Winget] ❌ Errore installazione: $PackageId (Exit code: $exitCode)."
+                Write-StyledMessage 'Error' "Errore installazione $DisplayName (codice: $exitCode)"
                 return @{ Success = $false; ExitCode = $exitCode }
             }
         }
         catch {
             Clear-ProgressLine
-            Write-StyledMessage 'Error' "Eccezione durante l'installazione di $DisplayName ($PackageId): $($_.Exception.Message)"
-            $script:Log += "[Winget] ❌ Eccezione: $PackageId - $($_.Exception.Message)."
-            # Cleanup temporary log files
-            Remove-Item "$env:TEMP\winget_stdout_$PackageId.log" -ErrorAction SilentlyContinue
-            Remove-Item "$env:TEMP\winget_stderr_$PackageId.log" -ErrorAction SilentlyContinue
-            return @{ Success = $false; ExitCode = -1 }
+            Write-StyledMessage 'Error' "Eccezione $DisplayName: $($_.Exception.Message)"
+            return @{ Success = $false }
+        }
+        finally {
+            Remove-Item "$env:TEMP\winget_$PackageId.log", "$env:TEMP\winget_err_$PackageId.log" -ErrorAction SilentlyContinue
         }
     }
 
     function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-        Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
+        Write-StyledMessage Info '💡 Premi un tasto per annullare...'
         Write-Host ''
 
         for ($i = $Seconds; $i -gt 0; $i--) {
             if ([Console]::KeyAvailable) {
                 [Console]::ReadKey($true) | Out-Null
                 Write-Host "`n"
-                Write-StyledMessage Warning '⏸️ Riavvio automatico annullato'
-                Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
+                Write-StyledMessage Warning '⏸️ Riavvio annullato'
+                Write-StyledMessage Info "Riavvia manualmente: 'shutdown /r /t 0'"
                 return $false
             }
 
             $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
-            $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-
-            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
+            $bar = "[$('█' * $filled)$('░' * (20 - $filled))] $percent%"
+            Write-Host "`r⏰ Riavvio tra $i secondi $bar" -NoNewline -ForegroundColor Red
             Start-Sleep 1
         }
 
         Write-Host "`n"
-        Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
-        Start-Sleep 1
+        Write-StyledMessage Warning 'Riavvio sistema...'
         return $true
     }
 
@@ -160,8 +131,8 @@ function GamingToolkit {
         Clear-Host
         $width = $Host.UI.RawUI.BufferSize.Width
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-
-        $asciiArt = @(
+        
+        @(
             '      __        __  _  _   _ ',
             '      \ \      / / | || \ | |',
             '       \ \ /\ / /  | ||  \| |',
@@ -169,556 +140,307 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 34)'
-        )
-
-        foreach ($line in $asciiArt) {
-            if (-not [string]::IsNullOrEmpty($line)) {
-                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            '       Version 2.4.0 (Build 35)'
+        ) | ForEach-Object {
+            if ($_) {
+                $padding = [Math]::Max(0, [Math]::Floor(($width - $_.Length) / 2))
+                Write-Host (' ' * $padding + $_) -ForegroundColor White
             }
         }
-
+        
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
     }
 
-    function Center-Text {
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$Text,
-            [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
-
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding + $Text)
-    }
-
-    # OS Version Check
+    # Verifica OS e Winget
     $osInfo = Get-ComputerInfo
-    # $isWindows11 = $osInfo.WindowsProductName -like "*Windows 11*" # <-- REMOVE OR COMMENT OUT THIS LINE
     $buildNumber = $osInfo.OsBuildNumber
-
-    # New OS Classification Variables for robust detection
-    $isWindows11BuildRange = ($buildNumber -ge 22000) # True for all Windows 11 builds (build 22000 and higher)
-    $isWindows11Pre23H2 = $isWindows11BuildRange -and ($buildNumber -lt 22631) # True for Windows 11 builds older than 23H2 (e.g., 21H2, 22H2)
-    $isWindows10OrOlder = -not $isWindows11BuildRange # True for any build less than 22000 (i.e., Windows 10 or earlier)
+    $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
 
     if ($isWindows11Pre23H2) {
-        $message = "Rilevata versione obsoleta. A Causa di questo Winget potrebbe non funzionare correttamente impedendo a questo script di funzionare. Scrivi Y se vuoi eseguire la funzione di riparazione in modo da rendere funzionante Winget, altrimenti se lo hai già fatto o se vuoi proseguire scrivi N."
-        Write-StyledMessage 'Warning' $message
-        $response = Read-Host "Y/N"
-        if ($response -eq 'Y' -or $response -eq 'y') {
-            WinReinstallStore
-        }
-        # If 'N' or other, proceed with the script anyway
+        Write-StyledMessage 'Warning' "Versione obsoleta rilevata. Winget potrebbe non funzionare."
+        $response = Read-Host "Eseguire riparazione Winget? (Y/N)"
+        if ($response -match '^[Yy]$') { WinReinstallStore }
     }
 
     $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
 
-    # Setup logging specifico per GamingToolkit
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    # Setup logging
     $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
     try {
-        if (-not (Test-Path -Path $logdir)) {
-            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-        }
-        Start-Transcript -Path "$logdir\GamingToolkit_$dateTime.log" -Append -Force | Out-Null
+        Start-Transcript -Path "$logdir\GamingToolkit_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log" -Append | Out-Null
     }
     catch {}
 
-    $script:Log = @(); $script:CurrentAttempt = 0
-
-    # Add countdown before Show-Header
+    # Countdown preparazione
     for ($i = 5; $i -gt 0; $i--) {
-        $spinner = $spinners[$i % $spinners.Length]
-        Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
+        Write-Host "`r$($spinners[$i % $spinners.Length]) ⏳ Preparazione - $i s..." -NoNewline -ForegroundColor Yellow
         Start-Sleep 1
     }
     Write-Host "`n"
 
     Show-Header
 
-
-    # Step 1: Winget Installation Check
-    Write-StyledMessage 'Info' '🔍 Verifica installazione e funzionalità di Winget...'
+    # Step 1: Verifica Winget
+    Write-StyledMessage 'Info' '🔍 Verifica Winget...'
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-StyledMessage 'Error' 'Winget non è installato o non è accessibile nel PATH.'
-        Write-StyledMessage 'Warning' 'Alcune funzioni di Windows potrebbero non essere funzionanti al 100%.'
-        Write-StyledMessage 'Info' 'Si prega di eseguire lo script di reset dello Store/Winget e riprovare.'
-        Write-Host ''
-        Write-Host "Premi un tasto per tornare al menu principale..." -ForegroundColor Gray
+        Write-StyledMessage 'Error' 'Winget non disponibile.'
+        Write-StyledMessage 'Info' 'Esegui reset Store/Winget e riprova.'
+        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-        return # Exit the function if Winget is not found
+        return
     }
-    Write-StyledMessage 'Success' 'Winget è installato e funzionante.'
+    Write-StyledMessage 'Success' 'Winget funzionante.'
 
-    # Update Winget sources to ensure latest package list
-    Write-StyledMessage 'Info' '🔄 Aggiornamento sorgenti Winget per garantire la disponibilità dei pacchetti...'
+    Write-StyledMessage 'Info' '🔄 Aggiornamento sorgenti Winget...'
     try {
         winget source update | Out-Null
-        Write-StyledMessage 'Success' 'Sorgenti Winget aggiornate.'
+        Write-StyledMessage 'Success' 'Sorgenti aggiornate.'
     }
     catch {
-        Write-StyledMessage 'Warning' "Errore durante l'aggiornamento delle sorgenti Winget: $($_.Exception.Message)"
+        Write-StyledMessage 'Warning' "Errore aggiornamento sorgenti: $($_.Exception.Message)"
     }
     Write-Host ''
 
-    # Step 2: Abilitazione NetFramework dalle funzionalità di Windows
-    Write-StyledMessage 'Info' '🔧 Abilitazione funzionalità NetFramework (NetFx4-AdvSrvs, NetFx3)...'
+    # Step 2: NetFramework
+    Write-StyledMessage 'Info' '🔧 Abilitazione NetFramework...'
     try {
         Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop | Out-Null
-        Write-StyledMessage 'Success' 'Funzionalità NetFramework abilitate con successo.'
+        Write-StyledMessage 'Success' 'NetFramework abilitato.'
     }
     catch {
-        Write-StyledMessage 'Error' "Errore durante l'abilitazione di NetFramework: $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore NetFramework: $($_.Exception.Message)"
     }
     Write-Host ''
 
-
-    # Step 3: Scarica ed installa pacchetti .NET Runtimes e VCRedist via Winget
-    $packagesToInstall_Runtimes = @(
-        "Microsoft.DotNet.DesktopRuntime.3_1",
-        "Microsoft.DotNet.DesktopRuntime.5",
-        "Microsoft.DotNet.DesktopRuntime.6",
-        "Microsoft.DotNet.DesktopRuntime.7",
-        "Microsoft.DotNet.DesktopRuntime.8",
-        "Microsoft.DotNet.DesktopRuntime.9",
-        "Microsoft.VCRedist.2010.x64",
-        "Microsoft.VCRedist.2010.x86",
-        "Microsoft.VCRedist.2012.x64",
-        "Microsoft.VCRedist.2012.x86",
-        "Microsoft.VCRedist.2013.x64",
-        "Microsoft.VCRedist.2013.x86",
-        "Microsoft.VCLibs.Desktop.14",
-        "Microsoft.VCRedist.2015+.x64",
-        "Microsoft.VCRedist.2015+.x86"
+    # Step 3: Runtime e VCRedist
+    $runtimes = @(
+        "Microsoft.DotNet.DesktopRuntime.3_1", "Microsoft.DotNet.DesktopRuntime.5",
+        "Microsoft.DotNet.DesktopRuntime.6", "Microsoft.DotNet.DesktopRuntime.7",
+        "Microsoft.DotNet.DesktopRuntime.8", "Microsoft.DotNet.DesktopRuntime.9",
+        "Microsoft.VCRedist.2010.x64", "Microsoft.VCRedist.2010.x86",
+        "Microsoft.VCRedist.2012.x64", "Microsoft.VCRedist.2012.x86",
+        "Microsoft.VCRedist.2013.x64", "Microsoft.VCRedist.2013.x86",
+        "Microsoft.VCLibs.Desktop.14", "Microsoft.VCRedist.2015+.x64", "Microsoft.VCRedist.2015+.x86"
     )
 
-    Write-StyledMessage 'Info' '📥 Installazione runtime .NET e Visual C++ Redistributables via Winget...'
-    $totalPackages = $packagesToInstall_Runtimes.Count
-    for ($i = 0; $i -lt $totalPackages; $i++) {
-        $package = $packagesToInstall_Runtimes[$i]
-        $null = Invoke-WingetInstallWithProgress $package $package ($i + 1) $totalPackages
-        Write-Host '' # Add a newline after each package for better readability
+    Write-StyledMessage 'Info' '🔥 Installazione runtime .NET e VCRedist...'
+    for ($i = 0; $i -lt $runtimes.Count; $i++) {
+        Invoke-WingetInstallWithProgress $runtimes[$i] $runtimes[$i] ($i + 1) $runtimes.Count | Out-Null
+        Write-Host ''
     }
-    Write-StyledMessage 'Success' 'Installazione runtime .NET e Visual C++ Redistributables completata.'
+    Write-StyledMessage 'Success' 'Runtime completati.'
     Write-Host ''
 
-    # Step 4: Scarica ed installa DirectX End-User Runtime
-    Write-StyledMessage 'Info' '🎮 Installazione DirectX End-User Runtime...'
-    $dxTempDir = "$env:LOCALAPPDATA\WinToolkit\Directx"
-    if (-not (Test-Path $dxTempDir)) {
-        New-Item -Path $dxTempDir -ItemType Directory -Force | Out-Null
-        $script:Log += "[DirectX] ℹ️ Creata directory: $dxTempDir"
-    }
-    $dxInstallerPath = "$dxTempDir\dxwebsetup.exe"
-    $dxDownloadUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/dxwebsetup.exe'
+    # Step 4: DirectX
+    Write-StyledMessage 'Info' '🎮 Installazione DirectX...'
+    $dxDir = "$env:LOCALAPPDATA\WinToolkit\Directx"
+    $dxPath = "$dxDir\dxwebsetup.exe"
+    
+    if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force | Out-Null }
 
-    Write-StyledMessage 'Info' "⬇️ Download di dxwebsetup.exe in '$dxInstallerPath'..."
     try {
-        Invoke-WebRequest -Uri $dxDownloadUrl -OutFile $dxInstallerPath -ErrorAction Stop
-        Write-StyledMessage 'Success' 'Download di dxwebsetup.exe completato.'
-        $script:Log += "[DirectX] ✅ Download dxwebsetup.exe completato."
+        Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/dxwebsetup.exe' -OutFile $dxPath -ErrorAction Stop
+        Write-StyledMessage 'Success' 'DirectX scaricato.'
 
-        Write-StyledMessage 'Info' '🚀 Avvio installazione DirectX'
-        $percent = 0; $spinnerIndex = 0; $startTime = Get-Date
-        $timeoutSeconds = 600 # 10 minutes timeout for DirectX installation
+        $proc = Start-Process -FilePath $dxPath -PassThru -Verb RunAs
+        $spinnerIndex = 0
+        $percent = 0
+        $startTime = Get-Date
 
-        # Run DirectX installer non-silently with visible interface
-        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '' -PassThru -Verb RunAs -ErrorAction Stop
-
-        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
+        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt 600) {
             $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
-            
-            # Simple progress estimation for installation
+            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
             if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
-            Show-ProgressBar "Installazione DirectX" "In corso... ($elapsed s)" $percent '🎮' $spinner 'Yellow'
+            Show-ProgressBar "DirectX" "($elapsed s)" $percent '🎮' $spinner 'Yellow'
             Start-Sleep -Milliseconds 700
             $proc.Refresh()
         }
 
-        Clear-ProgressLine # Clear the progress line before writing final message
+        Clear-ProgressLine
 
         if (-not $proc.HasExited) {
-            Write-StyledMessage 'Warning' "⚠️ Timeout raggiunto dopo $([math]::Round($timeoutSeconds/60, 0)) minuti. Terminazione installazione DirectX."
+            Write-StyledMessage 'Warning' "Timeout DirectX."
             $proc.Kill()
-            Start-Sleep -Seconds 2
-            $script:Log += "[DirectX] ⚠️ Installazione DirectX interrotta per timeout."
         }
         else {
             $exitCode = $proc.ExitCode
-            if ($exitCode -eq 0) {
-                Write-StyledMessage 'Success' 'Installazione DirectX completata con successo.'
-                $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode)."
-            }
-            elseif ($exitCode -eq 3010) {
-                # Common code for "reboot required"
-                Write-StyledMessage 'Success' "Installazione DirectX completata (richiede riavvio per finalizzare, codice: $exitCode)."
-                $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode, riavvio richiesto)."
-            }
-            elseif ($exitCode -eq 5100) {
-                # Common code for "already installed"
-                Write-StyledMessage 'Success' "DirectX è già installato o una versione più recente è presente (codice: $exitCode)."
-                $script:Log += "[DirectX] ✅ DirectX già installato (Exit code: $exitCode)."
-            }
-            elseif ($exitCode -eq -9 -or $exitCode -eq 9) {
-                Write-StyledMessage 'Warning' "DirectX: codice $exitCode - Componenti potrebbero essere già presenti o servono privilegi admin."
-                Write-StyledMessage 'Info' "💡 Suggerimento: Esegui lo script come Amministratore se necessario."
-                $script:Log += "[DirectX] ⚠️ Exit code: $exitCode (non fatale)."
-            }
-            elseif ($exitCode -eq -1442840576) {
-                Write-StyledMessage 'Success' "Installazione DirectX completata (codice: $exitCode, considerato come successo)."
-                $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode, soppresso)."
+            $successCodes = @(0, 3010, 5100, -9, 9, -1442840576)
+            if ($exitCode -in $successCodes) {
+                Write-StyledMessage 'Success' "DirectX installato (codice: $exitCode)."
             }
             else {
-                Write-StyledMessage 'Error' "Installazione DirectX terminata con codice di uscita non previsto: $exitCode."
-                $script:Log += "[DirectX] ❌ Installazione DirectX fallita (Exit code: $exitCode)."
+                Write-StyledMessage 'Error' "DirectX errore: $exitCode"
             }
         }
 
-        # Uninstall Bing Toolbar if present
-        Write-StyledMessage 'Info' '🧹 Verifica e rimozione Bing Toolbar (se installata)...'
-        try {
-            $bingProducts = Get-WmiObject -Class Win32_Product -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Bing*" }
-            
-            if ($bingProducts) {
-                foreach ($product in $bingProducts) {
-                    Write-StyledMessage 'Info' "🗑️ Disinstallazione di: $($product.Name)..."
-                    $uninstallResult = $product.Uninstall()
-                    if ($uninstallResult.ReturnValue -eq 0) {
-                        Write-StyledMessage 'Success' "Bing Toolbar '$($product.Name)' disinstallata con successo."
-                        $script:Log += "[DirectX] ✅ Bing Toolbar disinstallata: $($product.Name)."
-                    }
-                    else {
-                        Write-StyledMessage 'Warning' "Codice di ritorno disinstallazione: $($uninstallResult.ReturnValue) per '$($product.Name)'."
-                        $script:Log += "[DirectX] ⚠️ Disinstallazione Bing Toolbar parziale: $($product.Name) (Codice: $($uninstallResult.ReturnValue))."
-                    }
-                }
+        # Pulizia Bing Toolbar
+        Write-StyledMessage 'Info' '🧹 Rimozione Bing Toolbar...'
+        $bingProducts = Get-WmiObject -Class Win32_Product -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Bing*" }
+        
+        if ($bingProducts) {
+            foreach ($product in $bingProducts) {
+                $product.Uninstall() | Out-Null
+                Write-StyledMessage 'Success' "Rimosso: $($product.Name)"
             }
-            else {
-                Write-StyledMessage 'Info' '💭 Nessuna Bing Toolbar trovata (non necessaria rimozione).'
-                $script:Log += "[DirectX] ℹ️ Nessuna Bing Toolbar rilevata."
-            }
-
-            # Clean up Bing registry keys
-            Write-StyledMessage 'Info' '🧹 Pulizia chiavi di registro Bing residue...'
-            $bingRegPaths = @(
-                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
-                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
-                "HKCU:\Software\Microsoft\Internet Explorer\Toolbar\*Bing*",
-                "HKLM:\SOFTWARE\Microsoft\Internet Explorer\Toolbar\*Bing*"
-            )
-
-            $removedKeys = 0
-            foreach ($regPath in $bingRegPaths) {
-                $keys = Get-Item -Path $regPath -ErrorAction SilentlyContinue
-                if ($keys) {
-                    foreach ($key in $keys) {
-                        try {
-                            Remove-Item -Path $key.PSPath -Recurse -Force -ErrorAction Stop
-                            $removedKeys++
-                            $script:Log += "[DirectX] ✅ Rimossa chiave registro: $($key.PSPath)."
-                        }
-                        catch {
-                            Write-StyledMessage 'Warning' "Impossibile rimuovere chiave registro: $($key.PSPath) - $($_.Exception.Message)"
-                            $script:Log += "[DirectX] ⚠️ Errore rimozione chiave registro: $($key.PSPath)."
-                        }
-                    }
-                }
-            }
-
-            if ($removedKeys -gt 0) {
-                Write-StyledMessage 'Success' "Rimosse $removedKeys chiavi di registro Bing."
-            }
-            else {
-                Write-StyledMessage 'Info' '💭 Nessuna chiave di registro Bing trovata.'
-            }
-
-            # Clean up temporary Bing files
-            Write-StyledMessage 'Info' '🧹 Pulizia file temporanei Bing...'
-            $tempBingPaths = @(
-                "$env:TEMP\*Bing*",
-                "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*Bing*"
-            )
-
-            $removedFiles = 0
-            foreach ($tempPath in $tempBingPaths) {
-                $files = Get-ChildItem -Path $tempPath -ErrorAction SilentlyContinue
-                if ($files) {
-                    foreach ($file in $files) {
-                        try {
-                            Remove-Item -Path $file.FullName -Recurse -Force -ErrorAction Stop
-                            $removedFiles++
-                        }
-                        catch {
-                            # Silently continue if files are in use
-                        }
-                    }
-                }
-            }
-
-            if ($removedFiles -gt 0) {
-                Write-StyledMessage 'Success' "Rimossi $removedFiles file/cartelle temporanee Bing."
-                $script:Log += "[DirectX] ✅ Puliti $removedFiles file temporanei Bing."
-            }
-            else {
-                Write-StyledMessage 'Info' '💭 Nessun file temporaneo Bing trovato.'
-            }
-
-            Write-StyledMessage 'Success' 'Pulizia Bing Toolbar completata.'
         }
-        catch {
-            Write-StyledMessage 'Warning' "Errore durante la rimozione Bing Toolbar: $($_.Exception.Message)"
-            $script:Log += "[DirectX] ⚠️ Errore pulizia Bing: $($_.Exception.Message)."
+
+        # Pulizia registro Bing
+        @(
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
+            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
+            "HKCU:\Software\Microsoft\Internet Explorer\Toolbar\*Bing*"
+        ) | ForEach-Object {
+            Get-Item -Path $_ -ErrorAction SilentlyContinue | ForEach-Object {
+                Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
+
+        Write-StyledMessage 'Success' 'Pulizia Bing completata.'
     }
     catch {
         Clear-ProgressLine
-        Write-StyledMessage 'Error' "Errore durante il download o l'installazione di DirectX: $($_.Exception.Message)"
-        $script:Log += "[DirectX] ❌ Errore critico: $($_.Exception.Message)."
+        Write-StyledMessage 'Error' "Errore DirectX: $($_.Exception.Message)"
     }
     Write-Host ''
 
-    # Step 5: Installa i vari client di gioco tramite Winget
-    $gameClientsToInstall = @(
-        "Amazon.Games",
-        "GOG.Galaxy",
-        "EpicGames.EpicGamesLauncher",
-        "ElectronicArts.EADesktop",
-        "Playnite.Playnite",
-        "Valve.Steam",
-        "Ubisoft.Connect",
-        "9MV0B5HZVK9Z"
+    # Step 5: Client di gioco
+    $gameClients = @(
+        "Amazon.Games", "GOG.Galaxy", "EpicGames.EpicGamesLauncher",
+        "ElectronicArts.EADesktop", "Playnite.Playnite", "Valve.Steam",
+        "Ubisoft.Connect", "9MV0B5HZVK9Z"
     )
 
-    Write-StyledMessage 'Info' '🎮 Installazione client di gioco via Winget...'
-    $totalClients = $gameClientsToInstall.Count
-    for ($i = 0; $i -lt $totalClients; $i++) {
-        $client = $gameClientsToInstall[$i]
-        # Using the package ID as display name for now, or map to friendlier names if preferred.
-        $null = Invoke-WingetInstallWithProgress $client $client ($i + 1) $totalClients
-        Write-Host '' # Add a newline after each client.
+    Write-StyledMessage 'Info' '🎮 Installazione client di gioco...'
+    for ($i = 0; $i -lt $gameClients.Count; $i++) {
+        Invoke-WingetInstallWithProgress $gameClients[$i] $gameClients[$i] ($i + 1) $gameClients.Count | Out-Null
+        Write-Host ''
     }
-    Write-StyledMessage 'Success' 'Installazione client di gioco via Winget completata.'
+    Write-StyledMessage 'Success' 'Client installati.'
     Write-Host ''
 
-    # Step 6: Installazione Battle.Net (Download alternativo)
-    Write-StyledMessage 'Info' '🎮 Installazione Battle.Net Launcher...'
-    $bnInstallerPath = "$env:TEMP\Battle.net-Setup.exe"
-    $bnDownloadUrl = 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live'
-
-    Write-StyledMessage 'Info' "⬇️ Download di Battle.net Launcher in '$bnInstallerPath'..."
+    # Step 6: Battle.net
+    Write-StyledMessage 'Info' '🎮 Installazione Battle.net...'
+    $bnPath = "$env:TEMP\Battle.net-Setup.exe"
+    
     try {
-        Invoke-WebRequest -Uri $bnDownloadUrl -OutFile $bnInstallerPath -ErrorAction Stop
-        Write-StyledMessage 'Success' 'Download di Battle.net Launcher completato.'
+        Invoke-WebRequest -Uri 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live' -OutFile $bnPath
+        Write-StyledMessage 'Success' 'Battle.net scaricato.'
 
-        $proc = Start-Process -FilePath $bnInstallerPath -ArgumentList '' -PassThru -Verb RunAs -ErrorAction Stop
-        $script:Log += "[Battle.net] 🚀 Avvio installazione Battle.net (PID: $($proc.Id))."
-        Write-StyledMessage 'Info' 'Installazione Battle.net avviata. In attesa del completamento...'
+        $proc = Start-Process -FilePath $bnPath -PassThru -Verb RunAs
         $spinnerIndex = 0
         $startTime = Get-Date
-        $timeoutSeconds = 900 # 15 minutes for Battle.net installation
-        # Loop to monitor the installer process
-        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
+
+        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt 900) {
             $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
-            Write-Host "`r$spinner 🎮 Installazione Battle.net in corso... ($elapsed s)" -NoNewline -ForegroundColor Cyan
+            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
+            Write-Host "`r$spinner 🎮 Battle.net ($elapsed s)" -NoNewline -ForegroundColor Cyan
             Start-Sleep -Milliseconds 500
-            $proc.Refresh() # Refresh the process object status
+            $proc.Refresh()
         }
-        Clear-ProgressLine # Clear the spinner line
+
+        Clear-ProgressLine
+
         if (-not $proc.HasExited) {
-            Write-StyledMessage 'Warning' "⚠️ Timeout raggiunto dopo $([math]::Round($timeoutSeconds/60, 0)) minuti per l'installazione di Battle.net. Il processo potrebbe essere ancora in esecuzione in background o richiedere un'azione manuale."
-            $script:Log += "[Battle.net] ⚠️ Installazione Battle.net timeout. Processo ID $($proc.Id) ancora in esecuzione. L'utente deve intervenire."
-            # Attempt to kill the process if it timed out to prevent it from blocking later operations
-            try {
-                $proc.Kill() | Out-Null
-                Write-StyledMessage 'Info' "Il processo di installazione Battle.net in timeout è stato terminato."
-                $script:Log += "[Battle.net] ℹ️ Processo Battle.net terminato dopo timeout."
-            }
-            catch {
-                Write-StyledMessage 'Error' "Impossibile terminare il processo Battle.net in timeout: $($_.Exception.Message)"
-                $script:Log += "[Battle.net] ❌ Errore terminazione processo Battle.net in timeout: $($_.Exception.Message)."
-            }
-            Write-Host ''
-            Write-Host "Premi un tasto per proseguire con il resto dello script..." -ForegroundColor Gray
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            Write-StyledMessage 'Info' 'Proseguimento con il resto dello script.'
+            Write-StyledMessage 'Warning' "Timeout Battle.net."
+            try { $proc.Kill() } catch {}
         }
         else {
             $exitCode = $proc.ExitCode
-            if ($exitCode -eq 0) {
-                Write-StyledMessage 'Success' 'Installazione Battle.net completata con successo.'
-                $script:Log += "[Battle.net] ✅ Installazione Battle.net completata (Exit code: $exitCode)."
-            }
-            elseif ($exitCode -eq 3010) {
-                # Common "reboot required" code
-                Write-StyledMessage 'Success' "Installazione Battle.net completata (richiede riavvio, codice: $exitCode)."
-                $script:Log += "[Battle.net] ✅ Installazione Battle.net completata (Exit code: $exitCode, riavvio richiesto)."
+            if ($exitCode -in @(0, 3010)) {
+                Write-StyledMessage 'Success' "Battle.net installato."
             }
             else {
-                Write-StyledMessage 'Warning' "Installazione Battle.net terminata con codice di uscita non 0: $exitCode. Potrebbe essere necessaria una verifica manuale."
-                $script:Log += "[Battle.net] ⚠️ Installazione Battle.net terminata con Exit code: $exitCode (non 0)."
+                Write-StyledMessage 'Warning' "Battle.net: codice $exitCode"
             }
-            Write-Host ''
-            Write-Host "Premi un tasto per proseguire con il resto dello script..." -ForegroundColor Gray
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            Write-StyledMessage 'Success' 'Installazione Battle.net completata. Proseguimento con il resto dello script.'
         }
+
+        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     catch {
         Clear-ProgressLine
-        Write-StyledMessage 'Error' "Errore durante il download o l'avvio dell'installazione di Battle.net Launcher: $($_.Exception.Message)"
-        $script:Log += "[Battle.net] ❌ Errore critico: $($_.Exception.Message)."
-        Write-Host ''
-        Write-Host "Premi un tasto per proseguire con il resto dello script..." -ForegroundColor Gray
+        Write-StyledMessage 'Error' "Errore Battle.net: $($_.Exception.Message)"
+        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     Write-Host ''
 
-    # Step 7: Pulizia Chiavi di Avvio Automatico nel Registro e Collegamenti Startup
-    Write-StyledMessage 'Info' '🧹 Rimozione chiavi di avvio automatico nel registro per i launcher di gioco...'
+    # Step 7: Pulizia avvio automatico
+    Write-StyledMessage 'Info' '🧹 Pulizia avvio automatico...'
     $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-    $regKeysToClean = @('Steam', 'Battle.net', 'GOG Galaxy')
-
-    foreach ($keyName in $regKeysToClean) {
-        try {
-            if (Test-Path -Path $runKey -ErrorAction SilentlyContinue) {
-                # Check if the property exists before attempting to remove it
-                if (Get-ItemProperty -Path $runKey -Name $keyName -ErrorAction SilentlyContinue) {
-                    Remove-ItemProperty -Path $runKey -Name $keyName -ErrorAction Stop
-                    Write-StyledMessage 'Success' "Rimosso chiave di avvio automatico per '$keyName' dal registro."
-                }
-                else {
-                    Write-StyledMessage 'Info' "💭 Chiave di avvio automatico per '$keyName' non trovata nel registro (non necessaria rimozione)."
-                }
-            }
-            else {
-                Write-StyledMessage 'Warning' "Percorso del registro '$runKey' non trovato."
-            }
-        }
-        catch {
-            Write-StyledMessage 'Error' "Errore durante la rimozione della chiave di registro per '$keyName': $($_.Exception.Message)"
+    @('Steam', 'Battle.net', 'GOG Galaxy') | ForEach-Object {
+        if (Get-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue) {
+            Remove-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue
+            Write-StyledMessage 'Success' "Rimosso: $_"
         }
     }
-    Write-Host ''
 
-    Write-StyledMessage 'Info' '🧹 Rimozione collegamenti di avvio automatico dalla cartella Startup per i launcher di gioco...'
     $startupPath = [Environment]::GetFolderPath('Startup')
-    $linkNamesToClean = @('Steam.lnk', 'Battle.net.lnk', 'GOG Galaxy.lnk')
-
-    foreach ($linkName in $linkNamesToClean) {
-        $fullPath = Join-Path -Path $startupPath -ChildPath $linkName
-        try {
-            if (Test-Path -Path $fullPath -PathType Leaf -ErrorAction SilentlyContinue) {
-                Remove-Item -Path $fullPath -Force -ErrorAction Stop
-                Write-StyledMessage 'Success' "Rimosso collegamento di avvio automatico per '$linkName' dalla cartella Startup."
-            }
-            else {
-                Write-StyledMessage 'Info' "💭 Collegamento di avvio automatico per '$linkName' non trovato nella cartella Startup (non necessaria rimozione)."
-            }
-        }
-        catch {
-            Write-StyledMessage 'Error' "Errore durante la rimozione del collegamento per '$linkName': $($_.Exception.Message)"
+    @('Steam.lnk', 'Battle.net.lnk', 'GOG Galaxy.lnk') | ForEach-Object {
+        $path = Join-Path $startupPath $_
+        if (Test-Path $path) {
+            Remove-Item $path -Force -ErrorAction SilentlyContinue
+            Write-StyledMessage 'Success' "Rimosso: $_"
         }
     }
+    Write-StyledMessage 'Success' 'Pulizia completata.'
     Write-Host ''
 
-    Write-StyledMessage 'Success' 'Pulizia chiavi e collegamenti di avvio automatico completata.'
-    Write-Host ''
-
-    # Step 8: Abilitazione Profilo Energetico Massimo
-    $ultimateTemplateGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61" # GUID for the hidden Ultimate Performance template
-    $customUltimatePlanName = "WinToolkit Gaming Performance" # A unique, identifiable name for our duplicated plan
-    $activePlanGUID = $null # Variable to store the GUID of the plan we'll activate
-
-    Write-StyledMessage 'Info' '⚡ Configurazione profilo energetico Performance Massime...'
-
-    # Check if a custom "WinToolkit Gaming Performance" plan already exists
-    $existingPlan = powercfg -list | Select-String -Pattern "$customUltimatePlanName" -ErrorAction SilentlyContinue
+    # Step 8: Profilo energetico
+    Write-StyledMessage 'Info' '⚡ Configurazione profilo energetico...'
+    $ultimateGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61"
+    $planName = "WinToolkit Gaming Performance"
+    $existingPlan = powercfg -list | Select-String -Pattern $planName
 
     if ($existingPlan) {
-        # Extract GUID of the existing custom plan
-        # The GUID is typically the 4th token in the output line (index 3 for 0-based array)
-        $activePlanGUID = ($existingPlan.Line -split '\s+')[3]
-        Write-StyledMessage 'Info' "💭 Piano '$customUltimatePlanName' già presente. GUID: $activePlanGUID"
+        $guid = ($existingPlan.Line -split '\s+')[3]
+        Write-StyledMessage 'Info' "Piano esistente: $guid"
     }
     else {
-        Write-StyledMessage 'Info' "🔧 Installazione e configurazione piano '$customUltimatePlanName'..."
-        try {
-            # Duplicate the hidden Ultimate Performance plan
-            $duplicateOutput = powercfg /duplicatescheme $ultimateTemplateGUID | Out-String # Capture output for GUID extraction
-
-            # Extract the newly generated GUID from the output
-            if ($duplicateOutput -match "\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b") {
-                $newlyCreatedGUID = $matches[0]
-                Write-StyledMessage 'Info' "GUID del nuovo piano generato: $newlyCreatedGUID"
-
-                # Rename the newly created plan for better identification
-                powercfg /changename $newlyCreatedGUID "$customUltimatePlanName" "Ottimizzato per Gaming dal WinToolkit" | Out-Null
-                $activePlanGUID = $newlyCreatedGUID
-                Write-StyledMessage 'Success' "Piano '$customUltimatePlanName' installato e rinominato."
-            }
-            else {
-                Write-StyledMessage 'Error' "Errore: Impossibile estrarre il GUID dal nuovo piano energetico creato."
-            }
-        }
-        catch {
-            Write-StyledMessage 'Error' "Errore durante la duplicazione o rinomina del piano energetico: $($_.Exception.Message)"
+        $output = powercfg /duplicatescheme $ultimateGUID | Out-String
+        if ($output -match "\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b") {
+            $guid = $matches[0]
+            powercfg /changename $guid $planName "Ottimizzato per Gaming" | Out-Null
+            Write-StyledMessage 'Success' "Piano creato."
         }
     }
 
-    # Now, activate the plan if its GUID was successfully identified or created
-    if ($null -ne $activePlanGUID) {
-        try {
-            powercfg -setactive $activePlanGUID | Out-Null
-            Write-StyledMessage 'Success' "Piano '$customUltimatePlanName' impostato come attivo."
-        }
-        catch {
-            Write-StyledMessage 'Error' "Errore durante l'attivazione del piano '$customUltimatePlanName': $($_.Exception.Message)"
-        }
-    }
-    else {
-        Write-StyledMessage 'Error' "Impossibile attivare il piano energetico: nessun GUID disponibile per '$customUltimatePlanName'."
+    if ($guid) {
+        powercfg -setactive $guid | Out-Null
+        Write-StyledMessage 'Success' "Piano attivato."
     }
     Write-Host ''
 
-    # Step 9: Attivazione Profilo Non Disturbare (Focus Assist)
-    Write-StyledMessage 'Info' '🔕 Attivazione profilo "Non disturbare" (Focus Assist)...'
-    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings"
-    $propName = "NOC_GLOBAL_SETTING_TOASTS_ENABLED"
+    # Step 9: Focus Assist
+    Write-StyledMessage 'Info' '🔕 Attivazione Non disturbare...'
     try {
-        Set-ItemProperty -Path $regPath -Name $propName -Value 0 -Force -ErrorAction Stop
-        Write-StyledMessage 'Success' 'Profilo "Non disturbare" attivato.'
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_TOASTS_ENABLED" -Value 0 -Force
+        Write-StyledMessage 'Success' 'Non disturbare attivo.'
     }
     catch {
-        Write-StyledMessage 'Error' "Errore durante l'attivazione del profilo 'Non disturbare': $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore: $($_.Exception.Message)"
     }
     Write-Host ''
 
-    # Step 10: Messaggio di completamento delle operazioni
+    # Step 10: Completamento
     Write-Host ('═' * 80) -ForegroundColor Green
-    Write-StyledMessage 'Success' 'Tutte le operazioni del Gaming Toolkit sono state completate!'
-    Write-StyledMessage 'Success' 'Il sistema è stato ottimizzato per il gaming con tutti i componenti necessari.'
+    Write-StyledMessage 'Success' 'Gaming Toolkit completato!'
+    Write-StyledMessage 'Success' 'Sistema ottimizzato per il gaming.'
     Write-Host ('═' * 80) -ForegroundColor Green
     Write-Host ''
 
-    # Step 11: Barra di countdown di 30 secondi e richiesta di riavvio
-    Write-Host "Il sistema deve essere riavviato per applicare tutte le modifiche." -ForegroundColor Red
-    Write-Host "Riavvio automatico in $CountdownSeconds secondi..." -ForegroundColor Red
-
-    $shouldReboot = Start-InterruptibleCountdown $CountdownSeconds "Preparazione riavvio sistema"
-
-    if ($shouldReboot) {
-        Write-StyledMessage 'Info' '🔄 Riavvio del sistema...'
+    # Step 11: Riavvio
+    Write-Host "Riavvio necessario. Automatico tra $CountdownSeconds secondi..." -ForegroundColor Red
+    
+    if (Start-InterruptibleCountdown $CountdownSeconds "Riavvio") {
+        Write-StyledMessage 'Info' '🔄 Riavvio...'
         Restart-Computer -Force
     }
     else {
-        Write-StyledMessage 'Warning' 'Riavvio annullato. Le modifiche potrebbero non essere completamente applicate fino al prossimo riavvio.'
-        Write-Host ''
-        Write-Host "Premi un tasto per tornare al menu principale..." -ForegroundColor Gray
+        Write-StyledMessage 'Warning' 'Riavvia manualmente per applicare tutte le modifiche.'
+        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
 }
