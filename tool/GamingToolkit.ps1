@@ -140,7 +140,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 35)'
+            '       Version 2.4.0 (Build 36)'
         ) | ForEach-Object {
             if ($_) {
                 $padding = [Math]::Max(0, [Math]::Floor(($width - $_.Length) / 2))
@@ -244,7 +244,7 @@ function GamingToolkit {
         Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/dxwebsetup.exe' -OutFile $dxPath -ErrorAction Stop
         Write-StyledMessage 'Success' 'DirectX scaricato.'
 
-        $proc = Start-Process -FilePath $dxPath -PassThru -Verb RunAs
+        $proc = Start-Process -FilePath $dxPath -PassThru -Verb RunAs -ErrorAction Stop
         $spinnerIndex = 0
         $percent = 0
         $startTime = Get-Date
@@ -277,27 +277,32 @@ function GamingToolkit {
 
         # Pulizia Bing Toolbar
         Write-StyledMessage 'Info' '🧹 Rimozione Bing Toolbar...'
-        $bingProducts = Get-WmiObject -Class Win32_Product -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Bing*" }
-        
-        if ($bingProducts) {
-            foreach ($product in $bingProducts) {
-                $product.Uninstall() | Out-Null
-                Write-StyledMessage 'Success' "Rimosso: $($product.Name)"
+        try {
+            $bingProducts = Get-WmiObject -Class Win32_Product -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Bing*" }
+            
+            if ($bingProducts) {
+                foreach ($product in $bingProducts) {
+                    $product.Uninstall() | Out-Null
+                    Write-StyledMessage 'Success' "Rimosso: $($product.Name)"
+                }
             }
-        }
 
-        # Pulizia registro Bing
-        @(
-            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
-            "HKCU:\Software\Microsoft\Internet Explorer\Toolbar\*Bing*"
-        ) | ForEach-Object {
-            Get-Item -Path $_ -ErrorAction SilentlyContinue | ForEach-Object {
-                Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+            # Pulizia registro Bing
+            @(
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
+                "HKCU:\Software\Microsoft\Internet Explorer\Toolbar\*Bing*"
+            ) | ForEach-Object {
+                Get-Item -Path $_ -ErrorAction SilentlyContinue | ForEach-Object {
+                    Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                }
             }
-        }
 
-        Write-StyledMessage 'Success' 'Pulizia Bing completata.'
+            Write-StyledMessage 'Success' 'Pulizia Bing completata.'
+        }
+        catch {
+            Write-StyledMessage 'Warning' "Errore pulizia Bing: $($_.Exception.Message)"
+        }
     }
     catch {
         Clear-ProgressLine
@@ -325,10 +330,10 @@ function GamingToolkit {
     $bnPath = "$env:TEMP\Battle.net-Setup.exe"
     
     try {
-        Invoke-WebRequest -Uri 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live' -OutFile $bnPath
+        Invoke-WebRequest -Uri 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live' -OutFile $bnPath -ErrorAction Stop
         Write-StyledMessage 'Success' 'Battle.net scaricato.'
 
-        $proc = Start-Process -FilePath $bnPath -PassThru -Verb RunAs
+        $proc = Start-Process -FilePath $bnPath -PassThru -Verb RunAs -ErrorAction Stop
         $spinnerIndex = 0
         $startTime = Get-Date
 
@@ -392,6 +397,7 @@ function GamingToolkit {
     Write-StyledMessage 'Info' '⚡ Configurazione profilo energetico...'
     $ultimateGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61"
     $planName = "WinToolkit Gaming Performance"
+    $guid = $null
     $existingPlan = powercfg -list | Select-String -Pattern $planName
 
     if ($existingPlan) {
