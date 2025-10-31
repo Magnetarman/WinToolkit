@@ -12,13 +12,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Aggiunte
 
-- **Funzione Gaming Ready (`V2.4`):**
-  - Installazione client di gioco (Amazon, Gog Galaxy, Epic Games,
-    Steam).
-  - Installazione di Playnite e applicazione di un tema
-    personalizzato.
-  - Installazione/Aggiornamento di Directx.
-  - Installazione/Aggiornamento di Microsoft C++ Package.
 - **Funzione Auto Debloat (`V2.5`):**
   - Avvio dello script Chris con configurazione personalizzata
     (`iwr -useb https://christitus.com/win | iex`).
@@ -29,6 +22,21 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Riparazione avanzata Windows Search **[Thanks to @sicolla]**
   - Pulizia Cache dei Browser
   - Potenziamento Toolkit di Riparazione Windows **[Thanks to @Progressfy]**
+- **Funzione WinDownloader (`V2.8`):**
+  - Download script preconfigurati dal sito UUP Dump.
+  - Avvio Creazione automatica ISO di Windows 10/11
+    - <del>Windows 11 25H2</del> **(Instabile)**
+    - Windows 11 24H2
+    - Windows 11 23H2
+    - Windows 10 22H2
+    - Windows 10 21H2
+  - Implementazione Download ISO Ufficiale di Windows 8.1
+  - Implementazione Download ISO Ufficiale di Windows 7 SP1
+  - Implementazione Download ISO Ufficiale di Windows XP SP3
+- **Funzione WinDownloader+ (`V2.9`):**
+  - Potenziamento Funzione WinDownloader
+  - Download Automatico di Rufus
+  - Creazione di dispositivo USB Bootable
 - **MagnetarMan Mode (`V3.0`):**
   - Avvio Script Chris con configurazione personalizzata.
   - Installazione programmi: Brave Browser, Google Chrome,
@@ -38,13 +46,14 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Installazione .NET Runtime (dalla 4.8 alla 9.0).
   - Installazione Microsoft C++ Package.
   - Installazione/Aggiornamento Directx.
-  - Installazione Playnite (Lancher/Aggregatore).
+  - Installazione Playnite (Launcher/Aggregatore).
   - Installazione Revo Uninstaller.
   - Installazione Tree Size.
   - Installazione Glary Utilities.
   - Pulizia del sistema.
   - Applicazione Sfondo "MagnetarMan".
   - Riavvio del PC per completare le modifiche.
+- **Bugfix e Conversione per la GUI Mode (`V4.0`)**
 - **GUI Mode (`V5.0`):**
   - Win toolkit con tutta la semplicità della GUI
   - Nessun comando da terminale da inserire
@@ -52,6 +61,28 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Correzioni
 
 ### Modifiche
+
+---
+
+## [2.4.0] (Pixel Debh Part II) - 2025-10-26 (#19)
+
+### Aggiunte
+
+- Funzione **Gaming Toolkit** Completa.
+  - Attivazione .Net Framework (3, 4 e 4.8)
+  - Installazione Tramite Winget dei Net Framework (5, 6, 7, 8, 9)
+  - Installazione/Aggiornamento di Microsoft C++ Package.
+  - Installazione/Aggiornamento di Directx.
+  - Installazione client di gioco (Amazon Games, Gog Galaxy, Epic Games, Steam).
+  - Installazione di Playnite.
+- Aggiunto ScreenShot del Gaming Toolkit al `Readme.md`.
+
+### Correzioni
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+- **Aggiunto Messaggio di Avviso per l'utilizzo del Gaming Toolkit**. A causa dell'installazione non completa di Winget nei sistemi precedenti a Windows 11 23H2 lo script consiglierà di effettuare la funzione riparazione Winget e poi procedere in modo da avere funzionalità Massime. Per Windows 11 superiori a 23H2 lo script verrà eseguito normalmente.
 
 ---
 
@@ -70,7 +101,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
-- Potenziamento script `WinCleaner.ps1` con cancellazione della cartella Windows.old.
+- Potenziamento script `WinCleaner.ps1` con cacellazione della cartella Windows.old.
 
 ---
 
