@@ -169,7 +169,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 31)'
+            '       Version 2.4.0 (Build 32)'
         )
 
         foreach ($line in $asciiArt) {
@@ -326,7 +326,7 @@ function GamingToolkit {
         $timeoutSeconds = 600 # 10 minutes timeout for DirectX installation
 
         # Run DirectX installer silently without /nobing flag
-        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/silent' -PassThru -WindowStyle Hidden -Verb RunAs -ErrorAction Stop
+        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/q' -PassThru -WindowStyle Hidden -Verb RunAs -ErrorAction Stop
 
         while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
             $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
