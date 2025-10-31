@@ -1,4 +1,4 @@
-function GamingToolkit {
+﻿function GamingToolkit {
     <#
     .SYNOPSIS
         Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
@@ -94,7 +94,7 @@ function GamingToolkit {
         }
         catch {
             Clear-ProgressLine
-            Write-StyledMessage 'Error' "Eccezione $DisplayName: $($_.Exception.Message)"
+            Write-StyledMessage 'Error' "Eccezione $DisplayName`: $($_.Exception.Message)"
             return @{ Success = $false }
         }
         finally {
