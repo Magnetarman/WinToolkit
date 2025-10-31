@@ -169,7 +169,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 33)'
+            '       Version 2.4.0 (Build 34)'
         )
 
         foreach ($line in $asciiArt) {
@@ -321,12 +321,12 @@ function GamingToolkit {
         Write-StyledMessage 'Success' 'Download di dxwebsetup.exe completato.'
         $script:Log += "[DirectX] ✅ Download dxwebsetup.exe completato."
 
-        Write-StyledMessage 'Info' '🚀 Avvio installazione DirectX (silenziosa)...'
+        Write-StyledMessage 'Info' '🚀 Avvio installazione DirectX'
         $percent = 0; $spinnerIndex = 0; $startTime = Get-Date
         $timeoutSeconds = 600 # 10 minutes timeout for DirectX installation
 
-        # Run DirectX installer silently without /nobing flag
-        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '/Q' -PassThru -WindowStyle Hidden -Verb RunAs -ErrorAction Stop
+        # Run DirectX installer non-silently with visible interface
+        $proc = Start-Process -FilePath $dxInstallerPath -ArgumentList '' -PassThru -Verb RunAs -ErrorAction Stop
 
         while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
             $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
@@ -510,8 +510,8 @@ function GamingToolkit {
         Invoke-WebRequest -Uri $bnDownloadUrl -OutFile $bnInstallerPath -ErrorAction Stop
         Write-StyledMessage 'Success' 'Download di Battle.net Launcher completato.'
 
-        Write-StyledMessage 'Info' '🚀 Avvio installazione Battle.net Launcher (silent)...'
-        Start-Process -FilePath $bnInstallerPath -ArgumentList '/S' -PassThru -ErrorAction Stop | Out-Null
+        Write-StyledMessage 'Info' '🚀 Avvio installazione Battle.net Launcher'
+        Start-Process -FilePath $bnInstallerPath -ArgumentList '' -PassThru -ErrorAction Stop | Out-Null
         Write-StyledMessage 'Info' 'Installazione Battle.net avviata. Essendo un programma esterno non monitorabile da Winget, attendi il completamento manuale.'
         Write-Host ''
         Write-Host "Premi un tasto per proseguire con il resto dello script..." -ForegroundColor Gray
