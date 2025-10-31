@@ -5353,7 +5353,7 @@ function GamingToolkit {
     if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force | Out-Null }
 
     try {
-        Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/dxwebsetup.exe' -OutFile $dxPath -ErrorAction Stop
+        Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe' -OutFile $dxPath -ErrorAction Stop
         Write-StyledMessage 'Success' 'DirectX scaricato.'
 
         $proc = Start-Process -FilePath $dxPath -PassThru -Verb RunAs -ErrorAction Stop
