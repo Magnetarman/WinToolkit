@@ -5217,8 +5217,8 @@ function GamingToolkit {
                 $script:Log += "[Winget] ✅ Installato: $PackageId (Exit code: $exitCode)."
                 return @{ Success = $true; ExitCode = $exitCode }
             }
-            elseif ($exitCode -eq 1638 -or $exitCode -eq 3010) {
-                # Common codes for "already installed" or "reboot needed"
+            elseif ($exitCode -eq 1638 -or $exitCode -eq 3010 -or $exitCode -eq -1978335189) {
+                # Common codes for "already installed", "reboot needed", or "app already present and correctly installed"
                 Write-StyledMessage 'Success' "Installazione di $DisplayName ($PackageId) completata (già installato o richiede riavvio, codice: $exitCode)."
                 $script:Log += "[Winget] ✅ Installato/Ignorato: $PackageId (Exit code: $exitCode)."
                 return @{ Success = $true; ExitCode = $exitCode }
@@ -5480,6 +5480,10 @@ function GamingToolkit {
                 Write-StyledMessage 'Info' "💡 Suggerimento: Esegui lo script come Amministratore se necessario."
                 $script:Log += "[DirectX] ⚠️ Exit code: $exitCode (non fatale)."
             }
+            elseif ($exitCode -eq -1442840576) {
+                Write-StyledMessage 'Success' "Installazione DirectX completata (codice: $exitCode, considerato come successo)."
+                $script:Log += "[DirectX] ✅ Installazione DirectX completata (Exit code: $exitCode, soppresso)."
+            }
             else {
                 Write-StyledMessage 'Error' "Installazione DirectX terminata con codice di uscita non previsto: $exitCode."
                 $script:Log += "[DirectX] ❌ Installazione DirectX fallita (Exit code: $exitCode)."
@@ -5622,16 +5626,67 @@ function GamingToolkit {
         Invoke-WebRequest -Uri $bnDownloadUrl -OutFile $bnInstallerPath -ErrorAction Stop
         Write-StyledMessage 'Success' 'Download di Battle.net Launcher completato.'
 
-        Write-StyledMessage 'Info' '🚀 Avvio installazione Battle.net Launcher'
-        Start-Process -FilePath $bnInstallerPath -ArgumentList '' -PassThru -ErrorAction Stop | Out-Null
-        Write-StyledMessage 'Info' 'Installazione Battle.net avviata. Essendo un programma esterno non monitorabile da Winget, attendi il completamento manuale.'
+        $proc = Start-Process -FilePath $bnInstallerPath -ArgumentList '' -PassThru -Verb RunAs -ErrorAction Stop
+        $script:Log += "[Battle.net] 🚀 Avvio installazione Battle.net (PID: $($proc.Id))."
+        Write-StyledMessage 'Info' 'Installazione Battle.net avviata. In attesa del completamento...'
+        $spinnerIndex = 0
+        $startTime = Get-Date
+        $timeoutSeconds = 900 # 15 minutes for Battle.net installation
+        # Loop to monitor the installer process
+        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
+            $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
+            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
+            Write-Host "`r$spinner 🎮 Installazione Battle.net in corso... ($elapsed s)" -NoNewline -ForegroundColor Cyan
+            Start-Sleep -Milliseconds 500
+            $proc.Refresh() # Refresh the process object status
+        }
+        Clear-ProgressLine # Clear the spinner line
+        if (-not $proc.HasExited) {
+            Write-StyledMessage 'Warning' "⚠️ Timeout raggiunto dopo $([math]::Round($timeoutSeconds/60, 0)) minuti per l'installazione di Battle.net. Il processo potrebbe essere ancora in esecuzione in background o richiedere un'azione manuale."
+            $script:Log += "[Battle.net] ⚠️ Installazione Battle.net timeout. Processo ID $($proc.Id) ancora in esecuzione. L'utente deve intervenire."
+            # Attempt to kill the process if it timed out to prevent it from blocking later operations
+            try {
+                $proc.Kill() | Out-Null
+                Write-StyledMessage 'Info' "Il processo di installazione Battle.net in timeout è stato terminato."
+                $script:Log += "[Battle.net] ℹ️ Processo Battle.net terminato dopo timeout."
+            }
+            catch {
+                Write-StyledMessage 'Error' "Impossibile terminare il processo Battle.net in timeout: $($_.Exception.Message)"
+                $script:Log += "[Battle.net] ❌ Errore terminazione processo Battle.net in timeout: $($_.Exception.Message)."
+            }
+            Write-Host ''
+            Write-Host "Premi un tasto per proseguire con il resto dello script..." -ForegroundColor Gray
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            Write-StyledMessage 'Info' 'Proseguimento con il resto dello script.'
+        }
+        else {
+            $exitCode = $proc.ExitCode
+            if ($exitCode -eq 0) {
+                Write-StyledMessage 'Success' 'Installazione Battle.net completata con successo.'
+                $script:Log += "[Battle.net] ✅ Installazione Battle.net completata (Exit code: $exitCode)."
+            }
+            elseif ($exitCode -eq 3010) {
+                # Common "reboot required" code
+                Write-StyledMessage 'Success' "Installazione Battle.net completata (richiede riavvio, codice: $exitCode)."
+                $script:Log += "[Battle.net] ✅ Installazione Battle.net completata (Exit code: $exitCode, riavvio richiesto)."
+            }
+            else {
+                Write-StyledMessage 'Warning' "Installazione Battle.net terminata con codice di uscita non 0: $exitCode. Potrebbe essere necessaria una verifica manuale."
+                $script:Log += "[Battle.net] ⚠️ Installazione Battle.net terminata con Exit code: $exitCode (non 0)."
+            }
+            Write-Host ''
+            Write-Host "Premi un tasto per proseguire con il resto dello script..." -ForegroundColor Gray
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            Write-StyledMessage 'Success' 'Installazione Battle.net completata. Proseguimento con il resto dello script.'
+        }
+    }
+    catch {
+        Clear-ProgressLine
+        Write-StyledMessage 'Error' "Errore durante il download o l'avvio dell'installazione di Battle.net Launcher: $($_.Exception.Message)"
+        $script:Log += "[Battle.net] ❌ Errore critico: $($_.Exception.Message)."
         Write-Host ''
         Write-Host "Premi un tasto per proseguire con il resto dello script..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-        Write-StyledMessage 'Success' 'Installazione Battle.net completata. Proseguimento con il resto dello script.'
-    }
-    catch {
-        Write-StyledMessage 'Error' "Errore durante il download o l'avvio dell'installazione di Battle.net Launcher: $($_.Exception.Message)"
     }
     Write-Host ''
 
@@ -5744,10 +5799,10 @@ function GamingToolkit {
 
     # Step 9: Attivazione Profilo Non Disturbare (Focus Assist)
     Write-StyledMessage 'Info' '🔕 Attivazione profilo "Non disturbare" (Focus Assist)...'
-    $regPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings"
-    $propName = "NOC_GLOBAL_SETTING_SUPPRESSION"
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings"
+    $propName = "NOC_GLOBAL_SETTING_TOASTS_ENABLED"
     try {
-        Set-ItemProperty -Path $regPath -Name $propName -Value 1 -Force -ErrorAction Stop
+        Set-ItemProperty -Path $regPath -Name $propName -Value 0 -Force -ErrorAction Stop
         Write-StyledMessage 'Success' 'Profilo "Non disturbare" attivato.'
     }
     catch {
