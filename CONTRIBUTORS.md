@@ -26,7 +26,7 @@ Questo progetto è reso possibile dal contributo di tutte queste fantastiche per
 Voglio riconoscere ogni contributo significativo! Se hai contribuito in modo sostanziale al codice, alla documentazione, alla revisione del codice, o hai fornito feedback e supporto essenziali, **sarai elencato qui**.
 
 1.  Assicurati che il tuo contributo (es. Pull Request o Issue) sia stato **accettato e unito** nel progetto.
-2.  La lista viene aggiornata in occasione di nuove release. Se il tuo nome manca e ritieni di dover essere incluso, apri una [Issue](https://github.com/Magnetarman/WinToolkit/issues) e saremo lieti di aggiungerti!
+2.  La lista viene aggiornata in occasione di nuove release. Se il tuo nome manca e ritieni di dover essere incluso, apri una [Issue](https://github.com/Magnetarman/WinToolkit/issues) e sarò lieto di aggiungerti!
 
 ---
 

@@ -10,7 +10,7 @@
 </p>
 <br>
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.3.0-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.4.0-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
 <img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -42,15 +42,15 @@
 
 <div align="center">
 
-|                                                                            |                                                                      |
-| :------------------------------------------------------------------------: | :------------------------------------------------------------------: |
-|        <img src="img/Starter.jpg" alt="Starter-banner" width="800">        |         <img src="img/Run.jpg" alt="Run-banner" width="800">         |
-|  <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800">  | <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800"> |
-|    <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800">    |  <img src="img/WinCleaner.jpg" alt="WinCleaner-banner" width="800">  |
-|  <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800">  | <img src="img/SetRustDesk.jpg" alt="SetRustDesk-banner" width="800"> |
-| <img src="img/Driver-Install.jpg" alt="Driver-Install-banner" width="800"> |                                                                      |
+|                                                                            |                                                                           |
+| :------------------------------------------------------------------------: | :-----------------------------------------------------------------------: |
+|        <img src="img/Starter.jpg" alt="Starter-banner" width="800">        |           <img src="img/Run.jpg" alt="Run-banner" width="800">            |
+|  <img src="img/RepairToolkit.jpg" alt="RepairToolkit-banner" width="800">  |   <img src="img/UpdateReset.jpg" alt="UpdateReset-banner" width="800">    |
+|    <img src="img/StoreRepair.jpg" alt="StoreRepair-banner" width="800">    |    <img src="img/WinCleaner.jpg" alt="WinCleaner-banner" width="800">     |
+|  <img src="img/OfficeToolkit.jpg" alt="OfficeToolkit-banner" width="800">  |   <img src="img/SetRustDesk.jpg" alt="SetRustDesk-banner" width="800">    |
+| <img src="img/Driver-Install.jpg" alt="Driver-Install-banner" width="800"> | <img src="img/GamingToolkit.jpg" alt="Gaming-Toolkit-banner" width="800"> |
 
-## </div>
+</div>
 
 ## V 5.0 - Gui Mode (Coming Soon)
 
@@ -88,7 +88,12 @@
 >
 > **Risoluzione dei Problemi** => **Opzioni Avanzate** => **Impostazioni di Avvio** => **Riavvia** => Al riavvio selezionare **opzione 4 (Riavvia in modalità Provvisoria)**
 >
-> Al caricamento della modalità provvisoria eseguire DDU dalla cartella sul desktop ed eseguire la rimozione completa e sicura dei driver vecchi
+> Al caricamento della modalità provvisoria eseguire DDU dalla cartella sul desktop ed eseguire la rimozione completa e sicura dei driver vecchi.
+
+- **Gaming Toolkit**: Progettato per ottimizzare rapidamente il tuo PC Windows per le massime prestazioni di gioco. Si occupa di installare tutti i componenti essenziali (come DirectX, .NET e Visual C++ redistributables), installa i client di gioco più comuni (Steam, Epic, GOG, ecc.), attiva il profilo energetico 'Performance Massime' e disattiva le interruzioni con la modalità "Non disturbare". Essenzialmente, prepara il tuo sistema per giocare senza distrazioni e con la massima potenza.
+
+> [!WARNING]
+> A causa dell'installazione non completa di Winget nei sistemi precedenti a Windows 11 23H2 lo script consiglierà di effettuare la funzione riparazione Winget e poi procederà in modo da avere funzionalità Massime. Per Windows 11 superiori a 23H2 lo script verrà eseguito normalmente.
 
 - **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico.
 
@@ -112,22 +117,26 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 └── WinToolkit/
     └── asset
         ├── AMD-Autodetect.exe
-        ├── Setup.exe
-        ├── NVCleanstall_1.19.0.exe
-        ├── DDU-18.1.3.5.zip
         ├── Basic.xml
+        ├── DDU-18.1.3.5.zip
+        ├── dxwebsetup.exe
+        ├── NVCleanstall_1.19.0.exe
+        ├── RustDesk.toml
         ├── RustDesk_local.toml
         ├── RustDesk2.toml
-        ├── RustDesk.toml
+        ├── Setup.exe
         ├── png (Cartella icone GUI)
     └── img
         ├── Driver-Install.jpg
+        ├── GamingToolkit.jpg
         ├── Gui-After.jpg
         ├── Gui-Before.jpg
         ├── Gui-Mode.jpg
         ├── OfficeToolkit.jpg
         ├── RepairToolkit.jpg
+        ├── RepairToolkit-old.jpg
         ├── Run.jpg
+        ├── Run-old.jpg
         ├── SetRustDesk.jpg
         ├── Starter.jpg
         ├── StoreRepair.jpg
@@ -239,11 +248,6 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 Per un resoconto dettagliato di ogni modifica, correzione e funzionalità introdotta, consulta il changelog completo a [QUI](/CHANGELOG.md).
 
-## 🕹️ TO DO
-
-- [ ] Download immagine di Windows 23H2 Microwin
-  - [ ] Posizionamento nella cartella download, pronta per essere utilizzata
-
 ---
 
 ## 🔰 Come Contribuire
@@ -292,6 +296,16 @@ git checkout -b new-feature-x
 Guarda la lista delle fantastiche persone che hanno deciso di investire le loro energie per migliorare questo progetto [QUI](/CONTRIBUTORS.md).
 
 ---
+
+## 💀 Dove tutto è iniziato (V 1.0)
+
+<div align="center">
+
+|                                                              |                                                                                   |
+| :----------------------------------------------------------: | :-------------------------------------------------------------------------------: |
+| <img src="img/Run-old.jpg" alt="Run-banner-Old" width="800"> | <img src="img/RepairToolkit-old.jpg" alt="Repair-Toolkit-banner-Old" width="800"> |
+
+## </div>
 
 ## 🎗 Licenza
 
