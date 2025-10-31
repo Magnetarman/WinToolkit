@@ -5252,7 +5252,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 36)'
+            '       Version 2.4.0 (Build 40)'
         ) | ForEach-Object {
             if ($_) {
                 $padding = [Math]::Max(0, [Math]::Floor(($width - $_.Length) / 2))
@@ -5510,24 +5510,40 @@ function GamingToolkit {
     $ultimateGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61"
     $planName = "WinToolkit Gaming Performance"
     $guid = $null
-    $existingPlan = powercfg -list | Select-String -Pattern $planName
 
+    $existingPlan = powercfg -list | Select-String -Pattern $planName -ErrorAction SilentlyContinue
     if ($existingPlan) {
         $guid = ($existingPlan.Line -split '\s+')[3]
-        Write-StyledMessage 'Info' "Piano esistente: $guid"
+        Write-StyledMessage 'Info' "Piano esistente trovato."
     }
     else {
-        $output = powercfg /duplicatescheme $ultimateGUID | Out-String
-        if ($output -match "\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b") {
-            $guid = $matches[0]
-            powercfg /changename $guid $planName "Ottimizzato per Gaming" | Out-Null
-            Write-StyledMessage 'Success' "Piano creato."
+        try {
+            $output = powercfg /duplicatescheme $ultimateGUID | Out-String
+            if ($output -match "\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b") {
+                $guid = $matches[0]
+                powercfg /changename $guid $planName "Ottimizzato per Gaming dal WinToolkit" | Out-Null
+                Write-StyledMessage 'Success' "Piano creato."
+            }
+            else {
+                Write-StyledMessage 'Error' "Errore creazione piano."
+            }
+        }
+        catch {
+            Write-StyledMessage 'Error' "Errore duplicazione piano: $($_.Exception.Message)"
         }
     }
 
     if ($guid) {
-        powercfg -setactive $guid | Out-Null
-        Write-StyledMessage 'Success' "Piano attivato."
+        try {
+            powercfg -setactive $guid | Out-Null
+            Write-StyledMessage 'Success' "Piano attivato."
+        }
+        catch {
+            Write-StyledMessage 'Error' "Errore attivazione piano: $($_.Exception.Message)"
+        }
+    }
+    else {
+        Write-StyledMessage 'Error' "Impossibile attivare piano."
     }
     Write-Host ''
 
