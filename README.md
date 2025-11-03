@@ -10,7 +10,7 @@
 </p>
 <br>
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.4.0-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.4.1-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
 <img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -28,6 +28,10 @@
     <b>🟢 Windows 11 (> 22H2) - Supporto Completo.</b><br>
 </p>
 </br>
+
+## 👛 Supporta il Progetto!
+
+[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/MagnetarManit/10)
 
 ## 👨‍💻 Status Commit
 
