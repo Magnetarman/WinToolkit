@@ -107,6 +107,38 @@ function Install-WingetSilent {
         $ErrorActionPreference = 'SilentlyContinue'
         $ProgressPreference = 'SilentlyContinue'
 
+        # --- OFFLINE MODIFICATION START ---
+        if ($script:OfflineModeDir) {
+            $localWingetInstaller = Join-Path $script:OfflineModeDir "WingetInstaller.msixbundle"
+            if (Test-Path $localWingetInstaller) {
+                Write-StyledMessage -type 'Info' -text "Installazione Winget da risorsa offline..."
+                try {
+                    $installScript = "Add-AppxPackage -Path '$localWingetInstaller' -ForceApplicationShutdown -ErrorAction Stop"
+                    $process = Start-Process powershell -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $installScript -Wait -PassThru -WindowStyle Hidden
+
+                    Start-Sleep 3
+                    if (Test-WingetAvailable) {
+                        Write-StyledMessage -type 'Success' -text "Winget installato con successo da risorsa offline."
+                        return $true
+                    }
+                    else {
+                        Write-StyledMessage -type 'Error' -text "Installazione completata da risorsa offline ma Winget non disponibile."
+                        return $false
+                    }
+                }
+                catch {
+                    Write-StyledMessage -type 'Error' -text "Errore installazione Winget da risorsa offline: $($_.Exception.Message)"
+                    return $false
+                }
+            }
+            else {
+                Write-StyledMessage -type 'Warning' -text "Modalità offline attiva, ma WingetInstaller.msixbundle non trovato in '$script:OfflineModeDir'."
+                Write-StyledMessage -type 'Error' -text "Impossibile installare Winget. Assicurarsi che le risorse offline siano complete."
+                return $false
+            }
+        }
+        # --- OFFLINE MODIFICATION END ---
+
         # Tentativo riparazione per Windows 11 24H2+
         if ($buildNumber -ge 26100) {
             Write-StyledMessage -type 'Info' -text "Rilevato Windows 11 24H2+. Tentativo riparazione..."
@@ -123,6 +155,7 @@ function Install-WingetSilent {
             catch {}
         }
 
+        # --- Existing online installation logic (fallback if not in offline mode or local file missing) ---
         Write-StyledMessage -type 'Info' -text "Download e installazione Winget..."
         $url = "https://aka.ms/getwinget"
         $temp = "$env:TEMP\WingetInstaller.msixbundle"
@@ -130,7 +163,7 @@ function Install-WingetSilent {
         if (Test-Path $temp) { Remove-Item $temp -Force }
 
         Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing -TimeoutSec 30
-        
+
         $installScript = "Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop"
         $process = Start-Process powershell -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $installScript -Wait -PassThru -WindowStyle Hidden
 
@@ -168,16 +201,46 @@ function Install-Git {
 
     Write-StyledMessage -type 'Info' -text "Git non trovato. Avvio installazione..."
 
-    # Tentativo con winget
+    # --- OFFLINE MODIFICATION START ---
+    if ($script:OfflineModeDir) {
+        $localGitInstaller = Join-Path $script:OfflineModeDir "Git-2.51.0-64-bit.exe" # Ensure filename matches pre-downloaded one
+        if (Test-Path $localGitInstaller) {
+            Write-StyledMessage -type 'Info' -text "Installazione Git da risorsa offline..."
+            try {
+                $process = Start-Process $localGitInstaller -ArgumentList "/SILENT /NORESTART /CLOSEAPPLICATIONS" -Wait -PassThru
+                if ($process.ExitCode -eq 0) {
+                    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+                    Write-StyledMessage -type 'Success' -text "Git installato con successo da risorsa offline."
+                    return $true
+                }
+                else {
+                    Write-StyledMessage -type 'Error' -text "Installazione Git da risorsa offline fallita. Codice: $($process.ExitCode)"
+                    return $false
+                }
+            }
+            catch {
+                Write-StyledMessage -type 'Error' -text "Errore installazione Git da risorsa offline: $($_.Exception.Message)"
+                return $false
+            }
+        }
+        else {
+            Write-StyledMessage -type 'Warning' -text "Modalità offline attiva, ma 'Git-2.51.0-64-bit.exe' non trovato in '$script:OfflineModeDir'."
+            Write-StyledMessage -type 'Error' -text "Impossibile installare Git. Assicurarsi che le risorse offline siano complete."
+            return $false
+        }
+    }
+    # --- OFFLINE MODIFICATION END ---
+
+    # Tentativo con winget (existing logic - will only run if not in offline mode or if offline mode fails)
     if (Test-WingetAvailable) {
         Write-StyledMessage -type 'Info' -text "Installazione Git tramite winget..."
-        
+
         $result = Invoke-WingetWithTimeout -Arguments "install Git.Git --accept-source-agreements --accept-package-agreements --silent" -TimeoutSeconds 120
-        
+
         if ($result -and $result.ExitCode -eq 0) {
             Start-Sleep 5
             $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-            
+
             if (Get-Command "git" -ErrorAction SilentlyContinue) {
                 Write-StyledMessage -type 'Success' -text "Git installato con successo tramite winget."
                 return $true
@@ -186,7 +249,7 @@ function Install-Git {
         Write-StyledMessage -type 'Warning' -text "Installazione winget non riuscita. Tentativo download diretto..."
     }
 
-    # Installazione diretta
+    # Installazione diretta (existing logic - will only run if not in offline mode and winget fails)
     try {
         $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.1/Git-2.51.0-64-bit.exe"
         $gitInstaller = "$env:TEMP\Git-2.51.0-64-bit.exe"
@@ -239,12 +302,71 @@ function Install-PowerShell7 {
         return $true
     }
 
-    # Tentativo con winget
+    # --- OFFLINE MODIFICATION START ---
+    if ($script:OfflineModeDir) {
+        $localPs7Installer = Join-Path $script:OfflineModeDir "PowerShell-7.5.2-win-x64.msi" # Ensure filename matches pre-downloaded one
+        if (Test-Path $localPs7Installer) {
+            Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 da risorsa offline (attendere fino a 3 minuti)..."
+            try {
+                $job = Start-Job -ScriptBlock {
+                    param($installer)
+                    $installArgs = "/i `"$installer`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
+                    $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden
+                    return $process.ExitCode
+                } -ArgumentList $localPs7Installer
+
+                $completed = Wait-Job $job -Timeout 180
+
+                if ($completed) {
+                    $exitCode = Receive-Job $job
+                    Remove-Job $job -Force
+
+                    Start-Sleep 3
+                    if (Test-Path "$env:ProgramFiles\PowerShell\7") {
+                        Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo da risorsa offline."
+                        return $true
+                    }
+                    elseif ($exitCode -eq 0) {
+                        Write-StyledMessage -type 'Success' -text "Installazione completata da risorsa offline. PowerShell 7 sarà disponibile dopo il riavvio."
+                        return $true
+                    }
+                    else {
+                        Write-StyledMessage -type 'Error' -text "Installazione PowerShell 7 da risorsa offline fallita. Codice: $exitCode"
+                        return $false
+                    }
+                }
+                else {
+                    Remove-Job $job -Force
+
+                    Start-Sleep 3
+                    if (Test-Path "$env:ProgramFiles\PowerShell\7") {
+                        Write-StyledMessage -type 'Success' -text "PowerShell 7 installato da risorsa offline (timeout superato ma installazione completata)."
+                        return $true
+                    }
+
+                    Write-StyledMessage -type 'Error' -text "Timeout installazione PowerShell 7 da risorsa offline (180s). Possibile interferenza o sistema lento."
+                    return $false
+                }
+            }
+            catch {
+                Write-StyledMessage -type 'Error' -text "Errore installazione PowerShell 7 da risorsa offline: $($_.Exception.Message)"
+                return $false
+            }
+        }
+        else {
+            Write-StyledMessage -type 'Warning' -text "Modalità offline attiva, ma 'PowerShell-7.5.2-win-x64.msi' non trovato in '$script:OfflineModeDir'."
+            Write-StyledMessage -type 'Error' -text "Impossibile installare PowerShell 7. Assicurarsi che le risorse offline siano complete."
+            return $false
+        }
+    }
+    # --- OFFLINE MODIFICATION END ---
+
+    # Tentativo con winget (existing logic - will only run if not in offline mode or if offline mode fails)
     if (Test-WingetAvailable) {
         Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 tramite winget..."
-        
+
         $result = Invoke-WingetWithTimeout -Arguments "install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements --silent" -TimeoutSeconds 180
-        
+
         if ($result -and $result.ExitCode -eq 0) {
             Start-Sleep 5
             if (Test-Path "$env:ProgramFiles\PowerShell\7") {
@@ -255,16 +377,16 @@ function Install-PowerShell7 {
         Write-StyledMessage -type 'Warning' -text "Installazione winget non completata. Tentativo download diretto..."
     }
 
-    # Installazione diretta con timeout
+    # Installazione diretta con timeout (existing logic - will only run if not in offline mode and winget fails)
     try {
         $ps7Url = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/PowerShell-7.5.2-win-x64.msi"
         $ps7Installer = "$env:TEMP\PowerShell-7.5.2-win-x64.msi"
-        
+
         Write-StyledMessage -type 'Info' -text "Download PowerShell 7..."
         Invoke-WebRequest -Uri $ps7Url -OutFile $ps7Installer -UseBasicParsing -TimeoutSec 60
-        
+
         Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 in corso (attendere fino a 3 minuti)..."
-        
+
         # Esecuzione MSI con timeout usando Job
         $job = Start-Job -ScriptBlock {
             param($installer)
@@ -272,14 +394,14 @@ function Install-PowerShell7 {
             $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden
             return $process.ExitCode
         } -ArgumentList $ps7Installer
-        
+
         $completed = Wait-Job $job -Timeout 180
-        
+
         if ($completed) {
             $exitCode = Receive-Job $job
             Remove-Job $job -Force
             Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
-            
+
             # Verifica installazione
             Start-Sleep 3
             if (Test-Path "$env:ProgramFiles\PowerShell\7") {
@@ -298,14 +420,14 @@ function Install-PowerShell7 {
         else {
             Remove-Job $job -Force
             Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
-            
+
             # Verifica se l'installazione è comunque riuscita
             Start-Sleep 3
             if (Test-Path "$env:ProgramFiles\PowerShell\7") {
                 Write-StyledMessage -type 'Success' -text "PowerShell 7 installato (timeout superato ma installazione completata)."
                 return $true
             }
-            
+
             Write-StyledMessage -type 'Error' -text "Timeout installazione (180s). Possibile interferenza o sistema lento."
             Write-StyledMessage -type 'Warning' -text "Provare a eseguire manualmente: msiexec /i PowerShell-7.5.2-win-x64.msi"
             return $false
@@ -324,19 +446,49 @@ function Install-WindowsTerminal {
         Write-StyledMessage -type 'Success' -text "Windows Terminal già presente."
     }
     else {
-        # Tentativo 1: winget con timeout
-        if (Test-WingetAvailable) {
-            Write-StyledMessage -type 'Info' -text "Installazione tramite winget..."
-            
-            $result = Invoke-WingetWithTimeout -Arguments "install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent" -TimeoutSeconds 120
-            
-            Start-Sleep 5
-            if (Get-Command "wt" -ErrorAction SilentlyContinue) {
-                Write-StyledMessage -type 'Success' -text "Windows Terminal installato tramite winget."
+        # --- OFFLINE MODIFICATION START ---
+        if ($script:OfflineModeDir) {
+            $localWtInstaller = Get-ChildItem -Path $script:OfflineModeDir -Filter "Microsoft.WindowsTerminal_*.msixbundle" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
+            if ($localWtInstaller) {
+                Write-StyledMessage -type 'Info' -text "Installazione Windows Terminal da risorsa offline..."
+                try {
+                    Add-AppxPackage -Path $localWtInstaller -ErrorAction Stop
+                    Start-Sleep 5
+                    if (Get-Command "wt" -ErrorAction SilentlyContinue) {
+                        Write-StyledMessage -type 'Success' -text "Windows Terminal installato con successo da risorsa offline."
+                        # Return here to skip online attempts
+                        return
+                    }
+                    else {
+                        Write-StyledMessage -type 'Error' -text "Installazione Windows Terminal da risorsa offline completata ma 'wt' non disponibile."
+                    }
+                }
+                catch {
+                    Write-StyledMessage -type 'Error' -text "Errore installazione Windows Terminal da risorsa offline: $($_.Exception.Message)"
+                }
+            }
+            else {
+                Write-StyledMessage -type 'Warning' -text "Modalità offline attiva, ma nessun 'Microsoft.WindowsTerminal_*.msixbundle' trovato in '$script:OfflineModeDir'."
+                Write-StyledMessage -type 'Info' -text "Tentativo con metodi online (winget, Store, GitHub)..."
+            }
+        }
+        # --- OFFLINE MODIFICATION END ---
+
+        # Tentativo 1: winget con timeout (existing logic)
+        if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) { # Only try if not installed yet
+            if (Test-WingetAvailable) {
+                Write-StyledMessage -type 'Info' -text "Installazione tramite winget..."
+
+                $result = Invoke-WingetWithTimeout -Arguments "install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent" -TimeoutSeconds 120
+
+                Start-Sleep 5
+                if (Get-Command "wt" -ErrorAction SilentlyContinue) {
+                    Write-StyledMessage -type 'Success' -text "Windows Terminal installato tramite winget."
+                }
             }
         }
 
-        # Tentativo 2: Microsoft Store
+        # Tentativo 2: Microsoft Store (existing logic)
         if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
             try {
                 Write-StyledMessage -type 'Info' -text "Apertura Microsoft Store..."
@@ -349,14 +501,14 @@ function Install-WindowsTerminal {
             }
         }
 
-        # Tentativo 3: GitHub Release
+        # Tentativo 3: GitHub Release (existing logic)
         if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
             try {
                 Write-StyledMessage -type 'Info' -text "Download da GitHub..."
                 $releaseUrl = "https://api.github.com/repos/microsoft/terminal/releases/latest"
                 $release = Invoke-RestMethod -Uri $releaseUrl -UseBasicParsing
                 $asset = $release.assets | Where-Object { $_.name -like "*Win10*msixbundle" } | Select-Object -First 1
-                
+
                 if ($asset) {
                     $installerPath = "$env:TEMP\$($asset.name)"
                     Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -UseBasicParsing
@@ -498,7 +650,17 @@ function ToolKit-Desktop {
             New-Item -Path $iconDir -ItemType Directory -Force | Out-Null
         }
         
-        if (-not (Test-Path $iconPath)) {
+        # --- OFFLINE MODIFICATION START ---
+        if ($script:OfflineModeDir) {
+            $localIconPath = Join-Path $script:OfflineModeDir "WinToolkit.ico"
+            if (Test-Path $localIconPath) {
+                Write-StyledMessage -type 'Info' -text "Copia icona Win Toolkit da risorsa offline..."
+                Copy-Item -Path $localIconPath -Destination $iconPath -Force
+            }
+        }
+        # --- OFFLINE MODIFICATION END ---
+
+        if (-not (Test-Path $iconPath)) { # Only download if not in offline mode or local copy was not found/copied
             Write-StyledMessage -type 'Info' -text "Download icona..."
             $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
             Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing
@@ -525,8 +687,20 @@ function ToolKit-Desktop {
     }
 }
 
+# Define a global variable to store the offline directory path if provided
+$script:OfflineModeDir = $null
+
 function Start-WinToolkit {
-    param([switch]$InstallProfileOnly)
+    param(
+        [switch]$InstallProfileOnly,
+        [string]$OfflineModeDir
+    )
+
+    # Set the global variable if the parameter is passed
+    if ($OfflineModeDir) {
+        $script:OfflineModeDir = $OfflineModeDir
+        Write-StyledMessage -type 'Debug' -text "Modalità Offline attiva. Dir: $script:OfflineModeDir"
+    }
 
     if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-Output "Riavvio con privilegi amministratore..."
