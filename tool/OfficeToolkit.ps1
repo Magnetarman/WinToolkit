@@ -258,6 +258,22 @@ function OfficeToolkit {
             Read-Host | Out-Null
 
             if (Get-UserConfirmation "✅ Installazione completata con successo?" 'Y') {
+                # Nuove configurazioni post-installazione: Disabilitazione Telemetria e Notifiche Crash
+                Write-StyledMessage Info "⚙️ Configurazione post-installazione Office..."
+
+                Show-Spinner -Activity "Disabilitazione telemetria Office" -Action {
+                    $RegPathTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry"
+                    if (-not (Test-Path $RegPathTelemetry)) { New-Item $RegPathTelemetry -Force | Out-Null }
+                    Set-ItemProperty -Path $RegPathTelemetry -Name "DisableTelemetry" -Value 1 -Type DWord -Force
+                }
+
+                Show-Spinner -Activity "Disabilitazione notifiche crash Office" -Action {
+                    $RegPathFeedback = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"
+                    if (-not (Test-Path $RegPathFeedback)) { New-Item $RegPathFeedback -Force | Out-Null }
+                    Set-ItemProperty -Path $RegPathFeedback -Name "OnBootNotify" -Value 0 -Type DWord -Force
+                }
+                # Fine nuove configurazioni
+
                 Write-StyledMessage Success "🎉 Installazione Office completata!"
                 return $true
             }
@@ -683,7 +699,7 @@ function OfficeToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '      Office Toolkit By MagnetarMan',
-            '        Version 2.2.4 (Build 1)'
+            '        Version 2.4.1 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
