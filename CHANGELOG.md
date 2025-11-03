@@ -64,6 +64,23 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
+## [2.4.1] - 2025-10-26 (#20)
+
+### Aggiunte
+
+- Funzione **Office Toolkit** Potenziata.
+  - Disattivazione della telemetria generale
+  - Disattivazione invio crash report
+
+### Correzioni
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+- Aggiunto link PayPal per supportare lo sviluppo del progetto.
+
+---
+
 ## [2.4.0] (Pixel Debh Part II) - 2025-10-26 (#19)
 
 ### Aggiunte
