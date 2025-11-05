@@ -53,6 +53,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Pulizia del sistema.
   - Applicazione Sfondo "MagnetarMan".
   - Riavvio del PC per completare le modifiche.
+- **OFFLINE MODE (`V3.1`):**
 - **Bugfix e Conversione per la GUI Mode (`V4.0`)**
 - **GUI Mode (`V5.0`):**
   - Win toolkit con tutta la semplicità della GUI

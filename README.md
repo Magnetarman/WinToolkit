@@ -154,10 +154,11 @@ Grazie di cuore per il tuo supporto!
     └── asset (Cartella Asset vari necessari alle funzioni del ToolKit)
         └── png (Cartella icone GUI)
     └── img (Cartella immagini contenute nel Readme.md)
-    ├── CHANGELOG.md (Lista Contributori del progetto)
+    ├── CHANGELOG.md (Lista delle modifiche apportate nelle varie versioni del progetto.)
+    ├── CONTRIBUTORS.md (Lista Contributori del progetto)
     ├── LICENSE
     ├── README.md
-    ├── start.ps1
+    ├── start.ps1 (script di start. installa il necessario per far funzionare WinToolkit al 100%)
     └── WinToolkit.ps1
 ```
 
@@ -168,7 +169,7 @@ Grazie di cuore per il tuo supporto!
 > [!IMPORTANT]
 > Prima di avviare il toolkit, assicurati che il tuo ambiente di Runtime soddisfi i seguenti requisiti:
 >
-> - **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script. **E' fortemente consigliata la disattivazione temporanea durante le operazioni**.
+> - **Windows Defender** di 24H2 in poi potrebbe rilevare come pericoloso questo script. **E' fortemente consigliata la disattivazione temporanea durante le operazioni**.
 > - **Richiesta Connessione ad internet durante l'esecuzione del Tool**.
 > - Richiesto intervento manuale minimo.
 > - **Spazio su disco Consigliato**: 50GB Liberi.
