@@ -69,15 +69,16 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Aggiunte
 
 - Funzione **Office Toolkit** Potenziata.
-  - Disattivazione della telemetria generale
-  - Disattivazione invio crash report
+  - Disattivazione della telemetria generale.
+  - Disattivazione invio crash report.
 
 ### Correzioni
 
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
-- Aggiunto link PayPal per supportare lo sviluppo del progetto.
+- Aggiunta sezione Supporto Progetto.
+- Riorganizzazione e semplificazione sezioni del file `README.md`.
 
 ---
 
