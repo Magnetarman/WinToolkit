@@ -104,14 +104,16 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 Se WinToolkit ti è stato utile, considera di supportare attivamente il mio lavoro. La tua donazione non è solo un ringraziamento, ma un investimento diretto nel futuro e nello sviluppo di questo strumento.
 
-Perché Donare è Importante per Me?
+### Perché Donare
+
 🚀 Sviluppo Continuo: Le donazioni mi permettono di dedicare più tempo e risorse per mantenere la versione attuale aggiornata e compatibile, e per implementare nuove, potenti funzionalità.
 
 🏆 Entra nella Hall of Fame: Ogni donatore verrà incluso in una nuova sezione dedicata all'interno della lista dei contributori come ringraziamento per il tuo prezioso supporto.
 
 ✨ Accesso Esclusivo alla Versione 5 GUI Edition (Coming Soon): Per coprire i costi e il tempo di sviluppo che impiego, la futura e attesissima Versione 5 con Interfaccia Grafica (GUI) sarà facilmente offerta in anteprima a chi avrà supportato il progetto con una donazione libera. La versione da terminale (attualmente disponibile) rimarrà comunque completamente gratuita per tutti.
 
-Come Donare Liberamente
+### 👛 Come Donare Liberamente
+
 Per effettuare una donazione, clicca sul bottone PayPal qui sotto. È fondamentale che tu aggiunga un riferimento a "WinToolkit" nel messaggio della donazione per potermi permettere di catalogare correttamente il tuo contributo e garantirti l'inserimento nella Hall of Fame dei Contributori.
 
 [![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/MagnetarManit/10)
