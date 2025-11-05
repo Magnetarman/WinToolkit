@@ -29,10 +29,6 @@
 </p>
 </br>
 
-## 👛 Supporta il Progetto!
-
-[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/MagnetarManit/10)
-
 ## 👨‍💻 Status Commit
 
 |                                                                               Ramo Release                                                                                |                                                                                Ramo Dev                                                                                 |
@@ -56,26 +52,13 @@
 
 </div>
 
-## V 5.0 - Gui Mode (Coming Soon)
-
-> [!CAUTION]
-> L'immagine mostrata di seguito è un'anteprima della versione grafica (GUI) di WinToolkit, attualmente in uno stadio Alpha di pre-produzione.
->
-> Si fa notare che la veste grafica definitiva potrebbe subire variazioni, anche significative. L'inclusione di questa screenshot in questa fase risponde alle numerose richieste degli utenti che hanno espresso un forte interesse per l'implementazione futura di un'interfaccia grafica.
-
-<div align="center">
- <img src="img/Gui-Mode.jpg" alt="Gui-Mode-banner" width="1200">
-</div>
-
-|                                 Before                                  |                                 After                                 |
-| :---------------------------------------------------------------------: | :-------------------------------------------------------------------: |
-| <img src="img/Gui-Before.jpg" alt="Gui-Mode-Before-banner" width="800"> | <img src="img/Gui-After.jpg" alt="Gui-Mode-After-banner" width="800"> |
-
 ## 👾 Features
 
 - **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
 - **Cartella di lavoro unica**: Le operazioni del programma sono centralizzate in un'unica cartella di lavoro, situata in `%localappdata%\WinToolkit`. È importante mantenere questa directory per garantire la corretta visualizzazione e il funzionamento dell'icona di collegamento sul desktop. Lo strumento è concepito per operare in modo completamente autonomo e online, eliminando la necessità di creare cartelle temporanee aggiuntive per la sua esecuzione.
 - **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato nel percorso `%localappdata%\WinToolkit\logs`, fornendo un riassunto chiaro delle azioni eseguite, degli errori riscontrati e dei risultati finali.
+
+---
 
 ### ℹ️ Descrizione Funzioni Toolkit
 
@@ -105,6 +88,8 @@
 >
 > **Lo script di setting di Rust Desk è destinato esclusivamente alle macchine che richiedono assistenza tecnica futura da parte mia. Verrà installa una versione personalizzata di RustDesk preconfigurata per l'assistenza tecnica remota.**
 
+---
+
 ### 🤔 Perché WinToolkit?
 
 Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemente mantenere il tuo PC personale in perfette condizioni, WinToolkit ti permette di:
@@ -115,64 +100,64 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 
 ---
 
+## 💖 Supporta il Progetto WinToolkit!
+
+Se WinToolkit ti è stato utile, considera di supportare attivamente il mio lavoro. La tua donazione non è solo un ringraziamento, ma un investimento diretto nel futuro e nello sviluppo di questo strumento.
+
+Perché Donare è Importante per Me?
+🚀 Sviluppo Continuo: Le donazioni mi permettono di dedicare più tempo e risorse per mantenere la versione attuale aggiornata e compatibile, e per implementare nuove, potenti funzionalità.
+
+🏆 Entra nella Hall of Fame: Ogni donatore verrà incluso in una nuova sezione dedicata all'interno della lista dei contributori come ringraziamento per il tuo prezioso supporto.
+
+✨ Accesso Esclusivo alla Versione 5 GUI Edition (Coming Soon): Per coprire i costi e il tempo di sviluppo che impiego, la futura e attesissima Versione 5 con Interfaccia Grafica (GUI) sarà facilmente offerta in anteprima a chi avrà supportato il progetto con una donazione libera. La versione da terminale (attualmente disponibile) rimarrà comunque completamente gratuita per tutti.
+
+Come Donare Liberamente
+Per effettuare una donazione, clicca sul bottone PayPal qui sotto. È fondamentale che tu aggiunga un riferimento a "WinToolkit" nel messaggio della donazione per potermi permettere di catalogare correttamente il tuo contributo e garantirti l'inserimento nella Hall of Fame dei Contributori.
+
+[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/MagnetarManit/10)
+
+### 🔰 Oppure, Contribuisci Attivamente!
+
+La collaborazione è fondamentale! Se non puoi donare, puoi comunque aiutarmi a migliorare WinToolkit attraverso queste azioni:
+
+💬 **[Partecipa alle Discussioni](https://t.me/GlitchTalkGroup)**: Condividi le tue idee, fornisci feedback o fai domande.
+
+🐛 **[Segnala Problemi](https://github.com/Magnetarman/WinToolkit/issues)**: Segnala i bug che hai trovato o richiedi nuove funzionalità per il progetto WinToolkit.
+
+💡 **[Invia Pull Request](https://github.com/Magnetarman/WinToolkit/issues)**: Revisiona le Pull Request (PR) aperte e invia le tue modifiche al codice.
+
+Grazie di cuore per il tuo supporto!
+
+## 🪟 v 5.0 - Gui Mode (Coming Soon)
+
+> [!CAUTION]
+> L'immagine mostrata di seguito è un'anteprima della versione grafica (GUI) di WinToolkit, attualmente in uno stadio Alpha di pre-produzione.
+>
+> Si fa notare che la veste grafica definitiva potrebbe subire variazioni, anche significative. L'inclusione di questa screenshot in questa fase risponde alle numerose richieste degli utenti che hanno espresso un forte interesse per l'implementazione futura di un'interfaccia grafica.
+
+<div align="center">
+ <img src="img/Gui-Mode.jpg" alt="Gui-Mode-banner" width="1200">
+</div>
+
+|                                 Before                                  |                                 After                                 |
+| :---------------------------------------------------------------------: | :-------------------------------------------------------------------: |
+| <img src="img/Gui-Before.jpg" alt="Gui-Mode-Before-banner" width="800"> | <img src="img/Gui-After.jpg" alt="Gui-Mode-After-banner" width="800"> |
+
+---
+
 ## 📁 Struttura Cartelle
 
 ```sh
 └── WinToolkit/
-    └── asset
-        ├── AMD-Autodetect.exe
-        ├── Basic.xml
-        ├── DDU-18.1.3.5.zip
-        ├── dxwebsetup.exe
-        ├── NVCleanstall_1.19.0.exe
-        ├── RustDesk.toml
-        ├── RustDesk_local.toml
-        ├── RustDesk2.toml
-        ├── Setup.exe
-        ├── png (Cartella icone GUI)
-    └── img
-        ├── Driver-Install.jpg
-        ├── GamingToolkit.jpg
-        ├── Gui-After.jpg
-        ├── Gui-Before.jpg
-        ├── Gui-Mode.jpg
-        ├── OfficeToolkit.jpg
-        ├── RepairToolkit.jpg
-        ├── RepairToolkit-old.jpg
-        ├── Run.jpg
-        ├── Run-old.jpg
-        ├── SetRustDesk.jpg
-        ├── Starter.jpg
-        ├── StoreRepair.jpg
-        ├── UpdateReset.jpg
-        ├── WinCleaner.jpg
-        ├── WinToolkit.ico
-        └── WinToolkit-icon.png
-    ├── CHANGELOG.md
-    ├── CONTRIBUTORS.md
+    └── asset (Cartella Asset vari necessari alle funzioni del ToolKit)
+        └── png (Cartella icone GUI)
+    └── img (Cartella immagini contenute nel Readme.md)
+    ├── CHANGELOG.md (Lista Contributori del progetto)
     ├── LICENSE
     ├── README.md
     ├── start.ps1
     └── WinToolkit.ps1
 ```
-
-### 📂 Index Progetto
-
-<details open>
-	<summary><b><code>WinToolKit</code></b></summary>
-		<blockquote>
-			<table>
-				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/main/start.ps1'>start.ps1</a></b></td>
-					<td><code>❯ Script di Start. Installa tutto il necessario automaticamente per far funzionare al meglio il ToolKit, Crea una scorciatoia sul Dekstop per avviare il Toolkit ed infine riavvia il PC per apportare le modifiche.</code></td>
-				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/main/WinToolkit.ps1'>WinToolkit.ps1</a></b></td>
-					<td><code>❯ All'interno di questo script sono contenute tutte le funzioni ed il codice del tool.</code></td>
-				</tr>
-				</tr>
-			</table>
-		</blockquote>
-</details>
 
 ---
 
@@ -251,47 +236,6 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 ## 📌 Changelog Progetto
 
 Per un resoconto dettagliato di ogni modifica, correzione e funzionalità introdotta, consulta il changelog completo a [QUI](/CHANGELOG.md).
-
----
-
-## 🔰 Come Contribuire
-
-- **💬 [Partecipa alle Discussioni](https://t.me/GlitchTalkGroup)**: Condividi le tue idee, fornisci feedback o fai domande.
-- **🐛 [Segnala Problemi](https://github.com/Magnetarman/WinToolkit/issues)**: Segnala i bug trovati o richiedi nuove funzionalità per il progetto `WinToolkit`.
-- **💡 [ Invia Pull Request](https://github.com/Magnetarman/WinToolkit/issues)**: Revisiona le Pull Request (PR) aperte e invia le tue.
-
-<details closed>
-<summary>Linee Guida</summary>
-
-1. **Esegui il Fork della Repository**: Inizia facendo il "fork" della repository del progetto sul tuo account GitHub.
-2. **Clona in Locale**: Clona la repository di cui hai fatto il fork sulla tua macchina locale usando un client Git.
-
-```powershell
-   git clone https://github.com/Magnetarman/WinToolkit
-```
-
-3. **Crea un Nuovo Branch**: Lavora sempre su un nuovo "branch", dandogli un nome descrittivo.
-
-```powershell
-git checkout -b new-feature-x
-```
-
-4. **Apporta le Tue Modifiche**: Sviluppa e testa le tue modifiche in locale.
-5. **Esegui il Commit delle Tue Modifiche**: Fai il "commit" con un messaggio chiaro che descriva i tuoi aggiornamenti.
-
-```powershell
-  git commit -m 'Implementata nuova funzionalità x.'
-```
-
-6. **Esegui il Push su GitHub**: Fai il "push" delle modifiche sulla tua repository "fork".
-
-```powershell
-   git push origin nuova-funzionalita-x
-```
-
-7. **Invia una Pull Request**: Crea una "Pull Request" (PR) verso la repository originale del progetto. Descrivi chiaramente le modifiche e le loro motivazioni.
-8. **Revisione**: Una volta che la tua PR sarà revisionata e approvata, verrà unita ("merged") nel branch principale. Congratulazioni per il tuo contributo!
-</details>
 
 ---
 
