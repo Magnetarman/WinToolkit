@@ -80,6 +80,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - Aggiornamento della documentazione e del file `README.md`.
 - Aggiunta sezione Supporto Progetto.
 - Riorganizzazione e semplificazione sezioni del file `README.md`.
+- Fix bug avvio modalità provvisioria in `VideoDriverInstall.ps1`.
+  - A causa di un Bug di un cumulativo di Windows 24H2 e 25H2 la modalità di avvio avanzata ingnora gli input di tastiera e mouse. Per questo motivo è stata scelta una via alternativa (Legacy con il richiamo di MSConfig) per il riavvio diretto in Modalità Provvisoria.
 
 ---
 
