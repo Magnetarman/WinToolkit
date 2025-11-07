@@ -4819,7 +4819,7 @@ function VideoDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Video Driver Install Toolkit By MagnetarMan',
-            '       Version 2.3.0 (Build 10)'
+            '       Version 2.4.1 (Build 2)'
         )
 
         foreach ($line in $asciiArt) {
@@ -5027,8 +5027,8 @@ function VideoDriverInstall {
         Write-StyledMessage 'Warning' "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
 
         # Download DDU
-        $dduZipUrl = "${GitHubAssetBaseUrl}DDU-18.1.3.5.zip"
-        $dduZipPath = Join-Path $DriverToolsLocalPath "DDU-18.1.3.5.zip"
+        $dduZipUrl = "${GitHubAssetBaseUrl}DDU.zip"
+        $dduZipPath = Join-Path $DriverToolsLocalPath "DDU.zip"
 
         if (-not (Download-FileWithProgress -Url $dduZipUrl -DestinationPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
             Write-StyledMessage 'Error' "Impossibile scaricare DDU. Annullamento operazione."
