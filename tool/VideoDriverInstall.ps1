@@ -1,22 +1,30 @@
 function VideoDriverInstall {
     <#
     .SYNOPSIS
-        Toolkit Driver Grafici - Installazione e configurazione driver GPU.
+        Toolkit per l'installazione e riparazione dei driver grafici.
 
     .DESCRIPTION
-        Script per l'installazione e configurazione ottimale dei driver grafici:
-        - Rilevamento automatico GPU (NVIDIA, AMD, Intel)
-        - Download driver più recenti dal sito ufficiale
-        - Installazione pulita con pulizia precedente
-        - Configurazione ottimale per gaming e prestazioni
-        - Installazione software di controllo (GeForce Experience, AMD Software)
+        Questo script PowerShell è progettato per l'installazione e la riparazione dei driver grafici,
+        inclusa la pulizia completa con DDU e il download dei driver ufficiali per NVIDIA e AMD.
+        Utilizza un'interfaccia utente migliorata con messaggi stilizzati, spinner e
+        un conto alla rovescia per il riavvio in modalità provvisoria che può essere interrotto.
     #>
 
     param([int]$CountdownSeconds = 30)
 
     $Host.UI.RawUI.WindowTitle = "Driver Install Toolkit By MagnetarMan"
-    $script:Log = @(); $script:CurrentAttempt = 0
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+
+    # Setup logging specifico per VideoDriverInstall
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    try {
+        if (-not (Test-Path -Path $logdir)) {
+            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logdir\VideoDriverInstall_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {}
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
@@ -48,7 +56,7 @@ function VideoDriverInstall {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Video Driver Install Toolkit By MagnetarMan',
-            '       Version 2.4.1 (Build 2)'
+            '       Version 2.4.1 (Build 5)'
         )
 
         foreach ($line in $asciiArt) {
@@ -76,9 +84,9 @@ function VideoDriverInstall {
     function Get-GpuManufacturer {
         <#
         .SYNOPSIS
-            Identifies the manufacturer of the primary display adapter.
-        .RETURNS
-            'NVIDIA', 'AMD', 'Intel' or 'Unknown'
+            Identifica il produttore della scheda grafica principale.
+        .DESCRIPTION
+            Ritorna 'NVIDIA', 'AMD', 'Intel' o 'Unknown' basandosi sui dispositivi Plug and Play.
         #>
         $pnpDevices = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue
 
@@ -98,7 +106,7 @@ function VideoDriverInstall {
                 return 'AMD'
             }
             elseif ($friendlyName -match 'Intel|Iris|UHD|HD Graphics' -or $manufacturer -match 'Intel') {
-                return 'Intel' # While not explicitly requested for actions, it's good to identify.
+                return 'Intel'
             }
         }
         return 'Unknown'
@@ -107,12 +115,10 @@ function VideoDriverInstall {
     function Set-BlockWindowsUpdateDrivers {
         <#
         .SYNOPSIS
-            Blocks Windows Update from automatically downloading and installing drivers.
+            Blocca Windows Update dal scaricare automaticamente i driver.
         .DESCRIPTION
-            This function sets a registry key that prevents Windows Update from
-            including drivers in quality updates, reducing conflicts with
-            manufacturer-specific driver installations. It then forces a Group Policy update.
-            Requires administrative privileges.
+            Imposta una chiave di registro per impedire a Windows Update di includere driver negli aggiornamenti di qualità,
+            riducendo conflitti con installazioni specifiche del produttore. Richiede privilegi amministrativi.
         #>
         Write-StyledMessage 'Info' "Configurazione per bloccare download driver da Windows Update..."
 
@@ -121,12 +127,9 @@ function VideoDriverInstall {
         $propertyValue = 1
 
         try {
-            # Ensure the parent path exists
             if (-not (Test-Path $regPath)) {
                 New-Item -Path $regPath -Force | Out-Null
             }
-
-            # Set the registry key to block driver downloads
             Set-ItemProperty -Path $regPath -Name $propertyName -Value $propertyValue -Type DWord -Force -ErrorAction Stop
             Write-StyledMessage 'Success' "Blocco download driver da Windows Update impostato correttamente nel registro."
             Write-StyledMessage 'Info' "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
@@ -134,14 +137,11 @@ function VideoDriverInstall {
         catch {
             Write-StyledMessage 'Error' "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)"
             Write-StyledMessage 'Warning' "Potrebbe essere necessario eseguire lo script come amministratore."
-            # Continue without forcing gpupdate if registry failed, as gpupdate won't reflect the change anyway.
             return
         }
 
-        # Force Group Policy update
         Write-StyledMessage 'Info' "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche..."
         try {
-            # Use Start-Process with -Wait for gpupdate as it's an external executable
             $gpupdateProcess = Start-Process -FilePath "gpupdate.exe" -ArgumentList "/force" -Wait -NoNewWindow -PassThru -ErrorAction Stop
             if ($gpupdateProcess.ExitCode -eq 0) {
                 Write-StyledMessage 'Success' "Criteri di gruppo aggiornati con successo."
@@ -157,6 +157,12 @@ function VideoDriverInstall {
     }
 
     function Download-FileWithProgress {
+        <#
+        .SYNOPSIS
+            Scarica un file con indicatore di progresso.
+        .DESCRIPTION
+            Scarica un file dall'URL specificato con spinner di progresso e gestione retry.
+        #>
         param(
             [Parameter(Mandatory = $true)]
             [string]$Url,
@@ -182,7 +188,46 @@ function VideoDriverInstall {
 
         for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
             try {
-                Invoke-WebRequest -Uri $Url -OutFile $DestinationPath -UseBasicParsing -ErrorAction Stop
+                $spinnerIndex = 0
+                $webRequest = [System.Net.WebRequest]::Create($Url)
+                $webResponse = $webRequest.GetResponse()
+                $totalLength = [System.Math]::Floor($webResponse.ContentLength / 1024)
+                $responseStream = $webResponse.GetResponseStream()
+                $targetStream = [System.IO.FileStream]::new($DestinationPath, [System.IO.FileMode]::Create)
+                $buffer = New-Object byte[] 10KB
+                $count = $responseStream.Read($buffer, 0, $buffer.Length)
+                $downloadedBytes = $count
+
+                while ($count -gt 0) {
+                    $targetStream.Write($buffer, 0, $count)
+                    $count = $responseStream.Read($buffer, 0, $buffer.Length)
+                    $downloadedBytes += $count
+
+                    $spinner = $spinners[$spinnerIndex % $spinners.Length]
+                    $percent = [math]::Min(100, [math]::Round(($downloadedBytes / $webResponse.ContentLength) * 100))
+                    $barLength = 30
+                    $filled = '█' * [math]::Floor($percent * $barLength / 100)
+                    $empty = '░' * ($barLength - $filled.Length)
+                    $bar = "[$filled$empty] {0,3}%" -f $percent
+
+                    $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                    Write-Host $clearLine -NoNewline
+                    Write-Host "$spinner 💾 $Description $bar" -NoNewline -ForegroundColor Cyan
+
+                    $spinnerIndex++
+                    Start-Sleep -Milliseconds 100
+                }
+
+                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                Write-Host $clearLine -NoNewline
+                [Console]::Out.Flush()
+
+                $targetStream.Flush()
+                $targetStream.Close()
+                $targetStream.Dispose()
+                $responseStream.Dispose()
+                $webResponse.Close()
+
                 Write-StyledMessage 'Success' "Download di $Description completato."
                 return $true
             }
@@ -198,6 +243,12 @@ function VideoDriverInstall {
     }
 
     function Start-InverseCountdown {
+        <#
+        .SYNOPSIS
+            Avvia un conto alla rovescia con barra di progresso.
+        .DESCRIPTION
+            Mostra un conto alla rovescia interattivo che può essere interrotto premendo un tasto.
+        #>
         param(
             [Parameter(Mandatory = $true)]
             [int]$Seconds,
@@ -205,20 +256,39 @@ function VideoDriverInstall {
             [string]$Message
         )
 
+        Write-StyledMessage 'Info' '💡 Premi qualsiasi tasto per annullare il riavvio automatico...'
+        Write-Host ''
+
         for ($i = $Seconds; $i -gt 0; $i--) {
+            if ([Console]::KeyAvailable) {
+                [Console]::ReadKey($true) | Out-Null
+                Write-Host "`n"
+                Write-StyledMessage 'Error' '⏸️ Riavvio automatico annullato'
+                Write-StyledMessage 'Info' "🔄 Puoi riavviare manualmente con: shutdown /r /t 0"
+                return $false
+            }
+
             $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
             $filled = [Math]::Floor($percent * 20 / 100)
             $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+            $bar = "[$('█' * $filled)$('░' * $remaining)] $percent%"
 
-            Write-Host "`r$($MsgStyles.Error.Icon) $Message tra $i secondi $bar" -NoNewline -ForegroundColor Red
-            Start-Sleep -Seconds 1
+            Write-Host "`r⏰ $Message tra $i secondi $bar" -NoNewline -ForegroundColor Red
+            Start-Sleep 1
         }
-
-        Write-Host "`r$($MsgStyles.Error.Icon) $Message tra 0 secondi [$('█' * 20)] 100%`n" -ForegroundColor Red
+        Write-Host "`n"
+        Write-StyledMessage 'Warning' '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
+        Start-Sleep 1
+        return $true
     }
 
     function Handle-InstallVideoDrivers {
+        <#
+        .SYNOPSIS
+            Gestisce l'installazione dei driver video.
+        .DESCRIPTION
+            Scarica e avvia l'installer appropriato per la GPU rilevata.
+        #>
         Write-StyledMessage 'Info' "Opzione 1: Avvio installazione driver video."
 
         $gpuManufacturer = Get-GpuManufacturer
@@ -253,6 +323,12 @@ function VideoDriverInstall {
     }
 
     function Handle-ReinstallRepairVideoDrivers {
+        <#
+        .SYNOPSIS
+            Gestisce la reinstallazione/riparazione dei driver video.
+        .DESCRIPTION
+            Scarica DDU e gli installer dei driver, configura la modalità provvisoria e riavvia.
+        #>
         Write-StyledMessage 'Warning' "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
 
         # Download DDU
@@ -267,7 +343,6 @@ function VideoDriverInstall {
         # Extract DDU to Desktop
         Write-StyledMessage 'Info' "Estrazione DDU sul Desktop..."
         try {
-            # Expand-Archive extracts to a folder with the same name as the zip file on the destination path.
             Expand-Archive -Path $dduZipPath -DestinationPath $DesktopPath -Force
             Write-StyledMessage 'Success' "DDU estratto correttamente sul Desktop."
         }
@@ -281,7 +356,7 @@ function VideoDriverInstall {
 
         if ($gpuManufacturer -eq 'AMD') {
             $amdInstallerUrl = "${GitHubAssetBaseUrl}AMD-Autodetect.exe"
-            $amdInstallerPath = Join-Path $DesktopPath "AMD-Autodetect.exe" # Download to Desktop
+            $amdInstallerPath = Join-Path $DesktopPath "AMD-Autodetect.exe"
 
             if (-not (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool")) {
                 Write-StyledMessage 'Error' "Impossibile scaricare l'installer AMD. Annullamento operazione."
@@ -290,7 +365,7 @@ function VideoDriverInstall {
         }
         elseif ($gpuManufacturer -eq 'NVIDIA') {
             $nvidiaInstallerUrl = "${GitHubAssetBaseUrl}NVCleanstall_1.19.0.exe"
-            $nvidiaInstallerPath = Join-Path $DesktopPath "NVCleanstall_1.19.0.exe" # Download to Desktop
+            $nvidiaInstallerPath = Join-Path $DesktopPath "NVCleanstall_1.19.0.exe"
 
             if (-not (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool")) {
                 Write-StyledMessage 'Error' "Impossibile scaricare l'installer NVIDIA. Annullamento operazione."
@@ -305,28 +380,51 @@ function VideoDriverInstall {
         }
 
         Write-StyledMessage 'Info' "DDU e l'installer dei Driver (se rilevato) sono stati posizionati sul desktop."
-        Write-StyledMessage 'Error' "ATTENZIONE: Il sistema sta per riavviarsi in modalità avanzata per permettere l'accesso alla modalità provvisoria."
 
-        Start-InverseCountdown -Seconds 30 -Message "Riavvio in modalità avanzata in corso..."
-
+        # Creazione file batch per tornare alla modalità normale
+        $batchFilePath = Join-Path $DesktopPath "Switch to Normal Mode.bat"
         try {
-            # Note: shutdown -o triggers advanced startup options, not direct safe mode boot.
-            # User will need to manually select Safe Mode from the options.
-            shutdown -r -o -t 0
-            Write-StyledMessage 'Success' "Comando di riavvio inviato."
+            Set-Content -Path $batchFilePath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
+            Write-StyledMessage 'Info' "File batch 'Switch to Normal Mode.bat' creato sul desktop per disabilitare la Modalità Provvisoria."
         }
         catch {
-            Write-StyledMessage 'Error' "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)"
+            Write-StyledMessage 'Warning' "Impossibile creare il file batch: $($_.Exception.Message)"
+        }
+
+        Write-StyledMessage 'Error' "ATTENZIONE: Il sistema sta per riavviarsi in modalità provvisoria."
+
+        Write-StyledMessage 'Info' "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria..."
+        try {
+            Start-Process -FilePath "bcdedit.exe" -ArgumentList "/set {current} safeboot minimal" -Wait -NoNewWindow -ErrorAction Stop
+            Write-StyledMessage 'Success' "Modalità Provvisoria configurata per il prossimo avvio."
+        }
+        catch {
+            Write-StyledMessage 'Error' "Errore durante la configurazione della Modalità Provvisoria tramite bcdedit: $($_.Exception.Message)"
+            Write-StyledMessage 'Warning' "Il riavvio potrebbe non avvenire in Modalità Provvisoria. Procedere manualmente."
+            return
+        }
+
+        $shouldReboot = Start-InverseCountdown -Seconds 30 -Message "Riavvio in modalità provvisoria in corso..."
+
+        if ($shouldReboot) {
+            try {
+                shutdown /r /t 0
+                Write-StyledMessage 'Success' "Comando di riavvio inviato."
+            }
+            catch {
+                Write-StyledMessage 'Error' "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)"
+            }
         }
     }
 
     Show-Header
 
-    # --- NEW: Call function to block Windows Update driver downloads ---
-    Set-BlockWindowsUpdateDrivers
-    # --- END NEW ---
+    Write-StyledMessage 'Info' '🔧 Inizializzazione dello Script di Installazione Driver Video...'
+    Start-Sleep -Seconds 2
 
-    # --- NEW: Main Menu Logic ---
+    Set-BlockWindowsUpdateDrivers
+
+    # Main Menu Logic
     $choice = ""
     do {
         Write-Host ""
@@ -353,5 +451,4 @@ function VideoDriverInstall {
         }
 
     } while ($choice.ToUpper() -ne "0")
-    # --- END NEW ---
 }
