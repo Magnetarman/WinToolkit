@@ -10,7 +10,7 @@
 </p>
 <br>
 <p align="center">
-<img src="https://img.shields.io/badge/version-2.4.0-dgreen.svg?style=for-the-badge" alt="versione">
+<img src="https://img.shields.io/badge/version-2.4.1-dgreen.svg?style=for-the-badge" alt="versione">
 <img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
 <img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 <img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -52,7 +52,97 @@
 
 </div>
 
-## V 5.0 - Gui Mode (Coming Soon)
+## 👾 Features
+
+- **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
+- **Cartella di lavoro unica**: Le operazioni del programma sono centralizzate in un'unica cartella di lavoro, situata in `%localappdata%\WinToolkit`. È importante mantenere questa directory per garantire la corretta visualizzazione e il funzionamento dell'icona di collegamento sul desktop. Lo strumento è concepito per operare in modo completamente autonomo e online, eliminando la necessità di creare cartelle temporanee aggiuntive per la sua esecuzione.
+- **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato nel percorso `%localappdata%\WinToolkit\logs`, fornendo un riassunto chiaro delle azioni eseguite, degli errori riscontrati e dei risultati finali.
+
+---
+
+### ℹ️ Descrizione Funzioni Toolkit
+
+- **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
+- **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
+- **Office Toolkit**: Strumento di gestione completo per Microsoft Office che semplifica l'installazione, la riparazione e la rimozione dei prodotti. È possibile installare una versione "Basic" di Microsoft Office in modo semi-automatico, riparare le installazioni esistenti con due diverse modalità (Riparazione Rapida offline e Riparazione Completa online), oppure rimuovere completamente il software dal sistema utilizzando l'efficace tool ufficiale Microsoft Support and Recovery Assistant (SaRA).
+- **Windows Store Repair**: Esegue una reinstallazione di componenti critici come Microsoft Store, Winget, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando Winget).
+- **Win Backup Driver**: Un versatile script PowerShell progettato per semplificare il processo di backup dei driver. Questo strumento automatizza l'esportazione di tutti i driver di terze parti installati, utilizzando il comando DISM per garantire un'operazione completa e affidabile.
+- **Cleaner Toolkit**: Il suo scopo è liberare spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda attraverso una serie di azioni automatizzate.
+- **Video Driver Install**: Il suo scopo è semplificare l'installazione, l'aggiornamento, la reinstallazione e la configurazione ottimale dei driver video (GPU) per sistemi NVIDIA e AMD, gestendo anche la pulizia precedente e bloccando gli aggiornamenti automatici dei driver da Windows Update, spesso fonte di instabilità.
+
+> [!WARNING]
+>
+> **Video Driver Install**
+>
+> A causa di un problema **(un bug)** nella versione **24H2** di Windows 11, l'utilizzo del mouse e della tastiera all'interno del menu di avvio avanzato di Windows è bloccato.
+>
+> Per bypassare questo inconveniente, ho modificato e semplificato la procedura per l'accesso alla Modalità Provvisoria.
+>
+> Come funziona ora ?
+>
+> Esegui lo script: Al riavvio del tuo PC, il sistema entrerà automaticamente in Modalità Provvisoria senza che tu debba fare nulla.
+>
+> Una volta terminate le tue operazioni (Pulizia dei Driver Obsoleti tramite DDU), troverai un file chiamato "Switch To Normal Mode.bat" sul tuo Desktop. Per tornare alla modalità di avvio standard di Windows, fai doppio click su questo file e poi riavvia normalmente il computer.
+
+- **Gaming Toolkit**: Progettato per ottimizzare rapidamente il tuo PC Windows per le massime prestazioni di gioco. Si occupa di installare tutti i componenti essenziali (come DirectX, .NET e Visual C++ redistributables), installa i client di gioco più comuni (Steam, Epic, GOG, ecc.), attiva il profilo energetico 'Performance Massime' e disattiva le interruzioni con la modalità "Non disturbare". Essenzialmente, prepara il tuo sistema per giocare senza distrazioni e con la massima potenza.
+
+> [!WARNING]
+>
+> **Gaming Toolkit**
+>
+> A causa dell'installazione non completa di Winget nei sistemi precedenti a Windows 11 23H2 lo script consiglierà di effettuare la funzione riparazione Winget e poi procederà in modo da avere funzionalità Massime. Per Windows 11 superiori a 23H2 lo script verrà eseguito normalmente.
+
+- **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico.
+
+> [!IMPORTANT]
+>
+> **Set Rust Desk**
+>
+> **Lo script di setting di Rust Desk è destinato esclusivamente alle macchine che richiedono assistenza tecnica futura da parte mia. Verrà installa una versione personalizzata di RustDesk preconfigurata per l'assistenza tecnica remota.**
+
+---
+
+### 🤔 Perché WinToolkit?
+
+Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemente mantenere il tuo PC personale in perfette condizioni, WinToolkit ti permette di:
+
+- **Risparmiare Tempo**: Automatizza ore di lavoro manuale di diagnostica e riparazione.
+- **Prevenire Malfunzionamenti**: Esegui manutenzioni preventive per evitare problemi futuri.
+- **Agire da Esperto**: Sfrutta la potenza degli strumenti di sistema ufficiali Microsoft con un'interfaccia semplice e sicura. Nessun Software Terzo, nessuno script aggressivo o non perfettamente documentato ed utilizzato dai supporti ufficiali.
+
+---
+
+## 💖 Supporta il Progetto WinToolkit!
+
+Se WinToolkit ti è stato utile, considera di supportare attivamente il mio lavoro. La tua donazione non è solo un ringraziamento, ma un investimento diretto nel futuro e nello sviluppo di questo strumento.
+
+### Perché Donare
+
+🚀 Sviluppo Continuo: Le donazioni mi permettono di dedicare più tempo e risorse per mantenere la versione attuale aggiornata e compatibile, e per implementare nuove, potenti funzionalità.
+
+🏆 Entra nella Hall of Fame: Ogni donatore verrà incluso in una nuova sezione dedicata all'interno della lista dei contributori come ringraziamento per il tuo prezioso supporto.
+
+✨ Accesso Esclusivo alla Versione 5 GUI Edition (Coming Soon): Per coprire i costi e il tempo di sviluppo che impiego, la futura e attesissima Versione 5 con Interfaccia Grafica (GUI) sarà facilmente offerta in anteprima a chi avrà supportato il progetto con una donazione libera. La versione da terminale (attualmente disponibile) rimarrà comunque completamente gratuita per tutti.
+
+### 👛 Come Donare Liberamente
+
+Per effettuare una donazione, clicca sul bottone PayPal qui sotto. È fondamentale che tu aggiunga un riferimento a "WinToolkit" nel messaggio della donazione per potermi permettere di catalogare correttamente il tuo contributo e garantirti l'inserimento nella Hall of Fame dei Contributori.
+
+[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/MagnetarManit/10)
+
+### 🔰 Oppure, Contribuisci Attivamente!
+
+La collaborazione è fondamentale! Se non puoi donare, puoi comunque aiutarmi a migliorare WinToolkit attraverso queste azioni:
+
+💬 **[Partecipa alle Discussioni](https://t.me/GlitchTalkGroup)**: Condividi le tue idee, fornisci feedback o fai domande.
+
+🐛 **[Segnala Problemi](https://github.com/Magnetarman/WinToolkit/issues)**: Segnala i bug che hai trovato o richiedi nuove funzionalità per il progetto WinToolkit.
+
+💡 **[Invia Pull Request](https://github.com/Magnetarman/WinToolkit/issues)**: Revisiona le Pull Request (PR) aperte e invia le tue modifiche al codice.
+
+Grazie di cuore per il tuo supporto!
+
+## 🪟 v 5.0 - Gui Mode (Coming Soon)
 
 > [!CAUTION]
 > L'immagine mostrata di seguito è un'anteprima della versione grafica (GUI) di WinToolkit, attualmente in uno stadio Alpha di pre-produzione.
@@ -67,108 +157,22 @@
 | :---------------------------------------------------------------------: | :-------------------------------------------------------------------: |
 | <img src="img/Gui-Before.jpg" alt="Gui-Mode-Before-banner" width="800"> | <img src="img/Gui-After.jpg" alt="Gui-Mode-After-banner" width="800"> |
 
-## 👾 Features
-
-- **Interfaccia Intuitiva**: Nonostante la sua potenza, il toolkit presenta un menu interattivo e facile da utilizzare, che guida l'utente nella scelta dello strumento più adatto per il problema.
-- **Cartella di lavoro unica**: Le operazioni del programma sono centralizzate in un'unica cartella di lavoro, situata in `%localappdata%\WinToolkit`. È importante mantenere questa directory per garantire la corretta visualizzazione e il funzionamento dell'icona di collegamento sul desktop. Lo strumento è concepito per operare in modo completamente autonomo e online, eliminando la necessità di creare cartelle temporanee aggiuntive per la sua esecuzione.
-- **Log Dettagliati**: Tutte le operazioni sono registrate in un file di log salvato nel percorso `%localappdata%\WinToolkit\logs`, fornendo un riassunto chiaro delle azioni eseguite, degli errori riscontrati e dei risultati finali.
-
-### ℹ️ Descrizione Funzioni Toolkit
-
-- **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows come sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
-- **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
-- **Office Toolkit**: Strumento di gestione completo per Microsoft Office che semplifica l'installazione, la riparazione e la rimozione dei prodotti. È possibile installare una versione "Basic" di Microsoft Office in modo semi-automatico, riparare le installazioni esistenti con due diverse modalità (Riparazione Rapida offline e Riparazione Completa online), oppure rimuovere completamente il software dal sistema utilizzando l'efficace tool ufficiale Microsoft Support and Recovery Assistant (SaRA).
-- **Windows Store Repair**: Esegue una reinstallazione di componenti critici come Microsoft Store, Winget, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando Winget).
-- **Win Backup Driver**: Un versatile script PowerShell progettato per semplificare il processo di backup dei driver. Questo strumento automatizza l'esportazione di tutti i driver di terze parti installati, utilizzando il comando DISM per garantire un'operazione completa e affidabile.
-- **Cleaner Toolkit**: Il suo scopo è liberare spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda attraverso una serie di azioni automatizzate.
-- **Video Driver Install**: Il suo scopo è semplificare l'installazione, l'aggiornamento, la reinstallazione e la configurazione ottimale dei driver video (GPU) per sistemi NVIDIA e AMD, gestendo anche la pulizia precedente e bloccando gli aggiornamenti automatici dei driver da Windows Update, spesso fonte di instabilità.
-
-> [!WARNING]
-> Una volta riavviato il PC per utilizzare DDU (Display Driver Uninstall) in modalità provvisoria esegui questi passaggi :
->
-> **Risoluzione dei Problemi** => **Opzioni Avanzate** => **Impostazioni di Avvio** => **Riavvia** => Al riavvio selezionare **opzione 4 (Riavvia in modalità Provvisoria)**
->
-> Al caricamento della modalità provvisoria eseguire DDU dalla cartella sul desktop ed eseguire la rimozione completa e sicura dei driver vecchi.
-
-- **Gaming Toolkit**: Progettato per ottimizzare rapidamente il tuo PC Windows per le massime prestazioni di gioco. Si occupa di installare tutti i componenti essenziali (come DirectX, .NET e Visual C++ redistributables), installa i client di gioco più comuni (Steam, Epic, GOG, ecc.), attiva il profilo energetico 'Performance Massime' e disattiva le interruzioni con la modalità "Non disturbare". Essenzialmente, prepara il tuo sistema per giocare senza distrazioni e con la massima potenza.
-
-> [!WARNING]
-> A causa dell'installazione non completa di Winget nei sistemi precedenti a Windows 11 23H2 lo script consiglierà di effettuare la funzione riparazione Winget e poi procederà in modo da avere funzionalità Massime. Per Windows 11 superiori a 23H2 lo script verrà eseguito normalmente.
-
-- **Set Rust Desk**: Semplifica il processo di installazione e configurazione di RustDesk sui sistemi Windows per il supporto tecnico.
-
-> [!IMPORTANT]
->
-> **Lo script di setting di Rust Desk è destinato esclusivamente alle macchine che richiedono assistenza tecnica futura da parte mia. Verrà installa una versione personalizzata di RustDesk preconfigurata per l'assistenza tecnica remota.**
-
-### 🤔 Perché WinToolkit?
-
-Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemente mantenere il tuo PC personale in perfette condizioni, WinToolkit ti permette di:
-
-- **Risparmiare Tempo**: Automatizza ore di lavoro manuale di diagnostica e riparazione.
-- **Prevenire Malfunzionamenti**: Esegui manutenzioni preventive per evitare problemi futuri.
-- **Agire da Esperto**: Sfrutta la potenza degli strumenti di sistema ufficiali Microsoft con un'interfaccia semplice e sicura. Nessun Software Terzo, nessuno script aggressivo o non perfettamente documentato ed utilizzato dai supporti ufficiali.
-
 ---
 
 ## 📁 Struttura Cartelle
 
 ```sh
 └── WinToolkit/
-    └── asset
-        ├── AMD-Autodetect.exe
-        ├── Basic.xml
-        ├── DDU-18.1.3.5.zip
-        ├── dxwebsetup.exe
-        ├── NVCleanstall_1.19.0.exe
-        ├── RustDesk.toml
-        ├── RustDesk_local.toml
-        ├── RustDesk2.toml
-        ├── Setup.exe
-        ├── png (Cartella icone GUI)
-    └── img
-        ├── Driver-Install.jpg
-        ├── GamingToolkit.jpg
-        ├── Gui-After.jpg
-        ├── Gui-Before.jpg
-        ├── Gui-Mode.jpg
-        ├── OfficeToolkit.jpg
-        ├── RepairToolkit.jpg
-        ├── RepairToolkit-old.jpg
-        ├── Run.jpg
-        ├── Run-old.jpg
-        ├── SetRustDesk.jpg
-        ├── Starter.jpg
-        ├── StoreRepair.jpg
-        ├── UpdateReset.jpg
-        ├── WinCleaner.jpg
-        ├── WinToolkit.ico
-        └── WinToolkit-icon.png
-    ├── CHANGELOG.md
-    ├── CONTRIBUTORS.md
+    └── asset (Cartella Asset vari necessari alle funzioni del ToolKit)
+        └── png (Cartella icone GUI)
+    └── img (Cartella immagini contenute nel Readme.md)
+    ├── CHANGELOG.md (Lista delle modifiche apportate nelle varie versioni del progetto.)
+    ├── CONTRIBUTORS.md (Lista Contributori del progetto)
     ├── LICENSE
     ├── README.md
-    ├── start.ps1
+    ├── start.ps1 (script di start. installa il necessario per far funzionare WinToolkit al 100%)
     └── WinToolkit.ps1
 ```
-
-### 📂 Index Progetto
-
-<details open>
-	<summary><b><code>WinToolKit</code></b></summary>
-		<blockquote>
-			<table>
-				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/main/start.ps1'>start.ps1</a></b></td>
-					<td><code>❯ Script di Start. Installa tutto il necessario automaticamente per far funzionare al meglio il ToolKit, Crea una scorciatoia sul Dekstop per avviare il Toolkit ed infine riavvia il PC per apportare le modifiche.</code></td>
-				<tr>
-					<td><b><a href='https://github.com/Magnetarman/WinToolkit/blob/main/WinToolkit.ps1'>WinToolkit.ps1</a></b></td>
-					<td><code>❯ All'interno di questo script sono contenute tutte le funzioni ed il codice del tool.</code></td>
-				</tr>
-				</tr>
-			</table>
-		</blockquote>
-</details>
 
 ---
 
@@ -177,9 +181,7 @@ Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemen
 > [!IMPORTANT]
 > Prima di avviare il toolkit, assicurati che il tuo ambiente di Runtime soddisfi i seguenti requisiti:
 >
-> - **Windows Defender** di 24H2 potrebbe rilevare come pericoloso questo script. **E' fortemente consigliata la disattivazione temporanea durante le operazioni**.
 > - **Richiesta Connessione ad internet durante l'esecuzione del Tool**.
-> - Richiesto intervento manuale minimo.
 > - **Spazio su disco Consigliato**: 50GB Liberi.
 
 ### 💾 Perche almeno 50 GB liberi ?
@@ -247,47 +249,6 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 ## 📌 Changelog Progetto
 
 Per un resoconto dettagliato di ogni modifica, correzione e funzionalità introdotta, consulta il changelog completo a [QUI](/CHANGELOG.md).
-
----
-
-## 🔰 Come Contribuire
-
-- **💬 [Partecipa alle Discussioni](https://t.me/GlitchTalkGroup)**: Condividi le tue idee, fornisci feedback o fai domande.
-- **🐛 [Segnala Problemi](https://github.com/Magnetarman/WinToolkit/issues)**: Segnala i bug trovati o richiedi nuove funzionalità per il progetto `WinToolkit`.
-- **💡 [ Invia Pull Request](https://github.com/Magnetarman/WinToolkit/issues)**: Revisiona le Pull Request (PR) aperte e invia le tue.
-
-<details closed>
-<summary>Linee Guida</summary>
-
-1. **Esegui il Fork della Repository**: Inizia facendo il "fork" della repository del progetto sul tuo account GitHub.
-2. **Clona in Locale**: Clona la repository di cui hai fatto il fork sulla tua macchina locale usando un client Git.
-
-```powershell
-   git clone https://github.com/Magnetarman/WinToolkit
-```
-
-3. **Crea un Nuovo Branch**: Lavora sempre su un nuovo "branch", dandogli un nome descrittivo.
-
-```powershell
-git checkout -b new-feature-x
-```
-
-4. **Apporta le Tue Modifiche**: Sviluppa e testa le tue modifiche in locale.
-5. **Esegui il Commit delle Tue Modifiche**: Fai il "commit" con un messaggio chiaro che descriva i tuoi aggiornamenti.
-
-```powershell
-  git commit -m 'Implementata nuova funzionalità x.'
-```
-
-6. **Esegui il Push su GitHub**: Fai il "push" delle modifiche sulla tua repository "fork".
-
-```powershell
-   git push origin nuova-funzionalita-x
-```
-
-7. **Invia una Pull Request**: Crea una "Pull Request" (PR) verso la repository originale del progetto. Descrivi chiaramente le modifiche e le loro motivazioni.
-8. **Revisione**: Una volta che la tua PR sarà revisionata e approvata, verrà unita ("merged") nel branch principale. Congratulazioni per il tuo contributo!
-</details>
 
 ---
 
