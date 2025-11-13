@@ -60,7 +60,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|',
             '',
             ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.2.4 (Build 1)'
+            '       Version 2.4.1 (Build 2)'
         )
 
         foreach ($line in $asciiArt) {
@@ -249,7 +249,24 @@ function WinReinstallStore {
             $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
             Start-Sleep 2
             $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
-            
+    
+            if ($process.ExitCode -eq 0) {
+                Write-StyledMessage Progress "Disabilitazione avvio automatico UniGet UI..."
+                try {
+                    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+                    $regKeyName = "WingetUI"
+                    if (Test-Path -Path "$regPath\$regKeyName") {
+                        Remove-ItemProperty -Path $regPath -Name $regKeyName -ErrorAction Stop | Out-Null
+                        Write-StyledMessage Success "Avvio automatico UniGet UI disabilitato."
+                    } else {
+                        Write-StyledMessage Info "La voce di avvio automatico per UniGet UI non è stata trovata o non è necessaria."
+                    }
+                }
+                catch {
+                    Write-StyledMessage Warning "Impossibile disabilitare l'avvio automatico di UniGet UI: $($_.Exception.Message)"
+                }
+            }
+    
             # Reset cursore e flush output
             [Console]::SetCursorPosition(0, $originalPos)
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
