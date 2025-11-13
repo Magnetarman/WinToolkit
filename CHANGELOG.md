@@ -53,6 +53,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Pulizia del sistema.
   - Applicazione Sfondo "MagnetarMan".
   - Riavvio del PC per completare le modifiche.
+- **OFFLINE MODE (`V3.1`):**
 - **Bugfix e Conversione per la GUI Mode (`V4.0`)**
 - **GUI Mode (`V5.0`):**
   - Win toolkit con tutta la semplicità della GUI
@@ -61,6 +62,31 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Correzioni
 
 ### Modifiche
+
+---
+
+## [2.4.1] - 2025-11-13 (#20)
+
+### Aggiunte
+
+- Funzione **Office Toolkit** Potenziata.
+  - Disattivazione della telemetria generale.
+  - Disattivazione invio crash report.
+
+### Correzioni
+
+- Fix Funzione **Gaming Toolkit**.
+  - Potenziamento della funzione di pulizia all'avvio. il Lauche Gog Galaxy nonostante la pulizia continuava ad essere inserito nelle app di avvio. Con il fix aggiunto questa problematica viene risolta.
+- Fix Funzione **Reinstall Store**.
+  - Eliminazione dalle app all'avvio del sistema di Uniget UI.
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+- Aggiunta sezione Supporto Progetto.
+- Riorganizzazione e semplificazione sezioni del file `README.md`.
+- Fix bug avvio modalità provvisioria in `VideoDriverInstall.ps1`.
+  - A causa di un Bug di un cumulativo di Windows 24H2 e 25H2 la modalità di avvio avanzata ingnora gli input di tastiera e mouse. Per questo motivo è stata scelta una via alternativa (Legacy con il richiamo di MSConfig) per il riavvio diretto in Modalità Provvisoria.
 
 ---
 
