@@ -75,6 +75,11 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Correzioni
 
+- Fix Funzione **Gaming Toolkit**.
+  - Potenziamento della funzione di pulizia all'avvio. il Lauche Gog Galaxy nonostante la pulizia continuava ad essere inserito nelle app di avvio. Con il fix aggiunto questa problematica viene risolta.
+- Fix Funzione **Reinstall Store**.
+  - Eliminazione dalle app all'avvio del sistema di Uniget UI.
+
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
