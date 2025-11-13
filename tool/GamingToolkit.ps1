@@ -140,7 +140,7 @@
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.0 (Build 40)'
+            '       Version 2.4.1 (Build 3)'
         ) | ForEach-Object {
             if ($_) {
                 $padding = [Math]::Max(0, [Math]::Floor(($width - $_.Length) / 2))
@@ -274,35 +274,6 @@
                 Write-StyledMessage 'Error' "DirectX errore: $exitCode"
             }
         }
-
-        # Pulizia Bing Toolbar
-        Write-StyledMessage 'Info' '🧹 Rimozione Bing Toolbar...'
-        try {
-            $bingProducts = Get-WmiObject -Class Win32_Product -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Bing*" }
-            
-            if ($bingProducts) {
-                foreach ($product in $bingProducts) {
-                    $product.Uninstall() | Out-Null
-                    Write-StyledMessage 'Success' "Rimosso: $($product.Name)"
-                }
-            }
-
-            # Pulizia registro Bing
-            @(
-                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
-                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*Bing*",
-                "HKCU:\Software\Microsoft\Internet Explorer\Toolbar\*Bing*"
-            ) | ForEach-Object {
-                Get-Item -Path $_ -ErrorAction SilentlyContinue | ForEach-Object {
-                    Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
-                }
-            }
-
-            Write-StyledMessage 'Success' 'Pulizia Bing completata.'
-        }
-        catch {
-            Write-StyledMessage 'Warning' "Errore pulizia Bing: $($_.Exception.Message)"
-        }
     }
     catch {
         Clear-ProgressLine
@@ -375,7 +346,7 @@
     # Step 7: Pulizia avvio automatico
     Write-StyledMessage 'Info' '🧹 Pulizia avvio automatico...'
     $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-    @('Steam', 'Battle.net', 'GOG Galaxy') | ForEach-Object {
+    @('Steam', 'Battle.net', 'GOG Galaxy', 'GogGalaxy', 'GalaxyClient') | ForEach-Object {
         if (Get-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue) {
             Remove-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue
             Write-StyledMessage 'Success' "Rimosso: $_"
