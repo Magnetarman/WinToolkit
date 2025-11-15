@@ -1843,6 +1843,5 @@ finally {
     Read-Host
     try { Stop-Transcript | Out-Null } catch {}
 }
-}
 
 WinCleaner
