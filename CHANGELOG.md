@@ -65,6 +65,21 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
+## [2.4.2] - 2025-11-16 (#21)
+
+### Aggiunte
+
+- Funzione **Win Cleaner** Potenziata.
+  - Potenziamento della funzione di pulizia in varie aree del sistema. [Thanks to @Privacy.sexy Project](https://privacy.sexy/)
+
+### Correzioni
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
+
+---
+
 ## [2.4.1] - 2025-11-13 (#20)
 
 ### Aggiunte
