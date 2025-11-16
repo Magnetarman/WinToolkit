@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.4.1 (Build 1) - 2025-11-13
+  Versione 2.4.2 (Build 1) - 2025-11-16
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.4.1 (Build 1)'
+    '       Version 2.4.2 (Build 1)'
 )
 
 # Version mapping (usato da più funzioni)
@@ -5790,7 +5790,6 @@ function WinCleaner {
     }
 
 }
-# function SearchRepair {}
 function SetRustDesk {
     <#
     .SYNOPSIS
@@ -7041,6 +7040,7 @@ function GamingToolkit {
     }
 
 }
+# function SearchRepair {}
 
 
 # Menu structure
