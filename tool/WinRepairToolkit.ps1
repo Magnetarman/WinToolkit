@@ -212,6 +212,28 @@ function WinRepairToolkit {
         }
     }
 
+    function Set-PasswordExpirationPolicy {
+        Write-StyledMessage Info "⚙️ Impostazione della scadenza password a illimitata..."
+        try {
+            # Esegui il comando
+            $process = Start-Process -FilePath "net" -ArgumentList "accounts", "/maxpwage:unlimited" -NoNewWindow -PassThru -Wait
+            if ($process.ExitCode -eq 0) {
+                Write-StyledMessage Success "✅ Scadenza password impostata a illimitata con successo."
+                $script:Log += "[Password Policy] ✅ Scadenza password impostata a illimitata."
+                return $true
+            } else {
+                Write-StyledMessage Warning "⚠️ Impossibile impostare la scadenza password a illimitata. Codice di uscita: $($process.ExitCode)."
+                $script:Log += "[Password Policy] ⚠️ Fallito: $($process.ExitCode)."
+                return $false
+            }
+        }
+        catch {
+            Write-StyledMessage Error "❌ Errore durante l'impostazione della scadenza password: $($_.Exception.Message)"
+            $script:Log += "[Password Policy] ❌ Errore fatale: $($_.Exception.Message)"
+            return $false
+        }
+    }
+
     function Start-SystemRestart([hashtable]$RepairResult) {
         if ($RepairResult.Success) {
             Write-StyledMessage Info '🎉 Riparazione completata con successo!'
@@ -265,7 +287,7 @@ function WinRepairToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Repair Toolkit By MagnetarMan',
-            '       Version 2.2.4 (Build 1)'
+            '       Version 2.4.2 (Build 2)'
         )
 
         foreach ($line in $asciiArt) {
@@ -290,6 +312,9 @@ function WinRepairToolkit {
     try {
         $repairResult = Start-RepairCycle
         $deepRepairScheduled = Start-DeepDiskRepair
+
+        # Impostazione della scadenza password a illimitata
+        Set-PasswordExpirationPolicy
 
         if ($deepRepairScheduled) {
             Write-StyledMessage Warning 'Il sistema verrà riavviato per eseguire la riparazione profonda...'
