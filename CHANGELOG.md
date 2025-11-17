@@ -71,6 +71,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 - Funzione **Win Cleaner** Potenziata.
   - Potenziamento della funzione di pulizia in varie aree del sistema. [Thanks to @Privacy.sexy Project](https://privacy.sexy/)
+- Sezione **Informazioni di Sistema** Potenziata.
+  - Aggiunto il check (da Windows 25H2 Microsoft lo attiva a sua discrezione) per verificare l'attivazione o meno di bitlocker. In caso affermativo è stata aggiunta un nuovo script nella sezione "Windows" di disattivazione di bitlocker in caso di attivazione non voluta. **[Thanks to @Valeriogalano]**
 
 ### Correzioni
 
