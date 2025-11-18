@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.4.2 (Build 3)'
+    '       Version 2.4.2 (Build 4)'
 )
 
 # Version mapping (usato da più funzioni)
@@ -104,7 +104,7 @@ function CheckBitlocker {
     try {
         # Esegue il comando manage-bde e cattura l'output, inclusi gli errori
         # 2>&1 reindirizza stderr a stdout. Out-String converte l'array di stringhe in una singola stringa multi-line.
-        $bdeOutput = & manage-bde -status 2>&1 | Out-String
+        $bdeOutput = & manage-bde -status C: 2>&1 | Out-String
 
         # Cerca la riga dello stato di protezione
         $protectionLine = $bdeOutput | Select-String "Stato protezione:" -ErrorAction SilentlyContinue
@@ -115,7 +115,7 @@ function CheckBitlocker {
         }
         else {
             # Se la riga "Stato protezione:" non è presente, BitLocker potrebbe non essere configurato o applicabile.
-            return "Non applicabile"
+            return "Status sconosciuto"
         }
     }
     catch {
@@ -144,7 +144,7 @@ function winver {
 
     # Recupera lo stato BitLocker e definisce il colore
     $bitlockerStatus = CheckBitlocker
-    $bitlockerColor = if ($bitlockerStatus -eq "Protezione attivata") { 'Red' } else { 'Green' }
+    $bitlockerColor = if ($bitlockerStatus -eq "Protezione attivata" -or $bitlockerStatus -eq "Errore") { 'Red' } else { 'Green' }
 
     # Display info
     $width = 65
