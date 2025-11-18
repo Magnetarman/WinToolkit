@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.4.2 (Build 1) - 2025-11-16
+  Versione 2.4.2 (Build 3) - 2025-11-18
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.4.2 (Build 1)'
+    '       Version 2.4.2 (Build 3)'
 )
 
 # Version mapping (usato da più funzioni)
@@ -100,6 +100,30 @@ function Get-SystemInfo {
         return $null
     }
 }
+function CheckBitlocker {
+    try {
+        # Esegue il comando manage-bde e cattura l'output, inclusi gli errori
+        # 2>&1 reindirizza stderr a stdout. Out-String converte l'array di stringhe in una singola stringa multi-line.
+        $bdeOutput = & manage-bde -status 2>&1 | Out-String
+
+        # Cerca la riga dello stato di protezione
+        $protectionLine = $bdeOutput | Select-String "Stato protezione:" -ErrorAction SilentlyContinue
+
+        if ($protectionLine) {
+            # Estrae il testo dopo i due punti e pulisce gli spazi
+            return ($protectionLine.Line -split ':')[1].Trim()
+        }
+        else {
+            # Se la riga "Stato protezione:" non è presente, BitLocker potrebbe non essere configurato o applicabile.
+            return "Non applicabile"
+        }
+    }
+    catch {
+        # Gestione errori se manage-bde non è disponibile o fallisce (es. Path non trovato)
+        Write-StyledMessage -type 'Warning' -text "Errore imprevisto durante il recupero dello stato BitLocker: $($_.Exception.Message)"
+        return "Errore"
+    }
+}
 
 function winver {
     $sysInfo = Get-SystemInfo
@@ -118,6 +142,10 @@ function winver {
         default { "💻 $($sysInfo.ProductName)" }
     }
 
+    # Recupera lo stato BitLocker e definisce il colore
+    $bitlockerStatus = CheckBitlocker
+    $bitlockerColor = if ($bitlockerStatus -eq "Protezione attivata") { 'Red' } else { 'Green' }
+
     # Display info
     $width = 65
     Write-Host ""
@@ -132,12 +160,21 @@ function winver {
         @("🗝️ Architettura:", $sysInfo.Architecture, 'White'),
         @("🏷️ Nome PC:", $sysInfo.ComputerName, 'White'),
         @("🧠 RAM:", "$($sysInfo.TotalRAM) GB", 'White'),
+        @("🔒 Stato Bitlocker:", $bitlockerStatus, $bitlockerColor),
         @("💾 Disco:", "$($sysInfo.FreePercentage)% Libero ($($sysInfo.TotalDisk) GB)", 'Green')
     )
 
     foreach ($item in $info) {
         Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
-        Write-Host " $($item[1])" -ForegroundColor $item[2]
+        
+        # Gestione speciale per BitLocker attivato (grassetto + rosso)
+        if ($item[0] -eq "🔒 Stato Bitlocker:" -and $item[1] -eq "Protezione attivata") {
+            Write-Host " $($item[1])" -ForegroundColor $item[2] -NoNewline
+            Write-Host " ⚠️" -ForegroundColor Red
+        }
+        else {
+            Write-Host " $($item[1])" -ForegroundColor $item[2]
+        }
     }
 
     Write-Host ""
