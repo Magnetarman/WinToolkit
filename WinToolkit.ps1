@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.4.2 (Build 4)'
+    '       Version 2.4.2 (Build 5)'
 )
 
 # Version mapping (usato da più funzioni)
@@ -105,6 +105,11 @@ function CheckBitlocker {
         # Esegue il comando manage-bde e cattura l'output, inclusi gli errori
         # 2>&1 reindirizza stderr a stdout. Out-String converte l'array di stringhe in una singola stringa multi-line.
         $bdeOutput = & manage-bde -status C: 2>&1 | Out-String
+
+        # Controlla se BitLocker non è abilitato
+        if ($bdeOutput -match "non è abilitato") {
+            return "Protezione disattivata"
+        }
 
         # Cerca la riga dello stato di protezione
         $protectionLine = $bdeOutput | Select-String "Stato protezione:" -ErrorAction SilentlyContinue
