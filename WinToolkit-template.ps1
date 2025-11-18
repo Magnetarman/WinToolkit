@@ -144,7 +144,7 @@ function winver {
 
     # Recupera lo stato BitLocker e definisce il colore
     $bitlockerStatus = CheckBitlocker
-    $bitlockerColor = if ($bitlockerStatus -eq "Protezione attivata") { 'Green' } else { 'Red' }
+    $bitlockerColor = if ($bitlockerStatus -eq "Protezione attivata") { 'Red' } else { 'Green' }
 
     # Display info
     $width = 65
@@ -166,7 +166,15 @@ function winver {
 
     foreach ($item in $info) {
         Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
-        Write-Host " $($item[1])" -ForegroundColor $item[2]
+        
+        # Gestione speciale per BitLocker attivato (grassetto + rosso)
+        if ($item[0] -eq "🔒 Stato Bitlocker:" -and $item[1] -eq "Protezione attivata") {
+            Write-Host " $($item[1])" -ForegroundColor $item[2] -NoNewline
+            Write-Host " ⚠️" -ForegroundColor Red
+        }
+        else {
+            Write-Host " $($item[1])" -ForegroundColor $item[2]
+        }
     }
 
     Write-Host ""
