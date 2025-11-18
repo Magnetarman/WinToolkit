@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.4.2 (Build 5)'
+    '       Version 2.4.2 (Build 6)'
 )
 
 # Version mapping (usato da più funzioni)
@@ -102,31 +102,26 @@ function Get-SystemInfo {
 }
 function CheckBitlocker {
     try {
-        # Esegue il comando manage-bde e cattura l'output, inclusi gli errori
-        # 2>&1 reindirizza stderr a stdout. Out-String converte l'array di stringhe in una singola stringa multi-line.
-        $bdeOutput = & manage-bde -status C: 2>&1 | Out-String
-
-        # Controlla se BitLocker non è abilitato
-        if ($bdeOutput -match "non è abilitato") {
-            return "Protezione disattivata"
-        }
-
-        # Cerca la riga dello stato di protezione
-        $protectionLine = $bdeOutput | Select-String "Stato protezione:" -ErrorAction SilentlyContinue
-
+        # Esegue manage-bde e cattura l'output come array di stringhe
+        $bdeOutput = & manage-bde -status C: 2>&1
+        
+        # Cerca la riga "Stato protezione:" nell'output
+        $protectionLine = $bdeOutput | Where-Object { $_ -match "Stato protezione:" }
+        
         if ($protectionLine) {
-            # Estrae il testo dopo i due punti e pulisce gli spazi
-            return ($protectionLine.Line -split ':')[1].Trim()
+            # Estrae solo il valore dopo i due punti e rimuove spazi
+            $status = ($protectionLine -split ':')[1].Trim()
+            return $status
         }
         else {
-            # Se la riga "Stato protezione:" non è presente, BitLocker potrebbe non essere configurato o applicabile.
-            return "Status sconosciuto"
+            # Se non trova la riga, BitLocker non è configurato
+            return "Non configurato"
         }
     }
     catch {
-        # Gestione errori se manage-bde non è disponibile o fallisce (es. Path non trovato)
-        Write-StyledMessage -type 'Warning' -text "Errore imprevisto durante il recupero dello stato BitLocker: $($_.Exception.Message)"
-        return "Errore"
+        # Gestione errori
+        Write-StyledMessage -type 'Warning' -text "Impossibile verificare BitLocker: $($_.Exception.Message)"
+        return "Non disponibile"
     }
 }
 
