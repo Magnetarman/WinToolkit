@@ -4,7 +4,7 @@
 .DESCRIPTION
     Menu principale per strumenti di gestione e riparazione Windows
 .NOTES
-  Versione 2.4.2 (Build 3) - 2025-11-18
+  Versione 2.4.2 (Build 6) - 2025-11-18
 #>
 
 param([int]$CountdownSeconds = 10)
@@ -345,6 +345,7 @@ function WinCleaner {}
 function SetRustDesk {}
 function VideoDriverInstall {}
 function GamingToolkit {}
+function DisableBitlocker {}
 # function SearchRepair {}
 
 
@@ -363,6 +364,7 @@ $menuStructure = @(
             [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
             [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
+            [pscustomobject]@{ Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' }
         )
     },
     @{
