@@ -29,7 +29,7 @@ $asciiArt = @(
     '         \_/\_/    |_||_| \_|',
     '',
     '       WinToolkit By MagnetarMan',
-    '       Version 2.4.2 (Build 6)'
+    '       Version 2.4.2 (Build 7)'
 )
 
 # Version mapping (usato da più funzioni)
