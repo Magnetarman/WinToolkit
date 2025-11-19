@@ -80,7 +80,7 @@ function Show-Header {
         '         \_/\_/    |_||_| \_|'
         ''
         '    BitLocker Toolkit By MagnetarMan'
-        '       Version 1.0 (Build 1)'
+        '       Version 2.4.2 (Build 1)'
     )
 
     foreach ($line in $asciiArt) {
@@ -125,10 +125,12 @@ function DisableBitlocker {
             if ($commandOutput -match "Decryption in progress") {
                 Write-StyledMessage Success "✅ Disattivazione BitLocker avviata con successo."
                 $script:Log += "[DisableBitlocker] ✅ Disattivazione avviata"
-            } elseif ($commandOutput -match "Volume C: is not BitLocker protected") {
+            }
+            elseif ($commandOutput -match "Volume C: is not BitLocker protected") {
                 Write-StyledMessage Info "💭 BitLocker è già disattivato sul drive C:."
                 $script:Log += "[DisableBitlocker] ℹ️ Già disattivato"
-            } else {
+            }
+            else {
                 Write-StyledMessage Success "✅ Comando manage-bde completato."
                 $script:Log += "[DisableBitlocker] ✅ Completato"
             }
@@ -137,7 +139,8 @@ function DisableBitlocker {
             foreach ($line in $commandOutput) {
                 Write-Host "   $line" -ForegroundColor DarkGray
             }
-        } else {
+        }
+        else {
             Write-StyledMessage Error "❌ Errore nell'esecuzione di manage-bde (Exit code: $exitCode)"
             Write-StyledMessage Info "📋 Output di errore:"
             foreach ($line in $commandOutput) {
@@ -145,7 +148,8 @@ function DisableBitlocker {
             }
             $script:Log += "[DisableBitlocker] ❌ Errore: Exit code $exitCode"
         }
-    } catch {
+    }
+    catch {
         Write-StyledMessage Error "❌ Errore imprevisto: $($_.Exception.Message)"
         $script:Log += "[DisableBitlocker] ❌ Errore fatale: $($_.Exception.Message)"
     }
