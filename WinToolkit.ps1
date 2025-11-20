@@ -6804,7 +6804,7 @@ function GamingToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Gaming Toolkit By MagnetarMan',
-            '       Version 2.4.1 (Build 3)'
+            '       Version 2.4.2 (Build 2)'
         ) | ForEach-Object {
             if ($_) {
                 $padding = [Math]::Max(0, [Math]::Floor(($width - $_.Length) / 2))
@@ -6882,7 +6882,7 @@ function GamingToolkit {
     $runtimes = @(
         "Microsoft.DotNet.DesktopRuntime.3_1", "Microsoft.DotNet.DesktopRuntime.5",
         "Microsoft.DotNet.DesktopRuntime.6", "Microsoft.DotNet.DesktopRuntime.7",
-        "Microsoft.DotNet.DesktopRuntime.8", "Microsoft.DotNet.DesktopRuntime.9",
+        "Microsoft.DotNet.DesktopRuntime.8", "Microsoft.DotNet.DesktopRuntime.9", "Microsoft.DotNet.DesktopRuntime.10",
         "Microsoft.VCRedist.2010.x64", "Microsoft.VCRedist.2010.x86",
         "Microsoft.VCRedist.2012.x64", "Microsoft.VCRedist.2012.x86",
         "Microsoft.VCRedist.2013.x64", "Microsoft.VCRedist.2013.x86",
