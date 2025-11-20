@@ -7103,95 +7103,100 @@ function GamingToolkit {
 
 }
 function DisableBitlocker {
-$Host.UI.RawUI.WindowTitle = "BitLocker Toolkit By MagnetarMan"
-
-# Setup logging
-$dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$logDir = "$env:LOCALAPPDATA\WinToolkit\logs"
-
-try {
-    if (-not (Test-Path -Path $logDir)) {
-        New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-    }
-    Start-Transcript -Path "$logDir\DisableBitlocker_$dateTime.log" -Append -Force | Out-Null
-}
-catch {
-    Write-Warning "Impossibile inizializzare il logging: $_"
-}
-
-# Caratteri spinner per animazioni
-$spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-
-# Stili messaggi
-$MsgStyles = @{
-    Success = @{ Color = 'Green'; Icon = '✅' }
-    Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-    Error   = @{ Color = 'Red'; Icon = '❌' }
-    Info    = @{ Color = 'Cyan'; Icon = '💎' }
-}
-
-function Write-StyledMessage {
-    param(
-        [string]$Type,
-        [string]$Text
-    )
-
-    $style = $MsgStyles[$Type]
-    Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
-}
-
-function Center-Text {
-    [CmdletBinding()]
-    [OutputType([string])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Text,
-
-        [Parameter(Mandatory = $false)]
-        [int]$Width = $Host.UI.RawUI.BufferSize.Width
-    )
-
-    $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-    return (' ' * $padding + $Text)
-}
-
-function Show-Header {
-    Clear-Host
-    $width = $Host.UI.RawUI.BufferSize.Width
-    Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-
-    $asciiArt = @(
-        '      __        __  _  _   _ '
-        '      \ \      / / | || \ | |'
-        '       \ \ /\ / /  | ||  \| |'
-        '        \ V  V /   | || |\  |'
-        '         \_/\_/    |_||_| \_|'
-        ''
-        '    BitLocker Toolkit By MagnetarMan'
-        '       Version 2.4.2 (Build 1)'
-    )
-
-    foreach ($line in $asciiArt) {
-        if (-not [string]::IsNullOrEmpty($line)) {
-            Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
-        }
-    }
-
-    Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-    Write-Host ''
-}
-
-function DisableBitlocker {
     <#
     .SYNOPSIS
         Disattiva BitLocker sul drive C:
 
     .DESCRIPTION
         Questo script disattiva la crittografia BitLocker per il drive di sistema (C:).
+        Può essere eseguito in modalità standalone o come parte di un toolkit più ampio.
     #>
 
-    [CmdletBinding()]
-    param()
+    param([bool]$RunStandalone = $true)
+
+    # Configurazione
+    $Host.UI.RawUI.WindowTitle = "BitLocker Toolkit By MagnetarMan"
+
+    # Setup logging
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logDir = "$env:LOCALAPPDATA\WinToolkit\logs"
+
+    try {
+        if (-not (Test-Path -Path $logDir)) {
+            New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+        }
+        Start-Transcript -Path "$logDir\BitLockerToolkit_$dateTime.log" -Append -Force | Out-Null
+    }
+    catch {
+        Write-Warning "Impossibile inizializzare il logging: $_"
+    }
+
+    # Caratteri spinner per animazioni
+    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+
+    # Stili messaggi
+    $MsgStyles = @{
+        Success = @{ Color = 'Green'; Icon = '✅' }
+        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
+        Error   = @{ Color = 'Red'; Icon = '❌' }
+        Info    = @{ Color = 'Cyan'; Icon = '💎' }
+    }
+
+    $script:Log = @()
+
+    function Write-StyledMessage {
+        param(
+            [string]$Type,
+            [string]$Text
+        )
+
+        $style = $MsgStyles[$Type]
+        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+        if ($Type -in @('Info', 'Warning', 'Error', 'Success')) {
+            $script:Log += "[$(Get-Date -Format 'HH:mm:ss')] [$Type] $Text"
+        }
+    }
+
+    function Center-Text {
+        [CmdletBinding()]
+        [OutputType([string])]
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding + $Text)
+    }
+
+    function Show-Header {
+        Clear-Host
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+
+        $asciiArt = @(
+            '      __        __  _  _   _ '
+            '      \ \      / / | || \ | |'
+            '       \ \ /\ / /  | ||  \| |'
+            '        \ V  V /   | || |\  |'
+            '         \_/\_/    |_||_| \_|'
+            ''
+            '    BitLocker Toolkit By MagnetarMan'
+            '       Version 2.4.2 (Build 4)'
+        )
+
+        foreach ($line in $asciiArt) {
+            if (-not [string]::IsNullOrEmpty($line)) {
+                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
+            }
+        }
+
+        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+        Write-Host ''
+    }
 
     Show-Header
 
@@ -7211,13 +7216,13 @@ function DisableBitlocker {
 
         if ($exitCode -eq 0) {
             if ($commandOutput -match "Decryption in progress") {
-                Write-StyledMessage Success "✅ Disattivazione BitLocker avviata con successo."
+                Write-StyledMessage Success "Disattivazione BitLocker avviata con successo."
             }
             elseif ($commandOutput -match "Volume C: is not BitLocker protected") {
-                Write-StyledMessage Info "💭 BitLocker è già disattivato sul drive C:."
+                Write-StyledMessage Info "BitLocker è già disattivato sul drive C:."
             }
             else {
-                Write-StyledMessage Success "✅ Comando manage-bde completato."
+                Write-StyledMessage Success "Comando manage-bde completato."
             }
 
             Write-StyledMessage Info "📋 Output completo di manage-bde:"
@@ -7226,7 +7231,7 @@ function DisableBitlocker {
             }
         }
         else {
-            Write-StyledMessage Error "❌ Errore nell'esecuzione di manage-bde (Exit code: $exitCode)"
+            Write-StyledMessage Error "Errore nell'esecuzione di manage-bde (Exit code: $exitCode)"
             Write-StyledMessage Info "📋 Output di errore:"
             foreach ($line in $commandOutput) {
                 Write-Host "   $line" -ForegroundColor Red
@@ -7234,20 +7239,18 @@ function DisableBitlocker {
         }
     }
     catch {
-        Write-StyledMessage Error "❌ Errore imprevisto: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore imprevisto: $($_.Exception.Message)"
     }
 
     Write-StyledMessage Info "🎉 Operazione di disattivazione BitLocker completata."
-}
 
-try {
-    DisableBitlocker
-}
-finally {
-    Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
-    $null = Read-Host
+    if ($RunStandalone) {
+        Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
+        $null = Read-Host
+    }
+
     try { Stop-Transcript | Out-Null } catch {}
-}
+
 }
 # function SearchRepair {}
 
