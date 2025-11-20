@@ -81,7 +81,7 @@ function DisableBitlocker {
             '         \_/\_/    |_||_| \_|'
             ''
             '    BitLocker Toolkit By MagnetarMan'
-            '       Version 2.4.2 (Build 4)'
+            '       Version 2.4.2 (Build 5)'
         )
 
         foreach ($line in $asciiArt) {
@@ -139,6 +139,15 @@ function DisableBitlocker {
     }
 
     Write-StyledMessage Info "🎉 Operazione di disattivazione BitLocker completata."
+
+    # Impedisce a Windows di avviare la crittografia automatica del dispositivo.
+    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
+    if (-not (Test-Path -Path $regPath)) {
+        New-Item -Path $regPath -ItemType Directory -Force | Out-Null
+    }
+    Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
+
+    Write-StyledMessage Info "Impostazione del Registro di sistema per prevenire la crittografia automatica del dispositivo completata."
 
     if ($RunStandalone) {
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
