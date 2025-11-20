@@ -1,5 +1,4 @@
 $Host.UI.RawUI.WindowTitle = "BitLocker Toolkit By MagnetarMan"
-$script:Log = @()
 
 # Setup logging
 $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -16,10 +15,10 @@ catch {
 }
 
 # Caratteri spinner per animazioni
-$script:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+$spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
 
 # Stili messaggi
-$script:MsgStyles = @{
+$MsgStyles = @{
     Success = @{ Color = 'Green'; Icon = '✅' }
     Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
     Error   = @{ Color = 'Red'; Icon = '❌' }
@@ -27,29 +26,13 @@ $script:MsgStyles = @{
 }
 
 function Write-StyledMessage {
-    [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
-        [ValidateSet('Success', 'Warning', 'Error', 'Info')]
         [string]$Type,
-
-        [Parameter(Mandatory = $true)]
         [string]$Text
     )
 
-    $style = $script:MsgStyles[$Type]
-    $timestamp = Get-Date -Format "HH:mm:ss"
-
-    # Rimuovi emoji duplicati dal testo
-    $cleanText = $Text -replace '^[✅⚠️❌💎🔍🚀⚙️🧹📦📋📜📝💾⬇️🔧⚡🖼️🌐🍪🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
-
-    Write-Host "[$timestamp] $($style.Icon) $cleanText" -ForegroundColor $style.Color
-
-    # Log dettagliato per operazioni importanti
-    if ($Type -in @('Info', 'Warning', 'Error')) {
-        $logEntry = "[$timestamp] [$Type] $cleanText"
-        $script:Log += $logEntry
-    }
+    $style = $MsgStyles[$Type]
+    Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
 }
 
 function Center-Text {
@@ -109,7 +92,7 @@ function DisableBitlocker {
 
     # Countdown preparazione
     for ($i = 5; $i -gt 0; $i--) {
-        $spinner = $script:Spinners[$i % $script:Spinners.Length]
+        $spinner = $spinners[$i % $spinners.Length]
         Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
         Start-Sleep 1
     }
@@ -124,15 +107,12 @@ function DisableBitlocker {
         if ($exitCode -eq 0) {
             if ($commandOutput -match "Decryption in progress") {
                 Write-StyledMessage Success "✅ Disattivazione BitLocker avviata con successo."
-                $script:Log += "[DisableBitlocker] ✅ Disattivazione avviata"
             }
             elseif ($commandOutput -match "Volume C: is not BitLocker protected") {
                 Write-StyledMessage Info "💭 BitLocker è già disattivato sul drive C:."
-                $script:Log += "[DisableBitlocker] ℹ️ Già disattivato"
             }
             else {
                 Write-StyledMessage Success "✅ Comando manage-bde completato."
-                $script:Log += "[DisableBitlocker] ✅ Completato"
             }
 
             Write-StyledMessage Info "📋 Output completo di manage-bde:"
@@ -146,12 +126,10 @@ function DisableBitlocker {
             foreach ($line in $commandOutput) {
                 Write-Host "   $line" -ForegroundColor Red
             }
-            $script:Log += "[DisableBitlocker] ❌ Errore: Exit code $exitCode"
         }
     }
     catch {
         Write-StyledMessage Error "❌ Errore imprevisto: $($_.Exception.Message)"
-        $script:Log += "[DisableBitlocker] ❌ Errore fatale: $($_.Exception.Message)"
     }
 
     Write-StyledMessage Info "🎉 Operazione di disattivazione BitLocker completata."
