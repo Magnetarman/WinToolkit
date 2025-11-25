@@ -534,9 +534,17 @@ function WinInstallPSProfile {
     }
 
     # WinReinstallStore invocation (User Request)
-    Write-StyledMessage 'Info' "Esecuzione preliminare WinReinstallStore..."
-    WinReinstallStore -NoReboot
-    Show-Header # Restore header after WinReinstallStore clears it
+    # Esegui solo su versioni precedenti a Windows 11 24H2 (Build 26100)
+    $buildVersion = [System.Environment]::OSVersion.Version.Build
+    if ($buildVersion -lt 26100) {
+        Write-StyledMessage 'Info' "Rilevata versione Windows precedente a 24H2 (Build $buildVersion)"
+        Write-StyledMessage 'Info' "Esecuzione preliminare WinReinstallStore..."
+        WinReinstallStore -NoReboot
+        Show-Header # Restore header after WinReinstallStore clears it
+    }
+    else {
+        Write-StyledMessage 'Info' "Windows 24H2+ rilevato (Build $buildVersion). WinReinstallStore non necessario."
+    }
     
     try {
         Write-StyledMessage 'Info' "Installazione profilo PowerShell..."
@@ -1731,7 +1739,6 @@ function WinUpdateReset {
 }
 function WinReinstallStore {
 
-
     <#
     .SYNOPSIS
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
@@ -1816,7 +1823,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|'
             ''
             ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 3)'
+            '       Version 2.4.2 (Build 6)'
         )
 
         foreach ($line in $asciiArt) {
@@ -1859,7 +1866,7 @@ function WinReinstallStore {
     }
     
     function Install-WingetSilent {
-        Write-StyledMessage Progress "Reinstallazione Winget in corso..."
+        Write-StyledMessage Progress "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
         Stop-InterferingProcesses
 
         $originalPos = [Console]::CursorTop
@@ -1868,29 +1875,103 @@ function WinReinstallStore {
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
+
+            # --- FASE 1: Inizializzazione e Pulizia Profonda ---
             
-            if ([System.Environment]::OSVersion.Version.Build -ge 26100) {
-                try {
-                    if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-                        $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
-                        Start-Sleep 5
-                        if (Test-WingetAvailable) { return $true }
-                    }
-                }
-                catch {}
+            # Terminazione Processi
+            Write-StyledMessage Progress "Chiusura forzata dei processi Winget e correlati..."
+            @("winget", "WindowsPackageManagerServer") | ForEach-Object {
+                Get-Process -Name $_ -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+                taskkill /im "$_.exe" /f 2>$null
+            }
+            Start-Sleep 2
+
+            # Pulizia Cartella Temporanea
+            Write-StyledMessage Progress "Pulizia dei file temporanei (%TEMP%\WinGet)..."
+            $tempWingetPath = "$env:TEMP\WinGet"
+            if (Test-Path $tempWingetPath) {
+                Remove-Item -Path $tempWingetPath -Recurse -Force -ErrorAction SilentlyContinue *>$null
+                Write-StyledMessage Info "Cartella temporanea di Winget eliminata."
+            }
+            else {
+                Write-StyledMessage Info "Cartella temporanea di Winget non trovata o già pulita."
             }
 
-            $url = "https://aka.ms/getwinget"
-            $temp = "$env:TEMP\WingetInstaller.msixbundle"
-            if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
+            # Reset Sorgenti Winget
+            Write-StyledMessage Progress "Reset delle sorgenti di Winget..."
+            $wingetExePath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
+            if (Test-Path $wingetExePath) {
+                & $wingetExePath source reset --force *>$null
+            }
+            else {
+                winget source reset --force *>$null
+            }
+            Write-StyledMessage Info "Sorgenti Winget resettate."
 
-            Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
-            $process = Start-Process powershell -ArgumentList @(
-                "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
-            ) -Wait -PassThru -WindowStyle Hidden
+            # --- FASE 2: Installazione Dipendenze e Moduli PowerShell ---
+            
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-            Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
+            # Installazione Provider NuGet
+            Write-StyledMessage Progress "Installazione del PackageProvider NuGet..."
+            try {
+                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
+                Write-StyledMessage Success "Provider NuGet installato/verificato."
+            }
+            catch {
+                Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe essere già installato o richiedere conferma manuale."
+            }
+
+            # Installazione Modulo Microsoft.WinGet.Client
+            Write-StyledMessage Progress "Installazione e importazione del modulo Microsoft.WinGet.Client..."
+            Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
+            Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
+            Write-StyledMessage Success "Modulo Microsoft.WinGet.Client installato e importato."
+
+            # --- FASE 3: Riparazione e Reinstallazione del Core di Winget ---
+
+            # Tentativo A (Riparazione via Modulo)
+            Write-StyledMessage Progress "Tentativo di riparazione Winget tramite il modulo WinGet Client..."
+            if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
+                $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
+                Start-Sleep 5
+                if (Test-WingetAvailable) {
+                    Write-StyledMessage Success "Winget riparato con successo tramite modulo."
+                    # Procedi al reset Appx
+                }
+            }
+
+            # Tentativo B (Reinstallazione tramite MSIXBundle - Fallback)
+            if (-not (Test-WingetAvailable)) {
+                Write-StyledMessage Progress "Scarico e installo Winget tramite MSIXBundle (metodo fallback)..."
+                $url = "https://aka.ms/getwinget"
+                $temp = "$env:TEMP\WingetInstaller.msixbundle"
+                if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
+
+                Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
+                $process = Start-Process powershell -ArgumentList @(
+                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                    "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
+                ) -Wait -PassThru -WindowStyle Hidden
+
+                Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
+                Start-Sleep 5
+                if (Test-WingetAvailable) {
+                    Write-StyledMessage Success "Winget installato con successo tramite MSIXBundle."
+                }
+            }
+
+            # --- FASE 4: Reset dell'App Installer Appx ---
+            Write-StyledMessage Progress "Reset dell'App 'Programma di installazione app' (Microsoft.DesktopAppInstaller)..."
+            try {
+                Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage *>$null
+                Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
+            }
+            catch {
+                Write-StyledMessage Warning "Impossibile resettare l'App 'Programma di installazione app'. Errore: $($_.Exception.Message)"
+            }
+
+            # --- FASE 5: Gestione Output Finale e Valore di Ritorno ---
             
             # Reset cursore e flush output
             [Console]::SetCursorPosition(0, $originalPos)
@@ -1898,10 +1979,20 @@ function WinReinstallStore {
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
             
-            Start-Sleep 5
-            return (Test-WingetAvailable)
+            Start-Sleep 2
+            $finalCheck = Test-WingetAvailable
+            
+            if ($finalCheck) {
+                Write-StyledMessage Success "Winget è stato processato e sembra funzionante."
+                return $true
+            }
+            else {
+                Write-StyledMessage Error "❌ Impossibile installare o riparare Winget dopo tutti i tentativi."
+                return $false
+            }
         }
         catch {
+            Write-StyledMessage Error "Errore critico in Install-WingetSilent: $($_.Exception.Message)"
             return $false
         }
         finally {
@@ -1998,8 +2089,6 @@ function WinReinstallStore {
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
             
-            $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
-            Start-Sleep 2
             $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
     
             if ($process.ExitCode -eq 0) {
