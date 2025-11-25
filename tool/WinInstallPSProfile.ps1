@@ -162,7 +162,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 7)'
+            '      Version 2.4.2 (Build 8)'
         )
 
         foreach ($line in $asciiArt) {
@@ -242,7 +242,7 @@ function WinInstallPSProfile {
                 Write-StyledMessage 'Info' "Installazione oh-my-posh..."
                 $spinnerIndex = 0; $percent = 0
                 
-                $installProcess = Start-Process -FilePath "winget" -ArgumentList "install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent" -NoNewWindow -PassThru
+                $installProcess = Start-Process -FilePath "winget" -ArgumentList "install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent" -NoNewWindow -PassThru -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
 
                 while (-not $installProcess.HasExited -and $percent -lt 90) {
                     Show-ProgressBar "oh-my-posh" "Installazione..." $percent '📦' $spinners[$spinnerIndex++ % $spinners.Length]
@@ -280,7 +280,7 @@ function WinInstallPSProfile {
                 Write-StyledMessage 'Info' "Installazione zoxide..."
                 $spinnerIndex = 0; $percent = 0
                 
-                $installProcess = Start-Process -FilePath "winget" -ArgumentList "install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent" -NoNewWindow -PassThru
+                $installProcess = Start-Process -FilePath "winget" -ArgumentList "install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent" -NoNewWindow -PassThru -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
 
                 while (-not $installProcess.HasExited -and $percent -lt 90) {
                     Show-ProgressBar "zoxide" "Installazione..." $percent '⚡' $spinners[$spinnerIndex++ % $spinners.Length]
