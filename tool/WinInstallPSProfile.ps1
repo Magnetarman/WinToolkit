@@ -162,7 +162,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 4)'
+            '      Version 2.4.2 (Build 6)'
         )
 
         foreach ($line in $asciiArt) {
@@ -196,6 +196,11 @@ function WinInstallPSProfile {
             return
         }
     }
+
+    # WinReinstallStore invocation (User Request)
+    Write-StyledMessage 'Info' "Esecuzione preliminare WinReinstallStore..."
+    WinReinstallStore -NoReboot
+    Show-Header # Restore header after WinReinstallStore clears it
     
     try {
         Write-StyledMessage 'Info' "Installazione profilo PowerShell..."
