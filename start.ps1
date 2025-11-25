@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.4.2 (Build 7) - 2025-11-25
+  Versione 2.4.2 (Build 11) - 2025-11-25
 #>
 
 function Center-text {
@@ -421,7 +421,9 @@ function Install-WindowsTerminal {
             Write-StyledMessage -type 'Success' -text "Windows Terminal impostato come predefinito."
         }
     }
-    catch {}
+    catch {
+        Write-StyledMessage -type 'Warning' -text "Errore impostazione Windows Terminal come predefinito: $($_.Exception.Message)"
+    }
 
     # Attesa per assicurare che Windows Terminal sia completamente installato
     Start-Sleep -Seconds 3
@@ -441,8 +443,8 @@ function Install-WindowsTerminal {
         }
     }
 
-    # Attendi che il file settings.json venga creato (max 10 secondi)
-    $maxWait = 10
+    # Attendi che il file settings.json venga creato (max 20 secondi per sistemi lenti)
+    $maxWait = 20
     $waited = 0
     while (-not (Test-Path $settingsPath) -and $waited -lt $maxWait) {
         Start-Sleep -Seconds 1
@@ -452,15 +454,22 @@ function Install-WindowsTerminal {
     if (Test-Path $settingsPath) {
         try {
             Write-StyledMessage -type 'Info' -text "Configurazione profilo PowerShell 7..."
-            
-            # Leggi il file JSON
-            $settingsContent = Get-Content $settingsPath -Raw -Encoding UTF8
-            $settings = $settingsContent | ConvertFrom-Json
-            
+
+            # Leggi il file JSON con gestione errori
+            try {
+                $settingsContent = Get-Content $settingsPath -Raw -Encoding UTF8
+                $settings = $settingsContent | ConvertFrom-Json
+            }
+            catch {
+                Write-StyledMessage -type 'Error' -text "Errore lettura/parsing settings.json: $($_.Exception.Message)"
+                Write-StyledMessage -type 'Info' -text "Sarà necessaria configurazione manuale."
+                return
+            }
+
             # Cerca il profilo PowerShell 7
             # Possibili nomi: "PowerShell", "pwsh", o source che contiene "PowerShell.PowerShell_7"
             $ps7Profile = $null
-            
+
             foreach ($profile in $settings.profiles.list) {
                 # Verifica source per PowerShell 7
                 if ($profile.source -like "*PowerShell.PowerShell_7*") {
@@ -478,13 +487,13 @@ function Install-WindowsTerminal {
                     break
                 }
             }
-            
+
             if ($ps7Profile) {
                 Write-StyledMessage -type 'Success' -text "Profilo PowerShell 7 trovato: $($ps7Profile.name)"
-                
+
                 # Imposta come profilo predefinito
                 $settings.defaultProfile = $ps7Profile.guid
-                
+
                 # Aggiungi o modifica la proprietà elevate
                 if ($ps7Profile.PSObject.Properties.Name -contains "elevate") {
                     $ps7Profile.elevate = $true
@@ -492,15 +501,15 @@ function Install-WindowsTerminal {
                 else {
                     $ps7Profile | Add-Member -MemberType NoteProperty -Name "elevate" -Value $true -Force
                 }
-                
+
                 # Assicurati che startingDirectory sia impostato (opzionale)
                 if (-not ($ps7Profile.PSObject.Properties.Name -contains "startingDirectory")) {
                     $ps7Profile | Add-Member -MemberType NoteProperty -Name "startingDirectory" -Value "%USERPROFILE%" -Force
                 }
-                
+
                 # Salva le modifiche con formattazione corretta
                 $settings | ConvertTo-Json -Depth 100 | Set-Content $settingsPath -Encoding UTF8 -Force
-                
+
                 Write-StyledMessage -type 'Success' -text "PowerShell 7 configurato come predefinito con privilegi amministratore."
             }
             else {
@@ -592,7 +601,9 @@ function Start-WinToolkit {
         if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
         Start-Transcript -Path "$logdir\WinToolkitStarter_$dateTime.log" -Append -Force | Out-Null
     }
-    catch {}
+    catch {
+        Write-StyledMessage -type 'Warning' -text "Errore avvio logging transcript: $($_.Exception.Message)"
+    }
 
     Clear-Host
     $width = 65
@@ -605,7 +616,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.4.2 (Build 10)'
+        '        Version 2.4.2 (Build 11)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
@@ -647,12 +658,18 @@ function Start-WinToolkit {
             Start-Sleep 1
         }
         Write-Host ""
-        try { Stop-Transcript | Out-Null } catch {}
-        Restart-Computer -Force
+        try { Stop-Transcript | Out-Null } catch { Write-StyledMessage -type 'Warning' -text "Errore chiusura transcript: $($_.Exception.Message)" }
+        try {
+            Restart-Computer -Force
+        }
+        catch {
+            Write-StyledMessage -type 'Error' -text "Errore durante il riavvio: $($_.Exception.Message)"
+            Write-StyledMessage -type 'Info' -text "Riavvia manualmente il sistema per completare l'installazione."
+        }
     }
     else {
         Write-StyledMessage -type 'Success' -text "Nessun riavvio necessario."
-        try { Stop-Transcript | Out-Null } catch {}
+        try { Stop-Transcript | Out-Null } catch { Write-StyledMessage -type 'Warning' -text "Errore chiusura transcript: $($_.Exception.Message)" }
     }
 }
 
