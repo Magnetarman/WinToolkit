@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.4.2 (Build 6) - 2025-11-25
+  Versione 2.4.2 (Build 7) - 2025-11-25
 #>
 
 function Center-text {
@@ -35,52 +35,10 @@ function Write-StyledMessage {
     Write-Host $text -ForegroundColor $colors[$type]
 }
 
-function Test-WingetAvailable {
-    try {
-        $null = winget --version 2>$null
-        return $LASTEXITCODE -eq 0
-    }
-    catch {
-        return $false
-    }
-}
-
-function Invoke-WingetWithTimeout {
-    param(
-        [string]$Arguments,
-        [int]$TimeoutSeconds = 60
-    )
-    
-    try {
-        $job = Start-Job -ScriptBlock {
-            param($args)
-            $output = winget $args 2>&1
-            return @{
-                Output   = $output
-                ExitCode = $LASTEXITCODE
-            }
-        } -ArgumentList $Arguments.Split(' ')
-        
-        $completed = Wait-Job $job -Timeout $TimeoutSeconds
-        
-        if ($completed) {
-            $result = Receive-Job $job
-            Remove-Job $job -Force
-            return $result
-        }
-        else {
-            Remove-Job $job -Force
-            Write-StyledMessage -type 'Warning' -text "Comando winget timeout dopo $TimeoutSeconds secondi"
-            return $null
-        }
-    }
-    catch {
-        Write-StyledMessage -type 'Error' -text "Errore esecuzione winget: $($_.Exception.Message)"
-        return $null
-    }
-}
-
 function Install-WingetSilent {
+    Write-StyledMessage -type 'Info' -text "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
+    
+    # Verifica compatibilità versione Windows per Winget
     $osInfo = [System.Environment]::OSVersion
     $buildNumber = $osInfo.Version.Build
 
@@ -93,91 +51,143 @@ function Install-WingetSilent {
         Write-StyledMessage -type 'Error' -text "Winget non è supportato su Windows $($osInfo.Version.Major)."
         return $false
     }
+    
+    Stop-InterferingProcesses
 
+    $originalPos = [Console]::CursorTop
     try {
+        # Soppressione completa dell'output
         $ErrorActionPreference = 'SilentlyContinue'
         $ProgressPreference = 'SilentlyContinue'
         $VerbosePreference = 'SilentlyContinue'
 
-        # Tentativo di riparazione Winget per tutte le versioni supportate
-        Write-StyledMessage -type 'Info' -text "Tentativo di riparazione Winget..."
-        
-        # Terminazione processi interferenti
+        # --- FASE 1: Inizializzazione e Pulizia Profonda ---
+            
+        # Terminazione Processi
+        Write-StyledMessage -type 'Info' -text "Chiusura forzata dei processi Winget e correlati..."
         @("winget", "WindowsPackageManagerServer") | ForEach-Object {
             Get-Process -Name $_ -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            taskkill /im "$_.exe" /f 2>$null
         }
         Start-Sleep 2
 
-        # Reset delle sorgenti Winget
-        $wingetExePath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
-        if (Test-Path $wingetExePath) {
-            & $wingetExePath source reset --force 2>$null
-        }
-        else {
-            winget source reset --force 2>$null
-        }
-
-        # Tentativo di riparazione tramite modulo WinGet
-        if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-            $null = Repair-WinGetPackageManager -Force -Latest 2>$null
-            Start-Sleep 5
-            if (Test-WingetAvailable) {
-                Write-StyledMessage -type 'Success' -text "Winget riparato con successo."
-                return $true
-            }
-        }
-
-        # Pulizia cartella temporanea Winget
+        # Pulizia Cartella Temporanea
+        Write-StyledMessage -type 'Info' -text "Pulizia dei file temporanei (%TEMP%\WinGet)..."
         $tempWingetPath = "$env:TEMP\WinGet"
         if (Test-Path $tempWingetPath) {
-            Remove-Item -Path $tempWingetPath -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path $tempWingetPath -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Write-StyledMessage Info "Cartella temporanea di Winget eliminata."
+        }
+        else {
+            Write-StyledMessage Info "Cartella temporanea di Winget non trovata o già pulita."
         }
 
-        # Tentativo A: Installazione tramite MSIXBundle
-        Write-StyledMessage -type 'Info' -text "Download e installazione Winget..."
-        $url = "https://aka.ms/getwinget"
-        $temp = "$env:TEMP\WingetInstaller.msixbundle"
-
-        if (Test-Path $temp) { Remove-Item $temp -Force }
-
-        Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing -TimeoutSec 30
-
-        $installScript = "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
-        $process = Start-Process powershell -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $installScript -Wait -PassThru -WindowStyle Hidden
-
-        Remove-Item $temp -Force -ErrorAction SilentlyContinue
-
-        Start-Sleep 5
-        if (Test-WingetAvailable) {
-            Write-StyledMessage -type 'Success' -text "Winget installato con successo."
-            return $true
+        # Reset Sorgenti Winget
+        Write-StyledMessage -type 'Info' -text "Reset delle sorgenti di Winget..."
+        $wingetExePath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
+        if (Test-Path $wingetExePath) {
+            & $wingetExePath source reset --force *>$null
         }
+        else {
+            winget source reset --force *>$null
+        }
+        Write-StyledMessage Info "Sorgenti Winget resettate."
 
-        # Tentativo B: Reset dell'App Installer se ancora disponibile
-        Write-StyledMessage -type 'Info' -text "Tentativo reset App Installer..."
+        # --- FASE 2: Installazione Dipendenze e Moduli PowerShell ---
+            
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+        # Installazione Provider NuGet
+        Write-StyledMessage -type 'Info' -text "Installazione del PackageProvider NuGet..."
         try {
-            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
-            Start-Sleep 3
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
+            Write-StyledMessage Success "Provider NuGet installato/verificato."
+        }
+        catch {
+            Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe essere già installato o richiedere conferma manuale."
+        }
+
+        # Installazione Modulo Microsoft.WinGet.Client
+        Write-StyledMessage -type 'Info' -text "Installazione e importazione del modulo Microsoft.WinGet.Client..."
+        Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
+        Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
+        Write-StyledMessage Success "Modulo Microsoft.WinGet.Client installato e importato."
+
+        # --- FASE 3: Riparazione e Reinstallazione del Core di Winget ---
+
+        # Tentativo A (Riparazione via Modulo)
+        Write-StyledMessage -type 'Info' -text "Tentativo di riparazione Winget tramite il modulo WinGet Client..."
+        if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
+            $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
+            Start-Sleep 5
             if (Test-WingetAvailable) {
-                Write-StyledMessage -type 'Success' -text "Winget ripristinato tramite reset App Installer."
-                return $true
+                Write-StyledMessage Success "Winget riparato con successo tramite modulo."
+                # Procedi al reset Appx
             }
         }
-        catch {}
 
-        Write-StyledMessage -type 'Error' -text "Impossibile installare o riparare Winget dopo tutti i tentativi."
-        return $false
+        # Tentativo B (Reinstallazione tramite MSIXBundle - Fallback)
+        if (-not (Test-WingetAvailable)) {
+            Write-StyledMessage -type 'Info' -text "Scarico e installo Winget tramite MSIXBundle (metodo fallback)..."
+            $url = "https://aka.ms/getwinget"
+            $temp = "$env:TEMP\WingetInstaller.msixbundle"
+            if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
+
+            Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
+            $process = Start-Process powershell -ArgumentList @(
+                "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
+            ) -Wait -PassThru -WindowStyle Hidden
+
+            Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
+            Start-Sleep 5
+            if (Test-WingetAvailable) {
+                Write-StyledMessage Success "Winget installato con successo tramite MSIXBundle."
+            }
+        }
+
+        # --- FASE 4: Reset dell'App Installer Appx ---
+        Write-StyledMessage -type 'Info' -text "Reset dell'App 'Programma di installazione app' (Microsoft.DesktopAppInstaller)..."
+        try {
+            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage *>$null
+            Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
+        }
+        catch {
+            Write-StyledMessage Warning "Impossibile resettare l'App 'Programma di installazione app'. Errore: $($_.Exception.Message)"
+        }
+
+        # --- FASE 5: Gestione Output Finale e Valore di Ritorno ---
+            
+        # Reset cursore e flush output
+        [Console]::SetCursorPosition(0, $originalPos)
+        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+        Write-Host $clearLine -NoNewline
+        [Console]::Out.Flush()
+            
+        Start-Sleep 2
+        $finalCheck = Test-WingetAvailable
+            
+        if ($finalCheck) {
+            Write-StyledMessage Success "Winget è stato processato e sembra funzionante."
+            return $true
+        }
+        else {
+            Write-StyledMessage Error "❌ Impossibile installare o riparare Winget dopo tutti i tentativi."
+            return $false
+        }
     }
     catch {
-        Write-StyledMessage -type 'Error' -text "Errore installazione Winget: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore critico in Install-WingetSilent: $($_.Exception.Message)"
         return $false
     }
     finally {
+        # Reset delle preferenze
         $ErrorActionPreference = 'Continue'
         $ProgressPreference = 'Continue'
-        $VerbosePreference = 'Continue'
+        $VerbosePreference = 'SilentlyContinue'
     }
 }
+    
 
 function Install-Git {
     Write-StyledMessage -type 'Info' -text "Verifica installazione Git..."
@@ -595,7 +605,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.4.2 (Build 6)'
+        '        Version 2.4.2 (Build 7)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
