@@ -40,9 +40,30 @@ function WinRepairToolkit {
         @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (2)'; Icon = '🗂️' }
     )
 
-    function Write-StyledMessage([string]$Type, [string]$Text) {
+    function Write-StyledMessage {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory = $true)]
+            [ValidateSet('Success', 'Warning', 'Error', 'Info')]
+            [string]$Type,
+            
+            [Parameter(Mandatory = $true)]
+            [string]$Text
+        )
+
         $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+        $timestamp = Get-Date -Format "HH:mm:ss"
+        
+        # Rimuovi emoji duplicati dal testo per il log
+        $cleanText = $Text -replace '^[✅⚠️❌💎🔍🚀⚙️🧹📦📋📜📝💾⬇️🔧⚡🖼️🌐🍪🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
+
+        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
+
+        # Log automatico
+        if ($Type -in @('Info', 'Warning', 'Error', 'Success')) {
+            $logEntry = "[$timestamp] [$Type] $cleanText"
+            $script:Log += $logEntry
+        }
     }
 
     function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
@@ -119,7 +140,6 @@ function WinRepairToolkit {
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and
                 ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
                 Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
-                $script:Log += "[$($Config.Name)] ℹ️ Controllo disco schedulato al prossimo riavvio"
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
@@ -145,16 +165,11 @@ function WinRepairToolkit {
             $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
             Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
 
-            $logStatus = if ($success) { '✅ Successo' } else { "⚠️ $($errors.Count) errori" }
-            if ($warnings.Count -gt 0) { $logStatus += " - $($warnings.Count) avvisi" }
-            $script:Log += "[$($Config.Name)] $logStatus"
-
             return @{ Success = $success; ErrorCount = $errors.Count }
 
         }
         catch {
             Write-StyledMessage Error "Errore durante $($Config.Name): $_"
-            $script:Log += "[$($Config.Name)] ❌ Errore fatale: $_"
             return @{ Success = $false; ErrorCount = 1 }
         }
         finally {
@@ -196,18 +211,15 @@ function WinRepairToolkit {
         if ($response.ToLower() -ne 's') { return $false }
 
         Write-StyledMessage Warning 'Segno il volume C: come "dirty" (chkdsk al prossimo riavvio) e apro una cmd per output.'
-        $script:Log += "[Controllo disco Esteso] ℹ️ Segno volume dirty e apro cmd"
 
         try {
             Start-Process 'fsutil.exe' @('dirty', 'set', 'C:') -NoNewWindow -Wait
             Start-Process 'cmd.exe' @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -WindowStyle Hidden -Wait
             Write-StyledMessage Info 'Comando chkdsk inviato (finestra nascosta). Riavvia il sistema per eseguire la scansione profonda.'
-            $script:Log += "[Controllo disco Esteso] ✅ chkdsk eseguito in background; riavviare per applicare"
             return $true
         }
         catch {
             Write-StyledMessage Error "Errore eseguendo operazione: $_"
-            $script:Log += "[Controllo disco Esteso] ❌ Errore: $_"
             return $false
         }
     }
@@ -219,17 +231,15 @@ function WinRepairToolkit {
             $process = Start-Process -FilePath "net" -ArgumentList "accounts", "/maxpwage:unlimited" -NoNewWindow -PassThru -Wait
             if ($process.ExitCode -eq 0) {
                 Write-StyledMessage Success "✅ Scadenza password impostata a illimitata con successo."
-                $script:Log += "[Password Policy] ✅ Scadenza password impostata a illimitata."
                 return $true
-            } else {
+            }
+            else {
                 Write-StyledMessage Warning "⚠️ Impossibile impostare la scadenza password a illimitata. Codice di uscita: $($process.ExitCode)."
-                $script:Log += "[Password Policy] ⚠️ Fallito: $($process.ExitCode)."
                 return $false
             }
         }
         catch {
             Write-StyledMessage Error "❌ Errore durante l'impostazione della scadenza password: $($_.Exception.Message)"
-            $script:Log += "[Password Policy] ❌ Errore fatale: $($_.Exception.Message)"
             return $false
         }
     }
@@ -287,7 +297,7 @@ function WinRepairToolkit {
             '         \_/\_/    |_||_| \_|',
             '',
             '    Repair Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 2)'
+            '       Version 2.4.2 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {
