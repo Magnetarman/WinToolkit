@@ -1,4 +1,7 @@
-<#
+
+
+function WinReinstallStore {
+    <#
     .SYNOPSIS
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
 
@@ -6,9 +9,7 @@
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
 
 #>
-
-function WinReinstallStore {
-    param([int]$CountdownSeconds = 30)
+    param([int]$CountdownSeconds = 30, [switch]$NoReboot)
 
     $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
 
@@ -332,12 +333,18 @@ function WinReinstallStore {
         Write-Host "`n"
         Write-StyledMessage Warning "⏰ Riavvio del sistema..."
 
-        try {
-            shutdown /r /t 0
-            return $true
+        if (-not $NoReboot) {
+            try {
+                shutdown /r /t 0
+                return $true
+            }
+            catch {
+                Write-StyledMessage Error "Errore riavvio: $_"
+                return $false
+            }
         }
-        catch {
-            Write-StyledMessage Error "Errore riavvio: $_"
+        else {
+            Write-StyledMessage Info "🚫 Riavvio saltato come richiesto."
             return $false
         }
     }
@@ -376,4 +383,4 @@ function WinReinstallStore {
     }
 }
 
-WinReinstallStore
+WinReinstallStore -CountdownSeconds $CountdownSeconds -NoReboot:$NoReboot
