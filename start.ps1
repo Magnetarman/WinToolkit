@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.4.2 (Build 14) - 2025-11-25
+  Versione 2.4.2 (Build 15) - 2025-11-25
 #>
 
 function Center-text {
@@ -296,21 +296,6 @@ function Install-PowerShell7 {
         return $true
     }
 
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7.5.2 tramite winget..."
-
-        $result = Invoke-WingetWithTimeout -Arguments "install Microsoft.PowerShell --version 7.5.2 --accept-source-agreements --accept-package-agreements --silent" -TimeoutSeconds 180
-
-        if ($result -and $result.ExitCode -eq 0) {
-            Start-Sleep 5
-            if (Test-Path "$env:ProgramFiles\PowerShell\7") {
-                Write-StyledMessage -type 'Success' -text "PowerShell 7.5.2 installato tramite winget."
-                return $true
-            }
-        }
-        Write-StyledMessage -type 'Warning' -text "Installazione winget non completata. Tentativo download diretto..."
-    }
-
     try {
         Write-StyledMessage -type 'Info' -text "Recupero informazioni su PowerShell 7.5.2..."
         $releaseUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v7.5.2"
@@ -330,8 +315,8 @@ function Install-PowerShell7 {
 
         Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7.5.2 in corso (attendere fino a 3 minuti)..."
 
-        $installArgs = "/i `"$ps7Installer`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
-        $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -PassThru -WindowStyle Hidden
+        $installArgs = "/i `"$ps7Installer`" /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
+        $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -PassThru
 
         $completed = Wait-Process -Id $process.Id -Timeout 180 -ErrorAction SilentlyContinue
 
@@ -363,6 +348,24 @@ function Install-PowerShell7 {
         Write-StyledMessage -type 'Error' -text "Errore installazione PowerShell 7.5.2: $($_.Exception.Message)"
         return $false
     }
+
+    # Fallback a winget se il download diretto fallisce
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7.5.2 tramite winget..."
+
+        $result = Invoke-WingetWithTimeout -Arguments "install Microsoft.PowerShell --version 7.5.2 --accept-source-agreements --accept-package-agreements --silent" -TimeoutSeconds 180
+
+        if ($result -and $result.ExitCode -eq 0) {
+            Start-Sleep 5
+            if (Test-Path "$env:ProgramFiles\PowerShell\7") {
+                Write-StyledMessage -type 'Success' -text "PowerShell 7.5.2 installato tramite winget."
+                return $true
+            }
+        }
+        Write-StyledMessage -type 'Warning' -text "Installazione winget non completata."
+    }
+
+    return $false
 }
 
 function Install-WindowsTerminal {
@@ -629,7 +632,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.4.2 (Build 14)'
+        '        Version 2.4.2 (Build 15)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
