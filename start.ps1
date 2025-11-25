@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.4.2 (Build 12) - 2025-11-25
+  Versione 2.4.2 (Build 13) - 2025-11-25
 #>
 
 function Center-text {
@@ -77,7 +77,6 @@ function Install-WingetSilent {
     
     Stop-InterferingProcesses
 
-    $originalPos = [Console]::CursorTop
     try {
         # Soppressione completa dell'output
         $ErrorActionPreference = 'SilentlyContinue'
@@ -180,13 +179,7 @@ function Install-WingetSilent {
         }
 
         # --- FASE 5: Gestione Output Finale e Valore di Ritorno ---
-            
-        # Reset cursore e flush output
-        [Console]::SetCursorPosition(0, $originalPos)
-        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-        Write-Host $clearLine -NoNewline
-        [Console]::Out.Flush()
-            
+
         Start-Sleep 2
         $finalCheck = Get-Command winget -ErrorAction SilentlyContinue
             
@@ -636,7 +629,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.4.2 (Build 12)'
+        '        Version 2.4.2 (Build 13)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
