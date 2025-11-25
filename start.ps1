@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.4.2 (Build 5) - 2025-11-25
+  Versione 2.4.2 (Build 6) - 2025-11-25
 #>
 
 function Center-text {
@@ -81,15 +81,6 @@ function Invoke-WingetWithTimeout {
 }
 
 function Install-WingetSilent {
-    Write-StyledMessage -type 'Info' -text "Verifica disponibilità Winget..."
-
-    if (Test-WingetAvailable) {
-        Write-StyledMessage -type 'Success' -text "Winget è già disponibile e funzionante."
-        return $true
-    }
-
-    Write-StyledMessage -type 'Warning' -text "Winget non trovato. Tentativo di installazione..."
-
     $osInfo = [System.Environment]::OSVersion
     $buildNumber = $osInfo.Version.Build
 
@@ -604,7 +595,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.4.2 (Build 5)'
+        '        Version 2.4.2 (Build 6)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
