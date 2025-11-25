@@ -65,7 +65,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.4.2] - 2025-11-16 (#21)
+## [2.4.2] - 2025-11-26 (#21)
 
 ### Aggiunte
 
@@ -81,9 +81,45 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Correzioni
 
+- Script **start.ps1** aggiornato e potenziato.
+  - Gestione Processi: Introdotta nuova funzione helper Stop-InterferingProcesses per terminare forzatamente processi conflittuali (es. WinStore.App, wsappx, AppInstaller) prima delle operazioni critiche.
+  - Logging & Error Handling: Aggiunto blocco try/catch sulla gestione del Transcript (log) e sul comando Restart-Computer per prevenire crash in fase di chiusura/riavvio.
+  - Timeout & Wait: Ottimizzati i timeout di attesa e incrementato il tempo di check per la generazione del file settings.json di Windows Terminal (da 10s a 20s).
+  - Gestione Winget (Refactoring Completo).
+    - La funzione Install-WingetSilent è stata completamente riscritta per una maggiore robustezza.
+    - Deep Cleaning: Implementata pulizia aggressiva della cache: terminazione processi Winget, rimozione ricorsiva cartella %TEMP%\WinGet e reset delle sorgenti (source reset --force).
+    - Dipendenze: Aggiunta installazione automatica del NuGet PackageProvider e del modulo PowerShell Microsoft.WinGet.Client
+    - Strategia di Riparazione Potenziata.
+    - Riparazione tramite modulo Repair-WinGetPackageManager.
+    - Fallback su installazione MSIXBundle (con soppressione errori).
+    - Reset esplicito del pacchetto Appx Microsoft.DesktopAppInstaller.
+  - Installazione Pacchetti (Git & PowerShell 7).
+    - Risoluzione Dinamica URL: Rimossi i link statici per il download. L'URL di download per Git e PowerShell 7 viene ora risolto dinamicamente interrogando le GitHub API (releases/latest o tag specifici).
+    - Logica di Installazione PS7, Invertita la priorità: ora tenta prima il download/installazione diretta (MSI) e usa Winget solo come fallback.
+    - Sostituito Start-Job con Start-Process -PassThru + Wait-Process per una gestione più affidabile del processo di installazione MSI.
+    - Parsing JSON: Migliorata la robustezza del parsing di settings.json per Windows Terminal con gestione specifica degli errori di lettura.
+- Funzione **WinRepairToolkit** riscritta.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Migliorata scrittura file Log.
+
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
+- Funzione **WinInstallPsProfile** Aggiornata e Potenziata.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Fix Sovrapposizione Testo Winget alle barre di progressione.
+  - Migliorata scrittura file Log.
+  - Aumentata verbosità script per migliorare la comprensione delle operazioni generate.
+  - Fix Errore installazione oh-my-posh e zoxide.
+  - Adesso in caso lo script rilevi di essere su un sistema in cui viene eseguito Windows 11 versione 23H2 o inferiore, verra eseguita dapprima la reinstallazione di Winget e del Microsoft Store e successivamente lo script procederà normalmente in modo da non avere nessun tipo di errore dovuto a winget non funzionante.
+- Funzione **WinReinstallStore** Riscritta e migliorata.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Migliorata scrittura file Log.
+  - Potenziato lo script di reinstallazione di Winget. Lo script è più aggressivo e completo rendendo winget nuovamente funzionante anche su versioni di Windows 11 più vecchie di 24H2.
+- Funzione **WinUpdateReset** Riscritta.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Migliorata scrittura file Log.
+  - Eliminazione dei commenti non necessari.
 
 ---
 
