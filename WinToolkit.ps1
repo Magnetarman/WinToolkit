@@ -498,7 +498,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 4)'
+            '      Version 2.4.2 (Build 6)'
         )
 
         foreach ($line in $asciiArt) {
@@ -532,6 +532,11 @@ function WinInstallPSProfile {
             return
         }
     }
+
+    # WinReinstallStore invocation (User Request)
+    Write-StyledMessage 'Info' "Esecuzione preliminare WinReinstallStore..."
+    WinReinstallStore -NoReboot
+    Show-Header # Restore header after WinReinstallStore clears it
     
     try {
         Write-StyledMessage 'Info' "Installazione profilo PowerShell..."
@@ -1725,7 +1730,9 @@ function WinUpdateReset {
 
 }
 function WinReinstallStore {
-<#
+
+
+    <#
     .SYNOPSIS
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
 
@@ -1733,9 +1740,7 @@ function WinReinstallStore {
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
 
 #>
-
-function WinReinstallStore {
-    param([int]$CountdownSeconds = 30)
+    param([int]$CountdownSeconds = 30, [switch]$NoReboot)
 
     $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
 
@@ -1811,7 +1816,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|'
             ''
             ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 1)'
+            '       Version 2.4.2 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {
@@ -2059,12 +2064,18 @@ function WinReinstallStore {
         Write-Host "`n"
         Write-StyledMessage Warning "⏰ Riavvio del sistema..."
 
-        try {
-            shutdown /r /t 0
-            return $true
+        if (-not $NoReboot) {
+            try {
+                shutdown /r /t 0
+                return $true
+            }
+            catch {
+                Write-StyledMessage Error "Errore riavvio: $_"
+                return $false
+            }
         }
-        catch {
-            Write-StyledMessage Error "Errore riavvio: $_"
+        else {
+            Write-StyledMessage Info "🚫 Riavvio saltato come richiesto."
             return $false
         }
     }
@@ -2101,7 +2112,6 @@ function WinReinstallStore {
         Write-StyledMessage Info "💡 Esegui come Admin, verifica Internet e Windows Update"
         try { Stop-Transcript | Out-Null } catch {}
     }
-}
 
 }
 function WinBackupDriver {
