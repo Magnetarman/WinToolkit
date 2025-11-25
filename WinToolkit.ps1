@@ -335,7 +335,7 @@ function WinOSCheck {
 
 # Placeholder functions (verranno automaticamente popolate dal compilatore)
 function WinInstallPSProfile {
-<#
+    <#
     .SYNOPSIS
         Script per installare il profilo PowerShell di ChrisTitusTech.
 
@@ -344,7 +344,6 @@ function WinInstallPSProfile {
         Richiede privilegi di amministratore e PowerShell 7+.
 #>
 
-function WinInstallPSProfile {
     $Host.UI.RawUI.WindowTitle = "InstallPSProfile by MagnetarMan"
     $script:Log = @()
 
@@ -499,7 +498,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 2)'
+            '      Version 2.4.2 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {
@@ -752,7 +751,6 @@ function WinInstallPSProfile {
         Read-Host
         try { Stop-Transcript | Out-Null } catch {}
     }
-}
 
 }
 function WinRepairToolkit {
