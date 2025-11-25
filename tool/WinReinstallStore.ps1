@@ -1,12 +1,13 @@
-function WinReinstallStore {
-    <#
+<#
     .SYNOPSIS
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
 
     .DESCRIPTION
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
-    #>
 
+#>
+
+function WinReinstallStore {
     param([int]$CountdownSeconds = 30)
 
     $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
@@ -21,7 +22,8 @@ function WinReinstallStore {
         Start-Transcript -Path "$logdir\WinReinstallStore_$dateTime.log" -Append -Force | Out-Null
     }
     catch {}
-    $MsgStyles = @{
+    
+    $script:MsgStyles = @{
         Success  = @{ Color = 'Green'; Icon = '✅' }
         Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
         Error    = @{ Color = 'Red'; Icon = '❌' }
@@ -29,23 +31,45 @@ function WinReinstallStore {
         Progress = @{ Color = 'Magenta'; Icon = '🔄' }
     }
     
-    # Funzione per centrare il testo
-    function Center-Text {
+    function Write-StyledMessage {
+        [CmdletBinding()]
         param(
             [Parameter(Mandatory = $true)]
-            [string]$text,
-            [Parameter(Mandatory = $false)]
-            [int]$width = $Host.UI.RawUI.BufferSize.Width # Usa la larghezza dinamica di default
+            [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')]
+            [string]$Type,
+            
+            [Parameter(Mandatory = $true)]
+            [string]$Text
         )
 
-        # Calcola il padding necessario
-        $padding = [Math]::Max(0, [Math]::Floor(($width - $text.Length) / 2))
+        $style = $script:MsgStyles[$Type]
+        $timestamp = Get-Date -Format "HH:mm:ss"
+        
+        # Rimuovi emoji duplicati dal testo per il log
+        $cleanText = $Text -replace '^[✅⚠️❌💎🔍🚀⚙️🧹📦📋📜📝💾⬇️🔧⚡🖼️🌐🍪🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
 
-        # Restituisce la stringa centrata
-        return (' ' * $padding + $text)
+        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
+
+        if ($Type -in @('Info', 'Warning', 'Error')) {
+            $logEntry = "[$timestamp] [$Type] $cleanText"
+            $script:Log += $logEntry
+        }
     }
+    
+    function Get-CenteredText {
+        [CmdletBinding()]
+        [OutputType([string])]
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+            
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
 
-    #---
+        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+        return (' ' * $padding + $Text)
+    }
 
     function Show-Header {
         Clear-Host
@@ -53,28 +77,24 @@ function WinReinstallStore {
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
 
         $asciiArt = @(
-            '      __        __  _  _   _ ',
-            '      \ \      / / | || \ | |',
-            '       \ \ /\ / /  | ||  \| |',
-            '        \ V  V /   | || |\  |',
-            '         \_/\_/    |_||_| \_|',
-            '',
+            '      __        __  _  _   _ '
+            '      \ \      / / | || \ | |'
+            '       \ \ /\ / /  | ||  \| |'
+            '        \ V  V /   | || |\  |'
+            '         \_/\_/    |_||_| \_|'
+            ''
             ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.4.1 (Build 2)'
+            '       Version 2.4.2 (Build 1)'
         )
 
         foreach ($line in $asciiArt) {
             if (-not [string]::IsNullOrEmpty($line)) {
-                Write-Host (Center-Text -text $line -width $width) -ForegroundColor White
+                Write-Host (Get-CenteredText -Text $line -Width $width) -ForegroundColor White
             }
         }
 
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
         Write-Host ''
-    }
-    function Write-StyledMessage([string]$type, [string]$text) {
-        $style = $MsgStyles[$type]
-        Write-Host "$($style.Icon) $text" -ForegroundColor $style.Color
     }
     
     function Clear-Terminal {
@@ -258,7 +278,8 @@ function WinReinstallStore {
                     if (Test-Path -Path "$regPath\$regKeyName") {
                         Remove-ItemProperty -Path $regPath -Name $regKeyName -ErrorAction Stop | Out-Null
                         Write-StyledMessage Success "Avvio automatico UniGet UI disabilitato."
-                    } else {
+                    }
+                    else {
                         Write-StyledMessage Info "La voce di avvio automatico per UniGet UI non è stata trovata o non è necessaria."
                     }
                 }
@@ -286,8 +307,8 @@ function WinReinstallStore {
         }
     }
     
-    function Start-CountdownReboot([int]$Seconds) {
-        Write-StyledMessage Warning "Riavvio necessario per applicare le modifiche"
+    function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
+        Write-StyledMessage Warning "$Message"
         Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
 
         for ($i = $Seconds; $i -gt 0; $i--) {
@@ -342,7 +363,7 @@ function WinReinstallStore {
         Write-Host ""
         Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA"
 
-        if (Start-CountdownReboot -Seconds $CountdownSeconds) {
+        if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario per applicare le modifiche") {
             Write-StyledMessage Info "🔄 Riavvio in corso..."
         }
     }
