@@ -498,7 +498,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 3)'
+            '      Version 2.4.2 (Build 4)'
         )
 
         foreach ($line in $asciiArt) {
@@ -591,28 +591,20 @@ function WinInstallPSProfile {
                 Show-ProgressBar "oh-my-posh" "Completato" 100 '📦'
                 Write-Host ''
 
-                $ohMyPoshPaths = @(
-                    "$env:LOCALAPPDATA\Programs\oh-my-posh\bin",
-                    "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\JanDeDobbeleer.OhMyPosh_Microsoft.Winget.Source_*",
-                    "$env:ProgramFiles\oh-my-posh\bin"
-                )
-
-                $foundPath = Find-ProgramPath "oh-my-posh" $ohMyPoshPaths "oh-my-posh.exe"
-
-                if ($foundPath) {
-                    Add-ToSystemPath $foundPath | Out-Null
-                    Write-StyledMessage 'Success' "oh-my-posh configurato: $foundPath"
-                }
-                else {
-                    $searchResult = Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "oh-my-posh.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-                    if ($searchResult) {
-                        $foundPath = Split-Path $searchResult.FullName -Parent
-                        Add-ToSystemPath $foundPath | Out-Null
-                        Write-StyledMessage 'Success' "oh-my-posh trovato: $foundPath"
+                $omp = Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "oh-my-posh.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($omp) {
+                    $ompPath = $omp.DirectoryName
+                    $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+                    if ($currentPath -notlike "*$ompPath*") {
+                        [Environment]::SetEnvironmentVariable("Path", "$currentPath;$ompPath", "User")
+                        Write-StyledMessage 'Success' "Path oh-my-posh aggiunto: $ompPath"
                     }
                     else {
-                        Write-StyledMessage 'Warning' "oh-my-posh installato, PATH disponibile dopo riavvio"
+                        Write-StyledMessage 'Info' "Path oh-my-posh già presente."
                     }
+                }
+                else {
+                    Write-StyledMessage 'Error' "oh-my-posh.exe non trovato! Prova a reinstallarlo: winget install JanDeDobbeleer.OhMyPosh"
                 }
             }
             catch {
@@ -637,28 +629,20 @@ function WinInstallPSProfile {
                 Show-ProgressBar "zoxide" "Completato" 100 '⚡'
                 Write-Host ''
 
-                $zoxidePaths = @(
-                    "$env:LOCALAPPDATA\Programs\zoxide",
-                    "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\ajeetdsouza.zoxide_Microsoft.Winget.Source_*",
-                    "$env:ProgramFiles\zoxide"
-                )
-
-                $foundPath = Find-ProgramPath "zoxide" $zoxidePaths "zoxide.exe"
-
-                if ($foundPath) {
-                    Add-ToSystemPath $foundPath | Out-Null
-                    Write-StyledMessage 'Success' "zoxide configurato: $foundPath"
-                }
-                else {
-                    $searchResult = Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "zoxide.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-                    if ($searchResult) {
-                        $foundPath = Split-Path $searchResult.FullName -Parent
-                        Add-ToSystemPath $foundPath | Out-Null
-                        Write-StyledMessage 'Success' "zoxide trovato: $foundPath"
+                $zox = Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "zoxide.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($zox) {
+                    $zoxPath = $zox.DirectoryName
+                    $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+                    if ($currentPath -notlike "*$zoxPath*") {
+                        [Environment]::SetEnvironmentVariable("Path", "$currentPath;$zoxPath", "User")
+                        Write-StyledMessage 'Success' "Path zoxide aggiunto: $zoxPath"
                     }
                     else {
-                        Write-StyledMessage 'Warning' "zoxide installato, PATH disponibile dopo riavvio"
+                        Write-StyledMessage 'Info' "Path zoxide già presente."
                     }
+                }
+                else {
+                    Write-StyledMessage 'Error' "zoxide.exe non trovato! Prova a reinstallarlo: winget install ajeetdsouza.zoxide"
                 }
             }
             catch {
