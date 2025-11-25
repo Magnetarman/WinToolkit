@@ -85,7 +85,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|'
             ''
             ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 1)'
+            '       Version 2.4.2 (Build 3)'
         )
 
         foreach ($line in $asciiArt) {
@@ -383,4 +383,4 @@ function WinReinstallStore {
     }
 }
 
-WinReinstallStore -CountdownSeconds $CountdownSeconds -NoReboot:$NoReboot
+WinReinstallStore
