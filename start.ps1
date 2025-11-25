@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.4.2 (Build 11) - 2025-11-25
+  Versione 2.4.2 (Build 12) - 2025-11-25
 #>
 
 function Center-text {
@@ -242,10 +242,20 @@ function Install-Git {
     }
 
     try {
-        $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.1/Git-2.51.0-64-bit.exe"
-        $gitInstaller = "$env:TEMP\Git-2.51.0-64-bit.exe"
+        Write-StyledMessage -type 'Info' -text "Recupero informazioni sulla versione più recente di Git..."
+        $releaseUrl = "https://api.github.com/repos/git-for-windows/git/releases/latest"
+        $release = Invoke-RestMethod -Uri $releaseUrl -UseBasicParsing
+        $asset = $release.assets | Where-Object { $_.name -like "*64-bit.exe" } | Select-Object -First 1
 
-        Write-StyledMessage -type 'Info' -text "Download Git da GitHub..."
+        if (-not $asset) {
+            Write-StyledMessage -type 'Error' -text "Impossibile trovare l'asset Git 64-bit nella release più recente."
+            return $false
+        }
+
+        $gitUrl = $asset.browser_download_url
+        $gitInstaller = "$env:TEMP\$($asset.name)"
+
+        Write-StyledMessage -type 'Info' -text "Download Git da GitHub (versione $($release.tag_name))..."
 
         if (Test-Path $gitInstaller) { Remove-Item $gitInstaller -Force }
 
@@ -309,10 +319,20 @@ function Install-PowerShell7 {
     }
 
     try {
-        $ps7Url = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.4/PowerShell-7.5.4-win-x64.msi"
-        $ps7Installer = "$env:TEMP\PowerShell-7.5.4-win-x64.msi"
+        Write-StyledMessage -type 'Info' -text "Recupero informazioni sulla versione più recente di PowerShell 7..."
+        $releaseUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
+        $release = Invoke-RestMethod -Uri $releaseUrl -UseBasicParsing
+        $asset = $release.assets | Where-Object { $_.name -like "*win-x64.msi" } | Select-Object -First 1
 
-        Write-StyledMessage -type 'Info' -text "Download PowerShell 7..."
+        if (-not $asset) {
+            Write-StyledMessage -type 'Error' -text "Impossibile trovare l'asset PowerShell 7 x64 MSI nella release più recente."
+            return $false
+        }
+
+        $ps7Url = $asset.browser_download_url
+        $ps7Installer = "$env:TEMP\$($asset.name)"
+
+        Write-StyledMessage -type 'Info' -text "Download PowerShell 7 (versione $($release.tag_name))..."
         Invoke-WebRequest -Uri $ps7Url -OutFile $ps7Installer -UseBasicParsing -TimeoutSec 60
 
         Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 in corso (attendere fino a 3 minuti)..."
@@ -616,7 +636,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.4.2 (Build 11)'
+        '        Version 2.4.2 (Build 12)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
