@@ -317,49 +317,32 @@ function Install-PowerShell7 {
 
         Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 in corso (attendere fino a 3 minuti)..."
 
-        # Esecuzione MSI con timeout usando Job
-        $job = Start-Job -ScriptBlock {
-            param($installer)
-            $installArgs = "/i `"$installer`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
-            $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden
-            return $process.ExitCode
-        } -ArgumentList $ps7Installer
+        $installArgs = "/i `"$ps7Installer`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
+        $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -PassThru -WindowStyle Hidden
 
-        $completed = Wait-Job $job -Timeout 180
+        $completed = Wait-Process -Id $process.Id -Timeout 180 -ErrorAction SilentlyContinue
 
-        if ($completed) {
-            $exitCode = Receive-Job $job
-            Remove-Job $job -Force
-            Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
+        if (-not $completed) {
+            Stop-Process -Id $process.Id -Force
+            Write-StyledMessage -type 'Warning' -text "Timeout installazione, processo terminato forzatamente."
+        }
 
-            # Verifica installazione
-            Start-Sleep 3
-            if (Test-Path "$env:ProgramFiles\PowerShell\7") {
-                Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo."
-                return $true
-            }
-            elseif ($exitCode -eq 0) {
-                Write-StyledMessage -type 'Success' -text "Installazione completata. PowerShell 7 sarà disponibile dopo il riavvio."
-                return $true
-            }
-            else {
-                Write-StyledMessage -type 'Error' -text "Installazione fallita. Codice: $exitCode"
-                return $false
-            }
+        Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
+
+        $exitCode = $process.ExitCode
+
+        # Verifica installazione
+        Start-Sleep 3
+        if (Test-Path "$env:ProgramFiles\PowerShell\7") {
+            Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo."
+            return $true
+        }
+        elseif ($exitCode -eq 0) {
+            Write-StyledMessage -type 'Success' -text "Installazione completata. PowerShell 7 sarà disponibile dopo il riavvio."
+            return $true
         }
         else {
-            Remove-Job $job -Force
-            Remove-Item $ps7Installer -Force -ErrorAction SilentlyContinue
-
-            # Verifica se l'installazione è comunque riuscita
-            Start-Sleep 3
-            if (Test-Path "$env:ProgramFiles\PowerShell\7") {
-                Write-StyledMessage -type 'Success' -text "PowerShell 7 installato (timeout superato ma installazione completata)."
-                return $true
-            }
-
-            Write-StyledMessage -type 'Error' -text "Timeout installazione (180s). Possibile interferenza o sistema lento."
-            Write-StyledMessage -type 'Warning' -text "Provare a eseguire manualmente: msiexec /i PowerShell-7.5.4-win-x64.msi"
+            Write-StyledMessage -type 'Error' -text "Installazione fallita. Codice: $exitCode"
             return $false
         }
     }
@@ -622,7 +605,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.4.2 (Build 9)'
+        '        Version 2.4.2 (Build 10)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
