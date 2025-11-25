@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.4.2 (Build 13) - 2025-11-25
+  Versione 2.4.2 (Build 14) - 2025-11-25
 #>
 
 function Center-text {
@@ -290,21 +290,21 @@ function Install-Git {
 
 function Install-PowerShell7 {
     Write-StyledMessage -type 'Info' -text "Verifica PowerShell 7..."
-    
+
     if (Test-Path "$env:ProgramFiles\PowerShell\7") {
         Write-StyledMessage -type 'Success' -text "PowerShell 7 è già installato."
         return $true
     }
 
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 tramite winget..."
+        Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7.5.2 tramite winget..."
 
-        $result = Invoke-WingetWithTimeout -Arguments "install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements --silent" -TimeoutSeconds 180
+        $result = Invoke-WingetWithTimeout -Arguments "install Microsoft.PowerShell --version 7.5.2 --accept-source-agreements --accept-package-agreements --silent" -TimeoutSeconds 180
 
         if ($result -and $result.ExitCode -eq 0) {
             Start-Sleep 5
             if (Test-Path "$env:ProgramFiles\PowerShell\7") {
-                Write-StyledMessage -type 'Success' -text "PowerShell 7 installato tramite winget."
+                Write-StyledMessage -type 'Success' -text "PowerShell 7.5.2 installato tramite winget."
                 return $true
             }
         }
@@ -312,23 +312,23 @@ function Install-PowerShell7 {
     }
 
     try {
-        Write-StyledMessage -type 'Info' -text "Recupero informazioni sulla versione più recente di PowerShell 7..."
-        $releaseUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
+        Write-StyledMessage -type 'Info' -text "Recupero informazioni su PowerShell 7.5.2..."
+        $releaseUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v7.5.2"
         $release = Invoke-RestMethod -Uri $releaseUrl -UseBasicParsing
         $asset = $release.assets | Where-Object { $_.name -like "*win-x64.msi" } | Select-Object -First 1
 
         if (-not $asset) {
-            Write-StyledMessage -type 'Error' -text "Impossibile trovare l'asset PowerShell 7 x64 MSI nella release più recente."
+            Write-StyledMessage -type 'Error' -text "Impossibile trovare l'asset PowerShell 7.5.2 x64 MSI nella release."
             return $false
         }
 
         $ps7Url = $asset.browser_download_url
         $ps7Installer = "$env:TEMP\$($asset.name)"
 
-        Write-StyledMessage -type 'Info' -text "Download PowerShell 7 (versione $($release.tag_name))..."
+        Write-StyledMessage -type 'Info' -text "Download PowerShell 7.5.2 (versione $($release.tag_name))..."
         Invoke-WebRequest -Uri $ps7Url -OutFile $ps7Installer -UseBasicParsing -TimeoutSec 60
 
-        Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 in corso (attendere fino a 3 minuti)..."
+        Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7.5.2 in corso (attendere fino a 3 minuti)..."
 
         $installArgs = "/i `"$ps7Installer`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
         $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -PassThru -WindowStyle Hidden
@@ -347,11 +347,11 @@ function Install-PowerShell7 {
         # Verifica installazione
         Start-Sleep 3
         if (Test-Path "$env:ProgramFiles\PowerShell\7") {
-            Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo."
+            Write-StyledMessage -type 'Success' -text "PowerShell 7.5.2 installato con successo."
             return $true
         }
         elseif ($exitCode -eq 0) {
-            Write-StyledMessage -type 'Success' -text "Installazione completata. PowerShell 7 sarà disponibile dopo il riavvio."
+            Write-StyledMessage -type 'Success' -text "Installazione completata. PowerShell 7.5.2 sarà disponibile dopo il riavvio."
             return $true
         }
         else {
@@ -360,7 +360,7 @@ function Install-PowerShell7 {
         }
     }
     catch {
-        Write-StyledMessage -type 'Error' -text "Errore installazione PowerShell 7: $($_.Exception.Message)"
+        Write-StyledMessage -type 'Error' -text "Errore installazione PowerShell 7.5.2: $($_.Exception.Message)"
         return $false
     }
 }
@@ -629,7 +629,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.4.2 (Build 13)'
+        '        Version 2.4.2 (Build 14)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
