@@ -6,7 +6,7 @@
     Verifica la presenza di Git e PowerShell 7, installandoli se necessario, e configura Windows Terminal.
     Crea inoltre una scorciatoia sul desktop per avviare Win Toolkit con privilegi amministrativi.
 .NOTES
-  Versione 2.2.2 (Build 34) - 2025-10-03
+  Versione 2.4.2 (Build 3) - 2025-11-25
 #>
 
 function Center-text {
@@ -354,7 +354,7 @@ function Install-PowerShell7 {
             }
         }
         else {
-            Write-StyledMessage -type 'Warning' -text "Modalità offline attiva, ma 'PowerShell-7.5.2-win-x64.msi' non trovato in '$script:OfflineModeDir'."
+            Write-StyledMessage -type 'Warning' -text "Modalità offline attiva, ma 'PowerShell-7.5.4-win-x64.msi' non trovato in '$script:OfflineModeDir'."
             Write-StyledMessage -type 'Error' -text "Impossibile installare PowerShell 7. Assicurarsi che le risorse offline siano complete."
             return $false
         }
@@ -379,8 +379,8 @@ function Install-PowerShell7 {
 
     # Installazione diretta con timeout (existing logic - will only run if not in offline mode and winget fails)
     try {
-        $ps7Url = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/PowerShell-7.5.2-win-x64.msi"
-        $ps7Installer = "$env:TEMP\PowerShell-7.5.2-win-x64.msi"
+        $ps7Url = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.4/PowerShell-7.5.4-win-x64.msi"
+        $ps7Installer = "$env:TEMP\PowerShell-7.5.4-win-x64.msi"
 
         Write-StyledMessage -type 'Info' -text "Download PowerShell 7..."
         Invoke-WebRequest -Uri $ps7Url -OutFile $ps7Installer -UseBasicParsing -TimeoutSec 60
@@ -475,7 +475,8 @@ function Install-WindowsTerminal {
         # --- OFFLINE MODIFICATION END ---
 
         # Tentativo 1: winget con timeout (existing logic)
-        if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) { # Only try if not installed yet
+        if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
+            # Only try if not installed yet
             if (Test-WingetAvailable) {
                 Write-StyledMessage -type 'Info' -text "Installazione tramite winget..."
 
@@ -660,7 +661,8 @@ function ToolKit-Desktop {
         }
         # --- OFFLINE MODIFICATION END ---
 
-        if (-not (Test-Path $iconPath)) { # Only download if not in offline mode or local copy was not found/copied
+        if (-not (Test-Path $iconPath)) {
+            # Only download if not in offline mode or local copy was not found/copied
             Write-StyledMessage -type 'Info' -text "Download icona..."
             $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
             Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing
@@ -738,7 +740,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.2.4 (Build 1)'
+        '        Version 2.4.2 (Build 3)'
     )
     foreach ($line in $asciiArt) {
         Write-Host (Center-text -text $line -width $width) -ForegroundColor White
