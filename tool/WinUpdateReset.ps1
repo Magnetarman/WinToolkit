@@ -1,4 +1,5 @@
-<#
+function WinUpdateReset {
+    <#
     .SYNOPSIS
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI.
 
@@ -8,8 +9,6 @@
         Utilizza un'interfaccia utente migliorata con barre di progresso, messaggi stilizzati e
         un conto alla rovescia per il riavvio del sistema che può essere interrotto premendo un tasto.
 #>
-
-function WinUpdateReset {
     param([int]$CountdownSeconds = 15)
 
     $Host.UI.RawUI.WindowTitle = "Update Reset Toolkit By MagnetarMan"
