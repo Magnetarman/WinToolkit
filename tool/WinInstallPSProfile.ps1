@@ -162,7 +162,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 8)'
+            '      Version 2.4.2 (Build 9)'
         )
 
         foreach ($line in $asciiArt) {
@@ -381,6 +381,45 @@ function WinInstallPSProfile {
         }
         else {
             Write-StyledMessage 'Info' "Profilo già aggiornato"
+        }
+
+        # Configurazione Windows Terminal (sempre eseguita)
+        Write-StyledMessage 'Info' "Configurazione Windows Terminal..."
+        try {
+            $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($wtPath) {
+                $settingsPath = Join-Path $wtPath.FullName "LocalState\settings.json"
+                if (Test-Path $settingsPath) {
+                    $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
+
+                    # Trova il profilo PowerShell 7
+                    $ps7Profile = $settings.profiles.list | Where-Object { $_.commandline -like "*pwsh.exe*" } | Select-Object -First 1
+                    if ($ps7Profile) {
+                        # Imposta come profilo predefinito
+                        $settings.defaultProfile = $ps7Profile.guid
+
+                        # Abilita elevazione automatica
+                        if (-not $ps7Profile.PSObject.Properties['elevate']) {
+                            $ps7Profile | Add-Member -MemberType NoteProperty -Name 'elevate' -Value $true
+                        } else {
+                            $ps7Profile.elevate = $true
+                        }
+
+                        # Salva le impostazioni
+                        $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
+                        Write-StyledMessage 'Success' "Windows Terminal configurato: PS7 predefinito con elevazione"
+                    } else {
+                        Write-StyledMessage 'Warning' "Profilo PowerShell 7 non trovato in Windows Terminal"
+                    }
+                } else {
+                    Write-StyledMessage 'Warning' "File settings.json di Windows Terminal non trovato"
+                }
+            } else {
+                Write-StyledMessage 'Warning' "Directory Windows Terminal non trovata"
+            }
+        }
+        catch {
+            Write-StyledMessage 'Warning' "Errore configurazione Windows Terminal: $($_.Exception.Message)"
         }
 
         Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
