@@ -1,11 +1,13 @@
-function WinInstallPSProfile {
-    <#
+<#
     .SYNOPSIS
         Script per installare il profilo PowerShell di ChrisTitusTech.
+
     .DESCRIPTION
         Installa e configura il profilo PowerShell personalizzato con oh-my-posh, zoxide e altre utilità.
         Richiede privilegi di amministratore e PowerShell 7+.
-    #>
+#>
+
+function WinInstallPSProfile {
     $Host.UI.RawUI.WindowTitle = "InstallPSProfile by MagnetarMan"
     $script:Log = @()
 
@@ -18,19 +20,36 @@ function WinInstallPSProfile {
     catch {}
 
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-    $MsgStyles = @{
+    $script:MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
         Error   = @{ Color = 'Red'; Icon = '❌' }
         Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
 
-    function Write-StyledMessage([string]$Type, [string]$Text) {
-        $style = $MsgStyles[$Type]
+    function Write-StyledMessage {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory = $true)]
+            [ValidateSet('Success', 'Warning', 'Error', 'Info')]
+            [string]$Type,
+            
+            [Parameter(Mandatory = $true)]
+            [string]$Text
+        )
+
+        $style = $script:MsgStyles[$Type]
         $timestamp = Get-Date -Format "HH:mm:ss"
-        $cleanText = $Text -replace '^(✅|⚠️|❌|💎|🔥|🚀|⚙️|🧹|📦|📋|📜|🔒|💾|⬇️|🔧|⚡|🖼️|🌐|🪟|🔄|🗂️|📁|🖨️|📄|🗑️|💭|⏸️|▶️|💡|⏰|🎉|💻|📊|🛡️|🔧|🔑|📦|🧹|💎|⚙️|🚀)\s*', ''
-        Write-Host "[$timestamp] $($style.Icon) $cleanText" -ForegroundColor $style.Color
-        if ($Type -in @('Info', 'Warning', 'Error')) { $script:Log += "[$timestamp] [$Type] $cleanText" }
+        
+        # Rimuovi emoji duplicati dal testo per il log
+        $cleanText = $Text -replace '^[✅⚠️❌💎🔥🚀⚙️🧹📦📋📜🔒💾⬇️🔧⚡🖼️🌐🪟🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊🛡️🔑]\s*', ''
+
+        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
+
+        if ($Type -in @('Info', 'Warning', 'Error')) {
+            $logEntry = "[$timestamp] [$Type] $cleanText"
+            $script:Log += $logEntry
+        }
     }
 
     function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
@@ -115,7 +134,17 @@ function WinInstallPSProfile {
         return $true
     }
 
-    function Center-Text([string]$Text, [int]$Width = $Host.UI.RawUI.BufferSize.Width) {
+    function Get-CenteredText {
+        [CmdletBinding()]
+        [OutputType([string])]
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Text,
+            
+            [Parameter(Mandatory = $false)]
+            [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        )
+
         $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
         return (' ' * $padding + $Text)
     }
@@ -126,18 +155,20 @@ function WinInstallPSProfile {
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
 
         $asciiArt = @(
-            '      __        __  _  _   _ ',
-            '      \ \      / / | || \ | |',
-            '       \ \ /\ / /  | ||  \| |',
-            '        \ V  V /   | || |\  |',
-            '         \_/\_/    |_||_| \_|',
-            '',
-            '   InstallPSProfile By MagnetarMan',
-            '      Version 2.2.4 (Build 1)'
+            '      __        __  _  _   _ '
+            '      \ \      / / | || \ | |'
+            '       \ \ /\ / /  | ||  \| |'
+            '        \ V  V /   | || |\  |'
+            '         \_/\_/    |_||_| \_|'
+            ''
+            '   InstallPSProfile By MagnetarMan'
+            '      Version 2.4.2 (Build 2)'
         )
 
         foreach ($line in $asciiArt) {
-            if ($line) { Write-Host (Center-Text $line $width) -ForegroundColor White }
+            if (-not [string]::IsNullOrEmpty($line)) {
+                Write-Host (Get-CenteredText -Text $line -Width $width) -ForegroundColor White
+            }
         }
 
         Write-Host ('═' * ($width - 1)) -ForegroundColor Green
