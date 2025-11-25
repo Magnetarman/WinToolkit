@@ -107,38 +107,6 @@ function Install-WingetSilent {
         $ErrorActionPreference = 'SilentlyContinue'
         $ProgressPreference = 'SilentlyContinue'
 
-        # --- OFFLINE MODIFICATION START ---
-        if ($script:OfflineModeDir) {
-            $localWingetInstaller = Join-Path $script:OfflineModeDir "WingetInstaller.msixbundle"
-            if (Test-Path $localWingetInstaller) {
-                Write-StyledMessage -type 'Info' -text "Installazione Winget da risorsa offline..."
-                try {
-                    $installScript = "Add-AppxPackage -Path '$localWingetInstaller' -ForceApplicationShutdown -ErrorAction Stop"
-                    $process = Start-Process powershell -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $installScript -Wait -PassThru -WindowStyle Hidden
-
-                    Start-Sleep 3
-                    if (Test-WingetAvailable) {
-                        Write-StyledMessage -type 'Success' -text "Winget installato con successo da risorsa offline."
-                        return $true
-                    }
-                    else {
-                        Write-StyledMessage -type 'Error' -text "Installazione completata da risorsa offline ma Winget non disponibile."
-                        return $false
-                    }
-                }
-                catch {
-                    Write-StyledMessage -type 'Error' -text "Errore installazione Winget da risorsa offline: $($_.Exception.Message)"
-                    return $false
-                }
-            }
-            else {
-                Write-StyledMessage -type 'Warning' -text "Modalità offline attiva, ma WingetInstaller.msixbundle non trovato in '$script:OfflineModeDir'."
-                Write-StyledMessage -type 'Error' -text "Impossibile installare Winget. Assicurarsi che le risorse offline siano complete."
-                return $false
-            }
-        }
-        # --- OFFLINE MODIFICATION END ---
-
         # Tentativo riparazione per Windows 11 24H2+
         if ($buildNumber -ge 26100) {
             Write-StyledMessage -type 'Info' -text "Rilevato Windows 11 24H2+. Tentativo riparazione..."
@@ -200,36 +168,6 @@ function Install-Git {
     }
 
     Write-StyledMessage -type 'Info' -text "Git non trovato. Avvio installazione..."
-
-    # --- OFFLINE MODIFICATION START ---
-    if ($script:OfflineModeDir) {
-        $localGitInstaller = Join-Path $script:OfflineModeDir "Git-2.51.0-64-bit.exe" # Ensure filename matches pre-downloaded one
-        if (Test-Path $localGitInstaller) {
-            Write-StyledMessage -type 'Info' -text "Installazione Git da risorsa offline..."
-            try {
-                $process = Start-Process $localGitInstaller -ArgumentList "/SILENT /NORESTART /CLOSEAPPLICATIONS" -Wait -PassThru
-                if ($process.ExitCode -eq 0) {
-                    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-                    Write-StyledMessage -type 'Success' -text "Git installato con successo da risorsa offline."
-                    return $true
-                }
-                else {
-                    Write-StyledMessage -type 'Error' -text "Installazione Git da risorsa offline fallita. Codice: $($process.ExitCode)"
-                    return $false
-                }
-            }
-            catch {
-                Write-StyledMessage -type 'Error' -text "Errore installazione Git da risorsa offline: $($_.Exception.Message)"
-                return $false
-            }
-        }
-        else {
-            Write-StyledMessage -type 'Warning' -text "Modalità offline attiva, ma 'Git-2.51.0-64-bit.exe' non trovato in '$script:OfflineModeDir'."
-            Write-StyledMessage -type 'Error' -text "Impossibile installare Git. Assicurarsi che le risorse offline siano complete."
-            return $false
-        }
-    }
-    # --- OFFLINE MODIFICATION END ---
 
     # Tentativo con winget (existing logic - will only run if not in offline mode or if offline mode fails)
     if (Test-WingetAvailable) {
@@ -301,65 +239,6 @@ function Install-PowerShell7 {
         Write-StyledMessage -type 'Success' -text "PowerShell 7 è già installato."
         return $true
     }
-
-    # --- OFFLINE MODIFICATION START ---
-    if ($script:OfflineModeDir) {
-        $localPs7Installer = Join-Path $script:OfflineModeDir "PowerShell-7.5.2-win-x64.msi" # Ensure filename matches pre-downloaded one
-        if (Test-Path $localPs7Installer) {
-            Write-StyledMessage -type 'Info' -text "Installazione PowerShell 7 da risorsa offline (attendere fino a 3 minuti)..."
-            try {
-                $job = Start-Job -ScriptBlock {
-                    param($installer)
-                    $installArgs = "/i `"$installer`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
-                    $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden
-                    return $process.ExitCode
-                } -ArgumentList $localPs7Installer
-
-                $completed = Wait-Job $job -Timeout 180
-
-                if ($completed) {
-                    $exitCode = Receive-Job $job
-                    Remove-Job $job -Force
-
-                    Start-Sleep 3
-                    if (Test-Path "$env:ProgramFiles\PowerShell\7") {
-                        Write-StyledMessage -type 'Success' -text "PowerShell 7 installato con successo da risorsa offline."
-                        return $true
-                    }
-                    elseif ($exitCode -eq 0) {
-                        Write-StyledMessage -type 'Success' -text "Installazione completata da risorsa offline. PowerShell 7 sarà disponibile dopo il riavvio."
-                        return $true
-                    }
-                    else {
-                        Write-StyledMessage -type 'Error' -text "Installazione PowerShell 7 da risorsa offline fallita. Codice: $exitCode"
-                        return $false
-                    }
-                }
-                else {
-                    Remove-Job $job -Force
-
-                    Start-Sleep 3
-                    if (Test-Path "$env:ProgramFiles\PowerShell\7") {
-                        Write-StyledMessage -type 'Success' -text "PowerShell 7 installato da risorsa offline (timeout superato ma installazione completata)."
-                        return $true
-                    }
-
-                    Write-StyledMessage -type 'Error' -text "Timeout installazione PowerShell 7 da risorsa offline (180s). Possibile interferenza o sistema lento."
-                    return $false
-                }
-            }
-            catch {
-                Write-StyledMessage -type 'Error' -text "Errore installazione PowerShell 7 da risorsa offline: $($_.Exception.Message)"
-                return $false
-            }
-        }
-        else {
-            Write-StyledMessage -type 'Warning' -text "Modalità offline attiva, ma 'PowerShell-7.5.4-win-x64.msi' non trovato in '$script:OfflineModeDir'."
-            Write-StyledMessage -type 'Error' -text "Impossibile installare PowerShell 7. Assicurarsi che le risorse offline siano complete."
-            return $false
-        }
-    }
-    # --- OFFLINE MODIFICATION END ---
 
     # Tentativo con winget (existing logic - will only run if not in offline mode or if offline mode fails)
     if (Test-WingetAvailable) {
@@ -446,34 +325,6 @@ function Install-WindowsTerminal {
         Write-StyledMessage -type 'Success' -text "Windows Terminal già presente."
     }
     else {
-        # --- OFFLINE MODIFICATION START ---
-        if ($script:OfflineModeDir) {
-            $localWtInstaller = Get-ChildItem -Path $script:OfflineModeDir -Filter "Microsoft.WindowsTerminal_*.msixbundle" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
-            if ($localWtInstaller) {
-                Write-StyledMessage -type 'Info' -text "Installazione Windows Terminal da risorsa offline..."
-                try {
-                    Add-AppxPackage -Path $localWtInstaller -ErrorAction Stop
-                    Start-Sleep 5
-                    if (Get-Command "wt" -ErrorAction SilentlyContinue) {
-                        Write-StyledMessage -type 'Success' -text "Windows Terminal installato con successo da risorsa offline."
-                        # Return here to skip online attempts
-                        return
-                    }
-                    else {
-                        Write-StyledMessage -type 'Error' -text "Installazione Windows Terminal da risorsa offline completata ma 'wt' non disponibile."
-                    }
-                }
-                catch {
-                    Write-StyledMessage -type 'Error' -text "Errore installazione Windows Terminal da risorsa offline: $($_.Exception.Message)"
-                }
-            }
-            else {
-                Write-StyledMessage -type 'Warning' -text "Modalità offline attiva, ma nessun 'Microsoft.WindowsTerminal_*.msixbundle' trovato in '$script:OfflineModeDir'."
-                Write-StyledMessage -type 'Info' -text "Tentativo con metodi online (winget, Store, GitHub)..."
-            }
-        }
-        # --- OFFLINE MODIFICATION END ---
-
         # Tentativo 1: winget con timeout (existing logic)
         if (-not (Get-Command "wt" -ErrorAction SilentlyContinue)) {
             # Only try if not installed yet
@@ -651,16 +502,6 @@ function ToolKit-Desktop {
             New-Item -Path $iconDir -ItemType Directory -Force | Out-Null
         }
         
-        # --- OFFLINE MODIFICATION START ---
-        if ($script:OfflineModeDir) {
-            $localIconPath = Join-Path $script:OfflineModeDir "WinToolkit.ico"
-            if (Test-Path $localIconPath) {
-                Write-StyledMessage -type 'Info' -text "Copia icona Win Toolkit da risorsa offline..."
-                Copy-Item -Path $localIconPath -Destination $iconPath -Force
-            }
-        }
-        # --- OFFLINE MODIFICATION END ---
-
         if (-not (Test-Path $iconPath)) {
             # Only download if not in offline mode or local copy was not found/copied
             Write-StyledMessage -type 'Info' -text "Download icona..."
@@ -689,20 +530,12 @@ function ToolKit-Desktop {
     }
 }
 
-# Define a global variable to store the offline directory path if provided
-$script:OfflineModeDir = $null
+
 
 function Start-WinToolkit {
     param(
-        [switch]$InstallProfileOnly,
-        [string]$OfflineModeDir
+        [switch]$InstallProfileOnly
     )
-
-    # Set the global variable if the parameter is passed
-    if ($OfflineModeDir) {
-        $script:OfflineModeDir = $OfflineModeDir
-        Write-StyledMessage -type 'Debug' -text "Modalità Offline attiva. Dir: $script:OfflineModeDir"
-    }
 
     if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-Output "Riavvio con privilegi amministratore..."
