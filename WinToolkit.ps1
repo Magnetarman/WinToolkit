@@ -498,7 +498,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 6)'
+            '      Version 2.4.2 (Build 7)'
         )
 
         foreach ($line in $asciiArt) {
@@ -533,19 +533,6 @@ function WinInstallPSProfile {
         }
     }
 
-    # WinReinstallStore invocation (User Request)
-    # Esegui solo su versioni precedenti a Windows 11 24H2 (Build 26100)
-    $buildVersion = [System.Environment]::OSVersion.Version.Build
-    if ($buildVersion -lt 26100) {
-        Write-StyledMessage 'Info' "Rilevata versione Windows precedente a 24H2 (Build $buildVersion)"
-        Write-StyledMessage 'Info' "Esecuzione preliminare WinReinstallStore..."
-        WinReinstallStore -NoReboot
-        Show-Header # Restore header after WinReinstallStore clears it
-    }
-    else {
-        Write-StyledMessage 'Info' "Windows 24H2+ rilevato (Build $buildVersion). WinReinstallStore non necessario."
-    }
-    
     try {
         Write-StyledMessage 'Info' "Installazione profilo PowerShell..."
         Write-Host ''
