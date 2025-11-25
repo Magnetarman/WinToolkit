@@ -112,6 +112,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Aumentata verbosità script per migliorare la comprensione delle operazioni generate.
   - Fix Errore installazione oh-my-posh e zoxide.
   - Adesso in caso lo script rilevi di essere su un sistema in cui viene eseguito Windows 11 versione 23H2 o inferiore, verra eseguita dapprima la reinstallazione di Winget e del Microsoft Store e successivamente lo script procederà normalmente in modo da non avere nessun tipo di errore dovuto a winget non funzionante.
+  - Aggiunto secondo tentativo di configurazione di Windows Terminal che spesso fallisce a causa di un problema di lettura del file settings.json nello script `start.ps1`
 - Funzione **WinReinstallStore** Riscritta e migliorata.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
