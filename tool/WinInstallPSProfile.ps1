@@ -162,7 +162,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 9)'
+            '      Version 2.4.2 (Build 10)'
         )
 
         foreach ($line in $asciiArt) {
@@ -401,20 +401,24 @@ function WinInstallPSProfile {
                         # Abilita elevazione automatica
                         if (-not $ps7Profile.PSObject.Properties['elevate']) {
                             $ps7Profile | Add-Member -MemberType NoteProperty -Name 'elevate' -Value $true
-                        } else {
+                        }
+                        else {
                             $ps7Profile.elevate = $true
                         }
 
                         # Salva le impostazioni
                         $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
                         Write-StyledMessage 'Success' "Windows Terminal configurato: PS7 predefinito con elevazione"
-                    } else {
+                    }
+                    else {
                         Write-StyledMessage 'Warning' "Profilo PowerShell 7 non trovato in Windows Terminal"
                     }
-                } else {
+                }
+                else {
                     Write-StyledMessage 'Warning' "File settings.json di Windows Terminal non trovato"
                 }
-            } else {
+            }
+            else {
                 Write-StyledMessage 'Warning' "Directory Windows Terminal non trovata"
             }
         }
@@ -435,6 +439,15 @@ function WinInstallPSProfile {
     }
     finally {
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
+        Read-Host
+        try { Stop-Transcript | Out-Null } catch {}
+    }
+}
+
+llPS }
+}
+
+WPnInstallPSProrile"`nPremi Enter per uscire..." -ForegroundColor Gray
         Read-Host
         try { Stop-Transcript | Out-Null } catch {}
     }
