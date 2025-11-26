@@ -500,7 +500,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 14)'
+            '      Version 2.4.2 (Build 17)'
         )
 
         foreach ($line in $asciiArt) {
@@ -591,7 +591,7 @@ function WinInstallPSProfile {
                 Write-StyledMessage 'Info' "Installazione oh-my-posh..."
                 $spinnerIndex = 0; $percent = 0
                 
-                $installProcess = Start-Process -FilePath "winget" -ArgumentList "install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent" -NoNewWindow -PassThru -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
+                $installProcess = Start-Process -FilePath "cmd" -ArgumentList "/c winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent >nul 2>&1" -NoNewWindow -PassThru
 
                 while (-not $installProcess.HasExited -and $percent -lt 90) {
                     Show-ProgressBar "oh-my-posh" "Installazione..." $percent '📦' $spinners[$spinnerIndex++ % $spinners.Length]
@@ -636,7 +636,7 @@ function WinInstallPSProfile {
                 Write-StyledMessage 'Info' "Installazione zoxide..."
                 $spinnerIndex = 0; $percent = 0
                 
-                $installProcess = Start-Process -FilePath "winget" -ArgumentList "install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent" -NoNewWindow -PassThru -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
+                $installProcess = Start-Process -FilePath "cmd" -ArgumentList "/c winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent >nul 2>&1" -NoNewWindow -PassThru
 
                 while (-not $installProcess.HasExited -and $percent -lt 90) {
                     Show-ProgressBar "zoxide" "Installazione..." $percent '⚡' $spinners[$spinnerIndex++ % $spinners.Length]
@@ -705,6 +705,40 @@ function WinInstallPSProfile {
                 Show-ProgressBar "Profilo" "Completato" 100 '⚙️'
                 Write-Host ''
                 Write-StyledMessage 'Success' "Profilo installato!"
+                # Download e configurazione settings.json per Windows Terminal
+                $wtSettingsUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/settings.json"
+                $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+                if (-not $wtPath) {
+                    Write-StyledMessage 'Warning' "Directory Windows Terminal non trovata, impossibile configurare settings.json."
+                    return
+                }
+                $wtLocalStateDir = Join-Path $wtPath.FullName "LocalState"
+                if (-not (Test-Path $wtLocalStateDir)) {
+                    New-Item -ItemType Directory -Path $wtLocalStateDir -Force | Out-Null
+                }
+                $settingsPath = Join-Path $wtLocalStateDir "settings.json"
+
+                Write-StyledMessage 'Info' "Download e configurazione settings.json per Windows Terminal..."
+                $spinnerIndex = 0; $percent = 0
+                try {
+                    # Simulazione barra di progresso per il download
+                    while ($percent -lt 80) {
+                        Show-ProgressBar "settings.json WT" "Download..." $percent '🖼️' $spinners[$spinnerIndex++ % $spinners.Length]
+                        $percent += Get-Random -Minimum 5 -Maximum 15
+                        Start-Sleep -Milliseconds 200
+                    }
+                    Invoke-RestMethod $wtSettingsUrl -OutFile $settingsPath -UseBasicParsing -Force
+                    $percent = 100 # Assicura che la barra di progresso raggiunga il 100%
+                    Show-ProgressBar "settings.json WT" "Completato" 100 '🖼️'
+                    Write-Host '' # Aggiunge un newline dopo la barra di progresso
+                    Write-StyledMessage 'Success' "settings.json di Windows Terminal aggiornato con successo."
+                }
+                catch [System.Net.WebException] {
+                    Write-StyledMessage 'Error' "Errore di rete durante il download di settings.json: $($_.Exception.Message)"
+                }
+                catch {
+                    Write-StyledMessage 'Error' "Errore durante il download/copia di settings.json: $($_.Exception.Message)"
+                }
             }
             catch {
                 Write-StyledMessage 'Warning' "Fallback: copia manuale profilo"
@@ -750,66 +784,6 @@ function WinInstallPSProfile {
             Write-StyledMessage 'Info' "Profilo già aggiornato"
         }
 
-        # Configurazione Windows Terminal (sempre eseguita)
-        Write-StyledMessage 'Info' "Configurazione Windows Terminal..."
-        try {
-            $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($wtPath) {
-                $settingsPath = Join-Path $wtPath.FullName "LocalState\settings.json"
-                if (Test-Path $settingsPath) {
-                    # Backup settings.json
-                    $backupPath = "$settingsPath.bak"
-                    Copy-Item $settingsPath $backupPath -Force
-                    Write-StyledMessage 'Info' "Backup settings.json creato: $backupPath"
-
-                    $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
-
-                    # Trova il profilo PowerShell 7
-                    $ps7Profile = $settings.profiles.list | Where-Object { $_.commandline -like "*pwsh.exe*" -or $_.source -eq "Windows.Terminal.PowershellCore" -or $_.name -like "*PowerShell*" } | Select-Object -First 1
-                    if ($ps7Profile) {
-                        # Imposta come profilo predefinito
-                        $settings.defaultProfile = $ps7Profile.guid
-
-                        # Abilita elevazione automatica
-                        if (-not $ps7Profile.PSObject.Properties['elevate']) {
-                            $ps7Profile | Add-Member -MemberType NoteProperty -Name 'elevate' -Value $true
-                        }
-                        else {
-                            $ps7Profile.elevate = $true
-                        }
-
-                        # Salva le impostazioni
-                        $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
-                        Write-StyledMessage 'Success' "Windows Terminal configurato: PS7 predefinito con elevazione"
-                    }
-                    else {
-                        Write-StyledMessage 'Info' "Creazione profilo PowerShell 7 in Windows Terminal..."
-                        $newProfile = @{
-                            guid    = [guid]::NewGuid().ToString()
-                            name    = "PowerShell 7"
-                            source  = "Windows.Terminal.PowershellCore"
-                            hidden  = $false
-                            elevate = $true
-                        }
-                        $settings.profiles.list += $newProfile
-                        $settings.defaultProfile = $newProfile.guid
-
-                        # Salva le impostazioni
-                        $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
-                        Write-StyledMessage 'Success' "Profilo PowerShell 7 creato e impostato come predefinito con elevazione"
-                    }
-                }
-                else {
-                    Write-StyledMessage 'Warning' "File settings.json di Windows Terminal non trovato"
-                }
-            }
-            else {
-                Write-StyledMessage 'Warning' "Directory Windows Terminal non trovata"
-            }
-        }
-        catch {
-            Write-StyledMessage 'Warning' "Errore configurazione Windows Terminal: $($_.Exception.Message)"
-        }
 
         Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
     }
