@@ -102,9 +102,12 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Fix Messaggi di Output di Winget non correttamente visualizzati.
+  - Fix installazione Powershell 7 e Git.
 - Funzione **WinRepairToolkit** riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
+  - Migliorato processo di riparazione di Windows.
+  - Aggiunta nuova funzione che evita la richiesta dopo tot tempo di cambio password dell'utente corrente.
 - Funzione **DisableBitlocker** riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
