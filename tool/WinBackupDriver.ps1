@@ -61,7 +61,7 @@ function WinBackupDriver {
             '         \_/\_/    |_||_| \_|',
             '',
             '   Driver Backup Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 3)'
+            '       Version 2.4.2 (Build 4)'
         )
         foreach ($line in $asciiArt) {
             if ($line) { Write-Host (Center-Text $line $w) -ForegroundColor White } else { Write-Host '' }
@@ -84,7 +84,7 @@ function WinBackupDriver {
                 $pos = [Console]::CursorTop
                 $ErrorActionPreference = 'SilentlyContinue'
                 $ProgressPreference = 'SilentlyContinue'
-                Remove-Item $BackupDir -Recurse -Force -EA SilentlyContinue *>$null
+                Remove-Item $BackupDir -Recurse -Force -EA SilentlyContinue | Out-Null
                 [Console]::SetCursorPosition(0, $pos)
                 Write-Host ("`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r") -NoNewline
                 [Console]::Out.Flush()
@@ -284,7 +284,7 @@ function WinBackupDriver {
             $pos = [Console]::CursorTop
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
-            Remove-Item $BackupDir -Recurse -Force -EA SilentlyContinue *>$null
+            Remove-Item $BackupDir -Recurse -Force -EA SilentlyContinue | Out-Null
             [Console]::SetCursorPosition(0, $pos)
             Write-Host ("`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r") -NoNewline
             [Console]::Out.Flush()
@@ -298,64 +298,5 @@ function WinBackupDriver {
     }
 }
 
-WinBackupDrivernsole]::Out.Flush()
-            
-# Reset delle preferenze
-$ErrorActionPreference = 'Continue'
-$ProgressPreference = 'Continue'
-$VerbosePreference = 'SilentlyContinue'
-}
-
-Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
-Read-Host | Out-Null
-Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
-try { Stop-Transcript | Out-Null } catch {}
-}
-}
-
-WinBackupDrivernsole]::Out.Flush()
-            
-# Reset delle preferenze
-$ErrorActionPreference = 'Continue'
-$ProgressPreference = 'Continue'
-$VerbosePreference = 'SilentlyContinue'
-}
-
-Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
-Read-Host | Out-Null
-Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
-try { Stop-Transcript | Out-Null } catch {}
-}
-}
-
-WinBackupDrivernsole]::Out.Flush()
-            
-# Reset delle preferenze
-$ErrorActionPreference = 'Continue'
-$ProgressPreference = 'Continue'
-$VerbosePreference = 'SilentlyContinue'
-}
-
-Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
-Read-Host | Out-Null
-Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
-try { Stop-Transcript | Out-Null } catch {}
-}
-}
-
-WinBackupDrivernsole]::Out.Flush()
-            
-# Reset delle preferenze
-$ErrorActionPreference = 'Continue'
-$ProgressPreference = 'Continue'
-$VerbosePreference = 'SilentlyContinue'
-}
-
-Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
-Read-Host | Out-Null
-Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
-try { Stop-Transcript | Out-Null } catch {}
-}
-}
 
 WinBackupDriver
