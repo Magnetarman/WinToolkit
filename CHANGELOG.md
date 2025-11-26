@@ -126,6 +126,18 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+- Funzione **GamingToolkit** Riscritta.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Migliorata scrittura file Log.
+  - Eliminazione dei commenti non necessari.
+- Funzione **SetRustDesk** Riscritta.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Migliorata scrittura file Log.
+  - Eliminazione dei commenti non necessari.
+- Funzione **VideoDriverInstall** Riscritta.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Migliorata scrittura file Log.
+  - Eliminazione dei commenti non necessari.
 
 ### Modifiche
 
