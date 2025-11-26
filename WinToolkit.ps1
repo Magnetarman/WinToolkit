@@ -369,16 +369,17 @@ function WinInstallPSProfile {
             [Parameter(Mandatory = $true)]
             [ValidateSet('Success', 'Warning', 'Error', 'Info')]
             [string]$Type,
-            
+
             [Parameter(Mandatory = $true)]
             [string]$Text
         )
 
         $style = $script:MsgStyles[$Type]
         $timestamp = Get-Date -Format "HH:mm:ss"
-        
-        # Rimuovi emoji duplicati dal testo per il log
-        $cleanText = $Text -replace '^[✅⚠️❌💎🔥🚀⚙️🧹📦📋📜🔒💾⬇️🔧⚡🖼️🌐🪟🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊🛡️🔑]\s*', ''
+
+        # Regex per rimuovere emoji dal testo per il log
+        $emojiRegex = '^[✅⚠️❌💎🔥🚀⚙️🧹📦📋📜🔒💾⬇️🔧⚡🖼️🌐🪟🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊🛡️🔑]\s*'
+        $cleanText = $Text -replace $emojiRegex, ''
 
         Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
 
@@ -499,7 +500,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 12)'
+            '      Version 2.4.2 (Build 13)'
         )
 
         foreach ($line in $asciiArt) {
@@ -557,13 +558,24 @@ function WinInstallPSProfile {
 
         Write-StyledMessage 'Info' "Controllo aggiornamenti..."
         $tempProfile = "$env:TEMP\Microsoft.PowerShell_profile.ps1"
-        Invoke-RestMethod $profileUrl -OutFile $tempProfile -UseBasicParsing
-        $newHash = Get-FileHash $tempProfile
+        try {
+            Invoke-RestMethod $profileUrl -OutFile $tempProfile -UseBasicParsing
+            $newHash = Get-FileHash $tempProfile
+        }
+        catch [System.Net.WebException] {
+            Write-StyledMessage 'Error' "Errore rete durante download profilo: $($_.Exception.Message)"
+            return
+        }
+        catch {
+            Write-StyledMessage 'Error' "Errore download profilo: $($_.Exception.Message)"
+            return
+        }
 
         $profileDir = Split-Path $PROFILE -Parent
         if (!(Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
-        if (!(Test-Path "$PROFILE.hash")) { $newHash.Hash | Out-File "$PROFILE.hash" }
+        $newHash.Hash | Out-File "$PROFILE.hash" -Force
         
+        Write-StyledMessage 'Info' "Hash profilo locale: $($oldHash.Hash), remoto: $($newHash.Hash)"
         if ($newHash.Hash -ne $oldHash.Hash) {
             if ((Test-Path $PROFILE) -and (-not (Test-Path "$PROFILE.bak"))) {
                 Write-StyledMessage 'Info' "Backup profilo esistente..."
@@ -594,10 +606,12 @@ function WinInstallPSProfile {
 
                 $omp = Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "oh-my-posh.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
                 if ($omp) {
-                    $ompPath = $omp.DirectoryName
+                    $ompPath = [System.IO.Path]::GetFullPath($omp.DirectoryName)
                     $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-                    if ($currentPath -notlike "*$ompPath*") {
-                        [Environment]::SetEnvironmentVariable("Path", "$currentPath;$ompPath", "User")
+                    $pathArray = $currentPath -split ';' | ForEach-Object { [System.IO.Path]::GetFullPath($_) } | Where-Object { $_ }
+                    if ($pathArray -notcontains $ompPath) {
+                        $newPath = if ($currentPath.EndsWith(';')) { "$currentPath$ompPath" } else { "$currentPath;$ompPath" }
+                        [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
                         Write-StyledMessage 'Success' "Path oh-my-posh aggiunto: $ompPath"
                     }
                     else {
@@ -632,10 +646,12 @@ function WinInstallPSProfile {
 
                 $zox = Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "zoxide.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
                 if ($zox) {
-                    $zoxPath = $zox.DirectoryName
+                    $zoxPath = [System.IO.Path]::GetFullPath($zox.DirectoryName)
                     $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-                    if ($currentPath -notlike "*$zoxPath*") {
-                        [Environment]::SetEnvironmentVariable("Path", "$currentPath;$zoxPath", "User")
+                    $pathArray = $currentPath -split ';' | ForEach-Object { [System.IO.Path]::GetFullPath($_) } | Where-Object { $_ }
+                    if ($pathArray -notcontains $zoxPath) {
+                        $newPath = if ($currentPath.EndsWith(';')) { "$currentPath$zoxPath" } else { "$currentPath;$zoxPath" }
+                        [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
                         Write-StyledMessage 'Success' "Path zoxide aggiunto: $zoxPath"
                     }
                     else {
@@ -714,6 +730,10 @@ function WinInstallPSProfile {
                 Write-Host "  oh-my-posh --version" -ForegroundColor Cyan
                 Write-Host "  zoxide --version" -ForegroundColor Cyan
                 Write-Host ""
+                # Salva stato riavvio necessario
+                $rebootFlag = "$env:LOCALAPPDATA\WinToolkit\reboot_required.txt"
+                "Riavvio necessario per applicare PATH oh-my-posh/zoxide e profilo PowerShell. Eseguito il $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File $rebootFlag -Encoding UTF8
+                Write-StyledMessage 'Info' "Flag riavvio salvato in: $rebootFlag"
             }
         }
         else {
@@ -727,6 +747,11 @@ function WinInstallPSProfile {
             if ($wtPath) {
                 $settingsPath = Join-Path $wtPath.FullName "LocalState\settings.json"
                 if (Test-Path $settingsPath) {
+                    # Backup settings.json
+                    $backupPath = "$settingsPath.bak"
+                    Copy-Item $settingsPath $backupPath -Force
+                    Write-StyledMessage 'Info' "Backup settings.json creato: $backupPath"
+
                     $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
 
                     # Trova il profilo PowerShell 7
@@ -770,11 +795,12 @@ function WinInstallPSProfile {
         Write-Host ('═' * 65) -ForegroundColor Red
         Write-StyledMessage 'Error' "Errore installazione: $($_.Exception.Message)"
         Write-Host ('═' * 65) -ForegroundColor Red
-        if (Test-Path "$env:TEMP\Microsoft.PowerShell_profile.ps1") {
-            Remove-Item "$env:TEMP\Microsoft.PowerShell_profile.ps1" -Force -ErrorAction SilentlyContinue
-        }
     }
     finally {
+        # Pulizia file temporanei
+        if (Test-Path $tempProfile) {
+            Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
+        }
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
         Read-Host
         try { Stop-Transcript | Out-Null } catch {}
