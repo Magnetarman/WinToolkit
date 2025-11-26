@@ -500,7 +500,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 17)'
+            '      Version 2.4.2 (Build 18)'
         )
 
         foreach ($line in $asciiArt) {
@@ -613,7 +613,7 @@ function WinInstallPSProfile {
                 if ($omp) {
                     $ompPath = [System.IO.Path]::GetFullPath($omp.DirectoryName)
                     $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-                    $pathArray = $currentPath -split ';' | ForEach-Object { [System.IO.Path]::GetFullPath($_) } | Where-Object { $_ }
+                    $pathArray = ($currentPath -split ';') | Where-Object { $_ -and $_.Trim() } | ForEach-Object { [System.IO.Path]::GetFullPath($_) }
                     if ($pathArray -notcontains $ompPath) {
                         $newPath = if ($currentPath.EndsWith(';')) { "$currentPath$ompPath" } else { "$currentPath;$ompPath" }
                         [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
@@ -658,7 +658,7 @@ function WinInstallPSProfile {
                 if ($zox) {
                     $zoxPath = [System.IO.Path]::GetFullPath($zox.DirectoryName)
                     $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-                    $pathArray = $currentPath -split ';' | ForEach-Object { [System.IO.Path]::GetFullPath($_) } | Where-Object { $_ }
+                    $pathArray = ($currentPath -split ';') | Where-Object { $_ -and $_.Trim() } | ForEach-Object { [System.IO.Path]::GetFullPath($_) }
                     if ($pathArray -notcontains $zoxPath) {
                         $newPath = if ($currentPath.EndsWith(';')) { "$currentPath$zoxPath" } else { "$currentPath;$zoxPath" }
                         [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
@@ -727,7 +727,7 @@ function WinInstallPSProfile {
                         $percent += Get-Random -Minimum 5 -Maximum 15
                         Start-Sleep -Milliseconds 200
                     }
-                    Invoke-RestMethod $wtSettingsUrl -OutFile $settingsPath -UseBasicParsing -Force
+                    Invoke-WebRequest $wtSettingsUrl -OutFile $settingsPath -UseBasicParsing
                     $percent = 100 # Assicura che la barra di progresso raggiunga il 100%
                     Show-ProgressBar "settings.json WT" "Completato" 100 '🖼️'
                     Write-Host '' # Aggiunge un newline dopo la barra di progresso
