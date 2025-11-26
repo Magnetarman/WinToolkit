@@ -500,7 +500,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 13)'
+            '      Version 2.4.2 (Build 14)'
         )
 
         foreach ($line in $asciiArt) {
@@ -600,9 +600,14 @@ function WinInstallPSProfile {
                 }
 
                 $installProcess.WaitForExit()
-                Start-Sleep -Seconds 2
-                Show-ProgressBar "oh-my-posh" "Completato" 100 '📦'
-                Write-Host ''
+                if ($installProcess.ExitCode -ne 0) {
+                    Write-StyledMessage 'Error' "Installazione oh-my-posh fallita (ExitCode: $($installProcess.ExitCode))"
+                }
+                else {
+                    Start-Sleep -Seconds 2
+                    Show-ProgressBar "oh-my-posh" "Completato" 100 '📦'
+                    Write-Host ''
+                }
 
                 $omp = Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "oh-my-posh.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
                 if ($omp) {
@@ -640,9 +645,14 @@ function WinInstallPSProfile {
                 }
 
                 $installProcess.WaitForExit()
-                Start-Sleep -Seconds 2
-                Show-ProgressBar "zoxide" "Completato" 100 '⚡'
-                Write-Host ''
+                if ($installProcess.ExitCode -ne 0) {
+                    Write-StyledMessage 'Error' "Installazione zoxide fallita (ExitCode: $($installProcess.ExitCode))"
+                }
+                else {
+                    Start-Sleep -Seconds 2
+                    Show-ProgressBar "zoxide" "Completato" 100 '⚡'
+                    Write-Host ''
+                }
 
                 $zox = Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "zoxide.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
                 if ($zox) {
@@ -755,7 +765,7 @@ function WinInstallPSProfile {
                     $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
 
                     # Trova il profilo PowerShell 7
-                    $ps7Profile = $settings.profiles.list | Where-Object { $_.commandline -like "*pwsh.exe*" } | Select-Object -First 1
+                    $ps7Profile = $settings.profiles.list | Where-Object { $_.commandline -like "*pwsh.exe*" -or $_.source -eq "Windows.Terminal.PowershellCore" -or $_.name -like "*PowerShell*" } | Select-Object -First 1
                     if ($ps7Profile) {
                         # Imposta come profilo predefinito
                         $settings.defaultProfile = $ps7Profile.guid
@@ -773,7 +783,20 @@ function WinInstallPSProfile {
                         Write-StyledMessage 'Success' "Windows Terminal configurato: PS7 predefinito con elevazione"
                     }
                     else {
-                        Write-StyledMessage 'Warning' "Profilo PowerShell 7 non trovato in Windows Terminal"
+                        Write-StyledMessage 'Info' "Creazione profilo PowerShell 7 in Windows Terminal..."
+                        $newProfile = @{
+                            guid    = [guid]::NewGuid().ToString()
+                            name    = "PowerShell 7"
+                            source  = "Windows.Terminal.PowershellCore"
+                            hidden  = $false
+                            elevate = $true
+                        }
+                        $settings.profiles.list += $newProfile
+                        $settings.defaultProfile = $newProfile.guid
+
+                        # Salva le impostazioni
+                        $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
+                        Write-StyledMessage 'Success' "Profilo PowerShell 7 creato e impostato come predefinito con elevazione"
                     }
                 }
                 else {
