@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.4.2 (Build 101)"
+$ToolkitVersion = "2.4.2 (Build 102)"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -35,8 +35,7 @@ function Write-StyledMessage {
     )
     $style = $Global:MsgStyles[$Type]
     $timestamp = Get-Date -Format "HH:mm:ss"
-    # Pulisce emoji per log
-    $cleanText = $Text -replace '^[✅⚠️❌💎🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
+    $cleanText = $Text -replace '^[✅⚠️❌💎🔄🗂️📁🖨️📄🗑️💭⸏▶️💡⏰🎉💻📊]\s*', ''
     Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
 }
 
@@ -70,6 +69,10 @@ function Show-Header {
     }
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
     Write-Host ''
+    Write-Host ('*' * ($width - 1)) -ForegroundColor Red
+    Write-Host (Center-Text "💻  INFORMAZIONI SISTEMA  💻" $width) -ForegroundColor Cyan
+    Write-Host ('*' * ($width - 1)) -ForegroundColor Red
+    Write-Host ''
 }
 
 function Initialize-ToolLogging {
@@ -81,7 +84,6 @@ function Initialize-ToolLogging {
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
     if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
-    # Chiude transcript precedenti se aperti
     try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
     Start-Transcript -Path "$logdir\${ToolName}_$dateTime.log" -Append -Force | Out-Null
 }
@@ -131,7 +133,6 @@ function Get-SystemInfo {
         $osInfo = Get-CimInstance Win32_OperatingSystem
         $computerInfo = Get-CimInstance Win32_ComputerSystem
         $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
-        # Version Map completa
         $versionMap = @{
             26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"; 19045 = "22H2"; 19044 = "21H2";
             19043 = "21H1"; 19042 = "20H2"; 19041 = "2004"; 18363 = "1909"; 18362 = "1903"; 17763 = "1809";
@@ -145,7 +146,9 @@ function Get-SystemInfo {
             ProductName = $osInfo.Caption -replace 'Microsoft ', ''; BuildNumber = $build; DisplayVersion = $ver
             Architecture = $osInfo.OSArchitecture; ComputerName = $computerInfo.Name
             TotalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
-            TotalDisk = [Math]::Round($diskInfo.Size / 1GB, 0); FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
+            TotalDisk = [Math]::Round($diskInfo.Size / 1GB, 0)
+            FreeDisk = [Math]::Round($diskInfo.FreeSpace / 1GB, 0)
+            FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
         }
     }
     catch { return $null }
@@ -169,12 +172,10 @@ function WinOSCheck {
     Write-Host "$($si.ProductName) ($($si.DisplayVersion))" -ForegroundColor White
     Write-Host ""
     
-    # Logica di compatibilità originale
     if ($si.BuildNumber -ge 22000) { Write-StyledMessage 'Success' "Sistema compatibile (Win11/10 recente)." }
     elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage 'Success' "Sistema compatibile (Win10)." }
     elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage 'Warning' "Windows 8.1: Compatibilità parziale." }
     else {
-        # Easter egg originale mantenuto
         Write-Host ('*' * 65) -ForegroundColor Red
         Write-Host (Center-Text "🤣 ERRORE CRITICO 🤣" 65) -ForegroundColor Red
         Write-Host ('*' * 65) -ForegroundColor Red
@@ -6865,7 +6866,7 @@ $menuStructure = @(
             [pscustomobject]@{Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
         )
     },
-    @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @([pscustomobject]@{Name = 'SetRustDesk'; Description = 'Setting RustDesk'; Action = 'RunFunction' }) }
+    @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @([pscustomobject]@{Name = 'SetRustDesk'; Description = 'Setting RustDesk - MagnetarMan Mode'; Action = 'RunFunction' }) }
 )
 
 WinOSCheck
@@ -6873,23 +6874,41 @@ WinOSCheck
 while ($true) {
     Show-Header -SubTitle "Menu Principale"
     
-    # Winver Info
+    # Info Sistema
     $si = Get-SystemInfo
-    $bit = CheckBitlocker
-    $col = if ($bit -match "Attivata|Errore") { 'Red' } else { 'Green' }
-    Write-Host "  💻 $($si.ProductName) | 🧠 $($si.TotalRAM)GB | 💾 C: $($si.FreePercentage)% Free | 🔒 BitLocker: " -NoNewline
-    Write-Host "$bit" -ForegroundColor $col
+    if ($si) {
+        $editionIcon = if ($si.ProductName -match "Pro") { "🔧" } else { "💻" }
+        Write-Host "💻 Edizione: $editionIcon $($si.ProductName)" -ForegroundColor White
+        Write-Host "🆔 Versione: " -NoNewline -ForegroundColor White
+        Write-Host "Ver. $($si.DisplayVersion) (Build $($si.BuildNumber))" -ForegroundColor Green
+        Write-Host "🔑 Architettura: $($si.Architecture)" -ForegroundColor White
+        Write-Host "🔧 Nome PC: $($si.ComputerName)" -ForegroundColor White
+        Write-Host "🧠 RAM: $($si.TotalRAM) GB" -ForegroundColor White
+        Write-Host "💾 Disco: " -NoNewline -ForegroundColor White
+        Write-Host "$($si.FreePercentage)% Libero ($($si.FreeDisk) GB)" -ForegroundColor Green
+        Write-Host ""
+        Write-Host ('*' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Red
+    }
     Write-Host ""
 
     $allScripts = @(); $idx = 1
     foreach ($cat in $menuStructure) {
-        Write-Host "=== $($cat.Icon) $($cat.Name) ===" -ForegroundColor Cyan
-        foreach ($s in $cat.Scripts) { $allScripts += $s; Write-Host "  [$idx] $($s.Description)"; $idx++ }
+        Write-Host "==== $($cat.Icon) $($cat.Name) $($cat.Icon) ====" -ForegroundColor Cyan
+        Write-Host ""
+        foreach ($s in $cat.Scripts) { 
+            $allScripts += $s
+            Write-Host "💎 [$idx] $($s.Description)" -ForegroundColor White
+            $idx++ 
+        }
         Write-Host ""
     }
 
-    Write-Host "=== Uscita ===" -ForegroundColor Red; Write-Host "  [0] Esci`n"
-    $c = Read-Host "  Seleziona"
+    Write-Host "==== Uscita ====" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
+    Write-Host ""
+    $c = Read-Host "Scegli un'opzione (es. 1, 3, 5 o 0 per uscire)"
+    
     if ($c -eq '0') { Stop-Transcript -ErrorAction SilentlyContinue; break }
     
     if ($c -match '^\d+$' -and [int]$c -ge 1 -and [int]$c -le $allScripts.Count) {
