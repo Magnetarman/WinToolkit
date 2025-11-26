@@ -71,8 +71,6 @@ function Show-Header {
     Write-Host ''
     Write-Host ('*' * ($width - 1)) -ForegroundColor Red
     Write-Host (Center-Text "💻  INFORMAZIONI SISTEMA  💻" $width) -ForegroundColor Cyan
-    Write-Host ('*' * ($width - 1)) -ForegroundColor Red
-    Write-Host ''
 }
 
 function Initialize-ToolLogging {
@@ -6886,7 +6884,6 @@ while ($true) {
         Write-Host "🧠 RAM: $($si.TotalRAM) GB" -ForegroundColor White
         Write-Host "💾 Disco: " -NoNewline -ForegroundColor White
         Write-Host "$($si.FreePercentage)% Libero ($($si.FreeDisk) GB)" -ForegroundColor Green
-        Write-Host ""
         Write-Host ('*' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Red
     }
     Write-Host ""
@@ -6904,7 +6901,6 @@ while ($true) {
     }
 
     Write-Host "==== Uscita ====" -ForegroundColor Red
-    Write-Host ""
     Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
     Write-Host ""
     $c = Read-Host "Scegli un'opzione (es. 1, 3, 5 o 0 per uscire)"
