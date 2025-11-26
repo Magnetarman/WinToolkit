@@ -8,60 +8,20 @@ function OfficeToolkit {
         Supporta installazione Office Basic, riparazione Click-to-Run e rimozione automatica basata sulla versione Windows.
     #>
 
+    [CmdletBinding()]
     param([int]$CountdownSeconds = 30)
+
+    Initialize-ToolLogging -ToolName "OfficeToolkit"
+    Show-Header -SubTitle "Office Toolkit"
 
     # Configurazione
     $TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
-    $Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
 
-    # Setup logging
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
-    try {
-        if (-not (Test-Path -Path $logdir)) {
-            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-        }
-        Start-Transcript -Path "$logdir\OfficeToolkit_$dateTime.log" -Append -Force | Out-Null
-    }
-    catch {}
-
-    $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'; Icon = '❌' }
-        Info    = @{ Color = 'Cyan'; Icon = '💡' }
-    }
-
-    # Funzioni Helper
-    function Write-StyledMessage([string]$Type, [string]$Message) {
-        $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Message" -ForegroundColor $style.Color
-    }
-
-    function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent) {
-        $safePercent = [Math]::Max(0, [Math]::Min(100, $Percent))
-        $filled = [Math]::Floor($safePercent * 30 / 100)
-        $bar = "[$('█' * $filled)$('░' * (30 - $filled))] $safePercent%"
-        Write-Host "`r📊 $Activity $bar $Status" -NoNewline -ForegroundColor Yellow
-        if ($Percent -eq 100) {
-            Write-Host ''
-            [Console]::Out.Flush()
-        }
-        else {
-            [Console]::Out.Flush()
-        }
-    }
-
+    # Funzioni Helper Locali
     function Clear-ConsoleLine {
         $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
         Write-Host $clearLine -NoNewline
         [Console]::Out.Flush()
-    }
-
-    function Clear-ConsoleLines([int]$Lines = 1) {
-        for ($i = 0; $i -lt $Lines; $i++) {
-            Clear-ConsoleLine
-        }
     }
 
     function Invoke-SilentRemoval {
@@ -103,7 +63,7 @@ function OfficeToolkit {
         $job = Start-Job -ScriptBlock $Action
 
         while ($job.State -eq 'Running') {
-            $spinner = $Spinners[$spinnerIndex++ % $Spinners.Length]
+            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
             Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
             [Console]::Out.Flush()
             Start-Sleep -Milliseconds 200
@@ -144,41 +104,6 @@ function OfficeToolkit {
         catch {
             Write-StyledMessage Warning "Impossibile rilevare versione Windows: $_"
             return "Unknown"
-        }
-    }
-
-    function Start-CountdownRestart([string]$Reason) {
-        Write-StyledMessage Info "🔄 $Reason - Il sistema verrà riavviato"
-        Write-StyledMessage Info "💡 Premi un tasto qualsiasi per annullare..."
-
-        for ($i = $CountdownSeconds; $i -gt 0; $i--) {
-            if ([Console]::KeyAvailable) {
-                [Console]::ReadKey($true) | Out-Null
-                Write-Host "`n"
-                Write-StyledMessage Warning "⏸️ Riavvio annullato dall'utente"
-                return $false
-            }
-
-            $percent = [Math]::Round((($CountdownSeconds - $i) / $CountdownSeconds) * 100)
-            $filled = [Math]::Floor($percent * 20 / 100)
-            $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('░' * $remaining)] $percent%"
-
-            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
-            [Console]::Out.Flush()
-            Start-Sleep 1
-        }
-
-        Write-Host "`n"
-        Write-StyledMessage Warning "⏰ Riavvio del sistema..."
-
-        try {
-            Restart-Computer -Force
-            return $true
-        }
-        catch {
-            Write-StyledMessage Error "Errore riavvio: $_"
-            return $false
         }
     }
 
@@ -361,47 +286,6 @@ function OfficeToolkit {
         }
         catch {
             Write-StyledMessage Error "Errore durante riparazione: $_"
-            return $false
-        }
-    }
-
-    function Start-OfficeUninstall {
-        Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office"
-
-        if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa?")) {
-            Write-StyledMessage Info "❌ Operazione annullata"
-            return $false
-        }
-
-        Stop-OfficeProcesses
-
-        Write-StyledMessage Info "🔍 Rilevamento versione Windows..."
-        $windowsVersion = Get-WindowsVersion
-        Write-StyledMessage Info "🎯 Versione rilevata: $windowsVersion"
-
-        $success = $false
-
-        switch ($windowsVersion) {
-            'Windows11_23H2_Plus' {
-                Write-StyledMessage Info "🚀 Utilizzo metodo SaRA per Windows 11 23H2+..."
-                $success = Start-OfficeUninstallWithSaRA
-            }
-            default {
-                Write-StyledMessage Info "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti..."
-                Write-StyledMessage Warning "Questo metodo rimuove file e registro direttamente"
-                if (Get-UserConfirmation "Confermi rimozione diretta?" 'Y') {
-                    $success = Remove-OfficeDirectly
-                }
-            }
-        }
-
-        if ($success) {
-            Write-StyledMessage Success "🎉 Rimozione Office completata!"
-            return $true
-        }
-        else {
-            Write-StyledMessage Error "Rimozione non completata"
-            Write-StyledMessage Info "💡 Puoi provare un metodo alternativo o rimozione manuale"
             return $false
         }
     }
@@ -685,34 +569,48 @@ function OfficeToolkit {
         }
     }
 
-    function Show-Header {
-        $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
-        Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+    function Start-OfficeUninstall {
+        Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office"
 
-        $asciiArt = @(
-            '      __        __  _  _   _ ',
-            '      \ \      / / | || \ | |',
-            '       \ \ /\ / /  | ||  \| |',
-            '        \ V  V /   | || |\  |',
-            '         \_/\_/    |_||_| \_|',
-            '',
-            '      Office Toolkit By MagnetarMan',
-            '        Version 2.4.1 (Build 1)'
-        )
-
-        foreach ($line in $asciiArt) {
-            $padding = [Math]::Max(0, [Math]::Floor(($width - $line.Length) / 2))
-            Write-Host (' ' * $padding + $line) -ForegroundColor White
+        if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa?")) {
+            Write-StyledMessage Info "❌ Operazione annullata"
+            return $false
         }
 
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-        Write-Host ''
+        Stop-OfficeProcesses
+
+        Write-StyledMessage Info "🔍 Rilevamento versione Windows..."
+        $windowsVersion = Get-WindowsVersion
+        Write-StyledMessage Info "🎯 Versione rilevata: $windowsVersion"
+
+        $success = $false
+
+        switch ($windowsVersion) {
+            'Windows11_23H2_Plus' {
+                Write-StyledMessage Info "🚀 Utilizzo metodo SaRA per Windows 11 23H2+..."
+                $success = Start-OfficeUninstallWithSaRA
+            }
+            default {
+                Write-StyledMessage Info "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti..."
+                Write-StyledMessage Warning "Questo metodo rimuove file e registro direttamente"
+                if (Get-UserConfirmation "Confermi rimozione diretta?" 'Y') {
+                    $success = Remove-OfficeDirectly
+                }
+            }
+        }
+
+        if ($success) {
+            Write-StyledMessage Success "🎉 Rimozione Office completata!"
+            return $true
+        }
+        else {
+            Write-StyledMessage Error "Rimozione non completata"
+            Write-StyledMessage Info "💡 Puoi provare un metodo alternativo o rimozione manuale"
+            return $false
+        }
     }
 
     # MAIN EXECUTION
-    Show-Header
     Write-Host "⏳ Inizializzazione sistema..." -ForegroundColor Yellow
     Start-Sleep 2
     Write-Host "✅ Sistema pronto`n" -ForegroundColor Green
@@ -760,7 +658,8 @@ function OfficeToolkit {
                 if ($success) {
                     Write-StyledMessage Success "🎉 $operation completata!"
                     if (Get-UserConfirmation "🔄 Riavviare ora per finalizzare?" 'Y') {
-                        Start-CountdownRestart "$operation completata"
+                        Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "$operation completata"
+                        Restart-Computer -Force
                     }
                     else {
                         Write-StyledMessage Info "💡 Riavvia manualmente quando possibile"
