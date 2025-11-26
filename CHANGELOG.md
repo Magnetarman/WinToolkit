@@ -98,6 +98,10 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Logica di Installazione PS7, Invertita la priorità: ora tenta prima il download/installazione diretta (MSI) e usa Winget solo come fallback.
     - Sostituito Start-Job con Start-Process -PassThru + Wait-Process per una gestione più affidabile del processo di installazione MSI.
     - Parsing JSON: Migliorata la robustezza del parsing di settings.json per Windows Terminal con gestione specifica degli errori di lettura.
+- Funzione **InstallPSProfile** riscritta.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Migliorata scrittura file Log.
+  - Fix Messaggi di Output di Winget non correttamente visualizzati.
 - Funzione **WinRepairToolkit** riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
