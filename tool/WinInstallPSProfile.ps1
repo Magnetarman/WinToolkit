@@ -164,7 +164,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 15)'
+            '      Version 2.4.2 (Build 16)'
         )
 
         foreach ($line in $asciiArt) {
@@ -448,67 +448,6 @@ function WinInstallPSProfile {
             Write-StyledMessage 'Info' "Profilo già aggiornato"
         }
 
-        # La seguente sezione è stata commentata perché settings.json viene ora scaricato e copiato direttamente, evitando conflitti.
-        # # Configurazione Windows Terminal (sempre eseguita)
-        # Write-StyledMessage 'Info' "Configurazione Windows Terminal..."
-        # try {
-        #     $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
-        #     if ($wtPath) {
-        #         $settingsPath = Join-Path $wtPath.FullName "LocalState\settings.json"
-        #         if (Test-Path $settingsPath) {
-        #             # Backup settings.json
-        #             $backupPath = "$settingsPath.bak"
-        #             Copy-Item $settingsPath $backupPath -Force
-        #             Write-StyledMessage 'Info' "Backup settings.json creato: $backupPath"
-
-        #             $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
-
-        #             # Trova il profilo PowerShell 7
-        #             $ps7Profile = $settings.profiles.list | Where-Object { $_.commandline -like "*pwsh.exe*" -or $_.source -eq "Windows.Terminal.PowershellCore" -or $_.name -like "*PowerShell*" } | Select-Object -First 1
-        #             if ($ps7Profile) {
-        #                 # Imposta come profilo predefinito
-        #                 $settings.defaultProfile = $ps7Profile.guid
-
-        #                 # Abilita elevazione automatica
-        #                 if (-not $ps7Profile.PSObject.Properties['elevate']) {
-        #                     $ps7Profile | Add-Member -MemberType NoteProperty -Name 'elevate' -Value $true
-        #                 }
-        #                 else {
-        #                     $ps7Profile.elevate = $true
-        #                 }
-
-        #                 # Salva le impostazioni
-        #                 $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
-        #                 Write-StyledMessage 'Success' "Windows Terminal configurato: PS7 predefinito con elevazione"
-        #             }
-        #             else {
-        #                 Write-StyledMessage 'Info' "Creazione profilo PowerShell 7 in Windows Terminal..."
-        #                 $newProfile = @{
-        #                     guid    = [guid]::NewGuid().ToString()
-        #                     name    = "PowerShell 7"
-        #                     source  = "Windows.Terminal.PowershellCore"
-        #                     hidden  = $false
-        #                     elevate = $true
-        #                 }
-        #                 $settings.profiles.list += $newProfile
-        #                 $settings.defaultProfile = $newProfile.guid
-
-        #                 # Salva le impostazioni
-        #                 $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
-        #                 Write-StyledMessage 'Success' "Profilo PowerShell 7 creato e impostato come predefinito con elevazione"
-        #             }
-        #         }
-        #         else {
-        #             Write-StyledMessage 'Warning' "File settings.json di Windows Terminal non trovato"
-        #         }
-        #     }
-        #     else {
-        #         Write-StyledMessage 'Warning' "Directory Windows Terminal non trovata"
-        #     }
-        # }
-        # catch {
-        #     Write-StyledMessage 'Warning' "Errore configurazione Windows Terminal: $($_.Exception.Message)"
-        # }
 
         Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
     }
