@@ -130,6 +130,10 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
+- Script `WinToolkit` riscritto.
+  - Logica completamente riscritta, lo script adesso risulterà monolitico, integrando le funzionalità grafiche generali, demandando ai singoli script la sola gestione logica e funzionale delle varie operazioni.
+  - Questo aggiornamento porta con sè un notevole miglioramento delle prestazioni, una significativa riduzione del codice totale (da +7400 linee a XXX linee di codice totale) e maggiore stabilità dello script, oltre a una maggiore leggibilità e manutenibilità del codice.
+  - Modificato l'aspetto grafico del Toolkit rendendo le varie schermate più compatte e leggibili.
 
 ---
 
