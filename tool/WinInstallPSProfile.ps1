@@ -68,13 +68,14 @@ function WinInstallPSProfile {
             }
 
             $currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
-            $pathExists = ($currentPath -split ';') | Where-Object { $_.TrimEnd('\') -eq $PathToAdd.TrimEnd('\') }
+            $pathExists = ($currentPath -split ';') | Where-Object { $_.TrimEnd('\') -ieq $PathToAdd.TrimEnd('\') }
             
             if ($pathExists) {
                 Write-StyledMessage 'Info' "Percorso già nel PATH: $PathToAdd"
                 return $true
             }
 
+            $PathToAdd = $PathToAdd.TrimStart(';')
             $newPath = if ($currentPath.EndsWith(';')) { "$currentPath$PathToAdd" } else { "$currentPath;$PathToAdd" }
             [Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
             $env:PATH = "$env:PATH;$PathToAdd"
@@ -98,11 +99,11 @@ function WinInstallPSProfile {
             catch { continue }
 
             foreach ($resolved in $resolvedPaths) {
-                $testPath = if ($resolved.FullName -notmatch '\*') { $resolved.FullName } else { $resolved.FullName }
+                $testPath = $resolved.FullName
                 if (Test-Path "$testPath\$ExecutableName") { return $testPath }
             }
 
-            $directPath = $path -replace '\*.*$', ''
+            $directPath = $path -replace '\*.*', ''
             if (Test-Path "$directPath\$ExecutableName") { return $directPath }
         }
         return $null
@@ -162,7 +163,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 10)'
+            '      Version 2.4.2 (Build 12)'
         )
 
         foreach ($line in $asciiArt) {
@@ -439,15 +440,6 @@ function WinInstallPSProfile {
     }
     finally {
         Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
-        Read-Host
-        try { Stop-Transcript | Out-Null } catch {}
-    }
-}
-
-llPS }
-}
-
-WPnInstallPSProrile"`nPremi Enter per uscire..." -ForegroundColor Gray
         Read-Host
         try { Stop-Transcript | Out-Null } catch {}
     }
