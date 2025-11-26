@@ -10,27 +10,21 @@ function DisableBitlocker {
 
     param([bool]$RunStandalone = $true)
 
-    # Configurazione
     $Host.UI.RawUI.WindowTitle = "BitLocker Toolkit By MagnetarMan"
+    $script:Log = @()
 
     # Setup logging
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logDir = "$env:LOCALAPPDATA\WinToolkit\logs"
-
     try {
         if (-not (Test-Path -Path $logDir)) {
             New-Item -Path $logDir -ItemType Directory -Force | Out-Null
         }
         Start-Transcript -Path "$logDir\BitLockerToolkit_$dateTime.log" -Append -Force | Out-Null
     }
-    catch {
-        Write-Warning "Impossibile inizializzare il logging: $_"
-    }
+    catch {}
 
-    # Caratteri spinner per animazioni
     $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-
-    # Stili messaggi
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
@@ -38,33 +32,42 @@ function DisableBitlocker {
         Info    = @{ Color = 'Cyan'; Icon = '💎' }
     }
 
-    $script:Log = @()
-
     function Write-StyledMessage {
+        [CmdletBinding()]
         param(
+            [Parameter(Mandatory = $true)]
+            [ValidateSet('Success', 'Warning', 'Error', 'Info')]
             [string]$Type,
+            
+            [Parameter(Mandatory = $true)]
             [string]$Text
         )
 
         $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+        $timestamp = Get-Date -Format "HH:mm:ss"
+        
+        # Rimuovi emoji duplicati dal testo per il log
+        $cleanText = $Text -replace '^[✅⚠️❌💎🔍🚀⚙️🧹📦📋📜📝💾⬇️🔧⚡🖼️🌐🍪🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
+
+        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
+
+        # Log automatico
         if ($Type -in @('Info', 'Warning', 'Error', 'Success')) {
-            $script:Log += "[$(Get-Date -Format 'HH:mm:ss')] [$Type] $Text"
+            $logEntry = "[$timestamp] [$Type] $cleanText"
+            $script:Log += $logEntry
         }
     }
 
     function Center-Text {
-        [CmdletBinding()]
-        [OutputType([string])]
         param(
             [Parameter(Mandatory = $true)]
             [string]$Text,
-
             [Parameter(Mandatory = $false)]
             [int]$Width = $Host.UI.RawUI.BufferSize.Width
         )
-
+    
         $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+    
         return (' ' * $padding + $Text)
     }
 
@@ -79,9 +82,9 @@ function DisableBitlocker {
             '       \ \ /\ / /  | ||  \| |'
             '        \ V  V /   | || |\  |'
             '         \_/\_/    |_||_| \_|'
-            ''
-            '    BitLocker Toolkit By MagnetarMan'
-            '       Version 2.4.2 (Build 5)'
+            '',
+            '    BitLocker Toolkit By MagnetarMan',
+            '       Version 2.4.2 (Build 6)'
         )
 
         foreach ($line in $asciiArt) {
@@ -96,7 +99,6 @@ function DisableBitlocker {
 
     Show-Header
 
-    # Countdown preparazione
     for ($i = 5; $i -gt 0; $i--) {
         $spinner = $spinners[$i % $spinners.Length]
         Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
@@ -104,9 +106,9 @@ function DisableBitlocker {
     }
     Write-Host "`n"
 
-    Write-StyledMessage Info "🔑 Avvio processo di disattivazione BitLocker per il drive C:..."
-
     try {
+        Write-StyledMessage Info "🔑 Avvio processo di disattivazione BitLocker per il drive C:..."
+
         $commandOutput = & manage-bde.exe -off C: 2>&1
         $exitCode = $LASTEXITCODE
 
@@ -133,28 +135,29 @@ function DisableBitlocker {
                 Write-Host "   $line" -ForegroundColor Red
             }
         }
+
+        Write-StyledMessage Info "🎉 Operazione di disattivazione BitLocker completata."
+
+        # Impedisce a Windows di avviare la crittografia automatica del dispositivo.
+        $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
+        if (-not (Test-Path -Path $regPath)) {
+            New-Item -Path $regPath -ItemType Directory -Force | Out-Null
+        }
+        Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
+
+        Write-StyledMessage Info "Impostazione del Registro di sistema per prevenire la crittografia automatica del dispositivo completata."
+
     }
     catch {
         Write-StyledMessage Error "Errore imprevisto: $($_.Exception.Message)"
     }
-
-    Write-StyledMessage Info "🎉 Operazione di disattivazione BitLocker completata."
-
-    # Impedisce a Windows di avviare la crittografia automatica del dispositivo.
-    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
-    if (-not (Test-Path -Path $regPath)) {
-        New-Item -Path $regPath -ItemType Directory -Force | Out-Null
+    finally {
+        if ($RunStandalone) {
+            Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
+            Read-Host
+        }
+        try { Stop-Transcript | Out-Null } catch {}
     }
-    Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
-
-    Write-StyledMessage Info "Impostazione del Registro di sistema per prevenire la crittografia automatica del dispositivo completata."
-
-    if ($RunStandalone) {
-        Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
-        $null = Read-Host
-    }
-
-    try { Stop-Transcript | Out-Null } catch {}
 }
 
 DisableBitlocker
