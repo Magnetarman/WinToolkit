@@ -98,11 +98,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Logica di Installazione PS7, Invertita la priorità: ora tenta prima il download/installazione diretta (MSI) e usa Winget solo come fallback.
     - Sostituito Start-Job con Start-Process -PassThru + Wait-Process per una gestione più affidabile del processo di installazione MSI.
     - Parsing JSON: Migliorata la robustezza del parsing di settings.json per Windows Terminal con gestione specifica degli errori di lettura.
-- Funzione **InstallPSProfile** riscritta.
-  - Refactor Codice per uniformarlo al resto della codebase.
-  - Migliorata scrittura file Log.
-  - Fix Messaggi di Output di Winget non correttamente visualizzati.
-  - Fix installazione Powershell 7 e Git.
 - Funzione **WinRepairToolkit** riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
@@ -117,12 +112,17 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Migliorata scrittura file Log.
   - Aumentata verbosità script per migliorare la comprensione delle operazioni generate.
   - Fix Errore installazione oh-my-posh e zoxide.
+  - Fix installazione Powershell 7 e Git.
   - Aggiunto secondo tentativo di configurazione di Windows Terminal che spesso fallisce a causa di un problema di lettura del file settings.json nello script `start.ps1`
 - Funzione **WinReinstallStore** Riscritta e migliorata.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Potenziato lo script di reinstallazione di Winget. Lo script è più aggressivo e completo rendendo winget nuovamente funzionante anche su versioni di Windows 11 più vecchie di 24H2.
 - Funzione **WinUpdateReset** Riscritta.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Migliorata scrittura file Log.
+  - Eliminazione dei commenti non necessari.
+- Funzione **WinBackupDriver** Riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
