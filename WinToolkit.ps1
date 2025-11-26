@@ -404,13 +404,14 @@ function WinInstallPSProfile {
             }
 
             $currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
-            $pathExists = ($currentPath -split ';') | Where-Object { $_.TrimEnd('\') -eq $PathToAdd.TrimEnd('\') }
+            $pathExists = ($currentPath -split ';') | Where-Object { $_.TrimEnd('\') -ieq $PathToAdd.TrimEnd('\') }
             
             if ($pathExists) {
                 Write-StyledMessage 'Info' "Percorso già nel PATH: $PathToAdd"
                 return $true
             }
 
+            $PathToAdd = $PathToAdd.TrimStart(';')
             $newPath = if ($currentPath.EndsWith(';')) { "$currentPath$PathToAdd" } else { "$currentPath;$PathToAdd" }
             [Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
             $env:PATH = "$env:PATH;$PathToAdd"
@@ -434,11 +435,11 @@ function WinInstallPSProfile {
             catch { continue }
 
             foreach ($resolved in $resolvedPaths) {
-                $testPath = if ($resolved.FullName -notmatch '\*') { $resolved.FullName } else { $resolved.FullName }
+                $testPath = $resolved.FullName
                 if (Test-Path "$testPath\$ExecutableName") { return $testPath }
             }
 
-            $directPath = $path -replace '\*.*$', ''
+            $directPath = $path -replace '\*.*', ''
             if (Test-Path "$directPath\$ExecutableName") { return $directPath }
         }
         return $null
@@ -498,7 +499,7 @@ function WinInstallPSProfile {
             '         \_/\_/    |_||_| \_|'
             ''
             '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 9)'
+            '      Version 2.4.2 (Build 12)'
         )
 
         foreach ($line in $asciiArt) {
@@ -737,20 +738,24 @@ function WinInstallPSProfile {
                         # Abilita elevazione automatica
                         if (-not $ps7Profile.PSObject.Properties['elevate']) {
                             $ps7Profile | Add-Member -MemberType NoteProperty -Name 'elevate' -Value $true
-                        } else {
+                        }
+                        else {
                             $ps7Profile.elevate = $true
                         }
 
                         # Salva le impostazioni
                         $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
                         Write-StyledMessage 'Success' "Windows Terminal configurato: PS7 predefinito con elevazione"
-                    } else {
+                    }
+                    else {
                         Write-StyledMessage 'Warning' "Profilo PowerShell 7 non trovato in Windows Terminal"
                     }
-                } else {
+                }
+                else {
                     Write-StyledMessage 'Warning' "File settings.json di Windows Terminal non trovato"
                 }
-            } else {
+            }
+            else {
                 Write-StyledMessage 'Warning' "Directory Windows Terminal non trovata"
             }
         }
