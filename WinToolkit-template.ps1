@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.4.2 (Build 103)"
+$ToolkitVersion = "2.4.2 (Build 105)"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -71,6 +71,7 @@ function Show-Header {
     Write-Host ''
     Write-Host ('*' * ($width - 1)) -ForegroundColor Red
     Write-Host ("💻  INFORMAZIONI SISTEMA  💻" $width) -ForegroundColor Cyan
+    Write-Host ''
 }
 
 function Initialize-ToolLogging {
