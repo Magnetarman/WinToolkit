@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.4.2 (Build 105)"
+$ToolkitVersion = "2.4.2 (Build 106)"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -68,9 +68,6 @@ function Show-Header {
         Write-Host (Center-Text $line $width) -ForegroundColor White
     }
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-    Write-Host ''
-    Write-Host ('*' * ($width - 1)) -ForegroundColor Red
-    Write-Host ("💻  INFORMAZIONI SISTEMA  💻" $width) -ForegroundColor Cyan
     Write-Host ''
 }
 
@@ -224,8 +221,12 @@ WinOSCheck
 
 while ($true) {
     Show-Header -SubTitle "Menu Principale"
-    
+
     # Info Sistema
+    $width = $Host.UI.RawUI.BufferSize.Width
+    Write-Host ('*' * ($width - 1)) -ForegroundColor Red
+    Write-Host (Center-Text "💻  INFORMAZIONI SISTEMA  💻" $width) -ForegroundColor Cyan
+    Write-Host ''
     $si = Get-SystemInfo
     if ($si) {
         $editionIcon = if ($si.ProductName -match "Pro") { "🔧" } else { "💻" }
