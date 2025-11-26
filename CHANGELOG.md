@@ -101,6 +101,9 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - Funzione **WinRepairToolkit** riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
+- Funzione **DisableBitlocker** riscritta.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Migliorata scrittura file Log.
 
 ### Modifiche
 
