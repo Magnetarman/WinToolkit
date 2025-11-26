@@ -111,10 +111,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - Funzione **DisableBitlocker** riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
-
-### Modifiche
-
-- Aggiornamento della documentazione e del file `README.md`.
 - Funzione **WinInstallPsProfile** Aggiornata e Potenziata.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Fix Sovrapposizione Testo Winget alle barre di progressione.
@@ -131,6 +127,10 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+
+### Modifiche
+
+- Aggiornamento della documentazione e del file `README.md`.
 
 ---
 
