@@ -9,63 +9,50 @@ function WinBackupDriver {
         in formato ZIP e spostamento automatico sul desktop con nomenclatura data-based.
         Ideale per il backup pre-format o per la migrazione dei driver su un nuovo sistema.
     #>
-
     param([int]$CountdownSeconds = 10)
-
+    
     $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
-
-    # Setup logging specifico per WinBackupDriver
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $dt = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    
     try {
-        if (-not (Test-Path -Path $logdir)) {
-            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-        }
-        Start-Transcript -Path "$logdir\WinBackupDriver_$dateTime.log" -Append -Force | Out-Null
+        if (-not (Test-Path $logdir)) { New-Item $logdir -ItemType Directory -Force | Out-Null }
+        Start-Transcript "$logdir\WinBackupDriver_$dt.log" -Append -Force | Out-Null
     }
     catch {}
-    # Configurazione
+    
     $BackupDir = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
-    $ZipName = "DriverBackup_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
+    $ZipName = "DriverBackup_$dt"
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
-    $FinalZipPath = Join-Path $DesktopPath "$ZipName.zip"
-
+    $FinalZipPath = "$DesktopPath\$ZipName.zip"
     $MsgStyles = @{
-        Success  = @{ Color = 'Green'; Icon = '✅' }
-        Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error    = @{ Color = 'Red'; Icon = '❌' }
-        Info     = @{ Color = 'Cyan'; Icon = '💎' }
-        Progress = @{ Color = 'Magenta'; Icon = '🔄' }
+        Success = @{Color = 'Green'; Icon = '✅' }; Warning = @{Color = 'Yellow'; Icon = '⚠️' }
+        Error = @{Color = 'Red'; Icon = '❌' }; Info = @{Color = 'Cyan'; Icon = '💎' }
+        Progress = @{Color = 'Magenta'; Icon = '🔄' }
     }
-
-    # Funzione per centrare il testo
-    function Center-Text {
-        param(
-            [Parameter(Mandatory = $true)][string]$Text,
-            [Parameter(Mandatory = $false)][int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
+    
+    function Center-Text([string]$Text, [int]$Width = $Host.UI.RawUI.BufferSize.Width) {
         $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
         return (' ' * $padding + $Text)
     }
-
-    function Write-StyledMessage([string]$Type, [string]$Text) {
-        $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
+    
+    function Write-Msg([string]$Type, [string]$Text) {
+        $s = $MsgStyles[$Type]
+        Write-Host "$($s.Icon) $Text" -ForegroundColor $s.Color
     }
-
-    function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent) {
-        $safePercent = [Math]::Max(0, [Math]::Min(100, $Percent))
-        $filled = [Math]::Floor($safePercent * 30 / 100)
-        $bar = "[$('█' * $filled)$('▒' * (30 - $filled))] $safePercent%"
+    
+    function Show-Progress([string]$Activity, [string]$Status, [int]$Percent) {
+        $p = [Math]::Max(0, [Math]::Min(100, $Percent))
+        $filled = [Math]::Floor($p * 30 / 100)
+        $bar = "[$(('█' * $filled) + ('░' * (30 - $filled)))] $p%"
         Write-Host "`r🔄 $Activity $bar $Status" -NoNewline -ForegroundColor Magenta
-        if ($Percent -eq 100) { Write-Host '' }
+        if ($p -eq 100) { Write-Host '' }
     }
-
+    
     function Show-Header {
         Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-
+        $w = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('═' * ($w - 1)) -ForegroundColor Green
         $asciiArt = @(
             '      __        __  _  _   _ ',
             '      \ \      / / | || \ | |',
@@ -74,325 +61,301 @@ function WinBackupDriver {
             '         \_/\_/    |_||_| \_|',
             '',
             '   Driver Backup Toolkit By MagnetarMan',
-            '       Version 2.2.4 (Build 1)'
+            '       Version 2.4.2 (Build 3)'
         )
-
         foreach ($line in $asciiArt) {
-            if ($line -ne '') {
-                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
-            }
-            else {
-                Write-Host ''
-            }
+            if ($line) { Write-Host (Center-Text $line $w) -ForegroundColor White } else { Write-Host '' }
         }
-
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+        Write-Host ('═' * ($w - 1)) -ForegroundColor Green
         Write-Host ''
     }
-
-    function Test-Administrator {
-        $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
-        $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
-        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    
+    function Test-Admin {
+        $u = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $p = New-Object Security.Principal.WindowsPrincipal($u)
+        return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     }
-
-    function Start-DriverExport {
-        Write-StyledMessage Info "💾 Avvio esportazione driver di terze parti..."
-
+    
+    function Export-Drivers {
+        Write-Msg Info "💾 Avvio esportazione driver di terze parti..."
         try {
-            # Verifica se la cartella esiste già
             if (Test-Path $BackupDir) {
-                Write-StyledMessage Warning "Cartella backup esistente trovata, rimozione in corso..."
-                
-                $originalPos = [Console]::CursorTop
-                # Soppressione completa dell'output
+                Write-Msg Warning "Cartella backup esistente trovata, rimozione in corso..."
+                $pos = [Console]::CursorTop
                 $ErrorActionPreference = 'SilentlyContinue'
                 $ProgressPreference = 'SilentlyContinue'
-                $VerbosePreference = 'SilentlyContinue'
-                
-                Remove-Item $BackupDir -Recurse -Force -ErrorAction SilentlyContinue *>$null
-                
-                # Reset cursore e flush output
-                [Console]::SetCursorPosition(0, $originalPos)
-                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                Write-Host $clearLine -NoNewline
+                Remove-Item $BackupDir -Recurse -Force -EA SilentlyContinue *>$null
+                [Console]::SetCursorPosition(0, $pos)
+                Write-Host ("`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r") -NoNewline
                 [Console]::Out.Flush()
-                
-                # Reset delle preferenze
                 $ErrorActionPreference = 'Continue'
                 $ProgressPreference = 'Continue'
-                $VerbosePreference = 'SilentlyContinue'
-                
                 Start-Sleep 1
             }
-
-            # Crea la cartella di backup
+            
             New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
-            Write-StyledMessage Success "Cartella backup creata: $BackupDir"
-
-            # Esegue l'esportazione DISM
-            Write-StyledMessage Info "🔧 Esecuzione DISM per esportazione driver..."
-            Write-StyledMessage Info "💡 Questa operazione può richiedere diversi minuti..."
-
-            $dismArgs = @('/online', '/export-driver', "/destination:`"$BackupDir`"")
-
-            $process = Start-Process 'dism.exe' -ArgumentList $dismArgs -NoNewWindow -PassThru -Wait
-
-            if ($process.ExitCode -eq 0) {
-                # Verifica se sono stati esportati dei driver
-                $exportedDrivers = Get-ChildItem -Path $BackupDir -Recurse -File -ErrorAction SilentlyContinue
-
-                if ($exportedDrivers -and $exportedDrivers.Count -gt 0) {
-                    Write-StyledMessage Success "Driver esportati con successo!"
-                    Write-StyledMessage Info "Driver trovati: $($exportedDrivers.Count)"
-                    return $true
+            Write-Msg Success "Cartella backup creata: $BackupDir"
+            Write-Msg Info "🔧 Esecuzione DISM per esportazione driver..."
+            Write-Msg Info "💡 Questa operazione può richiedere diversi minuti..."
+            
+            $proc = Start-Process 'dism.exe' -ArgumentList @('/online', '/export-driver', "/destination:`"$BackupDir`"") -NoNewWindow -PassThru -Wait
+            
+            if ($proc.ExitCode -eq 0) {
+                $drivers = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
+                if ($drivers -and $drivers.Count -gt 0) {
+                    Write-Msg Success "Driver esportati con successo!"
+                    Write-Msg Info "Driver trovati: $($drivers.Count)"
                 }
                 else {
-                    Write-StyledMessage Warning "Nessun driver di terze parti trovato da esportare"
-                    Write-StyledMessage Info "💡 I driver integrati di Windows non vengono esportati"
-                    return $true
+                    Write-Msg Warning "Nessun driver di terze parti trovato da esportare"
+                    Write-Msg Info "💡 I driver integrati di Windows non vengono esportati"
                 }
-            }
-            else {
-                Write-StyledMessage Error "Errore durante esportazione DISM (Exit code: $($process.ExitCode))"
-                return $false
-            }
-        }
-        catch {
-            Write-StyledMessage Error "Errore durante esportazione driver: $_"
-            return $false
-        }
-    }
-
-    function Start-DriverCompression {
-        Write-StyledMessage Info "📦 Compressione cartella backup..."
-
-        try {
-            # Verifica che la cartella esista e contenga file
-            if (-not (Test-Path $BackupDir)) {
-                Write-StyledMessage Error "Cartella backup non trovata"
-                return $false
-            }
-
-            $files = Get-ChildItem -Path $BackupDir -Recurse -File -ErrorAction SilentlyContinue
-            if (-not $files -or $files.Count -eq 0) {
-                Write-StyledMessage Warning "Nessun file da comprimere nella cartella backup"
-                return $false
-            }
-
-            # Calcola dimensione totale per la progress bar
-            $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
-            $totalSizeMB = [Math]::Round($totalSize / 1MB, 2)
-
-            Write-StyledMessage Info "Dimensione totale: $totalSizeMB MB"
-
-            # Crea il file ZIP
-            $tempZipPath = Join-Path $env:TEMP "$ZipName.zip"
-
-            # Rimuovi file ZIP esistente se presente
-            if (Test-Path $tempZipPath) {
-                Remove-Item $tempZipPath -Force -ErrorAction SilentlyContinue
-            }
-
-            # Comprime la cartella
-            Write-StyledMessage Info "🔄 Compressione in corso..."
-
-            $progress = 0
-            $compressAction = {
-                param($backupDir, $tempZipPath)
-                Compress-Archive -Path $backupDir -DestinationPath $tempZipPath -CompressionLevel Optimal -Force
-            }
-
-            $job = Start-Job -ScriptBlock $compressAction -ArgumentList $BackupDir, $tempZipPath
-
-            while ($job.State -eq 'Running') {
-                $progress += Get-Random -Minimum 1 -Maximum 5
-                if ($progress -gt 95) { $progress = 95 }
-
-                Show-ProgressBar "Compressione" "Elaborazione file..." $progress
-                Start-Sleep -Milliseconds 500
-            }
-
-            $compressResult = Receive-Job $job -Wait
-            Remove-Job $job
-
-            Show-ProgressBar "Compressione" "Completato!" 100
-            Write-Host ''
-
-            # Verifica che il file ZIP sia stato creato
-            if (Test-Path $tempZipPath) {
-                $zipSize = (Get-Item $tempZipPath).Length
-                $zipSizeMB = [Math]::Round($zipSize / 1MB, 2)
-
-                Write-StyledMessage Success "Compressione completata!"
-                Write-StyledMessage Info "Archivio creato: $tempZipPath ($zipSizeMB MB)"
-
-                return $tempZipPath
-            }
-            else {
-                Write-StyledMessage Error "File ZIP non creato"
-                return $false
-            }
-        }
-        catch {
-            Write-StyledMessage Error "Errore durante compressione: $_"
-            return $false
-        }
-    }
-
-    function Move-ZipToDesktop {
-        param([string]$ZipPath)
-
-        Write-StyledMessage Info "📂 Spostamento archivio sul desktop..."
-
-        try {
-            # Verifica che il file ZIP esista
-            if (-not (Test-Path $ZipPath)) {
-                Write-StyledMessage Error "File ZIP non trovato: $ZipPath"
-                return $false
-            }
-
-            # Sposta il file sul desktop
-            Move-Item -Path $ZipPath -Destination $FinalZipPath -Force -ErrorAction Stop
-
-            # Verifica che il file sia stato spostato
-            if (Test-Path $FinalZipPath) {
-                Write-StyledMessage Success "Archivio spostato sul desktop!"
-                Write-StyledMessage Info "Posizione: $FinalZipPath"
                 return $true
             }
-            else {
-                Write-StyledMessage Error "Errore durante spostamento sul desktop"
-                return $false
-            }
+            Write-Msg Error "Errore durante esportazione DISM (Exit code: $($proc.ExitCode))"
+            return $false
         }
         catch {
-            Write-StyledMessage Error "Errore spostamento: $_"
+            Write-Msg Error "Errore durante esportazione driver: $_"
             return $false
         }
     }
-
-    function Show-BackupSummary {
-        param([string]$ZipPath)
-
+    
+    function Compress-Backup {
+        Write-Msg Info "📦 Compressione cartella backup..."
+        try {
+            if (-not (Test-Path $BackupDir)) {
+                Write-Msg Error "Cartella backup non trovata"
+                return $false
+            }
+            
+            $files = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
+            if (-not $files -or $files.Count -eq 0) {
+                Write-Msg Warning "Nessun file da comprimere nella cartella backup"
+                return $false
+            }
+            
+            $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
+            $totalMB = [Math]::Round($totalSize / 1MB, 2)
+            Write-Msg Info "Dimensione totale: $totalMB MB"
+            
+            $tempZip = "$env:TEMP\$ZipName.zip"
+            if (Test-Path $tempZip) { Remove-Item $tempZip -Force -EA SilentlyContinue }
+            
+            Write-Msg Info "🔄 Compressione in corso..."
+            $job = Start-Job -ScriptBlock {
+                param($b, $t)
+                Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force
+            } -ArgumentList $BackupDir, $tempZip
+            
+            $prog = 0
+            while ($job.State -eq 'Running') {
+                $prog += Get-Random -Minimum 1 -Maximum 5
+                if ($prog -gt 95) { $prog = 95 }
+                Show-Progress "Compressione" "Elaborazione file..." $prog
+                Start-Sleep -Milliseconds 500
+            }
+            
+            Receive-Job $job -Wait | Out-Null
+            Remove-Job $job
+            Show-Progress "Compressione" "Completato!" 100
+            Write-Host ''
+            
+            if (Test-Path $tempZip) {
+                $zipMB = [Math]::Round((Get-Item $tempZip).Length / 1MB, 2)
+                Write-Msg Success "Compressione completata!"
+                Write-Msg Info "Archivio creato: $tempZip ($zipMB MB)"
+                return $tempZip
+            }
+            Write-Msg Error "File ZIP non creato"
+            return $false
+        }
+        catch {
+            Write-Msg Error "Errore durante compressione: $_"
+            return $false
+        }
+    }
+    
+    function Move-ToDesktop([string]$ZipPath) {
+        Write-Msg Info "📂 Spostamento archivio sul desktop..."
+        try {
+            if (-not (Test-Path $ZipPath)) {
+                Write-Msg Error "File ZIP non trovato: $ZipPath"
+                return $false
+            }
+            Move-Item $ZipPath $FinalZipPath -Force -EA Stop
+            if (Test-Path $FinalZipPath) {
+                Write-Msg Success "Archivio spostato sul desktop!"
+                Write-Msg Info "Posizione: $FinalZipPath"
+                return $true
+            }
+            Write-Msg Error "Errore durante spostamento sul desktop"
+            return $false
+        }
+        catch {
+            Write-Msg Error "Errore spostamento: $_"
+            return $false
+        }
+    }
+    
+    function Show-Summary {
         Write-Host ''
-        Write-StyledMessage Success "🎉 Backup driver completato con successo!"
+        Write-Msg Success "🎉 Backup driver completato con successo!"
         Write-Host ''
-
-        Write-StyledMessage Info "📁 Posizione archivio:"
+        Write-Msg Info "📁 Posizione archivio:"
         Write-Host "  $FinalZipPath" -ForegroundColor Cyan
         Write-Host ''
-
-        Write-StyledMessage Info "💡 IMPORTANTE:"
-        Write-StyledMessage Info "  🔄 Salva questo archivio in un luogo sicuro!"
-        Write-StyledMessage Info "  💾 Potrai utilizzarlo per reinstallare tutti i driver"
-        Write-StyledMessage Info "  🔧 Senza doverli riscaricare singolarmente"
+        Write-Msg Info "💡 IMPORTANTE:"
+        Write-Msg Info "  📄 Salva questo archivio in un luogo sicuro!"
+        Write-Msg Info "  💾 Potrai utilizzarlo per reinstallare tutti i driver"
+        Write-Msg Info "  🔧 Senza doverli riscaricare singolarmente"
         Write-Host ''
     }
-
-    # MAIN EXECUTION
+    
     Show-Header
-
-    # Verifica privilegi amministrativi
-    if (-not (Test-Administrator)) {
-        Write-StyledMessage Error " Questo script richiede privilegi amministrativi!"
-        Write-StyledMessage Info "💡 Riavvia PowerShell come Amministratore e riprova"
+    
+    if (-not (Test-Admin)) {
+        Write-Msg Error " Questo script richiede privilegi amministrativi!"
+        Write-Msg Info "💡 Riavvia PowerShell come Amministratore e riprova"
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
         return
     }
-
+    
     Write-Host "⏳ Inizializzazione sistema..." -ForegroundColor Yellow
     Start-Sleep 2
-    Write-Host Success "✅ Sistema pronto`n" -ForegroundColor Green
-
+    Write-Host "✅ Sistema pronto`n" -ForegroundColor Green
+    
     try {
-        # Passo 1: Esportazione driver
         Write-Host ('─' * 50) -ForegroundColor Gray
-        Write-StyledMessage Info "📋 FASE 1: ESPORTAZIONE DRIVER"
+        Write-Msg Info "📋 FASE 1: ESPORTAZIONE DRIVER"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
-
-        if (-not (Start-DriverExport)) {
-            Write-StyledMessage Error "Esportazione driver fallita"
+        
+        if (-not (Export-Drivers)) {
+            Write-Msg Error "Esportazione driver fallita"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
         }
-
+        
         Write-Host ''
         Write-Host ('─' * 50) -ForegroundColor Gray
-        Write-StyledMessage Info "📋 FASE 2: COMPRESSIONE ARCHIVIO"
+        Write-Msg Info "📋 FASE 2: COMPRESSIONE ARCHIVIO"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
-
-        # Passo 2: Compressione
-        $zipPath = Start-DriverCompression
-        if (-not $zipPath) {
-            Write-StyledMessage Error "Compressione fallita"
+        
+        $zip = Compress-Backup
+        if (-not $zip) {
+            Write-Msg Error "Compressione fallita"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
         }
-
+        
         Write-Host ''
         Write-Host ('─' * 50) -ForegroundColor Gray
-        Write-StyledMessage Info "📋 FASE 3: SPOSTAMENTO DESKTOP"
+        Write-Msg Info "📋 FASE 3: SPOSTAMENTO DESKTOP"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
-
-        # Passo 3: Spostamento sul desktop
-        if (-not (Move-ZipToDesktop $zipPath)) {
-            Write-StyledMessage Error "Spostamento sul desktop fallito"
-            Write-StyledMessage Warning "💡 L'archivio potrebbe essere ancora nella cartella temporanea"
+        
+        if (-not (Move-ToDesktop $zip)) {
+            Write-Msg Error "Spostamento sul desktop fallito"
+            Write-Msg Warning "💡 L'archivio potrebbe essere ancora nella cartella temporanea"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
         }
-
-        # Passo 4: Riepilogo finale
+        
         Write-Host ('─' * 50) -ForegroundColor Gray
-        Write-StyledMessage Info "📋 BACKUP COMPLETATO"
+        Write-Msg Info "📋 BACKUP COMPLETATO"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
-
-        Show-BackupSummary $FinalZipPath
-
+        Show-Summary
+        
     }
     catch {
-        Write-StyledMessage Error "Errore critico durante il backup: $($_.Exception.Message)"
-        Write-StyledMessage Info "💡 Controlla i log per dettagli o contatta il supporto"
+        Write-Msg Error "Errore critico durante il backup: $($_.Exception.Message)"
+        Write-Msg Info "💡 Controlla i log per dettagli o contatta il supporto"
     }
     finally {
-        # Pulizia cartella temporanea
-        Write-StyledMessage Info "🧹 Pulizia cartella temporanea..."
+        Write-Msg Info "🧹 Pulizia cartella temporanea..."
         if (Test-Path $BackupDir) {
-            $originalPos = [Console]::CursorTop
-            
-            # Soppressione completa dell'output
+            $pos = [Console]::CursorTop
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
-            $VerbosePreference = 'SilentlyContinue'
-            
-            Remove-Item $BackupDir -Recurse -Force -ErrorAction SilentlyContinue *>$null
-            
-            # Reset cursore e flush output
-            [Console]::SetCursorPosition(0, $originalPos)
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
+            Remove-Item $BackupDir -Recurse -Force -EA SilentlyContinue *>$null
+            [Console]::SetCursorPosition(0, $pos)
+            Write-Host ("`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r") -NoNewline
             [Console]::Out.Flush()
-            
-            # Reset delle preferenze
             $ErrorActionPreference = 'Continue'
             $ProgressPreference = 'Continue'
-            $VerbosePreference = 'SilentlyContinue'
         }
-
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
-        Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
+        Write-Msg Success "🎯 Driver Backup Toolkit terminato"
         try { Stop-Transcript | Out-Null } catch {}
     }
+}
+
+WinBackupDrivernsole]::Out.Flush()
+            
+# Reset delle preferenze
+$ErrorActionPreference = 'Continue'
+$ProgressPreference = 'Continue'
+$VerbosePreference = 'SilentlyContinue'
+}
+
+Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+Read-Host | Out-Null
+Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
+try { Stop-Transcript | Out-Null } catch {}
+}
+}
+
+WinBackupDrivernsole]::Out.Flush()
+            
+# Reset delle preferenze
+$ErrorActionPreference = 'Continue'
+$ProgressPreference = 'Continue'
+$VerbosePreference = 'SilentlyContinue'
+}
+
+Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+Read-Host | Out-Null
+Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
+try { Stop-Transcript | Out-Null } catch {}
+}
+}
+
+WinBackupDrivernsole]::Out.Flush()
+            
+# Reset delle preferenze
+$ErrorActionPreference = 'Continue'
+$ProgressPreference = 'Continue'
+$VerbosePreference = 'SilentlyContinue'
+}
+
+Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+Read-Host | Out-Null
+Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
+try { Stop-Transcript | Out-Null } catch {}
+}
+}
+
+WinBackupDrivernsole]::Out.Flush()
+            
+# Reset delle preferenze
+$ErrorActionPreference = 'Continue'
+$ProgressPreference = 'Continue'
+$VerbosePreference = 'SilentlyContinue'
+}
+
+Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+Read-Host | Out-Null
+Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
+try { Stop-Transcript | Out-Null } catch {}
+}
 }
 
 WinBackupDriver
