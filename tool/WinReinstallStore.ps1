@@ -1,4 +1,3 @@
-
 function WinReinstallStore {
     <#
     .SYNOPSIS
@@ -7,108 +6,12 @@ function WinReinstallStore {
     .DESCRIPTION
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
 
-#>
+    #>
     param([int]$CountdownSeconds = 30, [switch]$NoReboot)
 
-    $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
+    Initialize-ToolLogging -ToolName "WinReinstallStore"
+    Show-Header -SubTitle "Store Repair Toolkit"
 
-    # Setup logging specifico per WinReinstallStore
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
-    try {
-        if (-not (Test-Path -Path $logdir)) {
-            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-        }
-        Start-Transcript -Path "$logdir\WinReinstallStore_$dateTime.log" -Append -Force | Out-Null
-    }
-    catch {}
-    
-    $script:MsgStyles = @{
-        Success  = @{ Color = 'Green'; Icon = '✅' }
-        Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error    = @{ Color = 'Red'; Icon = '❌' }
-        Info     = @{ Color = 'Cyan'; Icon = '💎' }
-        Progress = @{ Color = 'Magenta'; Icon = '🔄' }
-    }
-    
-    function Write-StyledMessage {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory = $true)]
-            [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')]
-            [string]$Type,
-            
-            [Parameter(Mandatory = $true)]
-            [string]$Text
-        )
-
-        $style = $script:MsgStyles[$Type]
-        $timestamp = Get-Date -Format "HH:mm:ss"
-        
-        # Rimuovi emoji duplicati dal testo per il log
-        $cleanText = $Text -replace '^[✅⚠️❌💎🔍🚀⚙️🧹📦📋📜📝💾⬇️🔧⚡🖼️🌐🍪🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
-
-        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
-
-        if ($Type -in @('Info', 'Warning', 'Error')) {
-            $logEntry = "[$timestamp] [$Type] $cleanText"
-            $script:Log += $logEntry
-        }
-    }
-    
-    function Get-CenteredText {
-        [CmdletBinding()]
-        [OutputType([string])]
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$Text,
-            
-            [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
-
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding + $Text)
-    }
-
-    function Show-Header {
-        Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-
-        $asciiArt = @(
-            '      __        __  _  _   _ '
-            '      \ \      / / | || \ | |'
-            '       \ \ /\ / /  | ||  \| |'
-            '        \ V  V /   | || |\  |'
-            '         \_/\_/    |_||_| \_|'
-            ''
-            ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 7)'
-        )
-
-        foreach ($line in $asciiArt) {
-            if (-not [string]::IsNullOrEmpty($line)) {
-                Write-Host (Get-CenteredText -Text $line -Width $width) -ForegroundColor White
-            }
-        }
-
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-        Write-Host ''
-    }
-    
-    function Clear-Terminal {
-        1..50 | ForEach-Object { Write-Host "" }
-        Clear-Host
-        [Console]::Clear()
-        try {
-            [System.Console]::SetCursorPosition(0, 0)
-            $Host.UI.RawUI.CursorPosition = @{X = 0; Y = 0 }
-        }
-        catch {}
-        Start-Sleep -Milliseconds 200
-    }
-    
     function Stop-InterferingProcesses {
         @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore",
             "Microsoft.DesktopAppInstaller", "RuntimeBroker", "dllhost") | ForEach-Object {
@@ -127,7 +30,7 @@ function WinReinstallStore {
     }
     
     function Install-WingetSilent {
-        Write-StyledMessage Progress "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
+        Write-StyledMessage Info "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
         Stop-InterferingProcesses
 
         $originalPos = [Console]::CursorTop
@@ -140,7 +43,7 @@ function WinReinstallStore {
             # --- FASE 1: Inizializzazione e Pulizia Profonda ---
             
             # Terminazione Processi
-            Write-StyledMessage Progress "Chiusura forzata dei processi Winget e correlati..."
+            Write-StyledMessage Info "🔄 Chiusura forzata dei processi Winget e correlati..."
             @("winget", "WindowsPackageManagerServer") | ForEach-Object {
                 Get-Process -Name $_ -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
                 taskkill /im "$_.exe" /f 2>$null
@@ -148,7 +51,7 @@ function WinReinstallStore {
             Start-Sleep 2
 
             # Pulizia Cartella Temporanea
-            Write-StyledMessage Progress "Pulizia dei file temporanei (%TEMP%\WinGet)..."
+            Write-StyledMessage Info "🔄 Pulizia dei file temporanei (%TEMP%\WinGet)..."
             $tempWingetPath = "$env:TEMP\WinGet"
             if (Test-Path $tempWingetPath) {
                 Remove-Item -Path $tempWingetPath -Recurse -Force -ErrorAction SilentlyContinue *>$null
@@ -159,7 +62,7 @@ function WinReinstallStore {
             }
 
             # Reset Sorgenti Winget
-            Write-StyledMessage Progress "Reset delle sorgenti di Winget..."
+            Write-StyledMessage Info "🔄 Reset delle sorgenti di Winget..."
             $wingetExePath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
             if (Test-Path $wingetExePath) {
                 & $wingetExePath source reset --force *>$null
@@ -174,7 +77,7 @@ function WinReinstallStore {
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
             # Installazione Provider NuGet
-            Write-StyledMessage Progress "Installazione del PackageProvider NuGet..."
+            Write-StyledMessage Info "🔄 Installazione del PackageProvider NuGet..."
             try {
                 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
                 Write-StyledMessage Success "Provider NuGet installato/verificato."
@@ -184,7 +87,7 @@ function WinReinstallStore {
             }
 
             # Installazione Modulo Microsoft.WinGet.Client
-            Write-StyledMessage Progress "Installazione e importazione del modulo Microsoft.WinGet.Client..."
+            Write-StyledMessage Info "🔄 Installazione e importazione del modulo Microsoft.WinGet.Client..."
             Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
             Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
             Write-StyledMessage Success "Modulo Microsoft.WinGet.Client installato e importato."
@@ -192,7 +95,7 @@ function WinReinstallStore {
             # --- FASE 3: Riparazione e Reinstallazione del Core di Winget ---
 
             # Tentativo A (Riparazione via Modulo)
-            Write-StyledMessage Progress "Tentativo di riparazione Winget tramite il modulo WinGet Client..."
+            Write-StyledMessage Info "🔄 Tentativo di riparazione Winget tramite il modulo WinGet Client..."
             if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
                 $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
                 Start-Sleep 5
@@ -204,7 +107,7 @@ function WinReinstallStore {
 
             # Tentativo B (Reinstallazione tramite MSIXBundle - Fallback)
             if (-not (Test-WingetAvailable)) {
-                Write-StyledMessage Progress "Scarico e installo Winget tramite MSIXBundle (metodo fallback)..."
+                Write-StyledMessage Info "🔄 Scarico e installo Winget tramite MSIXBundle (metodo fallback)..."
                 $url = "https://aka.ms/getwinget"
                 $temp = "$env:TEMP\WingetInstaller.msixbundle"
                 if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
@@ -223,7 +126,7 @@ function WinReinstallStore {
             }
 
             # --- FASE 4: Reset dell'App Installer Appx ---
-            Write-StyledMessage Progress "Reset dell'App 'Programma di installazione app' (Microsoft.DesktopAppInstaller)..."
+            Write-StyledMessage Info "🔄 Reset dell'App 'Programma di installazione app' (Microsoft.DesktopAppInstaller)..."
             try {
                 Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage *>$null
                 Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
@@ -265,7 +168,7 @@ function WinReinstallStore {
     }
     
     function Install-MicrosoftStoreSilent {
-        Write-StyledMessage Progress "Reinstallazione Microsoft Store in corso..."
+        Write-StyledMessage Info "🔄 Reinstallazione Microsoft Store in corso..."
         
         $originalPos = [Console]::CursorTop
         try {
@@ -340,7 +243,7 @@ function WinReinstallStore {
     }
     
     function Install-UniGetUISilent {
-        Write-StyledMessage Progress "Reinstallazione UniGet UI in corso..."
+        Write-StyledMessage Info "🔄 Reinstallazione UniGet UI in corso..."
         if (-not (Test-WingetAvailable)) { return $false }
 
         $originalPos = [Console]::CursorTop
@@ -353,7 +256,7 @@ function WinReinstallStore {
             $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
     
             if ($process.ExitCode -eq 0) {
-                Write-StyledMessage Progress "Disabilitazione avvio automatico UniGet UI..."
+                Write-StyledMessage Info "🔄 Disabilitazione avvio automatico UniGet UI..."
                 try {
                     $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
                     $regKeyName = "WingetUI"
@@ -389,48 +292,6 @@ function WinReinstallStore {
         }
     }
     
-    function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-        Write-StyledMessage Warning "$Message"
-        Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
-
-        for ($i = $Seconds; $i -gt 0; $i--) {
-            if ([Console]::KeyAvailable) {
-                [Console]::ReadKey($true) | Out-Null
-                Write-Host "`n"
-                Write-StyledMessage Warning "⏸️ Riavvio automatico annullato"
-                Write-StyledMessage Error 'Riavvia manualmente: shutdown /r /t 0'
-                return $false
-            }
-
-            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
-            $filled = [Math]::Floor($percent * 20 / 100)
-            $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-
-            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
-            Start-Sleep 1
-        }
-
-        Write-Host "`n"
-        Write-StyledMessage Warning "⏰ Riavvio del sistema..."
-
-        if (-not $NoReboot) {
-            try {
-                shutdown /r /t 0
-                return $true
-            }
-            catch {
-                Write-StyledMessage Error "Errore riavvio: $_"
-                return $false
-            }
-        }
-        else {
-            Write-StyledMessage Info "🚫 Riavvio saltato come richiesto."
-            return $false
-        }
-    }
-    
-    Show-Header
     Write-StyledMessage Info "🚀 AVVIO REINSTALLAZIONE STORE"
 
     try {
@@ -453,11 +314,12 @@ function WinReinstallStore {
 
         if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario per applicare le modifiche") {
             Write-StyledMessage Info "🔄 Riavvio in corso..."
+            if (-not $NoReboot) {
+                Restart-Computer -Force
+            }
         }
     }
     catch {
-        Clear-Terminal
-        Show-Header
         Write-StyledMessage Error "❌ ERRORE: $($_.Exception.Message)"
         Write-StyledMessage Info "💡 Esegui come Admin, verifica Internet e Windows Update"
         try { Stop-Transcript | Out-Null } catch {}
