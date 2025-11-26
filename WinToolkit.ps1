@@ -1,67 +1,69 @@
 <#
 .SYNOPSIS
-    WinToolkit - Strumenti di manutenzione Windows
+    WinToolkit - Suite di manutenzione Windows
 .DESCRIPTION
-    Menu principale per strumenti di gestione e riparazione Windows
+    Framework modulare unificato.
+    Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-  Versione 2.4.2 (Build 7) - 2025-11-25
+    Versione: 2.4.2 - 26/11/2025
+    Autore: MagnetarMan
 #>
 
-param([int]$CountdownSeconds = 10)
-$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
+param([int]$CountdownSeconds = 30)
+
+# --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
+$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
+$ToolkitVersion = "2.4.2 (Build 101)"
 
-# Setup logging
-$dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$logdir = "$env:localappdata\WinToolkit\logs"
-try {
-    [System.IO.Directory]::CreateDirectory($logdir) | Out-Null
-    Start-Transcript -Path "$logdir\WinToolkit_$dateTime.log" -Append -Force | Out-Null
-}
-catch {}
-
-# ASCII Art
-$asciiArt = @(
-    '      __        __  _  _   _ ',
-    '      \ \      / / | || \ | |',
-    '       \ \ /\ / /  | ||  \| |',
-    '        \ V  V /   | || |\  |',
-    '         \_/\_/    |_||_| \_|',
-    '',
-    '       WinToolkit By MagnetarMan',
-    '       Version 2.4.2 (Build 7)'
-)
-
-# Version mapping (usato da più funzioni)
-$versionMap = @{
-    26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
-    19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"
-    19041 = "2004"; 18363 = "1909"; 18362 = "1903"; 17763 = "1809"
-    17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
-    10586 = "1511"; 10240 = "1507"
+# Setup Variabili Globali UI
+$Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+$Global:MsgStyles = @{
+    Success  = @{ Icon = '✅'; Color = 'Green' }
+    Warning  = @{ Icon = '⚠️'; Color = 'Yellow' }
+    Error    = @{ Icon = '❌'; Color = 'Red' }
+    Info     = @{ Icon = '💎'; Color = 'Cyan' }
+    Progress = @{ Icon = '🔄'; Color = 'Magenta' }
 }
 
-# Utility Functions
+# --- FUNZIONI HELPER CONDIVISE (DRY) ---
+
 function Write-StyledMessage {
-    param([ValidateSet('Success', 'Warning', 'Error', 'Info')][string]$type, [string]$text)
-    $config = @{
-        Success = @{ Icon = '✅'; Color = 'Green' }
-        Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
-        Error   = @{ Icon = '❌'; Color = 'Red' }
-        Info    = @{ Icon = '💎'; Color = 'Cyan' }
-    }
-    Write-Host "$($config[$type].Icon) $text" -ForegroundColor $config[$type].Color
+    param(
+        [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')][string]$Type,
+        [string]$Text
+    )
+    $style = $Global:MsgStyles[$Type]
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    # Pulisce emoji per log
+    $cleanText = $Text -replace '^[✅⚠️❌💎🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
+    Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
 }
 
 function Center-Text {
-    param([string]$text, [int]$width = $Host.UI.RawUI.BufferSize.Width)
-    if ($text.Length -ge $width) { return $text }
-    ' ' * [Math]::Floor(($width - $text.Length) / 2) + $text
+    param([string]$Text, [int]$Width = $Host.UI.RawUI.BufferSize.Width)
+    $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+    return (' ' * $padding + $Text)
 }
 
 function Show-Header {
+    <#
+    .SYNOPSIS
+        Mostra l'intestazione standardizzata.
+    #>
+    param([string]$SubTitle = "Menu Principale")
     Clear-Host
     $width = $Host.UI.RawUI.BufferSize.Width
+    $asciiArt = @(
+        '      __        __  _  _   _ ',
+        '      \ \      / / | || \ | |',
+        '       \ \ /\ / /  | ||  \| |',
+        '        \ V  V /   | || |\  |',
+        '         \_/\_/    |_||_| \_|',
+        '',
+        "       WinToolkit - $SubTitle",
+        "       Versione $ToolkitVersion"
+    )
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
     foreach ($line in $asciiArt) {
         Write-Host (Center-Text $line $width) -ForegroundColor White
@@ -70,13 +72,58 @@ function Show-Header {
     Write-Host ''
 }
 
-function Get-WindowsVersion {
-    param([int]$buildNumber)
-    
-    foreach ($build in ($versionMap.Keys | Sort-Object -Descending)) {
-        if ($buildNumber -ge $build) { return $versionMap[$build] }
+function Initialize-ToolLogging {
+    <#
+    .SYNOPSIS
+        Avvia il transcript per un tool specifico.
+    #>
+    param([string]$ToolName)
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
+    # Chiude transcript precedenti se aperti
+    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
+    Start-Transcript -Path "$logdir\${ToolName}_$dateTime.log" -Append -Force | Out-Null
+}
+
+function Show-ProgressBar {
+    <#
+    .SYNOPSIS
+        Mostra una barra di progresso testuale.
+    #>
+    param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
+    $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
+    $filled = '█' * [math]::Floor($safePercent * 30 / 100)
+    $empty = '▒' * (30 - $filled.Length)
+    $bar = "[$filled$empty] {0,3}%" -f $safePercent
+    Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
+    if ($Percent -ge 100) { Write-Host '' }
+}
+
+function Start-InterruptibleCountdown {
+    <#
+    .SYNOPSIS
+        Conto alla rovescia che può essere interrotto dall'utente.
+    #>
+    param([int]$Seconds = 30, [string]$Message = "Riavvio automatico")
+    Write-StyledMessage -Type 'Info' -Text '💡 Premi un tasto qualsiasi per annullare...'
+    Write-Host ''
+    for ($i = $Seconds; $i -gt 0; $i--) {
+        if ([Console]::KeyAvailable) {
+            $null = [Console]::ReadKey($true)
+            Write-Host "`n"
+            Write-StyledMessage -Type 'Warning' -Text '⏸️ Operazione annullata.'
+            return $false
+        }
+        $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
+        $filled = [Math]::Floor($percent * 20 / 100)
+        $remaining = 20 - $filled
+        $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+        Write-Host "`r⏰ $Message tra $i secondi $bar" -NoNewline -ForegroundColor Red
+        Start-Sleep 1
     }
-    return "N/A"
+    Write-Host "`n"
+    return $true
 }
 
 function Get-SystemInfo {
@@ -84,256 +131,61 @@ function Get-SystemInfo {
         $osInfo = Get-CimInstance Win32_OperatingSystem
         $computerInfo = Get-CimInstance Win32_ComputerSystem
         $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
-
+        # Version Map completa
+        $versionMap = @{
+            26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"; 19045 = "22H2"; 19044 = "21H2";
+            19043 = "21H1"; 19042 = "20H2"; 19041 = "2004"; 18363 = "1909"; 18362 = "1903"; 17763 = "1809";
+            17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"; 10586 = "1511"; 10240 = "1507"
+        }
+        $build = [int]$osInfo.BuildNumber
+        $ver = "N/A"
+        foreach ($k in ($versionMap.Keys | Sort -Desc)) { if ($build -ge $k) { $ver = $versionMap[$k]; break } }
+        
         return @{
-            ProductName    = $osInfo.Caption -replace 'Microsoft ', ''
-            BuildNumber    = [int]$osInfo.BuildNumber
-            Architecture   = $osInfo.OSArchitecture
-            ComputerName   = $computerInfo.Name
-            TotalRAM       = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
-            TotalDisk      = [Math]::Round($diskInfo.Size / 1GB, 0)
-            FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
+            ProductName = $osInfo.Caption -replace 'Microsoft ', ''; BuildNumber = $build; DisplayVersion = $ver
+            Architecture = $osInfo.OSArchitecture; ComputerName = $computerInfo.Name
+            TotalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
+            TotalDisk = [Math]::Round($diskInfo.Size / 1GB, 0); FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
         }
     }
-    catch {
-        Write-StyledMessage -type 'Error' -text "Errore nel recupero informazioni: $($_.Exception.Message)"
-        return $null
-    }
+    catch { return $null }
 }
+
 function CheckBitlocker {
     try {
-        # Esegue manage-bde e cattura l'output come array di stringhe
-        $bdeOutput = & manage-bde -status C: 2>&1
-        
-        # Cerca la riga "Stato protezione:" nell'output
-        $protectionLine = $bdeOutput | Where-Object { $_ -match "Stato protezione:" }
-        
-        if ($protectionLine) {
-            # Estrae solo il valore dopo i due punti e rimuove spazi
-            $status = ($protectionLine -split ':')[1].Trim()
-            return $status
-        }
-        else {
-            # Se non trova la riga, BitLocker non è configurato
-            return "Non configurato"
-        }
+        $out = & manage-bde -status C: 2>&1
+        if ($out -match "Stato protezione:\s*(.*)") { return $matches[1].Trim() }
+        return "Non configurato"
     }
-    catch {
-        # Gestione errori
-        Write-StyledMessage -type 'Warning' -text "Impossibile verificare BitLocker: $($_.Exception.Message)"
-        return "Non disponibile"
-    }
-}
-
-function winver {
-    $sysInfo = Get-SystemInfo
-    if (-not $sysInfo) { return }
-
-    $buildNumber = $sysInfo.BuildNumber
-    $windowsVersion = Get-WindowsVersion $buildNumber
-
-    # Edition detection
-    $windowsEdition = switch -Wildcard ($sysInfo.ProductName) {
-        "*Home*" { "🏠 Home" }
-        "*Pro*" { "💼 Professional" }
-        "*Enterprise*" { "🏢 Enterprise" }
-        "*Education*" { "🎓 Education" }
-        "*Server*" { "🖥️ Server" }
-        default { "💻 $($sysInfo.ProductName)" }
-    }
-
-    # Recupera lo stato BitLocker e definisce il colore
-    $bitlockerStatus = CheckBitlocker
-    $bitlockerColor = if ($bitlockerStatus -eq "Protezione attivata" -or $bitlockerStatus -eq "Errore") { 'Red' } else { 'Green' }
-
-    # Display info
-    $width = 65
-    Write-Host ""
-    Write-Host ('*' * $width) -ForegroundColor Red
-    Write-Host (Center-Text "🖥️  INFORMAZIONI SISTEMA  🖥️" $width) -ForegroundColor White
-    Write-Host ('*' * $width) -ForegroundColor Red
-    Write-Host ""
-
-    $info = @(
-        @("💻 Edizione:", $windowsEdition, 'White'),
-        @("📊 Versione:", "Ver. $windowsVersion (Build $buildNumber)", 'Green'),
-        @("🗝️ Architettura:", $sysInfo.Architecture, 'White'),
-        @("🏷️ Nome PC:", $sysInfo.ComputerName, 'White'),
-        @("🧠 RAM:", "$($sysInfo.TotalRAM) GB", 'White'),
-        @("🔒 Stato Bitlocker:", $bitlockerStatus, $bitlockerColor),
-        @("💾 Disco:", "$($sysInfo.FreePercentage)% Libero ($($sysInfo.TotalDisk) GB)", 'Green')
-    )
-
-    foreach ($item in $info) {
-        Write-Host "  $($item[0])" -ForegroundColor Yellow -NoNewline
-        
-        # Gestione speciale per BitLocker attivato (grassetto + rosso)
-        if ($item[0] -eq "🔒 Stato Bitlocker:" -and $item[1] -eq "Protezione attivata") {
-            Write-Host " $($item[1])" -ForegroundColor $item[2] -NoNewline
-            Write-Host " ⚠️" -ForegroundColor Red
-        }
-        else {
-            Write-Host " $($item[1])" -ForegroundColor $item[2]
-        }
-    }
-
-    Write-Host ""
-    Write-Host ('*' * $width) -ForegroundColor Red
-}
-
-function Show-Countdown {
-    param([string]$message = "Chiusura in")
-    
-    Write-Host ''
-    Write-StyledMessage -type 'Success' -text 'Grazie per aver utilizzato WinToolkit!'
-    Write-StyledMessage -type 'Info' -text 'Per supporto: Github.com/Magnetarman'
-    Write-Host ''
-    
-    for ($i = $CountdownSeconds; $i -gt 0; $i--) {
-        Write-Host "  $message $i secondi..." -ForegroundColor Cyan
-        Start-Sleep -Seconds 1
-    }
-    
-    Stop-Transcript -ErrorAction SilentlyContinue
-    exit
+    catch { return "Non disponibile" }
 }
 
 function WinOSCheck {
-    Show-Header
-    Write-StyledMessage -type 'Info' -text 'Verifica Sistema Operativo'
-    Write-Host ''
+    Show-Header -SubTitle "System Check"
+    $si = Get-SystemInfo
+    if (-not $si) { Write-StyledMessage 'Warning' "Info sistema non disponibili."; return }
     
-    $sysInfo = Get-SystemInfo
-    if (-not $sysInfo) {
-        Write-StyledMessage -type 'Warning' -text 'Impossibile verificare il sistema. Prosecuzione con compatibilità limitata...'
-        Start-Sleep -Seconds 5
-        return
+    Write-Host "  Sistema: " -NoNewline -ForegroundColor Yellow
+    Write-Host "$($si.ProductName) ($($si.DisplayVersion))" -ForegroundColor White
+    Write-Host ""
+    
+    # Logica di compatibilità originale
+    if ($si.BuildNumber -ge 22000) { Write-StyledMessage 'Success' "Sistema compatibile (Win11/10 recente)." }
+    elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage 'Success' "Sistema compatibile (Win10)." }
+    elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage 'Warning' "Windows 8.1: Compatibilità parziale." }
+    else {
+        # Easter egg originale mantenuto
+        Write-Host ('*' * 65) -ForegroundColor Red
+        Write-Host (Center-Text "🤣 ERRORE CRITICO 🤣" 65) -ForegroundColor Red
+        Write-Host ('*' * 65) -ForegroundColor Red
+        Write-Host "`n  Davvero pensi che questo script possa fare qualcosa per questa versione?`n" -ForegroundColor Red
+        Write-Host "  Vuoi rischiare? [Y/N]" -ForegroundColor Yellow
+        if ((Read-Host) -notmatch '^[Yy]$') { exit }
     }
-
-    $buildNumber = $sysInfo.BuildNumber
-    $windowsVersion = Get-WindowsVersion $buildNumber
-    
-    # Determina categoria Windows
-    $isWin11 = $buildNumber -ge 22000
-    $isWin10 = ($buildNumber -ge 10240) -and ($buildNumber -lt 22000)
-    $isWin81 = $buildNumber -eq 9600
-    $isWin8 = $buildNumber -eq 9200
-    
-    $osDisplay = if ($isWin11) { "Windows 11" } 
-    elseif ($isWin10) { "Windows 10" }
-    elseif ($isWin81) { "Windows 8.1" }
-    elseif ($isWin8) { "Windows 8" }
-    else { $sysInfo.ProductName }
-    
-    Write-Host "  Sistema rilevato: " -NoNewline -ForegroundColor Yellow
-    Write-Host "$osDisplay (Build $buildNumber - Ver. $windowsVersion)" -ForegroundColor White
-    Write-Host ''
-    
-    # Logica di compatibilità aggiornata
-    if ($isWin11 -and $buildNumber -ge 22621) {
-        # Windows 11 22H2+
-        Write-StyledMessage -type 'Success' -text 'Sistema completamente compatibile!'
-        Write-Host "  Lo script funzionerà alla massima velocità ed efficienza." -ForegroundColor Green
-        Write-Host ''
-        Start-Sleep -Seconds 5
-        return
-    }
-
-    if ($isWin11 -and $buildNumber -ge 22000) {
-        # Windows 11 21H2 - Supporto completo con eccezioni
-        Write-StyledMessage -type 'Success' -text 'Sistema compatibile con eccezioni'
-        Write-Host "  Lo script è completamente supportato con alcune eccezioni minori." -ForegroundColor Green
-        Write-Host "  Potrebbero essere necessarie lievi ottimizzazioni." -ForegroundColor Yellow
-        Write-Host ''
-        Start-Sleep -Seconds 7
-        return
-    }
-
-    if ($isWin10 -and $buildNumber -ge 17763) {
-        # Windows 10 1809+ - Supporto completo
-        Write-StyledMessage -type 'Success' -text 'Sistema completamente compatibile!'
-        Write-Host "  Lo script funzionerà alla massima velocità ed efficienza." -ForegroundColor Green
-        Write-Host ''
-        Start-Sleep -Seconds 5
-        return
-    }
-
-    if ($isWin10 -and $buildNumber -lt 17763) {
-        # Windows 10 pre-1809
-        Write-StyledMessage -type 'Error' -text 'Sistema troppo vecchio - Sconsigliato'
-        Write-Host "  Lo script potrebbe avere gravi problemi di affidabilità!" -ForegroundColor Red
-        Write-Host ''
-
-        Write-Host "  Vuoi proseguire a tuo rischio e pericolo? " -NoNewline -ForegroundColor Yellow
-        Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
-        $response = Read-Host
-
-        if ($response -notmatch '^[Yy]$') { Show-Countdown }
-
-        Write-StyledMessage -type 'Warning' -text 'Prosecuzione confermata - Buona fortuna!'
-        Start-Sleep -Seconds 2
-        return
-    }
-
-    if ($isWin81) {
-        # Windows 8.1 - Supporto parziale
-        Write-StyledMessage -type 'Warning' -text 'Sistema parzialmente compatibile'
-        Write-Host "  Il sistema non è completamente aggiornato." -ForegroundColor Yellow
-        Write-Host "  Lo script userà workaround e funzioni alternative per garantire" -ForegroundColor Yellow
-        Write-Host "  la massima compatibilità, con efficienza leggermente ridotta." -ForegroundColor Yellow
-        Write-Host ''
-        Start-Sleep -Seconds 10
-        return
-    }
-
-    if ($isWin8) {
-        # Windows 8 - Non supportato
-        Write-StyledMessage -type 'Error' -text 'Sistema obsoleto - Non supportato'
-        Write-Host "  Windows 8 non è più supportato ufficialmente." -ForegroundColor Red
-        Write-Host "  Lo script avrà gravi problemi di affidabilità e stabilità!" -ForegroundColor Red
-        Write-Host ''
-
-        Write-Host "  Vuoi davvero proseguire a tuo rischio e pericolo? " -NoNewline -ForegroundColor Yellow
-        Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
-        $response = Read-Host
-
-        if ($response -notmatch '^[Yy]$') { Show-Countdown }
-
-        Write-StyledMessage -type 'Warning' -text 'Hai scelto la strada difficile... In bocca al lupo!'
-        Start-Sleep -Seconds 2
-        return
-    }
-    
-    # Windows 7 o precedenti
-    Write-Host ''
-    Write-Host ('*' * 65) -ForegroundColor Red
-    Write-Host (Center-Text "🤣 ERRORE CRITICO 🤣" 65) -ForegroundColor Red
-    Write-Host ('*' * 65) -ForegroundColor Red
-    Write-Host ''
-    Write-Host "  Davvero pensi che questo script possa fare qualcosa" -ForegroundColor Red
-    Write-Host "  per questa versione di Windows?" -ForegroundColor Red
-    Write-Host ''
-    Write-Host "  E' già un miracolo che tu riesca a vedere questo" -ForegroundColor Yellow
-    Write-Host "  messaggio di errore senza che il pc sia esploso 🤣" -ForegroundColor Yellow
-    Write-Host ''
-    Write-Host "  💡 Suggerimento: Aggiorna Windows o passa a Linux!" -ForegroundColor Cyan
-    Write-Host ''
-    Write-Host ('*' * 65) -ForegroundColor Red
-    Write-Host ''
-    
-    Write-Host "  Vuoi comunque tentare l'impossibile? " -NoNewline -ForegroundColor Magenta
-    Write-Host "[Y/N]: " -NoNewline -ForegroundColor White
-    $response = Read-Host
-    
-    if ($response -notmatch '^[Yy]$') { Show-Countdown }
-    
-    Write-StyledMessage -type 'Warning' -text 'Ok, ma non dire che non ti avevo avvertito! 😅'
-    Write-Host "  La maggior parte delle funzioni NON funzioneranno." -ForegroundColor Red
-    Write-Host "  Potrebbero verificarsi errori e instabilità del sistema." -ForegroundColor Red
-    Start-Sleep -Seconds 3
+    Start-Sleep -Seconds 2
 }
 
-# Placeholder functions (verranno automaticamente popolate dal compilatore)
+# --- PLACEHOLDER PER COMPILATORE ---
 function WinInstallPSProfile {
     <#
     .SYNOPSIS
@@ -806,345 +658,85 @@ function WinInstallPSProfile {
 }
 function WinRepairToolkit {
     <#
-    .SYNOPSIS
-        Script per la riparazione del sistema Windows con strumenti integrati.
+.SYNOPSIS
+    Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk).
+#>
+    param([int]$MaxRetryAttempts = 3)
 
-    .DESCRIPTION
-        Questo script esegue una serie di strumenti di riparazione di Windows (chkdsk, SFC, DISM) in sequenza,
-        con monitoraggio del progresso, gestione degli errori e tentativi di riparazione multipli.
-        Al termine, offre un'opzione per una riparazione profonda del disco che richiede un riavvio.
-        Infine, gestisce il riavvio del sistema con un conto alla rovescia interattivo.
-    #>
+    Initialize-ToolLogging -ToolName "WinRepairToolkit"
+    Show-Header -SubTitle "Repair Toolkit"
 
-    param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
-
-    $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
-    $script:Log = @(); $script:CurrentAttempt = 0
-
-    # Setup logging specifico per WinRepairToolkit
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
-    try {
-        if (-not (Test-Path -Path $logdir)) {
-            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-        }
-        Start-Transcript -Path "$logdir\WinRepairToolkit_$dateTime.log" -Append -Force | Out-Null
-    }
-    catch {}
-    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-    $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'; Icon = '❌' }
-        Info    = @{ Color = 'Cyan'; Icon = '💎' }
-    }
     $RepairTools = @(
-        @{ Tool = 'chkdsk'; Args = @('/scan', '/perf'); Name = 'Controllo disco'; Icon = '💽' }
-        @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (1)'; Icon = '🗂️' }
-        @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/RestoreHealth'); Name = 'Ripristino immagine Windows'; Icon = '🛠️' }
-        @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/StartComponentCleanup', '/ResetBase'); Name = 'Pulizia Residui Aggiornamenti'; Icon = '🕸️' }
-        @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (2)'; Icon = '🗂️' }
+        @{ Tool = 'chkdsk'; Args = @('/scan', '/perf'); Name = 'Controllo Disco (Scan)'; Icon = '💽' }
+        @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'SFC - File di Sistema'; Icon = '🗂️' }
+        @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/RestoreHealth'); Name = 'DISM - RestoreHealth'; Icon = '🛠️' }
+        @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/StartComponentCleanup', '/ResetBase'); Name = 'DISM - ComponentCleanup'; Icon = '🕸️' }
     )
 
-    function Write-StyledMessage {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory = $true)]
-            [ValidateSet('Success', 'Warning', 'Error', 'Info')]
-            [string]$Type,
-            
-            [Parameter(Mandatory = $true)]
-            [string]$Text
-        )
-
-        $style = $MsgStyles[$Type]
-        $timestamp = Get-Date -Format "HH:mm:ss"
-        
-        # Rimuovi emoji duplicati dal testo per il log
-        $cleanText = $Text -replace '^[✅⚠️❌💎🔍🚀⚙️🧹📦📋📜📝💾⬇️🔧⚡🖼️🌐🍪🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
-
-        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
-
-        # Log automatico
-        if ($Type -in @('Info', 'Warning', 'Error', 'Success')) {
-            $logEntry = "[$timestamp] [$Type] $cleanText"
-            $script:Log += $logEntry
-        }
-    }
-
-    function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
-        $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
-        $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-        $empty = '▒' * (30 - $filled.Length)
-        $bar = "[$filled$empty] {0,3}%" -f $safePercent
-        Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
-        if ($Percent -eq 100) { Write-Host '' }
-    }
-
-    function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-        Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
-        Write-Host ''
-
-        for ($i = $Seconds; $i -gt 0; $i--) {
-            if ([Console]::KeyAvailable) {
-                [Console]::ReadKey($true) | Out-Null
-                Write-Host "`n"
-                Write-StyledMessage Warning '⏸️ Riavvio automatico annullato'
-                Write-StyledMessage Info "🔄 Puoi riavviare manualmente: 'shutdown /r /t 0' o dal menu Start."
-                return $false
-            }
-
-            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
-            $filled = [Math]::Floor($percent * 20 / 100)
-            $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-
-            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
-            Start-Sleep 1
-        }
-
-        Write-Host "`n"
-        Write-StyledMessage Warning '⏰ Tempo scaduto: il sistema verrà riavviato ora.'
-        Start-Sleep 1
-        return $true
-    }
-
-    function Invoke-RepairCommand([hashtable]$Config, [int]$Step, [int]$Total) {
-        Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)..."
-        $percent = 0; $spinnerIndex = 0; $isChkdsk = ($Config.Tool -ieq 'chkdsk')
+    function Invoke-RepairStep {
+        param($Config, $Step, $Total)
+        Write-StyledMessage -Type 'Info' -Text "[$Step/$Total] Avvio $($Config.Name)..."
+    
         $outFile = [System.IO.Path]::GetTempFileName()
-        $errFile = [System.IO.Path]::GetTempFileName()
-
+    
         try {
-            $proc = if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
-                $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
-                $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
-                Start-Process 'cmd.exe' @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')") -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
-            }
-            else {
-                Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
-            }
-
+            $proc = Start-Process $Config.Tool -ArgumentList $Config.Args -RedirectStandardOutput $outFile -NoNewWindow -PassThru
+        
+            $spinnerIndex = 0
             while (-not $proc.HasExited) {
-                $spinner = $spinners[$spinnerIndex++ % $spinners.Length]
-                if ($isChkdsk) {
-                    Show-ProgressBar $Config.Name 'Esecuzione in corso ...' 0 $Config.Icon $spinner 'Yellow'
-                }
-                else {
-                    if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                    Show-ProgressBar $Config.Name 'Esecuzione in corso...' $percent $Config.Icon $spinner
-                }
-                Start-Sleep -Milliseconds 600
-                $proc.Refresh()
+                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                Write-Host "`r$spinner Esecuzione in corso..." -NoNewline -ForegroundColor Yellow
+                Start-Sleep -Milliseconds 500
             }
-
-            $results = @()
-            @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
-                $results += Get-Content $_ -ErrorAction SilentlyContinue
-            }
-
-            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and
-                ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
-                Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
-                return @{ Success = $true; ErrorCount = 0 }
-            }
-
-            Show-ProgressBar $Config.Name 'Completato con successo' 100 $Config.Icon
-            Write-Host ''
-
-            $exitCode = $proc.ExitCode
-            $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
-            $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
-
-            $errors = $warnings = @()
-            if (-not $isSuccess) {
-                foreach ($line in ($results | Where-Object { $_ -and ![string]::IsNullOrWhiteSpace($_.Trim()) })) {
-                    $trim = $line.Trim()
-                    if ($trim -match '^\[=+\s*\d+' -or $trim -match '(?i)version:|deployment image') { continue }
-
-                    if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
-                    elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
-                }
-            }
-
-            $success = ($errors.Count -eq 0) -or $hasDismSuccess
-            $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
-            Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
-
-            return @{ Success = $success; ErrorCount = $errors.Count }
-
-        }
-        catch {
-            Write-StyledMessage Error "Errore durante $($Config.Name): $_"
-            return @{ Success = $false; ErrorCount = 1 }
-        }
-        finally {
-            Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
-        }
-    }
-
-    function Start-RepairCycle([int]$Attempt = 1) {
-        $script:CurrentAttempt = $Attempt
-        Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema ($($RepairTools.Count) strumenti)..."
-        Write-Host ''
-
-        $totalErrors = $successCount = 0
-        for ($i = 0; $i -lt $RepairTools.Count; $i++) {
-            $result = Invoke-RepairCommand $RepairTools[$i] ($i + 1) $RepairTools.Count
-            if ($result.Success) { $successCount++ }
-            $totalErrors += $result.ErrorCount
-            Start-Sleep 1
-        }
-
-        Write-StyledMessage Info "🎯 Completati $successCount/$($RepairTools.Count) strumenti (Errori: $totalErrors)."
-
-        if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
-            Write-Host ''
-            Write-StyledMessage Warning "🔄 $totalErrors errori rilevati. Nuovo tentativo..."
-            Start-Sleep 3
-            Write-Host ''
-            return Start-RepairCycle ($Attempt + 1)
-        }
-
-        return @{ Success = ($totalErrors -eq 0); TotalErrors = $totalErrors; AttemptsUsed = $Attempt }
-    }
-
-    function Start-DeepDiskRepair {
-        Write-StyledMessage Warning '🔧 Vuoi eseguire una riparazione profonda del disco C:?'
-        Write-StyledMessage Info 'Questa operazione richiederà un riavvio e può richiedere diverse ore.'
-
-        $response = Read-Host 'Procedere con la riparazione profonda? (s/n)'
-        if ($response.ToLower() -ne 's') { return $false }
-
-        Write-StyledMessage Warning 'Segno il volume C: come "dirty" (chkdsk al prossimo riavvio) e apro una cmd per output.'
-
-        try {
-            Start-Process 'fsutil.exe' @('dirty', 'set', 'C:') -NoNewWindow -Wait
-            Start-Process 'cmd.exe' @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -WindowStyle Hidden -Wait
-            Write-StyledMessage Info 'Comando chkdsk inviato (finestra nascosta). Riavvia il sistema per eseguire la scansione profonda.'
-            return $true
-        }
-        catch {
-            Write-StyledMessage Error "Errore eseguendo operazione: $_"
-            return $false
-        }
-    }
-
-    function Set-PasswordExpirationPolicy {
-        Write-StyledMessage Info "⚙️ Impostazione della scadenza password a illimitata..."
-        try {
-            # Esegui il comando
-            $process = Start-Process -FilePath "net" -ArgumentList "accounts", "/maxpwage:unlimited" -NoNewWindow -PassThru -Wait
-            if ($process.ExitCode -eq 0) {
-                Write-StyledMessage Success "✅ Scadenza password impostata a illimitata con successo."
+            Write-Host "" 
+        
+            $output = Get-Content $outFile -ErrorAction SilentlyContinue
+        
+            if ($proc.ExitCode -eq 0 -or ($output -match "successfully")) {
+                Write-StyledMessage -Type 'Success' -Text "$($Config.Name): Completato."
                 return $true
             }
             else {
-                Write-StyledMessage Warning "⚠️ Impossibile impostare la scadenza password a illimitata. Codice di uscita: $($process.ExitCode)."
+                Write-StyledMessage -Type 'Warning' -Text "$($Config.Name): Possibili errori (Exit: $($proc.ExitCode))."
                 return $false
             }
         }
         catch {
-            Write-StyledMessage Error "❌ Errore durante l'impostazione della scadenza password: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore esecuzione: $_"
             return $false
         }
-    }
-
-    function Start-SystemRestart([hashtable]$RepairResult) {
-        if ($RepairResult.Success) {
-            Write-StyledMessage Info '🎉 Riparazione completata con successo!'
-            Write-StyledMessage Info "🎯 Errori risolti in $($RepairResult.AttemptsUsed) tentativo/i."
-        }
-        else {
-            Write-StyledMessage Warning "⚠️ $($RepairResult.TotalErrors) errori persistenti dopo $($RepairResult.AttemptsUsed) tentativo/i."
-            Write-StyledMessage Info '📋 Controlla il log sul Desktop. 💡 Il riavvio potrebbe risolvere problemi residui.'
-        }
-
-        Write-StyledMessage Info '🔄 Il sistema verrà riavviato per finalizzare le modifiche'
-
-        if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
-            try {
-                Write-StyledMessage Info '🔄 Riavvio in corso...'
-                Restart-Computer -Force
-            }
-            catch {
-                Write-StyledMessage Error "❌ Errore riavvio: $_"
-                Write-StyledMessage Info '🔄 Riavviare manualmente il sistema.'
-            }
-        }
-        else {
-            Write-StyledMessage Info '✅ Script completato. Sistema non riavviato.'
-            Write-StyledMessage Info '💡 Riavvia quando possibile per applicare le riparazioni.'
+        finally {
+            Remove-Item $outFile -ErrorAction SilentlyContinue
         }
     }
 
-    function Center-Text {
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$Text,
-            [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
-    
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-    
-        return (' ' * $padding + $Text)
-    }
-    function Show-Header {
-        Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
+    # Ciclo principale
+    $attempt = 1
+    $errors = 0
 
-        $asciiArt = @(
-            '      __        __  _  _   _ ',
-            '      \ \      / / | || \ | |',
-            '       \ \ /\ / /  | ||  \| |',
-            '        \ V  V /   | || |\  |',
-            '         \_/\_/    |_||_| \_|',
-            '',
-            '    Repair Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 3)'
-        )
-
-        foreach ($line in $asciiArt) {
-            if (-not [string]::IsNullOrEmpty($line)) {
-                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
-            }
-        }
-
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-        Write-Host ''
+    foreach ($tool in $RepairTools) {
+        $res = Invoke-RepairStep -Config $tool -Step $attempt -Total $RepairTools.Count
+        if (-not $res) { $errors++ }
+        $attempt++
     }
 
-    Show-Header
+    # Opzione Deep Repair
+    Write-Host ""
+    Write-StyledMessage -Type 'Info' -Text "Riepilogo: $errors errori rilevati dai tool."
+    Write-Host "  Vuoi programmare un CHKDSK profondo al riavvio? [S/N]" -ForegroundColor Yellow
+    $resp = Read-Host 
 
-    for ($i = 5; $i -gt 0; $i--) {
-        $spinner = $spinners[$i % $spinners.Length]
-        Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
-        Start-Sleep 1
+    if ($resp -eq 'S') {
+        Start-Process 'fsutil.exe' -ArgumentList 'dirty', 'set', 'C:' -NoNewWindow -Wait
+        Write-StyledMessage -Type 'Success' -Text "Volume C: marcato come dirty. Chkdsk partirà al riavvio."
     }
-    Write-Host "`n"
 
-    try {
-        $repairResult = Start-RepairCycle
-        $deepRepairScheduled = Start-DeepDiskRepair
+    # Set Password policy (bonus feature originale)
+    Write-StyledMessage -Type 'Info' -Text "Impostazione scadenza password illimitata..."
+    Start-Process "net" -ArgumentList "accounts", "/maxpwage:unlimited" -NoNewWindow -Wait | Out-Null
 
-        # Impostazione della scadenza password a illimitata
-        Set-PasswordExpirationPolicy
-
-        if ($deepRepairScheduled) {
-            Write-StyledMessage Warning 'Il sistema verrà riavviato per eseguire la riparazione profonda...'
-        }
-        Start-SystemRestart $repairResult
-
-    }
-    catch {
-        Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
-    }
-    finally {
-        Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
-        Read-Host
-        try { Stop-Transcript | Out-Null } catch {}
+    if (Start-InterruptibleCountdown -Seconds 30 -Message "Riavvio per applicare riparazioni") {
+        Restart-Computer -Force
     }
 
 }
@@ -7154,299 +6746,94 @@ function GamingToolkit {
 }
 function DisableBitlocker {
     <#
-    .SYNOPSIS
-        Disattiva BitLocker sul drive C:
-
-    .DESCRIPTION
-        Questo script disattiva la crittografia BitLocker per il drive di sistema (C:).
-        Può essere eseguito in modalità standalone o come parte di un toolkit più ampio.
-    #>
-
+.SYNOPSIS
+    Disattiva BitLocker sul drive C:.
+#>
     param([bool]$RunStandalone = $true)
 
-    $Host.UI.RawUI.WindowTitle = "BitLocker Toolkit By MagnetarMan"
-    $script:Log = @()
+    Initialize-ToolLogging -ToolName "DisableBitlocker"
+    Show-Header -SubTitle "Disattivazione BitLocker"
 
-    # Setup logging
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logDir = "$env:LOCALAPPDATA\WinToolkit\logs"
+    Write-StyledMessage -Type 'Info' -Text "Inizializzazione decrittazione drive C:..."
+
     try {
-        if (-not (Test-Path -Path $logDir)) {
-            New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-        }
-        Start-Transcript -Path "$logDir\BitLockerToolkit_$dateTime.log" -Append -Force | Out-Null
-    }
-    catch {}
-
-    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-    $MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'; Icon = '❌' }
-        Info    = @{ Color = 'Cyan'; Icon = '💎' }
-    }
-
-    function Write-StyledMessage {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory = $true)]
-            [ValidateSet('Success', 'Warning', 'Error', 'Info')]
-            [string]$Type,
-            
-            [Parameter(Mandatory = $true)]
-            [string]$Text
-        )
-
-        $style = $MsgStyles[$Type]
-        $timestamp = Get-Date -Format "HH:mm:ss"
+        # Tentativo disattivazione
+        $proc = Start-Process manage-bde.exe -ArgumentList "-off C:" -PassThru -Wait -NoNewWindow
+    
+        if ($proc.ExitCode -eq 0) {
+            Write-StyledMessage -Type 'Success' -Text "Decrittazione avviata/completata con successo."
         
-        # Rimuovi emoji duplicati dal testo per il log
-        $cleanText = $Text -replace '^[✅⚠️❌💎🔍🚀⚙️🧹📦📋📜📝💾⬇️🔧⚡🖼️🌐🍪🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
-
-        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
-
-        # Log automatico
-        if ($Type -in @('Info', 'Warning', 'Error', 'Success')) {
-            $logEntry = "[$timestamp] [$Type] $cleanText"
-            $script:Log += $logEntry
-        }
-    }
-
-    function Center-Text {
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$Text,
-            [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
-    
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-    
-        return (' ' * $padding + $Text)
-    }
-
-    function Show-Header {
-        Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-
-        $asciiArt = @(
-            '      __        __  _  _   _ '
-            '      \ \      / / | || \ | |'
-            '       \ \ /\ / /  | ||  \| |'
-            '        \ V  V /   | || |\  |'
-            '         \_/\_/    |_||_| \_|'
-            '',
-            '    BitLocker Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 6)'
-        )
-
-        foreach ($line in $asciiArt) {
-            if (-not [string]::IsNullOrEmpty($line)) {
-                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
-            }
-        }
-
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-        Write-Host ''
-    }
-
-    Show-Header
-
-    for ($i = 5; $i -gt 0; $i--) {
-        $spinner = $spinners[$i % $spinners.Length]
-        Write-Host "`r$spinner ⏳ Preparazione sistema - $i secondi..." -NoNewline -ForegroundColor Yellow
-        Start-Sleep 1
-    }
-    Write-Host "`n"
-
-    try {
-        Write-StyledMessage Info "🔑 Avvio processo di disattivazione BitLocker per il drive C:..."
-
-        $commandOutput = & manage-bde.exe -off C: 2>&1
-        $exitCode = $LASTEXITCODE
-
-        if ($exitCode -eq 0) {
-            if ($commandOutput -match "Decryption in progress") {
-                Write-StyledMessage Success "Disattivazione BitLocker avviata con successo."
-            }
-            elseif ($commandOutput -match "Volume C: is not BitLocker protected") {
-                Write-StyledMessage Info "BitLocker è già disattivato sul drive C:."
-            }
-            else {
-                Write-StyledMessage Success "Comando manage-bde completato."
-            }
-
-            Write-StyledMessage Info "📋 Output completo di manage-bde:"
-            foreach ($line in $commandOutput) {
-                Write-Host "   $line" -ForegroundColor DarkGray
+            # Check stato
+            $status = manage-bde -status C:
+            if ($status -match "Decryption in progress") {
+                Write-StyledMessage -Type 'Info' -Text "Decrittazione in corso in background."
             }
         }
         else {
-            Write-StyledMessage Error "Errore nell'esecuzione di manage-bde (Exit code: $exitCode)"
-            Write-StyledMessage Info "📋 Output di errore:"
-            foreach ($line in $commandOutput) {
-                Write-Host "   $line" -ForegroundColor Red
-            }
+            Write-StyledMessage -Type 'Warning' -Text "Codice uscita manage-bde: $($proc.ExitCode). BitLocker potrebbe essere già disattivo."
         }
 
-        Write-StyledMessage Info "🎉 Operazione di disattivazione BitLocker completata."
-
-        # Impedisce a Windows di avviare la crittografia automatica del dispositivo.
+        # Prevenzione crittografia futura
+        Write-StyledMessage -Type 'Info' -Text "Disabilitazione crittografia automatica nel registro..."
         $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
-        if (-not (Test-Path -Path $regPath)) {
-            New-Item -Path $regPath -ItemType Directory -Force | Out-Null
-        }
+        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
         Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
-
-        Write-StyledMessage Info "Impostazione del Registro di sistema per prevenire la crittografia automatica del dispositivo completata."
-
+    
+        Write-StyledMessage -Type 'Success' -Text "Configurazione completata."
     }
     catch {
-        Write-StyledMessage Error "Errore imprevisto: $($_.Exception.Message)"
-    }
-    finally {
-        if ($RunStandalone) {
-            Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
-            Read-Host
-        }
-        try { Stop-Transcript | Out-Null } catch {}
+        Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message)"
     }
 
 }
-# function SearchRepair {}
 
-
-# Menu structure
+# --- MENU PRINCIPALE ---
 $menuStructure = @(
-    @{
-        'Name' = 'Operazioni Preliminari'; 'Icon' = '🪄'
-        'Scripts' = @([pscustomobject]@{ Name = 'WinInstallPSProfile'; Description = 'Installa profilo PowerShell'; Action = 'RunFunction' })
-    },
-    @{
-        'Name' = 'Windows & Office'; 'Icon' = '🔧'
-        'Scripts' = @(
-            [pscustomobject]@{ Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
-            [pscustomobject]@{ Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' }
+    @{ 'Name' = 'Operazioni Preliminari'; 'Icon' = '🪄'; 'Scripts' = @([pscustomobject]@{Name = 'WinInstallPSProfile'; Description = 'Installa profilo PowerShell'; Action = 'RunFunction' }) },
+    @{ 'Name' = 'Windows & Office'; 'Icon' = '🔧'; 'Scripts' = @(
+            [pscustomobject]@{Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' }
         )
     },
-    @{
-        'Name' = 'Driver & Gaming'; 'Icon' = '🎮'
-        'Scripts' = @(
-            [pscustomobject]@{ Name = 'VideoDriverInstall'; Description = 'Toolkit Driver Grafici'; Action = 'RunFunction' },
-            [pscustomobject]@{ Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
+    @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
+            [pscustomobject]@{Name = 'VideoDriverInstall'; Description = 'Toolkit Driver Grafici'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
         )
     },
-    @{
-        'Name' = 'Supporto'; 'Icon' = '🕹️'
-        'Scripts' = @(
-            [pscustomobject]@{ Name = 'SetRustDesk'; Description = 'Setting RustDesk - MagnetarMan Mode'; Action = 'RunFunction' }
-        )
-    }
+    @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @([pscustomobject]@{Name = 'SetRustDesk'; Description = 'Setting RustDesk'; Action = 'RunFunction' }) }
 )
 
-# Esegui verifica compatibilità sistema
 WinOSCheck
 
-# Main loop
 while ($true) {
-    Clear-Host
-    $width = 65
+    Show-Header -SubTitle "Menu Principale"
+    
+    # Winver Info
+    $si = Get-SystemInfo
+    $bit = CheckBitlocker
+    $col = if ($bit -match "Attivata|Errore") { 'Red' } else { 'Green' }
+    Write-Host "  💻 $($si.ProductName) | 🧠 $($si.TotalRAM)GB | 💾 C: $($si.FreePercentage)% Free | 🔒 BitLocker: " -NoNewline
+    Write-Host "$bit" -ForegroundColor $col
+    Write-Host ""
 
-    # Header
-    Show-Header
-    winver
-    Write-Host ''
-
-    # Build and display menu
-    $allScripts = @()
-    $scriptIndex = 1
-
-    foreach ($category in $menuStructure) {
-        Write-Host "=== $($category.Icon) $($category.Name) $($category.Icon) ===" -ForegroundColor Cyan
-        Write-Host ''
-
-        foreach ($script in $category.Scripts) {
-            $allScripts += $script
-            Write-StyledMessage -type 'Info' -text "[$scriptIndex] $($script.Description)"
-            $scriptIndex++
-        }
-        Write-Host ''
+    $allScripts = @(); $idx = 1
+    foreach ($cat in $menuStructure) {
+        Write-Host "=== $($cat.Icon) $($cat.Name) ===" -ForegroundColor Cyan
+        foreach ($s in $cat.Scripts) { $allScripts += $s; Write-Host "  [$idx] $($s.Description)"; $idx++ }
+        Write-Host ""
     }
 
-    # Exit section
-    Write-Host "=== Uscita ===" -ForegroundColor Red
-    Write-Host ''
-    Write-StyledMessage -type 'Error' -text '[0] Esci dal Toolkit'
-    Write-Host ''
-
-    # Handle user choice
-    $userChoice = Read-Host "Scegli un'opzione (es. 1, 3, 5 o 0 per uscire)"
-
-    if ($userChoice -eq '0') {
-        Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
-        Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
-        Start-Sleep -Seconds 3
-        break
-    }
-
-    # Parse and validate choices
-    $choices = $userChoice -split '[ ,]+' | Where-Object { $_ -ne '' }
-    $scriptsToRun = [System.Collections.Generic.List[object]]::new()
-    $invalidChoices = [System.Collections.Generic.List[string]]::new()
-
-    foreach ($choice in $choices) {
-        if (($choice -match '^\d+$') -and ([int]$choice -ge 1) -and ([int]$choice -le $allScripts.Count)) {
-            $scriptsToRun.Add($allScripts[[int]$choice - 1])
-        }
-        else {
-            $invalidChoices.Add($choice)
-        }
-    }
-
-    # Handle invalid choices
-    if ($invalidChoices.Count -gt 0) {
-        Write-StyledMessage -type 'Warning' -text "Opzioni non valide ignorate: $($invalidChoices -join ', ')"
-        Start-Sleep -Seconds 2
-    }
-
-    # Execute valid scripts
-    if ($scriptsToRun.Count -gt 0) {
-        foreach ($selectedItem in $scriptsToRun) {
-            Write-Host "`n" + ('-' * ($width / 2))
-            Write-StyledMessage -type 'Info' -text "Avvio '$($selectedItem.Description)'..."
-
-            try {
-                if ($selectedItem.Action -eq 'RunFile') {
-                    $scriptPath = Join-Path $PSScriptRoot $selectedItem.Name
-                    if (Test-Path $scriptPath) { 
-                        & $scriptPath 
-                    }
-                    else { 
-                        Write-StyledMessage -type 'Error' -text "Script non trovato: $($selectedItem.Name)" 
-                    }
-                }
-                elseif ($selectedItem.Action -eq 'RunFunction') {
-                    Invoke-Expression $selectedItem.Name
-                }
-                Write-StyledMessage -type 'Success' -text "Completato: '$($selectedItem.Description)'"
-            }
-            catch {
-                Write-StyledMessage -type 'Error' -text "Errore in '$($selectedItem.Description)'"
-                Write-StyledMessage -type 'Error' -text "Dettagli: $($_.Exception.Message)"
-            }
-        }
-
-        Write-Host "`nOperazioni completate. Premi un tasto per continuare..."
-        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-    }
-    elseif ($invalidChoices.Count -eq $choices.Count) {
-        Write-StyledMessage -type 'Error' -text 'Nessuna scelta valida. Riprova.'
-        Start-Sleep -Seconds 2
+    Write-Host "=== Uscita ===" -ForegroundColor Red; Write-Host "  [0] Esci`n"
+    $c = Read-Host "  Seleziona"
+    if ($c -eq '0') { Stop-Transcript -ErrorAction SilentlyContinue; break }
+    
+    if ($c -match '^\d+$' -and [int]$c -ge 1 -and [int]$c -le $allScripts.Count) {
+        Invoke-Expression $allScripts[[int]$c - 1].Name
+        Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
