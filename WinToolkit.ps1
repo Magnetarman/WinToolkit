@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.4.2 (Build 106)"
+$ToolkitVersion = "2.4.2 (Build 108)"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -191,65 +191,15 @@ function WinInstallPSProfile {
     .DESCRIPTION
         Installa e configura il profilo PowerShell personalizzato con oh-my-posh, zoxide e altre utilità.
         Richiede privilegi di amministratore e PowerShell 7+.
-#>
+    #>
 
-    $Host.UI.RawUI.WindowTitle = "InstallPSProfile by MagnetarMan"
-    $script:Log = @()
-
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
-    try {
-        if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
-        Start-Transcript -Path "$logdir\WinInstallPSProfile_$dateTime.log" -Append -Force | Out-Null
-    }
-    catch {}
-
-    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-    $script:MsgStyles = @{
-        Success = @{ Color = 'Green'; Icon = '✅' }
-        Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error   = @{ Color = 'Red'; Icon = '❌' }
-        Info    = @{ Color = 'Cyan'; Icon = '💎' }
-    }
-
-    function Write-StyledMessage {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory = $true)]
-            [ValidateSet('Success', 'Warning', 'Error', 'Info')]
-            [string]$Type,
-
-            [Parameter(Mandatory = $true)]
-            [string]$Text
-        )
-
-        $style = $script:MsgStyles[$Type]
-        $timestamp = Get-Date -Format "HH:mm:ss"
-
-        # Regex per rimuovere emoji dal testo per il log
-        $emojiRegex = '^[✅⚠️❌💎🔥🚀⚙️🧹📦📋📜🔒💾⬇️🔧⚡🖼️🌐🪟🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊🛡️🔑]\s*'
-        $cleanText = $Text -replace $emojiRegex, ''
-
-        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
-
-        if ($Type -in @('Info', 'Warning', 'Error')) {
-            $logEntry = "[$timestamp] [$Type] $cleanText"
-            $script:Log += $logEntry
-        }
-    }
-
-    function Show-ProgressBar([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon, [string]$Spinner = '', [string]$Color = 'Green') {
-        $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
-        $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-        $empty = '░' * (30 - $filled.Length)
-        Write-Host "`r$Spinner $Icon $Activity [$filled$empty] $safePercent% $Status" -NoNewline -ForegroundColor $Color
-        if ($Percent -eq 100) { Write-Host '' }
-    }
+    Initialize-ToolLogging -ToolName "WinInstallPSProfile"
+    Show-Header -SubTitle "Install Profilo PowerShell"
 
     function Add-ToSystemPath([string]$PathToAdd) {
         try {
             if (-not (Test-Path $PathToAdd)) {
-                Write-StyledMessage 'Warning' "Percorso non esistente: $PathToAdd"
+                Write-StyledMessage Warning "Percorso non esistente: $PathToAdd"
                 return $false
             }
 
@@ -257,7 +207,7 @@ function WinInstallPSProfile {
             $pathExists = ($currentPath -split ';') | Where-Object { $_.TrimEnd('\') -ieq $PathToAdd.TrimEnd('\') }
             
             if ($pathExists) {
-                Write-StyledMessage 'Info' "Percorso già nel PATH: $PathToAdd"
+                Write-StyledMessage Info "Percorso già nel PATH: $PathToAdd"
                 return $true
             }
 
@@ -266,11 +216,11 @@ function WinInstallPSProfile {
             [Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
             $env:PATH = "$env:PATH;$PathToAdd"
             
-            Write-StyledMessage 'Success' "Percorso aggiunto al PATH: $PathToAdd"
+            Write-StyledMessage Success "Percorso aggiunto al PATH: $PathToAdd"
             return $true
         }
         catch {
-            Write-StyledMessage 'Error' "Errore aggiunta PATH: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore aggiunta PATH: $($_.Exception.Message)"
             return $false
         }
     }
@@ -295,109 +245,41 @@ function WinInstallPSProfile {
         return $null
     }
 
-    function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-        Write-StyledMessage Info '💡 Premi un tasto per annullare...'
-        Write-Host ''
-
-        for ($i = $Seconds; $i -gt 0; $i--) {
-            if ([Console]::KeyAvailable) {
-                [Console]::ReadKey($true) | Out-Null
-                Write-Host "`n"
-                Write-StyledMessage Warning '⏸️ Riavvio annullato'
-                Write-StyledMessage Info "🔄 Riavvia manualmente: 'shutdown /r /t 0'"
-                return $false
-            }
-
-            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
-            $filled = [Math]::Floor($percent * 20 / 100)
-            $bar = "[$('█' * $filled)$('░' * (20 - $filled))] $percent%"
-            Write-Host "`r⏰ Riavvio tra $i secondi $bar" -NoNewline -ForegroundColor Red
-            Start-Sleep 1
-        }
-
-        Write-Host "`n"
-        Write-StyledMessage Warning '⏰ Riavvio in corso...'
-        Start-Sleep 1
-        return $true
-    }
-
-    function Get-CenteredText {
-        [CmdletBinding()]
-        [OutputType([string])]
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$Text,
-            
-            [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
-
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding + $Text)
-    }
-
-    function Show-Header {
-        Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-
-        $asciiArt = @(
-            '      __        __  _  _   _ '
-            '      \ \      / / | || \ | |'
-            '       \ \ /\ / /  | ||  \| |'
-            '        \ V  V /   | || |\  |'
-            '         \_/\_/    |_||_| \_|'
-            ''
-            '   InstallPSProfile By MagnetarMan'
-            '      Version 2.4.2 (Build 18)'
-        )
-
-        foreach ($line in $asciiArt) {
-            if (-not [string]::IsNullOrEmpty($line)) {
-                Write-Host (Get-CenteredText -Text $line -Width $width) -ForegroundColor White
-            }
-        }
-
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-        Write-Host ''
-    }
-
-    Show-Header
-
     for ($i = 5; $i -gt 0; $i--) {
-        Write-Host "`r$($spinners[$i % $spinners.Length]) ⏳ Preparazione - $i secondi..." -NoNewline -ForegroundColor Yellow
+        $spinner = $Global:Spinners[$i % $Global:Spinners.Length]
+        Write-Host "`r$spinner ⏳ Preparazione - $i secondi..." -NoNewline -ForegroundColor Yellow
         Start-Sleep 1
     }
     Write-Host "`n"
 
     if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-        Write-StyledMessage 'Warning' "Richiesti privilegi amministratore"
-        Write-StyledMessage 'Info' "Riavvio come amministratore..."
+        Write-StyledMessage Warning "Richiesti privilegi amministratore"
+        Write-StyledMessage Info "Riavvio come amministratore..."
 
         try {
             Start-Process PowerShell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"& { WinInstallPSProfile }`""
             return
         }
         catch {
-            Write-StyledMessage 'Error' "Impossibile elevare privilegi: $($_.Exception.Message)"
+            Write-StyledMessage Error "Impossibile elevare privilegi: $($_.Exception.Message)"
             return
         }
     }
 
     try {
-        Write-StyledMessage 'Info' "Installazione profilo PowerShell..."
+        Write-StyledMessage Info "Installazione profilo PowerShell..."
         Write-Host ''
 
         if (-not (Get-Command "pwsh" -ErrorAction SilentlyContinue)) {
-            Write-StyledMessage 'Error' "PowerShell Core non installato!"
+            Write-StyledMessage Error "PowerShell Core non installato!"
             return
         }
 
         if ($PSVersionTable.PSVersion.Major -lt 7) {
-            Write-StyledMessage 'Warning' "Richiesto PowerShell 7+"
+            Write-StyledMessage Warning "Richiesto PowerShell 7+"
             $choice = Read-Host "Procedere comunque? (S/N)"
             if ($choice -notmatch '^[SsYy]') {
-                Write-StyledMessage 'Info' "Installazione annullata"
+                Write-StyledMessage Info "Installazione annullata"
                 return
             }
         }
@@ -405,18 +287,18 @@ function WinInstallPSProfile {
         $profileUrl = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
         $oldHash = if (Test-Path $PROFILE) { Get-FileHash $PROFILE -ErrorAction SilentlyContinue } else { $null }
 
-        Write-StyledMessage 'Info' "Controllo aggiornamenti..."
+        Write-StyledMessage Info "Controllo aggiornamenti..."
         $tempProfile = "$env:TEMP\Microsoft.PowerShell_profile.ps1"
         try {
             Invoke-RestMethod $profileUrl -OutFile $tempProfile -UseBasicParsing
             $newHash = Get-FileHash $tempProfile
         }
         catch [System.Net.WebException] {
-            Write-StyledMessage 'Error' "Errore rete durante download profilo: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore rete durante download profilo: $($_.Exception.Message)"
             return
         }
         catch {
-            Write-StyledMessage 'Error' "Errore download profilo: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore download profilo: $($_.Exception.Message)"
             return
         }
 
@@ -424,33 +306,34 @@ function WinInstallPSProfile {
         if (!(Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
         $newHash.Hash | Out-File "$PROFILE.hash" -Force
         
-        Write-StyledMessage 'Info' "Hash profilo locale: $($oldHash.Hash), remoto: $($newHash.Hash)"
+        Write-StyledMessage Info "Hash profilo locale: $($oldHash.Hash), remoto: $($newHash.Hash)"
         if ($newHash.Hash -ne $oldHash.Hash) {
             if ((Test-Path $PROFILE) -and (-not (Test-Path "$PROFILE.bak"))) {
-                Write-StyledMessage 'Info' "Backup profilo esistente..."
+                Write-StyledMessage Info "Backup profilo esistente..."
                 Copy-Item -Path $PROFILE -Destination "$PROFILE.bak" -Force
-                Write-StyledMessage 'Success' "Backup completato"
+                Write-StyledMessage Success "Backup completato"
             }
 
-            Write-StyledMessage 'Info' "Installazione dipendenze..."
+            Write-StyledMessage Info "Installazione dipendenze..."
             Write-Host ''
 
             # oh-my-posh
             try {
-                Write-StyledMessage 'Info' "Installazione oh-my-posh..."
+                Write-StyledMessage Info "Installazione oh-my-posh..."
                 $spinnerIndex = 0; $percent = 0
                 
                 $installProcess = Start-Process -FilePath "cmd" -ArgumentList "/c winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent >nul 2>&1" -NoNewWindow -PassThru
 
                 while (-not $installProcess.HasExited -and $percent -lt 90) {
-                    Show-ProgressBar "oh-my-posh" "Installazione..." $percent '📦' $spinners[$spinnerIndex++ % $spinners.Length]
+                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                    Show-ProgressBar "oh-my-posh" "Installazione..." $percent '📦' $spinner
                     $percent += 2
                     Start-Sleep -Milliseconds 300
                 }
 
                 $installProcess.WaitForExit()
                 if ($installProcess.ExitCode -ne 0) {
-                    Write-StyledMessage 'Error' "Installazione oh-my-posh fallita (ExitCode: $($installProcess.ExitCode))"
+                    Write-StyledMessage Error "Installazione oh-my-posh fallita (ExitCode: $($installProcess.ExitCode))"
                 }
                 else {
                     Start-Sleep -Seconds 2
@@ -466,36 +349,37 @@ function WinInstallPSProfile {
                     if ($pathArray -notcontains $ompPath) {
                         $newPath = if ($currentPath.EndsWith(';')) { "$currentPath$ompPath" } else { "$currentPath;$ompPath" }
                         [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-                        Write-StyledMessage 'Success' "Path oh-my-posh aggiunto: $ompPath"
+                        Write-StyledMessage Success "Path oh-my-posh aggiunto: $ompPath"
                     }
                     else {
-                        Write-StyledMessage 'Info' "Path oh-my-posh già presente."
+                        Write-StyledMessage Info "Path oh-my-posh già presente."
                     }
                 }
                 else {
-                    Write-StyledMessage 'Error' "oh-my-posh.exe non trovato! Prova a reinstallarlo: winget install JanDeDobbeleer.OhMyPosh"
+                    Write-StyledMessage Error "oh-my-posh.exe non trovato! Prova a reinstallarlo: winget install JanDeDobbeleer.OhMyPosh"
                 }
             }
             catch {
-                Write-StyledMessage 'Warning' "Errore oh-my-posh: $($_.Exception.Message)"
+                Write-StyledMessage Warning "Errore oh-my-posh: $($_.Exception.Message)"
             }
 
             # zoxide
             try {
-                Write-StyledMessage 'Info' "Installazione zoxide..."
+                Write-StyledMessage Info "Installazione zoxide..."
                 $spinnerIndex = 0; $percent = 0
                 
                 $installProcess = Start-Process -FilePath "cmd" -ArgumentList "/c winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent >nul 2>&1" -NoNewWindow -PassThru
 
                 while (-not $installProcess.HasExited -and $percent -lt 90) {
-                    Show-ProgressBar "zoxide" "Installazione..." $percent '⚡' $spinners[$spinnerIndex++ % $spinners.Length]
+                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                    Show-ProgressBar "zoxide" "Installazione..." $percent '⚡' $spinner
                     $percent += 2
                     Start-Sleep -Milliseconds 300
                 }
 
                 $installProcess.WaitForExit()
                 if ($installProcess.ExitCode -ne 0) {
-                    Write-StyledMessage 'Error' "Installazione zoxide fallita (ExitCode: $($installProcess.ExitCode))"
+                    Write-StyledMessage Error "Installazione zoxide fallita (ExitCode: $($installProcess.ExitCode))"
                 }
                 else {
                     Start-Sleep -Seconds 2
@@ -511,29 +395,30 @@ function WinInstallPSProfile {
                     if ($pathArray -notcontains $zoxPath) {
                         $newPath = if ($currentPath.EndsWith(';')) { "$currentPath$zoxPath" } else { "$currentPath;$zoxPath" }
                         [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-                        Write-StyledMessage 'Success' "Path zoxide aggiunto: $zoxPath"
+                        Write-StyledMessage Success "Path zoxide aggiunto: $zoxPath"
                     }
                     else {
-                        Write-StyledMessage 'Info' "Path zoxide già presente."
+                        Write-StyledMessage Info "Path zoxide già presente."
                     }
                 }
                 else {
-                    Write-StyledMessage 'Error' "zoxide.exe non trovato! Prova a reinstallarlo: winget install ajeetdsouza.zoxide"
+                    Write-StyledMessage Error "zoxide.exe non trovato! Prova a reinstallarlo: winget install ajeetdsouza.zoxide"
                 }
             }
             catch {
-                Write-StyledMessage 'Warning' "Errore zoxide: $($_.Exception.Message)"
+                Write-StyledMessage Warning "Errore zoxide: $($_.Exception.Message)"
             }
 
             # Refresh PATH
-            Write-StyledMessage 'Info' "Aggiornamento variabili d'ambiente..."
+            Write-StyledMessage Info "Aggiornamento variabili d'ambiente..."
             $spinnerIndex = 0; $percent = 0
             $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
             $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
             $env:PATH = "$machinePath;$userPath"
 
             while ($percent -lt 90) {
-                Show-ProgressBar "PATH" "Aggiornamento..." $percent '🔧' $spinners[$spinnerIndex++ % $spinners.Length]
+                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                Show-ProgressBar "PATH" "Aggiornamento..." $percent '🔧' $spinner
                 $percent += Get-Random -Minimum 10 -Maximum 20
                 Start-Sleep -Milliseconds 200
             }
@@ -541,11 +426,12 @@ function WinInstallPSProfile {
             Write-Host ''
 
             # Setup profilo
-            Write-StyledMessage 'Info' "Configurazione profilo PowerShell..."
+            Write-StyledMessage Info "Configurazione profilo PowerShell..."
             try {
                 $spinnerIndex = 0; $percent = 0
                 while ($percent -lt 90) {
-                    Show-ProgressBar "Profilo" "Setup..." $percent '⚙️' $spinners[$spinnerIndex++ % $spinners.Length]
+                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                    Show-ProgressBar "Profilo" "Setup..." $percent '⚙️' $spinner
                     $percent += Get-Random -Minimum 3 -Maximum 8
                     Start-Sleep -Milliseconds 400
                 }
@@ -553,12 +439,12 @@ function WinInstallPSProfile {
                 Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1' -UseBasicParsing).Content
                 Show-ProgressBar "Profilo" "Completato" 100 '⚙️'
                 Write-Host ''
-                Write-StyledMessage 'Success' "Profilo installato!"
+                Write-StyledMessage Success "Profilo installato!"
                 # Download e configurazione settings.json per Windows Terminal
                 $wtSettingsUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/settings.json"
                 $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
                 if (-not $wtPath) {
-                    Write-StyledMessage 'Warning' "Directory Windows Terminal non trovata, impossibile configurare settings.json."
+                    Write-StyledMessage Warning "Directory Windows Terminal non trovata, impossibile configurare settings.json."
                     return
                 }
                 $wtLocalStateDir = Join-Path $wtPath.FullName "LocalState"
@@ -567,12 +453,13 @@ function WinInstallPSProfile {
                 }
                 $settingsPath = Join-Path $wtLocalStateDir "settings.json"
 
-                Write-StyledMessage 'Info' "Download e configurazione settings.json per Windows Terminal..."
+                Write-StyledMessage Info "Download e configurazione settings.json per Windows Terminal..."
                 $spinnerIndex = 0; $percent = 0
                 try {
                     # Simulazione barra di progresso per il download
                     while ($percent -lt 80) {
-                        Show-ProgressBar "settings.json WT" "Download..." $percent '🖼️' $spinners[$spinnerIndex++ % $spinners.Length]
+                        $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                        Show-ProgressBar "settings.json WT" "Download..." $percent '🖼️' $spinner
                         $percent += Get-Random -Minimum 5 -Maximum 15
                         Start-Sleep -Milliseconds 200
                     }
@@ -580,24 +467,24 @@ function WinInstallPSProfile {
                     $percent = 100 # Assicura che la barra di progresso raggiunga il 100%
                     Show-ProgressBar "settings.json WT" "Completato" 100 '🖼️'
                     Write-Host '' # Aggiunge un newline dopo la barra di progresso
-                    Write-StyledMessage 'Success' "settings.json di Windows Terminal aggiornato con successo."
+                    Write-StyledMessage Success "settings.json di Windows Terminal aggiornato con successo."
                 }
                 catch [System.Net.WebException] {
-                    Write-StyledMessage 'Error' "Errore di rete durante il download di settings.json: $($_.Exception.Message)"
+                    Write-StyledMessage Error "Errore di rete durante il download di settings.json: $($_.Exception.Message)"
                 }
                 catch {
-                    Write-StyledMessage 'Error' "Errore durante il download/copia di settings.json: $($_.Exception.Message)"
+                    Write-StyledMessage Error "Errore durante il download/copia di settings.json: $($_.Exception.Message)"
                 }
             }
             catch {
-                Write-StyledMessage 'Warning' "Fallback: copia manuale profilo"
+                Write-StyledMessage Warning "Fallback: copia manuale profilo"
                 Copy-Item -Path $tempProfile -Destination $PROFILE -Force
-                Write-StyledMessage 'Success' "Profilo copiato"
+                Write-StyledMessage Success "Profilo copiato"
             }
 
             Write-Host ""
             Write-Host ('═' * 80) -ForegroundColor Green
-            Write-StyledMessage 'Warning' "Riavvio OBBLIGATORIO per:"
+            Write-StyledMessage Warning "Riavvio OBBLIGATORIO per:"
             Write-Host "  • PATH oh-my-posh e zoxide" -ForegroundColor Cyan
             Write-Host "  • Font installati" -ForegroundColor Cyan
             Write-Host "  • Attivazione profilo" -ForegroundColor Cyan
@@ -608,29 +495,29 @@ function WinInstallPSProfile {
             $shouldReboot = Start-InterruptibleCountdown 30 "Riavvio sistema"
 
             if ($shouldReboot) {
-                Write-StyledMessage 'Info' "Riavvio..."
+                Write-StyledMessage Info "Riavvio..."
                 Restart-Computer -Force
             }
             else {
                 Write-Host ""
                 Write-Host ('═' * 80) -ForegroundColor Yellow
-                Write-StyledMessage 'Warning' "RIAVVIO POSTICIPATO"
+                Write-StyledMessage Warning "RIAVVIO POSTICIPATO"
                 Write-Host ('═' * 80) -ForegroundColor Yellow
                 Write-Host ""
-                Write-StyledMessage 'Error' "Il profilo NON funzionerà finché non riavvii!"
+                Write-StyledMessage Error "Il profilo NON funzionerà finché non riavvii!"
                 Write-Host ""
-                Write-StyledMessage 'Info' "Dopo il riavvio, verifica con:"
+                Write-StyledMessage Info "Dopo il riavvio, verifica con:"
                 Write-Host "  oh-my-posh --version" -ForegroundColor Cyan
                 Write-Host "  zoxide --version" -ForegroundColor Cyan
                 Write-Host ""
                 # Salva stato riavvio necessario
                 $rebootFlag = "$env:LOCALAPPDATA\WinToolkit\reboot_required.txt"
                 "Riavvio necessario per applicare PATH oh-my-posh/zoxide e profilo PowerShell. Eseguito il $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File $rebootFlag -Encoding UTF8
-                Write-StyledMessage 'Info' "Flag riavvio salvato in: $rebootFlag"
+                Write-StyledMessage Info "Flag riavvio salvato in: $rebootFlag"
             }
         }
         else {
-            Write-StyledMessage 'Info' "Profilo già aggiornato"
+            Write-StyledMessage Info "Profilo già aggiornato"
         }
 
 
@@ -639,7 +526,7 @@ function WinInstallPSProfile {
     catch {
         Write-Host ''
         Write-Host ('═' * 65) -ForegroundColor Red
-        Write-StyledMessage 'Error' "Errore installazione: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore installazione: $($_.Exception.Message)"
         Write-Host ('═' * 65) -ForegroundColor Red
     }
     finally {
@@ -1363,7 +1250,6 @@ function Invoke-WPFUpdatesEnable {
 
 }
 function WinReinstallStore {
-
     <#
     .SYNOPSIS
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
@@ -1371,108 +1257,12 @@ function WinReinstallStore {
     .DESCRIPTION
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
 
-#>
+    #>
     param([int]$CountdownSeconds = 30, [switch]$NoReboot)
 
-    $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
+    Initialize-ToolLogging -ToolName "WinReinstallStore"
+    Show-Header -SubTitle "Store Repair Toolkit"
 
-    # Setup logging specifico per WinReinstallStore
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
-    try {
-        if (-not (Test-Path -Path $logdir)) {
-            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-        }
-        Start-Transcript -Path "$logdir\WinReinstallStore_$dateTime.log" -Append -Force | Out-Null
-    }
-    catch {}
-    
-    $script:MsgStyles = @{
-        Success  = @{ Color = 'Green'; Icon = '✅' }
-        Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error    = @{ Color = 'Red'; Icon = '❌' }
-        Info     = @{ Color = 'Cyan'; Icon = '💎' }
-        Progress = @{ Color = 'Magenta'; Icon = '🔄' }
-    }
-    
-    function Write-StyledMessage {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory = $true)]
-            [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')]
-            [string]$Type,
-            
-            [Parameter(Mandatory = $true)]
-            [string]$Text
-        )
-
-        $style = $script:MsgStyles[$Type]
-        $timestamp = Get-Date -Format "HH:mm:ss"
-        
-        # Rimuovi emoji duplicati dal testo per il log
-        $cleanText = $Text -replace '^[✅⚠️❌💎🔍🚀⚙️🧹📦📋📜📝💾⬇️🔧⚡🖼️🌐🍪🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
-
-        Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
-
-        if ($Type -in @('Info', 'Warning', 'Error')) {
-            $logEntry = "[$timestamp] [$Type] $cleanText"
-            $script:Log += $logEntry
-        }
-    }
-    
-    function Get-CenteredText {
-        [CmdletBinding()]
-        [OutputType([string])]
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$Text,
-            
-            [Parameter(Mandatory = $false)]
-            [int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
-
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding + $Text)
-    }
-
-    function Show-Header {
-        Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-
-        $asciiArt = @(
-            '      __        __  _  _   _ '
-            '      \ \      / / | || \ | |'
-            '       \ \ /\ / /  | ||  \| |'
-            '        \ V  V /   | || |\  |'
-            '         \_/\_/    |_||_| \_|'
-            ''
-            ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 7)'
-        )
-
-        foreach ($line in $asciiArt) {
-            if (-not [string]::IsNullOrEmpty($line)) {
-                Write-Host (Get-CenteredText -Text $line -Width $width) -ForegroundColor White
-            }
-        }
-
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-        Write-Host ''
-    }
-    
-    function Clear-Terminal {
-        1..50 | ForEach-Object { Write-Host "" }
-        Clear-Host
-        [Console]::Clear()
-        try {
-            [System.Console]::SetCursorPosition(0, 0)
-            $Host.UI.RawUI.CursorPosition = @{X = 0; Y = 0 }
-        }
-        catch {}
-        Start-Sleep -Milliseconds 200
-    }
-    
     function Stop-InterferingProcesses {
         @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore",
             "Microsoft.DesktopAppInstaller", "RuntimeBroker", "dllhost") | ForEach-Object {
@@ -1491,7 +1281,7 @@ function WinReinstallStore {
     }
     
     function Install-WingetSilent {
-        Write-StyledMessage Progress "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
+        Write-StyledMessage Info "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
         Stop-InterferingProcesses
 
         $originalPos = [Console]::CursorTop
@@ -1504,7 +1294,7 @@ function WinReinstallStore {
             # --- FASE 1: Inizializzazione e Pulizia Profonda ---
             
             # Terminazione Processi
-            Write-StyledMessage Progress "Chiusura forzata dei processi Winget e correlati..."
+            Write-StyledMessage Info "🔄 Chiusura forzata dei processi Winget e correlati..."
             @("winget", "WindowsPackageManagerServer") | ForEach-Object {
                 Get-Process -Name $_ -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
                 taskkill /im "$_.exe" /f 2>$null
@@ -1512,7 +1302,7 @@ function WinReinstallStore {
             Start-Sleep 2
 
             # Pulizia Cartella Temporanea
-            Write-StyledMessage Progress "Pulizia dei file temporanei (%TEMP%\WinGet)..."
+            Write-StyledMessage Info "🔄 Pulizia dei file temporanei (%TEMP%\WinGet)..."
             $tempWingetPath = "$env:TEMP\WinGet"
             if (Test-Path $tempWingetPath) {
                 Remove-Item -Path $tempWingetPath -Recurse -Force -ErrorAction SilentlyContinue *>$null
@@ -1523,7 +1313,7 @@ function WinReinstallStore {
             }
 
             # Reset Sorgenti Winget
-            Write-StyledMessage Progress "Reset delle sorgenti di Winget..."
+            Write-StyledMessage Info "🔄 Reset delle sorgenti di Winget..."
             $wingetExePath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
             if (Test-Path $wingetExePath) {
                 & $wingetExePath source reset --force *>$null
@@ -1538,7 +1328,7 @@ function WinReinstallStore {
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
             # Installazione Provider NuGet
-            Write-StyledMessage Progress "Installazione del PackageProvider NuGet..."
+            Write-StyledMessage Info "🔄 Installazione del PackageProvider NuGet..."
             try {
                 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
                 Write-StyledMessage Success "Provider NuGet installato/verificato."
@@ -1548,7 +1338,7 @@ function WinReinstallStore {
             }
 
             # Installazione Modulo Microsoft.WinGet.Client
-            Write-StyledMessage Progress "Installazione e importazione del modulo Microsoft.WinGet.Client..."
+            Write-StyledMessage Info "🔄 Installazione e importazione del modulo Microsoft.WinGet.Client..."
             Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
             Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
             Write-StyledMessage Success "Modulo Microsoft.WinGet.Client installato e importato."
@@ -1556,7 +1346,7 @@ function WinReinstallStore {
             # --- FASE 3: Riparazione e Reinstallazione del Core di Winget ---
 
             # Tentativo A (Riparazione via Modulo)
-            Write-StyledMessage Progress "Tentativo di riparazione Winget tramite il modulo WinGet Client..."
+            Write-StyledMessage Info "🔄 Tentativo di riparazione Winget tramite il modulo WinGet Client..."
             if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
                 $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
                 Start-Sleep 5
@@ -1568,7 +1358,7 @@ function WinReinstallStore {
 
             # Tentativo B (Reinstallazione tramite MSIXBundle - Fallback)
             if (-not (Test-WingetAvailable)) {
-                Write-StyledMessage Progress "Scarico e installo Winget tramite MSIXBundle (metodo fallback)..."
+                Write-StyledMessage Info "🔄 Scarico e installo Winget tramite MSIXBundle (metodo fallback)..."
                 $url = "https://aka.ms/getwinget"
                 $temp = "$env:TEMP\WingetInstaller.msixbundle"
                 if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
@@ -1587,7 +1377,7 @@ function WinReinstallStore {
             }
 
             # --- FASE 4: Reset dell'App Installer Appx ---
-            Write-StyledMessage Progress "Reset dell'App 'Programma di installazione app' (Microsoft.DesktopAppInstaller)..."
+            Write-StyledMessage Info "🔄 Reset dell'App 'Programma di installazione app' (Microsoft.DesktopAppInstaller)..."
             try {
                 Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage *>$null
                 Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
@@ -1629,7 +1419,7 @@ function WinReinstallStore {
     }
     
     function Install-MicrosoftStoreSilent {
-        Write-StyledMessage Progress "Reinstallazione Microsoft Store in corso..."
+        Write-StyledMessage Info "🔄 Reinstallazione Microsoft Store in corso..."
         
         $originalPos = [Console]::CursorTop
         try {
@@ -1704,7 +1494,7 @@ function WinReinstallStore {
     }
     
     function Install-UniGetUISilent {
-        Write-StyledMessage Progress "Reinstallazione UniGet UI in corso..."
+        Write-StyledMessage Info "🔄 Reinstallazione UniGet UI in corso..."
         if (-not (Test-WingetAvailable)) { return $false }
 
         $originalPos = [Console]::CursorTop
@@ -1717,7 +1507,7 @@ function WinReinstallStore {
             $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
     
             if ($process.ExitCode -eq 0) {
-                Write-StyledMessage Progress "Disabilitazione avvio automatico UniGet UI..."
+                Write-StyledMessage Info "🔄 Disabilitazione avvio automatico UniGet UI..."
                 try {
                     $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
                     $regKeyName = "WingetUI"
@@ -1753,48 +1543,6 @@ function WinReinstallStore {
         }
     }
     
-    function Start-InterruptibleCountdown([int]$Seconds, [string]$Message) {
-        Write-StyledMessage Warning "$Message"
-        Write-StyledMessage Info '💡 Premi un tasto qualsiasi per annullare...'
-
-        for ($i = $Seconds; $i -gt 0; $i--) {
-            if ([Console]::KeyAvailable) {
-                [Console]::ReadKey($true) | Out-Null
-                Write-Host "`n"
-                Write-StyledMessage Warning "⏸️ Riavvio automatico annullato"
-                Write-StyledMessage Error 'Riavvia manualmente: shutdown /r /t 0'
-                return $false
-            }
-
-            $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
-            $filled = [Math]::Floor($percent * 20 / 100)
-            $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
-
-            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
-            Start-Sleep 1
-        }
-
-        Write-Host "`n"
-        Write-StyledMessage Warning "⏰ Riavvio del sistema..."
-
-        if (-not $NoReboot) {
-            try {
-                shutdown /r /t 0
-                return $true
-            }
-            catch {
-                Write-StyledMessage Error "Errore riavvio: $_"
-                return $false
-            }
-        }
-        else {
-            Write-StyledMessage Info "🚫 Riavvio saltato come richiesto."
-            return $false
-        }
-    }
-    
-    Show-Header
     Write-StyledMessage Info "🚀 AVVIO REINSTALLAZIONE STORE"
 
     try {
@@ -1817,11 +1565,12 @@ function WinReinstallStore {
 
         if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario per applicare le modifiche") {
             Write-StyledMessage Info "🔄 Riavvio in corso..."
+            if (-not $NoReboot) {
+                Restart-Computer -Force
+            }
         }
     }
     catch {
-        Clear-Terminal
-        Show-Header
         Write-StyledMessage Error "❌ ERRORE: $($_.Exception.Message)"
         Write-StyledMessage Info "💡 Esegui come Admin, verifica Internet e Windows Update"
         try { Stop-Transcript | Out-Null } catch {}
@@ -1846,64 +1595,14 @@ function WinBackupDriver {
     #>
     param([int]$CountdownSeconds = 10)
     
-    $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
+    Initialize-ToolLogging -ToolName "WinBackupDriver"
+    Show-Header -SubTitle "Driver Backup Toolkit"
+    
     $dt = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
-    
-    try {
-        if (-not (Test-Path $logdir)) { New-Item $logdir -ItemType Directory -Force | Out-Null }
-        Start-Transcript "$logdir\WinBackupDriver_$dt.log" -Append -Force | Out-Null
-    }
-    catch {}
-    
     $BackupDir = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
     $ZipName = "DriverBackup_$dt"
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
     $FinalZipPath = "$DesktopPath\$ZipName.zip"
-    $MsgStyles = @{
-        Success = @{Color = 'Green'; Icon = '✅' }; Warning = @{Color = 'Yellow'; Icon = '⚠️' }
-        Error = @{Color = 'Red'; Icon = '❌' }; Info = @{Color = 'Cyan'; Icon = '💎' }
-        Progress = @{Color = 'Magenta'; Icon = '🔄' }
-    }
-    
-    function Center-Text([string]$Text, [int]$Width = $Host.UI.RawUI.BufferSize.Width) {
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding + $Text)
-    }
-    
-    function Write-Msg([string]$Type, [string]$Text) {
-        $s = $MsgStyles[$Type]
-        Write-Host "$($s.Icon) $Text" -ForegroundColor $s.Color
-    }
-    
-    function Show-Progress([string]$Activity, [string]$Status, [int]$Percent) {
-        $p = [Math]::Max(0, [Math]::Min(100, $Percent))
-        $filled = [Math]::Floor($p * 30 / 100)
-        $bar = "[$(('█' * $filled) + ('░' * (30 - $filled)))] $p%"
-        Write-Host "`r🔄 $Activity $bar $Status" -NoNewline -ForegroundColor Magenta
-        if ($p -eq 100) { Write-Host '' }
-    }
-    
-    function Show-Header {
-        Clear-Host
-        $w = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('═' * ($w - 1)) -ForegroundColor Green
-        $asciiArt = @(
-            '      __        __  _  _   _ ',
-            '      \ \      / / | || \ | |',
-            '       \ \ /\ / /  | ||  \| |',
-            '        \ V  V /   | || |\  |',
-            '         \_/\_/    |_||_| \_|',
-            '',
-            '   Driver Backup Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 4)'
-        )
-        foreach ($line in $asciiArt) {
-            if ($line) { Write-Host (Center-Text $line $w) -ForegroundColor White } else { Write-Host '' }
-        }
-        Write-Host ('═' * ($w - 1)) -ForegroundColor Green
-        Write-Host ''
-    }
     
     function Test-Admin {
         $u = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -1912,10 +1611,10 @@ function WinBackupDriver {
     }
     
     function Export-Drivers {
-        Write-Msg Info "💾 Avvio esportazione driver di terze parti..."
+        Write-StyledMessage Info "💾 Avvio esportazione driver di terze parti..."
         try {
             if (Test-Path $BackupDir) {
-                Write-Msg Warning "Cartella backup esistente trovata, rimozione in corso..."
+                Write-StyledMessage Warning "Cartella backup esistente trovata, rimozione in corso..."
                 $pos = [Console]::CursorTop
                 $ErrorActionPreference = 'SilentlyContinue'
                 $ProgressPreference = 'SilentlyContinue'
@@ -1929,129 +1628,129 @@ function WinBackupDriver {
             }
             
             New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
-            Write-Msg Success "Cartella backup creata: $BackupDir"
-            Write-Msg Info "🔧 Esecuzione DISM per esportazione driver..."
-            Write-Msg Info "💡 Questa operazione può richiedere diversi minuti..."
+            Write-StyledMessage Success "Cartella backup creata: $BackupDir"
+            Write-StyledMessage Info "🔧 Esecuzione DISM per esportazione driver..."
+            Write-StyledMessage Info "💡 Questa operazione può richiedere diversi minuti..."
             
             $proc = Start-Process 'dism.exe' -ArgumentList @('/online', '/export-driver', "/destination:`"$BackupDir`"") -NoNewWindow -PassThru -Wait
             
             if ($proc.ExitCode -eq 0) {
                 $drivers = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
                 if ($drivers -and $drivers.Count -gt 0) {
-                    Write-Msg Success "Driver esportati con successo!"
-                    Write-Msg Info "Driver trovati: $($drivers.Count)"
+                    Write-StyledMessage Success "Driver esportati con successo!"
+                    Write-StyledMessage Info "Driver trovati: $($drivers.Count)"
                 }
                 else {
-                    Write-Msg Warning "Nessun driver di terze parti trovato da esportare"
-                    Write-Msg Info "💡 I driver integrati di Windows non vengono esportati"
+                    Write-StyledMessage Warning "Nessun driver di terze parti trovato da esportare"
+                    Write-StyledMessage Info "💡 I driver integrati di Windows non vengono esportati"
                 }
                 return $true
             }
-            Write-Msg Error "Errore durante esportazione DISM (Exit code: $($proc.ExitCode))"
+            Write-StyledMessage Error "Errore durante esportazione DISM (Exit code: $($proc.ExitCode))"
             return $false
         }
         catch {
-            Write-Msg Error "Errore durante esportazione driver: $_"
+            Write-StyledMessage Error "Errore durante esportazione driver: $_"
             return $false
         }
     }
     
     function Compress-Backup {
-        Write-Msg Info "📦 Compressione cartella backup..."
+        Write-StyledMessage Info "📦 Compressione cartella backup..."
         try {
             if (-not (Test-Path $BackupDir)) {
-                Write-Msg Error "Cartella backup non trovata"
+                Write-StyledMessage Error "Cartella backup non trovata"
                 return $false
             }
             
             $files = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
             if (-not $files -or $files.Count -eq 0) {
-                Write-Msg Warning "Nessun file da comprimere nella cartella backup"
+                Write-StyledMessage Warning "Nessun file da comprimere nella cartella backup"
                 return $false
             }
             
             $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
             $totalMB = [Math]::Round($totalSize / 1MB, 2)
-            Write-Msg Info "Dimensione totale: $totalMB MB"
+            Write-StyledMessage Info "Dimensione totale: $totalMB MB"
             
             $tempZip = "$env:TEMP\$ZipName.zip"
             if (Test-Path $tempZip) { Remove-Item $tempZip -Force -EA SilentlyContinue }
             
-            Write-Msg Info "🔄 Compressione in corso..."
+            Write-StyledMessage Info "🔄 Compressione in corso..."
             $job = Start-Job -ScriptBlock {
                 param($b, $t)
                 Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force
             } -ArgumentList $BackupDir, $tempZip
             
             $prog = 0
+            $spinnerIndex = 0
             while ($job.State -eq 'Running') {
                 $prog += Get-Random -Minimum 1 -Maximum 5
                 if ($prog -gt 95) { $prog = 95 }
-                Show-Progress "Compressione" "Elaborazione file..." $prog
+                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                Show-ProgressBar "Compressione" "Elaborazione file..." $prog '📦' $spinner
                 Start-Sleep -Milliseconds 500
             }
             
             Receive-Job $job -Wait | Out-Null
             Remove-Job $job
-            Show-Progress "Compressione" "Completato!" 100
+            Show-ProgressBar "Compressione" "Completato!" 100 '📦'
             Write-Host ''
             
             if (Test-Path $tempZip) {
                 $zipMB = [Math]::Round((Get-Item $tempZip).Length / 1MB, 2)
-                Write-Msg Success "Compressione completata!"
-                Write-Msg Info "Archivio creato: $tempZip ($zipMB MB)"
+                Write-StyledMessage Success "Compressione completata!"
+                Write-StyledMessage Info "Archivio creato: $tempZip ($zipMB MB)"
                 return $tempZip
             }
-            Write-Msg Error "File ZIP non creato"
+            Write-StyledMessage Error "File ZIP non creato"
             return $false
         }
         catch {
-            Write-Msg Error "Errore durante compressione: $_"
+            Write-StyledMessage Error "Errore durante compressione: $_"
             return $false
         }
     }
     
     function Move-ToDesktop([string]$ZipPath) {
-        Write-Msg Info "📂 Spostamento archivio sul desktop..."
+        Write-StyledMessage Info "📂 Spostamento archivio sul desktop..."
         try {
             if (-not (Test-Path $ZipPath)) {
-                Write-Msg Error "File ZIP non trovato: $ZipPath"
+                Write-StyledMessage Error "File ZIP non trovato: $ZipPath"
                 return $false
             }
             Move-Item $ZipPath $FinalZipPath -Force -EA Stop
             if (Test-Path $FinalZipPath) {
-                Write-Msg Success "Archivio spostato sul desktop!"
-                Write-Msg Info "Posizione: $FinalZipPath"
+                Write-StyledMessage Success "Archivio spostato sul desktop!"
+                Write-StyledMessage Info "Posizione: $FinalZipPath"
                 return $true
             }
-            Write-Msg Error "Errore durante spostamento sul desktop"
+            Write-StyledMessage Error "Errore durante spostamento sul desktop"
             return $false
         }
         catch {
-            Write-Msg Error "Errore spostamento: $_"
+            Write-StyledMessage Error "Errore spostamento: $_"
             return $false
         }
     }
     
     function Show-Summary {
         Write-Host ''
-        Write-Msg Success "🎉 Backup driver completato con successo!"
+        Write-StyledMessage Success "🎉 Backup driver completato con successo!"
         Write-Host ''
-        Write-Msg Info "📁 Posizione archivio:"
+        Write-StyledMessage Info "📁 Posizione archivio:"
         Write-Host "  $FinalZipPath" -ForegroundColor Cyan
         Write-Host ''
-        Write-Msg Info "💡 IMPORTANTE:"
-        Write-Msg Info "  📄 Salva questo archivio in un luogo sicuro!"
-        Write-Msg Info "  💾 Potrai utilizzarlo per reinstallare tutti i driver"
-        Write-Msg Info "  🔧 Senza doverli riscaricare singolarmente"
+        Write-StyledMessage Info "💡 IMPORTANTE:"
+        Write-StyledMessage Info "  📄 Salva questo archivio in un luogo sicuro!"
+        Write-StyledMessage Info "  💾 Potrai utilizzarlo per reinstallare tutti i driver"
+        Write-StyledMessage Info "  🔧 Senza doverli riscaricare singolarmente"
         Write-Host ''
     }
     
-    Show-Header
-    
     if (-not (Test-Admin)) {
-        Write-Msg Error " Questo script richiede privilegi amministrativi!"
-        Write-Msg Info "💡 Riavvia PowerShell come Amministratore e riprova"
+        Write-StyledMessage Error " Questo script richiede privilegi amministrativi!"
+        Write-StyledMessage Info "💡 Riavvia PowerShell come Amministratore e riprova"
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
         return
@@ -2063,12 +1762,12 @@ function WinBackupDriver {
     
     try {
         Write-Host ('─' * 50) -ForegroundColor Gray
-        Write-Msg Info "📋 FASE 1: ESPORTAZIONE DRIVER"
+        Write-StyledMessage Info "📋 FASE 1: ESPORTAZIONE DRIVER"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
         
         if (-not (Export-Drivers)) {
-            Write-Msg Error "Esportazione driver fallita"
+            Write-StyledMessage Error "Esportazione driver fallita"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
@@ -2076,13 +1775,13 @@ function WinBackupDriver {
         
         Write-Host ''
         Write-Host ('─' * 50) -ForegroundColor Gray
-        Write-Msg Info "📋 FASE 2: COMPRESSIONE ARCHIVIO"
+        Write-StyledMessage Info "📋 FASE 2: COMPRESSIONE ARCHIVIO"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
         
         $zip = Compress-Backup
         if (-not $zip) {
-            Write-Msg Error "Compressione fallita"
+            Write-StyledMessage Error "Compressione fallita"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
@@ -2090,31 +1789,31 @@ function WinBackupDriver {
         
         Write-Host ''
         Write-Host ('─' * 50) -ForegroundColor Gray
-        Write-Msg Info "📋 FASE 3: SPOSTAMENTO DESKTOP"
+        Write-StyledMessage Info "📋 FASE 3: SPOSTAMENTO DESKTOP"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
         
         if (-not (Move-ToDesktop $zip)) {
-            Write-Msg Error "Spostamento sul desktop fallito"
-            Write-Msg Warning "💡 L'archivio potrebbe essere ancora nella cartella temporanea"
+            Write-StyledMessage Error "Spostamento sul desktop fallito"
+            Write-StyledMessage Warning "💡 L'archivio potrebbe essere ancora nella cartella temporanea"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
         }
         
         Write-Host ('─' * 50) -ForegroundColor Gray
-        Write-Msg Info "📋 BACKUP COMPLETATO"
+        Write-StyledMessage Info "📋 BACKUP COMPLETATO"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
         Show-Summary
         
     }
     catch {
-        Write-Msg Error "Errore critico durante il backup: $($_.Exception.Message)"
-        Write-Msg Info "💡 Controlla i log per dettagli o contatta il supporto"
+        Write-StyledMessage Error "Errore critico durante il backup: $($_.Exception.Message)"
+        Write-StyledMessage Info "💡 Controlla i log per dettagli o contatta il supporto"
     }
     finally {
-        Write-Msg Info "🧹 Pulizia cartella temporanea..."
+        Write-StyledMessage Info "🧹 Pulizia cartella temporanea..."
         if (Test-Path $BackupDir) {
             $pos = [Console]::CursorTop
             $ErrorActionPreference = 'SilentlyContinue'
@@ -2128,10 +1827,9 @@ function WinBackupDriver {
         }
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
-        Write-Msg Success "🎯 Driver Backup Toolkit terminato"
+        Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
         try { Stop-Transcript | Out-Null } catch {}
     }
-
 
 }
 function WinDriverInstall {}
