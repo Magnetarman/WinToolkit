@@ -1874,7 +1874,7 @@ function WinReinstallStore {
             '         \_/\_/    |_||_| \_|'
             ''
             ' Store Repair Toolkit By MagnetarMan',
-            '       Version 2.4.2 (Build 6)'
+            '       Version 2.4.2 (Build 7)'
         )
 
         foreach ($line in $asciiArt) {
@@ -2250,6 +2250,11 @@ function WinReinstallStore {
         Show-Header
         Write-StyledMessage Error "❌ ERRORE: $($_.Exception.Message)"
         Write-StyledMessage Info "💡 Esegui come Admin, verifica Internet e Windows Update"
+        try { Stop-Transcript | Out-Null } catch {}
+    }
+    finally {
+        Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
+        Read-Host
         try { Stop-Transcript | Out-Null } catch {}
     }
 
