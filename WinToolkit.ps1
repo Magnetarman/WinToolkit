@@ -5184,81 +5184,13 @@ function SetRustDesk {
         Scarica i file di configurazione da repository GitHub e riavvia il sistema per applicare le modifiche.
     #>
 
+    [CmdletBinding()]
     param([int]$CountdownSeconds = 30)
 
-    # Inizializzazione
-    $Host.UI.RawUI.WindowTitle = "RustDesk Setup Toolkit By MagnetarMan"
+    Initialize-ToolLogging -ToolName "SetRustDesk"
+    Show-Header -SubTitle "RustDesk Setup Toolkit"
 
-    # Setup logging
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
-    try {
-        if (-not (Test-Path -Path $logdir)) {
-            New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-        }
-        Start-Transcript -Path "$logdir\SetRustDesk_$dateTime.log" -Append -Force | Out-Null
-    }
-    catch {}
-
-    # Configurazione
-    $MsgStyles = @{
-        Success  = @{ Color = 'Green'; Icon = '✅' }
-        Warning  = @{ Color = 'Yellow'; Icon = '⚠️' }
-        Error    = @{ Color = 'Red'; Icon = '❌' }
-        Info     = @{ Color = 'Cyan'; Icon = '💡' }
-        Progress = @{ Color = 'Magenta'; Icon = '🔄' }
-    }
-
-    # Funzioni Helper
-    function Center-Text {
-        param(
-            [Parameter(Mandatory = $true)][string]$Text,
-            [Parameter(Mandatory = $false)][int]$Width = $Host.UI.RawUI.BufferSize.Width
-        )
-        $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-        return (' ' * $padding + $Text)
-    }
-    
-    function Show-Header {
-        Clear-Host
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-
-        $asciiArt = @(
-            '      __        __  _  _   _ ',
-            '      \ \      / / | || \ | |',
-            '       \ \ /\ / /  | ||  \| |',
-            '        \ V  V /   | || |\  |',
-            '         \_/\_/    |_||_| \_|',
-            '',
-            'RustDesk Setup Toolkit By MagnetarMan',
-            '       Version 2.2.4 (Build 1)'
-        )
-
-        foreach ($line in $asciiArt) {
-            if ($line -ne '') {
-                Write-Host (Center-Text -Text $line -Width $width) -ForegroundColor White
-            }
-            else {
-                Write-Host ''
-            }
-        }
-
-        Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-        Write-Host ''
-    }
-
-    function Write-StyledMessage([string]$Type, [string]$Text) {
-        $style = $MsgStyles[$Type]
-        Write-Host "$($style.Icon) $Text" -ForegroundColor $style.Color
-    }
-
-    function Clear-ConsoleLine {
-        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-        Write-Host $clearLine -NoNewline
-        [Console]::Out.Flush()
-    }
-
+    # Funzioni Helper Locali
     function Stop-RustDeskComponents {
         $servicesFound = $false
         foreach ($service in @("RustDesk", "rustdesk")) {
@@ -5319,7 +5251,7 @@ function SetRustDesk {
     function Download-RustDeskInstaller {
         param([string]$DownloadPath)
 
-        Write-StyledMessage Progress "Download installer RustDesk in corso..."
+        Write-StyledMessage Info "Download installer RustDesk in corso..."
         $releaseInfo = Get-LatestRustDeskRelease
         if (-not $releaseInfo) { return $false }
 
@@ -5352,7 +5284,7 @@ function SetRustDesk {
     function Install-RustDesk {
         param([string]$InstallerPath)
 
-        Write-StyledMessage Progress "Installazione RustDesk"
+        Write-StyledMessage Info "Installazione RustDesk"
         
         try {
             $installArgs = "/i", "`"$InstallerPath`"", "/quiet", "/norestart"
@@ -5375,7 +5307,7 @@ function SetRustDesk {
     }
 
     function Clear-RustDeskConfig {
-        Write-StyledMessage Progress "Pulizia configurazioni esistenti..."
+        Write-StyledMessage Info "Pulizia configurazioni esistenti..."
         $rustDeskDir = "$env:APPDATA\RustDesk"
         $configDir = "$rustDeskDir\config"
 
@@ -5400,7 +5332,7 @@ function SetRustDesk {
     }
 
     function Download-RustDeskConfigFiles {
-        Write-StyledMessage Progress "Download file di configurazione..."
+        Write-StyledMessage Info "Download file di configurazione..."
         $configDir = "$env:APPDATA\RustDesk\config"
         
         try {
@@ -5442,44 +5374,7 @@ function SetRustDesk {
         }
     }
 
-    function Start-CountdownRestart([string]$Reason) {
-        Write-StyledMessage Info "🔄 $Reason - Il sistema verrà riavviato"
-        Write-StyledMessage Info "💡 Premi un tasto qualsiasi per annullare..."
-
-        for ($i = $CountdownSeconds; $i -gt 0; $i--) {
-            if ([Console]::KeyAvailable) {
-                [Console]::ReadKey($true) | Out-Null
-                Write-Host "`n"
-                Write-StyledMessage Warning "⏸️ Riavvio annullato dall'utente"
-                return $false
-            }
-
-            $percent = [Math]::Round((($CountdownSeconds - $i) / $CountdownSeconds) * 100)
-            $filled = [Math]::Floor($percent * 20 / 100)
-            $remaining = 20 - $filled
-            $bar = "[$('█' * $filled)$('░' * $remaining)] $percent%"
-            
-            Write-Host "`r⏰ Riavvio automatico tra $i secondi $bar" -NoNewline -ForegroundColor Red
-            [Console]::Out.Flush()
-            Start-Sleep 1
-        }
-
-        Clear-ConsoleLine
-        Write-Host "`n"
-        Write-StyledMessage Warning "⏰ Riavvio del sistema..."
-        
-        try {
-            Restart-Computer -Force
-            return $true
-        }
-        catch {
-            Write-StyledMessage Error "Errore durante riavvio: $($_.Exception.Message)"
-            return $false
-        }
-    }
-
     # === ESECUZIONE PRINCIPALE ===
-    Show-Header
     Write-StyledMessage Info "🚀 AVVIO CONFIGURAZIONE RUSTDESK"
 
     try {
@@ -5516,7 +5411,11 @@ function SetRustDesk {
         Write-Host ""
         Write-StyledMessage Success "🎉 CONFIGURAZIONE RUSTDESK COMPLETATA"
         Write-StyledMessage Info "🔄 Per applicare le modifiche il PC verrà riavviato"
-        Start-CountdownRestart -Reason "Per applicare le modifiche è necessario riavviare il sistema"
+        
+        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Per applicare le modifiche è necessario riavviare il sistema"
+        if ($shouldReboot) {
+            Restart-Computer -Force
+        }
     }
     catch {
         Write-StyledMessage Error "ERRORE CRITICO: $($_.Exception.Message)"
