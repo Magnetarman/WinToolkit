@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.4.2 (Build 18) - 2025-11-26 - Refactored
+    Versione 2.4.2 (Build 19) - 2025-11-26
     Compatibile con PowerShell 5.1+
 #>
 
@@ -237,11 +237,11 @@ function Install-PowerShell7 {
         $installer = "$env:TEMP\$($asset.name)"
         Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installer -UseBasicParsing
         
-        Write-StyledMessage -Type Info -Text "Installazione PowerShell 7.5.2 (max 3 min)..."
-        
+        Write-StyledMessage -Type Info -Text "Avvio installatore PowerShell 7.5.2. Completare l'installazione..."
+
         $installParams = @{
             FilePath     = "msiexec.exe"
-            ArgumentList = "/i `"$installer`" /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1 /qn"
+            ArgumentList = "/i `"$installer`" /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1"
             Wait         = $true
             PassThru     = $true
         }
@@ -445,7 +445,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.4.2 (Build 18)'
+        '        Version 2.4.2 (Build 19)'
     ) | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
