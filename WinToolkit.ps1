@@ -3365,8 +3365,10 @@ function WinCleaner {
     Write-StyledMessage -Type 'Info' -Text "=================================================="
     Write-Host "`n"
 
-    Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio sistema in"
-    Restart-Computer -Force
+    $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio sistema in"
+    if ($shouldReboot) {
+        Restart-Computer -Force
+    }
 }
 function SetRustDesk {
     <#
