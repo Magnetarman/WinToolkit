@@ -6,9 +6,6 @@ function WinCleaner {
     .DESCRIPTION
         Esegue una pulizia completa utilizzando un motore basato su regole.
         Include protezione vitale per cartelle critiche e gestione unificata di file, registro e servizi.
-
-    .PARAMETER CountdownSeconds
-        Secondi di countdown prima del riavvio automatico (default: 30)
     #>
     [CmdletBinding()]
     param(
