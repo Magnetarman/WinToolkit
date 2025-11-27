@@ -2774,7 +2774,8 @@ function WinCleaner {
                         foreach ($item in $subItems) {
                             try {
                                 $item | Remove-Item -Force -ErrorAction Stop
-                            } catch { continue }
+                            }
+                            catch { continue }
                         }
                     }
                 }
@@ -3284,10 +3285,6 @@ function WinCleaner {
     foreach ($rule in $Rules) {
         $currentStep++
         Show-ProgressBar -Activity "Esecuzione regole" -Status $rule.Name -Percent ([int](($currentStep / $totalSteps) * 100)) -Icon '⚙️'
-        
-        # Pulisci la riga della progress bar prima di stampare i messaggi della regola
-        Write-Host "`r$(' ' * 120)" -NoNewline
-        Write-Host "`r" -NoNewline
 
         Invoke-WinCleanerRule -Rule $rule | Out-Null
         Start-Sleep -Milliseconds 200
