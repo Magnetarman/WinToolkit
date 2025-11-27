@@ -77,7 +77,17 @@ foreach ($file in $toolFiles) {
     try {
         # Leggi il contenuto del file come array di righe
         $fileLines = Get-Content $file.FullName -Encoding UTF8 -ErrorAction Stop
-        
+
+        # Verifica sintassi
+        $Error.Clear()
+        $parseErrors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(($fileLines -join "`n"), [ref]$parseErrors, [ref]$null)
+        if ($parseErrors.Count -gt 0) {
+            Write-StyledMessage 'Error' "Errori di sintassi in '$($file.Name)': $($parseErrors | ForEach-Object { $_.Message } -join '; ')"
+            $errorCount++
+            continue
+        }
+
         # Gestione file vuoto
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
             Write-StyledMessage 'Warning' "File '$($file.Name)' è vuoto - inserimento codice di sviluppo"
