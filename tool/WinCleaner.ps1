@@ -282,44 +282,6 @@ function WinCleaner {
                     $null = & cmd /c "icacls `"$path`" /T /grant `"${adminAccount}:F`" >nul 2>&1"
                 }
 
-                if ($filesOnly) {
-                    # Optimized for massive folders: Get-ChildItem can hang on huge directories.
-                    # We use a try/catch approach with Force.
-                    try {
-                        $items = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue
-                        foreach ($item in $items) {
-                            try {
-                                $item | Remove-Item -Recurse -Force -Confirm:$false -ErrorAction Stop | Out-Null
-                                $count++
-                            }
-                            catch { continue }
-                        }
-                    }
-                    catch {
-                        # Fallback if enumeration fails
-                        Write-StyledMessage -Type 'Warning' -Text "Impossibile enumerare $path, tentativo pulizia diretta..."
-                    }
-                }
-                else {
-                    # Two-way approach for folders
-                    try {
-                        # Attempt 1: Fast removal of the folder itself
-                        Remove-Item -Path $path -Recurse -Force -Confirm:$false -ErrorAction Stop | Out-Null
-                        $count++
-                    }
-                    catch {
-                        # Attempt 2: Iterate and delete content if root deletion fails (e.g. open files)
-                        $subItems = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue
-                        foreach ($item in $subItems) {
-                            try {
-                                $item | Remove-Item -Recurse -Force -Confirm:$false -ErrorAction Stop | Out-Null
-                            }
-                            catch { continue }
-                        }
-                    }
-                }
-            }
-            catch {
                 Write-StyledMessage -Type 'Warning' -Text "Errore rimozione $path : $_"
             }
         }
