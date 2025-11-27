@@ -1249,8 +1249,589 @@ function Invoke-WPFUpdatesEnable {
     Write-StyledMessage Info '📝 Se necessario, riavvia il sistema per applicare tutte le modifiche.'
 
 }
-#function WinReinstallStore {}
-#function WinBackupDriver {}
+function WinReinstallStore {
+    <#
+    .SYNOPSIS
+        Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
+
+    .DESCRIPTION
+        Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
+
+    #>
+    param([int]$CountdownSeconds = 30, [switch]$NoReboot)
+
+    Initialize-ToolLogging -ToolName "WinReinstallStore"
+    Show-Header -SubTitle "Store Repair Toolkit"
+
+    function Stop-InterferingProcesses {
+        @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore",
+            "Microsoft.DesktopAppInstaller", "RuntimeBroker", "dllhost") | ForEach-Object {
+            Get-Process -Name $_ -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        }
+        Start-Sleep 2
+    }
+    
+    function Test-WingetAvailable {
+        try {
+            $env:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+            $null = & winget --version 2>$null
+            return $LASTEXITCODE -eq 0
+        }
+        catch { return $false }
+    }
+    
+    function Install-WingetSilent {
+        Write-StyledMessage Info "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
+        Stop-InterferingProcesses
+
+        $originalPos = [Console]::CursorTop
+        try {
+            # Soppressione completa dell'output
+            $ErrorActionPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
+            $VerbosePreference = 'SilentlyContinue'
+
+            # --- FASE 1: Inizializzazione e Pulizia Profonda ---
+            
+            # Terminazione Processi
+            Write-StyledMessage Info "🔄 Chiusura forzata dei processi Winget e correlati..."
+            @("winget", "WindowsPackageManagerServer") | ForEach-Object {
+                Get-Process -Name $_ -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+                taskkill /im "$_.exe" /f 2>$null
+            }
+            Start-Sleep 2
+
+            # Pulizia Cartella Temporanea
+            Write-StyledMessage Info "🔄 Pulizia dei file temporanei (%TEMP%\WinGet)..."
+            $tempWingetPath = "$env:TEMP\WinGet"
+            if (Test-Path $tempWingetPath) {
+                Remove-Item -Path $tempWingetPath -Recurse -Force -ErrorAction SilentlyContinue *>$null
+                Write-StyledMessage Info "Cartella temporanea di Winget eliminata."
+            }
+            else {
+                Write-StyledMessage Info "Cartella temporanea di Winget non trovata o già pulita."
+            }
+
+            # Reset Sorgenti Winget
+            Write-StyledMessage Info "🔄 Reset delle sorgenti di Winget..."
+            $wingetExePath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
+            if (Test-Path $wingetExePath) {
+                & $wingetExePath source reset --force *>$null
+            }
+            else {
+                winget source reset --force *>$null
+            }
+            Write-StyledMessage Info "Sorgenti Winget resettate."
+
+            # --- FASE 2: Installazione Dipendenze e Moduli PowerShell ---
+            
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+            # Installazione Provider NuGet
+            Write-StyledMessage Info "🔄 Installazione del PackageProvider NuGet..."
+            try {
+                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
+                Write-StyledMessage Success "Provider NuGet installato/verificato."
+            }
+            catch {
+                Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe essere già installato o richiedere conferma manuale."
+            }
+
+            # Installazione Modulo Microsoft.WinGet.Client
+            Write-StyledMessage Info "🔄 Installazione e importazione del modulo Microsoft.WinGet.Client..."
+            Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
+            Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
+            Write-StyledMessage Success "Modulo Microsoft.WinGet.Client installato e importato."
+
+            # --- FASE 3: Riparazione e Reinstallazione del Core di Winget ---
+
+            # Tentativo A (Riparazione via Modulo)
+            Write-StyledMessage Info "🔄 Tentativo di riparazione Winget tramite il modulo WinGet Client..."
+            if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
+                $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
+                Start-Sleep 5
+                if (Test-WingetAvailable) {
+                    Write-StyledMessage Success "Winget riparato con successo tramite modulo."
+                    # Procedi al reset Appx
+                }
+            }
+
+            # Tentativo B (Reinstallazione tramite MSIXBundle - Fallback)
+            if (-not (Test-WingetAvailable)) {
+                Write-StyledMessage Info "🔄 Scarico e installo Winget tramite MSIXBundle (metodo fallback)..."
+                $url = "https://aka.ms/getwinget"
+                $temp = "$env:TEMP\WingetInstaller.msixbundle"
+                if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
+
+                Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
+                $process = Start-Process powershell -ArgumentList @(
+                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                    "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
+                ) -Wait -PassThru -WindowStyle Hidden
+
+                Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
+                Start-Sleep 5
+                if (Test-WingetAvailable) {
+                    Write-StyledMessage Success "Winget installato con successo tramite MSIXBundle."
+                }
+            }
+
+            # --- FASE 4: Reset dell'App Installer Appx ---
+            Write-StyledMessage Info "🔄 Reset dell'App 'Programma di installazione app' (Microsoft.DesktopAppInstaller)..."
+            try {
+                Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage *>$null
+                Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
+            }
+            catch {
+                Write-StyledMessage Warning "Impossibile resettare l'App 'Programma di installazione app'. Errore: $($_.Exception.Message)"
+            }
+
+            # --- FASE 5: Gestione Output Finale e Valore di Ritorno ---
+            
+            # Reset cursore e flush output
+            [Console]::SetCursorPosition(0, $originalPos)
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
+            
+            Start-Sleep 2
+            $finalCheck = Test-WingetAvailable
+            
+            if ($finalCheck) {
+                Write-StyledMessage Success "Winget è stato processato e sembra funzionante."
+                return $true
+            }
+            else {
+                Write-StyledMessage Error "❌ Impossibile installare o riparare Winget dopo tutti i tentativi."
+                return $false
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore critico in Install-WingetSilent: $($_.Exception.Message)"
+            return $false
+        }
+        finally {
+            # Reset delle preferenze
+            $ErrorActionPreference = 'Continue'
+            $ProgressPreference = 'Continue'
+            $VerbosePreference = 'SilentlyContinue'
+        }
+    }
+    
+    function Install-MicrosoftStoreSilent {
+        Write-StyledMessage Info "🔄 Reinstallazione Microsoft Store in corso..."
+        
+        $originalPos = [Console]::CursorTop
+        try {
+            # Soppressione completa dell'output
+            $ErrorActionPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
+            $VerbosePreference = 'SilentlyContinue'
+            
+            @("AppXSvc", "ClipSVC", "WSService") | ForEach-Object {
+                try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch {}
+            }
+
+            @("$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
+                "$env:LOCALAPPDATA\Microsoft\Windows\INetCache") | ForEach-Object {
+                if (Test-Path $_) { Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null }
+            }
+
+            $methods = @(
+                {
+                    if (Test-WingetAvailable) {
+                        $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                        return $process.ExitCode -eq 0
+                    }
+                    return $false
+                },
+                {
+                    $store = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue
+                    if ($store) {
+                        $store | ForEach-Object {
+                            $manifest = "$($_.InstallLocation)\AppXManifest.xml"
+                            if (Test-Path $manifest) {
+                                $process = Start-Process powershell -ArgumentList @(
+                                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                                    "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
+                                ) -Wait -PassThru -WindowStyle Hidden
+                            }
+                        }
+                        return $true
+                    }
+                    return $false
+                },
+                {
+                    $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
+                    return $process.ExitCode -eq 0
+                }
+            )
+
+            foreach ($method in $methods) {
+                try {
+                    if (& $method) {
+                        Start-Process wsreset.exe -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue *>$null
+                        
+                        # Reset cursore e flush output
+                        [Console]::SetCursorPosition(0, $originalPos)
+                        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                        Write-Host $clearLine -NoNewline
+                        [Console]::Out.Flush()
+                        
+                        return $true
+                    }
+                }
+                catch { continue }
+            }
+            return $false
+        }
+        finally {
+            # Reset delle preferenze
+            $ErrorActionPreference = 'Continue'
+            $ProgressPreference = 'Continue'
+            $VerbosePreference = 'SilentlyContinue'
+        }
+    }
+    
+    function Install-UniGetUISilent {
+        Write-StyledMessage Info "🔄 Reinstallazione UniGet UI in corso..."
+        if (-not (Test-WingetAvailable)) { return $false }
+
+        $originalPos = [Console]::CursorTop
+        try {
+            # Soppressione completa dell'output
+            $ErrorActionPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
+            $VerbosePreference = 'SilentlyContinue'
+            
+            $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
+    
+            if ($process.ExitCode -eq 0) {
+                Write-StyledMessage Info "🔄 Disabilitazione avvio automatico UniGet UI..."
+                try {
+                    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+                    $regKeyName = "WingetUI"
+                    if (Test-Path -Path "$regPath\$regKeyName") {
+                        Remove-ItemProperty -Path $regPath -Name $regKeyName -ErrorAction Stop | Out-Null
+                        Write-StyledMessage Success "Avvio automatico UniGet UI disabilitato."
+                    }
+                    else {
+                        Write-StyledMessage Info "La voce di avvio automatico per UniGet UI non è stata trovata o non è necessaria."
+                    }
+                }
+                catch {
+                    Write-StyledMessage Warning "Impossibile disabilitare l'avvio automatico di UniGet UI: $($_.Exception.Message)"
+                }
+            }
+    
+            # Reset cursore e flush output
+            [Console]::SetCursorPosition(0, $originalPos)
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
+            
+            return $process.ExitCode -eq 0
+        }
+        catch {
+            return $false
+        }
+        finally {
+            # Reset delle preferenze
+            $ErrorActionPreference = 'Continue'
+            $ProgressPreference = 'Continue'
+            $VerbosePreference = 'SilentlyContinue'
+        }
+    }
+    
+    Write-StyledMessage Info "🚀 AVVIO REINSTALLAZIONE STORE"
+
+    try {
+        $wingetResult = Install-WingetSilent
+        Write-StyledMessage $(if ($wingetResult) { 'Success' }else { 'Warning' }) "Winget $(if($wingetResult){'installato'}else{'processato'})"
+
+        $storeResult = Install-MicrosoftStoreSilent
+        if (-not $storeResult) {
+            Write-StyledMessage Error "Errore installazione Microsoft Store"
+            Write-StyledMessage Info "Verifica: Internet, Admin, Windows Update"
+            return
+        }
+        Write-StyledMessage Success "Microsoft Store installato"
+
+        $unigetResult = Install-UniGetUISilent
+        Write-StyledMessage $(if ($unigetResult) { 'Success' }else { 'Warning' }) "UniGet UI $(if($unigetResult){'installato'}else{'processato'})"
+
+        Write-Host ""
+        Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA"
+
+        if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario per applicare le modifiche") {
+            Write-StyledMessage Info "🔄 Riavvio in corso..."
+            if (-not $NoReboot) {
+                Restart-Computer -Force
+            }
+        }
+    }
+    catch {
+        Write-StyledMessage Error "❌ ERRORE: $($_.Exception.Message)"
+        Write-StyledMessage Info "💡 Esegui come Admin, verifica Internet e Windows Update"
+        try { Stop-Transcript | Out-Null } catch {}
+    }
+    finally {
+        Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
+        Read-Host
+        try { Stop-Transcript | Out-Null } catch {}
+    }
+
+}
+function WinBackupDriver {
+    <#
+    .SYNOPSIS
+        Strumento di backup completo per i driver di sistema Windows.
+
+    .DESCRIPTION
+        Script PowerShell per eseguire il backup completo di tutti i driver di terze parti
+        installati sul sistema. Il processo include l'esportazione tramite DISM, compressione
+        in formato ZIP e spostamento automatico sul desktop con nomenclatura data-based.
+        Ideale per il backup pre-format o per la migrazione dei driver su un nuovo sistema.
+    #>
+    param([int]$CountdownSeconds = 10)
+    
+    Initialize-ToolLogging -ToolName "WinBackupDriver"
+    Show-Header -SubTitle "Driver Backup Toolkit"
+    
+    $dt = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $BackupDir = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
+    $ZipName = "DriverBackup_$dt"
+    $DesktopPath = [Environment]::GetFolderPath('Desktop')
+    $FinalZipPath = "$DesktopPath\$ZipName.zip"
+    
+    function Test-Admin {
+        $u = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $p = New-Object Security.Principal.WindowsPrincipal($u)
+        return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    }
+    
+    function Export-Drivers {
+        Write-StyledMessage Info "💾 Avvio esportazione driver di terze parti..."
+        try {
+            if (Test-Path $BackupDir) {
+                Write-StyledMessage Warning "Cartella backup esistente trovata, rimozione in corso..."
+                $pos = [Console]::CursorTop
+                $ErrorActionPreference = 'SilentlyContinue'
+                $ProgressPreference = 'SilentlyContinue'
+                Remove-Item $BackupDir -Recurse -Force -EA SilentlyContinue | Out-Null
+                [Console]::SetCursorPosition(0, $pos)
+                Write-Host ("`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r") -NoNewline
+                [Console]::Out.Flush()
+                $ErrorActionPreference = 'Continue'
+                $ProgressPreference = 'Continue'
+                Start-Sleep 1
+            }
+            
+            New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
+            Write-StyledMessage Success "Cartella backup creata: $BackupDir"
+            Write-StyledMessage Info "🔧 Esecuzione DISM per esportazione driver..."
+            Write-StyledMessage Info "💡 Questa operazione può richiedere diversi minuti..."
+            
+            $proc = Start-Process 'dism.exe' -ArgumentList @('/online', '/export-driver', "/destination:`"$BackupDir`"") -NoNewWindow -PassThru -Wait
+            
+            if ($proc.ExitCode -eq 0) {
+                $drivers = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
+                if ($drivers -and $drivers.Count -gt 0) {
+                    Write-StyledMessage Success "Driver esportati con successo!"
+                    Write-StyledMessage Info "Driver trovati: $($drivers.Count)"
+                }
+                else {
+                    Write-StyledMessage Warning "Nessun driver di terze parti trovato da esportare"
+                    Write-StyledMessage Info "💡 I driver integrati di Windows non vengono esportati"
+                }
+                return $true
+            }
+            Write-StyledMessage Error "Errore durante esportazione DISM (Exit code: $($proc.ExitCode))"
+            return $false
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante esportazione driver: $_"
+            return $false
+        }
+    }
+    
+    function Compress-Backup {
+        Write-StyledMessage Info "📦 Compressione cartella backup..."
+        try {
+            if (-not (Test-Path $BackupDir)) {
+                Write-StyledMessage Error "Cartella backup non trovata"
+                return $false
+            }
+            
+            $files = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
+            if (-not $files -or $files.Count -eq 0) {
+                Write-StyledMessage Warning "Nessun file da comprimere nella cartella backup"
+                return $false
+            }
+            
+            $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
+            $totalMB = [Math]::Round($totalSize / 1MB, 2)
+            Write-StyledMessage Info "Dimensione totale: $totalMB MB"
+            
+            $tempZip = "$env:TEMP\$ZipName.zip"
+            if (Test-Path $tempZip) { Remove-Item $tempZip -Force -EA SilentlyContinue }
+            
+            Write-StyledMessage Info "🔄 Compressione in corso..."
+            $job = Start-Job -ScriptBlock {
+                param($b, $t)
+                Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force
+            } -ArgumentList $BackupDir, $tempZip
+            
+            $prog = 0
+            $spinnerIndex = 0
+            while ($job.State -eq 'Running') {
+                $prog += Get-Random -Minimum 1 -Maximum 5
+                if ($prog -gt 95) { $prog = 95 }
+                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                Show-ProgressBar "Compressione" "Elaborazione file..." $prog '📦' $spinner
+                Start-Sleep -Milliseconds 500
+            }
+            
+            Receive-Job $job -Wait | Out-Null
+            Remove-Job $job
+            Show-ProgressBar "Compressione" "Completato!" 100 '📦'
+            Write-Host ''
+            
+            if (Test-Path $tempZip) {
+                $zipMB = [Math]::Round((Get-Item $tempZip).Length / 1MB, 2)
+                Write-StyledMessage Success "Compressione completata!"
+                Write-StyledMessage Info "Archivio creato: $tempZip ($zipMB MB)"
+                return $tempZip
+            }
+            Write-StyledMessage Error "File ZIP non creato"
+            return $false
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante compressione: $_"
+            return $false
+        }
+    }
+    
+    function Move-ToDesktop([string]$ZipPath) {
+        Write-StyledMessage Info "📂 Spostamento archivio sul desktop..."
+        try {
+            if (-not (Test-Path $ZipPath)) {
+                Write-StyledMessage Error "File ZIP non trovato: $ZipPath"
+                return $false
+            }
+            Move-Item $ZipPath $FinalZipPath -Force -EA Stop
+            if (Test-Path $FinalZipPath) {
+                Write-StyledMessage Success "Archivio spostato sul desktop!"
+                Write-StyledMessage Info "Posizione: $FinalZipPath"
+                return $true
+            }
+            Write-StyledMessage Error "Errore durante spostamento sul desktop"
+            return $false
+        }
+        catch {
+            Write-StyledMessage Error "Errore spostamento: $_"
+            return $false
+        }
+    }
+    
+    function Show-Summary {
+        Write-Host ''
+        Write-StyledMessage Success "🎉 Backup driver completato con successo!"
+        Write-Host ''
+        Write-StyledMessage Info "📁 Posizione archivio:"
+        Write-Host "  $FinalZipPath" -ForegroundColor Cyan
+        Write-Host ''
+        Write-StyledMessage Info "💡 IMPORTANTE:"
+        Write-StyledMessage Info "  📄 Salva questo archivio in un luogo sicuro!"
+        Write-StyledMessage Info "  💾 Potrai utilizzarlo per reinstallare tutti i driver"
+        Write-StyledMessage Info "  🔧 Senza doverli riscaricare singolarmente"
+        Write-Host ''
+    }
+    
+    if (-not (Test-Admin)) {
+        Write-StyledMessage Error " Questo script richiede privilegi amministrativi!"
+        Write-StyledMessage Info "💡 Riavvia PowerShell come Amministratore e riprova"
+        Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+        Read-Host | Out-Null
+        return
+    }
+    
+    Write-Host "⏳ Inizializzazione sistema..." -ForegroundColor Yellow
+    Start-Sleep 2
+    Write-Host "✅ Sistema pronto`n" -ForegroundColor Green
+    
+    try {
+        Write-Host ('─' * 50) -ForegroundColor Gray
+        Write-StyledMessage Info "📋 FASE 1: ESPORTAZIONE DRIVER"
+        Write-Host ('─' * 50) -ForegroundColor Gray
+        Write-Host ''
+        
+        if (-not (Export-Drivers)) {
+            Write-StyledMessage Error "Esportazione driver fallita"
+            Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+            Read-Host | Out-Null
+            return
+        }
+        
+        Write-Host ''
+        Write-Host ('─' * 50) -ForegroundColor Gray
+        Write-StyledMessage Info "📋 FASE 2: COMPRESSIONE ARCHIVIO"
+        Write-Host ('─' * 50) -ForegroundColor Gray
+        Write-Host ''
+        
+        $zip = Compress-Backup
+        if (-not $zip) {
+            Write-StyledMessage Error "Compressione fallita"
+            Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+            Read-Host | Out-Null
+            return
+        }
+        
+        Write-Host ''
+        Write-Host ('─' * 50) -ForegroundColor Gray
+        Write-StyledMessage Info "📋 FASE 3: SPOSTAMENTO DESKTOP"
+        Write-Host ('─' * 50) -ForegroundColor Gray
+        Write-Host ''
+        
+        if (-not (Move-ToDesktop $zip)) {
+            Write-StyledMessage Error "Spostamento sul desktop fallito"
+            Write-StyledMessage Warning "💡 L'archivio potrebbe essere ancora nella cartella temporanea"
+            Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+            Read-Host | Out-Null
+            return
+        }
+        
+        Write-Host ('─' * 50) -ForegroundColor Gray
+        Write-StyledMessage Info "📋 BACKUP COMPLETATO"
+        Write-Host ('─' * 50) -ForegroundColor Gray
+        Write-Host ''
+        Show-Summary
+        
+    }
+    catch {
+        Write-StyledMessage Error "Errore critico durante il backup: $($_.Exception.Message)"
+        Write-StyledMessage Info "💡 Controlla i log per dettagli o contatta il supporto"
+    }
+    finally {
+        Write-StyledMessage Info "🧹 Pulizia cartella temporanea..."
+        if (Test-Path $BackupDir) {
+            $pos = [Console]::CursorTop
+            $ErrorActionPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
+            Remove-Item $BackupDir -Recurse -Force -EA SilentlyContinue | Out-Null
+            [Console]::SetCursorPosition(0, $pos)
+            Write-Host ("`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r") -NoNewline
+            [Console]::Out.Flush()
+            $ErrorActionPreference = 'Continue'
+            $ProgressPreference = 'Continue'
+        }
+        Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+        Read-Host | Out-Null
+        Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
+        try { Stop-Transcript | Out-Null } catch {}
+    }
+
+}
 #function WinDriverInstall {}
 #function OfficeToolkit {}
 #function WinCleaner {}
