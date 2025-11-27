@@ -225,13 +225,33 @@ function WinCleaner {
                 }
 
                 if ($filesOnly) {
-                    $items = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue
-                    $items | Remove-Item -Force -ErrorAction SilentlyContinue
-                    $count += $items.Count
+                    # Aggiunto -Force per vedere file nascosti/sistema
+                    $items = Get-ChildItem -Path $path -Recurse -File -Force -ErrorAction SilentlyContinue
+                    foreach ($item in $items) {
+                        try {
+                            $item | Remove-Item -Force -ErrorAction Stop
+                            $count++
+                        }
+                        catch {
+                            # File in uso o bloccato - ignoriamo silenziosamente
+                            continue
+                        }
+                    }
                 }
                 else {
-                    Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
-                    $count++
+                    try {
+                        Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
+                        $count++
+                    }
+                    catch {
+                        # Se fallisce la rimozione della cartella root, proviamo a svuotarla
+                        $subItems = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue
+                        foreach ($item in $subItems) {
+                            try {
+                                $item | Remove-Item -Force -ErrorAction Stop
+                            } catch { continue }
+                        }
+                    }
                 }
             }
             catch {
@@ -461,12 +481,10 @@ function WinCleaner {
                 "C:\WINDOWS\Logs",
                 "C:\WINDOWS\System32\LogFiles",
                 "C:\ProgramData\Microsoft\Windows\WER\ReportQueue",
-                "%SYSTEMROOT%\Temp\CBS",
                 "%SYSTEMROOT%\Logs\waasmedic",
                 "%SYSTEMROOT%\Logs\SIH",
                 "%SYSTEMROOT%\Logs\NetSetup",
                 "%SYSTEMROOT%\System32\LogFiles\setupcln",
-                "%SYSTEMROOT%\Traces\WindowsUpdate",
                 "%SYSTEMROOT%\Panther",
                 "%SYSTEMROOT%\comsetup.log",
                 "%SYSTEMROOT%\DtcInstall.log",
@@ -477,16 +495,8 @@ function WinCleaner {
                 "%SYSTEMROOT%\inf\setupapi.dev.log",
                 "%SYSTEMROOT%\inf\setupapi.offline.log",
                 "%SYSTEMROOT%\Performance\WinSAT\winsat.log",
-                "%SYSTEMROOT%\debug\PASSWD.LOG",
-                "%SYSTEMROOT%\System32\catroot2\dberr.txt",
-                "%SYSTEMROOT%\System32\catroot2.log",
-                "%SYSTEMROOT%\System32\catroot2.jrs",
-                "%SYSTEMROOT%\System32\catroot2.edb",
-                "%SYSTEMROOT%\System32\catroot2.chk",
-                "%SYSTEMROOT%\Logs\DISM\DISM.log",
-                "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\AutoLogger\AutoLogger-Diagtrack-Listener.etl",
-                "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\ShutdownLogger\AutoLogger-Diagtrack-Listener.etl"
-            ); FilesOnly = $true 
+                "%SYSTEMROOT%\debug\PASSWD.LOG"
+            ); FilesOnly = $true
         }
 
         # --- User Registry History (Consolidato) ---
@@ -749,6 +759,11 @@ function WinCleaner {
     foreach ($rule in $Rules) {
         $currentStep++
         Show-ProgressBar -Activity "Esecuzione regole" -Status $rule.Name -Percent ([int](($currentStep / $totalSteps) * 100)) -Icon '⚙️'
+        
+        # Pulisci la riga della progress bar prima di stampare i messaggi della regola
+        Write-Host "`r$(' ' * 120)" -NoNewline
+        Write-Host "`r" -NoNewline
+
         Invoke-WinCleanerRule -Rule $rule | Out-Null
         Start-Sleep -Milliseconds 200
     }
