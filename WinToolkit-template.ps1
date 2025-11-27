@@ -5,7 +5,7 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.4.2 - 26/11/2025
+    Versione: 2.5.0 - 27/11/2025
     Autore: MagnetarMan
 #>
 
@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.4.2 (Build 113)"
+$ToolkitVersion = "2.5.0 (Build 113)"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -26,7 +26,7 @@ $Global:MsgStyles = @{
     Progress = @{ Icon = '🔄'; Color = 'Magenta' }
 }
 
-# --- FUNZIONI HELPER CONDIVISE (DRY) ---
+# --- FUNZIONI HELPER CONDIVISE ---
 
 function Write-StyledMessage {
     param(
