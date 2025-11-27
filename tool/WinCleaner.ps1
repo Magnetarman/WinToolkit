@@ -242,7 +242,7 @@ function WinCleaner {
             return $true
         }
         catch {
-            Write-StyledMessage Warning "Errore servizio $svcName: $_"
+            Write-StyledMessage Warning "Errore servizio $svcName : $_"
             return $false
         }
     }
@@ -302,7 +302,7 @@ function WinCleaner {
                 }
             }
             catch {
-                Write-StyledMessage Warning "Errore rimozione $path: $_"
+                Write-StyledMessage Warning "Errore rimozione $path : $_"
             }
         }
         if ($count -gt 0) { Write-StyledMessage Success "🗑️ Puliti $count elementi in $($Rule.Name)" }
@@ -338,7 +338,7 @@ function WinCleaner {
                 }
             }
             catch {
-                Write-StyledMessage Warning "Errore registro $key: $_"
+                Write-StyledMessage Warning "Errore registro $key : $_"
             }
         }
         return $true
@@ -408,7 +408,7 @@ function WinCleaner {
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage Info "📜 Pulizia Event Logs..."
                 # Set permissions for LiveId log (from old script)
-                & wevtutil sl "Microsoft-Windows-LiveId/Operational" /ca:O:BAG:SYD:(A; ; 0x1; ; ; SY)(A; ; 0x5; ; ; BA)(A; ; 0x1; ; ; LA) 2>$null
+                & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>$null
                 Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object { Wevtutil.exe cl $_.LogName 2>$null }
             }
         }
