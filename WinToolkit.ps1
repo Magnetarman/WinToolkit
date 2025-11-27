@@ -3011,7 +3011,7 @@ function WinCleaner {
                 "%SYSTEMROOT%\Logs\DISM\DISM.log",
                 "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\AutoLogger\AutoLogger-Diagtrack-Listener.etl",
                 "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\ShutdownLogger\AutoLogger-Diagtrack-Listener.etl"
-            ); FilesOnly = $true; TakeOwnership = $true 
+            ); FilesOnly = $true 
         }
 
         # --- User Registry History (Consolidato) ---
@@ -3274,7 +3274,7 @@ function WinCleaner {
     foreach ($rule in $Rules) {
         $currentStep++
         Show-ProgressBar -Activity "Esecuzione regole" -Status $rule.Name -Percent ([int](($currentStep / $totalSteps) * 100)) -Icon '⚙️'
-        Invoke-WinCleanerRule -Rule $rule
+        Invoke-WinCleanerRule -Rule $rule | Out-Null
         Start-Sleep -Milliseconds 200
     }
 
