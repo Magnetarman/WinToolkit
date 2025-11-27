@@ -420,28 +420,9 @@ function WinCleaner {
         }
 
         # --- Windows Update ---
-        @{ Name = "Windows Update Cleanup"; Type = "Custom"; ScriptBlock = {
-                Write-StyledMessage Info "🔄 Pulizia cache Windows Update..."
-                try {
-                    Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
-                    Start-Sleep -Seconds 2
-
-                    $paths = @("C:\WINDOWS\SoftwareDistribution\DataStore", "C:\WINDOWS\SoftwareDistribution\Download")
-                    foreach ($p in $paths) {
-                        if (Test-Path $p) {
-                            Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
-                        }
-                    }
-
-                    Start-Service -Name wuauserv -ErrorAction SilentlyContinue
-                    Write-StyledMessage Success "✅ Cache Windows Update pulita"
-                }
-                catch {
-                    Start-Service -Name wuauserv -ErrorAction SilentlyContinue
-                    Write-StyledMessage Warning "Errore pulizia Windows Update: $_"
-                }
-            }
-        }
+        @{ Name = "Stop - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Stop" }
+        @{ Name = "Cleanup - Windows Update Cache"; Type = "File"; Paths = @("C:\WINDOWS\SoftwareDistribution\DataStore", "C:\WINDOWS\SoftwareDistribution\Download"); FilesOnly = $false }
+        @{ Name = "Start - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Start" }
 
         # --- Windows App/Download Cache ---
         @{ Name = "Windows App/Download Cache - System"; Type = "File"; Paths = @("C:\WINDOWS\SoftwareDistribution\Download"); FilesOnly = $true }
@@ -477,47 +458,26 @@ function WinCleaner {
         @{ Name = "Cleanup - Explorer Thumbnail/Icon Cache"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\Explorer"); PerUser = $true; FilesOnly = $true; TakeOwnership = $true }
 
         # --- Browser & Web Cache (Consolidato) ---
-        @{ Name = "WinInet & Internet Cache"; Type = "Custom"; ScriptBlock = {
-                Write-StyledMessage Info "🌐 Pulizia WinInet Cache..."
-                
-                # WinInet Cache paths
-                $winInetPaths = @("$env:LOCALAPPDATA\Microsoft\Windows\INetCache\IE", "$env:LOCALAPPDATA\Microsoft\Windows\WebCache", 
-                    "$env:LOCALAPPDATA\Microsoft\Feeds Cache", "$env:LOCALAPPDATA\Microsoft\InternetExplorer\DOMStore",
-                    "$env:LOCALAPPDATA\Microsoft\Internet Explorer")
-                foreach ($p in $winInetPaths) { if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue } }
-            
-                # Per-user Temp Internet Files
-                $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
-                foreach ($u in $users) {
-                    $p = "$($u.FullName)\Local Settings\Temporary Internet Files"
-                    if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue }
-                }
-            
-                & RunDll32.exe InetCpl.cpl, ClearMyTracksByProcess 8 2>$null
-                & RunDll32.exe InetCpl.cpl, ClearMyTracksByProcess 2 2>$null
-            }
-        }
-        @{ Name = "Internet Cookies"; Type = "Custom"; ScriptBlock = {
-                Write-StyledMessage Info "🍪 Pulizia Cookie..."
-                
-                $cookiePaths = @("%APPDATA%\Microsoft\Windows\Cookies", "%LOCALAPPDATA%\Microsoft\Windows\INetCookies")
-                $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
-                foreach ($u in $users) {
-                    foreach ($rawP in $cookiePaths) {
-                        $p = $rawP -replace '%APPDATA%', "$($u.FullName)\AppData\Roaming" `
-                            -replace '%LOCALAPPDATA%', "$($u.FullName)\AppData\Local"
-                        if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue }
-                    }
-                }
-                & RunDll32.exe InetCpl.cpl, ClearMyTracksByProcess 1 2>$null
-            }
-        }
-        @{ Name = "Chrome Browser Cache"; Type = "File"; Paths = @(
+        @{ Name = "WinInet Cache - User"; Type = "File"; Paths = @(
+                "%LOCALAPPDATA%\Microsoft\Windows\INetCache\IE",
+                "%LOCALAPPDATA%\Microsoft\Windows\WebCache",
+                "%LOCALAPPDATA%\Microsoft\Feeds Cache",
+                "%LOCALAPPDATA%\Microsoft\InternetExplorer\DOMStore",
+                "%LOCALAPPDATA%\Microsoft\Internet Explorer"
+            ); PerUser = $true; FilesOnly = $false }
+        @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @("%USERPROFILE%\Local Settings\Temporary Internet Files"); PerUser = $true; FilesOnly = $false }
+        @{ Name = "Cache/History Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "8") }
+        @{ Name = "Form Data Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "2") }
+        @{ Name = "Internet Cookies Cleanup"; Type = "File"; Paths = @(
+                "%APPDATA%\Microsoft\Windows\Cookies",
+                "%LOCALAPPDATA%\Microsoft\Windows\INetCookies"
+            ); PerUser = $true; FilesOnly = $false }
+        @{ Name = "Cookies Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "1") }
+        @{ Name = "Chrome Browser Cache & Logs"; Type = "File"; Paths = @(
                 "%LOCALAPPDATA%\Google\Chrome\User Data\Crashpad\reports",
-                "%LOCALAPPDATA%\Google\CrashReports"
-            ); PerUser = $true; FilesOnly = $true 
-        }
-        @{ Name = "Chrome SRT Logs"; Type = "File"; Paths = @("%LOCALAPPDATA%\Google\Chrome\User Data\Software Reporter Tool"); PerUser = $true }
+                "%LOCALAPPDATA%\Google\CrashReports",
+                "%LOCALAPPDATA%\Google\Chrome\User Data\Software Reporter Tool"
+            ); PerUser = $true; FilesOnly = $true }
         @{ Name = "Firefox Browser Data"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage Info "🦊 Pulizia Firefox..."
                 
@@ -550,7 +510,7 @@ function WinCleaner {
                 "%LOCALAPPDATA%\Opera\Opera",
                 "%APPDATA%\Opera\Opera",
                 "%APPDATA%\Sun\Java\Deployment\cache"
-            ); PerUser = $true 
+            ); PerUser = $true; FilesOnly = $false 
         }
 
         @{ Name = "DNS Flush"; Type = "Command"; Command = "ipconfig"; Args = @("/flushdns") }
