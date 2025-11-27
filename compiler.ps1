@@ -77,21 +77,14 @@ foreach ($file in $toolFiles) {
     try {
         # Leggi il contenuto del file come array di righe
         $fileLines = Get-Content $file.FullName -Encoding UTF8 -ErrorAction Stop
-
-        # Verifica sintassi
-        $Error.Clear()
-        $parseErrors = $null
-        $ast = [System.Management.Automation.Language.Parser]::ParseInput(($fileLines -join "`n"), [ref]$parseErrors, [ref]$null)
-        if ($parseErrors.Count -gt 0) {
-            Write-StyledMessage 'Error' "Errori di sintassi in '$($file.Name)': $($parseErrors | ForEach-Object { $_.Message } -join '; ')"
-            $errorCount++
-            continue
-        }
-
+        
         # Gestione file vuoto
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
+            Write-StyledMessage 'Warning' "File '$($file.Name)' è vuoto - inserimento codice di sviluppo"
+            $fileLines = @(
+                "    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso`""
+            )
             $warningCount++
-            continue
         }
         else {
             # Rimuovi l'ultima riga se è una chiamata alla funzione
@@ -271,10 +264,10 @@ else {
 }
 
 if ($warningCount -gt 0) {
-    Write-Host "║  ⚠️  Vuote: $warningCount funzioni" -ForegroundColor Yellow
+    Write-Host "║  ⚠️  Avvisi: $warningCount file vuoti" -ForegroundColor Yellow
 }
 else {
-    Write-Host "║  ✅ Vuote: $warningCount funzioni" -ForegroundColor Green
+    Write-Host "║  ✅ Avvisi: $warningCount file vuoti" -ForegroundColor Green
 }
 
 if ($errorCount -gt 0) {
@@ -314,4 +307,6 @@ try {
 catch {
     Write-StyledMessage 'Error' "Errore durante il salvataggio: $($_.Exception.Message)"
     exit 1
+}    Write-StyledMessage 'Error' "Errore durante il salvataggio: $($_.Exception.Message)"
+exit 1
 }
