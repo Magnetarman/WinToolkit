@@ -2524,10 +2524,1017 @@ function OfficeToolkit {
 
 }
 #function WinCleaner {}
-#function SetRustDesk {}
-#function VideoDriverInstall {}
-#function GamingToolkit {}
-#function DisableBitlocker {}
+function SetRustDesk {
+    <#
+    .SYNOPSIS
+        Configura ed installa RustDesk con configurazioni personalizzata su Windows.
+
+    .DESCRIPTION
+        Script ottimizzato per fermare servizi, reinstallare RustDesk e applicare configurazioni personalizzate.
+        Scarica i file di configurazione da repository GitHub e riavvia il sistema per applicare le modifiche.
+    #>
+
+    [CmdletBinding()]
+    param([int]$CountdownSeconds = 30)
+
+    Initialize-ToolLogging -ToolName "SetRustDesk"
+    Show-Header -SubTitle "RustDesk Setup Toolkit"
+
+    # Funzioni Helper Locali
+    function Stop-RustDeskComponents {
+        $servicesFound = $false
+        foreach ($service in @("RustDesk", "rustdesk")) {
+            $serviceObj = Get-Service -Name $service -ErrorAction SilentlyContinue
+            if ($serviceObj) {
+                Stop-Service -Name $service -Force -ErrorAction SilentlyContinue
+                $servicesFound = $true
+            }
+        }
+        
+        if ($servicesFound) {
+            Write-StyledMessage Success "Servizi RustDesk arrestati"
+        }
+
+        $processesFound = $false
+        foreach ($process in @("rustdesk", "RustDesk")) {
+            $runningProcesses = Get-Process -Name $process -ErrorAction SilentlyContinue
+            if ($runningProcesses) {
+                $runningProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+                $processesFound = $true
+            }
+        }
+        
+        if ($processesFound) {
+            Write-StyledMessage Success "Processi RustDesk terminati"
+        }
+        
+        if (-not $servicesFound -and -not $processesFound) {
+            Write-StyledMessage Warning "Nessun componente RustDesk attivo trovato"
+        }
+        
+        Start-Sleep 2
+    }
+
+    function Get-LatestRustDeskRelease {
+        try {
+            $apiUrl = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
+            $response = Invoke-RestMethod -Uri $apiUrl -Method Get -ErrorAction Stop
+            $msiAsset = $response.assets | Where-Object { $_.name -like "rustdesk-*-x86_64.msi" } | Select-Object -First 1
+
+            if ($msiAsset) {
+                return @{
+                    Version     = $response.tag_name
+                    DownloadUrl = $msiAsset.browser_download_url
+                    FileName    = $msiAsset.name
+                }
+            }
+
+            Write-StyledMessage Error "Nessun installer .msi trovato nella release"
+            return $null
+        }
+        catch {
+            Write-StyledMessage Error "Errore connessione GitHub API: $($_.Exception.Message)"
+            return $null
+        }
+    }
+
+    function Download-RustDeskInstaller {
+        param([string]$DownloadPath)
+
+        Write-StyledMessage Info "Download installer RustDesk in corso..."
+        $releaseInfo = Get-LatestRustDeskRelease
+        if (-not $releaseInfo) { return $false }
+
+        Write-StyledMessage Info "📥 Versione rilevata: $($releaseInfo.Version)"
+        $parentDir = Split-Path $DownloadPath -Parent
+        
+        try {
+            if (-not (Test-Path $parentDir)) {
+                New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+            }
+            
+            if (Test-Path $DownloadPath) {
+                Remove-Item $DownloadPath -Force -ErrorAction Stop
+            }
+
+            Invoke-WebRequest -Uri $releaseInfo.DownloadUrl -OutFile $DownloadPath -UseBasicParsing -ErrorAction Stop
+            
+            if (Test-Path $DownloadPath) {
+                Write-StyledMessage Success "Installer $($releaseInfo.FileName) scaricato con successo"
+                return $true
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore download: $($_.Exception.Message)"
+        }
+
+        return $false
+    }
+
+    function Install-RustDesk {
+        param([string]$InstallerPath)
+
+        Write-StyledMessage Info "Installazione RustDesk"
+        
+        try {
+            $installArgs = "/i", "`"$InstallerPath`"", "/quiet", "/norestart"
+            $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop
+            Start-Sleep 10
+
+            if ($process.ExitCode -eq 0) {
+                Write-StyledMessage Success "RustDesk installato"
+                return $true
+            }
+            else {
+                Write-StyledMessage Error "Errore installazione (Exit Code: $($process.ExitCode))"
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante installazione: $($_.Exception.Message)"
+        }
+
+        return $false
+    }
+
+    function Clear-RustDeskConfig {
+        Write-StyledMessage Info "Pulizia configurazioni esistenti..."
+        $rustDeskDir = "$env:APPDATA\RustDesk"
+        $configDir = "$rustDeskDir\config"
+
+        try {
+            if (-not (Test-Path $rustDeskDir)) {
+                New-Item -ItemType Directory -Path $rustDeskDir -Force | Out-Null
+                Write-StyledMessage Info "Cartella RustDesk creata"
+            }
+
+            if (Test-Path $configDir) {
+                Remove-Item $configDir -Recurse -Force -ErrorAction Stop
+                Write-StyledMessage Success "Cartella config eliminata"
+                Start-Sleep 1
+            }
+            else {
+                Write-StyledMessage Warning "Cartella config non trovata"
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore pulizia config: $($_.Exception.Message)"
+        }
+    }
+
+    function Download-RustDeskConfigFiles {
+        Write-StyledMessage Info "Download file di configurazione..."
+        $configDir = "$env:APPDATA\RustDesk\config"
+        
+        try {
+            if (-not (Test-Path $configDir)) {
+                New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+            }
+
+            $configFiles = @(
+                "RustDesk.toml",
+                "RustDesk_local.toml",
+                "RustDesk2.toml"
+            )
+
+            $baseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset"
+            $downloaded = 0
+
+            foreach ($fileName in $configFiles) {
+                $url = "$baseUrl/$fileName"
+                $filePath = Join-Path $configDir $fileName
+                
+                try {
+                    Invoke-WebRequest -Uri $url -OutFile $filePath -UseBasicParsing -ErrorAction Stop
+                    $downloaded++
+                }
+                catch {
+                    Write-StyledMessage Error "Errore download $fileName`: $($_.Exception.Message)"
+                }
+            }
+
+            if ($downloaded -eq $configFiles.Count) {
+                Write-StyledMessage Success "Tutti i file di configurazione scaricati ($downloaded/$($configFiles.Count))"
+            }
+            else {
+                Write-StyledMessage Warning "Scaricati $downloaded/$($configFiles.Count) file di configurazione"
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante download configurazioni: $($_.Exception.Message)"
+        }
+    }
+
+    # === ESECUZIONE PRINCIPALE ===
+    Write-StyledMessage Info "🚀 AVVIO CONFIGURAZIONE RUSTDESK"
+
+    try {
+        $installerPath = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
+
+        # FASE 1: Stop servizi e processi
+        Write-StyledMessage Info "📋 FASE 1: Arresto servizi e processi RustDesk"
+        Stop-RustDeskComponents
+
+        # FASE 2: Download e installazione
+        Write-StyledMessage Info "📋 FASE 2: Download e installazione"
+        if (-not (Download-RustDeskInstaller -DownloadPath $installerPath)) {
+            Write-StyledMessage Error "Impossibile procedere senza l'installer"
+            return
+        }
+        
+        if (-not (Install-RustDesk -InstallerPath $installerPath)) {
+            Write-StyledMessage Error "Errore durante l'installazione"
+            return
+        }
+
+        # FASE 3: Verifica processi e pulizia
+        Write-StyledMessage Info "📋 FASE 3: Verifica processi e pulizia"
+        Stop-RustDeskComponents
+
+        # FASE 4: Pulizia configurazioni
+        Write-StyledMessage Info "📋 FASE 4: Pulizia configurazioni"
+        Clear-RustDeskConfig
+
+        # FASE 5: Download configurazioni
+        Write-StyledMessage Info "📋 FASE 5: Download configurazioni"
+        Download-RustDeskConfigFiles
+
+        Write-Host ""
+        Write-StyledMessage Success "🎉 CONFIGURAZIONE RUSTDESK COMPLETATA"
+        Write-StyledMessage Info "🔄 Per applicare le modifiche il PC verrà riavviato"
+        
+        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Per applicare le modifiche è necessario riavviare il sistema"
+        if ($shouldReboot) {
+            Restart-Computer -Force
+        }
+    }
+    catch {
+        Write-StyledMessage Error "ERRORE CRITICO: $($_.Exception.Message)"
+        Write-StyledMessage Info "💡 Verifica connessione Internet e riprova"
+    }
+    finally {
+        Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+        Read-Host | Out-Null
+        Write-StyledMessage Success "🎯 Setup RustDesk terminato"
+        try { Stop-Transcript | Out-Null } catch {}
+    }
+
+}
+function VideoDriverInstall {
+    <#
+    .SYNOPSIS
+        Toolkit per l'installazione e riparazione dei driver grafici.
+
+    .DESCRIPTION
+        Questo script PowerShell è progettato per l'installazione e la riparazione dei driver grafici,
+        inclusa la pulizia completa con DDU e il download dei driver ufficiali per NVIDIA e AMD.
+        Utilizza un'interfaccia utente migliorata con messaggi stilizzati, spinner e
+        un conto alla rovescia per il riavvio in modalità provvisoria che può essere interrotto.
+    #>
+
+    [CmdletBinding()]
+    param([int]$CountdownSeconds = 30)
+
+    Initialize-ToolLogging -ToolName "VideoDriverInstall"
+    Show-Header -SubTitle "Video Driver Install Toolkit"
+
+    # --- NEW: Define Constants and Paths ---
+    $GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
+    $DriverToolsLocalPath = Join-Path $env:LOCALAPPDATA "WinToolkit\Drivers"
+    $DesktopPath = [Environment]::GetFolderPath('Desktop')
+    # --- END NEW ---
+
+    function Get-GpuManufacturer {
+        <#
+        .SYNOPSIS
+            Identifica il produttore della scheda grafica principale.
+        .DESCRIPTION
+            Ritorna 'NVIDIA', 'AMD', 'Intel' o 'Unknown' basandosi sui dispositivi Plug and Play.
+        #>
+        $pnpDevices = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue
+
+        if (-not $pnpDevices) {
+            Write-StyledMessage Warning "Nessun dispositivo display Plug and Play rilevato."
+            return 'Unknown'
+        }
+
+        foreach ($device in $pnpDevices) {
+            $manufacturer = $device.Manufacturer
+            $friendlyName = $device.FriendlyName
+
+            if ($friendlyName -match 'NVIDIA|GeForce|Quadro|Tesla' -or $manufacturer -match 'NVIDIA') {
+                return 'NVIDIA'
+            }
+            elseif ($friendlyName -match 'AMD|Radeon|ATI' -or $manufacturer -match 'AMD|ATI') {
+                return 'AMD'
+            }
+            elseif ($friendlyName -match 'Intel|Iris|UHD|HD Graphics' -or $manufacturer -match 'Intel') {
+                return 'Intel'
+            }
+        }
+        return 'Unknown'
+    }
+
+    function Set-BlockWindowsUpdateDrivers {
+        <#
+        .SYNOPSIS
+            Blocca Windows Update dal scaricare automaticamente i driver.
+        .DESCRIPTION
+            Imposta una chiave di registro per impedire a Windows Update di includere driver negli aggiornamenti di qualità,
+            riducendo conflitti con installazioni specifiche del produttore. Richiede privilegi amministrativi.
+        #>
+        Write-StyledMessage Info "Configurazione per bloccare download driver da Windows Update..."
+
+        $regPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+        $propertyName = "ExcludeWUDriversInQualityUpdate"
+        $propertyValue = 1
+
+        try {
+            if (-not (Test-Path $regPath)) {
+                New-Item -Path $regPath -Force | Out-Null
+            }
+            Set-ItemProperty -Path $regPath -Name $propertyName -Value $propertyValue -Type DWord -Force -ErrorAction Stop
+            Write-StyledMessage Success "Blocco download driver da Windows Update impostato correttamente nel registro."
+            Write-StyledMessage Info "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)"
+            Write-StyledMessage Warning "Potrebbe essere necessario eseguire lo script come amministratore."
+            return
+        }
+
+        Write-StyledMessage Info "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche..."
+        try {
+            $gpupdateProcess = Start-Process -FilePath "gpupdate.exe" -ArgumentList "/force" -Wait -NoNewWindow -PassThru -ErrorAction Stop
+            if ($gpupdateProcess.ExitCode -eq 0) {
+                Write-StyledMessage Success "Criteri di gruppo aggiornati con successo."
+            }
+            else {
+                Write-StyledMessage Warning "Aggiornamento dei criteri di gruppo completato con codice di uscita non zero: $($gpupdateProcess.ExitCode)."
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante l'aggiornamento dei criteri di gruppo: $($_.Exception.Message)"
+            Write-StyledMessage Warning "Le modifiche ai criteri potrebbero richiedere un riavvio o del tempo per essere applicate."
+        }
+    }
+
+    function Download-FileWithProgress {
+        <#
+        .SYNOPSIS
+            Scarica un file con indicatore di progresso.
+        .DESCRIPTION
+            Scarica un file dall'URL specificato con spinner di progresso e gestione retry.
+        #>
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Url,
+            [Parameter(Mandatory = $true)]
+            [string]$DestinationPath,
+            [Parameter(Mandatory = $true)]
+            [string]$Description,
+            [int]$MaxRetries = 3
+        )
+
+        Write-StyledMessage Info "Scaricando $Description..."
+
+        $destDir = Split-Path -Path $DestinationPath -Parent
+        if (-not (Test-Path $destDir)) {
+            try {
+                New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+            }
+            catch {
+                Write-StyledMessage Error "Impossibile creare la cartella di destinazione '$destDir': $($_.Exception.Message)"
+                return $false
+            }
+        }
+
+        for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+            try {
+                $spinnerIndex = 0
+                $webRequest = [System.Net.WebRequest]::Create($Url)
+                $webResponse = $webRequest.GetResponse()
+                $totalLength = [System.Math]::Floor($webResponse.ContentLength / 1024)
+                $responseStream = $webResponse.GetResponseStream()
+                $targetStream = [System.IO.FileStream]::new($DestinationPath, [System.IO.FileMode]::Create)
+                $buffer = New-Object byte[] 10KB
+                $count = $responseStream.Read($buffer, 0, $buffer.Length)
+                $downloadedBytes = $count
+
+                while ($count -gt 0) {
+                    $targetStream.Write($buffer, 0, $count)
+                    $count = $responseStream.Read($buffer, 0, $buffer.Length)
+                    $downloadedBytes += $count
+
+                    $spinner = $Global:Spinners[$spinnerIndex % $Global:Spinners.Length]
+                    $percent = [math]::Min(100, [math]::Round(($downloadedBytes / $webResponse.ContentLength) * 100))
+                    
+                    Show-ProgressBar -Activity "Download $Description" -Status "$percent%" -Percent $percent -Icon '💾' -Spinner $spinner
+
+                    $spinnerIndex++
+                    # Start-Sleep -Milliseconds 100 # Removed sleep for faster download
+                }
+
+                Write-Host "`r$(' ' * 120)" -NoNewline
+                Write-Host "`r" -NoNewline
+                [Console]::Out.Flush()
+
+                $targetStream.Flush()
+                $targetStream.Close()
+                $targetStream.Dispose()
+                $responseStream.Dispose()
+                $webResponse.Close()
+
+                Write-StyledMessage Success "Download di $Description completato."
+                return $true
+            }
+            catch {
+                Write-StyledMessage Warning "Tentativo $attempt fallito per $Description`: $($_.Exception.Message)"
+                if ($attempt -lt $MaxRetries) {
+                    Start-Sleep -Seconds 2
+                }
+            }
+        }
+        Write-StyledMessage Error "Errore durante il download di $Description dopo $MaxRetries tentativi."
+        return $false
+    }
+
+    function Handle-InstallVideoDrivers {
+        <#
+        .SYNOPSIS
+            Gestisce l'installazione dei driver video.
+        .DESCRIPTION
+            Scarica e avvia l'installer appropriato per la GPU rilevata.
+        #>
+        Write-StyledMessage Info "Opzione 1: Avvio installazione driver video."
+
+        $gpuManufacturer = Get-GpuManufacturer
+        Write-StyledMessage Info "Rilevata GPU: $gpuManufacturer"
+
+        if ($gpuManufacturer -eq 'AMD') {
+            $amdInstallerUrl = "${GitHubAssetBaseUrl}AMD-Autodetect.exe"
+            $amdInstallerPath = Join-Path $DriverToolsLocalPath "AMD-Autodetect.exe"
+
+            if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
+                Write-StyledMessage Info "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
+                Start-Process -FilePath $amdInstallerPath -Wait -ErrorAction SilentlyContinue
+                Write-StyledMessage Success "Installazione driver video AMD completata o chiusa."
+            }
+        }
+        elseif ($gpuManufacturer -eq 'NVIDIA') {
+            $nvidiaInstallerUrl = "${GitHubAssetBaseUrl}NVCleanstall_1.19.0.exe"
+            $nvidiaInstallerPath = Join-Path $DriverToolsLocalPath "NVCleanstall_1.19.0.exe"
+
+            if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
+                Write-StyledMessage Info "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
+                Start-Process -FilePath $nvidiaInstallerPath -Wait -ErrorAction SilentlyContinue
+                Write-StyledMessage Success "Installazione driver video NVIDIA completata o chiusa."
+            }
+        }
+        elseif ($gpuManufacturer -eq 'Intel') {
+            Write-StyledMessage Info "Rilevata GPU Intel. Utilizza Windows Update per aggiornare i driver integrati."
+        }
+        else {
+            Write-StyledMessage Error "Produttore GPU non supportato o non rilevato per l'installazione automatica dei driver."
+        }
+    }
+
+    function Handle-ReinstallRepairVideoDrivers {
+        <#
+        .SYNOPSIS
+            Gestisce la reinstallazione/riparazione dei driver video.
+        .DESCRIPTION
+            Scarica DDU e gli installer dei driver, configura la modalità provvisoria e riavvia.
+        #>
+        Write-StyledMessage Warning "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
+
+        # Download DDU
+        $dduZipUrl = "${GitHubAssetBaseUrl}DDU.zip"
+        $dduZipPath = Join-Path $DriverToolsLocalPath "DDU.zip"
+
+        if (-not (Download-FileWithProgress -Url $dduZipUrl -DestinationPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
+            Write-StyledMessage Error "Impossibile scaricare DDU. Annullamento operazione."
+            return
+        }
+
+        # Extract DDU to Desktop
+        Write-StyledMessage Info "Estrazione DDU sul Desktop..."
+        try {
+            Expand-Archive -Path $dduZipPath -DestinationPath $DesktopPath -Force
+            Write-StyledMessage Success "DDU estratto correttamente sul Desktop."
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante l'estrazione di DDU sul Desktop: $($_.Exception.Message)"
+            return
+        }
+
+        $gpuManufacturer = Get-GpuManufacturer
+        Write-StyledMessage Info "Rilevata GPU: $gpuManufacturer"
+
+        if ($gpuManufacturer -eq 'AMD') {
+            $amdInstallerUrl = "${GitHubAssetBaseUrl}AMD-Autodetect.exe"
+            $amdInstallerPath = Join-Path $DesktopPath "AMD-Autodetect.exe"
+
+            if (-not (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool")) {
+                Write-StyledMessage Error "Impossibile scaricare l'installer AMD. Annullamento operazione."
+                return
+            }
+        }
+        elseif ($gpuManufacturer -eq 'NVIDIA') {
+            $nvidiaInstallerUrl = "${GitHubAssetBaseUrl}NVCleanstall_1.19.0.exe"
+            $nvidiaInstallerPath = Join-Path $DesktopPath "NVCleanstall_1.19.0.exe"
+
+            if (-not (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool")) {
+                Write-StyledMessage Error "Impossibile scaricare l'installer NVIDIA. Annullamento operazione."
+                return
+            }
+        }
+        elseif ($gpuManufacturer -eq 'Intel') {
+            Write-StyledMessage Info "Rilevata GPU Intel. Scarica manualmente i driver da Intel se necessario."
+        }
+        else {
+            Write-StyledMessage Warning "Produttore GPU non supportato o non rilevato. Verrà posizionato solo DDU sul desktop."
+        }
+
+        Write-StyledMessage Info "DDU e l'installer dei Driver (se rilevato) sono stati posizionati sul desktop."
+
+        # Creazione file batch per tornare alla modalità normale
+        $batchFilePath = Join-Path $DesktopPath "Switch to Normal Mode.bat"
+        try {
+            Set-Content -Path $batchFilePath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
+            Write-StyledMessage Info "File batch 'Switch to Normal Mode.bat' creato sul desktop per disabilitare la Modalità Provvisoria."
+        }
+        catch {
+            Write-StyledMessage Warning "Impossibile creare il file batch: $($_.Exception.Message)"
+        }
+
+        Write-StyledMessage Error "ATTENZIONE: Il sistema sta per riavviarsi in modalità provvisoria."
+
+        Write-StyledMessage Info "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria..."
+        try {
+            Start-Process -FilePath "bcdedit.exe" -ArgumentList "/set {current} safeboot minimal" -Wait -NoNewWindow -ErrorAction Stop
+            Write-StyledMessage Success "Modalità Provvisoria configurata per il prossimo avvio."
+        }
+        catch {
+            Write-StyledMessage Error "Errore durante la configurazione della Modalità Provvisoria tramite bcdedit: $($_.Exception.Message)"
+            Write-StyledMessage Warning "Il riavvio potrebbe non avvenire in Modalità Provvisoria. Procedere manualmente."
+            return
+        }
+
+        $shouldReboot = Start-InterruptibleCountdown -Seconds 30 -Message "Riavvio in modalità provvisoria in corso..."
+
+        if ($shouldReboot) {
+            try {
+                shutdown /r /t 0
+                Write-StyledMessage Success "Comando di riavvio inviato."
+            }
+            catch {
+                Write-StyledMessage Error "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)"
+            }
+        }
+    }
+
+    Write-StyledMessage Info '🔧 Inizializzazione dello Script di Installazione Driver Video...'
+    Start-Sleep -Seconds 2
+
+    Set-BlockWindowsUpdateDrivers
+
+    # Main Menu Logic
+    $choice = ""
+    do {
+        Write-Host ""
+        Write-StyledMessage Info 'Seleziona un''opzione:'
+        Write-Host "  1) Installa Driver Video"
+        Write-Host "  2) Reinstalla/Ripara Driver Video"
+        Write-Host "  0) Torna al menu principale"
+        Write-Host ""
+        $choice = Read-Host "La tua scelta"
+        Write-Host ""
+
+        switch ($choice.ToUpper()) {
+            "1" { Handle-InstallVideoDrivers }
+            "2" { Handle-ReinstallRepairVideoDrivers }
+            "0" { Write-StyledMessage Info 'Tornando al menu principale.' }
+            default { Write-StyledMessage Warning "Scelta non valida. Riprova." }
+        }
+
+        if ($choice.ToUpper() -ne "0") {
+            Write-Host "Premi un tasto per continuare..."
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            Clear-Host
+            Show-Header -SubTitle "Video Driver Install Toolkit"
+        }
+
+    } while ($choice.ToUpper() -ne "0")
+}
+function GamingToolkit {
+    <#
+    .SYNOPSIS
+        Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
+    .DESCRIPTION
+        Script completo per ottimizzare le prestazioni del sistema per il gaming
+    #>
+
+    [CmdletBinding()]
+    param([int]$CountdownSeconds = 30)
+
+    Initialize-ToolLogging -ToolName "GamingToolkit"
+    Show-Header -SubTitle "Gaming Toolkit"
+
+    # Funzioni helper locali
+    function Test-WingetPackageAvailable([string]$PackageId) {
+        try {
+            $result = winget search $PackageId 2>&1
+            return $LASTEXITCODE -eq 0 -and $result -match $PackageId
+        }
+        catch { return $false }
+    }
+
+    function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
+        Write-StyledMessage Info "[$Step/$Total] 📦 Installazione: $DisplayName..."
+        
+        if (-not (Test-WingetPackageAvailable $PackageId)) {
+            Write-StyledMessage Warning "Pacchetto $DisplayName non disponibile. Saltando."
+            return @{ Success = $true; Skipped = $true }
+        }
+
+        try {
+            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_err_$PackageId.log"
+            
+            $spinnerIndex = 0
+            $percent = 0
+            $startTime = Get-Date
+            $timeout = 600
+
+            while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeout) {
+                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
+                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
+                Show-ProgressBar -Activity $DisplayName -Status "($elapsed s)" -Percent $percent -Icon '📦' -Spinner $spinner
+                Start-Sleep -Milliseconds 700
+                $proc.Refresh()
+            }
+
+            if (-not $proc.HasExited) {
+                Write-Host "`r$(' ' * 120)" -NoNewline
+                Write-Host "`r" -NoNewline
+                Write-StyledMessage Warning "Timeout per $DisplayName. Terminato."
+                $proc.Kill()
+                return @{ Success = $false; TimedOut = $true }
+            }
+
+            Write-Host "`r$(' ' * 120)" -NoNewline
+            Write-Host "`r" -NoNewline
+
+            $exitCode = $proc.ExitCode
+            $successCodes = @(0, 1638, 3010, -1978335189)
+            
+            if ($exitCode -in $successCodes) {
+                Write-StyledMessage Success "Installato: $DisplayName"
+                return @{ Success = $true; ExitCode = $exitCode }
+            }
+            else {
+                Write-StyledMessage Error "Errore installazione $DisplayName (codice: $exitCode)"
+                return @{ Success = $false; ExitCode = $exitCode }
+            }
+        }
+        catch {
+            Write-Host "`r$(' ' * 120)" -NoNewline
+            Write-Host "`r" -NoNewline
+            Write-StyledMessage Error "Eccezione $DisplayName`: $($_.Exception.Message)"
+            return @{ Success = $false }
+        }
+        finally {
+            Remove-Item "$env:TEMP\winget_$PackageId.log", "$env:TEMP\winget_err_$PackageId.log" -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Verifica OS e Winget
+    $osInfo = Get-ComputerInfo
+    $buildNumber = $osInfo.OsBuildNumber
+    $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
+
+    if ($isWindows11Pre23H2) {
+        Write-StyledMessage Warning "Versione obsoleta rilevata. Winget potrebbe non funzionare."
+        $response = Read-Host "Eseguire riparazione Winget? (Y/N)"
+        if ($response -match '^[Yy]$') { WinReinstallStore }
+    }
+
+    $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
+
+    # Countdown preparazione
+    for ($i = 5; $i -gt 0; $i--) {
+        $spinner = $Global:Spinners[$i % $Global:Spinners.Length]
+        Write-Host "`r$spinner ⏳ Preparazione - $i s..." -NoNewline -ForegroundColor Yellow
+        Start-Sleep 1
+    }
+    Write-Host "`n"
+
+    Show-Header -SubTitle "Gaming Toolkit"
+
+    # Step 1: Verifica Winget
+    Write-StyledMessage Info '🔍 Verifica Winget...'
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-StyledMessage Error 'Winget non disponibile.'
+        Write-StyledMessage Info 'Esegui reset Store/Winget e riprova.'
+        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        return
+    }
+    Write-StyledMessage Success 'Winget funzionante.'
+
+    Write-StyledMessage Info '🔄 Aggiornamento sorgenti Winget...'
+    try {
+        winget source update | Out-Null
+        Write-StyledMessage Success 'Sorgenti aggiornate.'
+    }
+    catch {
+        Write-StyledMessage Warning "Errore aggiornamento sorgenti: $($_.Exception.Message)"
+    }
+    Write-Host ''
+
+    # Step 2: NetFramework
+    Write-StyledMessage Info '🔧 Abilitazione NetFramework...'
+    try {
+        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop | Out-Null
+        Write-StyledMessage Success 'NetFramework abilitato.'
+    }
+    catch {
+        Write-StyledMessage Error "Errore NetFramework: $($_.Exception.Message)"
+    }
+    Write-Host ''
+
+    # Step 3: Runtime e VCRedist
+    $runtimes = @(
+        "Microsoft.DotNet.DesktopRuntime.3_1", "Microsoft.DotNet.DesktopRuntime.5",
+        "Microsoft.DotNet.DesktopRuntime.6", "Microsoft.DotNet.DesktopRuntime.7",
+        "Microsoft.DotNet.DesktopRuntime.8", "Microsoft.DotNet.DesktopRuntime.9", "Microsoft.DotNet.DesktopRuntime.10",
+        "Microsoft.VCRedist.2010.x64", "Microsoft.VCRedist.2010.x86",
+        "Microsoft.VCRedist.2012.x64", "Microsoft.VCRedist.2012.x86",
+        "Microsoft.VCRedist.2013.x64", "Microsoft.VCRedist.2013.x86",
+        "Microsoft.VCLibs.Desktop.14", "Microsoft.VCRedist.2015+.x64", "Microsoft.VCRedist.2015+.x86"
+    )
+
+    Write-StyledMessage Info '🔥 Installazione runtime .NET e VCRedist...'
+    for ($i = 0; $i -lt $runtimes.Count; $i++) {
+        Invoke-WingetInstallWithProgress $runtimes[$i] $runtimes[$i] ($i + 1) $runtimes.Count | Out-Null
+        Write-Host ''
+    }
+    Write-StyledMessage Success 'Runtime completati.'
+    Write-Host ''
+
+    # Step 4: DirectX
+    Write-StyledMessage Info '🎮 Installazione DirectX...'
+    $dxDir = "$env:LOCALAPPDATA\WinToolkit\Directx"
+    $dxPath = "$dxDir\dxwebsetup.exe"
+    
+    if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force | Out-Null }
+
+    try {
+        Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe' -OutFile $dxPath -ErrorAction Stop
+        Write-StyledMessage Success 'DirectX scaricato.'
+
+        $proc = Start-Process -FilePath $dxPath -PassThru -Verb RunAs -ErrorAction Stop
+        $spinnerIndex = 0
+        $percent = 0
+        $startTime = Get-Date
+
+        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt 600) {
+            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
+            if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
+            Show-ProgressBar -Activity "DirectX" -Status "($elapsed s)" -Percent $percent -Icon '🎮' -Spinner $spinner
+            Start-Sleep -Milliseconds 700
+            $proc.Refresh()
+        }
+
+        if (-not $proc.HasExited) {
+            Write-Host "`r$(' ' * 120)" -NoNewline
+            Write-Host "`r" -NoNewline
+            Write-StyledMessage Warning "Timeout DirectX."
+            $proc.Kill()
+        }
+        else {
+            Write-Host "`r$(' ' * 120)" -NoNewline
+            Write-Host "`r" -NoNewline
+            $exitCode = $proc.ExitCode
+            $successCodes = @(0, 3010, 5100, -9, 9, -1442840576)
+            if ($exitCode -in $successCodes) {
+                Write-StyledMessage Success "DirectX installato (codice: $exitCode)."
+            }
+            else {
+                Write-StyledMessage Error "DirectX errore: $exitCode"
+            }
+        }
+    }
+    catch {
+        Write-Host "`r$(' ' * 120)" -NoNewline
+        Write-Host "`r" -NoNewline
+        Write-StyledMessage Error "Errore DirectX: $($_.Exception.Message)"
+    }
+    Write-Host ''
+
+    # Step 5: Client di gioco
+    $gameClients = @(
+        "Amazon.Games", "GOG.Galaxy", "EpicGames.EpicGamesLauncher",
+        "ElectronicArts.EADesktop", "Playnite.Playnite", "Valve.Steam",
+        "Ubisoft.Connect", "9MV0B5HZVK9Z"
+    )
+
+    Write-StyledMessage Info '🎮 Installazione client di gioco...'
+    for ($i = 0; $i -lt $gameClients.Count; $i++) {
+        Invoke-WingetInstallWithProgress $gameClients[$i] $gameClients[$i] ($i + 1) $gameClients.Count | Out-Null
+        Write-Host ''
+    }
+    Write-StyledMessage Success 'Client installati.'
+    Write-Host ''
+
+    # Step 6: Battle.net
+    Write-StyledMessage Info '🎮 Installazione Battle.net...'
+    $bnPath = "$env:TEMP\Battle.net-Setup.exe"
+    
+    try {
+        Invoke-WebRequest -Uri 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live' -OutFile $bnPath -ErrorAction Stop
+        Write-StyledMessage Success 'Battle.net scaricato.'
+
+        $proc = Start-Process -FilePath $bnPath -PassThru -Verb RunAs -ErrorAction Stop
+        $spinnerIndex = 0
+        $startTime = Get-Date
+
+        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt 900) {
+            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
+            Write-Host "`r$spinner 🎮 Battle.net ($elapsed s)" -NoNewline -ForegroundColor Cyan
+            Start-Sleep -Milliseconds 500
+            $proc.Refresh()
+        }
+
+        if (-not $proc.HasExited) {
+            Write-Host "`r$(' ' * 120)" -NoNewline
+            Write-Host "`r" -NoNewline
+            Write-StyledMessage Warning "Timeout Battle.net."
+            try { $proc.Kill() } catch {}
+        }
+        else {
+            Write-Host "`r$(' ' * 120)" -NoNewline
+            Write-Host "`r" -NoNewline
+            $exitCode = $proc.ExitCode
+            if ($exitCode -in @(0, 3010)) {
+                Write-StyledMessage Success "Battle.net installato."
+            }
+            else {
+                Write-StyledMessage Warning "Battle.net: codice $exitCode"
+            }
+        }
+
+        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    }
+    catch {
+        Write-Host "`r$(' ' * 120)" -NoNewline
+        Write-Host "`r" -NoNewline
+        Write-StyledMessage Error "Errore Battle.net: $($_.Exception.Message)"
+        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    }
+    Write-Host ''
+
+    # Step 7: Pulizia avvio automatico
+    Write-StyledMessage Info '🧹 Pulizia avvio automatico...'
+    $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    @('Steam', 'Battle.net', 'GOG Galaxy', 'GogGalaxy', 'GalaxyClient') | ForEach-Object {
+        if (Get-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue) {
+            Remove-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue
+            Write-StyledMessage Success "Rimosso: $_"
+        }
+    }
+
+    $startupPath = [Environment]::GetFolderPath('Startup')
+    @('Steam.lnk', 'Battle.net.lnk', 'GOG Galaxy.lnk') | ForEach-Object {
+        $path = Join-Path $startupPath $_
+        if (Test-Path $path) {
+            Remove-Item $path -Force -ErrorAction SilentlyContinue
+            Write-StyledMessage Success "Rimosso: $_"
+        }
+    }
+    Write-StyledMessage Success 'Pulizia completata.'
+    Write-Host ''
+
+    # Step 8: Profilo energetico
+    Write-StyledMessage Info '⚡ Configurazione profilo energetico...'
+    $ultimateGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61"
+    $planName = "WinToolkit Gaming Performance"
+    $guid = $null
+
+    $existingPlan = powercfg -list | Select-String -Pattern $planName -ErrorAction SilentlyContinue
+    if ($existingPlan) {
+        $guid = ($existingPlan.Line -split '\s+')[3]
+        Write-StyledMessage Info "Piano esistente trovato."
+    }
+    else {
+        try {
+            $output = powercfg /duplicatescheme $ultimateGUID | Out-String
+            if ($output -match "\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b") {
+                $guid = $matches[0]
+                powercfg /changename $guid $planName "Ottimizzato per Gaming dal WinToolkit" | Out-Null
+                Write-StyledMessage Success "Piano creato."
+            }
+            else {
+                Write-StyledMessage Error "Errore creazione piano."
+            }
+        }
+        catch {
+            Write-StyledMessage Error "Errore duplicazione piano: $($_.Exception.Message)"
+        }
+    }
+
+    if ($guid) {
+        try {
+            powercfg -setactive $guid | Out-Null
+            Write-StyledMessage Success "Piano attivato."
+        }
+        catch {
+            Write-StyledMessage Error "Errore attivazione piano: $($_.Exception.Message)"
+        }
+    }
+    else {
+        Write-StyledMessage Error "Impossibile attivare piano."
+    }
+    Write-Host ''
+
+    # Step 9: Focus Assist
+    Write-StyledMessage Info '🔕 Attivazione Non disturbare...'
+    try {
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_TOASTS_ENABLED" -Value 0 -Force
+        Write-StyledMessage Success 'Non disturbare attivo.'
+    }
+    catch {
+        Write-StyledMessage Error "Errore: $($_.Exception.Message)"
+    }
+    Write-Host ''
+
+    # Step 10: Completamento
+    Write-Host ('═' * 80) -ForegroundColor Green
+    Write-StyledMessage Success 'Gaming Toolkit completato!'
+    Write-StyledMessage Success 'Sistema ottimizzato per il gaming.'
+    Write-Host ('═' * 80) -ForegroundColor Green
+    Write-Host ''
+
+    # Step 11: Riavvio
+    $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario"
+    
+    if ($shouldReboot) {
+        Write-StyledMessage Info '🔄 Riavvio...'
+        Restart-Computer -Force
+    }
+    else {
+        Write-StyledMessage Warning 'Riavvia manualmente per applicare tutte le modifiche.'
+        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    }
+
+}
+function DisableBitlocker {
+    <#
+.SYNOPSIS
+    Disattiva BitLocker sul drive C:.
+#>
+    param([bool]$RunStandalone = $true)
+
+    Initialize-ToolLogging -ToolName "DisableBitlocker"
+    Show-Header -SubTitle "Disattivazione BitLocker"
+
+    Write-StyledMessage -Type 'Info' -Text "Inizializzazione decrittazione drive C:..."
+
+    try {
+        # Tentativo disattivazione
+        $proc = Start-Process manage-bde.exe -ArgumentList "-off C:" -PassThru -Wait -NoNewWindow
+    
+        if ($proc.ExitCode -eq 0) {
+            Write-StyledMessage -Type 'Success' -Text "Decrittazione avviata/completata con successo."
+        
+            # Check stato
+            $status = manage-bde -status C:
+            if ($status -match "Decryption in progress") {
+                Write-StyledMessage -Type 'Info' -Text "Decrittazione in corso in background."
+            }
+        }
+        else {
+            Write-StyledMessage -Type 'Warning' -Text "Codice uscita manage-bde: $($proc.ExitCode). BitLocker potrebbe essere già disattivo."
+        }
+
+        # Prevenzione crittografia futura
+        Write-StyledMessage -Type 'Info' -Text "Disabilitazione crittografia automatica nel registro..."
+        $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
+        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+        Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
+    
+        Write-StyledMessage -Type 'Success' -Text "Configurazione completata."
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message)"
+    }
+
+}
 
 # --- MENU PRINCIPALE ---
 $menuStructure = @(
