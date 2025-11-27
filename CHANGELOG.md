@@ -138,13 +138,20 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+- Funzione **WinCleaner** Riscritta.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Migliorata scrittura file Log.
+  - Eliminazione dei commenti non necessari.
+  - Unificate funzioni di pulizia.
+  - Riorganizzato il codice per migliorare la leggibilità e la manutenibilità.
+  - Riduzione di oltre 1000 linee di codice, mantenendo tutte le funzionalità.
 
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
 - Script `WinToolkit` riscritto.
   - Logica completamente riscritta, lo script adesso risulterà monolitico, integrando le funzionalità grafiche generali, demandando ai singoli script la sola gestione logica e funzionale delle varie operazioni.
-  - Questo aggiornamento porta con sè un notevole miglioramento delle prestazioni, una significativa riduzione del codice totale (da +7400 linee a XXX linee di codice totale) e maggiore stabilità dello script, oltre a una maggiore leggibilità e manutenibilità del codice.
+  - Questo aggiornamento porta con sè un notevole miglioramento delle prestazioni, una significativa riduzione del codice totale (da +7500 linee a 4300 linee di codice totale, un'ottimizzazione del 42%) e maggiore stabilità dello script, oltre a una maggiore leggibilità e manutenibilità del codice.
   - Modificato l'aspetto grafico del Toolkit rendendo le varie schermate più compatte e leggibili.
 
 ---
