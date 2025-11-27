@@ -183,18 +183,18 @@ function WinOSCheck {
 }
 
 # --- PLACEHOLDER PER COMPILATORE ---
-function WinInstallPSProfile {}
-function WinRepairToolkit {}
-function WinUpdateReset {}
-function WinReinstallStore {}
-function WinBackupDriver {}
-function WinDriverInstall {}
-function OfficeToolkit {}
-function WinCleaner {}
-function SetRustDesk {}
-function VideoDriverInstall {}
-function GamingToolkit {}
-function DisableBitlocker {}
+#function WinInstallPSProfile {}
+#function WinRepairToolkit {}
+#function WinUpdateReset {}
+#function WinReinstallStore {}
+#function WinBackupDriver {}
+#function WinDriverInstall {}
+#function OfficeToolkit {}
+#function WinCleaner {}
+#function SetRustDesk {}
+#function VideoDriverInstall {}
+#function GamingToolkit {}
+#function DisableBitlocker {}
 
 # --- MENU PRINCIPALE ---
 $menuStructure = @(
