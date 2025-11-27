@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 113)"
+$ToolkitVersion = "2.5.0 (Build 114)"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -4373,9 +4373,12 @@ while ($true) {
     $c = Read-Host "Scegli un'opzione (es. 1, 3, 5 o 0 per uscire)"
     
     if ($c -eq '0') { 
+        Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
+        Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
         if ($Global:Transcript -or $Transcript) { 
             Stop-Transcript -ErrorAction SilentlyContinue 
-        } 
+        }
+        Start-Sleep -Seconds 3
         break 
     }
     
