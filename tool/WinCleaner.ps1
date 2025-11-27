@@ -43,7 +43,7 @@ function WinCleaner {
     )
 
     # ============================================================================
-    # 2. FUNZIONI CORE (MOTORE)
+    # 2. FUNZIONI CORE
     # ============================================================================
 
     function Write-StyledMessage {
@@ -365,14 +365,14 @@ function WinCleaner {
             'Service' { return Invoke-ServiceAction -Rule $Rule }
             'Command' { return Invoke-CommandAction -Rule $Rule }
             'ScriptBlock' { 
-                # Nuovo tipo per operazioni multi-passo complesse
+                # Operazioni multi-passo complesse
                 if ($Rule.ScriptBlock) { 
                     & $Rule.ScriptBlock 
                     return $true
                 }
             }
             'Custom' { 
-                # Fallback for complex logic like CleanMgr/Windows.old
+                # Operazioni complesse specializzate
                 if ($Rule.ScriptBlock) { 
                     & $Rule.ScriptBlock 
                     return $true
@@ -383,7 +383,7 @@ function WinCleaner {
     }
 
     # ============================================================================
-    # 3. DEFINIZIONE REGOLE (CONFIGURAZIONE)
+    # 3. DEFINIZIONE REGOLE
     # ============================================================================
 
     $Rules = @(
@@ -414,7 +414,6 @@ function WinCleaner {
         # --- Event Logs ---
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage Info "📜 Pulizia Event Logs..."
-                # Set permissions for LiveId log (from old script)
                 & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>$null
                 Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object { Wevtutil.exe cl $_.LogName 2>$null }
             }
@@ -424,11 +423,9 @@ function WinCleaner {
         @{ Name = "Windows Update Cleanup"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage Info "🔄 Pulizia cache Windows Update..."
                 try {
-                    # Stop service
                     Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
                     Start-Sleep -Seconds 2
 
-                    # Clean cache
                     $paths = @("C:\WINDOWS\SoftwareDistribution\DataStore", "C:\WINDOWS\SoftwareDistribution\Download")
                     foreach ($p in $paths) {
                         if (Test-Path $p) {
@@ -436,12 +433,10 @@ function WinCleaner {
                         }
                     }
 
-                    # Start service
                     Start-Service -Name wuauserv -ErrorAction SilentlyContinue
                     Write-StyledMessage Success "✅ Cache Windows Update pulita"
                 }
                 catch {
-                    # Ensure service is restarted even on error
                     Start-Service -Name wuauserv -ErrorAction SilentlyContinue
                     Write-StyledMessage Warning "Errore pulizia Windows Update: $_"
                 }
@@ -449,52 +444,14 @@ function WinCleaner {
         }
 
         # --- Windows App/Download Cache ---
-        @{ Name = "Windows App/Download Cache"; Type = "ScriptBlock"; ScriptBlock = {
-                Write-StyledMessage Info "⬇️ Pulizia cache download Windows..."
-                $downloadPaths = @(
-                    "C:\WINDOWS\SoftwareDistribution\Download",
-                    "$env:LOCALAPPDATA\Microsoft\Windows\AppCache",
-                    "$env:LOCALAPPDATA\Microsoft\Windows\Caches"
-                )
-
-                $totalCleaned = 0
-                foreach ($path in $downloadPaths) {
-                    # Verifica esclusione cartella WinToolkit
-                    if (Test-VitalExclusion $path) {
-                        Write-StyledMessage Info "💭 Cache download esclusa dalla pulizia: $path"
-                        continue
-                    }
-
-                    if (Test-Path $path) {
-                        try {
-                            $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
-                                -not (Test-VitalExclusion $_.FullName)
-                            }
-                            $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-                            $totalCleaned += $files.Count
-                            Write-StyledMessage Info "🗑️ Rimossi $($files.Count) file da $path"
-                        }
-                        catch {
-                            Write-StyledMessage Warning "⚠️ Impossibile pulire $path - $_"
-                        }
-                    }
-                }
-
-                if ($totalCleaned -gt 0) {
-                    Write-StyledMessage Success "✅ Cache download pulita ($totalCleaned file rimossi)"
-                }
-                else {
-                    Write-StyledMessage Info "💭 Nessun file cache download da pulire"
-                }
-            }
-        }
+        @{ Name = "Windows App/Download Cache - System"; Type = "File"; Paths = @("C:\WINDOWS\SoftwareDistribution\Download"); FilesOnly = $true }
+        @{ Name = "Windows App/Download Cache - User"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\AppCache", "%LOCALAPPDATA%\Microsoft\Windows\Caches"); PerUser = $true; FilesOnly = $true }
 
         # --- Restore Points ---
         @{ Name = "System Restore Points"; Type = "ScriptBlock"; ScriptBlock = {
                 try {
                     Write-StyledMessage Info "💾 Pulizia punti di ripristino sistema..."
                     
-                    # Rimuovere tutte le shadow copies (solo per liberare spazio VSS)
                     Write-StyledMessage Info "🗑️ Rimozione shadow copies per liberare spazio VSS..."
                     $vssResult = & vssadmin delete shadows /all /quiet 2>&1
                     if ($LASTEXITCODE -eq 0) {
@@ -504,10 +461,7 @@ function WinCleaner {
                         Write-StyledMessage Warning "⚠️ VSSAdmin completato con warnings: $vssResult"
                     }
                     
-                    # Nota: NON disattiviamo permanentemente la protezione del sistema
-                    # in quanto non è consigliato in un tool di pulizia generale
                     Write-StyledMessage Info "💡 Protezione sistema mantenuta attiva per sicurezza"
-                    
                     Write-StyledMessage Success "✅ Pulizia punti di ripristino completata"
                 }
                 catch {
@@ -522,13 +476,15 @@ function WinCleaner {
         # --- Thumbnails ---
         @{ Name = "Cleanup - Explorer Thumbnail/Icon Cache"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\Explorer"); PerUser = $true; FilesOnly = $true; TakeOwnership = $true }
 
-        # --- Browsers & Web ---
-        @{ Name = "WinInet Cache"; Type = "Custom"; ScriptBlock = {
+        # --- Browser & Web Cache (Consolidato) ---
+        @{ Name = "WinInet & Internet Cache"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage Info "🌐 Pulizia WinInet Cache..."
-                $paths = @("$env:LOCALAPPDATA\Microsoft\Windows\INetCache\IE", "$env:LOCALAPPDATA\Microsoft\Windows\WebCache", 
+                
+                # WinInet Cache paths
+                $winInetPaths = @("$env:LOCALAPPDATA\Microsoft\Windows\INetCache\IE", "$env:LOCALAPPDATA\Microsoft\Windows\WebCache", 
                     "$env:LOCALAPPDATA\Microsoft\Feeds Cache", "$env:LOCALAPPDATA\Microsoft\InternetExplorer\DOMStore",
                     "$env:LOCALAPPDATA\Microsoft\Internet Explorer")
-                foreach ($p in $paths) { if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue } }
+                foreach ($p in $winInetPaths) { if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue } }
             
                 # Per-user Temp Internet Files
                 $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
@@ -541,14 +497,13 @@ function WinCleaner {
                 & RunDll32.exe InetCpl.cpl, ClearMyTracksByProcess 2 2>$null
             }
         }
-
         @{ Name = "Internet Cookies"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage Info "🍪 Pulizia Cookie..."
-                $paths = @("%APPDATA%\Microsoft\Windows\Cookies", "%LOCALAPPDATA%\Microsoft\Windows\INetCookies")
-                # Logic to expand per-user paths manually since we are in a ScriptBlock
+                
+                $cookiePaths = @("%APPDATA%\Microsoft\Windows\Cookies", "%LOCALAPPDATA%\Microsoft\Windows\INetCookies")
                 $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
                 foreach ($u in $users) {
-                    foreach ($rawP in $paths) {
+                    foreach ($rawP in $cookiePaths) {
                         $p = $rawP -replace '%APPDATA%', "$($u.FullName)\AppData\Roaming" `
                             -replace '%LOCALAPPDATA%', "$($u.FullName)\AppData\Local"
                         if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue }
@@ -557,35 +512,20 @@ function WinCleaner {
                 & RunDll32.exe InetCpl.cpl, ClearMyTracksByProcess 1 2>$null
             }
         }
-
-        @{ Name = "DNS Flush"; Type = "Command"; Command = "ipconfig"; Args = @("/flushdns") }
-        
-        @{ Name = "Chrome Cleanup"; Type = "Custom"; ScriptBlock = {
-                Write-StyledMessage Info "🌐 Pulizia Chrome..."
-                $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
-                foreach ($u in $users) {
-                    $base = "$($u.FullName)\AppData\Local\Google"
-                    $paths = @(
-                        "$base\Chrome\User Data\Crashpad\reports",
-                        "$base\CrashReports"
-                    )
-                    foreach ($p in $paths) { if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue } }
-                
-                    # Software Reporter Tool Logs
-                    $srt = "$base\Software Reporter Tool"
-                    if (Test-Path $srt) { Get-ChildItem $srt -Filter "*.log" -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue }
-                }
-            }
+        @{ Name = "Chrome Browser Cache"; Type = "File"; Paths = @(
+                "%LOCALAPPDATA%\Google\Chrome\User Data\Crashpad\reports",
+                "%LOCALAPPDATA%\Google\CrashReports"
+            ); PerUser = $true; FilesOnly = $true 
         }
-
-        @{ Name = "Firefox Cleanup"; Type = "Custom"; ScriptBlock = {
+        @{ Name = "Chrome SRT Logs"; Type = "File"; Paths = @("%LOCALAPPDATA%\Google\Chrome\User Data\Software Reporter Tool"); PerUser = $true }
+        @{ Name = "Firefox Browser Data"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage Info "🦊 Pulizia Firefox..."
+                
                 $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
                 foreach ($u in $users) {
                     # Standard Firefox profiles
                     $profiles = Get-ChildItem "$($u.FullName)\AppData\Roaming\Mozilla\Firefox\Profiles" -Directory -ErrorAction SilentlyContinue
                     foreach ($prof in $profiles) {
-                        # Delete specific history files
                         $files = @("downloads.rdf", "downloads.sqlite", "places.sqlite", "favicons.sqlite")
                         foreach ($f in $files) {
                             $fp = Join-Path $prof.FullName $f
@@ -605,86 +545,125 @@ function WinCleaner {
                 }
             }
         }
+        @{ Name = "Opera & Java Cache"; Type = "File"; Paths = @(
+                "%USERPROFILE%\Local Settings\Application Data\Opera\Opera",
+                "%LOCALAPPDATA%\Opera\Opera",
+                "%APPDATA%\Opera\Opera",
+                "%APPDATA%\Sun\Java\Deployment\cache"
+            ); PerUser = $true 
+        }
 
-        @{ Name = "Opera Cache"; Type = "File"; Paths = @("%USERPROFILE%\Local Settings\Application Data\Opera\Opera", "%LOCALAPPDATA%\Opera\Opera", "%APPDATA%\Opera\Opera"); PerUser = $true }
-        @{ Name = "Java Cache"; Type = "File"; Paths = @("%APPDATA%\Sun\Java\Deployment\cache"); PerUser = $true }
+        @{ Name = "DNS Flush"; Type = "Command"; Command = "ipconfig"; Args = @("/flushdns") }
 
-        # --- Temp Files ---
-        @{ Name = "Windows Temp"; Type = "File"; Paths = @("C:\WINDOWS\Temp"); FilesOnly = $false }
-        @{ Name = "User Temp"; Type = "File"; Paths = @("%TEMP%", "%USERPROFILE%\AppData\Local\Temp", "%USERPROFILE%\AppData\LocalLow\Temp"); PerUser = $true; FilesOnly = $false }
+        # --- Temp Files (Consolidato) ---
+        @{ Name = "System Temp Files"; Type = "File"; Paths = @("C:\WINDOWS\Temp"); FilesOnly = $false }
+        @{ Name = "User Temp Files"; Type = "File"; Paths = @("%TEMP%", "%USERPROFILE%\AppData\Local\Temp", "%USERPROFILE%\AppData\LocalLow\Temp"); PerUser = $true; FilesOnly = $false }
         @{ Name = "Service Profiles Temp"; Type = "File"; Paths = @("%SYSTEMROOT%\ServiceProfiles\LocalService\AppData\Local\Temp"); FilesOnly = $false }
 
-        # --- System Logs ---
-        @{ Name = "System Logs"; Type = "File"; Paths = @("C:\WINDOWS\Logs", "C:\WINDOWS\System32\LogFiles", "C:\ProgramData\Microsoft\Windows\WER\ReportQueue"); FilesOnly = $false }
-        @{ Name = "CBS Temp"; Type = "File"; Paths = @("%SYSTEMROOT%\Temp\CBS"); FilesOnly = $false }
-        @{ Name = "WAAS Medic Logs"; Type = "File"; Paths = @("%SYSTEMROOT%\Logs\waasmedic"); FilesOnly = $false }
-        @{ Name = "SIH Logs"; Type = "File"; Paths = @("%SYSTEMROOT%\Logs\SIH"); FilesOnly = $false }
-        @{ Name = "Windows Update Traces"; Type = "File"; Paths = @("%SYSTEMROOT%\Traces\WindowsUpdate"); FilesOnly = $false }
-        @{ Name = "Panther Logs"; Type = "File"; Paths = @("%SYSTEMROOT%\Panther"); FilesOnly = $false }
-        @{ Name = "CBS Logs"; Type = "File"; Paths = @("C:\WINDOWS\Logs\CBS\CBS.log"); FilesOnly = $true }
-        @{ Name = "Specific Logs"; Type = "File"; Paths = @(
-                "%SYSTEMROOT%\comsetup.log", "%SYSTEMROOT%\DtcInstall.log", "%SYSTEMROOT%\PFRO.log",
-                "%SYSTEMROOT%\setupact.log", "%SYSTEMROOT%\setuperr.log", "%SYSTEMROOT%\inf\setupapi.app.log",
-                "%SYSTEMROOT%\inf\setupapi.dev.log", "%SYSTEMROOT%\inf\setupapi.offline.log",
-                "%SYSTEMROOT%\Performance\WinSAT\winsat.log", "%SYSTEMROOT%\debug\PASSWD.LOG",
-                "%SYSTEMROOT%\System32\catroot2\dberr.txt", "%SYSTEMROOT%\System32\catroot2.log",
-                "%SYSTEMROOT%\System32\catroot2.jrs", "%SYSTEMROOT%\System32\catroot2.edb",
-                "%SYSTEMROOT%\System32\catroot2.chk", "%SYSTEMROOT%\Logs\DISM\DISM.log"
-            ); FilesOnly = $true
+        # --- System & Component Logs (Consolidato) ---
+        @{ Name = "System & Component Logs"; Type = "File"; Paths = @(
+                "C:\WINDOWS\Logs",
+                "C:\WINDOWS\System32\LogFiles",
+                "C:\ProgramData\Microsoft\Windows\WER\ReportQueue",
+                "%SYSTEMROOT%\Temp\CBS",
+                "%SYSTEMROOT%\Logs\waasmedic",
+                "%SYSTEMROOT%\Logs\SIH",
+                "%SYSTEMROOT%\Traces\WindowsUpdate",
+                "%SYSTEMROOT%\Panther",
+                "%SYSTEMROOT%\comsetup.log",
+                "%SYSTEMROOT%\DtcInstall.log",
+                "%SYSTEMROOT%\PFRO.log",
+                "%SYSTEMROOT%\setupact.log",
+                "%SYSTEMROOT%\setuperr.log",
+                "%SYSTEMROOT%\inf\setupapi.app.log",
+                "%SYSTEMROOT%\inf\setupapi.dev.log",
+                "%SYSTEMROOT%\inf\setupapi.offline.log",
+                "%SYSTEMROOT%\Performance\WinSAT\winsat.log",
+                "%SYSTEMROOT%\debug\PASSWD.LOG",
+                "%SYSTEMROOT%\System32\catroot2\dberr.txt",
+                "%SYSTEMROOT%\System32\catroot2.log",
+                "%SYSTEMROOT%\System32\catroot2.jrs",
+                "%SYSTEMROOT%\System32\catroot2.edb",
+                "%SYSTEMROOT%\System32\catroot2.chk",
+                "%SYSTEMROOT%\Logs\DISM\DISM.log",
+                "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\AutoLogger\AutoLogger-Diagtrack-Listener.etl"
+            ); FilesOnly = $true; TakeOwnership = $true 
         }
-        @{ Name = "DiagTrack Logs"; Type = "File"; Paths = @("%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\AutoLogger\AutoLogger-Diagtrack-Listener.etl"); FilesOnly = $true; TakeOwnership = $true }
 
-        # --- App History & Telemetry ---
-        @{ Name = "Recent Docs"; Type = "Registry"; Keys = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs"); ValuesOnly = $true; Recursive = $true }
-        @{ Name = "Run MRU"; Type = "Registry"; Keys = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU"); ValuesOnly = $true }
-        @{ Name = "ComDlg32"; Type = "Registry"; Keys = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\LastVisitedPidlMRU", "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU", "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\LastVisitedMRU", "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\LastVisitedPidlMRULegacy", "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSaveMRU"); ValuesOnly = $true }
-        @{ Name = "Regedit History"; Type = "Custom"; ScriptBlock = {
-                Remove-ItemProperty -Path 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Applets\Regedit' -Name 'LastKey' -ErrorAction SilentlyContinue
-                Remove-RegistryItem -Rule @{ Keys = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit\Favorites"); ValuesOnly = $true }
-            }
+        # --- User Registry History (Consolidato) ---
+        @{ Name = "User Registry History - Values Only"; Type = "Registry"; Keys = @(
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\LastVisitedPidlMRU",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\LastVisitedMRU",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\LastVisitedPidlMRULegacy",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSaveMRU",
+                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Applets\Regedit\Favorites",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\Recent File List",
+                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Applets\Wordpad\Recent File List",
+                "HKCU:\Software\Microsoft\MediaPlayer\Player\RecentFileList",
+                "HKCU:\Software\Microsoft\MediaPlayer\Player\RecentURLList",
+                "HKCU:\Software\Gabest\Media Player Classic\Recent File List",
+                "HKCU:\Software\Microsoft\Direct3D\MostRecentApplication",
+                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths",
+                "HKCU:\Software\Microsoft\Search Assistant\ACMru",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\WordWheelQuery",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\SearchHistory",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Map Network Drive MRU"
+            ); ValuesOnly = $true; Recursive = $true 
         }
-        @{ Name = "Paint/WordPad"; Type = "Registry"; Keys = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\Recent File List", "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Applets\Wordpad\Recent File List"); ValuesOnly = $true }
-        @{ Name = "Media Player"; Type = "Registry"; Keys = @("HKCU:\Software\Microsoft\MediaPlayer\Player\RecentFileList", "HKCU:\Software\Microsoft\MediaPlayer\Player\RecentURLList", "HKCU:\Software\Gabest\Media Player Classic\Recent File List"); ValuesOnly = $true }
-        @{ Name = "DirectX MRU"; Type = "Registry"; Keys = @("HKCU:\Software\Microsoft\Direct3D\MostRecentApplication"); ValuesOnly = $true }
-        @{ Name = "Explorer Address"; Type = "Registry"; Keys = @("HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths"); ValuesOnly = $true }
-        @{ Name = "Search History"; Type = "Registry"; Keys = @("HKCU:\Software\Microsoft\Search Assistant\ACMru", "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\WordWheelQuery", "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\SearchHistory"); ValuesOnly = $true; Recursive = $true }
-        @{ Name = "Search Hist File"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\ConnectedSearch\History"); PerUser = $true }
-        @{ Name = "Network Drives"; Type = "Registry"; Keys = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Map Network Drive MRU"); ValuesOnly = $true }
-        @{ Name = "Adobe Media Browser"; Type = "Registry"; Keys = @("HKCU:\Software\Adobe\MediaBrowser\MRU"); ValuesOnly = $false } # Delete Key
-        
-        # --- Developer Junk ---
-        @{ Name = "Dotnet Telemetry"; Type = "File"; Paths = @("%USERPROFILE%\.dotnet\TelemetryStorageService"); PerUser = $true }
-        @{ Name = "CLR Usage Traces"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\CLR_v4.0\UsageTraces", "%LOCALAPPDATA%\Microsoft\CLR_v4.0_32\UsageTraces"); PerUser = $true }
-        @{ Name = "VS Telemetry"; Type = "File"; Paths = @(
-                "%LOCALAPPDATA%\Microsoft\VSCommon\14.0\SQM", "%LOCALAPPDATA%\Microsoft\VSCommon\15.0\SQM",
-                "%LOCALAPPDATA%\Microsoft\VSCommon\16.0\SQM", "%LOCALAPPDATA%\Microsoft\VSCommon\17.0\SQM",
-                "%LOCALAPPDATA%\Microsoft\VSApplicationInsights", "%TEMP%\Microsoft\VSApplicationInsights",
-                "%APPDATA%\vstelemetry", "%TEMP%\VSFaultInfo", "%TEMP%\VSFeedbackPerfWatsonData",
-                "%TEMP%\VSFeedbackVSRTCLogs", "%TEMP%\VSFeedbackIntelliCodeLogs", "%TEMP%\VSRemoteControl",
-                "%TEMP%\Microsoft\VSFeedbackCollector", "%TEMP%\VSTelem", "%TEMP%\VSTelem.Out"
-            ); PerUser = $true
+        @{ Name = "Adobe Media Browser Key"; Type = "Registry"; Keys = @("HKCU:\Software\Adobe\MediaBrowser\MRU"); ValuesOnly = $false }
+
+        # --- Developer Telemetry (Consolidato) ---
+        @{ Name = "Developer Telemetry & Traces"; Type = "File"; Paths = @(
+                "%USERPROFILE%\.dotnet\TelemetryStorageService",
+                "%LOCALAPPDATA%\Microsoft\CLR_v4.0\UsageTraces",
+                "%LOCALAPPDATA%\Microsoft\CLR_v4.0_32\UsageTraces",
+                "%LOCALAPPDATA%\Microsoft\VSCommon\14.0\SQM",
+                "%LOCALAPPDATA%\Microsoft\VSCommon\15.0\SQM",
+                "%LOCALAPPDATA%\Microsoft\VSCommon\16.0\SQM",
+                "%LOCALAPPDATA%\Microsoft\VSCommon\17.0\SQM",
+                "%LOCALAPPDATA%\Microsoft\VSApplicationInsights",
+                "%TEMP%\Microsoft\VSApplicationInsights",
+                "%APPDATA%\vstelemetry",
+                "%TEMP%\VSFaultInfo",
+                "%TEMP%\VSFeedbackPerfWatsonData",
+                "%TEMP%\VSFeedbackVSRTCLogs",
+                "%TEMP%\VSFeedbackIntelliCodeLogs",
+                "%TEMP%\VSRemoteControl",
+                "%TEMP%\Microsoft\VSFeedbackCollector",
+                "%TEMP%\VSTelem",
+                "%TEMP%\VSTelem.Out",
+                "%PROGRAMDATA%\Microsoft\VSApplicationInsights",
+                "%PROGRAMDATA%\vstelemetry"
+            ); PerUser = $true; FilesOnly = $false 
         }
-        @{ Name = "VS Telemetry Global"; Type = "File"; Paths = @("%PROGRAMDATA%\Microsoft\VSApplicationInsights", "%PROGRAMDATA%\vstelemetry"); FilesOnly = $false }
-        @{ Name = "VS Licenses"; Type = "Registry"; Keys = @(
-                "HKLM:\SOFTWARE\Classes\Licenses\77550D6B-6352-4E77-9DA3-537419DF564B", "HKLM:\SOFTWARE\Classes\Licenses\E79B3F9C-6543-4897-BBA5-5BFB0A02BB5C",
-                "HKLM:\SOFTWARE\Classes\Licenses\4D8CFBCB-2F6A-4AD2-BABF-10E28F6F2C8F", "HKLM:\SOFTWARE\Classes\Licenses\5C505A59-E312-4B89-9508-E162F8150517",
-                "HKLM:\SOFTWARE\Classes\Licenses\41717607-F34E-432C-A138-A3CFD7E25CDA", "HKLM:\SOFTWARE\Classes\Licenses\B16F0CF0-8AD1-4A5B-87BC-CB0DBE9C48FC",
-                "HKLM:\SOFTWARE\Classes\Licenses\10D17DBA-761D-4CD8-A627-984E75A58700", "HKLM:\SOFTWARE\Classes\Licenses\1299B4B9-DFCC-476D-98F0-F65A2B46C96D"
+        @{ Name = "Visual Studio Licenses"; Type = "Registry"; Keys = @(
+                "HKLM:\SOFTWARE\Classes\Licenses\77550D6B-6352-4E77-9DA3-537419DF564B",
+                "HKLM:\SOFTWARE\Classes\Licenses\E79B3F9C-6543-4897-BBA5-5BFB0A02BB5C",
+                "HKLM:\SOFTWARE\Classes\Licenses\4D8CFBCB-2F6A-4AD2-BABF-10E28F6F2C8F",
+                "HKLM:\SOFTWARE\Classes\Licenses\5C505A59-E312-4B89-9508-E162F8150517",
+                "HKLM:\SOFTWARE\Classes\Licenses\41717607-F34E-432C-A138-A3CFD7E25CDA",
+                "HKLM:\SOFTWARE\Classes\Licenses\B16F0CF0-8AD1-4A5B-87BC-CB0DBE9C48FC",
+                "HKLM:\SOFTWARE\Classes\Licenses\10D17DBA-761D-4CD8-A627-984E75A58700",
+                "HKLM:\SOFTWARE\Classes\Licenses\1299B4B9-DFCC-476D-98F0-F65A2B46C96D"
             ); ValuesOnly = $false 
         }
+
+        # --- Search History Files ---
+        @{ Name = "Search History Files"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\ConnectedSearch\History"); PerUser = $true }
 
         # --- Print Queue (Spooler) ---
         @{ Name = "Print Queue (Spooler)"; Type = "ScriptBlock"; ScriptBlock = {
                 try {
                     Write-StyledMessage Info "🖨️ Pulizia coda di stampa (Spooler)..."
                     
-                    # 1. Arresto Spooler
                     Write-StyledMessage Info "⏸️ Arresto servizio Spooler..."
                     Stop-Service -Name Spooler -Force -ErrorAction Stop | Out-Null
                     Write-StyledMessage Info "✅ Servizio Spooler arrestato."
                     Start-Sleep -Seconds 2
 
-                    # 2. Pulizia directory
                     $printersPath = 'C:\WINDOWS\System32\spool\PRINTERS'
                     if (Test-Path $printersPath) {
                         $files = Get-ChildItem -Path $printersPath -Force -ErrorAction SilentlyContinue
@@ -692,7 +671,6 @@ function WinCleaner {
                         Write-StyledMessage Info "✅ Coda di stampa pulita in $printersPath ($($files.Count) file rimossi)"
                     }
 
-                    # 3. Riavvio Spooler
                     Write-StyledMessage Info "▶️ Riavvio servizio Spooler..."
                     Start-Service -Name Spooler -ErrorAction Stop | Out-Null
                     Write-StyledMessage Info "✅ Servizio Spooler riavviato."
@@ -700,7 +678,6 @@ function WinCleaner {
                     Write-StyledMessage Success "✅ Print Queue Spooler pulito e riavviato con successo."
                 }
                 catch {
-                    # Assicura che il servizio spooler sia riavviato anche in caso di errore
                     Start-Service -Name Spooler -ErrorAction SilentlyContinue
                     Write-StyledMessage Warning "⚠️ Errore durante la pulizia Spooler: $($_.Exception.Message)"
                 }
@@ -713,7 +690,11 @@ function WinCleaner {
         @{ Name = "Start DPS"; Type = "Service"; ServiceName = "DPS"; Action = "Start" }
         @{ Name = "Defender History"; Type = "File"; Paths = @("%ProgramData%\Microsoft\Windows Defender\Scans\History"); FilesOnly = $false; TakeOwnership = $true }
 
-        # --- Credential Manager ---
+        # --- Utility Apps ---
+        @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
+        @{ Name = "Quick Access"; Type = "File"; Paths = @("%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations", "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations", "%APPDATA%\Microsoft\Windows\Recent Items"); PerUser = $true }
+
+        # --- Special Operations ---
         @{ Name = "Credential Manager"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage Info "🔑 Pulizia Credenziali..."
                 & cmdkey /list 2>$null | Where-Object { $_ -match '^Target:' } | ForEach-Object { 
@@ -722,21 +703,13 @@ function WinCleaner {
                 }
             }
         }
-
-        # --- Listary ---
-        @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
-
-        # --- Quick Access ---
-        @{ Name = "Quick Access"; Type = "File"; Paths = @("%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations", "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations", "%APPDATA%\Microsoft\Windows\Recent Items"); PerUser = $true }
-
-        # --- Windows.old ---
+        @{ Name = "Regedit Last Key"; Type = "Registry"; Keys = @("HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Applets\Regedit"); ValuesOnly = $true }
         @{ Name = "Windows.old"; Type = "ScriptBlock"; ScriptBlock = {
                 $path = "C:\Windows.old"
                 if (Test-Path $path) {
                     try {
                         Write-StyledMessage Info "🗑️ Rimozione Windows.old..."
                         
-                        # 1. Take Ownership
                         Write-StyledMessage Info "1. Assunzione proprietà (Take Ownership)..."
                         $takeownResult = & cmd /c "takeown /F `"$path`" /R /A /D Y 2>&1"
                         if ($LASTEXITCODE -ne 0) {
@@ -747,7 +720,6 @@ function WinCleaner {
                         }
                         Start-Sleep -Milliseconds 500
                         
-                        # 2. Assegnare permessi di controllo completo
                         Write-StyledMessage Info "2. Assegnazione permessi di Controllo Completo..."
                         $icaclsResult = & cmd /c "icacls `"$path`" /T /grant Administrators:F 2>&1"
                         if ($LASTEXITCODE -ne 0) {
@@ -758,11 +730,9 @@ function WinCleaner {
                         }
                         Start-Sleep -Milliseconds 500
                         
-                        # 3. Rimozione forzata
                         Write-StyledMessage Info "3. Rimozione forzata della cartella..."
                         Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
                         
-                        # 4. Verifica finale
                         if (Test-Path -Path $path) {
                             Write-StyledMessage Error "❌ ERRORE: La cartella $path non è stata rimossa."
                         }
@@ -779,8 +749,6 @@ function WinCleaner {
                 }
             }
         }
-
-        # --- Recycle Bin ---
         @{ Name = "Empty Recycle Bin"; Type = "Custom"; ScriptBlock = {
                 Clear-RecycleBin -Force -ErrorAction SilentlyContinue
                 Write-StyledMessage Success "🗑️ Cestino svuotato"
