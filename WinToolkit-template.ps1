@@ -183,7 +183,7 @@ function WinOSCheck {
 }
 
 # --- PLACEHOLDER PER COMPILATORE ---
-#function WinInstallPSProfile {}
+function WinInstallPSProfile {}
 #function WinRepairToolkit {}
 #function WinUpdateReset {}
 #function WinReinstallStore {}
