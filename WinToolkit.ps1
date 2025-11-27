@@ -2889,6 +2889,13 @@ function WinCleaner {
             'RegSet' { return Set-RegistryItem -Rule $Rule }
             'Service' { return Invoke-ServiceAction -Rule $Rule }
             'Command' { return Invoke-CommandAction -Rule $Rule }
+            'ScriptBlock' { 
+                # Nuovo tipo per operazioni multi-passo complesse
+                if ($Rule.ScriptBlock) { 
+                    & $Rule.ScriptBlock 
+                    return $true
+                }
+            }
             'Custom' { 
                 # Fallback for complex logic like CleanMgr/Windows.old
                 if ($Rule.ScriptBlock) { 
@@ -2966,19 +2973,79 @@ function WinCleaner {
             }
         }
 
+        # --- Windows App/Download Cache ---
+        @{ Name = "Windows App/Download Cache"; Type = "ScriptBlock"; ScriptBlock = {
+                Write-StyledMessage Info "⬇️ Pulizia cache download Windows..."
+                $downloadPaths = @(
+                    "C:\WINDOWS\SoftwareDistribution\Download",
+                    "$env:LOCALAPPDATA\Microsoft\Windows\AppCache",
+                    "$env:LOCALAPPDATA\Microsoft\Windows\Caches"
+                )
+
+                $totalCleaned = 0
+                foreach ($path in $downloadPaths) {
+                    # Verifica esclusione cartella WinToolkit
+                    if (Test-VitalExclusion $path) {
+                        Write-StyledMessage Info "💭 Cache download esclusa dalla pulizia: $path"
+                        continue
+                    }
+
+                    if (Test-Path $path) {
+                        try {
+                            $files = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+                                -not (Test-VitalExclusion $_.FullName)
+                            }
+                            $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                            $totalCleaned += $files.Count
+                            Write-StyledMessage Info "🗑️ Rimossi $($files.Count) file da $path"
+                        }
+                        catch {
+                            Write-StyledMessage Warning "⚠️ Impossibile pulire $path - $_"
+                        }
+                    }
+                }
+
+                if ($totalCleaned -gt 0) {
+                    Write-StyledMessage Success "✅ Cache download pulita ($totalCleaned file rimossi)"
+                }
+                else {
+                    Write-StyledMessage Info "💭 Nessun file cache download da pulire"
+                }
+            }
+        }
+
         # --- Restore Points ---
-        @{ Name = "Shadow Copies"; Type = "Custom"; ScriptBlock = {
-                Write-StyledMessage Info "💾 Disattivazione punti ripristino..."
-                & vssadmin delete shadows /all /quiet 2>$null
-                Disable-ComputerRestore -Drive "C:" -ErrorAction SilentlyContinue
+        @{ Name = "System Restore Points"; Type = "ScriptBlock"; ScriptBlock = {
+                try {
+                    Write-StyledMessage Info "💾 Pulizia punti di ripristino sistema..."
+                    
+                    # Rimuovere tutte le shadow copies (solo per liberare spazio VSS)
+                    Write-StyledMessage Info "🗑️ Rimozione shadow copies per liberare spazio VSS..."
+                    $vssResult = & vssadmin delete shadows /all /quiet 2>&1
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-StyledMessage Success "✅ Shadow copies rimosse con successo"
+                    }
+                    else {
+                        Write-StyledMessage Warning "⚠️ VSSAdmin completato con warnings: $vssResult"
+                    }
+                    
+                    # Nota: NON disattiviamo permanentemente la protezione del sistema
+                    # in quanto non è consigliato in un tool di pulizia generale
+                    Write-StyledMessage Info "💡 Protezione sistema mantenuta attiva per sicurezza"
+                    
+                    Write-StyledMessage Success "✅ Pulizia punti di ripristino completata"
+                }
+                catch {
+                    Write-StyledMessage Warning "⚠️ Errore durante la pulizia punti di ripristino: $($_.Exception.Message)"
+                }
             }
         }
 
         # --- Prefetch ---
-        @{ Name = "Prefetch"; Type = "File"; Paths = @("C:\WINDOWS\Prefetch"); FilesOnly = $false }
+        @{ Name = "Cleanup - Windows Prefetch Cache"; Type = "File"; Paths = @("C:\WINDOWS\Prefetch"); FilesOnly = $false }
 
         # --- Thumbnails ---
-        @{ Name = "Thumbnails"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\Explorer"); PerUser = $true; FilesOnly = $true; TakeOwnership = $true }
+        @{ Name = "Cleanup - Explorer Thumbnail/Icon Cache"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\Explorer"); PerUser = $true; FilesOnly = $true; TakeOwnership = $true }
 
         # --- Browsers & Web ---
         @{ Name = "WinInet Cache"; Type = "Custom"; ScriptBlock = {
@@ -3131,10 +3198,39 @@ function WinCleaner {
             ); ValuesOnly = $false 
         }
 
-        # --- Print Queue ---
-        @{ Name = "Stop Spooler"; Type = "Service"; ServiceName = "Spooler"; Action = "Stop" }
-        @{ Name = "Print Queue"; Type = "File"; Paths = @("C:\WINDOWS\System32\spool\PRINTERS"); FilesOnly = $false }
-        @{ Name = "Start Spooler"; Type = "Service"; ServiceName = "Spooler"; Action = "Start" }
+        # --- Print Queue (Spooler) ---
+        @{ Name = "Print Queue (Spooler)"; Type = "ScriptBlock"; ScriptBlock = {
+                try {
+                    Write-StyledMessage Info "🖨️ Pulizia coda di stampa (Spooler)..."
+                    
+                    # 1. Arresto Spooler
+                    Write-StyledMessage Info "⏸️ Arresto servizio Spooler..."
+                    Stop-Service -Name Spooler -Force -ErrorAction Stop | Out-Null
+                    Write-StyledMessage Info "✅ Servizio Spooler arrestato."
+                    Start-Sleep -Seconds 2
+
+                    # 2. Pulizia directory
+                    $printersPath = 'C:\WINDOWS\System32\spool\PRINTERS'
+                    if (Test-Path $printersPath) {
+                        $files = Get-ChildItem -Path $printersPath -Force -ErrorAction SilentlyContinue
+                        $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                        Write-StyledMessage Info "✅ Coda di stampa pulita in $printersPath ($($files.Count) file rimossi)"
+                    }
+
+                    # 3. Riavvio Spooler
+                    Write-StyledMessage Info "▶️ Riavvio servizio Spooler..."
+                    Start-Service -Name Spooler -ErrorAction Stop | Out-Null
+                    Write-StyledMessage Info "✅ Servizio Spooler riavviato."
+                    
+                    Write-StyledMessage Success "✅ Print Queue Spooler pulito e riavviato con successo."
+                }
+                catch {
+                    # Assicura che il servizio spooler sia riavviato anche in caso di errore
+                    Start-Service -Name Spooler -ErrorAction SilentlyContinue
+                    Write-StyledMessage Warning "⚠️ Errore durante la pulizia Spooler: $($_.Exception.Message)"
+                }
+            }
+        }
 
         # --- SRUM & Defender ---
         @{ Name = "Stop DPS"; Type = "Service"; ServiceName = "DPS"; Action = "Stop" }
@@ -3159,13 +3255,52 @@ function WinCleaner {
         @{ Name = "Quick Access"; Type = "File"; Paths = @("%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations", "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations", "%APPDATA%\Microsoft\Windows\Recent Items"); PerUser = $true }
 
         # --- Windows.old ---
-        @{ Name = "Windows.old"; Type = "Custom"; ScriptBlock = {
+        @{ Name = "Windows.old"; Type = "ScriptBlock"; ScriptBlock = {
                 $path = "C:\Windows.old"
                 if (Test-Path $path) {
-                    Write-StyledMessage Info "🗑️ Rimozione Windows.old..."
-                    & cmd /c "takeown /F `"$path`" /R /A /D Y 2>&1" | Out-Null
-                    & cmd /c "icacls `"$path`" /T /grant Administrators:F 2>&1" | Out-Null
-                    Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
+                    try {
+                        Write-StyledMessage Info "🗑️ Rimozione Windows.old..."
+                        
+                        # 1. Take Ownership
+                        Write-StyledMessage Info "1. Assunzione proprietà (Take Ownership)..."
+                        $takeownResult = & cmd /c "takeown /F `"$path`" /R /A /D Y 2>&1"
+                        if ($LASTEXITCODE -ne 0) {
+                            Write-StyledMessage Warning "❌ Errore durante l'assunzione della proprietà: $takeownResult"
+                        }
+                        else {
+                            Write-StyledMessage Info "✅ Proprietà assunta."
+                        }
+                        Start-Sleep -Milliseconds 500
+                        
+                        # 2. Assegnare permessi di controllo completo
+                        Write-StyledMessage Info "2. Assegnazione permessi di Controllo Completo..."
+                        $icaclsResult = & cmd /c "icacls `"$path`" /T /grant Administrators:F 2>&1"
+                        if ($LASTEXITCODE -ne 0) {
+                            Write-StyledMessage Warning "❌ Errore durante l'assegnazione permessi: $icaclsResult"
+                        }
+                        else {
+                            Write-StyledMessage Info "✅ Permessi di controllo completo assegnati."
+                        }
+                        Start-Sleep -Milliseconds 500
+                        
+                        # 3. Rimozione forzata
+                        Write-StyledMessage Info "3. Rimozione forzata della cartella..."
+                        Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
+                        
+                        # 4. Verifica finale
+                        if (Test-Path -Path $path) {
+                            Write-StyledMessage Error "❌ ERRORE: La cartella $path non è stata rimossa."
+                        }
+                        else {
+                            Write-StyledMessage Success "✅ La cartella Windows.old è stata rimossa con successo."
+                        }
+                    }
+                    catch {
+                        Write-StyledMessage Error "❌ ERRORE durante la rimozione di Windows.old: $($_.Exception.Message)"
+                    }
+                }
+                else {
+                    Write-StyledMessage Info "💭 La cartella Windows.old non è presente."
                 }
             }
         }
