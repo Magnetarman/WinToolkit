@@ -307,6 +307,4 @@ try {
 catch {
     Write-StyledMessage 'Error' "Errore durante il salvataggio: $($_.Exception.Message)"
     exit 1
-}    Write-StyledMessage 'Error' "Errore durante il salvataggio: $($_.Exception.Message)"
-exit 1
 }
