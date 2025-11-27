@@ -2945,28 +2945,9 @@ function WinCleaner {
         }
 
         # --- Windows Update ---
-        @{ Name = "Windows Update Cleanup"; Type = "Custom"; ScriptBlock = {
-                Write-StyledMessage Info "🔄 Pulizia cache Windows Update..."
-                try {
-                    Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
-                    Start-Sleep -Seconds 2
-
-                    $paths = @("C:\WINDOWS\SoftwareDistribution\DataStore", "C:\WINDOWS\SoftwareDistribution\Download")
-                    foreach ($p in $paths) {
-                        if (Test-Path $p) {
-                            Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
-                        }
-                    }
-
-                    Start-Service -Name wuauserv -ErrorAction SilentlyContinue
-                    Write-StyledMessage Success "✅ Cache Windows Update pulita"
-                }
-                catch {
-                    Start-Service -Name wuauserv -ErrorAction SilentlyContinue
-                    Write-StyledMessage Warning "Errore pulizia Windows Update: $_"
-                }
-            }
-        }
+        @{ Name = "Stop - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Stop" }
+        @{ Name = "Cleanup - Windows Update Cache"; Type = "File"; Paths = @("C:\WINDOWS\SoftwareDistribution\DataStore", "C:\WINDOWS\SoftwareDistribution\Download"); FilesOnly = $false }
+        @{ Name = "Start - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Start" }
 
         # --- Windows App/Download Cache ---
         @{ Name = "Windows App/Download Cache - System"; Type = "File"; Paths = @("C:\WINDOWS\SoftwareDistribution\Download"); FilesOnly = $true }
@@ -3002,47 +2983,26 @@ function WinCleaner {
         @{ Name = "Cleanup - Explorer Thumbnail/Icon Cache"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\Explorer"); PerUser = $true; FilesOnly = $true; TakeOwnership = $true }
 
         # --- Browser & Web Cache (Consolidato) ---
-        @{ Name = "WinInet & Internet Cache"; Type = "Custom"; ScriptBlock = {
-                Write-StyledMessage Info "🌐 Pulizia WinInet Cache..."
-                
-                # WinInet Cache paths
-                $winInetPaths = @("$env:LOCALAPPDATA\Microsoft\Windows\INetCache\IE", "$env:LOCALAPPDATA\Microsoft\Windows\WebCache", 
-                    "$env:LOCALAPPDATA\Microsoft\Feeds Cache", "$env:LOCALAPPDATA\Microsoft\InternetExplorer\DOMStore",
-                    "$env:LOCALAPPDATA\Microsoft\Internet Explorer")
-                foreach ($p in $winInetPaths) { if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue } }
-            
-                # Per-user Temp Internet Files
-                $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
-                foreach ($u in $users) {
-                    $p = "$($u.FullName)\Local Settings\Temporary Internet Files"
-                    if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue }
-                }
-            
-                & RunDll32.exe InetCpl.cpl, ClearMyTracksByProcess 8 2>$null
-                & RunDll32.exe InetCpl.cpl, ClearMyTracksByProcess 2 2>$null
-            }
-        }
-        @{ Name = "Internet Cookies"; Type = "Custom"; ScriptBlock = {
-                Write-StyledMessage Info "🍪 Pulizia Cookie..."
-                
-                $cookiePaths = @("%APPDATA%\Microsoft\Windows\Cookies", "%LOCALAPPDATA%\Microsoft\Windows\INetCookies")
-                $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
-                foreach ($u in $users) {
-                    foreach ($rawP in $cookiePaths) {
-                        $p = $rawP -replace '%APPDATA%', "$($u.FullName)\AppData\Roaming" `
-                            -replace '%LOCALAPPDATA%', "$($u.FullName)\AppData\Local"
-                        if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue }
-                    }
-                }
-                & RunDll32.exe InetCpl.cpl, ClearMyTracksByProcess 1 2>$null
-            }
-        }
-        @{ Name = "Chrome Browser Cache"; Type = "File"; Paths = @(
+        @{ Name = "WinInet Cache - User"; Type = "File"; Paths = @(
+                "%LOCALAPPDATA%\Microsoft\Windows\INetCache\IE",
+                "%LOCALAPPDATA%\Microsoft\Windows\WebCache",
+                "%LOCALAPPDATA%\Microsoft\Feeds Cache",
+                "%LOCALAPPDATA%\Microsoft\InternetExplorer\DOMStore",
+                "%LOCALAPPDATA%\Microsoft\Internet Explorer"
+            ); PerUser = $true; FilesOnly = $false }
+        @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @("%USERPROFILE%\Local Settings\Temporary Internet Files"); PerUser = $true; FilesOnly = $false }
+        @{ Name = "Cache/History Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "8") }
+        @{ Name = "Form Data Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "2") }
+        @{ Name = "Internet Cookies Cleanup"; Type = "File"; Paths = @(
+                "%APPDATA%\Microsoft\Windows\Cookies",
+                "%LOCALAPPDATA%\Microsoft\Windows\INetCookies"
+            ); PerUser = $true; FilesOnly = $false }
+        @{ Name = "Cookies Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "1") }
+        @{ Name = "Chrome Browser Cache & Logs"; Type = "File"; Paths = @(
                 "%LOCALAPPDATA%\Google\Chrome\User Data\Crashpad\reports",
-                "%LOCALAPPDATA%\Google\CrashReports"
-            ); PerUser = $true; FilesOnly = $true 
-        }
-        @{ Name = "Chrome SRT Logs"; Type = "File"; Paths = @("%LOCALAPPDATA%\Google\Chrome\User Data\Software Reporter Tool"); PerUser = $true }
+                "%LOCALAPPDATA%\Google\CrashReports",
+                "%LOCALAPPDATA%\Google\Chrome\User Data\Software Reporter Tool"
+            ); PerUser = $true; FilesOnly = $true }
         @{ Name = "Firefox Browser Data"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage Info "🦊 Pulizia Firefox..."
                 
@@ -3075,7 +3035,7 @@ function WinCleaner {
                 "%LOCALAPPDATA%\Opera\Opera",
                 "%APPDATA%\Opera\Opera",
                 "%APPDATA%\Sun\Java\Deployment\cache"
-            ); PerUser = $true 
+            ); PerUser = $true; FilesOnly = $false 
         }
 
         @{ Name = "DNS Flush"; Type = "Command"; Command = "ipconfig"; Args = @("/flushdns") }
@@ -3085,7 +3045,7 @@ function WinCleaner {
         @{ Name = "User Temp Files"; Type = "File"; Paths = @("%TEMP%", "%USERPROFILE%\AppData\Local\Temp", "%USERPROFILE%\AppData\LocalLow\Temp"); PerUser = $true; FilesOnly = $false }
         @{ Name = "Service Profiles Temp"; Type = "File"; Paths = @("%SYSTEMROOT%\ServiceProfiles\LocalService\AppData\Local\Temp"); FilesOnly = $false }
 
-        # --- System & Component Logs (Consolidato) ---
+        # --- System & Component Logs (Consolidato & Esteso) ---
         @{ Name = "System & Component Logs"; Type = "File"; Paths = @(
                 "C:\WINDOWS\Logs",
                 "C:\WINDOWS\System32\LogFiles",
@@ -3093,6 +3053,8 @@ function WinCleaner {
                 "%SYSTEMROOT%\Temp\CBS",
                 "%SYSTEMROOT%\Logs\waasmedic",
                 "%SYSTEMROOT%\Logs\SIH",
+                "%SYSTEMROOT%\Logs\NetSetup",
+                "%SYSTEMROOT%\System32\LogFiles\setupcln",
                 "%SYSTEMROOT%\Traces\WindowsUpdate",
                 "%SYSTEMROOT%\Panther",
                 "%SYSTEMROOT%\comsetup.log",
@@ -3111,7 +3073,8 @@ function WinCleaner {
                 "%SYSTEMROOT%\System32\catroot2.edb",
                 "%SYSTEMROOT%\System32\catroot2.chk",
                 "%SYSTEMROOT%\Logs\DISM\DISM.log",
-                "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\AutoLogger\AutoLogger-Diagtrack-Listener.etl"
+                "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\AutoLogger\AutoLogger-Diagtrack-Listener.etl",
+                "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\ShutdownLogger\AutoLogger-Diagtrack-Listener.etl"
             ); FilesOnly = $true; TakeOwnership = $true 
         }
 
@@ -3218,6 +3181,83 @@ function WinCleaner {
         # --- Utility Apps ---
         @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
         @{ Name = "Quick Access"; Type = "File"; Paths = @("%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations", "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations", "%APPDATA%\Microsoft\Windows\Recent Items"); PerUser = $true }
+
+        # --- Legacy Applications & Media ---
+        @{ Name = "Flash Player Traces"; Type = "File"; Paths = @("%APPDATA%\Macromedia\Flash Player"); PerUser = $true }
+
+        # --- Enhanced DiagTrack Service Management ---
+        @{ Name = "Enhanced DiagTrack Management"; Type = "Custom"; ScriptBlock = {
+                Write-StyledMessage Info "🔄 Gestione migliorata servizio DiagTrack..."
+                
+                function Get-StateFilePath($BaseName, $Suffix) {
+                    $escapedBaseName = $BaseName.Split([IO.Path]::GetInvalidFileNameChars()) -Join '_'
+                    $uniqueFilename = $escapedBaseName, $Suffix -Join '-'
+                    $path = [IO.Path]::Combine($env:APPDATA, 'WinToolkit', 'state', $uniqueFilename)
+                    return $path
+                }
+                
+                function Get-UniqueStateFilePath($BaseName) {
+                    $suffix = New-Guid
+                    $path = Get-StateFilePath -BaseName $BaseName -Suffix $suffix
+                    if (Test-Path -Path $path) {
+                        Write-Verbose "Path collision detected at: '$path'. Generating new path..."
+                        return Get-UniqueStateFilePath $serviceName
+                    }
+                    return $path
+                }
+                
+                function New-EmptyFile($Path) {
+                    $parentDirectory = [System.IO.Path]::GetDirectoryName($Path)
+                    if (-not (Test-Path $parentDirectory -PathType Container)) {
+                        try { New-Item -ItemType Directory -Path $parentDirectory -Force -ErrorAction Stop | Out-Null }
+                        catch { Write-StyledMessage Warning "Failed to create parent directory: $_"; return $false }
+                    }
+                    try { New-Item -ItemType File -Path $Path -Force -ErrorAction Stop | Out-Null; return $true }
+                    catch { Write-StyledMessage Warning "Failed to create file: $_"; return $false }
+                }
+                
+                $serviceName = 'DiagTrack'
+                Write-StyledMessage Info "Verifica stato servizio $serviceName..."
+                
+                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                if (-not $service) { 
+                    Write-StyledMessage Warning "Servizio $serviceName non trovato, skip"
+                    return 
+                }
+                
+                if ($service.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Running) {
+                    Write-StyledMessage Info "Servizio $serviceName attivo, arresto in corso..."
+                    try { 
+                        $service | Stop-Service -Force -ErrorAction Stop
+                        $service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(30))
+                        $path = Get-UniqueStateFilePath $serviceName
+                        if (New-EmptyFile $path) {
+                            Write-StyledMessage Success "Servizio arrestato e stato salvato - riavvio automatico abilitato"
+                        } else {
+                            Write-StyledMessage Warning "Servizio arrestato - riavvio manuale richiesto"
+                        }
+                    }
+                    catch { Write-StyledMessage Warning "Errore durante arresto servizio: $_" }
+                } else {
+                    Write-StyledMessage Info "Servizio $serviceName non attivo, verifica riavvio..."
+                    $fileGlob = Get-StateFilePath -BaseName $serviceName -Suffix '*'
+                    $stateFiles = Get-ChildItem -Path $fileGlob -ErrorAction SilentlyContinue
+                    
+                    if ($stateFiles.Count -eq 1) {
+                        try { 
+                            Remove-Item -Path $stateFiles[0].FullName -Force -ErrorAction Stop
+                            $service | Start-Service -ErrorAction Stop
+                            Write-StyledMessage Success "Servizio $serviceName riavviato con successo"
+                        }
+                        catch { Write-StyledMessage Warning "Errore durante riavvio servizio: $_" }
+                    } elseif ($stateFiles.Count -gt 1) {
+                        Write-StyledMessage Info "Multiple state files found, servizio non verrà riavviato automaticamente"
+                    } else {
+                        Write-StyledMessage Info "Servizio $serviceName non era attivo precedentemente"
+                    }
+                }
+            }
+        }
 
         # --- Special Operations ---
         @{ Name = "Credential Manager"; Type = "Custom"; ScriptBlock = {
