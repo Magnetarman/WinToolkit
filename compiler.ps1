@@ -90,7 +90,7 @@ foreach ($file in $toolFiles) {
 
         # Gestione file vuoto
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
-            Write-StyledMessage 'Warning' "File '$($file.Name)' è vuoto - inserimento codice di sviluppo"
+            Write-StyledMessage 'Warning' "File '$($file.Name)' vuoto - inserimento codice di sviluppo"
             $fileLines = @(
                 "    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso`""
             )
