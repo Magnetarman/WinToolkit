@@ -541,7 +541,7 @@ function WinCleaner {
         @{ Name = "User Temp Files"; Type = "File"; Paths = @("%TEMP%", "%USERPROFILE%\AppData\Local\Temp", "%USERPROFILE%\AppData\LocalLow\Temp"); PerUser = $true; FilesOnly = $false }
         @{ Name = "Service Profiles Temp"; Type = "File"; Paths = @("%SYSTEMROOT%\ServiceProfiles\LocalService\AppData\Local\Temp"); FilesOnly = $false }
 
-        # --- System & Component Logs (Consolidato & Esteso) ---
+        # --- System & Component Logs ---
         @{ Name = "System & Component Logs"; Type = "File"; Paths = @(
                 "C:\WINDOWS\Logs",
                 "C:\WINDOWS\System32\LogFiles",
@@ -564,7 +564,7 @@ function WinCleaner {
             ); FilesOnly = $true
         }
 
-        # --- User Registry History (Consolidato) ---
+        # --- User Registry History ---
         @{ Name = "User Registry History - Values Only"; Type = "Registry"; Keys = @(
                 "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
                 "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
