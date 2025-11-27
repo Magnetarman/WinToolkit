@@ -191,10 +191,10 @@ function WinBackupDriver {}
 function WinDriverInstall {}
 function OfficeToolkit {}
 #function WinCleaner {}
-#function SetRustDesk {}
-#function VideoDriverInstall {}
-#function GamingToolkit {}
-#function DisableBitlocker {}
+function SetRustDesk {}
+function VideoDriverInstall {}
+function GamingToolkit {}
+function DisableBitlocker {}
 
 # --- MENU PRINCIPALE ---
 $menuStructure = @(
