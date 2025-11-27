@@ -24,7 +24,7 @@ function WinCleaner {
     
     # Initialize Execution Log
     $global:ExecutionLog = @()
-    $ProgressPreference = 'SilentlyContinue'
+    $ProgressPreference = 'Continue'
 
     # ============================================================================
     # 2. ESCLUSIONI VITALI
@@ -149,9 +149,9 @@ function WinCleaner {
             }
             else {
                 $processParams.NoNewWindow = $true
-                # Redirect output to null to keep console clean
-                $processParams.RedirectStandardOutput = "nul"
-                $processParams.RedirectStandardError = "nul"
+                # Keep output visible to avoid suppressing progress bars
+                # $processParams.RedirectStandardOutput = "nul"
+                # $processParams.RedirectStandardError = "nul"
             }
 
             $proc = Start-Process @processParams
