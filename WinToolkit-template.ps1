@@ -188,8 +188,8 @@ function WinRepairToolkit {}
 function WinUpdateReset {}
 function WinReinstallStore {}
 function WinBackupDriver {}
-#function WinDriverInstall {}
-#function OfficeToolkit {}
+function WinDriverInstall {}
+function OfficeToolkit {}
 #function WinCleaner {}
 #function SetRustDesk {}
 #function VideoDriverInstall {}
