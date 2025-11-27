@@ -19,9 +19,9 @@ function WinCleaner {
     # ============================================================================
 
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
-    $script:Log = @()
-    $script:CurrentAttempt = 0
-    
+    $Log = @()
+    $CurrentAttempt = 0
+
     # Setup Logging
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logDir = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -29,8 +29,8 @@ function WinCleaner {
     Start-Transcript -Path "$logDir\WinCleaner_$dateTime.log" -Append -Force | Out-Null
 
     # Risorse UI
-    $script:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-    $script:MsgStyles = @{
+    $Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+    $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }
         Error   = @{ Color = 'Red'; Icon = '❌' }
@@ -38,7 +38,7 @@ function WinCleaner {
     }
 
     # Percorsi Vitali (NON TOCCARE)
-    $script:VitalExclusions = @(
+    $VitalExclusions = @(
         "$env:LOCALAPPDATA\WinToolkit"
     )
 
@@ -52,7 +52,7 @@ function WinCleaner {
         $timestamp = Get-Date -Format "HH:mm:ss"
         $cleanText = $Text -replace '^[✅⚠️❌💎🔍🚀⚙️🧹📦📋📜📝💾⬇️🔧⚡🖼️🌐🍪🔄🗂️📁🖨️📄🗑️💭⏸️▶️💡⏰🎉💻📊]\s*', ''
         Write-Host "[$timestamp] $($style.Icon) $cleanText" -ForegroundColor $style.Color
-        if ($Type -in @('Info', 'Warning', 'Error')) { $script:Log += "[$timestamp] [$Type] $cleanText" }
+        if ($Type -in @('Info', 'Warning', 'Error')) { $Log += "[$timestamp] [$Type] $cleanText" }
     }
 
     function Test-VitalExclusion {
@@ -63,7 +63,7 @@ function WinCleaner {
             if (-not [System.IO.Path]::IsPathRooted($fullPath)) {
                 $fullPath = Join-Path (Get-Location) $fullPath
             }
-            foreach ($excluded in $script:VitalExclusions) {
+            foreach ($excluded in $VitalExclusions) {
                 if ($fullPath -like "$excluded*" -or $fullPath -eq $excluded) {
                     Write-StyledMessage Info "🛡️ PROTEZIONE VITALE ATTIVATA: $fullPath"
                     return $true
@@ -122,7 +122,7 @@ function WinCleaner {
             $proc = Start-Process @processParams
 
             while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
-                $spinner = $script:Spinners[$spinnerIndex++ % $script:Spinners.Length]
+                $spinner = $Spinners[$spinnerIndex++ % $Spinners.Length]
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
 
                 if ($percent -lt 90) {
