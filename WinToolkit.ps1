@@ -2549,6 +2549,7 @@ function WinCleaner {
     
     # Initialize Execution Log
     $global:ExecutionLog = @()
+    $ProgressPreference = 'SilentlyContinue'
 
     # ============================================================================
     # 2. ESCLUSIONI VITALI
@@ -2673,11 +2674,10 @@ function WinCleaner {
             }
             else {
                 $processParams.NoNewWindow = $true
+                # Redirect output to null to keep console clean
+                $processParams.RedirectStandardOutput = "nul"
+                $processParams.RedirectStandardError = "nul"
             }
-
-            # Redirect output to null to keep console clean
-            $processParams.RedirectStandardOutput = $true
-            $processParams.RedirectStandardError = $true
 
             $proc = Start-Process @processParams
 
@@ -2814,7 +2814,7 @@ function WinCleaner {
                         $items = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue
                         foreach ($item in $items) {
                             try {
-                                $item | Remove-Item -Force -Confirm:$false -ErrorAction Stop | Out-Null
+                                $item | Remove-Item -Recurse -Force -Confirm:$false -ErrorAction Stop | Out-Null
                                 $count++
                             }
                             catch { continue }
@@ -2837,7 +2837,7 @@ function WinCleaner {
                         $subItems = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue
                         foreach ($item in $subItems) {
                             try {
-                                $item | Remove-Item -Force -Confirm:$false -ErrorAction Stop | Out-Null
+                                $item | Remove-Item -Recurse -Force -Confirm:$false -ErrorAction Stop | Out-Null
                             }
                             catch { continue }
                         }
@@ -3325,77 +3325,75 @@ function WinCleaner {
     )
 
     # ============================================================================
-    # 5. ESECUZIONE PRINCIPALE
+    # 5. ESECUZIONE REGOLE
     # ============================================================================
 
-    Write-StyledMessage -Type 'Info' -Text "🚀 Avvio procedura di pulizia ottimizzata..."
-    
-    $totalSteps = $Rules.Count
-    $currentStep = 0
+    $totalRules = $Rules.Count
+    $currentRuleIndex = 0
+    $successCount = 0
+    $warningCount = 0
+    $errorCount = 0
 
     foreach ($rule in $Rules) {
-        $currentStep++
-        Show-ProgressBar -Activity "Esecuzione regole" -Status $rule.Name -Percent ([int](($currentStep / $totalSteps) * 100)) -Icon '⚙️'
-
-        Invoke-WinCleanerRule -Rule $rule | Out-Null
-        Start-Sleep -Milliseconds 200
+        $currentRuleIndex++
+        $percent = [math]::Round(($currentRuleIndex / $totalRules) * 100)
+        
+        # Clear line before showing progress to avoid ghosting
         Clear-ProgressLine
-    }
+        Show-ProgressBar -Activity "Esecuzione regole" -Status "$($rule.Name)" -Percent $percent -Icon '⚙️'
 
-    # ============================================================================
-    # 6. COMPLETAMENTO E RIEPILOGO
-    # ============================================================================
-
-    Write-Host ''
-    Write-StyledMessage -Type 'Success' -Text "🎉 Pulizia completata!"
-    
-    # --- RIEPILOGO OPERAZIONI ---
-    Write-Host "`n============================================================================" -ForegroundColor Cyan
-    Write-Host "                             RIEPILOGO OPERAZIONI" -ForegroundColor Cyan
-    Write-Host "============================================================================`n" -ForegroundColor Cyan
-
-    $stats = @{
-        Success = 0
-        Warning = 0
-        Error   = 0
-        Info    = 0
-    }
-
-    foreach ($log in $global:ExecutionLog) {
-        $type = $log.Type
-        if ($stats.ContainsKey($type)) { $stats[$type]++ }
+        $result = Invoke-WinCleanerRule -Rule $rule
         
-        # Print only relevant logs for summary (skip generic info if too verbose, but user asked for summary)
-        # We'll print everything but formatted nicely
-        $color = 'White'
-        switch ($type) {
-            'Success' { $color = 'Green' }
-            'Warning' { $color = 'Yellow' }
-            'Error' { $color = 'Red' }
-            'Info' { $color = 'Gray' }
-        }
-        
-        Write-Host "[$($log.Timestamp)] [$type] $($log.Text)" -ForegroundColor $color
-    }
+        # Clear progress bar line after rule execution to ensure next log message is clean
+        Clear-ProgressLine
 
-    Write-Host "`n----------------------------------------------------------------------------" -ForegroundColor Cyan
-    Write-Host "STATISTICHE:" -ForegroundColor Cyan
-    Write-Host "✅ Successi: $($stats.Success)" -ForegroundColor Green
-    Write-Host "⚠️ Warnings: $($stats.Warning)" -ForegroundColor Yellow
-    Write-Host "❌ Errori:   $($stats.Error)" -ForegroundColor Red
-    Write-Host "============================================================================`n" -ForegroundColor Cyan
-
-    if ($CountdownSeconds -gt 0) {
-        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Preparazione riavvio sistema"
-        if ($shouldReboot) {
-            Write-StyledMessage -Type 'Info' -Text "🔄 Riavvio in corso..."
-            Restart-Computer -Force
+        if ($result) {
+            $successCount++
         }
         else {
-            Write-StyledMessage -Type 'Success' -Text "Pulizia completata. Sistema non riavviato."
-            Write-StyledMessage -Type 'Info' -Text "💡 Riavvia quando possibile per applicare tutte le modifiche."
+            $errorCount++
         }
     }
+
+    # ============================================================================
+    # 6. RIEPILOGO OPERAZIONI
+    # ============================================================================
+
+    Clear-ProgressLine
+    Write-Host "`n"
+    Write-StyledMessage -Type 'Info' -Text "=================================================="
+    Write-StyledMessage -Type 'Info' -Text "               RIEPILOGO OPERAZIONI               "
+    Write-StyledMessage -Type 'Info' -Text "=================================================="
+
+    # Group logs by type for summary stats
+    $stats = $global:ExecutionLog | Group-Object Type
+    $sCount = ($stats | Where-Object Name -eq 'Success').Count
+    $wCount = ($stats | Where-Object Name -eq 'Warning').Count
+    $eCount = ($stats | Where-Object Name -eq 'Error').Count
+
+    Write-StyledMessage -Type 'Success' -Text "✅ Operazioni completate con successo: $sCount"
+    if ($wCount -gt 0) { Write-StyledMessage -Type 'Warning' -Text "⚠️ Avvisi generati: $wCount" }
+    if ($eCount -gt 0) { Write-StyledMessage -Type 'Error' -Text "❌ Errori riscontrati: $eCount" }
+
+    Write-StyledMessage -Type 'Info' -Text "--------------------------------------------------"
+    Write-StyledMessage -Type 'Info' -Text "Dettaglio Errori e Warning:"
+    
+    $problems = $global:ExecutionLog | Where-Object { $_.Type -in 'Warning', 'Error' }
+    if ($problems) {
+        foreach ($p in $problems) {
+            $icon = if ($p.Type -eq 'Error') { '❌' } else { '⚠️' }
+            Write-Host "[$($p.Timestamp)] $icon $($p.Text)" -ForegroundColor ($p.Type -eq 'Error' ? 'Red' : 'Yellow')
+        }
+    }
+    else {
+        Write-StyledMessage -Type 'Success' -Text "Nessun problema rilevato."
+    }
+    
+    Write-StyledMessage -Type 'Info' -Text "=================================================="
+    Write-Host "`n"
+
+    Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio sistema in"
+    Restart-Computer -Force
 }
 function SetRustDesk {
     <#
