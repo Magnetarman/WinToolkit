@@ -2549,7 +2549,7 @@ function WinCleaner {
     
     # Initialize Execution Log
     $global:ExecutionLog = @()
-    $ProgressPreference = 'SilentlyContinue'
+    $ProgressPreference = 'Continue'
 
     # ============================================================================
     # 2. ESCLUSIONI VITALI
@@ -2674,9 +2674,9 @@ function WinCleaner {
             }
             else {
                 $processParams.NoNewWindow = $true
-                # Redirect output to null to keep console clean
-                $processParams.RedirectStandardOutput = "nul"
-                $processParams.RedirectStandardError = "nul"
+                # Keep output visible to avoid suppressing progress bars
+                # $processParams.RedirectStandardOutput = "nul"
+                # $processParams.RedirectStandardError = "nul"
             }
 
             $proc = Start-Process @processParams
@@ -2801,48 +2801,21 @@ function WinCleaner {
                 if ($takeOwn) {
                     Write-StyledMessage -Type 'Info' -Text "🔑 Assunzione proprietà per $path..."
                     $null = & cmd /c "takeown /F `"$path`" /R /A >nul 2>&1"
-                    
+
                     $adminSID = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
                     $adminAccount = $adminSID.Translate([System.Security.Principal.NTAccount]).Value
                     $null = & cmd /c "icacls `"$path`" /T /grant `"${adminAccount}:F`" >nul 2>&1"
                 }
 
                 if ($filesOnly) {
-                    # Optimized for massive folders: Get-ChildItem can hang on huge directories.
-                    # We use a try/catch approach with Force.
-                    try {
-                        $items = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue
-                        foreach ($item in $items) {
-                            try {
-                                $item | Remove-Item -Recurse -Force -Confirm:$false -ErrorAction Stop | Out-Null
-                                $count++
-                            }
-                            catch { continue }
-                        }
+                    $files = Get-ChildItem -Path $path -File -Force -ErrorAction SilentlyContinue
+                    foreach ($file in $files) {
+                        Remove-Item -Path $file.FullName -Force -ErrorAction Stop
                     }
-                    catch {
-                        # Fallback if enumeration fails
-                        Write-StyledMessage -Type 'Warning' -Text "Impossibile enumerare $path, tentativo pulizia diretta..."
-                    }
+                } else {
+                    Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
                 }
-                else {
-                    # Two-way approach for folders
-                    try {
-                        # Attempt 1: Fast removal of the folder itself
-                        Remove-Item -Path $path -Recurse -Force -Confirm:$false -ErrorAction Stop | Out-Null
-                        $count++
-                    }
-                    catch {
-                        # Attempt 2: Iterate and delete content if root deletion fails (e.g. open files)
-                        $subItems = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue
-                        foreach ($item in $subItems) {
-                            try {
-                                $item | Remove-Item -Recurse -Force -Confirm:$false -ErrorAction Stop | Out-Null
-                            }
-                            catch { continue }
-                        }
-                    }
-                }
+                $count++
             }
             catch {
                 Write-StyledMessage -Type 'Warning' -Text "Errore rimozione $path : $_"
@@ -3066,7 +3039,7 @@ function WinCleaner {
         @{ Name = "User Temp Files"; Type = "File"; Paths = @("%TEMP%", "%USERPROFILE%\AppData\Local\Temp", "%USERPROFILE%\AppData\LocalLow\Temp"); PerUser = $true; FilesOnly = $false }
         @{ Name = "Service Profiles Temp"; Type = "File"; Paths = @("%SYSTEMROOT%\ServiceProfiles\LocalService\AppData\Local\Temp"); FilesOnly = $false }
 
-        # --- System & Component Logs (Consolidato & Esteso) ---
+        # --- System & Component Logs ---
         @{ Name = "System & Component Logs"; Type = "File"; Paths = @(
                 "C:\WINDOWS\Logs",
                 "C:\WINDOWS\System32\LogFiles",
@@ -3089,7 +3062,7 @@ function WinCleaner {
             ); FilesOnly = $true
         }
 
-        # --- User Registry History (Consolidato) ---
+        # --- User Registry History ---
         @{ Name = "User Registry History - Values Only"; Type = "Registry"; Keys = @(
                 "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
                 "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
