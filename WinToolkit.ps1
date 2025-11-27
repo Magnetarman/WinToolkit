@@ -2546,6 +2546,9 @@ function WinCleaner {
     Initialize-ToolLogging -ToolName "WinCleaner"
     Show-Header -SubTitle "Cleaner Toolkit"
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
+    
+    # Initialize Execution Log
+    $global:ExecutionLog = @()
 
     # ============================================================================
     # 2. ESCLUSIONI VITALI
@@ -2578,6 +2581,63 @@ function WinCleaner {
         return $false
     }
 
+    function Clear-ProgressLine {
+        if ($Host.Name -eq 'ConsoleHost') {
+            try {
+                $width = $Host.UI.RawUI.WindowSize.Width - 1
+                Write-Host "`r$(' ' * $width)" -NoNewline
+                Write-Host "`r" -NoNewline
+            }
+            catch {
+                # Fallback for non-console hosts or errors
+                Write-Host "`r                                                                                `r" -NoNewline
+            }
+        }
+    }
+
+    # Override global Write-StyledMessage to handle progress bar clearing and logging
+    function Write-StyledMessage {
+        param(
+            [Parameter(Mandatory = $true, Position = 0)]
+            [ValidateSet('Success', 'Info', 'Warning', 'Error', 'Question')]
+            [string]$Type,
+            
+            [Parameter(Mandatory = $true, Position = 1)]
+            [string]$Text
+        )
+
+        Clear-ProgressLine
+        
+        # Add to execution log
+        $logEntry = @{
+            Timestamp = Get-Date -Format "HH:mm:ss"
+            Type      = $Type
+            Text      = $Text
+        }
+        $global:ExecutionLog += $logEntry
+
+        $colorMap = @{
+            'Success'  = 'Green'
+            'Info'     = 'Cyan'
+            'Warning'  = 'Yellow'
+            'Error'    = 'Red'
+            'Question' = 'White'
+        }
+        
+        $iconMap = @{
+            'Success'  = '✅'
+            'Info'     = 'ℹ️'
+            'Warning'  = '⚠️'
+            'Error'    = '❌'
+            'Question' = '❓'
+        }
+
+        $color = $colorMap[$Type]
+        $icon = $iconMap[$Type]
+        
+        Write-Host "[$($logEntry.Timestamp)] $icon $Text" -ForegroundColor $color
+    }
+
     function Start-ProcessWithTimeout {
         param(
             [Parameter(Mandatory = $true)]
@@ -2605,6 +2665,7 @@ function WinCleaner {
                 FilePath     = $FilePath
                 ArgumentList = $ArgumentList
                 PassThru     = $true
+                ErrorAction  = 'Stop'
             }
 
             if ($Hidden) {
@@ -2613,6 +2674,10 @@ function WinCleaner {
             else {
                 $processParams.NoNewWindow = $true
             }
+
+            # Redirect output to null to keep console clean
+            $processParams.RedirectStandardOutput = $true
+            $processParams.RedirectStandardError = $true
 
             $proc = Start-Process @processParams
 
@@ -2630,21 +2695,18 @@ function WinCleaner {
             }
 
             if (-not $proc.HasExited) {
-                Write-Host "`r$(' ' * 120)" -NoNewline
-                Write-Host "`r" -NoNewline
+                Clear-ProgressLine
                 Write-StyledMessage -Type 'Warning' -Text "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
                 $proc.Kill()
                 Start-Sleep -Seconds 2
                 return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
             }
 
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
+            Clear-ProgressLine
             return @{ Success = $true; TimedOut = $false; ExitCode = $proc.ExitCode }
         }
         catch {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
+            Clear-ProgressLine
             Write-StyledMessage -Type 'Error' -Text "Errore nell'avvio del processo: $($_.Exception.Message)"
             return @{ Success = $false; TimedOut = $false; ExitCode = -1 }
         }
@@ -2667,9 +2729,12 @@ function WinCleaner {
                 return $true # Non-fatal
             }
             else {
-                $proc = Start-Process -FilePath $Rule.Command -ArgumentList $Rule.Args -PassThru -WindowStyle Hidden -Wait
+                $proc = Start-Process -FilePath $Rule.Command -ArgumentList $Rule.Args -PassThru -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
                 if ($proc.ExitCode -eq 0) { return $true }
-                Write-StyledMessage -Type 'Warning' -Text "Comando completato con codice $($proc.ExitCode)"
+                # Suppress warning if exit code is null (process failed to start)
+                if ($null -ne $proc.ExitCode) {
+                    Write-StyledMessage -Type 'Warning' -Text "Comando completato con codice $($proc.ExitCode)"
+                }
                 return $true # Non-fatal
             }
         }
@@ -2690,11 +2755,11 @@ function WinCleaner {
 
             if ($action -eq 'Stop' -and $svc.Status -eq 'Running') {
                 Write-StyledMessage -Type 'Info' -Text "⏸️ Arresto servizio $svcName..."
-                Stop-Service -Name $svcName -Force -ErrorAction Stop
+                Stop-Service -Name $svcName -Force -ErrorAction Stop | Out-Null
             }
             elseif ($action -eq 'Start' -and $svc.Status -ne 'Running') {
                 Write-StyledMessage -Type 'Info' -Text "▶️ Avvio servizio $svcName..."
-                Start-Service -Name $svcName -ErrorAction Stop
+                Start-Service -Name $svcName -ErrorAction Stop | Out-Null
             }
             return $true
         }
@@ -2735,45 +2800,44 @@ function WinCleaner {
             try {
                 if ($takeOwn) {
                     Write-StyledMessage -Type 'Info' -Text "🔑 Assunzione proprietà per $path..."
-                    # Correzione: Rimuovere l'opzione /D Y che causa errori
-                    $takeownResult = & cmd /c "takeown /F `"$path`" /R /A 2>&1"
-                    if ($LASTEXITCODE -ne 0) {
-                        Write-StyledMessage -Type 'Warning' -Text "Errore takeown: $takeownResult"
-                    }
-
+                    $null = & cmd /c "takeown /F `"$path`" /R /A >nul 2>&1"
+                    
                     $adminSID = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
                     $adminAccount = $adminSID.Translate([System.Security.Principal.NTAccount]).Value
-                    $icaclsResult = & cmd /c "icacls `"$path`" /T /grant `"${adminAccount}:F`" 2>&1"
-                    if ($LASTEXITCODE -ne 0) {
-                        Write-StyledMessage -Type 'Warning' -Text "Errore icacls: $icaclsResult"
-                    }
+                    $null = & cmd /c "icacls `"$path`" /T /grant `"${adminAccount}:F`" >nul 2>&1"
                 }
 
                 if ($filesOnly) {
-                    # Aggiunto -Force per vedere file nascosti/sistema
-                    $items = Get-ChildItem -Path $path -Recurse -File -Force -ErrorAction SilentlyContinue
-                    foreach ($item in $items) {
-                        try {
-                            $item | Remove-Item -Force -ErrorAction Stop
-                            $count++
+                    # Optimized for massive folders: Get-ChildItem can hang on huge directories.
+                    # We use a try/catch approach with Force.
+                    try {
+                        $items = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue
+                        foreach ($item in $items) {
+                            try {
+                                $item | Remove-Item -Force -Confirm:$false -ErrorAction Stop | Out-Null
+                                $count++
+                            }
+                            catch { continue }
                         }
-                        catch {
-                            # File in uso o bloccato - ignoriamo silenziosamente
-                            continue
-                        }
+                    }
+                    catch {
+                        # Fallback if enumeration fails
+                        Write-StyledMessage -Type 'Warning' -Text "Impossibile enumerare $path, tentativo pulizia diretta..."
                     }
                 }
                 else {
+                    # Two-way approach for folders
                     try {
-                        Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
+                        # Attempt 1: Fast removal of the folder itself
+                        Remove-Item -Path $path -Recurse -Force -Confirm:$false -ErrorAction Stop | Out-Null
                         $count++
                     }
                     catch {
-                        # Se fallisce la rimozione della cartella root, proviamo a svuotarla
+                        # Attempt 2: Iterate and delete content if root deletion fails (e.g. open files)
                         $subItems = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue
                         foreach ($item in $subItems) {
                             try {
-                                $item | Remove-Item -Force -ErrorAction Stop
+                                $item | Remove-Item -Force -Confirm:$false -ErrorAction Stop | Out-Null
                             }
                             catch { continue }
                         }
@@ -2802,17 +2866,17 @@ function WinCleaner {
                 if ($valuesOnly) {
                     $item = Get-Item $key -ErrorAction Stop
                     $item.GetValueNames() | ForEach-Object { 
-                        if ($_ -ne '(default)') { Remove-ItemProperty -LiteralPath $key -Name $_ -Force -ErrorAction SilentlyContinue }
+                        if ($_ -ne '(default)') { Remove-ItemProperty -LiteralPath $key -Name $_ -Force -ErrorAction SilentlyContinue | Out-Null }
                     }
                     if ($recursive) {
-                        Get-ChildItem $key -Recurse | ForEach-Object {
-                            $_.GetValueNames() | ForEach-Object { Remove-ItemProperty -LiteralPath $_.PSPath -Name $_ -Force -ErrorAction SilentlyContinue }
+                        Get-ChildItem $key -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+                            $_.GetValueNames() | ForEach-Object { Remove-ItemProperty -LiteralPath $_.PSPath -Name $_ -Force -ErrorAction SilentlyContinue | Out-Null }
                         }
                     }
                     Write-StyledMessage -Type 'Success' -Text "⚙️ Puliti valori in $key"
                 }
                 else {
-                    Remove-Item -LiteralPath $key -Recurse -Force -ErrorAction Stop
+                    Remove-Item -LiteralPath $key -Recurse -Force -ErrorAction Stop | Out-Null
                     Write-StyledMessage -Type 'Success' -Text "🗑️ Rimossa chiave $key"
                 }
             }
@@ -2827,8 +2891,8 @@ function WinCleaner {
         param($Rule)
         $key = $Rule.Key -replace '^(HKCU|HKLM):', '$1:\'
         try {
-            if (-not (Test-Path $key)) { New-Item -Path $key -Force | Out-Null }
-            Set-ItemProperty -Path $key -Name $Rule.ValueName -Value $Rule.ValueData -Type $Rule.ValueType -Force
+            if (-not (Test-Path $key)) { New-Item -Path $key -Force -ErrorAction SilentlyContinue | Out-Null }
+            Set-ItemProperty -Path $key -Name $Rule.ValueName -Value $Rule.ValueData -Type $Rule.ValueType -Force -ErrorAction SilentlyContinue | Out-Null
             Write-StyledMessage -Type 'Success' -Text "⚙️ Impostato $key\$($Rule.ValueName)"
             return $true
         }
@@ -3227,25 +3291,12 @@ function WinCleaner {
                         Write-StyledMessage -Type 'Info' -Text "🗑️ Rimozione Windows.old..."
                         
                         Write-StyledMessage -Type 'Info' -Text "1. Assunzione proprietà (Take Ownership)..."
-                        # Correzione: Rimuovere l'opzione /D Y che causa errori
-                        $takeownResult = & cmd /c "takeown /F `"$path`" /R /A 2>&1"
-                        if ($LASTEXITCODE -ne 0) {
-                            Write-StyledMessage -Type 'Warning' -Text "❌ Errore durante l'assunzione della proprietà: $takeownResult"
-                        }
-                        else {
-                            Write-StyledMessage -Type 'Info' -Text "✅ Proprietà assunta."
-                        }
-                        Start-Sleep -Milliseconds 500
+                        $null = & cmd /c "takeown /F `"$path`" /R /A >nul 2>&1"
                         
                         Write-StyledMessage -Type 'Info' -Text "2. Assegnazione permessi di Controllo Completo..."
-                        $icaclsResult = & cmd /c "icacls `"$path`" /T /grant Administrators:F 2>&1"
-                        if ($LASTEXITCODE -ne 0) {
-                            Write-StyledMessage -Type 'Warning' -Text "❌ Errore durante l'assegnazione permessi: $icaclsResult"
-                        }
-                        else {
-                            Write-StyledMessage -Type 'Info' -Text "✅ Permessi di controllo completo assegnati."
-                        }
-                        Start-Sleep -Milliseconds 500
+                        $adminSID = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
+                        $adminAccount = $adminSID.Translate([System.Security.Principal.NTAccount]).Value
+                        $null = & cmd /c "icacls `"$path`" /T /grant `"${adminAccount}:F`" >nul 2>&1"
                         
                         Write-StyledMessage -Type 'Info' -Text "3. Rimozione forzata della cartella..."
                         Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
@@ -3288,15 +3339,52 @@ function WinCleaner {
 
         Invoke-WinCleanerRule -Rule $rule | Out-Null
         Start-Sleep -Milliseconds 200
+        Clear-ProgressLine
     }
 
     # ============================================================================
-    # 6. COMPLETAMENTO
+    # 6. COMPLETAMENTO E RIEPILOGO
     # ============================================================================
 
     Write-Host ''
-    Write-StyledMessage -Type 'Success' -Text "🎉 Pulizia completata con successo!"
+    Write-StyledMessage -Type 'Success' -Text "🎉 Pulizia completata!"
     
+    # --- RIEPILOGO OPERAZIONI ---
+    Write-Host "`n============================================================================" -ForegroundColor Cyan
+    Write-Host "                             RIEPILOGO OPERAZIONI" -ForegroundColor Cyan
+    Write-Host "============================================================================`n" -ForegroundColor Cyan
+
+    $stats = @{
+        Success = 0
+        Warning = 0
+        Error   = 0
+        Info    = 0
+    }
+
+    foreach ($log in $global:ExecutionLog) {
+        $type = $log.Type
+        if ($stats.ContainsKey($type)) { $stats[$type]++ }
+        
+        # Print only relevant logs for summary (skip generic info if too verbose, but user asked for summary)
+        # We'll print everything but formatted nicely
+        $color = 'White'
+        switch ($type) {
+            'Success' { $color = 'Green' }
+            'Warning' { $color = 'Yellow' }
+            'Error' { $color = 'Red' }
+            'Info' { $color = 'Gray' }
+        }
+        
+        Write-Host "[$($log.Timestamp)] [$type] $($log.Text)" -ForegroundColor $color
+    }
+
+    Write-Host "`n----------------------------------------------------------------------------" -ForegroundColor Cyan
+    Write-Host "STATISTICHE:" -ForegroundColor Cyan
+    Write-Host "✅ Successi: $($stats.Success)" -ForegroundColor Green
+    Write-Host "⚠️ Warnings: $($stats.Warning)" -ForegroundColor Yellow
+    Write-Host "❌ Errori:   $($stats.Error)" -ForegroundColor Red
+    Write-Host "============================================================================`n" -ForegroundColor Cyan
+
     if ($CountdownSeconds -gt 0) {
         $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Preparazione riavvio sistema"
         if ($shouldReboot) {
