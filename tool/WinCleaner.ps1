@@ -276,12 +276,23 @@ function WinCleaner {
                 if ($takeOwn) {
                     Write-StyledMessage -Type 'Info' -Text "🔑 Assunzione proprietà per $path..."
                     $null = & cmd /c "takeown /F `"$path`" /R /A >nul 2>&1"
-                    
+
                     $adminSID = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
                     $adminAccount = $adminSID.Translate([System.Security.Principal.NTAccount]).Value
                     $null = & cmd /c "icacls `"$path`" /T /grant `"${adminAccount}:F`" >nul 2>&1"
                 }
 
+                if ($filesOnly) {
+                    $files = Get-ChildItem -Path $path -File -Force -ErrorAction SilentlyContinue
+                    foreach ($file in $files) {
+                        Remove-Item -Path $file.FullName -Force -ErrorAction Stop
+                    }
+                } else {
+                    Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
+                }
+                $count++
+            }
+            catch {
                 Write-StyledMessage -Type 'Warning' -Text "Errore rimozione $path : $_"
             }
         }
