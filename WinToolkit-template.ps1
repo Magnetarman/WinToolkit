@@ -186,8 +186,8 @@ function WinOSCheck {
 function WinInstallPSProfile {}
 function WinRepairToolkit {}
 function WinUpdateReset {}
-#function WinReinstallStore {}
-#function WinBackupDriver {}
+function WinReinstallStore {}
+function WinBackupDriver {}
 #function WinDriverInstall {}
 #function OfficeToolkit {}
 #function WinCleaner {}
