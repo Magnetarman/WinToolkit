@@ -560,7 +560,7 @@ function WinCleaner {
         @{ Name = "User Temp Files"; Type = "File"; Paths = @("%TEMP%", "%USERPROFILE%\AppData\Local\Temp", "%USERPROFILE%\AppData\LocalLow\Temp"); PerUser = $true; FilesOnly = $false }
         @{ Name = "Service Profiles Temp"; Type = "File"; Paths = @("%SYSTEMROOT%\ServiceProfiles\LocalService\AppData\Local\Temp"); FilesOnly = $false }
 
-        # --- System & Component Logs (Consolidato) ---
+        # --- System & Component Logs (Consolidato & Esteso) ---
         @{ Name = "System & Component Logs"; Type = "File"; Paths = @(
                 "C:\WINDOWS\Logs",
                 "C:\WINDOWS\System32\LogFiles",
@@ -568,6 +568,8 @@ function WinCleaner {
                 "%SYSTEMROOT%\Temp\CBS",
                 "%SYSTEMROOT%\Logs\waasmedic",
                 "%SYSTEMROOT%\Logs\SIH",
+                "%SYSTEMROOT%\Logs\NetSetup",
+                "%SYSTEMROOT%\System32\LogFiles\setupcln",
                 "%SYSTEMROOT%\Traces\WindowsUpdate",
                 "%SYSTEMROOT%\Panther",
                 "%SYSTEMROOT%\comsetup.log",
@@ -586,7 +588,8 @@ function WinCleaner {
                 "%SYSTEMROOT%\System32\catroot2.edb",
                 "%SYSTEMROOT%\System32\catroot2.chk",
                 "%SYSTEMROOT%\Logs\DISM\DISM.log",
-                "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\AutoLogger\AutoLogger-Diagtrack-Listener.etl"
+                "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\AutoLogger\AutoLogger-Diagtrack-Listener.etl",
+                "%PROGRAMDATA%\Microsoft\Diagnosis\ETLLogs\ShutdownLogger\AutoLogger-Diagtrack-Listener.etl"
             ); FilesOnly = $true; TakeOwnership = $true 
         }
 
@@ -693,6 +696,83 @@ function WinCleaner {
         # --- Utility Apps ---
         @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
         @{ Name = "Quick Access"; Type = "File"; Paths = @("%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations", "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations", "%APPDATA%\Microsoft\Windows\Recent Items"); PerUser = $true }
+
+        # --- Legacy Applications & Media ---
+        @{ Name = "Flash Player Traces"; Type = "File"; Paths = @("%APPDATA%\Macromedia\Flash Player"); PerUser = $true }
+
+        # --- Enhanced DiagTrack Service Management ---
+        @{ Name = "Enhanced DiagTrack Management"; Type = "Custom"; ScriptBlock = {
+                Write-StyledMessage Info "🔄 Gestione migliorata servizio DiagTrack..."
+                
+                function Get-StateFilePath($BaseName, $Suffix) {
+                    $escapedBaseName = $BaseName.Split([IO.Path]::GetInvalidFileNameChars()) -Join '_'
+                    $uniqueFilename = $escapedBaseName, $Suffix -Join '-'
+                    $path = [IO.Path]::Combine($env:APPDATA, 'WinToolkit', 'state', $uniqueFilename)
+                    return $path
+                }
+                
+                function Get-UniqueStateFilePath($BaseName) {
+                    $suffix = New-Guid
+                    $path = Get-StateFilePath -BaseName $BaseName -Suffix $suffix
+                    if (Test-Path -Path $path) {
+                        Write-Verbose "Path collision detected at: '$path'. Generating new path..."
+                        return Get-UniqueStateFilePath $serviceName
+                    }
+                    return $path
+                }
+                
+                function New-EmptyFile($Path) {
+                    $parentDirectory = [System.IO.Path]::GetDirectoryName($Path)
+                    if (-not (Test-Path $parentDirectory -PathType Container)) {
+                        try { New-Item -ItemType Directory -Path $parentDirectory -Force -ErrorAction Stop | Out-Null }
+                        catch { Write-StyledMessage Warning "Failed to create parent directory: $_"; return $false }
+                    }
+                    try { New-Item -ItemType File -Path $Path -Force -ErrorAction Stop | Out-Null; return $true }
+                    catch { Write-StyledMessage Warning "Failed to create file: $_"; return $false }
+                }
+                
+                $serviceName = 'DiagTrack'
+                Write-StyledMessage Info "Verifica stato servizio $serviceName..."
+                
+                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                if (-not $service) { 
+                    Write-StyledMessage Warning "Servizio $serviceName non trovato, skip"
+                    return 
+                }
+                
+                if ($service.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Running) {
+                    Write-StyledMessage Info "Servizio $serviceName attivo, arresto in corso..."
+                    try { 
+                        $service | Stop-Service -Force -ErrorAction Stop
+                        $service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(30))
+                        $path = Get-UniqueStateFilePath $serviceName
+                        if (New-EmptyFile $path) {
+                            Write-StyledMessage Success "Servizio arrestato e stato salvato - riavvio automatico abilitato"
+                        } else {
+                            Write-StyledMessage Warning "Servizio arrestato - riavvio manuale richiesto"
+                        }
+                    }
+                    catch { Write-StyledMessage Warning "Errore durante arresto servizio: $_" }
+                } else {
+                    Write-StyledMessage Info "Servizio $serviceName non attivo, verifica riavvio..."
+                    $fileGlob = Get-StateFilePath -BaseName $serviceName -Suffix '*'
+                    $stateFiles = Get-ChildItem -Path $fileGlob -ErrorAction SilentlyContinue
+                    
+                    if ($stateFiles.Count -eq 1) {
+                        try { 
+                            Remove-Item -Path $stateFiles[0].FullName -Force -ErrorAction Stop
+                            $service | Start-Service -ErrorAction Stop
+                            Write-StyledMessage Success "Servizio $serviceName riavviato con successo"
+                        }
+                        catch { Write-StyledMessage Warning "Errore durante riavvio servizio: $_" }
+                    } elseif ($stateFiles.Count -gt 1) {
+                        Write-StyledMessage Info "Multiple state files found, servizio non verrà riavviato automaticamente"
+                    } else {
+                        Write-StyledMessage Info "Servizio $serviceName non era attivo precedentemente"
+                    }
+                }
+            }
+        }
 
         # --- Special Operations ---
         @{ Name = "Credential Manager"; Type = "Custom"; ScriptBlock = {
