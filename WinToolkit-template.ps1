@@ -190,7 +190,7 @@ function WinReinstallStore {}
 function WinBackupDriver {}
 function WinDriverInstall {}
 function OfficeToolkit {}
-#function WinCleaner {}
+function WinCleaner {}
 function SetRustDesk {}
 function VideoDriverInstall {}
 function GamingToolkit {}
