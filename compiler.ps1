@@ -90,11 +90,8 @@ foreach ($file in $toolFiles) {
 
         # Gestione file vuoto
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
-            Write-StyledMessage 'Warning' "File '$($file.Name)' vuoto - inserimento codice di sviluppo"
-            $fileLines = @(
-                "    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso`""
-            )
             $warningCount++
+            continue
         }
         else {
             # Rimuovi l'ultima riga se è una chiamata alla funzione
@@ -274,10 +271,10 @@ else {
 }
 
 if ($warningCount -gt 0) {
-    Write-Host "║  ⚠️  Avvisi: $warningCount file vuoti" -ForegroundColor Yellow
+    Write-Host "║  ⚠️  Vuote: $warningCount funzioni" -ForegroundColor Yellow
 }
 else {
-    Write-Host "║  ✅ Avvisi: $warningCount file vuoti" -ForegroundColor Green
+    Write-Host "║  ✅ Vuote: $warningCount funzioni" -ForegroundColor Green
 }
 
 if ($errorCount -gt 0) {
