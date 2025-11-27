@@ -12,17 +12,17 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Aggiunte
 
-- **Funzione Auto Debloat (`V2.5`):**
+- **Funzione Auto Debloat (`V2.6`):**
   - Avvio dello script Chris con configurazione personalizzata
     (`iwr -useb https://christitus.com/win | iex`).
-- **Funzione Security Update (`V2.6`):**
-  - Download ed esecuzione di Tron Script con intervento minimo.
 - **Funzione Security Update (`V2.7`):**
+  - Download ed esecuzione di Tron Script con intervento minimo.
+- **Funzione Security Update (`V2.8`):**
   - Reset dei servizi Windows **[Thanks to @sicolla]**
   - Riparazione avanzata Windows Search **[Thanks to @sicolla]**
   - Pulizia Cache dei Browser
   - Potenziamento Toolkit di Riparazione Windows **[Thanks to @Progressfy]**
-- **Funzione WinDownloader (`V2.8`):**
+- **Funzione WinDownloader (`V2.9`):**
   - Download script preconfigurati dal sito UUP Dump.
   - Avvio Creazione automatica ISO di Windows 10/11
     - <del>Windows 11 25H2</del> **(Instabile)**
@@ -33,7 +33,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Implementazione Download ISO Ufficiale di Windows 8.1
   - Implementazione Download ISO Ufficiale di Windows 7 SP1
   - Implementazione Download ISO Ufficiale di Windows XP SP3
-- **Funzione WinDownloader+ (`V2.9`):**
+- **Funzione WinDownloader+ (`V2.10`):**
   - Potenziamento Funzione WinDownloader
   - Download Automatico di Rufus
   - Creazione di dispositivo USB Bootable
@@ -65,7 +65,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.4.2] - 2025-11-26 (#21)
+## [2.5.0] - 2025-11-26 (#21)
 
 ### Aggiunte
 
