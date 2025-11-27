@@ -145,6 +145,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Unificate funzioni di pulizia.
   - Riorganizzato il codice per migliorare la leggibilità e la manutenibilità.
   - Riduzione di oltre 1000 linee di codice, mantenendo tutte le funzionalità.
+  - Aggiunta funzione di pulizia della cache dei Browser.
 
 ### Modifiche
 
