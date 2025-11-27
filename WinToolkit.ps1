@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.4.2 (Build 108)"
+$ToolkitVersion = "2.4.2 (Build 112)"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -4432,7 +4432,12 @@ while ($true) {
     Write-Host ""
     $c = Read-Host "Scegli un'opzione (es. 1, 3, 5 o 0 per uscire)"
     
-    if ($c -eq '0') { Stop-Transcript -ErrorAction SilentlyContinue; break }
+    if ($c -eq '0') { 
+        if ($Global:Transcript -or $Transcript) { 
+            Stop-Transcript -ErrorAction SilentlyContinue 
+        } 
+        break 
+    }
     
     if ($c -match '^\d+$' -and [int]$c -ge 1 -and [int]$c -le $allScripts.Count) {
         Invoke-Expression $allScripts[[int]$c - 1].Name
