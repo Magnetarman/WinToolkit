@@ -225,7 +225,7 @@ while ($true) {
     # Info Sistema
     $width = $Host.UI.RawUI.BufferSize.Width
     Write-Host ('*' * ($width - 1)) -ForegroundColor Red
-    Write-Host (Center-Text "💻  INFORMAZIONI SISTEMA  💻" $width) -ForegroundColor Cyan
+    Write-Host ("💻  INFORMAZIONI SISTEMA  💻" $width) -ForegroundColor Cyan
     Write-Host ''
     $si = Get-SystemInfo
     if ($si) {
