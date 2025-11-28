@@ -5,7 +5,7 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.5.0 - 27/11/2025
+    Versione: 2.5.0 - 28/11/2025
     Autore: MagnetarMan
 #>
 
@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 130)"
+$ToolkitVersion = "2.5.0 (Build 131)"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -4409,11 +4409,11 @@ while ($true) {
     Show-Header -SubTitle "Menu Principale"
 
     # Info Sistema
-    $width = $Host.UI.RawUI.BufferSize.Width
-    Write-Host ('*' * ($width - 1)) -ForegroundColor Red
-    Write-Host (Center-Text "💻  INFORMAZIONI SISTEMA  💻" $width) -ForegroundColor Cyan
-    Write-Host ''
-    $si = Get-SystemInfo
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('*' * ($width - 1)) -ForegroundColor Red
+        Write-Host "💻  INFORMAZIONI SISTEMA  💻" -ForegroundColor Cyan
+        Write-Host ''
+        $si = Get-SystemInfo
     if ($si) {
         $editionIcon = if ($si.ProductName -match "Pro") { "🔧" } else { "💻" }
         Write-Host "💻 Edizione: $editionIcon $($si.ProductName)" -ForegroundColor White
@@ -4424,6 +4424,8 @@ while ($true) {
         Write-Host "🧠 RAM: $($si.TotalRAM) GB" -ForegroundColor White
         Write-Host "💾 Disco: " -NoNewline -ForegroundColor White
         Write-Host "$($si.FreePercentage)% Libero ($($si.FreeDisk) GB)" -ForegroundColor Green
+        $blStatus = CheckBitlocker
+        Write-Host "🔒 Stato Bitlocker: $blStatus" -ForegroundColor White
         Write-Host ('*' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Red
     }
     Write-Host ""
