@@ -223,11 +223,11 @@ while ($true) {
     Show-Header -SubTitle "Menu Principale"
 
     # Info Sistema
-    $width = $Host.UI.RawUI.BufferSize.Width
-    Write-Host ('*' * ($width - 1)) -ForegroundColor Red
-    Write-Host ("💻  INFORMAZIONI SISTEMA  💻" $width) -ForegroundColor Cyan
-    Write-Host ''
-    $si = Get-SystemInfo
+        $width = $Host.UI.RawUI.BufferSize.Width
+        Write-Host ('*' * ($width - 1)) -ForegroundColor Red
+        Write-Host "💻  INFORMAZIONI SISTEMA  💻" -ForegroundColor Cyan
+        Write-Host ''
+        $si = Get-SystemInfo
     if ($si) {
         $editionIcon = if ($si.ProductName -match "Pro") { "🔧" } else { "💻" }
         Write-Host "💻 Edizione: $editionIcon $($si.ProductName)" -ForegroundColor White
