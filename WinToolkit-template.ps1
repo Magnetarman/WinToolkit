@@ -238,6 +238,8 @@ while ($true) {
         Write-Host "🧠 RAM: $($si.TotalRAM) GB" -ForegroundColor White
         Write-Host "💾 Disco: " -NoNewline -ForegroundColor White
         Write-Host "$($si.FreePercentage)% Libero ($($si.FreeDisk) GB)" -ForegroundColor Green
+        $blStatus = CheckBitlocker
+        Write-Host "🔒 Stato Bitlocker: $blStatus" -ForegroundColor White
         Write-Host ('*' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Red
     }
     Write-Host ""
