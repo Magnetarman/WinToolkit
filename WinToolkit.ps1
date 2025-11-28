@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 131)"
+$ToolkitVersion = "2.5.0 (Build 135)"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -156,7 +156,7 @@ function CheckBitlocker {
         if ($out -match "Stato protezione:\s*(.*)") { return $matches[1].Trim() }
         return "Non configurato"
     }
-    catch { return "Non disponibile" }
+    catch { return "Disattivato" }
 }
 
 function WinOSCheck {
@@ -4409,11 +4409,11 @@ while ($true) {
     Show-Header -SubTitle "Menu Principale"
 
     # Info Sistema
-        $width = $Host.UI.RawUI.BufferSize.Width
-        Write-Host ('*' * ($width - 1)) -ForegroundColor Red
-        Write-Host "💻  INFORMAZIONI SISTEMA  💻" -ForegroundColor Cyan
-        Write-Host ''
-        $si = Get-SystemInfo
+    $width = $Host.UI.RawUI.BufferSize.Width
+    Write-Host ('*' * ($width - 1)) -ForegroundColor Red
+    Write-Host "💻  INFORMAZIONI SISTEMA  💻" -ForegroundColor Cyan
+    Write-Host ''
+    $si = Get-SystemInfo
     if ($si) {
         $editionIcon = if ($si.ProductName -match "Pro") { "🔧" } else { "💻" }
         Write-Host "💻 Edizione: $editionIcon $($si.ProductName)" -ForegroundColor White
@@ -4425,7 +4425,10 @@ while ($true) {
         Write-Host "💾 Disco: " -NoNewline -ForegroundColor White
         Write-Host "$($si.FreePercentage)% Libero ($($si.FreeDisk) GB)" -ForegroundColor Green
         $blStatus = CheckBitlocker
-        Write-Host "🔒 Stato Bitlocker: $blStatus" -ForegroundColor White
+        $blColor = 'Red'
+        if ($blStatus -match 'Disattivato|Non configurato|Off') { $blColor = 'Green' }
+        Write-Host "🔒 Stato Bitlocker: " -NoNewline -ForegroundColor White
+        Write-Host "$blStatus" -ForegroundColor $blColor
         Write-Host ('*' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Red
     }
     Write-Host ""
