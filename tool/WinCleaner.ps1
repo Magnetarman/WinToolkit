@@ -422,16 +422,16 @@ function WinCleaner {
         @{ Name = "System Restore Points"; Type = "ScriptBlock"; ScriptBlock = {
                 try {
                     Write-StyledMessage -Type 'Info' -Text "💾 Pulizia punti di ripristino sistema..."
-                    
-                    Write-StyledMessage -Type 'Info' -Text "🗑️ Rimozione shadow copies per liberare spazio VSS..."
-                    $vssResult = & vssadmin delete shadows /all /quiet 2>&1
-                    if ($LASTEXITCODE -eq 0) {
-                        Write-StyledMessage -Type 'Success' -Text "Shadow copies rimosse con successo"
-                    }
-                    else {
-                        Write-StyledMessage -Type 'Warning' -Text "VSSAdmin completato con warnings: $vssResult"
-                    }
-                    
+
+                    # Write-StyledMessage -Type 'Info' -Text "🗑️ Rimozione shadow copies per liberare spazio VSS..."
+                    # $vssResult = & vssadmin delete shadows /all /quiet 2>&1
+                    # if ($LASTEXITCODE -eq 0) {
+                    #     Write-StyledMessage -Type 'Success' -Text "Shadow copies rimosse con successo"
+                    # }
+                    # else {
+                    #     Write-StyledMessage -Type 'Warning' -Text "VSSAdmin completato con warnings: $vssResult"
+                    # }
+
                     Write-StyledMessage -Type 'Info' -Text "💡 Protezione sistema mantenuta attiva per sicurezza"
                     Write-StyledMessage -Type 'Success' -Text "Pulizia punti di ripristino completata"
                 }
