@@ -844,6 +844,7 @@ function WinUpdateReset {
 
     # --- MAIN LOGIC ---
 
+
     Write-StyledMessage Info '🔧 Inizializzazione dello Script di Reset Windows Update...'
     Start-Sleep -Seconds 2
 
@@ -1198,44 +1199,52 @@ function Invoke-WPFUpdatesEnable {
     # Reset Windows Local Policies to Default
     Write-StyledMessage Info '📋 Ripristino criteri locali Windows...'
 
-    # Detect non-admin users
+    # Detect non-admin users - only if we have admin privileges
     $nonAdminUsersExist = $false
     $proceedWithFullCleanup = $false
 
-    try {
-        # Get admin SIDs
-        $adminSIDs = (Get-LocalGroupMember -Group Administrators).Sid.Value
+    if ($isAdmin) {
+        try {
+            # Get admin SIDs
+            $adminSIDs = (Get-LocalGroupMember -Group Administrators).Sid.Value
 
-        # Get all local users that are enabled and not built-in accounts
-        $localUsers = Get-LocalUser | Where-Object { $_.Enabled -eq $true -and $_.BuiltInAccount -eq $false }
+            # Get all local users that are enabled and not built-in accounts
+            $localUsers = Get-LocalUser | Where-Object { $_.Enabled -eq $true -and $_.BuiltInAccount -eq $false }
 
-        # Check if any non-admin users exist
-        foreach ($user in $localUsers) {
-            if ($user.Sid.Value -notin $adminSIDs) {
-                $nonAdminUsersExist = $true
-                break
+            # Check if any non-admin users exist
+            foreach ($user in $localUsers) {
+                if ($user.Sid.Value -notin $adminSIDs) {
+                    $nonAdminUsersExist = $true
+                    break
+                }
             }
         }
-    }
-    catch {
-        $nonAdminUsersExist = $false
-        Write-StyledMessage Warning "Avviso: Impossibile rilevare utenti non amministratori - $($_.Exception.Message)"
-    }
-
-    # Ask for confirmation if non-admin users exist
-    if ($nonAdminUsersExist) {
-        Write-StyledMessage Warning "Rilevati utenti non admin su questo sistema. Attenzione: la pulizia completa può disabilitare il login per questi utenti, che dovranno essere riabilitati manualmente."
-        $response = Read-Host "Procedere con la pulizia completa? (y/n)"
-        if ($response -eq 'y' -or $response -eq 'Y') {
-            $proceedWithFullCleanup = $true
-            Write-StyledMessage Info "Pulizia completa avviata."
-        } else {
-            $proceedWithFullCleanup = $false
-            Write-StyledMessage Info "Pulizia completa saltata."
+        catch {
+            $nonAdminUsersExist = $false
+            Write-StyledMessage Warning "Avviso: Impossibile rilevare utenti non amministratori - $($_.Exception.Message)"
         }
-    } else {
-        $proceedWithFullCleanup = $true
-        Write-StyledMessage Info "Nessun utente non-amministratore attivo rilevato. Pulizia completa avviata in sicurezza."
+
+        # Ask for confirmation if non-admin users exist
+        if ($nonAdminUsersExist) {
+            Write-StyledMessage Warning "Rilevati utenti non admin su questo sistema. Attenzione: la pulizia completa può disabilitare il login per questi utenti, che dovranno essere riabilitati manualmente."
+            $response = Read-Host "Procedere con la pulizia completa? (y/n)"
+            if ($response -eq 'y' -or $response -eq 'Y') {
+                $proceedWithFullCleanup = $true
+                Write-StyledMessage Info "Pulizia completa avviata."
+            }
+            else {
+                $proceedWithFullCleanup = $false
+                Write-StyledMessage Info "Pulizia completa saltata."
+            }
+        }
+        else {
+            $proceedWithFullCleanup = $false
+            Write-StyledMessage Info "Nessun utente non-amministratore attivo rilevato. Pulizia completa avviata in sicurezza."
+        }
+    }
+    else {
+        Write-StyledMessage Warning "⚠️ Saltata la verifica degli utenti non amministratori (privilegi insufficienti)."
+        $proceedWithFullCleanup = $false
     }
 
     try {
