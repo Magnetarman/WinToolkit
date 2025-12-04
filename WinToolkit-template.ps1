@@ -260,6 +260,7 @@ while ($true) {
     }
 
     Write-Host "==== Uscita ====" -ForegroundColor Red
+    Write-Host ""
     Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
     Write-Host ""
     $c = Read-Host "Scegli un'opzione (es. 1, 3, 5 o 0 per uscire)"
