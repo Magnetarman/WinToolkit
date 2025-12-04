@@ -103,7 +103,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Migliorata scrittura file Log.
   - Migliorato processo di riparazione di Windows.
   - Aggiunta nuova funzione che evita la richiesta dopo tot tempo di cambio password dell'utente corrente.
-- Funzione **DisableBitlocker** riscritta.
+- Funzione **DisableBitlocker** completa.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
 - Funzione **WinInstallPsProfile** Aggiornata e Potenziata.
@@ -142,6 +142,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+  - Eliminazione pulizia database Windows Defender.
   - Unificate funzioni di pulizia.
   - Riorganizzato il codice per migliorare la leggibilità e la manutenibilità.
   - Riduzione di oltre 1000 linee di codice, mantenendo tutte le funzionalità.
