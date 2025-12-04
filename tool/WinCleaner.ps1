@@ -635,7 +635,6 @@ function WinCleaner {
         @{ Name = "Stop DPS"; Type = "Service"; ServiceName = "DPS"; Action = "Stop" }
         @{ Name = "SRUM Data"; Type = "File"; Paths = @("%SYSTEMROOT%\System32\sru\SRUDB.dat"); FilesOnly = $true; TakeOwnership = $true }
         @{ Name = "Start DPS"; Type = "Service"; ServiceName = "DPS"; Action = "Start" }
-        @{ Name = "Defender History"; Type = "File"; Paths = @("%ProgramData%\Microsoft\Windows Defender\Scans\History"); FilesOnly = $false; TakeOwnership = $true }
 
         # --- Utility Apps ---
         @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
