@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 144)"
+$ToolkitVersion = "2.5.0 (Build 145)"
 
 
 # Setup Variabili Globali UI
@@ -225,7 +225,8 @@ while ($true) {
 
     # Info Sistema
     $width = $Host.UI.RawUI.BufferSize.Width
-    Write-Host ('*' * ($width - 1)) -ForegroundColor Red
+    Write-Host ('*' * 50) -ForegroundColor Red
+    Write-Host ''
     Write-Host "==== 💻 INFORMAZIONI DI SISTEMA 💻 ====" -ForegroundColor Cyan
     Write-Host ''
     $si = Get-SystemInfo
@@ -260,7 +261,7 @@ while ($true) {
         if ($blStatus -match 'Disattivato|Non configurato|Off') { $blColor = 'Green' }
         Write-Host "🔒 Stato Bitlocker: " -NoNewline -ForegroundColor White
         Write-Host "$blStatus" -ForegroundColor $blColor
-        Write-Host ('*' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Red
+        Write-Host ('*' * 50) -ForegroundColor Red
     }
     Write-Host ""
 
