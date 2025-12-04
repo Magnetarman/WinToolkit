@@ -547,8 +547,8 @@ function Invoke-WPFUpdatesEnable {
             Write-StyledMessage Info "Pulizia completa saltata."
         }
     } else {
-        $proceedWithFullCleanup = $false
-        Write-StyledMessage Info "Nessun utente non-amministratore attivo rilevato. Pulizia completa saltata."
+        $proceedWithFullCleanup = $true
+        Write-StyledMessage Info "Nessun utente non-amministratore attivo rilevato. Pulizia completa avviata in sicurezza."
     }
 
     try {
