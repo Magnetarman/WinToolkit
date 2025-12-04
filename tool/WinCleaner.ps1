@@ -307,9 +307,8 @@ function WinCleaner {
         $valuesOnly = $Rule.ValuesOnly # If true, clear values but keep key
 
         foreach ($rawKey in $keys) {
-            $key = $rawKey -replace '^(HKCU|HKLM):', '$1:\'
+            $key = $rawKey -replace '^(HKCU|HKLM):\\*', '$1:\'
             if (-not (Test-Path $key)) { continue }
-
             try {
                 if ($valuesOnly) {
                     $item = Get-Item $key -ErrorAction Stop
