@@ -65,7 +65,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.5.0] - 2025-11-26 (#21)
+## [2.5.0] - 2025-12-04 (#21)
 
 ### Aggiunte
 
@@ -77,6 +77,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Spazio libero inferiore ai 50GB: Testo spazio libero di colore rosso.
     - Spazio libero tra 50GB e 80GB: Testo spazio libero di colore giallo.
     - Spazio libero oltre 80GB: Testo spazio libero di colore verde.
+    - Fix coerenza grafica pagina principale script.
 - Funzione **Disable Bitlocker** Aggiunta.
   - Esegue il tool ufficiale Microsoft per disattivare completamente Bitlocker dal PC, che viene occultamente attivato tramite update da Microsoft senza avvisare in modo consono l'utente.
   - Viene aggiunta una chiave al registro di Windows registro che dovrebbe impedire possibili attivazioni occulte future.
@@ -126,6 +127,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+  - Fix eliminazione non voluta permessi account non admin.
+  - Inserita messaggi di avvertimento e funzionalità per eseguire comunque l'operazione rischiosa in caso di un ripristino non completo.
 - Funzione **WinBackupDriver** Riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
