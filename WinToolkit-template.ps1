@@ -16,12 +16,6 @@ $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
 $ToolkitVersion = "2.5.0 (Build 141)"
 
-# ANSI Escape Codes for text formatting
-$ansiBold = "`e[1m"
-$ansiRed = "`e[31m"
-$ansiYellow = "`e[33m"
-$ansiGreen = "`e[32m"
-$ansiReset = "`e[0m"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -248,21 +242,17 @@ while ($true) {
         # Logica per la formattazione dello spazio disco libero
         $diskFreeGB = $si.FreeDisk
         $displayString = "$($si.FreePercentage)% Libero ($($diskFreeGB) GB)"
-        $formattedDiskString = ""
 
+        # Determina il colore in base allo spazio libero
+        $diskColor = "Green" # Default per > 80 GB
         if ($diskFreeGB -lt 50) {
-            $formattedDiskString = "${ansiBold}${ansiRed}${displayString}${ansiReset}"
-        }
-        elseif ($diskFreeGB -ge 50 -and $diskFreeGB -le 80) {
-            $formattedDiskString = "${ansiYellow}${displayString}${ansiReset}"
-        }
-        else {
-            # $diskFreeGB -gt 80
-            $formattedDiskString = "${ansiGreen}${displayString}${ansiReset}"
+            $diskColor = "Red"
+        } elseif ($diskFreeGB -ge 50 -and $diskFreeGB -le 80) {
+            $diskColor = "Yellow"
         }
 
-        # Output delle informazioni sul disco
-        Write-Host $formattedDiskString -NoNewline
+        # Output delle informazioni sul disco con colore appropriato
+        Write-Host $displayString -ForegroundColor $diskColor -NoNewline
         Write-Host "" # Per una nuova riga dopo le informazioni sul disco
         $blStatus = CheckBitlocker
         $blColor = 'Red'
