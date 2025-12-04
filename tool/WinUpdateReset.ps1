@@ -511,9 +511,52 @@ function Invoke-WPFUpdatesEnable {
     # Reset Windows Local Policies to Default
     Write-StyledMessage Info '📋 Ripristino criteri locali Windows...'
 
+    # Detect non-admin users
+    $nonAdminUsersExist = $false
+    $proceedWithFullCleanup = $false
+
     try {
-        #Start-Process -FilePath "secedit" -ArgumentList "/configure /cfg $env:windir\inf\defltbase.inf /db defltbase.sdb /verbose" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-        #Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicyUsers" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+        # Get admin SIDs
+        $adminSIDs = (Get-LocalGroupMember -Group Administrators).Sid.Value
+
+        # Get all local users that are enabled and not built-in accounts
+        $localUsers = Get-LocalUser | Where-Object { $_.Enabled -eq $true -and $_.BuiltInAccount -eq $false }
+
+        # Check if any non-admin users exist
+        foreach ($user in $localUsers) {
+            if ($user.Sid.Value -notin $adminSIDs) {
+                $nonAdminUsersExist = $true
+                break
+            }
+        }
+    }
+    catch {
+        $nonAdminUsersExist = $false
+        Write-StyledMessage Warning "Avviso: Impossibile rilevare utenti non amministratori - $($_.Exception.Message)"
+    }
+
+    # Ask for confirmation if non-admin users exist
+    if ($nonAdminUsersExist) {
+        Write-StyledMessage Warning "Rilevati utenti non admin su questo sistema. Attenzione: la pulizia completa può disabilitare il login per questi utenti, che dovranno essere riabilitati manualmente."
+        $response = Read-Host "Procedere con la pulizia completa? (y/n)"
+        if ($response -eq 'y' -or $response -eq 'Y') {
+            $proceedWithFullCleanup = $true
+            Write-StyledMessage Info "Pulizia completa avviata."
+        } else {
+            $proceedWithFullCleanup = $false
+            Write-StyledMessage Info "Pulizia completa saltata."
+        }
+    } else {
+        $proceedWithFullCleanup = $false
+        Write-StyledMessage Info "Nessun utente non-amministratore attivo rilevato. Pulizia completa saltata."
+    }
+
+    try {
+        # Execute dangerous commands only if user confirmed
+        if ($proceedWithFullCleanup) {
+            Start-Process -FilePath "secedit" -ArgumentList "/configure /cfg $env:windir\inf\defltbase.inf /db defltbase.sdb /verbose" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+            Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicyUsers" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+        }
         Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicy" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
         Start-Process -FilePath "gpupdate" -ArgumentList "/force" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
 
