@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 141)"
+$ToolkitVersion = "2.5.0 (Build 144)"
 
 
 # Setup Variabili Globali UI
@@ -226,7 +226,7 @@ while ($true) {
     # Info Sistema
     $width = $Host.UI.RawUI.BufferSize.Width
     Write-Host ('*' * ($width - 1)) -ForegroundColor Red
-    Write-Host "💻  INFORMAZIONI SISTEMA  💻" -ForegroundColor Cyan
+    Write-Host "==== 💻 INFORMAZIONI DI SISTEMA 💻 ====" -ForegroundColor Cyan
     Write-Host ''
     $si = Get-SystemInfo
     if ($si) {
@@ -247,7 +247,8 @@ while ($true) {
         $diskColor = "Green" # Default per > 80 GB
         if ($diskFreeGB -lt 50) {
             $diskColor = "Red"
-        } elseif ($diskFreeGB -ge 50 -and $diskFreeGB -le 80) {
+        }
+        elseif ($diskFreeGB -ge 50 -and $diskFreeGB -le 80) {
             $diskColor = "Yellow"
         }
 
