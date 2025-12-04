@@ -14,7 +14,14 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 140)"
+$ToolkitVersion = "2.5.0 (Build 141)"
+
+# ANSI Escape Codes for text formatting
+$ansiBold = "`e[1m"
+$ansiRed = "`e[31m"
+$ansiYellow = "`e[33m"
+$ansiGreen = "`e[32m"
+$ansiReset = "`e[0m"
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
@@ -4421,7 +4428,26 @@ while ($true) {
         Write-Host "🔧 Nome PC: $($si.ComputerName)" -ForegroundColor White
         Write-Host "🧠 RAM: $($si.TotalRAM) GB" -ForegroundColor White
         Write-Host "💾 Disco: " -NoNewline -ForegroundColor White
-        Write-Host "$($si.FreePercentage)% Libero ($($si.FreeDisk) GB)" -ForegroundColor Green
+
+        # Logica per la formattazione dello spazio disco libero
+        $diskFreeGB = $si.FreeDisk
+        $displayString = "$($si.FreePercentage)% Libero ($($diskFreeGB) GB)"
+        $formattedDiskString = ""
+
+        if ($diskFreeGB -lt 50) {
+            $formattedDiskString = "${ansiBold}${ansiRed}${displayString}${ansiReset}"
+        }
+        elseif ($diskFreeGB -ge 50 -and $diskFreeGB -le 80) {
+            $formattedDiskString = "${ansiYellow}${displayString}${ansiReset}"
+        }
+        else {
+            # $diskFreeGB -gt 80
+            $formattedDiskString = "${ansiGreen}${displayString}${ansiReset}"
+        }
+
+        # Output delle informazioni sul disco
+        Write-Host $formattedDiskString -NoNewline
+        Write-Host "" # Per una nuova riga dopo le informazioni sul disco
         $blStatus = CheckBitlocker
         $blColor = 'Red'
         if ($blStatus -match 'Disattivato|Non configurato|Off') { $blColor = 'Green' }
