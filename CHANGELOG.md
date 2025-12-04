@@ -127,8 +127,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
-  - Fix eliminazione non voluta permessi account non admin.
-  - Inserita messaggi di avvertimento e funzionalità per eseguire comunque l'operazione rischiosa in caso di un ripristino non completo.
+  - Fix eliminazione non voluta permessi account non admin. [Thanks to @Zakkos]
+  - Inserita messaggi di avvertimento e funzionalità per eseguire comunque l'operazione rischiosa in caso di un ripristino non completo. [Thanks to @Zakkos]
 - Funzione **WinBackupDriver** Riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
