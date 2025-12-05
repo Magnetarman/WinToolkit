@@ -312,12 +312,13 @@ function WinCleaner {
             try {
                 if ($valuesOnly) {
                     $item = Get-Item $key -ErrorAction Stop
-                    $item.GetValueNames() | ForEach-Object { 
+                    $item.GetValueNames() | ForEach-Object {
                         if ($_ -ne '(default)') { Remove-ItemProperty -LiteralPath $key -Name $_ -Force -ErrorAction SilentlyContinue | Out-Null }
                     }
                     if ($recursive) {
                         Get-ChildItem $key -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-                            $_.GetValueNames() | ForEach-Object { Remove-ItemProperty -LiteralPath $_.PSPath -Name $_ -Force -ErrorAction SilentlyContinue | Out-Null }
+                            $currentKeyPath = $_.PSPath
+                            $_.GetValueNames() | ForEach-Object { Remove-ItemProperty -LiteralPath $currentKeyPath -Name $_ -Force -ErrorAction SilentlyContinue | Out-Null }
                         }
                     }
                     Write-StyledMessage -Type 'Success' -Text "⚙️ Puliti valori in $key"
