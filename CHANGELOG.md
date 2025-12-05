@@ -127,7 +127,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
-  - Fix eliminazione non voluta permessi account non admin. [Thanks to @Zakkos]
+  - Fix eliminazione non voluta account non admin. [Thanks to @Zakkos]
   - Inserita messaggi di avvertimento e funzionalità per eseguire comunque l'operazione rischiosa in caso di un ripristino non completo. [Thanks to @Zakkos]
 - Funzione **WinBackupDriver** Riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
@@ -155,6 +155,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Riorganizzato il codice per migliorare la leggibilità e la manutenibilità.
   - Riduzione di oltre 1000 linee di codice, mantenendo tutte le funzionalità.
   - Potenziate funzioni di pulizia. [Thanks To @Privacy.sexy Project]
+  - Fix parsing chiavi di registro in modo errato in alcune sezioni dello script. [Thanks to @pomodori92]
 
 ### Modifiche
 
