@@ -5,7 +5,7 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.5.0 - 04/12/2025
+    Versione: 2.5.0 - 09/12/2025
     Autore: MagnetarMan
 #>
 
@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 149)"
+$ToolkitVersion = "2.5.0 (Build 150)"
 
 
 # Setup Variabili Globali UI
@@ -4386,7 +4386,7 @@ function DisableBitlocker {
 $menuStructure = @(
     @{ 'Name' = 'Operazioni Preliminari'; 'Icon' = '🪄'; 'Scripts' = @([pscustomobject]@{Name = 'WinInstallPSProfile'; Description = 'Installa profilo PowerShell'; Action = 'RunFunction' }) },
     @{ 'Name' = 'Windows & Office'; 'Icon' = '🔧'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'WinRepairToolkit'; Description = 'Toolkit Riparazione Windows'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinRepairToolkit'; Description = 'Riparazione Windows'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
@@ -4396,7 +4396,7 @@ $menuStructure = @(
         )
     },
     @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'VideoDriverInstall'; Description = 'Toolkit Driver Grafici'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'VideoDriverInstall'; Description = 'Driver Video Toolkit'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
         )
     },
@@ -4466,7 +4466,7 @@ while ($true) {
     Write-Host ""
     Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
     Write-Host ""
-    $c = Read-Host "Scegli un'opzione (es. 1, 3, 5 o 0 per uscire)"
+    $c = Read-Host "Digita il numero dell'operazione da eseguire e premi INVIO"
     
     if ($c -eq '0') { 
         Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
