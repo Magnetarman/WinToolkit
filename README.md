@@ -74,11 +74,7 @@
 >
 > **Video Driver Install**
 >
-> A causa di un problema **(un bug)** nella versione **24H2** di Windows 11, l'utilizzo del mouse e della tastiera all'interno del menu di avvio avanzato di Windows è bloccato.
->
-> Per bypassare questo inconveniente, ho modificato e semplificato la procedura per l'accesso alla Modalità Provvisoria.
->
-> Come funziona ora ?
+> Come funziona ?
 >
 > Esegui lo script: Al riavvio del tuo PC, il sistema entrerà automaticamente in Modalità Provvisoria senza che tu debba fare nulla.
 >
@@ -124,7 +120,7 @@ Se WinToolkit ti è stato utile, considera di supportare attivamente il mio lavo
 
 🏆 Entra nella Hall of Fame: Ogni donatore verrà incluso in una nuova sezione dedicata all'interno della lista dei contributori come ringraziamento per il tuo prezioso supporto.
 
-✨ Accesso Esclusivo alla Versione 5 GUI Edition (Coming Soon): Per coprire i costi e il tempo di sviluppo che impiego, la futura e attesissima Versione 5 con Interfaccia Grafica (GUI) sarà facilmente offerta in anteprima a chi avrà supportato il progetto con una donazione libera. La versione da terminale (attualmente disponibile) rimarrà comunque completamente gratuita per tutti.
+✨ Accesso Esclusivo alla Versione 5 GUI Edition (Coming Soon): Per coprire i costi e il tempo di sviluppo che impiego, la futura e attesissima Versione 5.0 con Interfaccia Grafica (GUI) sarà facilmente offerta in anteprima a chi avrà supportato il progetto con una donazione libera. La versione da terminale (attualmente disponibile) rimarrà comunque completamente gratuita per tutti.
 
 ### 👛 Come Donare Liberamente
 
