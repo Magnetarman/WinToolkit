@@ -112,13 +112,15 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
 - Funzione **WinInstallPsProfile** Aggiornata e Potenziata.
+
   - Refactor Codice per uniformarlo al resto della codebase.
-  - Fix Sovrapposizione Testo Winget alle barre di progressione.
+  - Fix Sovrapposizione Testo Winget alle barre di progressione. **([#23](https://github.com/Magnetarman/WinToolkit/issues/23)) [@pomodori92]**
   - Migliorata scrittura file Log.
   - Aumentata verbosità script per migliorare la comprensione delle operazioni generate.
-  - Fix Errore installazione oh-my-posh e zoxide.
+  - Fix Errore installazione oh-my-posh e zoxide. **([#22](https://github.com/Magnetarman/WinToolkit/issues/22)) [@pomodori92]**
   - Fix installazione Powershell 7 e Git.
   - Aggiunto secondo tentativo di configurazione di Windows Terminal che spesso fallisce a causa di un problema di lettura del file settings.json nello script `start.ps1`
+
 - Funzione **WinReinstallStore** Riscritta e migliorata.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
@@ -155,7 +157,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Riorganizzato il codice per migliorare la leggibilità e la manutenibilità.
   - Riduzione di oltre 1000 linee di codice, mantenendo tutte le funzionalità.
   - Potenziate funzioni di pulizia. [Thanks To @Privacy.sexy Project]
-  - Fix parsing chiavi di registro in modo errato in alcune sezioni dello script. [Thanks to @pomodori92]
+  - Fix parsing chiavi di registro in modo errato in alcune sezioni dello script. **([#24](https://github.com/Magnetarman/WinToolkit/issues/24)) [@pomodori92]**
 
 ### Modifiche
 
@@ -163,7 +165,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - Script `WinToolkit` riscritto.
   - Logica completamente riscritta, lo script adesso risulterà monolitico, integrando le funzionalità grafiche generali, demandando ai singoli script la sola gestione logica e funzionale delle varie operazioni.
   - Questo aggiornamento porta con sè un notevole miglioramento delle prestazioni, una significativa riduzione del codice totale (da +7500 linee a 4300 linee di codice totale, un'ottimizzazione del 42%) e maggiore stabilità dello script, oltre a una maggiore leggibilità e manutenibilità del codice.
-  - Modificato l'aspetto grafico del Toolkit rendendo le varie schermate più compatte e leggibili.
+  - Modificato l'aspetto grafico del Toolkit rendendo le varie schermate più compatte e leggibili. **([#21](https://github.com/Magnetarman/WinToolkit/issues/21)) [@pomodori92]**
 
 ---
 
