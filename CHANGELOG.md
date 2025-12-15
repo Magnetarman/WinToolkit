@@ -17,7 +17,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     (`iwr -useb https://christitus.com/win | iex`).
 - **Funzione Security Update (`V2.7`):**
   - Download ed esecuzione di Tron Script con intervento minimo.
-- **Funzione Security Update (`V2.8`):**
+- **Funzione Security Update+ (`V2.8`):**
   - Reset dei servizi Windows **[Thanks to @sicolla]**
   - Riparazione avanzata Windows Search **[Thanks to @sicolla]**
   - Pulizia Cache dei Browser
@@ -37,6 +37,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Potenziamento Funzione WinDownloader
   - Download Automatico di Rufus
   - Creazione di dispositivo USB Bootable
+  - Inserimento funzione Blocco selettivo Update Windows
 - **MagnetarMan Mode (`V3.0`):**
   - Avvio Script Chris con configurazione personalizzata.
   - Installazione programmi: Brave Browser, Google Chrome,
