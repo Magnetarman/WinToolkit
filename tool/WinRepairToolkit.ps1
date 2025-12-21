@@ -37,7 +37,7 @@ function WinRepairToolkit {
             while (-not $proc.HasExited) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                $color = if ($isChkdsk) { 'Yellow' } else { $null }
+                $color = if ($isChkdsk) { 'Yellow' } else { 'Green' }
                 Show-ProgressBar $Config.Name 'Esecuzione in corso...' $percent $Config.Icon $spinner $color
                 $sleepMs = 600
                 if ($Config.Name -eq 'Ripristino immagine Windows') { $sleepMs = 900 }
