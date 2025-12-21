@@ -66,7 +66,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.5.0] - 2025-12-04 (#21)
+## [2.5.0] - 2025-12-21 (#21)
 
 ### Aggiunte
 
@@ -88,6 +88,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Correzioni
 
 - Script **start.ps1** aggiornato e potenziato.
+
   - Gestione Processi: Introdotta nuova funzione helper Stop-InterferingProcesses per terminare forzatamente processi conflittuali (es. WinStore.App, wsappx, AppInstaller) prima delle operazioni critiche.
   - Logging & Error Handling: Aggiunto blocco try/catch sulla gestione del Transcript (log) e sul comando Restart-Computer per prevenire crash in fase di chiusura/riavvio.
   - Timeout & Wait: Ottimizzati i timeout di attesa e incrementato il tempo di check per la generazione del file settings.json di Windows Terminal (da 10s a 20s).
@@ -104,51 +105,71 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Logica di Installazione PS7, Invertita la priorità: ora tenta prima il download/installazione diretta (MSI) e usa Winget solo come fallback.
     - Sostituito Start-Job con Start-Process -PassThru + Wait-Process per una gestione più affidabile del processo di installazione MSI.
     - Parsing JSON: Migliorata la robustezza del parsing di settings.json per Windows Terminal con gestione specifica degli errori di lettura.
+
 - Funzione **WinRepairToolkit** riscritta.
+
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Migliorato processo di riparazione di Windows.
   - Aggiunta nuova funzione che evita la richiesta dopo tot tempo di cambio password dell'utente corrente.
+  - Aggiunto riempimento progressivo a chkdsk: Ora tutti i comandi (inclusi chkdsk) simulano il progresso incrementando la percentuale da 0% a 95% con incrementi casuali di 1-3%. chkdsk mantiene il colore giallo per distinguerlo. **[@pomodori92]**
+  - Rallentato "Ripristino immagine Windows" di 1.5x: Il ritardo tra aggiornamenti della barra di progresso per questo comando è stato aumentato da 600 ms a 900 ms, rendendo il riempimento più lento. **[@pomodori92]**
+
 - Funzione **DisableBitlocker** completa.
-  - Refactor Codice per uniformarlo al resto della codebase.
-  - Migliorata scrittura file Log.
-- Funzione **WinInstallPsProfile** Aggiornata e Potenziata.
 
   - Refactor Codice per uniformarlo al resto della codebase.
-  - Fix Sovrapposizione Testo Winget alle barre di progressione. **([#23](https://github.com/Magnetarman/WinToolkit/issues/23)) [@pomodori92]**
   - Migliorata scrittura file Log.
+
+- Funzione **WinInstallPsProfile** Aggiornata e Potenziata.
+
+  - Migliorata scrittura file Log.
+  - Refactor Codice per uniformarlo al resto della codebase.
+  - Fix Sovrapposizione Testo Winget alle barre di progressione. **([#23](https://github.com/Magnetarman/WinToolkit/issues/23)) [@pomodori92]**
   - Aumentata verbosità script per migliorare la comprensione delle operazioni generate.
   - Fix Errore installazione oh-my-posh e zoxide. **([#22](https://github.com/Magnetarman/WinToolkit/issues/22)) [@pomodori92]**
   - Fix installazione Powershell 7 e Git.
   - Aggiunto secondo tentativo di configurazione di Windows Terminal che spesso fallisce a causa di un problema di lettura del file settings.json nello script `start.ps1`
 
 - Funzione **WinReinstallStore** Riscritta e migliorata.
+
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Potenziato lo script di reinstallazione di Winget. Lo script è più aggressivo e completo rendendo winget nuovamente funzionante anche su versioni di Windows 11 più vecchie di 24H2.
+
 - Funzione **WinUpdateReset** Riscritta.
+
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
   - Fix eliminazione non voluta account non admin. [Thanks to @Zakkos]
   - Inserita messaggi di avvertimento e funzionalità per eseguire comunque l'operazione rischiosa in caso di un ripristino non completo. [Thanks to @Zakkos]
+
 - Funzione **WinBackupDriver** Riscritta.
+
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+
 - Funzione **GamingToolkit** Riscritta.
+
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+
 - Funzione **SetRustDesk** Riscritta.
+
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+
 - Funzione **VideoDriverInstall** Riscritta.
+
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+
 - Funzione **WinCleaner** Riscritta e potenziata.
+
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
