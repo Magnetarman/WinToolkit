@@ -5,7 +5,7 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.5.0 - 09/12/2025
+    Versione: 2.5.0 - 21/12/2025
     Autore: MagnetarMan
 #>
 
@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 150)"
+$ToolkitVersion = "2.5.0 (Build 151)"
 
 
 # Setup Variabili Globali UI
@@ -579,14 +579,12 @@ function WinRepairToolkit {
 
             while (-not $proc.HasExited) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                if ($isChkdsk) {
-                    Show-ProgressBar $Config.Name 'Esecuzione in corso ...' 0 $Config.Icon $spinner 'Yellow'
-                }
-                else {
-                    if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                    Show-ProgressBar $Config.Name 'Esecuzione in corso...' $percent $Config.Icon $spinner
-                }
-                Start-Sleep -Milliseconds 600
+                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
+                $color = if ($isChkdsk) { 'Yellow' } else { $null }
+                Show-ProgressBar $Config.Name 'Esecuzione in corso...' $percent $Config.Icon $spinner $color
+                $sleepMs = 600
+                if ($Config.Name -eq 'Ripristino immagine Windows') { $sleepMs = 900 }
+                Start-Sleep -Milliseconds $sleepMs
                 $proc.Refresh()
             }
 
