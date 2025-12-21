@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 151)"
+$ToolkitVersion = "2.5.0 (Build 152)"
 
 
 # Setup Variabili Globali UI
@@ -2800,7 +2800,8 @@ function WinCleaner {
                     foreach ($file in $files) {
                         Remove-Item -Path $file.FullName -Force -ErrorAction Stop
                     }
-                } else {
+                }
+                else {
                     Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
                 }
                 $count++
