@@ -36,14 +36,12 @@ function WinRepairToolkit {
 
             while (-not $proc.HasExited) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                if ($isChkdsk) {
-                    Show-ProgressBar $Config.Name 'Esecuzione in corso ...' 0 $Config.Icon $spinner 'Yellow'
-                }
-                else {
-                    if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                    Show-ProgressBar $Config.Name 'Esecuzione in corso...' $percent $Config.Icon $spinner
-                }
-                Start-Sleep -Milliseconds 600
+                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
+                $color = if ($isChkdsk) { 'Yellow' } else { $null }
+                Show-ProgressBar $Config.Name 'Esecuzione in corso...' $percent $Config.Icon $spinner $color
+                $sleepMs = 600
+                if ($Config.Name -eq 'Ripristino immagine Windows') { $sleepMs = 900 }
+                Start-Sleep -Milliseconds $sleepMs
                 $proc.Refresh()
             }
 
