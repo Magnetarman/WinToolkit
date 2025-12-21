@@ -114,6 +114,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Aggiunta nuova funzione che evita la richiesta dopo tot tempo di cambio password dell'utente corrente.
   - Aggiunto riempimento progressivo a chkdsk: Ora tutti i comandi (inclusi chkdsk) simulano il progresso incrementando la percentuale da 0% a 95% con incrementi casuali di 1-3%. chkdsk mantiene il colore giallo per distinguerlo. **[@pomodori92]**
   - Rallentato "Ripristino immagine Windows" di 1.5x: Il ritardo tra aggiornamenti della barra di progresso per questo comando è stato aumentato da 600 ms a 900 ms, rendendo il riempimento più lento. **[@pomodori92]**
+  - Script potenziato. Integrate 3 nuove funzioni per risolvere e stabilizzare Winget e XAML.
 
 - Funzione **DisableBitlocker** completa.
 
