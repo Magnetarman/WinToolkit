@@ -5,7 +5,7 @@
 - Cambiare gestione profilo powershell
   - [ ] aggiungere alla repo in asset nuovo file Microsoft.PowerShell_profile.ps1
   
-- Setup profilo setup.ps1
+- Setup profilo `setup.ps1`
   - [ ] Generare codice per la codifica SHA 256
   - [ ] Get-FileHash "C:\Users\User\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" -Algorithm SHA256 | Select-Object Hash
   - [ ] Generare un file hash ed analizzare il modo con cui viene creato per replicare quello di chris
@@ -30,13 +30,13 @@
   - [ ] Posiziona sul desktop il file .zip appena creato ed avvisa l'utente di inviare via telegram o email lo zip con i log presente sul desktop in modo da poter controllare e risolvere eventuali errori
 
 - Fix Windows Repair
-  - [x] Ti direi di moltiplicare per 2 il tempo di riempimento della barra finta del terzo passaggio (Ripristino immagine di windows).
+  - [x] Moltiplicare per 2 il tempo di riempimento della barra finta del terzo passaggio (Ripristino immagine di windows).
   - [x] Aggiungere queste righe alla riparazione del sistema operativo
     - [x] Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode
     - [x] Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode
     - [x] Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode
 
-- Funzione di concatenazione script rotta.
+- Funzione di concatenazione script rotta
   - [ ] Ripristino funzionalità completa
   - [ ] Aggiungere a tutti gli script che se la funziona di avvio script multipli è attiva deve saltare la sezione relativa al riavvio del pc presente alla fine di ogni script.
 
