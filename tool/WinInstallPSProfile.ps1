@@ -20,7 +20,7 @@ function WinInstallPSProfile {
 
             $currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
             $pathExists = ($currentPath -split ';') | Where-Object { $_.TrimEnd('\') -ieq $PathToAdd.TrimEnd('\') }
-            
+
             if ($pathExists) {
                 Write-StyledMessage Info "Percorso già nel PATH: $PathToAdd"
                 return $true
@@ -30,7 +30,7 @@ function WinInstallPSProfile {
             $newPath = if ($currentPath.EndsWith(';')) { "$currentPath$PathToAdd" } else { "$currentPath;$PathToAdd" }
             [Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
             $env:PATH = "$env:PATH;$PathToAdd"
-            
+
             Write-StyledMessage Success "Percorso aggiunto al PATH: $PathToAdd"
             return $true
         }
@@ -44,7 +44,7 @@ function WinInstallPSProfile {
         foreach ($path in $SearchPaths) {
             $resolvedPaths = @()
             try {
-                $resolvedPaths = Get-ChildItem -Path (Split-Path $path -Parent) -Directory -ErrorAction SilentlyContinue | 
+                $resolvedPaths = Get-ChildItem -Path (Split-Path $path -Parent) -Directory -ErrorAction SilentlyContinue |
                 Where-Object { $_.Name -like (Split-Path $path -Leaf) }
             }
             catch { continue }
@@ -98,7 +98,7 @@ function WinInstallPSProfile {
                 return
             }
         }
-        
+
         $profileUrl = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
         $oldHash = if (Test-Path $PROFILE) { Get-FileHash $PROFILE -ErrorAction SilentlyContinue } else { $null }
 
@@ -120,7 +120,7 @@ function WinInstallPSProfile {
         $profileDir = Split-Path $PROFILE -Parent
         if (!(Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
         $newHash.Hash | Out-File "$PROFILE.hash" -Force
-        
+
         Write-StyledMessage Info "Hash profilo locale: $($oldHash.Hash), remoto: $($newHash.Hash)"
         if ($newHash.Hash -ne $oldHash.Hash) {
             if ((Test-Path $PROFILE) -and (-not (Test-Path "$PROFILE.bak"))) {
@@ -136,7 +136,7 @@ function WinInstallPSProfile {
             try {
                 Write-StyledMessage Info "Installazione oh-my-posh..."
                 $spinnerIndex = 0; $percent = 0
-                
+
                 $installProcess = Start-Process -FilePath "cmd" -ArgumentList "/c winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent >nul 2>&1" -NoNewWindow -PassThru
 
                 while (-not $installProcess.HasExited -and $percent -lt 90) {
@@ -182,7 +182,7 @@ function WinInstallPSProfile {
             try {
                 Write-StyledMessage Info "Installazione zoxide..."
                 $spinnerIndex = 0; $percent = 0
-                
+
                 $installProcess = Start-Process -FilePath "cmd" -ArgumentList "/c winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent >nul 2>&1" -NoNewWindow -PassThru
 
                 while (-not $installProcess.HasExited -and $percent -lt 90) {
@@ -354,5 +354,3 @@ function WinInstallPSProfile {
         try { Stop-Transcript | Out-Null } catch {}
     }
 }
-
-WinInstallPSProfile

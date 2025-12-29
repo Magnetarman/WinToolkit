@@ -24,24 +24,24 @@ function WinUpdateReset {
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
-            
-            if (-not $service) { 
+
+            if (-not $service) {
                 Write-StyledMessage Warning "$serviceIcon Servizio $serviceName non trovato nel sistema."
                 return
             }
 
             switch ($action) {
-                'Stop' { 
+                'Stop' {
                     Show-ServiceProgress $serviceName "Arresto" $currentStep $totalSteps
                     Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-                    
+
                     $timeout = 10
                     do {
                         Start-Sleep -Milliseconds 500
                         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
                         $timeout--
                     } while ($service.Status -eq 'Running' -and $timeout -gt 0)
-                    
+
                     Write-Host ''
                     Write-StyledMessage Info "$serviceIcon Servizio $serviceName arrestato."
                 }
@@ -55,7 +55,7 @@ function WinUpdateReset {
                     Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
                     Write-Host ''
                     Start-Service -Name $serviceName -ErrorAction Stop
-                    
+
                     $timeout = 10; $spinnerIndex = 0
                     do {
                         $clearLine = "`r" + (' ' * 80) + "`r"
@@ -66,10 +66,10 @@ function WinUpdateReset {
                         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
                         $timeout--; $spinnerIndex++
                     } while ($service.Status -ne 'Running' -and $timeout -gt 0)
-                    
+
                     $clearLine = "`r" + (' ' * 80) + "`r"
                     Write-Host $clearLine -NoNewline
-                    
+
                     if ($service.Status -eq 'Running') {
                         Write-StyledMessage Success "$serviceIcon Servizio ${serviceName}: avviato correttamente."
                     }
@@ -103,14 +103,14 @@ function WinUpdateReset {
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
-            
+
             Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue *>$null
-            
+
             [Console]::SetCursorPosition(0, $originalPos)
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLines -NoNewline
             [Console]::Out.Flush()
-            
+
             Write-StyledMessage Success "🗑️ Directory $displayName eliminata."
             return $true
         }
@@ -118,22 +118,22 @@ function WinUpdateReset {
             [Console]::SetCursorPosition(0, $originalPos)
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLines -NoNewline
-            
+
             Write-StyledMessage Warning "Tentativo fallito, provo con eliminazione forzata..."
-        
+
             try {
                 $tempDir = [System.IO.Path]::GetTempPath() + "empty_" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
                 $null = New-Item -ItemType Directory -Path $tempDir -Force
-                
+
                 $null = Start-Process "robocopy.exe" -ArgumentList "`"$tempDir`" `"$path`" /MIR /NFL /NDL /NJH /NJS /NP /NC" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
                 Remove-Item $tempDir -Force -ErrorAction SilentlyContinue
                 Remove-Item $path -Force -ErrorAction SilentlyContinue
-                
+
                 [Console]::SetCursorPosition(0, $originalPos)
                 $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Write-Host $clearLines -NoNewline
                 [Console]::Out.Flush()
-                
+
                 if (-not (Test-Path $path)) {
                     Write-StyledMessage Success "🗑️ Directory $displayName eliminata (metodo forzato)."
                     return $true
@@ -180,7 +180,7 @@ function WinUpdateReset {
         'trustedinstaller' = @{ Type = 'Manual'; Critical = $true; Icon = '🛡️'; DisplayName = 'Windows Modules Installer' }
         'msiserver'        = @{ Type = 'Manual'; Critical = $false; Icon = '📦'; DisplayName = 'Windows Installer' }
     }
-    
+
     $systemServices = @(
         @{ Name = 'appidsvc'; Icon = '🆔'; Display = 'Application Identity' },
         @{ Name = 'gpsvc'; Icon = '📋'; Display = 'Group Policy Client' },
@@ -199,7 +199,7 @@ function WinUpdateReset {
         for ($i = 0; $i -lt $stopServices.Count; $i++) {
             Manage-Service $stopServices[$i] 'Stop' $serviceConfig[$stopServices[$i]] ($i + 1) $stopServices.Count
         }
-        
+
         Write-Host ''
         Write-StyledMessage Info '⏳ Attesa liberazione risorse...'
         Start-Sleep -Seconds 3
@@ -254,19 +254,19 @@ function WinUpdateReset {
             @{ Path = "C:\Windows\SoftwareDistribution"; Name = "SoftwareDistribution" },
             @{ Path = "C:\Windows\System32\catroot2"; Name = "catroot2" }
         )
-        
+
         for ($i = 0; $i -lt $directories.Count; $i++) {
             $dir = $directories[$i]
             $percent = [math]::Round((($i + 1) / $directories.Count) * 100)
             Show-ProgressBar "Directory ($($i + 1)/$($directories.Count))" "Eliminazione $($dir.Name)" $percent '🗑️' '' 'Yellow'
-            
+
             Start-Sleep -Milliseconds 300
-            
+
             $success = Remove-DirectorySafely -path $dir.Path -displayName $dir.Name
             if (-not $success) {
                 Write-StyledMessage Info "💡 Suggerimento: Alcuni file potrebbero essere ricreati dopo il riavvio."
             }
-            
+
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
@@ -530,9 +530,9 @@ function WinUpdateReset {
         Write-StyledMessage Warning "⚡ Attenzione: il sistema verrà riavviato automaticamente"
         Write-Host ('═' * 65) -ForegroundColor Green
         Write-Host ''
-        
+
         $shouldReboot = Start-InterruptibleCountdown $CountdownSeconds "Preparazione riavvio sistema"
-        
+
         if ($shouldReboot) {
             Write-StyledMessage Info "🔄 Riavvio in corso..."
             Restart-Computer -Force
@@ -550,6 +550,3 @@ function WinUpdateReset {
         try { Stop-Transcript | Out-Null } catch {}
     }
 }
-
-
-WinUpdateReset

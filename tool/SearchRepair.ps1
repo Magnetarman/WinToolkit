@@ -633,5 +633,3 @@ catch {
 finally {
     # Cleanup code here if needed
 }
-
-Restore-WebSearch

@@ -39,5 +39,3 @@ function DisableBitlocker {
         Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message)"
     }
 }
-
-DisableBitlocker
