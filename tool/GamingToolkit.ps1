@@ -23,7 +23,7 @@
 
     function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
         Write-StyledMessage Info "[$Step/$Total] 📦 Installazione: $DisplayName..."
-
+        
         if (-not (Test-WingetPackageAvailable $PackageId)) {
             Write-StyledMessage Warning "Pacchetto $DisplayName non disponibile. Saltando."
             return @{ Success = $true; Skipped = $true }
@@ -31,7 +31,7 @@
 
         try {
             $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_err_$PackageId.log"
-
+            
             $spinnerIndex = 0
             $percent = 0
             $startTime = Get-Date
@@ -59,7 +59,7 @@
 
             $exitCode = $proc.ExitCode
             $successCodes = @(0, 1638, 3010, -1978335189)
-
+            
             if ($exitCode -in $successCodes) {
                 Write-StyledMessage Success "Installato: $DisplayName"
                 return @{ Success = $true; ExitCode = $exitCode }
@@ -158,7 +158,7 @@
     Write-StyledMessage Info '🎮 Installazione DirectX...'
     $dxDir = "$env:LOCALAPPDATA\WinToolkit\Directx"
     $dxPath = "$dxDir\dxwebsetup.exe"
-
+    
     if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force | Out-Null }
 
     try {
@@ -223,7 +223,7 @@
     # Step 6: Battle.net
     Write-StyledMessage Info '🎮 Installazione Battle.net...'
     $bnPath = "$env:TEMP\Battle.net-Setup.exe"
-
+    
     try {
         Invoke-WebRequest -Uri 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live' -OutFile $bnPath -ErrorAction Stop
         Write-StyledMessage Success 'Battle.net scaricato.'
@@ -353,7 +353,7 @@
 
     # Step 11: Riavvio
     $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario"
-
+    
     if ($shouldReboot) {
         Write-StyledMessage Info '🔄 Riavvio...'
         Restart-Computer -Force

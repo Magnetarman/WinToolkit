@@ -21,7 +21,7 @@ function WinCleaner {
     Initialize-ToolLogging -ToolName "WinCleaner"
     Show-Header -SubTitle "Cleaner Toolkit"
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
-
+    
     # Initialize Execution Log
     $global:ExecutionLog = @()
     $ProgressPreference = 'Continue'
@@ -29,7 +29,7 @@ function WinCleaner {
     # ============================================================================
     # 2. ESCLUSIONI VITALI
     # ============================================================================
-
+    
     $VitalExclusions = @(
         "$env:LOCALAPPDATA\WinToolkit"
     )
@@ -77,13 +77,13 @@ function WinCleaner {
             [Parameter(Mandatory = $true, Position = 0)]
             [ValidateSet('Success', 'Info', 'Warning', 'Error', 'Question')]
             [string]$Type,
-
+            
             [Parameter(Mandatory = $true, Position = 1)]
             [string]$Text
         )
 
         Clear-ProgressLine
-
+        
         # Add to execution log
         $logEntry = @{
             Timestamp = Get-Date -Format "HH:mm:ss"
@@ -99,7 +99,7 @@ function WinCleaner {
             'Error'    = 'Red'
             'Question' = 'White'
         }
-
+        
         $iconMap = @{
             'Success'  = '✅'
             'Info'     = 'ℹ️'
@@ -110,7 +110,7 @@ function WinCleaner {
 
         $color = $colorMap[$Type]
         $icon = $iconMap[$Type]
-
+        
         Write-Host "[$($logEntry.Timestamp)] $icon $Text" -ForegroundColor $color
     }
 
@@ -223,7 +223,7 @@ function WinCleaner {
         param($Rule)
         $svcName = $Rule.ServiceName
         $action = $Rule.Action # Start/Stop
-
+        
         try {
             $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
             if (-not $svc) { return $true }
@@ -250,7 +250,7 @@ function WinCleaner {
         $isPerUser = $Rule.PerUser
         $filesOnly = $Rule.FilesOnly
         $takeOwn = $Rule.TakeOwnership
-
+        
         $targetPaths = @()
         if ($isPerUser) {
             $users = Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
@@ -355,17 +355,17 @@ function WinCleaner {
             'RegSet' { return Set-RegistryItem -Rule $Rule }
             'Service' { return Invoke-ServiceAction -Rule $Rule }
             'Command' { return Invoke-CommandAction -Rule $Rule }
-            'ScriptBlock' {
+            'ScriptBlock' { 
                 # Operazioni multi-passo complesse
-                if ($Rule.ScriptBlock) {
-                    & $Rule.ScriptBlock
+                if ($Rule.ScriptBlock) { 
+                    & $Rule.ScriptBlock 
                     return $true
                 }
             }
-            'Custom' {
+            'Custom' { 
                 # Operazioni complesse specializzate
-                if ($Rule.ScriptBlock) {
-                    & $Rule.ScriptBlock
+                if ($Rule.ScriptBlock) { 
+                    & $Rule.ScriptBlock 
                     return $true
                 }
             }
@@ -387,7 +387,7 @@ function WinCleaner {
                     "Temporary Files", "Thumbnail Cache", "Windows Error Reporting Files", "Setup Log Files",
                     "System error memory dump files", "System error minidump files", "Temporary Setup Files",
                     "Windows Upgrade Log Files")
-                foreach ($o in $opts) {
+                foreach ($o in $opts) { 
                     $p = Join-Path $reg $o
                     if (Test-Path $p) { Set-ItemProperty -Path $p -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction SilentlyContinue }
                 }
@@ -455,7 +455,7 @@ function WinCleaner {
                 "%LOCALAPPDATA%\Microsoft\Feeds Cache",
                 "%LOCALAPPDATA%\Microsoft\InternetExplorer\DOMStore",
                 "%LOCALAPPDATA%\Microsoft\Internet Explorer"
-            ); PerUser = $true; FilesOnly = $false
+            ); PerUser = $true; FilesOnly = $false 
         }
         @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @("%USERPROFILE%\Local Settings\Temporary Internet Files"); PerUser = $true; FilesOnly = $false }
         @{ Name = "Cache/History Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "8") }
@@ -463,18 +463,18 @@ function WinCleaner {
         @{ Name = "Internet Cookies Cleanup"; Type = "File"; Paths = @(
                 "%APPDATA%\Microsoft\Windows\Cookies",
                 "%LOCALAPPDATA%\Microsoft\Windows\INetCookies"
-            ); PerUser = $true; FilesOnly = $false
+            ); PerUser = $true; FilesOnly = $false 
         }
         @{ Name = "Cookies Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "1") }
         @{ Name = "Chrome Browser Cache & Logs"; Type = "File"; Paths = @(
                 "%LOCALAPPDATA%\Google\Chrome\User Data\Crashpad\reports",
                 "%LOCALAPPDATA%\Google\CrashReports",
                 "%LOCALAPPDATA%\Google\Chrome\User Data\Software Reporter Tool"
-            ); PerUser = $true; FilesOnly = $true
+            ); PerUser = $true; FilesOnly = $true 
         }
         @{ Name = "Firefox Browser Data"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "🦊 Pulizia Firefox..."
-
+                
                 $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
                 foreach ($u in $users) {
                     # Standard Firefox profiles
@@ -504,7 +504,7 @@ function WinCleaner {
                 "%LOCALAPPDATA%\Opera\Opera",
                 "%APPDATA%\Opera\Opera",
                 "%APPDATA%\Sun\Java\Deployment\cache"
-            ); PerUser = $true; FilesOnly = $false
+            ); PerUser = $true; FilesOnly = $false 
         }
 
         @{ Name = "DNS Flush"; Type = "Command"; Command = "ipconfig"; Args = @("/flushdns") }
@@ -558,7 +558,7 @@ function WinCleaner {
                 "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\WordWheelQuery",
                 "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\SearchHistory",
                 "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Map Network Drive MRU"
-            ); ValuesOnly = $true; Recursive = $true
+            ); ValuesOnly = $true; Recursive = $true 
         }
         @{ Name = "Adobe Media Browser Key"; Type = "Registry"; Keys = @("HKCU:\Software\Adobe\MediaBrowser\MRU"); ValuesOnly = $false }
 
@@ -584,7 +584,7 @@ function WinCleaner {
                 "%TEMP%\VSTelem.Out",
                 "%PROGRAMDATA%\Microsoft\VSApplicationInsights",
                 "%PROGRAMDATA%\vstelemetry"
-            ); PerUser = $true; FilesOnly = $false
+            ); PerUser = $true; FilesOnly = $false 
         }
         @{ Name = "Visual Studio Licenses"; Type = "Registry"; Keys = @(
                 "HKLM:\SOFTWARE\Classes\Licenses\77550D6B-6352-4E77-9DA3-537419DF564B",
@@ -595,7 +595,7 @@ function WinCleaner {
                 "HKLM:\SOFTWARE\Classes\Licenses\B16F0CF0-8AD1-4A5B-87BC-CB0DBE9C48FC",
                 "HKLM:\SOFTWARE\Classes\Licenses\10D17DBA-761D-4CD8-A627-984E75A58700",
                 "HKLM:\SOFTWARE\Classes\Licenses\1299B4B9-DFCC-476D-98F0-F65A2B46C96D"
-            ); ValuesOnly = $false
+            ); ValuesOnly = $false 
         }
 
         # --- Search History Files ---
@@ -605,7 +605,7 @@ function WinCleaner {
         @{ Name = "Print Queue (Spooler)"; Type = "ScriptBlock"; ScriptBlock = {
                 try {
                     Write-StyledMessage -Type 'Info' -Text "🖨️ Pulizia coda di stampa (Spooler)..."
-
+                    
                     Write-StyledMessage -Type 'Info' -Text "⏸️ Arresto servizio Spooler..."
                     Stop-Service -Name Spooler -Force -ErrorAction Stop | Out-Null
                     Write-StyledMessage -Type 'Info' -Text "Servizio Spooler arrestato."
@@ -621,7 +621,7 @@ function WinCleaner {
                     Write-StyledMessage -Type 'Info' -Text "▶️ Riavvio servizio Spooler..."
                     Start-Service -Name Spooler -ErrorAction Stop | Out-Null
                     Write-StyledMessage -Type 'Info' -Text "Servizio Spooler riavviato."
-
+                    
                     Write-StyledMessage -Type 'Success' -Text "Print Queue Spooler pulito e riavviato con successo."
                 }
                 catch {
@@ -646,14 +646,14 @@ function WinCleaner {
         # --- Enhanced DiagTrack Service Management ---
         @{ Name = "Enhanced DiagTrack Management"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "🔄 Gestione migliorata servizio DiagTrack..."
-
+                
                 function Get-StateFilePath($BaseName, $Suffix) {
                     $escapedBaseName = $BaseName.Split([IO.Path]::GetInvalidFileNameChars()) -Join '_'
                     $uniqueFilename = $escapedBaseName, $Suffix -Join '-'
                     $path = [IO.Path]::Combine($env:APPDATA, 'WinToolkit', 'state', $uniqueFilename)
                     return $path
                 }
-
+                
                 function Get-UniqueStateFilePath($BaseName) {
                     $suffix = New-Guid
                     $path = Get-StateFilePath -BaseName $BaseName -Suffix $suffix
@@ -663,7 +663,7 @@ function WinCleaner {
                     }
                     return $path
                 }
-
+                
                 function New-EmptyFile($Path) {
                     $parentDirectory = [System.IO.Path]::GetDirectoryName($Path)
                     if (-not (Test-Path $parentDirectory -PathType Container)) {
@@ -673,19 +673,19 @@ function WinCleaner {
                     try { New-Item -ItemType File -Path $Path -Force -ErrorAction Stop | Out-Null; return $true }
                     catch { Write-StyledMessage -Type 'Warning' -Text "Failed to create file: $_"; return $false }
                 }
-
+                
                 $serviceName = 'DiagTrack'
                 Write-StyledMessage -Type 'Info' -Text "Verifica stato servizio $serviceName..."
-
+                
                 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-                if (-not $service) {
+                if (-not $service) { 
                     Write-StyledMessage -Type 'Warning' -Text "Servizio $serviceName non trovato, skip"
-                    return
+                    return 
                 }
-
+                
                 if ($service.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Running) {
                     Write-StyledMessage -Type 'Info' -Text "Servizio $serviceName attivo, arresto in corso..."
-                    try {
+                    try { 
                         $service | Stop-Service -Force -ErrorAction Stop
                         $service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(30))
                         $path = Get-UniqueStateFilePath $serviceName
@@ -702,9 +702,9 @@ function WinCleaner {
                     Write-StyledMessage -Type 'Info' -Text "Servizio $serviceName non attivo, verifica riavvio..."
                     $fileGlob = Get-StateFilePath -BaseName $serviceName -Suffix '*'
                     $stateFiles = Get-ChildItem -Path $fileGlob -ErrorAction SilentlyContinue
-
+                    
                     if ($stateFiles.Count -eq 1) {
-                        try {
+                        try { 
                             Remove-Item -Path $stateFiles[0].FullName -Force -ErrorAction Stop
                             $service | Start-Service -ErrorAction Stop
                             Write-StyledMessage -Type 'Success' -Text "Servizio $serviceName riavviato con successo"
@@ -724,9 +724,9 @@ function WinCleaner {
         # --- Special Operations ---
         @{ Name = "Credential Manager"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "🔑 Pulizia Credenziali..."
-                & cmdkey /list 2>$null | Where-Object { $_ -match '^Target:' } | ForEach-Object {
+                & cmdkey /list 2>$null | Where-Object { $_ -match '^Target:' } | ForEach-Object { 
                     $t = $_.Split(':')[1].Trim()
-                    & cmdkey /delete:$t 2>$null
+                    & cmdkey /delete:$t 2>$null 
                 }
             }
         }
@@ -736,18 +736,18 @@ function WinCleaner {
                 if (Test-Path $path) {
                     try {
                         Write-StyledMessage -Type 'Info' -Text "🗑️ Rimozione Windows.old..."
-
+                        
                         Write-StyledMessage -Type 'Info' -Text "1. Assunzione proprietà (Take Ownership)..."
                         $null = & cmd /c "takeown /F `"$path`" /R /A >nul 2>&1"
-
+                        
                         Write-StyledMessage -Type 'Info' -Text "2. Assegnazione permessi di Controllo Completo..."
                         $adminSID = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
                         $adminAccount = $adminSID.Translate([System.Security.Principal.NTAccount]).Value
                         $null = & cmd /c "icacls `"$path`" /T /grant `"${adminAccount}:F`" >nul 2>&1"
-
+                        
                         Write-StyledMessage -Type 'Info' -Text "3. Rimozione forzata della cartella..."
                         Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
-
+                        
                         if (Test-Path -Path $path) {
                             Write-StyledMessage -Type 'Error' -Text "ERRORE: La cartella $path non è stata rimossa."
                         }
@@ -784,13 +784,13 @@ function WinCleaner {
     foreach ($rule in $Rules) {
         $currentRuleIndex++
         $percent = [math]::Round(($currentRuleIndex / $totalRules) * 100)
-
+        
         # Clear line before showing progress to avoid ghosting
         Clear-ProgressLine
         Show-ProgressBar -Activity "Esecuzione regole" -Status "$($rule.Name)" -Percent $percent -Icon '⚙️'
 
         $result = Invoke-WinCleanerRule -Rule $rule
-
+        
         # Clear progress bar line after rule execution to ensure next log message is clean
         Clear-ProgressLine
 
@@ -824,7 +824,7 @@ function WinCleaner {
 
     Write-StyledMessage -Type 'Info' -Text "--------------------------------------------------"
     Write-StyledMessage -Type 'Info' -Text "Dettaglio Errori e Warning:"
-
+    
     $problems = $global:ExecutionLog | Where-Object { $_.Type -in 'Warning', 'Error' }
     if ($problems) {
         foreach ($p in $problems) {
@@ -835,7 +835,7 @@ function WinCleaner {
     else {
         Write-StyledMessage -Type 'Success' -Text "Nessun problema rilevato."
     }
-
+    
     Write-StyledMessage -Type 'Info' -Text "=================================================="
     Write-Host "`n"
 

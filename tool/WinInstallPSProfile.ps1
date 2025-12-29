@@ -99,7 +99,7 @@ function WinInstallPSProfile {
             }
         }
         
-        - >    $profileUrl = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
+        $profileUrl = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
         $oldHash = if (Test-Path $PROFILE) { Get-FileHash $PROFILE -ErrorAction SilentlyContinue } else { $null }
 
         Write-StyledMessage Info "Controllo aggiornamenti..."
@@ -251,7 +251,7 @@ function WinInstallPSProfile {
                     Start-Sleep -Milliseconds 400
                 }
 
-                - >   Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1' -UseBasicParsing).Content
+                Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1' -UseBasicParsing).Content
                 Show-ProgressBar "Profilo" "Completato" 100 '⚙️'
                 Write-Host ''
                 Write-StyledMessage Success "Profilo installato!"

@@ -19,7 +19,7 @@ function WinReinstallStore {
         }
         Start-Sleep 2
     }
-
+    
     function Test-WingetAvailable {
         try {
             $env:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
@@ -28,7 +28,7 @@ function WinReinstallStore {
         }
         catch { return $false }
     }
-
+    
     function Install-WingetSilent {
         Write-StyledMessage Info "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
         Stop-InterferingProcesses
@@ -41,7 +41,7 @@ function WinReinstallStore {
             $VerbosePreference = 'SilentlyContinue'
 
             # --- FASE 1: Inizializzazione e Pulizia Profonda ---
-
+            
             # Terminazione Processi
             Write-StyledMessage Info "🔄 Chiusura forzata dei processi Winget e correlati..."
             @("winget", "WindowsPackageManagerServer") | ForEach-Object {
@@ -73,7 +73,7 @@ function WinReinstallStore {
             Write-StyledMessage Info "Sorgenti Winget resettate."
 
             # --- FASE 2: Installazione Dipendenze e Moduli PowerShell ---
-
+            
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
             # Installazione Provider NuGet
@@ -136,16 +136,16 @@ function WinReinstallStore {
             }
 
             # --- FASE 5: Gestione Output Finale e Valore di Ritorno ---
-
+            
             # Reset cursore e flush output
             [Console]::SetCursorPosition(0, $originalPos)
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
-
+            
             Start-Sleep 2
             $finalCheck = Test-WingetAvailable
-
+            
             if ($finalCheck) {
                 Write-StyledMessage Success "Winget è stato processato e sembra funzionante."
                 return $true
@@ -166,17 +166,17 @@ function WinReinstallStore {
             $VerbosePreference = 'SilentlyContinue'
         }
     }
-
+    
     function Install-MicrosoftStoreSilent {
         Write-StyledMessage Info "🔄 Reinstallazione Microsoft Store in corso..."
-
+        
         $originalPos = [Console]::CursorTop
         try {
             # Soppressione completa dell'output
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
-
+            
             @("AppXSvc", "ClipSVC", "WSService") | ForEach-Object {
                 try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch {}
             }
@@ -220,13 +220,13 @@ function WinReinstallStore {
                 try {
                     if (& $method) {
                         Start-Process wsreset.exe -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue *>$null
-
+                        
                         # Reset cursore e flush output
                         [Console]::SetCursorPosition(0, $originalPos)
                         $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                         Write-Host $clearLine -NoNewline
                         [Console]::Out.Flush()
-
+                        
                         return $true
                     }
                 }
@@ -241,7 +241,7 @@ function WinReinstallStore {
             $VerbosePreference = 'SilentlyContinue'
         }
     }
-
+    
     function Install-UniGetUISilent {
         Write-StyledMessage Info "🔄 Reinstallazione UniGet UI in corso..."
         if (-not (Test-WingetAvailable)) { return $false }
@@ -252,9 +252,9 @@ function WinReinstallStore {
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
-
+            
             $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
-
+    
             if ($process.ExitCode -eq 0) {
                 Write-StyledMessage Info "🔄 Disabilitazione avvio automatico UniGet UI..."
                 try {
@@ -272,13 +272,13 @@ function WinReinstallStore {
                     Write-StyledMessage Warning "Impossibile disabilitare l'avvio automatico di UniGet UI: $($_.Exception.Message)"
                 }
             }
-
+    
             # Reset cursore e flush output
             [Console]::SetCursorPosition(0, $originalPos)
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
-
+            
             return $process.ExitCode -eq 0
         }
         catch {
@@ -291,7 +291,7 @@ function WinReinstallStore {
             $VerbosePreference = 'SilentlyContinue'
         }
     }
-
+    
     Write-StyledMessage Info "🚀 AVVIO REINSTALLAZIONE STORE"
 
     try {

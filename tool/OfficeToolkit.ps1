@@ -37,20 +37,20 @@ function OfficeToolkit {
             $originalPos = [Console]::CursorTop
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
-
+            
             if ($Recurse) {
                 Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue *>$null
             }
             else {
                 Remove-Item $Path -Force -ErrorAction SilentlyContinue *>$null
             }
-
+            
             [Console]::SetCursorPosition(0, $originalPos)
             Clear-ConsoleLine
-
+            
             $ErrorActionPreference = 'Continue'
             $ProgressPreference = 'Continue'
-
+            
             return $true
         }
         catch {
@@ -251,7 +251,7 @@ function OfficeToolkit {
 
             Write-StyledMessage Info "🔧 Avvio riparazione $repairName..."
             $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$repairType DisplayLevel=True"
-
+            
             $officeClient = "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
             if (-not (Test-Path $officeClient)) {
                 $officeClient = "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
@@ -319,14 +319,14 @@ function OfficeToolkit {
 
     function Remove-OfficeDirectly {
         Write-StyledMessage Info "🔧 Avvio rimozione diretta Office..."
-
+        
         try {
             # Metodo 1: Rimozione pacchetti
             Write-StyledMessage Info "📋 Ricerca installazioni Office..."
-
-            $officePackages = Get-Package -ErrorAction SilentlyContinue |
+            
+            $officePackages = Get-Package -ErrorAction SilentlyContinue | 
             Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" -or $_.Name -like "*Office*" }
-
+            
             if ($officePackages) {
                 Write-StyledMessage Info "Trovati $($officePackages.Count) pacchetti Office"
                 foreach ($package in $officePackages) {
@@ -337,21 +337,21 @@ function OfficeToolkit {
                     catch {}
                 }
             }
-
+            
             # Metodo 2: Rimozione tramite registro
             Write-StyledMessage Info "🔍 Ricerca nel registro..."
-
+            
             $uninstallKeys = @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
                 "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
             )
-
+            
             foreach ($keyPath in $uninstallKeys) {
                 try {
                     $items = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue |
                     Where-Object { $_.DisplayName -like "*Office*" -or $_.DisplayName -like "*Microsoft 365*" }
-
+                    
                     foreach ($item in $items) {
                         if ($item.UninstallString -and $item.UninstallString -match "msiexec") {
                             try {
@@ -364,10 +364,10 @@ function OfficeToolkit {
                 }
                 catch {}
             }
-
+            
             # Metodo 3: Stop servizi Office
             Write-StyledMessage Info "🛑 Arresto servizi Office..."
-
+            
             $officeServices = @('ClickToRunSvc', 'OfficeSvc', 'OSE')
             $stoppedServices = 0
             foreach ($serviceName in $officeServices) {
@@ -382,10 +382,10 @@ function OfficeToolkit {
                     catch {}
                 }
             }
-
+            
             # Metodo 4: Pulizia cartelle Office
             Write-StyledMessage Info "🧹 Pulizia cartelle Office..."
-
+            
             $foldersToClean = @(
                 "$env:ProgramFiles\Microsoft Office",
                 "${env:ProgramFiles(x86)}\Microsoft Office",
@@ -398,20 +398,20 @@ function OfficeToolkit {
                 "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun",
                 "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun"
             )
-
+            
             $folderResult = Remove-ItemsSilently -Paths $foldersToClean -ItemType "cartella"
-
+            
             if ($folderResult.Count -gt 0) {
                 Write-StyledMessage Success "$($folderResult.Count) cartelle Office rimosse"
             }
-
+            
             if ($folderResult.Failed.Count -gt 0) {
                 Write-StyledMessage Warning "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)"
             }
-
+            
             # Metodo 5: Pulizia registro Office
             Write-StyledMessage Info "🔧 Pulizia registro Office..."
-
+            
             $registryPaths = @(
                 "HKCU:\Software\Microsoft\Office",
                 "HKLM:\SOFTWARE\Microsoft\Office",
@@ -421,13 +421,13 @@ function OfficeToolkit {
                 "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun"
             )
-
+            
             $regResult = Remove-ItemsSilently -Paths $registryPaths -ItemType "chiave"
-
+            
             if ($regResult.Count -gt 0) {
                 Write-StyledMessage Success "$($regResult.Count) chiavi registro Office rimosse"
             }
-
+            
             # Metodo 6: Pulizia attività pianificate
             Write-StyledMessage Info "📅 Pulizia attività pianificate..."
 
@@ -443,7 +443,7 @@ function OfficeToolkit {
                     }
                     catch {}
                 }
-
+                
                 if ($tasksRemoved -gt 0) {
                     Write-StyledMessage Success "$tasksRemoved attività Office rimosse"
                 }
@@ -486,7 +486,7 @@ function OfficeToolkit {
 
             # Metodo 8: Pulizia residui aggiuntivi
             Write-StyledMessage Info "💽 Pulizia residui Office..."
-
+            
             $additionalPaths = @(
                 "$env:LOCALAPPDATA\Microsoft\OneDrive",
                 "$env:APPDATA\Microsoft\OneDrive",
@@ -498,7 +498,7 @@ function OfficeToolkit {
 
             Write-StyledMessage Success "✅ Rimozione diretta completata"
             Write-StyledMessage Info "📊 Riepilogo: $($folderResult.Count) cartelle, $($regResult.Count) chiavi registro, $shortcutsRemoved collegamenti, $tasksRemoved attività rimosse"
-
+            
             return $true
         }
         catch {
@@ -540,10 +540,10 @@ function OfficeToolkit {
             Write-StyledMessage Warning "⏰ Questa operazione può richiedere alcuni minuti"
 
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
-
+            
             try {
                 $process = Start-Process -FilePath $saraExe.FullName -ArgumentList $arguments -Verb RunAs -PassThru -Wait -ErrorAction Stop
-
+                
                 if ($process.ExitCode -eq 0) {
                     Write-StyledMessage Success "✅ SaRA completato con successo"
                     return $true

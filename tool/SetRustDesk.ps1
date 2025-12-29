@@ -24,7 +24,7 @@ function SetRustDesk {
                 $servicesFound = $true
             }
         }
-
+        
         if ($servicesFound) {
             Write-StyledMessage Success "Servizi RustDesk arrestati"
         }
@@ -37,15 +37,15 @@ function SetRustDesk {
                 $processesFound = $true
             }
         }
-
+        
         if ($processesFound) {
             Write-StyledMessage Success "Processi RustDesk terminati"
         }
-
+        
         if (-not $servicesFound -and -not $processesFound) {
             Write-StyledMessage Warning "Nessun componente RustDesk attivo trovato"
         }
-
+        
         Start-Sleep 2
     }
 
@@ -81,18 +81,18 @@ function SetRustDesk {
 
         Write-StyledMessage Info "📥 Versione rilevata: $($releaseInfo.Version)"
         $parentDir = Split-Path $DownloadPath -Parent
-
+        
         try {
             if (-not (Test-Path $parentDir)) {
                 New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
             }
-
+            
             if (Test-Path $DownloadPath) {
                 Remove-Item $DownloadPath -Force -ErrorAction Stop
             }
 
             Invoke-WebRequest -Uri $releaseInfo.DownloadUrl -OutFile $DownloadPath -UseBasicParsing -ErrorAction Stop
-
+            
             if (Test-Path $DownloadPath) {
                 Write-StyledMessage Success "Installer $($releaseInfo.FileName) scaricato con successo"
                 return $true
@@ -109,7 +109,7 @@ function SetRustDesk {
         param([string]$InstallerPath)
 
         Write-StyledMessage Info "Installazione RustDesk"
-
+        
         try {
             $installArgs = "/i", "`"$InstallerPath`"", "/quiet", "/norestart"
             $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop
@@ -158,7 +158,7 @@ function SetRustDesk {
     function Download-RustDeskConfigFiles {
         Write-StyledMessage Info "Download file di configurazione..."
         $configDir = "$env:APPDATA\RustDesk\config"
-
+        
         try {
             if (-not (Test-Path $configDir)) {
                 New-Item -ItemType Directory -Path $configDir -Force | Out-Null
@@ -176,7 +176,7 @@ function SetRustDesk {
             foreach ($fileName in $configFiles) {
                 $url = "$baseUrl/$fileName"
                 $filePath = Join-Path $configDir $fileName
-
+                
                 try {
                     Invoke-WebRequest -Uri $url -OutFile $filePath -UseBasicParsing -ErrorAction Stop
                     $downloaded++
@@ -214,7 +214,7 @@ function SetRustDesk {
             Write-StyledMessage Error "Impossibile procedere senza l'installer"
             return
         }
-
+        
         if (-not (Install-RustDesk -InstallerPath $installerPath)) {
             Write-StyledMessage Error "Errore durante l'installazione"
             return
@@ -235,7 +235,7 @@ function SetRustDesk {
         Write-Host ""
         Write-StyledMessage Success "🎉 CONFIGURAZIONE RUSTDESK COMPLETATA"
         Write-StyledMessage Info "🔄 Per applicare le modifiche il PC verrà riavviato"
-
+        
         $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Per applicare le modifiche è necessario riavviare il sistema"
         if ($shouldReboot) {
             Restart-Computer -Force
