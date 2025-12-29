@@ -66,7 +66,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.5.0] - 2025-12-21 (#21)
+## [2.5.0] - 2025-12-29 (#21)
 
 ### Aggiunte
 
@@ -88,7 +88,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Correzioni
 
 - Script **start.ps1** aggiornato e potenziato.
-
   - Gestione Processi: Introdotta nuova funzione helper Stop-InterferingProcesses per terminare forzatamente processi conflittuali (es. WinStore.App, wsappx, AppInstaller) prima delle operazioni critiche.
   - Logging & Error Handling: Aggiunto blocco try/catch sulla gestione del Transcript (log) e sul comando Restart-Computer per prevenire crash in fase di chiusura/riavvio.
   - Timeout & Wait: Ottimizzati i timeout di attesa e incrementato il tempo di check per la generazione del file settings.json di Windows Terminal (da 10s a 20s).
@@ -107,7 +106,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Parsing JSON: Migliorata la robustezza del parsing di settings.json per Windows Terminal con gestione specifica degli errori di lettura.
 
 - Funzione **WinRepairToolkit** riscritta.
-
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Migliorato processo di riparazione di Windows.
@@ -117,12 +115,10 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Script potenziato. Integrate 3 nuove funzioni per risolvere e stabilizzare Winget e XAML.
 
 - Funzione **DisableBitlocker** completa.
-
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
 
 - Funzione **WinInstallPsProfile** Aggiornata e Potenziata.
-
   - Migliorata scrittura file Log.
   - Refactor Codice per uniformarlo al resto della codebase.
   - Fix Sovrapposizione Testo Winget alle barre di progressione. **([#23](https://github.com/Magnetarman/WinToolkit/issues/23)) [@pomodori92]**
@@ -132,13 +128,11 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Aggiunto secondo tentativo di configurazione di Windows Terminal che spesso fallisce a causa di un problema di lettura del file settings.json nello script `start.ps1`
 
 - Funzione **WinReinstallStore** Riscritta e migliorata.
-
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Potenziato lo script di reinstallazione di Winget. Lo script è più aggressivo e completo rendendo winget nuovamente funzionante anche su versioni di Windows 11 più vecchie di 24H2.
 
 - Funzione **WinUpdateReset** Riscritta.
-
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
@@ -146,31 +140,26 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Inserita messaggi di avvertimento e funzionalità per eseguire comunque l'operazione rischiosa in caso di un ripristino non completo. [Thanks to @Zakkos]
 
 - Funzione **WinBackupDriver** Riscritta.
-
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
 
 - Funzione **GamingToolkit** Riscritta.
-
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
 
 - Funzione **SetRustDesk** Riscritta.
-
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
 
 - Funzione **VideoDriverInstall** Riscritta.
-
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
 
 - Funzione **WinCleaner** Riscritta e potenziata.
-
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
@@ -185,7 +174,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
-- Script `WinToolkit` riscritto.
+- Script `WinToolkit.ps1` riscritto.
   - Logica completamente riscritta, lo script adesso risulterà monolitico, integrando le funzionalità grafiche generali, demandando ai singoli script la sola gestione logica e funzionale delle varie operazioni.
   - Questo aggiornamento porta con sè un notevole miglioramento delle prestazioni, una significativa riduzione del codice totale (da +7500 linee a 4300 linee di codice totale, un'ottimizzazione del 42%) e maggiore stabilità dello script, oltre a una maggiore leggibilità e manutenibilità del codice.
   - Modificato l'aspetto grafico del Toolkit rendendo le varie schermate più compatte e leggibili. **([#21](https://github.com/Magnetarman/WinToolkit/issues/21)) [@pomodori92]**
