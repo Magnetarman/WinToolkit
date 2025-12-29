@@ -345,5 +345,3 @@ function VideoDriverInstall {
 
     } while ($choice.ToUpper() -ne "0")
 }
-
-VideoDriverInstall

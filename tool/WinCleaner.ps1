@@ -844,5 +844,3 @@ function WinCleaner {
         Restart-Computer -Force
     }
 }
-
-WinCleaner
