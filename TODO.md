@@ -50,5 +50,5 @@
 ### V 2.5.2
 
 - Rework `WinToolkit.ps1`
-  - Aggiungere nello `start.ps1` dopo aver completato le varie installazioni l'installazione del profilo powershell nuovo
-  - Eliminare da WinToolkit la sezione 1 con l'installazione del profilo non più necessaria
+  - [ ] Aggiungere nello `start.ps1` dopo aver completato le varie installazioni l'installazione del profilo powershell nuovo
+  - [ ] Eliminare da WinToolkit la sezione 1 con l'installazione del profilo non più necessaria
