@@ -1,6 +1,6 @@
 # To-Do
 
-### V2.5.0
+### V 2.5.0
 
 - Cambiare gestione profilo powershell
   - [ ] aggiungere alla repo in asset nuovo file Microsoft.PowerShell_profile.ps1
@@ -40,14 +40,14 @@
   - [ ] Ripristino funzionalità completa
   - [ ] Aggiungere a tutti gli script che se la funziona di avvio script multipli è attiva deve saltare la sezione relativa al riavvio del pc presente alla fine di ogni script.
 
-### V2.5.1
+### V 2.5.1
 
 - Funzione WinUpdateDisabler
   - [ ] Add script relativo e funzioni nel template
   - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino
 - ? Deprovvisioning dell'immagine Windows 11 (studio di fattibilità in corso)
 
-### V2.5.2
+### V 2.5.2
 
 - Rework `WinToolkit.ps1`
   - Aggiungere nello `start.ps1` dopo aver completato le varie installazioni l'installazione del profilo powershell nuovo
