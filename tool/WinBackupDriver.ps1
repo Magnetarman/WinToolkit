@@ -10,22 +10,22 @@ function WinBackupDriver {
         Ideale per il backup pre-format o per la migrazione dei driver su un nuovo sistema.
     #>
     param([int]$CountdownSeconds = 10)
-    
+
     Initialize-ToolLogging -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
-    
+
     $dt = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $BackupDir = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
     $ZipName = "DriverBackup_$dt"
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
     $FinalZipPath = "$DesktopPath\$ZipName.zip"
-    
+
     function Test-Admin {
         $u = [Security.Principal.WindowsIdentity]::GetCurrent()
         $p = New-Object Security.Principal.WindowsPrincipal($u)
         return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     }
-    
+
     function Export-Drivers {
         Write-StyledMessage Info "💾 Avvio esportazione driver di terze parti..."
         try {
@@ -42,14 +42,14 @@ function WinBackupDriver {
                 $ProgressPreference = 'Continue'
                 Start-Sleep 1
             }
-            
+
             New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
             Write-StyledMessage Success "Cartella backup creata: $BackupDir"
             Write-StyledMessage Info "🔧 Esecuzione DISM per esportazione driver..."
             Write-StyledMessage Info "💡 Questa operazione può richiedere diversi minuti..."
-            
+
             $proc = Start-Process 'dism.exe' -ArgumentList @('/online', '/export-driver', "/destination:`"$BackupDir`"") -NoNewWindow -PassThru -Wait
-            
+
             if ($proc.ExitCode -eq 0) {
                 $drivers = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
                 if ($drivers -and $drivers.Count -gt 0) {
@@ -70,7 +70,7 @@ function WinBackupDriver {
             return $false
         }
     }
-    
+
     function Compress-Backup {
         Write-StyledMessage Info "📦 Compressione cartella backup..."
         try {
@@ -78,26 +78,26 @@ function WinBackupDriver {
                 Write-StyledMessage Error "Cartella backup non trovata"
                 return $false
             }
-            
+
             $files = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
             if (-not $files -or $files.Count -eq 0) {
                 Write-StyledMessage Warning "Nessun file da comprimere nella cartella backup"
                 return $false
             }
-            
+
             $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
             $totalMB = [Math]::Round($totalSize / 1MB, 2)
             Write-StyledMessage Info "Dimensione totale: $totalMB MB"
-            
+
             $tempZip = "$env:TEMP\$ZipName.zip"
             if (Test-Path $tempZip) { Remove-Item $tempZip -Force -EA SilentlyContinue }
-            
+
             Write-StyledMessage Info "🔄 Compressione in corso..."
             $job = Start-Job -ScriptBlock {
                 param($b, $t)
                 Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force
             } -ArgumentList $BackupDir, $tempZip
-            
+
             $prog = 0
             $spinnerIndex = 0
             while ($job.State -eq 'Running') {
@@ -107,12 +107,12 @@ function WinBackupDriver {
                 Show-ProgressBar "Compressione" "Elaborazione file..." $prog '📦' $spinner
                 Start-Sleep -Milliseconds 500
             }
-            
+
             Receive-Job $job -Wait | Out-Null
             Remove-Job $job
             Show-ProgressBar "Compressione" "Completato!" 100 '📦'
             Write-Host ''
-            
+
             if (Test-Path $tempZip) {
                 $zipMB = [Math]::Round((Get-Item $tempZip).Length / 1MB, 2)
                 Write-StyledMessage Success "Compressione completata!"
@@ -127,7 +127,7 @@ function WinBackupDriver {
             return $false
         }
     }
-    
+
     function Move-ToDesktop([string]$ZipPath) {
         Write-StyledMessage Info "📂 Spostamento archivio sul desktop..."
         try {
@@ -149,7 +149,7 @@ function WinBackupDriver {
             return $false
         }
     }
-    
+
     function Show-Summary {
         Write-Host ''
         Write-StyledMessage Success "🎉 Backup driver completato con successo!"
@@ -163,7 +163,7 @@ function WinBackupDriver {
         Write-StyledMessage Info "  🔧 Senza doverli riscaricare singolarmente"
         Write-Host ''
     }
-    
+
     if (-not (Test-Admin)) {
         Write-StyledMessage Error " Questo script richiede privilegi amministrativi!"
         Write-StyledMessage Info "💡 Riavvia PowerShell come Amministratore e riprova"
@@ -171,30 +171,30 @@ function WinBackupDriver {
         Read-Host | Out-Null
         return
     }
-    
+
     Write-Host "⏳ Inizializzazione sistema..." -ForegroundColor Yellow
     Start-Sleep 2
     Write-Host "✅ Sistema pronto`n" -ForegroundColor Green
-    
+
     try {
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-StyledMessage Info "📋 FASE 1: ESPORTAZIONE DRIVER"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
-        
+
         if (-not (Export-Drivers)) {
             Write-StyledMessage Error "Esportazione driver fallita"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
         }
-        
+
         Write-Host ''
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-StyledMessage Info "📋 FASE 2: COMPRESSIONE ARCHIVIO"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
-        
+
         $zip = Compress-Backup
         if (-not $zip) {
             Write-StyledMessage Error "Compressione fallita"
@@ -202,13 +202,13 @@ function WinBackupDriver {
             Read-Host | Out-Null
             return
         }
-        
+
         Write-Host ''
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-StyledMessage Info "📋 FASE 3: SPOSTAMENTO DESKTOP"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
-        
+
         if (-not (Move-ToDesktop $zip)) {
             Write-StyledMessage Error "Spostamento sul desktop fallito"
             Write-StyledMessage Warning "💡 L'archivio potrebbe essere ancora nella cartella temporanea"
@@ -216,13 +216,13 @@ function WinBackupDriver {
             Read-Host | Out-Null
             return
         }
-        
+
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-StyledMessage Info "📋 BACKUP COMPLETATO"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
         Show-Summary
-        
+
     }
     catch {
         Write-StyledMessage Error "Errore critico durante il backup: $($_.Exception.Message)"

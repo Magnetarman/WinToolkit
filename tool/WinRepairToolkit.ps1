@@ -4,7 +4,7 @@ function WinRepairToolkit {
     Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk).
 #>
     param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
-    
+
     Initialize-ToolLogging -ToolName "WinRepairToolkit"
     Show-Header -SubTitle "Repair Toolkit"
 
@@ -52,7 +52,7 @@ function WinRepairToolkit {
             @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
                 $results += Get-Content $_ -ErrorAction SilentlyContinue
             }
-            
+
             # Logica controllo errori originale
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
                 Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
@@ -60,7 +60,7 @@ function WinRepairToolkit {
             }
 
             Show-ProgressBar $Config.Name 'Completato con successo' 100 $Config.Icon
-            
+
             $exitCode = $proc.ExitCode
             $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
             $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
@@ -135,7 +135,7 @@ function WinRepairToolkit {
         Start-Process "net" -ArgumentList "accounts", "/maxpwage:unlimited" -NoNewWindow -Wait
 
         if ($deepRepairScheduled) { Write-StyledMessage Warning 'Riavvio necessario per riparazione profonda.' }
-        
+
         if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
             Restart-Computer -Force
         }

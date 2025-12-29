@@ -146,7 +146,7 @@ function VideoDriverInstall {
 
                     $spinner = $Global:Spinners[$spinnerIndex % $Global:Spinners.Length]
                     $percent = [math]::Min(100, [math]::Round(($downloadedBytes / $webResponse.ContentLength) * 100))
-                    
+
                     Show-ProgressBar -Activity "Download $Description" -Status "$percent%" -Percent $percent -Icon '💾' -Spinner $spinner
 
                     $spinnerIndex++

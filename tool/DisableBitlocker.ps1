@@ -13,10 +13,10 @@ function DisableBitlocker {
     try {
         # Tentativo disattivazione
         $proc = Start-Process manage-bde.exe -ArgumentList "-off C:" -PassThru -Wait -NoNewWindow
-    
+
         if ($proc.ExitCode -eq 0) {
             Write-StyledMessage -Type 'Success' -Text "Decrittazione avviata/completata con successo."
-        
+
             # Check stato
             $status = manage-bde -status C:
             if ($status -match "Decryption in progress") {
@@ -32,7 +32,7 @@ function DisableBitlocker {
         $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
         if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
         Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
-    
+
         Write-StyledMessage -Type 'Success' -Text "Configurazione completata."
     }
     catch {
