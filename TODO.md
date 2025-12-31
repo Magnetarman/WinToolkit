@@ -25,9 +25,9 @@
   - [x] Add issue chiusi al changelog
 
 - Aggiungere funzione di esportazione log
-  - [ ] Esegue una compressione in .zip della cartella %LOCALAPPDATA%\WinToolkit\logs
-  - [ ] Ignora eventuali file in uso
-  - [ ] Posiziona sul desktop il file .zip appena creato ed avvisa l'utente di inviare via telegram o email lo zip con i log presente sul desktop in modo da poter controllare e risolvere eventuali errori
+  - [x] Esegue una compressione in .zip della cartella %LOCALAPPDATA%\WinToolkit\logs
+  - [x] Ignora eventuali file in uso
+  - [x] Posiziona sul desktop il file .zip appena creato ed avvisa l'utente di inviare via telegram o email lo zip con i log presente sul desktop in modo da poter controllare e risolvere eventuali errori
 
 - Fix Windows Repair
   - [x] Moltiplicare per 2 il tempo di riempimento della barra finta del terzo passaggio (Ripristino immagine di windows).
