@@ -40,6 +40,9 @@
   - [ ] Ripristino funzionalità completa
   - [ ] Aggiungere a tutti gli script che se la funziona di avvio script multipli è attiva deve saltare la sezione relativa al riavvio del pc presente alla fine di ogni script.
 
+- Fix Video Driver install
+  - [ ] Barre di progressione con problemi di output
+
 ### V 2.5.1
 
 - Funzione WinUpdateDisabler
