@@ -5,7 +5,7 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.5.0 - 21/12/2025
+    Versione: 2.5.0 - 31/12/2025
     Autore: MagnetarMan
 #>
 
@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 152)"
+$ToolkitVersion = "2.5.0 (Build 153)"
 
 
 # Setup Variabili Globali UI
@@ -138,7 +138,7 @@ function Get-SystemInfo {
         $build = [int]$osInfo.BuildNumber
         $ver = "N/A"
         foreach ($k in ($versionMap.Keys | Sort -Desc)) { if ($build -ge $k) { $ver = $versionMap[$k]; break } }
-        
+
         return @{
             ProductName = $osInfo.Caption -replace 'Microsoft ', ''; BuildNumber = $build; DisplayVersion = $ver
             Architecture = $osInfo.OSArchitecture; ComputerName = $computerInfo.Name
@@ -164,11 +164,11 @@ function WinOSCheck {
     Show-Header -SubTitle "System Check"
     $si = Get-SystemInfo
     if (-not $si) { Write-StyledMessage 'Warning' "Info sistema non disponibili."; return }
-    
+
     Write-Host "  Sistema: " -NoNewline -ForegroundColor Yellow
     Write-Host "$($si.ProductName) ($($si.DisplayVersion))" -ForegroundColor White
     Write-Host ""
-    
+
     if ($si.BuildNumber -ge 22000) { Write-StyledMessage 'Success' "Sistema compatibile (Win11/10 recente)." }
     elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage 'Success' "Sistema compatibile (Win10)." }
     elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage 'Warning' "Windows 8.1: Compatibilità parziale." }
@@ -269,10 +269,10 @@ while ($true) {
     foreach ($cat in $menuStructure) {
         Write-Host "==== $($cat.Icon) $($cat.Name) $($cat.Icon) ====" -ForegroundColor Cyan
         Write-Host ""
-        foreach ($s in $cat.Scripts) { 
+        foreach ($s in $cat.Scripts) {
             $allScripts += $s
             Write-Host "💎 [$idx] $($s.Description)" -ForegroundColor White
-            $idx++ 
+            $idx++
         }
         Write-Host ""
     }
@@ -282,17 +282,17 @@ while ($true) {
     Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
     Write-Host ""
     $c = Read-Host "Digita il numero dell'operazione da eseguire e premi INVIO"
-    
-    if ($c -eq '0') { 
+
+    if ($c -eq '0') {
         Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
         Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
-        if ($Global:Transcript -or $Transcript) { 
-            Stop-Transcript -ErrorAction SilentlyContinue 
+        if ($Global:Transcript -or $Transcript) {
+            Stop-Transcript -ErrorAction SilentlyContinue
         }
         Start-Sleep -Seconds 3
-        break 
+        break
     }
-    
+
     if ($c -match '^\d+$' -and [int]$c -ge 1 -and [int]$c -le $allScripts.Count) {
         Invoke-Expression $allScripts[[int]$c - 1].Name
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
