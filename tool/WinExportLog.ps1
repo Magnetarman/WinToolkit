@@ -25,20 +25,70 @@ function WinExportLog {
 
         Write-StyledMessage Info "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso..."
 
-        # Compressione con gestione file in uso
-        Compress-Archive -Path "$logSourcePath\*" -DestinationPath $zipFilePath -Force -ErrorAction SilentlyContinue
+        # Metodo alternativo per gestire file in uso
+        $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"
+        
+        # Crea cartella temporanea
+        if (Test-Path $tempFolder) {
+            Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        New-Item -ItemType Directory -Path $tempFolder -Force | Out-Null
 
-        if (Test-Path $zipFilePath) {
-            Write-StyledMessage Success "✅ Log compressi con successo! File salvato: '$zipFileName' sul Desktop."
+        # Copia i file con gestione degli errori
+        $filesCopied = 0
+        $filesSkipped = 0
+        
+        try {
+            Get-ChildItem -Path $logSourcePath -File | ForEach-Object {
+                try {
+                    Copy-Item $_.FullName -Destination $tempFolder -Force -ErrorAction Stop
+                    $filesCopied++
+                }
+                catch {
+                    # File in uso o altri errori - salta silenziosamente
+                    $filesSkipped++
+                    Write-Debug "File ignorato: $($_.Name) - $($_.Exception.Message)"
+                }
+            }
+        }
+        catch {
+            Write-StyledMessage Warning "Errore durante la copia dei file: $($_.Exception.Message)"
+        }
 
-            # Messaggi per l'utente
-            Write-StyledMessage Info "📩 Per favore, invia il file ZIP '$zipFileName' (lo trovi sul tuo Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per aiutarmi nella diagnostica."
+        # Comprime la cartella temporanea
+        if ($filesCopied -gt 0) {
+            Compress-Archive -Path "$tempFolder\*" -DestinationPath $zipFilePath -Force -ErrorAction Stop
+            
+            if (Test-Path $zipFilePath) {
+                Write-StyledMessage Success "Log compressi con successo! File salvato: '$zipFileName' sul Desktop."
+                
+                if ($filesSkipped -gt 0) {
+                    Write-StyledMessage Info "⚠️ Attenzione: $filesSkipped file sono stati ignorati perché in uso o non accessibili."
+                }
+                
+                # Messaggi per l'utente
+                Write-StyledMessage Info "📩 Per favore, invia il file ZIP '$zipFileName' (lo trovi sul tuo Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per aiutarmi nella diagnostica."
+            }
+            else {
+                Write-StyledMessage Error "Errore sconosciuto: il file ZIP non è stato creato."
+            }
         }
         else {
-            Write-StyledMessage Error "❌ Errore sconosciuto: il file ZIP non è stato creato."
+            Write-StyledMessage Error "Nessun file log è stato copiato. Verifica i permessi e che i file esistano."
+        }
+
+        # Pulizia cartella temporanea
+        if (Test-Path $tempFolder) {
+            Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
     catch {
-        Write-StyledMessage Error "❌ Errore critico durante la compressione dei log: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore critico durante la compressione dei log: $($_.Exception.Message)"
+        
+        # Pulizia forzata in caso di errore
+        $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"
+        if (Test-Path $tempFolder) {
+            Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 }
