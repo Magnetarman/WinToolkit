@@ -5,7 +5,7 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.5.0 - 21/12/2025
+    Versione: 2.5.0 - 31/12/2025
     Autore: MagnetarMan
 #>
 
@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 152)"
+$ToolkitVersion = "2.5.0 (Build 153)"
 
 
 # Setup Variabili Globali UI
@@ -138,7 +138,7 @@ function Get-SystemInfo {
         $build = [int]$osInfo.BuildNumber
         $ver = "N/A"
         foreach ($k in ($versionMap.Keys | Sort -Desc)) { if ($build -ge $k) { $ver = $versionMap[$k]; break } }
-        
+
         return @{
             ProductName = $osInfo.Caption -replace 'Microsoft ', ''; BuildNumber = $build; DisplayVersion = $ver
             Architecture = $osInfo.OSArchitecture; ComputerName = $computerInfo.Name
@@ -164,11 +164,11 @@ function WinOSCheck {
     Show-Header -SubTitle "System Check"
     $si = Get-SystemInfo
     if (-not $si) { Write-StyledMessage 'Warning' "Info sistema non disponibili."; return }
-    
+
     Write-Host "  Sistema: " -NoNewline -ForegroundColor Yellow
     Write-Host "$($si.ProductName) ($($si.DisplayVersion))" -ForegroundColor White
     Write-Host ""
-    
+
     if ($si.BuildNumber -ge 22000) { Write-StyledMessage 'Success' "Sistema compatibile (Win11/10 recente)." }
     elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage 'Success' "Sistema compatibile (Win10)." }
     elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage 'Warning' "Windows 8.1: Compatibilità parziale." }
@@ -206,7 +206,7 @@ function WinInstallPSProfile {
 
             $currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
             $pathExists = ($currentPath -split ';') | Where-Object { $_.TrimEnd('\') -ieq $PathToAdd.TrimEnd('\') }
-            
+
             if ($pathExists) {
                 Write-StyledMessage Info "Percorso già nel PATH: $PathToAdd"
                 return $true
@@ -216,7 +216,7 @@ function WinInstallPSProfile {
             $newPath = if ($currentPath.EndsWith(';')) { "$currentPath$PathToAdd" } else { "$currentPath;$PathToAdd" }
             [Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
             $env:PATH = "$env:PATH;$PathToAdd"
-            
+
             Write-StyledMessage Success "Percorso aggiunto al PATH: $PathToAdd"
             return $true
         }
@@ -230,7 +230,7 @@ function WinInstallPSProfile {
         foreach ($path in $SearchPaths) {
             $resolvedPaths = @()
             try {
-                $resolvedPaths = Get-ChildItem -Path (Split-Path $path -Parent) -Directory -ErrorAction SilentlyContinue | 
+                $resolvedPaths = Get-ChildItem -Path (Split-Path $path -Parent) -Directory -ErrorAction SilentlyContinue |
                 Where-Object { $_.Name -like (Split-Path $path -Leaf) }
             }
             catch { continue }
@@ -284,7 +284,7 @@ function WinInstallPSProfile {
                 return
             }
         }
-        
+
         $profileUrl = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
         $oldHash = if (Test-Path $PROFILE) { Get-FileHash $PROFILE -ErrorAction SilentlyContinue } else { $null }
 
@@ -306,7 +306,7 @@ function WinInstallPSProfile {
         $profileDir = Split-Path $PROFILE -Parent
         if (!(Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
         $newHash.Hash | Out-File "$PROFILE.hash" -Force
-        
+
         Write-StyledMessage Info "Hash profilo locale: $($oldHash.Hash), remoto: $($newHash.Hash)"
         if ($newHash.Hash -ne $oldHash.Hash) {
             if ((Test-Path $PROFILE) -and (-not (Test-Path "$PROFILE.bak"))) {
@@ -322,7 +322,7 @@ function WinInstallPSProfile {
             try {
                 Write-StyledMessage Info "Installazione oh-my-posh..."
                 $spinnerIndex = 0; $percent = 0
-                
+
                 $installProcess = Start-Process -FilePath "cmd" -ArgumentList "/c winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent >nul 2>&1" -NoNewWindow -PassThru
 
                 while (-not $installProcess.HasExited -and $percent -lt 90) {
@@ -368,7 +368,7 @@ function WinInstallPSProfile {
             try {
                 Write-StyledMessage Info "Installazione zoxide..."
                 $spinnerIndex = 0; $percent = 0
-                
+
                 $installProcess = Start-Process -FilePath "cmd" -ArgumentList "/c winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent >nul 2>&1" -NoNewWindow -PassThru
 
                 while (-not $installProcess.HasExited -and $percent -lt 90) {
@@ -539,7 +539,6 @@ function WinInstallPSProfile {
         Read-Host
         try { Stop-Transcript | Out-Null } catch {}
     }
-
 }
 function WinRepairToolkit {
     <#
@@ -547,7 +546,7 @@ function WinRepairToolkit {
     Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk).
 #>
     param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
-    
+
     Initialize-ToolLogging -ToolName "WinRepairToolkit"
     Show-Header -SubTitle "Repair Toolkit"
 
@@ -595,7 +594,7 @@ function WinRepairToolkit {
             @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
                 $results += Get-Content $_ -ErrorAction SilentlyContinue
             }
-            
+
             # Logica controllo errori originale
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
                 Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
@@ -603,7 +602,7 @@ function WinRepairToolkit {
             }
 
             Show-ProgressBar $Config.Name 'Completato con successo' 100 $Config.Icon
-            
+
             $exitCode = $proc.ExitCode
             $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
             $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
@@ -678,7 +677,7 @@ function WinRepairToolkit {
         Start-Process "net" -ArgumentList "accounts", "/maxpwage:unlimited" -NoNewWindow -Wait
 
         if ($deepRepairScheduled) { Write-StyledMessage Warning 'Riavvio necessario per riparazione profonda.' }
-        
+
         if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
             Restart-Computer -Force
         }
@@ -686,7 +685,6 @@ function WinRepairToolkit {
     catch {
         Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
     }
-
 }
 function WinUpdateReset {
     <#
@@ -714,24 +712,24 @@ function WinUpdateReset {
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
-            
-            if (-not $service) { 
+
+            if (-not $service) {
                 Write-StyledMessage Warning "$serviceIcon Servizio $serviceName non trovato nel sistema."
                 return
             }
 
             switch ($action) {
-                'Stop' { 
+                'Stop' {
                     Show-ServiceProgress $serviceName "Arresto" $currentStep $totalSteps
                     Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-                    
+
                     $timeout = 10
                     do {
                         Start-Sleep -Milliseconds 500
                         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
                         $timeout--
                     } while ($service.Status -eq 'Running' -and $timeout -gt 0)
-                    
+
                     Write-Host ''
                     Write-StyledMessage Info "$serviceIcon Servizio $serviceName arrestato."
                 }
@@ -745,7 +743,7 @@ function WinUpdateReset {
                     Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
                     Write-Host ''
                     Start-Service -Name $serviceName -ErrorAction Stop
-                    
+
                     $timeout = 10; $spinnerIndex = 0
                     do {
                         $clearLine = "`r" + (' ' * 80) + "`r"
@@ -756,10 +754,10 @@ function WinUpdateReset {
                         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
                         $timeout--; $spinnerIndex++
                     } while ($service.Status -ne 'Running' -and $timeout -gt 0)
-                    
+
                     $clearLine = "`r" + (' ' * 80) + "`r"
                     Write-Host $clearLine -NoNewline
-                    
+
                     if ($service.Status -eq 'Running') {
                         Write-StyledMessage Success "$serviceIcon Servizio ${serviceName}: avviato correttamente."
                     }
@@ -793,14 +791,14 @@ function WinUpdateReset {
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
-            
+
             Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue *>$null
-            
+
             [Console]::SetCursorPosition(0, $originalPos)
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLines -NoNewline
             [Console]::Out.Flush()
-            
+
             Write-StyledMessage Success "🗑️ Directory $displayName eliminata."
             return $true
         }
@@ -808,22 +806,22 @@ function WinUpdateReset {
             [Console]::SetCursorPosition(0, $originalPos)
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLines -NoNewline
-            
+
             Write-StyledMessage Warning "Tentativo fallito, provo con eliminazione forzata..."
-        
+
             try {
                 $tempDir = [System.IO.Path]::GetTempPath() + "empty_" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
                 $null = New-Item -ItemType Directory -Path $tempDir -Force
-                
+
                 $null = Start-Process "robocopy.exe" -ArgumentList "`"$tempDir`" `"$path`" /MIR /NFL /NDL /NJH /NJS /NP /NC" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
                 Remove-Item $tempDir -Force -ErrorAction SilentlyContinue
                 Remove-Item $path -Force -ErrorAction SilentlyContinue
-                
+
                 [Console]::SetCursorPosition(0, $originalPos)
                 $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Write-Host $clearLines -NoNewline
                 [Console]::Out.Flush()
-                
+
                 if (-not (Test-Path $path)) {
                     Write-StyledMessage Success "🗑️ Directory $displayName eliminata (metodo forzato)."
                     return $true
@@ -870,7 +868,7 @@ function WinUpdateReset {
         'trustedinstaller' = @{ Type = 'Manual'; Critical = $true; Icon = '🛡️'; DisplayName = 'Windows Modules Installer' }
         'msiserver'        = @{ Type = 'Manual'; Critical = $false; Icon = '📦'; DisplayName = 'Windows Installer' }
     }
-    
+
     $systemServices = @(
         @{ Name = 'appidsvc'; Icon = '🆔'; Display = 'Application Identity' },
         @{ Name = 'gpsvc'; Icon = '📋'; Display = 'Group Policy Client' },
@@ -889,7 +887,7 @@ function WinUpdateReset {
         for ($i = 0; $i -lt $stopServices.Count; $i++) {
             Manage-Service $stopServices[$i] 'Stop' $serviceConfig[$stopServices[$i]] ($i + 1) $stopServices.Count
         }
-        
+
         Write-Host ''
         Write-StyledMessage Info '⏳ Attesa liberazione risorse...'
         Start-Sleep -Seconds 3
@@ -944,19 +942,19 @@ function WinUpdateReset {
             @{ Path = "C:\Windows\SoftwareDistribution"; Name = "SoftwareDistribution" },
             @{ Path = "C:\Windows\System32\catroot2"; Name = "catroot2" }
         )
-        
+
         for ($i = 0; $i -lt $directories.Count; $i++) {
             $dir = $directories[$i]
             $percent = [math]::Round((($i + 1) / $directories.Count) * 100)
             Show-ProgressBar "Directory ($($i + 1)/$($directories.Count))" "Eliminazione $($dir.Name)" $percent '🗑️' '' 'Yellow'
-            
+
             Start-Sleep -Milliseconds 300
-            
+
             $success = Remove-DirectorySafely -path $dir.Path -displayName $dir.Name
             if (-not $success) {
                 Write-StyledMessage Info "💡 Suggerimento: Alcuni file potrebbero essere ricreati dopo il riavvio."
             }
-            
+
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
@@ -1220,9 +1218,9 @@ function WinUpdateReset {
         Write-StyledMessage Warning "⚡ Attenzione: il sistema verrà riavviato automaticamente"
         Write-Host ('═' * 65) -ForegroundColor Green
         Write-Host ''
-        
+
         $shouldReboot = Start-InterruptibleCountdown $CountdownSeconds "Preparazione riavvio sistema"
-        
+
         if ($shouldReboot) {
             Write-StyledMessage Info "🔄 Riavvio in corso..."
             Restart-Computer -Force
@@ -1239,8 +1237,6 @@ function WinUpdateReset {
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         try { Stop-Transcript | Out-Null } catch {}
     }
-
-
 }
 function WinReinstallStore {
     <#
@@ -1263,7 +1259,7 @@ function WinReinstallStore {
         }
         Start-Sleep 2
     }
-    
+
     function Test-WingetAvailable {
         try {
             $env:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
@@ -1272,7 +1268,7 @@ function WinReinstallStore {
         }
         catch { return $false }
     }
-    
+
     function Install-WingetSilent {
         Write-StyledMessage Info "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
         Stop-InterferingProcesses
@@ -1285,7 +1281,7 @@ function WinReinstallStore {
             $VerbosePreference = 'SilentlyContinue'
 
             # --- FASE 1: Inizializzazione e Pulizia Profonda ---
-            
+
             # Terminazione Processi
             Write-StyledMessage Info "🔄 Chiusura forzata dei processi Winget e correlati..."
             @("winget", "WindowsPackageManagerServer") | ForEach-Object {
@@ -1317,7 +1313,7 @@ function WinReinstallStore {
             Write-StyledMessage Info "Sorgenti Winget resettate."
 
             # --- FASE 2: Installazione Dipendenze e Moduli PowerShell ---
-            
+
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
             # Installazione Provider NuGet
@@ -1380,16 +1376,16 @@ function WinReinstallStore {
             }
 
             # --- FASE 5: Gestione Output Finale e Valore di Ritorno ---
-            
+
             # Reset cursore e flush output
             [Console]::SetCursorPosition(0, $originalPos)
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
-            
+
             Start-Sleep 2
             $finalCheck = Test-WingetAvailable
-            
+
             if ($finalCheck) {
                 Write-StyledMessage Success "Winget è stato processato e sembra funzionante."
                 return $true
@@ -1410,17 +1406,17 @@ function WinReinstallStore {
             $VerbosePreference = 'SilentlyContinue'
         }
     }
-    
+
     function Install-MicrosoftStoreSilent {
         Write-StyledMessage Info "🔄 Reinstallazione Microsoft Store in corso..."
-        
+
         $originalPos = [Console]::CursorTop
         try {
             # Soppressione completa dell'output
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
-            
+
             @("AppXSvc", "ClipSVC", "WSService") | ForEach-Object {
                 try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch {}
             }
@@ -1464,13 +1460,13 @@ function WinReinstallStore {
                 try {
                     if (& $method) {
                         Start-Process wsreset.exe -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue *>$null
-                        
+
                         # Reset cursore e flush output
                         [Console]::SetCursorPosition(0, $originalPos)
                         $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                         Write-Host $clearLine -NoNewline
                         [Console]::Out.Flush()
-                        
+
                         return $true
                     }
                 }
@@ -1485,7 +1481,7 @@ function WinReinstallStore {
             $VerbosePreference = 'SilentlyContinue'
         }
     }
-    
+
     function Install-UniGetUISilent {
         Write-StyledMessage Info "🔄 Reinstallazione UniGet UI in corso..."
         if (-not (Test-WingetAvailable)) { return $false }
@@ -1496,9 +1492,9 @@ function WinReinstallStore {
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
-            
+
             $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
-    
+
             if ($process.ExitCode -eq 0) {
                 Write-StyledMessage Info "🔄 Disabilitazione avvio automatico UniGet UI..."
                 try {
@@ -1516,13 +1512,13 @@ function WinReinstallStore {
                     Write-StyledMessage Warning "Impossibile disabilitare l'avvio automatico di UniGet UI: $($_.Exception.Message)"
                 }
             }
-    
+
             # Reset cursore e flush output
             [Console]::SetCursorPosition(0, $originalPos)
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
-            
+
             return $process.ExitCode -eq 0
         }
         catch {
@@ -1535,7 +1531,7 @@ function WinReinstallStore {
             $VerbosePreference = 'SilentlyContinue'
         }
     }
-    
+
     Write-StyledMessage Info "🚀 AVVIO REINSTALLAZIONE STORE"
 
     try {
@@ -1573,7 +1569,6 @@ function WinReinstallStore {
         Read-Host
         try { Stop-Transcript | Out-Null } catch {}
     }
-
 }
 function WinBackupDriver {
     <#
@@ -1587,22 +1582,22 @@ function WinBackupDriver {
         Ideale per il backup pre-format o per la migrazione dei driver su un nuovo sistema.
     #>
     param([int]$CountdownSeconds = 10)
-    
+
     Initialize-ToolLogging -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
-    
+
     $dt = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $BackupDir = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
     $ZipName = "DriverBackup_$dt"
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
     $FinalZipPath = "$DesktopPath\$ZipName.zip"
-    
+
     function Test-Admin {
         $u = [Security.Principal.WindowsIdentity]::GetCurrent()
         $p = New-Object Security.Principal.WindowsPrincipal($u)
         return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     }
-    
+
     function Export-Drivers {
         Write-StyledMessage Info "💾 Avvio esportazione driver di terze parti..."
         try {
@@ -1619,14 +1614,14 @@ function WinBackupDriver {
                 $ProgressPreference = 'Continue'
                 Start-Sleep 1
             }
-            
+
             New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
             Write-StyledMessage Success "Cartella backup creata: $BackupDir"
             Write-StyledMessage Info "🔧 Esecuzione DISM per esportazione driver..."
             Write-StyledMessage Info "💡 Questa operazione può richiedere diversi minuti..."
-            
+
             $proc = Start-Process 'dism.exe' -ArgumentList @('/online', '/export-driver', "/destination:`"$BackupDir`"") -NoNewWindow -PassThru -Wait
-            
+
             if ($proc.ExitCode -eq 0) {
                 $drivers = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
                 if ($drivers -and $drivers.Count -gt 0) {
@@ -1647,7 +1642,7 @@ function WinBackupDriver {
             return $false
         }
     }
-    
+
     function Compress-Backup {
         Write-StyledMessage Info "📦 Compressione cartella backup..."
         try {
@@ -1655,26 +1650,26 @@ function WinBackupDriver {
                 Write-StyledMessage Error "Cartella backup non trovata"
                 return $false
             }
-            
+
             $files = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
             if (-not $files -or $files.Count -eq 0) {
                 Write-StyledMessage Warning "Nessun file da comprimere nella cartella backup"
                 return $false
             }
-            
+
             $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
             $totalMB = [Math]::Round($totalSize / 1MB, 2)
             Write-StyledMessage Info "Dimensione totale: $totalMB MB"
-            
+
             $tempZip = "$env:TEMP\$ZipName.zip"
             if (Test-Path $tempZip) { Remove-Item $tempZip -Force -EA SilentlyContinue }
-            
+
             Write-StyledMessage Info "🔄 Compressione in corso..."
             $job = Start-Job -ScriptBlock {
                 param($b, $t)
                 Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force
             } -ArgumentList $BackupDir, $tempZip
-            
+
             $prog = 0
             $spinnerIndex = 0
             while ($job.State -eq 'Running') {
@@ -1684,12 +1679,12 @@ function WinBackupDriver {
                 Show-ProgressBar "Compressione" "Elaborazione file..." $prog '📦' $spinner
                 Start-Sleep -Milliseconds 500
             }
-            
+
             Receive-Job $job -Wait | Out-Null
             Remove-Job $job
             Show-ProgressBar "Compressione" "Completato!" 100 '📦'
             Write-Host ''
-            
+
             if (Test-Path $tempZip) {
                 $zipMB = [Math]::Round((Get-Item $tempZip).Length / 1MB, 2)
                 Write-StyledMessage Success "Compressione completata!"
@@ -1704,7 +1699,7 @@ function WinBackupDriver {
             return $false
         }
     }
-    
+
     function Move-ToDesktop([string]$ZipPath) {
         Write-StyledMessage Info "📂 Spostamento archivio sul desktop..."
         try {
@@ -1726,7 +1721,7 @@ function WinBackupDriver {
             return $false
         }
     }
-    
+
     function Show-Summary {
         Write-Host ''
         Write-StyledMessage Success "🎉 Backup driver completato con successo!"
@@ -1740,7 +1735,7 @@ function WinBackupDriver {
         Write-StyledMessage Info "  🔧 Senza doverli riscaricare singolarmente"
         Write-Host ''
     }
-    
+
     if (-not (Test-Admin)) {
         Write-StyledMessage Error " Questo script richiede privilegi amministrativi!"
         Write-StyledMessage Info "💡 Riavvia PowerShell come Amministratore e riprova"
@@ -1748,30 +1743,30 @@ function WinBackupDriver {
         Read-Host | Out-Null
         return
     }
-    
+
     Write-Host "⏳ Inizializzazione sistema..." -ForegroundColor Yellow
     Start-Sleep 2
     Write-Host "✅ Sistema pronto`n" -ForegroundColor Green
-    
+
     try {
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-StyledMessage Info "📋 FASE 1: ESPORTAZIONE DRIVER"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
-        
+
         if (-not (Export-Drivers)) {
             Write-StyledMessage Error "Esportazione driver fallita"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
         }
-        
+
         Write-Host ''
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-StyledMessage Info "📋 FASE 2: COMPRESSIONE ARCHIVIO"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
-        
+
         $zip = Compress-Backup
         if (-not $zip) {
             Write-StyledMessage Error "Compressione fallita"
@@ -1779,13 +1774,13 @@ function WinBackupDriver {
             Read-Host | Out-Null
             return
         }
-        
+
         Write-Host ''
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-StyledMessage Info "📋 FASE 3: SPOSTAMENTO DESKTOP"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
-        
+
         if (-not (Move-ToDesktop $zip)) {
             Write-StyledMessage Error "Spostamento sul desktop fallito"
             Write-StyledMessage Warning "💡 L'archivio potrebbe essere ancora nella cartella temporanea"
@@ -1793,13 +1788,13 @@ function WinBackupDriver {
             Read-Host | Out-Null
             return
         }
-        
+
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-StyledMessage Info "📋 BACKUP COMPLETATO"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
         Show-Summary
-        
+
     }
     catch {
         Write-StyledMessage Error "Errore critico durante il backup: $($_.Exception.Message)"
@@ -1823,7 +1818,6 @@ function WinBackupDriver {
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
         try { Stop-Transcript | Out-Null } catch {}
     }
-
 }
 function WinDriverInstall {}
 function OfficeToolkit {
@@ -1865,20 +1859,20 @@ function OfficeToolkit {
             $originalPos = [Console]::CursorTop
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
-            
+
             if ($Recurse) {
                 Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue *>$null
             }
             else {
                 Remove-Item $Path -Force -ErrorAction SilentlyContinue *>$null
             }
-            
+
             [Console]::SetCursorPosition(0, $originalPos)
             Clear-ConsoleLine
-            
+
             $ErrorActionPreference = 'Continue'
             $ProgressPreference = 'Continue'
-            
+
             return $true
         }
         catch {
@@ -2079,7 +2073,7 @@ function OfficeToolkit {
 
             Write-StyledMessage Info "🔧 Avvio riparazione $repairName..."
             $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$repairType DisplayLevel=True"
-            
+
             $officeClient = "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
             if (-not (Test-Path $officeClient)) {
                 $officeClient = "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
@@ -2147,14 +2141,14 @@ function OfficeToolkit {
 
     function Remove-OfficeDirectly {
         Write-StyledMessage Info "🔧 Avvio rimozione diretta Office..."
-        
+
         try {
             # Metodo 1: Rimozione pacchetti
             Write-StyledMessage Info "📋 Ricerca installazioni Office..."
-            
-            $officePackages = Get-Package -ErrorAction SilentlyContinue | 
+
+            $officePackages = Get-Package -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" -or $_.Name -like "*Office*" }
-            
+
             if ($officePackages) {
                 Write-StyledMessage Info "Trovati $($officePackages.Count) pacchetti Office"
                 foreach ($package in $officePackages) {
@@ -2165,21 +2159,21 @@ function OfficeToolkit {
                     catch {}
                 }
             }
-            
+
             # Metodo 2: Rimozione tramite registro
             Write-StyledMessage Info "🔍 Ricerca nel registro..."
-            
+
             $uninstallKeys = @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
                 "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
             )
-            
+
             foreach ($keyPath in $uninstallKeys) {
                 try {
                     $items = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue |
                     Where-Object { $_.DisplayName -like "*Office*" -or $_.DisplayName -like "*Microsoft 365*" }
-                    
+
                     foreach ($item in $items) {
                         if ($item.UninstallString -and $item.UninstallString -match "msiexec") {
                             try {
@@ -2192,10 +2186,10 @@ function OfficeToolkit {
                 }
                 catch {}
             }
-            
+
             # Metodo 3: Stop servizi Office
             Write-StyledMessage Info "🛑 Arresto servizi Office..."
-            
+
             $officeServices = @('ClickToRunSvc', 'OfficeSvc', 'OSE')
             $stoppedServices = 0
             foreach ($serviceName in $officeServices) {
@@ -2210,10 +2204,10 @@ function OfficeToolkit {
                     catch {}
                 }
             }
-            
+
             # Metodo 4: Pulizia cartelle Office
             Write-StyledMessage Info "🧹 Pulizia cartelle Office..."
-            
+
             $foldersToClean = @(
                 "$env:ProgramFiles\Microsoft Office",
                 "${env:ProgramFiles(x86)}\Microsoft Office",
@@ -2226,20 +2220,20 @@ function OfficeToolkit {
                 "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun",
                 "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun"
             )
-            
+
             $folderResult = Remove-ItemsSilently -Paths $foldersToClean -ItemType "cartella"
-            
+
             if ($folderResult.Count -gt 0) {
                 Write-StyledMessage Success "$($folderResult.Count) cartelle Office rimosse"
             }
-            
+
             if ($folderResult.Failed.Count -gt 0) {
                 Write-StyledMessage Warning "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)"
             }
-            
+
             # Metodo 5: Pulizia registro Office
             Write-StyledMessage Info "🔧 Pulizia registro Office..."
-            
+
             $registryPaths = @(
                 "HKCU:\Software\Microsoft\Office",
                 "HKLM:\SOFTWARE\Microsoft\Office",
@@ -2249,13 +2243,13 @@ function OfficeToolkit {
                 "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun"
             )
-            
+
             $regResult = Remove-ItemsSilently -Paths $registryPaths -ItemType "chiave"
-            
+
             if ($regResult.Count -gt 0) {
                 Write-StyledMessage Success "$($regResult.Count) chiavi registro Office rimosse"
             }
-            
+
             # Metodo 6: Pulizia attività pianificate
             Write-StyledMessage Info "📅 Pulizia attività pianificate..."
 
@@ -2271,7 +2265,7 @@ function OfficeToolkit {
                     }
                     catch {}
                 }
-                
+
                 if ($tasksRemoved -gt 0) {
                     Write-StyledMessage Success "$tasksRemoved attività Office rimosse"
                 }
@@ -2314,7 +2308,7 @@ function OfficeToolkit {
 
             # Metodo 8: Pulizia residui aggiuntivi
             Write-StyledMessage Info "💽 Pulizia residui Office..."
-            
+
             $additionalPaths = @(
                 "$env:LOCALAPPDATA\Microsoft\OneDrive",
                 "$env:APPDATA\Microsoft\OneDrive",
@@ -2326,7 +2320,7 @@ function OfficeToolkit {
 
             Write-StyledMessage Success "✅ Rimozione diretta completata"
             Write-StyledMessage Info "📊 Riepilogo: $($folderResult.Count) cartelle, $($regResult.Count) chiavi registro, $shortcutsRemoved collegamenti, $tasksRemoved attività rimosse"
-            
+
             return $true
         }
         catch {
@@ -2368,10 +2362,10 @@ function OfficeToolkit {
             Write-StyledMessage Warning "⏰ Questa operazione può richiedere alcuni minuti"
 
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
-            
+
             try {
                 $process = Start-Process -FilePath $saraExe.FullName -ArgumentList $arguments -Verb RunAs -PassThru -Wait -ErrorAction Stop
-                
+
                 if ($process.ExitCode -eq 0) {
                     Write-StyledMessage Success "✅ SaRA completato con successo"
                     return $true
@@ -2514,7 +2508,6 @@ function OfficeToolkit {
         Write-StyledMessage Success "🎯 Office Toolkit terminato"
         try { Stop-Transcript | Out-Null } catch {}
     }
-
 }
 function WinCleaner {
     <#
@@ -2539,7 +2532,7 @@ function WinCleaner {
     Initialize-ToolLogging -ToolName "WinCleaner"
     Show-Header -SubTitle "Cleaner Toolkit"
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
-    
+
     # Initialize Execution Log
     $global:ExecutionLog = @()
     $ProgressPreference = 'Continue'
@@ -2547,7 +2540,7 @@ function WinCleaner {
     # ============================================================================
     # 2. ESCLUSIONI VITALI
     # ============================================================================
-    
+
     $VitalExclusions = @(
         "$env:LOCALAPPDATA\WinToolkit"
     )
@@ -2595,13 +2588,13 @@ function WinCleaner {
             [Parameter(Mandatory = $true, Position = 0)]
             [ValidateSet('Success', 'Info', 'Warning', 'Error', 'Question')]
             [string]$Type,
-            
+
             [Parameter(Mandatory = $true, Position = 1)]
             [string]$Text
         )
 
         Clear-ProgressLine
-        
+
         # Add to execution log
         $logEntry = @{
             Timestamp = Get-Date -Format "HH:mm:ss"
@@ -2617,7 +2610,7 @@ function WinCleaner {
             'Error'    = 'Red'
             'Question' = 'White'
         }
-        
+
         $iconMap = @{
             'Success'  = '✅'
             'Info'     = 'ℹ️'
@@ -2628,7 +2621,7 @@ function WinCleaner {
 
         $color = $colorMap[$Type]
         $icon = $iconMap[$Type]
-        
+
         Write-Host "[$($logEntry.Timestamp)] $icon $Text" -ForegroundColor $color
     }
 
@@ -2741,7 +2734,7 @@ function WinCleaner {
         param($Rule)
         $svcName = $Rule.ServiceName
         $action = $Rule.Action # Start/Stop
-        
+
         try {
             $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
             if (-not $svc) { return $true }
@@ -2768,7 +2761,7 @@ function WinCleaner {
         $isPerUser = $Rule.PerUser
         $filesOnly = $Rule.FilesOnly
         $takeOwn = $Rule.TakeOwnership
-        
+
         $targetPaths = @()
         if ($isPerUser) {
             $users = Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
@@ -2873,17 +2866,17 @@ function WinCleaner {
             'RegSet' { return Set-RegistryItem -Rule $Rule }
             'Service' { return Invoke-ServiceAction -Rule $Rule }
             'Command' { return Invoke-CommandAction -Rule $Rule }
-            'ScriptBlock' { 
+            'ScriptBlock' {
                 # Operazioni multi-passo complesse
-                if ($Rule.ScriptBlock) { 
-                    & $Rule.ScriptBlock 
+                if ($Rule.ScriptBlock) {
+                    & $Rule.ScriptBlock
                     return $true
                 }
             }
-            'Custom' { 
+            'Custom' {
                 # Operazioni complesse specializzate
-                if ($Rule.ScriptBlock) { 
-                    & $Rule.ScriptBlock 
+                if ($Rule.ScriptBlock) {
+                    & $Rule.ScriptBlock
                     return $true
                 }
             }
@@ -2905,7 +2898,7 @@ function WinCleaner {
                     "Temporary Files", "Thumbnail Cache", "Windows Error Reporting Files", "Setup Log Files",
                     "System error memory dump files", "System error minidump files", "Temporary Setup Files",
                     "Windows Upgrade Log Files")
-                foreach ($o in $opts) { 
+                foreach ($o in $opts) {
                     $p = Join-Path $reg $o
                     if (Test-Path $p) { Set-ItemProperty -Path $p -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction SilentlyContinue }
                 }
@@ -2973,7 +2966,7 @@ function WinCleaner {
                 "%LOCALAPPDATA%\Microsoft\Feeds Cache",
                 "%LOCALAPPDATA%\Microsoft\InternetExplorer\DOMStore",
                 "%LOCALAPPDATA%\Microsoft\Internet Explorer"
-            ); PerUser = $true; FilesOnly = $false 
+            ); PerUser = $true; FilesOnly = $false
         }
         @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @("%USERPROFILE%\Local Settings\Temporary Internet Files"); PerUser = $true; FilesOnly = $false }
         @{ Name = "Cache/History Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "8") }
@@ -2981,18 +2974,18 @@ function WinCleaner {
         @{ Name = "Internet Cookies Cleanup"; Type = "File"; Paths = @(
                 "%APPDATA%\Microsoft\Windows\Cookies",
                 "%LOCALAPPDATA%\Microsoft\Windows\INetCookies"
-            ); PerUser = $true; FilesOnly = $false 
+            ); PerUser = $true; FilesOnly = $false
         }
         @{ Name = "Cookies Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "1") }
         @{ Name = "Chrome Browser Cache & Logs"; Type = "File"; Paths = @(
                 "%LOCALAPPDATA%\Google\Chrome\User Data\Crashpad\reports",
                 "%LOCALAPPDATA%\Google\CrashReports",
                 "%LOCALAPPDATA%\Google\Chrome\User Data\Software Reporter Tool"
-            ); PerUser = $true; FilesOnly = $true 
+            ); PerUser = $true; FilesOnly = $true
         }
         @{ Name = "Firefox Browser Data"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "🦊 Pulizia Firefox..."
-                
+
                 $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
                 foreach ($u in $users) {
                     # Standard Firefox profiles
@@ -3022,7 +3015,7 @@ function WinCleaner {
                 "%LOCALAPPDATA%\Opera\Opera",
                 "%APPDATA%\Opera\Opera",
                 "%APPDATA%\Sun\Java\Deployment\cache"
-            ); PerUser = $true; FilesOnly = $false 
+            ); PerUser = $true; FilesOnly = $false
         }
 
         @{ Name = "DNS Flush"; Type = "Command"; Command = "ipconfig"; Args = @("/flushdns") }
@@ -3076,7 +3069,7 @@ function WinCleaner {
                 "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\WordWheelQuery",
                 "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\SearchHistory",
                 "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Map Network Drive MRU"
-            ); ValuesOnly = $true; Recursive = $true 
+            ); ValuesOnly = $true; Recursive = $true
         }
         @{ Name = "Adobe Media Browser Key"; Type = "Registry"; Keys = @("HKCU:\Software\Adobe\MediaBrowser\MRU"); ValuesOnly = $false }
 
@@ -3102,7 +3095,7 @@ function WinCleaner {
                 "%TEMP%\VSTelem.Out",
                 "%PROGRAMDATA%\Microsoft\VSApplicationInsights",
                 "%PROGRAMDATA%\vstelemetry"
-            ); PerUser = $true; FilesOnly = $false 
+            ); PerUser = $true; FilesOnly = $false
         }
         @{ Name = "Visual Studio Licenses"; Type = "Registry"; Keys = @(
                 "HKLM:\SOFTWARE\Classes\Licenses\77550D6B-6352-4E77-9DA3-537419DF564B",
@@ -3113,7 +3106,7 @@ function WinCleaner {
                 "HKLM:\SOFTWARE\Classes\Licenses\B16F0CF0-8AD1-4A5B-87BC-CB0DBE9C48FC",
                 "HKLM:\SOFTWARE\Classes\Licenses\10D17DBA-761D-4CD8-A627-984E75A58700",
                 "HKLM:\SOFTWARE\Classes\Licenses\1299B4B9-DFCC-476D-98F0-F65A2B46C96D"
-            ); ValuesOnly = $false 
+            ); ValuesOnly = $false
         }
 
         # --- Search History Files ---
@@ -3123,7 +3116,7 @@ function WinCleaner {
         @{ Name = "Print Queue (Spooler)"; Type = "ScriptBlock"; ScriptBlock = {
                 try {
                     Write-StyledMessage -Type 'Info' -Text "🖨️ Pulizia coda di stampa (Spooler)..."
-                    
+
                     Write-StyledMessage -Type 'Info' -Text "⏸️ Arresto servizio Spooler..."
                     Stop-Service -Name Spooler -Force -ErrorAction Stop | Out-Null
                     Write-StyledMessage -Type 'Info' -Text "Servizio Spooler arrestato."
@@ -3139,7 +3132,7 @@ function WinCleaner {
                     Write-StyledMessage -Type 'Info' -Text "▶️ Riavvio servizio Spooler..."
                     Start-Service -Name Spooler -ErrorAction Stop | Out-Null
                     Write-StyledMessage -Type 'Info' -Text "Servizio Spooler riavviato."
-                    
+
                     Write-StyledMessage -Type 'Success' -Text "Print Queue Spooler pulito e riavviato con successo."
                 }
                 catch {
@@ -3164,14 +3157,14 @@ function WinCleaner {
         # --- Enhanced DiagTrack Service Management ---
         @{ Name = "Enhanced DiagTrack Management"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "🔄 Gestione migliorata servizio DiagTrack..."
-                
+
                 function Get-StateFilePath($BaseName, $Suffix) {
                     $escapedBaseName = $BaseName.Split([IO.Path]::GetInvalidFileNameChars()) -Join '_'
                     $uniqueFilename = $escapedBaseName, $Suffix -Join '-'
                     $path = [IO.Path]::Combine($env:APPDATA, 'WinToolkit', 'state', $uniqueFilename)
                     return $path
                 }
-                
+
                 function Get-UniqueStateFilePath($BaseName) {
                     $suffix = New-Guid
                     $path = Get-StateFilePath -BaseName $BaseName -Suffix $suffix
@@ -3181,7 +3174,7 @@ function WinCleaner {
                     }
                     return $path
                 }
-                
+
                 function New-EmptyFile($Path) {
                     $parentDirectory = [System.IO.Path]::GetDirectoryName($Path)
                     if (-not (Test-Path $parentDirectory -PathType Container)) {
@@ -3191,19 +3184,19 @@ function WinCleaner {
                     try { New-Item -ItemType File -Path $Path -Force -ErrorAction Stop | Out-Null; return $true }
                     catch { Write-StyledMessage -Type 'Warning' -Text "Failed to create file: $_"; return $false }
                 }
-                
+
                 $serviceName = 'DiagTrack'
                 Write-StyledMessage -Type 'Info' -Text "Verifica stato servizio $serviceName..."
-                
+
                 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-                if (-not $service) { 
+                if (-not $service) {
                     Write-StyledMessage -Type 'Warning' -Text "Servizio $serviceName non trovato, skip"
-                    return 
+                    return
                 }
-                
+
                 if ($service.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Running) {
                     Write-StyledMessage -Type 'Info' -Text "Servizio $serviceName attivo, arresto in corso..."
-                    try { 
+                    try {
                         $service | Stop-Service -Force -ErrorAction Stop
                         $service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(30))
                         $path = Get-UniqueStateFilePath $serviceName
@@ -3220,9 +3213,9 @@ function WinCleaner {
                     Write-StyledMessage -Type 'Info' -Text "Servizio $serviceName non attivo, verifica riavvio..."
                     $fileGlob = Get-StateFilePath -BaseName $serviceName -Suffix '*'
                     $stateFiles = Get-ChildItem -Path $fileGlob -ErrorAction SilentlyContinue
-                    
+
                     if ($stateFiles.Count -eq 1) {
-                        try { 
+                        try {
                             Remove-Item -Path $stateFiles[0].FullName -Force -ErrorAction Stop
                             $service | Start-Service -ErrorAction Stop
                             Write-StyledMessage -Type 'Success' -Text "Servizio $serviceName riavviato con successo"
@@ -3242,9 +3235,9 @@ function WinCleaner {
         # --- Special Operations ---
         @{ Name = "Credential Manager"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "🔑 Pulizia Credenziali..."
-                & cmdkey /list 2>$null | Where-Object { $_ -match '^Target:' } | ForEach-Object { 
+                & cmdkey /list 2>$null | Where-Object { $_ -match '^Target:' } | ForEach-Object {
                     $t = $_.Split(':')[1].Trim()
-                    & cmdkey /delete:$t 2>$null 
+                    & cmdkey /delete:$t 2>$null
                 }
             }
         }
@@ -3254,18 +3247,18 @@ function WinCleaner {
                 if (Test-Path $path) {
                     try {
                         Write-StyledMessage -Type 'Info' -Text "🗑️ Rimozione Windows.old..."
-                        
+
                         Write-StyledMessage -Type 'Info' -Text "1. Assunzione proprietà (Take Ownership)..."
                         $null = & cmd /c "takeown /F `"$path`" /R /A >nul 2>&1"
-                        
+
                         Write-StyledMessage -Type 'Info' -Text "2. Assegnazione permessi di Controllo Completo..."
                         $adminSID = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
                         $adminAccount = $adminSID.Translate([System.Security.Principal.NTAccount]).Value
                         $null = & cmd /c "icacls `"$path`" /T /grant `"${adminAccount}:F`" >nul 2>&1"
-                        
+
                         Write-StyledMessage -Type 'Info' -Text "3. Rimozione forzata della cartella..."
                         Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
-                        
+
                         if (Test-Path -Path $path) {
                             Write-StyledMessage -Type 'Error' -Text "ERRORE: La cartella $path non è stata rimossa."
                         }
@@ -3302,13 +3295,13 @@ function WinCleaner {
     foreach ($rule in $Rules) {
         $currentRuleIndex++
         $percent = [math]::Round(($currentRuleIndex / $totalRules) * 100)
-        
+
         # Clear line before showing progress to avoid ghosting
         Clear-ProgressLine
         Show-ProgressBar -Activity "Esecuzione regole" -Status "$($rule.Name)" -Percent $percent -Icon '⚙️'
 
         $result = Invoke-WinCleanerRule -Rule $rule
-        
+
         # Clear progress bar line after rule execution to ensure next log message is clean
         Clear-ProgressLine
 
@@ -3342,7 +3335,7 @@ function WinCleaner {
 
     Write-StyledMessage -Type 'Info' -Text "--------------------------------------------------"
     Write-StyledMessage -Type 'Info' -Text "Dettaglio Errori e Warning:"
-    
+
     $problems = $global:ExecutionLog | Where-Object { $_.Type -in 'Warning', 'Error' }
     if ($problems) {
         foreach ($p in $problems) {
@@ -3353,7 +3346,7 @@ function WinCleaner {
     else {
         Write-StyledMessage -Type 'Success' -Text "Nessun problema rilevato."
     }
-    
+
     Write-StyledMessage -Type 'Info' -Text "=================================================="
     Write-Host "`n"
 
@@ -3388,7 +3381,7 @@ function SetRustDesk {
                 $servicesFound = $true
             }
         }
-        
+
         if ($servicesFound) {
             Write-StyledMessage Success "Servizi RustDesk arrestati"
         }
@@ -3401,15 +3394,15 @@ function SetRustDesk {
                 $processesFound = $true
             }
         }
-        
+
         if ($processesFound) {
             Write-StyledMessage Success "Processi RustDesk terminati"
         }
-        
+
         if (-not $servicesFound -and -not $processesFound) {
             Write-StyledMessage Warning "Nessun componente RustDesk attivo trovato"
         }
-        
+
         Start-Sleep 2
     }
 
@@ -3445,18 +3438,18 @@ function SetRustDesk {
 
         Write-StyledMessage Info "📥 Versione rilevata: $($releaseInfo.Version)"
         $parentDir = Split-Path $DownloadPath -Parent
-        
+
         try {
             if (-not (Test-Path $parentDir)) {
                 New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
             }
-            
+
             if (Test-Path $DownloadPath) {
                 Remove-Item $DownloadPath -Force -ErrorAction Stop
             }
 
             Invoke-WebRequest -Uri $releaseInfo.DownloadUrl -OutFile $DownloadPath -UseBasicParsing -ErrorAction Stop
-            
+
             if (Test-Path $DownloadPath) {
                 Write-StyledMessage Success "Installer $($releaseInfo.FileName) scaricato con successo"
                 return $true
@@ -3473,7 +3466,7 @@ function SetRustDesk {
         param([string]$InstallerPath)
 
         Write-StyledMessage Info "Installazione RustDesk"
-        
+
         try {
             $installArgs = "/i", "`"$InstallerPath`"", "/quiet", "/norestart"
             $process = Start-Process "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop
@@ -3522,7 +3515,7 @@ function SetRustDesk {
     function Download-RustDeskConfigFiles {
         Write-StyledMessage Info "Download file di configurazione..."
         $configDir = "$env:APPDATA\RustDesk\config"
-        
+
         try {
             if (-not (Test-Path $configDir)) {
                 New-Item -ItemType Directory -Path $configDir -Force | Out-Null
@@ -3540,7 +3533,7 @@ function SetRustDesk {
             foreach ($fileName in $configFiles) {
                 $url = "$baseUrl/$fileName"
                 $filePath = Join-Path $configDir $fileName
-                
+
                 try {
                     Invoke-WebRequest -Uri $url -OutFile $filePath -UseBasicParsing -ErrorAction Stop
                     $downloaded++
@@ -3578,7 +3571,7 @@ function SetRustDesk {
             Write-StyledMessage Error "Impossibile procedere senza l'installer"
             return
         }
-        
+
         if (-not (Install-RustDesk -InstallerPath $installerPath)) {
             Write-StyledMessage Error "Errore durante l'installazione"
             return
@@ -3599,7 +3592,7 @@ function SetRustDesk {
         Write-Host ""
         Write-StyledMessage Success "🎉 CONFIGURAZIONE RUSTDESK COMPLETATA"
         Write-StyledMessage Info "🔄 Per applicare le modifiche il PC verrà riavviato"
-        
+
         $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Per applicare le modifiche è necessario riavviare il sistema"
         if ($shouldReboot) {
             Restart-Computer -Force
@@ -3615,7 +3608,6 @@ function SetRustDesk {
         Write-StyledMessage Success "🎯 Setup RustDesk terminato"
         try { Stop-Transcript | Out-Null } catch {}
     }
-
 }
 function VideoDriverInstall {
     <#
@@ -3765,7 +3757,7 @@ function VideoDriverInstall {
 
                     $spinner = $Global:Spinners[$spinnerIndex % $Global:Spinners.Length]
                     $percent = [math]::Min(100, [math]::Round(($downloadedBytes / $webResponse.ContentLength) * 100))
-                    
+
                     Show-ProgressBar -Activity "Download $Description" -Status "$percent%" -Percent $percent -Icon '💾' -Spinner $spinner
 
                     $spinnerIndex++
@@ -3989,7 +3981,7 @@ function GamingToolkit {
 
     function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
         Write-StyledMessage Info "[$Step/$Total] 📦 Installazione: $DisplayName..."
-        
+
         if (-not (Test-WingetPackageAvailable $PackageId)) {
             Write-StyledMessage Warning "Pacchetto $DisplayName non disponibile. Saltando."
             return @{ Success = $true; Skipped = $true }
@@ -3997,7 +3989,7 @@ function GamingToolkit {
 
         try {
             $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_err_$PackageId.log"
-            
+
             $spinnerIndex = 0
             $percent = 0
             $startTime = Get-Date
@@ -4025,7 +4017,7 @@ function GamingToolkit {
 
             $exitCode = $proc.ExitCode
             $successCodes = @(0, 1638, 3010, -1978335189)
-            
+
             if ($exitCode -in $successCodes) {
                 Write-StyledMessage Success "Installato: $DisplayName"
                 return @{ Success = $true; ExitCode = $exitCode }
@@ -4124,7 +4116,7 @@ function GamingToolkit {
     Write-StyledMessage Info '🎮 Installazione DirectX...'
     $dxDir = "$env:LOCALAPPDATA\WinToolkit\Directx"
     $dxPath = "$dxDir\dxwebsetup.exe"
-    
+
     if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force | Out-Null }
 
     try {
@@ -4189,7 +4181,7 @@ function GamingToolkit {
     # Step 6: Battle.net
     Write-StyledMessage Info '🎮 Installazione Battle.net...'
     $bnPath = "$env:TEMP\Battle.net-Setup.exe"
-    
+
     try {
         Invoke-WebRequest -Uri 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live' -OutFile $bnPath -ErrorAction Stop
         Write-StyledMessage Success 'Battle.net scaricato.'
@@ -4319,7 +4311,7 @@ function GamingToolkit {
 
     # Step 11: Riavvio
     $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario"
-    
+
     if ($shouldReboot) {
         Write-StyledMessage Info '🔄 Riavvio...'
         Restart-Computer -Force
@@ -4329,7 +4321,6 @@ function GamingToolkit {
         Write-Host "`nPremi un tasto..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
-
 }
 function DisableBitlocker {
     <#
@@ -4371,7 +4362,6 @@ function DisableBitlocker {
     catch {
         Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message)"
     }
-
 }
 
 # --- MENU PRINCIPALE ---
@@ -4446,10 +4436,10 @@ while ($true) {
     foreach ($cat in $menuStructure) {
         Write-Host "==== $($cat.Icon) $($cat.Name) $($cat.Icon) ====" -ForegroundColor Cyan
         Write-Host ""
-        foreach ($s in $cat.Scripts) { 
+        foreach ($s in $cat.Scripts) {
             $allScripts += $s
             Write-Host "💎 [$idx] $($s.Description)" -ForegroundColor White
-            $idx++ 
+            $idx++
         }
         Write-Host ""
     }
@@ -4459,17 +4449,17 @@ while ($true) {
     Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
     Write-Host ""
     $c = Read-Host "Digita il numero dell'operazione da eseguire e premi INVIO"
-    
-    if ($c -eq '0') { 
+
+    if ($c -eq '0') {
         Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
         Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
-        if ($Global:Transcript -or $Transcript) { 
-            Stop-Transcript -ErrorAction SilentlyContinue 
+        if ($Global:Transcript -or $Transcript) {
+            Stop-Transcript -ErrorAction SilentlyContinue
         }
         Start-Sleep -Seconds 3
-        break 
+        break
     }
-    
+
     if ($c -match '^\d+$' -and [int]$c -ge 1 -and [int]$c -le $allScripts.Count) {
         Invoke-Expression $allScripts[[int]$c - 1].Name
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
