@@ -153,9 +153,6 @@ function VideoDriverInstall {
                     # Start-Sleep -Milliseconds 100 # Removed sleep for faster download
                 }
 
-                Write-Host "`r$(' ' * 120)" -NoNewline
-                Write-Host "`r" -NoNewline
-                [Console]::Out.Flush()
 
                 $targetStream.Flush()
                 $targetStream.Close()
