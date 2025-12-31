@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 153)"
+$ToolkitVersion = "2.5.0 (Build 154)"
 
 
 # Setup Variabili Globali UI
@@ -196,6 +196,7 @@ function SetRustDesk {}
 function VideoDriverInstall {}
 function GamingToolkit {}
 function DisableBitlocker {}
+function WinExportLog {}
 
 # --- MENU PRINCIPALE ---
 $menuStructure = @(
@@ -215,7 +216,11 @@ $menuStructure = @(
             [pscustomobject]@{Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
         )
     },
-    @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @([pscustomobject]@{Name = 'SetRustDesk'; Description = 'Setting RustDesk - MagnetarMan Mode'; Action = 'RunFunction' }) }
+    @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @(
+        [pscustomobject]@{Name = 'SetRustDesk'; Description = 'Setting RustDesk - MagnetarMan Mode'; Action = 'RunFunction' }
+        [pscustomobject]@{Name = 'WinExportLog'; Description = 'Esporta Log WinToolkit'; Action = 'RunFunction' }
+        )
+    }
 )
 
 WinOSCheck
