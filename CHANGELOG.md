@@ -66,12 +66,13 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.5.0] - 2025-12-29 (#21)
+## [2.5.0] - 2025-12-31 (#21)
 
 ### Aggiunte
 
 - Funzione **Win Cleaner** Potenziata.
   - Potenziamento della funzione di pulizia in varie aree del sistema. [Thanks to @Privacy.sexy Project](https://privacy.sexy/)
+
 - Sezione **Informazioni di Sistema** Potenziata.
   - Aggiunto il check (da Windows 25H2 Microsoft lo attiva a sua discrezione) per verificare l'attivazione o meno di bitlocker. In caso affermativo è stata aggiunta un nuovo script nella sezione "Windows" di disattivazione di bitlocker in caso di attivazione non voluta. **[Thanks to @Valeriogalano]**
   - Reso il campo "Disco:" che indica lo spazio disco rimanente interattivo.
@@ -79,11 +80,15 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Spazio libero tra 50GB e 80GB: Testo spazio libero di colore giallo.
     - Spazio libero oltre 80GB: Testo spazio libero di colore verde.
     - Fix coerenza grafica pagina principale script.
+
 - Funzione **Disable Bitlocker** Aggiunta.
   - Esegue il tool ufficiale Microsoft per disattivare completamente Bitlocker dal PC, che viene occultamente attivato tramite update da Microsoft senza avvisare in modo consono l'utente.
   - Viene aggiunta una chiave al registro di Windows registro che dovrebbe impedire possibili attivazioni occulte future.
+
 - Funzione **Gaming Toolkit** Potenziata.
   - Aggiunta l'installazione del nuovo .Net Framework 10, già richiesto da alcune app per funzionare correttamente.
+  
+- Aggiunta Funzione di esportazione log  
 
 ### Correzioni
 
