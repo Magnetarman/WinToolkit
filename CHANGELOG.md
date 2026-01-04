@@ -142,7 +142,9 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
   - Fix eliminazione non voluta account non admin. [Thanks to @Zakkos]
-  - Inserita messaggi di avvertimento e funzionalità per eseguire comunque l'operazione rischiosa in caso di un ripristino non completo. [Thanks to @Zakkos]
+  - Inseriti messaggi di avvertimento e funzionalità per eseguire comunque l'operazione rischiosa in caso di un ripristino non completo. [Thanks to @Zakkos]
+  - Fix messaggi output Powershell non sopressi correttamente.
+  - Fix spazio tra i messaggi esagerato.
 
 - Funzione **WinBackupDriver** Riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
