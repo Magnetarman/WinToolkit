@@ -15,7 +15,7 @@ function WinUpdateReset {
 
     function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
         $percent = [math]::Round(($Current / $Total) * 100)
-        Invoke-WithSpinner -Activity "$Action $ServiceName" -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1
+        Invoke-WithSpinner -Activity "$Action $ServiceName" -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1 | Out-Null
     }
 
     function Manage-Service($serviceName, $action, $config, $currentStep, $totalSteps) {
@@ -57,7 +57,7 @@ function WinUpdateReset {
                             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
                             $timeout--
                         } while ($service.Status -ne 'Running' -and $timeout -gt 0)
-                    } -TimeoutSeconds 5
+                    } -TimeoutSeconds 5 | Out-Null
 
                     $clearLine = "`r" + (' ' * 80) + "`r"
                     Write-Host $clearLine -NoNewline
@@ -152,7 +152,7 @@ function WinUpdateReset {
     Start-Sleep -Seconds 2
 
     # Caricamento moduli
-    Invoke-WithSpinner -Activity "Caricamento moduli" -Timer -Action { Start-Sleep 2 } -TimeoutSeconds 2
+    Invoke-WithSpinner -Activity "Caricamento moduli" -Timer -Action { Start-Sleep 2 } -TimeoutSeconds 2 | Out-Null
 
     Write-StyledMessage Info '🛠️ Avvio riparazione servizi Windows Update...'
 
@@ -202,7 +202,7 @@ function WinUpdateReset {
 
         Write-StyledMessage Info '📋 Ripristino chiavi di registro Windows Update...'
         # Elaborazione registro
-        Invoke-WithSpinner -Activity "Elaborazione registro" -Timer -Action { Start-Sleep 1 } -TimeoutSeconds 1
+        Invoke-WithSpinner -Activity "Elaborazione registro" -Timer -Action { Start-Sleep 1 } -TimeoutSeconds 1 | Out-Null
         try {
             @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update",
@@ -338,7 +338,7 @@ function WinUpdateReset {
         }
 
         # Restore renamed DLLs if they exist
-        Write-StyledMessage Info '📁 Ripristino DLL rinominate...'
+        Write-StyledMessage Info '🔍 Ripristino DLL rinominate...'
 
         $dlls = @("WaaSMedicSvc", "wuaueng")
 
@@ -488,7 +488,7 @@ function WinUpdateReset {
 
         Write-StyledMessage Info '💡 Windows Update dovrebbe ora funzionare normalmente.'
         Write-StyledMessage Info '🔧 Verifica aprendo Impostazioni > Aggiornamento e sicurezza.'
-        Write-StyledMessage Info '📝 Se necessario, riavvia il sistema per applicare tutte le modifiche.'
+        Write-StyledMessage Info '🔄 Se necessario, riavvia il sistema per applicare tutte le modifiche.'
 
         Write-Host ('═' * 65) -ForegroundColor Green
         Write-StyledMessage Success '🎉 Riparazione completata con successo!'
