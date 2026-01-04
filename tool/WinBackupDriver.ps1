@@ -33,11 +33,31 @@ function WinBackupDriver {
             New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
             Write-StyledMessage Success "Cartella backup preparata: $BackupDir"
 
-            $procResult = Invoke-WithSpinner -Activity "Esportazione driver (DISM)" -Process -Action {
-                Start-Process 'dism.exe' -ArgumentList @('/online', '/export-driver', "/destination:`"$BackupDir`"") -NoNewWindow -PassThru
+            Write-StyledMessage Info "🔧 Esecuzione DISM per esportazione driver..."
+            Write-StyledMessage Info "💡 Questa operazione può richiedere diversi minuti..."
+            
+            # Avvia DISM senza monitoraggio per evitare conflitti di output
+            $proc = Start-Process 'dism.exe' -ArgumentList @('/online', '/export-driver', "/destination:`"$BackupDir`"") -NoNewWindow -PassThru -RedirectStandardOutput $env:TEMP\dism_out.log -RedirectStandardError $env:TEMP\dism_err.log
+            
+            # Mostra countdown semplice durante l'attesa
+            $timeoutSeconds = 300 # 5 minuti timeout
+            $spinnerIndex = 0
+            
+            while (-not $proc.HasExited -and $timeoutSeconds -gt 0) {
+                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                Write-Host "`r$spinner ⏳ Esportazione driver in corso... ($timeoutSeconds secondi rimanenti)" -NoNewline -ForegroundColor Yellow
+                Start-Sleep -Seconds 1
+                $timeoutSeconds--
+            }
+            Write-Host "`r" + (' ' * 80) + "`r" -NoNewline
+            
+            if (-not $proc.HasExited) {
+                $proc.Kill()
+                Write-StyledMessage Error "Timeout raggiunto durante l'esportazione."
+                return $false
             }
 
-            if ($procResult.Success -and $procResult.ExitCode -eq 0) {
+            if ($proc.ExitCode -eq 0) {
                 $drivers = Get-ChildItem $BackupDir -Recurse -File -ErrorAction SilentlyContinue
                 if ($drivers) {
                     Write-StyledMessage Success "Esportazione completata: $($drivers.Count) driver trovati."
@@ -46,12 +66,21 @@ function WinBackupDriver {
                 Write-StyledMessage Warning "Nessun driver di terze parti trovato."
                 return $true
             }
-            Write-StyledMessage Error "Esportazione DISM fallita (ExitCode: $($procResult.ExitCode))."
+            Write-StyledMessage Error "Esportazione DISM fallita (ExitCode: $($proc.ExitCode))."
+            if (Test-Path $env:TEMP\dism_err.log) {
+                $errorContent = Get-Content $env:TEMP\dism_err.log
+                if ($errorContent) { Write-StyledMessage Error "Dettagli: $($errorContent -join ', ')" }
+            }
             return $false
         }
         catch {
             Write-StyledMessage Error "Errore export: $_"
             return $false
+        }
+        finally {
+            # Pulizia file temporanei
+            Remove-Item $env:TEMP\dism_out.log -ErrorAction SilentlyContinue
+            Remove-Item $env:TEMP\dism_err.log -ErrorAction SilentlyContinue
         }
     }
 
@@ -65,23 +94,26 @@ function WinBackupDriver {
 
         foreach ($url in $urls) {
             Write-StyledMessage Info "Download 7-Zip da: $(($url -split '/')[2])"
-            $job = Start-Job -ScriptBlock {
-                param($u, $f)
-                try { 
-                    Invoke-WebRequest -Uri $u -OutFile $f -UseBasicParsing -ErrorAction Stop
-                    return $true 
-                }
-                catch { return $false }
-            } -ArgumentList $url, $7zExe
-
-            if (Invoke-WithSpinner -Activity "Scaricamento 7-Zip" -Job -Action { $job }) {
-                if (Test-Path $7zExe) {
-                    Write-StyledMessage Success "7-Zip Portable scaricato."
+            try {
+                # Download diretto senza job per evitare blocchi
+                Write-StyledMessage Info "⬇️ Download in corso..."
+                Invoke-WebRequest -Uri $url -OutFile $7zExe -UseBasicParsing -ErrorAction Stop
+                
+                if (Test-Path $7zExe -and (Get-Item $7zExe).Length -gt 0) {
+                    Write-StyledMessage Success "7-Zip Portable scaricato con successo."
                     return $7zExe
                 }
+                else {
+                    Write-StyledMessage Warning "File scaricato ma vuoto o corrotto."
+                    Remove-Item $7zExe -Force -ErrorAction SilentlyContinue
+                }
+            }
+            catch {
+                Write-StyledMessage Warning "Download fallito da $(($url -split '/')[2]): $_"
+                if (Test-Path $7zExe) { Remove-Item $7zExe -Force -ErrorAction SilentlyContinue }
             }
         }
-        Write-StyledMessage Error "Download 7-Zip fallito."
+        Write-StyledMessage Error "Download 7-Zip fallito da entrambe le fonti."
         return $null
     }
 
@@ -108,25 +140,40 @@ function WinBackupDriver {
         Write-StyledMessage Info "Dimensione totale: $totalMB MB"
 
         $tempZip = "$env:TEMP\$ZipName.zip"
-        $stderrFile = "$env:TEMP\7z_error_$($PID).log"
         if (Test-Path $tempZip) { Remove-Item $tempZip -Force }
 
         $7zArgs = @('a', '-tzip', '-mx9', '-mmt', "`"$tempZip`"", "`"$BackupDir\*`"")
         
-        $res = Invoke-WithSpinner -Activity "Compressione 7-Zip (Ultra)" -Process -Action {
-            Start-Process $SevenZipPath -ArgumentList $7zArgs -NoNewWindow -PassThru -RedirectStandardError $stderrFile
+        Write-StyledMessage Info "🚀 Compressione con 7-Zip (livello massimo)..."
+        
+        # Avvia processo senza redirect per evitare problemi
+        $proc = Start-Process $SevenZipPath -ArgumentList $7zArgs -NoNewWindow -PassThru
+        
+        # Mostra spinner semplice durante compressione
+        $timeoutSeconds = 600 # 10 minuti timeout
+        $spinnerIndex = 0
+        
+        while (-not $proc.HasExited -and $timeoutSeconds -gt 0) {
+            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+            Write-Host "`r$spinner 📦 Compressione in corso... ($timeoutSeconds secondi rimanenti)" -NoNewline -ForegroundColor Cyan
+            Start-Sleep -Seconds 1
+            $timeoutSeconds--
+        }
+        Write-Host "`r" + (' ' * 80) + "`r" -NoNewline
+        
+        if (-not $proc.HasExited) {
+            $proc.Kill()
+            Write-StyledMessage Error "Timeout raggiunto durante la compressione."
+            return $null
         }
 
-        if ($res.Success -and $res.ExitCode -eq 0 -and (Test-Path $tempZip)) {
+        if ($proc.ExitCode -eq 0 -and (Test-Path $tempZip)) {
             $zipMB = [Math]::Round((Get-Item $tempZip).Length / 1MB, 2)
             Write-StyledMessage Success "Compressione completata: $zipMB MB"
-            Remove-Item $stderrFile -ErrorAction SilentlyContinue
             return $tempZip
         }
 
-        Write-StyledMessage Error "Compressione fallita (Code: $($res.ExitCode))"
-        if (Test-Path $stderrFile) { Write-StyledMessage Error "Dettagli: $(Get-Content $stderrFile)" }
-        Remove-Item $stderrFile -ErrorAction SilentlyContinue
+        Write-StyledMessage Error "Compressione fallita (ExitCode: $($proc.ExitCode))"
         return $null
     }
 
