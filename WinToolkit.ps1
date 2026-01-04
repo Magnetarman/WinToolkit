@@ -1664,7 +1664,7 @@ function WinBackupDriver {
     
     $script:BackupConfig = @{
         DateTime    = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-        BackupDir   = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
+        BackupDir   = "$env:TEMP\DriverBackup_Temp"
         ArchiveName = "DriverBackup"
         DesktopPath = [Environment]::GetFolderPath('Desktop')
         TempPath    = $env:TEMP
@@ -1696,15 +1696,6 @@ function WinBackupDriver {
             New-Item -ItemType Directory -Path $script:BackupConfig.BackupDir -Force | Out-Null
             Write-StyledMessage Success "Directory backup creata: $($script:BackupConfig.BackupDir)"
             
-            # Verifica spazio disco disponibile
-            $desktopDrive = Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='$((Get-Item $script:BackupConfig.DesktopPath).Drive.Name)'"
-            $freeSpaceGB = [Math]::Round($desktopDrive.FreeSpace / 1GB, 2)
-            
-            if ($freeSpaceGB -lt 1) {
-                throw "Spazio disco insufficiente sul desktop. Richiesti almeno 1GB, disponibili: $freeSpaceGB GB"
-            }
-            
-            Write-StyledMessage Success "Spazio desktop disponibile: $freeSpaceGB GB"
             return $true
         }
         catch {
