@@ -71,7 +71,69 @@ function WinBackupDriver {
         }
     }
 
-    function Compress-Backup {
+    function Get-7ZipExecutable {
+        Write-StyledMessage Info "🔍 Ricerca 7-Zip..."
+        
+        $commonPaths = @(
+            "$env:ProgramFiles\7-Zip\7z.exe",
+            "${env:ProgramFiles(x86)}\7-Zip\7z.exe",
+            "$env:LOCALAPPDATA\7-Zip\7z.exe"
+        )
+        
+        foreach ($path in $commonPaths) {
+            if (Test-Path $path) {
+                Write-StyledMessage Success "7-Zip trovato: $path"
+                return $path
+            }
+        }
+        
+        Write-StyledMessage Info "7-Zip non trovato, download versione portable in corso..."
+        return (Install-7ZipPortable)
+    }
+
+    function Install-7ZipPortable {
+        try {
+            $7zDir = "$env:LOCALAPPDATA\WinToolkit\7zip"
+            $7zExe = "$7zDir\7zr.exe"
+            
+            if (Test-Path $7zExe) {
+                Write-StyledMessage Success "Versione portable già presente"
+                return $7zExe
+            }
+            
+            New-Item -ItemType Directory -Path $7zDir -Force | Out-Null
+            
+            $primaryUrl = "https://www.7-zip.org/a/7zr.exe"
+            $fallbackUrl = "https://github.com/Magnetarman/WinToolkit/raw/Dev/asset/7zr.exe"
+            
+            Write-StyledMessage Info "⬇️ Download 7-Zip standalone..."
+            
+            try {
+                $webClient = New-Object System.Net.WebClient
+                $webClient.DownloadFile($primaryUrl, $7zExe)
+            }
+            catch {
+                Write-StyledMessage Warning "Download primario fallito, tentativo fallback..."
+                $webClient = New-Object System.Net.WebClient
+                $webClient.DownloadFile($fallbackUrl, $7zExe)
+            }
+            
+            if (Test-Path $7zExe) {
+                Write-StyledMessage Success "7-Zip portable scaricato con successo"
+                return $7zExe
+            }
+            
+            throw "Download 7-Zip fallito da entrambe le fonti"
+        }
+        catch {
+            Write-StyledMessage Error "Errore download 7-Zip: $_"
+            return $null
+        }
+    }
+
+    function Compress-With7Zip {
+        param([string]$SevenZipPath)
+        
         Write-StyledMessage Info "📦 Compressione cartella backup..."
         try {
             if (-not (Test-Path $BackupDir)) {
@@ -92,48 +154,58 @@ function WinBackupDriver {
             $tempZip = "$env:TEMP\$ZipName.zip"
             if (Test-Path $tempZip) { Remove-Item $tempZip -Force -EA SilentlyContinue }
 
-            Write-StyledMessage Info "🔄 Compressione in corso..."
-            $scriptBlock = {
-                param($b, $t)
-                try {
-                    Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force -ErrorAction Stop | Out-Null
-                    return $t
-                }
-                catch {
-                    Write-Error "Errore durante la compressione nel job: $($_.Exception.Message)"
-                    return $null
-                }
-            }
-            $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $BackupDir, $tempZip -Name "CompressDrivers"
-
-            Invoke-WithSpinner -Activity "Compressione" -Job -Action { $job } -UpdateInterval 500
-
-            Wait-Job $job | Out-Null
-
-            $jobResult = Receive-Job $job
-            $jobState = $job.State
-            $jobErrors = $job.ChildJobs[0].Error
-
-            Remove-Job $job
-
-            Show-ProgressBar "Compressione" "Completato!" 100 '📦'
+            Write-StyledMessage Info "🚀 Compressione con 7-Zip (livello massimo)..."
+            
+            $7zArgs = @(
+                'a',
+                '-tzip',
+                '-mx9',
+                '-mmt',
+                "`"$tempZip`"",
+                "`"$BackupDir\*`""
+            )
+            
+            $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $processInfo.FileName = $SevenZipPath
+            $processInfo.Arguments = $7zArgs -join ' '
+            $processInfo.RedirectStandardOutput = $true
+            $processInfo.RedirectStandardError = $true
+            $processInfo.UseShellExecute = $false
+            $processInfo.CreateNoWindow = $true
+            
+            $process = New-Object System.Diagnostics.Process
+            $process.StartInfo = $processInfo
+            $process.Start() | Out-Null
+            
+            $spinnerChars = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
+            $spinnerIndex = 0
+            
             Write-Host ''
-
-            # Verifica che il job sia completato e che abbia restituito un percorso valido
-            if ($jobState -eq 'Completed' -and $jobResult -and (Test-Path $jobResult)) {
-                $zipMB = [Math]::Round((Get-Item $jobResult).Length / 1MB, 2)
+            while (-not $process.HasExited) {
+                $spinnerChar = $spinnerChars[$spinnerIndex % $spinnerChars.Count]
+                Write-Host "`r  $spinnerChar Compressione in corso..." -NoNewline -ForegroundColor Cyan
+                $spinnerIndex++
+                Start-Sleep -Milliseconds 100
+            }
+            
+            $process.WaitForExit()
+            Write-Host "`r" + (' ' * 60) + "`r" -NoNewline
+            
+            $exitCode = $process.ExitCode
+            $stderr = $process.StandardError.ReadToEnd()
+            
+            if ($exitCode -eq 0 -and (Test-Path $tempZip)) {
+                $zipMB = [Math]::Round((Get-Item $tempZip).Length / 1MB, 2)
                 Write-StyledMessage Success "Compressione completata!"
-                Write-StyledMessage Info "Archivio creato: $jobResult ($zipMB MB)"
-                # CORREZIONE: Restituisci SOLO il percorso del file, non return $true
-                return $jobResult
+                Write-StyledMessage Info "Archivio creato: $tempZip ($zipMB MB)"
+                return $tempZip
             }
-            else {
-                Write-StyledMessage Error "Compressione fallita o archivio ZIP non creato correttamente."
-                if ($jobErrors.Count -gt 0) {
-                    Write-StyledMessage Error "  Dettaglio errore dal job: $($jobErrors[0].Exception.Message)"
-                }
-                return $null
+            
+            Write-StyledMessage Error "Compressione fallita (Exit: $exitCode)"
+            if ($stderr) {
+                Write-StyledMessage Error "Dettaglio: $stderr"
             }
+            return $null
         }
         catch {
             Write-StyledMessage Error "Errore durante compressione: $_"
@@ -145,55 +217,49 @@ function WinBackupDriver {
         Write-StyledMessage Info "📂 Spostamento archivio sul desktop..."
         try {
             if ([string]::IsNullOrWhiteSpace($ZipPath) -or -not (Test-Path $ZipPath)) {
-                Write-StyledMessage Error "File ZIP non trovato o percorso non valido: '$ZipPath'"
+                Write-StyledMessage Error "File ZIP non trovato: '$ZipPath'"
                 return $false
             }
 
-            # Verifica che il desktop esista
             if (-not (Test-Path $DesktopPath)) {
                 Write-StyledMessage Error "Percorso desktop non valido: $DesktopPath"
                 return $false
             }
 
-            # Se il file di destinazione esiste già, rimuovilo
             if (Test-Path $FinalZipPath) {
                 Remove-Item $FinalZipPath -Force -EA Stop
             }
 
-            # Usa Copy-Item invece di Move-Item per maggiore affidabilità
             Copy-Item $ZipPath $FinalZipPath -Force -EA Stop
-
+            
             if (Test-Path $FinalZipPath) {
-                # Rimuovi il file temporaneo solo dopo aver verificato la copia
                 Remove-Item $ZipPath -Force -EA SilentlyContinue
-                Write-StyledMessage Success "Archivio spostato sul desktop!"
+                Write-StyledMessage Success "Archivio spostato sul desktop"
                 Write-StyledMessage Info "Posizione: $FinalZipPath"
                 return $true
             }
-
+            
             Write-StyledMessage Error "Errore durante spostamento sul desktop"
             return $false
         }
         catch {
             Write-StyledMessage Error "Errore spostamento: $_"
-            Write-StyledMessage Info "Tentativo di fallback con Copy-Item..."
-
-            # Tentativo di fallback
+            
             try {
                 if (Test-Path $ZipPath) {
                     Copy-Item $ZipPath $FinalZipPath -Force -EA Stop
                     if (Test-Path $FinalZipPath) {
                         Remove-Item $ZipPath -Force -EA SilentlyContinue
-                        Write-StyledMessage Success "Archivio copiato sul desktop (fallback)!"
+                        Write-StyledMessage Success "Archivio copiato sul desktop (fallback)"
                         Write-StyledMessage Info "Posizione: $FinalZipPath"
                         return $true
                     }
                 }
             }
             catch {
-                Write-StyledMessage Error "Anche il fallback è fallito: $_"
+                Write-StyledMessage Error "Fallback fallito: $_"
             }
-
+            
             return $false
         }
     }
@@ -206,15 +272,15 @@ function WinBackupDriver {
         Write-Host "  $FinalZipPath" -ForegroundColor Cyan
         Write-Host ''
         Write-StyledMessage Info "💡 IMPORTANTE:"
-        Write-StyledMessage Info "  📄 Salva questo archivio in un luogo sicuro!"
-        Write-StyledMessage Info "  💾 Potrai utilizzarlo per reinstallare tutti i driver"
+        Write-StyledMessage Info "  📄 Salva questo archivio in un luogo sicuro"
+        Write-StyledMessage Info "  💾 Utilizzabile per reinstallare tutti i driver"
         Write-StyledMessage Info "  🔧 Senza doverli riscaricare singolarmente"
         Write-Host ''
     }
 
     if (-not (Test-Admin)) {
-        Write-StyledMessage Error " Questo script richiede privilegi amministrativi!"
-        Write-StyledMessage Info "💡 Riavvia PowerShell come Amministratore e riprova"
+        Write-StyledMessage Error "❌ Privilegi amministrativi richiesti"
+        Write-StyledMessage Info "💡 Riavvia PowerShell come Amministratore"
         Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
         Read-Host | Out-Null
         return
@@ -239,15 +305,13 @@ function WinBackupDriver {
 
         Write-Host ''
         Write-Host ('─' * 50) -ForegroundColor Gray
-        Write-StyledMessage Info "📋 FASE 2: COMPRESSIONE ARCHIVIO"
+        Write-StyledMessage Info "📋 FASE 2: CONFIGURAZIONE 7-ZIP"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
 
-        $zipPath = Compress-Backup
-
-        # CORREZIONE: Verifica che $zipPath sia una stringa valida
-        if ([string]::IsNullOrWhiteSpace($zipPath) -or -not (Test-Path $zipPath)) {
-            Write-StyledMessage Error "Compressione fallita o percorso non valido"
+        $7zPath = Get-7ZipExecutable
+        if (-not $7zPath) {
+            Write-StyledMessage Error "Impossibile ottenere 7-Zip"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
@@ -255,14 +319,28 @@ function WinBackupDriver {
 
         Write-Host ''
         Write-Host ('─' * 50) -ForegroundColor Gray
-        Write-StyledMessage Info "📋 FASE 3: SPOSTAMENTO DESKTOP"
+        Write-StyledMessage Info "📋 FASE 3: COMPRESSIONE ARCHIVIO"
+        Write-Host ('─' * 50) -ForegroundColor Gray
+        Write-Host ''
+
+        $zipPath = Compress-With7Zip -SevenZipPath $7zPath
+        
+        if ([string]::IsNullOrWhiteSpace($zipPath) -or -not (Test-Path $zipPath)) {
+            Write-StyledMessage Error "Compressione fallita"
+            Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
+            Read-Host | Out-Null
+            return
+        }
+
+        Write-Host ''
+        Write-Host ('─' * 50) -ForegroundColor Gray
+        Write-StyledMessage Info "📋 FASE 4: SPOSTAMENTO DESKTOP"
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
 
         if (-not (Move-ToDesktop $zipPath)) {
             Write-StyledMessage Error "Spostamento sul desktop fallito"
-            Write-StyledMessage Warning "💡 L'archivio potrebbe essere ancora nella cartella temporanea"
-            Write-StyledMessage Info "📁 Controlla: $zipPath"
+            Write-StyledMessage Warning "💡 L'archivio è in: $zipPath"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
@@ -276,8 +354,8 @@ function WinBackupDriver {
 
     }
     catch {
-        Write-StyledMessage Error "Errore critico durante il backup: $($_.Exception.Message)"
-        Write-StyledMessage Info "💡 Controlla i log per dettagli o contatta il supporto"
+        Write-StyledMessage Error "Errore critico: $($_.Exception.Message)"
+        Write-StyledMessage Info "💡 Controlla i log per dettagli"
     }
     finally {
         Write-StyledMessage Info "🧹 Pulizia cartella temporanea..."
