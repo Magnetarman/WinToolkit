@@ -76,13 +76,13 @@ function WinBackupDriver {
         try {
             if (-not (Test-Path $BackupDir)) {
                 Write-StyledMessage Error "Cartella backup non trovata"
-                return $false
+                return $null
             }
 
             $files = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
             if (-not $files -or $files.Count -eq 0) {
                 Write-StyledMessage Warning "Nessun file da comprimere nella cartella backup"
-                return $false
+                return $null
             }
 
             $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
@@ -96,76 +96,104 @@ function WinBackupDriver {
             $scriptBlock = {
                 param($b, $t)
                 try {
-                    # Assicura che Compress-Archive non produca output sulla pipeline e che gli errori siano terminanti
                     Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force -ErrorAction Stop | Out-Null
-                    # Restituisce esplicitamente il percorso dell'archivio in caso di successo
                     return $t
                 }
                 catch {
-                    # Scrive l'errore nello stream di errore del job
                     Write-Error "Errore durante la compressione nel job: $($_.Exception.Message)"
-                    # Restituisce $null in caso di fallimento
                     return $null
                 }
             }
             $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $BackupDir, $tempZip -Name "CompressDrivers"
 
-            # Usa la funzione globale Invoke-WithSpinner per monitorare la compressione
             Invoke-WithSpinner -Activity "Compressione" -Job -Action { $job } -UpdateInterval 500
 
-            # Attende il completamento del job
             Wait-Job $job | Out-Null
-            
-            # Recupera l'output del job (che dovrebbe essere il percorso ZIP o $null)
-            $jobResult = Receive-Job $job
 
-            # Rimuove il job
+            $jobResult = Receive-Job $job
+            $jobState = $job.State
+            $jobErrors = $job.ChildJobs[0].Error
+
             Remove-Job $job
 
             Show-ProgressBar "Compressione" "Completato!" 100 '📦'
             Write-Host ''
 
-            # Verifica lo stato del job e l'output per determinare il successo
-            if ($job.State -eq 'Completed' -and $jobResult -is [string] -and (Test-Path $jobResult)) {
+            # Verifica che il job sia completato e che abbia restituito un percorso valido
+            if ($jobState -eq 'Completed' -and $jobResult -and (Test-Path $jobResult)) {
                 $zipMB = [Math]::Round((Get-Item $jobResult).Length / 1MB, 2)
                 Write-StyledMessage Success "Compressione completata!"
                 Write-StyledMessage Info "Archivio creato: $jobResult ($zipMB MB)"
+                # CORREZIONE: Restituisci SOLO il percorso del file, non return $true
                 return $jobResult
             }
             else {
                 Write-StyledMessage Error "Compressione fallita o archivio ZIP non creato correttamente."
-                # Dettagli aggiuntivi dall'errore del job
-                if ($job.ChildJobs.Count -gt 0 -and $job.ChildJobs[0].Error.Count -gt 0) {
-                    Write-StyledMessage Error "  Dettaglio errore dal job: $($job.ChildJobs[0].Error[0].Exception.Message)"
+                if ($jobErrors.Count -gt 0) {
+                    Write-StyledMessage Error "  Dettaglio errore dal job: $($jobErrors[0].Exception.Message)"
                 }
-                return $false
+                return $null
             }
         }
         catch {
             Write-StyledMessage Error "Errore durante compressione: $_"
-            return $false
+            return $null
         }
     }
 
     function Move-ToDesktop([string]$ZipPath) {
         Write-StyledMessage Info "📂 Spostamento archivio sul desktop..."
         try {
-            # Controllo più robusto sul percorso ZIP
-            if ([string]::IsNullOrEmpty($ZipPath) -or -not (Test-Path $ZipPath)) {
-                Write-StyledMessage Error "File ZIP non trovato o percorso non valido: '$ZipPath' (Tipo: $($ZipPath.GetType().Name))"
+            if ([string]::IsNullOrWhiteSpace($ZipPath) -or -not (Test-Path $ZipPath)) {
+                Write-StyledMessage Error "File ZIP non trovato o percorso non valido: '$ZipPath'"
                 return $false
             }
-            Move-Item $ZipPath $FinalZipPath -Force -EA Stop
+
+            # Verifica che il desktop esista
+            if (-not (Test-Path $DesktopPath)) {
+                Write-StyledMessage Error "Percorso desktop non valido: $DesktopPath"
+                return $false
+            }
+
+            # Se il file di destinazione esiste già, rimuovilo
             if (Test-Path $FinalZipPath) {
+                Remove-Item $FinalZipPath -Force -EA Stop
+            }
+
+            # Usa Copy-Item invece di Move-Item per maggiore affidabilità
+            Copy-Item $ZipPath $FinalZipPath -Force -EA Stop
+
+            if (Test-Path $FinalZipPath) {
+                # Rimuovi il file temporaneo solo dopo aver verificato la copia
+                Remove-Item $ZipPath -Force -EA SilentlyContinue
                 Write-StyledMessage Success "Archivio spostato sul desktop!"
                 Write-StyledMessage Info "Posizione: $FinalZipPath"
                 return $true
             }
+
             Write-StyledMessage Error "Errore durante spostamento sul desktop"
             return $false
         }
         catch {
             Write-StyledMessage Error "Errore spostamento: $_"
+            Write-StyledMessage Info "Tentativo di fallback con Copy-Item..."
+
+            # Tentativo di fallback
+            try {
+                if (Test-Path $ZipPath) {
+                    Copy-Item $ZipPath $FinalZipPath -Force -EA Stop
+                    if (Test-Path $FinalZipPath) {
+                        Remove-Item $ZipPath -Force -EA SilentlyContinue
+                        Write-StyledMessage Success "Archivio copiato sul desktop (fallback)!"
+                        Write-StyledMessage Info "Posizione: $FinalZipPath"
+                        return $true
+                    }
+                }
+            }
+            catch {
+                Write-StyledMessage Error "Anche il fallback è fallito: $_"
+            }
+
             return $false
         }
     }
@@ -215,9 +243,11 @@ function WinBackupDriver {
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
 
-        $zip = Compress-Backup
-        if (-not $zip) {
-            Write-StyledMessage Error "Compressione fallita"
+        $zipPath = Compress-Backup
+
+        # CORREZIONE: Verifica che $zipPath sia una stringa valida
+        if ([string]::IsNullOrWhiteSpace($zipPath) -or -not (Test-Path $zipPath)) {
+            Write-StyledMessage Error "Compressione fallita o percorso non valido"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
@@ -229,9 +259,10 @@ function WinBackupDriver {
         Write-Host ('─' * 50) -ForegroundColor Gray
         Write-Host ''
 
-        if (-not (Move-ToDesktop $zip)) {
+        if (-not (Move-ToDesktop $zipPath)) {
             Write-StyledMessage Error "Spostamento sul desktop fallito"
             Write-StyledMessage Warning "💡 L'archivio potrebbe essere ancora nella cartella temporanea"
+            Write-StyledMessage Info "📁 Controlla: $zipPath"
             Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
             Read-Host | Out-Null
             return
