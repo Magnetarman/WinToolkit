@@ -98,15 +98,8 @@ function WinBackupDriver {
                 Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force
             } -ArgumentList $BackupDir, $tempZip
 
-            $prog = 0
-            $spinnerIndex = 0
-            while ($job.State -eq 'Running') {
-                $prog += Get-Random -Minimum 1 -Maximum 5
-                if ($prog -gt 95) { $prog = 95 }
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                Show-ProgressBar "Compressione" "Elaborazione file..." $prog '📦' $spinner
-                Start-Sleep -Milliseconds 500
-            }
+            # Usa la funzione globale Invoke-WithSpinner per monitorare la compressione
+            Invoke-WithSpinner -Activity "Compressione" -Job -Action { $job } -UpdateInterval 500
 
             Receive-Job $job -Wait | Out-Null
             Remove-Job $job

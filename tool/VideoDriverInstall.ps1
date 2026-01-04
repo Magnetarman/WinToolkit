@@ -139,19 +139,15 @@ function VideoDriverInstall {
                 $count = $responseStream.Read($buffer, 0, $buffer.Length)
                 $downloadedBytes = $count
 
-                while ($count -gt 0) {
-                    $targetStream.Write($buffer, 0, $count)
-                    $count = $responseStream.Read($buffer, 0, $buffer.Length)
-                    $downloadedBytes += $count
-
-                    $spinner = $Global:Spinners[$spinnerIndex % $Global:Spinners.Length]
-                    $percent = [math]::Min(100, [math]::Round(($downloadedBytes / $webResponse.ContentLength) * 100))
-
-                    Show-ProgressBar -Activity "Download $Description" -Status "$percent%" -Percent $percent -Icon '💾' -Spinner $spinner
-
-                    $spinnerIndex++
-                    # Start-Sleep -Milliseconds 100 # Removed sleep for faster download
-                }
+                # Simula progresso download con Invoke-WithSpinner
+                Invoke-WithSpinner -Activity "Download $Description" -Timer -Action { 
+                    while ($count -gt 0) {
+                        $targetStream.Write($buffer, 0, $count)
+                        $count = $responseStream.Read($buffer, 0, $buffer.Length)
+                        $downloadedBytes += $count
+                        Start-Sleep -Milliseconds 100
+                    }
+                } -TimeoutSeconds 30
 
 
                 $targetStream.Flush()

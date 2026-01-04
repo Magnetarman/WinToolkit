@@ -18,7 +18,7 @@ function Restore-WebSearch {
 
     $Host.UI.RawUI.WindowTitle = "Web Search Restore By MagnetarMan"
     $script:Log = @(); $script:CurrentAttempt = 0
-    $spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+    # Uso delle variabili globali per spinner e stili messaggio
     $MsgStyles = @{
         Success = @{ Color = 'Green'; Icon = '✅' }
         Warning = @{ Color = 'Yellow'; Icon = '⚠️' }

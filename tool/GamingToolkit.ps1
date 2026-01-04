@@ -32,32 +32,10 @@
         try {
             $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_err_$PackageId.log"
 
-            $spinnerIndex = 0
-            $percent = 0
-            $startTime = Get-Date
-            $timeout = 600
+            # Usa la funzione globale Invoke-WithSpinner per monitorare il processo winget
+            $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action { $proc } -TimeoutSeconds $timeout -UpdateInterval 700
 
-            while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeout) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
-                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
-                Show-ProgressBar -Activity $DisplayName -Status "($elapsed s)" -Percent $percent -Icon '📦' -Spinner $spinner
-                Start-Sleep -Milliseconds 700
-                $proc.Refresh()
-            }
-
-            if (-not $proc.HasExited) {
-                Write-Host "`r$(' ' * 120)" -NoNewline
-                Write-Host "`r" -NoNewline
-                Write-StyledMessage Warning "Timeout per $DisplayName. Terminato."
-                $proc.Kill()
-                return @{ Success = $false; TimedOut = $true }
-            }
-
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
-
-            $exitCode = $proc.ExitCode
+            $exitCode = $result.ExitCode
             $successCodes = @(0, 1638, 3010, -1978335189)
 
             if ($exitCode -in $successCodes) {
@@ -94,12 +72,7 @@
     $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
 
     # Countdown preparazione
-    for ($i = 5; $i -gt 0; $i--) {
-        $spinner = $Global:Spinners[$i % $Global:Spinners.Length]
-        Write-Host "`r$spinner ⏳ Preparazione - $i s..." -NoNewline -ForegroundColor Yellow
-        Start-Sleep 1
-    }
-    Write-Host "`n"
+    Invoke-WithSpinner -Activity "Preparazione" -Timer -Action { Start-Sleep 5 } -TimeoutSeconds 5
 
     Show-Header -SubTitle "Gaming Toolkit"
 
@@ -165,19 +138,8 @@
         Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe' -OutFile $dxPath -ErrorAction Stop
         Write-StyledMessage Success 'DirectX scaricato.'
 
-        $proc = Start-Process -FilePath $dxPath -PassThru -Verb RunAs -ErrorAction Stop
-        $spinnerIndex = 0
-        $percent = 0
-        $startTime = Get-Date
-
-        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt 600) {
-            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
-            if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
-            Show-ProgressBar -Activity "DirectX" -Status "($elapsed s)" -Percent $percent -Icon '🎮' -Spinner $spinner
-            Start-Sleep -Milliseconds 700
-            $proc.Refresh()
-        }
+        # Usa la funzione globale Invoke-WithSpinner per monitorare il processo DirectX
+        $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action { $proc } -TimeoutSeconds 600 -UpdateInterval 700
 
         if (-not $proc.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
@@ -229,16 +191,9 @@
         Write-StyledMessage Success 'Battle.net scaricato.'
 
         $proc = Start-Process -FilePath $bnPath -PassThru -Verb RunAs -ErrorAction Stop
-        $spinnerIndex = 0
-        $startTime = Get-Date
-
-        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt 900) {
-            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
-            Write-Host "`r$spinner 🎮 Battle.net ($elapsed s)" -NoNewline -ForegroundColor Cyan
-            Start-Sleep -Milliseconds 500
-            $proc.Refresh()
-        }
+        
+        # Usa la funzione globale Invoke-WithSpinner per monitorare il processo Battle.net
+        $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action { $proc } -TimeoutSeconds 900 -UpdateInterval 500
 
         if (-not $proc.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline

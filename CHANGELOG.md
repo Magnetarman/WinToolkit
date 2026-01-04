@@ -183,7 +183,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Logica completamente riscritta, lo script adesso risulterà monolitico, integrando le funzionalità grafiche generali, demandando ai singoli script la sola gestione logica e funzionale delle varie operazioni.
   - Questo aggiornamento porta con sè un notevole miglioramento delle prestazioni, una significativa riduzione del codice totale (da +7500 linee a 4300 linee di codice totale, un'ottimizzazione del 42%) e maggiore stabilità dello script, oltre a una maggiore leggibilità e manutenibilità del codice.
   - Modificato l'aspetto grafico del Toolkit rendendo le varie schermate più compatte e leggibili. **([#21](https://github.com/Magnetarman/WinToolkit/issues/21)) [@pomodori92]**
-  - Aggiornato DDU alla versione v18.1.4.0
+  - Aggiornato DDU alla versione v18.1.4.0.
+  - Funzione Grafica Spinner resa globale ed ottimizzata nei vari script.
 
 ---
 

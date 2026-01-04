@@ -132,59 +132,26 @@ function WinCleaner {
             [switch]$Hidden
         )
 
-        $startTime = Get-Date
-        $spinnerIndex = 0
-        $percent = 0
-
-        try {
-            $processParams = @{
-                FilePath     = $FilePath
-                ArgumentList = $ArgumentList
-                PassThru     = $true
-                ErrorAction  = 'Stop'
-            }
-
-            if ($Hidden) {
-                $processParams.WindowStyle = 'Hidden'
-            }
-            else {
-                $processParams.NoNewWindow = $true
-                # Keep output visible to avoid suppressing progress bars
-                # $processParams.RedirectStandardOutput = "nul"
-                # $processParams.RedirectStandardError = "nul"
-            }
-
-            $proc = Start-Process @processParams
-
-            while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
-
-                if ($percent -lt 90) {
-                    $percent += Get-Random -Minimum 1 -Maximum 3
-                }
-
-                Show-ProgressBar -Activity $Activity -Status "In esecuzione... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
-                Start-Sleep -Milliseconds 500
-                $proc.Refresh()
-            }
-
-            if (-not $proc.HasExited) {
-                Clear-ProgressLine
-                Write-StyledMessage -Type 'Warning' -Text "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
-                $proc.Kill()
-                Start-Sleep -Seconds 2
-                return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
-            }
-
-            Clear-ProgressLine
-            return @{ Success = $true; TimedOut = $false; ExitCode = $proc.ExitCode }
+        $processParams = @{
+            FilePath     = $FilePath
+            ArgumentList = $ArgumentList
+            PassThru     = $true
+            ErrorAction  = 'Stop'
         }
-        catch {
-            Clear-ProgressLine
-            Write-StyledMessage -Type 'Error' -Text "Errore nell'avvio del processo: $($_.Exception.Message)"
-            return @{ Success = $false; TimedOut = $false; ExitCode = -1 }
+
+        if ($Hidden) {
+            $processParams.WindowStyle = 'Hidden'
         }
+        else {
+            $processParams.NoNewWindow = $true
+        }
+
+        $proc = Start-Process @processParams
+
+        # Usa la funzione globale Invoke-WithSpinner per monitorare il processo
+        $result = Invoke-WithSpinner -Activity $Activity -Process -Action { $proc } -TimeoutSeconds $TimeoutSeconds -UpdateInterval 500
+        
+        return $result
     }
 
     function Invoke-CommandAction {
@@ -287,7 +254,8 @@ function WinCleaner {
                     foreach ($file in $files) {
                         Remove-Item -Path $file.FullName -Force -ErrorAction Stop
                     }
-                } else {
+                }
+                else {
                     Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
                 }
                 $count++

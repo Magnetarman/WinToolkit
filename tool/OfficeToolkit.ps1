@@ -59,22 +59,8 @@ function OfficeToolkit {
     }
 
     function Show-Spinner([string]$Activity, [scriptblock]$Action) {
-        $spinnerIndex = 0
-        $job = Start-Job -ScriptBlock $Action
-
-        while ($job.State -eq 'Running') {
-            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-            Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
-            [Console]::Out.Flush()
-            Start-Sleep -Milliseconds 200
-        }
-
-        $result = Receive-Job $job -Wait
-        Remove-Job $job
-        Clear-ConsoleLine
-        Write-Host "✅ $Activity completato" -ForegroundColor Green
-        [Console]::Out.Flush()
-        return $result
+        # Usa la funzione globale Invoke-WithSpinner
+        return Invoke-WithSpinner -Activity $Activity -Action $Action -Job -UpdateInterval 200
     }
 
     function Get-UserConfirmation([string]$Message, [string]$DefaultChoice = 'N') {

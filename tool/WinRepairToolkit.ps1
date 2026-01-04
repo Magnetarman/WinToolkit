@@ -22,7 +22,7 @@ function WinRepairToolkit {
 
     function Invoke-RepairCommand([hashtable]$Config, [int]$Step, [int]$Total) {
         Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)..."
-        $percent = 0; $spinnerIndex = 0; $isChkdsk = ($Config.Tool -ieq 'chkdsk')
+        $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
 
@@ -37,16 +37,8 @@ function WinRepairToolkit {
                 Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
             }
 
-            while (-not $proc.HasExited) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                $color = if ($isChkdsk) { 'Yellow' } else { 'Green' }
-                Show-ProgressBar $Config.Name 'Esecuzione in corso...' $percent $Config.Icon $spinner $color
-                $sleepMs = 600
-                if ($Config.Name -eq 'Ripristino immagine Windows') { $sleepMs = 900 }
-                Start-Sleep -Milliseconds $sleepMs
-                $proc.Refresh()
-            }
+            # Usa la funzione globale Invoke-WithSpinner per monitorare il processo
+            $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action { $proc } -UpdateInterval (if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
 
             $results = @()
             @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
@@ -59,9 +51,7 @@ function WinRepairToolkit {
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
-            Show-ProgressBar $Config.Name 'Completato con successo' 100 $Config.Icon
-
-            $exitCode = $proc.ExitCode
+            $exitCode = $result.ExitCode
             $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
             $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
 

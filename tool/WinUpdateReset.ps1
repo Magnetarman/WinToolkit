@@ -15,9 +15,7 @@ function WinUpdateReset {
 
     function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
         $percent = [math]::Round(($Current / $Total) * 100)
-        $spinner = $Global:Spinners[$Current % $Global:Spinners.Length]
-        Show-ProgressBar "Servizi ($Current/$Total)" "$Action $ServiceName" $percent '⚙️' $spinner 'Cyan'
-        Start-Sleep -Milliseconds 200
+        Invoke-WithSpinner -Activity "$Action $ServiceName" -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1
     }
 
     function Manage-Service($serviceName, $action, $config, $currentStep, $totalSteps) {
@@ -54,18 +52,15 @@ function WinUpdateReset {
                 'Start' {
                     Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
                     Write-Host ''
-                    Start-Service -Name $serviceName -ErrorAction Stop
-
-                    $timeout = 10; $spinnerIndex = 0
-                    do {
-                        $clearLine = "`r" + (' ' * 80) + "`r"
-                        Write-Host $clearLine -NoNewline
-                        $spinChar = $Global:Spinners[$spinnerIndex % $Global:Spinners.Length]
-                        Write-Host "$spinChar 🔄 Attesa avvio $serviceName..." -NoNewline -ForegroundColor Yellow
-                        Start-Sleep -Milliseconds 300
-                        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-                        $timeout--; $spinnerIndex++
-                    } while ($service.Status -ne 'Running' -and $timeout -gt 0)
+                    # Usa la funzione globale Invoke-WithSpinner per l'attesa avvio servizio
+                    Invoke-WithSpinner -Activity "Attesa avvio $serviceName" -Timer -Action { 
+                        $timeout = 10
+                        do {
+                            Start-Sleep -Milliseconds 500
+                            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                            $timeout--
+                        } while ($service.Status -ne 'Running' -and $timeout -gt 0)
+                    } -TimeoutSeconds 5
 
                     $clearLine = "`r" + (' ' * 80) + "`r"
                     Write-Host $clearLine -NoNewline
@@ -160,15 +155,8 @@ function WinUpdateReset {
     Write-StyledMessage Info '🔧 Inizializzazione dello Script di Reset Windows Update...'
     Start-Sleep -Seconds 2
 
-    Write-Host '⚡ Caricamento moduli... ' -NoNewline -ForegroundColor Yellow
-    for ($i = 0; $i -lt 15; $i++) {
-        $spinChar = $Global:Spinners[$i % $Global:Spinners.Length]
-        Write-Host $spinChar -NoNewline -ForegroundColor Yellow
-        Start-Sleep -Milliseconds 160
-        Write-Host "`b" -NoNewline
-    }
-    Write-Host '✅ Completato!' -ForegroundColor Green
-    Write-Host ''
+    # Caricamento moduli
+    Invoke-WithSpinner -Activity "Caricamento moduli" -Timer -Action { Start-Sleep 2 } -TimeoutSeconds 2
 
     Write-StyledMessage Info '🛠️ Avvio riparazione servizi Windows Update...'
     Write-Host ''
@@ -222,13 +210,8 @@ function WinUpdateReset {
         Write-Host ''
 
         Write-StyledMessage Info '📋 Ripristino chiavi di registro Windows Update...'
-        Write-Host '🔄 Elaborazione registro... ' -NoNewline -ForegroundColor Cyan
-        for ($i = 0; $i -lt 10; $i++) {
-            $spinChar = $Global:Spinners[$i % $Global:Spinners.Length]
-            Write-Host $spinChar -NoNewline -ForegroundColor Cyan
-            Start-Sleep -Milliseconds 150
-            Write-Host "`b" -NoNewline
-        }
+        # Elaborazione registro
+        Invoke-WithSpinner -Activity "Elaborazione registro" -Timer -Action { Start-Sleep 1 } -TimeoutSeconds 1
         try {
             @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update",
