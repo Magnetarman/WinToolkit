@@ -90,12 +90,119 @@ jobs:
           $PSVersionTable
           Write-Host "✅ PowerShell configurato" -ForegroundColor Green
 
-      # Step 4: Compilazione WinToolkit.ps1 tramite compiler.ps1
+      # Step 3b: Test sintassi file sorgenti PRIMA della compilazione
+      - name: Test Sintassi File Sorgenti
+        if: steps.check_changes.outputs.has_relevant_changes == 'true'
+        shell: pwsh
+        run: |
+          Write-Host "🔍 TEST SINTASSI FILE SORGENTI" -ForegroundColor Cyan
+          Write-Host "=" * 70 -ForegroundColor Yellow
+
+          $hasErrors = $false
+          $errorDetails = @()
+
+          # Test compiler.ps1
+          Write-Host "`n📄 Test: compiler.ps1" -ForegroundColor Blue
+          if (Test-Path "compiler.ps1") {
+            try {
+              $content = Get-Content -Raw -Path "compiler.ps1" -ErrorAction Stop
+              $parseErrors = $null
+              $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
+
+              if ($parseErrors.Count -gt 0) {
+                Write-Host "  ❌ Errori di sintassi trovati:" -ForegroundColor Red
+                foreach ($error in $parseErrors) {
+                  $errorMsg = "  → Linea $($error.Extent.StartLineNumber), Colonna $($error.Extent.StartColumnNumber): $($error.Message)"
+                  Write-Host $errorMsg -ForegroundColor Red
+                  $errorDetails += "compiler.ps1: $errorMsg"
+                }
+                $hasErrors = $true
+              } else {
+                Write-Host "  ✅ Sintassi corretta" -ForegroundColor Green
+              }
+            } catch {
+              Write-Host "  ❌ Errore lettura file: $($_.Exception.Message)" -ForegroundColor Red
+              $errorDetails += "compiler.ps1: Errore lettura - $($_.Exception.Message)"
+              $hasErrors = $true
+            }
+          }
+
+          # Test WinToolkit-template.ps1
+          Write-Host "`n📄 Test: WinToolkit-template.ps1" -ForegroundColor Blue
+          if (Test-Path "WinToolkit-template.ps1") {
+            try {
+              $content = Get-Content -Raw -Path "WinToolkit-template.ps1" -ErrorAction Stop
+              $parseErrors = $null
+              $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
+
+              if ($parseErrors.Count -gt 0) {
+                Write-Host "  ❌ Errori di sintassi trovati:" -ForegroundColor Red
+                foreach ($error in $parseErrors) {
+                  $errorMsg = "  → Linea $($error.Extent.StartLineNumber), Colonna $($error.Extent.StartColumnNumber): $($error.Message)"
+                  Write-Host $errorMsg -ForegroundColor Red
+                  $errorDetails += "WinToolkit-template.ps1: $errorMsg"
+                }
+                $hasErrors = $true
+              } else {
+                Write-Host "  ✅ Sintassi corretta" -ForegroundColor Green
+              }
+            } catch {
+              Write-Host "  ❌ Errore lettura file: $($_.Exception.Message)" -ForegroundColor Red
+              $errorDetails += "WinToolkit-template.ps1: Errore lettura - $($_.Exception.Message)"
+              $hasErrors = $true
+            }
+          }
+
+          # Test tutti i file .ps1 nella cartella tool
+          Write-Host "`n📁 Test: File in cartella tool/" -ForegroundColor Blue
+          $toolFiles = Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue
+
+          foreach ($file in $toolFiles) {
+            Write-Host "`n  📄 Test: $($file.Name)" -ForegroundColor Cyan
+            try {
+              $content = Get-Content -Raw -Path $file.FullName -ErrorAction Stop
+              $parseErrors = $null
+              $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
+
+              if ($parseErrors.Count -gt 0) {
+                Write-Host "    ❌ Errori di sintassi trovati:" -ForegroundColor Red
+                foreach ($error in $parseErrors) {
+                  $errorMsg = "    → Linea $($error.Extent.StartLineNumber), Colonna $($error.Extent.StartColumnNumber): $($error.Message)"
+                  Write-Host $errorMsg -ForegroundColor Red
+                  $errorDetails += "$($file.Name): $errorMsg"
+                }
+                $hasErrors = $true
+              } else {
+                Write-Host "    ✅ Sintassi corretta" -ForegroundColor Green
+              }
+            } catch {
+              Write-Host "    ❌ Errore lettura file: $($_.Exception.Message)" -ForegroundColor Red
+              $errorDetails += "$($file.Name): Errore lettura - $($_.Exception.Message)"
+              $hasErrors = $true
+            }
+          }
+
+          # Riepilogo errori
+          if ($hasErrors) {
+            Write-Host "`n╔═══════════════════════════════════════════════════════╗" -ForegroundColor Red
+            Write-Host "║           ❌ ERRORI DI SINTASSI TROVATI              ║" -ForegroundColor Red
+            Write-Host "╚═══════════════════════════════════════════════════════╝" -ForegroundColor Red
+            Write-Host "`n📋 RIEPILOGO ERRORI:" -ForegroundColor Yellow
+            foreach ($detail in $errorDetails) {
+              Write-Host $detail -ForegroundColor Red
+            }
+            Write-Host "`n💡 Correggi gli errori di sintassi prima di procedere" -ForegroundColor Cyan
+            exit 1
+          } else {
+            Write-Host "`n✅ TUTTI I FILE HANNO SINTASSI CORRETTA" -ForegroundColor Green
+          }
+
+      # Step 4: Compilazione WinToolkit.ps1 tramite compiler.ps1 con debugging migliorato
       - name: Compilazione WinToolkit.ps1
         if: steps.check_changes.outputs.has_relevant_changes == 'true'
         shell: pwsh
         run: |
-          Write-Host "🔨 COMPILAZIONE WINToolKIT.PS1" -ForegroundColor Cyan
+          Write-Host "🔨 COMPILAZIONE WINTOOLKIT.PS1" -ForegroundColor Cyan
           Write-Host "=" * 60 -ForegroundColor Yellow
 
           # Verifica che compiler.ps1 esista
@@ -111,38 +218,63 @@ jobs:
           }
 
           # Verifica che ci siano file .ps1 nella cartella tool
-          $toolFiles = Get-ChildItem -Path "tool" -Name "*.ps1" -ErrorAction SilentlyContinue
+          $toolFiles = Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue
           if ($toolFiles.Count -eq 0) {
             Write-Error "❌ Nessun file .ps1 trovato nella cartella tool"
             exit 1
           }
 
           Write-Host "📋 File da compilare: $($toolFiles.Count)" -ForegroundColor Green
-          $toolFiles | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+          $toolFiles | ForEach-Object { Write-Host "  - $($_.Name)" -ForegroundColor Gray }
 
-          # Esegui la compilazione
+          # Esegui la compilazione con cattura output dettagliato
+          Write-Host "`n🔄 Esecuzione compilazione..." -ForegroundColor Blue
           try {
-            & ".\compiler.ps1"
+            # Esegui e cattura tutto l'output
+            $output = & ".\compiler.ps1" 2>&1 | Out-String
+
+            # Mostra l'output
+            Write-Host $output
+
+            # Controlla il risultato
             if ($LASTEXITCODE -ne 0) {
-              Write-Error "❌ Compilazione fallita con exit code: $LASTEXITCODE"
+              Write-Host "`n╔═══════════════════════════════════════════════════════╗" -ForegroundColor Red
+              Write-Host "║        ❌ COMPILAZIONE FALLITA                        ║" -ForegroundColor Red
+              Write-Host "╚═══════════════════════════════════════════════════════╝" -ForegroundColor Red
+              Write-Host "`nExit Code: $LASTEXITCODE" -ForegroundColor Red
+              Write-Host "`n💡 Verifica l'output sopra per dettagli sull'errore" -ForegroundColor Cyan
               exit 1
             }
           }
           catch {
-            Write-Error "❌ Errore durante la compilazione: $($_.Exception.Message)"
+            Write-Host "`n╔═══════════════════════════════════════════════════════╗" -ForegroundColor Red
+            Write-Host "║     ❌ ERRORE DURANTE LA COMPILAZIONE                 ║" -ForegroundColor Red
+            Write-Host "╚═══════════════════════════════════════════════════════╝" -ForegroundColor Red
+            Write-Host "`n📋 Dettagli errore:" -ForegroundColor Yellow
+            Write-Host "Messaggio: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "Tipo: $($_.Exception.GetType().FullName)" -ForegroundColor Red
+            if ($_.InvocationInfo) {
+              Write-Host "Linea: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
+              Write-Host "Comando: $($_.InvocationInfo.Line)" -ForegroundColor Red
+            }
+            if ($_.ScriptStackTrace) {
+              Write-Host "`nStack Trace:" -ForegroundColor Yellow
+              Write-Host $_.ScriptStackTrace -ForegroundColor Red
+            }
             exit 1
           }
 
           # Verifica che il file compilato sia stato creato
           if (-not (Test-Path "WinToolkit.ps1")) {
-            Write-Error "❌ File WinToolkit.ps1 non creato dalla compilazione"
+            Write-Host "`n❌ File WinToolkit.ps1 non creato dalla compilazione" -ForegroundColor Red
+            Write-Host "💡 La compilazione potrebbe essere terminata senza errori ma senza produrre output" -ForegroundColor Cyan
             exit 1
           }
 
           $fileSize = (Get-Item "WinToolkit.ps1").Length
-          Write-Host "✅ Compilazione completata: $([math]::Round($fileSize/1KB, 2)) KB" -ForegroundColor Green
+          Write-Host "`n✅ Compilazione completata: $([math]::Round($fileSize/1KB, 2)) KB" -ForegroundColor Green
 
-      # Step 5: Test estesi del file compilato
+      # Step 5: Test estesi del file compilato con report errori dettagliato
       - name: Test Estesi WinToolkit Compilato
         id: test_compiled_wintoolkit
         if: steps.check_changes.outputs.has_relevant_changes == 'true'
@@ -164,19 +296,36 @@ jobs:
           $totalErrors = 0
           $totalWarnings = 0
           $testResults = @()
+          $criticalErrors = @()
 
           try {
             $scriptContent = Get-Content -Raw -Path $winToolkitPath -ErrorAction Stop
 
-            # Test 1: Sintassi PowerShell
-            Write-Host "🔍 Test 1: Verifica sintassi..." -ForegroundColor Blue
+            # Test 1: Sintassi PowerShell con dettagli completi
+            Write-Host "`n🔍 Test 1: Verifica sintassi..." -ForegroundColor Blue
             $parseErrors = $null
-            $null = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$parseErrors)
+            $tokens = $null
+            $null = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$tokens, [ref]$parseErrors)
 
             if ($parseErrors.Count -gt 0) {
-              Write-Host "  ❌ Errori di sintassi:" -ForegroundColor Red
+              Write-Host "  ❌ Errori di sintassi trovati:" -ForegroundColor Red
               foreach ($error in $parseErrors) {
-                Write-Host "    Line $($error.Extent.StartLineNumber): $($error.Message)" -ForegroundColor Red
+                $errorDetail = @"
+    ╔════════════════════════════════════════════════════════════
+    ║ ERRORE DI SINTASSI
+    ╠════════════════════════════════════════════════════════════
+    ║ File: WinToolkit.ps1
+    ║ Linea: $($error.Extent.StartLineNumber)
+    ║ Colonna: $($error.Extent.StartColumnNumber) - $($error.Extent.EndColumnNumber)
+    ║ Messaggio: $($error.Message)
+    ║ Severità: $($error.ErrorId)
+    ╠════════════════════════════════════════════════════════════
+    ║ Codice problematico:
+    ║ $($error.Extent.Text)
+    ╚════════════════════════════════════════════════════════════
+"@
+                Write-Host $errorDetail -ForegroundColor Red
+                $criticalErrors += $errorDetail
               }
               $totalErrors += $parseErrors.Count
               $testResults += "❌ Sintassi: $($parseErrors.Count) errori"
@@ -187,7 +336,7 @@ jobs:
             }
 
             # Test 2: Verifica funzioni disponibili
-            Write-Host "🔍 Test 2: Verifica funzioni disponibili..." -ForegroundColor Blue
+            Write-Host "`n🔍 Test 2: Verifica funzioni disponibili..." -ForegroundColor Blue
             $functions = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$null) |
                         Where-Object { $_.GetType().Name -eq "FunctionDefinitionAst" }
 
@@ -218,7 +367,7 @@ jobs:
             $totalWarnings += $missingCount
 
             # Test 3: Struttura del menu
-            Write-Host "🔍 Test 3: Verifica struttura menu..." -ForegroundColor Blue
+            Write-Host "`n🔍 Test 3: Verifica struttura menu..." -ForegroundColor Blue
             $menuTests = @(
               @{ Pattern = [regex]::Escape("while (`$true)"); Name = "Menu principale" },
               @{ Pattern = "Operazioni Preliminari"; Name = "Categoria Operazioni Preliminari" },
@@ -236,11 +385,12 @@ jobs:
                 Write-Host "  ❌ $($test.Name) mancante" -ForegroundColor Red
                 $totalErrors++
                 $testResults += "❌ $($test.Name) mancante"
+                $criticalErrors += "Struttura menu: $($test.Name) mancante"
               }
             }
 
             # Test 4: Dimensione del file
-            Write-Host "🔍 Test 4: Verifica dimensione file..." -ForegroundColor Blue
+            Write-Host "`n🔍 Test 4: Verifica dimensione file..." -ForegroundColor Blue
             $fileSize = (Get-Item $winToolkitPath).Length
             $fileSizeKB = [math]::Round($fileSize/1KB, 2)
 
@@ -248,6 +398,7 @@ jobs:
               Write-Host "  ❌ File troppo piccolo: $($fileSize) bytes" -ForegroundColor Red
               $totalErrors++
               $testResults += "❌ Dimensione: $fileSizeKB KB (troppo piccolo)"
+              $criticalErrors += "Dimensione file sospetta: $fileSizeKB KB (minimo atteso: ~10 KB)"
             }
             else {
               Write-Host "  ✅ Dimensione OK: $fileSizeKB KB" -ForegroundColor Green
@@ -255,7 +406,7 @@ jobs:
             }
 
             # Test 5: Encoding UTF-8
-            Write-Host "🔍 Test 5: Verifica encoding..." -ForegroundColor Blue
+            Write-Host "`n🔍 Test 5: Verifica encoding..." -ForegroundColor Blue
             $encoding = [System.Text.Encoding]::GetEncoding('UTF-8')
             $preamble = $encoding.GetPreamble()
             $fileBytes = Get-Content $winToolkitPath -AsByteStream -ReadCount 0
@@ -271,8 +422,27 @@ jobs:
 
           }
           catch {
-            Write-Host "  ❌ Errore durante i test: $($_.Exception.Message)" -ForegroundColor Red
+            $errorDetail = @"
+    ╔════════════════════════════════════════════════════════════
+    ║ ERRORE DURANTE I TEST
+    ╠════════════════════════════════════════════════════════════
+    ║ Messaggio: $($_.Exception.Message)
+    ║ Tipo: $($_.Exception.GetType().FullName)
+"@
+            if ($_.InvocationInfo) {
+              $errorDetail += @"
+
+    ║ Linea: $($_.InvocationInfo.ScriptLineNumber)
+    ║ Comando: $($_.InvocationInfo.Line)
+"@
+            }
+            $errorDetail += @"
+
+    ╚════════════════════════════════════════════════════════════
+"@
+            Write-Host $errorDetail -ForegroundColor Red
             $totalErrors++
+            $criticalErrors += $errorDetail
             $testResults += "❌ Errore test: $($_.Exception.Message)"
           }
 
@@ -284,13 +454,28 @@ jobs:
           # Valuta i risultati: procedi sempre se non ci sono errori di sintassi/struttura
           # Le funzioni mancanti sono normali durante lo sviluppo e non bloccano il workflow
           if ($totalErrors -gt 0) {
-            Write-Host "❌ TEST FALLITI: $totalErrors errori di sintassi/struttura" -ForegroundColor Red
-            Write-Host "💡 Suggerimento: Verifica la sintassi del file compilato" -ForegroundColor Cyan
+            Write-Host "`n╔═══════════════════════════════════════════════════════╗" -ForegroundColor Red
+            Write-Host "║           ❌ TEST FALLITI                             ║" -ForegroundColor Red
+            Write-Host "╚═══════════════════════════════════════════════════════╝" -ForegroundColor Red
+            Write-Host "`n📋 ERRORI CRITICI RILEVATI: $totalErrors" -ForegroundColor Red
+
+            if ($criticalErrors.Count -gt 0) {
+              Write-Host "`n🔍 DETTAGLI ERRORI:" -ForegroundColor Yellow
+              foreach ($error in $criticalErrors) {
+                Write-Host $error -ForegroundColor Red
+              }
+            }
+
+            Write-Host "`n💡 Suggerimenti:" -ForegroundColor Cyan
+            Write-Host "  • Verifica la sintassi del file compilato" -ForegroundColor White
+            Write-Host "  • Controlla i file sorgenti in /tool per errori logici" -ForegroundColor White
+            Write-Host "  • Assicurati che il template sia corretto" -ForegroundColor White
+
             Write-Output "tests_passed=false" >> $env:GITHUB_OUTPUT
             exit 1
           }
           else {
-            Write-Host "✅ TUTTI I TEST SUPERATI!" -ForegroundColor Green
+            Write-Host "`n✅ TUTTI I TEST SUPERATI!" -ForegroundColor Green
             if ($missingCount -gt 0) {
               Write-Host "ℹ️ Nota: $missingCount funzioni mancanti - normale durante sviluppo" -ForegroundColor Yellow
             }
@@ -325,7 +510,7 @@ jobs:
             Write-Host "║  ✅ Modifiche rilevanti rilevate                         ║" -ForegroundColor Green
             Write-Host "║  🔨 Compilazione eseguita                               ║" -ForegroundColor Green
 
-            if ("${{ steps.compile_test_and_commit.outputs.tests_passed }}" -eq "true") {
+            if ("${{ steps.test_compiled_wintoolkit.outputs.tests_passed }}" -eq "true") {
               Write-Host "║  ✅ Tutti i test superati                               ║" -ForegroundColor Green
               Write-Host "║  📝 Commit automatico eseguito                          ║" -ForegroundColor Green
               Write-Host "║                                                         ║" -ForegroundColor White
@@ -334,7 +519,7 @@ jobs:
             else {
               Write-Host "║  ❌ Test falliti - commit non eseguito                  ║" -ForegroundColor Red
               Write-Host "║                                                         ║" -ForegroundColor White
-              Write-Host "║  💡 Verifica i file in /tool e riprova                 ║" -ForegroundColor Cyan
+              Write-Host "║  💡 Verifica i dettagli degli errori sopra              ║" -ForegroundColor Cyan
             }
           }
           else {
