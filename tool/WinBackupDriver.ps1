@@ -9,7 +9,6 @@ function WinBackupDriver {
     #>
     param([int]$CountdownSeconds = 10)
 
-    #region Initialization
     Initialize-ToolLogging -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
     
@@ -19,13 +18,10 @@ function WinBackupDriver {
         ArchiveName = "DriverBackup"
         DesktopPath = [Environment]::GetFolderPath('Desktop')
         TempPath    = $env:TEMP
-        LogPath     = "$env:LOCALAPPDATA\WinToolkit\logs"
     }
     
     $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
-    #endregion
 
-    #region Helper Functions
     function Test-AdministratorPrivilege {
         $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
         $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
@@ -33,12 +29,9 @@ function WinBackupDriver {
     }
     
     function Initialize-BackupEnvironment {
-        param()
-        
         Write-StyledMessage Info "🗂️ Inizializzazione ambiente backup..."
         
         try {
-            # Crea directory backup
             if (Test-Path $script:BackupConfig.BackupDir) {
                 Write-StyledMessage Warning "Rimozione backup precedenti..."
                 Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction Stop | Out-Null
@@ -46,7 +39,6 @@ function WinBackupDriver {
             
             New-Item -ItemType Directory -Path $script:BackupConfig.BackupDir -Force | Out-Null
             Write-StyledMessage Success "Directory backup creata: $($script:BackupConfig.BackupDir)"
-            
             return $true
         }
         catch {
@@ -54,16 +46,8 @@ function WinBackupDriver {
             return $false
         }
     }
-    #endregion
 
-    #region Core Functions
     function Export-SystemDrivers {
-        <#
-        .SYNOPSIS
-            Esporta i driver di terze parti dal sistema utilizzando DISM.
-        #>
-        param()
-        
         Write-StyledMessage Info "💾 Avvio esportazione driver di sistema..."
         
         try {
@@ -73,7 +57,6 @@ function WinBackupDriver {
                 "/destination:`"$($script:BackupConfig.BackupDir)`""
             ) -NoNewWindow -PassThru -RedirectStandardOutput "$($script:BackupConfig.TempPath)\dism_out.log" -RedirectStandardError "$($script:BackupConfig.TempPath)\dism_err.log"
             
-            # Monitoraggio con timeout
             $timeoutSeconds = 300
             $spinnerIndex = 0
             
@@ -99,7 +82,6 @@ function WinBackupDriver {
                 throw "Esportazione DISM fallita (ExitCode: $($dismProcess.ExitCode)). Dettagli: $errorDetails"
             }
             
-            # Verifica driver esportati
             $exportedDrivers = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
             if (-not $exportedDrivers -or $exportedDrivers.Count -eq 0) {
                 Write-StyledMessage Warning "Nessun driver di terze parti trovato da esportare"
@@ -118,27 +100,18 @@ function WinBackupDriver {
             return $false
         }
         finally {
-            # Pulizia file log temporanei
             Remove-Item "$($script:BackupConfig.TempPath)\dism_out.log" -ErrorAction SilentlyContinue
             Remove-Item "$($script:BackupConfig.TempPath)\dism_err.log" -ErrorAction SilentlyContinue
         }
     }
     
     function Resolve-7ZipExecutable {
-        <#
-        .SYNOPSIS
-            Risolve il percorso dell'eseguibile 7-Zip, scaricandolo se necessario.
-        #>
-        param()
-        
-        # Percorsi standard di 7-Zip
         $standardPaths = @(
             "$env:ProgramFiles\7-Zip\7z.exe",
             "${env:ProgramFiles(x86)}\7-Zip\7z.exe",
             "$env:LOCALAPPDATA\7-Zip\7z.exe"
         )
         
-        # Verifica installazioni esistenti
         foreach ($path in $standardPaths) {
             if (Test-Path $path) {
                 Write-StyledMessage Success "7-Zip trovato: $path"
@@ -146,17 +119,10 @@ function WinBackupDriver {
             }
         }
         
-        # Download versione portable
         return Install-7ZipPortable
     }
     
     function Install-7ZipPortable {
-        <#
-        .SYNOPSIS
-            Scarica e installa 7-Zip portable.
-        #>
-        param()
-        
         $installDir = "$env:LOCALAPPDATA\WinToolkit\7zip"
         $executablePath = "$installDir\7zr.exe"
         
@@ -177,12 +143,10 @@ function WinBackupDriver {
                 Write-StyledMessage Info "⬇️ Download 7-Zip da: $($source.Name)"
                 Invoke-WebRequest -Uri $source.Url -OutFile $executablePath -UseBasicParsing -ErrorAction Stop
                 
-                # Validazione file scaricato
                 if (Test-Path $executablePath) {
                     $fileSize = (Get-Item $executablePath).Length
                     
                     if ($fileSize -gt 100KB -and $fileSize -lt 10MB) {
-                        # Test funzionalità
                         $testResult = & $executablePath 2>&1
                         if ($testResult -match "7-Zip" -or $testResult -match "Licensed") {
                             Write-StyledMessage Success "7-Zip portable scaricato e verificato"
@@ -207,10 +171,6 @@ function WinBackupDriver {
     }
     
     function Compress-BackupArchive {
-        <#
-        .SYNOPSIS
-            Comprime la directory di backup in formato 7z.
-        #>
         param([string]$SevenZipPath)
         
         if (-not $SevenZipPath -or -not (Test-Path $SevenZipPath)) {
@@ -223,7 +183,6 @@ function WinBackupDriver {
         
         Write-StyledMessage Info "📦 Preparazione compressione archivio..."
         
-        # Verifica contenuto directory
         $backupFiles = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
         if (-not $backupFiles) {
             Write-StyledMessage Warning "Nessun file da comprimere nella directory backup"
@@ -233,25 +192,13 @@ function WinBackupDriver {
         $totalSizeMB = [Math]::Round(($backupFiles | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
         Write-StyledMessage Info "Dimensione totale: $totalSizeMB MB"
         
-        # Configurazione compressione
         $archivePath = "$($script:BackupConfig.TempPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
         $compressionArgs = @('a', '-t7z', '-mx=9', '-mmt=on', "`"$archivePath`"", "`"$($script:BackupConfig.BackupDir)\*`"")
         
         Write-StyledMessage Info "🚀 Compressione con 7-Zip (formato 7z, livello ultra)..."
         
-        # Test preliminare 7-Zip
-        try {
-            $versionTest = & $SevenZipPath 'i' 2>&1 | Select-Object -First 1
-            Write-StyledMessage Info "Test 7-Zip: $($versionTest -replace '\s+', ' ')"
-        }
-        catch {
-            Write-StyledMessage Warning "Test 7-Zip fallito, proseguo comunque..."
-        }
-        
-        # Esecuzione compressione
         $compressionProcess = Start-Process -FilePath $SevenZipPath -ArgumentList $compressionArgs -NoNewWindow -PassThru
         
-        # Monitoraggio progresso
         $timeoutSeconds = 600
         $spinnerIndex = 0
         
@@ -277,29 +224,11 @@ function WinBackupDriver {
             return $archivePath
         }
         
-        # Gestione errori compressione
-        $errorMsg = "Compressione fallita (ExitCode: $($compressionProcess.ExitCode))"
-        Write-StyledMessage Error $errorMsg
-        
-        try {
-            $compressionProcess.WaitForExit(5000)
-            $stdError = $compressionProcess.StandardError.ReadToEnd()
-            if ($stdError) {
-                Write-StyledMessage Error "Dettagli errore: $stdError"
-            }
-        }
-        catch {
-            Write-StyledMessage Warning "Impossibile ottenere dettagli errore compressione"
-        }
-        
+        Write-StyledMessage Error "Compressione fallita (ExitCode: $($compressionProcess.ExitCode))"
         return $null
     }
     
     function Move-ArchiveToDesktop {
-        <#
-        .SYNOPSIS
-            Sposta l'archivio compresso sul desktop.
-        #>
         param([string]$ArchivePath)
         
         if ([string]::IsNullOrWhiteSpace($ArchivePath) -or -not (Test-Path $ArchivePath)) {
@@ -313,13 +242,11 @@ function WinBackupDriver {
                 throw "Directory desktop non accessibile: $($script:BackupConfig.DesktopPath)"
             }
             
-            # Verifica conflitti nome file
             if (Test-Path $script:FinalArchivePath) {
                 Write-StyledMessage Warning "Rimozione archivio precedente..."
                 Remove-Item $script:FinalArchivePath -Force -ErrorAction Stop
             }
             
-            # Copia archivio
             Copy-Item -Path $ArchivePath -Destination $script:FinalArchivePath -Force -ErrorAction Stop
             
             if (Test-Path $script:FinalArchivePath) {
@@ -335,11 +262,8 @@ function WinBackupDriver {
             return $false
         }
     }
-    #endregion
 
-    #region Main Execution
     try {
-        # Verifica privilegi amministratore
         if (-not (Test-AdministratorPrivilege)) {
             Write-StyledMessage Error "❌ Privilegi amministratore richiesti"
             Write-StyledMessage Info "💡 Riavvia PowerShell come Amministratore"
@@ -350,7 +274,6 @@ function WinBackupDriver {
         Write-StyledMessage Info "🚀 Inizializzazione sistema..."
         Start-Sleep -Seconds 1
         
-        # Pipeline principale
         if (Initialize-BackupEnvironment) {
             Write-Host ""
             
@@ -382,7 +305,6 @@ function WinBackupDriver {
         Write-StyledMessage Info "💡 Controlla i log per dettagli tecnici"
     }
     finally {
-        # Pulizia ambiente
         Write-StyledMessage Info "🧹 Pulizia ambiente temporaneo..."
         if (Test-Path $script:BackupConfig.BackupDir) {
             Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -394,5 +316,4 @@ function WinBackupDriver {
         try { Stop-Transcript | Out-Null } catch {}
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
     }
-    #endregion
 }
