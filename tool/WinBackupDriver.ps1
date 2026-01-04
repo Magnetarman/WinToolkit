@@ -93,27 +93,53 @@ function WinBackupDriver {
             if (Test-Path $tempZip) { Remove-Item $tempZip -Force -EA SilentlyContinue }
 
             Write-StyledMessage Info "🔄 Compressione in corso..."
-            $job = Start-Job -ScriptBlock {
+            $scriptBlock = {
                 param($b, $t)
-                Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force
-            } -ArgumentList $BackupDir, $tempZip
+                try {
+                    # Assicura che Compress-Archive non produca output sulla pipeline e che gli errori siano terminanti
+                    Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force -ErrorAction Stop | Out-Null
+                    # Restituisce esplicitamente il percorso dell'archivio in caso di successo
+                    return $t
+                }
+                catch {
+                    # Scrive l'errore nello stream di errore del job
+                    Write-Error "Errore durante la compressione nel job: $($_.Exception.Message)"
+                    # Restituisce $null in caso di fallimento
+                    return $null
+                }
+            }
+            $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $BackupDir, $tempZip -Name "CompressDrivers"
 
             # Usa la funzione globale Invoke-WithSpinner per monitorare la compressione
             Invoke-WithSpinner -Activity "Compressione" -Job -Action { $job } -UpdateInterval 500
 
-            Receive-Job $job -Wait | Out-Null
+            # Attende il completamento del job
+            Wait-Job $job | Out-Null
+            
+            # Recupera l'output del job (che dovrebbe essere il percorso ZIP o $null)
+            $jobResult = Receive-Job $job
+
+            # Rimuove il job
             Remove-Job $job
+
             Show-ProgressBar "Compressione" "Completato!" 100 '📦'
             Write-Host ''
 
-            if (Test-Path $tempZip) {
-                $zipMB = [Math]::Round((Get-Item $tempZip).Length / 1MB, 2)
+            # Verifica lo stato del job e l'output per determinare il successo
+            if ($job.State -eq 'Completed' -and $jobResult -is [string] -and (Test-Path $jobResult)) {
+                $zipMB = [Math]::Round((Get-Item $jobResult).Length / 1MB, 2)
                 Write-StyledMessage Success "Compressione completata!"
-                Write-StyledMessage Info "Archivio creato: $tempZip ($zipMB MB)"
-                return $tempZip
+                Write-StyledMessage Info "Archivio creato: $jobResult ($zipMB MB)"
+                return $jobResult
             }
-            Write-StyledMessage Error "File ZIP non creato"
-            return $false
+            else {
+                Write-StyledMessage Error "Compressione fallita o archivio ZIP non creato correttamente."
+                # Dettagli aggiuntivi dall'errore del job
+                if ($job.ChildJobs.Count -gt 0 -and $job.ChildJobs[0].Error.Count -gt 0) {
+                    Write-StyledMessage Error "  Dettaglio errore dal job: $($job.ChildJobs[0].Error[0].Exception.Message)"
+                }
+                return $false
+            }
         }
         catch {
             Write-StyledMessage Error "Errore durante compressione: $_"
@@ -124,8 +150,9 @@ function WinBackupDriver {
     function Move-ToDesktop([string]$ZipPath) {
         Write-StyledMessage Info "📂 Spostamento archivio sul desktop..."
         try {
-            if (-not (Test-Path $ZipPath)) {
-                Write-StyledMessage Error "File ZIP non trovato: $ZipPath"
+            # Controllo più robusto sul percorso ZIP
+            if ([string]::IsNullOrEmpty($ZipPath) -or -not (Test-Path $ZipPath)) {
+                Write-StyledMessage Error "File ZIP non trovato o percorso non valido: '$ZipPath' (Tipo: $($ZipPath.GetType().Name))"
                 return $false
             }
             Move-Item $ZipPath $FinalZipPath -Force -EA Stop
