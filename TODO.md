@@ -43,6 +43,11 @@
 - Fix Video Driver install
   - [x] Barre di progressione con problemi di output
 
+- Funzione Spinner
+  - [x] Centralizzata nello script `WinToolkit-Template.ps1`
+  - [x] Aggiornato codice dei vari script per richiamare la nuova funzione globale
+  - [x] Eliminato codice ridondante e duplicato  
+
 ### V 2.5.1
 
 - Funzione WinUpdateDisabler
