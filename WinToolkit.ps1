@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 166)"
+$ToolkitVersion = "2.5.0 (Build 167)"
 
 
 # Setup Variabili Globali UI
@@ -107,46 +107,6 @@ function Invoke-WithSpinner {
     .DESCRIPTION
         Funzione di ordine superiore che gestisce automaticamente l'animazione
         dello spinner per operazioni asincrone, processi, job o timer.
-
-    .PARAMETER Activity
-        Descrizione dell'attività in corso.
-
-    .PARAMETER Action
-        ScriptBlock da eseguire. Per processi: restituisce un processo.
-        Per job PowerShell: restituisce un job.
-        Per operazioni sincrone: ScriptBlock da eseguire prima del timeout.
-
-    .PARAMETER TimeoutSeconds
-        Timeout in secondi (default: 300).
-
-    .PARAMETER UpdateInterval
-        Intervallo di aggiornamento dello spinner in millisecondi (default: 500).
-
-    .PARAMETER Process
-        Se specificato, l'Action restituisce un processo da monitorare.
-
-    .PARAMETER Job
-        Se specificato, l'Action restituisce un job PowerShell da monitorare.
-
-    .PARAMETER Timer
-        Se specificato, mostra un countdown timer.
-
-    .PARAMETER PercentUpdate
-        ScriptBlock per aggiornare la percentuale di progresso.
-
-    .EXAMPLE
-        # Monitora un processo
-        $proc = Start-Process 'cmd.exe' -ArgumentList '/c', 'timeout 10' -PassThru
-        Invoke-WithSpinner -Activity "Esecuzione comando" -Process -Action { $proc }
-
-    .EXAMPLE
-        # Monitora un job PowerShell
-        $job = Start-Job { Start-Sleep 10 }
-        Invoke-WithSpinner -Activity "Elaborazione job" -Job -Action { $job }
-
-    .EXAMPLE
-        # Countdown timer
-        Invoke-WithSpinner -Activity "Preparazione" -Timer -Action { Start-Sleep 5 }
     #>
     [CmdletBinding()]
     param(
