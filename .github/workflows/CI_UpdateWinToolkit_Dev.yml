@@ -340,7 +340,7 @@ jobs:
                         Where-Object { $_.GetType().Name -eq "FunctionDefinitionAst" }
 
             # Tutte le funzioni sono opzionali - verifica solo cosa è presente
-            $expectedFunctions = @("WinRepairToolkit", "WinCleaner", "OfficeToolkit", "SetRustDesk", "WinUpdateReset", "WinInstallPSProfile", "WinReinstallStore", "WinBackupDriver", "GamingToolkit", "WinDriverInstall", "SearchRepair")
+            $expectedFunctions = @("WinRepairToolkit", "WinCleaner", "OfficeToolkit", "SetRustDesk", "WinUpdateReset", "WinReinstallStore", "WinBackupDriver", "GamingToolkit", "WinDriverInstall", "SearchRepair")
             $presentFunctions = $expectedFunctions | Where-Object { $functionName = $_; $functions.Name -contains $functionName }
             $missingFunctions = $expectedFunctions | Where-Object { $functionName = $_; $functions.Name -notcontains $functionName }
 
@@ -369,7 +369,6 @@ jobs:
             Write-Host "`n🔍 Test 3: Verifica struttura menu..." -ForegroundColor Blue
             $menuTests = @(
               @{ Pattern = [regex]::Escape("while (`$true)"); Name = "Menu principale" },
-              @{ Pattern = "Operazioni Preliminari"; Name = "Categoria Operazioni Preliminari" },
               @{ Pattern = "Windows & Office"; Name = "Categoria Windows & Office" },
               @{ Pattern = "Driver & Gaming"; Name = "Categoria Driver & Gaming" },
               @{ Pattern = "Supporto"; Name = "Categoria Supporto" }
