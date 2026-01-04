@@ -153,7 +153,8 @@ function Invoke-WithSpinner {
 
                 if ($PercentUpdate) {
                     $percent = & $PercentUpdate
-                } else {
+                }
+                else {
                     $percent = [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100)
                 }
 
@@ -171,7 +172,8 @@ function Invoke-WithSpinner {
 
                 if ($PercentUpdate) {
                     $percent = & $PercentUpdate
-                } elseif ($percent -lt 90) {
+                }
+                elseif ($percent -lt 90) {
                     $percent += Get-Random -Minimum 1 -Maximum 3
                 }
 
@@ -278,7 +280,7 @@ function CheckBitlocker {
 function WinOSCheck {
     Show-Header -SubTitle "System Check"
     $si = Get-SystemInfo
-    if (-not $si) { Write-StyledMessage 'Warning' "Info sistema non disponibili."; return }
+    if (-not $si) { Write-StyledMessage -Type 'Warning' -Text "Info sistema non disponibili."; return }
 
     Write-Host "  Sistema: " -NoNewline -ForegroundColor Yellow
     Write-Host "$($si.ProductName) ($($si.DisplayVersion))" -ForegroundColor White
@@ -330,8 +332,8 @@ $menuStructure = @(
         )
     },
     @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @(
-        [pscustomobject]@{Name = 'SetRustDesk'; Description = 'Setting RustDesk - MagnetarMan Mode'; Action = 'RunFunction' }
-        [pscustomobject]@{Name = 'WinExportLog'; Description = 'Esporta Log WinToolkit'; Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'SetRustDesk'; Description = 'Setting RustDesk - MagnetarMan Mode'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinExportLog'; Description = 'Esporta Log WinToolkit'; Action = 'RunFunction' }
         )
     }
 )
