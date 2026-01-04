@@ -1844,37 +1844,72 @@ function WinBackupDriver {
         $archivePath = "$($script:BackupConfig.TempPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
         $compressionArgs = @('a', '-t7z', '-mx=9', '-mmt=on', "`"$archivePath`"", "`"$($script:BackupConfig.BackupDir)\*`"")
         
-        Write-StyledMessage Info "🚀 Compressione con 7-Zip (formato 7z, livello ultra)..."
+        # File per reindirizzare l'output di 7zip
+        $stdOutputPath = "$($script:BackupConfig.TempPath)\7zip_out.log"
+        $stdErrorPath = "$($script:BackupConfig.TempPath)\7zip_err.log"
         
-        $compressionProcess = Start-Process -FilePath $SevenZipPath -ArgumentList $compressionArgs -NoNewWindow -PassThru
-        
-        $timeoutSeconds = 600
-        $spinnerIndex = 0
-        
-        while (-not $compressionProcess.HasExited -and $timeoutSeconds -gt 0) {
-            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-            Write-Host "`r$spinner 📦 Compressione archivio... ($timeoutSeconds secondi rimanenti)" -NoNewline -ForegroundColor Cyan
-            Start-Sleep -Seconds 1
-            $timeoutSeconds--
-        }
-        
-        Write-Host "`r" + (' ' * 80) + "`r" -NoNewline
-        
-        if (-not $compressionProcess.HasExited) {
-            $compressionProcess.Kill()
-            throw "Timeout raggiunto durante la compressione"
-        }
-        
-        if ($compressionProcess.ExitCode -eq 0 -and (Test-Path $archivePath)) {
-            $compressedSizeMB = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
-            $compressionRatio = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
+        try {
+            Write-StyledMessage Info "🚀 Compressione con 7-Zip (formato 7z, livello ultra)..."
             
-            Write-StyledMessage Success "Compressione completata: $compressedSizeMB MB (Riduzione: $compressionRatio%)"
-            return $archivePath
+            # Avvio processo 7zip con output reindirizzato per evitare interferenze con lo spinner
+            $compressionProcess = Start-Process -FilePath $SevenZipPath -ArgumentList $compressionArgs -NoNewWindow -PassThru -RedirectStandardOutput $stdOutputPath -RedirectStandardError $stdErrorPath
+            
+            $timeoutSeconds = 600
+            $spinnerIndex = 0
+            $lastUpdateTime = Get-Date
+            
+            while (-not $compressionProcess.HasExited -and $timeoutSeconds -gt 0) {
+                $currentTime = Get-Date
+                $elapsedSeconds = [Math]::Floor(($currentTime - $lastUpdateTime).TotalSeconds)
+                
+                # Aggiorna lo spinner ogni secondo
+                if ($elapsedSeconds -ge 1) {
+                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                    $minutes = [Math]::Floor($timeoutSeconds / 60)
+                    $seconds = $timeoutSeconds % 60
+                    $timeDisplay = if ($minutes -gt 0) { "$minutes min $seconds sec" } else { "$seconds sec" }
+                    
+                    Write-Host "`r$spinner 📦 Compressione archivio... ($timeDisplay rimanenti)" -NoNewline -ForegroundColor Cyan
+                    $lastUpdateTime = $currentTime
+                    $spinnerIndex = 0 # Reset per evitare overflow
+                }
+                
+                Start-Sleep -Milliseconds 200 # Controllo più frequente per responsività
+                $timeoutSeconds -= 0.2
+            }
+            
+            # Pulisci la linea dello spinner
+            Write-Host "`r" + (' ' * 80) + "`r" -NoNewline
+            
+            if (-not $compressionProcess.HasExited) {
+                $compressionProcess.Kill()
+                throw "Timeout raggiunto durante la compressione"
+            }
+            
+            if ($compressionProcess.ExitCode -eq 0 -and (Test-Path $archivePath)) {
+                $compressedSizeMB = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
+                $compressionRatio = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
+                
+                Write-StyledMessage Success "Compressione completata: $compressedSizeMB MB (Riduzione: $compressionRatio%)"
+                return $archivePath
+            }
+            else {
+                # Log degli errori di 7zip per debugging
+                $errorDetails = if (Test-Path $stdErrorPath) {
+                    $errorContent = Get-Content $stdErrorPath -ErrorAction SilentlyContinue
+                    if ($errorContent) { $errorContent -join '; ' } else { "Log errori vuoto" }
+                }
+                else { "File di log errori non trovato" }
+                
+                Write-StyledMessage Error "Compressione fallita (ExitCode: $($compressionProcess.ExitCode)). Dettagli: $errorDetails"
+                return $null
+            }
         }
-        
-        Write-StyledMessage Error "Compressione fallita (ExitCode: $($compressionProcess.ExitCode))"
-        return $null
+        finally {
+            # Pulizia file di log temporanei
+            if (Test-Path $stdOutputPath) { Remove-Item $stdOutputPath -ErrorAction SilentlyContinue }
+            if (Test-Path $stdErrorPath) { Remove-Item $stdErrorPath -ErrorAction SilentlyContinue }
+        }
     }
     
     function Move-ArchiveToDesktop {
