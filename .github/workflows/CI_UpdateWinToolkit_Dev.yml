@@ -422,27 +422,20 @@ jobs:
 
           }
           catch {
-            $errorDetail = @"
-    ╔════════════════════════════════════════════════════════════
-    ║ ERRORE DURANTE I TEST
-    ╠════════════════════════════════════════════════════════════
-    ║ Messaggio: $($_.Exception.Message)
-    ║ Tipo: $($_.Exception.GetType().FullName)
-"@
+            $errorMsg = "ERRORE DURANTE I TEST"
+            Write-Host "    ╔════════════════════════════════════════════════════════════" -ForegroundColor Red
+            Write-Host "    ║ $errorMsg" -ForegroundColor Red
+            Write-Host "    ╠════════════════════════════════════════════════════════════" -ForegroundColor Red
+            Write-Host "    ║ Messaggio: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "    ║ Tipo: $($_.Exception.GetType().FullName)" -ForegroundColor Red
             if ($_.InvocationInfo) {
-              $errorDetail += @"
-
-    ║ Linea: $($_.InvocationInfo.ScriptLineNumber)
-    ║ Comando: $($_.InvocationInfo.Line)
-"@
+              Write-Host "    ║ Linea: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
+              Write-Host "    ║ Comando: $($_.InvocationInfo.Line)" -ForegroundColor Red
             }
-            $errorDetail += @"
+            Write-Host "    ╚════════════════════════════════════════════════════════════" -ForegroundColor Red
 
-    ╚════════════════════════════════════════════════════════════
-"@
-            Write-Host $errorDetail -ForegroundColor Red
             $totalErrors++
-            $criticalErrors += $errorDetail
+            $criticalErrors += "Test Error: $($_.Exception.Message)"
             $testResults += "❌ Errore test: $($_.Exception.Message)"
           }
 
