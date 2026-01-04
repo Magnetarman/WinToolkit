@@ -58,10 +58,7 @@ function OfficeToolkit {
         }
     }
 
-    function Show-Spinner([string]$Activity, [scriptblock]$Action) {
-        # Usa la funzione globale Invoke-WithSpinner
-        return Invoke-WithSpinner -Activity $Activity -Action $Action -Job -UpdateInterval 200
-    }
+
 
     function Get-UserConfirmation([string]$Message, [string]$DefaultChoice = 'N') {
         do {
@@ -172,17 +169,19 @@ function OfficeToolkit {
                 # Nuove configurazioni post-installazione: Disabilitazione Telemetria e Notifiche Crash
                 Write-StyledMessage Info "⚙️ Configurazione post-installazione Office..."
 
-                Show-Spinner -Activity "Disabilitazione telemetria Office" -Action {
-                    $RegPathTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry"
-                    if (-not (Test-Path $RegPathTelemetry)) { New-Item $RegPathTelemetry -Force | Out-Null }
-                    Set-ItemProperty -Path $RegPathTelemetry -Name "DisableTelemetry" -Value 1 -Type DWord -Force
-                }
+                # Configurazione telemetria Office
+                Write-StyledMessage Info "⚙️ Disabilitazione telemetria Office..."
+                $RegPathTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry"
+                if (-not (Test-Path $RegPathTelemetry)) { New-Item $RegPathTelemetry -Force | Out-Null }
+                Set-ItemProperty -Path $RegPathTelemetry -Name "DisableTelemetry" -Value 1 -Type DWord -Force
+                Write-StyledMessage Success "✅ Telemetria Office disabilitata"
 
-                Show-Spinner -Activity "Disabilitazione notifiche crash Office" -Action {
-                    $RegPathFeedback = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"
-                    if (-not (Test-Path $RegPathFeedback)) { New-Item $RegPathFeedback -Force | Out-Null }
-                    Set-ItemProperty -Path $RegPathFeedback -Name "OnBootNotify" -Value 0 -Type DWord -Force
-                }
+                # Configurazione notifiche crash Office
+                Write-StyledMessage Info "⚙️ Disabilitazione notifiche crash Office..."
+                $RegPathFeedback = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"
+                if (-not (Test-Path $RegPathFeedback)) { New-Item $RegPathFeedback -Force | Out-Null }
+                Set-ItemProperty -Path $RegPathFeedback -Name "OnBootNotify" -Value 0 -Type DWord -Force
+                Write-StyledMessage Success "✅ Notifiche crash Office disabilitate"
                 # Fine nuove configurazioni
 
                 Write-StyledMessage Success "🎉 Installazione Office completata!"
