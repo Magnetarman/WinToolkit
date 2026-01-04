@@ -5,229 +5,403 @@ function WinBackupDriver {
     .DESCRIPTION
         Script PowerShell per eseguire il backup completo di tutti i driver di terze parti
         installati sul sistema. Il processo include l'esportazione tramite DISM, compressione
-        in formato ZIP e spostamento automatico sul desktop.
+        in formato 7z e spostamento automatico sul desktop.
     #>
     param([int]$CountdownSeconds = 10)
 
+    #region Initialization
     Initialize-ToolLogging -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
-
-    $dt = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $BackupDir = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
-    $ZipName = "DriverBackup_$dt"
-    $DesktopPath = [Environment]::GetFolderPath('Desktop')
-    $FinalZipPath = "$DesktopPath\$ZipName.zip"
-
-    function Test-Admin {
-        return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    
+    $script:BackupConfig = @{
+        DateTime    = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        BackupDir   = "$env:LOCALAPPDATA\WinToolkit\Driver Backup"
+        ArchiveName = "DriverBackup"
+        DesktopPath = [Environment]::GetFolderPath('Desktop')
+        TempPath    = $env:TEMP
+        LogPath     = "$env:LOCALAPPDATA\WinToolkit\logs"
     }
+    
+    $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
+    #endregion
 
-    function Export-Drivers {
-        Write-StyledMessage Info "💾 Avvio esportazione driver di terze parti..."
+    #region Helper Functions
+    function Test-AdministratorPrivilege {
+        $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
+        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    }
+    
+    function Initialize-BackupEnvironment {
+        param()
+        
+        Write-StyledMessage Info "🗂️ Inizializzazione ambiente backup..."
+        
         try {
-            if (Test-Path $BackupDir) {
+            # Crea directory backup
+            if (Test-Path $script:BackupConfig.BackupDir) {
                 Write-StyledMessage Warning "Rimozione backup precedenti..."
-                Remove-Item $BackupDir -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
+                Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction Stop | Out-Null
             }
-
-            New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
-            Write-StyledMessage Success "Cartella backup preparata: $BackupDir"
-
-            Write-StyledMessage Info "🔧 Esecuzione DISM per esportazione driver..."
-            Write-StyledMessage Info "💡 Questa operazione può richiedere diversi minuti..."
             
-            # Avvia DISM senza monitoraggio per evitare conflitti di output
-            $proc = Start-Process 'dism.exe' -ArgumentList @('/online', '/export-driver', "/destination:`"$BackupDir`"") -NoNewWindow -PassThru -RedirectStandardOutput $env:TEMP\dism_out.log -RedirectStandardError $env:TEMP\dism_err.log
+            New-Item -ItemType Directory -Path $script:BackupConfig.BackupDir -Force | Out-Null
+            Write-StyledMessage Success "Directory backup creata: $($script:BackupConfig.BackupDir)"
             
-            # Mostra countdown semplice durante l'attesa
-            $timeoutSeconds = 300 # 5 minuti timeout
+            # Verifica spazio disco disponibile
+            $desktopDrive = Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='$((Get-Item $script:BackupConfig.DesktopPath).Drive.Name)'"
+            $freeSpaceGB = [Math]::Round($desktopDrive.FreeSpace / 1GB, 2)
+            
+            if ($freeSpaceGB -lt 1) {
+                throw "Spazio disco insufficiente sul desktop. Richiesti almeno 1GB, disponibili: $freeSpaceGB GB"
+            }
+            
+            Write-StyledMessage Success "Spazio desktop disponibile: $freeSpaceGB GB"
+            return $true
+        }
+        catch {
+            Write-StyledMessage Error "Errore inizializzazione ambiente: $_"
+            return $false
+        }
+    }
+    #endregion
+
+    #region Core Functions
+    function Export-SystemDrivers {
+        <#
+        .SYNOPSIS
+            Esporta i driver di terze parti dal sistema utilizzando DISM.
+        #>
+        param()
+        
+        Write-StyledMessage Info "💾 Avvio esportazione driver di sistema..."
+        
+        try {
+            $dismProcess = Start-Process -FilePath 'dism.exe' -ArgumentList @(
+                '/online',
+                '/export-driver', 
+                "/destination:`"$($script:BackupConfig.BackupDir)`""
+            ) -NoNewWindow -PassThru -RedirectStandardOutput "$($script:BackupConfig.TempPath)\dism_out.log" -RedirectStandardError "$($script:BackupConfig.TempPath)\dism_err.log"
+            
+            # Monitoraggio con timeout
+            $timeoutSeconds = 300
             $spinnerIndex = 0
             
-            while (-not $proc.HasExited -and $timeoutSeconds -gt 0) {
+            while (-not $dismProcess.HasExited -and $timeoutSeconds -gt 0) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 Write-Host "`r$spinner ⏳ Esportazione driver in corso... ($timeoutSeconds secondi rimanenti)" -NoNewline -ForegroundColor Yellow
                 Start-Sleep -Seconds 1
                 $timeoutSeconds--
             }
+            
             Write-Host "`r" + (' ' * 80) + "`r" -NoNewline
             
-            if (-not $proc.HasExited) {
-                $proc.Kill()
-                Write-StyledMessage Error "Timeout raggiunto durante l'esportazione."
-                return $false
+            if (-not $dismProcess.HasExited) {
+                $dismProcess.Kill()
+                throw "Timeout raggiunto durante l'esportazione DISM"
             }
-
-            if ($proc.ExitCode -eq 0) {
-                $drivers = Get-ChildItem $BackupDir -Recurse -File -ErrorAction SilentlyContinue
-                if ($drivers) {
-                    Write-StyledMessage Success "Esportazione completata: $($drivers.Count) driver trovati."
-                    return $true
+            
+            if ($dismProcess.ExitCode -ne 0) {
+                $errorDetails = if (Test-Path "$($script:BackupConfig.TempPath)\dism_err.log") {
+                    (Get-Content "$($script:BackupConfig.TempPath)\dism_err.log") -join '; '
                 }
-                Write-StyledMessage Warning "Nessun driver di terze parti trovato."
+                else { "Dettagli non disponibili" }
+                throw "Esportazione DISM fallita (ExitCode: $($dismProcess.ExitCode)). Dettagli: $errorDetails"
+            }
+            
+            # Verifica driver esportati
+            $exportedDrivers = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
+            if (-not $exportedDrivers -or $exportedDrivers.Count -eq 0) {
+                Write-StyledMessage Warning "Nessun driver di terze parti trovato da esportare"
+                Write-StyledMessage Info "💡 I driver integrati di Windows non vengono esportati"
                 return $true
             }
-            Write-StyledMessage Error "Esportazione DISM fallita (ExitCode: $($proc.ExitCode))."
-            if (Test-Path $env:TEMP\dism_err.log) {
-                $errorContent = Get-Content $env:TEMP\dism_err.log
-                if ($errorContent) { Write-StyledMessage Error "Dettagli: $($errorContent -join ', ')" }
-            }
-            return $false
+            
+            $totalSize = ($exportedDrivers | Measure-Object -Property Length -Sum).Sum
+            $totalSizeMB = [Math]::Round($totalSize / 1MB, 2)
+            
+            Write-StyledMessage Success "Esportazione completata: $($exportedDrivers.Count) driver trovati ($totalSizeMB MB)"
+            return $true
         }
         catch {
-            Write-StyledMessage Error "Errore export: $_"
+            Write-StyledMessage Error "Errore durante esportazione driver: $_"
             return $false
         }
         finally {
-            # Pulizia file temporanei
-            Remove-Item $env:TEMP\dism_out.log -ErrorAction SilentlyContinue
-            Remove-Item $env:TEMP\dism_err.log -ErrorAction SilentlyContinue
+            # Pulizia file log temporanei
+            Remove-Item "$($script:BackupConfig.TempPath)\dism_out.log" -ErrorAction SilentlyContinue
+            Remove-Item "$($script:BackupConfig.TempPath)\dism_err.log" -ErrorAction SilentlyContinue
         }
     }
-
-    function Install-7ZipPortable {
-        $7zDir = "$env:LOCALAPPDATA\WinToolkit\7zip"
-        $7zExe = "$7zDir\7zr.exe"
-        if (Test-Path $7zExe) { return $7zExe }
-
-        New-Item -ItemType Directory -Path $7zDir -Force | Out-Null
-        $urls = @("https://www.7-zip.org/a/7zr.exe", "https://github.com/Magnetarman/WinToolkit/raw/Dev/asset/7zr.exe")
-
-        foreach ($url in $urls) {
-            Write-StyledMessage Info "Download 7-Zip da: $(($url -split '/')[2])"
-            try {
-                # Download diretto senza job per evitare blocchi
-                Write-StyledMessage Info "⬇️ Download in corso..."
-                Invoke-WebRequest -Uri $url -OutFile $7zExe -UseBasicParsing -ErrorAction Stop
-                
-                if (Test-Path $7zExe -and (Get-Item $7zExe).Length -gt 0) {
-                    Write-StyledMessage Success "7-Zip Portable scaricato con successo."
-                    return $7zExe
-                }
-                else {
-                    Write-StyledMessage Warning "File scaricato ma vuoto o corrotto."
-                    Remove-Item $7zExe -Force -ErrorAction SilentlyContinue
-                }
-            }
-            catch {
-                Write-StyledMessage Warning "Download fallito da $(($url -split '/')[2]): $_"
-                if (Test-Path $7zExe) { Remove-Item $7zExe -Force -ErrorAction SilentlyContinue }
-            }
-        }
-        Write-StyledMessage Error "Download 7-Zip fallito da entrambe le fonti."
-        return $null
-    }
-
-    function Get-7ZipExecutable {
-        $paths = @(
+    
+    function Resolve-7ZipExecutable {
+        <#
+        .SYNOPSIS
+            Risolve il percorso dell'eseguibile 7-Zip, scaricandolo se necessario.
+        #>
+        param()
+        
+        # Percorsi standard di 7-Zip
+        $standardPaths = @(
             "$env:ProgramFiles\7-Zip\7z.exe",
             "${env:ProgramFiles(x86)}\7-Zip\7z.exe",
             "$env:LOCALAPPDATA\7-Zip\7z.exe"
         )
-        foreach ($p in $paths) { if (Test-Path $p) { Write-StyledMessage Success "7-Zip trovato: $p"; return $p } }
+        
+        # Verifica installazioni esistenti
+        foreach ($path in $standardPaths) {
+            if (Test-Path $path) {
+                Write-StyledMessage Success "7-Zip trovato: $path"
+                return $path
+            }
+        }
+        
+        # Download versione portable
         return Install-7ZipPortable
     }
-
-    function Compress-With7Zip {
+    
+    function Install-7ZipPortable {
+        <#
+        .SYNOPSIS
+            Scarica e installa 7-Zip portable.
+        #>
+        param()
+        
+        $installDir = "$env:LOCALAPPDATA\WinToolkit\7zip"
+        $executablePath = "$installDir\7zr.exe"
+        
+        if (Test-Path $executablePath) {
+            Write-StyledMessage Success "7-Zip portable già presente"
+            return $executablePath
+        }
+        
+        New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+        
+        $downloadSources = @(
+            @{ Url = "https://github.com/Magnetarman/WinToolkit/raw/Dev/asset/7zr.exe"; Name = "Repository MagnetarMan" },
+            @{ Url = "https://www.7-zip.org/a/7zr.exe"; Name = "Sito ufficiale 7-Zip" }
+        )
+        
+        foreach ($source in $downloadSources) {
+            try {
+                Write-StyledMessage Info "⬇️ Download 7-Zip da: $($source.Name)"
+                Invoke-WebRequest -Uri $source.Url -OutFile $executablePath -UseBasicParsing -ErrorAction Stop
+                
+                # Validazione file scaricato
+                if (Test-Path $executablePath) {
+                    $fileSize = (Get-Item $executablePath).Length
+                    
+                    if ($fileSize -gt 100KB -and $fileSize -lt 10MB) {
+                        # Test funzionalità
+                        $testResult = & $executablePath 2>&1
+                        if ($testResult -match "7-Zip" -or $testResult -match "Licensed") {
+                            Write-StyledMessage Success "7-Zip portable scaricato e verificato"
+                            return $executablePath
+                        }
+                    }
+                    
+                    Write-StyledMessage Warning "File scaricato non valido (Dimensione: $fileSize bytes)"
+                    Remove-Item $executablePath -Force -ErrorAction SilentlyContinue
+                }
+            }
+            catch {
+                Write-StyledMessage Warning "Download fallito da $($source.Name): $_"
+                if (Test-Path $executablePath) { 
+                    Remove-Item $executablePath -Force -ErrorAction SilentlyContinue 
+                }
+            }
+        }
+        
+        Write-StyledMessage Error "Impossibile scaricare 7-Zip da tutte le fonti"
+        return $null
+    }
+    
+    function Compress-BackupArchive {
+        <#
+        .SYNOPSIS
+            Comprime la directory di backup in formato 7z.
+        #>
         param([string]$SevenZipPath)
         
-        Write-StyledMessage Info "📦 Preparazione compressione..."
-        if (-not (Test-Path $BackupDir)) { Write-StyledMessage Error "Cartella backup non trovata."; return $null }
-
-        $files = Get-ChildItem $BackupDir -Recurse -File -EA SilentlyContinue
-        if (-not $files) { Write-StyledMessage Warning "Nessun file da comprimere."; return $null }
-
-        $totalMB = [Math]::Round(($files | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
-        Write-StyledMessage Info "Dimensione totale: $totalMB MB"
-
-        $tempZip = "$env:TEMP\$ZipName.zip"
-        if (Test-Path $tempZip) { Remove-Item $tempZip -Force }
-
-        $7zArgs = @('a', '-tzip', '-mx9', '-mmt', "`"$tempZip`"", "`"$BackupDir\*`"")
+        if (-not $SevenZipPath -or -not (Test-Path $SevenZipPath)) {
+            throw "Percorso 7-Zip non valido: $SevenZipPath"
+        }
         
-        Write-StyledMessage Info "🚀 Compressione con 7-Zip (livello massimo)..."
+        if (-not (Test-Path $script:BackupConfig.BackupDir)) {
+            throw "Directory backup non trovata: $($script:BackupConfig.BackupDir)"
+        }
         
-        # Avvia processo senza redirect per evitare problemi
-        $proc = Start-Process $SevenZipPath -ArgumentList $7zArgs -NoNewWindow -PassThru
+        Write-StyledMessage Info "📦 Preparazione compressione archivio..."
         
-        # Mostra spinner semplice durante compressione
-        $timeoutSeconds = 600 # 10 minuti timeout
+        # Verifica contenuto directory
+        $backupFiles = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
+        if (-not $backupFiles) {
+            Write-StyledMessage Warning "Nessun file da comprimere nella directory backup"
+            return $null
+        }
+        
+        $totalSizeMB = [Math]::Round(($backupFiles | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
+        Write-StyledMessage Info "Dimensione totale: $totalSizeMB MB"
+        
+        # Configurazione compressione
+        $archivePath = "$($script:BackupConfig.TempPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
+        $compressionArgs = @('a', '-t7z', '-mx=9', '-mmt=on', "`"$archivePath`"", "`"$($script:BackupConfig.BackupDir)\*`"")
+        
+        Write-StyledMessage Info "🚀 Compressione con 7-Zip (formato 7z, livello ultra)..."
+        
+        # Test preliminare 7-Zip
+        try {
+            $versionTest = & $SevenZipPath 'i' 2>&1 | Select-Object -First 1
+            Write-StyledMessage Info "Test 7-Zip: $($versionTest -replace '\s+', ' ')"
+        }
+        catch {
+            Write-StyledMessage Warning "Test 7-Zip fallito, proseguo comunque..."
+        }
+        
+        # Esecuzione compressione
+        $compressionProcess = Start-Process -FilePath $SevenZipPath -ArgumentList $compressionArgs -NoNewWindow -PassThru
+        
+        # Monitoraggio progresso
+        $timeoutSeconds = 600
         $spinnerIndex = 0
         
-        while (-not $proc.HasExited -and $timeoutSeconds -gt 0) {
+        while (-not $compressionProcess.HasExited -and $timeoutSeconds -gt 0) {
             $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-            Write-Host "`r$spinner 📦 Compressione in corso... ($timeoutSeconds secondi rimanenti)" -NoNewline -ForegroundColor Cyan
+            Write-Host "`r$spinner 📦 Compressione archivio... ($timeoutSeconds secondi rimanenti)" -NoNewline -ForegroundColor Cyan
             Start-Sleep -Seconds 1
             $timeoutSeconds--
         }
+        
         Write-Host "`r" + (' ' * 80) + "`r" -NoNewline
         
-        if (-not $proc.HasExited) {
-            $proc.Kill()
-            Write-StyledMessage Error "Timeout raggiunto durante la compressione."
-            return $null
+        if (-not $compressionProcess.HasExited) {
+            $compressionProcess.Kill()
+            throw "Timeout raggiunto durante la compressione"
         }
-
-        if ($proc.ExitCode -eq 0 -and (Test-Path $tempZip)) {
-            $zipMB = [Math]::Round((Get-Item $tempZip).Length / 1MB, 2)
-            Write-StyledMessage Success "Compressione completata: $zipMB MB"
-            return $tempZip
-        }
-
-        Write-StyledMessage Error "Compressione fallita (ExitCode: $($proc.ExitCode))"
-        return $null
-    }
-
-    function Move-ToDesktop([string]$ZipPath) {
-        if ([string]::IsNullOrWhiteSpace($ZipPath) -or -not (Test-Path $ZipPath)) { return $false }
         
-        Write-StyledMessage Info "📂 Spostamento su Desktop..."
+        if ($compressionProcess.ExitCode -eq 0 -and (Test-Path $archivePath)) {
+            $compressedSizeMB = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
+            $compressionRatio = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
+            
+            Write-StyledMessage Success "Compressione completata: $compressedSizeMB MB (Riduzione: $compressionRatio%)"
+            return $archivePath
+        }
+        
+        # Gestione errori compressione
+        $errorMsg = "Compressione fallita (ExitCode: $($compressionProcess.ExitCode))"
+        Write-StyledMessage Error $errorMsg
+        
         try {
-            if (-not (Test-Path $DesktopPath)) { throw "Desktop non trovato" }
-            Copy-Item $ZipPath $FinalZipPath -Force -ErrorAction Stop
-            if (Test-Path $FinalZipPath) {
-                Remove-Item $ZipPath -Force
-                Write-StyledMessage Success "Archivio salvato: $FinalZipPath"
-                return $true
+            $compressionProcess.WaitForExit(5000)
+            $stdError = $compressionProcess.StandardError.ReadToEnd()
+            if ($stdError) {
+                Write-StyledMessage Error "Dettagli errore: $stdError"
             }
         }
         catch {
-            Write-StyledMessage Error "Errore spostamento: $_"
+            Write-StyledMessage Warning "Impossibile ottenere dettagli errore compressione"
         }
-        return $false
+        
+        return $null
     }
-
-    # --- MAIN EXECUTION ---
-    if (-not (Test-Admin)) {
-        Write-StyledMessage Error "Richiesti privilegi di amministratore."
-        Read-Host "Premi INVIO per uscire"
-        return
+    
+    function Move-ArchiveToDesktop {
+        <#
+        .SYNOPSIS
+            Sposta l'archivio compresso sul desktop.
+        #>
+        param([string]$ArchivePath)
+        
+        if ([string]::IsNullOrWhiteSpace($ArchivePath) -or -not (Test-Path $ArchivePath)) {
+            throw "Percorso archivio non valido: $ArchivePath"
+        }
+        
+        Write-StyledMessage Info "📂 Spostamento archivio su desktop..."
+        
+        try {
+            if (-not (Test-Path $script:BackupConfig.DesktopPath)) {
+                throw "Directory desktop non accessibile: $($script:BackupConfig.DesktopPath)"
+            }
+            
+            # Verifica conflitti nome file
+            if (Test-Path $script:FinalArchivePath) {
+                Write-StyledMessage Warning "Rimozione archivio precedente..."
+                Remove-Item $script:FinalArchivePath -Force -ErrorAction Stop
+            }
+            
+            # Copia archivio
+            Copy-Item -Path $ArchivePath -Destination $script:FinalArchivePath -Force -ErrorAction Stop
+            
+            if (Test-Path $script:FinalArchivePath) {
+                Write-StyledMessage Success "Archivio salvato sul desktop"
+                Write-StyledMessage Info "Posizione: $script:FinalArchivePath"
+                return $true
+            }
+            
+            throw "Copia archivio fallita"
+        }
+        catch {
+            Write-StyledMessage Error "Errore spostamento archivio: $_"
+            return $false
+        }
     }
+    #endregion
 
+    #region Main Execution
     try {
-        Write-Host ""
-        if (Export-Drivers) {
+        # Verifica privilegi amministratore
+        if (-not (Test-AdministratorPrivilege)) {
+            Write-StyledMessage Error "❌ Privilegi amministratore richiesti"
+            Write-StyledMessage Info "💡 Riavvia PowerShell come Amministratore"
+            Read-Host "`nPremi INVIO per uscire"
+            return
+        }
+        
+        Write-StyledMessage Info "🚀 Inizializzazione sistema..."
+        Start-Sleep -Seconds 1
+        
+        # Pipeline principale
+        if (Initialize-BackupEnvironment) {
             Write-Host ""
-            $7zPath = Get-7ZipExecutable
-            if ($7zPath) {
+            
+            if (Export-SystemDrivers) {
                 Write-Host ""
-                $zip = Compress-With7Zip -SevenZipPath $7zPath
-                if ($zip) {
+                
+                $sevenZipPath = Resolve-7ZipExecutable
+                if ($sevenZipPath) {
                     Write-Host ""
-                    Move-ToDesktop $zip | Out-Null
-                    Write-Host ""
-                    Write-StyledMessage Success "🎉 Backup completato!"
-                    Write-StyledMessage Info "Conservare il file: $FinalZipPath"
+                    
+                    $compressedArchive = Compress-BackupArchive -SevenZipPath $sevenZipPath
+                    if ($compressedArchive) {
+                        Write-Host ""
+                        
+                        if (Move-ArchiveToDesktop -ArchivePath $compressedArchive) {
+                            Write-Host ""
+                            Write-StyledMessage Success "🎉 Backup driver completato con successo!"
+                            Write-StyledMessage Info "📁 Archivio finale: $script:FinalArchivePath"
+                            Write-StyledMessage Info "💾 Utilizzabile per reinstallare tutti i driver"
+                            Write-StyledMessage Info "🔧 Senza doverli riscaricare singolarmente"
+                        }
+                    }
                 }
             }
         }
     }
     catch {
-        Write-StyledMessage Error "Errore critico: $_"
+        Write-StyledMessage Error "Errore critico durante backup: $($_.Exception.Message)"
+        Write-StyledMessage Info "💡 Controlla i log per dettagli tecnici"
     }
     finally {
-        if (Test-Path $BackupDir) { Remove-Item $BackupDir -Recurse -Force -EA SilentlyContinue }
+        # Pulizia ambiente
+        Write-StyledMessage Info "🧹 Pulizia ambiente temporaneo..."
+        if (Test-Path $script:BackupConfig.BackupDir) {
+            Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
         Write-Host "`nPremi INVIO per terminare..." -ForegroundColor Gray
         Read-Host | Out-Null
+        
         try { Stop-Transcript | Out-Null } catch {}
+        Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
     }
+    #endregion
 }
