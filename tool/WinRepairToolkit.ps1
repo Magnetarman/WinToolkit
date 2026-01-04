@@ -27,18 +27,17 @@ function WinRepairToolkit {
         $errFile = [System.IO.Path]::GetTempFileName()
 
         try {
-            # Logica Originale Intatta
-            $proc = if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
-                $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
-                $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
-                Start-Process 'cmd.exe' @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')") -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
-            }
-            else {
-                Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
-            }
-
-            # Usa la funzione globale Invoke-WithSpinner per monitorare il processo
-            $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action { $proc } -UpdateInterval (if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
+            # Sposta l'intera logica di avvio del processo all'interno del blocco di script per Invoke-WithSpinner
+            $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
+                if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
+                    $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
+                    $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
+                    Start-Process 'cmd.exe' @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')") -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+                }
+                else {
+                    Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+                }
+            } -UpdateInterval (if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
 
             $results = @()
             @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
