@@ -63,7 +63,7 @@ function WinInstallPSProfile {
     # Countdown preparazione
     Invoke-WithSpinner -Activity "Preparazione" -Timer -Action { Start-Sleep 5 } -TimeoutSeconds 5
 
-    if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-StyledMessage Warning "Richiesti privilegi amministratore"
         Write-StyledMessage Info "Riavvio come amministratore..."
 
@@ -294,26 +294,13 @@ function WinInstallPSProfile {
             Write-StyledMessage Info "Flag riavvio salvato in: $rebootFlag"
         }
     }
-    else {
-        Write-StyledMessage Info "Profilo già aggiornato"
+    catch {
+        Write-StyledMessage Error "Errore durante l'installazione del profilo: $($_.Exception.Message)"
     }
-
-
-    Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
-}
-catch {
-    Write-Host ''
-    Write-Host ('═' * 65) -ForegroundColor Red
-    Write-StyledMessage Error "Errore installazione: $($_.Exception.Message)"
-    Write-Host ('═' * 65) -ForegroundColor Red
-}
-finally {
-    # Pulizia file temporanei
-    if (Test-Path $tempProfile) {
-        Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
+    finally {
+        # Pulizia file temporanei
+        if (Test-Path $tempProfile) {
+            Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
+        }
     }
-    Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
-    Read-Host
-    try { Stop-Transcript | Out-Null } catch {}
-}
 }
