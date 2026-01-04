@@ -310,22 +310,21 @@ jobs:
             if ($parseErrors.Count -gt 0) {
               Write-Host "  ❌ Errori di sintassi trovati:" -ForegroundColor Red
               foreach ($error in $parseErrors) {
-                $errorDetail = @"
-    ╔════════════════════════════════════════════════════════════
-    ║ ERRORE DI SINTASSI
-    ╠════════════════════════════════════════════════════════════
-    ║ File: WinToolkit.ps1
-    ║ Linea: $($error.Extent.StartLineNumber)
-    ║ Colonna: $($error.Extent.StartColumnNumber) - $($error.Extent.EndColumnNumber)
-    ║ Messaggio: $($error.Message)
-    ║ Severità: $($error.ErrorId)
-    ╠════════════════════════════════════════════════════════════
-    ║ Codice problematico:
-    ║ $($error.Extent.Text)
-    ╚════════════════════════════════════════════════════════════
-"@
-                Write-Host $errorDetail -ForegroundColor Red
-                $criticalErrors += $errorDetail
+                Write-Host "    ╔════════════════════════════════════════════════════════════" -ForegroundColor Red
+                Write-Host "    ║ ERRORE DI SINTASSI" -ForegroundColor Red
+                Write-Host "    ╠════════════════════════════════════════════════════════════" -ForegroundColor Red
+                Write-Host "    ║ File: WinToolkit.ps1" -ForegroundColor Red
+                Write-Host "    ║ Linea: $($error.Extent.StartLineNumber)" -ForegroundColor Red
+                Write-Host "    ║ Colonna: $($error.Extent.StartColumnNumber) - $($error.Extent.EndColumnNumber)" -ForegroundColor Red
+                Write-Host "    ║ Messaggio: $($error.Message)" -ForegroundColor Red
+                Write-Host "    ║ Severità: $($error.ErrorId)" -ForegroundColor Red
+                Write-Host "    ╠════════════════════════════════════════════════════════════" -ForegroundColor Red
+                Write-Host "    ║ Codice problematico:" -ForegroundColor Red
+                Write-Host "    ║ $($error.Extent.Text)" -ForegroundColor Red
+                Write-Host "    ╚════════════════════════════════════════════════════════════" -ForegroundColor Red
+
+                $errorMsg = "WinToolkit.ps1 Line $($error.Extent.StartLineNumber): $($error.Message)"
+                $criticalErrors += $errorMsg
               }
               $totalErrors += $parseErrors.Count
               $testResults += "❌ Sintassi: $($parseErrors.Count) errori"
