@@ -246,7 +246,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ## 📌 Changelog Progetto
 
-Per un resoconto dettagliato di ogni modifica, correzione e funzionalità introdotta, consulta il changelog completo a [QUI](/CHANGELOG.md).
+Per un resoconto dettagliato di ogni modifica, correzione e funzionalità introdotta, consulta il changelog completo [QUI](/CHANGELOG.md). La lista delle funzioni relative alla versione in sviluppo nel ramo `Dev` sono contenute ed aggiornate [QUI](/TODO.md)
 
 ---
 
