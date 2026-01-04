@@ -167,6 +167,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+  - Uniformata Spinner e grafica.
+  - Velocizzato il download di DDU.
 
 - Funzione **WinCleaner** Riscritta e potenziata.
   - Refactor Codice per uniformarlo al resto della codebase.
