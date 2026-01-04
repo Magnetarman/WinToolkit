@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 156)"
+$ToolkitVersion = "2.5.0 (Build 158)"
 
 
 # Setup Variabili Globali UI
@@ -103,47 +103,47 @@ function Invoke-WithSpinner {
     <#
     .SYNOPSIS
         Esegue un'azione con animazione spinner automatica.
-    
+
     .DESCRIPTION
         Funzione di ordine superiore che gestisce automaticamente l'animazione
         dello spinner per operazioni asincrone, processi, job o timer.
-        
+
     .PARAMETER Activity
         Descrizione dell'attività in corso.
-        
+
     .PARAMETER Action
         ScriptBlock da eseguire. Per processi: restituisce un processo.
         Per job PowerShell: restituisce un job.
         Per operazioni sincrone: ScriptBlock da eseguire prima del timeout.
-        
+
     .PARAMETER TimeoutSeconds
         Timeout in secondi (default: 300).
-        
+
     .PARAMETER UpdateInterval
         Intervallo di aggiornamento dello spinner in millisecondi (default: 500).
-        
+
     .PARAMETER Process
         Se specificato, l'Action restituisce un processo da monitorare.
-        
+
     .PARAMETER Job
         Se specificato, l'Action restituisce un job PowerShell da monitorare.
-        
+
     .PARAMETER Timer
         Se specificato, mostra un countdown timer.
-        
+
     .PARAMETER PercentUpdate
         ScriptBlock per aggiornare la percentuale di progresso.
-        
+
     .EXAMPLE
         # Monitora un processo
         $proc = Start-Process 'cmd.exe' -ArgumentList '/c', 'timeout 10' -PassThru
         Invoke-WithSpinner -Activity "Esecuzione comando" -Process -Action { $proc }
-        
+
     .EXAMPLE
         # Monitora un job PowerShell
         $job = Start-Job { Start-Sleep 10 }
         Invoke-WithSpinner -Activity "Elaborazione job" -Job -Action { $job }
-        
+
     .EXAMPLE
         # Countdown timer
         Invoke-WithSpinner -Activity "Preparazione" -Timer -Action { Start-Sleep 5 }
@@ -152,37 +152,37 @@ function Invoke-WithSpinner {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Activity,
-        
+
         [Parameter(Mandatory = $true)]
         [scriptblock]$Action,
-        
+
         [Parameter(Mandatory = $false)]
         [int]$TimeoutSeconds = 300,
-        
+
         [Parameter(Mandatory = $false)]
         [int]$UpdateInterval = 500,
-        
+
         [Parameter(Mandatory = $false)]
         [switch]$Process,
-        
+
         [Parameter(Mandatory = $false)]
         [switch]$Job,
-        
+
         [Parameter(Mandatory = $false)]
         [switch]$Timer,
-        
+
         [Parameter(Mandatory = $false)]
         [scriptblock]$PercentUpdate
     )
-    
+
     $startTime = Get-Date
     $spinnerIndex = 0
     $percent = 0
-    
+
     try {
         # Esegue l'azione iniziale
         $result = & $Action
-        
+
         # Determina il tipo di monitoraggio
         if ($Timer) {
             # Timer/Countdown
@@ -190,13 +190,13 @@ function Invoke-WithSpinner {
             for ($i = $totalSeconds; $i -gt 0; $i--) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $elapsed = $totalSeconds - $i
-                
+
                 if ($PercentUpdate) {
                     $percent = & $PercentUpdate
                 } else {
                     $percent = [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100)
                 }
-                
+
                 Write-Host "`r$spinner ⏳ $Activity - $i secondi..." -NoNewline -ForegroundColor Yellow
                 Start-Sleep -Seconds 1
             }
@@ -208,25 +208,25 @@ function Invoke-WithSpinner {
             while (-not $result.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
-                
+
                 if ($PercentUpdate) {
                     $percent = & $PercentUpdate
                 } elseif ($percent -lt 90) {
                     $percent += Get-Random -Minimum 1 -Maximum 3
                 }
-                
+
                 Show-ProgressBar -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
                 Start-Sleep -Milliseconds $UpdateInterval
                 $result.Refresh()
             }
-            
+
             if (-not $result.HasExited) {
                 Write-StyledMessage -Type 'Warning' -Text "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
                 $result.Kill()
                 Start-Sleep -Seconds 2
                 return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
             }
-            
+
             Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
             return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
         }
@@ -237,7 +237,7 @@ function Invoke-WithSpinner {
                 Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
                 Start-Sleep -Milliseconds $UpdateInterval
             }
-            
+
             $jobResult = Receive-Job $result -Wait
             Write-Host ''
             return $jobResult
@@ -401,14 +401,10 @@ function WinInstallPSProfile {
         return $null
     }
 
-    for ($i = 5; $i -gt 0; $i--) {
-        $spinner = $Global:Spinners[$i % $Global:Spinners.Length]
-        Write-Host "`r$spinner ⏳ Preparazione - $i secondi..." -NoNewline -ForegroundColor Yellow
-        Start-Sleep 1
-    }
-    Write-Host "`n"
+    # Countdown preparazione
+    Invoke-WithSpinner -Activity "Preparazione" -Timer -Action { Start-Sleep 5 } -TimeoutSeconds 5
 
-    if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-StyledMessage Warning "Richiesti privilegi amministratore"
         Write-StyledMessage Info "Riavvio come amministratore..."
 
@@ -476,16 +472,11 @@ function WinInstallPSProfile {
             # oh-my-posh
             try {
                 Write-StyledMessage Info "Installazione oh-my-posh..."
-                $spinnerIndex = 0; $percent = 0
-
+                
                 $installProcess = Start-Process -FilePath "cmd" -ArgumentList "/c winget install JanDeDobbeleer.OhMyPosh -s winget --accept-package-agreements --accept-source-agreements --silent >nul 2>&1" -NoNewWindow -PassThru
-
-                while (-not $installProcess.HasExited -and $percent -lt 90) {
-                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                    Show-ProgressBar "oh-my-posh" "Installazione..." $percent '📦' $spinner
-                    $percent += 2
-                    Start-Sleep -Milliseconds 300
-                }
+                
+                # Usa la funzione globale Invoke-WithSpinner per monitorare l'installazione oh-my-posh
+                Invoke-WithSpinner -Activity "Installazione oh-my-posh" -Process -Action { $installProcess } -UpdateInterval 300
 
                 $installProcess.WaitForExit()
                 if ($installProcess.ExitCode -ne 0) {
@@ -522,16 +513,11 @@ function WinInstallPSProfile {
             # zoxide
             try {
                 Write-StyledMessage Info "Installazione zoxide..."
-                $spinnerIndex = 0; $percent = 0
-
+                
                 $installProcess = Start-Process -FilePath "cmd" -ArgumentList "/c winget install ajeetdsouza.zoxide -s winget --accept-package-agreements --accept-source-agreements --silent >nul 2>&1" -NoNewWindow -PassThru
-
-                while (-not $installProcess.HasExited -and $percent -lt 90) {
-                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                    Show-ProgressBar "zoxide" "Installazione..." $percent '⚡' $spinner
-                    $percent += 2
-                    Start-Sleep -Milliseconds 300
-                }
+                
+                # Usa la funzione globale Invoke-WithSpinner per monitorare l'installazione zoxide
+                Invoke-WithSpinner -Activity "Installazione zoxide" -Process -Action { $installProcess } -UpdateInterval 300
 
                 $installProcess.WaitForExit()
                 if ($installProcess.ExitCode -ne 0) {
@@ -567,132 +553,96 @@ function WinInstallPSProfile {
 
             # Refresh PATH
             Write-StyledMessage Info "Aggiornamento variabili d'ambiente..."
-            $spinnerIndex = 0; $percent = 0
-            $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
-            $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
-            $env:PATH = "$machinePath;$userPath"
-
-            while ($percent -lt 90) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                Show-ProgressBar "PATH" "Aggiornamento..." $percent '🔧' $spinner
-                $percent += Get-Random -Minimum 10 -Maximum 20
-                Start-Sleep -Milliseconds 200
-            }
-            Show-ProgressBar "PATH" "Completato" 100 '🔧'
-            Write-Host ''
+            Invoke-WithSpinner -Activity "Aggiornamento PATH" -Timer -Action { 
+                $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+                $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+                $env:PATH = "$machinePath;$userPath"
+                Start-Sleep 2
+            } -TimeoutSeconds 2
 
             # Setup profilo
             Write-StyledMessage Info "Configurazione profilo PowerShell..."
-            try {
-                $spinnerIndex = 0; $percent = 0
-                while ($percent -lt 90) {
-                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                    Show-ProgressBar "Profilo" "Setup..." $percent '⚙️' $spinner
-                    $percent += Get-Random -Minimum 3 -Maximum 8
-                    Start-Sleep -Milliseconds 400
-                }
-
+            Invoke-WithSpinner -Activity "Setup profilo PowerShell" -Timer -Action { 
                 Invoke-Expression (Invoke-WebRequest 'https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1' -UseBasicParsing).Content
-                Show-ProgressBar "Profilo" "Completato" 100 '⚙️'
-                Write-Host ''
-                Write-StyledMessage Success "Profilo installato!"
-                # Download e configurazione settings.json per Windows Terminal
-                $wtSettingsUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/settings.json"
-                $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
-                if (-not $wtPath) {
-                    Write-StyledMessage Warning "Directory Windows Terminal non trovata, impossibile configurare settings.json."
-                    return
-                }
-                $wtLocalStateDir = Join-Path $wtPath.FullName "LocalState"
-                if (-not (Test-Path $wtLocalStateDir)) {
-                    New-Item -ItemType Directory -Path $wtLocalStateDir -Force | Out-Null
-                }
-                $settingsPath = Join-Path $wtLocalStateDir "settings.json"
+                Start-Sleep 3
+            } -TimeoutSeconds 3
+            # Download e configurazione settings.json per Windows Terminal
+            $wtSettingsUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/settings.json"
+            $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $wtPath) {
+                Write-StyledMessage Warning "Directory Windows Terminal non trovata, impossibile configurare settings.json."
+                return
+            }
+            $wtLocalStateDir = Join-Path $wtPath.FullName "LocalState"
+            if (-not (Test-Path $wtLocalStateDir)) {
+                New-Item -ItemType Directory -Path $wtLocalStateDir -Force | Out-Null
+            }
+            $settingsPath = Join-Path $wtLocalStateDir "settings.json"
 
-                Write-StyledMessage Info "Download e configurazione settings.json per Windows Terminal..."
-                $spinnerIndex = 0; $percent = 0
-                try {
-                    # Simulazione barra di progresso per il download
-                    while ($percent -lt 80) {
-                        $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                        Show-ProgressBar "settings.json WT" "Download..." $percent '🖼️' $spinner
-                        $percent += Get-Random -Minimum 5 -Maximum 15
-                        Start-Sleep -Milliseconds 200
-                    }
+            Write-StyledMessage Info "Download e configurazione settings.json per Windows Terminal..."
+            $spinnerIndex = 0; $percent = 0
+            try {
+                # Download settings.json per Windows Terminal
+                Invoke-WithSpinner -Activity "Download settings.json Windows Terminal" -Timer -Action { 
                     Invoke-WebRequest $wtSettingsUrl -OutFile $settingsPath -UseBasicParsing
-                    $percent = 100 # Assicura che la barra di progresso raggiunga il 100%
-                    Show-ProgressBar "settings.json WT" "Completato" 100 '🖼️'
-                    Write-Host '' # Aggiunge un newline dopo la barra di progresso
-                    Write-StyledMessage Success "settings.json di Windows Terminal aggiornato con successo."
-                }
-                catch [System.Net.WebException] {
-                    Write-StyledMessage Error "Errore di rete durante il download di settings.json: $($_.Exception.Message)"
-                }
-                catch {
-                    Write-StyledMessage Error "Errore durante il download/copia di settings.json: $($_.Exception.Message)"
-                }
+                    Start-Sleep 2
+                } -TimeoutSeconds 2
+            }
+            catch [System.Net.WebException] {
+                Write-StyledMessage Error "Errore di rete durante il download di settings.json: $($_.Exception.Message)"
             }
             catch {
-                Write-StyledMessage Warning "Fallback: copia manuale profilo"
-                Copy-Item -Path $tempProfile -Destination $PROFILE -Force
-                Write-StyledMessage Success "Profilo copiato"
+                Write-StyledMessage Error "Errore durante il download/copia di settings.json: $($_.Exception.Message)"
             }
+        }
+        catch {
+            Write-StyledMessage Warning "Fallback: copia manuale profilo"
+            Copy-Item -Path $tempProfile -Destination $PROFILE -Force
+            Write-StyledMessage Success "Profilo copiato"
+        }
 
-            Write-Host ""
-            Write-Host ('═' * 80) -ForegroundColor Green
-            Write-StyledMessage Warning "Riavvio OBBLIGATORIO per:"
-            Write-Host "  • PATH oh-my-posh e zoxide" -ForegroundColor Cyan
-            Write-Host "  • Font installati" -ForegroundColor Cyan
-            Write-Host "  • Attivazione profilo" -ForegroundColor Cyan
-            Write-Host "  • Variabili d'ambiente" -ForegroundColor Cyan
-            Write-Host ('═' * 80) -ForegroundColor Green
-            Write-Host ""
+        Write-Host ""
+        Write-Host ('═' * 80) -ForegroundColor Green
+        Write-StyledMessage Warning "Riavvio OBBLIGATORIO per:"
+        Write-Host "  • PATH oh-my-posh e zoxide" -ForegroundColor Cyan
+        Write-Host "  • Font installati" -ForegroundColor Cyan
+        Write-Host "  • Attivazione profilo" -ForegroundColor Cyan
+        Write-Host "  • Variabili d'ambiente" -ForegroundColor Cyan
+        Write-Host ('═' * 80) -ForegroundColor Green
+        Write-Host ""
 
-            $shouldReboot = Start-InterruptibleCountdown 30 "Riavvio sistema"
+        $shouldReboot = Start-InterruptibleCountdown 30 "Riavvio sistema"
 
-            if ($shouldReboot) {
-                Write-StyledMessage Info "Riavvio..."
-                Restart-Computer -Force
-            }
-            else {
-                Write-Host ""
-                Write-Host ('═' * 80) -ForegroundColor Yellow
-                Write-StyledMessage Warning "RIAVVIO POSTICIPATO"
-                Write-Host ('═' * 80) -ForegroundColor Yellow
-                Write-Host ""
-                Write-StyledMessage Error "Il profilo NON funzionerà finché non riavvii!"
-                Write-Host ""
-                Write-StyledMessage Info "Dopo il riavvio, verifica con:"
-                Write-Host "  oh-my-posh --version" -ForegroundColor Cyan
-                Write-Host "  zoxide --version" -ForegroundColor Cyan
-                Write-Host ""
-                # Salva stato riavvio necessario
-                $rebootFlag = "$env:LOCALAPPDATA\WinToolkit\reboot_required.txt"
-                "Riavvio necessario per applicare PATH oh-my-posh/zoxide e profilo PowerShell. Eseguito il $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File $rebootFlag -Encoding UTF8
-                Write-StyledMessage Info "Flag riavvio salvato in: $rebootFlag"
-            }
+        if ($shouldReboot) {
+            Write-StyledMessage Info "Riavvio..."
+            Restart-Computer -Force
         }
         else {
-            Write-StyledMessage Info "Profilo già aggiornato"
+            Write-Host ""
+            Write-Host ('═' * 80) -ForegroundColor Yellow
+            Write-StyledMessage Warning "RIAVVIO POSTICIPATO"
+            Write-Host ('═' * 80) -ForegroundColor Yellow
+            Write-Host ""
+            Write-StyledMessage Error "Il profilo NON funzionerà finché non riavvii!"
+            Write-Host ""
+            Write-StyledMessage Info "Dopo il riavvio, verifica con:"
+            Write-Host "  oh-my-posh --version" -ForegroundColor Cyan
+            Write-Host "  zoxide --version" -ForegroundColor Cyan
+            Write-Host ""
+            # Salva stato riavvio necessario
+            $rebootFlag = "$env:LOCALAPPDATA\WinToolkit\reboot_required.txt"
+            "Riavvio necessario per applicare PATH oh-my-posh/zoxide e profilo PowerShell. Eseguito il $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File $rebootFlag -Encoding UTF8
+            Write-StyledMessage Info "Flag riavvio salvato in: $rebootFlag"
         }
-
-
-        Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
     }
     catch {
-        Write-Host ''
-        Write-Host ('═' * 65) -ForegroundColor Red
-        Write-StyledMessage Error "Errore installazione: $($_.Exception.Message)"
-        Write-Host ('═' * 65) -ForegroundColor Red
+        Write-StyledMessage Error "Errore durante l'installazione del profilo: $($_.Exception.Message)"
     }
     finally {
         # Pulizia file temporanei
         if (Test-Path $tempProfile) {
             Remove-Item $tempProfile -Force -ErrorAction SilentlyContinue
         }
-        Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
-        Read-Host
-        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 function WinRepairToolkit {
@@ -719,31 +669,22 @@ function WinRepairToolkit {
 
     function Invoke-RepairCommand([hashtable]$Config, [int]$Step, [int]$Total) {
         Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)..."
-        $percent = 0; $spinnerIndex = 0; $isChkdsk = ($Config.Tool -ieq 'chkdsk')
+        $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
 
         try {
-            # Logica Originale Intatta
-            $proc = if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
-                $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
-                $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
-                Start-Process 'cmd.exe' @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')") -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
-            }
-            else {
-                Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
-            }
-
-            while (-not $proc.HasExited) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                $color = if ($isChkdsk) { 'Yellow' } else { 'Green' }
-                Show-ProgressBar $Config.Name 'Esecuzione in corso...' $percent $Config.Icon $spinner $color
-                $sleepMs = 600
-                if ($Config.Name -eq 'Ripristino immagine Windows') { $sleepMs = 900 }
-                Start-Sleep -Milliseconds $sleepMs
-                $proc.Refresh()
-            }
+            # Sposta l'intera logica di avvio del processo all'interno del blocco di script per Invoke-WithSpinner
+            $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
+                if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
+                    $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
+                    $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
+                    Start-Process 'cmd.exe' @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')") -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+                }
+                else {
+                    Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+                }
+            } -UpdateInterval $(if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
 
             $results = @()
             @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
@@ -756,9 +697,7 @@ function WinRepairToolkit {
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
-            Show-ProgressBar $Config.Name 'Completato con successo' 100 $Config.Icon
-
-            $exitCode = $proc.ExitCode
+            $exitCode = $result.ExitCode
             $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
             $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
 
@@ -858,9 +797,7 @@ function WinUpdateReset {
 
     function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
         $percent = [math]::Round(($Current / $Total) * 100)
-        $spinner = $Global:Spinners[$Current % $Global:Spinners.Length]
-        Show-ProgressBar "Servizi ($Current/$Total)" "$Action $ServiceName" $percent '⚙️' $spinner 'Cyan'
-        Start-Sleep -Milliseconds 200
+        Invoke-WithSpinner -Activity "$Action $ServiceName" -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1
     }
 
     function Manage-Service($serviceName, $action, $config, $currentStep, $totalSteps) {
@@ -897,18 +834,15 @@ function WinUpdateReset {
                 'Start' {
                     Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
                     Write-Host ''
-                    Start-Service -Name $serviceName -ErrorAction Stop
-
-                    $timeout = 10; $spinnerIndex = 0
-                    do {
-                        $clearLine = "`r" + (' ' * 80) + "`r"
-                        Write-Host $clearLine -NoNewline
-                        $spinChar = $Global:Spinners[$spinnerIndex % $Global:Spinners.Length]
-                        Write-Host "$spinChar 🔄 Attesa avvio $serviceName..." -NoNewline -ForegroundColor Yellow
-                        Start-Sleep -Milliseconds 300
-                        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-                        $timeout--; $spinnerIndex++
-                    } while ($service.Status -ne 'Running' -and $timeout -gt 0)
+                    # Usa la funzione globale Invoke-WithSpinner per l'attesa avvio servizio
+                    Invoke-WithSpinner -Activity "Attesa avvio $serviceName" -Timer -Action { 
+                        $timeout = 10
+                        do {
+                            Start-Sleep -Milliseconds 500
+                            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                            $timeout--
+                        } while ($service.Status -ne 'Running' -and $timeout -gt 0)
+                    } -TimeoutSeconds 5
 
                     $clearLine = "`r" + (' ' * 80) + "`r"
                     Write-Host $clearLine -NoNewline
@@ -1003,15 +937,8 @@ function WinUpdateReset {
     Write-StyledMessage Info '🔧 Inizializzazione dello Script di Reset Windows Update...'
     Start-Sleep -Seconds 2
 
-    Write-Host '⚡ Caricamento moduli... ' -NoNewline -ForegroundColor Yellow
-    for ($i = 0; $i -lt 15; $i++) {
-        $spinChar = $Global:Spinners[$i % $Global:Spinners.Length]
-        Write-Host $spinChar -NoNewline -ForegroundColor Yellow
-        Start-Sleep -Milliseconds 160
-        Write-Host "`b" -NoNewline
-    }
-    Write-Host '✅ Completato!' -ForegroundColor Green
-    Write-Host ''
+    # Caricamento moduli
+    Invoke-WithSpinner -Activity "Caricamento moduli" -Timer -Action { Start-Sleep 2 } -TimeoutSeconds 2
 
     Write-StyledMessage Info '🛠️ Avvio riparazione servizi Windows Update...'
     Write-Host ''
@@ -1065,13 +992,8 @@ function WinUpdateReset {
         Write-Host ''
 
         Write-StyledMessage Info '📋 Ripristino chiavi di registro Windows Update...'
-        Write-Host '🔄 Elaborazione registro... ' -NoNewline -ForegroundColor Cyan
-        for ($i = 0; $i -lt 10; $i++) {
-            $spinChar = $Global:Spinners[$i % $Global:Spinners.Length]
-            Write-Host $spinChar -NoNewline -ForegroundColor Cyan
-            Start-Sleep -Milliseconds 150
-            Write-Host "`b" -NoNewline
-        }
+        # Elaborazione registro
+        Invoke-WithSpinner -Activity "Elaborazione registro" -Timer -Action { Start-Sleep 1 } -TimeoutSeconds 1
         try {
             @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update",
@@ -1825,15 +1747,8 @@ function WinBackupDriver {
                 Compress-Archive -Path $b -DestinationPath $t -CompressionLevel Optimal -Force
             } -ArgumentList $BackupDir, $tempZip
 
-            $prog = 0
-            $spinnerIndex = 0
-            while ($job.State -eq 'Running') {
-                $prog += Get-Random -Minimum 1 -Maximum 5
-                if ($prog -gt 95) { $prog = 95 }
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                Show-ProgressBar "Compressione" "Elaborazione file..." $prog '📦' $spinner
-                Start-Sleep -Milliseconds 500
-            }
+            # Usa la funzione globale Invoke-WithSpinner per monitorare la compressione
+            Invoke-WithSpinner -Activity "Compressione" -Job -Action { $job } -UpdateInterval 500
 
             Receive-Job $job -Wait | Out-Null
             Remove-Job $job
@@ -2036,22 +1951,8 @@ function OfficeToolkit {
     }
 
     function Show-Spinner([string]$Activity, [scriptblock]$Action) {
-        $spinnerIndex = 0
-        $job = Start-Job -ScriptBlock $Action
-
-        while ($job.State -eq 'Running') {
-            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-            Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
-            [Console]::Out.Flush()
-            Start-Sleep -Milliseconds 200
-        }
-
-        $result = Receive-Job $job -Wait
-        Remove-Job $job
-        Clear-ConsoleLine
-        Write-Host "✅ $Activity completato" -ForegroundColor Green
-        [Console]::Out.Flush()
-        return $result
+        # Usa la funzione globale Invoke-WithSpinner
+        return Invoke-WithSpinner -Activity $Activity -Action $Action -Job -UpdateInterval 200
     }
 
     function Get-UserConfirmation([string]$Message, [string]$DefaultChoice = 'N') {
@@ -2798,59 +2699,26 @@ function WinCleaner {
             [switch]$Hidden
         )
 
-        $startTime = Get-Date
-        $spinnerIndex = 0
-        $percent = 0
-
-        try {
-            $processParams = @{
-                FilePath     = $FilePath
-                ArgumentList = $ArgumentList
-                PassThru     = $true
-                ErrorAction  = 'Stop'
-            }
-
-            if ($Hidden) {
-                $processParams.WindowStyle = 'Hidden'
-            }
-            else {
-                $processParams.NoNewWindow = $true
-                # Keep output visible to avoid suppressing progress bars
-                # $processParams.RedirectStandardOutput = "nul"
-                # $processParams.RedirectStandardError = "nul"
-            }
-
-            $proc = Start-Process @processParams
-
-            while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
-
-                if ($percent -lt 90) {
-                    $percent += Get-Random -Minimum 1 -Maximum 3
-                }
-
-                Show-ProgressBar -Activity $Activity -Status "In esecuzione... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
-                Start-Sleep -Milliseconds 500
-                $proc.Refresh()
-            }
-
-            if (-not $proc.HasExited) {
-                Clear-ProgressLine
-                Write-StyledMessage -Type 'Warning' -Text "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
-                $proc.Kill()
-                Start-Sleep -Seconds 2
-                return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
-            }
-
-            Clear-ProgressLine
-            return @{ Success = $true; TimedOut = $false; ExitCode = $proc.ExitCode }
+        $processParams = @{
+            FilePath     = $FilePath
+            ArgumentList = $ArgumentList
+            PassThru     = $true
+            ErrorAction  = 'Stop'
         }
-        catch {
-            Clear-ProgressLine
-            Write-StyledMessage -Type 'Error' -Text "Errore nell'avvio del processo: $($_.Exception.Message)"
-            return @{ Success = $false; TimedOut = $false; ExitCode = -1 }
+
+        if ($Hidden) {
+            $processParams.WindowStyle = 'Hidden'
         }
+        else {
+            $processParams.NoNewWindow = $true
+        }
+
+        $proc = Start-Process @processParams
+
+        # Usa la funzione globale Invoke-WithSpinner per monitorare il processo
+        $result = Invoke-WithSpinner -Activity $Activity -Process -Action { $proc } -TimeoutSeconds $TimeoutSeconds -UpdateInterval 500
+        
+        return $result
     }
 
     function Invoke-CommandAction {
@@ -2953,7 +2821,8 @@ function WinCleaner {
                     foreach ($file in $files) {
                         Remove-Item -Path $file.FullName -Force -ErrorAction Stop
                     }
-                } else {
+                }
+                else {
                     Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
                 }
                 $count++
@@ -3905,19 +3774,15 @@ function VideoDriverInstall {
                 $count = $responseStream.Read($buffer, 0, $buffer.Length)
                 $downloadedBytes = $count
 
-                while ($count -gt 0) {
-                    $targetStream.Write($buffer, 0, $count)
-                    $count = $responseStream.Read($buffer, 0, $buffer.Length)
-                    $downloadedBytes += $count
-
-                    $spinner = $Global:Spinners[$spinnerIndex % $Global:Spinners.Length]
-                    $percent = [math]::Min(100, [math]::Round(($downloadedBytes / $webResponse.ContentLength) * 100))
-
-                    Show-ProgressBar -Activity "Download $Description" -Status "$percent%" -Percent $percent -Icon '💾' -Spinner $spinner
-
-                    $spinnerIndex++
-                    # Start-Sleep -Milliseconds 100 # Removed sleep for faster download
-                }
+                # Simula progresso download con Invoke-WithSpinner
+                Invoke-WithSpinner -Activity "Download $Description" -Timer -Action { 
+                    while ($count -gt 0) {
+                        $targetStream.Write($buffer, 0, $count)
+                        $count = $responseStream.Read($buffer, 0, $buffer.Length)
+                        $downloadedBytes += $count
+                        Start-Sleep -Milliseconds 100
+                    }
+                } -TimeoutSeconds 30
 
 
                 $targetStream.Flush()
@@ -4142,32 +4007,10 @@ function GamingToolkit {
         try {
             $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_err_$PackageId.log"
 
-            $spinnerIndex = 0
-            $percent = 0
-            $startTime = Get-Date
-            $timeout = 600
+            # Usa la funzione globale Invoke-WithSpinner per monitorare il processo winget
+            $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action { $proc } -TimeoutSeconds $timeout -UpdateInterval 700
 
-            while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeout) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
-                if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
-                Show-ProgressBar -Activity $DisplayName -Status "($elapsed s)" -Percent $percent -Icon '📦' -Spinner $spinner
-                Start-Sleep -Milliseconds 700
-                $proc.Refresh()
-            }
-
-            if (-not $proc.HasExited) {
-                Write-Host "`r$(' ' * 120)" -NoNewline
-                Write-Host "`r" -NoNewline
-                Write-StyledMessage Warning "Timeout per $DisplayName. Terminato."
-                $proc.Kill()
-                return @{ Success = $false; TimedOut = $true }
-            }
-
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
-
-            $exitCode = $proc.ExitCode
+            $exitCode = $result.ExitCode
             $successCodes = @(0, 1638, 3010, -1978335189)
 
             if ($exitCode -in $successCodes) {
@@ -4204,12 +4047,7 @@ function GamingToolkit {
     $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
 
     # Countdown preparazione
-    for ($i = 5; $i -gt 0; $i--) {
-        $spinner = $Global:Spinners[$i % $Global:Spinners.Length]
-        Write-Host "`r$spinner ⏳ Preparazione - $i s..." -NoNewline -ForegroundColor Yellow
-        Start-Sleep 1
-    }
-    Write-Host "`n"
+    Invoke-WithSpinner -Activity "Preparazione" -Timer -Action { Start-Sleep 5 } -TimeoutSeconds 5
 
     Show-Header -SubTitle "Gaming Toolkit"
 
@@ -4275,19 +4113,8 @@ function GamingToolkit {
         Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe' -OutFile $dxPath -ErrorAction Stop
         Write-StyledMessage Success 'DirectX scaricato.'
 
-        $proc = Start-Process -FilePath $dxPath -PassThru -Verb RunAs -ErrorAction Stop
-        $spinnerIndex = 0
-        $percent = 0
-        $startTime = Get-Date
-
-        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt 600) {
-            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
-            if ($percent -lt 95) { $percent += Get-Random -Minimum 1 -Maximum 2 }
-            Show-ProgressBar -Activity "DirectX" -Status "($elapsed s)" -Percent $percent -Icon '🎮' -Spinner $spinner
-            Start-Sleep -Milliseconds 700
-            $proc.Refresh()
-        }
+        # Usa la funzione globale Invoke-WithSpinner per monitorare il processo DirectX
+        $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action { $proc } -TimeoutSeconds 600 -UpdateInterval 700
 
         if (-not $proc.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
@@ -4339,16 +4166,9 @@ function GamingToolkit {
         Write-StyledMessage Success 'Battle.net scaricato.'
 
         $proc = Start-Process -FilePath $bnPath -PassThru -Verb RunAs -ErrorAction Stop
-        $spinnerIndex = 0
-        $startTime = Get-Date
-
-        while (-not $proc.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt 900) {
-            $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
-            Write-Host "`r$spinner 🎮 Battle.net ($elapsed s)" -NoNewline -ForegroundColor Cyan
-            Start-Sleep -Milliseconds 500
-            $proc.Refresh()
-        }
+        
+        # Usa la funzione globale Invoke-WithSpinner per monitorare il processo Battle.net
+        $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action { $proc } -TimeoutSeconds 900 -UpdateInterval 500
 
         if (-not $proc.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
@@ -4518,7 +4338,7 @@ function DisableBitlocker {
 function WinExportLog {
     <#
     .SYNOPSIS
-        Comprime i log di WinToolkit e li salva sul desktop per la diagnostica.
+        Comprime i log di WinToolkit e li salva sul desktop invio log errori.
     #>
     param([int]$CountdownSeconds = 30)
 
@@ -4544,7 +4364,7 @@ function WinExportLog {
 
         # Metodo alternativo per gestire file in uso
         $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"
-        
+
         # Crea cartella temporanea
         if (Test-Path $tempFolder) {
             Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
@@ -4554,7 +4374,7 @@ function WinExportLog {
         # Copia i file con gestione degli errori
         $filesCopied = 0
         $filesSkipped = 0
-        
+
         try {
             Get-ChildItem -Path $logSourcePath -File | ForEach-Object {
                 try {
@@ -4575,14 +4395,14 @@ function WinExportLog {
         # Comprime la cartella temporanea
         if ($filesCopied -gt 0) {
             Compress-Archive -Path "$tempFolder\*" -DestinationPath $zipFilePath -Force -ErrorAction Stop
-            
+
             if (Test-Path $zipFilePath) {
                 Write-StyledMessage Success "Log compressi con successo! File salvato: '$zipFileName' sul Desktop."
-                
+
                 if ($filesSkipped -gt 0) {
                     Write-StyledMessage Info "⚠️ Attenzione: $filesSkipped file sono stati ignorati perché in uso o non accessibili."
                 }
-                
+
                 # Messaggi per l'utente
                 Write-StyledMessage Info "📩 Per favore, invia il file ZIP '$zipFileName' (lo trovi sul tuo Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per aiutarmi nella diagnostica."
             }
@@ -4601,7 +4421,7 @@ function WinExportLog {
     }
     catch {
         Write-StyledMessage Error "Errore critico durante la compressione dei log: $($_.Exception.Message)"
-        
+
         # Pulizia forzata in caso di errore
         $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"
         if (Test-Path $tempFolder) {
