@@ -30,10 +30,10 @@
         }
 
         try {
-            $proc = Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_err_$PackageId.log"
-
             # Usa la funzione globale Invoke-WithSpinner per monitorare il processo winget
-            $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action { $proc } -TimeoutSeconds $timeout -UpdateInterval 700
+            $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action {
+                Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_err_$PackageId.log"
+            } -TimeoutSeconds 300 -UpdateInterval 700
 
             $exitCode = $result.ExitCode
             $successCodes = @(0, 1638, 3010, -1978335189)
@@ -139,18 +139,20 @@
         Write-StyledMessage Success 'DirectX scaricato.'
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo DirectX
-        $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action { $proc } -TimeoutSeconds 600 -UpdateInterval 700
+        $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action {
+            Start-Process -FilePath $dxPath -PassThru
+        } -TimeoutSeconds 600 -UpdateInterval 700
 
-        if (-not $proc.HasExited) {
+        if (-not $result.Process.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Warning "Timeout DirectX."
-            $proc.Kill()
+            $result.Process.Kill()
         }
         else {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
-            $exitCode = $proc.ExitCode
+            $exitCode = $result.Process.ExitCode
             $successCodes = @(0, 3010, 5100, -9, 9, -1442840576)
             if ($exitCode -in $successCodes) {
                 Write-StyledMessage Success "DirectX installato (codice: $exitCode)."
@@ -190,21 +192,21 @@
         Invoke-WebRequest -Uri 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live' -OutFile $bnPath -ErrorAction Stop
         Write-StyledMessage Success 'Battle.net scaricato.'
 
-        $proc = Start-Process -FilePath $bnPath -PassThru -Verb RunAs -ErrorAction Stop
-        
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo Battle.net
-        $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action { $proc } -TimeoutSeconds 900 -UpdateInterval 500
+        $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action {
+            Start-Process -FilePath $bnPath -PassThru -Verb RunAs -ErrorAction Stop
+        } -TimeoutSeconds 900 -UpdateInterval 500
 
-        if (-not $proc.HasExited) {
+        if (-not $result.Process.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Warning "Timeout Battle.net."
-            try { $proc.Kill() } catch {}
+            try { $result.Process.Kill() } catch {}
         }
         else {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
-            $exitCode = $proc.ExitCode
+            $exitCode = $result.Process.ExitCode
             if ($exitCode -in @(0, 3010)) {
                 Write-StyledMessage Success "Battle.net installato."
             }
