@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 156)"
+$ToolkitVersion = "2.5.0 (Build 158)"
 
 
 # Setup Variabili Globali UI
@@ -103,47 +103,47 @@ function Invoke-WithSpinner {
     <#
     .SYNOPSIS
         Esegue un'azione con animazione spinner automatica.
-    
+
     .DESCRIPTION
         Funzione di ordine superiore che gestisce automaticamente l'animazione
         dello spinner per operazioni asincrone, processi, job o timer.
-        
+
     .PARAMETER Activity
         Descrizione dell'attività in corso.
-        
+
     .PARAMETER Action
         ScriptBlock da eseguire. Per processi: restituisce un processo.
         Per job PowerShell: restituisce un job.
         Per operazioni sincrone: ScriptBlock da eseguire prima del timeout.
-        
+
     .PARAMETER TimeoutSeconds
         Timeout in secondi (default: 300).
-        
+
     .PARAMETER UpdateInterval
         Intervallo di aggiornamento dello spinner in millisecondi (default: 500).
-        
+
     .PARAMETER Process
         Se specificato, l'Action restituisce un processo da monitorare.
-        
+
     .PARAMETER Job
         Se specificato, l'Action restituisce un job PowerShell da monitorare.
-        
+
     .PARAMETER Timer
         Se specificato, mostra un countdown timer.
-        
+
     .PARAMETER PercentUpdate
         ScriptBlock per aggiornare la percentuale di progresso.
-        
+
     .EXAMPLE
         # Monitora un processo
         $proc = Start-Process 'cmd.exe' -ArgumentList '/c', 'timeout 10' -PassThru
         Invoke-WithSpinner -Activity "Esecuzione comando" -Process -Action { $proc }
-        
+
     .EXAMPLE
         # Monitora un job PowerShell
         $job = Start-Job { Start-Sleep 10 }
         Invoke-WithSpinner -Activity "Elaborazione job" -Job -Action { $job }
-        
+
     .EXAMPLE
         # Countdown timer
         Invoke-WithSpinner -Activity "Preparazione" -Timer -Action { Start-Sleep 5 }
@@ -152,37 +152,37 @@ function Invoke-WithSpinner {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Activity,
-        
+
         [Parameter(Mandatory = $true)]
         [scriptblock]$Action,
-        
+
         [Parameter(Mandatory = $false)]
         [int]$TimeoutSeconds = 300,
-        
+
         [Parameter(Mandatory = $false)]
         [int]$UpdateInterval = 500,
-        
+
         [Parameter(Mandatory = $false)]
         [switch]$Process,
-        
+
         [Parameter(Mandatory = $false)]
         [switch]$Job,
-        
+
         [Parameter(Mandatory = $false)]
         [switch]$Timer,
-        
+
         [Parameter(Mandatory = $false)]
         [scriptblock]$PercentUpdate
     )
-    
+
     $startTime = Get-Date
     $spinnerIndex = 0
     $percent = 0
-    
+
     try {
         # Esegue l'azione iniziale
         $result = & $Action
-        
+
         # Determina il tipo di monitoraggio
         if ($Timer) {
             # Timer/Countdown
@@ -190,13 +190,13 @@ function Invoke-WithSpinner {
             for ($i = $totalSeconds; $i -gt 0; $i--) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $elapsed = $totalSeconds - $i
-                
+
                 if ($PercentUpdate) {
                     $percent = & $PercentUpdate
                 } else {
                     $percent = [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100)
                 }
-                
+
                 Write-Host "`r$spinner ⏳ $Activity - $i secondi..." -NoNewline -ForegroundColor Yellow
                 Start-Sleep -Seconds 1
             }
@@ -208,25 +208,25 @@ function Invoke-WithSpinner {
             while (-not $result.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
-                
+
                 if ($PercentUpdate) {
                     $percent = & $PercentUpdate
                 } elseif ($percent -lt 90) {
                     $percent += Get-Random -Minimum 1 -Maximum 3
                 }
-                
+
                 Show-ProgressBar -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
                 Start-Sleep -Milliseconds $UpdateInterval
                 $result.Refresh()
             }
-            
+
             if (-not $result.HasExited) {
                 Write-StyledMessage -Type 'Warning' -Text "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
                 $result.Kill()
                 Start-Sleep -Seconds 2
                 return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
             }
-            
+
             Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
             return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
         }
@@ -237,7 +237,7 @@ function Invoke-WithSpinner {
                 Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
                 Start-Sleep -Milliseconds $UpdateInterval
             }
-            
+
             $jobResult = Receive-Job $result -Wait
             Write-Host ''
             return $jobResult
