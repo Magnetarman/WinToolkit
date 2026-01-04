@@ -1,7 +1,7 @@
 function WinExportLog {
     <#
     .SYNOPSIS
-        Comprime i log di WinToolkit e li salva sul desktop per la diagnostica.
+        Comprime i log di WinToolkit e li salva sul desktop invio log errori.
     #>
     param([int]$CountdownSeconds = 30)
 
@@ -27,7 +27,7 @@ function WinExportLog {
 
         # Metodo alternativo per gestire file in uso
         $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"
-        
+
         # Crea cartella temporanea
         if (Test-Path $tempFolder) {
             Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
@@ -37,7 +37,7 @@ function WinExportLog {
         # Copia i file con gestione degli errori
         $filesCopied = 0
         $filesSkipped = 0
-        
+
         try {
             Get-ChildItem -Path $logSourcePath -File | ForEach-Object {
                 try {
@@ -58,14 +58,14 @@ function WinExportLog {
         # Comprime la cartella temporanea
         if ($filesCopied -gt 0) {
             Compress-Archive -Path "$tempFolder\*" -DestinationPath $zipFilePath -Force -ErrorAction Stop
-            
+
             if (Test-Path $zipFilePath) {
                 Write-StyledMessage Success "Log compressi con successo! File salvato: '$zipFileName' sul Desktop."
-                
+
                 if ($filesSkipped -gt 0) {
                     Write-StyledMessage Info "⚠️ Attenzione: $filesSkipped file sono stati ignorati perché in uso o non accessibili."
                 }
-                
+
                 # Messaggi per l'utente
                 Write-StyledMessage Info "📩 Per favore, invia il file ZIP '$zipFileName' (lo trovi sul tuo Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per aiutarmi nella diagnostica."
             }
@@ -84,7 +84,7 @@ function WinExportLog {
     }
     catch {
         Write-StyledMessage Error "Errore critico durante la compressione dei log: $($_.Exception.Message)"
-        
+
         # Pulizia forzata in caso di errore
         $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"
         if (Test-Path $tempFolder) {
