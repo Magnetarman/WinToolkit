@@ -92,7 +92,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Correzioni
 
-- Script **start.ps1** aggiornato e potenziato.
+- Script `start.ps1` aggiornato e potenziato.
   - Gestione Processi: Introdotta nuova funzione helper Stop-InterferingProcesses per terminare forzatamente processi conflittuali (es. WinStore.App, wsappx, AppInstaller) prima delle operazioni critiche.
   - Logging & Error Handling: Aggiunto blocco try/catch sulla gestione del Transcript (log) e sul comando Restart-Computer per prevenire crash in fase di chiusura/riavvio.
   - Timeout & Wait: Ottimizzati i timeout di attesa e incrementato il tempo di check per la generazione del file settings.json di Windows Terminal (da 10s a 20s).
@@ -148,6 +148,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+  - Risolto un problema che poteva causare il fallimento della creazione dell'archivio .zip in alcune circostanze.
+  - Sostituita compressione con 7zip (molto più veloce della compressione nativa di Windows).
 
 - Funzione **GamingToolkit** Riscritta.
   - Refactor Codice per uniformarlo al resto della codebase.
