@@ -37,7 +37,7 @@ function WinRepairToolkit {
                 else {
                     Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
                 }
-            } -UpdateInterval (if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
+            } -UpdateInterval $(if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
 
             $results = @()
             @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
