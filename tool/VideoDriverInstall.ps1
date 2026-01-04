@@ -16,11 +16,9 @@ function VideoDriverInstall {
     Initialize-ToolLogging -ToolName "VideoDriverInstall"
     Show-Header -SubTitle "Video Driver Install Toolkit"
 
-    # --- NEW: Define Constants and Paths ---
     $GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
     $DriverToolsLocalPath = Join-Path $env:LOCALAPPDATA "WinToolkit\Drivers"
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
-    # --- END NEW ---
 
     function Get-GpuManufacturer {
         <#
@@ -100,9 +98,9 @@ function VideoDriverInstall {
     function Download-FileWithProgress {
         <#
         .SYNOPSIS
-            Scarica un file con indicatore di progresso.
+            Scarica un file con barra di progresso.
         .DESCRIPTION
-            Scarica un file dall'URL specificato con spinner di progresso e gestione retry.
+            Scarica un file dall'URL specificato con barra di progresso che mostra la percentuale di download e gestione retry.
         #>
         param(
             [Parameter(Mandatory = $true)]
@@ -129,26 +127,37 @@ function VideoDriverInstall {
 
         for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
             try {
-                $spinnerIndex = 0
                 $webRequest = [System.Net.WebRequest]::Create($Url)
                 $webResponse = $webRequest.GetResponse()
-                $totalLength = [System.Math]::Floor($webResponse.ContentLength / 1024)
+                $totalBytes = $webResponse.ContentLength
                 $responseStream = $webResponse.GetResponseStream()
                 $targetStream = [System.IO.FileStream]::new($DestinationPath, [System.IO.FileMode]::Create)
-                $buffer = New-Object byte[] 10KB
-                $count = $responseStream.Read($buffer, 0, $buffer.Length)
-                $downloadedBytes = $count
+                $buffer = New-Object byte[] 64KB
+                $downloadedBytes = 0
+                $bytesRead = 0
 
-                # Simula progresso download con Invoke-WithSpinner
-                Invoke-WithSpinner -Activity "Download $Description" -Timer -Action { 
-                    while ($count -gt 0) {
-                        $targetStream.Write($buffer, 0, $count)
-                        $count = $responseStream.Read($buffer, 0, $buffer.Length)
-                        $downloadedBytes += $count
-                        Start-Sleep -Milliseconds 100
+                # Inizializza la barra di progresso
+                Write-Progress -Activity "Download $Description" -Status "Inizio download..." -PercentComplete 0
+
+                # Download con aggiornamento barra di progresso
+                do {
+                    $bytesRead = $responseStream.Read($buffer, 0, $buffer.Length)
+                    if ($bytesRead -gt 0) {
+                        $targetStream.Write($buffer, 0, $bytesRead)
+                        $downloadedBytes += $bytesRead
+
+                        # Calcola la percentuale
+                        $percentComplete = [System.Math]::Round(($downloadedBytes / $totalBytes) * 100, 1)
+                        $speed = if ($downloadedBytes -gt 0) { [System.Math]::Round(($downloadedBytes / 1024 / 1024), 2) } else { 0 }
+                        $totalSize = [System.Math]::Round(($totalBytes / 1024 / 1024), 2)
+
+                        # Aggiorna la barra di progresso
+                        Write-Progress -Activity "Download $Description" -Status "$speed MB / $totalSize MB" -PercentComplete $percentComplete
                     }
-                } -TimeoutSeconds 30
+                } while ($bytesRead -gt 0)
 
+                # Completa la barra di progresso
+                Write-Progress -Activity "Download $Description" -Status "Completato" -PercentComplete 100 -Completed
 
                 $targetStream.Flush()
                 $targetStream.Close()
@@ -160,6 +169,7 @@ function VideoDriverInstall {
                 return $true
             }
             catch {
+                Write-Progress -Activity "Download $Description" -Completed
                 Write-StyledMessage Warning "Tentativo $attempt fallito per $Description`: $($_.Exception.Message)"
                 if ($attempt -lt $MaxRetries) {
                     Start-Sleep -Seconds 2
