@@ -66,7 +66,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.5.0] - 2025-12-31 (#21)
+## [2.5.0] - 2026-01-04 (#21)
 
 ### Aggiunte
 
