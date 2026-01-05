@@ -38,7 +38,8 @@
 
 - Funzione di concatenazione script rotta
   - [ ] Ripristino funzionalità completa
-  - [ ] Aggiungere a tutti gli script che se la funziona di avvio script multipli è attiva deve saltare la sezione relativa al riavvio del pc presente alla fine di ogni script.
+  - [ ] Unificazione funzionalità script "template"
+  - [ ] Se la funzionalità di avvio script multipli è attiva deve saltare la sezione relativa al riavvio del pc presente alla fine di ogni script, eseguire tutte le operazioni ed alla fine proseguire con riavvio del PC.
 
 - Fix Video Driver install
   - [x] Barre di progressione con problemi di output
