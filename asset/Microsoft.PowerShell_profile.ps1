@@ -162,21 +162,8 @@ else {
     oh-my-posh init pwsh --config "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/refs/heads/main/themes/atomic.omp.json" | Invoke-Expression
 }
 
-# zoxide
-if (Get-Command zoxide -ErrorAction SilentlyContinue) {
-    Invoke-Expression (& { (zoxide init powershell | Out-String) })
-}
-else {
-    Write-Host "Comando zoxide non trovato. Tentativo di installazione tramite winget..."
-    try {
-        winget install -e --id ajeetdsouza.zoxide
-        Write-Host "zoxide installato con successo. Inizializzazione..."
-        Invoke-Expression (& { (zoxide init powershell | Out-String) })
-    }
-    catch {
-        Write-Error "Impossibile installare zoxide. Errore: $_"
-    }
-}
+# zoxide (inizializzazione - installazione gestita da script precedente)
+Invoke-Expression (& { (zoxide init powershell | Out-String) })
 
 # fastfetch
 fastfetch
