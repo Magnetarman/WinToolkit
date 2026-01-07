@@ -83,7 +83,7 @@ function Set-LocationToDesktop {
     Set-Location -Path "$HOME\Desktop"
 }
 
-function Invoke-EditProfile {
+function EditProfile {
     zed $PROFILE
 }
 
@@ -111,7 +111,7 @@ function Get-RAMInfo {
 # UTILITY DI RETE
 # ============================================================================
 
-function Invoke-FlushDns {
+function FlushDns {
     Clear-DnsClientCache | Out-Null
     Write-Host "✅ Cache DNS svuotata" -ForegroundColor Green
 }
@@ -120,11 +120,11 @@ function Invoke-FlushDns {
 # WINTOOLKIT
 # ============================================================================
 
-function Invoke-OpenWinToolkitStable {
+function WinToolkit-Stable {
     Start-Process -FilePath "https://magnetarman.com/WinToolkit"
 }
 
-function Invoke-OpenWinToolkitDev {
+function WinToolkit-Dev {
     Start-Process -FilePath "https://magnetarman.com/WinToolkit-Dev"
 }
 
@@ -166,7 +166,7 @@ $($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)          - Crea una direct
 
 $($PSStyle.Foreground.Cyan)Navigazione File e Directory$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Set-LocationToDesktop$($PSStyle.Reset) - Naviga alla directory Desktop
-$($PSStyle.Foreground.Green)Invoke-EditProfile$($PSStyle.Reset)    - Apre il profilo corrente nell'editor
+$($PSStyle.Foreground.Green)EditProfile$($PSStyle.Reset)    - Apre il profilo corrente nell'editor
 
 $($PSStyle.Foreground.Cyan)Informazioni di Sistema$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Get-SystemInfo$($PSStyle.Reset)   - Visualizza informazioni di sistema dettagliate
@@ -175,11 +175,11 @@ $($PSStyle.Foreground.Green)Get-MainboardInfo$($PSStyle.Reset) - Informazioni su
 $($PSStyle.Foreground.Green)Get-RAMInfo$($PSStyle.Reset)      - Informazioni sui moduli RAM installati
 
 $($PSStyle.Foreground.Cyan)Utility di Rete$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)---------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Invoke-FlushDns$($PSStyle.Reset)  - Svuota la cache DNS
+$($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)  - Svuota la cache DNS
 
 $($PSStyle.Foreground.Cyan)WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Invoke-OpenWinToolkitStable$($PSStyle.Reset) - Lancia WinToolkit (stabile)
-$($PSStyle.Foreground.Green)Invoke-OpenWinToolkitDev$($PSStyle.Reset)    - Lancia WinToolkit (sviluppo)
+$($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset) - Lancia WinToolkit (stabile)
+$($PSStyle.Foreground.Green)WinToolkit-Dev$($PSStyle.Reset)    - Lancia WinToolkit (sviluppo)
 
 $($PSStyle.Foreground.Cyan)Software Installati$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)btop$($PSStyle.Reset)               - btop è un monitor delle risorse per il terminale.
