@@ -1,7 +1,7 @@
 function WinInstallPSProfile {
     <#
     .SYNOPSIS
-        Script per installare il profilo PowerShell di ChrisTitusTech.
+        Script per installare tutto il necessario ad eseguire il Terminale in versione moderna.
 
     .DESCRIPTION
         Installa e configura il profilo PowerShell personalizzato con oh-my-posh, zoxide e altre utilità.
