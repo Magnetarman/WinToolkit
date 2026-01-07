@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 170)"
+$ToolkitVersion = "2.5.0 (Build 176)"
 
 
 # Setup Variabili Globali UI
@@ -313,6 +313,8 @@ function VideoDriverInstall {}
 function GamingToolkit {}
 function DisableBitlocker {}
 function WinExportLog {}
+function WinPSP-Setup {}
+
 
 # --- MENU PRINCIPALE ---
 $menuStructure = @(
@@ -323,6 +325,7 @@ $menuStructure = @(
             [pscustomobject]@{Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinPSP-Setup'; Description = 'Installazione Unificata PSP - TEST'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
         )
     },
