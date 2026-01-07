@@ -181,6 +181,9 @@ $($PSStyle.Foreground.Cyan)WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yel
 $($PSStyle.Foreground.Green)Invoke-OpenWinToolkitStable$($PSStyle.Reset) - Lancia WinToolkit (stabile)
 $($PSStyle.Foreground.Green)Invoke-OpenWinToolkitDev$($PSStyle.Reset)    - Lancia WinToolkit (sviluppo)
 
+$($PSStyle.Foreground.Cyan)Software Installati$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Green)btop$($PSStyle.Reset)               - btop è un monitor delle risorse per il terminale.
+
 $($PSStyle.Foreground.Cyan)Configurazione Editor$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Invoke-EditPowerShellProfile$($PSStyle.Reset) - Modifica il profilo PowerShell
 
