@@ -235,11 +235,11 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Visual Studio Code (`code`)
     - Zed (`zed`)
   - WinToolkit
-    - Rinominare **Open WinUtil full-release** in **Open WinToolkit Stable**
+    - Rinominare **Open WinUtil full-release** in **WinToolkit-Stable**
     - Aggiornare il link a `https://magnetarman.com/WinToolkit`
-    - Rinominare **Open WinUtil dev-release** in **Open WinToolkit Dev**
+    - Rinominare **Open WinUtil dev-release** in **WinToolkit-Dev**
     - Sostituire il codice con:
-    - `Invoke-Expression (Invoke-RestMethod https://magnetarman.com/WinToolkit-Dev)`
+    - Aggiornare link con a `https://magnetarman.com/WinToolkit`. Funzione resa standard 
   - Varie
     - Tradurre tutti i commenti del file in italiano  
 
