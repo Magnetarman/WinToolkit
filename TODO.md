@@ -1,5 +1,6 @@
 # To-Do
 
+
 ### V 2.5.0
 
 - Cambiare gestione profilo powershell
@@ -17,6 +18,10 @@
   - [x] Eliminare funzioni non utilizzate nel profile.ps1 ed adattarlo alle mie esigenze.
   - [x] Pushare tutto nella cartella asset in modo da poter effettuare dei test.
   - [x] Creazione label gialla nelle issue "waiting user check"
+  - [ ] istallazione di zoxide (verrà configurato al primo avvio del profilo powershell)
+  - [ ] Istallazione di fastfetch
+  - [ ] Istallazione di btop
+  
 
 - Automatizzare creazione changelog
   - [ ] Prende le due versioni
@@ -24,82 +29,10 @@
   - [ ] Produce lista di modifiche basandosi sul changelog tono e stile esistente
   - [x] Add issue chiusi al changelog
 
-- Aggiungere funzione di esportazione log
-  - [x] Esegue una compressione in .zip della cartella %LOCALAPPDATA%\WinToolkit\logs
-  - [x] Ignora eventuali file in uso
-  - [x] Posiziona sul desktop il file .zip appena creato ed avvisa l'utente di inviare via telegram o email lo zip con i log presente sul desktop in modo da poter controllare e risolvere eventuali errori
-
-- Fix Windows Repair
-  - [x] Moltiplicare per 2 il tempo di riempimento della barra finta del terzo passaggio (Ripristino immagine di windows).
-  - [x] Aggiungere queste righe alla riparazione del sistema operativo
-    - [x] Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode
-    - [x] Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode
-    - [x] Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode
-
 - Funzione di concatenazione script rotta
   - [ ] Ripristino funzionalità completa
   - [ ] Unificazione funzionalità script "template"
   - [ ] Se la funzionalità di avvio script multipli è attiva deve saltare la sezione relativa al riavvio del pc presente alla fine di ogni script, eseguire tutte le operazioni ed alla fine proseguire con riavvio del PC.
-
-- Fix Video Driver install
-  - [x] Barre di progressione con problemi di output
-
-- Funzione Spinner
-  - [x] Centralizzata nello script `WinToolkit-Template.ps1`
-  - [x] Aggiornato codice dei vari script per richiamare la nuova funzione globale
-  - [x] Eliminato codice ridondante e duplicato 
-  
-- Revamping `Poweshell Profile.ps1`
-  - Pulizia e rimozione codice obsoleto
-  - [x] Rimuovere tutte le funzioni di debug non più necessarie
-  - [x] Eliminare l’architettura *Override-First*
-  - [x] Rimuovere il meccanismo di aggiornamento automatico del profilo (`Update-Profile` con confronto SHA256)
-  - [x] Eliminare le mappature dei comandi Unix-like su PowerShell:
-    - `grep`
-    - `sed`
-    - `which`
-    - `export`
-    - `pkill`
-    - `head`
-    - `tail`
-  - [x] Rimuovere la gestione personalizzata del cestino (COM `Shell.Application`)
-  - [x] Eliminare le funzioni `uptime` e `hb`
-  - [x] Rimuovere il codice per syntax highlighting
-  - [x] Rimuovere il completamento nativo
-  - [x] Eliminare utility e shortcut non più utilizzate:
-    - `sed`
-    - `grep`
-    - `which`
-    - `export`
-    - `nf`
-    - `docs`
-    - `k9`
-    - `la`
-    - `ll`
-    - `cpy`
-    - `pst`
-    - Git shortcuts
-    - Help Function
-  - Configurazione Oh My Posh
-    - [x] Impostare il tema `atomic.omp.json` al posto di `cobalt2.omp.json`
-    - [x] Scaricare il tema da GitHub se non presente localmente
-    - [x] Usare l’URL remoto come fallback in caso di errore nel download
-  - Gestione editor
-    - [x] Aggiornare la *Editor Hierarchy* mantenendo solo:
-    - `zed → code → notepad`
-    - [x] Rimuovere tutti gli altri editor
-    - [x] Nella sezione *Editor Configuration* mantenere solo:
-    - Visual Studio Code (`code`)
-    - Zed (`zed`)
-  - WinToolkit
-    - [x] Rinominare **Open WinUtil full-release** in **Open WinToolkit Stable**
-    - [x] Aggiornare il link a `https://magnetarman.com/WinToolkit`
-    - [x] Rinominare **Open WinUtil dev-release** in **Open WinToolkit Dev**
-    - [x] Sostituire il codice con:
-    - `Invoke-Expression (Invoke-RestMethod https://magnetarman.com/WinToolkit-Dev)`
-  - Varie
-    - [x] Tradurre tutti i commenti del file in italiano
-    - [x] Aggiungere l’installazione di `dtop` tramite `winget`
 
 
 ### V 2.5.1
