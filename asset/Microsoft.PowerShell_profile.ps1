@@ -162,7 +162,7 @@ else {
     oh-my-posh init pwsh --config "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/refs/heads/main/themes/atomic.omp.json" | Invoke-Expression
 }
 
-# zoxide (inizializzazione - installazione gestita da script precedente)
+# zoxide
 Invoke-Expression (& { (zoxide init powershell | Out-String) })
 
 # fastfetch
