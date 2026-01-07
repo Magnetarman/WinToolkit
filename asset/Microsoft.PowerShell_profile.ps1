@@ -108,6 +108,33 @@ function Edit-Profile {
 }
 
 # =============================================================================
+# HELP E ALIAS PERSONALIZZATI
+# =============================================================================
+
+function Show-Help {
+    $helpText = @"
+$($PSStyle.Foreground.Cyan)Guida al Profilo PowerShell$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)===========================$($PSStyle.Reset)
+
+$($PSStyle.Foreground.Cyan)Utility Generali$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------------$($PSStyle.Reset) $($PSStyle.Foreground.Green)reload-profile$($PSStyle.Reset) - Ricarica il profilo PowerShell corrente. $($PSStyle.Foreground.Green)unzip$($PSStyle.Reset) - Estrae un file ZIP nella directory corrente. $($PSStyle.Foreground.Green)ff$($PSStyle.Reset) - Cerca file ricorsivamente in base a un nome parziale.
+
+$($PSStyle.Foreground.Cyan)Navigazione File e Directory$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------$($PSStyle.Reset) $($PSStyle.Foreground.Green)mkcd$($PSStyle.Reset) - Crea una nuova directory e ci si sposta. $($PSStyle.Foreground.Green)dtop$($PSStyle.Reset) - Naviga alla directory Desktop dell'utente. $($PSStyle.Foreground.Green)ep$($PSStyle.Reset) - Apre il file di profilo PowerShell corrente ($PROFILE).
+
+$($PSStyle.Foreground.Cyan)Informazioni di Sistema$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------------$($PSStyle.Reset) $($PSStyle.Foreground.Green)sysinfo$($PSStyle.Reset) - Visualizza informazioni di sistema dettagliate. $($PSStyle.Foreground.Green)Get-PubIP$($PSStyle.Reset) - Recupera l'indirizzo IP pubblico della macchina. $($PSStyle.Foreground.Green)Get-Mainboard$($PSStyle.Reset) - Visualizza informazioni sulla scheda madre. $($PSStyle.Foreground.Green)Get-RAM$($PSStyle.Reset) - Visualizza informazioni sui moduli RAM installati.
+
+$($PSStyle.Foreground.Cyan)Utility di Rete$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)---------------$($PSStyle.Reset) $($PSStyle.Foreground.Green)flushdns$($PSStyle.Reset) - Svuota la cache DNS.
+
+$($PSStyle.Foreground.Cyan)WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------$($PSStyle.Reset) $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset) - Avvia il sito web di WinToolkit (versione stabile). $($PSStyle.Foreground.Green)WinToolkit-Dev$($PSStyle.Reset) - Avvia il sito web di WinToolkit (versione di sviluppo).
+
+$($PSStyle.Foreground.Cyan)Configurazione Editor$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-------------------$($PSStyle.Reset) $($PSStyle.Foreground.Green)Edit-Profile$($PSStyle.Reset) - Apre il file di profilo PowerShell utilizzando l'editor configurato (zed, code o notepad).
+
+$($PSStyle.Foreground.Yellow)===========================$($PSStyle.Reset) Usa '$($PSStyle.Foreground.Magenta)help$($PSStyle.Reset)' per visualizzare questo messaggio di guida.
+"@
+    Write-Host $helpText
+}
+
+Set-Alias -Name help -Value Show-Help
+
+# =============================================================================
 # POWERSHELL ENHANCEMENTS
 # =============================================================================
 
@@ -167,3 +194,6 @@ Invoke-Expression (& { (zoxide init powershell | Out-String) })
 
 # fastfetch
 fastfetch
+
+# Messaggio di benvenuto
+Write-Host "Digita 'help' per scoprire i comandi personalizzati." -ForegroundColor Yellow
