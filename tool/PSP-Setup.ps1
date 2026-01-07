@@ -32,7 +32,8 @@ function Install-NerdFonts {
 
             Remove-Item -Path $extractPath -Recurse -Force
             Remove-Item -Path $zipFilePath -Force
-        } else {
+        }
+        else {
             Write-Host "Font ${FontDisplayName} already installed"
         }
     }
@@ -45,9 +46,11 @@ function Install-NerdFonts {
 function Get-ProfileDir {
     if ($PSVersionTable.PSEdition -eq "Core") {
         return "$env:userprofile\Documents\PowerShell"
-    } elseif ($PSVersionTable.PSEdition -eq "Desktop") {
+    }
+    elseif ($PSVersionTable.PSEdition -eq "Desktop") {
         return "$env:userprofile\Documents\WindowsPowerShell"
-    } else {
+    }
+    else {
         Write-Error "Unsupported PowerShell edition: $($PSVersionTable.PSEdition)"
         break
     }
@@ -63,7 +66,7 @@ if (!(Test-Path -Path $PROFILE -PathType Leaf)) {
         }
         Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE
         Write-Host "The profile @ [$PROFILE] has been created."
-        Write-Host "If you want to make any personal changes or customizations, please do so at [$profilePath\Profile.ps1] as there is an updater in the installed profile which uses the hash to update the profile and will lead to loss of changes"
+
     }
     catch {
         Write-Error "Failed to create or update the profile. Error: $_"
@@ -76,7 +79,7 @@ else {
         Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE
         Write-Host "✅ PowerShell profile at [$PROFILE] has been updated."
         Write-Host "📦 Your old profile has been backed up to [$backupPath]"
-        Write-Host "⚠️ NOTE: Please back up any persistent components of your old profile to [$HOME\Documents\PowerShell\Profile.ps1] as there is an updater in the installed profile which uses the hash to update the profile and will lead to loss of changes"
+
     }
     catch {
         Write-Error "❌ Failed to backup and update the profile. Error: $_"
@@ -122,18 +125,13 @@ Install-NerdFonts -FontName "CascadiaCode" -FontDisplayName "CaskaydiaCove NF"
 # Final check and message to the user
 if ((Test-Path -Path $PROFILE) -and (winget list --name "OhMyPosh" -e) -and ($fontFamilies -contains "CaskaydiaCove NF") -and $themeInstalled) {
     Write-Host "Setup completed successfully. Please restart your PowerShell session to apply changes."
-} else {
+}
+else {
     Write-Warning "Setup completed with errors. Please check the error messages above."
 }
 
 
-# Terminal Icons Install
-try {
-    Install-Module -Name Terminal-Icons -Repository PSGallery -Force
-}
-catch {
-    Write-Error "Failed to install Terminal Icons module. Error: $_"
-}
+
 # zoxide Install
 try {
     winget install -e --id ajeetdsouza.zoxide
