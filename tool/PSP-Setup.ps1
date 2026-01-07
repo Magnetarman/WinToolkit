@@ -1,19 +1,24 @@
 
-# Function to install Nerd Fonts
+# Funzione per l'installazione dei Nerd Fonts
 function Install-NerdFonts {
-    param (
-        [string]$FontName = "CascadiaCode",
-        [string]$FontDisplayName = "CaskaydiaCove NF",
-        [string]$Version = "3.2.1"
-    )
-
     try {
         [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Drawing")
         $fontFamilies = (New-Object System.Drawing.Text.InstalledFontCollection).Families.Name
-        if ($fontFamilies -notcontains "${FontDisplayName}") {
-            $fontZipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v${Version}/${FontName}.zip"
-            $zipFilePath = "$env:TEMP\${FontName}.zip"
-            $extractPath = "$env:TEMP\${FontName}"
+        $fontDisplayName = "JetBrainsMono Nerd Font Mono"
+
+        if ($fontFamilies -notcontains $fontDisplayName) {
+            # Ottieni l'URL dell'ultima release tramite API GitHub
+            $apiUrl = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
+            $releaseInfo = Invoke-RestMethod -Uri $apiUrl
+            $fontZipUrl = ($releaseInfo.assets | Where-Object { $_.name -eq "JetBrainsMono.zip" }).browser_download_url
+
+            if (-not $fontZipUrl) {
+                Write-Error "Impossibile trovare l'asset JetBrainsMono.zip nella release più recente"
+                return
+            }
+
+            $zipFilePath = "$env:TEMP\JetBrainsMono.zip"
+            $extractPath = "$env:TEMP\JetBrainsMono"
 
             $webClient = New-Object System.Net.WebClient
             $webClient.DownloadFileAsync((New-Object System.Uri($fontZipUrl)), $zipFilePath)
@@ -24,7 +29,7 @@ function Install-NerdFonts {
 
             Expand-Archive -Path $zipFilePath -DestinationPath $extractPath -Force
             $destination = (New-Object -ComObject Shell.Application).Namespace(0x14)
-            Get-ChildItem -Path $extractPath -Recurse -Filter "*.ttf" | ForEach-Object {
+            Get-ChildItem -Path "$extractPath\JetBrainsMonoNerdFont-*\variable" -Filter "*.ttf" | ForEach-Object {
                 If (-not(Test-Path "C:\Windows\Fonts\$($_.Name)")) {
                     $destination.CopyHere($_.FullName, 0x10)
                 }
@@ -34,15 +39,15 @@ function Install-NerdFonts {
             Remove-Item -Path $zipFilePath -Force
         }
         else {
-            Write-Host "Font ${FontDisplayName} already installed"
+            Write-Host "Font $fontDisplayName già installato"
         }
     }
     catch {
-        Write-Error "Failed to download or install ${FontDisplayName} font. Error: $_"
+        Write-Error "Impossibile scaricare o installare il font $fontDisplayName. Errore: $_"
     }
 }
 
-# Helper function for cross-edition compatibility
+# Funzione helper per la compatibilità tra edizioni di PowerShell
 function Get-ProfileDir {
     if ($PSVersionTable.PSEdition -eq "Core") {
         return "$env:userprofile\Documents\PowerShell"
@@ -51,13 +56,12 @@ function Get-ProfileDir {
         return "$env:userprofile\Documents\WindowsPowerShell"
     }
     else {
-        Write-Error "Unsupported PowerShell edition: $($PSVersionTable.PSEdition)"
+        Write-Error "Edizione PowerShell non supportata: $($PSVersionTable.PSEdition)"
         break
     }
 }
 
-
-# Profile creation or update
+# Creazione o aggiornamento del profilo PowerShell
 if (!(Test-Path -Path $PROFILE -PathType Leaf)) {
     try {
         $profilePath = Get-ProfileDir
@@ -65,11 +69,11 @@ if (!(Test-Path -Path $PROFILE -PathType Leaf)) {
             New-Item -Path $profilePath -ItemType "directory" -Force
         }
         Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE
-        Write-Host "The profile @ [$PROFILE] has been created."
+        Write-Host "Il profilo PowerShell è stato creato in [$PROFILE]."
 
     }
     catch {
-        Write-Error "Failed to create or update the profile. Error: $_"
+        Write-Error "Impossibile creare o aggiornare il profilo. Errore: $_"
     }
 }
 else {
@@ -77,16 +81,16 @@ else {
         $backupPath = Join-Path (Split-Path $PROFILE) "oldprofile.ps1"
         Move-Item -Path $PROFILE -Destination $backupPath -Force
         Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE
-        Write-Host "✅ PowerShell profile at [$PROFILE] has been updated."
-        Write-Host "📦 Your old profile has been backed up to [$backupPath]"
+        Write-Host "✅ Il profilo PowerShell in [$PROFILE] è stato aggiornato."
+        Write-Host "📦 Il vecchio profilo è stato salvato in [$backupPath]"
 
     }
     catch {
-        Write-Error "❌ Failed to backup and update the profile. Error: $_"
+        Write-Error "❌ Impossibile salvare e aggiornare il profilo. Errore: $_"
     }
 }
 
-# Function to download Oh My Posh theme locally
+# Funzione per scaricare il tema Oh My Posh localmente
 function Install-OhMyPoshTheme {
     param (
         [string]$ThemeName = "atomic",
@@ -99,44 +103,60 @@ function Install-OhMyPoshTheme {
     $themeFilePath = Join-Path $profilePath "$ThemeName.omp.json"
     try {
         Invoke-RestMethod -Uri $ThemeUrl -OutFile $themeFilePath
-        Write-Host "Oh My Posh theme '$ThemeName' has been downloaded to [$themeFilePath]"
+        Write-Host "Il tema Oh My Posh '$ThemeName' è stato scaricato in [$themeFilePath]"
         return $themeFilePath
     }
     catch {
-        Write-Error "Failed to download Oh My Posh theme. Error: $_"
+        Write-Error "Impossibile scaricare il tema Oh My Posh. Errore: $_"
         return $null
     }
 }
 
-# OMP Install
+# Installazione Oh My Posh
 try {
     winget install -e --accept-source-agreements --accept-package-agreements JanDeDobbeleer.OhMyPosh
 }
 catch {
-    Write-Error "Failed to install Oh My Posh. Error: $_"
+    Write-Error "Impossibile installare Oh My Posh. Errore: $_"
 }
 
-# Download Oh My Posh theme locally
+# Download del tema Oh My Posh
 $themeInstalled = Install-OhMyPoshTheme -ThemeName "atomic"
 
-# Font Install
-Install-NerdFonts -FontName "CascadiaCode" -FontDisplayName "CaskaydiaCove NF"
+# Installazione Font
+Install-NerdFonts
 
-# Final check and message to the user
-if ((Test-Path -Path $PROFILE) -and (winget list --name "OhMyPosh" -e) -and ($fontFamilies -contains "CaskaydiaCove NF") -and $themeInstalled) {
-    Write-Host "Setup completed successfully. Please restart your PowerShell session to apply changes."
-}
-else {
-    Write-Warning "Setup completed with errors. Please check the error messages above."
-}
-
-
-
-# zoxide Install
+# Installazione zoxide
 try {
     winget install -e --id ajeetdsouza.zoxide
-    Write-Host "zoxide installed successfully."
+    Write-Host "zoxide installato con successo."
 }
 catch {
-    Write-Error "Failed to install zoxide. Error: $_"
+    Write-Error "Impossibile installare zoxide. Errore: $_"
+}
+
+# Installazione btop
+try {
+    winget install -e --id btop.btop
+    Write-Host "btop installato con successo."
+}
+catch {
+    Write-Error "Impossibile installare btop. Errore: $_"
+}
+
+# Installazione fastfetch
+try {
+    winget install -e --id Lissy93.fastfetch
+    Write-Host "Fastfetch installato con successo."
+}
+catch {
+    Write-Error "Impossibile installare Fastfetch. Errore: $_"
+}
+
+# Verifica finale e messaggio all'utente
+if ((Test-Path -Path $PROFILE) -and (winget list --name "OhMyPosh" -e) -and ($fontFamilies -contains "JetBrainsMono Nerd Font Mono") -and $themeInstalled) {
+    Write-Host "Setup completato con successo. Riavviare la sessione di PowerShell per applicare le modifiche."
+}
+else {
+    Write-Warning "Setup completato con errori. Controllare i messaggi di errore sopra."
 }
