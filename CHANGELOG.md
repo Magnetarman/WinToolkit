@@ -117,7 +117,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Aggiunta nuova funzione che evita la richiesta dopo tot tempo di cambio password dell'utente corrente.
   - Aggiunto riempimento progressivo a chkdsk: Ora tutti i comandi (inclusi chkdsk) simulano il progresso incrementando la percentuale da 0% a 95% con incrementi casuali di 1-3%. chkdsk mantiene il colore giallo per distinguerlo. **[@pomodori92]**
   - Rallentato "Ripristino immagine Windows" di 1.5x: Il ritardo tra aggiornamenti della barra di progresso per questo comando è stato aumentato da 600 ms a 900 ms, rendendo il riempimento più lento. **[@pomodori92]**
-  - Script potenziato. Integrate 3 nuove funzioni per risolvere e stabilizzare Winget e XAML.
+  - Script potenziato. Integrate 3 nuove funzioni con attivazione condizionale per risolvere e stabilizzare Winget e XAML.
 
 - Funzione **DisableBitlocker** completa.
   - Refactor Codice per uniformarlo al resto della codebase.
@@ -167,6 +167,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Refactor Codice per uniformarlo al resto della codebase.
   - Migliorata scrittura file Log.
   - Eliminazione dei commenti non necessari.
+  - Risolto un Bug che causava errori di visualizzazione nelle barre di progresso.
   - Uniformata Spinner e grafica.
   - Velocizzato il download di DDU.
 
@@ -191,6 +192,56 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Modificato l'aspetto grafico del Toolkit rendendo le varie schermate più compatte e leggibili. **([#21](https://github.com/Magnetarman/WinToolkit/issues/21)) [@pomodori92]**
   - Aggiornato DDU alla versione v18.1.4.0.
   - Funzione Grafica Spinner resa globale ed ottimizzata nei vari script.
+- Revamping `Poweshell Profile.ps1`
+  - Pulizia e rimozione codice inutile
+    - Rimuovere tutte le funzioni di debug non più necessarie
+    - Eliminare l’architettura *Override-First*
+    - Rimuovere il meccanismo di aggiornamento automatico del profilo (`Update-Profile` con confronto SHA256)
+    - Eliminare le mappature dei comandi Unix-like su PowerShell:
+      - `grep`
+      - `sed`
+      - `which`
+      - `export`
+      - `pkill`
+      - `head`
+      - `tail`
+      - Rimuovere la gestione personalizzata del cestino (COM `Shell.Application`)
+      - Eliminare le funzioni `uptime` e `hb`
+      - Rimuovere il codice per syntax highlighting
+      - Rimuovere il completamento nativo
+      - Eliminare utility e shortcut non più utilizzate:
+        - `sed`
+        - `grep`
+        - `which`
+        - `export`
+        - `nf`
+        - `docs`
+        - `k9`
+        - `la`
+        - `ll`
+        - `cpy`
+        - `pst`
+        - Git shortcuts
+        - Help Function
+  - Configurazione Oh My Posh
+    - Impostare il tema `atomic.omp.json` al posto di `cobalt2.omp.json`
+    - Scaricare il tema da GitHub se non presente localmente
+    - Usare l’URL remoto come fallback in caso di errore nel download
+  - Gestione editor
+    - Aggiornare la *Editor Hierarchy* mantenendo solo:
+    - `zed → code → notepad`
+    - Rimuovere tutti gli altri editor
+    - Nella sezione *Editor Configuration* mantenere solo:
+    - Visual Studio Code (`code`)
+    - Zed (`zed`)
+  - WinToolkit
+    - Rinominare **Open WinUtil full-release** in **Open WinToolkit Stable**
+    - Aggiornare il link a `https://magnetarman.com/WinToolkit`
+    - Rinominare **Open WinUtil dev-release** in **Open WinToolkit Dev**
+    - Sostituire il codice con:
+    - `Invoke-Expression (Invoke-RestMethod https://magnetarman.com/WinToolkit-Dev)`
+  - Varie
+    - Tradurre tutti i commenti del file in italiano  
 
 ---
 
