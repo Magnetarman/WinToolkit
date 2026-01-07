@@ -50,38 +50,57 @@
   - [x] Eliminato codice ridondante e duplicato 
   
 - Revamping `Poweshell Profile.ps1`
-  - [x] Eliminare tutto il codice relativo alle funzioni di debug non più necessarie
-  - [x] Elimina tutto il codice relativo all'architettura Architettura "Override-First" non più necessario
-  - [x] Elimina tutto il codice relativo all' Update-Profile: Esegue un confronto di hash SHA256 (Get-FileHash) tra il file $PROFILE locale e la versione remota su GitHub. Se differiscono, scarica e sovrascrive.
-  - [x] Elimina tutto il codice relativo alla Gestione File: grep, sed, which, export, pkill, head, tail sono mappati su logiche PowerShell (es. grep usa Select-String). 
-  - [x] Elimina tutto il codice relativo a trash: Invece di usare Remove-Item (che elimina permanentemente), lo script istanzia l'oggetto COM Shell.Application per invocare il metodo ParseName().InvokeVerb('delete'), spostando i file nel Cestino di Windows.
-  - [x] Elimina tutto il codice relativo a uptime
-  - [x] Elimina tutto il codice relativo a hb
-  - [x] Elimina tutto il codice relativo a Syntax Highlighting
-  - [x] Elimina tutto il codice relativo a Completamento Nativo
-  - [x] Modifica il codice relativo alla sezione Oh My Posh
-    - [x] Tenta di caricare il tema atomic.omp.json al posto di cobalt2.omp.json
-    - [x] se mancante, lo scarica da GitHub. il link al profilo è questo $themeUrl https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/refs/heads/main/themes/atomic.omp.json Se il download fallisce, punta direttamente all'URL remoto come ultima risorsa.
-  - [x] modifica la sezione di codice Editor Hierarchy. nei controlli dei vari editor deve esserci zed -> code -> notepad. Elimina tutti gli altri non più utili.
-  - [x] Nella sezione # Editor Configuration elimina tutto il codice relativo agli altri editor, deve rimanere solo quello relativo a VSCode (code) ed aggiungi il codice relativo per Zed code (zed)
-  - [x] Modificare la sezione # Open WinUtil full-release in #Open WinToolkit Stable cambiando il link da https://christitus.com/win a https://magnetarman.com/WinToolkit
-  - [x] Modificare la sezione # Open WinUtil dev-release in #Open WinToolkit Dev cambiando il codice totalmente e richiamando solo il comando Invoke-Expression (Invoke-RestMethod https://magnetarman.com/WinToolkit-Dev)
-  - [x] Modifica la lingua di tutti i commenti # traducendo in italiano il testo.
-  - [x] Aggiungi installazione dtop da winget
-  - Elimina le seguenti funzioni inutili
-    - [x] function sed
-    - [x] function grep
-    - [x] function which($name)
-    - [x] function export($name, $value)
-    - [x] function nf
-    - [x] function docs
-    - [x] function k9
-    - [x] function la
-    - [x] function ll
-    - [x] # Git Shortcuts
-    - [x] function cpy
-    - [x] function pst
-    - [x] # Help Function
+  - Pulizia e rimozione codice obsoleto
+  - [x] Rimuovere tutte le funzioni di debug non più necessarie
+  - [x] Eliminare l’architettura *Override-First*
+  - [x] Rimuovere il meccanismo di aggiornamento automatico del profilo (`Update-Profile` con confronto SHA256)
+  - [x] Eliminare le mappature dei comandi Unix-like su PowerShell:
+    - `grep`
+    - `sed`
+    - `which`
+    - `export`
+    - `pkill`
+    - `head`
+    - `tail`
+  - [x] Rimuovere la gestione personalizzata del cestino (COM `Shell.Application`)
+  - [x] Eliminare le funzioni `uptime` e `hb`
+  - [x] Rimuovere il codice per syntax highlighting
+  - [x] Rimuovere il completamento nativo
+  - [x] Eliminare utility e shortcut non più utilizzate:
+    - `sed`
+    - `grep`
+    - `which`
+    - `export`
+    - `nf`
+    - `docs`
+    - `k9`
+    - `la`
+    - `ll`
+    - `cpy`
+    - `pst`
+    - Git shortcuts
+    - Help Function
+  - Configurazione Oh My Posh
+    - [x] Impostare il tema `atomic.omp.json` al posto di `cobalt2.omp.json`
+    - [x] Scaricare il tema da GitHub se non presente localmente
+    - [x] Usare l’URL remoto come fallback in caso di errore nel download
+  - Gestione editor
+    - [x] Aggiornare la *Editor Hierarchy* mantenendo solo:
+    - `zed → code → notepad`
+    - [x] Rimuovere tutti gli altri editor
+    - [x] Nella sezione *Editor Configuration* mantenere solo:
+    - Visual Studio Code (`code`)
+    - Zed (`zed`)
+  - WinToolkit
+    - [x] Rinominare **Open WinUtil full-release** in **Open WinToolkit Stable**
+    - [x] Aggiornare il link a `https://magnetarman.com/WinToolkit`
+    - [x] Rinominare **Open WinUtil dev-release** in **Open WinToolkit Dev**
+    - [x] Sostituire il codice con:
+    - `Invoke-Expression (Invoke-RestMethod https://magnetarman.com/WinToolkit-Dev)`
+  - Varie
+    - [x] Tradurre tutti i commenti del file in italiano
+    - [x] Aggiungere l’installazione di `dtop` tramite `winget`
+
 
 ### V 2.5.1
 
