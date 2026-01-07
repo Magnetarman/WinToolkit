@@ -9,32 +9,30 @@
 #>
 
 
-    try {
-        Write-Host "Verifica degli aggiornamenti di PowerShell..." -ForegroundColor Cyan
-        $updateNeeded = $false
-        $currentVersion = $PSVersionTable.PSVersion.ToString()
-        $gitHubApiUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
-        $latestReleaseInfo = Invoke-RestMethod -Uri $gitHubApiUrl
-        $latestVersion = $latestReleaseInfo.tag_name.Trim('v')
-        if ($currentVersion -lt $latestVersion) {
-            $updateNeeded = $true
-        }
-
-        if ($updateNeeded) {
-            Write-Host "Aggiornamento di PowerShell in corso..." -ForegroundColor Yellow
-            winget upgrade "Microsoft.PowerShell" --accept-source-agreements --accept-package-agreements
-            Write-Host "PowerShell è stato aggiornato. Riavvia la shell per applicare le modifiche." -ForegroundColor Magenta
-        }
-        else {
-            Write-Host "PowerShell è aggiornato." -ForegroundColor Green
-        }
+try {
+    Write-Host "Verifica degli aggiornamenti di PowerShell..." -ForegroundColor Cyan
+    $updateNeeded = $false
+    $currentVersion = $PSVersionTable.PSVersion.ToString()
+    $gitHubApiUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
+    $latestReleaseInfo = Invoke-RestMethod -Uri $gitHubApiUrl
+    $latestVersion = $latestReleaseInfo.tag_name.Trim('v')
+    if ($currentVersion -lt $latestVersion) {
+        $updateNeeded = $true
     }
-    catch {
-        Write-Error "Impossibile aggiornare PowerShell. Errore: $_"
+
+    if ($updateNeeded) {
+        Write-Host "Aggiornamento di PowerShell in corso..." -ForegroundColor Yellow
+        winget upgrade "Microsoft.PowerShell" --accept-source-agreements --accept-package-agreements
+        Write-Host "PowerShell è stato aggiornato. Riavvia la shell per applicare le modifiche." -ForegroundColor Magenta
+    }
+    else {
+        Write-Host "PowerShell è aggiornato." -ForegroundColor Green
     }
 }
+catch {
+    Write-Error "Impossibile aggiornare PowerShell. Errore: $_"
+}
 
-Update-PowerShell
 
 # Controllo Amministratore e Personalizzazione Prompt
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -58,11 +56,19 @@ else { 'notepad' }
 Set-Alias -Name zed -Value $EDITOR
 
 function Edit-Profile {
-    zed $PROFILE.CurrentUserAllHosts
+    if ($EDITOR -eq 'zed') {
+        zed $PROFILE.CurrentUserAllHosts
+    }
+    elseif ($EDITOR -eq 'code') {
+        code $PROFILE.CurrentUserAllHosts
+    }
+    else {
+        notepad $PROFILE.CurrentUserAllHosts
+    }
 }
 
 function ff($name) {
-    Get-ChildItem -recurse -filter "*${name}*" -ErrorAction SilentlyContinue | ForEach-Object {
+    Get-ChildItem -Recurse -Filter "*${name}*" -ErrorAction SilentlyContinue | ForEach-Object {
         Write-Output "$($_.directory)\$($_)"
     }
 }
@@ -77,7 +83,7 @@ function reload-profile {
 }
 
 function unzip ($file) {
-    Write-Output("Estrazione", $file, "in", $pwd)
+    Write-Output "Estrazione" $file "in" $pwd
     $fullFile = Get-ChildItem -Path $pwd -Filter $file | ForEach-Object { $_.FullName }
     Expand-Archive -Path $fullFile -DestinationPath $pwd
 }
@@ -143,8 +149,8 @@ function WinToolkit-Stable {
 }
 
 function WinToolkit-Dev {
-    Invoke-Expression (Invoke-RestMethod https://magnetarman.com/WinToolkit-Dev)
+    Start-Process "https://magnetarman.com/WinToolkit-Dev"
 }
 
-# Linea finale per impostare il prompt
+# Inizializzazione fastfetch
 fastfetch
