@@ -220,9 +220,9 @@ try {
     }
 
     if ($updateNeeded) {
-        Write-Host "⬇️ Aggiornamento di PowerShell in corso..." -ForegroundColor Yellow
+        Write-Host "🔄 Aggiornamento di PowerShell in corso..." -ForegroundColor Yellow
         winget upgrade "Microsoft.PowerShell" --accept-source-agreements --accept-package-agreements | Out-Null
-        Write-Host "🔄 PowerShell aggiornato. Riavvia la shell per applicare le modifiche." -ForegroundColor Magenta
+        Write-Host "✅ PowerShell aggiornato. Riavvia la shell per applicare le modifiche." -ForegroundColor Magenta
     }
     else {
         Write-Host "✅ PowerShell è aggiornato (v$currentVersion)" -ForegroundColor Green
