@@ -5,6 +5,8 @@
 
 - Cambiare gestione profilo powershell
   - [x] aggiungere alla repo in asset nuovo file Microsoft.PowerShell_profile.ps1
+  - [x] Aggiungere comando "Reboot" con esecuzione comando shutdown /r /f /t 0
+  
   
 - Automatizzare creazione changelog
   - [ ] Prende le due versioni
