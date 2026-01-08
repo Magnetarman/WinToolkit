@@ -166,7 +166,7 @@ function WinPSP-Setup {
     # Installazione btop
     Write-StyledMessage -Type 'Info' -Text "📊 Installazione btop..."
     try {
-        winget install -e --id btop.btop
+        winget install -e --id aristocratos.btop4win
         Write-StyledMessage -Type 'Success' -Text "btop installato"
     }
     catch {
@@ -176,7 +176,7 @@ function WinPSP-Setup {
     # Installazione fastfetch
     Write-StyledMessage -Type 'Info' -Text "⚡ Installazione fastfetch..."
     try {
-        winget install -e --id Lissy93.fastfetch
+        winget install -e --id Fastfetch-cli.Fastfetch
         Write-StyledMessage -Type 'Success' -Text "fastfetch installato"
     }
     catch {
