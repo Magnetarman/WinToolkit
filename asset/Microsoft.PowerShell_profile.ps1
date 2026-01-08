@@ -235,22 +235,53 @@ catch {
     Write-Host "❌ Impossibile verificare aggiornamenti PowerShell: $_" -ForegroundColor Red
 }
 
-# Oh My Posh
-$ThemePath = "$env:USERPROFILE\Documents\PowerShell\Themes\atomic.omp.json"
-if (-not (Test-Path $ThemePath)) {
-    try {
-        $null = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json" -OutFile $ThemePath -UseBasicParsing -ErrorAction Stop
+# ============================================================================
+# OH MY POSH
+# ============================================================================
+
+# Helper function for cross-edition compatibility (stessa logica dello script di setup)
+function Get-ProfileDir {
+    if ($PSVersionTable.PSEdition -eq "Core") {
+        return [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
     }
-    catch {
-        Write-Host "⚠️ Impossibile scaricare il tema atomic.omp.json" -ForegroundColor Yellow
+    elseif ($PSVersionTable.PSEdition -eq "Desktop") {
+        return [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
+    }
+    else {
+        Write-Error "Unsupported PowerShell edition: $($PSVersionTable.PSEdition)"
+        return $null
     }
 }
 
-if (Test-Path $ThemePath) {
-    oh-my-posh init pwsh --config $ThemePath | Invoke-Expression
+# Calcola il percorso del tema locale (stessa logica di Install-OhMyPoshTheme in WinPSP-Setup.ps1)
+$profileDir = Get-ProfileDir
+$themeName = "atomic"
+$localThemePath = Join-Path $profileDir "Themes\$themeName.omp.json"
+
+# Download del tema se non esiste localmente (fallback offline)
+if (-not (Test-Path $localThemePath)) {
+    $themeUrl = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+    try {
+        Write-Host "⬇️ Download tema Oh My Posh..." -ForegroundColor Cyan
+        Invoke-WebRequest -Uri $themeUrl -OutFile $localThemePath -UseBasicParsing -ErrorAction Stop
+        Write-Host "✅ Tema '$themeName' scaricato in: $localThemePath" -ForegroundColor Green
+    }
+    catch {
+        Write-Warning "Impossibile scaricare il tema atomic.omp.json: $($_.Exception.Message)"
+        $localThemePath = $null
+    }
+}
+
+# Inizializza Oh My Posh
+if (Test-Path $localThemePath) {
+    # Usa il file locale per velocità e affidabilità (funziona anche offline)
+    oh-my-posh init pwsh --config $localThemePath | Invoke-Expression
 }
 else {
-    oh-my-posh init pwsh --config "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json" | Invoke-Expression
+    # Fallback a URL remoto se il file locale non esiste e il download è fallito
+    $fallbackUrl = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+    Write-Warning "Tema locale non disponibile. Uso fallback remoto."
+    oh-my-posh init pwsh --config $fallbackUrl | Invoke-Expression
 }
 
 # zoxide
