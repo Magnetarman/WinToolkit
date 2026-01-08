@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 179)"
+$ToolkitVersion = "2.5.0 (Build 180)"
 
 
 # Setup Variabili Globali UI
@@ -4197,49 +4197,81 @@ function WinPSP-Setup {
     function Install-NerdFonts {
         <#
         .SYNOPSIS
-            Installa i Nerd Fonts necessari per il terminale.
+            Installa e registra i Nerd Fonts necessari per il terminale.
         #>
         try {
-            [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Drawing")
-            $fontFamilies = (New-Object System.Drawing.Text.InstalledFontCollection).Families.Name
-            $fontDisplayName = "JetBrainsMono Nerd Font Mono"
-
-            if ($fontFamilies -notcontains $fontDisplayName) {
-                Write-StyledMessage -Type 'Info' -Text "⬇️ Download JetBrainsMono Nerd Font..."
-
-                # Forza TLS 1.2 o superiore per risolvere errori SSL
-                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-
-                $fontZipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
-                $zipFilePath = "$env:TEMP\JetBrainsMono.zip"
-                $extractPath = "$env:TEMP\JetBrainsMono"
-
-                Write-StyledMessage -Type 'Info' -Text "Download in corso..."
-                Invoke-WebRequest -Uri $fontZipUrl -OutFile $zipFilePath -UseBasicParsing
-
-                Write-StyledMessage -Type 'Info' -Text "Estrazione font..."
-                Expand-Archive -Path $zipFilePath -DestinationPath $extractPath -Force
-
-                Write-StyledMessage -Type 'Info' -Text "Installazione font..."
-                $fontsInstalled = 0
-                Get-ChildItem -Path $extractPath -Recurse -Filter "*.ttf" | ForEach-Object {
-                    $fontName = $_.Name
-                    $destPath = "C:\Windows\Fonts\$fontName"
-                    If (-not(Test-Path $destPath)) {
-                        Copy-Item $_.FullName -Destination $destPath
-                        $fontsInstalled++
-                    }
-                }
-
-                Remove-Item -Path $extractPath -Recurse -Force
-                Remove-Item -Path $zipFilePath -Force
-                Write-StyledMessage -Type 'Success' -Text "JetBrainsMono Nerd Font installato ($fontsInstalled file)"
+            # Verifica se il font è già installato utilizzando InstalledFontCollection
+            $fontNameCheck = "JetBrainsMono Nerd Font"
+            $fonts = [System.Drawing.Text.InstalledFontCollection]::new()
+            if ($fonts.Families.Name -contains $fontNameCheck) {
+                Write-StyledMessage -Type 'Info' -Text "$fontNameCheck già installato."
                 return $true
+            }
+
+            Write-StyledMessage -Type 'Info' -Text "⬇️ Download JetBrainsMono Nerd Font..."
+
+            # Forza TLS 1.2 o superiore per risolvere errori SSL
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+
+            # Interrogazione GitHub API per l'ultima versione di JetBrainsMono Nerd Font
+            $fontZipUrl = $null
+            try {
+                $release = Invoke-RestMethod "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" -ErrorAction Stop
+                $asset = $release.assets | Where-Object { $_.name -eq "JetBrainsMono.zip" } | Select-Object -First 1
+                if ($asset) {
+                    $fontZipUrl = $asset.browser_download_url
+                    Write-StyledMessage -Type 'Info' -Text "Trovata ultima versione: $($release.tag_name) da $fontZipUrl"
+                }
+                else {
+                    Write-StyledMessage -Type 'Warning' -Text "Asset 'JetBrainsMono.zip' non trovato nell'ultima release. Utilizzo URL di fallback."
+                    $fontZipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+                }
+            }
+            catch {
+                Write-StyledMessage -Type 'Error' -Text "Errore durante il recupero dell'ultima versione da GitHub API: $($_.Exception.Message). Utilizzo URL di fallback."
+                $fontZipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+            }
+
+            if (-not $fontZipUrl) {
+                Write-StyledMessage -Type 'Error' -Text "Impossibile determinare l'URL per il download del font. Installazione annullata."
+                return $false
+            }
+
+            $zipFilePath = "$env:TEMP\JetBrainsMono.zip"
+            $extractPath = "$env:TEMP\JetBrainsMono"
+
+            Write-StyledMessage -Type 'Info' -Text "Download in corso..."
+            Invoke-WebRequest -Uri $fontZipUrl -OutFile $zipFilePath -UseBasicParsing -ErrorAction Stop
+
+            Write-StyledMessage -Type 'Info' -Text "Estrazione font..."
+            Expand-Archive -Path $zipFilePath -DestinationPath $extractPath -Force
+
+            Write-StyledMessage -Type 'Info' -Text "Installazione font..."
+            $fontsInstalled = 0
+            Get-ChildItem -Path $extractPath -Recurse -Filter "*Windows Compatible.ttf" | ForEach-Object {
+                $fontName = $_.Name
+                $destPath = "C:\Windows\Fonts\$fontName"
+                If (-not(Test-Path $destPath)) {
+                    Copy-Item $_.FullName -Destination $destPath -Force
+                    $fontsInstalled++
+
+                    # Registrazione del font nel Registro di Sistema
+                    $registryValue = $_.Name + " (TrueType)"
+                    New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts" -Name $registryValue -Value $_.Name -PropertyType String -Force | Out-Null
+                }
+            }
+
+            # Pulizia file temporanei
+            Remove-Item -Path $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path $zipFilePath -Force -ErrorAction SilentlyContinue
+
+            if ($fontsInstalled -gt 0) {
+                Write-StyledMessage -Type 'Success' -Text "Installati $fontsInstalled font. Riavvio richiesto per renderli disponibili."
             }
             else {
-                Write-StyledMessage -Type 'Info' -Text "JetBrainsMono Nerd Font già installato"
-                return $true
+                Write-StyledMessage -Type 'Info' -Text "Nessun nuovo font installato (già presenti o problema download)."
             }
+            return $true
         }
         catch {
             Write-StyledMessage -Type 'Error' -Text "Errore installazione font: $($_.Exception.Message)"
@@ -4275,10 +4307,10 @@ function WinPSP-Setup {
         #>
         param(
             [string]$ThemeName = "atomic",
-            [string]$ThemeUrl = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/refs/heads/main/themes/atomic.omp.json"
+            [string]$ThemeUrl = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
         )
 
-        $profilePath = Get-ProfileDir
+        $profilePath = Split-Path $PROFILE -Parent
         if (-not $profilePath) {
             return $null
         }
@@ -4300,12 +4332,12 @@ function WinPSP-Setup {
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
             
             Write-StyledMessage -Type 'Info' -Text "⬇️ Download tema Oh My Posh: $ThemeName..."
-            Invoke-WebRequest -Uri $ThemeUrl -OutFile $themeFilePath -UseBasicParsing
+            Invoke-WebRequest -Uri $ThemeUrl -OutFile $themeFilePath -UseBasicParsing -ErrorAction Stop
             Write-StyledMessage -Type 'Success' -Text "Tema '$ThemeName' installato in: $themeFilePath"
             return $themeFilePath
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore download tema: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare il tema Oh My Posh. Verifica URL o connessione. Errore: $($_.Exception.Message)"
             return $null
         }
     }
@@ -4381,7 +4413,7 @@ function WinPSP-Setup {
             if (-not (Test-Path -Path $profilePath)) {
                 New-Item -Path $profilePath -ItemType "directory" -Force | Out-Null
             }
-            Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE
+            Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE -ErrorAction Stop
             Write-StyledMessage -Type 'Success' -Text "Profilo PowerShell creato: $PROFILE"
         }
         catch {
@@ -4392,7 +4424,7 @@ function WinPSP-Setup {
         try {
             $backupPath = Join-Path (Split-Path $PROFILE) "oldprofile.ps1"
             Move-Item -Path $PROFILE -Destination $backupPath -Force
-            Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE
+            Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE -ErrorAction Stop
             Write-StyledMessage -Type 'Success' -Text "Profilo PowerShell aggiornato"
             Write-StyledMessage -Type 'Info' -Text "Backup salvato: $backupPath"
         }
@@ -4407,7 +4439,7 @@ function WinPSP-Setup {
 
     Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione settings.json per Windows Terminal..."
     try {
-        $wtSettingsUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/settings.json"
+        $wtSettingsUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
         $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
 
         if (-not $wtPath) {
@@ -4421,7 +4453,7 @@ function WinPSP-Setup {
             $settingsPath = Join-Path $wtLocalStateDir "settings.json"
 
             Write-StyledMessage -Type 'Info' -Text "Download settings.json per Windows Terminal..."
-            Invoke-WebRequest $wtSettingsUrl -OutFile $settingsPath -UseBasicParsing
+            Invoke-WebRequest $wtSettingsUrl -OutFile $settingsPath -UseBasicParsing -ErrorAction Stop
             Write-StyledMessage -Type 'Success' -Text "settings.json configurato: $settingsPath"
         }
     }
@@ -4553,6 +4585,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
