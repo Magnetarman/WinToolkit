@@ -218,28 +218,28 @@ jobs:
           $content = Get-Content -Path $templatePath -Raw
 
           # Trova la riga con la versione e estrai il numero di build
-          $versionPattern = "`$ToolkitVersion\s*=\s*[`"'](.+?)[`"']"
+          $versionPattern = '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]'
           if ($content -match $versionPattern) {
             $fullVersion = $matches[1]
             Write-Host "📋 Versione attuale: $fullVersion" -ForegroundColor Green
-            
+
             # Estrai il numero di build (numero alla fine tra parentesi)
             $buildPattern = 'Build\s+(\d+)'
             if ($fullVersion -match $buildPattern) {
               $currentBuild = [int]$matches[1]
               $newBuild = $currentBuild + 1
               $newVersion = $fullVersion -replace "Build\s+$currentBuild", "Build $newBuild"
-              
+
               Write-Host "🔄 Incremento build: $currentBuild → $newBuild" -ForegroundColor Blue
               Write-Host "🆕 Nuova versione: $newVersion" -ForegroundColor Green
-              
+
               # Sostituisci la riga della versione
-              $newLine = "`$ToolkitVersion = \"$newVersion\""
-              $content = $content -replace "\$ToolkitVersion\s*=\s*[\"\'].+?[\"\']", $newLine
-              
+              $newLine = "`$ToolkitVersion = `"$newVersion`""
+              $content = $content -replace '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]', $newLine
+
               # Scrivi il file aggiornato
               $content | Set-Content -Path $templatePath -Encoding UTF8
-              
+
               Write-Host "✅ Versione incrementata con successo" -ForegroundColor Green
               Write-Output "new_version=$newVersion" >> $env:GITHUB_OUTPUT
               Write-Output "build_number=$newBuild" >> $env:GITHUB_OUTPUT
