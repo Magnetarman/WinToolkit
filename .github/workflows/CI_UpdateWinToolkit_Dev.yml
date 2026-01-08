@@ -218,7 +218,7 @@ jobs:
           $content = Get-Content -Path $templatePath -Raw
 
           # Trova la riga con la versione e estrai il numero di build
-          $versionPattern = '\$ToolkitVersion\s*=\s*["\'](.+?)["\']'
+          $versionPattern = "`$ToolkitVersion\s*=\s*[`"'](.+?)[`"']"
           if ($content -match $versionPattern) {
             $fullVersion = $matches[1]
             Write-Host "📋 Versione attuale: $fullVersion" -ForegroundColor Green
