@@ -264,7 +264,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Rinomina di **Open WinUtil full-release** in **WinToolkit-Stable**
     - Aggiornamento del link a `https://magnetarman.com/WinToolkit`
     - Rinomina di **Open WinUtil dev-release** in **WinToolkit-Dev**
-    - Aggiornamento link a `https://magnetarman.com/WinToolkit`
+    - Aggiornamento link a `https://magnetarman.com/WinToolkit-Dev`
     - Aggiornata funzione di richiamo Toolkit e potenziamento per funzionamento Plug and Play.
   - **Varie:**
     - Traduzione di tutti i commenti del file in italiano
