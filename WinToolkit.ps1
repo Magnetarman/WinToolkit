@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 181)"
+$ToolkitVersion = "2.5.0 (Build 182)"
 
 
 # Setup Variabili Globali UI
@@ -4210,6 +4210,14 @@ function WinPSP-Setup {
                 Write-StyledMessage -Type 'Info' -Text "$fontNameCheck già installato."
                 return $true
             }
+            
+            # Check alternativo: verifica file font nella cartella Fonts di sistema
+            $fontsPath = "C:\Windows\Fonts"
+            $jetBrainsFonts = Get-ChildItem -Path $fontsPath -Filter "*JetBrainsMono*" -ErrorAction SilentlyContinue
+            if ($jetBrainsFonts) {
+                Write-StyledMessage -Type 'Info' -Text "File JetBrainsMono già presenti in $fontsPath. Installazione saltata."
+                return $true
+            }
 
             Write-StyledMessage -Type 'Info' -Text "⬇️ Download JetBrainsMono Nerd Font..."
 
@@ -4385,32 +4393,32 @@ function WinPSP-Setup {
 
     # Installazione zoxide
     Write-StyledMessage -Type 'Info' -Text "🦎 Installazione zoxide..."
-    try {
-        winget install -e --id ajeetdsouza.zoxide
+    $zoxideResult = winget install -e --id ajeetdsouza.zoxide --accept-source-agreements --accept-package-agreements 2>&1
+    if ($LASTEXITCODE -eq 0) {
         Write-StyledMessage -Type 'Success' -Text "zoxide installato"
     }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore installazione zoxide: $($_.Exception.Message)"
+    else {
+        Write-StyledMessage -Type 'Error' -Text "Errore installazione zoxide: $zoxideResult"
     }
 
     # Installazione btop
     Write-StyledMessage -Type 'Info' -Text "📊 Installazione btop..."
-    try {
-        winget install -e --id aristocratos.btop4win
+    $btopResult = winget install -e --id aristocratos.btop4win --accept-source-agreements --accept-package-agreements 2>&1
+    if ($LASTEXITCODE -eq 0) {
         Write-StyledMessage -Type 'Success' -Text "btop installato"
     }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore installazione btop: $($_.Exception.Message)"
+    else {
+        Write-StyledMessage -Type 'Error' -Text "Errore installazione btop: $btopResult"
     }
 
     # Installazione fastfetch
     Write-StyledMessage -Type 'Info' -Text "⚡ Installazione fastfetch..."
-    try {
-        winget install -e --id Fastfetch-cli.Fastfetch
+    $fastfetchResult = winget install -e --id Fastfetch-cli.Fastfetch --accept-source-agreements --accept-package-agreements 2>&1
+    if ($LASTEXITCODE -eq 0) {
         Write-StyledMessage -Type 'Success' -Text "fastfetch installato"
     }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore installazione fastfetch: $($_.Exception.Message)"
+    else {
+        Write-StyledMessage -Type 'Error' -Text "Errore installazione fastfetch: $fastfetchResult"
     }
 
     # ============================================================================
@@ -4599,6 +4607,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
