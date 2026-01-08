@@ -121,11 +121,11 @@ function FlushDns {
 # ============================================================================
 
 function WinToolkit-Stable {
-    Start-Process -FilePath "pwsh.exe" -ArgumentList "-ExecutionPolicy Bypass -Command \"irm https://magnetarman.com/WinToolkit | iex\"" -Verb RunAs
+    Start-Process -FilePath "pwsh.exe" -ArgumentList "-ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/WinToolkit | iex`"" -Verb RunAs
 }
 
 function WinToolkit-Dev {
-    Start-Process -FilePath "pwsh.exe" -ArgumentList "-ExecutionPolicy Bypass -Command \"irm https://magnetarman.com/WinToolkit-Dev | iex\"" -Verb RunAs
+    Start-Process -FilePath "pwsh.exe" -ArgumentList "-ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/WinToolkit-Dev | iex`"" -Verb RunAs
 }
 
 # ============================================================================
