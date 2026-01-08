@@ -5,7 +5,7 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.5.0 - 04/01/2026
+    Versione: 2.5.0 - 08/01/2026
     Autore: MagnetarMan
 #>
 
