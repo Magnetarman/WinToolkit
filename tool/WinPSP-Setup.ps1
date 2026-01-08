@@ -112,7 +112,7 @@ function WinPSP-Setup {
         $themeFilePath = Join-Path $profilePath "$ThemeName.omp.json"
         try {
             Write-StyledMessage -Type 'Info' -Text "⬇️ Download tema Oh My Posh: $ThemeName..."
-            Invoke-RestMethod -Uri $ThemeUrl -OutFile $themeFilePath
+            Invoke-WebRequest -Uri $ThemeUrl -OutFile $themeFilePath -UseBasicParsing
             Write-StyledMessage -Type 'Success' -Text "Tema '$ThemeName' installato"
             return $themeFilePath
         }
@@ -123,7 +123,7 @@ function WinPSP-Setup {
     }
 
     # ============================================================================
-    # INSTALLAZIONE COMPONENTI - TEST
+    # INSTALLAZIONE COMPONENTI
     # ============================================================================
 
     # Installazione Oh My Posh
