@@ -75,10 +75,6 @@ function New-Mkcd {
     Set-Location -Path $Directory
 }
 
-function doReboot {
-    shutdown /r /f /t 0
-}
-
 # ============================================================================
 # NAVIGAZIONE RAPIDA
 # ============================================================================
@@ -121,7 +117,7 @@ function FlushDns {
 }
 
 # ============================================================================
-# WINTOOLKIT
+# SISTEMA
 # ============================================================================
 
 function WinToolkit-Stable {
@@ -130,6 +126,18 @@ function WinToolkit-Stable {
 
 function WinToolkit-Dev {
     Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/WinToolkit-Dev | iex`"" -Verb RunAs
+}
+
+function doReboot {
+    shutdown /r /f /t 0
+}
+
+function Shutdownfast {
+    shutdown /s /f /t 0
+}
+
+function ShutdownComplete {
+    shutdown /s /full /f /t 0
 }
 
 # ============================================================================
@@ -228,10 +236,10 @@ function Show-Help {
 $($PSStyle.Foreground.Cyan)Guida al Profilo PowerShell$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)===========================$($PSStyle.Reset)
 
 $($PSStyle.Foreground.Cyan)Utility Generali$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)ReloadProfile$($PSStyle.Reset)      - Ricarica il profilo PowerShell corrente
-$($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)     - Estrae un file ZIP nella directory corrente
-$($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)          - Cerca file ricorsivamente per nome parziale
-$($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)           - Crea una directory e ci si sposta
+$($PSStyle.Foreground.Green)ReloadProfile$($PSStyle.Reset)         - Ricarica il profilo PowerShell corrente
+$($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)        - Estrae un file ZIP nella directory corrente
+$($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)             - Cerca file ricorsivamente per nome parziale
+$($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)              - Crea una directory e ci si sposta
 
 $($PSStyle.Foreground.Cyan)Navigazione File e Directory$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Set-LocationToDesktop$($PSStyle.Reset) - Naviga alla directory Desktop
@@ -239,23 +247,23 @@ $($PSStyle.Foreground.Green)EditProfile$($PSStyle.Reset)           - Apre il pro
 $($PSStyle.Foreground.Green)EditPSProfile$($PSStyle.Reset)         - Apre il profilo PowerShell nell'editor
 
 $($PSStyle.Foreground.Cyan)Informazioni di Sistema$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Get-SystemInfo$($PSStyle.Reset)     - Visualizza informazioni di sistema dettagliate
-$($PSStyle.Foreground.Green)Get-PublicIP$($PSStyle.Reset)       - Recupera l'indirizzo IP pubblico
-$($PSStyle.Foreground.Green)Get-MainboardInfo$($PSStyle.Reset)  - Informazioni sulla scheda madre
-$($PSStyle.Foreground.Green)Get-RAMInfo$($PSStyle.Reset)        - Informazioni sui moduli RAM installati
+$($PSStyle.Foreground.Green)Get-SystemInfo$($PSStyle.Reset)        - Visualizza informazioni di sistema dettagliate
+$($PSStyle.Foreground.Green)Get-PublicIP$($PSStyle.Reset)          - Recupera l'indirizzo IP pubblico
+$($PSStyle.Foreground.Green)Get-MainboardInfo$($PSStyle.Reset)     - Informazioni sulla scheda madre
+$($PSStyle.Foreground.Green)Get-RAMInfo$($PSStyle.Reset)           - Informazioni sui moduli RAM installati
 
 $($PSStyle.Foreground.Cyan)Utility di Rete$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)           - Svuota la cache DNS
+$($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)              - Svuota la cache DNS
 
 $($PSStyle.Foreground.Cyan)Sistema$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)            - Riavvia il sistema immediatamente
-
-$($PSStyle.Foreground.Cyan)WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)  - Lancia WinToolkit (stabile)
-$($PSStyle.Foreground.Green)WinToolkit-Dev$($PSStyle.Reset)     - Lancia WinToolkit (sviluppo)
+$($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)     - Lancia WinToolkit (stabile)
+$($PSStyle.Foreground.Green)WinToolkit-Dev$($PSStyle.Reset)        - Lancia WinToolkit (sviluppo)
+$($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)              - Riavvia il sistema immediatamente
+$($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)          - Spegnimento rapido
+$($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)      - Spegnimento completo (bypass Fast Startup)
 
 $($PSStyle.Foreground.Cyan)Software Installati$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)btop$($PSStyle.Reset)               - Monitor delle risorse per il terminale
+$($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                  - Monitor delle risorse per il terminale
 
 $($PSStyle.Foreground.Cyan)Editor Configurato$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------$($PSStyle.Reset)
 Editor corrente: $($PSStyle.Foreground.Magenta)$($EDITOR_INFO.Name)$($PSStyle.Reset)
