@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 176)"
+$ToolkitVersion = "2.5.0 (Build 177)"
 
 
 # Setup Variabili Globali UI
@@ -4207,33 +4207,23 @@ function WinPSP-Setup {
             if ($fontFamilies -notcontains $fontDisplayName) {
                 Write-StyledMessage -Type 'Info' -Text "⬇️ Download JetBrainsMono Nerd Font..."
 
-                # Ottieni l'URL dell'ultima release tramite API GitHub
-                $apiUrl = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
-                $releaseInfo = Invoke-RestMethod -Uri $apiUrl
-                $fontZipUrl = ($releaseInfo.assets | Where-Object { $_.name -eq "JetBrainsMono.zip" }).browser_download_url
-
-                if (-not $fontZipUrl) {
-                    Write-StyledMessage -Type 'Error' -Text "Asset JetBrainsMono.zip non trovato nella release"
-                    return $false
-                }
-
+                $fontZipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
                 $zipFilePath = "$env:TEMP\JetBrainsMono.zip"
                 $extractPath = "$env:TEMP\JetBrainsMono"
 
                 Write-StyledMessage -Type 'Info' -Text "Download in corso..."
-                $webClient = New-Object System.Net.WebClient
-                $webClient.DownloadFileAsync((New-Object System.Uri($fontZipUrl)), $zipFilePath)
-
-                while ($webClient.IsBusy) {
-                    Start-Sleep -Seconds 2
-                }
+                Invoke-WebRequest -Uri $fontZipUrl -OutFile $zipFilePath -UseBasicParsing
 
                 Write-StyledMessage -Type 'Info' -Text "Estrazione font..."
                 Expand-Archive -Path $zipFilePath -DestinationPath $extractPath -Force
-                $destination = (New-Object -ComObject Shell.Application).Namespace(0x14)
-                Get-ChildItem -Path "$extractPath\JetBrainsMonoNerdFont-*\variable" -Filter "*.ttf" | ForEach-Object {
-                    If (-not(Test-Path "C:\Windows\Fonts\$($_.Name)")) {
-                        $destination.CopyHere($_.FullName, 0x10)
+
+                Write-StyledMessage -Type 'Info' -Text "Installazione font..."
+                Get-ChildItem -Path $extractPath -Recurse -Filter "*.ttf" | ForEach-Object {
+                    $fontName = $_.Name
+                    $destPath = "C:\Windows\Fonts\$fontName"
+                    If (-not(Test-Path $destPath)) {
+                        Copy-Item $_.FullName -Destination $destPath
+                        Write-StyledMessage -Type 'Info' -Text "Installato: $fontName"
                     }
                 }
 
@@ -4307,7 +4297,7 @@ function WinPSP-Setup {
     }
 
     # ============================================================================
-    # INSTALLAZIONE COMPONENTI
+    # INSTALLAZIONE COMPONENTI - TEST
     # ============================================================================
 
     # Installazione Oh My Posh
@@ -4340,7 +4330,7 @@ function WinPSP-Setup {
     # Installazione btop
     Write-StyledMessage -Type 'Info' -Text "📊 Installazione btop..."
     try {
-        winget install -e --id btop.btop
+        winget install -e --id aristocratos.btop4win
         Write-StyledMessage -Type 'Success' -Text "btop installato"
     }
     catch {
@@ -4350,7 +4340,7 @@ function WinPSP-Setup {
     # Installazione fastfetch
     Write-StyledMessage -Type 'Info' -Text "⚡ Installazione fastfetch..."
     try {
-        winget install -e --id Lissy93.fastfetch
+        winget install -e --id Fastfetch-cli.Fastfetch
         Write-StyledMessage -Type 'Success' -Text "fastfetch installato"
     }
     catch {
@@ -4392,8 +4382,39 @@ function WinPSP-Setup {
     }
 
     # ============================================================================
-    # RIEPILOGO
+    # CONFIGURAZIONE WINDOWS TERMINAL SETTINGS.JSON
     # ============================================================================
+
+    Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione settings.json per Windows Terminal..."
+    try {
+        $wtSettingsUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/settings.json"
+        $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+
+        if (-not $wtPath) {
+            Write-StyledMessage -Type 'Warning' -Text "Directory Windows Terminal non trovata, impossibile configurare settings.json."
+        }
+        else {
+            $wtLocalStateDir = Join-Path $wtPath.FullName "LocalState"
+            if (-not (Test-Path $wtLocalStateDir)) {
+                New-Item -ItemType Directory -Path $wtLocalStateDir -Force | Out-Null
+            }
+            $settingsPath = Join-Path $wtLocalStateDir "settings.json"
+
+            Write-StyledMessage -Type 'Info' -Text "Download settings.json per Windows Terminal..."
+            Invoke-WebRequest $wtSettingsUrl -OutFile $settingsPath -UseBasicParsing
+            Write-StyledMessage -Type 'Success' -Text "settings.json configurato: $settingsPath"
+        }
+    }
+    catch [System.Net.WebException] {
+        Write-StyledMessage -Type 'Error' -Text "Errore di rete durante il download di settings.json: $($_.Exception.Message)"
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore durante la configurazione di settings.json: $($_.Exception.Message)"
+    }
+
+    # ============================================================================
+    # RIEPILOGO
+    # ============================================================================"
 
     Write-Host ""
     Write-StyledMessage -Type 'Success' -Text "✅ Setup PSP completato!"
@@ -4506,3 +4527,4 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
