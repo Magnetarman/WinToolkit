@@ -197,7 +197,77 @@ jobs:
             Write-Host "`n✅ TUTTI I FILE HANNO SINTASSI CORRETTA" -ForegroundColor Green
           }
 
-      # Step 4: Compilazione WinToolkit.ps1 tramite compiler.ps1 con debugging migliorato
+      # Step 4: Incremento automatico del numero di build
+      - name: Incrementa Numero Build
+        id: increment_version
+        if: steps.check_changes.outputs.has_relevant_changes == 'true'
+        shell: pwsh
+        run: |
+          Write-Host "📈 INCREMENTO NUMERO BUILD" -ForegroundColor Cyan
+          Write-Host "=" * 60 -ForegroundColor Yellow
+
+          $templatePath = "WinToolkit-template.ps1"
+
+          # Verifica che il file esista
+          if (-not (Test-Path $templatePath)) {
+            Write-Error "❌ File $templatePath non trovato"
+            exit 1
+          }
+
+          # Leggi il contenuto del file
+          $content = Get-Content -Path $templatePath -Raw
+
+          # Trova la riga con la versione e estrai il numero di build
+          $versionPattern = '\$ToolkitVersion\s*=\s*["\'](.+?)["\']'
+          if ($content -match $versionPattern) {
+            $fullVersion = $matches[1]
+            Write-Host "📋 Versione attuale: $fullVersion" -ForegroundColor Green
+            
+            # Estrai il numero di build (numero alla fine tra parentesi)
+            $buildPattern = 'Build\s+(\d+)'
+            if ($fullVersion -match $buildPattern) {
+              $currentBuild = [int]$matches[1]
+              $newBuild = $currentBuild + 1
+              $newVersion = $fullVersion -replace "Build\s+$currentBuild", "Build $newBuild"
+              
+              Write-Host "🔄 Incremento build: $currentBuild → $newBuild" -ForegroundColor Blue
+              Write-Host "🆕 Nuova versione: $newVersion" -ForegroundColor Green
+              
+              # Sostituisci la riga della versione
+              $newLine = "`$ToolkitVersion = \"$newVersion\""
+              $content = $content -replace "\$ToolkitVersion\s*=\s*[\"\'].+?[\"\']", $newLine
+              
+              # Scrivi il file aggiornato
+              $content | Set-Content -Path $templatePath -Encoding UTF8
+              
+              Write-Host "✅ Versione incrementata con successo" -ForegroundColor Green
+              Write-Output "new_version=$newVersion" >> $env:GITHUB_OUTPUT
+              Write-Output "build_number=$newBuild" >> $env:GITHUB_OUTPUT
+            }
+            else {
+              Write-Error "❌ Impossibile trovare il numero di build nella versione"
+              exit 1
+            }
+          }
+          else {
+            Write-Error "❌ Impossibile trovare la riga della versione nel template"
+            exit 1
+          }
+
+      # Step 5: Commit del template con versione incrementata
+      - name: Commit Template Aggiornato
+        if: steps.check_changes.outputs.has_relevant_changes == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: |
+            🔖 Bump WinToolkit version to ${{ steps.increment_version.outputs.new_version }}
+
+            • Incremento automatico numero build
+            • Versione aggiornata nel template
+          file_pattern: WinToolkit-template.ps1
+          branch: Dev
+
+      # Step 6: Compilazione WinToolkit.ps1 tramite compiler.ps1 con debugging migliorato
       - name: Compilazione WinToolkit.ps1
         if: steps.check_changes.outputs.has_relevant_changes == 'true'
         shell: pwsh
@@ -274,7 +344,7 @@ jobs:
           $fileSize = (Get-Item "WinToolkit.ps1").Length
           Write-Host "`n✅ Compilazione completata: $([math]::Round($fileSize/1KB, 2)) KB" -ForegroundColor Green
 
-      # Step 5: Test estesi del file compilato con report errori dettagliato
+      # Step 7: Test estesi del file compilato con report errori dettagliato
       - name: Test Estesi WinToolkit Compilato
         id: test_compiled_wintoolkit
         if: steps.check_changes.outputs.has_relevant_changes == 'true'
