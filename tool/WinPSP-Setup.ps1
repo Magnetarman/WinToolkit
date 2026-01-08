@@ -123,7 +123,7 @@ function WinPSP-Setup {
     }
 
     # ============================================================================
-    # INSTALLAZIONE COMPONENTI
+    # INSTALLAZIONE COMPONENTI - TEST
     # ============================================================================
 
     # Installazione Oh My Posh
@@ -215,7 +215,7 @@ function WinPSP-Setup {
     try {
         $wtSettingsUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/settings.json"
         $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
-        
+
         if (-not $wtPath) {
             Write-StyledMessage -Type 'Warning' -Text "Directory Windows Terminal non trovata, impossibile configurare settings.json."
         }
@@ -225,7 +225,7 @@ function WinPSP-Setup {
                 New-Item -ItemType Directory -Path $wtLocalStateDir -Force | Out-Null
             }
             $settingsPath = Join-Path $wtLocalStateDir "settings.json"
-            
+
             Write-StyledMessage -Type 'Info' -Text "Download settings.json per Windows Terminal..."
             Invoke-WebRequest $wtSettingsUrl -OutFile $settingsPath -UseBasicParsing
             Write-StyledMessage -Type 'Success' -Text "settings.json configurato: $settingsPath"
