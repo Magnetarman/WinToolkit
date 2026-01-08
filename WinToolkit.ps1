@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 177)"
+$ToolkitVersion = "2.5.0 (Build 178)"
 
 
 # Setup Variabili Globali UI
@@ -4286,7 +4286,7 @@ function WinPSP-Setup {
         $themeFilePath = Join-Path $profilePath "$ThemeName.omp.json"
         try {
             Write-StyledMessage -Type 'Info' -Text "⬇️ Download tema Oh My Posh: $ThemeName..."
-            Invoke-RestMethod -Uri $ThemeUrl -OutFile $themeFilePath
+            Invoke-WebRequest -Uri $ThemeUrl -OutFile $themeFilePath -UseBasicParsing
             Write-StyledMessage -Type 'Success' -Text "Tema '$ThemeName' installato"
             return $themeFilePath
         }
@@ -4297,7 +4297,7 @@ function WinPSP-Setup {
     }
 
     # ============================================================================
-    # INSTALLAZIONE COMPONENTI - TEST
+    # INSTALLAZIONE COMPONENTI
     # ============================================================================
 
     # Installazione Oh My Posh
@@ -4527,4 +4527,5 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
