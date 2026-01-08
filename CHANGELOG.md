@@ -88,7 +88,19 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - Funzione **Gaming Toolkit** Potenziata.
   - Aggiunta l'installazione del nuovo .Net Framework 10, già richiesto da alcune app per funzionare correttamente.
   
-- Aggiunta Funzione di esportazione log  
+- Aggiunta Funzione di esportazione log
+
+- Setup profilo Powershell `WinPSP-Setup.ps1` (integrato nello script `start.ps1`)
+  - Eliminare ogni riferimento al tool di chris (implementate funzioni personalizzate + Fix errori vari istallazione di Chris Tech Titus)
+  - Inserire WinToolkit e Dev
+  - Fix caricamento profilo https://github.com/ChrisTitusTech/powershell-profile/issues/123
+  - Riscrivere il profilo powershell per scaricare ed utilizzare JetBrains mono al posto di cascadian cove in linea con il setting del terminale.
+  - Eliminare funzioni non utilizzate nel profile.ps1 ed adattarlo.
+  - istallazione di zoxide (verrà configurato al primo avvio del profilo powershell)
+  - Istallazione di fastfetch.
+  - Istallazione di btop.
+  - Potenziamento Profilo con funzione help personalizzata.
+  - Caricamento profilo FastFetch, zoxide e oh-my-posh personalizzato all'avvio del terminale.
 
 ### Correzioni
 
@@ -117,7 +129,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Aggiunta nuova funzione che evita la richiesta dopo tot tempo di cambio password dell'utente corrente.
   - Aggiunto riempimento progressivo a chkdsk: Ora tutti i comandi (inclusi chkdsk) simulano il progresso incrementando la percentuale da 0% a 95% con incrementi casuali di 1-3%. chkdsk mantiene il colore giallo per distinguerlo. **[@pomodori92]**
   - Rallentato "Ripristino immagine Windows" di 1.5x: Il ritardo tra aggiornamenti della barra di progresso per questo comando è stato aumentato da 600 ms a 900 ms, rendendo il riempimento più lento. **[@pomodori92]**
-  - Script potenziato. Integrate 3 nuove funzioni con attivazione condizionale per risolvere e stabilizzare Winget e XAML.
+  - Script potenziato. Integrate 3 nuove funzioni con attivazione condizionale per risolvere e stabilizzare Winget e XAML. (https://www.borncity.com/blog/2025/11/21/windows-11-24h2-microsoft-bestaetigt-broken-by-design-durch-update-kb5062553/)[Articolo Problematiche]
 
 - Funzione **DisableBitlocker** completa.
   - Refactor Codice per uniformarlo al resto della codebase.
@@ -239,9 +251,14 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Aggiornare il link a `https://magnetarman.com/WinToolkit`
     - Rinominare **Open WinUtil dev-release** in **WinToolkit-Dev**
     - Sostituire il codice con:
-    - Aggiornare link con a `https://magnetarman.com/WinToolkit`. Funzione resa standard 
+    - Aggiornare link con a `https://magnetarman.com/WinToolkit`.
+    - Aggiornata funzione di richiamo Toolkit e potenziamento per funzionamento PlugNPlay.
   - Varie
-    - Tradurre tutti i commenti del file in italiano  
+    - Tradurre tutti i commenti del file in italiano
+
+- Aggiornamento pipeline CI/CD
+  - Reso automatico il check dei nomi dei singoli script presenti nella cartella /tool prima dell'esecuzione del `compiler.ps1`.
+  - Bump automatico Build script.
 
 ---
 
