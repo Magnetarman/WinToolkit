@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 182)"
+$ToolkitVersion = "2.5.0 (Build 183)"
 
 
 # Setup Variabili Globali UI
@@ -4203,19 +4203,35 @@ function WinPSP-Setup {
             che li registra automaticamente nel sistema senza necessità di modifiche manuali al registro.
         #>
         try {
-            # Verifica se il font è già installato utilizzando InstalledFontCollection
-            $fontNameCheck = "JetBrainsMono Nerd Font"
+            # Verifica se il font è già installato - lista completa di nomi possibili
+            $fontNamesToCheck = @(
+                "JetBrainsMono Nerd Font",
+                "JetBrainsMonoNL Nerd Font",
+                "JetBrains Mono Nerd Font",
+                "JetBrainsMono NFM"
+            )
+            
             $fonts = [System.Drawing.Text.InstalledFontCollection]::new()
-            if ($fonts.Families.Name -contains $fontNameCheck) {
-                Write-StyledMessage -Type 'Info' -Text "$fontNameCheck già installato."
-                return $true
+            $fontFound = $false
+            foreach ($fontName in $fontNamesToCheck) {
+                if ($fonts.Families.Name -contains $fontName) {
+                    Write-StyledMessage -Type 'Info' -Text "$fontName già installato."
+                    $fontFound = $true
+                    break
+                }
             }
             
-            # Check alternativo: verifica file font nella cartella Fonts di sistema
-            $fontsPath = "C:\Windows\Fonts"
-            $jetBrainsFonts = Get-ChildItem -Path $fontsPath -Filter "*JetBrainsMono*" -ErrorAction SilentlyContinue
-            if ($jetBrainsFonts) {
-                Write-StyledMessage -Type 'Info' -Text "File JetBrainsMono già presenti in $fontsPath. Installazione saltata."
+            if (-not $fontFound) {
+                # Check alternativo: verifica file font nella cartella Fonts di sistema
+                $fontsPath = "C:\Windows\Fonts"
+                $jetBrainsFonts = Get-ChildItem -Path $fontsPath -Filter "*JetBrains*" -ErrorAction SilentlyContinue
+                if ($jetBrainsFonts) {
+                    Write-StyledMessage -Type 'Info' -Text "File JetBrainsMono già presenti in $fontsPath ($($jetBrainsFonts.Count) file). Installazione saltata."
+                    $fontFound = $true
+                }
+            }
+            
+            if ($fontFound) {
                 return $true
             }
 
@@ -4370,6 +4386,16 @@ function WinPSP-Setup {
 
     # Forza TLS 1.2 o superiore per tutte le operazioni web
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+    
+    # Aggiorna le sorgenti winget per risolvere eventuali problemi di cache/certificati
+    Write-StyledMessage -Type 'Info' -Text "🔄 Aggiornamento sorgenti winget..."
+    $sourceUpdateResult = winget source update 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-StyledMessage -Type 'Success' -Text "Sorgenti winget aggiornate"
+    }
+    else {
+        Write-StyledMessage -Type 'Warning' -Text "Errore aggiornamento sorgenti winget (continuo comunque): $sourceUpdateResult"
+    }
 
     # Installazione Oh My Posh
     Write-StyledMessage -Type 'Info' -Text "📦 Installazione Oh My Posh..."
@@ -4607,6 +4633,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
