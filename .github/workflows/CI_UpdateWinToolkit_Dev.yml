@@ -334,36 +334,69 @@ jobs:
               $testResults += "✅ Sintassi: OK"
             }
 
-            # Test 2: Verifica funzioni disponibili
+            # Test 2: Verifica funzioni disponibili (rilevamento automatico dalla cartella tool)
             Write-Host "`n🔍 Test 2: Verifica funzioni disponibili..." -ForegroundColor Blue
-            $functions = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$null) |
-                        Where-Object { $_.GetType().Name -eq "FunctionDefinitionAst" }
 
-            # Tutte le funzioni sono opzionali - verifica solo cosa è presente
-            $expectedFunctions = @("WinRepairToolkit", "WinCleaner", "OfficeToolkit", "SetRustDesk", "WinUpdateReset", "WinReinstallStore", "WinBackupDriver", "GamingToolkit", "WinDriverInstall", "SearchRepair")
-            $presentFunctions = $expectedFunctions | Where-Object { $functionName = $_; $functions.Name -contains $functionName }
-            $missingFunctions = $expectedFunctions | Where-Object { $functionName = $_; $functions.Name -notcontains $functionName }
+            # Rilevamento automatico delle funzioni dalla cartella tool/
+            $toolFiles = Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*start-*" }
+            $expectedFunctions = $toolFiles | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) }
 
-            $presentCount = $presentFunctions.Count
-            $missingCount = $missingFunctions.Count
+            # Parse del file compilato per trovare le funzioni
+            $scriptAst = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$null)
+            $functions = $scriptAst.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
 
-            Write-Host "  📊 Funzioni presenti: $presentCount" -ForegroundColor Green
-            if ($presentFunctions.Count -gt 0) {
-              $presentFunctions | ForEach-Object { Write-Host "    - $_" -ForegroundColor Green }
+            $presentFunctions = @()
+            $missingFunctions = @()
+            $emptyFunctions = @()
+
+            foreach ($funcName in $expectedFunctions) {
+              $funcAst = $functions | Where-Object { $_.Name -eq $funcName }
+              if ($funcAst) {
+                # Verifica se la funzione è vuota (solo dichiarazione senza corpo significativo)
+                $bodyText = $funcAst.Body.Extent.Text
+                $nonEmptyLines = $bodyText -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_.Trim()) }
+                # Considera vuota se ha 2 o meno righe (dichiarazione function + { + })
+                if ($nonEmptyLines.Count -le 2) {
+                  $emptyFunctions += $funcName
+                }
+                else {
+                  $presentFunctions += $funcName
+                }
+              }
+              else {
+                $missingFunctions += $funcName
+              }
             }
 
-            if ($missingCount -gt 0) {
-              Write-Host "  ⚠️ Funzioni mancanti (in sviluppo o non implementate):" -ForegroundColor Yellow
-              $missingFunctions | ForEach-Object { Write-Host "    - $_" -ForegroundColor Yellow }
-              $testResults += "⚠️ Funzioni mancanti: $($missingCount) (normale durante sviluppo)"
+            Write-Host "  📊 Funzioni attese dalla cartella tool/: $($expectedFunctions.Count)" -ForegroundColor Cyan
+            Write-Host "  📊 Funzioni presenti e compilate: $($presentFunctions.Count)" -ForegroundColor Green
+            if ($presentFunctions.Count -gt 0) {
+              $presentFunctions | ForEach-Object { Write-Host "    ✅ $_" -ForegroundColor Green }
+            }
+
+            if ($emptyFunctions.Count -gt 0) {
+              Write-Host "  ⚠️ Funzioni vuote (solo dichiarazione, in sviluppo):" -ForegroundColor Yellow
+              $emptyFunctions | ForEach-Object { Write-Host "    🔶 $_" -ForegroundColor Yellow }
+              $testResults += "⚠️ Funzioni vuote: $($emptyFunctions.Count) (in sviluppo)"
+            }
+
+            if ($missingFunctions.Count -gt 0) {
+              Write-Host "  ⚠️ Funzioni non compilate (file tool/ non nel template):" -ForegroundColor Yellow
+              $missingFunctions | ForEach-Object { Write-Host "    ❌ $_" -ForegroundColor Yellow }
+              $testResults += "⚠️ Funzioni non compilate: $($missingFunctions.Count) (verificare template)"
+            }
+
+            if ($presentFunctions.Count -eq $expectedFunctions.Count) {
+              Write-Host "  ✅ Tutte le funzioni implementate e compilate correttamente" -ForegroundColor Green
+              $testResults += "✅ Funzioni: Tutte presenti e compilate"
             }
             else {
-              Write-Host "  ✅ Tutte le funzioni implementate presenti" -ForegroundColor Green
-              $testResults += "✅ Funzioni: Tutte presenti"
+              Write-Host "  ℹ️ Funzioni rilevate automaticamente dalla cartella tool/" -ForegroundColor Cyan
+              $testResults += "ℹ️ Funzioni auto-rilevate: $($presentFunctions.Count)/$($expectedFunctions.Count)"
             }
 
-            # Conta come avviso, non come errore
-            $totalWarnings += $missingCount
+            # Aggiorna il conteggio warnings per le funzioni vuote
+            $totalWarnings += $emptyFunctions.Count
 
             # Test 3: Struttura del menu
             Write-Host "`n🔍 Test 3: Verifica struttura menu..." -ForegroundColor Blue
@@ -467,8 +500,8 @@ jobs:
           }
           else {
             Write-Host "`n✅ TUTTI I TEST SUPERATI!" -ForegroundColor Green
-            if ($missingCount -gt 0) {
-              Write-Host "ℹ️ Nota: $missingCount funzioni mancanti - normale durante sviluppo" -ForegroundColor Yellow
+            if ($emptyFunctions.Count -gt 0) {
+              Write-Host "ℹ️ Nota: $($emptyFunctions.Count) funzioni vuote (in sviluppo)" -ForegroundColor Yellow
             }
             Write-Output "tests_passed=true" >> $env:GITHUB_OUTPUT
           }
@@ -483,7 +516,7 @@ jobs:
 
             • Compilazione automatica da file in /tool
             • Test di sintassi e struttura passati
-            • Tutte le funzioni sono opzionali e in continuo sviluppo
+            • Funzioni rilevate automaticamente dalla cartella tool/
             • File aggiornato e funzionale
           file_pattern: WinToolkit.ps1
           branch: Dev
