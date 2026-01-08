@@ -75,6 +75,10 @@ function New-Mkcd {
     Set-Location -Path $Directory
 }
 
+function doReboot {
+    shutdown /r /f /t 0
+}
+
 # ============================================================================
 # NAVIGAZIONE RAPIDA
 # ============================================================================
@@ -240,8 +244,11 @@ $($PSStyle.Foreground.Green)Get-PublicIP$($PSStyle.Reset)       - Recupera l'ind
 $($PSStyle.Foreground.Green)Get-MainboardInfo$($PSStyle.Reset)  - Informazioni sulla scheda madre
 $($PSStyle.Foreground.Green)Get-RAMInfo$($PSStyle.Reset)        - Informazioni sui moduli RAM installati
 
-$($PSStyle.Foreground.Cyan)Utility di Rete$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)---------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Cyan)Utility di Rete$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)           - Svuota la cache DNS
+
+$($PSStyle.Foreground.Cyan)Sistema$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)            - Riavvia il sistema immediatamente
 
 $($PSStyle.Foreground.Cyan)WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)  - Lancia WinToolkit (stabile)
