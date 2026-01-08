@@ -239,7 +239,7 @@ catch {
 $ThemePath = "$env:USERPROFILE\Documents\PowerShell\Themes\atomic.omp.json"
 if (-not (Test-Path $ThemePath)) {
     try {
-        $null = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/refs/heads/main/themes/atomic.omp.json" -OutFile $ThemePath -UseBasicParsing -ErrorAction Stop
+        $null = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json" -OutFile $ThemePath -UseBasicParsing -ErrorAction Stop
     }
     catch {
         Write-Host "⚠️ Impossibile scaricare il tema atomic.omp.json" -ForegroundColor Yellow
@@ -250,7 +250,7 @@ if (Test-Path $ThemePath) {
     oh-my-posh init pwsh --config $ThemePath | Invoke-Expression
 }
 else {
-    oh-my-posh init pwsh --config "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/refs/heads/main/themes/atomic.omp.json" | Invoke-Expression
+    oh-my-posh init pwsh --config "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json" | Invoke-Expression
 }
 
 # zoxide
