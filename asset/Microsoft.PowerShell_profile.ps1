@@ -38,7 +38,7 @@ function Test-CommandExists {
     $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
-function Invoke-ReloadProfile {
+function ReloadProfile {
     & $PROFILE | Out-Null
 }
 
@@ -121,11 +121,11 @@ function FlushDns {
 # ============================================================================
 
 function WinToolkit-Stable {
-    Start-Process -FilePath "pwsh.exe" -ArgumentList "-ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/WinToolkit | iex`"" -Verb RunAs
+    Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/WinToolkit | iex`"" -Verb RunAs
 }
 
 function WinToolkit-Dev {
-    Start-Process -FilePath "pwsh.exe" -ArgumentList "-ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/WinToolkit-Dev | iex`"" -Verb RunAs
+    Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/WinToolkit-Dev | iex`"" -Verb RunAs
 }
 
 # ============================================================================
@@ -138,15 +138,15 @@ else { 'notepad' }
 
 Set-Alias -Name zed -Value $EDITOR -Scope Global
 
-function Invoke-EditPowerShellProfile {
+function EditPSProfile {
     if ($EDITOR -eq 'zed') {
-        zed $PROFILE.CurrentUserAllHosts
+        zed $PROFILE
     }
     elseif ($EDITOR -eq 'code') {
-        code $PROFILE.CurrentUserAllHosts
+        code $PROFILE
     }
     else {
-        notepad $PROFILE.CurrentUserAllHosts
+        notepad $PROFILE
     }
 }
 
@@ -159,7 +159,7 @@ function Show-Help {
 $($PSStyle.Foreground.Cyan)Guida al Profilo PowerShell$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)===========================$($PSStyle.Reset)
 
 $($PSStyle.Foreground.Cyan)Utility Generali$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Invoke-ReloadProfile$($PSStyle.Reset) - Ricarica il profilo PowerShell corrente
+$($PSStyle.Foreground.Green)ReloadProfile$($PSStyle.Reset) - Ricarica il profilo PowerShell corrente
 $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)    - Estrae un file ZIP nella directory corrente
 $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)         - Cerca file ricorsivamente per nome parziale
 $($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)          - Crea una directory e ci si sposta
@@ -185,7 +185,7 @@ $($PSStyle.Foreground.Cyan)Software Installati$($PSStyle.Reset) $($PSStyle.Foreg
 $($PSStyle.Foreground.Green)btop$($PSStyle.Reset)               - btop è un monitor delle risorse per il terminale.
 
 $($PSStyle.Foreground.Cyan)Configurazione Editor$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Invoke-EditPowerShellProfile$($PSStyle.Reset) - Modifica il profilo PowerShell
+$($PSStyle.Foreground.Green)EditPSProfile$($PSStyle.Reset) - Modifica il profilo PowerShell
 
 $($PSStyle.Foreground.Yellow)===========================$($PSStyle.Reset)
 Scrivi '$($PSStyle.Foreground.Magenta)help$($PSStyle.Reset)' per visualizzare questo messaggio.
