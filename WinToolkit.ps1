@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 178)"
+$ToolkitVersion = "2.5.0 (Build 179)"
 
 
 # Setup Variabili Globali UI
@@ -4207,6 +4207,9 @@ function WinPSP-Setup {
             if ($fontFamilies -notcontains $fontDisplayName) {
                 Write-StyledMessage -Type 'Info' -Text "⬇️ Download JetBrainsMono Nerd Font..."
 
+                # Forza TLS 1.2 o superiore per risolvere errori SSL
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+
                 $fontZipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
                 $zipFilePath = "$env:TEMP\JetBrainsMono.zip"
                 $extractPath = "$env:TEMP\JetBrainsMono"
@@ -4218,18 +4221,19 @@ function WinPSP-Setup {
                 Expand-Archive -Path $zipFilePath -DestinationPath $extractPath -Force
 
                 Write-StyledMessage -Type 'Info' -Text "Installazione font..."
+                $fontsInstalled = 0
                 Get-ChildItem -Path $extractPath -Recurse -Filter "*.ttf" | ForEach-Object {
                     $fontName = $_.Name
                     $destPath = "C:\Windows\Fonts\$fontName"
                     If (-not(Test-Path $destPath)) {
                         Copy-Item $_.FullName -Destination $destPath
-                        Write-StyledMessage -Type 'Info' -Text "Installato: $fontName"
+                        $fontsInstalled++
                     }
                 }
 
                 Remove-Item -Path $extractPath -Recurse -Force
                 Remove-Item -Path $zipFilePath -Force
-                Write-StyledMessage -Type 'Success' -Text "JetBrainsMono Nerd Font installato"
+                Write-StyledMessage -Type 'Success' -Text "JetBrainsMono Nerd Font installato ($fontsInstalled file)"
                 return $true
             }
             else {
@@ -4284,10 +4288,20 @@ function WinPSP-Setup {
         }
 
         $themeFilePath = Join-Path $profilePath "$ThemeName.omp.json"
+        
+        # Verifica se il tema esiste già
+        if (Test-Path $themeFilePath) {
+            Write-StyledMessage -Type 'Info' -Text "Tema '$ThemeName' già presente"
+            return $themeFilePath
+        }
+
         try {
+            # Forza TLS 1.2 o superiore
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+            
             Write-StyledMessage -Type 'Info' -Text "⬇️ Download tema Oh My Posh: $ThemeName..."
             Invoke-WebRequest -Uri $ThemeUrl -OutFile $themeFilePath -UseBasicParsing
-            Write-StyledMessage -Type 'Success' -Text "Tema '$ThemeName' installato"
+            Write-StyledMessage -Type 'Success' -Text "Tema '$ThemeName' installato in: $themeFilePath"
             return $themeFilePath
         }
         catch {
@@ -4299,6 +4313,9 @@ function WinPSP-Setup {
     # ============================================================================
     # INSTALLAZIONE COMPONENTI
     # ============================================================================
+
+    # Forza TLS 1.2 o superiore per tutte le operazioni web
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
 
     # Installazione Oh My Posh
     Write-StyledMessage -Type 'Info' -Text "📦 Installazione Oh My Posh..."
@@ -4312,6 +4329,9 @@ function WinPSP-Setup {
 
     # Download tema Oh My Posh
     $themeInstalled = Install-OhMyPoshTheme -ThemeName "atomic"
+    if ($themeInstalled) {
+        Write-StyledMessage -Type 'Info' -Text "Percorso tema: $themeInstalled"
+    }
 
     # Installazione Font
     Write-StyledMessage -Type 'Info' -Text "🔤 Installazione Nerd Fonts..."
@@ -4414,11 +4434,17 @@ function WinPSP-Setup {
 
     # ============================================================================
     # RIEPILOGO
-    # ============================================================================"
+    # ============================================================================
 
     Write-Host ""
     Write-StyledMessage -Type 'Success' -Text "✅ Setup PSP completato!"
     Write-StyledMessage -Type 'Info' -Text "💡 Riavvia la sessione di PowerShell per applicare le modifiche"
+    
+    if ($themeInstalled) {
+        Write-Host ""
+        Write-StyledMessage -Type 'Info' -Text "📍 Percorso tema Oh My Posh:"
+        Write-Host "   $themeInstalled" -ForegroundColor Cyan
+    }
 }
 
 
@@ -4527,5 +4553,6 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
