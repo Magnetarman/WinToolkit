@@ -4,7 +4,7 @@
 ### V 2.5.0
 
 - Cambiare gestione profilo powershell
-  - [ ] aggiungere alla repo in asset nuovo file Microsoft.PowerShell_profile.ps1
+  - [x] aggiungere alla repo in asset nuovo file Microsoft.PowerShell_profile.ps1
   
 - Setup profilo `setup.ps1`
   - [x] Generare codice per la codifica SHA 256
@@ -12,15 +12,14 @@
   - [x] Generare un file hash ed analizzare il modo con cui viene creato per replicare quello di chris
   - [x] Eliminare ogni riferimento al tool di chris
   - [x] inserire WinToolkit e Dev
-  - [ ] PROFILO PERSONALE AGGIUNGERE RustServer collegamento SSH server rust desk
   - [x] Fix caricamento profilo https://github.com/ChrisTitusTech/powershell-profile/issues/123
-  - [ ] Riscrivere il profilo powershell per scaricare ed utilizzare JetBrains mono al posto di cascadian cove in linea con il setting del terminale che installo dopo così da avere una visualizzazione funzionate
+  - [x] Riscrivere il profilo powershell per scaricare ed utilizzare JetBrains mono al posto di cascadian cove in linea con il setting del terminale che installo dopo così da avere una visualizzazione funzionate
   - [x] Eliminare funzioni non utilizzate nel profile.ps1 ed adattarlo alle mie esigenze.
   - [x] Pushare tutto nella cartella asset in modo da poter effettuare dei test.
   - [x] Creazione label gialla nelle issue "waiting user check"
-  - [ ] istallazione di zoxide (verrà configurato al primo avvio del profilo powershell)
-  - [ ] Istallazione di fastfetch
-  - [ ] Istallazione di btop
+  - [x] istallazione di zoxide (verrà configurato al primo avvio del profilo powershell)
+  - [x] Istallazione di fastfetch
+  - [x] Istallazione di btop
   
 
 - Automatizzare creazione changelog
@@ -33,6 +32,10 @@
   - [ ] Ripristino funzionalità completa
   - [ ] Unificazione funzionalità script "template"
   - [ ] Se la funzionalità di avvio script multipli è attiva deve saltare la sezione relativa al riavvio del pc presente alla fine di ogni script, eseguire tutte le operazioni ed alla fine proseguire con riavvio del PC.
+  
+- Aggiornamento pipeline CI/CD
+  - [ ] Reso automatico il check dei nomi dei singoli script presenti nella cartella /tool
+  - [ ] Bump automatico Build script
 
 
 ### V 2.5.1
