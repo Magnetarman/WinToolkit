@@ -26,28 +26,19 @@
     <b>🟢 Windows 10 (> 1809) - Supporto Completo.</b><br>
     <b>🟡 Windows 11 (< 21H2) - Supporto Completo con eccezioni.</b><br>
     <b>🟢 Windows 11 (> 22H2) - Supporto Completo.</b><br>
+    
 </p>
 </br>
 
-<div align="center">
-
-## 🚀 Lancio V. 2.5.0 - WinToolkit
-
-<iframe 
-  src="https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/countdown.html" 
-  width="100%" 
-  height="500" 
-  frameborder="0"
-  style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,164,239,0.3); max-width: 800px;">
-</iframe>
-
-</div>
-
 ## 👨‍💻 Status Commit
 
-|                                                                               Ramo Release                                                                                |                                                                                Ramo Dev                                                                                 |
-| :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-| <p align="center"><img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main"></p> | <p align="center"><img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/Dev?style=for-the-badge&color=CC0033" alt="Commit Activity Dev"></p> |
+### Ramo Main
+
+![Commit Activity Main](https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e)
+
+### Ramo Dev
+
+![Commit Activity Dev](https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/Dev?style=for-the-badge&color=CC0033)
 
 ## 📸 ScreenShot
 
