@@ -8,6 +8,9 @@
     <br>
     WinToolkit è una suite di script PowerShell potente e compatta, progettata per offrire a professionisti IT, amministratori di sistema e utenti esperti un controllo granulare sulla manutenzione e sulla risoluzione dei problemi di Windows e della Suite Office. Questo toolkit intuitivo aggrega gli strumenti di riparazione di sistema più efficaci in un'unica interfaccia, automatizzando i processi complessi per ottimizzare le prestazioni e ripristinare la stabilità del sistema con pochi passaggi automatizzati.
 </p>
+
+![Maintenance](https://magnetarman.com/countdown.php)
+
 <br>
 <p align="center">
 <img src="https://img.shields.io/badge/version-2.4.1-dgreen.svg?style=for-the-badge" alt="versione">
@@ -277,3 +280,4 @@ Creato con ❤️ da [Magnetarman](https://magnetarman.com/). Licenza MIT. Se tr
 ## 🙌 Personalizzazioni
 
 Segui le istruzioni che il tool ti comunicherà a video per personalizzare le funzioni.
+
