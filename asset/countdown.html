@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="it">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Lancio V. 2.5.0 - WinToolkit</title>
+        <style>
+            /* PALETTE COLORI ESTRATTA DAL LOGO WINTOOLKIT */
+            :root {
+                --win-blue: #00a4ef;
+                --win-orange: #f39200;
+                --win-green: #80bb00;
+                --win-red: #e84e0f;
+                --bg-dark: #0a0e14;
+                --text-white: #ffffff;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body,
+            html {
+                height: 100%;
+                background-color: var(--bg-dark);
+                font-family: "Courier New", Courier, monospace;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                overflow: hidden;
+                position: relative;
+            }
+
+            /* BACKGROUND ANIMATO CON GRIGLIA */
+            .bg-grid {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-image:
+                    linear-gradient(
+                        rgba(0, 164, 239, 0.1) 1px,
+                        transparent 1px
+                    ),
+                    linear-gradient(
+                        90deg,
+                        rgba(0, 164, 239, 0.1) 1px,
+                        transparent 1px
+                    );
+                background-size: 50px 50px;
+                animation: gridMove 20s linear infinite;
+                opacity: 0.3;
+            }
+
+            @keyframes gridMove {
+                0% {
+                    transform: translate(0, 0);
+                }
+                100% {
+                    transform: translate(50px, 50px);
+                }
+            }
+
+            /* PARTICELLE FLUTTUANTI */
+            .particles {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                pointer-events: none;
+            }
+
+            .particle {
+                position: absolute;
+                width: 2px;
+                height: 2px;
+                background: var(--win-blue);
+                border-radius: 50%;
+                animation: float linear infinite;
+                opacity: 0;
+            }
+
+            @keyframes float {
+                0% {
+                    opacity: 0;
+                    transform: translateY(100vh) scale(0);
+                }
+                10% {
+                    opacity: 1;
+                }
+                90% {
+                    opacity: 1;
+                }
+                100% {
+                    opacity: 0;
+                    transform: translateY(-100px) scale(1);
+                }
+            }
+
+            /* STRISCE DI SICUREZZA ANIMATE */
+            .hazard-stripe {
+                height: 30px;
+                width: 100%;
+                background: repeating-linear-gradient(
+                    45deg,
+                    var(--win-orange),
+                    var(--win-orange) 20px,
+                    #000 20px,
+                    #000 40px
+                );
+                position: absolute;
+                left: 0;
+                animation: stripeMove 1s linear infinite;
+                z-index: 10;
+            }
+
+            @keyframes stripeMove {
+                0% {
+                    background-position: 0 0;
+                }
+                100% {
+                    background-position: 40px 0;
+                }
+            }
+
+            .top {
+                top: 0;
+                border-bottom: 2px solid var(--win-green);
+                box-shadow: 0 0 20px rgba(128, 187, 0, 0.5);
+            }
+
+            .bottom {
+                bottom: 0;
+                border-top: 2px solid var(--win-green);
+                box-shadow: 0 0 20px rgba(128, 187, 0, 0.5);
+            }
+
+            .content {
+                text-align: center;
+                padding: 0 20px;
+                z-index: 5;
+                position: relative;
+            }
+
+            /* TESTO PRINCIPALE CON EFFETTO GLITCH */
+            h1 {
+                color: var(--win-blue);
+                font-size: 2.2rem;
+                margin-bottom: 10px;
+                text-transform: uppercase;
+                letter-spacing: 4px;
+                text-shadow:
+                    0 0 10px rgba(0, 164, 239, 0.8),
+                    0 0 20px rgba(0, 164, 239, 0.6),
+                    0 0 30px rgba(0, 164, 239, 0.4);
+                animation: textGlow 2s ease-in-out infinite;
+            }
+
+            @keyframes textGlow {
+                0%,
+                100% {
+                    text-shadow:
+                        0 0 10px rgba(0, 164, 239, 0.8),
+                        0 0 20px rgba(0, 164, 239, 0.6);
+                }
+                50% {
+                    text-shadow:
+                        0 0 20px rgba(0, 164, 239, 1),
+                        0 0 30px rgba(0, 164, 239, 0.8),
+                        0 0 40px rgba(0, 164, 239, 0.6);
+                }
+            }
+
+            .status-line {
+                color: var(--win-orange);
+                font-size: 1.2rem;
+                margin-bottom: 30px;
+                font-weight: bold;
+                animation: blink 1.5s ease-in-out infinite;
+            }
+
+            @keyframes blink {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.3;
+                }
+            }
+
+            /* COUNTDOWN CONTAINER */
+            .countdown-wrapper {
+                position: relative;
+                display: inline-block;
+                margin: 20px auto;
+            }
+
+            .countdown-container {
+                color: var(--text-white);
+                font-size: 3.5rem;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 15px;
+                position: relative;
+                padding: 30px;
+                background: linear-gradient(
+                    135deg,
+                    rgba(0, 164, 239, 0.1),
+                    rgba(243, 146, 0, 0.1)
+                );
+                border: 2px solid var(--win-blue);
+                border-radius: 10px;
+                box-shadow:
+                    0 0 30px rgba(0, 164, 239, 0.4),
+                    inset 0 0 30px rgba(0, 164, 239, 0.1);
+                animation: borderPulse 2s ease-in-out infinite;
+            }
+
+            @keyframes borderPulse {
+                0%,
+                100% {
+                    border-color: var(--win-blue);
+                    box-shadow:
+                        0 0 30px rgba(0, 164, 239, 0.4),
+                        inset 0 0 30px rgba(0, 164, 239, 0.1);
+                }
+                50% {
+                    border-color: var(--win-orange);
+                    box-shadow:
+                        0 0 50px rgba(243, 146, 0, 0.6),
+                        inset 0 0 50px rgba(243, 146, 0, 0.2);
+                }
+            }
+
+            .bracket {
+                color: var(--win-orange);
+                font-size: 4.5rem;
+                font-weight: 200;
+                text-shadow: 0 0 20px rgba(243, 146, 0, 0.8);
+                animation: bracketPulse 1.5s ease-in-out infinite;
+            }
+
+            @keyframes bracketPulse {
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.1);
+                }
+            }
+
+            .time-segment {
+                display: inline-flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 10px;
+                background: rgba(0, 0, 0, 0.4);
+                border-radius: 8px;
+                border: 1px solid rgba(0, 164, 239, 0.3);
+                min-width: 80px;
+                transition: all 0.3s ease;
+            }
+
+            .time-segment:hover {
+                transform: translateY(-5px);
+                border-color: var(--win-blue);
+                box-shadow: 0 5px 20px rgba(0, 164, 239, 0.5);
+            }
+
+            .time-value {
+                font-size: 3rem;
+                color: var(--text-white);
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+                font-weight: bold;
+                animation: numberFlip 0.6s ease-in-out;
+            }
+
+            @keyframes numberFlip {
+                0% {
+                    transform: rotateX(0deg);
+                }
+                50% {
+                    transform: rotateX(90deg);
+                }
+                100% {
+                    transform: rotateX(0deg);
+                }
+            }
+
+            .unit {
+                font-size: 0.9rem;
+                color: var(--win-orange);
+                margin-top: 5px;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+            }
+
+            .left-text {
+                font-size: 1.2rem;
+                margin-left: 10px;
+                color: var(--win-green);
+                text-shadow: 0 0 10px rgba(128, 187, 0, 0.8);
+                animation: leftPulse 1s ease-in-out infinite;
+            }
+
+            @keyframes leftPulse {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.5;
+                }
+            }
+
+            .footer-text {
+                color: var(--win-orange);
+                font-size: 1rem;
+                margin-top: 40px;
+                letter-spacing: 2px;
+                opacity: 0.8;
+                animation: fadeInOut 3s ease-in-out infinite;
+            }
+
+            @keyframes fadeInOut {
+                0%,
+                100% {
+                    opacity: 0.8;
+                }
+                50% {
+                    opacity: 0.4;
+                }
+            }
+
+            /* EFFETTO SCANLINE */
+            .scanline {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(
+                    to bottom,
+                    transparent 0%,
+                    rgba(0, 164, 239, 0.1) 50%,
+                    transparent 100%
+                );
+                animation: scan 3s linear infinite;
+                pointer-events: none;
+                z-index: 3;
+            }
+
+            @keyframes scan {
+                0% {
+                    transform: translateY(-100%);
+                }
+                100% {
+                    transform: translateY(100%);
+                }
+            }
+
+            /* SISTEMA COMPLETATO */
+            .system-online {
+                font-size: 3rem;
+                color: var(--win-green);
+                text-transform: uppercase;
+                letter-spacing: 8px;
+                text-shadow:
+                    0 0 20px rgba(128, 187, 0, 1),
+                    0 0 40px rgba(128, 187, 0, 0.8),
+                    0 0 60px rgba(128, 187, 0, 0.6);
+                animation: systemBlink 0.5s ease-in-out infinite;
+            }
+
+            @keyframes systemBlink {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.7;
+                }
+            }
+
+            /* Responsive per Mobile */
+            @media (max-width: 768px) {
+                h1 {
+                    font-size: 1.4rem;
+                    letter-spacing: 2px;
+                }
+                .countdown-container {
+                    font-size: 1.8rem;
+                    padding: 15px;
+                    gap: 8px;
+                }
+                .bracket {
+                    font-size: 2.5rem;
+                }
+                .time-segment {
+                    min-width: 50px;
+                    padding: 5px;
+                }
+                .time-value {
+                    font-size: 1.5rem;
+                }
+                .unit {
+                    font-size: 0.7rem;
+                }
+                .left-text {
+                    font-size: 0.9rem;
+                }
+                .footer-text {
+                    font-size: 0.8rem;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="bg-grid"></div>
+        <div class="particles" id="particles"></div>
+        <div class="scanline"></div>
+
+        <div class="hazard-stripe top"></div>
+
+        <div class="content">
+            <h1>&lt;Lancio V. 2.5.0 in corso.../&gt;</h1>
+
+            <div class="status-line">&gt; FIX BUG IN CORSO . . .</div>
+
+            <div class="countdown-wrapper">
+                <div class="countdown-container" id="countdownDisplay">
+                    <span class="bracket">[</span>
+                    <div class="time-segment">
+                        <span class="time-value" id="days">00</span>
+                        <span class="unit">Giorni</span>
+                    </div>
+                    <div class="time-segment">
+                        <span class="time-value" id="hours">00</span>
+                        <span class="unit">Ore</span>
+                    </div>
+                    <div class="time-segment">
+                        <span class="time-value" id="minutes">00</span>
+                        <span class="unit">Minuti</span>
+                    </div>
+                    <div class="time-segment">
+                        <span class="time-value" id="seconds">00</span>
+                        <span class="unit">Secondi</span>
+                    </div>
+                    <span class="left-text">RIMANENTI</span>
+                    <span class="bracket">]</span>
+                </div>
+            </div>
+
+            <div class="footer-text">
+                ATTENDI MENTRE STIAMO MIGLIORANDO IL PROGETTO . . .
+            </div>
+        </div>
+
+        <div class="hazard-stripe bottom"></div>
+
+        <script>
+            // ====================================
+            // 🎯 CONFIGURAZIONE DATA COUNTDOWN
+            // ====================================
+            // Inserisci qui la data nel formato: "GG-MM-AAAA" oppure "GG-MM-AAAA HH:MM"
+            const DATA_LANCIO = "25-01-2026 23:00"; // ← MODIFICA SOLO QUESTA RIGA
+            // ====================================
+
+            // Conversione automatica della data
+            function parseDataItaliana(dataStr) {
+                const parti = dataStr.trim().split(" ");
+                const [giorno, mese, anno] = parti[0].split("-");
+                const ora = parti[1] || "18:00"; // Ora predefinita se non specificata
+
+                // Formato: mese/giorno/anno ora (formato USA per Date)
+                return new Date(
+                    `${mese}/${giorno}/${anno} ${ora}:00`,
+                ).getTime();
+            }
+
+            const targetDate = parseDataItaliana(DATA_LANCIO);
+
+            // Valori precedenti per animazione flip
+            let prevValues = { d: -1, h: -1, m: -1, s: -1 };
+
+            function updateTimer() {
+                const now = new Date().getTime();
+                const diff = targetDate - now;
+
+                if (diff <= 0) {
+                    document.getElementById("countdownDisplay").innerHTML =
+                        '<span class="system-online">✓ SISTEMA ATTIVO</span>';
+                    return;
+                }
+
+                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const h = Math.floor(
+                    (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+                );
+                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+                // Aggiorna con animazione solo se il valore cambia
+                updateElement("days", d, prevValues.d);
+                updateElement("hours", h, prevValues.h);
+                updateElement("minutes", m, prevValues.m);
+                updateElement("seconds", s, prevValues.s);
+
+                prevValues = { d, h, m, s };
+            }
+
+            function updateElement(id, newVal, oldVal) {
+                const el = document.getElementById(id);
+                const formattedVal = newVal.toString().padStart(2, "0");
+
+                if (newVal !== oldVal) {
+                    el.style.animation = "none";
+                    setTimeout(() => {
+                        el.style.animation = "numberFlip 0.6s ease-in-out";
+                        el.innerText = formattedVal;
+                    }, 10);
+                } else {
+                    el.innerText = formattedVal;
+                }
+            }
+
+            // Crea particelle animate
+            function createParticles() {
+                const container = document.getElementById("particles");
+                for (let i = 0; i < 30; i++) {
+                    const particle = document.createElement("div");
+                    particle.className = "particle";
+                    particle.style.left = Math.random() * 100 + "%";
+                    particle.style.animationDuration =
+                        Math.random() * 10 + 5 + "s";
+                    particle.style.animationDelay = Math.random() * 5 + "s";
+
+                    // Colori casuali dal palette
+                    const colors = ["#00a4ef", "#f39200", "#80bb00", "#e84e0f"];
+                    particle.style.background =
+                        colors[Math.floor(Math.random() * colors.length)];
+                    particle.style.boxShadow = `0 0 10px ${particle.style.background}`;
+
+                    container.appendChild(particle);
+                }
+            }
+
+            // Inizializza
+            createParticles();
+            setInterval(updateTimer, 1000);
+            updateTimer();
+        </script>
+    </body>
+</html>
