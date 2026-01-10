@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 192)"
+$ToolkitVersion = "2.5.0 (Build 193)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -498,8 +498,8 @@ function WinRepairToolkit {
         Write-Host ''
 
         $totalErrors = $successCount = 0
-        for ($i = 0; $i -lt $RepairTools.Count; $i++) {
-            $result = Invoke-RepairCommand -Config $RepairTools[$i] -Step ($i + 1) -Total $RepairTools.Count
+        for ($toolIndex = 0; $toolIndex -lt $RepairTools.Count; $toolIndex++) {
+            $result = Invoke-RepairCommand -Config $RepairTools[$toolIndex] -Step ($toolIndex + 1) -Total $RepairTools.Count
             if ($result.Success) { $successCount++ }
             if (!$result.Success -and !($RepairTools[$i].ContainsKey('IsCritical') -and !$RepairTools[$i].IsCritical)) {
                 $totalErrors += $result.ErrorCount
@@ -727,8 +727,8 @@ function WinUpdateReset {
     try {
         Write-StyledMessage Info '🛑 Arresto servizi Windows Update...'
         $stopServices = @('wuauserv', 'cryptsvc', 'bits', 'msiserver')
-        for ($i = 0; $i -lt $stopServices.Count; $i++) {
-            Manage-Service $stopServices[$i] 'Stop' $serviceConfig[$stopServices[$i]] ($i + 1) $stopServices.Count
+        for ($serviceIndex = 0; $serviceIndex -lt $stopServices.Count; $serviceIndex++) {
+            Manage-Service $stopServices[$serviceIndex] 'Stop' $serviceConfig[$stopServices[$serviceIndex]] ($serviceIndex + 1) $stopServices.Count
         }
 
         Write-StyledMessage Info '⏳ Attesa liberazione risorse...'
@@ -736,15 +736,15 @@ function WinUpdateReset {
 
         Write-StyledMessage Info '⚙️ Ripristino configurazione servizi Windows Update...'
         $criticalServices = $serviceConfig.Keys | Where-Object { $serviceConfig[$_].Critical }
-        for ($i = 0; $i -lt $criticalServices.Count; $i++) {
-            $serviceName = $criticalServices[$i]
+        for ($criticalIndex = 0; $criticalIndex -lt $criticalServices.Count; $criticalIndex++) {
+            $serviceName = $criticalServices[$criticalIndex]
             Write-StyledMessage Info "$($serviceConfig[$serviceName].Icon) Elaborazione servizio: $serviceName"
             Manage-Service $serviceName 'Configure' $serviceConfig[$serviceName] ($i + 1) $criticalServices.Count
         }
 
         Write-StyledMessage Info '🔍 Verifica servizi di sistema critici...'
-        for ($i = 0; $i -lt $systemServices.Count; $i++) {
-            $sysService = $systemServices[$i]
+        for ($systemIndex = 0; $systemIndex -lt $systemServices.Count; $systemIndex++) {
+            $sysService = $systemServices[$systemIndex]
             Manage-Service $sysService.Name 'Check' @{ Icon = $sysService.Icon } ($i + 1) $systemServices.Count
         }
 
@@ -776,8 +776,8 @@ function WinUpdateReset {
             @{ Path = "C:\Windows\System32\catroot2"; Name = "catroot2" }
         )
 
-        for ($i = 0; $i -lt $directories.Count; $i++) {
-            $dir = $directories[$i]
+        for ($dirIndex = 0; $dirIndex -lt $directories.Count; $dirIndex++) {
+            $dir = $directories[$dirIndex]
             $percent = [math]::Round((($i + 1) / $directories.Count) * 100)
             Show-ProgressBar "Directory ($($i + 1)/$($directories.Count))" "Eliminazione $($dir.Name)" $percent '🗑️' '' 'Yellow'
 
@@ -800,8 +800,8 @@ function WinUpdateReset {
 
         Write-StyledMessage Info '🚀 Avvio servizi essenziali...'
         $essentialServices = @('wuauserv', 'cryptsvc', 'bits')
-        for ($i = 0; $i -lt $essentialServices.Count; $i++) {
-            Manage-Service $essentialServices[$i] 'Start' $serviceConfig[$essentialServices[$i]] ($i + 1) $essentialServices.Count
+        for ($essentialIndex = 0; $essentialIndex -lt $essentialServices.Count; $essentialIndex++) {
+            Manage-Service $essentialServices[$essentialIndex] 'Start' $serviceConfig[$essentialServices[$essentialIndex]] ($essentialIndex + 1) $essentialServices.Count
         }
 
         Write-StyledMessage Info '🔄 Reset del client Windows Update...'
@@ -1792,11 +1792,21 @@ function OfficeToolkit {
     .DESCRIPTION
         Script PowerShell per gestire Microsoft Office tramite interfaccia utente semplificata.
         Supporta installazione Office Basic, riparazione Click-to-Run e rimozione automatica basata sulla versione Windows.
+
+    .PARAMETER CountdownSeconds
+        Numero di secondi per il countdown prima del riavvio.
+
+    .OUTPUTS
+        None. La funzione non restituisce output.
     #>
 
     [CmdletBinding()]
-    param([int]$CountdownSeconds = 30)
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$CountdownSeconds = 30
+    )
 
+    # 1. Inizializzazione logging
     Initialize-ToolLogging -ToolName "OfficeToolkit"
     Show-Header -SubTitle "Office Toolkit"
 
@@ -1871,10 +1881,11 @@ function OfficeToolkit {
             }
         }
         catch {
-            Write-StyledMessage Warning "Impossibile rilevare versione Windows: $_"
+            Write-StyledMessage -Type 'Warning' -Text "Impossibile rilevare versione Windows: $_"
             return "Unknown"
         }
     }
+
 
     function Stop-OfficeProcesses {
         $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
@@ -1983,7 +1994,7 @@ function OfficeToolkit {
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante installazione: $_"
+            Write-StyledMessage Error "Errore durante installazione Office: $($_.Exception.Message)"
             return $false
         }
         finally {
@@ -2068,7 +2079,7 @@ function OfficeToolkit {
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante riparazione: $_"
+            Write-StyledMessage Error "Errore durante riparazione Office: $($_.Exception.Message)"
             return $false
         }
     }
@@ -2292,7 +2303,7 @@ function OfficeToolkit {
             return $true
         }
         catch {
-            Write-StyledMessage Error "Errore durante rimozione diretta: $_"
+            Write-StyledMessage Error "Errore durante rimozione diretta Office: $($_.Exception.Message)"
             return $false
         }
     }
@@ -2316,7 +2327,7 @@ function OfficeToolkit {
                 Write-StyledMessage Success "Estrazione completata"
             }
             catch {
-                Write-StyledMessage Error "Errore estrazione: $_"
+                Write-StyledMessage Error "Errore durante estrazione archivio SaRA: $($_.Exception.Message)"
                 return $false
             }
 
@@ -2353,13 +2364,13 @@ function OfficeToolkit {
                 }
             }
             catch {
-                Write-StyledMessage Warning "Errore esecuzione SaRA: $_"
+                Write-StyledMessage Warning "Errore durante esecuzione SaRA: $($_.Exception.Message)"
                 Write-StyledMessage Info "💡 Passaggio a metodo alternativo..."
                 return Remove-OfficeDirectly
             }
         }
         catch {
-            Write-StyledMessage Warning "Errore durante SaRA: $_"
+            Write-StyledMessage Warning "Errore durante processo SaRA: $($_.Exception.Message)"
             return $false
         }
         finally {
@@ -2473,7 +2484,7 @@ function OfficeToolkit {
         } while ($choice -ne '0')
     }
     catch {
-        Write-StyledMessage Error "Errore critico: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore critico durante esecuzione OfficeToolkit: $($_.Exception.Message)"
     }
     finally {
         Write-StyledMessage Success "🧹 Pulizia finale..."
@@ -2843,11 +2854,24 @@ function WinCleaner {
         @{ Name = "CleanMgr Config"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "🧹 Configurazione CleanMgr..."
                 $reg = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
-                $opts = @("Active Setup Temp Folders", "BranchCache", "D3D Shader Cache", "Delivery Optimization Files",
-                    "Downloaded Program Files", "Internet Cache Files", "Memory Dump Files", "Recycle Bin",
-                    "Temporary Files", "Thumbnail Cache", "Windows Error Reporting Files", "Setup Log Files",
-                    "System error memory dump files", "System error minidump files", "Temporary Setup Files",
-                    "Windows Upgrade Log Files")
+                $opts = @(
+                    "Active Setup Temp Folders",
+                    "BranchCache",
+                    "D3D Shader Cache",
+                    "Delivery Optimization Files",
+                    "Downloaded Program Files",
+                    "Internet Cache Files",
+                    "Memory Dump Files",
+                    "Recycle Bin",
+                    "Temporary Files",
+                    "Thumbnail Cache",
+                    "Windows Error Reporting Files",
+                    "Setup Log Files",
+                    "System error memory dump files",
+                    "System error minidump files",
+                    "Temporary Setup Files",
+                    "Windows Upgrade Log Files"
+                )
                 foreach ($o in $opts) {
                     $p = Join-Path $reg $o
                     if (Test-Path $p) { Set-ItemProperty -Path $p -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction SilentlyContinue }
@@ -2870,7 +2894,11 @@ function WinCleaner {
         @{ Name = "Minimize DISM"; Type = "RegSet"; Key = "HKLM:\Software\Microsoft\Windows\CurrentVersion\SideBySide\Configuration"; ValueName = "DisableResetbase"; ValueData = 0; ValueType = "DWORD" }
 
         # --- Error Reports ---
-        @{ Name = "Error Reports"; Type = "File"; Paths = @("$env:ProgramData\Microsoft\Windows\WER", "$env:ALLUSERSPROFILE\Microsoft\Windows\WER"); FilesOnly = $false }
+        @{ Name = "Error Reports"; Type = "File"; Paths = @(
+                "$env:ProgramData\Microsoft\Windows\WER",
+                "$env:ALLUSERSPROFILE\Microsoft\Windows\WER"
+            ); FilesOnly = $false 
+        }
 
         # --- Event Logs ---
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
@@ -2882,12 +2910,20 @@ function WinCleaner {
 
         # --- Windows Update ---
         @{ Name = "Stop - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Stop" }
-        @{ Name = "Cleanup - Windows Update Cache"; Type = "File"; Paths = @("C:\WINDOWS\SoftwareDistribution\DataStore", "C:\WINDOWS\SoftwareDistribution\Download"); FilesOnly = $false }
+        @{ Name = "Cleanup - Windows Update Cache"; Type = "File"; Paths = @(
+                "C:\WINDOWS\SoftwareDistribution\DataStore",
+                "C:\WINDOWS\SoftwareDistribution\Download"
+            ); FilesOnly = $false 
+        }
         @{ Name = "Start - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Start" }
 
         # --- Windows App/Download Cache ---
         @{ Name = "Windows App/Download Cache - System"; Type = "File"; Paths = @("C:\WINDOWS\SoftwareDistribution\Download"); FilesOnly = $true }
-        @{ Name = "Windows App/Download Cache - User"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\AppCache", "%LOCALAPPDATA%\Microsoft\Windows\Caches"); PerUser = $true; FilesOnly = $true }
+        @{ Name = "Windows App/Download Cache - User"; Type = "File"; Paths = @(
+                "%LOCALAPPDATA%\Microsoft\Windows\AppCache",
+                "%LOCALAPPDATA%\Microsoft\Windows\Caches"
+            ); PerUser = $true; FilesOnly = $true 
+        }
 
         # --- Restore Points ---
         @{ Name = "System Restore Points"; Type = "ScriptBlock"; ScriptBlock = {
@@ -2927,7 +2963,10 @@ function WinCleaner {
                 "%LOCALAPPDATA%\Microsoft\Internet Explorer"
             ); PerUser = $true; FilesOnly = $false
         }
-        @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @("%USERPROFILE%\Local Settings\Temporary Internet Files"); PerUser = $true; FilesOnly = $false }
+        @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @(
+                "%USERPROFILE%\Local Settings\Temporary Internet Files"
+            ); PerUser = $true; FilesOnly = $false 
+        }
         @{ Name = "Cache/History Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "8") }
         @{ Name = "Form Data Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "2") }
         @{ Name = "Internet Cookies Cleanup"; Type = "File"; Paths = @(
@@ -2961,7 +3000,10 @@ function WinCleaner {
                     if (Test-Path $cache) { Remove-Item -Path $cache -Recurse -Force -ErrorAction SilentlyContinue }
 
                     # Microsoft Store Firefox (UWP)
-                    $msStoreProfiles = Get-ChildItem "$($u.FullName)\AppData\Local\Packages" -Directory -Filter "Mozilla.Firefox_*" -ErrorAction SilentlyContinue
+                    $msStoreProfiles = Get-ChildItem `
+                        "$($u.FullName)\AppData\Local\Packages" `
+                        -Directory -Filter "Mozilla.Firefox_*" `
+                        -ErrorAction SilentlyContinue
                     foreach ($pkg in $msStoreProfiles) {
                         $msCache = "$($pkg.FullName)\LocalCache\Roaming\Mozilla\Firefox\Profiles"
                         if (Test-Path $msCache) { Remove-Item -Path $msCache -Recurse -Force -ErrorAction SilentlyContinue }
@@ -2981,7 +3023,12 @@ function WinCleaner {
 
         # --- Temp Files (Consolidato) ---
         @{ Name = "System Temp Files"; Type = "File"; Paths = @("C:\WINDOWS\Temp"); FilesOnly = $false }
-        @{ Name = "User Temp Files"; Type = "File"; Paths = @("%TEMP%", "%USERPROFILE%\AppData\Local\Temp", "%USERPROFILE%\AppData\LocalLow\Temp"); PerUser = $true; FilesOnly = $false }
+        @{ Name = "User Temp Files"; Type = "File"; Paths = @(
+                "%TEMP%",
+                "%USERPROFILE%\AppData\Local\Temp",
+                "%USERPROFILE%\AppData\LocalLow\Temp"
+            ); PerUser = $true; FilesOnly = $false 
+        }
         @{ Name = "Service Profiles Temp"; Type = "File"; Paths = @("%SYSTEMROOT%\ServiceProfiles\LocalService\AppData\Local\Temp"); FilesOnly = $false }
 
         # --- System & Component Logs ---
@@ -3108,7 +3155,12 @@ function WinCleaner {
 
         # --- Utility Apps ---
         @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
-        @{ Name = "Quick Access"; Type = "File"; Paths = @("%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations", "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations", "%APPDATA%\Microsoft\Windows\Recent Items"); PerUser = $true }
+        @{ Name = "Quick Access"; Type = "File"; Paths = @(
+                "%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations",
+                "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations",
+                "%APPDATA%\Microsoft\Windows\Recent Items"
+            ); PerUser = $true 
+        }
 
         # --- Legacy Applications & Media ---
         @{ Name = "Flash Player Traces"; Type = "File"; Paths = @("%APPDATA%\Macromedia\Flash Player"); PerUser = $true }
@@ -3322,11 +3374,21 @@ function SetRustDesk {
     .DESCRIPTION
         Script ottimizzato per fermare servizi, reinstallare RustDesk e applicare configurazioni personalizzate.
         Scarica i file di configurazione da repository GitHub e riavvia il sistema per applicare le modifiche.
+
+    .PARAMETER CountdownSeconds
+        Numero di secondi per il countdown prima del riavvio.
+
+    .OUTPUTS
+        None. La funzione non restituisce output.
     #>
 
     [CmdletBinding()]
-    param([int]$CountdownSeconds = 30)
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$CountdownSeconds = 30
+    )
 
+    # 1. Inizializzazione logging
     Initialize-ToolLogging -ToolName "SetRustDesk"
     Show-Header -SubTitle "RustDesk Setup Toolkit"
 
@@ -3379,11 +3441,11 @@ function SetRustDesk {
                 }
             }
 
-            Write-StyledMessage Error "Nessun installer .msi trovato nella release"
+            Write-StyledMessage -Type 'Error' -Text "Nessun installer .msi trovato nella release"
             return $null
         }
         catch {
-            Write-StyledMessage Error "Errore connessione GitHub API: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore connessione GitHub API: $($_.Exception.Message)"
             return $null
         }
     }
@@ -3391,11 +3453,11 @@ function SetRustDesk {
     function Download-RustDeskInstaller {
         param([string]$DownloadPath)
 
-        Write-StyledMessage Info "Download installer RustDesk in corso..."
+        Write-StyledMessage -Type 'Info' -Text "Download installer RustDesk in corso..."
         $releaseInfo = Get-LatestRustDeskRelease
         if (-not $releaseInfo) { return $false }
 
-        Write-StyledMessage Info "📥 Versione rilevata: $($releaseInfo.Version)"
+        Write-StyledMessage -Type 'Info' -Text "📥 Versione rilevata: $($releaseInfo.Version)"
         $parentDir = Split-Path $DownloadPath -Parent
 
         try {
@@ -3410,12 +3472,12 @@ function SetRustDesk {
             Invoke-WebRequest -Uri $releaseInfo.DownloadUrl -OutFile $DownloadPath -UseBasicParsing -ErrorAction Stop
 
             if (Test-Path $DownloadPath) {
-                Write-StyledMessage Success "Installer $($releaseInfo.FileName) scaricato con successo"
+                Write-StyledMessage -Type 'Success' -Text "Installer $($releaseInfo.FileName) scaricato con successo"
                 return $true
             }
         }
         catch {
-            Write-StyledMessage Error "Errore download: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore download: $($_.Exception.Message)"
         }
 
         return $false
@@ -3424,7 +3486,7 @@ function SetRustDesk {
     function Install-RustDesk {
         param([string]$InstallerPath)
 
-        Write-StyledMessage Info "Installazione RustDesk"
+        Write-StyledMessage -Type 'Info' -Text "Installazione RustDesk"
 
         try {
             $installArgs = "/i", "`"$InstallerPath`"", "/quiet", "/norestart"
@@ -3432,15 +3494,15 @@ function SetRustDesk {
             Start-Sleep 10
 
             if ($process.ExitCode -eq 0) {
-                Write-StyledMessage Success "RustDesk installato"
+                Write-StyledMessage -Type 'Success' -Text "RustDesk installato"
                 return $true
             }
             else {
-                Write-StyledMessage Error "Errore installazione (Exit Code: $($process.ExitCode))"
+                Write-StyledMessage -Type 'Error' -Text "Errore installazione (Exit Code: $($process.ExitCode))"
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante installazione: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante installazione: $($_.Exception.Message)"
         }
 
         return $false
@@ -3922,30 +3984,51 @@ function GamingToolkit {
     <#
     .SYNOPSIS
         Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
+
     .DESCRIPTION
-        Script completo per ottimizzare le prestazioni del sistema per il gaming
+        Script completo per ottimizzare le prestazioni del sistema per il gaming.
+        Include installazione di runtime, client di gioco e configurazione del sistema.
+
+    .PARAMETER CountdownSeconds
+        Numero di secondi per il countdown prima del riavvio.
+
+    .OUTPUTS
+        None. La funzione non restituisce output.
     #>
 
     [CmdletBinding()]
-    param([int]$CountdownSeconds = 30)
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$CountdownSeconds = 30
+    )
 
+    # 1. Inizializzazione logging
     Initialize-ToolLogging -ToolName "GamingToolkit"
     Show-Header -SubTitle "Gaming Toolkit"
 
-    # Funzioni helper locali
+    # 2. Variabili locali
+    $osInfo = Get-ComputerInfo
+    $buildNumber = $osInfo.OsBuildNumber
+    $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
+
+    # 3. Funzioni helper locali
     function Test-WingetPackageAvailable([string]$PackageId) {
         try {
             $result = winget search $PackageId 2>&1
             return $LASTEXITCODE -eq 0 -and $result -match $PackageId
         }
-        catch { return $false }
+        catch {
+            $errorMessage = $_.Exception.Message
+            Write-StyledMessage -Type 'Warning' -Text ("Errore verifica pacchetto {0}: {1}" -f $PackageId, $errorMessage)
+            return $false
+        }
     }
 
     function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
-        Write-StyledMessage Info "[$Step/$Total] 📦 Installazione: $DisplayName..."
+        Write-StyledMessage -Type 'Info' -Text "[$Step/$Total] 📦 Installazione: $DisplayName..."
 
         if (-not (Test-WingetPackageAvailable $PackageId)) {
-            Write-StyledMessage Warning "Pacchetto $DisplayName non disponibile. Saltando."
+            Write-StyledMessage -Type 'Warning' -Text "Pacchetto $DisplayName non disponibile. Saltando."
             return @{ Success = $true; Skipped = $true }
         }
 
@@ -3965,18 +4048,18 @@ function GamingToolkit {
             $successCodes = @(0, 1638, 3010, -1978335189)
 
             if ($exitCode -in $successCodes) {
-                Write-StyledMessage Success "Installato: $DisplayName"
+                Write-StyledMessage -Type 'Success' -Text "Installato: $DisplayName"
                 return @{ Success = $true; ExitCode = $exitCode }
             }
             else {
-                Write-StyledMessage Error "Errore installazione $DisplayName (codice: $exitCode)"
+                Write-StyledMessage -Type 'Error' -Text "Errore installazione $DisplayName (codice: $exitCode)"
                 return @{ Success = $false; ExitCode = $exitCode }
             }
         }
         catch {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
-            Write-StyledMessage Error "Eccezione $DisplayName`: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Eccezione $DisplayName`: $($_.Exception.Message)"
             return @{ Success = $false }
         }
         finally {
@@ -4030,24 +4113,33 @@ function GamingToolkit {
         Write-StyledMessage Success 'NetFramework abilitato.'
     }
     catch {
-        Write-StyledMessage Error "Errore NetFramework: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore durante abilitazione NetFramework: $($_.Exception.Message)"
     }
     Write-Host ''
 
     # Step 3: Runtime e VCRedist
     $runtimes = @(
-        "Microsoft.DotNet.DesktopRuntime.3_1", "Microsoft.DotNet.DesktopRuntime.5",
-        "Microsoft.DotNet.DesktopRuntime.6", "Microsoft.DotNet.DesktopRuntime.7",
-        "Microsoft.DotNet.DesktopRuntime.8", "Microsoft.DotNet.DesktopRuntime.9", "Microsoft.DotNet.DesktopRuntime.10",
-        "Microsoft.VCRedist.2010.x64", "Microsoft.VCRedist.2010.x86",
-        "Microsoft.VCRedist.2012.x64", "Microsoft.VCRedist.2012.x86",
-        "Microsoft.VCRedist.2013.x64", "Microsoft.VCRedist.2013.x86",
-        "Microsoft.VCLibs.Desktop.14", "Microsoft.VCRedist.2015+.x64", "Microsoft.VCRedist.2015+.x86"
+        "Microsoft.DotNet.DesktopRuntime.3_1",
+        "Microsoft.DotNet.DesktopRuntime.5",
+        "Microsoft.DotNet.DesktopRuntime.6",
+        "Microsoft.DotNet.DesktopRuntime.7",
+        "Microsoft.DotNet.DesktopRuntime.8",
+        "Microsoft.DotNet.DesktopRuntime.9",
+        "Microsoft.DotNet.DesktopRuntime.10",
+        "Microsoft.VCRedist.2010.x64",
+        "Microsoft.VCRedist.2010.x86",
+        "Microsoft.VCRedist.2012.x64",
+        "Microsoft.VCRedist.2012.x86",
+        "Microsoft.VCRedist.2013.x64",
+        "Microsoft.VCRedist.2013.x86",
+        "Microsoft.VCLibs.Desktop.14",
+        "Microsoft.VCRedist.2015+.x64",
+        "Microsoft.VCRedist.2015+.x86"
     )
 
     Write-StyledMessage Info '🔥 Installazione runtime .NET e VCRedist...'
-    for ($i = 0; $i -lt $runtimes.Count; $i++) {
-        Invoke-WingetInstallWithProgress $runtimes[$i] $runtimes[$i] ($i + 1) $runtimes.Count | Out-Null
+    for ($runtimeIndex = 0; $runtimeIndex -lt $runtimes.Count; $runtimeIndex++) {
+        Invoke-WingetInstallWithProgress $runtimes[$runtimeIndex] $runtimes[$runtimeIndex] ($runtimeIndex + 1) $runtimes.Count | Out-Null
         Write-Host ''
     }
     Write-StyledMessage Success 'Runtime completati.'
@@ -4091,7 +4183,7 @@ function GamingToolkit {
     catch {
         Write-Host "`r$(' ' * 120)" -NoNewline
         Write-Host "`r" -NoNewline
-        Write-StyledMessage Error "Errore DirectX: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore durante installazione DirectX: $($_.Exception.Message)"
     }
     Write-Host ''
 
@@ -4103,8 +4195,8 @@ function GamingToolkit {
     )
 
     Write-StyledMessage Info '🎮 Installazione client di gioco...'
-    for ($i = 0; $i -lt $gameClients.Count; $i++) {
-        Invoke-WingetInstallWithProgress $gameClients[$i] $gameClients[$i] ($i + 1) $gameClients.Count | Out-Null
+    for ($clientIndex = 0; $clientIndex -lt $gameClients.Count; $clientIndex++) {
+        Invoke-WingetInstallWithProgress $gameClients[$clientIndex] $gameClients[$clientIndex] ($clientIndex + 1) $gameClients.Count | Out-Null
         Write-Host ''
     }
     Write-StyledMessage Success 'Client installati.'
@@ -4147,7 +4239,7 @@ function GamingToolkit {
     catch {
         Write-Host "`r$(' ' * 120)" -NoNewline
         Write-Host "`r" -NoNewline
-        Write-StyledMessage Error "Errore Battle.net: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore durante installazione Battle.net: $($_.Exception.Message)"
         Write-Host "`nPremi un tasto..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
@@ -4198,7 +4290,7 @@ function GamingToolkit {
             }
         }
         catch {
-            Write-StyledMessage Error "Errore duplicazione piano: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore durante duplicazione piano energetico: $($_.Exception.Message)"
         }
     }
 
@@ -4208,7 +4300,7 @@ function GamingToolkit {
             Write-StyledMessage Success "Piano attivato."
         }
         catch {
-            Write-StyledMessage Error "Errore attivazione piano: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore durante attivazione piano energetico: $($_.Exception.Message)"
         }
     }
     else {
@@ -4223,7 +4315,7 @@ function GamingToolkit {
         Write-StyledMessage Success 'Non disturbare attivo.'
     }
     catch {
-        Write-StyledMessage Error "Errore: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore durante configurazione Focus Assist: $($_.Exception.Message)"
     }
     Write-Host ''
 
@@ -4249,17 +4341,50 @@ function GamingToolkit {
 }
 function DisableBitlocker {
     <#
-.SYNOPSIS
-    Disattiva BitLocker sul drive C:.
-#>
-    param([bool]$RunStandalone = $true)
+    .SYNOPSIS
+        Disattiva BitLocker sul drive C:.
 
+    .DESCRIPTION
+        Funzione per disattivare BitLocker sul drive C: e prevenire la crittografia futura.
+        Include gestione degli errori e logging dettagliato.
+
+    .PARAMETER RunStandalone
+        Specifica se eseguire lo script in modalità standalone.
+
+    .OUTPUTS
+        None. La funzione non restituisce output.
+    #>
+
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [bool]$RunStandalone = $true
+    )
+
+    # 1. Inizializzazione logging
     Initialize-ToolLogging -ToolName "DisableBitlocker"
     Show-Header -SubTitle "Disattivazione BitLocker"
 
-    Write-StyledMessage -Type 'Info' -Text "Inizializzazione decrittazione drive C:..."
+    # 2. Variabili locali
+    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
 
+    # 3. Funzioni helper locali
+    function Test-BitLockerStatus {
+        param([string]$DriveLetter = "C:")
+        try {
+            $status = manage-bde -status $DriveLetter
+            return $status
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Impossibile verificare lo stato BitLocker: $($_.Exception.Message)"
+            return $null
+        }
+    }
+
+    # 4. Blocco try principale
     try {
+        Write-StyledMessage -Type 'Info' -Text "Inizializzazione decrittazione drive C:..."
+
         # Tentativo disattivazione
         $proc = Start-Process manage-bde.exe -ArgumentList "-off C:" -PassThru -Wait -NoNewWindow
 
@@ -4267,7 +4392,7 @@ function DisableBitlocker {
             Write-StyledMessage -Type 'Success' -Text "Decrittazione avviata/completata con successo."
 
             # Check stato
-            $status = manage-bde -status C:
+            $status = Test-BitLockerStatus -DriveLetter "C:"
             if ($status -match "Decryption in progress") {
                 Write-StyledMessage -Type 'Info' -Text "Decrittazione in corso in background."
             }
@@ -4278,14 +4403,19 @@ function DisableBitlocker {
 
         # Prevenzione crittografia futura
         Write-StyledMessage -Type 'Info' -Text "Disabilitazione crittografia automatica nel registro..."
-        $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
-        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force | Out-Null
+        }
         Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
 
         Write-StyledMessage -Type 'Success' -Text "Configurazione completata."
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message)"
+    }
+    finally {
+        # Cleanup
+        Write-StyledMessage -Type 'Info' -Text "Pulizia risorse temporanee..."
     }
 }
 function WinExportLog {
@@ -4843,6 +4973,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
