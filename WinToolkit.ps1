@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 188)"
+$ToolkitVersion = "2.5.0 (Build 189)"
 
 
 # Setup Variabili Globali UI
@@ -2630,7 +2630,16 @@ function WinCleaner {
                     $p = Join-Path $reg $o
                     if (Test-Path $p) { Set-ItemProperty -Path $p -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction SilentlyContinue }
                 }
-                Start-Process 'cleanmgr.exe' -ArgumentList '/sagerun:65' -WindowStyle Minimized
+                
+                # Esegui cleanmgr.exe attendendo il completamento, sfruttando Invoke-CommandAction
+                # che include già logica di timeout per cleanmgr.exe e gestisce la visualizzazione.
+                $cleanMgrExecutionRule = @{
+                    Name    = "Esecuzione CleanMgr con /sagerun:65";
+                    Type    = "Command";
+                    Command = "cleanmgr.exe";
+                    Args    = @("/sagerun:65");
+                }
+                Invoke-CommandAction -Rule $cleanMgrExecutionRule
             }
         }
 
@@ -4606,6 +4615,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
