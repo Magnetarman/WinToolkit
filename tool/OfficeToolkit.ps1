@@ -158,8 +158,12 @@ function OfficeToolkit {
             }
 
             Write-StyledMessage Info "🚀 Avvio processo installazione..."
-            $arguments = "/configure `"$configPath`""
-            Start-Process -FilePath $setupPath -ArgumentList $arguments -WorkingDirectory $TempDir
+            $procParams = @{
+                FilePath         = $setupPath
+                ArgumentList     = $arguments
+                WorkingDirectory = $TempDir
+            }
+            Start-Process @procParams
 
             Write-StyledMessage Info "⏳ Attesa completamento installazione..."
             Write-Host "💡 Premi INVIO quando l'installazione è completata..." -ForegroundColor Yellow
@@ -242,7 +246,11 @@ function OfficeToolkit {
                 $officeClient = "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
             }
 
-            Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
+            $procParams = @{
+                FilePath     = $officeClient
+                ArgumentList = $arguments
+            }
+            Start-Process @procParams
 
             Write-StyledMessage Info "⏳ Attesa completamento riparazione..."
             Write-Host "💡 Premi INVIO quando la riparazione è completata..." -ForegroundColor Yellow
@@ -258,7 +266,11 @@ function OfficeToolkit {
                     if (Get-UserConfirmation "🌐 Tentare riparazione completa online?" 'Y') {
                         Write-StyledMessage Info "🌐 Avvio riparazione completa..."
                         $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
-                        Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
+                        $procParams = @{
+                            FilePath     = $officeClient
+                            ArgumentList = $arguments
+                        }
+                        Start-Process @procParams
 
                         Write-Host "💡 Premi INVIO quando la riparazione completa è terminata..." -ForegroundColor Yellow
                         Read-Host | Out-Null
@@ -341,7 +353,14 @@ function OfficeToolkit {
                         if ($item.UninstallString -and $item.UninstallString -match "msiexec") {
                             try {
                                 $productCode = $item.PSChildName
-                                Start-Process -FilePath "msiexec.exe" -ArgumentList "/x $productCode /qn /norestart" -Wait -NoNewWindow -ErrorAction Stop
+                                $procParams = @{
+                                    FilePath     = 'msiexec.exe'
+                                    ArgumentList = @('/x', $productCode, '/qn', '/norestart')
+                                    Wait         = $true
+                                    NoNewWindow  = $true
+                                    ErrorAction  = 'Stop'
+                                }
+                                Start-Process @procParams
                             }
                             catch {}
                         }
@@ -527,7 +546,15 @@ function OfficeToolkit {
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
 
             try {
-                $process = Start-Process -FilePath $saraExe.FullName -ArgumentList $arguments -Verb RunAs -PassThru -Wait -ErrorAction Stop
+                $procParams = @{
+                    FilePath     = $saraExe.FullName
+                    ArgumentList = $arguments
+                    Verb         = 'RunAs'
+                    PassThru     = $true
+                    Wait         = $true
+                    ErrorAction  = 'Stop'
+                }
+                $process = Start-Process @procParams
 
                 if ($process.ExitCode -eq 0) {
                     Write-StyledMessage Success "✅ SaRA completato con successo"

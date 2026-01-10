@@ -113,10 +113,14 @@ function WinReinstallStore {
                 if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
 
                 Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
-                $process = Start-Process powershell -ArgumentList @(
-                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                    "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
-                ) -Wait -PassThru -WindowStyle Hidden
+                $procParams = @{
+                    FilePath     = 'powershell'
+                    ArgumentList = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0")
+                    Wait         = $true
+                    PassThru     = $true
+                    WindowStyle  = 'Hidden'
+                }
+                $process = Start-Process @procParams
 
                 Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
                 Start-Sleep 5
@@ -189,7 +193,14 @@ function WinReinstallStore {
             $methods = @(
                 {
                     if (Test-WingetAvailable) {
-                        $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                        $procParams = @{
+                            FilePath     = 'winget'
+                            ArgumentList = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity'
+                            Wait         = $true
+                            PassThru     = $true
+                            WindowStyle  = 'Hidden'
+                        }
+                        $process = Start-Process @procParams
                         return $process.ExitCode -eq 0
                     }
                     return $false
@@ -200,10 +211,14 @@ function WinReinstallStore {
                         $store | ForEach-Object {
                             $manifest = "$($_.InstallLocation)\AppXManifest.xml"
                             if (Test-Path $manifest) {
-                                $process = Start-Process powershell -ArgumentList @(
-                                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                                    "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
-                                ) -Wait -PassThru -WindowStyle Hidden
+                                $procParams = @{
+                                    FilePath     = 'powershell'
+                                    ArgumentList = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown")
+                                    Wait         = $true
+                                    PassThru     = $true
+                                    WindowStyle  = 'Hidden'
+                                }
+                                $process = Start-Process @procParams
                             }
                         }
                         return $true
@@ -211,7 +226,14 @@ function WinReinstallStore {
                     return $false
                 },
                 {
-                    $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
+                    $procParams = @{
+                        FilePath     = 'DISM'
+                        ArgumentList = '/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0'
+                        Wait         = $true
+                        PassThru     = $true
+                        WindowStyle  = 'Hidden'
+                    }
+                    $process = Start-Process @procParams
                     return $process.ExitCode -eq 0
                 }
             )
@@ -253,7 +275,14 @@ function WinReinstallStore {
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
 
-            $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
+            $procParams = @{
+                FilePath     = 'winget'
+                ArgumentList = 'install', '--exact', '--id', 'MartiCliment.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force'
+                Wait         = $true
+                PassThru     = $true
+                WindowStyle  = 'Hidden'
+            }
+            $process = Start-Process @procParams
 
             if ($process.ExitCode -eq 0) {
                 Write-StyledMessage Info "🔄 Disabilitazione avvio automatico UniGet UI..."

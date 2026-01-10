@@ -32,7 +32,13 @@
         try {
             # Usa la funzione globale Invoke-WithSpinner per monitorare il processo winget
             $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action {
-                Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_err_$PackageId.log"
+                $procParams = @{
+                    FilePath     = 'winget'
+                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements')
+                    PassThru     = $true
+                    NoNewWindow  = $true
+                }
+                Start-Process @procParams
             } -TimeoutSeconds 300 -UpdateInterval 700
 
             $exitCode = $result.ExitCode

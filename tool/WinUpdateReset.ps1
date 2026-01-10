@@ -259,7 +259,14 @@ function WinUpdateReset {
         Write-StyledMessage Info '🔄 Reset del client Windows Update...'
         Write-Host '⚡ Esecuzione comando reset... ' -NoNewline -ForegroundColor Magenta
         try {
-            Start-Process "cmd.exe" -ArgumentList "/c wuauclt /resetauthorization /detectnow" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+            $procParams = @{
+                FilePath     = 'cmd.exe'
+                ArgumentList = '/c', 'wuauclt', '/resetauthorization', '/detectnow'
+                Wait         = $true
+                WindowStyle  = 'Hidden'
+                ErrorAction  = 'SilentlyContinue'
+            }
+            Start-Process @procParams | Out-Null
             Write-Host 'Completato!' -ForegroundColor Green
             Write-StyledMessage Success "🔄 Client Windows Update reimpostato."
         }
@@ -322,7 +329,14 @@ function WinUpdateReset {
                     Set-Service -Name $service.Name -StartupType $service.StartupType -ErrorAction SilentlyContinue | Out-Null
 
                     # Reset failure actions to default using sc command
-                    Start-Process -FilePath "sc.exe" -ArgumentList "failure `"$($service.Name)`" reset= 86400 actions= restart/60000/restart/60000/restart/60000" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+                    $procParams = @{
+                        FilePath     = 'sc.exe'
+                        ArgumentList = 'failure', "$($service.Name)", 'reset= 86400 actions= restart/60000/restart/60000/restart/60000'
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                        ErrorAction  = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams | Out-Null
 
                     # Start the service if it should be running
                     if ($service.StartupType -eq "Automatic") {
@@ -349,18 +363,46 @@ function WinUpdateReset {
             if ((Test-Path $backupPath) -and !(Test-Path $dllPath)) {
                 try {
                     # Take ownership of backup file
-                    Start-Process -FilePath "takeown.exe" -ArgumentList "/f `"$backupPath`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+                    $procParams = @{
+                        FilePath     = 'takeown.exe'
+                        ArgumentList = '/f', "`"$backupPath`""
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                        ErrorAction  = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams | Out-Null
 
                     # Grant full control to everyone
-                    Start-Process -FilePath "icacls.exe" -ArgumentList "`"$backupPath`" /grant *S-1-1-0:F" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+                    $procParams = @{
+                        FilePath     = 'icacls.exe'
+                        ArgumentList = "`"$backupPath`"", '/grant', '*S-1-1-0:F'
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                        ErrorAction  = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams | Out-Null
 
                     # Rename back to original
                     Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue | Out-Null
                     Write-StyledMessage Success "Ripristinato ${dll}_BAK.dll a $dll.dll"
 
                     # Restore ownership to TrustedInstaller
-                    Start-Process -FilePath "icacls.exe" -ArgumentList "`"$dllPath`" /setowner `"NT SERVICE\TrustedInstaller`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
-                    Start-Process -FilePath "icacls.exe" -ArgumentList "`"$dllPath`" /remove *S-1-1-0" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+                    $procParams = @{
+                        FilePath     = 'icacls.exe'
+                        ArgumentList = "`"$dllPath`"", '/setowner', '"NT SERVICE\TrustedInstaller"'
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                        ErrorAction  = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams | Out-Null
+                    $procParams = @{
+                        FilePath     = 'icacls.exe'
+                        ArgumentList = "`"$dllPath`"", '/remove', '*S-1-1-0'
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                        ErrorAction  = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams | Out-Null
                 }
                 catch {
                     Write-StyledMessage Warning "Avviso: Impossibile ripristinare $dll.dll - $($_.Exception.Message)"
@@ -445,8 +487,22 @@ function WinUpdateReset {
         try {
             #Start-Process -FilePath "secedit" -ArgumentList "/configure /cfg $env:windir\inf\defltbase.inf /db defltbase.sdb /verbose" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
             #Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicyUsers" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-            Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicy" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
-            Start-Process -FilePath "gpupdate" -ArgumentList "/force" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+            $procParams = @{
+                FilePath     = 'cmd.exe'
+                ArgumentList = '/c', 'RD', '/S', '/Q', "$env:WinDir\System32\GroupPolicy"
+                Wait         = $true
+                WindowStyle  = 'Hidden'
+                ErrorAction  = 'SilentlyContinue'
+            }
+            Start-Process @procParams | Out-Null
+            $procParams = @{
+                FilePath     = 'gpupdate'
+                ArgumentList = '/force'
+                Wait         = $true
+                WindowStyle  = 'Hidden'
+                ErrorAction  = 'SilentlyContinue'
+            }
+            Start-Process @procParams | Out-Null
 
             # Clean up registry keys
             Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
