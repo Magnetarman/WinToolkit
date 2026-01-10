@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 183)"
+$ToolkitVersion = "2.5.0 (Build 184)"
 
 
 # Setup Variabili Globali UI
@@ -1338,36 +1338,29 @@ function WinBackupDriver {
     function Export-SystemDrivers {
         Write-StyledMessage Info "💾 Avvio esportazione driver di sistema..."
         
+        $outFile = "$($script:BackupConfig.LogsDir)\dism_$($script:BackupConfig.DateTime).log"
+        $errFile = "$($script:BackupConfig.LogsDir)\dism_err_$($script:BackupConfig.DateTime).log"
+        
         try {
-            $dismProcess = Start-Process -FilePath 'dism.exe' -ArgumentList @(
-                '/online',
-                '/export-driver',
-                "/destination:`"$($script:BackupConfig.BackupDir)`""
-            ) -NoNewWindow -PassThru -RedirectStandardOutput "$($script:BackupConfig.LogsDir)\dism_$($script:BackupConfig.DateTime).log" -RedirectStandardError "$($script:BackupConfig.LogsDir)\dism_err_$($script:BackupConfig.DateTime).log"
+            # Usa Invoke-WithSpinner per monitorare il processo DISM
+            $result = Invoke-WithSpinner -Activity "Esportazione driver DISM" -Process -Action {
+                Start-Process -FilePath 'dism.exe' -ArgumentList @(
+                    '/online',
+                    '/export-driver',
+                    "/destination:`"$($script:BackupConfig.BackupDir)`""
+                ) -NoNewWindow -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+            } -TimeoutSeconds 300 -UpdateInterval 1000
             
-            $timeoutSeconds = 300
-            $spinnerIndex = 0
-            
-            while (-not $dismProcess.HasExited -and $timeoutSeconds -gt 0) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                Write-Host "`r$spinner ⏳ Esportazione driver in corso... ($timeoutSeconds secondi rimanenti)" -NoNewline -ForegroundColor Yellow
-                Start-Sleep -Seconds 1
-                $timeoutSeconds--
-            }
-            
-            Write-Host "`r" + (' ' * 80) + "`r" -NoNewline
-            
-            if (-not $dismProcess.HasExited) {
-                $dismProcess.Kill()
+            if ($result.TimedOut) {
                 throw "Timeout raggiunto durante l'esportazione DISM"
             }
             
-            if ($dismProcess.ExitCode -ne 0) {
-                $errorDetails = if (Test-Path "$($script:BackupConfig.LogsDir)\dism_err_$($script:BackupConfig.DateTime).log") {
-                    (Get-Content "$($script:BackupConfig.LogsDir)\dism_err_$($script:BackupConfig.DateTime).log") -join '; '
+            if ($result.ExitCode -ne 0) {
+                $errorDetails = if (Test-Path $errFile) {
+                    (Get-Content $errFile -ErrorAction SilentlyContinue) -join '; '
                 }
                 else { "Dettagli non disponibili" }
-                throw "Esportazione DISM fallita (ExitCode: $($dismProcess.ExitCode)). Dettagli: $errorDetails"
+                throw "Esportazione DISM fallita (ExitCode: $($result.ExitCode)). Dettagli: $errorDetails"
             }
             
             $exportedDrivers = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
@@ -1473,42 +1466,16 @@ function WinBackupDriver {
         try {
             Write-StyledMessage Info "🚀 Compressione con 7-Zip..."
 
-            # Avvio processo 7zip con output reindirizzato per evitare interferenze con lo spinner
-            $compressionProcess = Start-Process -FilePath $SevenZipPath -ArgumentList $compressionArgs -NoNewWindow -PassThru -RedirectStandardOutput $stdOutputPath -RedirectStandardError $stdErrorPath
-
-            $timeoutSeconds = 600
-            $spinnerIndex = 0
-            $lastUpdateTime = Get-Date
+            # Usa Invoke-WithSpinner per monitorare il processo 7zip
+            $result = Invoke-WithSpinner -Activity "Compressione archivio 7-Zip" -Process -Action {
+                Start-Process -FilePath $SevenZipPath -ArgumentList $compressionArgs -NoNewWindow -PassThru -RedirectStandardOutput $stdOutputPath -RedirectStandardError $stdErrorPath
+            } -TimeoutSeconds 600 -UpdateInterval 1000
             
-            while (-not $compressionProcess.HasExited -and $timeoutSeconds -gt 0) {
-                $currentTime = Get-Date
-                $elapsedSeconds = [Math]::Floor(($currentTime - $lastUpdateTime).TotalSeconds)
-                
-                # Aggiorna lo spinner ogni secondo
-                if ($elapsedSeconds -ge 1) {
-                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                    $minutes = [Math]::Floor($timeoutSeconds / 60)
-                    $seconds = [Math]::Round($timeoutSeconds % 60, 0)
-                    $timeDisplay = if ($minutes -gt 0) { "$minutes min $seconds sec" } else { "$seconds sec" }
-                    
-                    Write-Host "`r$spinner 📦 Compressione archivio... ($timeDisplay rimanenti)" -NoNewline -ForegroundColor Cyan
-                    $lastUpdateTime = $currentTime
-                    $spinnerIndex = 0 # Reset per evitare overflow
-                }
-                
-                Start-Sleep -Milliseconds 200 # Controllo più frequente per responsività
-                $timeoutSeconds -= 0.2
-            }
-            
-            # Pulisci la linea dello spinner
-            Write-Host "`r" + (' ' * 80) + "`r" -NoNewline
-            
-            if (-not $compressionProcess.HasExited) {
-                $compressionProcess.Kill()
+            if ($result.TimedOut) {
                 throw "Timeout raggiunto durante la compressione"
             }
             
-            if ($compressionProcess.ExitCode -eq 0 -and (Test-Path $archivePath)) {
+            if ($result.ExitCode -eq 0 -and (Test-Path $archivePath)) {
                 $compressedSizeMB = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
                 $compressionRatio = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
                 
@@ -1523,7 +1490,7 @@ function WinBackupDriver {
                 }
                 else { "File di log errori non trovato" }
                 
-                Write-StyledMessage Error "Compressione fallita (ExitCode: $($compressionProcess.ExitCode)). Dettagli: $errorDetails"
+                Write-StyledMessage Error "Compressione fallita (ExitCode: $($result.ExitCode)). Dettagli: $errorDetails"
                 return $null
             }
         }
@@ -4633,6 +4600,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
