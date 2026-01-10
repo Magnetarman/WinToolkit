@@ -206,6 +206,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Corretto il parsing delle chiavi di registro in modo errato in alcune sezioni dello script. [[#24](https://github.com/MagnetarMan/WinToolkit/issues/24) [@pomodori92]](https://github.com/pomodori92)
   - Uniformati spinner e grafica.
   - Aggiunto un blocco delle operazioni durante la "Pulizia Disco" in modo da evitare comportamenti anomali.
+  - Uniformazione funzione `Write-StyledMessage`.
 
 ### Modifiche
 
@@ -218,6 +219,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Aggiornato DDU alla versione v18.1.4.0.
   - Funzione grafica Spinner resa globale e ottimizzata nei vari script.
   - Fix errore di visualizzazione percentuale nella barra del countdown.
+  - Aggiunta nuova logica di Splatting per Start-Process in tutti gli script per migliorare la leggibilità del codice e la facile espansione futura.
 
 - Revamping `PowerShell Profile.ps1`
   - **Pulizia e rimozione codice inutile:**
