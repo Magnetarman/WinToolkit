@@ -66,7 +66,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.5.0] - 2026-01-08 ([#21](https://github.com/MagnetarMan/WinToolkit/issues/21))
+## [2.5.0] - 2026-01-10 ([#25](https://github.com/MagnetarMan/WinToolkit/issues/25))
 
 ### Aggiunte
 
@@ -212,14 +212,15 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 ### Modifiche
 
 - Aggiornamento della documentazione e del file `README.md`.
+
 - Script `WinToolkit.ps1` riscritto.
   - Logica completamente riscritta, lo script adesso risulta monolitico, integrando le funzionalità grafiche generali, demandando ai singoli script la sola gestione logica e funzionale delle varie operazioni.
   - Questo aggiornamento porta con sé un notevole miglioramento delle prestazioni, una significativa riduzione del codice totale (da oltre 7500 linee a 4300 linee di codice totale, un'ottimizzazione del 42%) e maggiore stabilità dello script, oltre a una maggiore leggibilità e manutenibilità del codice.
   - Modificato l'aspetto grafico del Toolkit, rendendo le varie schermate più compatte e leggibili. [[#21](https://github.com/MagnetarMan/WinToolkit/issues/21) [@pomodori92]](https://github.com/pomodori92)
   - Aggiornato DDU alla versione v18.1.4.0.
   - Funzione grafica Spinner resa globale e ottimizzata nei vari script.
-- Revamping `PowerShell Profile.ps1`
 
+- Revamping `PowerShell Profile.ps1`
   - **Pulizia e rimozione codice inutile:**
     - Rimozione di tutte le funzioni di debug non più necessarie
     - Eliminazione dell'architettura _Override-First_
