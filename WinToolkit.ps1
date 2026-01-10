@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 193)"
+$ToolkitVersion = "2.5.0 (Build 194)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -1315,7 +1315,7 @@ function WinReinstallStore {
                     if (Test-WingetAvailable) {
                         $procParams = @{
                             FilePath     = 'winget'
-                            ArgumentList = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity'
+                            ArgumentList = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--disable-progress'
                             Wait         = $true
                             PassThru     = $true
                             WindowStyle  = 'Hidden'
@@ -1397,7 +1397,7 @@ function WinReinstallStore {
 
             $procParams = @{
                 FilePath     = 'winget'
-                ArgumentList = 'install', '--exact', '--id', 'MartiCliment.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force'
+                ArgumentList = 'install', '--exact', '--id', 'MartiCliment.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--disable-progress', '--force'
                 Wait         = $true
                 PassThru     = $true
                 WindowStyle  = 'Hidden'
@@ -4973,6 +4973,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
