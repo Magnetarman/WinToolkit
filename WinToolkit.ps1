@@ -14,95 +14,96 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 195)"
+$ToolkitVersion = "2.5.0 (Build 196)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
-    URLs = @{
+    URLs     = @{
         # GitHub Asset URLs
-        GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
-        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
+        GitHubAssetBaseUrl      = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
+        GitHubAssetDevBaseUrl   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
         
         # RustDesk
-        RustDeskReleaseAPI = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
+        RustDeskReleaseAPI      = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
         
         # Office
-        OfficeSetup = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
-        OfficeBasicConfig = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
-        SaRAInstaller = "https://aka.ms/SaRA_EnterpriseVersionFiles"
+        OfficeSetup             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
+        OfficeBasicConfig       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
+        SaRAInstaller           = "https://aka.ms/SaRA_EnterpriseVersionFiles"
         
         # Video Driver
-        AMDInstaller = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
-        NVCleanstall = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
-        DDUZip = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
+        AMDInstaller            = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
+        NVCleanstall            = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
+        DDUZip                  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
         
         # Gaming
-        DirectXWebSetup = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe"
-        BattleNetInstaller = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
+        DirectXWebSetup         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe"
+        BattleNetInstaller      = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
         
         # PSP Setup
-        NerdFontsAPI = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
-        JetBrainsMonoFallback = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
-        OhMyPoshTheme = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-        PowerShellProfile = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
+        NerdFontsAPI            = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
+        JetBrainsMonoFallback   = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+        OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+        PowerShellProfile       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
         WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
         
         # 7-Zip
-        SevenZipOfficial = "https://www.7-zip.org/a/7zr.exe"
+        SevenZipOfficial        = "https://www.7-zip.org/a/7zr.exe"
         
         # Store
-        WingetInstaller = "https://aka.ms/getwinget"
+        WingetInstaller         = "https://aka.ms/getwinget"
     }
-    Paths = @{
+    Paths    = @{
         # Base paths
-        Root = "$env:LOCALAPPDATA\WinToolkit"
-        Logs = "$env:LOCALAPPDATA\WinToolkit\logs"
-        Temp = "$env:TEMP\WinToolkit"
-        Drivers = "$env:LOCALAPPDATA\WinToolkit\Drivers"
-        RustDeskConfig = "$env:APPDATA\RustDesk\config"
-        RustDeskInstaller = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
-        OfficeTemp = "$env:LOCALAPPDATA\WinToolkit\Office"
-        PSPProfile = if ($PSVersionTable.PSEdition -eq "Core") {
+        Root               = "$env:LOCALAPPDATA\WinToolkit"
+        Logs               = "$env:LOCALAPPDATA\WinToolkit\logs"
+        Temp               = "$env:TEMP\WinToolkit"
+        Drivers            = "$env:LOCALAPPDATA\WinToolkit\Drivers"
+        RustDeskConfig     = "$env:APPDATA\RustDesk\config"
+        RustDeskInstaller  = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
+        OfficeTemp         = "$env:LOCALAPPDATA\WinToolkit\Office"
+        PSPProfile         = if ($PSVersionTable.PSEdition -eq "Core") {
             [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
-        } else {
+        }
+        else {
             [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
         }
-        DriverBackupTemp = "$env:TEMP\DriverBackup_Temp"
-        DriverBackupLogs = "$env:LOCALAPPDATA\WinToolkit\logs"
-        GamingDirectX = "$env:LOCALAPPDATA\WinToolkit\Directx"
+        DriverBackupTemp   = "$env:TEMP\DriverBackup_Temp"
+        DriverBackupLogs   = "$env:LOCALAPPDATA\WinToolkit\logs"
+        GamingDirectX      = "$env:LOCALAPPDATA\WinToolkit\Directx"
         GamingDirectXSetup = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
-        BattleNetSetup = "$env:TEMP\Battle.net-Setup.exe"
-        Desktop = [Environment]::GetFolderPath('Desktop')
-        TempFolder = $env:TEMP
+        BattleNetSetup     = "$env:TEMP\Battle.net-Setup.exe"
+        Desktop            = [Environment]::GetFolderPath('Desktop')
+        TempFolder         = $env:TEMP
     }
     Registry = @{
         # Windows Update
         WindowsUpdatePolicies = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
-        ExcludeWUDrivers = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\ExcludeWUDriversInQualityUpdate"
+        ExcludeWUDrivers      = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\ExcludeWUDriversInQualityUpdate"
         
         # Office Telemetry
-        OfficeTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry"
-        DisableTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry\DisableTelemetry"
+        OfficeTelemetry       = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry"
+        DisableTelemetry      = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry\DisableTelemetry"
         
         # Office Feedback
-        OfficeFeedback = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"
-        OnBootNotify = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback\OnBootNotify"
+        OfficeFeedback        = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"
+        OnBootNotify          = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback\OnBootNotify"
         
         # BitLocker
-        BitLockerStatus = "HKLM:\SOFTWARE\Policies\Microsoft\FVE"
+        BitLockerStatus       = "HKLM:\SOFTWARE\Policies\Microsoft\FVE"
         
         # Focus Assist
-        FocusAssist = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings"
-        NoGlobalToasts = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\NOC_GLOBAL_SETTING_TOASTS_ENABLED"
+        FocusAssist           = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings"
+        NoGlobalToasts        = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\NOC_GLOBAL_SETTING_TOASTS_ENABLED"
         
         # Startup Programs
-        StartupRun = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        StartupRun            = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
         
         # Windows Terminal
-        WindowsTerminal = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        WindowsTerminal       = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
         
         # RustDesk
-        RustDeskConfigPath = "$env:APPDATA\RustDesk\config"
+        RustDeskConfigPath    = "$env:APPDATA\RustDesk\config"
     }
 }
 
@@ -267,6 +268,8 @@ function Invoke-WithSpinner {
                     $percent += Get-Random -Minimum 1 -Maximum 3
                 }
 
+                # Clear any previous output and show progress bar
+                Write-Host "`r" -NoNewline
                 Show-ProgressBar -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
                 Start-Sleep -Milliseconds $UpdateInterval
                 $result.Refresh()
@@ -279,7 +282,10 @@ function Invoke-WithSpinner {
                 return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
             }
 
+            # Clear line and show completion
+            Write-Host "`r" -NoNewline
             Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
+            Write-Host "" # Add newline after completion
             return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
         }
         elseif ($Job -and $result -and $result.GetType().Name -eq 'Job') {
@@ -1153,7 +1159,6 @@ function WinReinstallStore {
         Write-StyledMessage Info "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
         Stop-InterferingProcesses
 
-        $originalPos = [Console]::CursorTop
         try {
             # Soppressione completa dell'output
             $ErrorActionPreference = 'SilentlyContinue'
@@ -1260,13 +1265,6 @@ function WinReinstallStore {
             }
 
             # --- FASE 5: Gestione Output Finale e Valore di Ritorno ---
-
-            # Reset cursore e flush output
-            [Console]::SetCursorPosition(0, $originalPos)
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
-            [Console]::Out.Flush()
-
             Start-Sleep 2
             $finalCheck = Test-WingetAvailable
 
@@ -1294,7 +1292,6 @@ function WinReinstallStore {
     function Install-MicrosoftStoreSilent {
         Write-StyledMessage Info "🔄 Reinstallazione Microsoft Store in corso..."
 
-        $originalPos = [Console]::CursorTop
         try {
             # Soppressione completa dell'output
             $ErrorActionPreference = 'SilentlyContinue'
@@ -1362,13 +1359,6 @@ function WinReinstallStore {
                 try {
                     if (& $method) {
                         Start-Process wsreset.exe -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue *>$null
-
-                        # Reset cursore e flush output
-                        [Console]::SetCursorPosition(0, $originalPos)
-                        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                        Write-Host $clearLine -NoNewline
-                        [Console]::Out.Flush()
-
                         return $true
                     }
                 }
@@ -1388,7 +1378,6 @@ function WinReinstallStore {
         Write-StyledMessage Info "🔄 Reinstallazione UniGet UI in corso..."
         if (-not (Test-WingetAvailable)) { return $false }
 
-        $originalPos = [Console]::CursorTop
         try {
             # Soppressione completa dell'output
             $ErrorActionPreference = 'SilentlyContinue'
@@ -1421,12 +1410,6 @@ function WinReinstallStore {
                     Write-StyledMessage Warning "Impossibile disabilitare l'avvio automatico di UniGet UI: $($_.Exception.Message)"
                 }
             }
-
-            # Reset cursore e flush output
-            [Console]::SetCursorPosition(0, $originalPos)
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
-            [Console]::Out.Flush()
 
             return $process.ExitCode -eq 0
         }
@@ -4973,6 +4956,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
