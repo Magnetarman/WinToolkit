@@ -195,7 +195,7 @@ function WinReinstallStore {
                     if (Test-WingetAvailable) {
                         $procParams = @{
                             FilePath     = 'winget'
-                            ArgumentList = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity'
+                            ArgumentList = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--disable-progress'
                             Wait         = $true
                             PassThru     = $true
                             WindowStyle  = 'Hidden'
@@ -277,7 +277,7 @@ function WinReinstallStore {
 
             $procParams = @{
                 FilePath     = 'winget'
-                ArgumentList = 'install', '--exact', '--id', 'MartiCliment.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force'
+                ArgumentList = 'install', '--exact', '--id', 'MartiCliment.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--disable-progress', '--force'
                 Wait         = $true
                 PassThru     = $true
                 WindowStyle  = 'Hidden'
