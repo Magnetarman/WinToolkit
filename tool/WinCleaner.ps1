@@ -1,5 +1,3 @@
-$global:ExecutionLog = @()
-
 function WinCleaner {
     <#
     .SYNOPSIS
@@ -16,6 +14,11 @@ function WinCleaner {
         [int]$CountdownSeconds = 30
     )
 
+    # Initialize global execution log BEFORE any function calls
+    $global:ExecutionLog = @()
+
+    
+    
     # ============================================================================
     # FUNZIONI GLOBALI LOCALI
     # ============================================================================
