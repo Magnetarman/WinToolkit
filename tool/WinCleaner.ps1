@@ -365,7 +365,16 @@ function WinCleaner {
                     $p = Join-Path $reg $o
                     if (Test-Path $p) { Set-ItemProperty -Path $p -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction SilentlyContinue }
                 }
-                Start-Process 'cleanmgr.exe' -ArgumentList '/sagerun:65' -WindowStyle Minimized
+                
+                # Esegui cleanmgr.exe attendendo il completamento, sfruttando Invoke-CommandAction
+                # che include già logica di timeout per cleanmgr.exe e gestisce la visualizzazione.
+                $cleanMgrExecutionRule = @{
+                    Name    = "Esecuzione CleanMgr con /sagerun:65";
+                    Type    = "Command";
+                    Command = "cleanmgr.exe";
+                    Args    = @("/sagerun:65");
+                }
+                Invoke-CommandAction -Rule $cleanMgrExecutionRule
             }
         }
 
