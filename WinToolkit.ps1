@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 187)"
+$ToolkitVersion = "2.5.0 (Build 188)"
 
 
 # Setup Variabili Globali UI
@@ -2264,9 +2264,6 @@ function OfficeToolkit {
     }
 }
 function WinCleaner {
-$global:ExecutionLog = @()
-
-function WinCleaner {
     <#
     .SYNOPSIS
         Script automatico per la pulizia completa del sistema Windows.
@@ -2282,6 +2279,11 @@ function WinCleaner {
         [int]$CountdownSeconds = 30
     )
 
+    # Initialize global execution log BEFORE any function calls
+    $global:ExecutionLog = @()
+
+    
+    
     # ============================================================================
     # FUNZIONI GLOBALI LOCALI
     # ============================================================================
@@ -3080,7 +3082,6 @@ function WinCleaner {
     if ($shouldReboot) {
         Restart-Computer -Force
     }
-}
 }
 function SetRustDesk {
     <#
@@ -4605,6 +4606,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
