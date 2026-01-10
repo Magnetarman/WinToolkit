@@ -16,6 +16,23 @@ $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
 $ToolkitVersion = "2.5.0 (Build 191)"
 
+# --- CONFIGURAZIONE CENTRALIZZATA (Placeholder per AI Agent) ---
+$AppConfig = @{
+    URLs = @{
+        # ESEMPIO: NomeTool = "https://link-estratto.com"
+        <PLACEHOLDER_URLS>
+    }
+    Paths = @{
+        # ESEMPIO: Logs = "$env:LOCALAPPDATA\WinToolkit\logs"
+        Root = "$env:LOCALAPPDATA\WinToolkit"
+        <PLACEHOLDER_PATHS>
+    }
+    Registry = @{
+        # ESEMPIO: WinUpdate = "HKLM:\SOFTWARE\Policies\..."
+        <PLACEHOLDER_REGISTRY>
+    }
+}
+
 
 # Setup Variabili Globali UI
 $Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
