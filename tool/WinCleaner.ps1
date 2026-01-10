@@ -1,3 +1,69 @@
+# ============================================================================
+# GLOBAL INITIALIZATION
+# ============================================================================
+
+$global:ExecutionLog = @()
+
+# ============================================================================
+# GLOBAL FUNCTIONS
+# ============================================================================
+
+function Clear-ProgressLine {
+    if ($Host.Name -eq 'ConsoleHost') {
+        try {
+            $width = $Host.UI.RawUI.WindowSize.Width - 1
+            Write-Host "`r$(' ' * $width)" -NoNewline
+            Write-Host "`r" -NoNewline
+        }
+        catch {
+            # Fallback for non-console hosts or errors
+            Write-Host "`r                                                                                `r" -NoNewline
+        }
+    }
+}
+
+function Write-StyledMessage {
+    param(
+        [Parameter(Mandatory = $true, Position = 0)]
+        [ValidateSet('Success', 'Info', 'Warning', 'Error', 'Question')]
+        [string]$Type,
+
+        [Parameter(Mandatory = $true, Position = 1)]
+        [string]$Text
+    )
+
+    Clear-ProgressLine
+
+    # Add to execution log
+    $logEntry = @{
+        Timestamp = Get-Date -Format "HH:mm:ss"
+        Type      = $Type
+        Text      = $Text
+    }
+    $global:ExecutionLog += $logEntry
+
+    $colorMap = @{
+        'Success'  = 'Green'
+        'Info'     = 'Cyan'
+        'Warning'  = 'Yellow'
+        'Error'    = 'Red'
+        'Question' = 'White'
+    }
+
+    $iconMap = @{
+        'Success'  = '✅'
+        'Info'     = 'ℹ️'
+        'Warning'  = '⚠️'
+        'Error'    = '❌'
+        'Question' = '❓'
+    }
+
+    $color = $colorMap[$Type]
+    $icon = $iconMap[$Type]
+
+    Write-Host "[$($logEntry.Timestamp)] $icon $Text" -ForegroundColor $color
+}
+
 function WinCleaner {
     <#
     .SYNOPSIS
@@ -22,8 +88,6 @@ function WinCleaner {
     Show-Header -SubTitle "Cleaner Toolkit"
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
 
-    # Initialize Execution Log
-    $global:ExecutionLog = @()
     $ProgressPreference = 'Continue'
 
     # ============================================================================
@@ -55,63 +119,6 @@ function WinCleaner {
         }
         catch { return $false }
         return $false
-    }
-
-    function Clear-ProgressLine {
-        if ($Host.Name -eq 'ConsoleHost') {
-            try {
-                $width = $Host.UI.RawUI.WindowSize.Width - 1
-                Write-Host "`r$(' ' * $width)" -NoNewline
-                Write-Host "`r" -NoNewline
-            }
-            catch {
-                # Fallback for non-console hosts or errors
-                Write-Host "`r                                                                                `r" -NoNewline
-            }
-        }
-    }
-
-    # Override global Write-StyledMessage to handle progress bar clearing and logging
-    function Write-StyledMessage {
-        param(
-            [Parameter(Mandatory = $true, Position = 0)]
-            [ValidateSet('Success', 'Info', 'Warning', 'Error', 'Question')]
-            [string]$Type,
-
-            [Parameter(Mandatory = $true, Position = 1)]
-            [string]$Text
-        )
-
-        Clear-ProgressLine
-
-        # Add to execution log
-        $logEntry = @{
-            Timestamp = Get-Date -Format "HH:mm:ss"
-            Type      = $Type
-            Text      = $Text
-        }
-        $global:ExecutionLog += $logEntry
-
-        $colorMap = @{
-            'Success'  = 'Green'
-            'Info'     = 'Cyan'
-            'Warning'  = 'Yellow'
-            'Error'    = 'Red'
-            'Question' = 'White'
-        }
-
-        $iconMap = @{
-            'Success'  = '✅'
-            'Info'     = 'ℹ️'
-            'Warning'  = '⚠️'
-            'Error'    = '❌'
-            'Question' = '❓'
-        }
-
-        $color = $colorMap[$Type]
-        $icon = $iconMap[$Type]
-
-        Write-Host "[$($logEntry.Timestamp)] $icon $Text" -ForegroundColor $color
     }
 
     function Start-ProcessWithTimeout {
