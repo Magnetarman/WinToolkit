@@ -205,6 +205,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Potenziate funzioni di pulizia. [[Thanks to @Privacy.sexy Project]](https://privacy.sexy/)
   - Corretto il parsing delle chiavi di registro in modo errato in alcune sezioni dello script. [[#24](https://github.com/MagnetarMan/WinToolkit/issues/24) [@pomodori92]](https://github.com/pomodori92)
   - Uniformati spinner e grafica.
+  - Aggiunto un blocco delle operazioni durante la "Pulizia Disco" in modo da evitare comportamenti anomali.
 
 ### Modifiche
 
@@ -216,6 +217,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Modificato l'aspetto grafico del Toolkit, rendendo le varie schermate più compatte e leggibili. [[#21](https://github.com/MagnetarMan/WinToolkit/issues/21) [@pomodori92]](https://github.com/pomodori92)
   - Aggiornato DDU alla versione v18.1.4.0.
   - Funzione grafica Spinner resa globale e ottimizzata nei vari script.
+  - Fix errore di visualizzazione percentuale nella barra del countdown.
 
 - Revamping `PowerShell Profile.ps1`
   - **Pulizia e rimozione codice inutile:**
