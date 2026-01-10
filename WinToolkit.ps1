@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 190)"
+$ToolkitVersion = "2.5.0 (Build 191)"
 
 
 # Setup Variabili Globali UI
@@ -323,22 +323,40 @@ function WinRepairToolkit {
         @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (2)'; Icon = '🗂️' }
     )
 
-    function Invoke-RepairCommand([hashtable]$Config, [int]$Step, [int]$Total) {
+    function Invoke-RepairCommand {
+        param([hashtable]$Config, [int]$Step, [int]$Total)
+        
         Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)..."
         $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
 
         try {
-            # Sposta l'intera logica di avvio del processo all'interno del blocco di script per Invoke-WithSpinner
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
                 if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
                     $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
                     $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
-                    Start-Process 'cmd.exe' @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')") -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+                    
+                    $procParams = @{
+                        FilePath               = 'cmd.exe'
+                        ArgumentList           = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
+                        RedirectStandardOutput = $outFile
+                        RedirectStandardError  = $errFile
+                        NoNewWindow            = $true
+                        PassThru               = $true
+                    }
+                    Start-Process @procParams
                 }
                 else {
-                    Start-Process $Config.Tool $Config.Args -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+                    $procParams = @{
+                        FilePath               = $Config.Tool
+                        ArgumentList           = $Config.Args
+                        RedirectStandardOutput = $outFile
+                        RedirectStandardError  = $errFile
+                        NoNewWindow            = $true
+                        PassThru               = $true
+                    }
+                    Start-Process @procParams
                 }
             } -UpdateInterval $(if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
 
@@ -382,14 +400,16 @@ function WinRepairToolkit {
         }
     }
 
-    function Start-RepairCycle([int]$Attempt = 1) {
+    function Start-RepairCycle {
+        param([int]$Attempt = 1)
+        
         $script:CurrentAttempt = $Attempt
         Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema..."
         Write-Host ''
 
         $totalErrors = $successCount = 0
         for ($i = 0; $i -lt $RepairTools.Count; $i++) {
-            $result = Invoke-RepairCommand $RepairTools[$i] ($i + 1) $RepairTools.Count
+            $result = Invoke-RepairCommand -Config $RepairTools[$i] -Step ($i + 1) -Total $RepairTools.Count
             if ($result.Success) { $successCount++ }
             if (!$result.Success -and !($RepairTools[$i].ContainsKey('IsCritical') -and !$RepairTools[$i].IsCritical)) {
                 $totalErrors += $result.ErrorCount
@@ -400,7 +420,7 @@ function WinRepairToolkit {
         if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
             Write-StyledMessage Warning "🔄 $totalErrors errori rilevati. Nuovo tentativo..."
             Start-Sleep 3
-            return Start-RepairCycle ($Attempt + 1)
+            return Start-RepairCycle -Attempt ($Attempt + 1)
         }
         return @{ Success = ($totalErrors -eq 0); TotalErrors = $totalErrors; AttemptsUsed = $Attempt }
     }
@@ -697,7 +717,14 @@ function WinUpdateReset {
         Write-StyledMessage Info '🔄 Reset del client Windows Update...'
         Write-Host '⚡ Esecuzione comando reset... ' -NoNewline -ForegroundColor Magenta
         try {
-            Start-Process "cmd.exe" -ArgumentList "/c wuauclt /resetauthorization /detectnow" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+            $procParams = @{
+                FilePath     = 'cmd.exe'
+                ArgumentList = '/c', 'wuauclt', '/resetauthorization', '/detectnow'
+                Wait         = $true
+                WindowStyle  = 'Hidden'
+                ErrorAction  = 'SilentlyContinue'
+            }
+            Start-Process @procParams | Out-Null
             Write-Host 'Completato!' -ForegroundColor Green
             Write-StyledMessage Success "🔄 Client Windows Update reimpostato."
         }
@@ -760,7 +787,14 @@ function WinUpdateReset {
                     Set-Service -Name $service.Name -StartupType $service.StartupType -ErrorAction SilentlyContinue | Out-Null
 
                     # Reset failure actions to default using sc command
-                    Start-Process -FilePath "sc.exe" -ArgumentList "failure `"$($service.Name)`" reset= 86400 actions= restart/60000/restart/60000/restart/60000" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+                    $procParams = @{
+                        FilePath     = 'sc.exe'
+                        ArgumentList = 'failure', "$($service.Name)", 'reset= 86400 actions= restart/60000/restart/60000/restart/60000'
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                        ErrorAction  = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams | Out-Null
 
                     # Start the service if it should be running
                     if ($service.StartupType -eq "Automatic") {
@@ -787,18 +821,46 @@ function WinUpdateReset {
             if ((Test-Path $backupPath) -and !(Test-Path $dllPath)) {
                 try {
                     # Take ownership of backup file
-                    Start-Process -FilePath "takeown.exe" -ArgumentList "/f `"$backupPath`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+                    $procParams = @{
+                        FilePath     = 'takeown.exe'
+                        ArgumentList = '/f', "`"$backupPath`""
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                        ErrorAction  = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams | Out-Null
 
                     # Grant full control to everyone
-                    Start-Process -FilePath "icacls.exe" -ArgumentList "`"$backupPath`" /grant *S-1-1-0:F" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+                    $procParams = @{
+                        FilePath     = 'icacls.exe'
+                        ArgumentList = "`"$backupPath`"", '/grant', '*S-1-1-0:F'
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                        ErrorAction  = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams | Out-Null
 
                     # Rename back to original
                     Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue | Out-Null
                     Write-StyledMessage Success "Ripristinato ${dll}_BAK.dll a $dll.dll"
 
                     # Restore ownership to TrustedInstaller
-                    Start-Process -FilePath "icacls.exe" -ArgumentList "`"$dllPath`" /setowner `"NT SERVICE\TrustedInstaller`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
-                    Start-Process -FilePath "icacls.exe" -ArgumentList "`"$dllPath`" /remove *S-1-1-0" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+                    $procParams = @{
+                        FilePath     = 'icacls.exe'
+                        ArgumentList = "`"$dllPath`"", '/setowner', '"NT SERVICE\TrustedInstaller"'
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                        ErrorAction  = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams | Out-Null
+                    $procParams = @{
+                        FilePath     = 'icacls.exe'
+                        ArgumentList = "`"$dllPath`"", '/remove', '*S-1-1-0'
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                        ErrorAction  = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams | Out-Null
                 }
                 catch {
                     Write-StyledMessage Warning "Avviso: Impossibile ripristinare $dll.dll - $($_.Exception.Message)"
@@ -883,8 +945,22 @@ function WinUpdateReset {
         try {
             #Start-Process -FilePath "secedit" -ArgumentList "/configure /cfg $env:windir\inf\defltbase.inf /db defltbase.sdb /verbose" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
             #Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicyUsers" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-            Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicy" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
-            Start-Process -FilePath "gpupdate" -ArgumentList "/force" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+            $procParams = @{
+                FilePath     = 'cmd.exe'
+                ArgumentList = '/c', 'RD', '/S', '/Q', "$env:WinDir\System32\GroupPolicy"
+                Wait         = $true
+                WindowStyle  = 'Hidden'
+                ErrorAction  = 'SilentlyContinue'
+            }
+            Start-Process @procParams | Out-Null
+            $procParams = @{
+                FilePath     = 'gpupdate'
+                ArgumentList = '/force'
+                Wait         = $true
+                WindowStyle  = 'Hidden'
+                ErrorAction  = 'SilentlyContinue'
+            }
+            Start-Process @procParams | Out-Null
 
             # Clean up registry keys
             Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
@@ -1067,10 +1143,14 @@ function WinReinstallStore {
                 if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
 
                 Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
-                $process = Start-Process powershell -ArgumentList @(
-                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                    "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
-                ) -Wait -PassThru -WindowStyle Hidden
+                $procParams = @{
+                    FilePath     = 'powershell'
+                    ArgumentList = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0")
+                    Wait         = $true
+                    PassThru     = $true
+                    WindowStyle  = 'Hidden'
+                }
+                $process = Start-Process @procParams
 
                 Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
                 Start-Sleep 5
@@ -1143,7 +1223,14 @@ function WinReinstallStore {
             $methods = @(
                 {
                     if (Test-WingetAvailable) {
-                        $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                        $procParams = @{
+                            FilePath     = 'winget'
+                            ArgumentList = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity'
+                            Wait         = $true
+                            PassThru     = $true
+                            WindowStyle  = 'Hidden'
+                        }
+                        $process = Start-Process @procParams
                         return $process.ExitCode -eq 0
                     }
                     return $false
@@ -1154,10 +1241,14 @@ function WinReinstallStore {
                         $store | ForEach-Object {
                             $manifest = "$($_.InstallLocation)\AppXManifest.xml"
                             if (Test-Path $manifest) {
-                                $process = Start-Process powershell -ArgumentList @(
-                                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                                    "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
-                                ) -Wait -PassThru -WindowStyle Hidden
+                                $procParams = @{
+                                    FilePath     = 'powershell'
+                                    ArgumentList = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown")
+                                    Wait         = $true
+                                    PassThru     = $true
+                                    WindowStyle  = 'Hidden'
+                                }
+                                $process = Start-Process @procParams
                             }
                         }
                         return $true
@@ -1165,7 +1256,14 @@ function WinReinstallStore {
                     return $false
                 },
                 {
-                    $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
+                    $procParams = @{
+                        FilePath     = 'DISM'
+                        ArgumentList = '/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0'
+                        Wait         = $true
+                        PassThru     = $true
+                        WindowStyle  = 'Hidden'
+                    }
+                    $process = Start-Process @procParams
                     return $process.ExitCode -eq 0
                 }
             )
@@ -1207,7 +1305,14 @@ function WinReinstallStore {
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
 
-            $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
+            $procParams = @{
+                FilePath     = 'winget'
+                ArgumentList = 'install', '--exact', '--id', 'MartiCliment.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force'
+                Wait         = $true
+                PassThru     = $true
+                WindowStyle  = 'Hidden'
+            }
+            $process = Start-Process @procParams
 
             if ($process.ExitCode -eq 0) {
                 Write-StyledMessage Info "🔄 Disabilitazione avvio automatico UniGet UI..."
@@ -1749,8 +1854,12 @@ function OfficeToolkit {
             }
 
             Write-StyledMessage Info "🚀 Avvio processo installazione..."
-            $arguments = "/configure `"$configPath`""
-            Start-Process -FilePath $setupPath -ArgumentList $arguments -WorkingDirectory $TempDir
+            $procParams = @{
+                FilePath         = $setupPath
+                ArgumentList     = $arguments
+                WorkingDirectory = $TempDir
+            }
+            Start-Process @procParams
 
             Write-StyledMessage Info "⏳ Attesa completamento installazione..."
             Write-Host "💡 Premi INVIO quando l'installazione è completata..." -ForegroundColor Yellow
@@ -1833,7 +1942,11 @@ function OfficeToolkit {
                 $officeClient = "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
             }
 
-            Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
+            $procParams = @{
+                FilePath     = $officeClient
+                ArgumentList = $arguments
+            }
+            Start-Process @procParams
 
             Write-StyledMessage Info "⏳ Attesa completamento riparazione..."
             Write-Host "💡 Premi INVIO quando la riparazione è completata..." -ForegroundColor Yellow
@@ -1849,7 +1962,11 @@ function OfficeToolkit {
                     if (Get-UserConfirmation "🌐 Tentare riparazione completa online?" 'Y') {
                         Write-StyledMessage Info "🌐 Avvio riparazione completa..."
                         $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
-                        Start-Process -FilePath $officeClient -ArgumentList $arguments -Wait:$false
+                        $procParams = @{
+                            FilePath     = $officeClient
+                            ArgumentList = $arguments
+                        }
+                        Start-Process @procParams
 
                         Write-Host "💡 Premi INVIO quando la riparazione completa è terminata..." -ForegroundColor Yellow
                         Read-Host | Out-Null
@@ -1932,7 +2049,14 @@ function OfficeToolkit {
                         if ($item.UninstallString -and $item.UninstallString -match "msiexec") {
                             try {
                                 $productCode = $item.PSChildName
-                                Start-Process -FilePath "msiexec.exe" -ArgumentList "/x $productCode /qn /norestart" -Wait -NoNewWindow -ErrorAction Stop
+                                $procParams = @{
+                                    FilePath     = 'msiexec.exe'
+                                    ArgumentList = @('/x', $productCode, '/qn', '/norestart')
+                                    Wait         = $true
+                                    NoNewWindow  = $true
+                                    ErrorAction  = 'Stop'
+                                }
+                                Start-Process @procParams
                             }
                             catch {}
                         }
@@ -2118,7 +2242,15 @@ function OfficeToolkit {
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
 
             try {
-                $process = Start-Process -FilePath $saraExe.FullName -ArgumentList $arguments -Verb RunAs -PassThru -Wait -ErrorAction Stop
+                $procParams = @{
+                    FilePath     = $saraExe.FullName
+                    ArgumentList = $arguments
+                    Verb         = 'RunAs'
+                    PassThru     = $true
+                    Wait         = $true
+                    ErrorAction  = 'Stop'
+                }
+                $process = Start-Process @procParams
 
                 if ($process.ExitCode -eq 0) {
                     Write-StyledMessage Success "✅ SaRA completato con successo"
@@ -3730,7 +3862,13 @@ function GamingToolkit {
         try {
             # Usa la funzione globale Invoke-WithSpinner per monitorare il processo winget
             $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action {
-                Start-Process -FilePath 'winget' -ArgumentList @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements') -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\winget_$PackageId.log" -RedirectStandardError "$env:TEMP\winget_err_$PackageId.log"
+                $procParams = @{
+                    FilePath     = 'winget'
+                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements')
+                    PassThru     = $true
+                    NoNewWindow  = $true
+                }
+                Start-Process @procParams
             } -TimeoutSeconds 300 -UpdateInterval 700
 
             $exitCode = $result.ExitCode
@@ -4615,6 +4753,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
