@@ -70,10 +70,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Aggiunte
 
-- **Funzione Win Cleaner** potenziata.
-
-  - Potenziamento della funzione di pulizia in varie aree del sistema. [[Thanks to @Privacy.sexy Project](https://privacy.sexy/)]
-
 - **Sezione Informazioni di Sistema** potenziata.
 
   - Aggiunto il controllo (da Windows 11 25H2 Microsoft lo attiva a propria discrezione) per verificare l'attivazione o meno di BitLocker. In caso affermativo, è stato aggiunto un nuovo script nella sezione "Windows" per la disattivazione di BitLocker in caso di attivazione non desiderata. [[Thanks to @Valeriogalano]](https://github.com/Valeriogalano)
@@ -208,6 +204,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Riduzione di oltre 1000 linee di codice, mantenendo tutte le funzionalità.
   - Potenziate funzioni di pulizia. [[Thanks to @Privacy.sexy Project]](https://privacy.sexy/)
   - Corretto il parsing delle chiavi di registro in modo errato in alcune sezioni dello script. [[#24](https://github.com/MagnetarMan/WinToolkit/issues/24) [@pomodori92]](https://github.com/pomodori92)
+  - Uniformati spinner e grafica.
 
 ### Modifiche
 
@@ -273,6 +270,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - **Aggiornamento pipeline CI/CD**
   - Reso automatico il controllo dei nomi dei singoli script presenti nella cartella /tool prima dell'esecuzione del `compiler.ps1`.
   - Bump automatico del Build script.
+  - Add issue chiusi al changelog.
 
 ---
 
