@@ -16,8 +16,8 @@ function VideoDriverInstall {
     Initialize-ToolLogging -ToolName "VideoDriverInstall"
     Show-Header -SubTitle "Video Driver Install Toolkit"
 
-    $GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
-    $DriverToolsLocalPath = Join-Path $env:LOCALAPPDATA "WinToolkit\Drivers"
+    $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
+    $DriverToolsLocalPath = $AppConfig.Paths.Drivers
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
 
     function Get-GpuManufacturer {
@@ -61,7 +61,7 @@ function VideoDriverInstall {
         #>
         Write-StyledMessage Info "Configurazione per bloccare download driver da Windows Update..."
 
-        $regPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+        $regPath = $AppConfig.Registry.WindowsUpdatePolicies
         $propertyName = "ExcludeWUDriversInQualityUpdate"
         $propertyValue = 1
 
@@ -193,7 +193,7 @@ function VideoDriverInstall {
         Write-StyledMessage Info "Rilevata GPU: $gpuManufacturer"
 
         if ($gpuManufacturer -eq 'AMD') {
-            $amdInstallerUrl = "${GitHubAssetBaseUrl}AMD-Autodetect.exe"
+            $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
             $amdInstallerPath = Join-Path $DriverToolsLocalPath "AMD-Autodetect.exe"
 
             if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
@@ -203,7 +203,7 @@ function VideoDriverInstall {
             }
         }
         elseif ($gpuManufacturer -eq 'NVIDIA') {
-            $nvidiaInstallerUrl = "${GitHubAssetBaseUrl}NVCleanstall_1.19.0.exe"
+            $nvidiaInstallerUrl = $AppConfig.URLs.NVCleanstall
             $nvidiaInstallerPath = Join-Path $DriverToolsLocalPath "NVCleanstall_1.19.0.exe"
 
             if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
@@ -230,7 +230,7 @@ function VideoDriverInstall {
         Write-StyledMessage Warning "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
 
         # Download DDU
-        $dduZipUrl = "${GitHubAssetBaseUrl}DDU.zip"
+        $dduZipUrl = $AppConfig.URLs.DDUZip
         $dduZipPath = Join-Path $DriverToolsLocalPath "DDU.zip"
 
         if (-not (Download-FileWithProgress -Url $dduZipUrl -DestinationPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
@@ -253,7 +253,7 @@ function VideoDriverInstall {
         Write-StyledMessage Info "Rilevata GPU: $gpuManufacturer"
 
         if ($gpuManufacturer -eq 'AMD') {
-            $amdInstallerUrl = "${GitHubAssetBaseUrl}AMD-Autodetect.exe"
+            $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
             $amdInstallerPath = Join-Path $DesktopPath "AMD-Autodetect.exe"
 
             if (-not (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool")) {
@@ -262,7 +262,7 @@ function VideoDriverInstall {
             }
         }
         elseif ($gpuManufacturer -eq 'NVIDIA') {
-            $nvidiaInstallerUrl = "${GitHubAssetBaseUrl}NVCleanstall_1.19.0.exe"
+            $nvidiaInstallerUrl = $AppConfig.URLs.NVCleanstall
             $nvidiaInstallerPath = Join-Path $DesktopPath "NVCleanstall_1.19.0.exe"
 
             if (-not (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool")) {

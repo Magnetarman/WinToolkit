@@ -51,7 +51,7 @@ function SetRustDesk {
 
     function Get-LatestRustDeskRelease {
         try {
-            $apiUrl = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
+            $apiUrl = $AppConfig.URLs.RustDeskReleaseAPI
             $response = Invoke-RestMethod -Uri $apiUrl -Method Get -ErrorAction Stop
             $msiAsset = $response.assets | Where-Object { $_.name -like "rustdesk-*-x86_64.msi" } | Select-Object -First 1
 
@@ -132,7 +132,7 @@ function SetRustDesk {
 
     function Clear-RustDeskConfig {
         Write-StyledMessage Info "Pulizia configurazioni esistenti..."
-        $rustDeskDir = "$env:APPDATA\RustDesk"
+        $rustDeskDir = $AppConfig.Registry.RustDeskConfigPath
         $configDir = "$rustDeskDir\config"
 
         try {
@@ -170,7 +170,7 @@ function SetRustDesk {
                 "RustDesk2.toml"
             )
 
-            $baseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset"
+            $baseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
             $downloaded = 0
 
             foreach ($fileName in $configFiles) {
@@ -202,7 +202,7 @@ function SetRustDesk {
     Write-StyledMessage Info "🚀 AVVIO CONFIGURAZIONE RUSTDESK"
 
     try {
-        $installerPath = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
+        $installerPath = $AppConfig.Paths.RustDeskInstaller
 
         # FASE 1: Stop servizi e processi
         Write-StyledMessage Info "📋 FASE 1: Arresto servizi e processi RustDesk"

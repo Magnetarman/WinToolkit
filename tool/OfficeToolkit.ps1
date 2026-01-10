@@ -15,7 +15,7 @@ function OfficeToolkit {
     Show-Header -SubTitle "Office Toolkit"
 
     # Configurazione
-    $TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
+    $TempDir = $AppConfig.Paths.OfficeTemp
 
     # Funzioni Helper Locali
     function Clear-ConsoleLine {
@@ -147,8 +147,8 @@ function OfficeToolkit {
             $configPath = Join-Path $TempDir 'Basic.xml'
 
             $downloads = @(
-                @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe'; Path = $setupPath; Name = 'Setup Office' },
-                @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml'; Path = $configPath; Name = 'Configurazione Basic' }
+                @{ Url = $AppConfig.URLs.OfficeSetup; Path = $setupPath; Name = 'Setup Office' },
+                @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
             )
 
             foreach ($download in $downloads) {
@@ -175,14 +175,14 @@ function OfficeToolkit {
 
                 # Configurazione telemetria Office
                 Write-StyledMessage Info "⚙️ Disabilitazione telemetria Office..."
-                $RegPathTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry"
+                $RegPathTelemetry = $AppConfig.Registry.OfficeTelemetry
                 if (-not (Test-Path $RegPathTelemetry)) { New-Item $RegPathTelemetry -Force | Out-Null }
                 Set-ItemProperty -Path $RegPathTelemetry -Name "DisableTelemetry" -Value 1 -Type DWord -Force
                 Write-StyledMessage Success "✅ Telemetria Office disabilitata"
 
                 # Configurazione notifiche crash Office
                 Write-StyledMessage Info "⚙️ Disabilitazione notifiche crash Office..."
-                $RegPathFeedback = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"
+                $RegPathFeedback = $AppConfig.Registry.OfficeFeedback
                 if (-not (Test-Path $RegPathFeedback)) { New-Item $RegPathFeedback -Force | Out-Null }
                 Set-ItemProperty -Path $RegPathFeedback -Name "OnBootNotify" -Value 0 -Type DWord -Force
                 Write-StyledMessage Success "✅ Notifiche crash Office disabilitate"
@@ -517,7 +517,7 @@ function OfficeToolkit {
                 New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
             }
 
-            $saraUrl = 'https://aka.ms/SaRA_EnterpriseVersionFiles'
+            $saraUrl = $AppConfig.URLs.SaRAInstaller
             $saraZipPath = Join-Path $TempDir 'SaRA.zip'
 
             if (-not (Invoke-DownloadFile $saraUrl $saraZipPath 'Microsoft SaRA')) {

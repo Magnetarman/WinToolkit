@@ -141,7 +141,7 @@
     if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force | Out-Null }
 
     try {
-        Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe' -OutFile $dxPath -ErrorAction Stop
+        Invoke-WebRequest -Uri $AppConfig.URLs.DirectXWebSetup -OutFile $dxPath -ErrorAction Stop
         Write-StyledMessage Success 'DirectX scaricato.'
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo DirectX
@@ -195,7 +195,7 @@
     $bnPath = "$env:TEMP\Battle.net-Setup.exe"
 
     try {
-        Invoke-WebRequest -Uri 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live' -OutFile $bnPath -ErrorAction Stop
+        Invoke-WebRequest -Uri $AppConfig.URLs.BattleNetInstaller -OutFile $bnPath -ErrorAction Stop
         Write-StyledMessage Success 'Battle.net scaricato.'
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo Battle.net
@@ -299,7 +299,7 @@
     # Step 9: Focus Assist
     Write-StyledMessage Info '🔕 Attivazione Non disturbare...'
     try {
-        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_TOASTS_ENABLED" -Value 0 -Force
+        Set-ItemProperty -Path $AppConfig.Registry.FocusAssist -Name "NOC_GLOBAL_SETTING_TOASTS_ENABLED" -Value 0 -Force
         Write-StyledMessage Success 'Non disturbare attivo.'
     }
     catch {

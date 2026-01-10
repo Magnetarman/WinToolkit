@@ -9,8 +9,8 @@ function WinExportLog {
     Show-Header -SubTitle "Esporta Log Diagnostici"
 
     # Definizione dei percorsi
-    $logSourcePath = Join-Path $env:LOCALAPPDATA "WinToolkit\logs"
-    $desktopPath = [System.Environment]::GetFolderPath("Desktop")
+    $logSourcePath = $AppConfig.Paths.Logs
+    $desktopPath = $AppConfig.Paths.Desktop
     $timestamp = (Get-Date -Format "yyyyMMdd_HHmmss")
     $zipFileName = "WinToolkit_Logs_$timestamp.zip"
     $zipFilePath = Join-Path $desktopPath $zipFileName
@@ -26,7 +26,7 @@ function WinExportLog {
         Write-StyledMessage Info "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso..."
 
         # Metodo alternativo per gestire file in uso
-        $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"
+        $tempFolder = Join-Path $AppConfig.Paths.TempPath "WinToolkit_Logs_Temp_$timestamp"
 
         # Crea cartella temporanea
         if (Test-Path $tempFolder) {

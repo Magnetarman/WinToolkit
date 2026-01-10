@@ -108,7 +108,7 @@ function WinReinstallStore {
             # Tentativo B (Reinstallazione tramite MSIXBundle - Fallback)
             if (-not (Test-WingetAvailable)) {
                 Write-StyledMessage Info "🔄 Scarico e installo Winget tramite MSIXBundle (metodo fallback)..."
-                $url = "https://aka.ms/getwinget"
+                $url = $AppConfig.URLs.WingetInstaller
                 $temp = "$env:TEMP\WingetInstaller.msixbundle"
                 if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
 

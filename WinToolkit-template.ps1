@@ -16,20 +16,93 @@ $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
 $ToolkitVersion = "2.5.0 (Build 191)"
 
-# --- CONFIGURAZIONE CENTRALIZZATA (Placeholder per AI Agent) ---
+# --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
     URLs = @{
-        # ESEMPIO: NomeTool = "https://link-estratto.com"
-        <PLACEHOLDER_URLS>
+        # GitHub Asset URLs
+        GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
+        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
+        
+        # RustDesk
+        RustDeskReleaseAPI = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
+        
+        # Office
+        OfficeSetup = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
+        OfficeBasicConfig = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
+        SaRAInstaller = "https://aka.ms/SaRA_EnterpriseVersionFiles"
+        
+        # Video Driver
+        AMDInstaller = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
+        NVCleanstall = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
+        DDUZip = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
+        
+        # Gaming
+        DirectXWebSetup = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe"
+        BattleNetInstaller = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
+        
+        # PSP Setup
+        NerdFontsAPI = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
+        JetBrainsMonoFallback = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+        OhMyPoshTheme = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+        PowerShellProfile = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
+        WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
+        
+        # 7-Zip
+        SevenZipOfficial = "https://www.7-zip.org/a/7zr.exe"
+        
+        # Store
+        WingetInstaller = "https://aka.ms/getwinget"
     }
     Paths = @{
-        # ESEMPIO: Logs = "$env:LOCALAPPDATA\WinToolkit\logs"
+        # Base paths
         Root = "$env:LOCALAPPDATA\WinToolkit"
-        <PLACEHOLDER_PATHS>
+        Logs = "$env:LOCALAPPDATA\WinToolkit\logs"
+        Temp = "$env:TEMP\WinToolkit"
+        Drivers = "$env:LOCALAPPDATA\WinToolkit\Drivers"
+        RustDeskConfig = "$env:APPDATA\RustDesk\config"
+        RustDeskInstaller = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
+        OfficeTemp = "$env:LOCALAPPDATA\WinToolkit\Office"
+        PSPProfile = if ($PSVersionTable.PSEdition -eq "Core") {
+            [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
+        } else {
+            [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
+        }
+        DriverBackupTemp = "$env:TEMP\DriverBackup_Temp"
+        DriverBackupLogs = "$env:LOCALAPPDATA\WinToolkit\logs"
+        GamingDirectX = "$env:LOCALAPPDATA\WinToolkit\Directx"
+        GamingDirectXSetup = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
+        BattleNetSetup = "$env:TEMP\Battle.net-Setup.exe"
+        Desktop = [Environment]::GetFolderPath('Desktop')
+        TempFolder = $env:TEMP
     }
     Registry = @{
-        # ESEMPIO: WinUpdate = "HKLM:\SOFTWARE\Policies\..."
-        <PLACEHOLDER_REGISTRY>
+        # Windows Update
+        WindowsUpdatePolicies = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+        ExcludeWUDrivers = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\ExcludeWUDriversInQualityUpdate"
+        
+        # Office Telemetry
+        OfficeTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry"
+        DisableTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry\DisableTelemetry"
+        
+        # Office Feedback
+        OfficeFeedback = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"
+        OnBootNotify = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback\OnBootNotify"
+        
+        # BitLocker
+        BitLockerStatus = "HKLM:\SOFTWARE\Policies\Microsoft\FVE"
+        
+        # Focus Assist
+        FocusAssist = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings"
+        NoGlobalToasts = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\NOC_GLOBAL_SETTING_TOASTS_ENABLED"
+        
+        # Startup Programs
+        StartupRun = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        
+        # Windows Terminal
+        WindowsTerminal = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        
+        # RustDesk
+        RustDeskConfigPath = "$env:APPDATA\RustDesk\config"
     }
 }
 

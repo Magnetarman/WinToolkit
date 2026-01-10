@@ -69,7 +69,7 @@ function WinPSP-Setup {
             # Interrogazione GitHub API per l'ultima versione di JetBrainsMono Nerd Font
             $fontZipUrl = $null
             try {
-                $release = Invoke-RestMethod "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" -ErrorAction Stop
+                $release = Invoke-RestMethod $AppConfig.URLs.NerdFontsAPI -ErrorAction Stop
                 $asset = $release.assets | Where-Object { $_.name -eq "JetBrainsMono.zip" } | Select-Object -First 1
                 if ($asset) {
                     $fontZipUrl = $asset.browser_download_url
@@ -77,12 +77,12 @@ function WinPSP-Setup {
                 }
                 else {
                     Write-StyledMessage -Type 'Warning' -Text "Asset 'JetBrainsMono.zip' non trovato nell'ultima release. Utilizzo URL di fallback."
-                    $fontZipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+                    $fontZipUrl = $AppConfig.URLs.JetBrainsMonoFallback
                 }
             }
             catch {
                 Write-StyledMessage -Type 'Error' -Text "Errore durante il recupero dell'ultima versione da GitHub API: $($_.Exception.Message). Utilizzo URL di fallback."
-                $fontZipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+                $fontZipUrl = $AppConfig.URLs.JetBrainsMonoFallback
             }
 
             if (-not $fontZipUrl) {
@@ -168,7 +168,7 @@ function WinPSP-Setup {
         #>
         param(
             [string]$ThemeName = "atomic",
-            [string]$ThemeUrl = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+            [string]$ThemeUrl = $AppConfig.URLs.OhMyPoshTheme
         )
 
         $profileDir = Get-ProfileDir
@@ -287,7 +287,7 @@ function WinPSP-Setup {
             if (-not (Test-Path -Path $profilePath)) {
                 New-Item -Path $profilePath -ItemType "directory" -Force | Out-Null
             }
-            Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE -ErrorAction Stop
+            Invoke-RestMethod $AppConfig.URLs.PowerShellProfile -OutFile $PROFILE -ErrorAction Stop
             Write-StyledMessage -Type 'Success' -Text "Profilo PowerShell creato: $PROFILE"
         }
         catch {
@@ -298,7 +298,7 @@ function WinPSP-Setup {
         try {
             $backupPath = Join-Path (Split-Path $PROFILE) "oldprofile.ps1"
             Move-Item -Path $PROFILE -Destination $backupPath -Force
-            Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE -ErrorAction Stop
+            Invoke-RestMethod $AppConfig.URLs.PowerShellProfile -OutFile $PROFILE -ErrorAction Stop
             Write-StyledMessage -Type 'Success' -Text "Profilo PowerShell aggiornato"
             Write-StyledMessage -Type 'Info' -Text "Backup salvato: $backupPath"
         }
@@ -313,7 +313,7 @@ function WinPSP-Setup {
 
     Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione settings.json per Windows Terminal..."
     try {
-        $wtSettingsUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
+        $wtSettingsUrl = $AppConfig.URLs.WindowsTerminalSettings
         $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
 
         if (-not $wtPath) {

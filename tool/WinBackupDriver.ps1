@@ -14,11 +14,11 @@ function WinBackupDriver {
     
     $script:BackupConfig = @{
         DateTime    = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-        BackupDir   = "$env:TEMP\DriverBackup_Temp"
+        BackupDir   = $AppConfig.Paths.DriverBackupTemp
         ArchiveName = "DriverBackup"
-        DesktopPath = [Environment]::GetFolderPath('Desktop')
-        TempPath    = $env:TEMP
-        LogsDir     = "$env:LOCALAPPDATA\WinToolkit\logs"
+        DesktopPath = $AppConfig.Paths.Desktop
+        TempPath    = $AppConfig.Paths.TempFolder
+        LogsDir     = $AppConfig.Paths.DriverBackupLogs
     }
     
     $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
@@ -112,8 +112,8 @@ function WinBackupDriver {
         New-Item -ItemType Directory -Path $installDir -Force | Out-Null
         
         $downloadSources = @(
-            @{ Url = "https://github.com/Magnetarman/WinToolkit/raw/Dev/asset/7zr.exe"; Name = "Repository MagnetarMan" },
-            @{ Url = "https://www.7-zip.org/a/7zr.exe"; Name = "Sito ufficiale 7-Zip" }
+            @{ Url = $AppConfig.URLs.GitHubAssetDevBaseUrl + "7zr.exe"; Name = "Repository MagnetarMan" },
+            @{ Url = $AppConfig.URLs.SevenZipOfficial; Name = "Sito ufficiale 7-Zip" }
         )
         
         foreach ($source in $downloadSources) {
