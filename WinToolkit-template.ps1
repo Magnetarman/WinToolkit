@@ -234,7 +234,7 @@ function Start-InterruptibleCountdown {
         $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
         $filled = [Math]::Floor($percent * 20 / 100)
         $remaining = 20 - $filled
-        $bar = "[$('█' * $filled)$('▒' * $remaining)] $percent%"
+        $bar = "[$('█' * $filled)$('▒' * $remaining)]"
         Write-Host "`r⏰ $Message tra $i secondi $bar" -NoNewline -ForegroundColor Red
         Start-Sleep 1
     }
