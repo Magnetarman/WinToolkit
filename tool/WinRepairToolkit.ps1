@@ -14,9 +14,9 @@ function WinRepairToolkit {
         @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (1)'; Icon = '🗂️' }
         @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/RestoreHealth'); Name = 'Ripristino immagine Windows'; Icon = '🛠️' }
         @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/StartComponentCleanup', '/ResetBase'); Name = 'Pulizia Residui Aggiornamenti'; Icon = '🕸️' }
-        @{ Tool = 'powershell.exe'; Args = @('-Command', "Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction Stop"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
-        @{ Tool = 'powershell.exe'; Args = @('-Command', "Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction Stop"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
-        @{ Tool = 'powershell.exe'; Args = @('-Command', "Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction Stop"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
+        @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.CBS_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
+        @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
+        @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
         @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (2)'; Icon = '🗂️' }
     )
 
@@ -108,7 +108,7 @@ function WinRepairToolkit {
         for ($toolIndex = 0; $toolIndex -lt $RepairTools.Count; $toolIndex++) {
             $result = Invoke-RepairCommand -Config $RepairTools[$toolIndex] -Step ($toolIndex + 1) -Total $RepairTools.Count
             if ($result.Success) { $successCount++ }
-            if (!$result.Success -and !($RepairTools[$i].ContainsKey('IsCritical') -and !$RepairTools[$i].IsCritical)) {
+            if (!$result.Success -and !($RepairTools[$toolIndex].ContainsKey('IsCritical') -and !$RepairTools[$toolIndex].IsCritical)) {
                 $totalErrors += $result.ErrorCount
             }
             Start-Sleep 1
