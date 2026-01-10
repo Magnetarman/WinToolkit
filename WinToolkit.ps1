@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 186)"
+$ToolkitVersion = "2.5.0 (Build 187)"
 
 
 # Setup Variabili Globali UI
@@ -2264,71 +2264,7 @@ function OfficeToolkit {
     }
 }
 function WinCleaner {
-# ============================================================================
-# GLOBAL INITIALIZATION
-# ============================================================================
-
 $global:ExecutionLog = @()
-
-# ============================================================================
-# GLOBAL FUNCTIONS
-# ============================================================================
-
-function Clear-ProgressLine {
-    if ($Host.Name -eq 'ConsoleHost') {
-        try {
-            $width = $Host.UI.RawUI.WindowSize.Width - 1
-            Write-Host "`r$(' ' * $width)" -NoNewline
-            Write-Host "`r" -NoNewline
-        }
-        catch {
-            # Fallback for non-console hosts or errors
-            Write-Host "`r                                                                                `r" -NoNewline
-        }
-    }
-}
-
-function Write-StyledMessage {
-    param(
-        [Parameter(Mandatory = $true, Position = 0)]
-        [ValidateSet('Success', 'Info', 'Warning', 'Error', 'Question')]
-        [string]$Type,
-
-        [Parameter(Mandatory = $true, Position = 1)]
-        [string]$Text
-    )
-
-    Clear-ProgressLine
-
-    # Add to execution log
-    $logEntry = @{
-        Timestamp = Get-Date -Format "HH:mm:ss"
-        Type      = $Type
-        Text      = $Text
-    }
-    $global:ExecutionLog += $logEntry
-
-    $colorMap = @{
-        'Success'  = 'Green'
-        'Info'     = 'Cyan'
-        'Warning'  = 'Yellow'
-        'Error'    = 'Red'
-        'Question' = 'White'
-    }
-
-    $iconMap = @{
-        'Success'  = '✅'
-        'Info'     = 'ℹ️'
-        'Warning'  = '⚠️'
-        'Error'    = '❌'
-        'Question' = '❓'
-    }
-
-    $color = $colorMap[$Type]
-    $icon = $iconMap[$Type]
-
-    Write-Host "[$($logEntry.Timestamp)] $icon $Text" -ForegroundColor $color
-}
 
 function WinCleaner {
     <#
@@ -2345,6 +2281,66 @@ function WinCleaner {
         [ValidateRange(0, 300)]
         [int]$CountdownSeconds = 30
     )
+
+    # ============================================================================
+    # FUNZIONI GLOBALI LOCALI
+    # ============================================================================
+
+    function Clear-ProgressLine {
+        if ($Host.Name -eq 'ConsoleHost') {
+            try {
+                $width = $Host.UI.RawUI.WindowSize.Width - 1
+                Write-Host "`r$(' ' * $width)" -NoNewline
+                Write-Host "`r" -NoNewline
+            }
+            catch {
+                # Fallback for non-console hosts or errors
+                Write-Host "`r                                                                                `r" -NoNewline
+            }
+        }
+    }
+
+    function Write-StyledMessage {
+        param(
+            [Parameter(Mandatory = $true, Position = 0)]
+            [ValidateSet('Success', 'Info', 'Warning', 'Error', 'Question')]
+            [string]$Type,
+
+            [Parameter(Mandatory = $true, Position = 1)]
+            [string]$Text
+        )
+
+        Clear-ProgressLine
+
+        # Add to execution log
+        $logEntry = @{
+            Timestamp = Get-Date -Format "HH:mm:ss"
+            Type      = $Type
+            Text      = $Text
+        }
+        $global:ExecutionLog += $logEntry
+
+        $colorMap = @{
+            'Success'  = 'Green'
+            'Info'     = 'Cyan'
+            'Warning'  = 'Yellow'
+            'Error'    = 'Red'
+            'Question' = 'White'
+        }
+
+        $iconMap = @{
+            'Success'  = '✅'
+            'Info'     = 'ℹ️'
+            'Warning'  = '⚠️'
+            'Error'    = '❌'
+            'Question' = '❓'
+        }
+
+        $color = $colorMap[$Type]
+        $icon = $iconMap[$Type]
+
+        Write-Host "[$($logEntry.Timestamp)] $icon $Text" -ForegroundColor $color
+    }
 
     # ============================================================================
     # 1. INIZIALIZZAZIONE CON FRAMEWORK GLOBALE
@@ -2423,7 +2419,7 @@ function WinCleaner {
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo
         $result = Invoke-WithSpinner -Activity $Activity -Process -Action { $proc } -TimeoutSeconds $TimeoutSeconds -UpdateInterval 500
-        
+
         return $result
     }
 
@@ -4609,5 +4605,6 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
