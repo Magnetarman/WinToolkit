@@ -14,7 +14,97 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 191)"
+$ToolkitVersion = "2.5.0 (Build 192)"
+
+# --- CONFIGURAZIONE CENTRALIZZATA ---
+$AppConfig = @{
+    URLs = @{
+        # GitHub Asset URLs
+        GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
+        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
+        
+        # RustDesk
+        RustDeskReleaseAPI = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
+        
+        # Office
+        OfficeSetup = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
+        OfficeBasicConfig = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
+        SaRAInstaller = "https://aka.ms/SaRA_EnterpriseVersionFiles"
+        
+        # Video Driver
+        AMDInstaller = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
+        NVCleanstall = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
+        DDUZip = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
+        
+        # Gaming
+        DirectXWebSetup = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe"
+        BattleNetInstaller = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
+        
+        # PSP Setup
+        NerdFontsAPI = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
+        JetBrainsMonoFallback = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+        OhMyPoshTheme = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+        PowerShellProfile = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
+        WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
+        
+        # 7-Zip
+        SevenZipOfficial = "https://www.7-zip.org/a/7zr.exe"
+        
+        # Store
+        WingetInstaller = "https://aka.ms/getwinget"
+    }
+    Paths = @{
+        # Base paths
+        Root = "$env:LOCALAPPDATA\WinToolkit"
+        Logs = "$env:LOCALAPPDATA\WinToolkit\logs"
+        Temp = "$env:TEMP\WinToolkit"
+        Drivers = "$env:LOCALAPPDATA\WinToolkit\Drivers"
+        RustDeskConfig = "$env:APPDATA\RustDesk\config"
+        RustDeskInstaller = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
+        OfficeTemp = "$env:LOCALAPPDATA\WinToolkit\Office"
+        PSPProfile = if ($PSVersionTable.PSEdition -eq "Core") {
+            [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
+        } else {
+            [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
+        }
+        DriverBackupTemp = "$env:TEMP\DriverBackup_Temp"
+        DriverBackupLogs = "$env:LOCALAPPDATA\WinToolkit\logs"
+        GamingDirectX = "$env:LOCALAPPDATA\WinToolkit\Directx"
+        GamingDirectXSetup = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
+        BattleNetSetup = "$env:TEMP\Battle.net-Setup.exe"
+        Desktop = [Environment]::GetFolderPath('Desktop')
+        TempFolder = $env:TEMP
+    }
+    Registry = @{
+        # Windows Update
+        WindowsUpdatePolicies = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+        ExcludeWUDrivers = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\ExcludeWUDriversInQualityUpdate"
+        
+        # Office Telemetry
+        OfficeTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry"
+        DisableTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry\DisableTelemetry"
+        
+        # Office Feedback
+        OfficeFeedback = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"
+        OnBootNotify = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback\OnBootNotify"
+        
+        # BitLocker
+        BitLockerStatus = "HKLM:\SOFTWARE\Policies\Microsoft\FVE"
+        
+        # Focus Assist
+        FocusAssist = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings"
+        NoGlobalToasts = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\NOC_GLOBAL_SETTING_TOASTS_ENABLED"
+        
+        # Startup Programs
+        StartupRun = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        
+        # Windows Terminal
+        WindowsTerminal = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        
+        # RustDesk
+        RustDeskConfigPath = "$env:APPDATA\RustDesk\config"
+    }
+}
 
 
 # Setup Variabili Globali UI
@@ -1138,7 +1228,7 @@ function WinReinstallStore {
             # Tentativo B (Reinstallazione tramite MSIXBundle - Fallback)
             if (-not (Test-WingetAvailable)) {
                 Write-StyledMessage Info "🔄 Scarico e installo Winget tramite MSIXBundle (metodo fallback)..."
-                $url = "https://aka.ms/getwinget"
+                $url = $AppConfig.URLs.WingetInstaller
                 $temp = "$env:TEMP\WingetInstaller.msixbundle"
                 if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
 
@@ -1405,11 +1495,11 @@ function WinBackupDriver {
     
     $script:BackupConfig = @{
         DateTime    = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-        BackupDir   = "$env:TEMP\DriverBackup_Temp"
+        BackupDir   = $AppConfig.Paths.DriverBackupTemp
         ArchiveName = "DriverBackup"
-        DesktopPath = [Environment]::GetFolderPath('Desktop')
-        TempPath    = $env:TEMP
-        LogsDir     = "$env:LOCALAPPDATA\WinToolkit\logs"
+        DesktopPath = $AppConfig.Paths.Desktop
+        TempPath    = $AppConfig.Paths.TempFolder
+        LogsDir     = $AppConfig.Paths.DriverBackupLogs
     }
     
     $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
@@ -1503,8 +1593,8 @@ function WinBackupDriver {
         New-Item -ItemType Directory -Path $installDir -Force | Out-Null
         
         $downloadSources = @(
-            @{ Url = "https://github.com/Magnetarman/WinToolkit/raw/Dev/asset/7zr.exe"; Name = "Repository MagnetarMan" },
-            @{ Url = "https://www.7-zip.org/a/7zr.exe"; Name = "Sito ufficiale 7-Zip" }
+            @{ Url = $AppConfig.URLs.GitHubAssetDevBaseUrl + "7zr.exe"; Name = "Repository MagnetarMan" },
+            @{ Url = $AppConfig.URLs.SevenZipOfficial; Name = "Sito ufficiale 7-Zip" }
         )
         
         foreach ($source in $downloadSources) {
@@ -1711,7 +1801,7 @@ function OfficeToolkit {
     Show-Header -SubTitle "Office Toolkit"
 
     # Configurazione
-    $TempDir = "$env:LOCALAPPDATA\WinToolkit\Office"
+    $TempDir = $AppConfig.Paths.OfficeTemp
 
     # Funzioni Helper Locali
     function Clear-ConsoleLine {
@@ -1843,8 +1933,8 @@ function OfficeToolkit {
             $configPath = Join-Path $TempDir 'Basic.xml'
 
             $downloads = @(
-                @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe'; Path = $setupPath; Name = 'Setup Office' },
-                @{ Url = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml'; Path = $configPath; Name = 'Configurazione Basic' }
+                @{ Url = $AppConfig.URLs.OfficeSetup; Path = $setupPath; Name = 'Setup Office' },
+                @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
             )
 
             foreach ($download in $downloads) {
@@ -1871,14 +1961,14 @@ function OfficeToolkit {
 
                 # Configurazione telemetria Office
                 Write-StyledMessage Info "⚙️ Disabilitazione telemetria Office..."
-                $RegPathTelemetry = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry"
+                $RegPathTelemetry = $AppConfig.Registry.OfficeTelemetry
                 if (-not (Test-Path $RegPathTelemetry)) { New-Item $RegPathTelemetry -Force | Out-Null }
                 Set-ItemProperty -Path $RegPathTelemetry -Name "DisableTelemetry" -Value 1 -Type DWord -Force
                 Write-StyledMessage Success "✅ Telemetria Office disabilitata"
 
                 # Configurazione notifiche crash Office
                 Write-StyledMessage Info "⚙️ Disabilitazione notifiche crash Office..."
-                $RegPathFeedback = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"
+                $RegPathFeedback = $AppConfig.Registry.OfficeFeedback
                 if (-not (Test-Path $RegPathFeedback)) { New-Item $RegPathFeedback -Force | Out-Null }
                 Set-ItemProperty -Path $RegPathFeedback -Name "OnBootNotify" -Value 0 -Type DWord -Force
                 Write-StyledMessage Success "✅ Notifiche crash Office disabilitate"
@@ -2213,7 +2303,7 @@ function OfficeToolkit {
                 New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
             }
 
-            $saraUrl = 'https://aka.ms/SaRA_EnterpriseVersionFiles'
+            $saraUrl = $AppConfig.URLs.SaRAInstaller
             $saraZipPath = Join-Path $TempDir 'SaRA.zip'
 
             if (-not (Invoke-DownloadFile $saraUrl $saraZipPath 'Microsoft SaRA')) {
@@ -3277,7 +3367,7 @@ function SetRustDesk {
 
     function Get-LatestRustDeskRelease {
         try {
-            $apiUrl = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
+            $apiUrl = $AppConfig.URLs.RustDeskReleaseAPI
             $response = Invoke-RestMethod -Uri $apiUrl -Method Get -ErrorAction Stop
             $msiAsset = $response.assets | Where-Object { $_.name -like "rustdesk-*-x86_64.msi" } | Select-Object -First 1
 
@@ -3358,7 +3448,7 @@ function SetRustDesk {
 
     function Clear-RustDeskConfig {
         Write-StyledMessage Info "Pulizia configurazioni esistenti..."
-        $rustDeskDir = "$env:APPDATA\RustDesk"
+        $rustDeskDir = $AppConfig.Registry.RustDeskConfigPath
         $configDir = "$rustDeskDir\config"
 
         try {
@@ -3396,7 +3486,7 @@ function SetRustDesk {
                 "RustDesk2.toml"
             )
 
-            $baseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset"
+            $baseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
             $downloaded = 0
 
             foreach ($fileName in $configFiles) {
@@ -3428,7 +3518,7 @@ function SetRustDesk {
     Write-StyledMessage Info "🚀 AVVIO CONFIGURAZIONE RUSTDESK"
 
     try {
-        $installerPath = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
+        $installerPath = $AppConfig.Paths.RustDeskInstaller
 
         # FASE 1: Stop servizi e processi
         Write-StyledMessage Info "📋 FASE 1: Arresto servizi e processi RustDesk"
@@ -3496,8 +3586,8 @@ function VideoDriverInstall {
     Initialize-ToolLogging -ToolName "VideoDriverInstall"
     Show-Header -SubTitle "Video Driver Install Toolkit"
 
-    $GitHubAssetBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
-    $DriverToolsLocalPath = Join-Path $env:LOCALAPPDATA "WinToolkit\Drivers"
+    $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
+    $DriverToolsLocalPath = $AppConfig.Paths.Drivers
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
 
     function Get-GpuManufacturer {
@@ -3541,7 +3631,7 @@ function VideoDriverInstall {
         #>
         Write-StyledMessage Info "Configurazione per bloccare download driver da Windows Update..."
 
-        $regPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+        $regPath = $AppConfig.Registry.WindowsUpdatePolicies
         $propertyName = "ExcludeWUDriversInQualityUpdate"
         $propertyValue = 1
 
@@ -3673,7 +3763,7 @@ function VideoDriverInstall {
         Write-StyledMessage Info "Rilevata GPU: $gpuManufacturer"
 
         if ($gpuManufacturer -eq 'AMD') {
-            $amdInstallerUrl = "${GitHubAssetBaseUrl}AMD-Autodetect.exe"
+            $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
             $amdInstallerPath = Join-Path $DriverToolsLocalPath "AMD-Autodetect.exe"
 
             if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
@@ -3683,7 +3773,7 @@ function VideoDriverInstall {
             }
         }
         elseif ($gpuManufacturer -eq 'NVIDIA') {
-            $nvidiaInstallerUrl = "${GitHubAssetBaseUrl}NVCleanstall_1.19.0.exe"
+            $nvidiaInstallerUrl = $AppConfig.URLs.NVCleanstall
             $nvidiaInstallerPath = Join-Path $DriverToolsLocalPath "NVCleanstall_1.19.0.exe"
 
             if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
@@ -3710,7 +3800,7 @@ function VideoDriverInstall {
         Write-StyledMessage Warning "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
 
         # Download DDU
-        $dduZipUrl = "${GitHubAssetBaseUrl}DDU.zip"
+        $dduZipUrl = $AppConfig.URLs.DDUZip
         $dduZipPath = Join-Path $DriverToolsLocalPath "DDU.zip"
 
         if (-not (Download-FileWithProgress -Url $dduZipUrl -DestinationPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
@@ -3733,7 +3823,7 @@ function VideoDriverInstall {
         Write-StyledMessage Info "Rilevata GPU: $gpuManufacturer"
 
         if ($gpuManufacturer -eq 'AMD') {
-            $amdInstallerUrl = "${GitHubAssetBaseUrl}AMD-Autodetect.exe"
+            $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
             $amdInstallerPath = Join-Path $DesktopPath "AMD-Autodetect.exe"
 
             if (-not (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool")) {
@@ -3742,7 +3832,7 @@ function VideoDriverInstall {
             }
         }
         elseif ($gpuManufacturer -eq 'NVIDIA') {
-            $nvidiaInstallerUrl = "${GitHubAssetBaseUrl}NVCleanstall_1.19.0.exe"
+            $nvidiaInstallerUrl = $AppConfig.URLs.NVCleanstall
             $nvidiaInstallerPath = Join-Path $DesktopPath "NVCleanstall_1.19.0.exe"
 
             if (-not (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool")) {
@@ -3971,7 +4061,7 @@ function GamingToolkit {
     if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force | Out-Null }
 
     try {
-        Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe' -OutFile $dxPath -ErrorAction Stop
+        Invoke-WebRequest -Uri $AppConfig.URLs.DirectXWebSetup -OutFile $dxPath -ErrorAction Stop
         Write-StyledMessage Success 'DirectX scaricato.'
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo DirectX
@@ -4025,7 +4115,7 @@ function GamingToolkit {
     $bnPath = "$env:TEMP\Battle.net-Setup.exe"
 
     try {
-        Invoke-WebRequest -Uri 'https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live' -OutFile $bnPath -ErrorAction Stop
+        Invoke-WebRequest -Uri $AppConfig.URLs.BattleNetInstaller -OutFile $bnPath -ErrorAction Stop
         Write-StyledMessage Success 'Battle.net scaricato.'
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo Battle.net
@@ -4129,7 +4219,7 @@ function GamingToolkit {
     # Step 9: Focus Assist
     Write-StyledMessage Info '🔕 Attivazione Non disturbare...'
     try {
-        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_TOASTS_ENABLED" -Value 0 -Force
+        Set-ItemProperty -Path $AppConfig.Registry.FocusAssist -Name "NOC_GLOBAL_SETTING_TOASTS_ENABLED" -Value 0 -Force
         Write-StyledMessage Success 'Non disturbare attivo.'
     }
     catch {
@@ -4209,8 +4299,8 @@ function WinExportLog {
     Show-Header -SubTitle "Esporta Log Diagnostici"
 
     # Definizione dei percorsi
-    $logSourcePath = Join-Path $env:LOCALAPPDATA "WinToolkit\logs"
-    $desktopPath = [System.Environment]::GetFolderPath("Desktop")
+    $logSourcePath = $AppConfig.Paths.Logs
+    $desktopPath = $AppConfig.Paths.Desktop
     $timestamp = (Get-Date -Format "yyyyMMdd_HHmmss")
     $zipFileName = "WinToolkit_Logs_$timestamp.zip"
     $zipFilePath = Join-Path $desktopPath $zipFileName
@@ -4226,7 +4316,7 @@ function WinExportLog {
         Write-StyledMessage Info "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso..."
 
         # Metodo alternativo per gestire file in uso
-        $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"
+        $tempFolder = Join-Path $AppConfig.Paths.TempPath "WinToolkit_Logs_Temp_$timestamp"
 
         # Crea cartella temporanea
         if (Test-Path $tempFolder) {
@@ -4363,7 +4453,7 @@ function WinPSP-Setup {
             # Interrogazione GitHub API per l'ultima versione di JetBrainsMono Nerd Font
             $fontZipUrl = $null
             try {
-                $release = Invoke-RestMethod "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" -ErrorAction Stop
+                $release = Invoke-RestMethod $AppConfig.URLs.NerdFontsAPI -ErrorAction Stop
                 $asset = $release.assets | Where-Object { $_.name -eq "JetBrainsMono.zip" } | Select-Object -First 1
                 if ($asset) {
                     $fontZipUrl = $asset.browser_download_url
@@ -4371,12 +4461,12 @@ function WinPSP-Setup {
                 }
                 else {
                     Write-StyledMessage -Type 'Warning' -Text "Asset 'JetBrainsMono.zip' non trovato nell'ultima release. Utilizzo URL di fallback."
-                    $fontZipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+                    $fontZipUrl = $AppConfig.URLs.JetBrainsMonoFallback
                 }
             }
             catch {
                 Write-StyledMessage -Type 'Error' -Text "Errore durante il recupero dell'ultima versione da GitHub API: $($_.Exception.Message). Utilizzo URL di fallback."
-                $fontZipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+                $fontZipUrl = $AppConfig.URLs.JetBrainsMonoFallback
             }
 
             if (-not $fontZipUrl) {
@@ -4462,7 +4552,7 @@ function WinPSP-Setup {
         #>
         param(
             [string]$ThemeName = "atomic",
-            [string]$ThemeUrl = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+            [string]$ThemeUrl = $AppConfig.URLs.OhMyPoshTheme
         )
 
         $profileDir = Get-ProfileDir
@@ -4581,7 +4671,7 @@ function WinPSP-Setup {
             if (-not (Test-Path -Path $profilePath)) {
                 New-Item -Path $profilePath -ItemType "directory" -Force | Out-Null
             }
-            Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE -ErrorAction Stop
+            Invoke-RestMethod $AppConfig.URLs.PowerShellProfile -OutFile $PROFILE -ErrorAction Stop
             Write-StyledMessage -Type 'Success' -Text "Profilo PowerShell creato: $PROFILE"
         }
         catch {
@@ -4592,7 +4682,7 @@ function WinPSP-Setup {
         try {
             $backupPath = Join-Path (Split-Path $PROFILE) "oldprofile.ps1"
             Move-Item -Path $PROFILE -Destination $backupPath -Force
-            Invoke-RestMethod https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1 -OutFile $PROFILE -ErrorAction Stop
+            Invoke-RestMethod $AppConfig.URLs.PowerShellProfile -OutFile $PROFILE -ErrorAction Stop
             Write-StyledMessage -Type 'Success' -Text "Profilo PowerShell aggiornato"
             Write-StyledMessage -Type 'Info' -Text "Backup salvato: $backupPath"
         }
@@ -4607,7 +4697,7 @@ function WinPSP-Setup {
 
     Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione settings.json per Windows Terminal..."
     try {
-        $wtSettingsUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
+        $wtSettingsUrl = $AppConfig.URLs.WindowsTerminalSettings
         $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
 
         if (-not $wtPath) {
@@ -4753,6 +4843,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
