@@ -33,7 +33,6 @@ function WinReinstallStore {
         Write-StyledMessage Info "🚀 Avvio della procedura di reinstallazione e riparazione Winget..."
         Stop-InterferingProcesses
 
-        $originalPos = [Console]::CursorTop
         try {
             # Soppressione completa dell'output
             $ErrorActionPreference = 'SilentlyContinue'
@@ -140,13 +139,6 @@ function WinReinstallStore {
             }
 
             # --- FASE 5: Gestione Output Finale e Valore di Ritorno ---
-
-            # Reset cursore e flush output
-            [Console]::SetCursorPosition(0, $originalPos)
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
-            [Console]::Out.Flush()
-
             Start-Sleep 2
             $finalCheck = Test-WingetAvailable
 
@@ -174,7 +166,6 @@ function WinReinstallStore {
     function Install-MicrosoftStoreSilent {
         Write-StyledMessage Info "🔄 Reinstallazione Microsoft Store in corso..."
 
-        $originalPos = [Console]::CursorTop
         try {
             # Soppressione completa dell'output
             $ErrorActionPreference = 'SilentlyContinue'
@@ -242,13 +233,6 @@ function WinReinstallStore {
                 try {
                     if (& $method) {
                         Start-Process wsreset.exe -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue *>$null
-
-                        # Reset cursore e flush output
-                        [Console]::SetCursorPosition(0, $originalPos)
-                        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                        Write-Host $clearLine -NoNewline
-                        [Console]::Out.Flush()
-
                         return $true
                     }
                 }
@@ -268,7 +252,6 @@ function WinReinstallStore {
         Write-StyledMessage Info "🔄 Reinstallazione UniGet UI in corso..."
         if (-not (Test-WingetAvailable)) { return $false }
 
-        $originalPos = [Console]::CursorTop
         try {
             # Soppressione completa dell'output
             $ErrorActionPreference = 'SilentlyContinue'
@@ -301,12 +284,6 @@ function WinReinstallStore {
                     Write-StyledMessage Warning "Impossibile disabilitare l'avvio automatico di UniGet UI: $($_.Exception.Message)"
                 }
             }
-
-            # Reset cursore e flush output
-            [Console]::SetCursorPosition(0, $originalPos)
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
-            [Console]::Out.Flush()
 
             return $process.ExitCode -eq 0
         }
