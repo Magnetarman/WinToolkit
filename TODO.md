@@ -1,24 +1,11 @@
 # To-Do
 
-
 ### V 2.5.0
-
-- Cambiare gestione profilo powershell
-  - [x] aggiungere alla repo in asset nuovo file Microsoft.PowerShell_profile.ps1
-  - [x] Aggiungere comando "Reboot" con esecuzione comando shutdown /r /f /t 0
   
-  
-- Automatizzare creazione changelog
-  - [ ] Prende le due versioni
-  - [ ] Vede dove e come e cambiato il codice
-  - [ ] Produce lista di modifiche basandosi sul changelog tono e stile esistente
-  - [x] Add issue chiusi al changelog
-
 - Funzione di concatenazione script rotta
   - [ ] Ripristino funzionalità completa
   - [ ] Unificazione funzionalità script "template"
   - [ ] Se la funzionalità di avvio script multipli è attiva deve saltare la sezione relativa al riavvio del pc presente alla fine di ogni script, eseguire tutte le operazioni ed alla fine proseguire con riavvio del PC.
-  
 
 ### V 2.5.1
 
