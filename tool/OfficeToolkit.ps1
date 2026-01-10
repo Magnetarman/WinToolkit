@@ -6,11 +6,21 @@ function OfficeToolkit {
     .DESCRIPTION
         Script PowerShell per gestire Microsoft Office tramite interfaccia utente semplificata.
         Supporta installazione Office Basic, riparazione Click-to-Run e rimozione automatica basata sulla versione Windows.
+
+    .PARAMETER CountdownSeconds
+        Numero di secondi per il countdown prima del riavvio.
+
+    .OUTPUTS
+        None. La funzione non restituisce output.
     #>
 
     [CmdletBinding()]
-    param([int]$CountdownSeconds = 30)
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$CountdownSeconds = 30
+    )
 
+    # 1. Inizializzazione logging
     Initialize-ToolLogging -ToolName "OfficeToolkit"
     Show-Header -SubTitle "Office Toolkit"
 
@@ -85,10 +95,11 @@ function OfficeToolkit {
             }
         }
         catch {
-            Write-StyledMessage Warning "Impossibile rilevare versione Windows: $_"
+            Write-StyledMessage -Type 'Warning' -Text "Impossibile rilevare versione Windows: $_"
             return "Unknown"
         }
     }
+
 
     function Stop-OfficeProcesses {
         $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
@@ -197,7 +208,7 @@ function OfficeToolkit {
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante installazione: $_"
+            Write-StyledMessage Error "Errore durante installazione Office: $($_.Exception.Message)"
             return $false
         }
         finally {
@@ -282,7 +293,7 @@ function OfficeToolkit {
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante riparazione: $_"
+            Write-StyledMessage Error "Errore durante riparazione Office: $($_.Exception.Message)"
             return $false
         }
     }
@@ -506,7 +517,7 @@ function OfficeToolkit {
             return $true
         }
         catch {
-            Write-StyledMessage Error "Errore durante rimozione diretta: $_"
+            Write-StyledMessage Error "Errore durante rimozione diretta Office: $($_.Exception.Message)"
             return $false
         }
     }
@@ -530,7 +541,7 @@ function OfficeToolkit {
                 Write-StyledMessage Success "Estrazione completata"
             }
             catch {
-                Write-StyledMessage Error "Errore estrazione: $_"
+                Write-StyledMessage Error "Errore durante estrazione archivio SaRA: $($_.Exception.Message)"
                 return $false
             }
 
@@ -567,13 +578,13 @@ function OfficeToolkit {
                 }
             }
             catch {
-                Write-StyledMessage Warning "Errore esecuzione SaRA: $_"
+                Write-StyledMessage Warning "Errore durante esecuzione SaRA: $($_.Exception.Message)"
                 Write-StyledMessage Info "💡 Passaggio a metodo alternativo..."
                 return Remove-OfficeDirectly
             }
         }
         catch {
-            Write-StyledMessage Warning "Errore durante SaRA: $_"
+            Write-StyledMessage Warning "Errore durante processo SaRA: $($_.Exception.Message)"
             return $false
         }
         finally {
@@ -687,7 +698,7 @@ function OfficeToolkit {
         } while ($choice -ne '0')
     }
     catch {
-        Write-StyledMessage Error "Errore critico: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore critico durante esecuzione OfficeToolkit: $($_.Exception.Message)"
     }
     finally {
         Write-StyledMessage Success "🧹 Pulizia finale..."

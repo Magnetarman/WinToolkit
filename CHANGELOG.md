@@ -220,6 +220,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Funzione grafica Spinner resa globale e ottimizzata nei vari script.
   - Fix errore di visualizzazione percentuale nella barra del countdown.
   - Aggiunta nuova logica di Splatting per Start-Process in tutti gli script per migliorare la leggibilità del codice e la facile espansione futura.
+  - Variabili Download, Path, Link ecc. centralizzate.
+  - Rese maggiormente descrittive le variabili nei diversi script.
 
 - Revamping `PowerShell Profile.ps1`
   - **Pulizia e rimozione codice inutile:**

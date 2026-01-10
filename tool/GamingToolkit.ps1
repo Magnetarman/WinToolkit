@@ -2,30 +2,51 @@
     <#
     .SYNOPSIS
         Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
+
     .DESCRIPTION
-        Script completo per ottimizzare le prestazioni del sistema per il gaming
+        Script completo per ottimizzare le prestazioni del sistema per il gaming.
+        Include installazione di runtime, client di gioco e configurazione del sistema.
+
+    .PARAMETER CountdownSeconds
+        Numero di secondi per il countdown prima del riavvio.
+
+    .OUTPUTS
+        None. La funzione non restituisce output.
     #>
 
     [CmdletBinding()]
-    param([int]$CountdownSeconds = 30)
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$CountdownSeconds = 30
+    )
 
+    # 1. Inizializzazione logging
     Initialize-ToolLogging -ToolName "GamingToolkit"
     Show-Header -SubTitle "Gaming Toolkit"
 
-    # Funzioni helper locali
+    # 2. Variabili locali
+    $osInfo = Get-ComputerInfo
+    $buildNumber = $osInfo.OsBuildNumber
+    $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
+
+    # 3. Funzioni helper locali
     function Test-WingetPackageAvailable([string]$PackageId) {
         try {
             $result = winget search $PackageId 2>&1
             return $LASTEXITCODE -eq 0 -and $result -match $PackageId
         }
-        catch { return $false }
+        catch {
+            $errorMessage = $_.Exception.Message
+            Write-StyledMessage -Type 'Warning' -Text ("Errore verifica pacchetto {0}: {1}" -f $PackageId, $errorMessage)
+            return $false
+        }
     }
 
     function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
-        Write-StyledMessage Info "[$Step/$Total] 📦 Installazione: $DisplayName..."
+        Write-StyledMessage -Type 'Info' -Text "[$Step/$Total] 📦 Installazione: $DisplayName..."
 
         if (-not (Test-WingetPackageAvailable $PackageId)) {
-            Write-StyledMessage Warning "Pacchetto $DisplayName non disponibile. Saltando."
+            Write-StyledMessage -Type 'Warning' -Text "Pacchetto $DisplayName non disponibile. Saltando."
             return @{ Success = $true; Skipped = $true }
         }
 
@@ -45,18 +66,18 @@
             $successCodes = @(0, 1638, 3010, -1978335189)
 
             if ($exitCode -in $successCodes) {
-                Write-StyledMessage Success "Installato: $DisplayName"
+                Write-StyledMessage -Type 'Success' -Text "Installato: $DisplayName"
                 return @{ Success = $true; ExitCode = $exitCode }
             }
             else {
-                Write-StyledMessage Error "Errore installazione $DisplayName (codice: $exitCode)"
+                Write-StyledMessage -Type 'Error' -Text "Errore installazione $DisplayName (codice: $exitCode)"
                 return @{ Success = $false; ExitCode = $exitCode }
             }
         }
         catch {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
-            Write-StyledMessage Error "Eccezione $DisplayName`: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Eccezione $DisplayName`: $($_.Exception.Message)"
             return @{ Success = $false }
         }
         finally {
@@ -110,24 +131,33 @@
         Write-StyledMessage Success 'NetFramework abilitato.'
     }
     catch {
-        Write-StyledMessage Error "Errore NetFramework: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore durante abilitazione NetFramework: $($_.Exception.Message)"
     }
     Write-Host ''
 
     # Step 3: Runtime e VCRedist
     $runtimes = @(
-        "Microsoft.DotNet.DesktopRuntime.3_1", "Microsoft.DotNet.DesktopRuntime.5",
-        "Microsoft.DotNet.DesktopRuntime.6", "Microsoft.DotNet.DesktopRuntime.7",
-        "Microsoft.DotNet.DesktopRuntime.8", "Microsoft.DotNet.DesktopRuntime.9", "Microsoft.DotNet.DesktopRuntime.10",
-        "Microsoft.VCRedist.2010.x64", "Microsoft.VCRedist.2010.x86",
-        "Microsoft.VCRedist.2012.x64", "Microsoft.VCRedist.2012.x86",
-        "Microsoft.VCRedist.2013.x64", "Microsoft.VCRedist.2013.x86",
-        "Microsoft.VCLibs.Desktop.14", "Microsoft.VCRedist.2015+.x64", "Microsoft.VCRedist.2015+.x86"
+        "Microsoft.DotNet.DesktopRuntime.3_1",
+        "Microsoft.DotNet.DesktopRuntime.5",
+        "Microsoft.DotNet.DesktopRuntime.6",
+        "Microsoft.DotNet.DesktopRuntime.7",
+        "Microsoft.DotNet.DesktopRuntime.8",
+        "Microsoft.DotNet.DesktopRuntime.9",
+        "Microsoft.DotNet.DesktopRuntime.10",
+        "Microsoft.VCRedist.2010.x64",
+        "Microsoft.VCRedist.2010.x86",
+        "Microsoft.VCRedist.2012.x64",
+        "Microsoft.VCRedist.2012.x86",
+        "Microsoft.VCRedist.2013.x64",
+        "Microsoft.VCRedist.2013.x86",
+        "Microsoft.VCLibs.Desktop.14",
+        "Microsoft.VCRedist.2015+.x64",
+        "Microsoft.VCRedist.2015+.x86"
     )
 
     Write-StyledMessage Info '🔥 Installazione runtime .NET e VCRedist...'
-    for ($i = 0; $i -lt $runtimes.Count; $i++) {
-        Invoke-WingetInstallWithProgress $runtimes[$i] $runtimes[$i] ($i + 1) $runtimes.Count | Out-Null
+    for ($runtimeIndex = 0; $runtimeIndex -lt $runtimes.Count; $runtimeIndex++) {
+        Invoke-WingetInstallWithProgress $runtimes[$runtimeIndex] $runtimes[$runtimeIndex] ($runtimeIndex + 1) $runtimes.Count | Out-Null
         Write-Host ''
     }
     Write-StyledMessage Success 'Runtime completati.'
@@ -171,7 +201,7 @@
     catch {
         Write-Host "`r$(' ' * 120)" -NoNewline
         Write-Host "`r" -NoNewline
-        Write-StyledMessage Error "Errore DirectX: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore durante installazione DirectX: $($_.Exception.Message)"
     }
     Write-Host ''
 
@@ -183,8 +213,8 @@
     )
 
     Write-StyledMessage Info '🎮 Installazione client di gioco...'
-    for ($i = 0; $i -lt $gameClients.Count; $i++) {
-        Invoke-WingetInstallWithProgress $gameClients[$i] $gameClients[$i] ($i + 1) $gameClients.Count | Out-Null
+    for ($clientIndex = 0; $clientIndex -lt $gameClients.Count; $clientIndex++) {
+        Invoke-WingetInstallWithProgress $gameClients[$clientIndex] $gameClients[$clientIndex] ($clientIndex + 1) $gameClients.Count | Out-Null
         Write-Host ''
     }
     Write-StyledMessage Success 'Client installati.'
@@ -227,7 +257,7 @@
     catch {
         Write-Host "`r$(' ' * 120)" -NoNewline
         Write-Host "`r" -NoNewline
-        Write-StyledMessage Error "Errore Battle.net: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore durante installazione Battle.net: $($_.Exception.Message)"
         Write-Host "`nPremi un tasto..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
@@ -278,7 +308,7 @@
             }
         }
         catch {
-            Write-StyledMessage Error "Errore duplicazione piano: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore durante duplicazione piano energetico: $($_.Exception.Message)"
         }
     }
 
@@ -288,7 +318,7 @@
             Write-StyledMessage Success "Piano attivato."
         }
         catch {
-            Write-StyledMessage Error "Errore attivazione piano: $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore durante attivazione piano energetico: $($_.Exception.Message)"
         }
     }
     else {
@@ -303,7 +333,7 @@
         Write-StyledMessage Success 'Non disturbare attivo.'
     }
     catch {
-        Write-StyledMessage Error "Errore: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore durante configurazione Focus Assist: $($_.Exception.Message)"
     }
     Write-Host ''
 

@@ -356,11 +356,24 @@ function WinCleaner {
         @{ Name = "CleanMgr Config"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "🧹 Configurazione CleanMgr..."
                 $reg = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
-                $opts = @("Active Setup Temp Folders", "BranchCache", "D3D Shader Cache", "Delivery Optimization Files",
-                    "Downloaded Program Files", "Internet Cache Files", "Memory Dump Files", "Recycle Bin",
-                    "Temporary Files", "Thumbnail Cache", "Windows Error Reporting Files", "Setup Log Files",
-                    "System error memory dump files", "System error minidump files", "Temporary Setup Files",
-                    "Windows Upgrade Log Files")
+                $opts = @(
+                    "Active Setup Temp Folders",
+                    "BranchCache",
+                    "D3D Shader Cache",
+                    "Delivery Optimization Files",
+                    "Downloaded Program Files",
+                    "Internet Cache Files",
+                    "Memory Dump Files",
+                    "Recycle Bin",
+                    "Temporary Files",
+                    "Thumbnail Cache",
+                    "Windows Error Reporting Files",
+                    "Setup Log Files",
+                    "System error memory dump files",
+                    "System error minidump files",
+                    "Temporary Setup Files",
+                    "Windows Upgrade Log Files"
+                )
                 foreach ($o in $opts) {
                     $p = Join-Path $reg $o
                     if (Test-Path $p) { Set-ItemProperty -Path $p -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction SilentlyContinue }
@@ -383,7 +396,11 @@ function WinCleaner {
         @{ Name = "Minimize DISM"; Type = "RegSet"; Key = "HKLM:\Software\Microsoft\Windows\CurrentVersion\SideBySide\Configuration"; ValueName = "DisableResetbase"; ValueData = 0; ValueType = "DWORD" }
 
         # --- Error Reports ---
-        @{ Name = "Error Reports"; Type = "File"; Paths = @("$env:ProgramData\Microsoft\Windows\WER", "$env:ALLUSERSPROFILE\Microsoft\Windows\WER"); FilesOnly = $false }
+        @{ Name = "Error Reports"; Type = "File"; Paths = @(
+                "$env:ProgramData\Microsoft\Windows\WER",
+                "$env:ALLUSERSPROFILE\Microsoft\Windows\WER"
+            ); FilesOnly = $false 
+        }
 
         # --- Event Logs ---
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
@@ -395,12 +412,20 @@ function WinCleaner {
 
         # --- Windows Update ---
         @{ Name = "Stop - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Stop" }
-        @{ Name = "Cleanup - Windows Update Cache"; Type = "File"; Paths = @("C:\WINDOWS\SoftwareDistribution\DataStore", "C:\WINDOWS\SoftwareDistribution\Download"); FilesOnly = $false }
+        @{ Name = "Cleanup - Windows Update Cache"; Type = "File"; Paths = @(
+                "C:\WINDOWS\SoftwareDistribution\DataStore",
+                "C:\WINDOWS\SoftwareDistribution\Download"
+            ); FilesOnly = $false 
+        }
         @{ Name = "Start - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Start" }
 
         # --- Windows App/Download Cache ---
         @{ Name = "Windows App/Download Cache - System"; Type = "File"; Paths = @("C:\WINDOWS\SoftwareDistribution\Download"); FilesOnly = $true }
-        @{ Name = "Windows App/Download Cache - User"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\AppCache", "%LOCALAPPDATA%\Microsoft\Windows\Caches"); PerUser = $true; FilesOnly = $true }
+        @{ Name = "Windows App/Download Cache - User"; Type = "File"; Paths = @(
+                "%LOCALAPPDATA%\Microsoft\Windows\AppCache",
+                "%LOCALAPPDATA%\Microsoft\Windows\Caches"
+            ); PerUser = $true; FilesOnly = $true 
+        }
 
         # --- Restore Points ---
         @{ Name = "System Restore Points"; Type = "ScriptBlock"; ScriptBlock = {
@@ -440,7 +465,10 @@ function WinCleaner {
                 "%LOCALAPPDATA%\Microsoft\Internet Explorer"
             ); PerUser = $true; FilesOnly = $false
         }
-        @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @("%USERPROFILE%\Local Settings\Temporary Internet Files"); PerUser = $true; FilesOnly = $false }
+        @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @(
+                "%USERPROFILE%\Local Settings\Temporary Internet Files"
+            ); PerUser = $true; FilesOnly = $false 
+        }
         @{ Name = "Cache/History Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "8") }
         @{ Name = "Form Data Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "2") }
         @{ Name = "Internet Cookies Cleanup"; Type = "File"; Paths = @(
@@ -474,7 +502,10 @@ function WinCleaner {
                     if (Test-Path $cache) { Remove-Item -Path $cache -Recurse -Force -ErrorAction SilentlyContinue }
 
                     # Microsoft Store Firefox (UWP)
-                    $msStoreProfiles = Get-ChildItem "$($u.FullName)\AppData\Local\Packages" -Directory -Filter "Mozilla.Firefox_*" -ErrorAction SilentlyContinue
+                    $msStoreProfiles = Get-ChildItem `
+                        "$($u.FullName)\AppData\Local\Packages" `
+                        -Directory -Filter "Mozilla.Firefox_*" `
+                        -ErrorAction SilentlyContinue
                     foreach ($pkg in $msStoreProfiles) {
                         $msCache = "$($pkg.FullName)\LocalCache\Roaming\Mozilla\Firefox\Profiles"
                         if (Test-Path $msCache) { Remove-Item -Path $msCache -Recurse -Force -ErrorAction SilentlyContinue }
@@ -494,7 +525,12 @@ function WinCleaner {
 
         # --- Temp Files (Consolidato) ---
         @{ Name = "System Temp Files"; Type = "File"; Paths = @("C:\WINDOWS\Temp"); FilesOnly = $false }
-        @{ Name = "User Temp Files"; Type = "File"; Paths = @("%TEMP%", "%USERPROFILE%\AppData\Local\Temp", "%USERPROFILE%\AppData\LocalLow\Temp"); PerUser = $true; FilesOnly = $false }
+        @{ Name = "User Temp Files"; Type = "File"; Paths = @(
+                "%TEMP%",
+                "%USERPROFILE%\AppData\Local\Temp",
+                "%USERPROFILE%\AppData\LocalLow\Temp"
+            ); PerUser = $true; FilesOnly = $false 
+        }
         @{ Name = "Service Profiles Temp"; Type = "File"; Paths = @("%SYSTEMROOT%\ServiceProfiles\LocalService\AppData\Local\Temp"); FilesOnly = $false }
 
         # --- System & Component Logs ---
@@ -621,7 +657,12 @@ function WinCleaner {
 
         # --- Utility Apps ---
         @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
-        @{ Name = "Quick Access"; Type = "File"; Paths = @("%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations", "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations", "%APPDATA%\Microsoft\Windows\Recent Items"); PerUser = $true }
+        @{ Name = "Quick Access"; Type = "File"; Paths = @(
+                "%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations",
+                "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations",
+                "%APPDATA%\Microsoft\Windows\Recent Items"
+            ); PerUser = $true 
+        }
 
         # --- Legacy Applications & Media ---
         @{ Name = "Flash Player Traces"; Type = "File"; Paths = @("%APPDATA%\Macromedia\Flash Player"); PerUser = $true }

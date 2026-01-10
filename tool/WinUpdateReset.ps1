@@ -179,8 +179,8 @@ function WinUpdateReset {
     try {
         Write-StyledMessage Info '🛑 Arresto servizi Windows Update...'
         $stopServices = @('wuauserv', 'cryptsvc', 'bits', 'msiserver')
-        for ($i = 0; $i -lt $stopServices.Count; $i++) {
-            Manage-Service $stopServices[$i] 'Stop' $serviceConfig[$stopServices[$i]] ($i + 1) $stopServices.Count
+        for ($serviceIndex = 0; $serviceIndex -lt $stopServices.Count; $serviceIndex++) {
+            Manage-Service $stopServices[$serviceIndex] 'Stop' $serviceConfig[$stopServices[$serviceIndex]] ($serviceIndex + 1) $stopServices.Count
         }
 
         Write-StyledMessage Info '⏳ Attesa liberazione risorse...'
@@ -188,15 +188,15 @@ function WinUpdateReset {
 
         Write-StyledMessage Info '⚙️ Ripristino configurazione servizi Windows Update...'
         $criticalServices = $serviceConfig.Keys | Where-Object { $serviceConfig[$_].Critical }
-        for ($i = 0; $i -lt $criticalServices.Count; $i++) {
-            $serviceName = $criticalServices[$i]
+        for ($criticalIndex = 0; $criticalIndex -lt $criticalServices.Count; $criticalIndex++) {
+            $serviceName = $criticalServices[$criticalIndex]
             Write-StyledMessage Info "$($serviceConfig[$serviceName].Icon) Elaborazione servizio: $serviceName"
             Manage-Service $serviceName 'Configure' $serviceConfig[$serviceName] ($i + 1) $criticalServices.Count
         }
 
         Write-StyledMessage Info '🔍 Verifica servizi di sistema critici...'
-        for ($i = 0; $i -lt $systemServices.Count; $i++) {
-            $sysService = $systemServices[$i]
+        for ($systemIndex = 0; $systemIndex -lt $systemServices.Count; $systemIndex++) {
+            $sysService = $systemServices[$systemIndex]
             Manage-Service $sysService.Name 'Check' @{ Icon = $sysService.Icon } ($i + 1) $systemServices.Count
         }
 
@@ -228,8 +228,8 @@ function WinUpdateReset {
             @{ Path = "C:\Windows\System32\catroot2"; Name = "catroot2" }
         )
 
-        for ($i = 0; $i -lt $directories.Count; $i++) {
-            $dir = $directories[$i]
+        for ($dirIndex = 0; $dirIndex -lt $directories.Count; $dirIndex++) {
+            $dir = $directories[$dirIndex]
             $percent = [math]::Round((($i + 1) / $directories.Count) * 100)
             Show-ProgressBar "Directory ($($i + 1)/$($directories.Count))" "Eliminazione $($dir.Name)" $percent '🗑️' '' 'Yellow'
 
@@ -252,8 +252,8 @@ function WinUpdateReset {
 
         Write-StyledMessage Info '🚀 Avvio servizi essenziali...'
         $essentialServices = @('wuauserv', 'cryptsvc', 'bits')
-        for ($i = 0; $i -lt $essentialServices.Count; $i++) {
-            Manage-Service $essentialServices[$i] 'Start' $serviceConfig[$essentialServices[$i]] ($i + 1) $essentialServices.Count
+        for ($essentialIndex = 0; $essentialIndex -lt $essentialServices.Count; $essentialIndex++) {
+            Manage-Service $essentialServices[$essentialIndex] 'Start' $serviceConfig[$essentialServices[$essentialIndex]] ($essentialIndex + 1) $essentialServices.Count
         }
 
         Write-StyledMessage Info '🔄 Reset del client Windows Update...'

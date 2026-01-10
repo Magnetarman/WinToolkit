@@ -6,11 +6,21 @@ function SetRustDesk {
     .DESCRIPTION
         Script ottimizzato per fermare servizi, reinstallare RustDesk e applicare configurazioni personalizzate.
         Scarica i file di configurazione da repository GitHub e riavvia il sistema per applicare le modifiche.
+
+    .PARAMETER CountdownSeconds
+        Numero di secondi per il countdown prima del riavvio.
+
+    .OUTPUTS
+        None. La funzione non restituisce output.
     #>
 
     [CmdletBinding()]
-    param([int]$CountdownSeconds = 30)
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$CountdownSeconds = 30
+    )
 
+    # 1. Inizializzazione logging
     Initialize-ToolLogging -ToolName "SetRustDesk"
     Show-Header -SubTitle "RustDesk Setup Toolkit"
 
@@ -63,11 +73,11 @@ function SetRustDesk {
                 }
             }
 
-            Write-StyledMessage Error "Nessun installer .msi trovato nella release"
+            Write-StyledMessage -Type 'Error' -Text "Nessun installer .msi trovato nella release"
             return $null
         }
         catch {
-            Write-StyledMessage Error "Errore connessione GitHub API: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore connessione GitHub API: $($_.Exception.Message)"
             return $null
         }
     }
@@ -75,11 +85,11 @@ function SetRustDesk {
     function Download-RustDeskInstaller {
         param([string]$DownloadPath)
 
-        Write-StyledMessage Info "Download installer RustDesk in corso..."
+        Write-StyledMessage -Type 'Info' -Text "Download installer RustDesk in corso..."
         $releaseInfo = Get-LatestRustDeskRelease
         if (-not $releaseInfo) { return $false }
 
-        Write-StyledMessage Info "📥 Versione rilevata: $($releaseInfo.Version)"
+        Write-StyledMessage -Type 'Info' -Text "📥 Versione rilevata: $($releaseInfo.Version)"
         $parentDir = Split-Path $DownloadPath -Parent
 
         try {
@@ -94,12 +104,12 @@ function SetRustDesk {
             Invoke-WebRequest -Uri $releaseInfo.DownloadUrl -OutFile $DownloadPath -UseBasicParsing -ErrorAction Stop
 
             if (Test-Path $DownloadPath) {
-                Write-StyledMessage Success "Installer $($releaseInfo.FileName) scaricato con successo"
+                Write-StyledMessage -Type 'Success' -Text "Installer $($releaseInfo.FileName) scaricato con successo"
                 return $true
             }
         }
         catch {
-            Write-StyledMessage Error "Errore download: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore download: $($_.Exception.Message)"
         }
 
         return $false
@@ -108,7 +118,7 @@ function SetRustDesk {
     function Install-RustDesk {
         param([string]$InstallerPath)
 
-        Write-StyledMessage Info "Installazione RustDesk"
+        Write-StyledMessage -Type 'Info' -Text "Installazione RustDesk"
 
         try {
             $installArgs = "/i", "`"$InstallerPath`"", "/quiet", "/norestart"
@@ -116,15 +126,15 @@ function SetRustDesk {
             Start-Sleep 10
 
             if ($process.ExitCode -eq 0) {
-                Write-StyledMessage Success "RustDesk installato"
+                Write-StyledMessage -Type 'Success' -Text "RustDesk installato"
                 return $true
             }
             else {
-                Write-StyledMessage Error "Errore installazione (Exit Code: $($process.ExitCode))"
+                Write-StyledMessage -Type 'Error' -Text "Errore installazione (Exit Code: $($process.ExitCode))"
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante installazione: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante installazione: $($_.Exception.Message)"
         }
 
         return $false

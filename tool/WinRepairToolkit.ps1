@@ -105,8 +105,8 @@ function WinRepairToolkit {
         Write-Host ''
 
         $totalErrors = $successCount = 0
-        for ($i = 0; $i -lt $RepairTools.Count; $i++) {
-            $result = Invoke-RepairCommand -Config $RepairTools[$i] -Step ($i + 1) -Total $RepairTools.Count
+        for ($toolIndex = 0; $toolIndex -lt $RepairTools.Count; $toolIndex++) {
+            $result = Invoke-RepairCommand -Config $RepairTools[$toolIndex] -Step ($toolIndex + 1) -Total $RepairTools.Count
             if ($result.Success) { $successCount++ }
             if (!$result.Success -and !($RepairTools[$i].ContainsKey('IsCritical') -and !$RepairTools[$i].IsCritical)) {
                 $totalErrors += $result.ErrorCount
