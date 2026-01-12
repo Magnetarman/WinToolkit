@@ -16,7 +16,7 @@ function OfficeToolkit {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30
     )
 
