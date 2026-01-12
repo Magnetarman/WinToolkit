@@ -92,24 +92,36 @@ function WinReinstallStore {
             $nugetActivity = "Installazione PackageProvider NuGet"
             Write-StyledMessage Info "🔄 $nugetActivity..."
             try {
-                # Ensure PowerShellGet module is up-to-date
-                Install-Module -Name PowerShellGet -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
-                
-                $nugetResult = Invoke-WithSpinner -Activity $nugetActivity -Timer -TimeoutSeconds 90 -Action {
-                    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
-                }
-                Clear-ProgressLine
-                if ($nugetResult) {
-                    Write-StyledMessage Success "Provider NuGet installato/verificato."
+                # Ensure PowerShellGet module is installed and up-to-date
+                if (-not (Get-Module -Name PowerShellGet -ListAvailable)) {
+                    Install-Module -Name PowerShellGet -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
                 }
                 else {
-                    Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe essere già installato o richiedere conferma manuale. Errore: Installazione non riuscita o timeout."
+                    Update-Module -Name PowerShellGet -Force -ErrorAction SilentlyContinue *>$null
+                }
+                
+                # Verify NuGet provider is installed
+                $nugetProvider = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
+                if (-not $nugetProvider) {
+                    $nugetResult = Invoke-WithSpinner -Activity $nugetActivity -Timer -TimeoutSeconds 90 -Action {
+                        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
+                    }
+                    Clear-ProgressLine
+                    if ($nugetResult) {
+                        Write-StyledMessage Success "Provider NuGet installato."
+                    }
+                    else {
+                        Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe richiedere conferma manuale. Errore: Installazione non riuscita o timeout."
+                    }
+                }
+                else {
+                    Write-StyledMessage Success "Provider NuGet già installato."
                 }
             }
             catch {
                 # Cattura errori da Install-PackageProvider se fallisce prima di essere avvolto nello spinner
                 Clear-ProgressLine
-                Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe essere già installato o richiedere conferma manuale. Errore: $($_.Exception.Message)"
+                Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe richiedere conferma manuale. Errore: $($_.Exception.Message)"
             }
 
             # Installazione Modulo Microsoft.WinGet.Client
@@ -137,7 +149,7 @@ function WinReinstallStore {
                     $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
                 }
                 Clear-ProgressLine
-                Start-Sleep 5 # Mantenere il delay originale
+                Start-Sleep 5
                 if (Test-WingetAvailable) {
                     Write-StyledMessage Success "Winget riparato con successo tramite modulo."
                 }
