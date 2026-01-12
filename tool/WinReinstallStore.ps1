@@ -103,16 +103,26 @@ function WinReinstallStore {
                 # Verify NuGet provider is installed
                 $nugetProvider = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
                 if (-not $nugetProvider) {
-                    $nugetResult = Invoke-WithSpinner -Activity $nugetActivity -Timer -TimeoutSeconds 180 -Action {
-                        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
-                    }
+                    # Usa start-job per permettere a Invoke-WithSpinner di monitorare realmente l'attività
+                    $nugetJob = Start-Job -ScriptBlock {
+                        param($MinVersion)
+                        $ErrorActionPreference = 'Stop'
+                        Install-PackageProvider -Name NuGet -MinimumVersion $MinVersion -Force -Confirm:$false *>$null
+                    } -ArgumentList "2.8.5.201"
+
+                    $nugetResult = Invoke-WithSpinner -Activity $nugetActivity -Job -Action { $nugetJob } -TimeoutSeconds 180
+                    
                     Clear-ProgressLine
-                    if ($nugetResult) {
+                    
+                    # Verifica esito del job
+                    if ($nugetJob.State -eq 'Completed' -and -not $nugetJob.HasErrors) {
                         Write-StyledMessage Success "Provider NuGet installato."
                     }
                     else {
-                        Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe richiedere conferma manuale. Errore: Installazione non riuscita o timeout."
+                        $err = Receive-Job -Job $nugetJob -ErrorAction SilentlyContinue | Out-String
+                        Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe richiedere conferma manuale. Errore: Installazione non riuscita o timeout. Dettagli: $err"
                     }
+                    Remove-Job $nugetJob -Force -ErrorAction SilentlyContinue
                 }
                 else {
                     Write-StyledMessage Success "Provider NuGet già installato."
@@ -127,17 +137,28 @@ function WinReinstallStore {
             # Installazione Modulo Microsoft.WinGet.Client
             $moduleActivity = "Installazione modulo Microsoft.WinGet.Client"
             Write-StyledMessage Info "🔄 $moduleActivity..."
-            $moduleResult = Invoke-WithSpinner -Activity $moduleActivity -Timer -TimeoutSeconds 180 -Action {
-                Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
-                Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
+            
+            $moduleJob = Start-Job -ScriptBlock {
+                $ErrorActionPreference = 'SilentlyContinue'
+                Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false *>$null
+                Import-Module Microsoft.WinGet.Client *>$null
             }
+
+            $moduleResult = Invoke-WithSpinner -Activity $moduleActivity -Job -Action { $moduleJob } -TimeoutSeconds 180
+            
             Clear-ProgressLine
-            if ($moduleResult) {
+            
+            if ($moduleJob.State -eq 'Completed' -and -not $moduleJob.HasErrors) {
                 Write-StyledMessage Success "Modulo Microsoft.WinGet.Client installato e importato."
             }
             else {
-                Write-StyledMessage Error "Errore durante l'installazione o l'importazione del modulo Microsoft.WinGet.Client."
+                $err = Receive-Job -Job $moduleJob -ErrorAction SilentlyContinue | Out-String
+                Write-StyledMessage Error "Errore durante l'installazione o l'importazione del modulo Microsoft.WinGet.Client. Dettagli: $err"
             }
+            Remove-Job $moduleJob -Force -ErrorAction SilentlyContinue
+            
+            # Re-importa nel contesto principale per sicurezza
+            Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
 
             # --- FASE 3: Riparazione e Reinstallazione del Core di Winget ---
 
