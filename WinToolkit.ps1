@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 200)"
+$ToolkitVersion = "2.5.0 (Build 201)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -1225,11 +1225,11 @@ function WinReinstallStore {
                 else {
                     Update-Module -Name PowerShellGet -Force -ErrorAction SilentlyContinue *>$null
                 }
-                
+                 
                 # Verify NuGet provider is installed
                 $nugetProvider = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
                 if (-not $nugetProvider) {
-                    $nugetResult = Invoke-WithSpinner -Activity $nugetActivity -Timer -TimeoutSeconds 90 -Action {
+                    $nugetResult = Invoke-WithSpinner -Activity $nugetActivity -Timer -TimeoutSeconds 180 -Action {
                         Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
                     }
                     Clear-ProgressLine
@@ -1253,7 +1253,7 @@ function WinReinstallStore {
             # Installazione Modulo Microsoft.WinGet.Client
             $moduleActivity = "Installazione modulo Microsoft.WinGet.Client"
             Write-StyledMessage Info "🔄 $moduleActivity..."
-            $moduleResult = Invoke-WithSpinner -Activity $moduleActivity -Timer -TimeoutSeconds 120 -Action {
+            $moduleResult = Invoke-WithSpinner -Activity $moduleActivity -Timer -TimeoutSeconds 180 -Action {
                 Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
                 Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
             }
@@ -1319,7 +1319,7 @@ function WinReinstallStore {
             try {
                 $resetAppxActivity = "Reset 'Programma di installazione app'"
                 Write-StyledMessage Info "🔄 $resetAppxActivity..."
-                $resetAppxResult = Invoke-WithSpinner -Activity $resetAppxActivity -Timer -TimeoutSeconds 90 -Action {
+                $resetAppxResult = Invoke-WithSpinner -Activity $resetAppxActivity -Timer -TimeoutSeconds 180 -Action {
                     Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage *>$null
                 }
                 Clear-ProgressLine
@@ -1344,7 +1344,7 @@ function WinReinstallStore {
                 return $true
             }
             else {
-                Write-StyledMessage Error "❌ Impossibile installare o riparare Winget dopo tutti i tentativi."
+                Write-StyledMessage Error "Impossibile installare o riparare Winget dopo tutti i tentativi."
                 return $false
             }
         }
@@ -5120,6 +5120,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
