@@ -16,7 +16,7 @@ function DisableBitlocker {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [bool]$RunStandalone = $true
     )
 
