@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 197)"
+$ToolkitVersion = "2.5.0 (Build 198)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -1139,6 +1139,12 @@ function WinReinstallStore {
     Show-Header -SubTitle "Store Repair Toolkit"
 
 
+    function Clear-ProgressLine {
+        Write-Host "`r" -NoNewline
+        Write-Host " " * 100 -NoNewline
+        Write-Host "`r" -NoNewline
+    }
+
     function Stop-InterferingProcesses {
         @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore",
             "Microsoft.DesktopAppInstaller", "RuntimeBroker", "dllhost") | ForEach-Object {
@@ -1190,24 +1196,18 @@ function WinReinstallStore {
             # Reset Sorgenti Winget
             $resetActivity = "Reset delle sorgenti Winget"
             Write-StyledMessage Info "🔄 $resetActivity..."
-            $resetResult = Invoke-WithSpinner -Activity $resetActivity -Timer -TimeoutSeconds 60 -Action {
-                # Mantenere l'output soppresso all'interno dell'Action per i comandi diretti che non sono Start-Process
-                # per evitare output intermedi che lo spinner non può gestire automaticamente in modalità Timer.
-                $wingetExePath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" # Ripristina la variabile locale
+            try {
+                $wingetExePath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
                 if (Test-Path $wingetExePath) {
                     & $wingetExePath source reset --force *>$null
                 }
                 else {
                     winget source reset --force *>$null
                 }
-            }
-            Clear-ProgressLine # Assicurati che la riga dello spinner sia pulita
-            if ($resetResult) {
-                # Invoke-WithSpinner in timer mode restituisce $true al completamento
                 Write-StyledMessage Success "Sorgenti Winget resettate."
             }
-            else {
-                Write-StyledMessage Warning "Reset delle sorgenti Winget non riuscito o parzialmente completato."
+            catch {
+                Write-StyledMessage Warning "Reset delle sorgenti Winget non riuscito o parzialmente completato: $($_.Exception.Message)"
             }
 
             # --- FASE 2: Installazione Dipendenze e Moduli PowerShell ---
@@ -1342,6 +1342,15 @@ function WinReinstallStore {
             $ErrorActionPreference = 'Continue'
             $ProgressPreference = 'Continue'
             $VerbosePreference = 'SilentlyContinue'
+        }
+    }
+
+    # Ensure Clear-ProgressLine is defined
+    if (-not (Get-Command Clear-ProgressLine -ErrorAction SilentlyContinue)) {
+        function Clear-ProgressLine {
+            Write-Host "`r" -NoNewline
+            Write-Host " " * 100 -NoNewline
+            Write-Host "`r" -NoNewline
         }
     }
 
@@ -1925,7 +1934,7 @@ function OfficeToolkit {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30
     )
 
@@ -4121,7 +4130,7 @@ function GamingToolkit {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30
     )
 
@@ -4160,7 +4169,7 @@ function GamingToolkit {
             $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action {
                 $procParams = @{
                     FilePath     = 'winget'
-                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements')
+                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity', '--disable-progress')
                     PassThru     = $true
                     NoNewWindow  = $true
                 }
@@ -4480,7 +4489,7 @@ function DisableBitlocker {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [bool]$RunStandalone = $true
     )
 
@@ -5096,6 +5105,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
