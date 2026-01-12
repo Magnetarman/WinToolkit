@@ -55,7 +55,7 @@
             $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action {
                 $procParams = @{
                     FilePath     = 'winget'
-                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity', '--disable-progress')
+                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements')
                     PassThru     = $true
                     NoNewWindow  = $true
                 }
