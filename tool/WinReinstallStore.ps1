@@ -92,6 +92,9 @@ function WinReinstallStore {
             $nugetActivity = "Installazione PackageProvider NuGet"
             Write-StyledMessage Info "🔄 $nugetActivity..."
             try {
+                # Ensure PowerShellGet module is up-to-date
+                Install-Module -Name PowerShellGet -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
+                
                 $nugetResult = Invoke-WithSpinner -Activity $nugetActivity -Timer -TimeoutSeconds 90 -Action {
                     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
                 }
