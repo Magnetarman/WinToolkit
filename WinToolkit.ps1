@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 202)"
+$ToolkitVersion = "2.5.0 (Build 203)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -1295,14 +1295,13 @@ function WinReinstallStore {
                 $procParams = @{
                     FilePath               = 'powershell'
                     ArgumentList           = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop *>$null } catch { exit 1 }; exit 0")
-                    Wait                   = $true
                     PassThru               = $true
                     WindowStyle            = 'Hidden'
                     RedirectStandardOutput = 'NUL'
                     RedirectStandardError  = 'NUL'
                 }
                 $processResult = Invoke-WithSpinner -Activity $installMsiActivity -Process -Action {
-                    Start-Process @procParams # Questa è la chiamata originale a Start-Process con PassThru
+                    Start-Process @procParams
                 } -TimeoutSeconds 300 -UpdateInterval 700
                 Clear-ProgressLine # Assicurati che la riga dello spinner sia pulita
 
@@ -1393,11 +1392,12 @@ function WinReinstallStore {
                 @{ Name = "Winget Install"; Script = {
                         if (Test-WingetAvailable) {
                             $procParams = @{
-                                FilePath     = 'winget'
-                                ArgumentList = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--disable-progress'
-                                Wait         = $true
-                                PassThru     = $true
-                                WindowStyle  = 'Hidden'
+                                FilePath               = 'winget'
+                                ArgumentList           = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--disable-progress'
+                                PassThru               = $true
+                                WindowStyle            = 'Hidden'
+                                RedirectStandardOutput = 'NUL'
+                                RedirectStandardError  = 'NUL'
                             }
                             $process = Start-Process @procParams
                             return $process.ExitCode -eq 0
@@ -1414,7 +1414,6 @@ function WinReinstallStore {
                                     $procParams = @{
                                         FilePath               = 'powershell'
                                         ArgumentList           = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown *>$null")
-                                        Wait                   = $true
                                         PassThru               = $true
                                         WindowStyle            = 'Hidden'
                                         RedirectStandardOutput = 'NUL'
@@ -1430,11 +1429,12 @@ function WinReinstallStore {
                 },
                 @{ Name = "DISM Capability"; Script = {
                         $procParams = @{
-                            FilePath     = 'DISM'
-                            ArgumentList = '/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0'
-                            Wait         = $true
-                            PassThru     = $true
-                            WindowStyle  = 'Hidden'
+                            FilePath               = 'DISM'
+                            ArgumentList           = '/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0'
+                            PassThru               = $true
+                            WindowStyle            = 'Hidden'
+                            RedirectStandardOutput = 'NUL'
+                            RedirectStandardError  = 'NUL'
                         }
                         $process = Start-Process @procParams
                         return $process.ExitCode -eq 0
@@ -5132,6 +5132,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
