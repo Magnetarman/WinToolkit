@@ -455,8 +455,7 @@ function WinReinstallStore {
 
         # Ensure progress bar is cleared before final output
         Clear-ProgressLine
-        
-        Write-Host ""
+
         Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA"
 
         if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario per applicare le modifiche") {
