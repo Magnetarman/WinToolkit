@@ -103,15 +103,12 @@ function WinReinstallStore {
                 # Verify NuGet provider is installed
                 $nugetProvider = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
                 if (-not $nugetProvider) {
-                    $nugetResult = Invoke-WithSpinner -Activity $nugetActivity -Timer -TimeoutSeconds 180 -Action {
+                    try {
                         Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
-                    }
-                    Clear-ProgressLine
-                    if ($nugetResult) {
                         Write-StyledMessage Success "Provider NuGet installato."
                     }
-                    else {
-                        Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe richiedere conferma manuale. Errore: Installazione non riuscita o timeout."
+                    catch {
+                        Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe richiedere conferma manuale. Errore: $($_.Exception.Message)"
                     }
                 }
                 else {
@@ -119,24 +116,19 @@ function WinReinstallStore {
                 }
             }
             catch {
-                # Cattura errori da Install-PackageProvider se fallisce prima di essere avvolto nello spinner
-                Clear-ProgressLine
-                Write-StyledMessage Warning "Nota: Il provider NuGet potrebbe richiedere conferma manuale. Errore: $($_.Exception.Message)"
+                Write-StyledMessage Warning "Errore durante l'installazione del provider NuGet: $($_.Exception.Message)"
             }
 
             # Installazione Modulo Microsoft.WinGet.Client
             $moduleActivity = "Installazione modulo Microsoft.WinGet.Client"
             Write-StyledMessage Info "🔄 $moduleActivity..."
-            $moduleResult = Invoke-WithSpinner -Activity $moduleActivity -Timer -TimeoutSeconds 180 -Action {
-                Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
+            try {
+                Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
                 Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
-            }
-            Clear-ProgressLine
-            if ($moduleResult) {
                 Write-StyledMessage Success "Modulo Microsoft.WinGet.Client installato e importato."
             }
-            else {
-                Write-StyledMessage Error "Errore durante l'installazione o l'importazione del modulo Microsoft.WinGet.Client."
+            catch {
+                Write-StyledMessage Error "Errore durante l'installazione o l'importazione del modulo Microsoft.WinGet.Client: $($_.Exception.Message)"
             }
 
             # --- FASE 3: Riparazione e Reinstallazione del Core di Winget ---
@@ -145,16 +137,18 @@ function WinReinstallStore {
             if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
                 $repairModuleActivity = "Riparazione Winget tramite modulo WinGet Client"
                 Write-StyledMessage Info "🔄 $repairModuleActivity..."
-                $repairModuleResult = Invoke-WithSpinner -Activity $repairModuleActivity -Timer -TimeoutSeconds 180 -Action {
+                try {
                     $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
+                    Start-Sleep 5
+                    if (Test-WingetAvailable) {
+                        Write-StyledMessage Success "Winget riparato con successo tramite modulo."
+                    }
+                    else {
+                        Write-StyledMessage Warning "Riparazione Winget tramite modulo non riuscita."
+                    }
                 }
-                Clear-ProgressLine
-                Start-Sleep 5
-                if (Test-WingetAvailable) {
-                    Write-StyledMessage Success "Winget riparato con successo tramite modulo."
-                }
-                else {
-                    Write-StyledMessage Warning "Riparazione Winget tramite modulo non riuscita."
+                catch {
+                    Write-StyledMessage Warning "Errore durante la riparazione Winget: $($_.Exception.Message)"
                 }
             }
 
@@ -194,19 +188,10 @@ function WinReinstallStore {
             try {
                 $resetAppxActivity = "Reset 'Programma di installazione app'"
                 Write-StyledMessage Info "🔄 $resetAppxActivity..."
-                $resetAppxResult = Invoke-WithSpinner -Activity $resetAppxActivity -Timer -TimeoutSeconds 180 -Action {
-                    Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage *>$null
-                }
-                Clear-ProgressLine
-                if ($resetAppxResult) {
-                    Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
-                }
-                else {
-                    Write-StyledMessage Warning "Reset dell'App 'Programma di installazione app' non riuscito."
-                }
+                Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage *>$null
+                Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
             }
             catch {
-                Clear-ProgressLine
                 Write-StyledMessage Warning "Impossibile resettare l'App 'Programma di installazione app'. Errore: $($_.Exception.Message)"
             }
 
