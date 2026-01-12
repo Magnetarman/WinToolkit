@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 198)"
+$ToolkitVersion = "2.5.0 (Build 199)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -1218,6 +1218,9 @@ function WinReinstallStore {
             $nugetActivity = "Installazione PackageProvider NuGet"
             Write-StyledMessage Info "🔄 $nugetActivity..."
             try {
+                # Ensure PowerShellGet module is up-to-date
+                Install-Module -Name PowerShellGet -Force -AllowClobber -Confirm:$false -ErrorAction SilentlyContinue *>$null
+                
                 $nugetResult = Invoke-WithSpinner -Activity $nugetActivity -Timer -TimeoutSeconds 90 -Action {
                     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
                 }
@@ -4169,7 +4172,7 @@ function GamingToolkit {
             $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action {
                 $procParams = @{
                     FilePath     = 'winget'
-                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity', '--disable-progress')
+                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements')
                     PassThru     = $true
                     NoNewWindow  = $true
                 }
@@ -5105,6 +5108,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
