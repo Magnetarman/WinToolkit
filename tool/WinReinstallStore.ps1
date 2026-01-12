@@ -138,7 +138,15 @@ function WinReinstallStore {
                 $repairModuleActivity = "Riparazione Winget tramite modulo WinGet Client"
                 Write-StyledMessage Info "🔄 $repairModuleActivity..."
                 try {
+                    # Salva posizione cursore per pulizia output
+                    $cursorTop = [Console]::CursorTop
                     $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
+                    
+                    # Pulisci eventuali righe di output rimaste
+                    [Console]::SetCursorPosition(0, $cursorTop)
+                    $clearLine = " " * ([Console]::WindowWidth - 1)
+                    Write-Host "`r$clearLine`r" -NoNewline
+                    
                     Start-Sleep 5
                     if (Test-WingetAvailable) {
                         Write-StyledMessage Success "Winget riparato con successo tramite modulo."
@@ -188,7 +196,16 @@ function WinReinstallStore {
             try {
                 $resetAppxActivity = "Reset 'Programma di installazione app'"
                 Write-StyledMessage Info "🔄 $resetAppxActivity..."
-                Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage *>$null
+                
+                # Salva posizione cursore e sopprimi completamente l'output
+                $cursorTop = [Console]::CursorTop
+                Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue | Out-Null
+                
+                # Pulisci eventuali righe di output rimaste
+                [Console]::SetCursorPosition(0, $cursorTop)
+                $clearLine = " " * ([Console]::WindowWidth - 1)
+                Write-Host "`r$clearLine`r" -NoNewline
+                
                 Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
             }
             catch {
@@ -314,13 +331,17 @@ function WinReinstallStore {
                                 $procParams = @{
                                     FilePath               = 'winget'
                                     ArgumentList           = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--disable-progress'
-                                    PassThru               = $true # Importante per restituire l'oggetto Process
+                                    PassThru               = $true
                                     WindowStyle            = 'Hidden'
                                     RedirectStandardOutput = 'NUL'
                                     RedirectStandardError  = 'NUL'
                                 }
                                 Start-Process @procParams
                             } -TimeoutSeconds 400 -UpdateInterval 700
+                        }
+                        else {
+                            # Winget non disponibile, segna come fallito
+                            $processResult = @{ Success = $false; ExitCode = -1 }
                         }
                     }
                     elseif ($method.Name -eq "AppX Manifest") {
