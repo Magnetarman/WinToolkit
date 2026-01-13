@@ -599,9 +599,11 @@ function New-ToolkitDesktopShortcut {
 
 function Invoke-WinToolkitSetup {
     param(
-        [switch]$InstallProfileOnly,
-        [switch]$ResumeSetup
+        [switch]$InstallProfileOnly
     )
+
+    # Controlla se siamo in modalità resume (già installato PS7, rilanciato)
+    $isResumeSetup = $env:WINTOOLKIT_RESUME -eq "1"
 
     $Host.UI.RawUI.WindowTitle = "Toolkit Starter by MagnetarMan"
 
@@ -654,7 +656,7 @@ function Invoke-WinToolkitSetup {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.5.0 (Build 215)'
+        '        Version 2.5.0 (Build 216)'
     ) | ForEach-Object { Write-Host (Format-CenteredText -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
@@ -669,7 +671,7 @@ function Invoke-WinToolkitSetup {
     # Pipeline Installazione
     $rebootNeeded = $false
 
-    if (-not $ResumeSetup) {
+    if (-not $isResumeSetup) {
         Write-StyledMessage -Type Info -Text "Esecuzione controlli base..."
 
         Install-WingetPackage
@@ -696,7 +698,9 @@ function Invoke-WinToolkitSetup {
             elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
             elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
         }
-        $argList += "-ResumeSetup"
+
+        # Imposta variabile ambiente per segnalare il resume al nuovo processo
+        $env:WINTOOLKIT_RESUME = "1"
 
         $startUrl = $script:AppConfig.URLs.StartScript
         $scriptBlock = if ($PSCommandPath) {
