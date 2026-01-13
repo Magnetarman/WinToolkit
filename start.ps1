@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.0 (Build 213) - 2026-01-13
+    Versione 2.5.0 (Build 216) - 2026-01-13
     Compatibile con PowerShell 5.1+
 #>
 
