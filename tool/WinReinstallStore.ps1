@@ -168,27 +168,29 @@ function WinReinstallStore {
                 $temp = "$env:TEMP\WingetInstaller.msixbundle"
                 if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
                 Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
-                $procParams = @{
-                    FilePath               = 'powershell'
-                    ArgumentList           = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop *>$null } catch { exit 1 }; exit 0")
-                    PassThru               = $true
-                    WindowStyle            = 'Hidden'
-                    RedirectStandardOutput = 'NUL'
-                    RedirectStandardError  = 'NUL'
-                }
-                $processResult = Invoke-WithSpinner -Activity $installMsiActivity -Process -Action {
-                    Start-Process @procParams
-                } -TimeoutSeconds 300 -UpdateInterval 700
-                Clear-ProgressLine # Assicurati che la riga dello spinner sia pulita
+                
+                # Cattura posizione cursore per pulizia output
+                $originalPos = [Console]::CursorTop
+                
+                $process = Start-Process powershell -ArgumentList @(
+                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                    "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
+                ) -Wait -PassThru -WindowStyle Hidden
+                
+                # Reset cursore e flush output
+                [Console]::SetCursorPosition(0, $originalPos)
+                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                Write-Host $clearLine -NoNewline
+                [Console]::Out.Flush()
 
                 Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
                 Start-Sleep 5
-                # Verifica il risultato di Invoke-WithSpinner
-                if ($processResult.Success -and $processResult.ExitCode -eq 0) {
+                
+                if ($process.ExitCode -eq 0) {
                     Write-StyledMessage Success "Winget installato con successo tramite MSIXBundle."
                 }
                 else {
-                    Write-StyledMessage Warning "Installazione Winget tramite MSIXBundle fallita o non riuscita (ExitCode: $($processResult.ExitCode))."
+                    Write-StyledMessage Warning "Installazione Winget tramite MSIXBundle fallita o non riuscita (ExitCode: $($process.ExitCode))."
                 }
             }
 
@@ -198,13 +200,15 @@ function WinReinstallStore {
                 Write-StyledMessage Info "🔄 $resetAppxActivity..."
                 
                 # Salva posizione cursore e sopprimi completamente l'output
-                $cursorTop = [Console]::CursorTop
+                $originalPos = [Console]::CursorTop
                 Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue | Out-Null
+                Start-Sleep -Milliseconds 500  # Dare tempo al progress bar di completare
                 
-                # Pulisci eventuali righe di output rimaste
-                [Console]::SetCursorPosition(0, $cursorTop)
-                $clearLine = " " * ([Console]::WindowWidth - 1)
-                Write-Host "`r$clearLine`r" -NoNewline
+                # Reset cursore e flush output
+                [Console]::SetCursorPosition(0, $originalPos)
+                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                Write-Host $clearLine -NoNewline
+                [Console]::Out.Flush()
                 
                 Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
             }
@@ -237,14 +241,7 @@ function WinReinstallStore {
         }
     }
 
-    # Ensure Clear-ProgressLine is defined
-    if (-not (Get-Command Clear-ProgressLine -ErrorAction SilentlyContinue)) {
-        function Clear-ProgressLine {
-            Write-Host "`r" -NoNewline
-            Write-Host " " * 100 -NoNewline
-            Write-Host "`r" -NoNewline
-        }
-    }
+
 
     function Install-MicrosoftStoreSilent {
         Write-StyledMessage Info "🔄 Reinstallazione Microsoft Store in corso..."
@@ -327,17 +324,18 @@ function WinReinstallStore {
                 try {
                     if ($method.Name -eq "Winget Install") {
                         if (Test-WingetAvailable) {
-                            $processResult = Invoke-WithSpinner -Activity $activityName -Process -Action {
-                                $procParams = @{
-                                    FilePath               = 'winget'
-                                    ArgumentList           = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--disable-progress'
-                                    PassThru               = $true
-                                    WindowStyle            = 'Hidden'
-                                    RedirectStandardOutput = 'NUL'
-                                    RedirectStandardError  = 'NUL'
-                                }
-                                Start-Process @procParams
-                            } -TimeoutSeconds 400 -UpdateInterval 700
+                            # Cattura posizione cursore per pulizia output
+                            $originalPos = [Console]::CursorTop
+                            
+                            $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                            
+                            # Reset cursore e flush output
+                            [Console]::SetCursorPosition(0, $originalPos)
+                            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                            Write-Host $clearLine -NoNewline
+                            [Console]::Out.Flush()
+                            
+                            $processResult = @{ Success = $true; ExitCode = $process.ExitCode }
                         }
                         else {
                             # Winget non disponibile, segna come fallito
@@ -345,48 +343,49 @@ function WinReinstallStore {
                         }
                     }
                     elseif ($method.Name -eq "AppX Manifest") {
-                        # Questa logica è stata adattata per avviare un singolo processo PowerShell monitorabile.
-                        $processResult = Invoke-WithSpinner -Activity $activityName -Process -Action {
-                            $store = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue | Select-Object -First 1
-                            if ($store) {
-                                $manifest = "$($store.InstallLocation)\AppXManifest.xml"
-                                if (Test-Path $manifest) {
-                                    $procParams = @{
-                                        FilePath               = 'powershell'
-                                        ArgumentList           = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown -ErrorAction Stop *>$null ; exit `$LASTEXITCODE")
-                                        PassThru               = $true
-                                        WindowStyle            = 'Hidden'
-                                        RedirectStandardOutput = 'NUL'
-                                        RedirectStandardError  = 'NUL'
-                                    }
-                                    Start-Process @procParams
-                                }
-                                else { $null }
+                        # Cattura posizione cursore per pulizia output
+                        $originalPos = [Console]::CursorTop
+                        
+                        $store = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue | Select-Object -First 1
+                        if ($store) {
+                            $manifest = "$($store.InstallLocation)\AppXManifest.xml"
+                            if (Test-Path $manifest) {
+                                $process = Start-Process powershell -ArgumentList @(
+                                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                                    "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
+                                ) -Wait -PassThru -WindowStyle Hidden
+                                
+                                # Reset cursore e flush output
+                                [Console]::SetCursorPosition(0, $originalPos)
+                                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                                Write-Host $clearLine -NoNewline
+                                [Console]::Out.Flush()
+                                
+                                $processResult = @{ Success = $true; ExitCode = $process.ExitCode }
                             }
-                            else { $null }
-                        } -TimeoutSeconds 400 -UpdateInterval 700
+                            else { $processResult = @{ Success = $false; ExitCode = -1 } }
+                        }
+                        else { $processResult = @{ Success = $false; ExitCode = -1 } }
                     }
                     elseif ($method.Name -eq "DISM Capability") {
-                        $processResult = Invoke-WithSpinner -Activity $activityName -Process -Action {
-                            $procParams = @{
-                                FilePath               = 'DISM'
-                                ArgumentList           = '/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0'
-                                PassThru               = $true
-                                WindowStyle            = 'Hidden'
-                                RedirectStandardOutput = 'NUL'
-                                RedirectStandardError  = 'NUL'
-                            }
-                            Start-Process @procParams
-                        } -TimeoutSeconds 400 -UpdateInterval 700
+                        # Cattura posizione cursore per pulizia output
+                        $originalPos = [Console]::CursorTop
+                        
+                        $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
+                        
+                        # Reset cursore e flush output
+                        [Console]::SetCursorPosition(0, $originalPos)
+                        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                        Write-Host $clearLine -NoNewline
+                        [Console]::Out.Flush()
+                        
+                        $processResult = @{ Success = $true; ExitCode = $process.ExitCode }
                     }
                 }
                 catch {
-                    Clear-ProgressLine
                     Write-StyledMessage Warning "Errore durante l'esecuzione del metodo $($method.Name): $($_.Exception.Message)"
-                    $processResult = @{ Success = $false; ExitCode = -1 } # Simula un fallimento per lo spinner
+                    $processResult = @{ Success = $false; ExitCode = -1 }
                 }
-
-                Clear-ProgressLine # Assicura che la riga dello spinner sia pulita prima del messaggio styled
 
                 # Verifica il risultato di Invoke-WithSpinner
                 # Codici di successo comuni: 0 (successo), 3010 (successo, riavvio richiesto), 1638 (già installato), -1978335189 (winget "Noop")
@@ -428,21 +427,22 @@ function WinReinstallStore {
 
             $unigetActivity = "Installazione UniGet UI"
             Write-StyledMessage Info "🔄 $unigetActivity..."
-            $processResult = Invoke-WithSpinner -Activity $unigetActivity -Process -Action {
-                $procParams = @{
-                    FilePath               = 'winget'
-                    ArgumentList           = 'install', '--exact', '--id', 'MartiCliment.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--disable-progress', '--force'
-                    PassThru               = $true
-                    WindowStyle            = 'Hidden'
-                    RedirectStandardOutput = 'NUL'
-                    RedirectStandardError  = 'NUL'
-                }
-                Start-Process @procParams
-            } -TimeoutSeconds 300 -UpdateInterval 700
-            Clear-ProgressLine # Assicura che la riga dello spinner sia pulita
+            
+            # Cattura posizione cursore per pulizia output
+            $originalPos = [Console]::CursorTop
+            
+            $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+            Start-Sleep 2
+            $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
+            
+            # Reset cursore e flush output
+            [Console]::SetCursorPosition(0, $originalPos)
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
 
-            # Verifica il risultato di Invoke-WithSpinner
-            if ($processResult.Success -and ($processResult.ExitCode -eq 0 -or $processResult.ExitCode -eq 3010 -or $processResult.ExitCode -eq 1638 -or $processResult.ExitCode -eq -1978335189)) {
+            # Verifica il risultato
+            if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010 -or $process.ExitCode -eq 1638 -or $process.ExitCode -eq -1978335189) {
                 Write-StyledMessage Success "$unigetActivity completata."
                 Write-StyledMessage Info "🔄 Disabilitazione avvio automatico UniGet UI..."
                 try {
@@ -462,12 +462,11 @@ function WinReinstallStore {
                 return $true
             }
             else {
-                Write-StyledMessage Error "$unigetActivity fallita o non riuscita (ExitCode: $($processResult.ExitCode))."
+                Write-StyledMessage Error "$unigetActivity fallita o non riuscita (ExitCode: $($process.ExitCode))."
                 return $false
             }
         }
         catch {
-            Clear-ProgressLine
             return $false
         }
         finally {
@@ -494,9 +493,6 @@ function WinReinstallStore {
 
         $unigetResult = Install-UniGetUISilent
         Write-StyledMessage $(if ($unigetResult) { 'Success' }else { 'Warning' }) "UniGet UI $(if($unigetResult){'installato'}else{'processato'})"
-
-        # Ensure progress bar is cleared before final output
-        Clear-ProgressLine
 
         Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA"
 
