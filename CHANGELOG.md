@@ -89,8 +89,6 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
   - Aggiunta l'installazione del nuovo .NET Framework 10, già richiesto da alcune applicazioni per funzionare correttamente.
 
-- Aggiunta funzione di esportazione log.
-
 - Setup profilo PowerShell `WinPSP-Setup.ps1` (integrato nello script `start.ps1`)
   - Eliminazione di ogni riferimento al tool di Chris (implementate funzioni personalizzate + correzione di vari errori di installazione di Chris Titus Tech)
   - Integrazione di WinToolkit e Dev
@@ -102,6 +100,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Installazione di btop.
   - Potenziamento del profilo con funzione help personalizzata.
   - Caricamento all'avvio del terminale di FastFetch, zoxide e oh-my-posh personalizzato.
+  
+- Aggiunta funzione di esportazione log.
 
 ### Correzioni
 
