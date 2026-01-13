@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 218)"
+$ToolkitVersion = "2.5.0 (Build 219)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -105,7 +105,24 @@ $Global:MsgStyles = @{
     Progress = @{ Icon = '🔄'; Color = 'Magenta' }
 }
 
+# --- VARIABILI GLOBALI PER ESECUZIONE MULTI-SCRIPT ---
+$Global:ExecutionLog = @()
+$Global:NeedsFinalReboot = $false
+
 # --- FUNZIONI HELPER CONDIVISE ---
+
+function Clear-ProgressLine {
+    if ($Host.Name -eq 'ConsoleHost') {
+        try {
+            $width = $Host.UI.RawUI.WindowSize.Width - 1
+            Write-Host "`r$(' ' * $width)" -NoNewline
+            Write-Host "`r" -NoNewline
+        }
+        catch {
+            Write-Host "`r                                                                                `r" -NoNewline
+        }
+    }
+}
 
 function Write-StyledMessage {
     param(
@@ -304,7 +321,17 @@ function Start-InterruptibleCountdown {
     .SYNOPSIS
         Conto alla rovescia che può essere interrotto dall'utente.
     #>
-    param([int]$Seconds = 30, [string]$Message = "Riavvio automatico")
+    param(
+        [int]$Seconds = 30,
+        [string]$Message = "Riavvio automatico",
+        [switch]$Suppress
+    )
+    
+    # Se il parametro Suppress è attivo, ritorna immediatamente senza countdown
+    if ($Suppress) {
+        return $true
+    }
+    
     Write-StyledMessage -Type 'Info' -Text '💡 Premi un tasto qualsiasi per annullare...'
     Write-Host ''
     for ($i = $Seconds; $i -gt 0; $i--) {
@@ -4759,7 +4786,7 @@ while ($true) {
     Write-Host ""
     Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
     Write-Host ""
-    $c = Read-Host "Digita il numero dell'operazione da eseguire e premi INVIO"
+    $c = Read-Host "Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza"
 
     if ($c -eq '0') {
         Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
@@ -4771,8 +4798,79 @@ while ($true) {
         break
     }
 
-    if ($c -match '^\d+$' -and [int]$c -ge 1 -and [int]$c -le $allScripts.Count) {
-        Invoke-Expression $allScripts[[int]$c - 1].Name
-        Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
+    # Parsing input multipli: supporta "1 2 3", "1,2,3", "1, 2, 3"
+    $selections = @()
+    $rawInputs = $c -split '[\s,]+' | Where-Object { $_ -match '^\d+$' }
+    foreach ($input in $rawInputs) {
+        $num = [int]$input
+        if ($num -ge 1 -and $num -le $allScripts.Count) {
+            $selections += $num
+        }
     }
+
+    if ($selections.Count -eq 0) {
+        Write-StyledMessage -Type 'Warning' -Text '⚠️ Nessuna selezione valida. Riprova.'
+        Start-Sleep -Seconds 2
+        continue
+    }
+
+    # Reset variabili globali per esecuzione multi-script
+    $Global:ExecutionLog = @()
+    $Global:NeedsFinalReboot = $false
+    $isMultiScript = ($selections.Count -gt 1)
+
+    Write-Host ''
+    if ($isMultiScript) {
+        Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione sequenziale di $($selections.Count) operazioni..."
+        Write-Host ''
+    }
+
+    foreach ($sel in $selections) {
+        $scriptToRun = $allScripts[$sel - 1]
+        Write-StyledMessage -Type 'Progress' -Text "▶️ Avvio: $($scriptToRun.Description)"
+        Write-Host ''
+        
+        try {
+            if ($isMultiScript) {
+                # Esecuzione con soppressione riavvio individuale
+                Invoke-Expression "$($scriptToRun.Name) -SuppressIndividualReboot"
+            }
+            else {
+                # Esecuzione normale (singola selezione)
+                Invoke-Expression $scriptToRun.Name
+            }
+            $Global:ExecutionLog += @{ Name = $scriptToRun.Description; Success = $true }
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "❌ Errore durante $($scriptToRun.Description): $($_.Exception.Message)"
+            $Global:ExecutionLog += @{ Name = $scriptToRun.Description; Success = $false; Error = $_.Exception.Message }
+        }
+        Write-Host ''
+    }
+
+    # Riepilogo esecuzione (solo se multi-script)
+    if ($isMultiScript) {
+        Write-Host ''
+        Write-StyledMessage -Type 'Info' -Text '📊 Riepilogo esecuzione:'
+        foreach ($log in $Global:ExecutionLog) {
+            if ($log.Success) {
+                Write-Host "  ✅ $($log.Name)" -ForegroundColor Green
+            }
+            else {
+                Write-Host "  ❌ $($log.Name)" -ForegroundColor Red
+            }
+        }
+        Write-Host ''
+    }
+
+    # Gestione riavvio finale centralizzato
+    if ($Global:NeedsFinalReboot) {
+        Write-StyledMessage -Type 'Warning' -Text '🔄 È necessario un riavvio per completare le operazioni.'
+        if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message 'Riavvio sistema in') {
+            Restart-Computer -Force
+        }
+    }
+
+    Write-Host "`nPremi INVIO per tornare al menu..." -ForegroundColor Gray
+    $null = Read-Host
 }
