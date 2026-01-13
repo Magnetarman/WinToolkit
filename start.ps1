@@ -598,7 +598,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.5.0'
+        '        Version 2.5.0 (Build 211)'
     ) | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
