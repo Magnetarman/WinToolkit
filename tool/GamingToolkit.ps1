@@ -17,7 +17,10 @@
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false)]
-        [int]$CountdownSeconds = 30
+        [int]$CountdownSeconds = 30,
+        
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
     )
 
     # 1. Inizializzazione logging
@@ -345,15 +348,21 @@
     Write-Host ''
 
     # Step 11: Riavvio
-    $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario"
-
-    if ($shouldReboot) {
-        Write-StyledMessage Info '🔄 Riavvio...'
-        Restart-Computer -Force
+    if ($SuppressIndividualReboot) {
+        $Global:NeedsFinalReboot = $true
+        Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
     }
     else {
-        Write-StyledMessage Warning 'Riavvia manualmente per applicare tutte le modifiche.'
-        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
-        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario"
+
+        if ($shouldReboot) {
+            Write-StyledMessage Info '🔄 Riavvio...'
+            Restart-Computer -Force
+        }
+        else {
+            Write-StyledMessage Warning 'Riavvia manualmente per applicare tutte le modifiche.'
+            Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        }
     }
 }

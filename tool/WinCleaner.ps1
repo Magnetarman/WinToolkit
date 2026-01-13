@@ -11,7 +11,10 @@ function WinCleaner {
     param(
         [Parameter(Mandatory = $false)]
         [ValidateRange(0, 300)]
-        [int]$CountdownSeconds = 30
+        [int]$CountdownSeconds = 30,
+        
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
     )
 
     # Initialize global execution log BEFORE any function calls
@@ -863,8 +866,14 @@ function WinCleaner {
     Write-StyledMessage -Type 'Info' -Text "=================================================="
     Write-Host "`n"
 
-    $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio sistema in"
-    if ($shouldReboot) {
-        Restart-Computer -Force
+    if ($SuppressIndividualReboot) {
+        $Global:NeedsFinalReboot = $true
+        Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+    }
+    else {
+        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio sistema in"
+        if ($shouldReboot) {
+            Restart-Computer -Force
+        }
     }
 }

@@ -16,8 +16,11 @@ function SetRustDesk {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
-        [int]$CountdownSeconds = 30
+        [Parameter(Mandatory = $false)]
+        [int]$CountdownSeconds = 30,
+        
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
     )
 
     # 1. Inizializzazione logging
@@ -246,9 +249,15 @@ function SetRustDesk {
         Write-StyledMessage Success "🎉 CONFIGURAZIONE RUSTDESK COMPLETATA"
         Write-StyledMessage Info "🔄 Per applicare le modifiche il PC verrà riavviato"
 
-        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Per applicare le modifiche è necessario riavviare il sistema"
-        if ($shouldReboot) {
-            Restart-Computer -Force
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+        }
+        else {
+            $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Per applicare le modifiche è necessario riavviare il sistema"
+            if ($shouldReboot) {
+                Restart-Computer -Force
+            }
         }
     }
     catch {

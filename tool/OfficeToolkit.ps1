@@ -17,7 +17,10 @@ function OfficeToolkit {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false)]
-        [int]$CountdownSeconds = 30
+        [int]$CountdownSeconds = 30,
+        
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
     )
 
     # 1. Inizializzazione logging
@@ -681,8 +684,14 @@ function OfficeToolkit {
                 if ($success) {
                     Write-StyledMessage Success "🎉 $operation completata!"
                     if (Get-UserConfirmation "🔄 Riavviare ora per finalizzare?" 'Y') {
-                        Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "$operation completata"
-                        Restart-Computer -Force
+                        if ($SuppressIndividualReboot) {
+                            $Global:NeedsFinalReboot = $true
+                            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+                        }
+                        else {
+                            Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "$operation completata"
+                            Restart-Computer -Force
+                        }
                     }
                     else {
                         Write-StyledMessage Info "💡 Riavvia manualmente quando possibile"

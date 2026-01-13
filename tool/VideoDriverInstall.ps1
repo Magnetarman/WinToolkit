@@ -11,7 +11,10 @@ function VideoDriverInstall {
     #>
 
     [CmdletBinding()]
-    param([int]$CountdownSeconds = 30)
+    param(
+        [int]$CountdownSeconds = 30,
+        [switch]$SuppressIndividualReboot
+    )
 
     Initialize-ToolLogging -ToolName "VideoDriverInstall"
     Show-Header -SubTitle "Video Driver Install Toolkit"
@@ -302,15 +305,23 @@ function VideoDriverInstall {
             return
         }
 
-        $shouldReboot = Start-InterruptibleCountdown -Seconds 30 -Message "Riavvio in modalità provvisoria in corso..."
+        if ($SuppressIndividualReboot) {
+            # In modalità concatenata, non riavviare in safe mode ma segnalare riavvio finale
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio in modalità provvisoria soppresso (esecuzione concatenata)."
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ DDU e installer driver sono sul Desktop. Al prossimo riavvio sarai in SAFE MODE."
+        }
+        else {
+            $shouldReboot = Start-InterruptibleCountdown -Seconds 30 -Message "Riavvio in modalità provvisoria in corso..."
 
-        if ($shouldReboot) {
-            try {
-                shutdown /r /t 0
-                Write-StyledMessage Success "Comando di riavvio inviato."
-            }
-            catch {
-                Write-StyledMessage Error "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)"
+            if ($shouldReboot) {
+                try {
+                    shutdown /r /t 0
+                    Write-StyledMessage Success "Comando di riavvio inviato."
+                }
+                catch {
+                    Write-StyledMessage Error "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)"
+                }
             }
         }
     }

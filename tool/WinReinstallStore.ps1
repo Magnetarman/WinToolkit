@@ -7,7 +7,11 @@ function WinReinstallStore {
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
 
     #>
-    param([int]$CountdownSeconds = 30, [switch]$NoReboot)
+    param(
+        [int]$CountdownSeconds = 30,
+        [switch]$NoReboot,
+        [switch]$SuppressIndividualReboot
+    )
 
     Initialize-ToolLogging -ToolName "WinReinstallStore"
     Show-Header -SubTitle "Store Repair Toolkit"
@@ -506,10 +510,16 @@ function WinReinstallStore {
 
         Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA"
 
-        if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario per applicare le modifiche") {
-            Write-StyledMessage Info "🔄 Riavvio in corso..."
-            if (-not $NoReboot) {
-                Restart-Computer -Force
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+        }
+        else {
+            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario per applicare le modifiche") {
+                Write-StyledMessage Info "🔄 Riavvio in corso..."
+                if (-not $NoReboot) {
+                    Restart-Computer -Force
+                }
             }
         }
     }

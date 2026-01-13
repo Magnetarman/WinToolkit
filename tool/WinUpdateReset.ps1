@@ -6,7 +6,10 @@ function WinUpdateReset {
         Ripara i problemi comuni di Windows Update, reinstalla componenti critici
         e ripristina le configurazioni di default.
     #>
-    param([int]$CountdownSeconds = 15)
+    param(
+        [int]$CountdownSeconds = 15,
+        [switch]$SuppressIndividualReboot
+    )
 
     Initialize-ToolLogging -ToolName "WinUpdateReset"
     Show-Header -SubTitle "Update Reset Toolkit"
@@ -552,11 +555,16 @@ function WinUpdateReset {
         Write-StyledMessage Warning "⚡ Attenzione: il sistema verrà riavviato automaticamente"
         Write-Host ('═' * 65) -ForegroundColor Green
 
-        $shouldReboot = Start-InterruptibleCountdown $CountdownSeconds "Preparazione riavvio sistema"
-
-        if ($shouldReboot) {
-            Write-StyledMessage Info "🔄 Riavvio in corso..."
-            Restart-Computer -Force
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+        }
+        else {
+            $shouldReboot = Start-InterruptibleCountdown $CountdownSeconds "Preparazione riavvio sistema"
+            if ($shouldReboot) {
+                Write-StyledMessage Info "🔄 Riavvio in corso..."
+                Restart-Computer -Force
+            }
         }
     }
     catch {

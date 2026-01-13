@@ -3,7 +3,11 @@ function WinRepairToolkit {
 .SYNOPSIS
     Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk).
 #>
-    param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
+    param(
+        [int]$MaxRetryAttempts = 3,
+        [int]$CountdownSeconds = 30,
+        [switch]$SuppressIndividualReboot
+    )
 
     Initialize-ToolLogging -ToolName "WinRepairToolkit"
     Show-Header -SubTitle "Repair Toolkit"
@@ -145,8 +149,16 @@ function WinRepairToolkit {
 
         if ($deepRepairScheduled) { Write-StyledMessage Warning 'Riavvio necessario per riparazione profonda.' }
 
-        if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
-            Restart-Computer -Force
+        if ($SuppressIndividualReboot) {
+            if ($deepRepairScheduled) {
+                $Global:NeedsFinalReboot = $true
+                Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+            }
+        }
+        else {
+            if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
+                Restart-Computer -Force
+            }
         }
     }
     catch {
