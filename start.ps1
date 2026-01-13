@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.0 (Build 150) - 2025-12-18
+    Versione 2.5.0 (Build 212) - 2026-01-13
     Compatibile con PowerShell 5.1+
 #>
 
@@ -115,9 +115,7 @@ function Install-WingetSilent {
         # Riparazione via modulo
         Write-StyledMessage -Type Info -Text "Tentativo riparazione Winget..."
         if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-            # Esecuzione isolata e non interattiva per evitare blocchi (richiesta invio)
-            $repairCmd = "try { Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue; `$null | Repair-WinGetPackageManager -Force -Latest -Confirm:`$false -ErrorAction SilentlyContinue } catch {}"
-            Start-Process powershell -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $repairCmd -Wait -WindowStyle Hidden
+            Repair-WinGetPackageManager -Force -Latest 2>$null | Out-Null
             Start-Sleep 3
         }
 
@@ -598,7 +596,7 @@ function Start-WinToolkit {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.5.0 (Build 211)'
+        '        Version 2.5.0 (Build 212)'
     ) | ForEach-Object { Write-Host (Center-Text -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
@@ -624,6 +622,36 @@ function Start-WinToolkit {
     else {
         Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
     }
+
+    # --- AUTO-RELAUNCH IN POWERSHELL 7 ---
+    # Se siamo in una versione vecchia (< 7) e abbiamo installato/trovato PS 7, riavviamo lo script nel nuovo motore.
+    if ($PSVersionTable.PSVersion.Major -lt 7 -and (Test-Path "$env:ProgramFiles\PowerShell\7\pwsh.exe")) {
+        Write-StyledMessage -Type Info -Text "✨ Rilevata PowerShell 7. Upgrade dell'ambiente di esecuzione..."
+        Start-Sleep 2
+
+        # Ricostruisce i parametri passati allo script
+        $argList = $PSBoundParameters.GetEnumerator() | ForEach-Object {
+            if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
+            elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
+            elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
+        }
+
+        # Determina come rilanciare (file locale o blocco di script remoto)
+        $script = if ($PSCommandPath) {
+            "& '$PSCommandPath' $($argList -join ' ')"
+        }
+        else {
+            "iex (irm https://magnetarman.com/WinToolkit) $($argList -join ' ')"
+        }
+
+        # Avvia pwsh.exe come Admin
+        Start-Process "$env:ProgramFiles\PowerShell\7\pwsh.exe" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$script`"" -Verb RunAs
+
+        Write-StyledMessage -Type Success -Text "Script riavviato su PowerShell 7. Chiusura sessione legacy..."
+        try { Stop-Transcript | Out-Null } catch { }
+        exit
+    }
+    # -------------------------------------
 
     Install-WindowsTerminal
 
