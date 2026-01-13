@@ -26,7 +26,7 @@ function WinExportLog {
         Write-StyledMessage Info "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso..."
 
         # Metodo alternativo per gestire file in uso
-        $tempFolder = Join-Path $AppConfig.Paths.TempPath "WinToolkit_Logs_Temp_$timestamp"
+        $tempFolder = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
 
         # Crea cartella temporanea
         if (Test-Path $tempFolder) {
