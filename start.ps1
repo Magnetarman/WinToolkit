@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.0 (Build 216) - 2026-01-13
+    Versione 2.5.0 (Build 221) - 2026-01-13
     Compatibile con PowerShell 5.1+
 #>
 
@@ -656,7 +656,7 @@ function Invoke-WinToolkitSetup {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.5.0 (Build 216)'
+        '        Version 2.5.0 (Build 221)'
     ) | ForEach-Object { Write-Host (Format-CenteredText -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
