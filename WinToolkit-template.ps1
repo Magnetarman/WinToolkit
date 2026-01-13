@@ -338,7 +338,7 @@ function Start-InterruptibleCountdown {
         if ([Console]::KeyAvailable) {
             $null = [Console]::ReadKey($true)
             Write-Host "`n"
-            Write-StyledMessage -Type 'Warning' -Text '⏸️ Operazione annullata.'
+            Write-StyledMessage -Type 'Warning' -Text '⏸️ Riavvio del sistema annullato.'
             return $false
         }
         $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
@@ -594,6 +594,10 @@ while ($true) {
         Write-StyledMessage -Type 'Warning' -Text '🔄 È necessario un riavvio per completare le operazioni.'
         if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message 'Riavvio sistema in') {
             Restart-Computer -Force
+        }
+        else {
+            Write-Host ''
+            Write-StyledMessage -Type 'Info' -Text '💡 Ricorda di riavviare il sistema manualmente per completare le operazioni.'
         }
     }
 
