@@ -298,7 +298,7 @@ function Install-PowerShellCore {
             ArgumentList = @(
                 "/i", "`"$installerPath`"",
                 "/norestart",
-                "/quiet",
+                "/passive",
                 "ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1",
                 "ENABLE_PSREMOTING=1",
                 "REGISTER_MANIFEST=1"
@@ -654,7 +654,7 @@ function Invoke-WinToolkitSetup {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.5.0 (Build 214)'
+        '        Version 2.5.0 (Build 215)'
     ) | ForEach-Object { Write-Host (Format-CenteredText -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
@@ -677,7 +677,7 @@ function Invoke-WinToolkitSetup {
 
         if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
             if (Install-PowerShellCore) {
-                $null 
+                $null
             }
         }
         else {
@@ -709,7 +709,7 @@ function Invoke-WinToolkitSetup {
         # Splatting per Start-Process
         $procParams = @{
             FilePath     = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
-            ArgumentList = @("-ExecutionPolicy", "Bypass", "-NoProfile", "-Command", "`"$scriptBlock`"")
+            ArgumentList = @("-ExecutionPolicy", "Bypass", "-NoExit", "-Command", "`"$scriptBlock`"")
             Verb         = "RunAs"
         }
         Start-Process @procParams
