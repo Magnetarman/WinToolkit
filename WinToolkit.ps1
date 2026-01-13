@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 210)"
+$ToolkitVersion = "2.5.0 (Build 211)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -1323,32 +1323,30 @@ function WinReinstallStore {
             # --- FASE 4: Reset dell'App Installer Appx ---
             try {
                 $resetAppxActivity = "Reset 'Programma di installazione app'"
-                
-                # Cattura posizione cursore PRIMA di stampare qualsiasi messaggio
-                $originalPos = [Console]::CursorTop
-                
                 Write-StyledMessage Info "🔄 $resetAppxActivity..."
                 
-                # Esegui Reset-AppxPackage
-                Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue | Out-Null
-                Start-Sleep -Milliseconds 1200  # Dare tempo al progress bar di completare e scomparire
-                
-                # Calcola quante righe pulire (dalla posizione originale fino alla posizione attuale + margine)
-                $currentPos = [Console]::CursorTop
-                $linesToClear = [Math]::Max(5, $currentPos - $originalPos + 2)
-                
-                # Pulisci TUTTE le righe dal messaggio iniziale in giù
-                $clearLine = ' ' * ([Console]::WindowWidth - 1)
-                for ($i = 0; $i -lt $linesToClear; $i++) {
-                    [Console]::SetCursorPosition(0, $originalPos + $i)
-                    Write-Host $clearLine -NoNewline
+                # Esegui Reset-AppxPackage in un processo separato e NASCOSTO per evitare qualsiasi output/progress bar
+                $procParams = @{
+                    FilePath     = 'powershell'
+                    ArgumentList = @(
+                        '-NoProfile', 
+                        '-WindowStyle', 'Hidden', 
+                        '-Command', "Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue | Reset-AppxPackage -ErrorAction SilentlyContinue"
+                    )
+                    Wait         = $true
+                    WindowStyle  = 'Hidden'
+                    PassThru     = $true
                 }
                 
-                # Riposiziona cursore alla posizione originale e scrivi solo il messaggio di successo
-                [Console]::SetCursorPosition(0, $originalPos)
-                [Console]::Out.Flush()
+                $process = Start-Process @procParams
                 
-                Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
+                if ($process.ExitCode -eq 0) {
+                    Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
+                }
+                else {
+                    # Non consideriamo il reset fallito come critico, ma lo logghiamo
+                    Write-StyledMessage Info "Reset Appx completato (ExitCode: $($process.ExitCode))."
+                }
             }
             catch {
                 Write-StyledMessage Warning "Impossibile resettare l'App 'Programma di installazione app'. Errore: $($_.Exception.Message)"
@@ -5146,6 +5144,7 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
+
 
 
 
