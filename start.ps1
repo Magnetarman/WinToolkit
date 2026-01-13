@@ -351,6 +351,157 @@ function Install-WindowsTerminal {
     }
 }
 
+function Install-PSPEnv {
+    Write-StyledMessage -Type Info -Text "Avvio configurazione ambiente PowerShell (PSP)..."
+
+    # ============================================================================
+    # CONFIGURAZIONE HARDCODED
+    # ============================================================================
+    $PSPConfig = @{
+        NerdFontsAPI            = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
+        JetBrainsMonoFallback   = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+        OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+        PowerShellProfile       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
+        WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
+    }
+
+    # ============================================================================
+    # HELPER FUNCTIONS LOCALI
+    # ============================================================================
+
+    function Install-NerdFontsLocal {
+        try {
+            $fontNamesToCheck = @("JetBrainsMono Nerd Font", "JetBrainsMonoNL Nerd Font", "JetBrainsMono NFM")
+            $fonts = [System.Drawing.Text.InstalledFontCollection]::new()
+            
+            foreach ($fontName in $fontNamesToCheck) {
+                if ($fonts.Families.Name -contains $fontName) {
+                    Write-StyledMessage -Type Success -Text "Font $fontName già installato."
+                    return $true
+                }
+            }
+
+            # Check cartella Fonts
+            if (Get-ChildItem -Path "C:\Windows\Fonts" -Filter "*JetBrains*" -ErrorAction SilentlyContinue) {
+                Write-StyledMessage -Type Info -Text "File JetBrainsMono presenti. Skip."
+                return $true
+            }
+
+            Write-StyledMessage -Type Info -Text "⬇️ Download JetBrainsMono Nerd Font..."
+            
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+            
+            # Tentativo download da API GitHub, fallback su URL diretto
+            $fontZipUrl = $PSPConfig.JetBrainsMonoFallback
+            try {
+                $release = Invoke-RestMethod $PSPConfig.NerdFontsAPI -ErrorAction SilentlyContinue
+                $asset = $release.assets | Where-Object { $_.name -eq "JetBrainsMono.zip" } | Select-Object -First 1
+                if ($asset) { $fontZipUrl = $asset.browser_download_url }
+            } catch {}
+
+            $zipFilePath = "$env:TEMP\JetBrainsMono.zip"
+            $extractPath = "$env:TEMP\JetBrainsMono"
+
+            Invoke-WebRequest -Uri $fontZipUrl -OutFile $zipFilePath -UseBasicParsing
+            Expand-Archive -Path $zipFilePath -DestinationPath $extractPath -Force
+
+            Write-StyledMessage -Type Info -Text "Installazione font..."
+            $shellFontFolder = (New-Object -ComObject Shell.Application).Namespace(0x14)
+            
+            Get-ChildItem -Path $extractPath -Recurse -Filter "*.ttf" | ForEach-Object {
+                if (-not (Test-Path "C:\Windows\Fonts\$($_.Name)")) {
+                    $shellFontFolder.CopyHere($_.FullName, 0x10)
+                }
+            }
+
+            Remove-Item $extractPath, $zipFilePath -Recurse -Force -ErrorAction SilentlyContinue
+            Write-StyledMessage -Type Success -Text "Nerd Fonts installati."
+            return $true
+        }
+        catch {
+            Write-StyledMessage -Type Warning -Text "Errore installazione font: $($_.Exception.Message)"
+            return $false
+        }
+    }
+
+    function Get-ProfileDirLocal {
+        if ($PSVersionTable.PSEdition -eq "Core") {
+            return [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
+        } else {
+            return [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
+        }
+    }
+
+    # ============================================================================
+    # ESECUZIONE SETUP
+    # ============================================================================
+
+    # 1. Installazione Tool via Winget
+    $tools = @(
+        @{ Id = "JanDeDobbeleer.OhMyPosh"; Name = "Oh My Posh" },
+        @{ Id = "ajeetdsouza.zoxide"; Name = "zoxide" },
+        @{ Id = "aristocratos.btop4win"; Name = "btop" },
+        @{ Id = "Fastfetch-cli.Fastfetch"; Name = "fastfetch" }
+    )
+
+    foreach ($tool in $tools) {
+        Write-StyledMessage -Type Info -Text "Verifica $($tool.Name)..."
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Invoke-WingetWithTimeout -Arguments "install -e --id $($tool.Id) --accept-source-agreements --accept-package-agreements --silent" | Out-Null
+        }
+    }
+
+    # 2. Installazione Tema Oh My Posh
+    $profileDir = Get-ProfileDirLocal
+    if ($profileDir) {
+        $themesFolder = Join-Path $profileDir "Themes"
+        if (-not (Test-Path $themesFolder)) { New-Item -Path $themesFolder -ItemType Directory -Force | Out-Null }
+        
+        $themePath = Join-Path $themesFolder "atomic.omp.json"
+        try {
+            Invoke-WebRequest -Uri $PSPConfig.OhMyPoshTheme -OutFile $themePath -UseBasicParsing
+            Write-StyledMessage -Type Success -Text "Tema Oh My Posh scaricato."
+        } catch {
+            Write-StyledMessage -Type Warning -Text "Errore download tema."
+        }
+    }
+
+    # 3. Installazione Font
+    Install-NerdFontsLocal
+
+    # 4. Configurazione Profilo
+    if ($profileDir) {
+        if (-not (Test-Path $profileDir)) { New-Item -Path $profileDir -ItemType Directory -Force | Out-Null }
+        
+        $targetProfile = $PROFILE
+        if (-not $targetProfile) { $targetProfile = Join-Path $profileDir "Microsoft.PowerShell_profile.ps1" }
+
+        try {
+            if (Test-Path $targetProfile) {
+                Move-Item -Path $targetProfile -Destination "$targetProfile.bak" -Force -ErrorAction SilentlyContinue
+            }
+            Invoke-WebRequest -Uri $PSPConfig.PowerShellProfile -OutFile $targetProfile -UseBasicParsing
+            Write-StyledMessage -Type Success -Text "Profilo PowerShell configurato."
+        } catch {
+            Write-StyledMessage -Type Warning -Text "Errore configurazione profilo."
+        }
+    }
+
+    # 5. Configurazione Settings Windows Terminal
+    try {
+        $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($wtPath) {
+            $settingsPath = Join-Path $wtPath.FullName "LocalState\settings.json"
+            if (Test-Path (Join-Path $wtPath.FullName "LocalState")) {
+                Invoke-WebRequest -Uri $PSPConfig.WindowsTerminalSettings -OutFile $settingsPath -UseBasicParsing
+                Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
+            }
+        }
+    } catch {
+        Write-StyledMessage -Type Warning -Text "Errore aggiornamento settings terminal."
+    }
+}
+
 function New-ToolkitShortcut {
     Write-StyledMessage -Type Info -Text "Creazione scorciatoia desktop..."
     
@@ -473,6 +624,10 @@ function Start-WinToolkit {
     }
     
     Install-WindowsTerminal
+    
+    # Nuova integrazione Setup PSP
+    Install-PSPEnv
+    
     New-ToolkitShortcut
     
     Write-StyledMessage -Type Success -Text "Configurazione completata."
