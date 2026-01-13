@@ -288,8 +288,24 @@ try {
         Remove-Item $outputFile -Force
     }
 
-    # Salva il contenuto compilato
-    $templateLines | Out-File -FilePath $outputFile -Encoding UTF8
+    # Rimuovi le righe vuote alla fine dell'array
+    $originalCount = $templateLines.Count
+    $lastNonEmptyLine = $originalCount - 1
+    while ($lastNonEmptyLine -ge 0 -and [string]::IsNullOrWhiteSpace($templateLines[$lastNonEmptyLine])) {
+        $lastNonEmptyLine--
+    }
+    
+    # Calcola quante righe vuote sono state rimosse
+    $removedLines = $originalCount - $lastNonEmptyLine - 1
+    
+    # Tronca l'array fino all'ultima riga non vuota (inclusa)
+    if ($lastNonEmptyLine -ge 0 -and $lastNonEmptyLine -lt $originalCount - 1) {
+        $templateLines = $templateLines[0..$lastNonEmptyLine]
+        Write-StyledMessage 'Info' "Rimosse $removedLines righe vuote dalla fine del file"
+    }
+
+    # Salva il contenuto compilato con Set-Content per evitare newline extra
+    $templateLines | Set-Content -Path $outputFile -Encoding UTF8
 
     Write-StyledMessage 'Success' "File WinToolkit.ps1 creato con successo!"
 
