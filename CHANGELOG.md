@@ -287,12 +287,13 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Aggiornamento link a `https://magnetarman.com/WinToolkit-Dev`
     - Aggiornata funzione di richiamo Toolkit e potenziamento per funzionamento Plug and Play.
   - **Varie:**
-    - Traduzione di tutti i commenti del file in italiano
+    - Traduzione di tutti i commenti del file in italiano.
 
 - **Aggiornamento pipeline CI/CD**
   - Reso automatico il controllo dei nomi dei singoli script presenti nella cartella /tool prima dell'esecuzione del `compiler.ps1`.
   - Bump automatico del Build script.
   - Add issue chiusi al changelog.
+  - Migliorato il codice di `compiler.ps1` che ora controlla se ci sono righe vuote alla fine dello script e le elimina prima di effettuare il commit finale di aggiornamento.
 
 ---
 
