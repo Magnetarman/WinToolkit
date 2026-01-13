@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 220)"
+$ToolkitVersion = "2.5.0 (Build 221)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -338,7 +338,7 @@ function Start-InterruptibleCountdown {
         if ([Console]::KeyAvailable) {
             $null = [Console]::ReadKey($true)
             Write-Host "`n"
-            Write-StyledMessage -Type 'Warning' -Text '⏸️ Operazione annullata.'
+            Write-StyledMessage -Type 'Warning' -Text '⏸️ Riavvio del sistema annullato.'
             return $false
         }
         $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
@@ -4708,7 +4708,7 @@ function WinExportLog {
         Write-StyledMessage Info "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso..."
 
         # Metodo alternativo per gestire file in uso
-        $tempFolder = Join-Path $AppConfig.Paths.TempPath "WinToolkit_Logs_Temp_$timestamp"
+        $tempFolder = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
 
         # Crea cartella temporanea
         if (Test-Path $tempFolder) {
@@ -4945,6 +4945,10 @@ while ($true) {
         Write-StyledMessage -Type 'Warning' -Text '🔄 È necessario un riavvio per completare le operazioni.'
         if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message 'Riavvio sistema in') {
             Restart-Computer -Force
+        }
+        else {
+            Write-Host ''
+            Write-StyledMessage -Type 'Info' -Text '💡 Ricorda di riavviare il sistema manualmente per completare le operazioni.'
         }
     }
 
