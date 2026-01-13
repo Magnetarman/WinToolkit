@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 219)"
+$ToolkitVersion = "2.5.0 (Build 220)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -416,7 +416,11 @@ function WinRepairToolkit {
 .SYNOPSIS
     Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk).
 #>
-    param([int]$MaxRetryAttempts = 3, [int]$CountdownSeconds = 30)
+    param(
+        [int]$MaxRetryAttempts = 3,
+        [int]$CountdownSeconds = 30,
+        [switch]$SuppressIndividualReboot
+    )
 
     Initialize-ToolLogging -ToolName "WinRepairToolkit"
     Show-Header -SubTitle "Repair Toolkit"
@@ -558,8 +562,16 @@ function WinRepairToolkit {
 
         if ($deepRepairScheduled) { Write-StyledMessage Warning 'Riavvio necessario per riparazione profonda.' }
 
-        if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
-            Restart-Computer -Force
+        if ($SuppressIndividualReboot) {
+            if ($deepRepairScheduled) {
+                $Global:NeedsFinalReboot = $true
+                Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+            }
+        }
+        else {
+            if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
+                Restart-Computer -Force
+            }
         }
     }
     catch {
@@ -574,7 +586,10 @@ function WinUpdateReset {
         Ripara i problemi comuni di Windows Update, reinstalla componenti critici
         e ripristina le configurazioni di default.
     #>
-    param([int]$CountdownSeconds = 15)
+    param(
+        [int]$CountdownSeconds = 15,
+        [switch]$SuppressIndividualReboot
+    )
 
     Initialize-ToolLogging -ToolName "WinUpdateReset"
     Show-Header -SubTitle "Update Reset Toolkit"
@@ -1120,11 +1135,16 @@ function WinUpdateReset {
         Write-StyledMessage Warning "⚡ Attenzione: il sistema verrà riavviato automaticamente"
         Write-Host ('═' * 65) -ForegroundColor Green
 
-        $shouldReboot = Start-InterruptibleCountdown $CountdownSeconds "Preparazione riavvio sistema"
-
-        if ($shouldReboot) {
-            Write-StyledMessage Info "🔄 Riavvio in corso..."
-            Restart-Computer -Force
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+        }
+        else {
+            $shouldReboot = Start-InterruptibleCountdown $CountdownSeconds "Preparazione riavvio sistema"
+            if ($shouldReboot) {
+                Write-StyledMessage Info "🔄 Riavvio in corso..."
+                Restart-Computer -Force
+            }
         }
     }
     catch {
@@ -1147,7 +1167,11 @@ function WinReinstallStore {
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
 
     #>
-    param([int]$CountdownSeconds = 30, [switch]$NoReboot)
+    param(
+        [int]$CountdownSeconds = 30,
+        [switch]$NoReboot,
+        [switch]$SuppressIndividualReboot
+    )
 
     Initialize-ToolLogging -ToolName "WinReinstallStore"
     Show-Header -SubTitle "Store Repair Toolkit"
@@ -1646,10 +1670,16 @@ function WinReinstallStore {
 
         Write-StyledMessage Success "🎉 OPERAZIONE COMPLETATA"
 
-        if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario per applicare le modifiche") {
-            Write-StyledMessage Info "🔄 Riavvio in corso..."
-            if (-not $NoReboot) {
-                Restart-Computer -Force
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+        }
+        else {
+            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario per applicare le modifiche") {
+                Write-StyledMessage Info "🔄 Riavvio in corso..."
+                if (-not $NoReboot) {
+                    Restart-Computer -Force
+                }
             }
         }
     }
@@ -1988,7 +2018,10 @@ function OfficeToolkit {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false)]
-        [int]$CountdownSeconds = 30
+        [int]$CountdownSeconds = 30,
+        
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
     )
 
     # 1. Inizializzazione logging
@@ -2652,8 +2685,14 @@ function OfficeToolkit {
                 if ($success) {
                     Write-StyledMessage Success "🎉 $operation completata!"
                     if (Get-UserConfirmation "🔄 Riavviare ora per finalizzare?" 'Y') {
-                        Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "$operation completata"
-                        Restart-Computer -Force
+                        if ($SuppressIndividualReboot) {
+                            $Global:NeedsFinalReboot = $true
+                            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+                        }
+                        else {
+                            Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "$operation completata"
+                            Restart-Computer -Force
+                        }
                     }
                     else {
                         Write-StyledMessage Info "💡 Riavvia manualmente quando possibile"
@@ -2694,7 +2733,10 @@ function WinCleaner {
     param(
         [Parameter(Mandatory = $false)]
         [ValidateRange(0, 300)]
-        [int]$CountdownSeconds = 30
+        [int]$CountdownSeconds = 30,
+        
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
     )
 
     # Initialize global execution log BEFORE any function calls
@@ -3546,9 +3588,15 @@ function WinCleaner {
     Write-StyledMessage -Type 'Info' -Text "=================================================="
     Write-Host "`n"
 
-    $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio sistema in"
-    if ($shouldReboot) {
-        Restart-Computer -Force
+    if ($SuppressIndividualReboot) {
+        $Global:NeedsFinalReboot = $true
+        Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+    }
+    else {
+        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio sistema in"
+        if ($shouldReboot) {
+            Restart-Computer -Force
+        }
     }
 }
 function SetRustDesk {
@@ -3569,8 +3617,11 @@ function SetRustDesk {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
-        [int]$CountdownSeconds = 30
+        [Parameter(Mandatory = $false)]
+        [int]$CountdownSeconds = 30,
+        
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
     )
 
     # 1. Inizializzazione logging
@@ -3799,9 +3850,15 @@ function SetRustDesk {
         Write-StyledMessage Success "🎉 CONFIGURAZIONE RUSTDESK COMPLETATA"
         Write-StyledMessage Info "🔄 Per applicare le modifiche il PC verrà riavviato"
 
-        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Per applicare le modifiche è necessario riavviare il sistema"
-        if ($shouldReboot) {
-            Restart-Computer -Force
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+        }
+        else {
+            $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Per applicare le modifiche è necessario riavviare il sistema"
+            if ($shouldReboot) {
+                Restart-Computer -Force
+            }
         }
     }
     catch {
@@ -3828,7 +3885,10 @@ function VideoDriverInstall {
     #>
 
     [CmdletBinding()]
-    param([int]$CountdownSeconds = 30)
+    param(
+        [int]$CountdownSeconds = 30,
+        [switch]$SuppressIndividualReboot
+    )
 
     Initialize-ToolLogging -ToolName "VideoDriverInstall"
     Show-Header -SubTitle "Video Driver Install Toolkit"
@@ -4119,15 +4179,23 @@ function VideoDriverInstall {
             return
         }
 
-        $shouldReboot = Start-InterruptibleCountdown -Seconds 30 -Message "Riavvio in modalità provvisoria in corso..."
+        if ($SuppressIndividualReboot) {
+            # In modalità concatenata, non riavviare in safe mode ma segnalare riavvio finale
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio in modalità provvisoria soppresso (esecuzione concatenata)."
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ DDU e installer driver sono sul Desktop. Al prossimo riavvio sarai in SAFE MODE."
+        }
+        else {
+            $shouldReboot = Start-InterruptibleCountdown -Seconds 30 -Message "Riavvio in modalità provvisoria in corso..."
 
-        if ($shouldReboot) {
-            try {
-                shutdown /r /t 0
-                Write-StyledMessage Success "Comando di riavvio inviato."
-            }
-            catch {
-                Write-StyledMessage Error "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)"
+            if ($shouldReboot) {
+                try {
+                    shutdown /r /t 0
+                    Write-StyledMessage Success "Comando di riavvio inviato."
+                }
+                catch {
+                    Write-StyledMessage Error "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)"
+                }
             }
         }
     }
@@ -4184,7 +4252,10 @@ function GamingToolkit {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false)]
-        [int]$CountdownSeconds = 30
+        [int]$CountdownSeconds = 30,
+        
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
     )
 
     # 1. Inizializzazione logging
@@ -4512,16 +4583,22 @@ function GamingToolkit {
     Write-Host ''
 
     # Step 11: Riavvio
-    $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario"
-
-    if ($shouldReboot) {
-        Write-StyledMessage Info '🔄 Riavvio...'
-        Restart-Computer -Force
+    if ($SuppressIndividualReboot) {
+        $Global:NeedsFinalReboot = $true
+        Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
     }
     else {
-        Write-StyledMessage Warning 'Riavvia manualmente per applicare tutte le modifiche.'
-        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
-        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario"
+
+        if ($shouldReboot) {
+            Write-StyledMessage Info '🔄 Riavvio...'
+            Restart-Computer -Force
+        }
+        else {
+            Write-StyledMessage Warning 'Riavvia manualmente per applicare tutte le modifiche.'
+            Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        }
     }
 }
 function DisableBitlocker {
