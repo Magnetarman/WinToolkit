@@ -3,9 +3,9 @@
 ### V 2.5.0
   
 - Funzione di concatenazione script rotta
-  - [ ] Ripristino funzionalità completa
-  - [ ] Unificazione funzionalità script "template"
-  - [ ] Se la funzionalità di avvio script multipli è attiva deve saltare la sezione relativa al riavvio del pc presente alla fine di ogni script, eseguire tutte le operazioni ed alla fine proseguire con riavvio del PC.
+  - [x] Ripristino funzionalità completa
+  - [x] Unificazione funzionalità script "template"
+  - [x] Se la funzionalità di avvio script multipli è attiva deve saltare la sezione relativa al riavvio del pc presente alla fine di ogni script, eseguire tutte le operazioni ed alla fine proseguire con riavvio del PC.
 
 ### V 2.5.1
 
