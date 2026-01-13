@@ -22,34 +22,27 @@ $AppConfig = @{
         # GitHub Asset URLs
         GitHubAssetBaseUrl      = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
         GitHubAssetDevBaseUrl   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
-        
+
         # RustDesk
         RustDeskReleaseAPI      = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
-        
+
         # Office
         OfficeSetup             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
         OfficeBasicConfig       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
         SaRAInstaller           = "https://aka.ms/SaRA_EnterpriseVersionFiles"
-        
+
         # Video Driver
         AMDInstaller            = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
         NVCleanstall            = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
         DDUZip                  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
-        
+
         # Gaming
         DirectXWebSetup         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe"
         BattleNetInstaller      = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
-        
-        # PSP Setup
-        NerdFontsAPI            = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
-        JetBrainsMonoFallback   = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
-        OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-        PowerShellProfile       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
-        WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
-        
+
         # 7-Zip
         SevenZipOfficial        = "https://www.7-zip.org/a/7zr.exe"
-        
+
         # Store
         WingetInstaller         = "https://aka.ms/getwinget"
     }
@@ -62,12 +55,6 @@ $AppConfig = @{
         RustDeskConfig     = "$env:APPDATA\RustDesk\config"
         RustDeskInstaller  = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
         OfficeTemp         = "$env:LOCALAPPDATA\WinToolkit\Office"
-        PSPProfile         = if ($PSVersionTable.PSEdition -eq "Core") {
-            [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
-        }
-        else {
-            [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
-        }
         DriverBackupTemp   = "$env:TEMP\DriverBackup_Temp"
         DriverBackupLogs   = "$env:LOCALAPPDATA\WinToolkit\logs"
         GamingDirectX      = "$env:LOCALAPPDATA\WinToolkit\Directx"
@@ -80,28 +67,28 @@ $AppConfig = @{
         # Windows Update
         WindowsUpdatePolicies = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
         ExcludeWUDrivers      = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\ExcludeWUDriversInQualityUpdate"
-        
+
         # Office Telemetry
         OfficeTelemetry       = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry"
         DisableTelemetry      = "HKLM:\SOFTWARE\Microsoft\Office\Common\ClientTelemetry\DisableTelemetry"
-        
+
         # Office Feedback
         OfficeFeedback        = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"
         OnBootNotify          = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback\OnBootNotify"
-        
+
         # BitLocker
         BitLockerStatus       = "HKLM:\SOFTWARE\Policies\Microsoft\FVE"
-        
+
         # Focus Assist
         FocusAssist           = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings"
         NoGlobalToasts        = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\NOC_GLOBAL_SETTING_TOASTS_ENABLED"
-        
+
         # Startup Programs
         StartupRun            = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-        
+
         # Windows Terminal
         WindowsTerminal       = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-        
+
         # RustDesk
         RustDeskConfigPath    = "$env:APPDATA\RustDesk\config"
     }
@@ -409,7 +396,6 @@ function VideoDriverInstall {}
 function GamingToolkit {}
 function DisableBitlocker {}
 function WinExportLog {}
-function WinPSP-Setup {}
 
 
 # --- MENU PRINCIPALE ---
@@ -421,7 +407,6 @@ $menuStructure = @(
             [pscustomobject]@{Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'WinPSP-Setup'; Description = 'Installazione Unificata PSP - TEST'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
         )
     },
@@ -517,30 +502,3 @@ while ($true) {
         Write-Host "`nPremi INVIO..." -ForegroundColor Gray; $null = Read-Host
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
