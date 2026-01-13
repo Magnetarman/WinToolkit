@@ -67,7 +67,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ---
 
-## [2.5.0] - 2026-01-10 ([#25](https://github.com/MagnetarMan/WinToolkit/issues/25))
+## [2.5.0] - CODEMANE: "Deborah" - 2026-01-25 ([#25](https://github.com/MagnetarMan/WinToolkit/issues/25))
 
 ### Aggiunte
 
