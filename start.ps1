@@ -115,7 +115,9 @@ function Install-WingetSilent {
         # Riparazione via modulo
         Write-StyledMessage -Type Info -Text "Tentativo riparazione Winget..."
         if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-            Repair-WinGetPackageManager -Force -Latest 2>$null | Out-Null
+            # Esecuzione isolata e non interattiva per evitare blocchi (richiesta invio)
+            $repairCmd = "try { Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue; `$null | Repair-WinGetPackageManager -Force -Latest -Confirm:`$false -ErrorAction SilentlyContinue } catch {}"
+            Start-Process powershell -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $repairCmd -Wait -WindowStyle Hidden
             Start-Sleep 3
         }
 
@@ -226,18 +228,18 @@ function Install-PowerShell7 {
 
     try {
         Write-StyledMessage -Type Info -Text "Download PowerShell 7.5.2..."
-        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v7.5.2" -UseBasicParsing
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v7.5.4" -UseBasicParsing
         $asset = $release.assets | Where-Object { $_.name -like "*win-x64.msi" } | Select-Object -First 1
 
         if (-not $asset) {
-            Write-StyledMessage -Type Error -Text "Asset PowerShell 7.5.2 non trovato."
+            Write-StyledMessage -Type Error -Text "Asset PowerShell 7.5.4 non trovato."
             return $false
         }
 
         $installer = "$env:TEMP\$($asset.name)"
         Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installer -UseBasicParsing
 
-        Write-StyledMessage -Type Info -Text "Avvio installatore PowerShell 7.5.2. Completare l'installazione..."
+        Write-StyledMessage -Type Info -Text "Avvio installatore PowerShell 7.5.4. Completare l'installazione..."
 
         $installParams = @{
             FilePath     = "msiexec.exe"
@@ -252,7 +254,7 @@ function Install-PowerShell7 {
         Start-Sleep 3
 
         if ((Test-Path "$env:ProgramFiles\PowerShell\7") -or $process.ExitCode -eq 0) {
-            Write-StyledMessage -Type Success -Text "PowerShell 7.5.2 installato."
+            Write-StyledMessage -Type Success -Text "PowerShell 7.5.4 installato."
             return $true
         }
 
