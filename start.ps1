@@ -18,7 +18,7 @@ $script:AppConfig = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
-        PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v7.5.4"
+        PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
         NerdFontsAPI            = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
         JetBrainsMonoFallback   = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
         OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
@@ -39,7 +39,7 @@ $script:AppConfig = @{
 
 function Format-CenteredText {
     param(
-        [string]$Text, 
+        [string]$Text,
         [int]$Width = 80
     )
     $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
@@ -58,17 +58,17 @@ function Write-StyledMessage {
 
 function Stop-InterferingProcess {
     $interferingProcesses = @(
-        "WinStore.App", 
-        "wsappx", 
-        "AppInstaller", 
+        "WinStore.App",
+        "wsappx",
+        "AppInstaller",
         "Microsoft.WindowsStore",
-        "Microsoft.DesktopAppInstaller", 
-        "RuntimeBroker", 
-        "dllhost", 
-        "winget", 
+        "Microsoft.DesktopAppInstaller",
+        "RuntimeBroker",
+        "dllhost",
+        "winget",
         "WindowsPackageManagerServer"
     )
-    
+
     foreach ($procName in $interferingProcesses) {
         Get-Process -Name $procName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     }
@@ -77,10 +77,10 @@ function Stop-InterferingProcess {
 
 function Invoke-WingetCommand {
     param(
-        [string]$Arguments, 
+        [string]$Arguments,
         [int]$TimeoutSeconds = 120
     )
-    
+
     try {
         $procParams = @{
             FilePath     = 'winget'
@@ -100,17 +100,17 @@ function Invoke-WingetCommand {
 function Test-WingetCompatibility {
     $osInfo = [Environment]::OSVersion
     $build = $osInfo.Version.Build
-    
+
     if ($osInfo.Version.Major -lt 10) {
         Write-StyledMessage -Type Error -Text "Winget non supportato su Windows $($osInfo.Version.Major)."
         return $false
     }
-    
+
     if ($osInfo.Version.Major -eq 10 -and $build -lt 16299) {
         Write-StyledMessage -Type Error -Text "Windows 10 build $build non supporta Winget."
         return $false
     }
-    
+
     return $true
 }
 
@@ -120,28 +120,28 @@ function Test-WingetCompatibility {
 
 function Install-WingetPackage {
     Write-StyledMessage -Type Info -Text "🚀 Avvio procedura reinstallazione Winget..."
-    
+
     if (-not (Test-WingetCompatibility)) { return $false }
-    
+
     Stop-InterferingProcess
-    
+
     try {
         $ProgressPreference = 'SilentlyContinue'
-        
+
         # Pulizia temporanei
         $tempPath = "$env:TEMP\WinGet"
         if (Test-Path $tempPath) {
             Remove-Item -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
             Write-StyledMessage -Type Info -Text "Cache temporanea eliminata."
         }
-        
+
         # Reset sorgenti
         Write-StyledMessage -Type Info -Text "Reset sorgenti Winget..."
         & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
-        
+
         # Installazione dipendenze
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        
+
         Write-StyledMessage -Type Info -Text "Installazione NuGet e moduli..."
         try {
             Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop | Out-Null
@@ -152,37 +152,37 @@ function Install-WingetPackage {
         catch {
             Write-StyledMessage -Type Warning -Text "Dipendenze potrebbero richiedere conferma manuale."
         }
-        
+
         # Riparazione via modulo
         Write-StyledMessage -Type Info -Text "Tentativo riparazione Winget..."
         if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
              Repair-WinGetPackageManager -Force -Latest 2>$null | Out-Null
              Start-Sleep 3
         }
-        
+
         # Fallback: installazione via MSIXBundle
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
             Write-StyledMessage -Type Info -Text "Download MSIXBundle da Microsoft..."
             $tempInstaller = "$($script:AppConfig.Paths.Temp)\WingetInstaller.msixbundle"
             if (-not (Test-Path $script:AppConfig.Paths.Temp)) { New-Item -Path $script:AppConfig.Paths.Temp -ItemType Directory -Force | Out-Null }
-            
+
             Invoke-WebRequest -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -UseBasicParsing
             Add-AppxPackage -Path $tempInstaller -ForceApplicationShutdown -ErrorAction Stop
             Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue
             Start-Sleep 3
         }
-        
+
         # Reset App Installer
         Write-StyledMessage -Type Info -Text "Reset App Installer..."
         Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
-        
+
         Start-Sleep 2
-        
+
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Success -Text "Winget installato e funzionante."
             return $true
         }
-        
+
         Write-StyledMessage -Type Error -Text "❌ Impossibile installare Winget."
         return $false
     }
@@ -197,50 +197,50 @@ function Install-WingetPackage {
 
 function Install-GitPackage {
     Write-StyledMessage -Type Info -Text "Verifica installazione Git..."
-    
+
     $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
-    
+
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Write-StyledMessage -Type Success -Text "Git già installato."
         return $true
     }
-    
+
     Write-StyledMessage -Type Info -Text "Installazione Git..."
-    
+
     # 1. Tentativo via winget (Prioritario)
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         $result = Invoke-WingetCommand -Arguments "install Git.Git --accept-source-agreements --accept-package-agreements --silent"
-        
+
         if ($result.ExitCode -eq 0) {
             Start-Sleep 3
             $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
-            
+
             if (Get-Command git -ErrorAction SilentlyContinue) {
                 Write-StyledMessage -Type Success -Text "Git installato via winget."
                 return $true
             }
         }
     }
-    
+
     # 2. Fallback: download diretto da GitHub
     try {
         Write-StyledMessage -Type Info -Text "Fallback: Download Git da GitHub..."
         $release = Invoke-RestMethod -Uri $script:AppConfig.URLs.GitRelease -UseBasicParsing
         $asset = $release.assets | Where-Object { $_.name -like "*64-bit.exe" } | Select-Object -First 1
-        
+
         if (-not $asset) {
             Write-StyledMessage -Type Error -Text "Asset Git 64-bit non trovato."
             return $false
         }
-        
+
         $tempDir = $script:AppConfig.Paths.Temp
         if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
         $installerPath = Join-Path $tempDir $asset.name
-        
+
         Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -UseBasicParsing
-        
+
         Write-StyledMessage -Type Info -Text "Esecuzione installer Git..."
-        
+
         $procParams = @{
             FilePath     = $installerPath
             ArgumentList = @("/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS")
@@ -248,15 +248,15 @@ function Install-GitPackage {
             PassThru     = $true
         }
         $process = Start-Process @procParams
-        
+
         Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
-        
+
         if ($process.ExitCode -eq 0) {
             $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
             Write-StyledMessage -Type Success -Text "Git installato con successo."
             return $true
         }
-        
+
         Write-StyledMessage -Type Error -Text "Installazione fallita. Codice: $($process.ExitCode)"
         return $false
     }
@@ -268,55 +268,55 @@ function Install-GitPackage {
 
 function Install-PowerShellCore {
     Write-StyledMessage -Type Info -Text "Verifica PowerShell 7..."
-    
+
     if (Test-Path "$env:ProgramFiles\PowerShell\7") {
         Write-StyledMessage -Type Success -Text "PowerShell 7 già installato."
         return $true
     }
-    
+
     try {
         Write-StyledMessage -Type Info -Text "Recupero ultima release PowerShell..."
         $release = Invoke-RestMethod -Uri $script:AppConfig.URLs.PowerShellRelease -UseBasicParsing
         $asset = $release.assets | Where-Object { $_.name -like "*win-x64.msi" } | Select-Object -First 1
-        
+
         if (-not $asset) {
             Write-StyledMessage -Type Error -Text "Asset PowerShell 7 win-x64.msi non trovato."
             return $false
         }
-        
+
         $tempDir = $script:AppConfig.Paths.Temp
         if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
         $installerPath = Join-Path $tempDir $asset.name
-        
+
         Write-StyledMessage -Type Info -Text "Download installer..."
         Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -UseBasicParsing
-        
+
         Write-StyledMessage -Type Info -Text "Installazione PowerShell 7 in corso..."
 
         $procParams = @{
             FilePath     = "msiexec.exe"
             ArgumentList = @(
-                "/i", "`"$installerPath`"", 
-                "/norestart", 
+                "/i", "`"$installerPath`"",
+                "/norestart",
                 "/quiet",
-                "ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1", 
-                "ENABLE_PSREMOTING=1", 
+                "ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1",
+                "ENABLE_PSREMOTING=1",
                 "REGISTER_MANIFEST=1"
             )
             Wait         = $true
             PassThru     = $true
         }
-        
+
         $process = Start-Process @procParams
         Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
-        
+
         Start-Sleep 3
-        
+
         if ((Test-Path "$env:ProgramFiles\PowerShell\7") -or $process.ExitCode -eq 0) {
             Write-StyledMessage -Type Success -Text "PowerShell 7 installato con successo."
             return $true
         }
-        
+
         Write-StyledMessage -Type Error -Text "Installazione fallita. Codice: $($process.ExitCode)"
         return $false
     }
@@ -328,7 +328,7 @@ function Install-PowerShellCore {
 
 function Install-WindowsTerminalApp {
     Write-StyledMessage -Type Info -Text "Configurazione Windows Terminal..."
-    
+
     # Installazione se necessario
     if (-not (Get-Command wt -ErrorAction SilentlyContinue)) {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
@@ -336,7 +336,7 @@ function Install-WindowsTerminalApp {
             $result = Invoke-WingetCommand -Arguments "install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent"
             Start-Sleep 3
         }
-        
+
         if (-not (Get-Command wt -ErrorAction SilentlyContinue)) {
             Write-StyledMessage -Type Info -Text "Fallback: Apertura Microsoft Store..."
             Start-Process "ms-windows-store://pdp/?ProductId=9N0DX20HK701"
@@ -348,7 +348,7 @@ function Install-WindowsTerminalApp {
     else {
         Write-StyledMessage -Type Success -Text "Windows Terminal già presente."
     }
-    
+
     # Imposta come terminale predefinito
     try {
         $terminalPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
@@ -365,40 +365,40 @@ function Install-WindowsTerminalApp {
     catch {
         Write-StyledMessage -Type Warning -Text "Errore impostazione predefinito: $($_.Exception.Message)"
     }
-    
+
     # Configurazione Profilo PowerShell 7 in Terminal
     Start-Sleep 3
     $settingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-    
+
     # Attesa creazione file settings
     $waited = 0
     while (-not (Test-Path $settingsPath) -and $waited -lt 20) {
         Start-Sleep 1
         $waited++
     }
-    
+
     if (-not (Test-Path $settingsPath)) {
         Write-StyledMessage -Type Warning -Text "File settings.json non trovato. Avviare Windows Terminal manualmente una volta."
         return
     }
-    
+
     try {
         Write-StyledMessage -Type Info -Text "Configurazione profilo PowerShell 7 in Terminal..."
         $settings = Get-Content $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        
+
         # Ricerca profilo PowerShell 7
         $ps7Profile = $settings.profiles.list | Where-Object {
             $_.source -like "*PowerShell.PowerShell_7*" -or
             $_.commandline -like "*pwsh.exe*" -or
             ($_.name -eq "PowerShell" -and $_.source)
         } | Select-Object -First 1
-        
+
         if ($ps7Profile) {
             Write-StyledMessage -Type Success -Text "Profilo PowerShell 7 trovato: $($ps7Profile.name)"
-            
+
             $settings.defaultProfile = $ps7Profile.guid
             $ps7Profile | Add-Member -MemberType NoteProperty -Name "elevate" -Value $true -Force
-            
+
             $settings | ConvertTo-Json -Depth 100 | Set-Content $settingsPath -Encoding UTF8 -Force
             Write-StyledMessage -Type Success -Text "Windows Terminal configurato per PS7 Admin."
         }
@@ -422,7 +422,7 @@ function Install-PspEnvironment {
         try {
             $fontNamesToCheck = @("JetBrainsMono Nerd Font", "JetBrainsMonoNL Nerd Font", "JetBrainsMono NFM")
             $fonts = [System.Drawing.Text.InstalledFontCollection]::new()
-            
+
             foreach ($fontName in $fontNamesToCheck) {
                 if ($fonts.Families.Name -contains $fontName) {
                     Write-StyledMessage -Type Success -Text "Font $fontName già installato."
@@ -437,9 +437,9 @@ function Install-PspEnvironment {
             }
 
             Write-StyledMessage -Type Info -Text "⬇️ Download JetBrainsMono Nerd Font..."
-            
+
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-            
+
             # Tentativo download da API GitHub, fallback su URL diretto
             $fontZipUrl = $script:AppConfig.URLs.JetBrainsMonoFallback
             try {
@@ -450,7 +450,7 @@ function Install-PspEnvironment {
 
             $tempDir = $script:AppConfig.Paths.Temp
             if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
-            
+
             $zipFilePath = Join-Path $tempDir "JetBrainsMono.zip"
             $extractPath = Join-Path $tempDir "JetBrainsMono"
 
@@ -459,7 +459,7 @@ function Install-PspEnvironment {
 
             Write-StyledMessage -Type Info -Text "Installazione font..."
             $shellFontFolder = (New-Object -ComObject Shell.Application).Namespace(0x14)
-            
+
             Get-ChildItem -Path $extractPath -Recurse -Filter "*.ttf" | ForEach-Object {
                 if (-not (Test-Path "C:\Windows\Fonts\$($_.Name)")) {
                     $shellFontFolder.CopyHere($_.FullName, 0x10)
@@ -508,7 +508,7 @@ function Install-PspEnvironment {
     if ($profileDir) {
         $themesFolder = Join-Path $profileDir "Themes"
         if (-not (Test-Path $themesFolder)) { New-Item -Path $themesFolder -ItemType Directory -Force | Out-Null }
-        
+
         $themePath = Join-Path $themesFolder "atomic.omp.json"
         try {
             Invoke-WebRequest -Uri $script:AppConfig.URLs.OhMyPoshTheme -OutFile $themePath -UseBasicParsing
@@ -524,7 +524,7 @@ function Install-PspEnvironment {
     # 4. Configurazione Profilo
     if ($profileDir) {
         if (-not (Test-Path $profileDir)) { New-Item -Path $profileDir -ItemType Directory -Force | Out-Null }
-        
+
         $targetProfile = $PROFILE
         if (-not $targetProfile) { $targetProfile = Join-Path $profileDir "Microsoft.PowerShell_profile.ps1" }
 
@@ -556,22 +556,22 @@ function Install-PspEnvironment {
 
 function New-ToolkitDesktopShortcut {
     Write-StyledMessage -Type Info -Text "Creazione scorciatoia desktop..."
-    
+
     try {
         $desktop = [Environment]::GetFolderPath('Desktop')
         $shortcut = Join-Path $desktop "Win Toolkit.lnk"
         $iconDir = $script:AppConfig.Paths.WinToolkitDir
         $icon = Join-Path $iconDir "WinToolkit.ico"
-        
+
         if (-not (Test-Path $iconDir)) {
             New-Item -Path $iconDir -ItemType Directory -Force | Out-Null
         }
-        
+
         if (-not (Test-Path $icon)) {
             Write-StyledMessage -Type Info -Text "Download icona..."
             Invoke-WebRequest -Uri $script:AppConfig.URLs.ToolkitIcon -OutFile $icon -UseBasicParsing
         }
-        
+
         $shell = New-Object -ComObject WScript.Shell
         $link = $shell.CreateShortcut($shortcut)
         $link.TargetPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
@@ -580,12 +580,12 @@ function New-ToolkitDesktopShortcut {
         $link.IconLocation = $icon
         $link.Description = "Win Toolkit - SOPRAVVIVI A Windows"
         $link.Save()
-        
+
         # Abilita esecuzione come amministratore
         $bytes = [IO.File]::ReadAllBytes($shortcut)
         $bytes[21] = $bytes[21] -bor 32
         [IO.File]::WriteAllBytes($shortcut, $bytes)
-        
+
         Write-StyledMessage -Type Success -Text "Scorciatoia creata con successo."
     }
     catch {
@@ -599,21 +599,22 @@ function New-ToolkitDesktopShortcut {
 
 function Invoke-WinToolkitSetup {
     param(
-        [switch]$InstallProfileOnly
+        [switch]$InstallProfileOnly,
+        [switch]$ResumeSetup
     )
 
     $Host.UI.RawUI.WindowTitle = "Toolkit Starter by MagnetarMan"
-    
+
     # Verifica privilegi amministratore
     if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-Output "Riavvio con privilegi amministratore..."
-        
+
         $argList = $PSBoundParameters.GetEnumerator() | ForEach-Object {
             if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
             elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
             elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
         }
-        
+
         $startUrl = $script:AppConfig.URLs.StartScript
         $scriptBlock = if ($PSCommandPath) {
             "& '$PSCommandPath' $($argList -join ' ')"
@@ -621,7 +622,7 @@ function Invoke-WinToolkitSetup {
         else {
             "iex (irm '$startUrl') $($argList -join ' ')"
         }
-        
+
         $procParams = @{
             FilePath     = 'powershell'
             ArgumentList = @( '-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', "`"$scriptBlock`"" )
@@ -630,7 +631,7 @@ function Invoke-WinToolkitSetup {
         Start-Process @procParams
         return
     }
-    
+
     # Configurazione Logging
     $logDir = $script:AppConfig.Paths.Logs
     try {
@@ -640,7 +641,7 @@ function Invoke-WinToolkitSetup {
     catch {
         Write-StyledMessage -Type Warning -Text "Errore avvio logging: $($_.Exception.Message)"
     }
-    
+
     # Banner
     Clear-Host
     $width = 65
@@ -653,45 +654,50 @@ function Invoke-WinToolkitSetup {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.5.0 (Build 213)'
+        '        Version 2.5.0 (Build 214)'
     ) | ForEach-Object { Write-Host (Format-CenteredText -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
-    
+
     Write-StyledMessage -Type Info -Text "PowerShell: $($PSVersionTable.PSVersion)"
     if ($PSVersionTable.PSVersion.Major -lt 7) {
         Write-StyledMessage -Type Warning -Text "PowerShell 7 raccomandato per funzionalità avanzate."
     }
-    
+
     Write-StyledMessage -Type Info -Text "Avvio configurazione Win Toolkit..."
-    
+
     # Pipeline Installazione
     $rebootNeeded = $false
-    
-    Install-WingetPackage
-    Install-GitPackage
-    
-    if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
-        if (Install-PowerShellCore) {
-            $rebootNeeded = $true
+
+    if (-not $ResumeSetup) {
+        Write-StyledMessage -Type Info -Text "Esecuzione controlli base..."
+
+        Install-WingetPackage
+        Install-GitPackage
+
+        if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
+            if (Install-PowerShellCore) {
+                $null 
+            }
+        }
+        else {
+            Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
         }
     }
-    else {
-        Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
-    }
-    
+
     # --- AUTO-RELAUNCH IN POWERSHELL 7 ---
     # Riavvio dello script nel nuovo motore PS7 se disponibile
     if ($PSVersionTable.PSVersion.Major -lt 7 -and (Test-Path "$env:ProgramFiles\PowerShell\7\pwsh.exe")) {
         Write-StyledMessage -Type Info -Text "✨ Rilevata PowerShell 7. Upgrade dell'ambiente di esecuzione..."
         Start-Sleep 2
-        
+
         $argList = $PSBoundParameters.GetEnumerator() | ForEach-Object {
             if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
             elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
             elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
         }
-        
+        $argList += "-ResumeSetup"
+
         $startUrl = $script:AppConfig.URLs.StartScript
         $scriptBlock = if ($PSCommandPath) {
             "& '$PSCommandPath' $($argList -join ' ')"
@@ -699,7 +705,7 @@ function Invoke-WinToolkitSetup {
         else {
             "iex (irm '$startUrl') $($argList -join ' ')"
         }
-        
+
         # Splatting per Start-Process
         $procParams = @{
             FilePath     = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
@@ -707,30 +713,30 @@ function Invoke-WinToolkitSetup {
             Verb         = "RunAs"
         }
         Start-Process @procParams
-        
+
         Write-StyledMessage -Type Success -Text "Script riavviato su PowerShell 7. Chiusura sessione legacy..."
         try { Stop-Transcript | Out-Null } catch { }
         exit
     }
     # -------------------------------------
-    
+
     Install-WindowsTerminalApp
     Install-PspEnvironment
     New-ToolkitDesktopShortcut
-    
+
     Write-StyledMessage -Type Success -Text "Configurazione completata."
-    
+
     # Gestione Riavvio
     if ($rebootNeeded) {
         Write-StyledMessage -Type Warning -Text "Riavvio necessario per completare l'installazione."
         Write-StyledMessage -Type Info -Text "Riavvio automatico tra 10 secondi..."
-        
+
         for ($i = 10; $i -gt 0; $i--) {
             Write-Host "`rPreparazione riavvio - $i secondi..." -NoNewline -ForegroundColor Yellow
             Start-Sleep 1
         }
         Write-Host ""
-        
+
         try { Stop-Transcript | Out-Null } catch { }
         Restart-Computer -Force
     }
