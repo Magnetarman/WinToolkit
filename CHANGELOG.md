@@ -103,6 +103,12 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   
 - Aggiunta funzione di esportazione log.
 
+- Funzione concatenazione script riscritta.
+  - Migliorati i messaggi informativi in tutto il toolkit.
+  - Adesso la funzione risulta centralizzata.
+  - Lo script utilizza delle variabili per capire se sei in modalità avvio script singolo o concatenato.
+  - Migliorata la gestione automatizzata dei vari scenari.
+
 ### Correzioni
 
 - Script `start.ps1` aggiornato e potenziato.
