@@ -66,8 +66,7 @@
         "opacity": 75,
         "source": "Windows.Terminal.PowershellCore",
         "useAcrylic": true,
-        "commandline": "pwsh.exe -ExecutionPolicy Bypass",
-        "elevate": true
+        "commandline": "pwsh.exe -ExecutionPolicy Bypass"
       },
       {
         "guid": "{b453ae62-4e3d-5e58-b989-0a998ec441b8}",
@@ -77,7 +76,31 @@
       }
     ]
   },
-  "schemes": [],
+  "schemes": [
+    {
+      "name": "Ottosson",
+      "black": "#000000",
+      "red": "#f87070",
+      "green": "#70f870",
+      "yellow": "#f8f870",
+      "blue": "#7070f8",
+      "purple": "#f870f8",
+      "cyan": "#70f8f8",
+      "white": "#f7f7f7",
+      "brightBlack": "#555555",
+      "brightRed": "#ffbaba",
+      "brightGreen": "#baffba",
+      "brightYellow": "#ffffba",
+      "brightBlue": "#babaff",
+      "brightPurple": "#ffbaff",
+      "brightCyan": "#baffff",
+      "brightWhite": "#ffffff",
+      "background": "#0d0f11",
+      "foreground": "#f7f7f7",
+      "selectionBackground": "#555555",
+      "cursorColor": "#f7f7f7"
+    }
+  ],
   "theme": "dark",
   "useAcrylicInTabRow": true
 }
