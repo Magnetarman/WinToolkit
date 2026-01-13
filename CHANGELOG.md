@@ -123,6 +123,15 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - **Logica di installazione PS7:** invertita la priorità, ora tenta prima il download/installazione diretta (MSI) e usa Winget solo come fallback.
     - Sostituito `Start-Job` con `Start-Process -PassThru + Wait-Process` per una gestione più affidabile del processo di installazione MSI.
     - **Parsing JSON:** migliorata la robustezza del parsing di settings.json per Windows Terminal con gestione specifica degli errori di lettura.
+    - **Architettura Centralizzata:** introdotto l'oggetto `$script:AppConfig` per la gestione unificata di URL API, percorsi di installazione e versioning, eliminando variabili sparse e migliorando la manutenibilità.
+    - **Auto-Relaunch in PowerShell 7:** implementata logica di rilevamento automatico del motore PS7; lo script è ora in grado di riavviarsi autonomamente nella nuova sessione (se presente o appena installata) per garantire compatibilità con i moduli moderni.
+    - **Gestione Ambiente "PowerShell Pro" (PSP):**
+      - Introdotta automazione completa per il setup di strumenti CLI avanzati: `Oh-My-Posh`, `zoxide`, `btop` e `fastfetch`.
+      - Gestione Nerd Fonts: implementata procedura di download, scompattazione e installazione a livello di sistema dei font (JetBrainsMono) tramite `Shell COM Objects`.
+      - Automazione Profilo: configurazione automatica del file `Microsoft.PowerShell_profile.ps1` con integrazione temi e plugin.
+    - **Windows Terminal & UI:**
+      - Introdotta la sincronizzazione cloud del file `settings.json` per garantire una configurazione visuale coerente.
+      - Ottimizzata la creazione della scorciatoia sul Desktop: ora punta direttamente a wt.exe forzando l'elevazione dei privilegi e il profilo PS7.
 
 - **Funzione WinRepairToolkit** riscritta.
 
