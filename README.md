@@ -261,6 +261,14 @@ Guarda la lista delle fantastiche persone che hanno deciso di investire le loro 
 
 ---
 
+## 🎉 Traguardi
+
+- [x] 11/01/2026 - 10 Stelle raggiunte.
+- [ ] xx/xx/xxxx - 50 Stelle raggiunte.
+- [ ] xx/xx/xxxx - 100 Stelle raggiunte.
+
+---
+
 ## 💀 Dove tutto è iniziato (V 1.0)
 
 <div align="center">
