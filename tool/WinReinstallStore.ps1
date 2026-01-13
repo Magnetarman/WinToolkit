@@ -197,21 +197,28 @@ function WinReinstallStore {
             # --- FASE 4: Reset dell'App Installer Appx ---
             try {
                 $resetAppxActivity = "Reset 'Programma di installazione app'"
+                
+                # Cattura posizione cursore PRIMA di stampare qualsiasi messaggio
+                $originalPos = [Console]::CursorTop
+                
                 Write-StyledMessage Info "🔄 $resetAppxActivity..."
                 
-                # Salva posizione cursore e sopprimi completamente l'output
-                $originalPos = [Console]::CursorTop
+                # Esegui Reset-AppxPackage
                 Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue | Out-Null
-                Start-Sleep -Milliseconds 1000  # Dare più tempo al progress bar di completare
+                Start-Sleep -Milliseconds 1200  # Dare tempo al progress bar di completare e scomparire
                 
-                # Pulisci MULTIPLE righe per catturare tutta la progress bar
+                # Calcola quante righe pulire (dalla posizione originale fino alla posizione attuale + margine)
+                $currentPos = [Console]::CursorTop
+                $linesToClear = [Math]::Max(5, $currentPos - $originalPos + 2)
+                
+                # Pulisci TUTTE le righe dal messaggio iniziale in giù
                 $clearLine = ' ' * ([Console]::WindowWidth - 1)
-                for ($i = 0; $i -lt 3; $i++) {
+                for ($i = 0; $i -lt $linesToClear; $i++) {
                     [Console]::SetCursorPosition(0, $originalPos + $i)
                     Write-Host $clearLine -NoNewline
                 }
                 
-                # Riposiziona cursore alla posizione originale
+                # Riposiziona cursore alla posizione originale e scrivi solo il messaggio di successo
                 [Console]::SetCursorPosition(0, $originalPos)
                 [Console]::Out.Flush()
                 
