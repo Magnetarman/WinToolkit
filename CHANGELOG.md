@@ -111,7 +111,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 
 ### Correzioni
 
-- Script `start.ps1` aggiornato e potenziato.
+- Script `start.ps1` aggiornato e potenziato [[Thanks to @Matteoz]](https://github.com/teo180).
 
   - **Gestione Processi:** introdotta nuova funzione helper `Stop-InterferingProcesses` per terminare forzatamente processi conflittuali (es. WinStore.App, wsappx, AppInstaller) prima delle operazioni critiche.
   - **Logging & Error Handling:** aggiunto blocco try/catch sulla gestione del Transcript (log) e sul comando `Restart-Computer` per prevenire crash in fase di chiusura/riavvio.
