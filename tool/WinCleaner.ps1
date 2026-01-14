@@ -494,29 +494,49 @@ function WinCleaner {
             ); PerUser = $true; FilesOnly = $false
         }
         @{ Name = "Cookies Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "1") }
-        @{ Name = "Chrome Browser Cache & Logs"; Type = "File"; Paths = @(
-                "%LOCALAPPDATA%\Google\Chrome\User Data\Crashpad\reports",
-                "%LOCALAPPDATA%\Google\CrashReports",
-                "%LOCALAPPDATA%\Google\Chrome\User Data\Software Reporter Tool"
-            ); PerUser = $true; FilesOnly = $true
-        }
-        @{ Name = "Firefox Browser Data"; Type = "Custom"; ScriptBlock = {
-                Write-StyledMessage -Type 'Info' -Text "🦊 Pulizia Firefox..."
+        @{ Name = "Chromium Browsers Cache (Chrome, Edge, Brave, Vivaldi)"; Type = "Custom"; ScriptBlock = {
+                Write-StyledMessage -Type 'Info' -Text "🌐 Pulizia Cache Browser Chromium..."
+
+                $browsers = @(
+                    @{ Name = "Google Chrome";  Path = "Google\Chrome\User Data" },
+                    @{ Name = "Microsoft Edge"; Path = "Microsoft\Edge\User Data" },
+                    @{ Name = "Brave Browser";  Path = "BraveSoftware\Brave-Browser\User Data" },
+                    @{ Name = "Vivaldi";        Path = "Vivaldi\User Data" }
+                )
 
                 $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
                 foreach ($u in $users) {
-                    # Standard Firefox profiles
-                    $profiles = Get-ChildItem "$($u.FullName)\AppData\Roaming\Mozilla\Firefox\Profiles" -Directory -ErrorAction SilentlyContinue
-                    foreach ($prof in $profiles) {
-                        $files = @("downloads.rdf", "downloads.sqlite", "places.sqlite", "favicons.sqlite")
-                        foreach ($f in $files) {
-                            $fp = Join-Path $prof.FullName $f
-                            if (Test-Path $fp) { Remove-Item -Path $fp -Force -ErrorAction SilentlyContinue }
+                    foreach ($b in $browsers) {
+                        $userDataPath = Join-Path "$($u.FullName)\AppData\Local" $b.Path
+                        if (Test-Path $userDataPath) {
+                            $patterns = @(
+                                "$userDataPath\*\Cache",
+                                "$userDataPath\*\Code Cache",
+                                "$userDataPath\*\GPUCache",
+                                "$userDataPath\*\ShaderCache",
+                                "$userDataPath\CrashReports"
+                            )
+                            foreach ($p in $patterns) {
+                                Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
+                            }
                         }
                     }
-                    # Cache folders
-                    $cache = "$($u.FullName)\AppData\Local\Mozilla\Firefox\Profiles"
-                    if (Test-Path $cache) { Remove-Item -Path $cache -Recurse -Force -ErrorAction SilentlyContinue }
+                }
+            }
+        }
+        @{ Name = "Firefox Browser Cache"; Type = "Custom"; ScriptBlock = {
+                Write-StyledMessage -Type 'Info' -Text "🦊 Pulizia Firefox (Cache & Crashes)..."
+
+                $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
+                foreach ($u in $users) {
+                    # Standard Firefox (Cache in Local AppData)
+                    $cleanPaths = @(
+                        "$($u.FullName)\AppData\Local\Mozilla\Firefox\Profiles",
+                        "$($u.FullName)\AppData\Local\Mozilla\Firefox\Crash Reports"
+                    )
+                    foreach ($p in $cleanPaths) {
+                        if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue }
+                    }
 
                     # Microsoft Store Firefox (UWP)
                     $msStoreProfiles = Get-ChildItem `
@@ -529,6 +549,11 @@ function WinCleaner {
                     }
                 }
             }
+        }
+        @{ Name = "Edge Legacy (HTML) Cache"; Type = "File"; Paths = @(
+                "%LOCALAPPDATA%\Packages\Microsoft.MicrosoftEdge_8wekyb3d8bbwe\AC\*\MicrosoftEdge\Cache",
+                "%LOCALAPPDATA%\Packages\Microsoft.MicrosoftEdge_8wekyb3d8bbwe\AC\#!001\MicrosoftEdge\Cache"
+            ); PerUser = $true; FilesOnly = $false
         }
         @{ Name = "Opera & Java Cache"; Type = "File"; Paths = @(
                 "%USERPROFILE%\Local Settings\Application Data\Opera\Opera",
@@ -674,12 +699,7 @@ function WinCleaner {
 
         # --- Utility Apps ---
         @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
-        @{ Name = "Quick Access"; Type = "File"; Paths = @(
-                 "%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations",
-        #        "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations",
-                 "%APPDATA%\Microsoft\Windows\Recent Items"
-             ); PerUser = $true
-         }
+
 
         # --- Legacy Applications & Media ---
         @{ Name = "Flash Player Traces"; Type = "File"; Paths = @("%APPDATA%\Macromedia\Flash Player"); PerUser = $true }
