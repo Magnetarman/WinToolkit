@@ -12,7 +12,7 @@ function WinCleaner {
         [Parameter(Mandatory = $false)]
         [ValidateRange(0, 300)]
         [int]$CountdownSeconds = 30,
-        
+
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
@@ -20,8 +20,7 @@ function WinCleaner {
     # Initialize global execution log BEFORE any function calls
     $global:ExecutionLog = @()
 
-    
-    
+
     # ============================================================================
     # FUNZIONI GLOBALI LOCALI
     # ============================================================================
@@ -381,7 +380,7 @@ function WinCleaner {
                     $p = Join-Path $reg $o
                     if (Test-Path $p) { Set-ItemProperty -Path $p -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction SilentlyContinue }
                 }
-                
+
                 # Esegui cleanmgr.exe attendendo il completamento, sfruttando Invoke-CommandAction
                 # che include già logica di timeout per cleanmgr.exe e gestisce la visualizzazione.
                 $cleanMgrExecutionRule = @{
@@ -402,7 +401,7 @@ function WinCleaner {
         @{ Name = "Error Reports"; Type = "File"; Paths = @(
                 "$env:ProgramData\Microsoft\Windows\WER",
                 "$env:ALLUSERSPROFILE\Microsoft\Windows\WER"
-            ); FilesOnly = $false 
+            ); FilesOnly = $false
         }
 
         # --- Event Logs ---
@@ -418,7 +417,7 @@ function WinCleaner {
         @{ Name = "Cleanup - Windows Update Cache"; Type = "File"; Paths = @(
                 "C:\WINDOWS\SoftwareDistribution\DataStore",
                 "C:\WINDOWS\SoftwareDistribution\Download"
-            ); FilesOnly = $false 
+            ); FilesOnly = $false
         }
         @{ Name = "Start - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Start" }
 
@@ -427,7 +426,7 @@ function WinCleaner {
         @{ Name = "Windows App/Download Cache - User"; Type = "File"; Paths = @(
                 "%LOCALAPPDATA%\Microsoft\Windows\AppCache",
                 "%LOCALAPPDATA%\Microsoft\Windows\Caches"
-            ); PerUser = $true; FilesOnly = $true 
+            ); PerUser = $true; FilesOnly = $true
         }
 
         # --- Restore Points ---
@@ -470,7 +469,7 @@ function WinCleaner {
         }
         @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @(
                 "%USERPROFILE%\Local Settings\Temporary Internet Files"
-            ); PerUser = $true; FilesOnly = $false 
+            ); PerUser = $true; FilesOnly = $false
         }
         @{ Name = "Cache/History Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "8") }
         @{ Name = "Form Data Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "2") }
@@ -532,7 +531,7 @@ function WinCleaner {
                 "%TEMP%",
                 "%USERPROFILE%\AppData\Local\Temp",
                 "%USERPROFILE%\AppData\LocalLow\Temp"
-            ); PerUser = $true; FilesOnly = $false 
+            ); PerUser = $true; FilesOnly = $false
         }
         @{ Name = "Service Profiles Temp"; Type = "File"; Paths = @("%SYSTEMROOT%\ServiceProfiles\LocalService\AppData\Local\Temp"); FilesOnly = $false }
 
@@ -661,11 +660,11 @@ function WinCleaner {
         # --- Utility Apps ---
         @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
         @{ Name = "Quick Access"; Type = "File"; Paths = @(
-                "%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations",
-                "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations",
-                "%APPDATA%\Microsoft\Windows\Recent Items"
-            ); PerUser = $true 
-        }
+                 "%APPDATA%\Microsoft\Windows\Recent\AutomaticDestinations",
+        #        "%APPDATA%\Microsoft\Windows\Recent\CustomDestinations",
+                 "%APPDATA%\Microsoft\Windows\Recent Items"
+             ); PerUser = $true
+         }
 
         # --- Legacy Applications & Media ---
         @{ Name = "Flash Player Traces"; Type = "File"; Paths = @("%APPDATA%\Macromedia\Flash Player"); PerUser = $true }
@@ -761,33 +760,45 @@ function WinCleaner {
         @{ Name = "Windows.old"; Type = "ScriptBlock"; ScriptBlock = {
                 $path = "C:\Windows.old"
                 if (Test-Path $path) {
-                    try {
-                        Write-StyledMessage -Type 'Info' -Text "🗑️ Rimozione Windows.old..."
+                    Write-StyledMessage -Type 'Info' -Text "🗑️ Rilevata cartella Windows.old. Avvio rimozione sicura con Native CleanMgr..."
 
-                        Write-StyledMessage -Type 'Info' -Text "1. Assunzione proprietà (Take Ownership)..."
-                        $null = & cmd /c "takeown /F `"$path`" /R /A >nul 2>&1"
-
-                        Write-StyledMessage -Type 'Info' -Text "2. Assegnazione permessi di Controllo Completo..."
-                        $adminSID = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
-                        $adminAccount = $adminSID.Translate([System.Security.Principal.NTAccount]).Value
-                        $null = & cmd /c "icacls `"$path`" /T /grant `"${adminAccount}:F`" >nul 2>&1"
-
-                        Write-StyledMessage -Type 'Info' -Text "3. Rimozione forzata della cartella..."
-                        Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
-
-                        if (Test-Path -Path $path) {
-                            Write-StyledMessage -Type 'Error' -Text "ERRORE: La cartella $path non è stata rimossa."
+                    # 1. Configura il registro per selezionare automaticamente "Previous Installations"
+                    $regKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Previous Installations"
+                    if (-not (Test-Path $regKey)) {
+                         Write-StyledMessage -Type 'Warning' -Text "Chiave registro 'Previous Installations' non trovata. Tentativo di esecuzione standard."
+                    }
+                    else {
+                        try {
+                            Set-ItemProperty -Path $regKey -Name "StateFlags0066" -Value 2 -Type DWORD -Force -ErrorAction Stop
+                            Write-StyledMessage -Type 'Info' -Text "✅ Configurazione CleanMgr attivata per Windows.old (StateFlags0066)."
                         }
-                        else {
-                            Write-StyledMessage -Type 'Success' -Text "✅ La cartella Windows.old è stata rimossa con successo."
+                        catch {
+                            Write-StyledMessage -Type 'Warning' -Text "Impossibile scrivere nel registro per CleanMgr: $_"
                         }
                     }
-                    catch {
-                        Write-StyledMessage -Type 'Error' -Text "ERRORE durante la rimozione di Windows.old: $($_.Exception.Message)"
+
+                    # 2. Esegui CleanMgr sfruttando la funzione di gestione processi sicura
+                    # Utilizziamo Invoke-CommandAction simulando una regola per beneficiare del timeout e spinner
+                    $cleanMgrRule = @{
+                        Name    = "Rimozione Windows.old (CleanMgr)";
+                        Type    = "Command";
+                        Command = "cleanmgr.exe";
+                        Args    = @("/sagerun:66");
+                    }
+
+                    $result = Invoke-CommandAction -Rule $cleanMgrRule
+
+                    # 3. Verifica finale (CleanMgr potrebbe richiedere riavvio, quindi non è un vero errore se rimane)
+                    if (Test-Path $path) {
+                        Write-StyledMessage -Type 'Info' -Text "ℹ️ La cartella Windows.old potrebbe richiedere un riavvio per la rimozione completa."
+                    }
+                    else {
+                        Write-StyledMessage -Type 'Success' -Text "✅ Windows.old rimosso con successo."
                     }
                 }
                 else {
-                    Write-StyledMessage -Type 'Info' -Text "💭 La cartella Windows.old non è presente."
+                    # Silent or low verbosity if not present
+                     Write-StyledMessage -Type 'Info' -Text "💭 Nessuna cartella Windows.old rilevata."
                 }
             }
         }
