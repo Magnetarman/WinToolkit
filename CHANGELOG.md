@@ -79,6 +79,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Spazio libero tra 50 GB e 80 GB: testo spazio libero di colore giallo.
     - Spazio libero superiore a 80 GB: testo spazio libero di colore verde.
     - Corretta la coerenza grafica della pagina principale dello script.
+    - Aggiunto il riconoscimento delle nuove Build di Windows (25H2 e la Beta di 26H1)
 
 - **Funzione Disable Bitlocker** aggiunta.
 
