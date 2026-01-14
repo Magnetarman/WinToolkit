@@ -224,11 +224,19 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Uniformati spinner e grafica.
   - Aggiunto un blocco delle operazioni durante la "Pulizia Disco" in modo da evitare comportamenti anomali.
   - Uniformazione funzione `Write-StyledMessage`.
-  - Modificata Funzione Pulizia della taskbar (adesso ignora le personalizzazioni aggiunte dall'utente).
+  - Eliminata la Funzione Pulizia della taskbar `Quick Access`.
   - Refactor sezione rimozione Shadow Copies.
     - Adesso la funzione di pulizia non disattiva le Shadow Copies di windows.
     - Lo script per recuperare spazio su disco elimina tutti i punti di ripristino presenti tranne l'ultimo in ordine temporale, in modo da avere sempre un punto di ripristino funzionante.
-    
+  - Refactor sezione Pulizia `Cache & Logs`.
+    - Eliminato pulizia aggressiva di Firefox.
+    - Aggiunta pulizia di solo cache e logs dei principali browser utilizzati:
+      - Google Chrome
+      - Microsoft Edge (Versione Chromium)
+      - Edge Legacy (HTML)
+      - Brave Browser
+      - Vivaldi
+      - Firefox
 
 ### Modifiche
 
