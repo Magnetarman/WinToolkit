@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 223)"
+$ToolkitVersion = "2.5.0 (Build 224)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -605,6 +605,7 @@ while ($true) {
     Write-Host "`nPremi INVIO per tornare al menu..." -ForegroundColor Gray
     $null = Read-Host
 }
+
 
 
 
