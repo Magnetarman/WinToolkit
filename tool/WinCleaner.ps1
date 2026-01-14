@@ -434,14 +434,29 @@ function WinCleaner {
                 try {
                     Write-StyledMessage -Type 'Info' -Text "💾 Pulizia punti di ripristino sistema..."
 
-                    # Write-StyledMessage -Type 'Info' -Text "🗑️ Rimozione shadow copies per liberare spazio VSS..."
-                    # $vssResult = & vssadmin delete shadows /all /quiet 2>&1
-                    # if ($LASTEXITCODE -eq 0) {
-                    #     Write-StyledMessage -Type 'Success' -Text "Shadow copies rimosse con successo"
-                    # }
-                    # else {
-                    #     Write-StyledMessage -Type 'Warning' -Text "VSSAdmin completato con warnings: $vssResult"
-                    # }
+                    Write-StyledMessage -Type 'Info' -Text "🗑️ Analisi e pulizia shadow copies (mantieni ultima)..."
+                    try {
+                        $shadows = Get-CimInstance -ClassName Win32_ShadowCopy -ErrorAction Stop | Sort-Object InstallDate -Descending
+                        if ($shadows.Count -gt 1) {
+                            $toDelete = $shadows | Select-Object -Skip 1
+                            $count = $toDelete.Count
+                            Write-StyledMessage -Type 'Info' -Text "Rilevate $($shadows.Count) shadow copies. Rimozione di $count vecchie..."
+                            
+                            foreach ($shadow in $toDelete) {
+                                Remove-CimInstance -InputObject $shadow -ErrorAction SilentlyContinue
+                            }
+                            Write-StyledMessage -Type 'Success' -Text "Vecchie shadow copies rimosse. Ultima copia preservata."
+                        }
+                        elseif ($shadows.Count -eq 1) {
+                             Write-StyledMessage -Type 'Info' -Text "Trovata una sola shadow copy. Nessuna rimozione necessaria."
+                        }
+                        else {
+                             Write-StyledMessage -Type 'Info' -Text "Nessuna shadow copy rilevata."
+                        }
+                    }
+                    catch {
+                        Write-StyledMessage -Type 'Warning' -Text "Errore gestione shadow copies: $_"
+                    }
 
                     Write-StyledMessage -Type 'Info' -Text "💡 Protezione sistema mantenuta attiva per sicurezza"
                     Write-StyledMessage -Type 'Success' -Text "Pulizia punti di ripristino completata"
