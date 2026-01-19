@@ -18,7 +18,7 @@ function WinCleaner {
     )
 
     # Initialize global execution log BEFORE any function calls
-    $global:ExecutionLog = @()
+    $global:WinCleanerLog = @()
 
 
     # ============================================================================
@@ -57,7 +57,7 @@ function WinCleaner {
             Type      = $Type
             Text      = $Text
         }
-        $global:ExecutionLog += $logEntry
+        $global:WinCleanerLog += $logEntry
 
         $colorMap = @{
             'Success'  = 'Green'
@@ -886,7 +886,7 @@ function WinCleaner {
     Write-StyledMessage -Type 'Info' -Text "=================================================="
 
     # Group logs by type for summary stats
-    $stats = $global:ExecutionLog | Group-Object Type
+    $stats = $global:WinCleanerLog | Group-Object Type
     $sCount = ($stats | Where-Object Name -eq 'Success').Count
     $wCount = ($stats | Where-Object Name -eq 'Warning').Count
     $eCount = ($stats | Where-Object Name -eq 'Error').Count
@@ -898,7 +898,7 @@ function WinCleaner {
     Write-StyledMessage -Type 'Info' -Text "--------------------------------------------------"
     Write-StyledMessage -Type 'Info' -Text "Dettaglio Errori e Warning:"
 
-    $problems = $global:ExecutionLog | Where-Object { $_.Type -in 'Warning', 'Error' }
+    $problems = $global:WinCleanerLog | Where-Object { $_.Type -in 'Warning', 'Error' }
     if ($problems) {
         foreach ($p in $problems) {
             $icon = if ($p.Type -eq 'Error') { '❌' } else { '⚠️' }

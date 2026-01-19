@@ -237,6 +237,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
       - Brave Browser
       - Vivaldi
       - Firefox
+    - Risolto un conflitto di variabili tra lo script principale e `WinCleaner.ps1` che causava report di riepilogo vuoti, in caso di concatenazione script attiva.
 
 ### Modifiche
 
