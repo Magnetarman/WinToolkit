@@ -23,9 +23,6 @@ $AppConfig = @{
         GitHubAssetBaseUrl      = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
         GitHubAssetDevBaseUrl   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
 
-        # RustDesk
-        RustDeskReleaseAPI      = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
-
         # Office
         OfficeSetup             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
         OfficeBasicConfig       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
@@ -52,8 +49,6 @@ $AppConfig = @{
         Logs               = "$env:LOCALAPPDATA\WinToolkit\logs"
         Temp               = "$env:TEMP\WinToolkit"
         Drivers            = "$env:LOCALAPPDATA\WinToolkit\Drivers"
-        RustDeskConfig     = "$env:APPDATA\RustDesk\config"
-        RustDeskInstaller  = "$env:LOCALAPPDATA\WinToolkit\rustdesk\rustdesk-installer.msi"
         OfficeTemp         = "$env:LOCALAPPDATA\WinToolkit\Office"
         DriverBackupTemp   = "$env:TEMP\DriverBackup_Temp"
         DriverBackupLogs   = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -89,8 +84,6 @@ $AppConfig = @{
         # Windows Terminal
         WindowsTerminal       = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 
-        # RustDesk
-        RustDeskConfigPath    = "$env:APPDATA\RustDesk\config"
     }
 }
 
@@ -326,12 +319,12 @@ function Start-InterruptibleCountdown {
         [string]$Message = "Riavvio automatico",
         [switch]$Suppress
     )
-    
+
     # Se il parametro Suppress è attivo, ritorna immediatamente senza countdown
     if ($Suppress) {
         return $true
     }
-    
+
     Write-StyledMessage -Type 'Info' -Text '💡 Premi un tasto qualsiasi per annullare...'
     Write-Host ''
     for ($i = $Seconds; $i -gt 0; $i--) {
@@ -419,7 +412,6 @@ function WinBackupDriver {}
 function WinDriverInstall {}
 function OfficeToolkit {}
 function WinCleaner {}
-function SetRustDesk {}
 function VideoDriverInstall {}
 function GamingToolkit {}
 function DisableBitlocker {}
@@ -444,7 +436,6 @@ $menuStructure = @(
         )
     },
     @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'SetRustDesk'; Description = 'Setting RustDesk - MagnetarMan Mode'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinExportLog'; Description = 'Esporta Log WinToolkit'; Action = 'RunFunction' }
         )
     }
@@ -562,7 +553,7 @@ while ($true) {
         $scriptToRun = $allScripts[$sel - 1]
         Write-StyledMessage -Type 'Progress' -Text "▶️ Avvio: $($scriptToRun.Description)"
         Write-Host ''
-        
+
         try {
             if ($isMultiScript) {
                 # Esecuzione con soppressione riavvio individuale
@@ -611,13 +602,3 @@ while ($true) {
     Write-Host "`nPremi INVIO per tornare al menu..." -ForegroundColor Gray
     $null = Read-Host
 }
-
-
-
-
-
-
-
-
-
-
