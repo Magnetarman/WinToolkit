@@ -309,6 +309,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Bump automatico del Build script.
   - Add issue chiusi al changelog.
   - Migliorato il codice di `compiler.ps1` che ora controlla se ci sono righe vuote alla fine dello script e le elimina prima di effettuare il commit finale di aggiornamento.
+  - Rimosso script `SetRustdesk.ps1` e relative configurazioni per non conformità al progetto generale. [[Thanks to @pomodori92]](https://github.com/pomodori92)
 
 ---
 
