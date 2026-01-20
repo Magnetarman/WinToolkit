@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 227)"
+$ToolkitVersion = "2.5.0 (Build 228)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
