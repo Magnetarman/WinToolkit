@@ -9,7 +9,7 @@
     Autore: MagnetarMan
 #>
 
-param([int]$CountdownSeconds = 30)
+param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
@@ -443,163 +443,185 @@ $menuStructure = @(
 
 WinOSCheck
 
-while ($true) {
-    Show-Header -SubTitle "Menu Principale"
+# =============================================================================
+# MENU PRINCIPALE - Esegui solo se NON in modalità ImportOnly o GUI
+# =============================================================================
 
-    # Info Sistema
-    $width = $Host.UI.RawUI.BufferSize.Width
-    Write-Host ('*' * 50) -ForegroundColor Red
-    Write-Host ''
-    Write-Host "==== 💻 INFORMAZIONI DI SISTEMA 💻 ====" -ForegroundColor Cyan
-    Write-Host ''
-    $si = Get-SystemInfo
-    if ($si) {
-        $editionIcon = if ($si.ProductName -match "Pro") { "🔧" } else { "💻" }
-        Write-Host "💻 Edizione: $editionIcon $($si.ProductName)" -ForegroundColor White
-        Write-Host "🆔 Versione: " -NoNewline -ForegroundColor White
-        Write-Host "Ver. $($si.DisplayVersion) (Build $($si.BuildNumber))" -ForegroundColor Green
-        Write-Host "🔑 Architettura: $($si.Architecture)" -ForegroundColor White
-        Write-Host "🔧 Nome PC: $($si.ComputerName)" -ForegroundColor White
-        Write-Host "🧠 RAM: $($si.TotalRAM) GB" -ForegroundColor White
-        Write-Host "💾 Disco: " -NoNewline -ForegroundColor White
+if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
+    # Modalità interattiva TUI standard
+    Write-Host ""
+    Write-StyledMessage -Type 'Info' -Text '💎 WinToolkit avviato in modalità interattiva'
+    Write-Host ""
+    
+    while ($true) {
+        Show-Header -SubTitle "Menu Principale"
 
-        # Logica per la formattazione dello spazio disco libero
-        $diskFreeGB = $si.FreeDisk
-        $displayString = "$($si.FreePercentage)% Libero ($($diskFreeGB) GB)"
-
-        # Determina il colore in base allo spazio libero
-        $diskColor = "Green" # Default per > 80 GB
-        if ($diskFreeGB -lt 50) {
-            $diskColor = "Red"
-        }
-        elseif ($diskFreeGB -ge 50 -and $diskFreeGB -le 80) {
-            $diskColor = "Yellow"
-        }
-
-        # Output delle informazioni sul disco con colore appropriato
-        Write-Host $displayString -ForegroundColor $diskColor -NoNewline
-        Write-Host "" # Per una nuova riga dopo le informazioni sul disco
-        $blStatus = CheckBitlocker
-        $blColor = 'Red'
-        if ($blStatus -match 'Disattivato|Non configurato|Off') { $blColor = 'Green' }
-        Write-Host "🔒 Stato Bitlocker: " -NoNewline -ForegroundColor White
-        Write-Host "$blStatus" -ForegroundColor $blColor
+        # Info Sistema
+        $width = $Host.UI.RawUI.BufferSize.Width
         Write-Host ('*' * 50) -ForegroundColor Red
-    }
-    Write-Host ""
+        Write-Host ''
+        Write-Host "==== 💻 INFORMAZIONI DI SISTEMA 💻 ====" -ForegroundColor Cyan
+        Write-Host ''
+        $si = Get-SystemInfo
+        if ($si) {
+            $editionIcon = if ($si.ProductName -match "Pro") { "🔧" } else { "💻" }
+            Write-Host "💻 Edizione: $editionIcon $($si.ProductName)" -ForegroundColor White
+            Write-Host "🆔 Versione: " -NoNewline -ForegroundColor White
+            Write-Host "Ver. $($si.DisplayVersion) (Build $($si.BuildNumber))" -ForegroundColor Green
+            Write-Host "🔑 Architettura: $($si.Architecture)" -ForegroundColor White
+            Write-Host "🔧 Nome PC: $($si.ComputerName)" -ForegroundColor White
+            Write-Host "🧠 RAM: $($si.TotalRAM) GB" -ForegroundColor White
+            Write-Host "💾 Disco: " -NoNewline -ForegroundColor White
 
-    $allScripts = @(); $idx = 1
-    foreach ($cat in $menuStructure) {
-        Write-Host "==== $($cat.Icon) $($cat.Name) $($cat.Icon) ====" -ForegroundColor Cyan
+            # Logica per la formattazione dello spazio disco libero
+            $diskFreeGB = $si.FreeDisk
+            $displayString = "$($si.FreePercentage)% Libero ($($diskFreeGB) GB)"
+
+            # Determina il colore in base allo spazio libero
+            $diskColor = "Green" # Default per > 80 GB
+            if ($diskFreeGB -lt 50) {
+                $diskColor = "Red"
+            }
+            elseif ($diskFreeGB -ge 50 -and $diskFreeGB -le 80) {
+                $diskColor = "Yellow"
+            }
+
+            # Output delle informazioni sul disco con colore appropriato
+            Write-Host $displayString -ForegroundColor $diskColor -NoNewline
+            Write-Host "" # Per una nuova riga dopo le informazioni sul disco
+            $blStatus = CheckBitlocker
+            $blColor = 'Red'
+            if ($blStatus -match 'Disattivato|Non configurato|Off') { $blColor = 'Green' }
+            Write-Host "🔒 Stato Bitlocker: " -NoNewline -ForegroundColor White
+            Write-Host "$blStatus" -ForegroundColor $blColor
+            Write-Host ('*' * 50) -ForegroundColor Red
+        }
         Write-Host ""
-        foreach ($s in $cat.Scripts) {
-            $allScripts += $s
-            Write-Host "💎 [$idx] $($s.Description)" -ForegroundColor White
-            $idx++
+
+        $allScripts = @(); $idx = 1
+        foreach ($cat in $menuStructure) {
+            Write-Host "==== $($cat.Icon) $($cat.Name) $($cat.Icon) ====" -ForegroundColor Cyan
+            Write-Host ""
+            foreach ($s in $cat.Scripts) {
+                $allScripts += $s
+                Write-Host "💎 [$idx] $($s.Description)" -ForegroundColor White
+                $idx++
+            }
+            Write-Host ""
         }
+
+        Write-Host "==== Uscita ====" -ForegroundColor Red
         Write-Host ""
-    }
+        Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
+        Write-Host ""
+        $c = Read-Host "Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza"
 
-    Write-Host "==== Uscita ====" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
-    Write-Host ""
-    $c = Read-Host "Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza"
-
-    # Secret check
-    if ($c -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
-        Start-Process ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('aHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj15QVZVT2tlNGtvYw==')))
-        continue
-    }
-
-    if ($c -eq '0') {
-        Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
-        Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
-        if ($Global:Transcript -or $Transcript) {
-            Stop-Transcript -ErrorAction SilentlyContinue
+        # Secret check
+        if ($c -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
+            Start-Process ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('aHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj15QVZVT2tlNGtvYw==')))
+            continue
         }
-        Start-Sleep -Seconds 3
-        break
-    }
 
-    # Parsing input multipli: supporta "1 2 3", "1,2,3", "1, 2, 3"
-    $selections = @()
-    $rawInputs = $c -split '[\s,]+' | Where-Object { $_ -match '^\d+$' }
-    foreach ($input in $rawInputs) {
-        $num = [int]$input
-        if ($num -ge 1 -and $num -le $allScripts.Count) {
-            $selections += $num
-        }
-    }
-
-    if ($selections.Count -eq 0) {
-        Write-StyledMessage -Type 'Warning' -Text '⚠️ Nessuna selezione valida. Riprova.'
-        Start-Sleep -Seconds 2
-        continue
-    }
-
-    # Reset variabili globali per esecuzione multi-script
-    $Global:ExecutionLog = @()
-    $Global:NeedsFinalReboot = $false
-    $isMultiScript = ($selections.Count -gt 1)
-
-    Write-Host ''
-    if ($isMultiScript) {
-        Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione sequenziale di $($selections.Count) operazioni..."
-        Write-Host ''
-    }
-
-    foreach ($sel in $selections) {
-        $scriptToRun = $allScripts[$sel - 1]
-        Write-StyledMessage -Type 'Progress' -Text "▶️ Avvio: $($scriptToRun.Description)"
-        Write-Host ''
-
-        try {
-            if ($isMultiScript) {
-                # Esecuzione con soppressione riavvio individuale
-                Invoke-Expression "$($scriptToRun.Name) -SuppressIndividualReboot"
+        if ($c -eq '0') {
+            Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
+            Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
+            if ($Global:Transcript -or $Transcript) {
+                Stop-Transcript -ErrorAction SilentlyContinue
             }
-            else {
-                # Esecuzione normale (singola selezione)
-                Invoke-Expression $scriptToRun.Name
-            }
-            $Global:ExecutionLog += @{ Name = $scriptToRun.Description; Success = $true }
+            Start-Sleep -Seconds 3
+            break
         }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "❌ Errore durante $($scriptToRun.Description): $($_.Exception.Message)"
-            $Global:ExecutionLog += @{ Name = $scriptToRun.Description; Success = $false; Error = $_.Exception.Message }
-        }
-        Write-Host ''
-    }
 
-    # Riepilogo esecuzione (solo se multi-script)
-    if ($isMultiScript) {
-        Write-Host ''
-        Write-StyledMessage -Type 'Info' -Text '📊 Riepilogo esecuzione:'
-        foreach ($log in $Global:ExecutionLog) {
-            if ($log.Success) {
-                Write-Host "  ✅ $($log.Name)" -ForegroundColor Green
-            }
-            else {
-                Write-Host "  ❌ $($log.Name)" -ForegroundColor Red
+        # Parsing input multipli: supporta "1 2 3", "1,2,3", "1, 2, 3"
+        $selections = @()
+        $rawInputs = $c -split '[\s,]+' | Where-Object { $_ -match '^\d+$' }
+        foreach ($input in $rawInputs) {
+            $num = [int]$input
+            if ($num -ge 1 -and $num -le $allScripts.Count) {
+                $selections += $num
             }
         }
-        Write-Host ''
-    }
 
-    # Gestione riavvio finale centralizzato
-    if ($Global:NeedsFinalReboot) {
-        Write-StyledMessage -Type 'Warning' -Text '🔄 È necessario un riavvio per completare le operazioni.'
-        if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message 'Riavvio sistema in') {
-            Restart-Computer -Force
+        if ($selections.Count -eq 0) {
+            Write-StyledMessage -Type 'Warning' -Text '⚠️ Nessuna selezione valida. Riprova.'
+            Start-Sleep -Seconds 2
+            continue
         }
-        else {
+
+        # Reset variabili globali per esecuzione multi-script
+        $Global:ExecutionLog = @()
+        $Global:NeedsFinalReboot = $false
+        $isMultiScript = ($selections.Count -gt 1)
+
+        Write-Host ''
+        if ($isMultiScript) {
+            Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione sequenziale di $($selections.Count) operazioni..."
             Write-Host ''
-            Write-StyledMessage -Type 'Info' -Text '💡 Ricorda di riavviare il sistema manualmente per completare le operazioni.'
         }
-    }
 
-    Write-Host "`nPremi INVIO per tornare al menu..." -ForegroundColor Gray
-    $null = Read-Host
+        foreach ($sel in $selections) {
+            $scriptToRun = $allScripts[$sel - 1]
+            Write-StyledMessage -Type 'Progress' -Text "▶️ Avvio: $($scriptToRun.Description)"
+            Write-Host ''
+
+            try {
+                if ($isMultiScript) {
+                    # Esecuzione con soppressione riavvio individuale
+                    Invoke-Expression "$($scriptToRun.Name) -SuppressIndividualReboot"
+                }
+                else {
+                    # Esecuzione normale (singola selezione)
+                    Invoke-Expression $scriptToRun.Name
+                }
+                $Global:ExecutionLog += @{ Name = $scriptToRun.Description; Success = $true }
+            }
+            catch {
+                Write-StyledMessage -Type 'Error' -Text "❌ Errore durante $($scriptToRun.Description): $($_.Exception.Message)"
+                $Global:ExecutionLog += @{ Name = $scriptToRun.Description; Success = $false; Error = $_.Exception.Message }
+            }
+            Write-Host ''
+        }
+
+        # Riepilogo esecuzione (solo se multi-script)
+        if ($isMultiScript) {
+            Write-Host ''
+            Write-StyledMessage -Type 'Info' -Text '📊 Riepilogo esecuzione:'
+            foreach ($log in $Global:ExecutionLog) {
+                if ($log.Success) {
+                    Write-Host "  ✅ $($log.Name)" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "  ❌ $($log.Name)" -ForegroundColor Red
+                }
+            }
+            Write-Host ''
+        }
+
+        # Gestione riavvio finale centralizzato
+        if ($Global:NeedsFinalReboot) {
+            Write-StyledMessage -Type 'Warning' -Text '🔄 È necessario un riavvio per completare le operazioni.'
+            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message 'Riavvio sistema in') {
+                Restart-Computer -Force
+            }
+            else {
+                Write-Host ''
+                Write-StyledMessage -Type 'Info' -Text '💡 Ricorda di riavviare il sistema manualmente per completare le operazioni.'
+            }
+        }
+
+        Write-Host "`nPremi INVIO per tornare al menu..." -ForegroundColor Gray
+        $null = Read-Host
+    }
+}
+else {
+    # Modalità libreria/import - funzioni caricate ma menu soppresso
+    Write-Verbose "═══════════════════════════════════════════════════════════"
+    Write-Verbose "  📚 WinToolkit caricato in modalità LIBRERIA"
+    Write-Verbose "  ✅ Funzioni disponibili, menu TUI soppresso"
+    Write-Verbose "  💎 Versione: $ToolkitVersion"
+    Write-Verbose "═══════════════════════════════════════════════════════════"
+    
+    # Esponi $menuStructure globalmente per la GUI
+    $Global:menuStructure = $menuStructure
 }
 
