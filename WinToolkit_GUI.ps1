@@ -1308,106 +1308,193 @@ function Execute-ScriptAsync {
         $job = Start-Job -ScriptBlock {
             param($selectedFunctions, $scriptRoot, $mainLog)
 
-            # Function to send output back to main thread
+            # --- BRIDGE FUNCTIONS (Adapter Layer) ---
+            # These functions translate CLI-oriented calls from the tools into GUI-oriented JobOutput
+
             function Write-JobOutput {
                 param(
                     [string]$Message,
-                    [string]$GuiColor = "#FFFFFF", # Default white for GUI, now passed from job
-                    [string]$Type = 'Output', # e.g., 'Info', 'Warning', 'Error', 'Success', 'Progress'
-                    [double]$ProgressValue = $null # New parameter for progress percentage
+                    [string]$GuiColor = "#FFFFFF",
+                    [string]$Type = 'Output',
+                    [double]$ProgressValue = $null
                 )
                 Write-Output ([PSCustomObject]@{ Message = $message; GuiColor = $GuiColor; Type = $Type; ProgressValue = $ProgressValue })
             }
 
-            $totalFunctions = $selectedFunctions.Count
-            $completedFunctions = 0
-            $scriptContribution = 100.0 / $totalFunctions # Calculate contribution of each script
+            # Adapter for Write-StyledMessage
+            # Redirects styled console messages to the GUI log
+            function Write-StyledMessage {
+                param(
+                    [string]$Type,
+                    [string]$Text
+                )
+                # Map CLI types/colors to GUI colors
+                $colorMap = @{
+                    'Success'  = '#00FF00' # Green
+                    'Warning'  = '#FFA500' # Orange
+                    'Error'    = '#FF0000' # Red
+                    'Info'     = '#00CED1' # Cyan
+                    'Progress' = '#FF00FF' # Magenta
+                    'Question' = '#FFFFFF' # White
+                }
+                
+                $guiColor = if ($colorMap.ContainsKey($Type)) { $colorMap[$Type] } else { '#FFFFFF' }
+                
+                # Clean up text (remove emoji if double-added, though tools usually have them)
+                # Tools output: "[$timestamp] ICON Message" via Write-Host
+                # We just want the message content here, simpler to just pass it through
+                
+                Write-JobOutput -Message $Text -GuiColor $guiColor -Type $Type
+            }
+
+            # Adapter for Invoke-WithSpinner
+            # Hooks into the spinner loop to send progress updates to the GUI
+            function Invoke-WithSpinner {
+                [CmdletBinding()]
+                param(
+                    [Parameter(Mandatory = $true)]
+                    [string]$Activity,
+    
+                    [Parameter(Mandatory = $true)]
+                    [scriptblock]$Action,
+    
+                    [Parameter(Mandatory = $false)]
+                    [int]$TimeoutSeconds = 300,
+    
+                    [Parameter(Mandatory = $false)]
+                    [int]$UpdateInterval = 500,
+    
+                    [Parameter(Mandatory = $false)]
+                    [switch]$Process,
+    
+                    [Parameter(Mandatory = $false)]
+                    [switch]$Job,
+    
+                    [Parameter(Mandatory = $false)]
+                    [switch]$Timer,
+    
+                    [Parameter(Mandatory = $false)]
+                    [scriptblock]$PercentUpdate
+                )
+
+                # Send initial start message
+                Write-JobOutput -Message "Starting: $Activity" -GuiColor "#FFFF00" -Type 'Progress' 
+
+                $startTime = Get-Date
+
+                try {
+                    # Execute the action (Logic is same as CLI, but we don't need to draw ascii spinner)
+                    $result = & $Action
+
+                    # Handling Async monitoring (Process/Job/Timer)
+                    # We will use a simple loop to report heartbeat if it's long running
+                    # But since we are inside a Job, we can just report status updates.
+                    
+                    # NOTE: Most tools use Invoke-WithSpinner for the SIDE EFFECT of the spinner.
+                    # In this bridge, we mostly trust the $Action to return quickly or we monitor it.
+                    
+                    if ($Timer) {
+                         # Timer simulation for GUI
+                         for ($i = 0; $i -lt $TimeoutSeconds; $i++) {
+                             $percent = [math]::Min(100, [math]::Round(($i / $TimeoutSeconds) * 100))
+                             # We can't easily push exact global progress here without context, 
+                             # so we might validly send 'Progress' updates which the main thread interprets.
+                             # For now, let's just sleep.
+                             Start-Sleep -Seconds 1
+                         }
+                         return $true
+                    }
+                    elseif ($Process -and $result -and $result.GetType().Name -eq 'Process') {
+                         while (-not $result.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
+                             Start-Sleep -Milliseconds $UpdateInterval
+                             # Optional: Send "Still running..." heartbeat?
+                         }
+                         if (-not $result.HasExited) {
+                             $result.Kill()
+                             Write-JobOutput -Message "Timeout: $Activity" -GuiColor "#FF0000" -Type 'Error'
+                             return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
+                         }
+                         return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
+                    }
+                    elseif ($Job) {
+                         # Logic for job monitoring if needed
+                         Wait-Job $result | Out-Null
+                         $jobResult = Receive-Job $result
+                         return $jobResult
+                    }
+                    else {
+                        # Sync action
+                        Start-Sleep -Seconds $TimeoutSeconds # If used as delay
+                        return $result
+                    }
+                }
+                catch {
+                    Write-JobOutput -Message "Error in $Activity: $($_.Exception.Message)" -GuiColor "#FF0000" -Type 'Error'
+                    return @{ Success = $false; Error = $_.Exception.Message }
+                }
+            }
+            
+            # Mock/Redirect other global functions required by tools
+            function Initialize-ToolLogging { param([string]$ToolName) } # No-op, we use job log
+            function Show-Header { param([string]$SubTitle) } # No-op
+            function Start-InterruptibleCountdown { param($Seconds, $Message, $Suppress) return $true } # Auto-proceed
+            function Center-Text { param($Text) return $Text }
+
+            # --- END BRIDGE FUNCTIONS ---
+
+            # Load Global Logic if needed (shared vars)
+            $ErrorActionPreference = 'Stop'
+            $Global:NeedsFinalReboot = $false
 
             $totalFunctions = $selectedFunctions.Count
             $completedFunctions = 0
+            $scriptContribution = 100.0 / $totalFunctions
 
             foreach ($functionName in $selectedFunctions) {
                 $completedFunctions++
                 $currentBaseProgress = ($completedFunctions - 1) * $scriptContribution
+                
+                Write-JobOutput -Message "[$completedFunctions/$totalFunctions] Loading module: $functionName" -GuiColor "#00CED1" -Type 'Progress' -ProgressValue $currentBaseProgress
 
-                # Update progress to 25% of this script's contribution (Start)
-                $progressStart = $currentBaseProgress + (0.25 * $scriptContribution)
-                Write-JobOutput -Message "[$completedFunctions/$totalFunctions] Starting: $functionName" -GuiColor "#00CED1" -Type 'Progress' -ProgressValue $progressStart
-
-                try {
-                    switch ($functionName) {
-                        "WinInstallPSProfile" {
-                            Write-JobOutput -Message "Executing WinInstallPSProfile logic..." -GuiColor "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 1 # Simulate 25% work
-                            # Update progress to 50% of this script's contribution (Mid-point)
-                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
-                            Write-JobOutput -Message "WinInstallPSProfile in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
-                            Start-Sleep -Seconds 1 # Simulate remaining work
+                # Construct path to tool
+                $toolPath = Join-Path $scriptRoot "tool\$functionName.ps1"
+                
+                if (Test-Path $toolPath) {
+                    try {
+                        # Dot-source the tool script to load the function
+                        . $toolPath
+                        
+                        # Verify function exists after sourcing (Assume function name matches file basename)
+                        if (Get-Command $functionName -ErrorAction SilentlyContinue) {
+                            Write-JobOutput -Message "Executing $functionName..." -GuiColor "#ADD8E6" -Type 'Info'
+                            
+                            # Execute the function!
+                            # We use Invoke-Expression or & to call it dynamically
+                            & $functionName -SuppressIndividualReboot
+                            
+                            Write-JobOutput -Message "Completed: $functionName" -GuiColor "#00FF00" -Type 'Success'
                         }
-                        "WinRepairToolkit" {
-                            Write-JobOutput -Message "Executing WinRepairToolkit logic..." -GuiColor "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 1.5
-                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
-                            Write-JobOutput -Message "WinRepairToolkit in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
-                            Start-Sleep -Seconds 1.5
-                        }
-                        "WinUpdateReset" {
-                            Write-JobOutput -Message "Executing WinUpdateReset logic..." -GuiColor "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 1
-                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
-                            Write-JobOutput -Message "WinUpdateReset in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
-                            Start-Sleep -Seconds 1
-                        }
-                        "WinReinstallStore" {
-                            Write-JobOutput -Message "Executing WinReinstallStore logic..." -GuiColor "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 2
-                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
-                            Write-JobOutput -Message "WinReinstallStore in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
-                            Start-Sleep -Seconds 2
-                        }
-                        "WinBackupDriver" {
-                            Write-JobOutput -Message "Executing WinBackupDriver logic..." -GuiColor "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 1.5
-                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
-                            Write-JobOutput -Message "WinBackupDriver in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
-                            Start-Sleep -Seconds 1.5
-                        }
-                        "WinCleaner" {
-                            Write-JobOutput -Message "Executing WinCleaner logic..." -GuiColor "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 2.5
-                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
-                            Write-JobOutput -Message "WinCleaner in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
-                            Start-Sleep -Seconds 2.5
-                        }
-                        "OfficeToolkit" {
-                            Write-JobOutput -Message "Executing OfficeToolkit logic..." -GuiColor "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 2
-                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
-                            Write-JobOutput -Message "OfficeToolkit in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
-                            Start-Sleep -Seconds 2
-                        }
-                        "SetRustDesk" {
-                            Write-JobOutput -Message "Executing SetRustDesk logic..." -GuiColor "#ADD8E6" -Type 'Info'
-                            Start-Sleep -Seconds 1
-                            $progressMid = $currentBaseProgress + (0.50 * $scriptContribution)
-                            Write-JobOutput -Message "SetRustDesk in progress..." -GuiColor "#ADD8E6" -Type 'Progress' -ProgressValue $progressMid
-                            Start-Sleep -Seconds 1
-                        }
-                        default {
-                            Write-JobOutput -Message "Unknown function: $functionName" -Color "#FFA500" -Type 'Warning'
+                        else {
+                             Write-JobOutput -Message "Error: Function '$functionName' not found in script." -GuiColor "#FFA500" -Type 'Warning'
                         }
                     }
-                    Write-JobOutput -Message "Completed: $functionName" -GuiColor "#00FF00" -Type 'Success'
+                    catch {
+                        Write-JobOutput -Message "Critical Error running $functionName: $($_.Exception.Message)" -GuiColor "#FF0000" -Type 'Error'
+                    }
                 }
-                catch {
-                    Write-JobOutput -Message "Error in $functionName`: $($_.Exception.Message)" -GuiColor "#FF0000" -Type 'Error'
+                else {
+                    # Fallback for built-in functions not in tool/ folder (if any remain)
+                    Write-JobOutput -Message "Tool script not found: $toolPath. Attempting to execute if loaded..." -GuiColor "#FFA500" -Type 'Warning'
+                    # (Simulation block removed)
                 }
-                # Update progress to 100% for this script
+
+                # Update progress to 100% for this script segment
                 $progressComplete = $completedFunctions * $scriptContribution
-                Write-JobOutput -Message "[$completedFunctions/$totalFunctions] Progress: $progressComplete% (Function $functionName complete)" -GuiColor "#00FF00" -Type 'Progress' -ProgressValue $progressComplete
+                Write-JobOutput -Message "[$completedFunctions/$totalFunctions] Finished $functionName" -GuiColor "#00FF00" -Type 'Progress' -ProgressValue $progressComplete
             }
-            Write-JobOutput -Message "Script execution completed!" -GuiColor "#00FF00" -Type 'Success'
-            # Final progress update to ensure 100% on job completion
+            
+            Write-JobOutput -Message "All tasks completed." -GuiColor "#00FF00" -Type 'Success'
+            # Final progress update
             Write-JobOutput -Message "Final Progress: 100%" -GuiColor "#00FF00" -Type 'Progress' -ProgressValue 100
         } -ArgumentList $selectedCheckboxes, $PSScriptRoot, $mainLog -ErrorAction Stop
 
