@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.0 (Build 232) - 2026-01-25
+    Versione 2.5.0 (Build 233) - 2026-01-25
     Compatibile con PowerShell 5.1+
 #>
 
@@ -19,8 +19,7 @@ $script:AppConfig = @{
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
-        NerdFontsAPI            = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
-        JetBrainsMonoFallback   = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
+
         OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
         PowerShellProfile       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
         WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
@@ -536,58 +535,34 @@ function Install-PspEnvironment {
 
     function Install-NerdFontsLocal {
         try {
-            $fontNamesToCheck = @("JetBrainsMono Nerd Font", "JetBrainsMonoNL Nerd Font", "JetBrainsMono NFM")
-            $fonts = [System.Drawing.Text.InstalledFontCollection]::new()
+            Write-StyledMessage -Type Info -Text "🔍 Verifica presenza JetBrainsMono Nerd Font..."
+            
+            # Controllo rapido se il font è già registrato nel sistema
+            $fontRegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+            $installed = Get-ItemProperty -Path $fontRegistryPath -ErrorAction SilentlyContinue | 
+                         Get-Member -MemberType NoteProperty | 
+                         Where-Object Name -like "*JetBrainsMono*"
 
-            foreach ($fontName in $fontNamesToCheck) {
-                if ($fonts.Families.Name -contains $fontName) {
-                    Write-StyledMessage -Type Success -Text "Font $fontName già installato."
-                    return $true
-                }
-            }
-
-            # Check cartella Fonts
-            if (Get-ChildItem -Path "C:\Windows\Fonts" -Filter "*JetBrains*" -ErrorAction SilentlyContinue) {
-                Write-StyledMessage -Type Info -Text "File JetBrainsMono presenti. Skip."
+            if ($installed) {
+                Write-StyledMessage -Type Success -Text "✅ JetBrainsMono Nerd Font già installato."
                 return $true
             }
 
-            Write-StyledMessage -Type Info -Text "⬇️ Download JetBrainsMono Nerd Font..."
+            Write-StyledMessage -Type Info -Text "⬇️ Installazione font tramite WinGet (Metodo Rapido)..."
+            
+            # Utilizzo della funzione helper esistente per coerenza logica
+            $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
 
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-
-            # Tentativo download da API GitHub, fallback su URL diretto
-            $fontZipUrl = $script:AppConfig.URLs.JetBrainsMonoFallback
-            try {
-                $release = Invoke-RestMethod $script:AppConfig.URLs.NerdFontsAPI -ErrorAction SilentlyContinue
-                $asset = $release.assets | Where-Object { $_.name -eq "JetBrainsMono.zip" } | Select-Object -First 1
-                if ($asset) { $fontZipUrl = $asset.browser_download_url }
-            } catch {}
-
-            $tempDir = $script:AppConfig.Paths.Temp
-            if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
-
-            $zipFilePath = Join-Path $tempDir "JetBrainsMono.zip"
-            $extractPath = Join-Path $tempDir "JetBrainsMono"
-
-            Invoke-WebRequest -Uri $fontZipUrl -OutFile $zipFilePath -UseBasicParsing
-            Expand-Archive -Path $zipFilePath -DestinationPath $extractPath -Force
-
-            Write-StyledMessage -Type Info -Text "Installazione font..."
-            $shellFontFolder = (New-Object -ComObject Shell.Application).Namespace(0x14)
-
-            Get-ChildItem -Path $extractPath -Recurse -Filter "*.ttf" | ForEach-Object {
-                if (-not (Test-Path "C:\Windows\Fonts\$($_.Name)")) {
-                    $shellFontFolder.CopyHere($_.FullName, 0x10)
-                }
+            if ($result.ExitCode -eq 0) {
+                Write-StyledMessage -Type Success -Text "✅ Nerd Fonts installati con successo."
+                return $true
+            } else {
+                Write-StyledMessage -Type Warning -Text "⚠️ WinGet ha restituito codice $($result.ExitCode). Il font potrebbe richiedere un riavvio del terminale."
+                return $false
             }
-
-            Remove-Item $extractPath, $zipFilePath -Recurse -Force -ErrorAction SilentlyContinue
-            Write-StyledMessage -Type Success -Text "Nerd Fonts installati."
-            return $true
         }
         catch {
-            Write-StyledMessage -Type Warning -Text "Errore installazione font: $($_.Exception.Message)"
+            Write-StyledMessage -Type Warning -Text "❌ Errore durante l'installazione font: $($_.Exception.Message)"
             return $false
         }
     }
@@ -772,7 +747,7 @@ function Invoke-WinToolkitSetup {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.5.0 (Build 231)'
+        '        Version 2.5.0 (Build 233)'
     ) | ForEach-Object { Write-Host (Format-CenteredText -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
