@@ -119,6 +119,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - **Timeout & Wait:** ottimizzati i timeout di attesa e incrementato il tempo di controllo per la generazione del file settings.json di Windows Terminal (da 10s a 20s).
   - **Gestione Winget (Refactoring completo):**
     - La funzione `Install-WingetSilent` è stata completamente riscritta per una maggiore robustezza.
+    - Inserito un ulteriore check per verificare la corretta installazione di Winget su sistemi obsoleti (Windows 10/11 < 22H2), con successiva installazione forzata di Winget, per avere pieno supporto anche su queste versioni di Windows [[Thanks to @Sicolla]](https://t.me/sicolla).
+    - Reinstallazione forzata di Winget tramite di lo script esterno. [[Thanks to @asheroto]](https://github.com/asheroto)
     - **Deep Cleaning:** implementata pulizia aggressiva della cache: terminazione processi Winget, rimozione ricorsiva della cartella %TEMP%\WinGet e reset delle sorgenti (`source reset --force`).
     - **Dipendenze:** aggiunta installazione automatica del NuGet PackageProvider e del modulo PowerShell Microsoft.WinGet.Client
     - **Strategia di riparazione potenziata:**
