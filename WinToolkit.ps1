@@ -5,7 +5,7 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.5.0 - 13/01/2026
+    Versione: 2.5.0 - 25/01/2026
     Autore: MagnetarMan
 #>
 
@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 230)"
+$ToolkitVersion = "2.5.0 (Build 231)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -4577,7 +4577,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
     Write-Host ""
     Write-StyledMessage -Type 'Info' -Text '💎 WinToolkit avviato in modalità interattiva'
     Write-Host ""
-    
+
     while ($true) {
         Show-Header -SubTitle "Menu Principale"
 
@@ -4745,7 +4745,7 @@ else {
     Write-Verbose "  ✅ Funzioni disponibili, menu TUI soppresso"
     Write-Verbose "  💎 Versione: $ToolkitVersion"
     Write-Verbose "═══════════════════════════════════════════════════════════"
-    
+
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
