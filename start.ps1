@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.0 (Build 233) - 2026-01-25
+    Versione 2.5.0 (Build 236) - 2026-01-25
     Compatibile con PowerShell 5.1+
 #>
 
@@ -19,7 +19,6 @@ $script:AppConfig = @{
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
-
         OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
         PowerShellProfile       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
         WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
@@ -145,7 +144,7 @@ function Test-WingetFunctionality {
 
     try {
         # Test download pacchetto leggero per verificare funzionalità
-        $result = Invoke-WingetCommand -Arguments "search Microsoft.PowerToys --accept-source-agreements --accept-package-agreements --count 1"
+        $result = Invoke-WingetCommand -Arguments "search Microsoft.PowerToys --accept-source-agreements --count 1"
 
         if ($result.ExitCode -eq 0) {
             Write-StyledMessage -Type Success -Text "✅ Winget operativo e funzionante."
@@ -316,7 +315,9 @@ function Install-WingetPackage {
 
         # Reset App Installer
         Write-StyledMessage -Type Info -Text "Reset App Installer..."
-        Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
+        if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
+            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
+        }
 
         Start-Sleep 2
 
@@ -764,7 +765,7 @@ function Invoke-WinToolkitSetup {
 
     # Banner
     # Banner
-    Show-Header -Title "Toolkit Starter By MagnetarMan" -Version "Version 2.5.0 (Build 235)"
+    Show-Header -Title "Toolkit Starter By MagnetarMan" -Version "Version 2.5.0 (Build 236)"
 
     Write-StyledMessage -Type Info -Text "PowerShell: $($PSVersionTable.PSVersion)"
     if ($PSVersionTable.PSVersion.Major -lt 7) {
