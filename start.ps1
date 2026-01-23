@@ -180,7 +180,8 @@ function Install-WingetCore {
         # 1. Visual C++ Redistributable
         if (-not (Test-VCRedist)) {
             Write-StyledMessage -Type Info -Text "Installazione Visual C++ Redistributable..."
-            $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$([Environment]::Is64BitOperatingSystem ? 'x64' : 'x86').exe"
+            $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
+            $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
             $vcFile = Join-Path $tempDir "vc_redist.exe"
             
             Invoke-WebRequest -Uri $vcUrl -OutFile $vcFile -UseBasicParsing
@@ -747,7 +748,7 @@ function Invoke-WinToolkitSetup {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.5.0 (Build 233)'
+        '        Version 2.5.0 (Build 234)'
     ) | ForEach-Object { Write-Host (Format-CenteredText -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
