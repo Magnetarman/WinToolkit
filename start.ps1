@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.0 (Build 221) - 2026-01-13
+    Versione 2.5.0 (Build 231) - 2026-01-25
     Compatibile con PowerShell 5.1+
 #>
 
@@ -16,6 +16,7 @@
 $script:AppConfig = @{
     URLs  = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
+        WingetInstallScript     = "https://github.com/asheroto/winget-install/releases/latest/download/winget-install.ps1"
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
@@ -114,12 +115,39 @@ function Test-WingetCompatibility {
     return $true
 }
 
+function Test-WingetFunctionality {
+    Write-StyledMessage -Type Info -Text "🔍 Verifica funzionalità Winget..."
+
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-StyledMessage -Type Warning -Text "Winget non trovato nel PATH."
+        return $false
+    }
+
+    try {
+        # Test download pacchetto leggero per verificare funzionalità
+        $result = Invoke-WingetCommand -Arguments "search Microsoft.PowerToys --count 1"
+
+        if ($result.ExitCode -eq 0) {
+            Write-StyledMessage -Type Success -Text "✅ Winget operativo e funzionante."
+            return $true
+        }
+        else {
+            Write-StyledMessage -Type Warning -Text "Winget presente ma non funzionante (Exit Code: $($result.ExitCode))."
+            return $false
+        }
+    }
+    catch {
+        Write-StyledMessage -Type Warning -Text "Errore durante test Winget: $($_.Exception.Message)"
+        return $false
+    }
+}
+
 # ============================================================================
 # FUNZIONI DI INSTALLAZIONE
 # ============================================================================
 
 function Install-WingetPackage {
-    Write-StyledMessage -Type Info -Text "🚀 Avvio procedura reinstallazione Winget..."
+    Write-StyledMessage -Type Info -Text "🚀 Avvio procedura installazione/verifica Winget..."
 
     if (-not (Test-WingetCompatibility)) { return $false }
 
@@ -135,13 +163,38 @@ function Install-WingetPackage {
             Write-StyledMessage -Type Info -Text "Cache temporanea eliminata."
         }
 
-        # Reset sorgenti
-        Write-StyledMessage -Type Info -Text "Reset sorgenti Winget..."
-        & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
+        # Reset sorgenti se Winget esiste
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-StyledMessage -Type Info -Text "Reset sorgenti Winget..."
+            & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
+        }
 
-        # Installazione dipendenze
+        # Installazione tramite script asheroto/winget-install
+        Write-StyledMessage -Type Info -Text "📦 Download script di installazione Winget da GitHub..."
+
+        $tempDir = $script:AppConfig.Paths.Temp
+        if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
+
+        $installerScript = Join-Path $tempDir "winget-install.ps1"
+
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+        try {
+            Invoke-WebRequest -Uri $script:AppConfig.URLs.WingetInstallScript -OutFile $installerScript -UseBasicParsing
+            Write-StyledMessage -Type Success -Text "Script scaricato con successo."
+
+            Write-StyledMessage -Type Info -Text "🔧 Esecuzione installazione Winget..."
+            & $installerScript -Force
+
+            Remove-Item $installerScript -Force -ErrorAction SilentlyContinue
+            Start-Sleep 3
+        }
+        catch {
+            Write-StyledMessage -Type Warning -Text "Errore download/esecuzione script: $($_.Exception.Message)"
+            Write-StyledMessage -Type Info -Text "Tentativo metodo alternativo..."
+        }
+
+        # Fallback: Installazione dipendenze NuGet
         Write-StyledMessage -Type Info -Text "Installazione NuGet e moduli..."
         try {
             Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop | Out-Null
@@ -160,11 +213,10 @@ function Install-WingetPackage {
              Start-Sleep 3
         }
 
-        # Fallback: installazione via MSIXBundle
+        # Fallback finale: installazione via MSIXBundle
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
             Write-StyledMessage -Type Info -Text "Download MSIXBundle da Microsoft..."
-            $tempInstaller = "$($script:AppConfig.Paths.Temp)\WingetInstaller.msixbundle"
-            if (-not (Test-Path $script:AppConfig.Paths.Temp)) { New-Item -Path $script:AppConfig.Paths.Temp -ItemType Directory -Force | Out-Null }
+            $tempInstaller = "$tempDir\WingetInstaller.msixbundle"
 
             Invoke-WebRequest -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -UseBasicParsing
             Add-AppxPackage -Path $tempInstaller -ForceApplicationShutdown -ErrorAction Stop
@@ -179,7 +231,7 @@ function Install-WingetPackage {
         Start-Sleep 2
 
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-StyledMessage -Type Success -Text "Winget installato e funzionante."
+            Write-StyledMessage -Type Success -Text "✅ Winget installato e funzionante."
             return $true
         }
 
