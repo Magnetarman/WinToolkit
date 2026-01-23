@@ -16,7 +16,6 @@
 $script:AppConfig = @{
     URLs  = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
-        WingetInstallScript     = "https://github.com/asheroto/winget-install/releases/latest/download/winget-install.ps1"
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
@@ -146,6 +145,94 @@ function Test-WingetFunctionality {
 # FUNZIONI DI INSTALLAZIONE
 # ============================================================================
 
+function Install-WingetCore {
+    Write-StyledMessage -Type Info -Text "🛠️ Avvio procedura di ripristino Winget (Core)..."
+
+    # Configurazione Helper interni
+    function Get-WingetDownloadUrl {
+        param([string]$Match)
+        try {
+            $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing
+            $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
+            if ($asset) { return $asset.browser_download_url }
+            throw "Asset '$Match' non trovato."
+        }
+        catch {
+            Write-StyledMessage -Type Warning -Text "Errore recupero URL asset: $($_.Exception.Message)"
+            return $null
+        }
+    }
+
+    function Test-VCRedist {
+        # Semplificato: controlla la chiave di registro per VC++ 2015-2022 (v14+)
+        $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
+        $regPath = "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\$arch"
+        if (Test-Path $regPath) {
+            $ver = (Get-ItemProperty $regPath).Version
+            if ($ver) { return $true }
+        }
+        return $false
+    }
+
+    $tempDir = "$env:TEMP\WinToolkitWinget"
+    if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
+    
+    try {
+        # 1. Visual C++ Redistributable
+        if (-not (Test-VCRedist)) {
+            Write-StyledMessage -Type Info -Text "Installazione Visual C++ Redistributable..."
+            $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$([Environment]::Is64BitOperatingSystem ? 'x64' : 'x86').exe"
+            $vcFile = Join-Path $tempDir "vc_redist.exe"
+            
+            Invoke-WebRequest -Uri $vcUrl -OutFile $vcFile -UseBasicParsing
+            Start-Process -FilePath $vcFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
+            Write-StyledMessage -Type Success -Text "Visual C++ Redistributable installato."
+        } else {
+            Write-StyledMessage -Type Success -Text "Visual C++ Redistributable già presente."
+        }
+
+        # 2. Dipendenze (UI.Xaml, VCLibs)
+        Write-StyledMessage -Type Info -Text "Download dipendenze Winget..."
+        $depUrl = Get-WingetDownloadUrl -Match 'DesktopAppInstaller_Dependencies.zip'
+        if ($depUrl) {
+            $depZip = Join-Path $tempDir "dependencies.zip"
+            Invoke-WebRequest -Uri $depUrl -OutFile $depZip -UseBasicParsing
+            
+            # Estrazione e installazione mirata
+            $extractPath = Join-Path $tempDir "deps"
+            Expand-Archive -Path $depZip -DestinationPath $extractPath -Force
+            
+            $archPattern = if ([Environment]::Is64BitOperatingSystem) { "x64|ne" } else { "x86|ne" }
+            $appxFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $archPattern }
+            
+            foreach ($file in $appxFiles) {
+                Write-StyledMessage -Type Info -Text "Installazione dipendenza: $($file.Name)..."
+                Add-AppxPackage -Path $file.FullName -ErrorAction SilentlyContinue
+            }
+        }
+
+        # 3. Winget Bundle
+        Write-StyledMessage -Type Info -Text "Download e installazione Winget Bundle..."
+        $wingetUrl = Get-WingetDownloadUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
+        if ($wingetUrl) {
+            $wingetFile = Join-Path $tempDir "winget.msixbundle"
+            Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetFile -UseBasicParsing
+            
+            Add-AppxPackage -Path $wingetFile -ForceApplicationShutdown -ErrorAction Stop
+            Write-StyledMessage -Type Success -Text "Winget Core installato con successo."
+        }
+
+        return $true
+    }
+    catch {
+        Write-StyledMessage -Type Error -Text "Errore durante il ripristino Winget: $($_.Exception.Message)"
+        return $false
+    }
+    finally {
+        if (Test-Path $tempDir) { Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
+
 function Install-WingetPackage {
     Write-StyledMessage -Type Info -Text "🚀 Avvio procedura installazione/verifica Winget..."
 
@@ -169,30 +256,7 @@ function Install-WingetPackage {
             & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
         }
 
-        # Installazione tramite script asheroto/winget-install
-        Write-StyledMessage -Type Info -Text "📦 Download script di installazione Winget da GitHub..."
 
-        $tempDir = $script:AppConfig.Paths.Temp
-        if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
-
-        $installerScript = Join-Path $tempDir "winget-install.ps1"
-
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-        try {
-            Invoke-WebRequest -Uri $script:AppConfig.URLs.WingetInstallScript -OutFile $installerScript -UseBasicParsing
-            Write-StyledMessage -Type Success -Text "Script scaricato con successo."
-
-            Write-StyledMessage -Type Info -Text "🔧 Esecuzione installazione Winget..."
-            & $installerScript -Force
-
-            Remove-Item $installerScript -Force -ErrorAction SilentlyContinue
-            Start-Sleep 3
-        }
-        catch {
-            Write-StyledMessage -Type Warning -Text "Errore download/esecuzione script: $($_.Exception.Message)"
-            Write-StyledMessage -Type Info -Text "Tentativo metodo alternativo..."
-        }
 
         # Fallback: Installazione dipendenze NuGet
         Write-StyledMessage -Type Info -Text "Installazione NuGet e moduli..."
@@ -708,7 +772,7 @@ function Invoke-WinToolkitSetup {
         '         \_/\_/    |_||_| \_|',
         '',
         '     Toolkit Starter By MagnetarMan',
-        '        Version 2.5.0 (Build 221)'
+        '        Version 2.5.0 (Build 231)'
     ) | ForEach-Object { Write-Host (Format-CenteredText -Text $_ -Width $width) -ForegroundColor White }
     Write-Host ('═' * $width) -ForegroundColor Green
     Write-Host ''
@@ -729,6 +793,11 @@ function Invoke-WinToolkitSetup {
         # 1. Test e Ripristino Winget (Requirement 3 & 4)
         if (-not (Test-WingetFunctionality)) {
             Write-StyledMessage -Type Warning -Text "⚠️ Winget non risponde. Tentativo di ripristino..."
+            
+            # 1. Tentativo Ripristino Core (ex asheroto)
+            Install-WingetCore
+
+            # 2. Configurazione e Fallback
             Install-WingetPackage
 
             # Verifica Post-Installazione
