@@ -726,7 +726,20 @@ function Invoke-WinToolkitSetup {
     if (-not $isResumeSetup) {
         Write-StyledMessage -Type Info -Text "Esecuzione controlli base..."
 
-        Install-WingetPackage
+        # 1. Test e Ripristino Winget (Requirement 3 & 4)
+        if (-not (Test-WingetFunctionality)) {
+            Write-StyledMessage -Type Warning -Text "⚠️ Winget non risponde. Tentativo di ripristino..."
+            Install-WingetPackage
+
+            # Verifica Post-Installazione
+            if (-not (Test-WingetFunctionality)) {
+                Write-StyledMessage -Type Warning -Text "⚠️ Winget non funzionale anche dopo il tentativo di installazione."
+                Write-StyledMessage -Type Info -Text "Lo script proseguirà, ma l'installazione di pacchetti potrebbe fallire."
+            }
+        }
+        else {
+            Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
+        }
         Install-GitPackage
 
         if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
