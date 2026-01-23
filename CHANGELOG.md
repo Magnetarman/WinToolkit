@@ -79,7 +79,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - Spazio libero tra 50 GB e 80 GB: testo spazio libero di colore giallo.
     - Spazio libero superiore a 80 GB: testo spazio libero di colore verde.
     - Corretta la coerenza grafica della pagina principale dello script.
-    - Aggiunto il riconoscimento delle nuove Build di Windows (25H2 e la Beta di 26H1)
+    - Aggiunto il riconoscimento delle nuove Build di Windows (25H2 e la Beta di 26H1).
 
 - **Funzione Disable Bitlocker** aggiunta.
 
@@ -91,6 +91,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - Aggiunta l'installazione del nuovo .NET Framework 10, già richiesto da alcune applicazioni per funzionare correttamente.
 
 - Setup profilo PowerShell `WinPSP-Setup.ps1` (integrato nello script `start.ps1`)
+
   - Eliminazione di ogni riferimento al tool di Chris (implementate funzioni personalizzate + correzione di vari errori di installazione di Chris Titus Tech)
   - Integrazione di WinToolkit e Dev
   - Corretto il caricamento del profilo [[Chris Titus Tech PowerShell Profile #123](https://github.com/ChrisTitusTech/powershell-profile/issues/123)]
@@ -105,6 +106,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
 - Aggiunta funzione di esportazione log.
 
 - Funzione concatenazione script riscritta.
+
   - Migliorati i messaggi informativi in tutto il toolkit.
   - Adesso la funzione risulta centralizzata.
   - Lo script utilizza delle variabili per capire se sei in modalità avvio script singolo o concatenato.
@@ -120,7 +122,7 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
   - **Gestione Winget (Refactoring completo):**
     - La funzione `Install-WingetSilent` è stata completamente riscritta per una maggiore robustezza.
     - Inserito un ulteriore check per verificare la corretta installazione di Winget su sistemi obsoleti (Windows 10/11 < 22H2), con successiva installazione forzata di Winget, per avere pieno supporto anche su queste versioni di Windows [[Thanks to @Sicolla]](https://t.me/sicolla).
-    - Reinstallazione forzata di Winget tramite di lo script esterno. [[Thanks to @asheroto]](https://github.com/asheroto)
+    - Reinstallazione forzata di Winget. [[Thanks to @asheroto]](https://github.com/asheroto)
     - **Deep Cleaning:** implementata pulizia aggressiva della cache: terminazione processi Winget, rimozione ricorsiva della cartella %TEMP%\WinGet e reset delle sorgenti (`source reset --force`).
     - **Dipendenze:** aggiunta installazione automatica del NuGet PackageProvider e del modulo PowerShell Microsoft.WinGet.Client
     - **Strategia di riparazione potenziata:**
@@ -136,7 +138,8 @@ Questo è lo stato attuale del progetto, che include le funzionalità in fase di
     - **Auto-Relaunch in PowerShell 7:** implementata logica di rilevamento automatico del motore PS7; lo script è ora in grado di riavviarsi autonomamente nella nuova sessione (se presente o appena installata) per garantire compatibilità con i moduli moderni.
     - **Gestione Ambiente "PowerShell Pro" (PSP):**
       - Introdotta automazione completa per il setup di strumenti CLI avanzati: `Oh-My-Posh`, `zoxide`, `btop` e `fastfetch`.
-      - Gestione Nerd Fonts: implementata procedura di download, scompattazione e installazione a livello di sistema dei font (JetBrainsMono) tramite `Shell COM Objects`.
+      - <del>Gestione Nerd Fonts: implementata procedura di download, scompattazione e installazione a livello di sistema dei font (JetBrainsMono) tramite `Shell COM Objects`.<del>
+      - Installazione NerdFonts tramite Winget, velocizzando di molto il processo dello script `start.ps1`.
       - Automazione Profilo: configurazione automatica del file `Microsoft.PowerShell_profile.ps1` con integrazione temi e plugin.
     - **Windows Terminal & UI:**
       - Introdotta la sincronizzazione cloud del file `settings.json` per garantire una configurazione visuale coerente.
