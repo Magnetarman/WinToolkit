@@ -146,6 +146,9 @@ function Test-WingetFunctionality {
 
 function Install-WingetCore {
     Write-StyledMessage -Type Info -Text "🛠️ Avvio procedura di ripristino Winget (Core)..."
+    
+    $oldProgress = $ProgressPreference
+    $ProgressPreference = 'SilentlyContinue'
 
     # Configurazione Helper interni
     function Get-WingetDownloadUrl {
@@ -230,6 +233,7 @@ function Install-WingetCore {
     }
     finally {
         if (Test-Path $tempDir) { Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue }
+        $ProgressPreference = $oldProgress
     }
 }
 
@@ -770,16 +774,23 @@ function Invoke-WinToolkitSetup {
         if (-not (Test-WingetFunctionality)) {
             Write-StyledMessage -Type Warning -Text "⚠️ Winget non risponde. Tentativo di ripristino..."
             
-            # 1. Tentativo Ripristino Core (ex asheroto)
-            Install-WingetCore
-
-            # 2. Configurazione e Fallback
-            Install-WingetPackage
-
-            # Verifica Post-Installazione
-            if (-not (Test-WingetFunctionality)) {
-                Write-StyledMessage -Type Warning -Text "⚠️ Winget non funzionale anche dopo il tentativo di installazione."
-                Write-StyledMessage -Type Info -Text "Lo script proseguirà, ma l'installazione di pacchetti potrebbe fallire."
+            # 1. Tentativo Ripristino Veloce (Core/Bundle)
+            $coreSuccess = Install-WingetCore
+            
+            # Verifica intermediaria: se Winget funziona ora, salta il metodo lento
+            if ($coreSuccess -and (Test-WingetFunctionality)) {
+                 Write-StyledMessage -Type Success -Text "✅ Winget ripristinato velocemente."
+            }
+            else {
+                # 2. Fallback Lento (Moduli PowerShell)
+                Write-StyledMessage -Type Warning -Text "⚠️ Ripristino veloce fallito. Tentativo metodo avanzato (più lento)..."
+                Install-WingetPackage 
+                
+                # Verifica Post-Installazione
+                if (-not (Test-WingetFunctionality)) {
+                    Write-StyledMessage -Type Warning -Text "⚠️ Winget non funzionale anche dopo il tentativo di installazione."
+                    Write-StyledMessage -Type Info -Text "Lo script proseguirà, ma l'installazione di pacchetti potrebbe fallire."
+                }
             }
         }
         else {
