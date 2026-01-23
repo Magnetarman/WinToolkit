@@ -45,6 +45,28 @@ function Format-CenteredText {
     return (" " * $padding) + $Text
 }
 
+function Show-Header {
+    param(
+        [string]$Title,
+        [string]$Version
+    )
+    Clear-Host
+    $width = 65
+    Write-Host ('═' * $width) -ForegroundColor Green
+    @(
+        '      __        __  _  _   _ ',
+        '      \ \      / / | || \ | |',
+        '       \ \ /\ / /  | ||  \| |',
+        '        \ V  V /   | || |\  |',
+        '         \_/\_/    |_||_| \_|',
+        '',
+        $Title,
+        $Version
+    ) | ForEach-Object { Write-Host (Format-CenteredText -Text $_ -Width $width) -ForegroundColor White }
+    Write-Host ('═' * $width) -ForegroundColor Green
+    Write-Host ''
+}
+
 function Write-StyledMessage {
     param(
         [ValidateSet('Info', 'Warning', 'Error', 'Success')]
@@ -123,7 +145,7 @@ function Test-WingetFunctionality {
 
     try {
         # Test download pacchetto leggero per verificare funzionalità
-        $result = Invoke-WingetCommand -Arguments "search Microsoft.PowerToys --count 1"
+        $result = Invoke-WingetCommand -Arguments "search Microsoft.PowerToys --accept-source-agreements --accept-package-agreements --count 1"
 
         if ($result.ExitCode -eq 0) {
             Write-StyledMessage -Type Success -Text "✅ Winget operativo e funzionante."
@@ -146,7 +168,7 @@ function Test-WingetFunctionality {
 
 function Install-WingetCore {
     Write-StyledMessage -Type Info -Text "🛠️ Avvio procedura di ripristino Winget (Core)..."
-    
+
     $oldProgress = $ProgressPreference
     $ProgressPreference = 'SilentlyContinue'
 
@@ -178,7 +200,7 @@ function Install-WingetCore {
 
     $tempDir = "$env:TEMP\WinToolkitWinget"
     if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
-    
+
     try {
         # 1. Visual C++ Redistributable
         if (-not (Test-VCRedist)) {
@@ -186,7 +208,7 @@ function Install-WingetCore {
             $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
             $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
             $vcFile = Join-Path $tempDir "vc_redist.exe"
-            
+
             Invoke-WebRequest -Uri $vcUrl -OutFile $vcFile -UseBasicParsing
             Start-Process -FilePath $vcFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
             Write-StyledMessage -Type Success -Text "Visual C++ Redistributable installato."
@@ -200,14 +222,14 @@ function Install-WingetCore {
         if ($depUrl) {
             $depZip = Join-Path $tempDir "dependencies.zip"
             Invoke-WebRequest -Uri $depUrl -OutFile $depZip -UseBasicParsing
-            
+
             # Estrazione e installazione mirata
             $extractPath = Join-Path $tempDir "deps"
             Expand-Archive -Path $depZip -DestinationPath $extractPath -Force
-            
+
             $archPattern = if ([Environment]::Is64BitOperatingSystem) { "x64|ne" } else { "x86|ne" }
             $appxFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $archPattern }
-            
+
             foreach ($file in $appxFiles) {
                 Write-StyledMessage -Type Info -Text "Installazione dipendenza: $($file.Name)..."
                 Add-AppxPackage -Path $file.FullName -ErrorAction SilentlyContinue
@@ -220,7 +242,7 @@ function Install-WingetCore {
         if ($wingetUrl) {
             $wingetFile = Join-Path $tempDir "winget.msixbundle"
             Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetFile -UseBasicParsing
-            
+
             Add-AppxPackage -Path $wingetFile -ForceApplicationShutdown -ErrorAction Stop
             Write-StyledMessage -Type Success -Text "Winget Core installato con successo."
         }
@@ -541,11 +563,11 @@ function Install-PspEnvironment {
     function Install-NerdFontsLocal {
         try {
             Write-StyledMessage -Type Info -Text "🔍 Verifica presenza JetBrainsMono Nerd Font..."
-            
+
             # Controllo rapido se il font è già registrato nel sistema
             $fontRegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
-            $installed = Get-ItemProperty -Path $fontRegistryPath -ErrorAction SilentlyContinue | 
-                         Get-Member -MemberType NoteProperty | 
+            $installed = Get-ItemProperty -Path $fontRegistryPath -ErrorAction SilentlyContinue |
+                         Get-Member -MemberType NoteProperty |
                          Where-Object Name -like "*JetBrainsMono*"
 
             if ($installed) {
@@ -554,7 +576,7 @@ function Install-PspEnvironment {
             }
 
             Write-StyledMessage -Type Info -Text "⬇️ Installazione font tramite WinGet (Metodo Rapido)..."
-            
+
             # Utilizzo della funzione helper esistente per coerenza logica
             $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
 
@@ -741,21 +763,8 @@ function Invoke-WinToolkitSetup {
     }
 
     # Banner
-    Clear-Host
-    $width = 65
-    Write-Host ('═' * $width) -ForegroundColor Green
-    @(
-        '      __        __  _  _   _ ',
-        '      \ \      / / | || \ | |',
-        '       \ \ /\ / /  | ||  \| |',
-        '        \ V  V /   | || |\  |',
-        '         \_/\_/    |_||_| \_|',
-        '',
-        '     Toolkit Starter By MagnetarMan',
-        '        Version 2.5.0 (Build 234)'
-    ) | ForEach-Object { Write-Host (Format-CenteredText -Text $_ -Width $width) -ForegroundColor White }
-    Write-Host ('═' * $width) -ForegroundColor Green
-    Write-Host ''
+    # Banner
+    Show-Header -Title "Toolkit Starter By MagnetarMan" -Version "Version 2.5.0 (Build 235)"
 
     Write-StyledMessage -Type Info -Text "PowerShell: $($PSVersionTable.PSVersion)"
     if ($PSVersionTable.PSVersion.Major -lt 7) {
@@ -773,10 +782,10 @@ function Invoke-WinToolkitSetup {
         # 1. Test e Ripristino Winget (Requirement 3 & 4)
         if (-not (Test-WingetFunctionality)) {
             Write-StyledMessage -Type Warning -Text "⚠️ Winget non risponde. Tentativo di ripristino..."
-            
+
             # 1. Tentativo Ripristino Veloce (Core/Bundle)
             $coreSuccess = Install-WingetCore
-            
+
             # Verifica intermediaria: se Winget funziona ora, salta il metodo lento
             if ($coreSuccess -and (Test-WingetFunctionality)) {
                  Write-StyledMessage -Type Success -Text "✅ Winget ripristinato velocemente."
@@ -784,8 +793,8 @@ function Invoke-WinToolkitSetup {
             else {
                 # 2. Fallback Lento (Moduli PowerShell)
                 Write-StyledMessage -Type Warning -Text "⚠️ Ripristino veloce fallito. Tentativo metodo avanzato (più lento)..."
-                Install-WingetPackage 
-                
+                Install-WingetPackage
+
                 # Verifica Post-Installazione
                 if (-not (Test-WingetFunctionality)) {
                     Write-StyledMessage -Type Warning -Text "⚠️ Winget non funzionale anche dopo il tentativo di installazione."
