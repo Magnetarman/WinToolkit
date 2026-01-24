@@ -5,9 +5,15 @@
 - Funzione WinUpdateDisabler.
   - [ ] Add script relativo e funzioni nel template.
   - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
-  - [ ] Adeguamento Repository alle regole di Github.
-    - [x] Rinominato CONTRIBUTORS.md => CONTRIBUTING.md.
-    - [x] Creazione documento Codice di condotta `CODE_OF_CONDUCT.md`.
+
+- [ ] Adeguamento Repository alle regole di Github.
+  - [x] Rinominato CONTRIBUTORS.md => CONTRIBUTING.md.
+  - [x] Creazione documento Codice di condotta `CODE_OF_CONDUCT.md`.
+
+- Rework Gestione `To-Do.md`.
+  - [x] Eliminazione `To-Do.md` dal Ramo main.
+  - [x] Redirect con link hardcode al `To-Do.md` nel ramo Dev.
+  
 
 
 ### V 2.5.2
