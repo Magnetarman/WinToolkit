@@ -5,6 +5,9 @@
 - Funzione WinUpdateDisabler.
   - [ ] Add script relativo e funzioni nel template.
   - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
+  - [ ] Adeguamento Repository alle regole di Github
+    - [x] Rinominato CONTRIBUTORS.md => CONTRIBUTING.md
+    - [ ] Creazione documento Codice di condotta `CODE_OF_CONDUCT.md`
 
 
 ### V 2.5.2
@@ -59,10 +62,7 @@
 ### V X.X - MagnetarMan Mode
 
 - [ ] Avvio Script Chris con configurazione personalizzata.
-  - [ ] Installazione programmi: Brave Browser, Google Chrome,
-    Betterbird, Fan Control, PowerToys, Uniget, Crystal Disk Info,
-    HwInfo, Rust Desk, Client Giochi (Amazon, Gog Galaxy, Epic
-    Games, Steam).
+  - [ ] Installazione programmi: Brave Browser, Google Chrome, Betterbird, Fan Control, PowerToys, Uniget, Crystal Disk Info, HwInfo, Rust Desk, Client Giochi (Amazon, Gog Galaxy, Epic Games, Steam).
   - [ ] Installazione .NET Runtime (dalla 4.8 alla 9.0).
   - [ ] Installazione Microsoft C++ Package.
   - [ ] Installazione/Aggiornamento Directx.
