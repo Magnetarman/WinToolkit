@@ -22,7 +22,7 @@ WinToolkit è una suite di script PowerShell potente e compatta, progettata per 
 > Prima di avviare il toolkit, assicurati di soddisfare i seguenti requisiti:
 >
 > - **connessione ad Internet**;
-> - **spazio libero su disco**: >= 50 GB [(vedere la sezione F.A.Q.)](#readme---faq-domande-frequenti);
+> - **spazio libero su disco**: >= 50 GB [(vedere la sezione F.A.Q.)](##-faq---domande-frequenti);
 > - **Windows >= 8.1**.
 
 | Versioni di Windows        | Supportato               |
@@ -170,7 +170,7 @@ Il percorso dove si trovano i file di log di WinToolkit è:
 
 ## 💖 Supporta il progetto WinToolkit!
 
-Se WinToolkit ti è stato utile, considera di supportare attivamente il progetto attraverso una [donazione](#readme---fai-una-donazione), oppure puoi [contribuire](#readme---contribuisci).
+Se WinToolkit ti è stato utile, considera di supportare attivamente il progetto attraverso una [donazione](#-fai-una-donazione), oppure puoi [contribuire](#-contribuisci).
 
 ### 👛 Fai una donazione
 
