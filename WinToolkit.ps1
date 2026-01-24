@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 231)"
+$ToolkitVersion = "2.5.0 (Build 237)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -433,7 +433,7 @@ function WinRepairToolkit {
 
     function Invoke-RepairCommand {
         param([hashtable]$Config, [int]$Step, [int]$Total)
-        
+
         Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)..."
         $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
@@ -444,7 +444,7 @@ function WinRepairToolkit {
                 if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
                     $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
                     $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
-                    
+
                     $procParams = @{
                         FilePath               = 'cmd.exe'
                         ArgumentList           = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
@@ -510,7 +510,7 @@ function WinRepairToolkit {
 
     function Start-RepairCycle {
         param([int]$Attempt = 1)
-        
+
         $script:CurrentAttempt = $Attempt
         Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema..."
         Write-Host ''
@@ -627,7 +627,7 @@ function WinUpdateReset {
                 'Start' {
                     Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
                     # Usa la funzione globale Invoke-WithSpinner per l'attesa avvio servizio
-                    Invoke-WithSpinner -Activity "Attesa avvio $serviceName" -Timer -Action { 
+                    Invoke-WithSpinner -Activity "Attesa avvio $serviceName" -Timer -Action {
                         $timeout = 10
                         do {
                             Start-Sleep -Milliseconds 500
@@ -1257,7 +1257,7 @@ function WinReinstallStore {
                 else {
                     Update-Module -Name PowerShellGet -Force -ErrorAction SilentlyContinue *>$null
                 }
-                 
+
                 # Verify NuGet provider is installed
                 $nugetProvider = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
                 if (-not $nugetProvider) {
@@ -1299,12 +1299,12 @@ function WinReinstallStore {
                     # Salva posizione cursore per pulizia output
                     $cursorTop = [Console]::CursorTop
                     $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
-                    
+
                     # Pulisci eventuali righe di output rimaste
                     [Console]::SetCursorPosition(0, $cursorTop)
                     $clearLine = " " * ([Console]::WindowWidth - 1)
                     Write-Host "`r$clearLine`r" -NoNewline
-                    
+
                     Start-Sleep 5
                     if (Test-WingetAvailable) {
                         Write-StyledMessage Success "Winget riparato con successo tramite modulo."
@@ -1326,15 +1326,15 @@ function WinReinstallStore {
                 $temp = "$env:TEMP\WingetInstaller.msixbundle"
                 if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
                 Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
-                
+
                 # Cattura posizione cursore per pulizia output
                 $originalPos = [Console]::CursorTop
-                
+
                 $process = Start-Process powershell -ArgumentList @(
                     "-NoProfile", "-WindowStyle", "Hidden", "-Command",
                     "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
                 ) -Wait -PassThru -WindowStyle Hidden
-                
+
                 # Reset cursore e flush output
                 [Console]::SetCursorPosition(0, $originalPos)
                 $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
@@ -1343,7 +1343,7 @@ function WinReinstallStore {
 
                 Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
                 Start-Sleep 5
-                
+
                 if ($process.ExitCode -eq 0) {
                     Write-StyledMessage Success "Winget installato con successo tramite MSIXBundle."
                 }
@@ -1356,22 +1356,22 @@ function WinReinstallStore {
             try {
                 $resetAppxActivity = "Reset 'Programma di installazione app'"
                 Write-StyledMessage Info "🔄 $resetAppxActivity..."
-                
+
                 # Esegui Reset-AppxPackage in un processo separato e NASCOSTO per evitare qualsiasi output/progress bar
                 $procParams = @{
                     FilePath     = 'powershell'
                     ArgumentList = @(
-                        '-NoProfile', 
-                        '-WindowStyle', 'Hidden', 
+                        '-NoProfile',
+                        '-WindowStyle', 'Hidden',
                         '-Command', "Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue | Reset-AppxPackage -ErrorAction SilentlyContinue"
                     )
                     Wait         = $true
                     WindowStyle  = 'Hidden'
                     PassThru     = $true
                 }
-                
+
                 $process = Start-Process @procParams
-                
+
                 if ($process.ExitCode -eq 0) {
                     Write-StyledMessage Success "App 'Programma di installazione app' resettata con successo."
                 }
@@ -1494,15 +1494,15 @@ function WinReinstallStore {
                         if (Test-WingetAvailable) {
                             # Cattura posizione cursore per pulizia output
                             $originalPos = [Console]::CursorTop
-                            
+
                             $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
-                            
+
                             # Reset cursore e flush output
                             [Console]::SetCursorPosition(0, $originalPos)
                             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                             Write-Host $clearLine -NoNewline
                             [Console]::Out.Flush()
-                            
+
                             $processResult = @{ Success = $true; ExitCode = $process.ExitCode }
                         }
                         else {
@@ -1513,7 +1513,7 @@ function WinReinstallStore {
                     elseif ($method.Name -eq "AppX Manifest") {
                         # Cattura posizione cursore per pulizia output
                         $originalPos = [Console]::CursorTop
-                        
+
                         $store = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue | Select-Object -First 1
                         if ($store) {
                             $manifest = "$($store.InstallLocation)\AppXManifest.xml"
@@ -1522,13 +1522,13 @@ function WinReinstallStore {
                                     "-NoProfile", "-WindowStyle", "Hidden", "-Command",
                                     "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
                                 ) -Wait -PassThru -WindowStyle Hidden
-                                
+
                                 # Reset cursore e flush output
                                 [Console]::SetCursorPosition(0, $originalPos)
                                 $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                                 Write-Host $clearLine -NoNewline
                                 [Console]::Out.Flush()
-                                
+
                                 $processResult = @{ Success = $true; ExitCode = $process.ExitCode }
                             }
                             else { $processResult = @{ Success = $false; ExitCode = -1 } }
@@ -1538,15 +1538,15 @@ function WinReinstallStore {
                     elseif ($method.Name -eq "DISM Capability") {
                         # Cattura posizione cursore per pulizia output
                         $originalPos = [Console]::CursorTop
-                        
+
                         $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
-                        
+
                         # Reset cursore e flush output
                         [Console]::SetCursorPosition(0, $originalPos)
                         $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                         Write-Host $clearLine -NoNewline
                         [Console]::Out.Flush()
-                        
+
                         $processResult = @{ Success = $true; ExitCode = $process.ExitCode }
                     }
                 }
@@ -1595,14 +1595,14 @@ function WinReinstallStore {
 
             $unigetActivity = "Installazione UniGet UI"
             Write-StyledMessage Info "🔄 $unigetActivity..."
-            
+
             # Cattura posizione cursore per pulizia output
             $originalPos = [Console]::CursorTop
-            
+
             $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
             Start-Sleep 2
             $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
-            
+
             # Reset cursore e flush output
             [Console]::SetCursorPosition(0, $originalPos)
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
@@ -1701,7 +1701,7 @@ function WinBackupDriver {
 
     Initialize-ToolLogging -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
-    
+
     $script:BackupConfig = @{
         DateTime    = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
         BackupDir   = $AppConfig.Paths.DriverBackupTemp
@@ -1710,7 +1710,7 @@ function WinBackupDriver {
         TempPath    = $AppConfig.Paths.TempFolder
         LogsDir     = $AppConfig.Paths.DriverBackupLogs
     }
-    
+
     $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
 
     function Test-AdministratorPrivilege {
@@ -1718,16 +1718,16 @@ function WinBackupDriver {
         $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
         return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     }
-    
+
     function Initialize-BackupEnvironment {
         Write-StyledMessage Info "🗂️ Inizializzazione ambiente backup..."
-        
+
         try {
             if (Test-Path $script:BackupConfig.BackupDir) {
                 Write-StyledMessage Warning "Rimozione backup precedenti..."
                 Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction Stop | Out-Null
             }
-            
+
             New-Item -ItemType Directory -Path $script:BackupConfig.BackupDir -Force | Out-Null
             New-Item -ItemType Directory -Path $script:BackupConfig.LogsDir -Force | Out-Null
             Write-StyledMessage Success "Directory backup e log create"
@@ -1741,10 +1741,10 @@ function WinBackupDriver {
 
     function Export-SystemDrivers {
         Write-StyledMessage Info "💾 Avvio esportazione driver di sistema..."
-        
+
         $outFile = "$($script:BackupConfig.LogsDir)\dism_$($script:BackupConfig.DateTime).log"
         $errFile = "$($script:BackupConfig.LogsDir)\dism_err_$($script:BackupConfig.DateTime).log"
-        
+
         try {
             # Usa Invoke-WithSpinner per monitorare il processo DISM
             $result = Invoke-WithSpinner -Activity "Esportazione driver DISM" -Process -Action {
@@ -1754,11 +1754,11 @@ function WinBackupDriver {
                     "/destination:`"$($script:BackupConfig.BackupDir)`""
                 ) -NoNewWindow -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
             } -TimeoutSeconds 300 -UpdateInterval 1000
-            
+
             if ($result.TimedOut) {
                 throw "Timeout raggiunto durante l'esportazione DISM"
             }
-            
+
             if ($result.ExitCode -ne 0) {
                 $errorDetails = if (Test-Path $errFile) {
                     (Get-Content $errFile -ErrorAction SilentlyContinue) -join '; '
@@ -1766,17 +1766,17 @@ function WinBackupDriver {
                 else { "Dettagli non disponibili" }
                 throw "Esportazione DISM fallita (ExitCode: $($result.ExitCode)). Dettagli: $errorDetails"
             }
-            
+
             $exportedDrivers = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
             if (-not $exportedDrivers -or $exportedDrivers.Count -eq 0) {
                 Write-StyledMessage Warning "Nessun driver di terze parti trovato da esportare"
                 Write-StyledMessage Info "💡 I driver integrati di Windows non vengono esportati"
                 return $true
             }
-            
+
             $totalSize = ($exportedDrivers | Measure-Object -Property Length -Sum).Sum
             $totalSizeMB = [Math]::Round($totalSize / 1MB, 2)
-            
+
             Write-StyledMessage Success "Esportazione completata: $($exportedDrivers.Count) driver trovati ($totalSizeMB MB)"
             return $true
         }
@@ -1785,35 +1785,35 @@ function WinBackupDriver {
             return $false
         }
     }
-    
+
     function Resolve-7ZipExecutable {
         return Install-7ZipPortable
     }
-    
+
     function Install-7ZipPortable {
         $installDir = "$env:LOCALAPPDATA\WinToolkit\7zip"
         $executablePath = "$installDir\7zr.exe"
-        
+
         if (Test-Path $executablePath) {
             Write-StyledMessage Success "7-Zip portable già presente"
             return $executablePath
         }
-        
+
         New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-        
+
         $downloadSources = @(
             @{ Url = $AppConfig.URLs.GitHubAssetDevBaseUrl + "7zr.exe"; Name = "Repository MagnetarMan" },
             @{ Url = $AppConfig.URLs.SevenZipOfficial; Name = "Sito ufficiale 7-Zip" }
         )
-        
+
         foreach ($source in $downloadSources) {
             try {
                 Write-StyledMessage Info "⬇️ Download 7-Zip da: $($source.Name)"
                 Invoke-WebRequest -Uri $source.Url -OutFile $executablePath -UseBasicParsing -ErrorAction Stop
-                
+
                 if (Test-Path $executablePath) {
                     $fileSize = (Get-Item $executablePath).Length
-                    
+
                     if ($fileSize -gt 100KB -and $fileSize -lt 10MB) {
                         $testResult = & $executablePath 2>&1
                         if ($testResult -match "7-Zip" -or $testResult -match "Licensed") {
@@ -1821,52 +1821,52 @@ function WinBackupDriver {
                             return $executablePath
                         }
                     }
-                    
+
                     Write-StyledMessage Warning "File scaricato non valido (Dimensione: $fileSize bytes)"
                     Remove-Item $executablePath -Force -ErrorAction SilentlyContinue
                 }
             }
             catch {
                 Write-StyledMessage Warning "Download fallito da $($source.Name): $_"
-                if (Test-Path $executablePath) { 
-                    Remove-Item $executablePath -Force -ErrorAction SilentlyContinue 
+                if (Test-Path $executablePath) {
+                    Remove-Item $executablePath -Force -ErrorAction SilentlyContinue
                 }
             }
         }
-        
+
         Write-StyledMessage Error "Impossibile scaricare 7-Zip da tutte le fonti"
         return $null
     }
-    
+
     function Compress-BackupArchive {
         param([string]$SevenZipPath)
-        
+
         if (-not $SevenZipPath -or -not (Test-Path $SevenZipPath)) {
             throw "Percorso 7-Zip non valido: $SevenZipPath"
         }
-        
+
         if (-not (Test-Path $script:BackupConfig.BackupDir)) {
             throw "Directory backup non trovata: $($script:BackupConfig.BackupDir)"
         }
-        
+
         Write-StyledMessage Info "📦 Preparazione compressione archivio..."
-        
+
         $backupFiles = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
         if (-not $backupFiles) {
             Write-StyledMessage Warning "Nessun file da comprimere nella directory backup"
             return $null
         }
-        
+
         $totalSizeMB = [Math]::Round(($backupFiles | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
         Write-StyledMessage Info "Dimensione totale: $totalSizeMB MB"
-        
+
         $archivePath = "$($script:BackupConfig.TempPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
         $compressionArgs = @('a', '-t7z', '-mx=6', '-mmt=on', "`"$archivePath`"", "`"$($script:BackupConfig.BackupDir)\*`"")
-        
+
         # File per reindirizzare l'output di 7zip
         $stdOutputPath = "$($script:BackupConfig.LogsDir)\7zip_$($script:BackupConfig.DateTime).log"
         $stdErrorPath = "$($script:BackupConfig.LogsDir)\7zip_err_$($script:BackupConfig.DateTime).log"
-        
+
         try {
             Write-StyledMessage Info "🚀 Compressione con 7-Zip..."
 
@@ -1874,15 +1874,15 @@ function WinBackupDriver {
             $result = Invoke-WithSpinner -Activity "Compressione archivio 7-Zip" -Process -Action {
                 Start-Process -FilePath $SevenZipPath -ArgumentList $compressionArgs -NoNewWindow -PassThru -RedirectStandardOutput $stdOutputPath -RedirectStandardError $stdErrorPath
             } -TimeoutSeconds 600 -UpdateInterval 1000
-            
+
             if ($result.TimedOut) {
                 throw "Timeout raggiunto durante la compressione"
             }
-            
+
             if ($result.ExitCode -eq 0 -and (Test-Path $archivePath)) {
                 $compressedSizeMB = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
                 $compressionRatio = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
-                
+
                 Write-StyledMessage Success "Compressione completata: $compressedSizeMB MB (Riduzione: $compressionRatio%)"
                 return $archivePath
             }
@@ -1893,7 +1893,7 @@ function WinBackupDriver {
                     if ($errorContent) { $errorContent -join '; ' } else { "Log errori vuoto" }
                 }
                 else { "File di log errori non trovato" }
-                
+
                 Write-StyledMessage Error "Compressione fallita (ExitCode: $($result.ExitCode)). Dettagli: $errorDetails"
                 return $null
             }
@@ -1902,34 +1902,34 @@ function WinBackupDriver {
             # Log conservati in $script:BackupConfig.LogsDir per debugging
         }
     }
-    
+
     function Move-ArchiveToDesktop {
         param([string]$ArchivePath)
-        
+
         if ([string]::IsNullOrWhiteSpace($ArchivePath) -or -not (Test-Path $ArchivePath)) {
             throw "Percorso archivio non valido: $ArchivePath"
         }
-        
+
         Write-StyledMessage Info "📂 Spostamento archivio su desktop..."
-        
+
         try {
             if (-not (Test-Path $script:BackupConfig.DesktopPath)) {
                 throw "Directory desktop non accessibile: $($script:BackupConfig.DesktopPath)"
             }
-            
+
             if (Test-Path $script:FinalArchivePath) {
                 Write-StyledMessage Warning "Rimozione archivio precedente..."
                 Remove-Item $script:FinalArchivePath -Force -ErrorAction Stop
             }
-            
+
             Copy-Item -Path $ArchivePath -Destination $script:FinalArchivePath -Force -ErrorAction Stop
-            
+
             if (Test-Path $script:FinalArchivePath) {
                 Write-StyledMessage Success "Archivio salvato sul desktop"
                 Write-StyledMessage Info "Posizione: $script:FinalArchivePath"
                 return $true
             }
-            
+
             throw "Copia archivio fallita"
         }
         catch {
@@ -1945,24 +1945,24 @@ function WinBackupDriver {
             Read-Host "`nPremi INVIO per uscire"
             return
         }
-        
+
         Write-StyledMessage Info "🚀 Inizializzazione sistema..."
         Start-Sleep -Seconds 1
-        
+
         if (Initialize-BackupEnvironment) {
             Write-Host ""
-            
+
             if (Export-SystemDrivers) {
                 Write-Host ""
-                
+
                 $sevenZipPath = Resolve-7ZipExecutable
                 if ($sevenZipPath) {
                     Write-Host ""
-                    
+
                     $compressedArchive = Compress-BackupArchive -SevenZipPath $sevenZipPath
                     if ($compressedArchive) {
                         Write-Host ""
-                        
+
                         if (Move-ArchiveToDesktop -ArchivePath $compressedArchive) {
                             Write-Host ""
                             Write-StyledMessage Success "🎉 Backup driver completato con successo!"
@@ -1984,10 +1984,10 @@ function WinBackupDriver {
         if (Test-Path $script:BackupConfig.BackupDir) {
             Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction SilentlyContinue
         }
-        
+
         Write-Host "`nPremi INVIO per terminare..." -ForegroundColor Gray
         Read-Host | Out-Null
-        
+
         try { Stop-Transcript | Out-Null } catch {}
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
     }
@@ -2013,7 +2013,7 @@ function OfficeToolkit {
     param(
         [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
-        
+
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
@@ -3157,7 +3157,7 @@ function WinCleaner {
                             $toDelete = $shadows | Select-Object -Skip 1
                             $count = $toDelete.Count
                             Write-StyledMessage -Type 'Info' -Text "Rilevate $($shadows.Count) shadow copies. Rimozione di $count vecchie..."
-                            
+
                             foreach ($shadow in $toDelete) {
                                 Remove-CimInstance -InputObject $shadow -ErrorAction SilentlyContinue
                             }
@@ -4020,7 +4020,7 @@ function GamingToolkit {
     param(
         [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
-        
+
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )

@@ -167,11 +167,6 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Migliorata la scrittura del file Log.
   - Eliminazione dei commenti non necessari.
 
-- **Funzione SetRustDesk** riscritta.
-  - Refactor del codice per uniformarlo al resto della codebase.
-  - Migliorata la scrittura del file Log.
-  - Eliminazione dei commenti non necessari.
-
 - **Funzione VideoDriverInstall** riscritta.
   - Refactor del codice per uniformarlo al resto della codebase.
   - Migliorata la scrittura del file Log.
@@ -231,6 +226,11 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Migliorato il codice di `compiler.ps1` che ora controlla se ci sono righe vuote alla fine dello script e le elimina prima di effettuare il commit finale di aggiornamento.
 
 - Rimosso script `SetRustdesk.ps1` e relative configurazioni per non conformità al progetto generale. [[Thanks to @pomodori92]](https://github.com/pomodori92)
+
+- <del>**Funzione SetRustDesk** riscritta.</del>
+  <del>- Refactor del codice per uniformarlo al resto della codebase.</del>
+  <del>- Migliorata la scrittura del file Log.</del>
+  <del>- Eliminazione dei commenti non necessari.</del>
 
 - <del>**Funzione WinInstallPsProfile** aggiornata e potenziata.</del>
   <del>- Migliorata la scrittura del file Log.</del>
