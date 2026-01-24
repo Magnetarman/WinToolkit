@@ -9,6 +9,9 @@
 - [ ] Adeguamento Repository alle regole di Github.
   - [x] Rinominato CONTRIBUTORS.md => CONTRIBUTING.md.
   - [x] Creazione documento Codice di condotta `CODE_OF_CONDUCT.md`.
+  - [x] Eliminata sezione contributori dal readme.
+  - [x] Integrata la sezione contributori nel menu di Github.
+  
 
 - Rework Gestione `To-Do.md`.
   - [x] Eliminazione `To-Do.md` dal Ramo main.
