@@ -11,7 +11,6 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 ### Aggiunte
 
 - **Sezione Informazioni di Sistema** potenziata.
-
   - Aggiunto il controllo (da Windows 11 25H2 Microsoft lo attiva a propria discrezione) per verificare l'attivazione o meno di BitLocker. In caso affermativo, è stato aggiunto un nuovo script nella sezione "Windows" per la disattivazione di BitLocker in caso di attivazione non desiderata. [[Thanks to @Valeriogalano]](https://github.com/Valeriogalano)
   - Reso interattivo il campo "Disco:" che indica lo spazio disco rimanente.
     - Spazio libero inferiore a 50 GB: testo spazio libero di colore rosso.
@@ -21,16 +20,13 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
     - Aggiunto il riconoscimento delle nuove Build di Windows (25H2 e la Beta di 26H1).
 
 - **Funzione Disable Bitlocker** aggiunta.
-
   - Esegue il tool ufficiale Microsoft per disattivare completamente BitLocker dal PC, che viene attivato in modo occulto tramite update da Microsoft senza avvisare adeguatamente l'utente.
   - Viene aggiunta una chiave al registro di Windows che dovrebbe impedire possibili attivazioni occulte future.
 
 - **Funzione Gaming Toolkit** potenziata.
-
   - Aggiunta l'installazione del nuovo .NET Framework 10, già richiesto da alcune applicazioni per funzionare correttamente.
 
 - Setup profilo PowerShell `WinPSP-Setup.ps1` (integrato nello script `start.ps1`)
-
   - Eliminazione di ogni riferimento al tool di Chris (implementate funzioni personalizzate + correzione di vari errori di installazione di Chris Titus Tech)
   - Integrazione di WinToolkit e Dev
   - Corretto il caricamento del profilo [[Chris Titus Tech PowerShell Profile #123](https://github.com/ChrisTitusTech/powershell-profile/issues/123)]
@@ -41,20 +37,18 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Installazione di btop.
   - Potenziamento del profilo con funzione help personalizzata.
   - Caricamento all'avvio del terminale di FastFetch, zoxide e oh-my-posh personalizzato.
-  
-- Aggiunta funzione di esportazione log.
 
 - Funzione concatenazione script riscritta.
-
   - Migliorati i messaggi informativi in tutto il toolkit.
   - Adesso la funzione risulta centralizzata.
   - Lo script utilizza delle variabili per capire se sei in modalità avvio script singolo o concatenato.
   - Migliorata la gestione automatizzata dei vari scenari.
+  
+- Aggiunta funzione di esportazione log.
 
 ### Correzioni
 
 - Script `start.ps1` aggiornato e potenziato [[Thanks to @Matteoz]](https://t.me/teo180).
-
   - **Gestione Processi:** introdotta nuova funzione helper `Stop-InterferingProcesses` per terminare forzatamente processi conflittuali (es. WinStore.App, wsappx, AppInstaller) prima delle operazioni critiche.
   - **Logging & Error Handling:** aggiunto blocco try/catch sulla gestione del Transcript (log) e sul comando `Restart-Computer` per prevenire crash in fase di chiusura/riavvio.
   - **Timeout & Wait:** ottimizzati i timeout di attesa e incrementato il tempo di controllo per la generazione del file settings.json di Windows Terminal (da 10s a 20s).
@@ -84,8 +78,57 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
       - Introdotta la sincronizzazione cloud del file `settings.json` per garantire una configurazione visuale coerente.
       - Ottimizzata la creazione della scorciatoia sul Desktop: ora punta direttamente a wt.exe forzando l'elevazione dei privilegi e il profilo PS7.
 
-- **Funzione WinRepairToolkit** riscritta.
+- Revamping `PowerShell Profile.ps1`.
+  - **Pulizia e rimozione codice inutile:**
+    - Rimozione di tutte le funzioni di debug non più necessarie.
+    - Eliminazione dell'architettura _Override-First_.
+    - Rimozione del meccanismo di aggiornamento automatico del profilo (`Update-Profile` con confronto SHA256).
+    - Eliminazione delle mappature dei comandi Unix-like su PowerShell:
+      - `grep`.
+      - `sed`.
+      - `which`.
+      - `export`.
+      - `pkill`.
+      - `head`.
+      - `tail`.
+    - Rimozione della gestione personalizzata del cestino (COM `Shell.Application`).
+    - Eliminazione delle funzioni `uptime` e `hb`.
+    - Rimozione del codice per syntax highlighting.
+    - Rimozione del completamento nativo.
+    - Eliminazione di utility e shortcut non più utilizzate:
+      - `sed`.
+      - `grep`.
+      - `which`.
+      - `export`.
+      - `nf`.
+      - `docs`.
+      - `k9`.
+      - `la`.
+      - `ll`.
+      - `cpy`.
+      - `pst`.
+      - Git shortcuts.
+      - Help Function.
+  - **Configurazione Oh My Posh:**
+    - Impostazione del tema `atomic.omp.json` al posto di `cobalt2.omp.json`.
+    - Download del tema da GitHub se non presente localmente.
+    - Utilizzo dell'URL remoto come fallback in caso di errore nel download.
+  - **Gestione editor:**
+    - Aggiornamento della _Editor Hierarchy_ mantenendo solo: `zed → code → notepad`.
+    - Rimozione di tutti gli altri editor.
+    - Nella sezione _Editor Configuration_ mantenere solo:
+      - Visual Studio Code (`code`).
+      - Zed (`zed`).
+  - **WinToolkit:**
+    - Rinomina di **Open WinUtil full-release** in **WinToolkit-Stable**.
+    - Aggiornamento del link a `https://magnetarman.com/WinToolkit`.
+    - Rinomina di **Open WinUtil dev-release** in **WinToolkit-Dev**.
+    - Aggiornamento link a `https://magnetarman.com/WinToolkit-Dev`.
+    - Aggiornata funzione di richiamo Toolkit e potenziamento per funzionamento Plug and Play.
+  - **Varie:**
+    - Traduzione di tutti i commenti del file in italiano.      
 
+- **Funzione WinRepairToolkit** riscritta.
   - Refactor del codice per uniformarlo al resto della codebase.
   - Migliorata la scrittura del file Log.
   - Migliorato il processo di riparazione di Windows.
@@ -95,28 +138,15 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Script potenziato. Integrate 3 nuove funzioni con attivazione condizionale per risolvere e stabilizzare Winget e XAML. [[Articolo problematica KB5062553](https://www.borncity.com/blog/2025/11/21/windows-11-24h2-microsoft-bestaetigt-broken-by-design-durch-update-kb5062553/)]
 
 - **Funzione DisableBitlocker** completata.
-
   - Refactor del codice per uniformarlo al resto della codebase.
   - Migliorata la scrittura del file Log.
-
-- **Funzione WinInstallPsProfile** aggiornata e potenziata.
-
-  - Migliorata la scrittura del file Log.
-  - Refactor del codice per uniformarlo al resto della codebase.
-  - Corretta sovrapposizione del testo Winget alle barre di progresso. [[#23](https://github.com/MagnetarMan/WinToolkit/issues/23) [@pomodori92]](https://github.com/pomodori92)
-  - Aumentata la verbosità dello script per migliorare la comprensione delle operazioni eseguite.
-  - Corretto errore di installazione di oh-my-posh e zoxide. [[#22](https://github.com/MagnetarMan/WinToolkit/issues/22) [@pomodori92]](https://github.com/pomodori92)
-  - Corretta l'installazione di PowerShell 7 e Git.
-  - Aggiunto secondo tentativo di configurazione di Windows Terminal che spesso fallisce a causa di un problema di lettura del file settings.json nello script `start.ps1`
 
 - **Funzione WinReinstallStore** riscritta e migliorata.
-
   - Refactor del codice per uniformarlo al resto della codebase.
   - Migliorata la scrittura del file Log.
   - Potenziato lo script di reinstallazione di Winget. Lo script è più aggressivo e completo, rendendo Winget nuovamente funzionante anche su versioni di Windows 11 precedenti alla 24H2.
 
 - **Funzione WinUpdateReset** riscritta.
-
   - Refactor del codice per uniformarlo al resto della codebase.
   - Migliorata la scrittura del file Log.
   - Eliminazione dei commenti non necessari.
@@ -126,7 +156,6 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Corretto spazio eccessivo tra i messaggi.
 
 - **Funzione WinBackupDriver** riscritta.
-
   - Refactor del codice per uniformarlo al resto della codebase.
   - Migliorata la scrittura del file Log.
   - Eliminazione dei commenti non necessari.
@@ -134,25 +163,23 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Sostituita la compressione con 7zip (molto più veloce della compressione nativa di Windows).
 
 - **Funzione GamingToolkit** riscritta.
-
   - Refactor del codice per uniformarlo al resto della codebase.
   - Migliorata la scrittura del file Log.
   - Eliminazione dei commenti non necessari.
 
 - **Funzione SetRustDesk** riscritta.
-
   - Refactor del codice per uniformarlo al resto della codebase.
   - Migliorata la scrittura del file Log.
   - Eliminazione dei commenti non necessari.
 
 - **Funzione VideoDriverInstall** riscritta.
-
   - Refactor del codice per uniformarlo al resto della codebase.
   - Migliorata la scrittura del file Log.
   - Eliminazione dei commenti non necessari.
   - Risolto un bug che causava errori di visualizzazione nelle barre di progresso.
   - Uniformati spinner e grafica.
   - Velocizzato il download di DDU.
+  - Aggiornato DDU alla versione v18.1.4.0.
 
 - **Funzione WinCleaner** riscritta e potenziata.
   - Refactor del codice per uniformarlo al resto della codebase.
@@ -181,72 +208,21 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
       - Brave Browser
       - Vivaldi
       - Firefox
-    - Risolto un conflitto di variabili tra lo script principale e `WinCleaner.ps1` che causava report di riepilogo vuoti, in caso di concatenazione script attiva.
+  - Risolto un conflitto di variabili tra lo script principale e `WinCleaner.ps1` che causava report di riepilogo vuoti, in caso di concatenazione script attiva.
 
 ### Modifiche
 
-- Aggiornamento della documentazione e del file `README.md`. [[#25](https://github.com/MagnetarMan/WinToolkit/issues/25) [@pomodori92]](https://github.com/pomodori92)
+- Rework file `README.md`. [[#25](https://github.com/MagnetarMan/WinToolkit/issues/25) [@pomodori92]](https://github.com/pomodori92)
 
 - Script `WinToolkit.ps1` riscritto.
   - Logica completamente riscritta, lo script adesso risulta monolitico, integrando le funzionalità grafiche generali, demandando ai singoli script la sola gestione logica e funzionale delle varie operazioni.
   - Questo aggiornamento porta con sé un notevole miglioramento delle prestazioni, una significativa riduzione del codice totale (da oltre 7500 linee a 4300 linee di codice totale, un'ottimizzazione del 42%) e maggiore stabilità dello script, oltre a una maggiore leggibilità e manutenibilità del codice.
   - Modificato l'aspetto grafico del Toolkit, rendendo le varie schermate più compatte e leggibili. [[#21](https://github.com/MagnetarMan/WinToolkit/issues/21) [@pomodori92]](https://github.com/pomodori92)
-  - Aggiornato DDU alla versione v18.1.4.0.
   - Funzione grafica Spinner resa globale e ottimizzata nei vari script.
   - Fix errore di visualizzazione percentuale nella barra del countdown.
   - Aggiunta nuova logica di Splatting per Start-Process in tutti gli script per migliorare la leggibilità del codice e la facile espansione futura.
   - Variabili Download, Path, Link ecc. centralizzate.
   - Rese maggiormente descrittive le variabili nei diversi script.
-
-- Revamping `PowerShell Profile.ps1`
-  - **Pulizia e rimozione codice inutile:**
-    - Rimozione di tutte le funzioni di debug non più necessarie
-    - Eliminazione dell'architettura _Override-First_
-    - Rimozione del meccanismo di aggiornamento automatico del profilo (`Update-Profile` con confronto SHA256)
-    - Eliminazione delle mappature dei comandi Unix-like su PowerShell:
-      - `grep`
-      - `sed`
-      - `which`
-      - `export`
-      - `pkill`
-      - `head`
-      - `tail`
-    - Rimozione della gestione personalizzata del cestino (COM `Shell.Application`)
-    - Eliminazione delle funzioni `uptime` e `hb`
-    - Rimozione del codice per syntax highlighting
-    - Rimozione del completamento nativo
-    - Eliminazione di utility e shortcut non più utilizzate:
-      - `sed`
-      - `grep`
-      - `which`
-      - `export`
-      - `nf`
-      - `docs`
-      - `k9`
-      - `la`
-      - `ll`
-      - `cpy`
-      - `pst`
-      - Git shortcuts
-      - Help Function
-  - **Configurazione Oh My Posh:**
-    - Impostazione del tema `atomic.omp.json` al posto di `cobalt2.omp.json`
-    - Download del tema da GitHub se non presente localmente
-    - Utilizzo dell'URL remoto come fallback in caso di errore nel download
-  - **Gestione editor:**
-    - Aggiornamento della _Editor Hierarchy_ mantenendo solo: `zed → code → notepad`
-    - Rimozione di tutti gli altri editor
-    - Nella sezione _Editor Configuration_ mantenere solo:
-      - Visual Studio Code (`code`)
-      - Zed (`zed`)
-  - **WinToolkit:**
-    - Rinomina di **Open WinUtil full-release** in **WinToolkit-Stable**
-    - Aggiornamento del link a `https://magnetarman.com/WinToolkit`
-    - Rinomina di **Open WinUtil dev-release** in **WinToolkit-Dev**
-    - Aggiornamento link a `https://magnetarman.com/WinToolkit-Dev`
-    - Aggiornata funzione di richiamo Toolkit e potenziamento per funzionamento Plug and Play.
-  - **Varie:**
-    - Traduzione di tutti i commenti del file in italiano.
 
 - **Aggiornamento pipeline CI/CD**
   - Reso automatico il controllo dei nomi dei singoli script presenti nella cartella /tool prima dell'esecuzione del `compiler.ps1`.
@@ -255,6 +231,16 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Migliorato il codice di `compiler.ps1` che ora controlla se ci sono righe vuote alla fine dello script e le elimina prima di effettuare il commit finale di aggiornamento.
 
 - Rimosso script `SetRustdesk.ps1` e relative configurazioni per non conformità al progetto generale. [[Thanks to @pomodori92]](https://github.com/pomodori92)
+
+- <del>**Funzione WinInstallPsProfile** aggiornata e potenziata.</del>
+  <del>- Migliorata la scrittura del file Log.</del>
+  <del>- Refactor del codice per uniformarlo al resto della codebase.</del>
+  <del>- Corretta sovrapposizione del testo Winget alle barre di progresso. [[#23](https://github.com/MagnetarMan/WinToolkit/issues/23) [@pomodori92]](https://github.com/pomodori92)</del>
+  <del>- Aumentata la verbosità dello script per migliorare la comprensione delle operazioni eseguite.</del>
+  <del>- Corretto errore di installazione di oh-my-posh e zoxide. [[#22](https://github.com/MagnetarMan/WinToolkit/issues/22) [@pomodori92]](https://github.com/pomodori92)</del>
+  <del>- Corretta l'installazione di PowerShell 7 e Git.</del>
+  <del>- Aggiunto secondo tentativo di configurazione di Windows Terminal che spesso fallisce a causa di un problema di lettura del file settings.json nello script `start.ps1`.</del>
+
 
 ---
 
