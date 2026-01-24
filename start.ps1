@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.0 (Build 236) - 2026-01-25
+    Versione 2.5.0 (Build 237) - 2026-01-25
     Compatibile con PowerShell 5.1+
 #>
 
@@ -72,6 +72,12 @@ function Write-StyledMessage {
         [string]$Type,
         [string]$Text
     )
+    # FIX: Windows 11 Indentation Issue
+    # Su W11 (Build >= 22000), forziamo il ritorno a capo (CR) prima di scrivere.
+    if ([Environment]::OSVersion.Version.Build -ge 22000) {
+        $Text = "`r$Text"
+    }
+
     $colors = @{ Info = 'Cyan'; Warning = 'Yellow'; Error = 'Red'; Success = 'Green' }
     Write-Host $Text -ForegroundColor $colors[$Type]
 }
@@ -765,7 +771,7 @@ function Invoke-WinToolkitSetup {
 
     # Banner
     # Banner
-    Show-Header -Title "Toolkit Starter By MagnetarMan" -Version "Version 2.5.0 (Build 236)"
+    Show-Header -Title "Toolkit Starter By MagnetarMan" -Version "Version 2.5.0 (Build 237)"
 
     Write-StyledMessage -Type Info -Text "PowerShell: $($PSVersionTable.PSVersion)"
     if ($PSVersionTable.PSVersion.Major -lt 7) {
