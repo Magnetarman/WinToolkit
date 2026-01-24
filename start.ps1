@@ -15,13 +15,13 @@
 
 $script:AppConfig = @{
     URLs  = @{
-        StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
+        StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/start.ps1"
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
         OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-        PowerShellProfile       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
-        WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
+        PowerShellProfile       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/Microsoft.PowerShell_profile.ps1"
+        WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/settings.json"
         ToolkitIcon             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
     }
     Paths = @{
