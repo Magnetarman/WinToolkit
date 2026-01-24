@@ -53,7 +53,7 @@ irm https://magnetarman.com/winstart | iex
 ### ⚙️ Per utenti esperti
 
 > [!WARNING]
-> Se stai avviando WinToolkit da versioni parzialmente supportate è consigliabile installare il profilo PowerShell e utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
+> Se stai avviando WinToolkit da versioni parzialmente supportate è consigliabile utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
 
 1. Installa Powershell 7 (o versioni successive) da [Microsoft Store](https://www.microsoft.com/store/apps/9MZ1SNWT0N5D) oppure da [GitHub](https://learn.microsoft.com/it-it/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.5#msi).
 3. Premi il tasto `Windows` sulla tastiera oppure clicca sulla ricerca di Windows.
@@ -65,9 +65,6 @@ irm https://magnetarman.com/winstart | iex
 ```powershell
 irm https://magnetarman.com/WinToolkit | iex
 ```
-
-8. Seleziona l'opzione 1.
-9. Riavvia il computer.
 
 ### 👨‍💻 Per i beta-tester
 
@@ -109,14 +106,14 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 > [!CAUTION]
 > L'interfaccia grafica mostrata di seguito è un'anteprima, pertanto potrà subire modifiche anche significative. La sua condivisione risponde al forte interesse degli utenti verso una futura implementazione.
-<img src="img/Gui-After.jpg" alt="Gui-Mode-After-banner" width="800">
+<img src="img/Gui.jpg" alt="Gui-Mode-banner" width="800">
 
 ---
 
 ## 📌 Changelog
 
 - [Leggi le modifiche introdotte.](/CHANGELOG.md).
-- [Leggi la lista delle funzionalità da implementare.](/TODO.md)
+- [Leggi la lista delle funzionalità in sviluppo.](/TODO.md)
 
 ---
 
