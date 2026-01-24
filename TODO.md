@@ -55,20 +55,21 @@
 
 - [ ] Conversione Readme.md in inglese.
 - [ ] Possibilità di scegliere la lingua all'avvio di Wintoolkit.
-  
-- **MagnetarMan Mode (`VX.0`):**
-  - Avvio Script Chris con configurazione personalizzata.
-  - Installazione programmi: Brave Browser, Google Chrome,
+
+### V X.X - MagnetarMan Mode
+
+- [ ] Avvio Script Chris con configurazione personalizzata.
+  - [ ] Installazione programmi: Brave Browser, Google Chrome,
     Betterbird, Fan Control, PowerToys, Uniget, Crystal Disk Info,
     HwInfo, Rust Desk, Client Giochi (Amazon, Gog Galaxy, Epic
     Games, Steam).
-  - Installazione .NET Runtime (dalla 4.8 alla 9.0).
-  - Installazione Microsoft C++ Package.
-  - Installazione/Aggiornamento Directx.
-  - Installazione Playnite (Launcher/Aggregatore).
-  - Installazione Revo Uninstaller.
-  - Installazione Tree Size.
-  - Installazione Glary Utilities.
-  - Pulizia del sistema.
-  - Applicazione Sfondo "MagnetarMan".
-  - Riavvio del PC per completare le modifiche.
+  - [ ] Installazione .NET Runtime (dalla 4.8 alla 9.0).
+  - [ ] Installazione Microsoft C++ Package.
+  - [ ] Installazione/Aggiornamento Directx.
+  - [ ] Installazione Playnite (Launcher/Aggregatore).
+  - [ ] Installazione Revo Uninstaller.
+  - [ ] Installazione Tree Size.
+  - [ ] Installazione Glary Utilities.
+  - [ ] Pulizia del sistema.
+  - [ ] Applicazione Sfondo "MagnetarMan".
+  - [ ] Riavvio del PC per completare le modifiche.
