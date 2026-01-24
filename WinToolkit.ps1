@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.0 (Build 238)"
+$ToolkitVersion = "2.5.0 (Build 239)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -1802,7 +1802,7 @@ function WinBackupDriver {
         New-Item -ItemType Directory -Path $installDir -Force | Out-Null
         
         $downloadSources = @(
-            @{ Url = $AppConfig.URLs.GitHubAssetDevBaseUrl + "7zr.exe"; Name = "Repository MagnetarMan" },
+            @{ Url = $AppConfig.URLs.GitHubAssetBaseUrl + "7zr.exe"; Name = "Repository MagnetarMan" },
             @{ Url = $AppConfig.URLs.SevenZipOfficial; Name = "Sito ufficiale 7-Zip" }
         )
         
