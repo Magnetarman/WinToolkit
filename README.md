@@ -22,7 +22,7 @@ WinToolkit è una suite di script PowerShell potente e compatta, progettata per 
 > Prima di avviare il toolkit, assicurati di soddisfare i seguenti requisiti:
 >
 > - **connessione ad Internet**;
-> - **spazio libero su disco**: >= 50 GB [(vedere la sezione F.A.Q.)](##-faq---domande-frequenti);
+> - **spazio libero su disco**: >= 50 GB [(vedere la sezione F.A.Q.)](#-faq---domande-frequenti);
 > - **Windows >= 8.1**.
 
 | Versioni di Windows        | Supportato               |
