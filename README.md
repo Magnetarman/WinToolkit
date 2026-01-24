@@ -4,7 +4,7 @@
 </p>
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
-	<img src="https://img.shields.io/badge/version-2.5.0-red.svg?style=for-the-badge" alt="versione">
+	<img src="https://img.shields.io/badge/version-2.5.1-red.svg?style=for-the-badge" alt="versione">
 	<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
 	<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 	<img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main">
@@ -25,7 +25,7 @@ WinToolkit è una suite di script PowerShell potente e compatta, progettata per 
 > - **spazio libero su disco**: >= 50 GB [(vedere la sezione F.A.Q.)](#-faq---domande-frequenti);
 > - **Windows >= 8.1**.
 
-| Versioni di Windows        | Supportato               |
+| Versioni di Windows          | Supportato             |
 |:---|:---|
 | Windows 11 >= 22H2           | 🟢 Sì                  |
 | Windows 11 <= 21H2           | 🟡 Sì con eccezioni    |
