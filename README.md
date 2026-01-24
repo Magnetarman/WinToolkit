@@ -199,7 +199,7 @@ Grazie di cuore per il tuo supporto!
 
 ## 🌟 Lista dei Contributori
 
-[Guarda la lista dei contributori.](/CONTRIBUTORS.md).
+[Guarda la lista dei contributori.](/CONTRIBUTORS.md)
 
 ---
 
