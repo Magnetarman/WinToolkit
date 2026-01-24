@@ -185,7 +185,7 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 
 ### Modifiche
 
-- Aggiornamento della documentazione e del file `README.md`.
+- Aggiornamento della documentazione e del file `README.md`. [[#25](https://github.com/MagnetarMan/WinToolkit/issues/25) [@pomodori92]](https://github.com/pomodori92)
 
 - Script `WinToolkit.ps1` riscritto.
   - Logica completamente riscritta, lo script adesso risulta monolitico, integrando le funzionalità grafiche generali, demandando ai singoli script la sola gestione logica e funzionale delle varie operazioni.
@@ -253,7 +253,8 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Bump automatico del Build script.
   - Add issue chiusi al changelog.
   - Migliorato il codice di `compiler.ps1` che ora controlla se ci sono righe vuote alla fine dello script e le elimina prima di effettuare il commit finale di aggiornamento.
-  - Rimosso script `SetRustdesk.ps1` e relative configurazioni per non conformità al progetto generale. [[Thanks to @pomodori92]](https://github.com/pomodori92)
+
+- Rimosso script `SetRustdesk.ps1` e relative configurazioni per non conformità al progetto generale. [[Thanks to @pomodori92]](https://github.com/pomodori92)
 
 ---
 
