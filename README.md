@@ -197,10 +197,6 @@ Se non puoi donare, puoi comunque aiutarmi a migliorare WinToolkit attraverso qu
 
 Grazie di cuore per il tuo supporto!
 
-## 🌟 Lista dei Contributori
-
-[Guarda la lista dei contributori.](/CONTRIBUTING.md)
-
 ---
 
 ## 🎉 Traguardi
