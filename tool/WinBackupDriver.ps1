@@ -112,7 +112,7 @@ function WinBackupDriver {
         New-Item -ItemType Directory -Path $installDir -Force | Out-Null
         
         $downloadSources = @(
-            @{ Url = $AppConfig.URLs.GitHubAssetDevBaseUrl + "7zr.exe"; Name = "Repository MagnetarMan" },
+            @{ Url = $AppConfig.URLs.GitHubAssetBaseUrl + "7zr.exe"; Name = "Repository MagnetarMan" },
             @{ Url = $AppConfig.URLs.SevenZipOfficial; Name = "Sito ufficiale 7-Zip" }
         )
         
