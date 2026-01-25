@@ -26,7 +26,7 @@ WinToolkit è una suite di script PowerShell potente e compatta, progettata per 
 > - **Windows >= 8.1**.
 
 | Versioni di Windows          | Supportato             |
-|:---|:---|
+|:----------------------------:|:----------------------:|
 | Windows 11 >= 22H2           | 🟢 Sì                  |
 | Windows 11 <= 21H2           | 🟡 Sì con eccezioni    |
 | Windows 10 >= 1809           | 🟢 Sì                  |
