@@ -47,7 +47,7 @@ $emojiMappings = @{
 # EMOJI ICONS CONFIGURATION
 # =============================================================================
 $localIconBasePath = Join-Path $env:LOCALAPPDATA "WinToolkit\asset\png"
-$remoteIconBasePath = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/png"
+$remoteIconBasePath = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/png"
 
 # =============================================================================
 # GLOBAL VARIABLES
@@ -74,11 +74,11 @@ $actionsPanel = $null
 
 # Configurazione per il caricamento dinamico del Core Script
 $Global:CoreConfig = @{
-    RemoteUrl          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
-    LocalCachePath     = "$env:LOCALAPPDATA\WinToolkit\cache\WinToolkit_Core.ps1"
-    CacheMaxAge        = 3600 # secondi (1 ora)
-    FallbackToCache    = $true
-    RequiredFunctions  = @('Get-SystemInfo', 'Write-StyledMessage', 'Show-Header', 'Initialize-ToolLogging')
+    RemoteUrl         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
+    LocalCachePath    = "$env:LOCALAPPDATA\WinToolkit\cache\WinToolkit_Core.ps1"
+    CacheMaxAge       = 3600 # secondi (1 ora)
+    FallbackToCache   = $true
+    RequiredFunctions = @('Get-SystemInfo', 'Write-StyledMessage', 'Show-Header', 'Initialize-ToolLogging')
 }
 
 # Variabili per il Core Script caricato
@@ -303,6 +303,44 @@ function Split-EmojiAndText {
     }
 }
 
+function Ensure-AllEmojiIcons {
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$EmojiMap,
+        [Parameter(Mandatory = $true)][string]$LocalPath,
+        [Parameter(Mandatory = $true)][string]$RemotePath
+    )
+    Write-UnifiedLog -Type 'Info' -Message "🚀 Ensuring all required icons are available locally..." -GuiColor "#00CED1"
+    try {
+        foreach ($key in $EmojiMap.Keys) {
+            $emojiChar = $EmojiMap[$key]
+            $localIconFile = Get-EmojiIconPath -EmojiCharacter $emojiChar
+
+            if ([string]::IsNullOrEmpty($localIconFile)) {
+                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Could not get local path for emoji '$emojiChar'. Skipping." -GuiColor "#FFA500"
+                continue
+            }
+
+            if (-not (Test-Path $localIconFile)) {
+                $fileName = Split-Path $localIconFile -Leaf
+                $remoteIconUri = "$RemotePath/$fileName"
+
+                Write-UnifiedLog -Type 'Info' -Message "📥 Downloading icon for '$emojiChar' from $remoteIconUri..." -GuiColor "#00CED1"
+                try {
+                    Invoke-WebRequest -Uri $remoteIconUri -OutFile $localIconFile -UseBasicParsing -ErrorAction Stop | Out-Null
+                    Write-UnifiedLog -Type 'Success' -Message "✅ Downloaded: $fileName" -GuiColor "#00FF00"
+                }
+                catch {
+                    Write-UnifiedLog -Type 'Error' -Message "❌ Failed to download icon '$fileName': $($_.Exception.Message)" -GuiColor "#FF0000"
+                }
+            }
+        }
+        Write-UnifiedLog -Type 'Success' -Message "🎉 Icon availability check completed." -GuiColor "#00FF00"
+    }
+    catch {
+        Write-UnifiedLog -Type 'Error' -Message "❌ Error during icon synchronization: $($_.Exception.Message)" -GuiColor "#FF0000"
+    }
+}
+
 # =============================================================================
 # INITIALIZATION
 # =============================================================================
@@ -327,6 +365,9 @@ try {
 catch {
     Write-Host "[ERROR] Failed to create icon directory: $($_.Exception.Message)" -ForegroundColor Red
 }
+
+# Download and cache all required icons
+Ensure-AllEmojiIcons -EmojiMap $emojiMappings -LocalPath $localIconBasePath -RemotePath $remoteIconBasePath
 
 # Check administrator privileges
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -395,12 +436,14 @@ try {
     
     # Verifica funzioni critiche
     if (Get-Command 'Get-SystemInfo' -ErrorAction SilentlyContinue) {
-         Write-UnifiedLog -Type 'Success' -Message "✅ Funzione Get-SystemInfo disponibile" -GuiColor "#00FF00"
-    } else {
-         Write-UnifiedLog -Type 'Error' -Message "❌ Funzione Get-SystemInfo NON trovata!" -GuiColor "#FF0000"
+        Write-UnifiedLog -Type 'Success' -Message "✅ Funzione Get-SystemInfo disponibile" -GuiColor "#00FF00"
+    }
+    else {
+        Write-UnifiedLog -Type 'Error' -Message "❌ Funzione Get-SystemInfo NON trovata!" -GuiColor "#FF0000"
     }
 
-} catch {
+}
+catch {
     Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante dot-sourcing Core: $($_.Exception.Message)" -GuiColor "#FF0000"
 }
 
@@ -439,9 +482,24 @@ $xaml = @"
 
         <!-- Header -->
         <Border Grid.Row="0" Background="{StaticResource HeaderBackgroundColor}" Padding="16" Margin="16,16,16,8">
-            <StackPanel>
-                <TextBlock Text="$($ScriptTitle)" FontSize="24" FontWeight="Bold" Foreground="{StaticResource TextColor}" FontFamily="{StaticResource PrimaryFont}" HorizontalAlignment="Center"/>
-                <TextBlock Text="GUI Edition - Core v$($Global:CoreScriptVersion)" FontSize="14" Foreground="{StaticResource InfoColor}" FontFamily="{StaticResource PrimaryFont}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="$($ScriptTitle)" FontSize="24" FontWeight="Bold" Foreground="{StaticResource TextColor}" FontFamily="{StaticResource PrimaryFont}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="GUI Edition - Core v$($Global:CoreScriptVersion)" FontSize="14" Foreground="{StaticResource InfoColor}" FontFamily="{StaticResource PrimaryFont}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                </StackPanel>
+                <Button Grid.Column="1" x:Name="SendErrorLogsButton" VerticalAlignment="Center" HorizontalAlignment="Right"
+                        Background="{StaticResource AccentColor}" Foreground="{StaticResource TextColor}"
+                        Padding="10,5" BorderThickness="0" Cursor="Hand" Margin="10,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Image x:Name="SendErrorLogsImage" Width="16" Height="16" Margin="0,0,5,0"/>
+                        <TextBlock Text="Invia Log Errori" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
 
                 <!-- System Info Panel -->
                 <Border Background="{StaticResource OutputBackgroundColor}" CornerRadius="6" Padding="12" Margin="0,12,0,0">
@@ -449,26 +507,42 @@ $xaml = @"
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Column 1: Edition, Version, Architecture -->
+                        <!-- Left Block -->
                         <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                            <TextBlock x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}"/>
-                            <TextBlock x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" Margin="0,4,0,0"/>
-                            <TextBlock x:Name="SysInfoArchitecture" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" Margin="0,4,0,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Image x:Name="SysInfoEditionImage" Width="16" Height="16" Margin="0,0,5,0"/>
+                                <TextBlock x:Name="SysInfoEdition" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Image x:Name="SysInfoVersionImage" Width="16" Height="16" Margin="0,0,5,0"/>
+                                <TextBlock x:Name="SysInfoVersion" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Image x:Name="SysInfoArchitectureImage" Width="16" Height="16" Margin="0,0,5,0"/>
+                                <TextBlock x:Name="SysInfoArchitecture" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}"/>
+                            </StackPanel>
                         </StackPanel>
 
-                        <!-- Column 2: Compatibility -->
-                        <StackPanel Grid.Column="1" Margin="8,0">
-                            <TextBlock x:Name="SysInfoScriptCompatibility" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" TextWrapping="Wrap"/>
-                        </StackPanel>
-
-                        <!-- Column 3: Computer Name, RAM, Disk -->
-                        <StackPanel Grid.Column="2" Margin="8,0,0,0">
-                            <TextBlock x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}"/>
-                            <TextBlock x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" Margin="0,4,0,0"/>
-                            <TextBlock x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" Margin="0,4,0,0"/>
+                        <!-- Right Block -->
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Image x:Name="SysInfoScriptImage" Width="16" Height="16" Margin="0,0,5,0"/>
+                                <TextBlock x:Name="SysInfoScriptCompatibility" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Image x:Name="SysInfoComputerNameImage" Width="16" Height="16" Margin="0,0,5,0"/>
+                                <TextBlock x:Name="SysInfoComputerName" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Image x:Name="SysInfoRAMImage" Width="16" Height="16" Margin="0,0,5,0"/>
+                                <TextBlock x:Name="SysInfoRAM" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Image x:Name="SysInfoDiskImage" Width="16" Height="16" Margin="0,0,5,0"/>
+                                <TextBlock x:Name="SysInfoDisk" Text="Caricamento..." Foreground="{StaticResource TextColor}" FontSize="12" FontFamily="{StaticResource PrimaryFont}"/>
+                            </StackPanel>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -535,7 +609,7 @@ $xaml = @"
                              Value="0"/>
 
                 <Button x:Name="ExecuteButton"
-                        Content="▶️  Esegui Script Selezionati"
+                        Content="Esegui Script Selezionati"
                         Background="{StaticResource AccentColor}"
                         Foreground="{StaticResource TextColor}"
                         FontSize="16"
@@ -575,6 +649,37 @@ $SysInfoRAM = $window.FindName("SysInfoRAM")
 $SysInfoDisk = $window.FindName("SysInfoDisk")
 $SysInfoScriptCompatibility = $window.FindName("SysInfoScriptCompatibility")
 $progressBar = $window.FindName("MainProgressBar")
+$SysInfoEditionImage = $window.FindName("SysInfoEditionImage")
+$SysInfoVersionImage = $window.FindName("SysInfoVersionImage")
+$SysInfoArchitectureImage = $window.FindName("SysInfoArchitectureImage")
+$SysInfoScriptImage = $window.FindName("SysInfoScriptImage")
+$SysInfoComputerNameImage = $window.FindName("SysInfoComputerNameImage")
+$SysInfoRAMImage = $window.FindName("SysInfoRAMImage")
+$SysInfoDiskImage = $window.FindName("SysInfoDiskImage")
+$SendErrorLogsButton = $window.FindName("SendErrorLogsButton")
+$SendErrorLogsImage = $window.FindName("SendErrorLogsImage")
+
+# Setup ExecuteButton with icon
+try {
+    $executeImage = New-Object System.Windows.Controls.Image
+    $executeImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri](Get-EmojiIconPath -EmojiCharacter $emojiMappings.ExecuteButtonImage))
+    $executeImage.Width = 16
+    $executeImage.Height = 16
+    $executeImage.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
+
+    $executeTextBlock = New-Object System.Windows.Controls.TextBlock
+    $executeTextBlock.Text = "Esegui Script Selezionati"
+    $executeTextBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+
+    $executeStackPanel = New-Object System.Windows.Controls.StackPanel
+    $executeStackPanel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+    $executeStackPanel.Children.Add($executeImage)
+    $executeStackPanel.Children.Add($executeTextBlock)
+    $executeButton.Content = $executeStackPanel
+}
+catch {
+    Write-UnifiedLog -Type 'Warning' -Message "⚠️ Could not set ExecuteButton icon" -GuiColor "#FFA500"
+}
 
 # =============================================================================
 # SYSTEM INFORMATION UPDATE (Using Core's Get-SystemInfo)
@@ -592,14 +697,33 @@ function Update-SystemInformationPanel {
 
         # Update GUI on UI thread
         $window.Dispatcher.Invoke([Action] {
-                $SysInfoEdition.Text = "💻 Edizione: $($sysInfo.ProductName)"
-                $SysInfoVersion.Text = "🆔 Versione: $($sysInfo.DisplayVersion) (Build $($sysInfo.BuildNumber))"
-                $SysInfoArchitecture.Text = "🔑 Architettura: $($sysInfo.Architecture)"
-                $SysInfoComputerName.Text = "🔧 Nome PC: $($sysInfo.ComputerName)"
-                $SysInfoRAM.Text = "🧠 RAM: $($sysInfo.TotalRAM) GB"
-                $SysInfoDisk.Text = "💾 Disco: $($sysInfo.FreePercentage)% Libero ($($sysInfo.FreeDisk) GB / $($sysInfo.TotalDisk) GB)"
+                # Update text (without emojis)
+                $SysInfoEdition.Text = "Edizione: $($sysInfo.ProductName)"
+                $SysInfoVersion.Text = "Versione: $($sysInfo.DisplayVersion) (Build $($sysInfo.BuildNumber))"
+                $SysInfoArchitecture.Text = "Architettura: $($sysInfo.Architecture)"
+                $SysInfoComputerName.Text = "Nome PC: $($sysInfo.ComputerName)"
+                $SysInfoRAM.Text = "RAM: $($sysInfo.TotalRAM) GB"
+                $SysInfoDisk.Text = "Disco: $($sysInfo.FreePercentage)% Libero ($($sysInfo.FreeDisk) GB / $($sysInfo.TotalDisk) GB)"
 
-                # Compatibility indicator
+                # Set image sources
+                try {
+                    $SysInfoEditionImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri](Get-EmojiIconPath -EmojiCharacter $emojiMappings.SysInfoEditionLabelImage))
+                    $SysInfoVersionImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri](Get-EmojiIconPath -EmojiCharacter $emojiMappings.SysInfoVersionImage))
+                    $SysInfoArchitectureImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri](Get-EmojiIconPath -EmojiCharacter $emojiMappings.SysInfoArchitectureImage))
+                    $SysInfoScriptImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri](Get-EmojiIconPath -EmojiCharacter $emojiMappings.SysInfoScriptImage))
+                    $SysInfoComputerNameImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri](Get-EmojiIconPath -EmojiCharacter $emojiMappings.SysInfoComputerNameImage))
+                    $SysInfoRAMImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri](Get-EmojiIconPath -EmojiCharacter $emojiMappings.SysInfoRAMImage))
+                    $SysInfoDiskImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri](Get-EmojiIconPath -EmojiCharacter $emojiMappings.SysInfoDiskImage))
+
+                    if ($SendErrorLogsImage) {
+                        $SendErrorLogsImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri](Get-EmojiIconPath -EmojiCharacter $emojiMappings.SendErrorLogsImage))
+                    }
+                }
+                catch {
+                    Write-UnifiedLog -Type 'Warning' -Message "⚠️ Could not load some icons: $($_.Exception.Message)" -GuiColor "#FFA500"
+                }
+
+                # Compatibility indicator (unchanged)
                 if ($sysInfo.BuildNumber -ge 22000) {
                     $SysInfoScriptCompatibility.Text = "✅ Completa - Sistema Windows 11"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
@@ -638,14 +762,31 @@ function Update-ActionsPanel {
                 }
 
                 foreach ($category in $Global:MenuStructure) {
-                    # Category header
+                    # Category header with icon
+                    $categoryStackPanel = New-Object System.Windows.Controls.StackPanel
+                    $categoryStackPanel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+                    $categoryStackPanel.Margin = '0,8,0,4'
+
+                    $categoryImage = New-Object System.Windows.Controls.Image
+                    $categoryImage.Width = 16
+                    $categoryImage.Height = 16
+                    $categoryImage.Margin = New-Object System.Windows.Thickness(0, 0, 5, 0)
+                    try {
+                        $categoryImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri](Get-EmojiIconPath -EmojiCharacter $category.Icon))
+                    }
+                    catch {
+                        # Fallback: no icon if loading fails
+                    }
+                    $categoryStackPanel.Children.Add($categoryImage) | Out-Null
+
                     $categoryHeader = New-Object System.Windows.Controls.TextBlock
-                    $categoryHeader.Text = "$($category.Icon) $($category.Name)"
+                    $categoryHeader.Text = $category.Name
                     $categoryHeader.FontSize = 14
                     $categoryHeader.FontWeight = 'Bold'
                     $categoryHeader.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Cyan)
-                    $categoryHeader.Margin = '0,8,0,4'
-                    $actionsPanel.Children.Add($categoryHeader) | Out-Null
+                    $categoryStackPanel.Children.Add($categoryHeader) | Out-Null
+
+                    $actionsPanel.Children.Add($categoryStackPanel) | Out-Null
 
                     # Scripts in category
                     foreach ($script in $category.Scripts) {
@@ -672,50 +813,82 @@ function Update-ActionsPanel {
 # =============================================================================
 
 $executeButton.Add_Click({
+    # Disable button to prevent re-clicks while busy
+    $executeButton.IsEnabled = $false
+    $progressBar.Value = 0 # Reset progress bar
+
+    # Get selected scripts on UI thread before starting async task
+    $selectedScriptsLocal = @()
+    foreach ($child in $actionsPanel.Children) {
+        if ($child -is [System.Windows.Controls.CheckBox] -and $child.IsChecked) {
+            $selectedScriptsLocal += $child.Tag
+        }
+    }
+
+    if ($selectedScriptsLocal.Count -eq 0) {
+        Write-UnifiedLog -Type 'Warning' -Message "⚠️ Nessuno script selezionato" -GuiColor "#FFA500"
+        $executeButton.IsEnabled = $true
+        return
+    }
+
+    # Start async task
+    [System.Threading.Tasks.Task]::Run({
+        param($scripts, $win, $prog)
+
         try {
-            # Get selected scripts
-            $selectedScripts = @()
-            foreach ($child in $actionsPanel.Children) {
-                if ($child -is [System.Windows.Controls.CheckBox] -and $child.IsChecked) {
-                    $selectedScripts += $child.Tag
-                }
-            }
+            $win.Dispatcher.Invoke([Action] {
+                Write-UnifiedLog -Type 'Info' -Message "🚀 Esecuzione di $($scripts.Count) script..." -GuiColor "#00CED1"
+            })
 
-            if ($selectedScripts.Count -eq 0) {
-                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Nessuno script selezionato" -GuiColor "#FFA500"
-                return
-            }
+            $totalScripts = $scripts.Count
+            for ($i = 0; $i -lt $totalScripts; $i++) {
+                $scriptName = $scripts[$i]
+                $progressPercentage = [int](($i + 1) / $totalScripts * 100)
 
-            # Execute scripts using Core's concatenation logic
-            Write-UnifiedLog -Type 'Info' -Message "🚀 Esecuzione di $($selectedScripts.Count) script..." -GuiColor "#00CED1"
-
-            foreach ($scriptName in $selectedScripts) {
-                Write-UnifiedLog -Type 'Info' -Message "▶️ Avvio: $scriptName" -GuiColor "#00CED1"
+                $win.Dispatcher.Invoke([Action] {
+                    Write-UnifiedLog -Type 'Info' -Message "▶️ Avvio: $scriptName" -GuiColor "#00CED1"
+                    $prog.Value = $progressPercentage
+                })
 
                 try {
-                    # Invoke the function from Core (already loaded via dot-sourcing)
-                    if ($selectedScripts.Count -gt 1) {
-                        # Use concatenation logic: suppress individual reboots
+                    # Invoke the function from Core
+                    if ($totalScripts -gt 1) {
                         Invoke-Expression "$scriptName -SuppressIndividualReboot"
                     }
                     else {
-                        # Single execution: normal behavior
                         Invoke-Expression $scriptName
                     }
 
-                    Write-UnifiedLog -Type 'Success' -Message "✅ Completato: $scriptName" -GuiColor "#00FF00"
+                    $win.Dispatcher.Invoke([Action] {
+                        Write-UnifiedLog -Type 'Success' -Message "✅ Completato: $scriptName" -GuiColor "#00FF00"
+                    })
                 }
                 catch {
-                    Write-UnifiedLog -Type 'Error' -Message "❌ Errore in $scriptName`: $($_.Exception.Message)" -GuiColor "#FF0000"
+                    $errorMsg = $_.Exception.Message
+                    $win.Dispatcher.Invoke([Action] {
+                        Write-UnifiedLog -Type 'Error' -Message "❌ Errore in $scriptName`: $errorMsg" -GuiColor "#FF0000"
+                    })
                 }
             }
 
-            Write-UnifiedLog -Type 'Success' -Message "🎉 Tutti gli script sono stati eseguiti" -GuiColor "#00FF00"
+            $win.Dispatcher.Invoke([Action] {
+                Write-UnifiedLog -Type 'Success' -Message "🎉 Tutti gli script sono stati eseguiti" -GuiColor "#00FF00"
+            })
         }
         catch {
-            Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante esecuzione: $($_.Exception.Message)" -GuiColor "#FF0000"
+            $errorMsg = $_.Exception.Message
+            $win.Dispatcher.Invoke([Action] {
+                Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante esecuzione: $errorMsg" -GuiColor "#FF0000"
+            })
         }
-    })
+        finally {
+            $win.Dispatcher.Invoke([Action] {
+                $prog.Value = 100
+                $executeButton.IsEnabled = $true
+            })
+        }
+    }, $selectedScriptsLocal, $window, $progressBar) | Out-Null
+})
 
 # =============================================================================
 # INITIALIZATION AND DISPLAY
