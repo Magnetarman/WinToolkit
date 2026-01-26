@@ -16,15 +16,20 @@
 $Global:GuiSessionActive = $true
 
 # =============================================================================
+# GUI VERSION CONFIGURATION (Separate from Core Version)
+# =============================================================================
+$Global:GuiVersion = "2.5.1 (Build 45)"  # Format: CoreVersion.GuiBuildNumber
+
+# =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
 $ScriptTitle = "WinToolkit By MagnetarMan"
 $SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
-$WindowWidth = 1500
-$WindowHeight = 950
-$FontFamily = "JetBrains Mono Nerd Font, Cascadia Code, Consolas, Courier New" # Con fallback
-$FontSize = @{Small = 12; Medium = 14; Large = 16; Title = 18 }
+$WindowWidth = 1600  # Increased from 1500 for better readability
+$WindowHeight = 1000  # Increased from 950 for better readability
+$FontFamily = "JetBrains Mono Nerd Font, Cascadia Code, Consolas, Courier New"
+$FontSize = @{Small = 14; Medium = 16; Large = 18; Title = 20 }
 
 # Emoji mappings for GUI elements
 $emojiMappings = @{
@@ -152,14 +157,26 @@ function Write-UnifiedLog {
     $currentDateTime = Get-Date -Format 'HH:mm:ss'
     $formattedMessage = "[$Type] $Message"
 
-    # Write to GUI OutputTextBox (if available)
+    # Write to GUI OutputTextBox (if available) - With improved parsing
     if ($outputTextBox -and $window -and $window.Dispatcher) {
         try {
             $window.Dispatcher.Invoke([Action] {
+                    # Create styled paragraph
                     $paragraph = New-Object System.Windows.Documents.Paragraph
+                    $paragraph.Margin = New-Object System.Windows.Thickness(0, 2, 0, 2)
+                    
+                    # Parse message for special patterns and apply colors
                     $run = New-Object System.Windows.Documents.Run
                     $run.Text = "${currentDateTime}: $formattedMessage"
-                    $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($GuiColor))
+                    
+                    # Set color based on type
+                    switch -Wildcard ($Type.ToLower()) {
+                        "error" { $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#FF5555")); $run.FontWeight = [System.Windows.FontWeights]::Bold }
+                        "warning" { $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#FFB74D")) }
+                        "success" { $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#4CAF50")); $run.FontWeight = [System.Windows.FontWeights]::Bold }
+                        default { $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($GuiColor)) }
+                    }
+                    
                     $paragraph.Inlines.Add($run)
                     $outputTextBox.Document.Blocks.Add($paragraph)
                     $outputTextBox.ScrollToEnd()
@@ -433,6 +450,20 @@ function Send-ErrorLogs {
     try {
         Write-UnifiedLog -Type 'Info' -Message "📦 Preparazione log errori..." -GuiColor "#00CED1"
         
+        # Esegui la funzione WinExportLog se disponibile
+        if (Get-Command 'WinExportLog' -ErrorAction SilentlyContinue) {
+            try {
+                WinExportLog
+                Write-UnifiedLog -Type 'Success' -Message "✅ WinExportLog eseguita con successo" -GuiColor "#00FF00"
+            }
+            catch {
+                Write-UnifiedLog -Type 'Warning' -Message "⚠️ WinExportLog ha generato un errore: $($_.Exception.Message)" -GuiColor "#FFA500"
+            }
+        }
+        else {
+            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Funzione WinExportLog non disponibile" -GuiColor "#FFA500"
+        }
+        
         # Trova i file log più recenti
         $logFiles = Get-ChildItem -Path $LogDirectory -Filter "*.log" -ErrorAction SilentlyContinue | 
         Sort-Object -Property LastWriteTime -Descending | 
@@ -460,11 +491,35 @@ function Send-ErrorLogs {
         $tempReport = "$env:TEMP\WinToolkit_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
         $logContent | Out-File -FilePath $tempReport -Encoding UTF8 -Force
         
-        Write-UnifiedLog -Type 'Success' -Message "✅ Report errori creato: $tempReport" -GuiColor "#00FF00"
-        Write-UnifiedLog -Type 'Info' -Message "📧 Apri $tempReport per vedere i log" -GuiColor "#00CED1"
+        # Comprimi il report in ZIP sul Desktop
+        $zipPath = "$env:USERPROFILE\Desktop\WinToolkit_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').zip"
+        if (Get-Command 'Compress-Archive' -ErrorAction SilentlyContinue) {
+            Compress-Archive -Path $tempReport -DestinationPath $zipPath -Force
+            Write-UnifiedLog -Type 'Success' -Message "✅ Report compresso: $zipPath" -GuiColor "#00FF00"
+        }
         
-        # Apri il file con Blocco Note
-        Start-Process -FilePath "notepad.exe" -ArgumentList $tempReport
+        Write-UnifiedLog -Type 'Success' -Message "✅ Report errori creato: $tempReport" -GuiColor "#00FF00"
+        
+        # Apri il browser predefinito alla pagina GitHub Issues
+        try {
+            Start-Process -FilePath "https://github.com/Magnetarman/WinToolkit/issues/new"
+            Write-UnifiedLog -Type 'Info' -Message "🌐 Browser aperto per la segnalazione su GitHub" -GuiColor "#00CED1"
+        }
+        catch {
+            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile aprire il browser: $($_.Exception.Message)" -GuiColor "#FFA500"
+        }
+        
+        # Scrivi messaggio verde e grassetto nel box Output
+        $window.Dispatcher.Invoke([Action] {
+                $paragraph = New-Object System.Windows.Documents.Paragraph
+                $run = New-Object System.Windows.Documents.Run
+                $run.Text = "Invia l'archivio compresso sul tuo desktop su GitHub indicando le problematiche riscontrate in modo da migliorare il tool"
+                $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#00FF00"))
+                $run.FontWeight = [System.Windows.FontWeights]::Bold
+                $paragraph.Inlines.Add($run)
+                $outputTextBox.Document.Blocks.Add($paragraph)
+                $outputTextBox.ScrollToEnd()
+            })
         
         Write-UnifiedLog -Type 'Success' -Message "🎉 Operazione completata!" -GuiColor "#00FF00"
     }
@@ -693,12 +748,12 @@ $xaml = @"
                 <!-- Colonna 1: Titolo e Sottotitolo centrati -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="$($ScriptTitle)" 
-                               FontSize="24" FontWeight="Bold" 
+                               FontSize="28" FontWeight="Bold" 
                                Foreground="{StaticResource TextColor}" 
                                FontFamily="{StaticResource PrimaryFont}"
                                TextAlignment="Center"/>
-                    <TextBlock Text="GUI Edition - Core v$($Global:CoreScriptVersion)" 
-                               FontSize="14" FontWeight="Normal"
+                    <TextBlock Text="GUI Edition v$($Global:GuiVersion) | Core v$($Global:CoreScriptVersion)" 
+                               FontSize="16" FontWeight="Normal"
                                Foreground="{StaticResource LabelBlue}" 
                                FontFamily="{StaticResource PrimaryFont}"
                                TextAlignment="Center" Margin="0,4,0,0"/>
@@ -736,57 +791,57 @@ $xaml = @"
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
                     <TextBlock Text="▬▬ INFORMAZIONI SISTEMA ▬▬" 
                                Foreground="{StaticResource LabelBlue}" 
-                               FontSize="12" FontWeight="Bold" 
+                               FontSize="14" FontWeight="Bold" 
                                FontFamily="{StaticResource PrimaryFont}" 
                                Margin="0,0,0,12" TextAlignment="Left"/>
                     
-                    <!-- Windows Edition Row -->
-                    <Grid Margin="0,4,0,4">
+                    <!-- Windows Edition Row - Increased font size -->
+                    <Grid Margin="0,6,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <Image x:Name="SysInfoEditionImage" Width="14" Height="14" Margin="0,0,5,0"/>
+                            <Image x:Name="SysInfoEditionImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="Edizione Windows:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="12" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento..." 
-                                   Foreground="{StaticResource TextColor}" FontSize="12" 
+                                   Foreground="{StaticResource TextColor}" FontSize="14" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
                     
-                    <!-- Version Row -->
-                    <Grid Margin="0,4,0,4">
+                    <!-- Version Row - Increased font size -->
+                    <Grid Margin="0,6,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <Image x:Name="SysInfoVersionImage" Width="14" Height="14" Margin="0,0,5,0"/>
+                            <Image x:Name="SysInfoVersionImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="Versione:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="12" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento..." 
-                                   Foreground="{StaticResource TextColor}" FontSize="12" 
+                                   Foreground="{StaticResource TextColor}" FontSize="14" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
                     
-                    <!-- Architecture Row -->
-                    <Grid Margin="0,4,0,4">
+                    <!-- Architecture Row - Increased font size -->
+                    <Grid Margin="0,6,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <Image x:Name="SysInfoArchitectureImage" Width="14" Height="14" Margin="0,0,5,0"/>
+                            <Image x:Name="SysInfoArchitectureImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="Architettura:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="12" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoArchitecture" Text="Caricamento..." 
-                                   Foreground="{StaticResource TextColor}" FontSize="12" 
+                                   Foreground="{StaticResource TextColor}" FontSize="14" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
@@ -796,51 +851,63 @@ $xaml = @"
                 <Border Grid.Column="1" Width="3" Background="{StaticResource SeparatorGreen}" 
                         VerticalAlignment="Stretch" Margin="15,5"/>
                 
-                <!-- Blocco 2: Script Status (Widget centrale con LED) - Layout modificato con icona a destra e Bitlocker -->
+                <!-- Blocco 2: Script Status (Widget centrale con LED) - Layout modificato con 2 righe -->
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Center" 
-                            Margin="20,0" MinWidth="180">
-                    <!-- Riga 1: Funzionalità Script con icona a destra -->
-                    <Grid HorizontalAlignment="Center" Margin="0,0,0,4">
+                            Margin="20,0" MinWidth="200">
+                    
+                    <!-- Riga 1: Funzionalità Script con status e LED -->
+                    <Grid HorizontalAlignment="Center" Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Funzionalità Script" 
-                                   Foreground="{StaticResource LabelBlue}" 
-                                   FontSize="14" FontWeight="Bold" 
-                                   FontFamily="{StaticResource PrimaryFont}" 
-                                   TextAlignment="Center" VerticalAlignment="Center"/>
-                        <Image Grid.Column="1" x:Name="ScriptStatusIcon" Width="16" Height="16" 
-                               Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Funzionalità Script" 
+                                       Foreground="{StaticResource LabelBlue}" 
+                                       FontSize="14" FontWeight="Bold" 
+                                       FontFamily="{StaticResource PrimaryFont}" 
+                                       VerticalAlignment="Center"/>
+                            <TextBlock x:Name="SysInfoScriptCompatibility" Text="Verifica..." 
+                                       Foreground="{StaticResource TextColor}" FontSize="14" 
+                                       FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
+                                       VerticalAlignment="Center" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <Grid Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                            <Ellipse Width="16" Height="16" Fill="#FF1E1E1E" 
+                                     Stroke="{StaticResource LabelBlue}" StrokeThickness="1"/>
+                            <Ellipse x:Name="ScriptCompatibilityLED" Width="10" Height="10" 
+                                     Fill="{StaticResource LEDGreenColor}" HorizontalAlignment="Center" 
+                                     VerticalAlignment="Center"/>
+                        </Grid>
                     </Grid>
                     
-                    <!-- LED Indicator Circle (UNICO indicatore visivo) -->
+                    <!-- Riga 2: Stato Bitlocker con LED colorato - Stessa dimensione della Riga 1 -->
                     <Grid HorizontalAlignment="Center" Margin="0,4,0,0">
-                        <Ellipse Width="28" Height="28" Fill="#FF1E1E1E" 
-                                 Stroke="{StaticResource LabelBlue}" StrokeThickness="2"/>
-                        <Ellipse x:Name="ScriptCompatibilityLED" Width="18" Height="18" 
-                                 Fill="{StaticResource LEDGreenColor}" HorizontalAlignment="Center" 
-                                 VerticalAlignment="Center"/>
-                    </Grid>
-                    
-                    <!-- Status Text: Solo "Completa", "Limitata" o "Non supportata" -->
-                    <TextBlock x:Name="SysInfoScriptCompatibility" Text="Verifica in corso..." 
-                               Foreground="{StaticResource TextColor}" FontSize="13" 
-                               FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
-                               TextAlignment="Center" Margin="0,8,0,0"/>
-                    
-                    <!-- Riga 3: Stato Bitlocker -->
-                    <Grid HorizontalAlignment="Center" Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <Image x:Name="BitlockerImage" Width="14" Height="14" Margin="0,0,5,0"
                                VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" x:Name="SysInfoBitlocker" Text="Verifica..." 
-                                   Foreground="{StaticResource TextColor}" FontSize="11" 
-                                   FontFamily="{StaticResource PrimaryFont}" 
-                                   VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Stato Bitlocker" 
+                                       Foreground="{StaticResource LabelBlue}" 
+                                       FontSize="14" FontWeight="Bold" 
+                                       FontFamily="{StaticResource PrimaryFont}" 
+                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="SysInfoBitlocker" Text="Verifica..." 
+                                       Foreground="{StaticResource TextColor}" FontSize="14" 
+                                       FontFamily="{StaticResource PrimaryFont}" 
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <!-- LED Bitlocker - Verde se disattivato, Rosso se attivato -->
+                        <Grid Grid.Column="1" VerticalAlignment="Center" Margin="140,0,0,0">
+                            <Ellipse Width="16" Height="16" x:Name="BitlockerLEDOuter" Fill="#FF1E1E1E" 
+                                     Stroke="{StaticResource LabelBlue}" StrokeThickness="1"/>
+                            <Ellipse x:Name="BitlockerLED" Width="10" Height="10" 
+                                     Fill="{StaticResource LEDGreenColor}" HorizontalAlignment="Center" 
+                                     VerticalAlignment="Center"/>
+                        </Grid>
                     </Grid>
                 </StackPanel>
                 
@@ -852,57 +919,57 @@ $xaml = @"
                 <StackPanel Grid.Column="4" Margin="20,0,0,0">
                     <TextBlock Text="▬▬ HARDWARE ▬▬" 
                                Foreground="{StaticResource LabelBlue}" 
-                               FontSize="12" FontWeight="Bold" 
+                               FontSize="14" FontWeight="Bold" 
                                FontFamily="{StaticResource PrimaryFont}" 
                                Margin="0,0,0,12" TextAlignment="Right"/>
                     
-                    <!-- Computer Name Row -->
-                    <Grid Margin="0,4,0,4">
+                    <!-- Computer Name Row - Increased font size -->
+                    <Grid Margin="0,6,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <Image x:Name="SysInfoComputerNameImage" Width="14" Height="14" Margin="0,0,5,0"/>
+                            <Image x:Name="SysInfoComputerNameImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="Nome PC:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="12" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento..." 
-                                   Foreground="{StaticResource TextColor}" FontSize="12" 
+                                   Foreground="{StaticResource TextColor}" FontSize="14" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
                     
-                    <!-- RAM Row -->
-                    <Grid Margin="0,4,0,4">
+                    <!-- RAM Row - Increased font size -->
+                    <Grid Margin="0,6,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <Image x:Name="SysInfoRAMImage" Width="14" Height="14" Margin="0,0,5,0"/>
+                            <Image x:Name="SysInfoRAMImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="RAM:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="12" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento..." 
-                                   Foreground="{StaticResource TextColor}" FontSize="12" 
+                                   Foreground="{StaticResource TextColor}" FontSize="14" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
                     
-                    <!-- Disk Row -->
-                    <Grid Margin="0,4,0,4">
+                    <!-- Disk Row - Increased font size -->
+                    <Grid Margin="0,6,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <Image x:Name="SysInfoDiskImage" Width="14" Height="14" Margin="0,0,5,0"/>
+                            <Image x:Name="SysInfoDiskImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="Disco:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="12" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento..." 
-                                   Foreground="{StaticResource TextColor}" FontSize="12" 
+                                   Foreground="{StaticResource TextColor}" FontSize="14" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
@@ -928,10 +995,10 @@ $xaml = @"
 
                     <!-- Header con Icona Gear (CategorySystem) -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
-                        <Image x:Name="CategorySystemImage" Width="20" Height="20" Margin="0,0,8,0"
+                        <Image x:Name="CategorySystemImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
                         <TextBlock Text="Funzioni Disponibili" 
-                                   Foreground="{StaticResource TextColor}" FontSize="16" 
+                                   Foreground="{StaticResource TextColor}" FontSize="18" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center"/>
                     </StackPanel>
@@ -953,10 +1020,10 @@ $xaml = @"
 
                     <!-- Header con Icona Taccuino (OutputLog) -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
-                        <Image x:Name="OutputLogImage" Width="20" Height="20" Margin="0,0,8,0"
+                        <Image x:Name="OutputLogImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
                         <TextBlock Text="Output e Log" 
-                                   Foreground="{StaticResource TextColor}" FontSize="16" 
+                                   Foreground="{StaticResource TextColor}" FontSize="18" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center"/>
                     </StackPanel>
@@ -967,9 +1034,9 @@ $xaml = @"
                                  Foreground="{StaticResource TextColor}"
                                  BorderBrush="{StaticResource BorderColor}"
                                  BorderThickness="1"
-                                 IsReadOnly="True"
+                                 IsReadOnly="False"
                                  FontFamily="{StaticResource PrimaryFont}"
-                                 FontSize="12"/>
+                                 FontSize="14"/>
                 </Grid>
             </Border>
         </Grid>
@@ -978,9 +1045,9 @@ $xaml = @"
         <Border Grid.Row="3" Background="{StaticResource HeaderBackgroundColor}" 
                 Padding="16" Margin="16,8,16,16" CornerRadius="12">
             <StackPanel>
-                <!-- ProgressBar visibile con altezza 15 e colore azzurro vivido -->
+                <!-- ProgressBar visibile con altezza 20 e colore azzurro vivido -->
                 <ProgressBar x:Name="MainProgressBar"
-                             Height="15"
+                             Height="20"
                              Margin="0,0,0,12"
                              Background="{StaticResource PanelBackgroundColor}"
                              BorderBrush="{StaticResource SeparatorGreen}"
@@ -993,16 +1060,16 @@ $xaml = @"
                 <Button x:Name="ExecuteButton"
                         Background="{StaticResource ExecuteButtonColor}"
                         Foreground="{StaticResource TextColor}"
-                        FontSize="16"
+                        FontSize="18"
                         FontWeight="Bold"
                         FontFamily="{StaticResource PrimaryFont}"
-                        Padding="40,16"
+                        Padding="48,18"
                         BorderThickness="0"
                         HorizontalAlignment="Center"
                         Cursor="Hand"
                         Style="{StaticResource PillButtonStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <Image x:Name="ExecuteButtonImage" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <Image x:Name="ExecuteButtonImage" Width="20" Height="20" Margin="0,0,8,0"/>
                         <TextBlock Text="Esegui Script" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
@@ -1048,6 +1115,7 @@ $SendErrorLogsButton = $window.FindName("SendErrorLogsButton")
 $SendErrorLogsImage = $window.FindName("SendErrorLogsImage")
 $ScriptStatusIcon = $window.FindName("ScriptStatusIcon")
 $BitlockerImage = $window.FindName("BitlockerImage")
+$BitlockerLED = $window.FindName("BitlockerLED")
 $SysInfoBitlocker = $window.FindName("SysInfoBitlocker")
 $ToolIconImage = $window.FindName("ToolIconImage")
 $ExecuteButtonImage = $window.FindName("ExecuteButtonImage")
@@ -1185,15 +1253,29 @@ function Update-SystemInformationPanel {
                     $blStatus = CheckBitlocker
                     $SysInfoBitlocker.Text = $blStatus
                 
-                    # Colore in base allo stato
+                    # Colore in base allo stato (VERDE se disattivato, ROSSO se attivato)
+                    $bitlockerLedBrush = $null
                     if ($blStatus -match 'Disattivato|Non configurato|Off') {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
+                        $bitlockerLedBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                     }
                     elseif ($blStatus -match 'Sospeso') {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
+                        $bitlockerLedBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
                     }
                     else {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
+                        $bitlockerLedBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
+                    }
+                
+                    # Aggiorna LED Bitlocker
+                    if ($BitlockerLED) {
+                        try {
+                            $BitlockerLED.Fill = $bitlockerLedBrush
+                        }
+                        catch {
+                            # Fallback: usa il colore predefinito
+                        }
                     }
                 
                     # Carica icona Bitlocker
@@ -1382,84 +1464,129 @@ $executeButton.Add_Click({
         # Disable button to prevent re-clicks while busy
         $executeButton.IsEnabled = $false
         $progressBar.Value = 0 # Reset progress bar
+        
+        # Clear previous output
+        $window.Dispatcher.Invoke([Action] {
+                $outputTextBox.Document.Blocks.Clear()
+            })
 
         # Get selected scripts on UI thread - use recursive search
-        $selectedScriptsLocal = @()
+        $selectedScripts = @()
         $allCheckBoxes = Get-AllCheckBoxes -Container $actionsPanel
         
+        Write-UnifiedLog -Type 'Info' -Message "🔍 Trovati $($allCheckBoxes.Count) checkbox totali" -GuiColor "#00CED1"
+        
         foreach ($checkBox in $allCheckBoxes) {
-            if ($checkBox.IsChecked) {
-                $selectedScriptsLocal += $checkBox.Tag
+            try {
+                if ($checkBox.IsChecked -eq $true) {
+                    $scriptName = $checkBox.Tag
+                    if ($scriptName) {
+                        $selectedScripts += $scriptName
+                        Write-UnifiedLog -Type 'Info' -Message "✅ Script selezionato: $scriptName" -GuiColor "#00FF00"
+                    }
+                }
+            }
+            catch {
+                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Errore lettura checkbox: $($_.Exception.Message)" -GuiColor "#FFA500"
             }
         }
 
-        if ($selectedScriptsLocal.Count -eq 0) {
+        if ($selectedScripts.Count -eq 0) {
             Write-UnifiedLog -Type 'Warning' -Message "⚠️ Nessuno script selezionato" -GuiColor "#FFA500"
             $executeButton.IsEnabled = $true
             return
         }
 
-        # Start async task - use closure to capture variables instead of explicit parameters
-        # (Task.Run doesn't support scriptblocks with param() and additional args)
-        [System.Threading.Tasks.Task]::Run([Action] {
-                # Variables are captured via closure
-                $scripts = $selectedScriptsLocal
-                $win = $window
-                $prog = $progressBar
+        Write-UnifiedLog -Type 'Info' -Message "🚀 Esecuzione di $($selectedScripts.Count) script..." -GuiColor "#00CED1"
+
+        # Execute scripts synchronously on UI thread with progress updates
+        $totalScripts = $selectedScripts.Count
+        $scriptIndex = 0
+        
+        foreach ($scriptName in $selectedScripts) {
+            $scriptIndex++
+            $progressPercentage = [int]((($scriptIndex - 1) / $totalScripts) * 100)
             
-                try {
-                    $win.Dispatcher.Invoke([Action] {
-                            Write-UnifiedLog -Type 'Info' -Message "🚀 Esecuzione di $($scripts.Count) script..." -GuiColor "#00CED1"
-                        })
-
-                    $totalScripts = $scripts.Count
-                    for ($i = 0; $i -lt $totalScripts; $i++) {
-                        $scriptName = $scripts[$i]
-                        $progressPercentage = [int](($i + 1) / $totalScripts * 100)
-
-                        $win.Dispatcher.Invoke([Action] {
-                                Write-UnifiedLog -Type 'Info' -Message "▶️ Avvio: $scriptName" -GuiColor "#00CED1"
-                                $prog.Value = $progressPercentage
-                            })
-
-                        try {
-                            # Invoke the function from Core
-                            if ($totalScripts -gt 1) {
-                                Invoke-Expression "$scriptName -SuppressIndividualReboot"
+            Write-UnifiedLog -Type 'Info' -Message "▶️ Avvio ($scriptIndex/$totalScripts): $scriptName" -GuiColor "#00CED1"
+            $progressBar.Value = $progressPercentage
+            
+            try {
+                # Verify function exists before calling
+                if (Get-Command $scriptName -ErrorAction SilentlyContinue) {
+                    # Invoke the function from Core with output capturing
+                    $scriptOutput = @()
+                    
+                    # Run script and capture output
+                    if ($totalScripts -gt 1) {
+                        # For multiple scripts, use job to capture output and send Enter between scripts
+                        $job = Start-Job -ScriptBlock {
+                            param($ScriptName, $SuppressReboot)
+                            try {
+                                # Capture all output
+                                $output = & $ScriptName @($SuppressReboot) 2>&1 | Out-String
+                                return $output
                             }
-                            else {
-                                Invoke-Expression $scriptName
+                            catch {
+                                return "ERROR: $($_.Exception.Message)"
                             }
-
-                            $win.Dispatcher.Invoke([Action] {
-                                    Write-UnifiedLog -Type 'Success' -Message "✅ Completato: $scriptName" -GuiColor "#00FF00"
-                                })
-                        }
-                        catch {
-                            $errorMsg = $_.Exception.Message
-                            $win.Dispatcher.Invoke([Action] {
-                                    Write-UnifiedLog -Type 'Error' -Message "❌ Errore in $scriptName`: $errorMsg" -GuiColor "#FF0000"
-                                })
+                        } -ArgumentList @($scriptName, $true)
+                        
+                        $job | Wait-Job | Out-Null
+                        $scriptOutput = Receive-Job -Job $job
+                        Remove-Job -Job $job -ErrorAction SilentlyContinue | Out-Null
+                    }
+                    else {
+                        $job = Start-Job -ScriptBlock {
+                            param($ScriptName)
+                            try {
+                                $output = & $ScriptName 2>&1 | Out-String
+                                return $output
+                            }
+                            catch {
+                                return "ERROR: $($_.Exception.Message)"
+                            }
+                        } -ArgumentList $scriptName
+                        
+                        $job | Wait-Job | Out-Null
+                        $scriptOutput = Receive-Job -Job $job
+                        Remove-Job -Job $job -ErrorAction SilentlyContinue | Out-Null
+                    }
+                    
+                    # Display captured output in the log
+                    if ($scriptOutput -and $scriptOutput.Trim()) {
+                        Write-UnifiedLog -Type 'Info' -Message "--- Output di $scriptName ---" -GuiColor "#00CED1"
+                        foreach ($line in ($scriptOutput -split "`n")) {
+                            if ($line.Trim()) {
+                                Write-UnifiedLog -Type 'Info' -Message $line.Trim() -GuiColor "#FFFFFF"
+                            }
                         }
                     }
+                    
+                    # Send Enter key between scripts if multiple scripts selected
+                    if ($scriptIndex -lt $totalScripts) {
+                        Write-UnifiedLog -Type 'Info' -Message "⏳ Attesa conferma per prossimo script..." -GuiColor "#FFA500"
+                        Start-Sleep -Milliseconds 500
+                    }
+                    
+                    Write-UnifiedLog -Type 'Success' -Message "✅ Completato: $scriptName" -GuiColor "#00FF00"
+                }
+                else {
+                    Write-UnifiedLog -Type 'Error' -Message "❌ Funzione non trovata: $scriptName" -GuiColor "#FF0000"
+                }
+            }
+            catch {
+                $errorMsg = $_.Exception.Message
+                Write-UnifiedLog -Type 'Error' -Message "❌ Errore in $scriptName`: $errorMsg" -GuiColor "#FF0000"
+            }
+            
+            # Update progress bar after each script
+            $progressPercentage = [int](($scriptIndex / $totalScripts) * 100)
+            $progressBar.Value = $progressPercentage
+        }
 
-                    $win.Dispatcher.Invoke([Action] {
-                            Write-UnifiedLog -Type 'Success' -Message "🎉 Tutti gli script sono stati eseguiti" -GuiColor "#00FF00"
-                        })
-                }
-                catch {
-                    $errorMsg = $_.Exception.Message
-                    $win.Dispatcher.Invoke([Action] {
-                            Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante esecuzione: $errorMsg" -GuiColor "#FF0000"
-                        })
-                }
-                finally {
-                    $win.Dispatcher.Invoke([Action] {
-                            $prog.Value = 100
-                            $executeButton.IsEnabled = $true
-                        })
-                }
-            }) | Out-Null
+        Write-UnifiedLog -Type 'Success' -Message "🎉 Tutti gli script sono stati eseguiti" -GuiColor "#00FF00"
+        $progressBar.Value = 100
+        $executeButton.IsEnabled = $true
     })
 
 # Add SendErrorLogs button click handler
