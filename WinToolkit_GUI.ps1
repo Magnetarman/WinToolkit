@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    WinToolkit GUI v2.0 - GUI Edition
+    WinToolkit GUI v2.0
 .DESCRIPTION
     Refactored WinToolkit GUI that dynamically loads Core Script (WinToolkit.ps1)
     Features: Remote Core loading, dynamic menu generation, output bridging, version sync
@@ -36,7 +36,7 @@ $emojiMappings = @{
     "CategorySystem"           = "⚙️"
     "CategoryMaintenance"      = "🔧"
     "CategoryOptimization"     = "🚀"
-    "CategoryRepair"           = "��"  # Fallback: 🔨 not available
+    "CategoryRepair"           = "🪛"
     "CategoryBackup"           = "💾"
     "CategoryTweaks"           = "⚡"
     
@@ -50,13 +50,13 @@ $emojiMappings = @{
     "ScriptDriver"             = "🎮"
     "ScriptNetwork"            = "🌐"
     "ScriptPrivacy"            = "🔒"
-    "ScriptPerformance"        = "⚡"
+    "ScriptPerformance"        = "🔧"
     "ScriptSecurity"           = "🛡️"
-    "ScriptDebloat"            = "📉"  # Fallback: use 📉 as no good alternative
+    "ScriptDebloat"            = "🔧"
     "ScriptTweak"              = "⚙️"
     
     # System Info Icons (for Image controls)
-    "SysInfoTitleImage"        = "🖥️"
+    "SysInfoTitleImage"        = "🛠️"
     "SysInfoEditionImage"      = "💿"
     "SysInfoVersionImage"      = "📊"
     "SysInfoArchitectureImage" = "⚙️"
@@ -67,7 +67,7 @@ $emojiMappings = @{
     # Status LEDs
     "LEDStatusGreen"           = "🟢"
     "LEDStatusYellow"          = "🟡"
-    "LEDStatusRed"             = "🔴"
+    "LEDStatusRed"             = "🧰"
     
     # Play Icon for Execute Button
     "ExecutePlayImage"         = "▶️"
@@ -77,6 +77,12 @@ $emojiMappings = @{
     
     # Execute Button
     "ExecuteButtonImage"       = "▶️"
+    
+    # Support Icon (Joystick)
+    "SupportImage"             = "🕹️"
+    
+    # Bitlocker Icon
+    "BitlockerImage"           = "🔒"
 }
 
 # =============================================================================
@@ -100,6 +106,8 @@ $SysInfoComputerName = $null
 $SysInfoRAM = $null
 $SysInfoDisk = $null
 $SysInfoScriptCompatibility = $null
+$SysInfoBitlocker = $null
+$ScriptStatusIcon = $null
 $ScriptCompatibilityIndicator = $null
 $progressBar = $null
 $actionsPanel = $null
@@ -193,7 +201,7 @@ function Initialize-CoreScript {
 
     try {
         # Mostra loading screen
-        Write-UnifiedLog -Type 'Info' -Message "🔄 INIZIALIZZAZIONE RISORSE - Caricamento Core Script..." -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message "💎 INIZIALIZZAZIONE RISORSE - Caricamento Core Script..." -GuiColor "#00CED1"
         Write-UnifiedLog -Type 'Info' -Message "💎 Attendere prego, operazione in corso..." -GuiColor "#FFA500"
 
         # Crea directory cache se non esiste
@@ -393,6 +401,89 @@ function Ensure-AllEmojiIcons {
     catch {
         Write-UnifiedLog -Type 'Error' -Message "❌ Error during icon synchronization: $($_.Exception.Message)" -GuiColor "#FF0000"
     }
+}
+
+function Get-AllCheckBoxes {
+    <#
+    .SYNOPSIS
+        Funzione helper per trovare ricorsivamente tutti i CheckBox in un contenitore.
+    #>
+    param([System.Windows.Controls.Panel]$Container)
+    
+    $checkBoxes = @()
+    
+    foreach ($child in $Container.Children) {
+        if ($child -is [System.Windows.Controls.CheckBox]) {
+            $checkBoxes += $child
+        }
+        elseif ($child -is [System.Windows.Controls.Panel]) {
+            # Ricerca ricorsiva in contenitori StackPanel
+            $checkBoxes += Get-AllCheckBoxes -Container $child
+        }
+    }
+    
+    return $checkBoxes
+}
+
+function Send-ErrorLogs {
+    <#
+    .SYNOPSIS
+        Genera e invia i log degli errori.
+    #>
+    try {
+        Write-UnifiedLog -Type 'Info' -Message "📦 Preparazione log errori..." -GuiColor "#00CED1"
+        
+        # Trova i file log più recenti
+        $logFiles = Get-ChildItem -Path $LogDirectory -Filter "*.log" -ErrorAction SilentlyContinue | 
+        Sort-Object -Property LastWriteTime -Descending | 
+        Select-Object -First 5
+        
+        if (-not $logFiles) {
+            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Nessun file log trovato" -GuiColor "#FFA500"
+            return
+        }
+        
+        # Crea contenuto combinato dei log
+        $logContent = "=" * 60 + "`n"
+        $logContent += "WinToolkit Error Report`n"
+        $logContent += "Data: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n"
+        $logContent += "Versione Core: $Global:CoreScriptVersion`n"
+        $logContent += "=" * 60 + "`n`n"
+        
+        foreach ($logFile in $logFiles) {
+            $logContent += "--- $($logFile.Name) ---`n"
+            $logContent += Get-Content -Path $logFile.FullName -ErrorAction SilentlyContinue -Raw
+            $logContent += "`n`n"
+        }
+        
+        # Salva report temporaneo
+        $tempReport = "$env:TEMP\WinToolkit_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+        $logContent | Out-File -FilePath $tempReport -Encoding UTF8 -Force
+        
+        Write-UnifiedLog -Type 'Success' -Message "✅ Report errori creato: $tempReport" -GuiColor "#00FF00"
+        Write-UnifiedLog -Type 'Info' -Message "📧 Apri $tempReport per vedere i log" -GuiColor "#00CED1"
+        
+        # Apri il file con Blocco Note
+        Start-Process -FilePath "notepad.exe" -ArgumentList $tempReport
+        
+        Write-UnifiedLog -Type 'Success' -Message "🎉 Operazione completata!" -GuiColor "#00FF00"
+    }
+    catch {
+        Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante preparazione log: $($_.Exception.Message)" -GuiColor "#FF0000"
+    }
+}
+
+function CheckBitlocker {
+    <#
+    .SYNOPSIS
+        Controlla lo stato di Bitlocker.
+    #>
+    try {
+        $out = & manage-bde -status C: 2>&1
+        if ($out -match "Stato protezione:\s*(.*)") { return $matches[1].Trim() }
+        return "Non configurato"
+    }
+    catch { return "Disattivato" }
 }
 
 # =============================================================================
@@ -705,14 +796,23 @@ $xaml = @"
                 <Border Grid.Column="1" Width="3" Background="{StaticResource SeparatorGreen}" 
                         VerticalAlignment="Stretch" Margin="15,5"/>
                 
-                <!-- Blocco 2: Script Status (Widget centrale con LED) -->
+                <!-- Blocco 2: Script Status (Widget centrale con LED) - Layout modificato con icona a destra e Bitlocker -->
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Center" 
                             Margin="20,0" MinWidth="180">
-                    <TextBlock Text="Funzionalità Script" 
-                               Foreground="{StaticResource LabelBlue}" 
-                               FontSize="14" FontWeight="Bold" 
-                               FontFamily="{StaticResource PrimaryFont}" 
-                               TextAlignment="Center" Margin="0,0,0,8"/>
+                    <!-- Riga 1: Funzionalità Script con icona a destra -->
+                    <Grid HorizontalAlignment="Center" Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Funzionalità Script" 
+                                   Foreground="{StaticResource LabelBlue}" 
+                                   FontSize="14" FontWeight="Bold" 
+                                   FontFamily="{StaticResource PrimaryFont}" 
+                                   TextAlignment="Center" VerticalAlignment="Center"/>
+                        <Image Grid.Column="1" x:Name="ScriptStatusIcon" Width="16" Height="16" 
+                               Margin="8,0,0,0" VerticalAlignment="Center"/>
+                    </Grid>
                     
                     <!-- LED Indicator Circle (UNICO indicatore visivo) -->
                     <Grid HorizontalAlignment="Center" Margin="0,4,0,0">
@@ -728,6 +828,20 @@ $xaml = @"
                                Foreground="{StaticResource TextColor}" FontSize="13" 
                                FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                TextAlignment="Center" Margin="0,8,0,0"/>
+                    
+                    <!-- Riga 3: Stato Bitlocker -->
+                    <Grid HorizontalAlignment="Center" Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Image x:Name="BitlockerImage" Width="14" Height="14" Margin="0,0,5,0"
+                               VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" x:Name="SysInfoBitlocker" Text="Verifica..." 
+                                   Foreground="{StaticResource TextColor}" FontSize="11" 
+                                   FontFamily="{StaticResource PrimaryFont}" 
+                                   VerticalAlignment="Center"/>
+                    </Grid>
                 </StackPanel>
                 
                 <!-- Separatore Verde Verticale 2: Tra Funzionalità Script e Hardware -->
@@ -932,6 +1046,9 @@ $SysInfoRAMImage = $window.FindName("SysInfoRAMImage")
 $SysInfoDiskImage = $window.FindName("SysInfoDiskImage")
 $SendErrorLogsButton = $window.FindName("SendErrorLogsButton")
 $SendErrorLogsImage = $window.FindName("SendErrorLogsImage")
+$ScriptStatusIcon = $window.FindName("ScriptStatusIcon")
+$BitlockerImage = $window.FindName("BitlockerImage")
+$SysInfoBitlocker = $window.FindName("SysInfoBitlocker")
 $ToolIconImage = $window.FindName("ToolIconImage")
 $ExecuteButtonImage = $window.FindName("ExecuteButtonImage")
 $CategorySystemImage = $window.FindName("CategorySystemImage")
@@ -1029,7 +1146,7 @@ function Update-SystemInformationPanel {
                 $ledColor = $null
                 $statusText = ""
                 $ledBrush = $null
-                
+            
                 if ($sysInfo.BuildNumber -ge 22000) {
                     $ledBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                     $statusText = "Completa"
@@ -1050,9 +1167,9 @@ function Update-SystemInformationPanel {
                     $statusText = "Non supportata"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                 }
-                
+            
                 $SysInfoScriptCompatibility.Text = $statusText
-                
+            
                 # Aggiorna il colore del LED (UNICO indicatore visivo)
                 if ($ScriptCompatibilityLED) {
                     try {
@@ -1061,6 +1178,34 @@ function Update-SystemInformationPanel {
                     catch {
                         # Fallback: usa il colore predefinito
                     }
+                }
+            
+                # Aggiorna stato Bitlocker
+                try {
+                    $blStatus = CheckBitlocker
+                    $SysInfoBitlocker.Text = $blStatus
+                
+                    # Colore in base allo stato
+                    if ($blStatus -match 'Disattivato|Non configurato|Off') {
+                        $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
+                    }
+                    elseif ($blStatus -match 'Sospeso') {
+                        $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
+                    }
+                    else {
+                        $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
+                    }
+                
+                    # Carica icona Bitlocker
+                    if ($BitlockerImage) {
+                        $blIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.BitlockerImage
+                        if ($blIconPath -and (Test-Path $blIconPath)) {
+                            $BitlockerImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri]$blIconPath)
+                        }
+                    }
+                }
+                catch {
+                    Write-UnifiedLog -Type 'Warning' -Message "⚠️ Could not check Bitlocker status: $($_.Exception.Message)" -GuiColor "#FFA500"
                 }
             })
 
@@ -1093,19 +1238,19 @@ function Update-ActionsPanel {
                     # ========================================
                     # A. CATEGORY HEADER (con Linea Verde + Emoji)
                     # ========================================
-                    
+                
                     # Aggiungi linea verde spessa (3px) PRIMA del titolo
                     $greenLine = New-Object System.Windows.Controls.Border
                     $greenLine.Height = 3
                     $greenLine.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#2E7D32"))
                     $greenLine.Margin = New-Object System.Windows.Thickness(0, 5, 0, 10)
                     $actionsPanel.Children.Add($greenLine) | Out-Null
-                    
+                
                     # Category container con Emoji + Nome
                     $categoryContainer = New-Object System.Windows.Controls.StackPanel
                     $categoryContainer.Orientation = [System.Windows.Controls.Orientation]::Horizontal
                     $categoryContainer.Margin = '0,0,0,6'
-                    
+                
                     # Emoji (SOLO nell'header della categoria)
                     $iconPath = Get-IconWithFallback -EmojiCharacter $category.Icon
                     if ($iconPath) {
@@ -1125,7 +1270,7 @@ function Update-ActionsPanel {
                         $categoryEmoji.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::White)
                     }
                     $categoryContainer.Children.Add($categoryEmoji) | Out-Null
-                    
+                
                     # Category Name (Bold, Cyan)
                     $categoryHeader = New-Object System.Windows.Controls.TextBlock
                     $categoryHeader.Text = $category.Name
@@ -1141,7 +1286,7 @@ function Update-ActionsPanel {
                     # ========================================
                     # B. SCRIPT ROWS (CheckBox + Text)
                     # ========================================
-                    
+                
                     foreach ($script in $category.Scripts) {
                         # Container orizzontale per CheckBox + Text
                         $scriptRow = New-Object System.Windows.Controls.StackPanel
@@ -1149,7 +1294,7 @@ function Update-ActionsPanel {
                         $scriptRow.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Transparent)
                         $scriptRow.Margin = '0,4,0,4'
                         $scriptRow.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-                        
+                    
                         # CheckBox con:
                         # - Foreground celeste (#4FC3F7)
                         # - VerticalAlignment Center
@@ -1167,35 +1312,35 @@ function Update-ActionsPanel {
                         $checkBox.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
                         $checkBox.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
                         $scriptRow.Children.Add($checkBox) | Out-Null
-                        
+                    
                         # TextBlock unico: <Bold>Nome Script</Bold> - Descrizione
                         $textBlock = New-Object System.Windows.Controls.TextBlock
                         $textBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
                         $textBlock.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
                         $textBlock.MaxWidth = 320
                         $textBlock.FontFamily = New-Object System.Windows.Media.FontFamily($FontFamily)
-                        
+                    
                         # Bold Script Name (White)
                         $titleRun = New-Object System.Windows.Documents.Run
                         $titleRun.Text = $script.Name
                         $titleRun.FontWeight = [System.Windows.FontWeights]::Bold
                         $titleRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::White)
-                        
+                    
                         # Separator (Gray #BDBDBD)
                         $separatorRun = New-Object System.Windows.Documents.Run
                         $separatorRun.Text = " - "
                         $separatorRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#BDBDBD"))
-                        
+                    
                         # Description (Gray #BDBDBD)
                         $descRun = New-Object System.Windows.Documents.Run
                         $descRun.Text = $script.Description
                         $descRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#BDBDBD"))
-                        
+                    
                         $textBlock.Inlines.Add($titleRun)
                         $textBlock.Inlines.Add($separatorRun)
                         $textBlock.Inlines.Add($descRun)
                         $scriptRow.Children.Add($textBlock) | Out-Null
-                        
+                    
                         $actionsPanel.Children.Add($scriptRow) | Out-Null
                     }
                 }
@@ -1238,11 +1383,13 @@ $executeButton.Add_Click({
         $executeButton.IsEnabled = $false
         $progressBar.Value = 0 # Reset progress bar
 
-        # Get selected scripts on UI thread before starting async task
+        # Get selected scripts on UI thread - use recursive search
         $selectedScriptsLocal = @()
-        foreach ($child in $actionsPanel.Children) {
-            if ($child -is [System.Windows.Controls.CheckBox] -and $child.IsChecked) {
-                $selectedScriptsLocal += $child.Tag
+        $allCheckBoxes = Get-AllCheckBoxes -Container $actionsPanel
+        
+        foreach ($checkBox in $allCheckBoxes) {
+            if ($checkBox.IsChecked) {
+                $selectedScriptsLocal += $checkBox.Tag
             }
         }
 
@@ -1313,6 +1460,16 @@ $executeButton.Add_Click({
                         })
                 }
             }) | Out-Null
+    })
+
+# Add SendErrorLogs button click handler
+$SendErrorLogsButton.Add_Click({
+        try {
+            Send-ErrorLogs
+        }
+        catch {
+            Write-UnifiedLog -Type 'Error' -Message "❌ Errore invio log: $($_.Exception.Message)" -GuiColor "#FF0000"
+        }
     })
 
 # =============================================================================
