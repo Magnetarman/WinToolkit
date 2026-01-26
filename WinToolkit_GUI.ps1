@@ -10,7 +10,7 @@
     Author: MagnetarMan
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 
 # 1. Flag per dire al Core di NON mostrare il menu (CRITICO)
 $Global:GuiSessionActive = $true
@@ -18,13 +18,12 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "2.5.1 (Build 45)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "2.5.1 (Build 50)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
 $ScriptTitle = "WinToolkit By MagnetarMan"
-$SupportEmail = "me@magnetarman.com"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
 $WindowWidth = 1600  # Increased from 1500 for better readability
 $WindowHeight = 1000  # Increased from 950 for better readability
@@ -528,7 +527,36 @@ function Send-ErrorLogs {
     }
 }
 
-function CheckBitlocker {
+# =============================================================================
+# LOAD ALL TOOL SCRIPTS INTO GLOBAL SCOPE (before any job execution)
+# =============================================================================
+$Global:ToolScriptsPath = Join-Path $PSScriptRoot "tool"
+
+function Load-AllToolScripts {
+    Write-UnifiedLog -Type 'Info' -Message "📜 Caricamento tutti gli script tool in memoria..." -GuiColor "#00CED1"
+    
+    $loadedCount = 0
+    if (Test-Path $Global:ToolScriptsPath) {
+        $toolScripts = Get-ChildItem -Path $Global:ToolScriptsPath -Filter "*.ps1" -ErrorAction SilentlyContinue
+        
+        foreach ($scriptFile in $toolScripts) {
+            try {
+                # Dot-source into global scope
+                . $scriptFile.FullName
+                Write-UnifiedLog -Type 'Success' -Message "✅ Caricato: $($scriptFile.Name)" -GuiColor "#00FF00"
+                $loadedCount++
+            }
+            catch {
+                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Errore caricamento $($scriptFile.Name): $($_.Exception.Message)" -GuiColor "#FFA500"
+            }
+        }
+    }
+    
+    Write-UnifiedLog -Type 'Info' -Message "📊 Caricati $loadedCount script tool" -GuiColor "#00CED1"
+    return $loadedCount
+}
+
+function Check-Bitlocker {
     <#
     .SYNOPSIS
         Controlla lo stato di Bitlocker.
@@ -759,17 +787,17 @@ $xaml = @"
                                TextAlignment="Center" Margin="0,4,0,0"/>
                 </StackPanel>
                 
-                <!-- Colonna 2: Pulsante Invia Log Errori (Rosso) -->
+                <!-- Colonna 2: Pulsante Invia Log Errori (Rosso) - DIMENSIONI RIDOTTE (0.5x) -->
                 <Button Grid.Column="2" x:Name="SendErrorLogsButton" 
                         VerticalAlignment="Center" HorizontalAlignment="Right"
                         Background="{StaticResource ErrorButtonColor}" 
                         Foreground="{StaticResource TextColor}"
-                        Padding="12,8" BorderThickness="0" Cursor="Hand" 
+                        Padding="20,12" BorderThickness="0" Cursor="Hand" 
                         Margin="16,0,0,0" Style="{StaticResource SmallButtonStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <Image x:Name="SendErrorLogsImage" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <Image x:Name="SendErrorLogsImage" Width="28" Height="28" Margin="0,0,8,0"/>
                         <TextBlock Text="Invia Log Errori" VerticalAlignment="Center" 
-                                   FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold"/>
+                                   FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="11"/>
                     </StackPanel>
                 </Button>
             </Grid>
@@ -851,11 +879,11 @@ $xaml = @"
                 <Border Grid.Column="1" Width="3" Background="{StaticResource SeparatorGreen}" 
                         VerticalAlignment="Stretch" Margin="15,5"/>
                 
-                <!-- Blocco 2: Script Status (Widget centrale con LED) - Layout modificato con 2 righe -->
+                <!-- Blocco 2: Script Status (Widget centrale) - Layout semplificato senza LED -->
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Center" 
                             Margin="20,0" MinWidth="200">
                     
-                    <!-- Riga 1: Funzionalità Script con status e LED -->
+                    <!-- Riga 1: Funzionalità Script con status colorato -->
                     <Grid HorizontalAlignment="Center" Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -872,16 +900,9 @@ $xaml = @"
                                        FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                        VerticalAlignment="Center" Margin="8,0,0,0"/>
                         </StackPanel>
-                        <Grid Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
-                            <Ellipse Width="16" Height="16" Fill="#FF1E1E1E" 
-                                     Stroke="{StaticResource LabelBlue}" StrokeThickness="1"/>
-                            <Ellipse x:Name="ScriptCompatibilityLED" Width="10" Height="10" 
-                                     Fill="{StaticResource LEDGreenColor}" HorizontalAlignment="Center" 
-                                     VerticalAlignment="Center"/>
-                        </Grid>
                     </Grid>
                     
-                    <!-- Riga 2: Stato Bitlocker con LED colorato - Stessa dimensione della Riga 1 -->
+                    <!-- Riga 2: Stato Bitlocker con status colorato - Stessa dimensione della Riga 1 -->
                     <Grid HorizontalAlignment="Center" Margin="0,4,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -900,14 +921,6 @@ $xaml = @"
                                        FontFamily="{StaticResource PrimaryFont}" 
                                        VerticalAlignment="Center"/>
                         </StackPanel>
-                        <!-- LED Bitlocker - Verde se disattivato, Rosso se attivato -->
-                        <Grid Grid.Column="1" VerticalAlignment="Center" Margin="140,0,0,0">
-                            <Ellipse Width="16" Height="16" x:Name="BitlockerLEDOuter" Fill="#FF1E1E1E" 
-                                     Stroke="{StaticResource LabelBlue}" StrokeThickness="1"/>
-                            <Ellipse x:Name="BitlockerLED" Width="10" Height="10" 
-                                     Fill="{StaticResource LEDGreenColor}" HorizontalAlignment="Center" 
-                                     VerticalAlignment="Center"/>
-                        </Grid>
                     </Grid>
                 </StackPanel>
                 
@@ -1497,6 +1510,20 @@ $executeButton.Add_Click({
             return
         }
 
+        # CRITICAL: Load all tool scripts BEFORE execution to ensure functions are available in GLOBAL scope
+        Write-UnifiedLog -Type 'Info' -Message "🚀 Caricamento script tool in memoria (Global Scope)..." -GuiColor "#00CED1"
+        $scriptsLoaded = Load-AllToolScripts
+        Write-UnifiedLog -Type 'Info' -Message "📊 Caricati $scriptsLoaded script tool" -GuiColor "#00CED1"
+        
+        # Also load Core script in global scope if not already loaded
+        if ($Global:CoreScriptContent -and -not (Get-Command 'Get-SystemInfo' -ErrorAction SilentlyContinue)) {
+            Write-UnifiedLog -Type 'Info' -Message "🔌 Caricamento Core Script in Global Scope..." -GuiColor "#00CED1"
+            . $Global:CoreConfig.LocalCachePath
+        }
+        
+        # Get Core script content for job execution
+        $coreScriptContent = $Global:CoreScriptContent
+        
         Write-UnifiedLog -Type 'Info' -Message "🚀 Esecuzione di $($selectedScripts.Count) script..." -GuiColor "#00CED1"
 
         # Execute scripts synchronously on UI thread with progress updates
@@ -1511,60 +1538,95 @@ $executeButton.Add_Click({
             $progressBar.Value = $progressPercentage
             
             try {
-                # Verify function exists before calling
-                if (Get-Command $scriptName -ErrorAction SilentlyContinue) {
-                    # Invoke the function from Core with output capturing
-                    $scriptOutput = @()
+                # Check if command exists in current scope
+                $cmdExists = Get-Command $scriptName -ErrorAction SilentlyContinue
+                
+                if ($cmdExists) {
+                    # Get the tool script path
+                    $toolScriptPath = Join-Path $Global:ToolScriptsPath "$scriptName.ps1"
+                    $coreScriptPath = $Global:CoreConfig.LocalCachePath
                     
-                    # Run script and capture output
-                    if ($totalScripts -gt 1) {
-                        # For multiple scripts, use job to capture output and send Enter between scripts
-                        $job = Start-Job -ScriptBlock {
-                            param($ScriptName, $SuppressReboot)
-                            try {
-                                # Capture all output
-                                $output = & $ScriptName @($SuppressReboot) 2>&1 | Out-String
-                                return $output
-                            }
-                            catch {
-                                return "ERROR: $($_.Exception.Message)"
-                            }
-                        } -ArgumentList @($scriptName, $true)
-                        
-                        $job | Wait-Job | Out-Null
-                        $scriptOutput = Receive-Job -Job $job
-                        Remove-Job -Job $job -ErrorAction SilentlyContinue | Out-Null
-                    }
-                    else {
-                        $job = Start-Job -ScriptBlock {
-                            param($ScriptName)
-                            try {
-                                $output = & $ScriptName 2>&1 | Out-String
-                                return $output
-                            }
-                            catch {
-                                return "ERROR: $($_.Exception.Message)"
-                            }
-                        } -ArgumentList $scriptName
-                        
-                        $job | Wait-Job | Out-Null
-                        $scriptOutput = Receive-Job -Job $job
-                        Remove-Job -Job $job -ErrorAction SilentlyContinue | Out-Null
-                    }
+                    # Create a script block that executes the function
+                    # Scripts are already loaded in global scope, so no need to reload
+                    $scriptBlockText = @"
+`$ErrorActionPreference = 'Continue'
+& '$scriptName' 2>&1
+"@
                     
-                    # Display captured output in the log
-                    if ($scriptOutput -and $scriptOutput.Trim()) {
-                        Write-UnifiedLog -Type 'Info' -Message "--- Output di $scriptName ---" -GuiColor "#00CED1"
-                        foreach ($line in ($scriptOutput -split "`n")) {
-                            if ($line.Trim()) {
-                                Write-UnifiedLog -Type 'Info' -Message $line.Trim() -GuiColor "#FFFFFF"
+                    Write-UnifiedLog -Type 'Info' -Message "▶️ Esecuzione in corso: $scriptName" -GuiColor "#00CED1"
+                    Write-UnifiedLog -Type 'Info' -Message "   Core: $coreScriptPath" -GuiColor "#808080"
+                    Write-UnifiedLog -Type 'Info' -Message "   Tool: $toolScriptPath" -GuiColor "#808080"
+                    
+                    try {
+                        # Start job
+                        $job = Start-Job -ScriptBlock ([ScriptBlock]::Create($scriptBlockText)) -Name $scriptName -ErrorAction Stop
+                        
+                        # Poll job for output with timeout
+                        $jobRunning = $true
+                        $timeoutSeconds = 180
+                        $elapsed = 0
+                        $lastOutputTime = [DateTime]::Now
+                        $lastState = $job.State
+                        
+                        while ($jobRunning -and $elapsed -lt $timeoutSeconds) {
+                            # Check job state
+                            $currentState = $job.State
+                            
+                            if ($currentState -ne $lastState) {
+                                Write-UnifiedLog -Type 'Info' -Message "   Job state: $currentState" -GuiColor "#808080"
+                                $lastState = $currentState
+                            }
+                            
+                            if ($currentState -eq 'Completed') {
+                                $jobRunning = $false
+                                $jobOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue 2>&1
+                                $outputText = $jobOutput | Out-String
+                                if ($outputText.Trim()) {
+                                    foreach ($line in ($outputText | Out-String -Stream)) {
+                                        if ($line.Trim()) {
+                                            Write-UnifiedLog -Type 'Info' -Message $line.Trim() -GuiColor "#FFFFFF"
+                                        }
+                                    }
+                                }
+                                else {
+                                    Write-UnifiedLog -Type 'Warning' -Message "⚠️ Nessun output da $scriptName" -GuiColor "#FFA500"
+                                }
+                            }
+                            elseif ($currentState -eq 'Failed') {
+                                $jobRunning = $false
+                                $jobOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue 2>&1
+                                $errorMsg = $job.JobStateInfo.Reason?.Message
+                                if (-not $errorMsg -or $errorMsg -eq '') { $errorMsg = $jobOutput | Out-String }
+                                if (-not $errorMsg -or $errorMsg.Trim() -eq '') { $errorMsg = "Errore sconosciuto" }
+                                Write-UnifiedLog -Type 'Error' -Message "❌ $scriptName fallito: $errorMsg" -GuiColor "#FF0000"
+                            }
+                            elseif ($currentState -eq 'Stopped') {
+                                $jobRunning = $false
+                                Write-UnifiedLog -Type 'Warning' -Message "⚠️ $scriptName interrotto" -GuiColor "#FFA500"
+                            }
+                            
+                            if ($jobRunning) {
+                                Start-Sleep -Milliseconds 500
+                                $elapsed += 0.5
                             }
                         }
+                        
+                        # Handle timeout
+                        if ($jobRunning -and $elapsed -ge $timeoutSeconds) {
+                            Write-UnifiedLog -Type 'Warning' -Message "⏰ $scriptName timeout dopo ${timeoutSeconds}s" -GuiColor "#FFA500"
+                            Stop-Job -Job $job -ErrorAction SilentlyContinue | Out-Null
+                        }
+                        
+                        # Cleanup job
+                        Remove-Job -Job $job -ErrorAction SilentlyContinue | Out-Null
+                    }
+                    catch {
+                        Write-UnifiedLog -Type 'Error' -Message "❌ Errore avvio job $scriptName`: $($_.Exception.Message)" -GuiColor "#FF0000"
                     }
                     
                     # Send Enter key between scripts if multiple scripts selected
                     if ($scriptIndex -lt $totalScripts) {
-                        Write-UnifiedLog -Type 'Info' -Message "⏳ Attesa conferma per prossimo script..." -GuiColor "#FFA500"
+                        Write-UnifiedLog -Type 'Info' -Message "⏳ Attesa prossimo script..." -GuiColor "#FFA500"
                         Start-Sleep -Milliseconds 500
                     }
                     
