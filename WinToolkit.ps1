@@ -14,34 +14,34 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 2)"
+$ToolkitVersion = "2.5.1 (Build 3)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
     URLs     = @{
         # GitHub Asset URLs
-        GitHubAssetBaseUrl      = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
-        GitHubAssetDevBaseUrl   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
+        GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
+        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
 
         # Office
-        OfficeSetup             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
-        OfficeBasicConfig       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
-        SaRAInstaller           = "https://aka.ms/SaRA_EnterpriseVersionFiles"
+        OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
+        OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
+        SaRAInstaller         = "https://aka.ms/SaRA_EnterpriseVersionFiles"
 
         # Video Driver
-        AMDInstaller            = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
-        NVCleanstall            = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
-        DDUZip                  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
+        AMDInstaller          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
+        NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
+        DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
 
         # Gaming
-        DirectXWebSetup         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe"
-        BattleNetInstaller      = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
+        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe"
+        BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
 
         # 7-Zip
-        SevenZipOfficial        = "https://www.7-zip.org/a/7zr.exe"
+        SevenZipOfficial      = "https://www.7-zip.org/a/7zr.exe"
 
         # Store
-        WingetInstaller         = "https://aka.ms/getwinget"
+        WingetInstaller       = "https://aka.ms/getwinget"
     }
     Paths    = @{
         # Base paths
@@ -3164,10 +3164,10 @@ function WinCleaner {
                             Write-StyledMessage -Type 'Success' -Text "Vecchie shadow copies rimosse. Ultima copia preservata."
                         }
                         elseif ($shadows.Count -eq 1) {
-                             Write-StyledMessage -Type 'Info' -Text "Trovata una sola shadow copy. Nessuna rimozione necessaria."
+                            Write-StyledMessage -Type 'Info' -Text "Trovata una sola shadow copy. Nessuna rimozione necessaria."
                         }
                         else {
-                             Write-StyledMessage -Type 'Info' -Text "Nessuna shadow copy rilevata."
+                            Write-StyledMessage -Type 'Info' -Text "Nessuna shadow copy rilevata."
                         }
                     }
                     catch {
@@ -3214,10 +3214,10 @@ function WinCleaner {
                 Write-StyledMessage -Type 'Info' -Text "🌐 Pulizia Cache Browser Chromium..."
 
                 $browsers = @(
-                    @{ Name = "Google Chrome";  Path = "Google\Chrome\User Data" },
+                    @{ Name = "Google Chrome"; Path = "Google\Chrome\User Data" },
                     @{ Name = "Microsoft Edge"; Path = "Microsoft\Edge\User Data" },
-                    @{ Name = "Brave Browser";  Path = "BraveSoftware\Brave-Browser\User Data" },
-                    @{ Name = "Vivaldi";        Path = "Vivaldi\User Data" }
+                    @{ Name = "Brave Browser"; Path = "BraveSoftware\Brave-Browser\User Data" },
+                    @{ Name = "Vivaldi"; Path = "Vivaldi\User Data" }
                 )
 
                 $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
@@ -3516,7 +3516,7 @@ function WinCleaner {
                     # 1. Configura il registro per selezionare automaticamente "Previous Installations"
                     $regKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Previous Installations"
                     if (-not (Test-Path $regKey)) {
-                         Write-StyledMessage -Type 'Warning' -Text "Chiave registro 'Previous Installations' non trovata. Tentativo di esecuzione standard."
+                        Write-StyledMessage -Type 'Warning' -Text "Chiave registro 'Previous Installations' non trovata. Tentativo di esecuzione standard."
                     }
                     else {
                         try {
@@ -3549,7 +3549,7 @@ function WinCleaner {
                 }
                 else {
                     # Silent or low verbosity if not present
-                     Write-StyledMessage -Type 'Info' -Text "💭 Nessuna cartella Windows.old rilevata."
+                    Write-StyledMessage -Type 'Info' -Text "💭 Nessuna cartella Windows.old rilevata."
                 }
             }
         }
