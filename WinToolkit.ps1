@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 4)"
+$ToolkitVersion = "2.5.1 (Build 5)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -388,6 +388,11 @@ function CheckBitlocker {
 }
 
 function WinOSCheck {
+    # Skip WinOSCheck if running in GUI mode to prevent duplicate output in job runspaces
+    if ($Global:GuiSessionActive) {
+        return
+    }
+    
     Show-Header -SubTitle "System Check"
     $si = Get-SystemInfo
     if (-not $si) { Write-StyledMessage -Type 'Warning' -Text "Info sistema non disponibili."; return }
