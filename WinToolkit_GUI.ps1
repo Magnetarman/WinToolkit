@@ -18,7 +18,7 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "2.5.1 (Build 50)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "2.5.1 (Build 70)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
@@ -116,6 +116,16 @@ $ScriptCompatibilityIndicator = $null
 $progressBar = $null
 $actionsPanel = $null
 
+# Async execution variables (for GUI responsiveness)
+$Global:ScriptJob = $null
+$Global:JobMonitorTimer = $null
+$Global:SelectedScriptsQueue = @()
+$Global:CurrentScriptIndex = 0
+$Global:LastJobOutputCount = 0
+$Global:IsInputWaiting = $false
+$Global:RebootRequired = $false
+$Global:NeedsFinalReboot = $false
+
 # =============================================================================
 # CORE INTEGRATION CONFIGURATION
 # =============================================================================
@@ -207,6 +217,7 @@ function Initialize-CoreScript {
     .DESCRIPTION
         Gestisce il download del Core Script da GitHub, caching locale, estrazione
         versione, e dot-sourcing delle funzioni nel scope corrente.
+        Implementa confronto versione remoto vs locale per ottimizzare i download.
 
     .OUTPUTS
         Boolean - True se Core caricato con successo, False altrimenti
@@ -228,25 +239,75 @@ function Initialize-CoreScript {
 
         $coreContent = $null
         $usedCache = $false
+        $localCoreVersion = [version]"0.0.0" # Default low version
 
-        # Verifica cache esistente
-        $cacheExists = Test-Path $Global:CoreConfig.LocalCachePath
-        $cacheValid = $false
-
-        if ($cacheExists) {
-            $cacheAge = (Get-Date) - (Get-Item $Global:CoreConfig.LocalCachePath).LastWriteTime
-            $cacheValid = ($cacheAge.TotalSeconds -lt $Global:CoreConfig.CacheMaxAge)
-
-            if ($cacheValid) {
-                Write-UnifiedLog -Type 'Success' -Message "✅ Cache locale valida trovata" -GuiColor "#00FF00"
+        # 1. Recupera la versione del Core Script locale (se esiste la cache)
+        if (Test-Path $Global:CoreConfig.LocalCachePath) {
+            try {
+                # Leggi solo le prime linee per efficienza
+                $localCacheContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8 -ReadCount 50 
+                if ($localCacheContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+                    $localCoreVersion = [version]$matches[1]
+                    Write-UnifiedLog -Type 'Info' -Message "📌 Versione Core locale trovata: $localCoreVersion" -GuiColor "#00CED1"
+                }
+                else {
+                    Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile estrarre versione dalla cache locale. Assumo 0.0.0" -GuiColor "#FFA500"
+                }
             }
-            else {
-                Write-UnifiedLog -Type 'Info' -Message "⏰ Cache locale scaduta (età: $([Math]::Round($cacheAge.TotalMinutes, 1)) minuti)" -GuiColor "#FFA500"
+            catch {
+                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Errore lettura versione cache locale: $($_.Exception.Message)" -GuiColor "#FFA500"
             }
         }
 
-        # Tentativo download remoto se cache non valida
-        if (-not $cacheValid) {
+        # 2. Recupera la versione del Core Script remoto
+        $remoteCoreVersion = [version]"0.0.0" # Default low version
+        Write-UnifiedLog -Type 'Info' -Message "📡 Recupero versione Core Script remota..." -GuiColor "#00CED1"
+        try {
+            # Usa Invoke-RestMethod per ottenere un preview del contenuto e parsare la versione
+            $remoteContentPreview = (Invoke-RestMethod -Uri $Global:CoreConfig.RemoteUrl -UseBasicParsing -ErrorAction Stop) | Select-Object -First 50
+            if ($remoteContentPreview -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+                $remoteCoreVersion = [version]$matches[1]
+                Write-UnifiedLog -Type 'Info' -Message "📌 Versione Core remota rilevata: $remoteCoreVersion" -GuiColor "#00CED1"
+            }
+            else {
+                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile estrarre versione remota dal Core Script. Assumo 0.0.0" -GuiColor "#FFA500"
+            }
+        }
+        catch {
+            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Fallito recupero versione remota: $($_.Exception.Message). Potrebbe essere necessario un download forzato." -GuiColor "#FFA500"
+            # Se non è possibile recuperare la versione remota, trattiamo la versione locale come l'ultima per evitare loop di download in caso di problemi di rete.
+            # Sarà gestito dalla logica di fallback alla cache se disponibile.
+        }
+
+        # 3. Determina se è necessario scaricare il Core Script
+        $shouldDownload = $false
+        $cacheExists = Test-Path $Global:CoreConfig.LocalCachePath
+        $cacheExpired = $false
+
+        if ($cacheExists) {
+            $cacheAge = (Get-Date) - (Get-Item $Global:CoreConfig.LocalCachePath).LastWriteTime
+            $cacheExpired = ($cacheAge.TotalSeconds -ge $Global:CoreConfig.CacheMaxAge)
+        }
+
+        if (-not $cacheExists) {
+            Write-UnifiedLog -Type 'Info' -Message "📥 Nessuna cache locale trovata. Download forzato." -GuiColor "#00CED1"
+            $shouldDownload = $true
+        }
+        elseif ($remoteCoreVersion -gt $localCoreVersion) {
+            Write-UnifiedLog -Type 'Info' -Message "⬆️ Nuova versione Core ($remoteCoreVersion) disponibile (attuale: $localCoreVersion). Download in corso..." -GuiColor "#00CED1"
+            $shouldDownload = $true
+        }
+        elseif ($cacheExpired) {
+            Write-UnifiedLog -Type 'Info' -Message "⏰ Cache locale scaduta (età: $([Math]::Round($cacheAge.TotalMinutes, 1)) minuti). Download per aggiornare." -GuiColor "#FFA500"
+            $shouldDownload = $true
+        }
+        else {
+            Write-UnifiedLog -Type 'Success' -Message "✅ Cache locale valida e aggiornata (v$localCoreVersion). Utilizzo cache." -GuiColor "#00FF00"
+            $coreContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
+            $usedCache = $true
+        }
+
+        if ($shouldDownload) {
             Write-UnifiedLog -Type 'Info' -Message "📡 Download Core Script da GitHub..." -GuiColor "#00CED1"
             Write-UnifiedLog -Type 'Info' -Message "🌐 URL: $($Global:CoreConfig.RemoteUrl)" -GuiColor "#808080"
 
@@ -262,40 +323,46 @@ function Initialize-CoreScript {
                 $coreContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
                 Write-UnifiedLog -Type 'Success' -Message "✅ Core Script scaricato con successo" -GuiColor "#00FF00"
                 Write-UnifiedLog -Type 'Info' -Message "💾 Salvato in cache: $($Global:CoreConfig.LocalCachePath)" -GuiColor "#00CED1"
+                
+                # Estrai versione dal Core appena scaricato
+                if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+                    $Global:CoreScriptVersion = $matches[1]
+                    Write-UnifiedLog -Type 'Success' -Message "📌 Versione Core scaricata: $Global:CoreScriptVersion" -GuiColor "#00FF00"
+                }
+                else {
+                    Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile estrarre versione dal Core appena scaricato." -GuiColor "#FFA500"
+                    $Global:CoreScriptVersion = "Unknown"
+                }
+
             }
             catch {
                 Write-UnifiedLog -Type 'Warning' -Message "⚠️ Download fallito: $($_.Exception.Message)" -GuiColor "#FFA500"
 
                 if ($cacheExists -and $Global:CoreConfig.FallbackToCache) {
-                    Write-UnifiedLog -Type 'Info' -Message "📂 Utilizzo cache locale (scaduta ma disponibile)..." -GuiColor "#FFA500"
+                    Write-UnifiedLog -Type 'Info' -Message "📂 Utilizzo cache locale (scaduta o meno recente, ma disponibile) come fallback..." -GuiColor "#FFA500"
                     $coreContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
                     $usedCache = $true
+                    # Ri-estrai la versione dalla cache come fallback
+                    if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+                        $Global:CoreScriptVersion = $matches[1]
+                        Write-UnifiedLog -Type 'Success' -Message "📌 Versione Core da cache fallback: $Global:CoreScriptVersion" -GuiColor "#00FF00"
+                    }
                 }
                 else {
-                    throw "Impossibile scaricare Core Script e nessuna cache disponibile."
+                    throw "Impossibile scaricare Core Script e nessuna cache disponibile/configurata per il fallback."
                 }
             }
         }
-        else {
-            # Usa cache valida
-            Write-UnifiedLog -Type 'Info' -Message "📂 Utilizzo cache locale valida..." -GuiColor "#00CED1"
-            $coreContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
-            $usedCache = $true
+
+        # Se è stata usata la cache senza download, assicurati che $Global:CoreScriptVersion sia impostato correttamente
+        if ($usedCache -and ([string]::IsNullOrEmpty($Global:CoreScriptVersion) -or $Global:CoreScriptVersion -eq "Unknown")) {
+            if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+                $Global:CoreScriptVersion = $matches[1]
+            }
         }
 
         if (-not $coreContent) {
-            throw "Core Script content è vuoto"
-        }
-
-        # Estrai versione dal Core
-        Write-UnifiedLog -Type 'Info' -Message "🔍 Estrazione versione dal Core Script..." -GuiColor "#00CED1"
-        if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
-            $Global:CoreScriptVersion = $matches[1]
-            Write-UnifiedLog -Type 'Success' -Message "📌 Versione Core rilevata: $Global:CoreScriptVersion" -GuiColor "#00FF00"
-        }
-        else {
-            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile estrarre versione dal Core (pattern non trovato)" -GuiColor "#FFA500"
-            $Global:CoreScriptVersion = "Unknown"
+            throw "Core Script content è vuoto dopo i tentativi di caricamento."
         }
 
         # NOTE: Loading moved to main scope to fix variable visibility
@@ -530,31 +597,16 @@ function Send-ErrorLogs {
 # =============================================================================
 # LOAD ALL TOOL SCRIPTS INTO GLOBAL SCOPE (before any job execution)
 # =============================================================================
-$Global:ToolScriptsPath = Join-Path $PSScriptRoot "tool"
+# NOTE: This section has been removed. All tool functions are now defined
+# in the Core Script (WinToolkit.ps1) and are loaded when the Core Script
+# is dot-sourced. The job now only needs to load the Core Script to access
+# all tool functions.
+# $Global:ToolScriptsPath = Join-Path $PSScriptRoot "tool"
 
-function Load-AllToolScripts {
-    Write-UnifiedLog -Type 'Info' -Message "📜 Caricamento tutti gli script tool in memoria..." -GuiColor "#00CED1"
-    
-    $loadedCount = 0
-    if (Test-Path $Global:ToolScriptsPath) {
-        $toolScripts = Get-ChildItem -Path $Global:ToolScriptsPath -Filter "*.ps1" -ErrorAction SilentlyContinue
-        
-        foreach ($scriptFile in $toolScripts) {
-            try {
-                # Dot-source into global scope
-                . $scriptFile.FullName
-                Write-UnifiedLog -Type 'Success' -Message "✅ Caricato: $($scriptFile.Name)" -GuiColor "#00FF00"
-                $loadedCount++
-            }
-            catch {
-                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Errore caricamento $($scriptFile.Name): $($_.Exception.Message)" -GuiColor "#FFA500"
-            }
-        }
-    }
-    
-    Write-UnifiedLog -Type 'Info' -Message "📊 Caricati $loadedCount script tool" -GuiColor "#00CED1"
-    return $loadedCount
-}
+# function Load-AllToolScripts { ... } # REMOVED - All functions are in Core Script
+
+# Initial load count is 0 since functions are loaded via Core Script
+$Global:ToolScriptsLoadedCount = 0
 
 function Check-Bitlocker {
     <#
@@ -1470,14 +1522,451 @@ function Get-ScriptEmoji {
 }
 
 # =============================================================================
-# SCRIPT EXECUTION (Using Core's concatenation logic)
+# SCRIPT EXECUTION - ASYNCHRONOUS IMPLEMENTATION (Using DispatcherTimer)
 # =============================================================================
 
-$executeButton.Add_Click({
-        # Disable button to prevent re-clicks while busy
-        $executeButton.IsEnabled = $false
-        $progressBar.Value = 0 # Reset progress bar
+# Funzione per avviare il job per lo script corrente
+function Start-NextScriptJob {
+    param($scriptName)
+
+    # Disabilita il pulsante di esecuzione e resetta la barra di progresso (se è il primo script)
+    $window.Dispatcher.Invoke([Action] {
+            $executeButton.IsEnabled = $false
+        })
+
+    Write-UnifiedLog -Type 'Info' -Message "🚀 Avvio esecuzione: $scriptName" -GuiColor "#00CED1"
+    
+    # Define paths needed by the job
+    $coreScriptPath = $Global:CoreConfig.LocalCachePath
+    $mainLogDirectory = $LogDirectory
+    
+    Write-UnifiedLog -Type 'Info' -Message "   Core for job: $coreScriptPath" -GuiColor "#808080"
+    
+    # Define the script block to be executed within the job's isolated runspace
+    $jobScriptBlock = {
+        param($CorePath, $CmdName, $MainLogDir)
         
+        # --- SHIM FUNCTIONS FOR GUI MODE (to prevent blocking or UI errors in job) ---
+        # These functions override interactive or console-UI dependent parts of the Core script.
+
+        # Shim Clear-Host to prevent clearing job output or causing errors in non-console host.
+        function Clear-Host { Write-Output "[GUI_SHIM] Clear-Host bypassed." }
+
+        # Shim Clear-ProgressLine. The original has a ConsoleHost check, but this ensures no raw UI access.
+        function Clear-ProgressLine { Write-Output "[GUI_SHIM] Clear-ProgressLine bypassed." }
+
+        # Shim Read-Host to provide default answers, preventing job blockage.
+        function Read-Host {
+            param([string]$Prompt)
+            Write-Warning "[GUI_SHIM] Interactive prompt bypassed for: '$Prompt'. Returning 'Y'."
+            return 'Y' # Default to 'Yes' for most confirmations/choices in GUI mode.
+        }
+
+        # Shim Start-InterruptibleCountdown to bypass user interaction and the console UI countdown.
+        function Start-InterruptibleCountdown {
+            param(
+                [int]$Seconds = 30,
+                [string]$Message = "Riavvio automatico",
+                [switch]$Suppress
+            )
+            Write-Output "[GUI_SHIM] Countdown bypassed for '$Message' (durata: $Seconds secondi)."
+            # Always return true to allow the calling function to proceed as if the countdown completed.
+            return $true 
+        }
+
+        # Shim Get-UserConfirmation to always confirm actions, preventing user interaction.
+        function Get-UserConfirmation {
+            param([string]$Message, [string]$DefaultChoice = 'N')
+            Write-Warning "[GUI_SHIM] Conferma utente bypassata per: '$Message'. Ritorno 'Sì'."
+            return $true # Assume 'Yes' for all user confirmations in GUI mode.
+        }
+
+        # Shim Show-Header to prevent raw console output (ASCII art, direct window size checks).
+        function Show-Header {
+            param([string]$SubTitle = "Menu Principale")
+            # We don't have $ToolkitVersion readily available here without dot-sourcing Core first,
+            # but for a shim, a generic message is sufficient.
+            Write-Output "[GUI_SHIM] Intestazione: WinToolkit - $SubTitle"
+        }
+
+        # Shim Write-StyledMessage to redirect styled messages from Core to Write-Output with tags
+        # for GUI parsing and proper formatting in RichTextBox.
+        function Write-StyledMessage {
+            param(
+                [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')][string]$Type,
+                [string]$Text
+            )
+            # Output with tagged format for GUI parsing
+            Write-Output "[WINTOOLKIT_STYLED_MESSAGE_TAG] $Type`: $Text"
+        }
+
+        # Shim Show-ProgressBar to prevent raw console output for progress bars.
+        # Used by Invoke-WithSpinner. Outputs tagged format for GUI parsing.
+        function Show-ProgressBar {
+            param(
+                [string]$Activity,
+                [string]$Status,
+                [int]$Percent,
+                [string]$Icon = '⏳',
+                [string]$Spinner = '',
+                [string]$Color = 'Green'
+            )
+            # Initialize tracking variable for this runspace
+            if ($null -eq $Global:LastProgressBarPercent) { $Global:LastProgressBarPercent = -1 }
+            
+            # Only output if progress changed significantly or completed (every 5%)
+            if ([math]::Abs($Percent - $Global:LastProgressBarPercent) -ge 5 -or $Percent -ge 100 -or $Percent -eq 0) {
+                Write-Output "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $Percent% | Icon: $Icon | Spinner: $Spinner"
+                $Global:LastProgressBarPercent = $Percent
+            }
+        }
+        # --- End of SHIM FUNCTIONS ---
+
+        # Set ErrorActionPreference for the job's runspace
+        $ErrorActionPreference = 'Continue'
+        
+        # Ensure logging directory exists for the job process
+        try {
+            if (-not ([System.IO.Directory]::Exists($MainLogDir))) {
+                [System.IO.Directory]::CreateDirectory($MainLogDir) | Out-Null
+            }
+        }
+        catch {}
+
+        # Dot-source the Core script first, as all functions are defined there
+        try {
+            if (Test-Path $CorePath) {
+                # Imposta esplicitamente il flag globale per il Core script per sapere che è in una sessione GUI
+                $Global:GuiSessionActive = $true
+                . $CorePath
+            }
+            else {
+                Write-Error "Core script not found at $CorePath within job."
+                $Global:NeedsFinalReboot = $false
+                return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = "Core script not found." }
+            }
+        }
+        catch {
+            Write-Error "Failed to dot-source Core script within job: $($_.Exception.Message)"
+            $Global:NeedsFinalReboot = $false
+            return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = $_.Exception.Message }
+        }
+
+        # Build dynamic arguments to avoid interactive prompts
+        $argsToPass = @()
+        try {
+            $commandInfo = Get-Command $CmdName -ErrorAction Stop
+            if ($commandInfo.Parameters.ContainsKey('SuppressIndividualReboot')) {
+                $argsToPass += '-SuppressIndividualReboot'
+            }
+            if ($commandInfo.Parameters.ContainsKey('CountdownSeconds')) {
+                $argsToPass += '-CountdownSeconds 0'
+            }
+            if ($commandInfo.Parameters.ContainsKey('RunStandalone')) {
+                $argsToPass += '-RunStandalone:$false'
+            }
+        }
+        catch {
+            Write-Error "Cannot get parameters for function '$CmdName': $($_.Exception.Message)"
+            $Global:NeedsFinalReboot = $false
+            return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = $_.Exception.Message }
+        }
+
+        # Execute the function. Redirect all streams to capture everything.
+        try {
+            if (Get-Command $CmdName -ErrorAction SilentlyContinue) {
+                # Inizializza $Global:NeedsFinalReboot a false prima di ogni esecuzione di script
+                # per assicurarsi che lo stato di riavvio sia pulito per ogni chiamata di funzione.
+                $Global:NeedsFinalReboot = $false 
+
+                Invoke-Expression ("& $CmdName $($argsToPass -join ' ') *>&1")
+            }
+            else {
+                Write-Error "Function '$CmdName' not found after dot-sourcing within job."
+                $Global:NeedsFinalReboot = $false
+                return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = "Function not found." }
+            }
+        }
+        catch {
+            Write-Error "Error executing function '$CmdName' within job: $($_.Exception.Message)"
+            $Global:NeedsFinalReboot = $false
+            return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = $_.Exception.Message }
+        }
+        
+        # Return reboot status and success
+        return @{ Success = $true; RebootRequired = $Global:NeedsFinalReboot }
+    }
+
+    try {
+        $Global:ScriptJob = Start-Job -ScriptBlock $jobScriptBlock -ArgumentList $coreScriptPath, $scriptName, $mainLogDirectory -Name "WinToolkit_ScriptJob_$scriptName" -ErrorAction Stop
+        $Global:LastJobOutputCount = 0 # Reset output counter for new job
+        Write-UnifiedLog -Type 'Info' -Message "   Job PowerShell '$scriptName' avviato (ID: $($Global:ScriptJob.Id))" -GuiColor "#00CED1"
+    }
+    catch {
+        Write-UnifiedLog -Type 'Error' -Message "❌ Errore avvio job '$scriptName': $($_.Exception.Message)" -GuiColor "#FF0000"
+        Process-JobCompletion -JobStatus 'ErrorStarting' -JobName $scriptName
+    }
+}
+
+# Funzione per processare il completamento del job
+function Process-JobCompletion {
+    param(
+        [string]$JobStatus, # 'Completed', 'Failed', 'Stopped', 'ErrorStarting' (custom)
+        [string]$JobName
+    )
+
+    $window.Dispatcher.Invoke([Action] {
+            # Ricevi l'output finale del job se esiste
+            $jobResults = $null
+            if ($Global:ScriptJob) {
+                $rawOutput = Receive-Job -Job $Global:ScriptJob -ErrorAction SilentlyContinue *>&1
+                # Cerca l'oggetto risultato se presente
+                $jobResultObject = $rawOutput | Where-Object { $_ -is [hashtable] -and $_.ContainsKey('RebootRequired') } | Select-Object -Last 1
+                
+                if ($jobResultObject) {
+                    $Global:RebootRequired = $Global:RebootRequired -or $jobResultObject.RebootRequired
+                    $finalJobOutput = $rawOutput | Where-Object { $_ -isnot [hashtable] }
+                }
+                else {
+                    $finalJobOutput = $rawOutput
+                }
+
+                foreach ($line in ($finalJobOutput | Out-String -Stream)) {
+                    if ($line.Trim()) {
+                        # NEW: Handle WINTOOLKIT_STYLED_MESSAGE_TAG
+                        if ($line -match '\[WINTOOLKIT_STYLED_MESSAGE_TAG\]\s*(?<Type>\w+)\s*:\s*(?<Text>.*)') {
+                            $outputType = $matches.Type
+                            $messageText = $matches.Text
+                            $guiColor = switch -Wildcard ($outputType.ToLower()) {
+                                "error" { "#FF5555" }
+                                "warning" { "#FFB74D" }
+                                "success" { "#4CAF50" }
+                                "info" { "#00CED1" }
+                                "progress" { "#2196F3" }
+                                default { "#FFFFFF" }
+                            }
+                            Write-UnifiedLog -Type $outputType -Message $messageText -GuiColor $guiColor
+                            continue
+                        }
+                        # NEW: Handle WINTOOLKIT_PROGRESS_TAG
+                        if ($line -match '\[WINTOOLKIT_PROGRESS_TAG\].*Percent:\s*(?<Percent>\d+)%') {
+                            $percent = [int]$matches.Percent
+                            $window.Dispatcher.Invoke([Action] { $progressBar.Value = $percent })
+                            continue
+                        }
+                        # NEW: Handle GUI_SHIM messages
+                        if ($line -match '\[GUI_SHIM\]\s*(?<Text>.*)') {
+                            Write-UnifiedLog -Type 'Info' -Message "Shimmed: $($matches.Text)" -GuiColor "#808080"
+                            continue
+                        }
+                        # Filtra banner e output non desiderato
+                        $skipLine = $false
+                        $bannerPatterns = @(
+                            '═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════',
+                            '__        __  _  _   _',
+                            '\\\\  /  | || . ` | |',
+                            '   |/  \|/|  | || |\  | |',
+                            '   |_||_| |_| |_||_| \_|',
+                            '╔═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗',
+                            '║',
+                            '╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝',
+                            '──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────',
+                            'WinToolkit - System Check',
+                            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+                            '\\[Header\\]',
+                            '╦.*╦',
+                            '╠.*╣',
+                            '╩.*╩'
+                        )
+                        
+                        foreach ($pattern in $bannerPatterns) {
+                            if ($line -match $pattern) {
+                                $skipLine = $true
+                                break
+                            }
+                        }
+                        
+                        if (-not $skipLine) {
+                            $outputType = 'Info'
+                            $guiColor = "#FFFFFF"
+                            if ($line -match 'ERROR|FAILED|ERR|FALLITO|CRITICAL') { $outputType = 'Error'; $guiColor = "#FF5555" }
+                            elseif ($line -match 'WARNING|WARN|ATTENZIONE') { $outputType = 'Warning'; $guiColor = "#FFB74D" }
+                            elseif ($line -match 'SUCCESS|COMPLETED|FATTO|OK') { $outputType = 'Success'; $guiColor = "#4CAF50" }
+                            elseif ($line -match '\[INPUT\]|\[CHOICE\]|\[CONFIRM\]') { 
+                                $Global:IsInputWaiting = $true
+                                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Input interattivo rilevato nel job: $line - Non supportato in modalità GUI. Il job potrebbe essersi bloccato o aver utilizzato valori predefiniti." -GuiColor "#FFA500"
+                                continue 
+                            }
+                            Write-UnifiedLog -Type $outputType -Message $line.Trim() -GuiColor $guiColor
+                        }
+                    }
+                }
+            }
+
+            if ($JobStatus -eq 'Completed') {
+                if ($Global:ScriptJob -and $Global:ScriptJob.HasErrors) {
+                    $errorRecords = $Global:ScriptJob | Select-Object -ExpandProperty ChildJobs | Where-Object { $_.HasErrors } | Select-Object -ExpandProperty Error
+                    $errorMessages = ($errorRecords | Select-Object -ExpandProperty Exception | Select-Object -ExpandProperty Message) -join "`n"
+                    if ([string]::IsNullOrEmpty($errorMessages)) {
+                        $errorMessages = "Si sono verificati errori sconosciuti durante l'esecuzione dello script."
+                    }
+                    Write-UnifiedLog -Type 'Error' -Message "❌ $JobName completato con errori: $errorMessages" -GuiColor "#FF0000"
+                }
+                else {
+                    Write-UnifiedLog -Type 'Success' -Message "✅ Completato: $JobName" -GuiColor "#00FF00"
+                }
+            }
+            elseif ($JobStatus -eq 'Failed' -or $JobStatus -eq 'ErrorStarting') {
+                $errorMsg = ($Global:ScriptJob.JobStateInfo.Reason?.Message) -or "Errore sconosciuto"
+                Write-UnifiedLog -Type 'Error' -Message "❌ $JobName fallito: $errorMsg" -GuiColor "#FF0000"
+            }
+            elseif ($JobStatus -eq 'Stopped') {
+                Write-UnifiedLog -Type 'Warning' -Message "⚠️ $JobName interrotto" -GuiColor "#FFA500"
+            }
+
+            # Pulisci il job solo se esiste
+            if ($Global:ScriptJob) {
+                Remove-Job -Job $Global:ScriptJob -ErrorAction SilentlyContinue | Out-Null
+                $Global:ScriptJob = $null
+            }
+
+            # Aggiorna la barra di progresso per lo script completato
+            $Global:CurrentScriptIndex++
+            if ($Global:SelectedScriptsQueue.Count -gt 0) {
+                $progressPercentage = [int]((($Global:CurrentScriptIndex) / $Global:SelectedScriptsQueue.Count) * 100)
+                $progressBar.Value = $progressPercentage
+            }
+            else {
+                $progressBar.Value = 100
+            }
+
+            # Se ci sono altri script in coda, avvia il prossimo
+            if ($Global:CurrentScriptIndex -lt $Global:SelectedScriptsQueue.Count) {
+                Write-UnifiedLog -Type 'Info' -Message "⏳ Attesa prossimo script..." -GuiColor "#FFA500"
+                Start-NextScriptJob -scriptName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
+            }
+            else {
+                # Tutti gli script completati
+                if ($Global:JobMonitorTimer) {
+                    $Global:JobMonitorTimer.Stop()
+                    $Global:JobMonitorTimer = $null
+                }
+                $executeButton.IsEnabled = $true
+                Write-UnifiedLog -Type 'Success' -Message "🎉 Tutti gli script sono stati eseguiti" -GuiColor "#00FF00"
+                $progressBar.Value = 100 # Assicura che sia 100% alla fine
+            
+                # Check for reboot requirement (moved here from Tick_JobMonitor)
+                if ($Global:RebootRequired) {
+                    $result = [System.Windows.MessageBox]::Show("Il sistema richiede un riavvio per completare le operazioni. Riavviare ora?", "Riavvio Richiesto", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+                    if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
+                        Restart-Computer -Force
+                    }
+                }
+            }
+        })
+}
+
+# Gestore del Tick del timer per monitorare il job
+function Tick_JobMonitor {
+    if ($Global:ScriptJob -and ($Global:ScriptJob.State -eq 'Running' -or $Global:ScriptJob.State -eq 'NotStarted')) {
+        # Ricevi l'output disponibile in blocchi per aggiornamenti in tempo reale
+        $currentJobOutput = Receive-Job -Job $Global:ScriptJob -Keep -ErrorAction SilentlyContinue *>&1
+        
+        # Processa solo le nuove linee di output
+        $newOutputLines = $currentJobOutput | Select-Object -Skip $Global:LastJobOutputCount
+        if ($newOutputLines.Count -gt 0) {
+            $window.Dispatcher.Invoke([Action] {
+                    foreach ($line in ($newOutputLines | Out-String -Stream)) {
+                        if ($line.Trim()) {
+                            # NEW: Handle WINTOOLKIT_STYLED_MESSAGE_TAG
+                            if ($line -match '\[WINTOOLKIT_STYLED_MESSAGE_TAG\]\s*(?<Type>\w+)\s*:\s*(?<Text>.*)') {
+                                $outputType = $matches.Type
+                                $messageText = $matches.Text
+                                $guiColor = switch -Wildcard ($outputType.ToLower()) {
+                                    "error" { "#FF5555" }
+                                    "warning" { "#FFB74D" }
+                                    "success" { "#4CAF50" }
+                                    "info" { "#00CED1" }
+                                    "progress" { "#2196F3" }
+                                    default { "#FFFFFF" }
+                                }
+                                Write-UnifiedLog -Type $outputType -Message $messageText -GuiColor $guiColor
+                                continue
+                            }
+                            # NEW: Handle WINTOOLKIT_PROGRESS_TAG
+                            if ($line -match '\[WINTOOLKIT_PROGRESS_TAG\].*Percent:\s*(?<Percent>\d+)%') {
+                                $percent = [int]$matches.Percent
+                                $window.Dispatcher.Invoke([Action] { $progressBar.Value = $percent })
+                                continue
+                            }
+                            # NEW: Handle GUI_SHIM messages
+                            if ($line -match '\[GUI_SHIM\]\s*(?<Text>.*)') {
+                                Write-UnifiedLog -Type 'Info' -Message "Shimmed: $($matches.Text)" -GuiColor "#808080"
+                                continue
+                            }
+                            # Filtra banner e output non desiderato
+                            $skipLine = $false
+                            
+                            # Pattern per banner ASCII e linee decorative
+                            $bannerPatterns = @(
+                                '═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════',
+                                '__        __  _  _   _',
+                                '\\ \\      / / | || \\ | |',
+                                '__   __  / /  | || . ` | |',
+                                '   |/  \|/|  | || |\  | |',
+                                '   |_||_| |_| |_||_| \_|',
+                                '╔═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗',
+                                '║',
+                                '╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝',
+                                '──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────',
+                                'WinToolkit - System Check',
+                                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+                                '\[Header\]',
+                                '╦.*╦',
+                                '╠.*╣',
+                                '╩.*╩'
+                            )
+                            
+                            foreach ($pattern in $bannerPatterns) {
+                                if ($line -match $pattern) {
+                                    $skipLine = $true
+                                    break
+                                }
+                            }
+                            
+                            if ($skipLine) {
+                                continue
+                            }
+                            
+                            # Tenta di rilevare messaggi di progresso o errori per colorazione
+                            $outputType = 'Info'
+                            $guiColor = "#FFFFFF" # Colore di default
+                            if ($line -match 'ERROR|FAILED|ERR|FALLITO|CRITICAL') { $outputType = 'Error'; $guiColor = "#FF5555" }
+                            elseif ($line -match 'WARNING|WARN|ATTENZIONE') { $outputType = 'Warning'; $guiColor = "#FFB74D" }
+                            elseif ($line -match 'SUCCESS|COMPLETED|FATTO|OK') { $outputType = 'Success'; $guiColor = "#4CAF50" }
+                            elseif ($line -match '\[INPUT\]|\[CHOICE\]|\[CONFIRM\]') { 
+                                # Rilevata richiesta di input interattivo
+                                $Global:IsInputWaiting = $true
+                                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Input interattivo rilevato: $line - Non supportato in modalità GUI, usando valori predefiniti" -GuiColor "#FFA500"
+                                continue 
+                            }
+
+                            Write-UnifiedLog -Type $outputType -Message $line.Trim() -GuiColor $guiColor
+                        }
+                    }
+                })
+            $Global:LastJobOutputCount = $currentJobOutput.Count
+        }
+    }
+    elseif ($Global:ScriptJob -and ($Global:ScriptJob.State -eq 'Completed' -or $Global:ScriptJob.State -eq 'Failed' -or $Global:ScriptJob.State -eq 'Stopped')) {
+        # Il job è terminato, non è più necessario il polling via timer per questo job
+        $Global:JobMonitorTimer.Stop() # Ferma il timer per prevenire ulteriori tick dopo la fine del job corrente
+        Process-JobCompletion -JobStatus $Global:ScriptJob.State -JobName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
+    }
+}
+
+# ExecuteButton Click Handler - Updated for async execution
+$executeButton.Add_Click({
         # Clear previous output
         $window.Dispatcher.Invoke([Action] {
                 $outputTextBox.Document.Blocks.Clear()
@@ -1486,9 +1975,9 @@ $executeButton.Add_Click({
         # Get selected scripts on UI thread - use recursive search
         $selectedScripts = @()
         $allCheckBoxes = Get-AllCheckBoxes -Container $actionsPanel
-        
+    
         Write-UnifiedLog -Type 'Info' -Message "🔍 Trovati $($allCheckBoxes.Count) checkbox totali" -GuiColor "#00CED1"
-        
+    
         foreach ($checkBox in $allCheckBoxes) {
             try {
                 if ($checkBox.IsChecked -eq $true) {
@@ -1506,149 +1995,25 @@ $executeButton.Add_Click({
 
         if ($selectedScripts.Count -eq 0) {
             Write-UnifiedLog -Type 'Warning' -Message "⚠️ Nessuno script selezionato" -GuiColor "#FFA500"
-            $executeButton.IsEnabled = $true
+            $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $true })
             return
         }
 
-        # CRITICAL: Load all tool scripts BEFORE execution to ensure functions are available in GLOBAL scope
-        Write-UnifiedLog -Type 'Info' -Message "🚀 Caricamento script tool in memoria (Global Scope)..." -GuiColor "#00CED1"
-        $scriptsLoaded = Load-AllToolScripts
-        Write-UnifiedLog -Type 'Info' -Message "📊 Caricati $scriptsLoaded script tool" -GuiColor "#00CED1"
-        
-        # Also load Core script in global scope if not already loaded
-        if ($Global:CoreScriptContent -and -not (Get-Command 'Get-SystemInfo' -ErrorAction SilentlyContinue)) {
-            Write-UnifiedLog -Type 'Info' -Message "🔌 Caricamento Core Script in Global Scope..." -GuiColor "#00CED1"
-            . $Global:CoreConfig.LocalCachePath
-        }
-        
-        # Get Core script content for job execution
-        $coreScriptContent = $Global:CoreScriptContent
-        
-        Write-UnifiedLog -Type 'Info' -Message "🚀 Esecuzione di $($selectedScripts.Count) script..." -GuiColor "#00CED1"
+        $Global:SelectedScriptsQueue = $selectedScripts
+        $Global:CurrentScriptIndex = 0
+        $Global:IsInputWaiting = $false # Reset input flag
+        $Global:RebootRequired = $false # Reset reboot flag
 
-        # Execute scripts synchronously on UI thread with progress updates
-        $totalScripts = $selectedScripts.Count
-        $scriptIndex = 0
-        
-        foreach ($scriptName in $selectedScripts) {
-            $scriptIndex++
-            $progressPercentage = [int]((($scriptIndex - 1) / $totalScripts) * 100)
-            
-            Write-UnifiedLog -Type 'Info' -Message "▶️ Avvio ($scriptIndex/$totalScripts): $scriptName" -GuiColor "#00CED1"
-            $progressBar.Value = $progressPercentage
-            
-            try {
-                # Check if command exists in current scope
-                $cmdExists = Get-Command $scriptName -ErrorAction SilentlyContinue
-                
-                if ($cmdExists) {
-                    # Get the tool script path
-                    $toolScriptPath = Join-Path $Global:ToolScriptsPath "$scriptName.ps1"
-                    $coreScriptPath = $Global:CoreConfig.LocalCachePath
-                    
-                    # Create a script block that executes the function
-                    # Scripts are already loaded in global scope, so no need to reload
-                    $scriptBlockText = @"
-`$ErrorActionPreference = 'Continue'
-& '$scriptName' 2>&1
-"@
-                    
-                    Write-UnifiedLog -Type 'Info' -Message "▶️ Esecuzione in corso: $scriptName" -GuiColor "#00CED1"
-                    Write-UnifiedLog -Type 'Info' -Message "   Core: $coreScriptPath" -GuiColor "#808080"
-                    Write-UnifiedLog -Type 'Info' -Message "   Tool: $toolScriptPath" -GuiColor "#808080"
-                    
-                    try {
-                        # Start job
-                        $job = Start-Job -ScriptBlock ([ScriptBlock]::Create($scriptBlockText)) -Name $scriptName -ErrorAction Stop
-                        
-                        # Poll job for output with timeout
-                        $jobRunning = $true
-                        $timeoutSeconds = 180
-                        $elapsed = 0
-                        $lastOutputTime = [DateTime]::Now
-                        $lastState = $job.State
-                        
-                        while ($jobRunning -and $elapsed -lt $timeoutSeconds) {
-                            # Check job state
-                            $currentState = $job.State
-                            
-                            if ($currentState -ne $lastState) {
-                                Write-UnifiedLog -Type 'Info' -Message "   Job state: $currentState" -GuiColor "#808080"
-                                $lastState = $currentState
-                            }
-                            
-                            if ($currentState -eq 'Completed') {
-                                $jobRunning = $false
-                                $jobOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue 2>&1
-                                $outputText = $jobOutput | Out-String
-                                if ($outputText.Trim()) {
-                                    foreach ($line in ($outputText | Out-String -Stream)) {
-                                        if ($line.Trim()) {
-                                            Write-UnifiedLog -Type 'Info' -Message $line.Trim() -GuiColor "#FFFFFF"
-                                        }
-                                    }
-                                }
-                                else {
-                                    Write-UnifiedLog -Type 'Warning' -Message "⚠️ Nessun output da $scriptName" -GuiColor "#FFA500"
-                                }
-                            }
-                            elseif ($currentState -eq 'Failed') {
-                                $jobRunning = $false
-                                $jobOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue 2>&1
-                                $errorMsg = $job.JobStateInfo.Reason?.Message
-                                if (-not $errorMsg -or $errorMsg -eq '') { $errorMsg = $jobOutput | Out-String }
-                                if (-not $errorMsg -or $errorMsg.Trim() -eq '') { $errorMsg = "Errore sconosciuto" }
-                                Write-UnifiedLog -Type 'Error' -Message "❌ $scriptName fallito: $errorMsg" -GuiColor "#FF0000"
-                            }
-                            elseif ($currentState -eq 'Stopped') {
-                                $jobRunning = $false
-                                Write-UnifiedLog -Type 'Warning' -Message "⚠️ $scriptName interrotto" -GuiColor "#FFA500"
-                            }
-                            
-                            if ($jobRunning) {
-                                Start-Sleep -Milliseconds 500
-                                $elapsed += 0.5
-                            }
-                        }
-                        
-                        # Handle timeout
-                        if ($jobRunning -and $elapsed -ge $timeoutSeconds) {
-                            Write-UnifiedLog -Type 'Warning' -Message "⏰ $scriptName timeout dopo ${timeoutSeconds}s" -GuiColor "#FFA500"
-                            Stop-Job -Job $job -ErrorAction SilentlyContinue | Out-Null
-                        }
-                        
-                        # Cleanup job
-                        Remove-Job -Job $job -ErrorAction SilentlyContinue | Out-Null
-                    }
-                    catch {
-                        Write-UnifiedLog -Type 'Error' -Message "❌ Errore avvio job $scriptName`: $($_.Exception.Message)" -GuiColor "#FF0000"
-                    }
-                    
-                    # Send Enter key between scripts if multiple scripts selected
-                    if ($scriptIndex -lt $totalScripts) {
-                        Write-UnifiedLog -Type 'Info' -Message "⏳ Attesa prossimo script..." -GuiColor "#FFA500"
-                        Start-Sleep -Milliseconds 500
-                    }
-                    
-                    Write-UnifiedLog -Type 'Success' -Message "✅ Completato: $scriptName" -GuiColor "#00FF00"
-                }
-                else {
-                    Write-UnifiedLog -Type 'Error' -Message "❌ Funzione non trovata: $scriptName" -GuiColor "#FF0000"
-                }
-            }
-            catch {
-                $errorMsg = $_.Exception.Message
-                Write-UnifiedLog -Type 'Error' -Message "❌ Errore in $scriptName`: $errorMsg" -GuiColor "#FF0000"
-            }
-            
-            # Update progress bar after each script
-            $progressPercentage = [int](($scriptIndex / $totalScripts) * 100)
-            $progressBar.Value = $progressPercentage
+        # Inizializza e avvia il timer se non già attivo
+        if (-not $Global:JobMonitorTimer) {
+            $Global:JobMonitorTimer = New-Object System.Windows.Threading.DispatcherTimer
+            $Global:JobMonitorTimer.Interval = New-Object System.TimeSpan (0, 0, 0, 0, 500) # 500ms
+            $Global:JobMonitorTimer.Add_Tick({ Tick_JobMonitor })
         }
+        $Global:JobMonitorTimer.Start()
 
-        Write-UnifiedLog -Type 'Success' -Message "🎉 Tutti gli script sono stati eseguiti" -GuiColor "#00FF00"
-        $progressBar.Value = 100
-        $executeButton.IsEnabled = $true
+        # Avvia il primo script
+        Start-NextScriptJob -scriptName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
     })
 
 # Add SendErrorLogs button click handler
@@ -1660,6 +2025,42 @@ $SendErrorLogsButton.Add_Click({
             Write-UnifiedLog -Type 'Error' -Message "❌ Errore invio log: $($_.Exception.Message)" -GuiColor "#FF0000"
         }
     })
+
+# =============================================================================
+# CONSOLE MINIMIZATION HELPER
+# =============================================================================
+
+function Minimize-Console {
+    <#
+    .SYNOPSIS
+        Minimizza la finestra della console PowerShell.
+    #>
+    try {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class WindowHelper {
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    
+    public const int SW_MINIMIZE = 2;
+    
+    public static void Minimize() {
+        IntPtr handle = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+        if (handle != IntPtr.Zero) {
+            ShowWindow(handle, SW_MINIMIZE);
+        }
+    }
+}
+"@ -ReferencedAssemblies System.Windows.Forms
+        
+        [WindowHelper]::Minimize()
+        Write-Host "Console minimized" -ForegroundColor Cyan
+    }
+    catch {
+        Write-Host "Could not minimize console (non-critical)" -ForegroundColor Yellow
+    }
+}
 
 # =============================================================================
 # INITIALIZATION AND DISPLAY
@@ -1676,6 +2077,9 @@ Write-UnifiedLog -Type 'Success' -Message "🎉 WinToolkit GUI v2.0 inizializzat
 Write-UnifiedLog -Type 'Info' -Message "📌 Core Version: $Global:CoreScriptVersion" -GuiColor "#00CED1"
 Write-UnifiedLog -Type 'Info' -Message "💡 Seleziona uno o più script e premi 'Esegui'" -GuiColor "#00CED1"
 
+# Minimize console
+Minimize-Console
+
 # Show window
 $window.ShowDialog() | Out-Null
 
@@ -1684,3 +2088,4 @@ try {
     Stop-Transcript -ErrorAction SilentlyContinue
 }
 catch {}
+
