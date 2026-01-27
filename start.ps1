@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.0 (Build 237) - 2026-01-25
+    Versione 2.5.1 (Build 7) - 2026-01-27
     Compatibile con PowerShell 5.1+
 #>
 
@@ -14,7 +14,14 @@
 # ============================================================================
 
 $script:AppConfig = @{
-    URLs  = @{
+    # ============================================================================
+    # HEADER CONFIGURATION - Modifica qui per aggiornare titolo e versione
+    # ============================================================================
+    Header = @{
+        Title   = "Toolkit Starter By MagnetarMan"
+        Version = "Version 2.5.1 (Build 7)"
+    }
+    URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
@@ -25,7 +32,7 @@ $script:AppConfig = @{
         ToolkitIcon             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
         TerminalRelease         = "https://api.github.com/repos/microsoft/terminal/releases/latest"
     }
-    Paths = @{
+    Paths  = @{
         Logs          = "$env:LOCALAPPDATA\WinToolkit\logs"
         WinToolkitDir = "$env:LOCALAPPDATA\WinToolkit"
         Temp          = "$env:TEMP\WinToolkitSetup"
@@ -822,7 +829,7 @@ function Invoke-WinToolkitSetup {
         Write-StyledMessage -Type Warning -Text "Errore avvio logging: $($_.Exception.Message)"
     }
 
-    Show-Header -Title "Toolkit Starter By MagnetarMan" -Version "Version 2.5.0 (Build 237)"
+    Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
 
     Write-StyledMessage -Type Info -Text "PowerShell: $($PSVersionTable.PSVersion)"
     if ($PSVersionTable.PSVersion.Major -lt 7) {
