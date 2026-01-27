@@ -111,8 +111,6 @@ $SysInfoRAM = $null
 $SysInfoDisk = $null
 $SysInfoScriptCompatibility = $null
 $SysInfoBitlocker = $null
-$ScriptStatusIcon = $null
-$ScriptCompatibilityIndicator = $null
 $progressBar = $null
 $actionsPanel = $null
 
@@ -511,60 +509,63 @@ function Get-AllCheckBoxes {
 function Send-ErrorLogs {
     <#
     .SYNOPSIS
-        Genera e invia i log degli errori.
+        Genera e invia i log degli errori SPECIFICI DELLA GUI e eventuali log recenti del Core
+        per facilitare la segnalazione di bug della GUI.
     #>
     try {
-        Write-UnifiedLog -Type 'Info' -Message "📦 Preparazione log errori..." -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message "📦 Preparazione log errori GUI per la segnalazione..." -GuiColor "#00CED1"
         
-        # Esegui la funzione WinExportLog se disponibile
-        if (Get-Command 'WinExportLog' -ErrorAction SilentlyContinue) {
-            try {
-                WinExportLog
-                Write-UnifiedLog -Type 'Success' -Message "✅ WinExportLog eseguita con successo" -GuiColor "#00FF00"
-            }
-            catch {
-                Write-UnifiedLog -Type 'Warning' -Message "⚠️ WinExportLog ha generato un errore: $($_.Exception.Message)" -GuiColor "#FFA500"
-            }
+        # Includi il log principale della GUI e i transcript più recenti del Core
+        $recentLogFiles = @($mainLog) # Il log della GUI stessa
+        
+        # Cerca i log più recenti dal Core nella directory AppData
+        $coreLogDir = "$env:LOCALAPPDATA\WinToolkit\logs"
+        if (Test-Path $coreLogDir) {
+            # Seleziona gli ultimi 3 log del Core (escludendo quello della GUI se presente due volte)
+            $coreTranscripts = Get-ChildItem -Path $coreLogDir -Filter "*.log" -ErrorAction SilentlyContinue |
+            Sort-Object -Property LastWriteTime -Descending | Select-Object -First 3
+            $recentLogFiles += $coreTranscripts.FullName | Where-Object { $_ -ne $mainLog }
         }
-        else {
-            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Funzione WinExportLog non disponibile" -GuiColor "#FFA500"
-        }
-        
-        # Trova i file log più recenti
-        $logFiles = Get-ChildItem -Path $LogDirectory -Filter "*.log" -ErrorAction SilentlyContinue | 
-        Sort-Object -Property LastWriteTime -Descending | 
-        Select-Object -First 5
-        
-        if (-not $logFiles) {
-            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Nessun file log trovato" -GuiColor "#FFA500"
+        $recentLogFiles = $recentLogFiles | Select-Object -Unique # Rimuovi duplicati
+
+        if (-not $recentLogFiles) {
+            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Nessun file log della GUI o del Core trovato per la segnalazione." -GuiColor "#FFA500"
             return
         }
         
-        # Crea contenuto combinato dei log
+        # Crea il contenuto combinato dei log
         $logContent = "=" * 60 + "`n"
-        $logContent += "WinToolkit Error Report`n"
+        $logContent += "WinToolkit GUI Error Report`n"
         $logContent += "Data: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n"
+        $logContent += "Versione GUI: $Global:GuiVersion`n"
         $logContent += "Versione Core: $Global:CoreScriptVersion`n"
         $logContent += "=" * 60 + "`n`n"
         
-        foreach ($logFile in $logFiles) {
-            $logContent += "--- $($logFile.Name) ---`n"
-            $logContent += Get-Content -Path $logFile.FullName -ErrorAction SilentlyContinue -Raw
+        foreach ($logFile in $recentLogFiles) {
+            $logContent += "--- $($logFile | Split-Path -Leaf) ---`n"
+            $logContent += (Get-Content -Path $logFile -ErrorAction SilentlyContinue -Raw)
             $logContent += "`n`n"
         }
         
-        # Salva report temporaneo
-        $tempReport = "$env:TEMP\WinToolkit_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
-        $logContent | Out-File -FilePath $tempReport -Encoding UTF8 -Force
+        # Salva il report temporaneo
+        $tempReportPath = Join-Path $env:TEMP "WinToolkit_GUI_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+        $logContent | Out-File -FilePath $tempReportPath -Encoding UTF8 -Force
         
         # Comprimi il report in ZIP sul Desktop
-        $zipPath = "$env:USERPROFILE\Desktop\WinToolkit_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').zip"
+        $zipPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "WinToolkit_GUI_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').zip"
         if (Get-Command 'Compress-Archive' -ErrorAction SilentlyContinue) {
-            Compress-Archive -Path $tempReport -DestinationPath $zipPath -Force
-            Write-UnifiedLog -Type 'Success' -Message "✅ Report compresso: $zipPath" -GuiColor "#00FF00"
+            Compress-Archive -Path $tempReportPath -DestinationPath $zipPath -Force
+            Write-UnifiedLog -Type 'Success' -Message "✅ Report errori GUI compresso: $zipPath" -GuiColor "#00FF00"
         }
-        
-        Write-UnifiedLog -Type 'Success' -Message "✅ Report errori creato: $tempReport" -GuiColor "#00FF00"
+        else {
+            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Compress-Archive non disponibile. Report GUI salvato in: $tempReportPath" -GuiColor "#FFA500"
+            $zipPath = $tempReportPath # Se non si può zippare, usa il percorso del .txt per il messaggio finale
+        }
+
+        # Elimina il report temporaneo se è stato zippato con successo
+        if (Test-Path $tempReportPath -PathType Leaf) {
+            Remove-Item $tempReportPath -ErrorAction SilentlyContinue
+        }
         
         # Apri il browser predefinito alla pagina GitHub Issues
         try {
@@ -575,11 +576,11 @@ function Send-ErrorLogs {
             Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile aprire il browser: $($_.Exception.Message)" -GuiColor "#FFA500"
         }
         
-        # Scrivi messaggio verde e grassetto nel box Output
+        # Scrivi messaggio finale nel box Output
         $window.Dispatcher.Invoke([Action] {
                 $paragraph = New-Object System.Windows.Documents.Paragraph
                 $run = New-Object System.Windows.Documents.Run
-                $run.Text = "Invia l'archivio compresso sul tuo desktop su GitHub indicando le problematiche riscontrate in modo da migliorare il tool"
+                $run.Text = "Invia l'archivio sul tuo desktop ($zipPath) su GitHub indicando le problematiche riscontrate in modo da migliorare il tool"
                 $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#00FF00"))
                 $run.FontWeight = [System.Windows.FontWeights]::Bold
                 $paragraph.Inlines.Add($run)
@@ -590,7 +591,7 @@ function Send-ErrorLogs {
         Write-UnifiedLog -Type 'Success' -Message "🎉 Operazione completata!" -GuiColor "#00FF00"
     }
     catch {
-        Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante preparazione log: $($_.Exception.Message)" -GuiColor "#FF0000"
+        Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante la preparazione dei log GUI: $($_.Exception.Message)" -GuiColor "#FF0000"
     }
 }
 
@@ -607,19 +608,6 @@ function Send-ErrorLogs {
 
 # Initial load count is 0 since functions are loaded via Core Script
 $Global:ToolScriptsLoadedCount = 0
-
-function Check-Bitlocker {
-    <#
-    .SYNOPSIS
-        Controlla lo stato di Bitlocker.
-    #>
-    try {
-        $out = & manage-bde -status C: 2>&1
-        if ($out -match "Stato protezione:\s*(.*)") { return $matches[1].Trim() }
-        return "Non configurato"
-    }
-    catch { return "Disattivato" }
-}
 
 # =============================================================================
 # INITIALIZATION
@@ -708,7 +696,7 @@ try {
     # Recupera $menuStructure dopo il caricamento
     if ($menuStructure) {
         $Global:MenuStructure = $menuStructure
-        Write-UnifiedLog -Type 'Success' -Message "✅ \$menuStructure caricato (categorie: $($Global:MenuStructure.Count))" -GuiColor "#00FF00"
+        Write-UnifiedLog -Type 'Success' -Message "✅ Struttura del menu caricata (categorie: $($Global:MenuStructure.Count))" -GuiColor "#00FF00"
     }
     else {
         Write-UnifiedLog -Type 'Warning' -Message "⚠️ \$menuStructure non trovato dopo il caricamento" -GuiColor "#FFA500"
@@ -789,15 +777,6 @@ $xaml = @"
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-        </Style>
-        
-        <!-- CheckBox Style base (senza CornerRadius custom che causa problemi) -->
-        <Style x:Key="CheckBoxStyle" TargetType="CheckBox">
-            <Setter Property="Foreground" Value="{StaticResource LabelBlue}"/>
-            <Setter Property="Background" Value="Gray"/>
-            <Setter Property="BorderBrush" Value="{StaticResource LabelBlue}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="4"/>
         </Style>
     </Window.Resources>
 
@@ -1167,25 +1146,22 @@ $SysInfoComputerName = $window.FindName("SysInfoComputerName")
 $SysInfoRAM = $window.FindName("SysInfoRAM")
 $SysInfoDisk = $window.FindName("SysInfoDisk")
 $SysInfoScriptCompatibility = $window.FindName("SysInfoScriptCompatibility")
-$ScriptCompatibilityLED = $window.FindName("ScriptCompatibilityLED")
-$progressBar = $window.FindName("MainProgressBar")
+$SysInfoBitlocker = $window.FindName("SysInfoBitlocker")
+$ScriptStatusIcon = $window.FindName("ScriptStatusIcon")
+$BitlockerImage = $window.FindName("BitlockerImage")
 $SysInfoEditionImage = $window.FindName("SysInfoEditionImage")
 $SysInfoVersionImage = $window.FindName("SysInfoVersionImage")
 $SysInfoArchitectureImage = $window.FindName("SysInfoArchitectureImage")
-$SysInfoScriptImage = $window.FindName("SysInfoScriptImage")
 $SysInfoComputerNameImage = $window.FindName("SysInfoComputerNameImage")
 $SysInfoRAMImage = $window.FindName("SysInfoRAMImage")
 $SysInfoDiskImage = $window.FindName("SysInfoDiskImage")
 $SendErrorLogsButton = $window.FindName("SendErrorLogsButton")
 $SendErrorLogsImage = $window.FindName("SendErrorLogsImage")
-$ScriptStatusIcon = $window.FindName("ScriptStatusIcon")
-$BitlockerImage = $window.FindName("BitlockerImage")
-$BitlockerLED = $window.FindName("BitlockerLED")
-$SysInfoBitlocker = $window.FindName("SysInfoBitlocker")
 $ToolIconImage = $window.FindName("ToolIconImage")
 $ExecuteButtonImage = $window.FindName("ExecuteButtonImage")
 $CategorySystemImage = $window.FindName("CategorySystemImage")
 $OutputLogImage = $window.FindName("OutputLogImage")
+$progressBar = $window.FindName("MainProgressBar")
 
 # Setup ExecuteButton con nuovo stile e inizializza icone
 try {
@@ -1275,73 +1251,34 @@ function Update-SystemInformationPanel {
                     Write-UnifiedLog -Type 'Warning' -Message "⚠️ Could not load some icons: $($_.Exception.Message)" -GuiColor "#FFA500"
                 }
 
-                # Task 2: Compatibility indicator con LED colorato (Solo "Completa", "Limitata", "Non supportata")
-                $ledColor = $null
+                # Task 2: Compatibility indicator con status text colorato
                 $statusText = ""
-                $ledBrush = $null
             
                 if ($sysInfo.BuildNumber -ge 22000) {
-                    $ledBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                     $statusText = "Completa"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                 }
                 elseif ($sysInfo.BuildNumber -ge 17763) {
-                    $ledBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                     $statusText = "Completa"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                 }
                 elseif ($sysInfo.BuildNumber -ge 10240) {
-                    $ledBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
                     $statusText = "Limitata"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
                 }
                 else {
-                    $ledBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                     $statusText = "Non supportata"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                 }
             
                 $SysInfoScriptCompatibility.Text = $statusText
             
-                # Aggiorna il colore del LED (UNICO indicatore visivo)
-                if ($ScriptCompatibilityLED) {
-                    try {
-                        $ScriptCompatibilityLED.Fill = $ledBrush
-                    }
-                    catch {
-                        # Fallback: usa il colore predefinito
-                    }
-                }
+
             
                 # Aggiorna stato Bitlocker
                 try {
                     $blStatus = CheckBitlocker
                     $SysInfoBitlocker.Text = $blStatus
-                
-                    # Colore in base allo stato (VERDE se disattivato, ROSSO se attivato)
-                    $bitlockerLedBrush = $null
-                    if ($blStatus -match 'Disattivato|Non configurato|Off') {
-                        $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
-                        $bitlockerLedBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
-                    }
-                    elseif ($blStatus -match 'Sospeso') {
-                        $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
-                        $bitlockerLedBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
-                    }
-                    else {
-                        $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
-                        $bitlockerLedBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
-                    }
-                
-                    # Aggiorna LED Bitlocker
-                    if ($BitlockerLED) {
-                        try {
-                            $BitlockerLED.Fill = $bitlockerLedBrush
-                        }
-                        catch {
-                            # Fallback: usa il colore predefinito
-                        }
-                    }
                 
                     # Carica icona Bitlocker
                     if ($BitlockerImage) {
@@ -1834,10 +1771,10 @@ function Process-JobCompletion {
             $Global:CurrentScriptIndex++
             if ($Global:SelectedScriptsQueue.Count -gt 0) {
                 $progressPercentage = [int]((($Global:CurrentScriptIndex) / $Global:SelectedScriptsQueue.Count) * 100)
-                $progressBar.Value = $progressPercentage
+                if ($progressBar) { $progressBar.Value = $progressPercentage }
             }
             else {
-                $progressBar.Value = 100
+                if ($progressBar) { $progressBar.Value = 100 }
             }
 
             # Se ci sono altri script in coda, avvia il prossimo
@@ -1853,7 +1790,7 @@ function Process-JobCompletion {
                 }
                 $executeButton.IsEnabled = $true
                 Write-UnifiedLog -Type 'Success' -Message "🎉 Tutti gli script sono stati eseguiti" -GuiColor "#00FF00"
-                $progressBar.Value = 100 # Assicura che sia 100% alla fine
+                if ($progressBar) { $progressBar.Value = 100 } # Assicura che sia 100% alla fine
             
                 # Check for reboot requirement (moved here from Tick_JobMonitor)
                 if ($Global:RebootRequired) {
@@ -1896,7 +1833,9 @@ function Tick_JobMonitor {
                             # NEW: Handle WINTOOLKIT_PROGRESS_TAG
                             if ($line -match '\[WINTOOLKIT_PROGRESS_TAG\].*Percent:\s*(?<Percent>\d+)%') {
                                 $percent = [int]$matches.Percent
-                                $window.Dispatcher.Invoke([Action] { $progressBar.Value = $percent })
+                                $window.Dispatcher.Invoke([Action] { 
+                                        if ($progressBar) { $progressBar.Value = $percent }
+                                    })
                                 continue
                             }
                             # NEW: Handle GUI_SHIM messages
