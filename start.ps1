@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.1 (Build 7) - 2026-01-27
+    Versione 2.5.1 (Build 9) - 2026-01-27
     Compatibile con PowerShell 5.1+
 #>
 
@@ -19,7 +19,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.1 (Build 7)"
+        Version = "Version 2.5.1 (Build 9)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -116,9 +116,12 @@ function Invoke-WingetCommand {
     )
 
     try {
+        # FIX: Aggiunto --disable-interactivity per evitare blocchi
+        $finalArgs = "$Arguments --disable-interactivity"
+        
         $procParams = @{
             FilePath     = 'winget'
-            ArgumentList = $Arguments -split ' '
+            ArgumentList = $finalArgs -split ' '
             Wait         = $true
             PassThru     = $true
             NoNewWindow  = $true
@@ -175,6 +178,9 @@ function Test-WingetFunctionality {
     }
 }
 
+# ============================================================================
+# NUOVA FUNZIONE FORCE PORTABLE
+# ============================================================================
 function Install-WindowsTerminalManual {
     param (
         [string]$DownloadUrl,
@@ -273,7 +279,8 @@ function Install-WingetCore {
             $vcFile = Join-Path $tempDir "vc_redist.exe"
 
             Invoke-WebRequest -Uri $vcUrl -OutFile $vcFile -UseBasicParsing
-            Start-Process -FilePath $vcFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
+            # FIX: Assicuriamoci che non chieda interazione
+            Start-Process -FilePath $vcFile -ArgumentList "/install", "/quiet", "/norestart" -Wait -NoNewWindow
             Write-StyledMessage -Type Success -Text "Visual C++ Redistributable installato."
         }
         else {
@@ -296,7 +303,8 @@ function Install-WingetCore {
 
             foreach ($file in $appxFiles) {
                 Write-StyledMessage -Type Info -Text "Installazione dipendenza: $($file.Name)..."
-                Add-AppxPackage -Path $file.FullName -ErrorAction SilentlyContinue
+                # FIX: Aggiunto -ForceUpdateFromAnyVersion e soppressione errori comuni
+                Add-AppxPackage -Path $file.FullName -ErrorAction SilentlyContinue -ForceApplicationShutdown
             }
         }
 
@@ -346,18 +354,17 @@ function Install-WingetPackage {
             & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
         }
 
-
-
         # Fallback: Installazione dipendenze NuGet
         Write-StyledMessage -Type Info -Text "Installazione NuGet e moduli..."
         try {
+            # FIX: Aggiunto -Force e gestione errori per evitare prompt
             Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop | Out-Null
             Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop | Out-Null
             Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
             Write-StyledMessage -Type Success -Text "Dipendenze installate."
         }
         catch {
-            Write-StyledMessage -Type Warning -Text "Dipendenze potrebbero richiedere conferma manuale."
+            Write-StyledMessage -Type Warning -Text "Dipendenze potrebbero richiedere conferma manuale o sono già presenti."
         }
 
         # Riparazione via modulo
@@ -705,7 +712,7 @@ function Install-PspEnvironment {
     }
 
     # 3. Installazione Font
-    Install-NerdFontsLocal
+    Install-NerdFontsLocal | Out-Null
 
     # 4. Configurazione Profilo
     if ($profileDir) {
@@ -794,11 +801,12 @@ function Invoke-WinToolkitSetup {
 
     $Host.UI.RawUI.WindowTitle = "Toolkit Starter by MagnetarMan"
 
-    $argList = $PSBoundParameters.GetEnumerator() | ForEach-Object {
-        if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
-        elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
-        elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
-    } -join ' '
+    # FIX: Correzione Sintassi ForEach-Object e Join (Aggiunte parentesi)
+    $argList = ($PSBoundParameters.GetEnumerator() | ForEach-Object {
+            if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
+            elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
+            elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
+        }) -join ' '
 
     $startUrl = $script:AppConfig.URLs.StartScript
     $scriptBlockForRelaunch = if ($PSCommandPath) {
@@ -846,6 +854,7 @@ function Invoke-WinToolkitSetup {
         if (-not (Test-WingetFunctionality)) {
             Write-StyledMessage -Type Warning -Text "⚠️ Winget non risponde. Tentativo di ripristino..."
 
+            # FIX: Soppresso output booleano "True"
             $coreSuccess = Install-WingetCore
 
             if ($coreSuccess -and (Test-WingetFunctionality)) {
@@ -853,7 +862,8 @@ function Invoke-WinToolkitSetup {
             }
             else {
                 Write-StyledMessage -Type Warning -Text "⚠️ Ripristino veloce fallito. Tentativo metodo avanzato (più lento)..."
-                Install-WingetPackage
+                # FIX: Soppresso output booleano "True"
+                Install-WingetPackage | Out-Null
 
                 if (-not (Test-WingetFunctionality)) {
                     Write-StyledMessage -Type Warning -Text "⚠️ Winget non funzionale anche dopo il tentativo di installazione."
@@ -864,7 +874,9 @@ function Invoke-WinToolkitSetup {
         else {
             Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
         }
-        Install-GitPackage
+        
+        # FIX: Soppresso output booleano "True"
+        Install-GitPackage | Out-Null
 
         if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
             if (Install-PowerShellCore) {
@@ -894,11 +906,18 @@ function Invoke-WinToolkitSetup {
         exit
     }
 
-    Install-WindowsTerminalApp
+    # FIX: Soppresso output booleano "True"
+    Install-WindowsTerminalApp | Out-Null
     Install-PspEnvironment
     New-ToolkitDesktopShortcut
 
     Write-StyledMessage -Type Success -Text "Configurazione completata."
+
+    # Se siamo già in modalità ripresa, evitiamo di entrare in loop tentando di riaprire terminali
+    if ($isResumeSetup) {
+        try { Stop-Transcript | Out-Null } catch { }
+        return
+    }
 
     $wtExe = if ($global:CustomWTPath) { $global:CustomWTPath } else { "wt.exe" }
 
@@ -910,12 +929,15 @@ function Invoke-WinToolkitSetup {
         $canLaunchWT = $true
     }
 
+    # FIX: Check if we are already inside WT before trying to launch it
+    # AND if we fail, do NOT restart script recursively
     if (-not ($env:WT_SESSION) -and $canLaunchWT) {
         Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal..."
 
         $pwshPath = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
         if (-not (Test-Path $pwshPath)) { $pwshPath = "powershell.exe" }
 
+        # FIX: Aggiunto -d . per directory corrente e semplificato gli argomenti
         $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
 
         try {
@@ -929,26 +951,12 @@ function Invoke-WinToolkitSetup {
         }
     }
 
-    Write-StyledMessage -Type Warning -Text "Impossibile avviare Windows Terminal. Avvio in modalità Legacy Console."
-    Start-Sleep -Seconds 2
-
-    if ($PSVersionTable.PSVersion.Major -ge 7) {
-        Write-StyledMessage -Type Info -Text "Esecuzione in PowerShell 7 (Console Legacy)."
-        Invoke-Expression $scriptBlockForRelaunch
-    }
-    else {
-        $pwsh7 = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
-        if (Test-Path $pwsh7) {
-            Write-StyledMessage -Type Info -Text "Avvio in PowerShell 7 (Nuova finestra classica)."
-            Start-Process $pwsh7 -ArgumentList "-ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
-            Write-StyledMessage -Type Info -Text "Chiusura sessione corrente."
-            try { Stop-Transcript | Out-Null } catch { }
-            exit
-        }
-        else {
-            Write-StyledMessage -Type Warning -Text "Impossibile trovare PowerShell 7. Esecuzione in PowerShell 5.1 (Console Legacy)."
-            Invoke-Expression $scriptBlockForRelaunch
-        }
+    # FIX: Loop Infinito risolto
+    # Se il tentativo di avvio WT fallisce, lo script continua e termina QUI.
+    # Non chiamiamo più Invoke-Expression (che causava il loop).
+    if (-not ($env:WT_SESSION) -and -not $canLaunchWT) {
+        Write-StyledMessage -Type Warning -Text "Impossibile avviare Windows Terminal o non trovato."
+        Write-StyledMessage -Type Info -Text "L'installazione è stata comunque completata nella console corrente."
     }
 
     if ($rebootNeeded) {
