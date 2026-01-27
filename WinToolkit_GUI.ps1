@@ -18,7 +18,7 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "2.5.1 (Build 70)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "2.5.1 (Build 90)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
@@ -124,6 +124,10 @@ $Global:IsInputWaiting = $false
 $Global:RebootRequired = $false
 $Global:NeedsFinalReboot = $false
 
+# Global variables to optimize RichTextBox logging
+$Global:LastLogEntryType = $null
+$Global:LastLogParagraphRef = $null
+
 # =============================================================================
 # CORE INTEGRATION CONFIGURATION
 # =============================================================================
@@ -150,56 +154,75 @@ $Global:MenuStructure = @() # Sarà popolato dal Core
 function Write-UnifiedLog {
     param(
         [Parameter(Mandatory = $true)][string]$Message,
-        [Parameter(Mandatory = $true)][string]$Type, # 'Info', 'Warning', 'Error', 'Success'
-        [string]$GuiColor = "#FFFFFF"
+        [Parameter(Mandatory = $true)][string]$Type, # 'Info', 'Warning', 'Error', 'Success', 'Progress'
+        [string]$GuiColor = "#FFFFFF" # Default if not determined by Type
     )
 
     $consoleColors = @{
-        Info    = 'Cyan'
-        Warning = 'Yellow'
-        Error   = 'Red'
-        Success = 'Green'
+        Info     = 'Cyan'
+        Warning  = 'Yellow'
+        Error    = 'Red'
+        Success  = 'Green'
+        Progress = 'Magenta'
     }
 
     $currentDateTime = Get-Date -Format 'HH:mm:ss'
-    $formattedMessage = "[$Type] $Message"
+    $logPrefix = "[$currentDateTime] [$Type]"
+    $formattedMessage = "$logPrefix $Message"
 
-    # Write to GUI OutputTextBox (if available) - With improved parsing
+    # Write to console (unchanged)
+    try {
+        Write-Host "$formattedMessage" -ForegroundColor $consoleColors[$Type]
+    }
+    catch {
+        # Silently fail console output
+    }
+
+    # Write to GUI OutputTextBox (if available)
     if ($outputTextBox -and $window -and $window.Dispatcher) {
         try {
             $window.Dispatcher.Invoke([Action] {
-                    # Create styled paragraph
-                    $paragraph = New-Object System.Windows.Documents.Paragraph
-                    $paragraph.Margin = New-Object System.Windows.Thickness(0, 2, 0, 2)
-                    
-                    # Parse message for special patterns and apply colors
-                    $run = New-Object System.Windows.Documents.Run
-                    $run.Text = "${currentDateTime}: $formattedMessage"
-                    
-                    # Set color based on type
+                    # Determine Foreground Color and FontWeight based on Type
+                    $runForeground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($GuiColor))
+                    $runFontWeight = [System.Windows.FontWeights]::Normal
+                
                     switch -Wildcard ($Type.ToLower()) {
-                        "error" { $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#FF5555")); $run.FontWeight = [System.Windows.FontWeights]::Bold }
-                        "warning" { $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#FFB74D")) }
-                        "success" { $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#4CAF50")); $run.FontWeight = [System.Windows.FontWeights]::Bold }
-                        default { $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($GuiColor)) }
+                        "error" { $runForeground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#FF5555")); $runFontWeight = [System.Windows.FontWeights]::Bold }
+                        "warning" { $runForeground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#FFB74D")) }
+                        "success" { $runForeground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#4CAF50")); $runFontWeight = [System.Windows.FontWeights]::Bold }
+                        "progress" { $runForeground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#2196F3")) }
+                        default { } # Defaults to GuiColor or falls through
                     }
+
+                    $paragraph = $Global:LastLogParagraphRef
+
+                    # Create a new paragraph if:
+                    # 1. It's the very first message.
+                    # 2. The message Type has changed since the last message.
+                    # 3. The last paragraph reference is invalid or not a Paragraph (e.g., after Clear()).
+                    if (-not $paragraph -or ($Type -ne $Global:LastLogEntryType) -or (-not ($paragraph -is [System.Windows.Documents.Paragraph]))) {
+                        $paragraph = New-Object System.Windows.Documents.Paragraph
+                        $paragraph.Margin = New-Object System.Windows.Thickness(0, 2, 0, 2)
+                        $outputTextBox.Document.Blocks.Add($paragraph)
                     
+                        # Update global tracking variables
+                        $Global:LastLogParagraphRef = $paragraph
+                        $Global:LastLogEntryType = $Type
+                    }
+
+                    # Create a Run for the current message
+                    $run = New-Object System.Windows.Documents.Run
+                    $run.Text = "${formattedMessage}" + "`n" # Add newline at the end of each run for visual separation
+                    $run.Foreground = $runForeground
+                    $run.FontWeight = $runFontWeight
+                
                     $paragraph.Inlines.Add($run)
-                    $outputTextBox.Document.Blocks.Add($paragraph)
                     $outputTextBox.ScrollToEnd()
                 })
         }
         catch {
             # Silently fail GUI logging if there are issues
         }
-    }
-
-    # Write to console
-    try {
-        Write-Host $formattedMessage -ForegroundColor $consoleColors[$Type]
-    }
-    catch {
-        # Silently fail console output
     }
 }
 
@@ -237,19 +260,27 @@ function Initialize-CoreScript {
 
         $coreContent = $null
         $usedCache = $false
-        $localCoreVersion = [version]"0.0.0" # Default low version
+        $localCoreNumericVersion = [version]"0.0.0" # Versione numerica per il confronto
+        $localCoreFullVersion = "Unknown" # Stringa di versione completa per la visualizzazione
 
         # 1. Recupera la versione del Core Script locale (se esiste la cache)
         if (Test-Path $Global:CoreConfig.LocalCachePath) {
             try {
-                # Leggi solo le prime linee per efficienza
-                $localCacheContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8 -ReadCount 50 
-                if ($localCacheContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
-                    $localCoreVersion = [version]$matches[1]
-                    Write-UnifiedLog -Type 'Info' -Message "📌 Versione Core locale trovata: $localCoreVersion" -GuiColor "#00CED1"
+                # Leggi tutto il contenuto per maggiore robustezza
+                $localCacheRawContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
+                if ($localCacheRawContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+                    $localCoreFullVersion = $matches[1]
+                    # Estrai la parte numerica per il confronto (es. "2.5.1" da "2.5.1 (Build 6)")
+                    if ($localCoreFullVersion -match '(\d+(?:\.\d+){0,3})') {
+                        $localCoreNumericVersion = [version]$matches[1]
+                        Write-UnifiedLog -Type 'Info' -Message "📌 Versione Core locale trovata: $localCoreFullVersion (Numerica: $localCoreNumericVersion)" -GuiColor "#00CED1"
+                    }
+                    else {
+                        Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile estrarre la parte numerica dalla versione locale '$localCoreFullVersion'. Assumo 0.0.0 per confronto." -GuiColor "#FFA500"
+                    }
                 }
                 else {
-                    Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile estrarre versione dalla cache locale. Assumo 0.0.0" -GuiColor "#FFA500"
+                    Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile estrarre la versione dalla cache locale. Assumo 0.0.0 per confronto." -GuiColor "#FFA500"
                 }
             }
             catch {
@@ -258,23 +289,28 @@ function Initialize-CoreScript {
         }
 
         # 2. Recupera la versione del Core Script remoto
-        $remoteCoreVersion = [version]"0.0.0" # Default low version
+        $remoteCoreNumericVersion = [version]"0.0.0"
+        $remoteCoreFullVersion = "Unknown"
         Write-UnifiedLog -Type 'Info' -Message "📡 Recupero versione Core Script remota..." -GuiColor "#00CED1"
         try {
-            # Usa Invoke-RestMethod per ottenere un preview del contenuto e parsare la versione
-            $remoteContentPreview = (Invoke-RestMethod -Uri $Global:CoreConfig.RemoteUrl -UseBasicParsing -ErrorAction Stop) | Select-Object -First 50
-            if ($remoteContentPreview -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
-                $remoteCoreVersion = [version]$matches[1]
-                Write-UnifiedLog -Type 'Info' -Message "📌 Versione Core remota rilevata: $remoteCoreVersion" -GuiColor "#00CED1"
+            # Usa Invoke-RestMethod per ottenere il contenuto completo per un parsing robusto
+            $remoteRawContent = Invoke-RestMethod -Uri $Global:CoreConfig.RemoteUrl -UseBasicParsing -ErrorAction Stop
+            if ($remoteRawContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+                $remoteCoreFullVersion = $matches[1]
+                if ($remoteCoreFullVersion -match '(\d+(?:\.\d+){0,3})') {
+                    $remoteCoreNumericVersion = [version]$matches[1]
+                    Write-UnifiedLog -Type 'Info' -Message "📌 Versione Core remota rilevata: $remoteCoreFullVersion (Numerica: $remoteCoreNumericVersion)" -GuiColor "#00CED1"
+                }
+                else {
+                    Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile estrarre la parte numerica dalla versione remota '$remoteCoreFullVersion'. Assumo 0.0.0 per confronto." -GuiColor "#FFA500"
+                }
             }
             else {
-                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile estrarre versione remota dal Core Script. Assumo 0.0.0" -GuiColor "#FFA500"
+                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile estrarre versione remota dal Core Script. Assumo 0.0.0 per confronto." -GuiColor "#FFA500"
             }
         }
         catch {
-            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Fallito recupero versione remota: $($_.Exception.Message). Potrebbe essere necessario un download forzato." -GuiColor "#FFA500"
-            # Se non è possibile recuperare la versione remota, trattiamo la versione locale come l'ultima per evitare loop di download in caso di problemi di rete.
-            # Sarà gestito dalla logica di fallback alla cache se disponibile.
+            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Fallito recupero versione remota: $($_.Exception.Message). Potrebbe essere necessario un download forzato o fallback." -GuiColor "#FFA500"
         }
 
         # 3. Determina se è necessario scaricare il Core Script
@@ -291,8 +327,8 @@ function Initialize-CoreScript {
             Write-UnifiedLog -Type 'Info' -Message "📥 Nessuna cache locale trovata. Download forzato." -GuiColor "#00CED1"
             $shouldDownload = $true
         }
-        elseif ($remoteCoreVersion -gt $localCoreVersion) {
-            Write-UnifiedLog -Type 'Info' -Message "⬆️ Nuova versione Core ($remoteCoreVersion) disponibile (attuale: $localCoreVersion). Download in corso..." -GuiColor "#00CED1"
+        elseif ($remoteCoreNumericVersion -gt $localCoreNumericVersion) {
+            Write-UnifiedLog -Type 'Info' -Message "⬆️ Nuova versione Core ($remoteCoreFullVersion) disponibile (attuale: $localCoreFullVersion). Download in corso..." -GuiColor "#00CED1"
             $shouldDownload = $true
         }
         elseif ($cacheExpired) {
@@ -300,9 +336,10 @@ function Initialize-CoreScript {
             $shouldDownload = $true
         }
         else {
-            Write-UnifiedLog -Type 'Success' -Message "✅ Cache locale valida e aggiornata (v$localCoreVersion). Utilizzo cache." -GuiColor "#00FF00"
+            Write-UnifiedLog -Type 'Success' -Message "✅ Cache locale valida e aggiornata (v$localCoreFullVersion). Utilizzo cache." -GuiColor "#00FF00"
             $coreContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
             $usedCache = $true
+            $Global:CoreScriptVersion = $localCoreFullVersion
         }
 
         if ($shouldDownload) {
@@ -322,7 +359,7 @@ function Initialize-CoreScript {
                 Write-UnifiedLog -Type 'Success' -Message "✅ Core Script scaricato con successo" -GuiColor "#00FF00"
                 Write-UnifiedLog -Type 'Info' -Message "💾 Salvato in cache: $($Global:CoreConfig.LocalCachePath)" -GuiColor "#00CED1"
                 
-                # Estrai versione dal Core appena scaricato
+                # Estrai versione dal Core appena scaricato (stringa completa per display)
                 if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                     $Global:CoreScriptVersion = $matches[1]
                     Write-UnifiedLog -Type 'Success' -Message "📌 Versione Core scaricata: $Global:CoreScriptVersion" -GuiColor "#00FF00"
@@ -1078,7 +1115,7 @@ $xaml = @"
                                  Foreground="{StaticResource TextColor}"
                                  BorderBrush="{StaticResource BorderColor}"
                                  BorderThickness="1"
-                                 IsReadOnly="False"
+                                 IsReadOnly="True"
                                  FontFamily="{StaticResource PrimaryFont}"
                                  FontSize="14"/>
                 </Grid>
@@ -1273,8 +1310,6 @@ function Update-SystemInformationPanel {
             
                 $SysInfoScriptCompatibility.Text = $statusText
             
-
-            
                 # Aggiorna stato Bitlocker
                 try {
                     $blStatus = CheckBitlocker
@@ -1379,11 +1414,7 @@ function Update-ActionsPanel {
                         $scriptRow.Margin = '0,4,0,4'
                         $scriptRow.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
                     
-                        # CheckBox con:
-                        # - Foreground celeste (#4FC3F7)
-                        # - VerticalAlignment Center
-                        # - Margin 0,0,10,0
-                        # - Gray internal background con forma arrotondata
+                        # CheckBox
                         $checkBox = New-Object System.Windows.Controls.CheckBox
                         $checkBox.Name = "chk_$($script.Name.Replace(' ', '').Replace('-', '_'))"
                         $checkBox.Tag = $script.Name
@@ -1459,6 +1490,148 @@ function Get-ScriptEmoji {
 }
 
 # =============================================================================
+# HELPER FUNCTION: Filter and format job output
+# =============================================================================
+function Filter-AndFormatJobOutput {
+    param(
+        [string]$Line
+    )
+    
+    # Filtra messaggi vuoti o non significativi
+    if (-not $Line.Trim()) { return $false }
+    
+    # Handle WINTOOLKIT_STYLED_MESSAGE_TAG
+    if ($Line -match '\[WINTOOLKIT_STYLED_MESSAGE_TAG\]\s*(?<Type>\w+)\s*:\s*(?<Text>.*)') {
+        $outputType = $matches.Type
+        $messageText = $matches.Text
+        $guiColor = switch -Wildcard ($outputType.ToLower()) {
+            "error" { "#FF5555" }
+            "warning" { "#FFB74D" }
+            "success" { "#4CAF50" }
+            "info" { "#00CED1" }
+            "progress" { "#2196F3" }
+            default { "#FFFFFF" }
+        }
+        Write-UnifiedLog -Type $outputType -Message $messageText -GuiColor $guiColor
+        return $true
+    }
+    
+    # Handle WINTOOLKIT_PROGRESS_TAG
+    if ($Line -match '\[WINTOOLKIT_PROGRESS_TAG\].*Percent:\s*(?<Percent>\d+)%') {
+        $percent = [int]$matches.Percent
+        $window.Dispatcher.Invoke([Action] { 
+                if ($progressBar) { $progressBar.Value = $percent }
+            })
+        return $true
+    }
+    
+    # Handle WINTOOLKIT_INPUT_BYPASS_TAG (Nuovo)
+    if ($Line -match '\[WINTOOLKIT_INPUT_BYPASS_TAG\] Prompt:\s*(?<Prompt>.*)') {
+        $promptText = $matches.Prompt
+        Write-UnifiedLog -Type 'Info' -Message "ℹ️ Input interattivo bypassato per: '$promptText'. Scelta predefinita 'Y'." -GuiColor "#00CED1"
+        return $true
+    }
+    
+    # Handle WINTOOLKIT_COUNTDOWN_BYPASS_TAG (Nuovo)
+    if ($Line -match '\[WINTOOLKIT_COUNTDOWN_BYPASS_TAG\] Message:\s*(?<Message>.*)\s*\|\s*Seconds:\s*(?<Seconds>\d+)') {
+        $countdownMessage = $matches.Message
+        $countdownSeconds = $matches.Seconds
+        Write-UnifiedLog -Type 'Info' -Message "⏳ Conto alla rovescia bypassato: '$countdownMessage' ($countdownSeconds secondi)." -GuiColor "#00CED1"
+        return $true
+    }
+
+    # Handle WINTOOLKIT_CONFIRMATION_BYPASS_TAG (Nuovo)
+    if ($Line -match '\[WINTOOLKIT_CONFIRMATION_BYPASS_TAG\] Message:\s*(?<Message>.*)') {
+        $confirmationMessage = $matches.Message
+        Write-UnifiedLog -Type 'Info' -Message "✅ Conferma utente bypassata per: '$confirmationMessage'. Risposta predefinita 'Sì'." -GuiColor "#00CED1"
+        return $true
+    }
+    
+    # Handle WINTOOLKIT_RAW_HOST_OUTPUT_TAG
+    if ($Line -match '\[WINTOOLKIT_RAW_HOST_OUTPUT_TAG\](?<Text>.*)') {
+        $messageText = $matches.Text.Trim()
+        if (-not [string]::IsNullOrEmpty($messageText)) {
+            # Attempt to parse as a styled message (from Core's Write-Host that looks like Write-StyledMessage)
+            # Regex updated to include all common icons from Core's MsgStyles and various script rules
+            $styledRawPattern = "^\[(?<Timestamp>\d{2}:\d{2}:\d{2})\]\s*(?<Icon>[✅⚠️❌💎🔄🗂️📁🖨️📄🗑️💭⸏▶️💡⏰🎉💻📊⚙️🛡️🚀📡🔑⏳📦💽🕸️🖨️🎯🔕🔥✨📜💾💽🦊🌐])\s*(?<Rest>.*)$"
+            if ($messageText -match $styledRawPattern) {
+                $icon = $matches.Icon
+                $restOfText = $matches.Rest.Trim()
+                $type = 'Info' # Default, will try to infer more precisely
+                $guiColor = "#00CED1" # Default Info color
+
+                # Infer type and color from icon and keywords
+                switch ($icon) {
+                    '✅' { $type = 'Success'; $guiColor = "#4CAF50" }
+                    '⚠️' { $type = 'Warning'; $guiColor = "#FFB74D" }
+                    '❌' { $type = 'Error'; $guiColor = "#FF5555" }
+                    { $_ -in @('💎', 'ℹ️', '💡', '⚙️', '🔑', '⏳', '📦', '🚀', '🛡️', '💽', '🕸️', '🖨️', '🎯', '🔕', '🔥', '✨', '📜', '💾', '🦊', '🌐') } { $type = 'Info'; $guiColor = "#00CED1" }
+                    '🔄' { $type = 'Progress'; $guiColor = "#2196F3" }
+                }
+                # Also try to infer from keywords within the "Rest" part if icon mapping isn't precise
+                if ($type -eq 'Info') {
+                    if ($restOfText -match '(?i)ERROR|FAILED|ERR|FALLITO|CRITICAL') { $type = 'Error'; $guiColor = "#FF5555" }
+                    elseif ($restOfText -match '(?i)WARNING|WARN|ATTENZIONE|IMPOSSIBLE') { $type = 'Warning'; $guiColor = "#FFB74D" }
+                    elseif ($restOfText -match '(?i)SUCCESS|COMPLETED|FATTO|OK') { $type = 'Success'; $guiColor = "#4CAF50" }
+                }
+                Write-UnifiedLog -Type $type -Message "$icon $restOfText" -GuiColor $guiColor
+            }
+            # Handle special header/footer lines that don't have an icon but are clearly structured.
+            elseif ($messageText -match '^(?:={5,}|-{5,}|_={5,}|_\s*={5,}|╔|╚|═|─|━|┌|┐|└|┘|│|WinToolkit - System Check)') {
+                # Ignore decorative lines (or log as debug if needed), do not print them as raw GUI output
+            }
+            else {
+                # If it doesn't match the styled pattern, treat it as generic raw output with neutral color
+                Write-UnifiedLog -Type 'Info' -Message "$messageText" -GuiColor "#B0B0B0" # Neutral gray for truly raw output
+            }
+        }
+        return $true
+    }
+    
+    # Pattern per banner ASCII e linee decorative (consolidato e migliorato)
+    $bannerPatterns = @(
+        '^\s*═+\s*$', '^\s*─+\s*$', '^\s*—+\s*$', '^\s*━+\s*$',
+        '__        __  _  _   _',
+        '\\ \\      / / | || \\ | |',
+        '__   __  / /  | || . ` | |',
+        '   |/  \|/|  | || |\  | |',
+        '   |_||_| |_| |_||_| \_|',
+        '╔═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗',
+        '^\s*║',
+        '╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝',
+        '──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────',
+        'WinToolkit - System Check',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '\[Header\]',
+        '╦.*╦',
+        '╠.*╣',
+        '╩.*╩',
+        '^\*\*\*\*\*+'
+    )
+    
+    foreach ($pattern in $bannerPatterns) {
+        if ($Line -match $pattern) { return $false }
+    }
+
+    # Check for interactive input prompts
+    if ($Line -match '\[INPUT\]|\[CHOICE\]|\[CONFIRM\]|\?|\[Y/N\]|premi un tasto per continuare|vuoi rischiare') {
+        $Global:IsInputWaiting = $true
+        Write-UnifiedLog -Type 'Warning' -Message "⚠️ Input interattivo rilevato: $Line - Non supportato in modalità GUI." -GuiColor "#FFA500"
+        return $true
+    }
+    
+    # Default handling for any other output
+    $outputType = 'Info'
+    $guiColor = "#B0B0B0"
+    if ($Line -match '(?i)ERROR|FAILED|ERR|FALLITO|CRITICAL') { $outputType = 'Error'; $guiColor = "#FF5555" }
+    elseif ($Line -match '(?i)WARNING|WARN|ATTENZIONE|IMPOSSIBLE') { $outputType = 'Warning'; $guiColor = "#FFB74D" }
+    elseif ($Line -match '(?i)SUCCESS|COMPLETED|FATTO|OK') { $outputType = 'Success'; $guiColor = "#4CAF50" }
+
+    Write-UnifiedLog -Type $outputType -Message $Line.Trim() -GuiColor $guiColor
+    return $true
+}
+
+# =============================================================================
 # SCRIPT EXECUTION - ASYNCHRONOUS IMPLEMENTATION (Using DispatcherTimer)
 # =============================================================================
 
@@ -1483,103 +1656,12 @@ function Start-NextScriptJob {
     $jobScriptBlock = {
         param($CorePath, $CmdName, $MainLogDir)
         
-        # --- SHIM FUNCTIONS FOR GUI MODE (to prevent blocking or UI errors in job) ---
-        # These functions override interactive or console-UI dependent parts of the Core script.
-
-        # Shim Clear-Host to prevent clearing job output or causing errors in non-console host.
-        function Clear-Host { Write-Output "[GUI_SHIM] Clear-Host bypassed." }
-
-        # Shim Clear-ProgressLine. The original has a ConsoleHost check, but this ensures no raw UI access.
-        function Clear-ProgressLine { Write-Output "[GUI_SHIM] Clear-ProgressLine bypassed." }
-
-        # Shim Read-Host to provide default answers, preventing job blockage.
-        function Read-Host {
-            param([string]$Prompt)
-            Write-Warning "[GUI_SHIM] Interactive prompt bypassed for: '$Prompt'. Returning 'Y'."
-            return 'Y' # Default to 'Yes' for most confirmations/choices in GUI mode.
-        }
-
-        # Shim Start-InterruptibleCountdown to bypass user interaction and the console UI countdown.
-        function Start-InterruptibleCountdown {
-            param(
-                [int]$Seconds = 30,
-                [string]$Message = "Riavvio automatico",
-                [switch]$Suppress
-            )
-            Write-Output "[GUI_SHIM] Countdown bypassed for '$Message' (durata: $Seconds secondi)."
-            # Always return true to allow the calling function to proceed as if the countdown completed.
-            return $true 
-        }
-
-        # Shim Get-UserConfirmation to always confirm actions, preventing user interaction.
-        function Get-UserConfirmation {
-            param([string]$Message, [string]$DefaultChoice = 'N')
-            Write-Warning "[GUI_SHIM] Conferma utente bypassata per: '$Message'. Ritorno 'Sì'."
-            return $true # Assume 'Yes' for all user confirmations in GUI mode.
-        }
-
-        # Shim Show-Header to prevent raw console output (ASCII art, direct window size checks).
-        function Show-Header {
-            param([string]$SubTitle = "Menu Principale")
-            # We don't have $ToolkitVersion readily available here without dot-sourcing Core first,
-            # but for a shim, a generic message is sufficient.
-            Write-Output "[GUI_SHIM] Intestazione: WinToolkit - $SubTitle"
-        }
-
-        # Shim Write-StyledMessage to redirect styled messages from Core to Write-Output with tags
-        # for GUI parsing and proper formatting in RichTextBox.
-        function Write-StyledMessage {
-            param(
-                [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')][string]$Type,
-                [string]$Text
-            )
-            # Output with tagged format for GUI parsing
-            Write-Output "[WINTOOLKIT_STYLED_MESSAGE_TAG] $Type`: $Text"
-        }
-
-        # Shim Show-ProgressBar to prevent raw console output for progress bars.
-        # Used by Invoke-WithSpinner. Outputs tagged format for GUI parsing.
-        function Show-ProgressBar {
-            param(
-                [string]$Activity,
-                [string]$Status,
-                [int]$Percent,
-                [string]$Icon = '⏳',
-                [string]$Spinner = '',
-                [string]$Color = 'Green'
-            )
-            # Initialize tracking variable for this runspace
-            if ($null -eq $Global:LastProgressBarPercent) { $Global:LastProgressBarPercent = -1 }
-            
-            # Only output if progress changed significantly or completed (every 5%)
-            if ([math]::Abs($Percent - $Global:LastProgressBarPercent) -ge 5 -or $Percent -ge 100 -or $Percent -eq 0) {
-                Write-Output "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $Percent% | Icon: $Icon | Spinner: $Spinner"
-                $Global:LastProgressBarPercent = $Percent
-            }
-        }
-
-        # NEW SHIM: Generic Write-Host to capture all other Write-Host output
-        function Write-Host {
-            param(
-                [Parameter(Mandatory = $true)][object] $Object,
-                [string] $Separator = " ",
-                [string] $ForegroundColor,
-                [string] $BackgroundColor,
-                [switch] $NoNewline
-            )
-            # Formatta e reindirizza a Write-Output con un tag
-            $output = ($Object | Out-String).TrimEnd("`r`n")
-            if (-not $NoNewline) {
-                $output += "`n"
-            }
-            if (-not [string]::IsNullOrEmpty($output)) {
-                Write-Output "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
-            }
-        }
-        # --- End of SHIM FUNCTIONS ---
-
         # Set ErrorActionPreference for the job's runspace
         $ErrorActionPreference = 'Continue'
+        
+        # --- FIX: Ensure PATH is fully available for child processes ---
+        $env:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+        # --- END FIX ---
         
         # Ensure logging directory exists for the job process
         try {
@@ -1592,7 +1674,6 @@ function Start-NextScriptJob {
         # Dot-source the Core script first, as all functions are defined there
         try {
             if (Test-Path $CorePath) {
-                # Imposta esplicitamente il flag globale per il Core script per sapere che è in una sessione GUI
                 $Global:GuiSessionActive = $true
                 . $CorePath
             }
@@ -1607,6 +1688,109 @@ function Start-NextScriptJob {
             $Global:NeedsFinalReboot = $false
             return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = $_.Exception.Message }
         }
+
+        # --- FIX: Suppress Verbose and Debug output streams within the job ---
+        $VerbosePreference = 'SilentlyContinue'
+        $DebugPreference = 'SilentlyContinue'
+        # --- END FIX ---
+
+        # 5. --- REDEFINE (SHIM) CRITICAL UI FUNCTIONS FOR GUI MODE ---
+        # These definitions will now override the ones loaded from CorePath,
+        # ensuring GUI-specific behavior for output and user interaction.
+
+        # Shim Clear-Host to prevent clearing job output or causing errors in non-console host.
+        function Clear-Host { Write-Debug "[GUI_SHIM] Clear-Host bypassed." }
+
+        # Shim Clear-ProgressLine. The original has a ConsoleHost check, but this ensures no raw UI access.
+        function Clear-ProgressLine { Write-Debug "[GUI_SHIM] Clear-ProgressLine bypassed." }
+
+        # Shim Read-Host to provide default answers, preventing job blockage.
+        function Read-Host {
+            param([string]$Prompt)
+            Write-Debug "[GUI_SHIM] Interactive prompt bypassed for: '$Prompt'. Returning 'Y'."
+            Write-Output "[WINTOOLKIT_INPUT_BYPASS_TAG] Prompt: $Prompt" # Tag per la GUI
+            return 'Y' # Default to 'Yes' for most confirmations/choices in GUI mode.
+        }
+
+        # Shim Start-InterruptibleCountdown to bypass user interaction and the console UI countdown.
+        function Start-InterruptibleCountdown {
+            param(
+                [int]$Seconds = 30,
+                [string]$Message = "Riavvio automatico",
+                [switch]$Suppress
+            )
+            Write-Debug "[GUI_SHIM] Countdown bypassed for '$Message' (durata: $Seconds secondi)."
+            Write-Output "[WINTOOLKIT_COUNTDOWN_BYPASS_TAG] Message: $Message | Seconds: $Seconds" # Tag per la GUI
+            return $true 
+        }
+
+        # Shim Get-UserConfirmation to always confirm actions, preventing user interaction.
+        function Get-UserConfirmation {
+            param([string]$Message, [string]$DefaultChoice = 'N')
+            Write-Debug "[GUI_SHIM] User confirmation bypassed for: '$Message'. Returning 'Yes'."
+            Write-Output "[WINTOOLKIT_CONFIRMATION_BYPASS_TAG] Message: $Message" # Tag per la GUI
+            return $true # Assume 'Yes' for all user confirmations in GUI mode.
+        }
+
+        # Shim Show-Header to prevent raw console output (ASCII art, direct window size checks).
+        function Show-Header {
+            param([string]$SubTitle = "Menu Principale")
+            Write-Debug "[GUI_SHIM] Intestazione: WinToolkit - $SubTitle (bypassed direct console output)"
+            Write-Output "[WINTOOLKIT_STYLED_MESSAGE_TAG] Info`: HEADER: $SubTitle" # Invia come messaggio stilizzato per la GUI
+        }
+
+        # Shim Write-StyledMessage to redirect styled messages from Core to Write-Output with tags
+        function Write-StyledMessage {
+            param(
+                [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')][string]$Type,
+                [string]$Text
+            )
+            # Output with tagged format for GUI parsing
+            Write-Output "[WINTOOLKIT_STYLED_MESSAGE_TAG] $Type`: $Text"
+        }
+
+        # Shim Show-ProgressBar to prevent raw console output for progress bars.
+        function Show-ProgressBar {
+            param(
+                [string]$Activity,
+                [string]$Status,
+                [int]$Percent,
+                [string]$Icon = '⏳',
+                [string]$Spinner = '',
+                [string]$Color = 'Green'
+            )
+            # Only output if percentage changes significantly to reduce GUI update overhead
+            if ($null -eq $Global:LastProgressBarPercent) { $Global:LastProgressBarPercent = -1 }
+            if ([math]::Abs($Percent - $Global:LastProgressBarPercent) -ge 5 -or $Percent -ge 100 -or $Percent -eq 0) {
+                Write-Output "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $Percent% | Icon: $Icon | Spinner: $Spinner"
+                $Global:LastProgressBarPercent = $Percent
+            }
+        }
+
+        # Shim Write-Host - uses Write-Debug for internal messages, outputs via tag for styled content
+        function Write-Host {
+            param(
+                [Parameter(Mandatory = $true)][object] $Object,
+                [string] $Separator = " ",
+                [string] $ForegroundColor,
+                [string] $BackgroundColor,
+                [switch] $NoNewline
+            )
+            
+            $output = ($Object | Out-String).TrimEnd("`r`n") # Trim any existing newlines
+            
+            # --- FIX: Ensure a clean newline for RAW output in GUI mode if it's not a no-newline write ---
+            # If NoNewline is specified, we still want a logical "line" for the RichTextBox
+            # The Filter-AndFormatJobOutput will receive this. Each call to Write-UnifiedLog creates a Paragraph.
+            # So, no need to add "\n" here, as RichTextBox handles paragraphs.
+            # Just ensure the output is clean.
+            # --- END FIX ---
+            
+            if (-not [string]::IsNullOrEmpty($output)) {
+                Write-Output "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
+            }
+        }
+        # --- End of REDEFINITIONS ---
 
         # Build dynamic arguments to avoid interactive prompts
         $argsToPass = @()
@@ -1631,10 +1815,7 @@ function Start-NextScriptJob {
         # Execute the function. Redirect all streams to capture everything.
         try {
             if (Get-Command $CmdName -ErrorAction SilentlyContinue) {
-                # Inizializza $Global:NeedsFinalReboot a false prima di ogni esecuzione di script
-                # per assicurarsi che lo stato di riavvio sia pulito per ogni chiamata di funzione.
                 $Global:NeedsFinalReboot = $false 
-
                 Invoke-Expression ("& $CmdName $($argsToPass -join ' ') *>&1")
             }
             else {
@@ -1688,83 +1869,7 @@ function Process-JobCompletion {
                 }
 
                 foreach ($line in ($finalJobOutput | Out-String -Stream)) {
-                    if ($line.Trim()) {
-                        # NEW: Handle WINTOOLKIT_STYLED_MESSAGE_TAG
-                        if ($line -match '\[WINTOOLKIT_STYLED_MESSAGE_TAG\]\s*(?<Type>\w+)\s*:\s*(?<Text>.*)') {
-                            $outputType = $matches.Type
-                            $messageText = $matches.Text
-                            $guiColor = switch -Wildcard ($outputType.ToLower()) {
-                                "error" { "#FF5555" }
-                                "warning" { "#FFB74D" }
-                                "success" { "#4CAF50" }
-                                "info" { "#00CED1" }
-                                "progress" { "#2196F3" }
-                                default { "#FFFFFF" }
-                            }
-                            Write-UnifiedLog -Type $outputType -Message $messageText -GuiColor $guiColor
-                            continue
-                        }
-                        # NEW: Handle WINTOOLKIT_PROGRESS_TAG
-                        if ($line -match '\[WINTOOLKIT_PROGRESS_TAG\].*Percent:\s*(?<Percent>\d+)%') {
-                            $percent = [int]$matches.Percent
-                            $window.Dispatcher.Invoke([Action] { $progressBar.Value = $percent })
-                            continue
-                        }
-                        # NEW: Handle GUI_SHIM messages
-                        if ($line -match '\[GUI_SHIM\]\s*(?<Text>.*)') {
-                            Write-UnifiedLog -Type 'Info' -Message "Shimmed: $($matches.Text)" -GuiColor "#808080"
-                            continue
-                        }
-                        # NEW: Handle WINTOOLKIT_RAW_HOST_OUTPUT_TAG
-                        if ($line -match '\[WINTOOLKIT_RAW_HOST_OUTPUT_TAG\](?<Text>.*)') {
-                            $messageText = $matches.Text.Trim()
-                            if (-not [string]::IsNullOrEmpty($messageText)) {
-                                # Write raw host output as Info with a subtle color
-                                Write-UnifiedLog -Type 'Info' -Message "RAW: $messageText" -GuiColor "#808080"
-                            }
-                            continue
-                        }
-                        # Filtra banner e output non desiderato
-                        $skipLine = $false
-                        $bannerPatterns = @(
-                            '═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════',
-                            '__        __  _  _   _',
-                            '\\\\  /  | || . ` | |',
-                            '   |/  \|/|  | || |\  | |',
-                            '   |_||_| |_| |_||_| \_|',
-                            '╔═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗',
-                            '║',
-                            '╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝',
-                            '──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────',
-                            'WinToolkit - System Check',
-                            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-                            '\\[Header\\]',
-                            '╦.*╦',
-                            '╠.*╣',
-                            '╩.*╩'
-                        )
-                        
-                        foreach ($pattern in $bannerPatterns) {
-                            if ($line -match $pattern) {
-                                $skipLine = $true
-                                break
-                            }
-                        }
-                        
-                        if (-not $skipLine) {
-                            $outputType = 'Info'
-                            $guiColor = "#FFFFFF"
-                            if ($line -match 'ERROR|FAILED|ERR|FALLITO|CRITICAL') { $outputType = 'Error'; $guiColor = "#FF5555" }
-                            elseif ($line -match 'WARNING|WARN|ATTENZIONE') { $outputType = 'Warning'; $guiColor = "#FFB74D" }
-                            elseif ($line -match 'SUCCESS|COMPLETED|FATTO|OK') { $outputType = 'Success'; $guiColor = "#4CAF50" }
-                            elseif ($line -match '\[INPUT\]|\[CHOICE\]|\[CONFIRM\]') { 
-                                $Global:IsInputWaiting = $true
-                                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Input interattivo rilevato nel job: $line - Non supportato in modalità GUI. Il job potrebbe essersi bloccato o aver utilizzato valori predefiniti." -GuiColor "#FFA500"
-                                continue 
-                            }
-                            Write-UnifiedLog -Type $outputType -Message $line.Trim() -GuiColor $guiColor
-                        }
-                    }
+                    [void](Filter-AndFormatJobOutput -Line $line)
                 }
             }
 
@@ -1818,9 +1923,9 @@ function Process-JobCompletion {
                 }
                 $executeButton.IsEnabled = $true
                 Write-UnifiedLog -Type 'Success' -Message "🎉 Tutti gli script sono stati eseguiti" -GuiColor "#00FF00"
-                if ($progressBar) { $progressBar.Value = 100 } # Assicura che sia 100% alla fine
+                if ($progressBar) { $progressBar.Value = 100 }
             
-                # Check for reboot requirement (moved here from Tick_JobMonitor)
+                # Check for reboot requirement
                 if ($Global:RebootRequired) {
                     $result = [System.Windows.MessageBox]::Show("Il sistema richiede un riavvio per completare le operazioni. Riavviare ora?", "Riavvio Richiesto", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
                     if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
@@ -1842,101 +1947,14 @@ function Tick_JobMonitor {
         if ($newOutputLines.Count -gt 0) {
             $window.Dispatcher.Invoke([Action] {
                     foreach ($line in ($newOutputLines | Out-String -Stream)) {
-                        if ($line.Trim()) {
-                            # NEW: Handle WINTOOLKIT_STYLED_MESSAGE_TAG
-                            if ($line -match '\[WINTOOLKIT_STYLED_MESSAGE_TAG\]\s*(?<Type>\w+)\s*:\s*(?<Text>.*)') {
-                                $outputType = $matches.Type
-                                $messageText = $matches.Text
-                                $guiColor = switch -Wildcard ($outputType.ToLower()) {
-                                    "error" { "#FF5555" }
-                                    "warning" { "#FFB74D" }
-                                    "success" { "#4CAF50" }
-                                    "info" { "#00CED1" }
-                                    "progress" { "#2196F3" }
-                                    default { "#FFFFFF" }
-                                }
-                                Write-UnifiedLog -Type $outputType -Message $messageText -GuiColor $guiColor
-                                continue
-                            }
-                            # NEW: Handle WINTOOLKIT_PROGRESS_TAG
-                            if ($line -match '\[WINTOOLKIT_PROGRESS_TAG\].*Percent:\s*(?<Percent>\d+)%') {
-                                $percent = [int]$matches.Percent
-                                $window.Dispatcher.Invoke([Action] { 
-                                        if ($progressBar) { $progressBar.Value = $percent }
-                                    })
-                                continue
-                            }
-                            # NEW: Handle GUI_SHIM messages
-                            if ($line -match '\[GUI_SHIM\]\s*(?<Text>.*)') {
-                                Write-UnifiedLog -Type 'Info' -Message "Shimmed: $($matches.Text)" -GuiColor "#808080"
-                                continue
-                            }
-                            # NEW: Handle WINTOOLKIT_RAW_HOST_OUTPUT_TAG
-                            if ($line -match '\[WINTOOLKIT_RAW_HOST_OUTPUT_TAG\](?<Text>.*)') {
-                                $messageText = $matches.Text.Trim()
-                                if (-not [string]::IsNullOrEmpty($messageText)) {
-                                    # Write raw host output as Info with a subtle color
-                                    Write-UnifiedLog -Type 'Info' -Message "RAW: $messageText" -GuiColor "#808080"
-                                }
-                                continue
-                            }
-                            # Filtra banner e output non desiderato
-                            $skipLine = $false
-                            
-                            # Pattern per banner ASCII e linee decorative
-                            $bannerPatterns = @(
-                                '═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════',
-                                '__        __  _  _   _',
-                                '\\ \\      / / | || \\ | |',
-                                '__   __  / /  | || . ` | |',
-                                '   |/  \|/|  | || |\  | |',
-                                '   |_||_| |_| |_||_| \_|',
-                                '╔═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗',
-                                '║',
-                                '╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝',
-                                '──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────',
-                                'WinToolkit - System Check',
-                                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-                                '\[Header\]',
-                                '╦.*╦',
-                                '╠.*╣',
-                                '╩.*╩'
-                            )
-                            
-                            foreach ($pattern in $bannerPatterns) {
-                                if ($line -match $pattern) {
-                                    $skipLine = $true
-                                    break
-                                }
-                            }
-                            
-                            if ($skipLine) {
-                                continue
-                            }
-                            
-                            # Tenta di rilevare messaggi di progresso o errori per colorazione
-                            $outputType = 'Info'
-                            $guiColor = "#FFFFFF" # Colore di default
-                            if ($line -match 'ERROR|FAILED|ERR|FALLITO|CRITICAL') { $outputType = 'Error'; $guiColor = "#FF5555" }
-                            elseif ($line -match 'WARNING|WARN|ATTENZIONE') { $outputType = 'Warning'; $guiColor = "#FFB74D" }
-                            elseif ($line -match 'SUCCESS|COMPLETED|FATTO|OK') { $outputType = 'Success'; $guiColor = "#4CAF50" }
-                            elseif ($line -match '\[INPUT\]|\[CHOICE\]|\[CONFIRM\]') { 
-                                # Rilevata richiesta di input interattivo
-                                $Global:IsInputWaiting = $true
-                                Write-UnifiedLog -Type 'Warning' -Message "⚠️ Input interattivo rilevato: $line - Non supportato in modalità GUI, usando valori predefiniti" -GuiColor "#FFA500"
-                                continue 
-                            }
-
-                            Write-UnifiedLog -Type $outputType -Message $line.Trim() -GuiColor $guiColor
-                        }
+                        [void](Filter-AndFormatJobOutput -Line $line)
                     }
                 })
             $Global:LastJobOutputCount = $currentJobOutput.Count
         }
     }
     elseif ($Global:ScriptJob -and ($Global:ScriptJob.State -eq 'Completed' -or $Global:ScriptJob.State -eq 'Failed' -or $Global:ScriptJob.State -eq 'Stopped')) {
-        # Il job è terminato, non è più necessario il polling via timer per questo job
-        $Global:JobMonitorTimer.Stop() # Ferma il timer per prevenire ulteriori tick dopo la fine del job corrente
+        $Global:JobMonitorTimer.Stop()
         Process-JobCompletion -JobStatus $Global:ScriptJob.State -JobName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
     }
 }
@@ -1946,6 +1964,8 @@ $executeButton.Add_Click({
         # Clear previous output
         $window.Dispatcher.Invoke([Action] {
                 $outputTextBox.Document.Blocks.Clear()
+                $Global:LastLogParagraphRef = $null
+                $Global:LastLogEntryType = $null
             })
 
         # Get selected scripts on UI thread - use recursive search
@@ -1977,8 +1997,8 @@ $executeButton.Add_Click({
 
         $Global:SelectedScriptsQueue = $selectedScripts
         $Global:CurrentScriptIndex = 0
-        $Global:IsInputWaiting = $false # Reset input flag
-        $Global:RebootRequired = $false # Reset reboot flag
+        $Global:IsInputWaiting = $false
+        $Global:RebootRequired = $false
 
         # Inizializza e avvia il timer se non già attivo
         if (-not $Global:JobMonitorTimer) {
@@ -2064,4 +2084,3 @@ try {
     Stop-Transcript -ErrorAction SilentlyContinue
 }
 catch {}
-
