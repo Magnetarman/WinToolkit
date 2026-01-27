@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.1 (Build 9) - 2026-01-27
+    Versione 2.5.1 (Build 10) - 2026-01-27
     Compatibile con PowerShell 5.1+
 #>
 
@@ -19,7 +19,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.1 (Build 9)"
+        Version = "Version 2.5.1 (Build 10)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -116,8 +116,13 @@ function Invoke-WingetCommand {
     )
 
     try {
-        # FIX: Aggiunto --disable-interactivity per evitare blocchi
-        $finalArgs = "$Arguments --disable-interactivity"
+        # Verifichiamo la versione di winget per retrocompatibilità
+        # --disable-interactivity è supportato dalla versione 1.4+
+        $versionRaw = (winget --version 2>$null) | Out-String
+        $isModern = $versionRaw -match 'v1\.[4-9]' -or $versionRaw -match 'v[2-9]'
+        
+        # Aggiungiamo il flag solo se supportato (v1.4+)
+        $finalArgs = if ($isModern) { "$Arguments --disable-interactivity" } else { $Arguments }
         
         $procParams = @{
             FilePath     = 'winget'
