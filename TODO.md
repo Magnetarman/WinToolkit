@@ -11,6 +11,18 @@
   - [x] Creazione documento Codice di condotta `CODE_OF_CONDUCT.md`.
   - [x] Eliminata sezione contributori dal readme.
   - [x] Integrata la sezione contributori nel menu di Github.
+
+- [ ] Potenziato `start.ps1` [[Thanks to @Matteoz]](https://t.me/teo180)
+  - [x] Logica "Force Portable" per Windows Terminal: Nuova funzione Install-WindowsTerminalManual che permette l'estrazione manuale dei binari dal pacchetto .msixbundle in caso di fallimento dei metodi standard.
+  - [x] Centralizzazione URL: Inserito l'endpoint GitHub API per le release di Windows Terminal nella configurazione $script:AppConfig per una gestione dinamica degli aggiornamenti.
+  - [x] Sistema di Fallback Multi-Livello: Implementata una catena di installazione resiliente per Windows Terminal (Winget -> Appx Nativo -> Estrazione Manuale -> MS Store).
+  - [x] Variabile Globale CustomWTPath: Introdotta per tracciare il percorso dell'eseguibile in caso di installazione portatile non standard.
+  - [x] Ottimizzazione Invoke-WinToolkitSetup: Centralizzata la costruzione dello scriptblock di rilancio per garantire coerenza tra i vari passaggi di privilegi e versioni di shell.
+  - [x] Logica di Riavvio Intelligente: Migliorato l'avvio finale che ora tenta di lanciare lo script in Windows Terminal + PowerShell 7, con fallback automatico su console legacy in caso di errore.
+  - [x] Refactoring Install-WindowsTerminalApp: La funzione ora verifica preventivamente la presenza di installazioni portatili esistenti prima di tentare nuovi download.
+  - [x] Gestione Logging: Spostata e protetta la creazione delle directory di log con blocchi try-catch per evitare interruzioni su sistemi con permessi ristretti.
+  - [x] Gestione Flusso Reboot: Spostata la logica rebootNeeded al termine della catena di avvio per prevenire la chiusura prematura dello script durante la fase di setup.
+  - [x] Resilienza Winget: Migliorato il rilevamento degli errori durante il ripristino di Winget, differenziando tra metodo "veloce" (bundle) e "avanzato" (moduli PowerShell).
   
 
 - Rework Gestione `To-Do.md`.
