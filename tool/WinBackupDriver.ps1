@@ -265,7 +265,7 @@ function WinBackupDriver {
             if (Export-SystemDrivers) {
                 Write-Host ""
                 
-                $sevenZipPath = Resolve-7ZipExecutable
+                $sevenZipPath = (Resolve-7ZipExecutable | Select-Object -Last 1)
                 if ($sevenZipPath) {
                     Write-Host ""
                     

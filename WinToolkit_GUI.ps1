@@ -1557,6 +1557,25 @@ function Start-NextScriptJob {
                 $Global:LastProgressBarPercent = $Percent
             }
         }
+
+        # NEW SHIM: Generic Write-Host to capture all other Write-Host output
+        function Write-Host {
+            param(
+                [Parameter(Mandatory = $true)][object] $Object,
+                [string] $Separator = " ",
+                [string] $ForegroundColor,
+                [string] $BackgroundColor,
+                [switch] $NoNewline
+            )
+            # Formatta e reindirizza a Write-Output con un tag
+            $output = ($Object | Out-String).TrimEnd("`r`n")
+            if (-not $NoNewline) {
+                $output += "`n"
+            }
+            if (-not [string]::IsNullOrEmpty($output)) {
+                Write-Output "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
+            }
+        }
         # --- End of SHIM FUNCTIONS ---
 
         # Set ErrorActionPreference for the job's runspace
@@ -1694,6 +1713,15 @@ function Process-JobCompletion {
                         # NEW: Handle GUI_SHIM messages
                         if ($line -match '\[GUI_SHIM\]\s*(?<Text>.*)') {
                             Write-UnifiedLog -Type 'Info' -Message "Shimmed: $($matches.Text)" -GuiColor "#808080"
+                            continue
+                        }
+                        # NEW: Handle WINTOOLKIT_RAW_HOST_OUTPUT_TAG
+                        if ($line -match '\[WINTOOLKIT_RAW_HOST_OUTPUT_TAG\](?<Text>.*)') {
+                            $messageText = $matches.Text.Trim()
+                            if (-not [string]::IsNullOrEmpty($messageText)) {
+                                # Write raw host output as Info with a subtle color
+                                Write-UnifiedLog -Type 'Info' -Message "RAW: $messageText" -GuiColor "#808080"
+                            }
                             continue
                         }
                         # Filtra banner e output non desiderato
@@ -1841,6 +1869,15 @@ function Tick_JobMonitor {
                             # NEW: Handle GUI_SHIM messages
                             if ($line -match '\[GUI_SHIM\]\s*(?<Text>.*)') {
                                 Write-UnifiedLog -Type 'Info' -Message "Shimmed: $($matches.Text)" -GuiColor "#808080"
+                                continue
+                            }
+                            # NEW: Handle WINTOOLKIT_RAW_HOST_OUTPUT_TAG
+                            if ($line -match '\[WINTOOLKIT_RAW_HOST_OUTPUT_TAG\](?<Text>.*)') {
+                                $messageText = $matches.Text.Trim()
+                                if (-not [string]::IsNullOrEmpty($messageText)) {
+                                    # Write raw host output as Info with a subtle color
+                                    Write-UnifiedLog -Type 'Info' -Message "RAW: $messageText" -GuiColor "#808080"
+                                }
                                 continue
                             }
                             # Filtra banner e output non desiderato
