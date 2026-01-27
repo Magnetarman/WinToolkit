@@ -388,6 +388,11 @@ function CheckBitlocker {
 }
 
 function WinOSCheck {
+    # Skip WinOSCheck if running in GUI mode to prevent duplicate output in job runspaces
+    if ($Global:GuiSessionActive) {
+        return
+    }
+    
     Show-Header -SubTitle "System Check"
     $si = Get-SystemInfo
     if (-not $si) { Write-StyledMessage -Type 'Warning' -Text "Info sistema non disponibili."; return }
