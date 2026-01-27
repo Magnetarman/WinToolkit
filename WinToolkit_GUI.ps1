@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     WinToolkit GUI v2.0
 .DESCRIPTION
@@ -18,7 +18,7 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "2.5.1 (Build 90)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "2.5.1 (Build 130)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
@@ -1529,17 +1529,23 @@ function Filter-AndFormatJobOutput {
         return $true
     }
     
-    # Handle WINTOOLKIT_PROGRESS_TAG
+    # Handle WINTOOLKIT_PROGRESS_TAG (Relaxed regex to match anywhere)
     if ($Line -match '\[WINTOOLKIT_PROGRESS_TAG\].*Percent:\s*(?<Percent>\d+)%') {
         $percent = [int]$matches.Percent
         
-        # Log version of progress to OutputTextBox (periodicity to avoid spam)
+        # Log version of progress to OutputTextBox
         if ($Line -match 'Activity:\s*(?<Activity>[^|]+)\| Status:\s*(?<Status>[^|]+)') {
             $activity = $matches.Activity.Trim()
             $status = $matches.Status.Trim()
-            # Log to textbox for major milestones
-            if ($percent % 25 -eq 0 -or $percent -eq 100) {
+            
+            # IMPROVED VERBOSITY: Log only if percentage OR status has changed
+            if ( ($status -ne $Global:LastLoggedProgress.Status) -or 
+                 ($percent -ne $Global:LastLoggedProgress.Percent) 
+               )
+            {
                 Write-UnifiedLog -Type 'Progress' -Message "🔄 [$activity] $status ($percent%)" -GuiColor "#2196F3"
+                $Global:LastLoggedProgress.Percent = $percent
+                $Global:LastLoggedProgress.Status = $status
             }
         }
 
@@ -1774,14 +1780,96 @@ function Start-NextScriptJob {
             Write-Output "[WINTOOLKIT_STYLED_MESSAGE_TAG] Info`: HEADER: $SubTitle" # Invia come messaggio stilizzato per la GUI
         }
 
-        # Shim Write-StyledMessage to redirect styled messages from Core to Write-Output with tags
+        # Shim Invoke-WithSpinner - GUI version adapts progress reporting for scripts using Invoke-WithSpinner
+        function Invoke-WithSpinner {
+            [CmdletBinding()]
+            param(
+                [Parameter(Mandatory = $true)][string]$Activity,
+                [Parameter(Mandatory = $true)][scriptblock]$Action,
+                [Parameter(Mandatory = $false)][int]$TimeoutSeconds = 300,
+                [Parameter(Mandatory = $false)][int]$UpdateInterval = 500,
+                [Parameter(Mandatory = $false)][switch]$Process,
+                [Parameter(Mandatory = $false)][switch]$Job,
+                [Parameter(Mandatory = $false)][switch]$Timer,
+                [Parameter(Mandatory = $false)][scriptblock]$PercentUpdate
+            )
+
+            $startTime = Get-Date
+            $percent = 0
+
+            try {
+                $result = & $Action
+
+                if ($Timer) {
+                    $totalSeconds = $TimeoutSeconds
+                    for ($i = $totalSeconds; $i -gt 0; $i--) {
+                        if ($PercentUpdate) {
+                            $percent = & $PercentUpdate
+                        }
+                        else {
+                            $percent = [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100)
+                        }
+                        # Output via Warning stream to avoid pipeline pollution
+                        Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $i secondi... | Percent: $percent%"
+                        Start-Sleep -Seconds 1
+                    }
+                    return $true
+                }
+                elseif ($Process -and $result -and $result.GetType().Name -eq 'Process') {
+                    while (-not $result.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
+                        $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
+                        
+                        if ($PercentUpdate) {
+                            $percent = & $PercentUpdate
+                        }
+                        else {
+                            # Permetti alla percentuale casuale di raggiungere fino a 99% per una progressione più naturale
+                            $percent = [math]::Min(99, $percent + (Get-Random -Minimum 1 -Maximum 3))
+                        }
+
+                        Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: Esecuzione in corso... ($elapsed secondi) | Percent: $percent%"
+                        Start-Sleep -Milliseconds $UpdateInterval
+                        $result.Refresh()
+                    }
+
+                    if (-not $result.HasExited) {
+                        Write-Warning "[WINTOOLKIT_STYLED_MESSAGE_TAG][Warning] Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
+                        $result.Kill()
+                        Start-Sleep -Seconds 2
+                        return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
+                    }
+
+                    Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: Completato | Percent: 100%"
+                    return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
+                }
+                elseif ($Job -and $result -and $result.GetType().Name -eq 'Job') {
+                    while ($result.State -eq 'Running') {
+                        Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: In esecuzione... | Percent: $percent%"
+                        Start-Sleep -Milliseconds $UpdateInterval
+                        # Allow progress up to 99% for Jobs too
+                        if ($percent -lt 99) { $percent += 5 }
+                    }
+                    $jobResult = Receive-Job $result -Wait
+                    return $jobResult
+                }
+                else {
+                    return $result
+                }
+            }
+            catch {
+                Write-Warning "[WINTOOLKIT_STYLED_MESSAGE_TAG][Error] Errore durante ${Activity}: $($_.Exception.Message)"
+                return @{ Success = $false; Error = $_.Exception.Message }
+            }
+        }
+
+        # Shim Write-StyledMessage to redirect styled messages from Core to Write-Warning with tags
         function Write-StyledMessage {
             param(
                 [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')][string]$Type,
                 [string]$Text
             )
-            # Output with tagged format for GUI parsing
-            Write-Output "[WINTOOLKIT_STYLED_MESSAGE_TAG] $Type`: $Text"
+            # Use Write-Warning to bypass Success Pipeline (prevent variable pollution)
+            Write-Warning "[WINTOOLKIT_STYLED_MESSAGE_TAG] $Type`: $Text"
         }
 
         # Shim Show-ProgressBar to prevent raw console output for progress bars.
@@ -1796,27 +1884,26 @@ function Start-NextScriptJob {
             )
             # Ensure Percent is an integer
             $intPercent = [int]$Percent
-            # Output with tagged format for GUI parsing (removed throttling)
-            Write-Output "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $($intPercent)% | Icon: $Icon | Spinner: $Spinner"
+            Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $($intPercent)% | Icon: $Icon | Spinner: $Spinner"
         }
 
         # Shim Write-Progress to redirect standard PowerShell progress to the GUI
         function Write-Progress {
             param(
-                [Parameter(Mandatory=$true)][string]$Activity,
+                [Parameter(Mandatory = $true)][string]$Activity,
                 [string]$Status = "",
                 [int]$PercentComplete = -1,
                 [switch]$Completed
             )
             if ($Completed) {
-                Write-Output "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: Completato | Percent: 100%"
+                Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: Completato | Percent: 100%"
             }
             elseif ($PercentComplete -ge 0) {
-                Write-Output "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $($PercentComplete)%"
+                Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $($PercentComplete)%"
             }
         }
 
-        # Shim Write-Host - uses Write-Debug for internal messages, outputs via tag for styled content
+        # Shim Write-Host - uses Write-Warning to bypass Success Pipeline
         function Write-Host {
             param(
                 [Parameter(Mandatory = $true, ValueFromPipeline = $true)][object] $Object,
@@ -1827,17 +1914,17 @@ function Start-NextScriptJob {
             )
             
             process {
-                # Use $Object to handle direct calls; handle pipeline via $_ if $Object is null (though Mandatory=$true prevents this)
+                # Use $Object to handle direct calls; handle pipeline via $_ if $Object is null
                 $target = if ($null -ne $Object) { $Object } else { $_ }
                 $output = ($target | Out-String).TrimEnd("`r`n")
                 
                 if (-not [string]::IsNullOrEmpty($output)) {
                     # If it's already a tagged message, don't double tag it
-                    if ($output -match '^\[WINTOOLKIT_.*_TAG\]') {
-                        Write-Output $output
+                    if ($output -match '\[WINTOOLKIT_.*_TAG\]') {
+                         Write-Warning $output
                     }
                     else {
-                        Write-Output "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
+                         Write-Warning "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
                     }
                 }
             }
@@ -1890,6 +1977,15 @@ function Start-NextScriptJob {
         $Global:ScriptJob = Start-Job -ScriptBlock $jobScriptBlock -ArgumentList $coreScriptPath, $scriptName, $mainLogDirectory -Name "WinToolkit_ScriptJob_$scriptName" -ErrorAction Stop
         $Global:LastJobOutputCount = 0 # Reset output counter for new job
         Write-UnifiedLog -Type 'Info' -Message "   Job PowerShell '$scriptName' avviato (ID: $($Global:ScriptJob.Id))" -GuiColor "#00CED1"
+
+        # *** FIX: Riavvia JobMonitorTimer per processare output del nuovo job ***
+        if ($Global:JobMonitorTimer) {
+            if (-not $Global:JobMonitorTimer.IsEnabled) {
+                $Global:JobMonitorTimer.Start()
+                Write-UnifiedLog -Type 'Info' -Message "🔄 Timer monitoraggio riavviato" -GuiColor "#808080"
+            }
+        }
+        # *** END FIX ***
     }
     catch {
         Write-UnifiedLog -Type 'Error' -Message "❌ Errore avvio job '$scriptName': $($_.Exception.Message)" -GuiColor "#FF0000"
@@ -1900,16 +1996,15 @@ function Start-NextScriptJob {
 # Funzione per processare il completamento del job
 function Process-JobCompletion {
     param(
-        [string]$JobStatus, # 'Completed', 'Failed', 'Stopped', 'ErrorStarting' (custom)
+        [string]$JobStatus,
         [string]$JobName
     )
 
+    # *** FIX: Separa logica UI (sincrona) da logica job launching (asincrona) ***
     $window.Dispatcher.Invoke([Action] {
-            # Ricevi l'output finale del job se esiste
             $jobResults = $null
             if ($Global:ScriptJob) {
                 $rawOutput = Receive-Job -Job $Global:ScriptJob -ErrorAction SilentlyContinue *>&1
-                # Cerca l'oggetto risultato se presente
                 $jobResultObject = $rawOutput | Where-Object { $_ -is [hashtable] -and $_.ContainsKey('RebootRequired') } | Select-Object -Last 1
                 
                 if ($jobResultObject) {
@@ -1928,7 +2023,8 @@ function Process-JobCompletion {
             if ($JobStatus -eq 'Completed') {
                 if ($Global:ScriptJob -and $Global:ScriptJob.HasErrors) {
                     $errorRecords = $Global:ScriptJob | Select-Object -ExpandProperty ChildJobs | Where-Object { $_.HasErrors } | Select-Object -ExpandProperty Error
-                    $errorMessages = ($errorRecords | Select-Object -ExpandProperty Exception | Select-Object -ExpandProperty Message) -join "`n"
+                    $errorMessages = ($errorRecords | Select-Object -ExpandProperty Exception | Select-Object -ExpandProperty Message) -join "
+"
                     if ([string]::IsNullOrEmpty($errorMessages)) {
                         $errorMessages = "Si sono verificati errori sconosciuti durante l'esecuzione dello script."
                     }
@@ -1939,20 +2035,18 @@ function Process-JobCompletion {
                 }
             }
             elseif ($JobStatus -eq 'Failed' -or $JobStatus -eq 'ErrorStarting') {
-                $errorMsg = ($Global:ScriptJob.JobStateInfo.Reason?.Message) -or "Errore sconosciuto"
+                $errorMsg = if ($Global:ScriptJob.JobStateInfo.Reason) { $Global:ScriptJob.JobStateInfo.Reason.Message } else { "Errore sconosciuto" }
                 Write-UnifiedLog -Type 'Error' -Message "❌ $JobName fallito: $errorMsg" -GuiColor "#FF0000"
             }
             elseif ($JobStatus -eq 'Stopped') {
                 Write-UnifiedLog -Type 'Warning' -Message "⚠️ $JobName interrotto" -GuiColor "#FFA500"
             }
 
-            # Pulisci il job solo se esiste
             if ($Global:ScriptJob) {
                 Remove-Job -Job $Global:ScriptJob -ErrorAction SilentlyContinue | Out-Null
                 $Global:ScriptJob = $null
             }
 
-            # Aggiorna la barra di progresso per lo script completato
             $Global:CurrentScriptIndex++
             if ($Global:SelectedScriptsQueue.Count -gt 0) {
                 $progressPercentage = [int]((($Global:CurrentScriptIndex) / $Global:SelectedScriptsQueue.Count) * 100)
@@ -1961,14 +2055,20 @@ function Process-JobCompletion {
             else {
                 if ($progressBar) { $progressBar.Value = 100 }
             }
+        })
 
-            # Se ci sono altri script in coda, avvia il prossimo
-            if ($Global:CurrentScriptIndex -lt $Global:SelectedScriptsQueue.Count) {
-                Write-UnifiedLog -Type 'Info' -Message "⏳ Attesa prossimo script..." -GuiColor "#FFA500"
-                Start-NextScriptJob -scriptName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
-            }
-            else {
-                # Tutti gli script completati
+    # Parte 2: Avvia prossimo job (FUORI da Dispatcher per non bloccare UI)
+    if ($Global:CurrentScriptIndex -lt $Global:SelectedScriptsQueue.Count) {
+        $window.Dispatcher.Invoke([Action] {
+                Write-UnifiedLog -Type 'Info' -Message "⏳ Preparazione prossimo script..." -GuiColor "#FFA500"
+            })
+        
+        Start-Sleep -Milliseconds 200
+        
+        Start-NextScriptJob -scriptName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
+    }
+    else {
+        $window.Dispatcher.Invoke([Action] {
                 if ($Global:JobMonitorTimer) {
                     $Global:JobMonitorTimer.Stop()
                     $Global:JobMonitorTimer = $null
@@ -1976,16 +2076,16 @@ function Process-JobCompletion {
                 $executeButton.IsEnabled = $true
                 Write-UnifiedLog -Type 'Success' -Message "🎉 Tutti gli script sono stati eseguiti" -GuiColor "#00FF00"
                 if ($progressBar) { $progressBar.Value = 100 }
-            
-                # Check for reboot requirement
+
                 if ($Global:RebootRequired) {
                     $result = [System.Windows.MessageBox]::Show("Il sistema richiede un riavvio per completare le operazioni. Riavviare ora?", "Riavvio Richiesto", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
                     if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
                         Restart-Computer -Force
                     }
                 }
-            }
-        })
+            })
+    }
+    # *** END FIX ***
 }
 
 # Gestore del Tick del timer per monitorare il job
@@ -1997,11 +2097,19 @@ function Tick_JobMonitor {
         # Processa solo le nuove linee di output
         $newOutputLines = $currentJobOutput | Select-Object -Skip $Global:LastJobOutputCount
         if ($newOutputLines.Count -gt 0) {
-            $window.Dispatcher.Invoke([Action] {
-                    foreach ($line in ($newOutputLines | Out-String -Stream)) {
-                        [void](Filter-AndFormatJobOutput -Line $line)
-                    }
-                })
+            # Safely invoke on Dispatcher (prevent crash if window is closing)
+            try {
+                if ($window -and $window.Dispatcher) {
+                    $window.Dispatcher.Invoke([Action] {
+                        foreach ($line in ($newOutputLines | Out-String -Stream)) {
+                            [void](Filter-AndFormatJobOutput -Line $line)
+                        }
+                    })
+                }
+            }
+            catch {
+                # Ignore dispatcher errors during shutdown
+            }
             $Global:LastJobOutputCount = $currentJobOutput.Count
         }
     }
@@ -2051,6 +2159,9 @@ $executeButton.Add_Click({
         $Global:CurrentScriptIndex = 0
         $Global:IsInputWaiting = $false
         $Global:RebootRequired = $false
+        
+        # Reset progress debouncer for new run
+        $Global:LastLoggedProgress = @{ Percent = -1; Status = "" }
 
         # Inizializza e avvia il timer se non già attivo
         if (-not $Global:JobMonitorTimer) {
@@ -2114,19 +2225,51 @@ public class WindowHelper {
 # INITIALIZATION AND DISPLAY
 # =============================================================================
 
-# Update system info
-Update-SystemInformationPanel
+# Update system info and generate menu AFTER window is loaded to prevent handle exhaustion
+$window.Add_Loaded({
+        try {
+            # Update system info
+            Update-SystemInformationPanel
 
-# Generate dynamic menu
-Update-ActionsPanel
+            # Generate dynamic menu
+            Update-ActionsPanel
 
-# Show initial log message
-Write-UnifiedLog -Type 'Success' -Message "🎉 WinToolkit GUI v2.0 inizializzato correttamente" -GuiColor "#00FF00"
-Write-UnifiedLog -Type 'Info' -Message "📌 Core Version: $Global:CoreScriptVersion" -GuiColor "#00CED1"
-Write-UnifiedLog -Type 'Info' -Message "💡 Seleziona uno o più script e premi 'Esegui'" -GuiColor "#00CED1"
+            # Show initial log message
+            Write-UnifiedLog -Type 'Success' -Message "🎉 WinToolkit GUI v2.0 inizializzato correttamente" -GuiColor "#00FF00"
+            Write-UnifiedLog -Type 'Info' -Message "📌 Core Version: $Global:CoreScriptVersion" -GuiColor "#00CED1"
+            Write-UnifiedLog -Type 'Info' -Message "💡 Seleziona uno o più script e premi 'Esegui'" -GuiColor "#00CED1"
 
-# Minimize console
-Minimize-Console
+            # Minimize console - DISABLED to prevent handle exhaustion crash (Win32Exception 1816)
+            # Minimize-Console
+        }
+        catch {
+            Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante inizializzazione Loaded: $($_.Exception.Message)" -GuiColor "#FF0000"
+        }
+    })
+
+# Cleanup handler for Window Closing to kill running jobs
+$window.Add_Closing({
+    if ($Global:ScriptJob) {
+        Write-UnifiedLog -Type 'Info' -Message "🚨 Finestra GUI chiusa. Tentativo di fermare il job in corso..." -GuiColor "#FFA500"
+        try {
+            Stop-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
+            Remove-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
+            $Global:ScriptJob = $null
+            Write-UnifiedLog -Type 'Success' -Message "✅ Job in corso fermato e rimosso." -GuiColor "#00FF00"
+        }
+        catch {
+            Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante l'interruzione del job: $($_.Exception.Message)" -GuiColor "#FF0000"
+        }
+    }
+    if ($Global:JobMonitorTimer) {
+        $Global:JobMonitorTimer.Stop()
+        $Global:JobMonitorTimer = $null
+    }
+    try {
+        Stop-Transcript -ErrorAction SilentlyContinue
+    }
+    catch {}
+})
 
 # Show window
 $window.ShowDialog() | Out-Null
@@ -2136,3 +2279,4 @@ try {
     Stop-Transcript -ErrorAction SilentlyContinue
 }
 catch {}
+
