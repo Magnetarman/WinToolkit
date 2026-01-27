@@ -20,28 +20,28 @@ $ToolkitVersion = "2.5.1 (Build 2)"
 $AppConfig = @{
     URLs     = @{
         # GitHub Asset URLs
-        GitHubAssetBaseUrl      = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
-        GitHubAssetDevBaseUrl   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
+        GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
+        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
 
         # Office
-        OfficeSetup             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
-        OfficeBasicConfig       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
-        SaRAInstaller           = "https://aka.ms/SaRA_EnterpriseVersionFiles"
+        OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
+        OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
+        SaRAInstaller         = "https://aka.ms/SaRA_EnterpriseVersionFiles"
 
         # Video Driver
-        AMDInstaller            = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
-        NVCleanstall            = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
-        DDUZip                  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
+        AMDInstaller          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
+        NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
+        DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
 
         # Gaming
-        DirectXWebSetup         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe"
-        BattleNetInstaller      = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
+        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe"
+        BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
 
         # 7-Zip
-        SevenZipOfficial        = "https://www.7-zip.org/a/7zr.exe"
+        SevenZipOfficial      = "https://www.7-zip.org/a/7zr.exe"
 
         # Store
-        WingetInstaller         = "https://aka.ms/getwinget"
+        WingetInstaller       = "https://aka.ms/getwinget"
     }
     Paths    = @{
         # Base paths
@@ -140,6 +140,12 @@ function Show-Header {
         Mostra l'intestazione standardizzata.
     #>
     param([string]$SubTitle = "Menu Principale")
+    
+    # Skip header display if running in GUI mode to prevent console UI issues
+    if ($Global:GuiSessionActive) {
+        return
+    }
+    
     Clear-Host
     $width = $Host.UI.RawUI.BufferSize.Width
     $asciiArt = @(
