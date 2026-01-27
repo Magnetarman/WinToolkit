@@ -23,6 +23,8 @@
   - [x] Gestione Logging: Spostata e protetta la creazione delle directory di log con blocchi try-catch per evitare interruzioni su sistemi con permessi ristretti.
   - [x] Gestione Flusso Reboot: Spostata la logica rebootNeeded al termine della catena di avvio per prevenire la chiusura prematura dello script durante la fase di setup.
   - [x] Resilienza Winget: Migliorato il rilevamento degli errori durante il ripristino di Winget, differenziando tra metodo "veloce" (bundle) e "avanzato" (moduli PowerShell).
+  - [x] Aggiunto check ulteriore dell'eseguibile Windows Terminal. In caso di applicativi corrotti viene forzata l'installazione della versione Portable.
+  - [x] Aggiunta la modifica dei vari puntatori di Windows alla nuova versione di Windows Terminal portable slegata dallo store di windows e da Winget in modo da garantire il funzionamento anche su sistemi fortemente danneggiati.
   
 
 - Rework Gestione `To-Do.md`.
