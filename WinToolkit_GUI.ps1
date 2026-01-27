@@ -123,6 +123,7 @@ $Global:LastJobOutputCount = 0
 $Global:IsInputWaiting = $false
 $Global:RebootRequired = $false
 $Global:NeedsFinalReboot = $false
+$Global:GuiBridgeTraceMode = $false # Set to $true to see unrecognized job output for debugging
 
 # Global variables to optimize RichTextBox logging
 $Global:LastLogEntryType = $null
@@ -1314,6 +1315,18 @@ function Update-SystemInformationPanel {
                 try {
                     $blStatus = CheckBitlocker
                     $SysInfoBitlocker.Text = $blStatus
+                    
+                    # Colorazione status Bitlocker (verde/giallo/rosso) basato sulla stringa returned
+                    if ($blStatus -match '(?i)(attiv|protezione|crittograf|completa)') {
+                        $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
+                    }
+                    elseif ($blStatus -match '(?i)(sospesa|parzial|in corso)') {
+                        $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
+                    }
+                    else {
+                        # Stati disattivo/non configurato = rosso
+                        $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
+                    }
                 
                     # Carica icona Bitlocker
                     if ($BitlockerImage) {
@@ -1519,6 +1532,17 @@ function Filter-AndFormatJobOutput {
     # Handle WINTOOLKIT_PROGRESS_TAG
     if ($Line -match '\[WINTOOLKIT_PROGRESS_TAG\].*Percent:\s*(?<Percent>\d+)%') {
         $percent = [int]$matches.Percent
+        
+        # Log version of progress to OutputTextBox (periodicity to avoid spam)
+        if ($Line -match 'Activity:\s*(?<Activity>[^|]+)\| Status:\s*(?<Status>[^|]+)') {
+            $activity = $matches.Activity.Trim()
+            $status = $matches.Status.Trim()
+            # Log to textbox for major milestones
+            if ($percent % 25 -eq 0 -or $percent -eq 100) {
+                Write-UnifiedLog -Type 'Progress' -Message "🔄 [$activity] $status ($percent%)" -GuiColor "#2196F3"
+            }
+        }
+
         $window.Dispatcher.Invoke([Action] { 
                 if ($progressBar) { $progressBar.Value = $percent }
             })
@@ -1551,7 +1575,6 @@ function Filter-AndFormatJobOutput {
     if ($Line -match '\[WINTOOLKIT_RAW_HOST_OUTPUT_TAG\](?<Text>.*)') {
         $messageText = $matches.Text.Trim()
         if (-not [string]::IsNullOrEmpty($messageText)) {
-            # Attempt to parse as a styled message (from Core's Write-Host that looks like Write-StyledMessage)
             # Regex updated to include all common icons from Core's MsgStyles and various script rules
             $styledRawPattern = "^\[(?<Timestamp>\d{2}:\d{2}:\d{2})\]\s*(?<Icon>[✅⚠️❌💎🔄🗂️📁🖨️📄🗑️💭⸏▶️💡⏰🎉💻📊⚙️🛡️🚀📡🔑⏳📦💽🕸️🖨️🎯🔕🔥✨📜💾💽🦊🌐])\s*(?<Rest>.*)$"
             if ($messageText -match $styledRawPattern) {
@@ -1574,15 +1597,27 @@ function Filter-AndFormatJobOutput {
                     elseif ($restOfText -match '(?i)WARNING|WARN|ATTENZIONE|IMPOSSIBLE') { $type = 'Warning'; $guiColor = "#FFB74D" }
                     elseif ($restOfText -match '(?i)SUCCESS|COMPLETED|FATTO|OK') { $type = 'Success'; $guiColor = "#4CAF50" }
                 }
-                Write-UnifiedLog -Type $type -Message "$icon $restOfText" -GuiColor $guiColor
+                
+                # Fix double emoji: if RestOfText already starts with the MUST-HAVE emoji, don't double it
+                if ($restOfText.StartsWith($icon)) {
+                    Write-UnifiedLog -Type $type -Message "$restOfText" -GuiColor $guiColor
+                }
+                else {
+                    Write-UnifiedLog -Type $type -Message "$icon $restOfText" -GuiColor $guiColor
+                }
             }
-            # Handle special header/footer lines that don't have an icon but are clearly structured.
+            # Handle special header/footer lines (No TRACE for these)
             elseif ($messageText -match '^(?:={5,}|-{5,}|_={5,}|_\s*={5,}|╔|╚|═|─|━|┌|┐|└|┘|│|WinToolkit - System Check)') {
-                # Ignore decorative lines (or log as debug if needed), do not print them as raw GUI output
+                # Ignore decorative lines
             }
             else {
-                # If it doesn't match the styled pattern, treat it as generic raw output with neutral color
-                Write-UnifiedLog -Type 'Info' -Message "$messageText" -GuiColor "#B0B0B0" # Neutral gray for truly raw output
+                # Raw output handling with Trace Mode toggle
+                if ($Global:GuiBridgeTraceMode) {
+                    Write-UnifiedLog -Type 'Info' -Message "[TRACE] $messageText" -GuiColor "#808080"
+                }
+                else {
+                    Write-UnifiedLog -Type 'Info' -Message "$messageText" -GuiColor "#B0B0B0"
+                }
             }
         }
         return $true
@@ -1759,35 +1794,52 @@ function Start-NextScriptJob {
                 [string]$Spinner = '',
                 [string]$Color = 'Green'
             )
-            # Only output if percentage changes significantly to reduce GUI update overhead
-            if ($null -eq $Global:LastProgressBarPercent) { $Global:LastProgressBarPercent = -1 }
-            if ([math]::Abs($Percent - $Global:LastProgressBarPercent) -ge 5 -or $Percent -ge 100 -or $Percent -eq 0) {
-                Write-Output "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $Percent% | Icon: $Icon | Spinner: $Spinner"
-                $Global:LastProgressBarPercent = $Percent
+            # Ensure Percent is an integer
+            $intPercent = [int]$Percent
+            # Output with tagged format for GUI parsing (removed throttling)
+            Write-Output "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $($intPercent)% | Icon: $Icon | Spinner: $Spinner"
+        }
+
+        # Shim Write-Progress to redirect standard PowerShell progress to the GUI
+        function Write-Progress {
+            param(
+                [Parameter(Mandatory=$true)][string]$Activity,
+                [string]$Status = "",
+                [int]$PercentComplete = -1,
+                [switch]$Completed
+            )
+            if ($Completed) {
+                Write-Output "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: Completato | Percent: 100%"
+            }
+            elseif ($PercentComplete -ge 0) {
+                Write-Output "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $($PercentComplete)%"
             }
         }
 
         # Shim Write-Host - uses Write-Debug for internal messages, outputs via tag for styled content
         function Write-Host {
             param(
-                [Parameter(Mandatory = $true)][object] $Object,
+                [Parameter(Mandatory = $true, ValueFromPipeline = $true)][object] $Object,
                 [string] $Separator = " ",
                 [string] $ForegroundColor,
                 [string] $BackgroundColor,
                 [switch] $NoNewline
             )
             
-            $output = ($Object | Out-String).TrimEnd("`r`n") # Trim any existing newlines
-            
-            # --- FIX: Ensure a clean newline for RAW output in GUI mode if it's not a no-newline write ---
-            # If NoNewline is specified, we still want a logical "line" for the RichTextBox
-            # The Filter-AndFormatJobOutput will receive this. Each call to Write-UnifiedLog creates a Paragraph.
-            # So, no need to add "\n" here, as RichTextBox handles paragraphs.
-            # Just ensure the output is clean.
-            # --- END FIX ---
-            
-            if (-not [string]::IsNullOrEmpty($output)) {
-                Write-Output "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
+            process {
+                # Use $Object to handle direct calls; handle pipeline via $_ if $Object is null (though Mandatory=$true prevents this)
+                $target = if ($null -ne $Object) { $Object } else { $_ }
+                $output = ($target | Out-String).TrimEnd("`r`n")
+                
+                if (-not [string]::IsNullOrEmpty($output)) {
+                    # If it's already a tagged message, don't double tag it
+                    if ($output -match '^\[WINTOOLKIT_.*_TAG\]') {
+                        Write-Output $output
+                    }
+                    else {
+                        Write-Output "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
+                    }
+                }
             }
         }
         # --- End of REDEFINITIONS ---
