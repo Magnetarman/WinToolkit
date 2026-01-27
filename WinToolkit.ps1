@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 5)"
+$ToolkitVersion = "2.5.1 (Build 6)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -189,8 +189,11 @@ function Show-ProgressBar {
     $filled = '█' * [math]::Floor($safePercent * 30 / 100)
     $empty = '▒' * (30 - $filled.Length)
     $bar = "[$filled$empty] {0,3}%" -f $safePercent
-    Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
-    if ($Percent -ge 100) { Write-Host '' }
+    # Only write to console if NOT in GUI session (to avoid interfering with job output)
+    if (-not $Global:GuiSessionActive) {
+        Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
+        if ($Percent -ge 100) { Write-Host '' }
+    }
 }
 
 function Invoke-WithSpinner {
@@ -252,10 +255,13 @@ function Invoke-WithSpinner {
                     $percent = [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100)
                 }
 
-                Write-Host "`r$spinner ⏳ $Activity - $i secondi..." -NoNewline -ForegroundColor Yellow
+                # Only write to console if NOT in GUI session
+                if (-not $Global:GuiSessionActive) {
+                    Write-Host "`r$spinner ⏳ $Activity - $i secondi..." -NoNewline -ForegroundColor Yellow
+                }
                 Start-Sleep -Seconds 1
             }
-            Write-Host ''
+            if (-not $Global:GuiSessionActive) { Write-Host '' }
             return $true
         }
         elseif ($Process -and $result -and $result.GetType().Name -eq 'Process') {
@@ -272,7 +278,9 @@ function Invoke-WithSpinner {
                 }
 
                 # Clear any previous output and show progress bar
-                Write-Host "`r" -NoNewline
+                if (-not $Global:GuiSessionActive) {
+                    Write-Host "`r" -NoNewline
+                }
                 Show-ProgressBar -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
                 Start-Sleep -Milliseconds $UpdateInterval
                 $result.Refresh()
@@ -286,9 +294,11 @@ function Invoke-WithSpinner {
             }
 
             # Clear line and show completion
-            Write-Host "`r" -NoNewline
+            if (-not $Global:GuiSessionActive) {
+                Write-Host "`r" -NoNewline
+            }
             Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
-            Write-Host "" # Add newline after completion
+            if (-not $Global:GuiSessionActive) { Write-Host "" } # Add newline after completion
             return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
         }
         elseif ($Job -and $result -and $result.GetType().Name -eq 'Job') {
@@ -1966,7 +1976,7 @@ function WinBackupDriver {
             if (Export-SystemDrivers) {
                 Write-Host ""
                 
-                $sevenZipPath = Resolve-7ZipExecutable
+                $sevenZipPath = (Resolve-7ZipExecutable | Select-Object -Last 1)
                 if ($sevenZipPath) {
                     Write-Host ""
                     
