@@ -7,10 +7,11 @@
   - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
   
   - Funzione WinRepairToolkit Potenziata. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
-    - [ ] Fix pulizia non corretta output durante le barre di progressione.
-  
-
-- [ ] Adeguamento Repository alle regole di Github.
+    - [x] Fix pulizia non corretta output durante le barre di progressione.
+    - [x] Aumentato il Timeout delle funzioni in modo da non far fallire le operazioni anche su sistemi datati e poco potenti.
+    - [x] Reso automatico ed "intelligente" l'invocazione della riparazione profonda (Se Checkdisk non genera errori gravi la riparazione profonda non verrà invocata al riavvio del PC)
+    
+- [x] Adeguamento Repository alle regole di Github.
   - [x] Rinominato CONTRIBUTORS.md => CONTRIBUTING.md.
   - [x] Creazione documento Codice di condotta `CODE_OF_CONDUCT.md`.
   - [x] Eliminata sezione contributori dal readme.
