@@ -34,7 +34,35 @@ function WinRepairToolkit {
 
         try {
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
-                if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
+                if ($Config.Tool -ieq 'sfc') {
+                    $procParams = @{
+                        FilePath               = $Config.Tool
+                        ArgumentList           = $Config.Args
+                        RedirectStandardOutput = $outFile
+                        RedirectStandardError  = $errFile
+                        NoNewWindow            = $true
+                        PassThru               = $true
+                    }
+                    $process = Start-Process @procParams
+
+                    $timeout = 3600
+                    $elapsed = 0
+                    $interval = 30
+
+                    while (!$process.HasExited -and $elapsed -lt $timeout) {
+                        Start-Sleep -Seconds $interval
+                        $elapsed += $interval
+                        # Feedback visivo nel log o console (opzionale, gestito principalmente dallo spinner)
+                        Write-Host "⏳ Analisi in corso... ($elapsed s)" -ForegroundColor DarkGray
+                    }
+
+                    if (!$process.HasExited) {
+                        Stop-Process -Id $process.Id -Force
+                        Write-Host "Timeout SFC raggiunto."
+                    }
+                    return $process
+                }
+                elseif ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
                     $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
                     $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
                     
@@ -59,7 +87,7 @@ function WinRepairToolkit {
                     }
                     Start-Process @procParams
                 }
-            } -UpdateInterval $(if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
+            } -UpdateInterval $(if ($Config.Tool -ieq 'sfc') { 3600 } elseif ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
 
             $results = @()
             @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
