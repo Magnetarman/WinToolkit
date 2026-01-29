@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 11)"
+$ToolkitVersion = "2.5.1 (Build 12)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -508,7 +508,7 @@ function WinRepairToolkit {
                 $results += Get-Content $_ -ErrorAction SilentlyContinue
             }
 
-            # Logica controllo errori originale
+            # Logica controllo errori con gestione flessibile per chkdsk
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
                 Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
                 return @{ Success = $true; ErrorCount = 0 }
@@ -516,19 +516,37 @@ function WinRepairToolkit {
 
             $exitCode = $result.ExitCode
             $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
-            $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess
+            
+            # Per chkdsk /scan, considerare successo se completato (anche con exit code non-zero informativo)
+            $isChkdskScan = $isChkdsk -and ($Config.Args -contains '/scan')
+            $chkdskCompleted = $isChkdskScan -and (($results -join ' ') -match '(?i)(scansione.*completata|scan.*completed|successfully scanned)')
+            $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess -or $chkdskCompleted
 
             $errors = $warnings = @()
             if (-not $isSuccess) {
                 foreach ($line in ($results | Where-Object { $_ -and ![string]::IsNullOrWhiteSpace($_.Trim()) })) {
                     $trim = $line.Trim()
+                    # Escludi linee di progresso, versione e messaggi informativi
                     if ($trim -match '^\[=+\s*\d+' -or $trim -match '(?i)version:|deployment image') { continue }
-                    if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
-                    elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
+                    
+                    # Per chkdsk, ignora messaggi informativi comuni che non sono errori critici
+                    if ($isChkdsk) {
+                        # Ignora messaggi informativi di chkdsk
+                        if ($trim -match '(?i)(stage|fase|percent complete|verificat|scanned|scanning|errors found.*corrected|volume label)') { continue }
+                        # Solo errori critici per chkdsk
+                        if ($trim -match '(?i)(cannot|unable to|access denied|critical|fatal|corrupt file system|bad sectors)') { 
+                            $errors += $trim 
+                        }
+                    }
+                    else {
+                        # Logica normale per altri tool
+                        if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
+                        elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
+                    }
                 }
             }
 
-            $success = ($errors.Count -eq 0) -or $hasDismSuccess
+            $success = ($errors.Count -eq 0) -or $hasDismSuccess -or $chkdskCompleted
             $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
             Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
 
