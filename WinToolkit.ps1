@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 7)"
+$ToolkitVersion = "2.5.1 (Build 8)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -295,7 +295,7 @@ function Invoke-WithSpinner {
 
             # Clear line and show completion
             if (-not $Global:GuiSessionActive) {
-                Write-Host "`r" -NoNewline
+                Clear-ProgressLine
             }
             Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
             if (-not $Global:GuiSessionActive) { Write-Host "" } # Add newline after completion
@@ -461,61 +461,81 @@ function WinRepairToolkit {
         $errFile = [System.IO.Path]::GetTempFileName()
 
         try {
-            $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
-                if ($Config.Tool -ieq 'sfc') {
-                    $procParams = @{
-                        FilePath               = $Config.Tool
-                        ArgumentList           = $Config.Args
-                        RedirectStandardOutput = $outFile
-                        RedirectStandardError  = $errFile
-                        NoNewWindow            = $true
-                        PassThru               = $true
-                    }
-                    $process = Start-Process @procParams
+            # --- Parametri di processo e timeout dinamici ---
+            $procFilePath = $Config.Tool
+            $procArgumentList = $Config.Args
+            $processTimeoutSeconds = 600 # Default timeout per la terminazione forzata (es. AppX, o DISM generico)
+            $warningMessageThresholdSeconds = 0 # Default: nessun messaggio di avviso anticipato
 
-                    $timeout = 3600
-                    $elapsed = 0
-                    $interval = 30
-
-                    while (!$process.HasExited -and $elapsed -lt $timeout) {
-                        Start-Sleep -Seconds $interval
-                        $elapsed += $interval
-                        # Feedback visivo nel log o console (opzionale, gestito principalmente dallo spinner)
-                        Write-Host "⏳ Analisi in corso... ($elapsed s)" -ForegroundColor DarkGray
-                    }
-
-                    if (!$process.HasExited) {
-                        Stop-Process -Id $process.Id -Force
-                        Write-Host "Timeout SFC raggiunto."
-                    }
-                    return $process
-                }
-                elseif ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
+            if ($Config.Tool -ieq 'sfc') {
+                $processTimeoutSeconds = 3600 # SFC può essere molto lungo
+                # Nessun warning esplicito qui, SFC ha già un feedback "Analisi in corso..."
+            }
+            elseif ($isChkdsk) {
+                $processTimeoutSeconds = 300 # Timeout per la terminazione forzata di chkdsk
+                $warningMessageThresholdSeconds = 300 # Avviso dopo 300 secondi
+                # Gestione speciale per chkdsk /f, /r o /x che richiedono 'cmd.exe /c echo Y|'
+                if ($Config.Args -contains '/f' -or $Config.Args -contains '/r' -or $Config.Args -contains '/x') {
                     $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
                     $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
+                    $procFilePath = 'cmd.exe'
+                    $procArgumentList = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
+                }
+            }
+            elseif ($Config.Name -eq 'Pulizia Residui Aggiornamenti') {
+                $processTimeoutSeconds = 600 # Questo task può anche essere lungo
+                $warningMessageThresholdSeconds = 600 # Avviso dopo 600 secondi
+            }
+            elseif ($Config.Name -eq 'Ripristino immagine Windows') {
+                $processTimeoutSeconds = 900 # Già 900s nell'UpdateInterval, allineiamo il timeout
+                $warningMessageThresholdSeconds = 900 # Avviso dopo 900 secondi
+            }
+            # --- Fine parametri dinamici ---
+
+            $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
+                $procParams = @{
+                    FilePath               = $procFilePath
+                    ArgumentList           = $procArgumentList
+                    RedirectStandardOutput = $outFile
+                    RedirectStandardError  = $errFile
+                    NoNewWindow            = $true
+                    PassThru               = $true
+                }
+                $process = Start-Process @procParams
+
+                $elapsed = 0
+                $interval = 30 # Intervallo di polling predefinito
+                $hasWarned = $false # Flag per assicurarsi che l'avviso venga visualizzato solo una volta
+
+                while (!$process.HasExited -and $elapsed -lt $processTimeoutSeconds) {
+                    Start-Sleep -Seconds $interval
+                    $elapsed += $interval
                     
-                    $procParams = @{
-                        FilePath               = 'cmd.exe'
-                        ArgumentList           = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
-                        RedirectStandardOutput = $outFile
-                        RedirectStandardError  = $errFile
-                        NoNewWindow            = $true
-                        PassThru               = $true
+                    # Feedback intermedio specifico per SFC (se non c'è un warning generale attivo)
+                    if ($Config.Tool -ieq 'sfc' -and -not $hasWarned) {
+                         Write-Host "⏳ Analisi in corso... ($elapsed s)" -ForegroundColor DarkGray
                     }
-                    Start-Process @procParams
-                }
-                else {
-                    $procParams = @{
-                        FilePath               = $Config.Tool
-                        ArgumentList           = $Config.Args
-                        RedirectStandardOutput = $outFile
-                        RedirectStandardError  = $errFile
-                        NoNewWindow            = $true
-                        PassThru               = $true
+                    
+                    # Messaggio di avviso generale se la soglia è raggiunta e non è stato già emesso
+                    if ($warningMessageThresholdSeconds -gt 0 -and $elapsed -ge $warningMessageThresholdSeconds -and -not $hasWarned) {
+                        Write-Host "Attenzione! - L'operazione sta impiegando più tempo del previsto, ATTENDERE…" -ForegroundColor Yellow
+                        $hasWarned = $true
                     }
-                    Start-Process @procParams
                 }
-            } -UpdateInterval $(if ($Config.Tool -ieq 'sfc') { 3600 } elseif ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
+
+                if (!$process.HasExited) {
+                    Stop-Process -Id $process.Id -Force
+                    Write-Host "Timeout di $($processTimeoutSeconds) secondi raggiunto per $($Config.Name). Il processo è stato terminato forzatamente." -ForegroundColor Red
+                }
+                return $process
+            } -UpdateInterval $(
+                # L'UpdateInterval dello spinner dovrebbe riflettere il tempo massimo previsto per l'operazione
+                if ($Config.Tool -ieq 'sfc') { 3600 }
+                elseif ($Config.Tool -ieq 'chkdsk') { 300 } # Nuovo intervallo per chkdsk
+                elseif ($Config.Name -eq 'Pulizia Residui Aggiornamenti') { 600 } # Nuovo intervallo per pulizia aggiornamenti
+                elseif ($Config.Name -eq 'Ripristino immagine Windows') { 900 }
+                else { 600 } # Default per altri task (es. registrazione AppX)
+            )
 
             $results = @()
             @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
@@ -523,7 +543,7 @@ function WinRepairToolkit {
             }
 
             # Logica controllo errori originale
-            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
+            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r' -or $Config.Args -contains '/x') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
                 Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
                 return @{ Success = $true; ErrorCount = 0 }
             }
@@ -583,16 +603,17 @@ function WinRepairToolkit {
     }
 
     function Start-DeepDiskRepair {
-        Write-StyledMessage Warning '🔧 Vuoi eseguire una riparazione profonda del disco C:?'
-        $response = Read-Host 'Procedere con la riparazione profonda? (s/n)'
-        if ($response.ToLower() -ne 's') { return $false }
+        Write-StyledMessage Info '🔧 Avvio riparazione profonda del disco C:...'
         try {
             Start-Process 'fsutil.exe' @('dirty', 'set', 'C:') -NoNewWindow -Wait
             Start-Process 'cmd.exe' @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -WindowStyle Hidden -Wait
             Write-StyledMessage Info 'Comando chkdsk inviato. Riavvia per eseguire.'
             return $true
         }
-        catch { return $false }
+        catch {
+            Write-StyledMessage Error "Errore durante la schedulazione della riparazione profonda: $($_.Exception.Message)"
+            return $false
+        }
     }
 
     # Esecuzione
