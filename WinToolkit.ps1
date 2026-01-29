@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 10)"
+$ToolkitVersion = "2.5.1 (Build 11)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -462,11 +462,9 @@ function WinRepairToolkit {
         $errFile = [System.IO.Path]::GetTempFileName()
 
         try {
-            $procFilePath = $Config.Tool
-            $procArgumentList = $Config.Args
-            
             # Calcolo timeout centralizzato (Fix 3: eliminata duplicazione)
             $processTimeoutSeconds = 600
+
             switch ($Config.Name) {
                 'Ripristino immagine Windows'     { $processTimeoutSeconds = 900 }
                 'Controllo file di sistema (1)'   { $processTimeoutSeconds = 900 }
@@ -478,24 +476,31 @@ function WinRepairToolkit {
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
 
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
-                if ($isChkdsk) {
-                    if ($Config.Args -contains '/f' -or $Config.Args -contains '/r' -or $Config.Args -contains '/x') {
-                        $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
-                        $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
-                        $procFilePath = 'cmd.exe'
-                        $procArgumentList = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
-                    }
-                }
+                if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
+                    $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
+                    $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
 
-                $procParams = @{
-                    FilePath               = $procFilePath
-                    ArgumentList           = $procArgumentList
-                    RedirectStandardOutput = $outFile
-                    RedirectStandardError  = $errFile
-                    NoNewWindow            = $true
-                    PassThru               = $true
+                    $procParams = @{
+                        FilePath               = 'cmd.exe'
+                        ArgumentList           = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
+                        RedirectStandardOutput = $outFile
+                        RedirectStandardError  = $errFile
+                        NoNewWindow            = $true
+                        PassThru               = $true
+                    }
+                    Start-Process @procParams
                 }
-                Start-Process @procParams
+                else {
+                    $procParams = @{
+                        FilePath               = $Config.Tool
+                        ArgumentList           = $Config.Args
+                        RedirectStandardOutput = $outFile
+                        RedirectStandardError  = $errFile
+                        NoNewWindow            = $true
+                        PassThru               = $true
+                    }
+                    Start-Process @procParams
+                }
             } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval $spinnerUpdateInterval
 
             $results = @()
@@ -517,12 +522,7 @@ function WinRepairToolkit {
             if (-not $isSuccess) {
                 foreach ($line in ($results | Where-Object { $_ -and ![string]::IsNullOrWhiteSpace($_.Trim()) })) {
                     $trim = $line.Trim()
-                    # Salta le righe di progresso e le versioni
                     if ($trim -match '^\[=+\s*\d+' -or $trim -match '(?i)version:|deployment image') { continue }
-                    
-                    # Fix 1: Salta i messaggi di conferma che NON sono veri errori
-                    if ($trim -match '(?i)found no errors|nessun errore trovato|non sono state trovate violazioni') { continue }
-
                     if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
                     elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
                 }
