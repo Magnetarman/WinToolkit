@@ -36,18 +36,18 @@ function WinRepairToolkit {
         try {
             $procFilePath = $Config.Tool
             $procArgumentList = $Config.Args
+            
+            # Calcolo timeout centralizzato (Fix 3: eliminata duplicazione)
             $processTimeoutSeconds = 600
-            $warningMessageThresholdSeconds = 0
-
             switch ($Config.Name) {
-                'Ripristino immagine Windows'     { $processTimeoutSeconds = 900; $warningMessageThresholdSeconds = 900 }
-                'Controllo file di sistema (1)'   { $processTimeoutSeconds = 900; $warningMessageThresholdSeconds = 900 }
-                'Controllo file di sistema (2)'   { $processTimeoutSeconds = 900; $warningMessageThresholdSeconds = 900 }
-                'Pulizia Residui Aggiornamenti'   { $processTimeoutSeconds = 900; $warningMessageThresholdSeconds = 900 }
-                'Controllo disco'                 { $processTimeoutSeconds = 600; $warningMessageThresholdSeconds = 600 }
-                'Controllo disco approfondito'    { $processTimeoutSeconds = 600; $warningMessageThresholdSeconds = 600 }
-                default                           { $processTimeoutSeconds = 600; $warningMessageThresholdSeconds = 600 }
+                'Ripristino immagine Windows'     { $processTimeoutSeconds = 900 }
+                'Controllo file di sistema (1)'   { $processTimeoutSeconds = 900 }
+                'Controllo file di sistema (2)'   { $processTimeoutSeconds = 900 }
+                'Pulizia Residui Aggiornamenti'   { $processTimeoutSeconds = 900 }
+                'Controllo disco'                 { $processTimeoutSeconds = 600 }
+                'Controllo disco approfondito'    { $processTimeoutSeconds = 600 }
             }
+            $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
 
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
                 if ($isChkdsk) {
@@ -68,17 +68,7 @@ function WinRepairToolkit {
                     PassThru               = $true
                 }
                 Start-Process @procParams
-            } -TimeoutSeconds $(
-                switch ($Config.Name) {
-                    'Ripristino immagine Windows'     { 900 }
-                    'Controllo file di sistema (1)'   { 900 }
-                    'Controllo file di sistema (2)'   { 900 }
-                    'Pulizia Residui Aggiornamenti'   { 900 }
-                    'Controllo disco'                 { 600 }
-                    'Controllo disco approfondito'    { 600 }
-                    default                           { 600 }
-                }
-            ) -UpdateInterval $(if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
+            } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval $spinnerUpdateInterval
 
             $results = @()
             @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
@@ -99,7 +89,12 @@ function WinRepairToolkit {
             if (-not $isSuccess) {
                 foreach ($line in ($results | Where-Object { $_ -and ![string]::IsNullOrWhiteSpace($_.Trim()) })) {
                     $trim = $line.Trim()
+                    # Salta le righe di progresso e le versioni
                     if ($trim -match '^\[=+\s*\d+' -or $trim -match '(?i)version:|deployment image') { continue }
+                    
+                    # Fix 1: Salta i messaggi di conferma che NON sono veri errori
+                    if ($trim -match '(?i)found no errors|nessun errore trovato|non sono state trovate violazioni') { continue }
+
                     if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
                     elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
                 }
@@ -162,7 +157,15 @@ function WinRepairToolkit {
     # Esecuzione
     try {
         $repairResult = Start-RepairCycle
-        $deepRepairScheduled = Start-DeepDiskRepair
+        
+        $deepRepairScheduled = $false
+        # Fix 2: Esegue la riparazione profonda solo se ci sono ancora errori dopo 3 tentativi
+        if ($repairResult.TotalErrors -gt 0) {
+            Write-StyledMessage Warning "Rilevati errori persistenti. Avvio riparazione profonda..."
+            $deepRepairScheduled = Start-DeepDiskRepair
+        } else {
+            Write-StyledMessage Success "Sistema in salute. Riparazione profonda non necessaria."
+        }
 
         Write-StyledMessage Info "⚙️ Impostazione scadenza password illimitata..."
         Start-Process "net" -ArgumentList "accounts", "/maxpwage:unlimited" -NoNewWindow -Wait
