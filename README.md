@@ -1,6 +1,6 @@
 <p align="center">
 	<img src="img/WinToolkit-icon.png" alt="WinToolkit-banner" width="160">
-	<h1>WinToolkit: la soluzione definitiva per <em>sopravvivere</em> con Windows</h1>
+	<h1>WinToolkit: la soluzione definitiva per <em>sopravvivere</em> a Windows</h1>
 </p>
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
