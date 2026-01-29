@@ -5,6 +5,10 @@
 - Funzione WinUpdateDisabler.
   - [ ] Add script relativo e funzioni nel template.
   - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
+  
+  - Funzione WinRepairToolkit Potenziata. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
+    - [ ] Fix pulizia non corretta output durante le barre di progressione.
+  
 
 - [ ] Adeguamento Repository alle regole di Github.
   - [x] Rinominato CONTRIBUTORS.md => CONTRIBUTING.md.
