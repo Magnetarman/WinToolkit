@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 8)"
+$ToolkitVersion = "2.5.1 (Build 9)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -450,49 +450,43 @@ function WinRepairToolkit {
         @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
         @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
         @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (2)'; Icon = '🗂️' }
+        @{ Tool = 'chkdsk'; Args = @('/f', '/r', '/x'); Name = 'Controllo disco approfondito'; Icon = '💽'; IsCritical = $false }
     )
 
     function Invoke-RepairCommand {
         param([hashtable]$Config, [int]$Step, [int]$Total)
-        
+
         Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)..."
         $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
 
         try {
-            # --- Parametri di processo e timeout dinamici ---
             $procFilePath = $Config.Tool
             $procArgumentList = $Config.Args
-            $processTimeoutSeconds = 600 # Default timeout per la terminazione forzata (es. AppX, o DISM generico)
-            $warningMessageThresholdSeconds = 0 # Default: nessun messaggio di avviso anticipato
+            $processTimeoutSeconds = 600
+            $warningMessageThresholdSeconds = 0
 
-            if ($Config.Tool -ieq 'sfc') {
-                $processTimeoutSeconds = 3600 # SFC può essere molto lungo
-                # Nessun warning esplicito qui, SFC ha già un feedback "Analisi in corso..."
+            switch ($Config.Name) {
+                'Ripristino immagine Windows'     { $processTimeoutSeconds = 900; $warningMessageThresholdSeconds = 900 }
+                'Controllo file di sistema (1)'   { $processTimeoutSeconds = 900; $warningMessageThresholdSeconds = 900 }
+                'Controllo file di sistema (2)'   { $processTimeoutSeconds = 900; $warningMessageThresholdSeconds = 900 }
+                'Pulizia Residui Aggiornamenti'   { $processTimeoutSeconds = 900; $warningMessageThresholdSeconds = 900 }
+                'Controllo disco'                 { $processTimeoutSeconds = 600; $warningMessageThresholdSeconds = 600 }
+                'Controllo disco approfondito'    { $processTimeoutSeconds = 600; $warningMessageThresholdSeconds = 600 }
+                default                           { $processTimeoutSeconds = 600; $warningMessageThresholdSeconds = 600 }
             }
-            elseif ($isChkdsk) {
-                $processTimeoutSeconds = 300 # Timeout per la terminazione forzata di chkdsk
-                $warningMessageThresholdSeconds = 300 # Avviso dopo 300 secondi
-                # Gestione speciale per chkdsk /f, /r o /x che richiedono 'cmd.exe /c echo Y|'
-                if ($Config.Args -contains '/f' -or $Config.Args -contains '/r' -or $Config.Args -contains '/x') {
-                    $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
-                    $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
-                    $procFilePath = 'cmd.exe'
-                    $procArgumentList = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
-                }
-            }
-            elseif ($Config.Name -eq 'Pulizia Residui Aggiornamenti') {
-                $processTimeoutSeconds = 600 # Questo task può anche essere lungo
-                $warningMessageThresholdSeconds = 600 # Avviso dopo 600 secondi
-            }
-            elseif ($Config.Name -eq 'Ripristino immagine Windows') {
-                $processTimeoutSeconds = 900 # Già 900s nell'UpdateInterval, allineiamo il timeout
-                $warningMessageThresholdSeconds = 900 # Avviso dopo 900 secondi
-            }
-            # --- Fine parametri dinamici ---
 
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
+                if ($isChkdsk) {
+                    if ($Config.Args -contains '/f' -or $Config.Args -contains '/r' -or $Config.Args -contains '/x') {
+                        $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
+                        $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
+                        $procFilePath = 'cmd.exe'
+                        $procArgumentList = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
+                    }
+                }
+
                 $procParams = @{
                     FilePath               = $procFilePath
                     ArgumentList           = $procArgumentList
@@ -501,41 +495,18 @@ function WinRepairToolkit {
                     NoNewWindow            = $true
                     PassThru               = $true
                 }
-                $process = Start-Process @procParams
-
-                $elapsed = 0
-                $interval = 30 # Intervallo di polling predefinito
-                $hasWarned = $false # Flag per assicurarsi che l'avviso venga visualizzato solo una volta
-
-                while (!$process.HasExited -and $elapsed -lt $processTimeoutSeconds) {
-                    Start-Sleep -Seconds $interval
-                    $elapsed += $interval
-                    
-                    # Feedback intermedio specifico per SFC (se non c'è un warning generale attivo)
-                    if ($Config.Tool -ieq 'sfc' -and -not $hasWarned) {
-                         Write-Host "⏳ Analisi in corso... ($elapsed s)" -ForegroundColor DarkGray
-                    }
-                    
-                    # Messaggio di avviso generale se la soglia è raggiunta e non è stato già emesso
-                    if ($warningMessageThresholdSeconds -gt 0 -and $elapsed -ge $warningMessageThresholdSeconds -and -not $hasWarned) {
-                        Write-Host "Attenzione! - L'operazione sta impiegando più tempo del previsto, ATTENDERE…" -ForegroundColor Yellow
-                        $hasWarned = $true
-                    }
+                Start-Process @procParams
+            } -TimeoutSeconds $(
+                switch ($Config.Name) {
+                    'Ripristino immagine Windows'     { 900 }
+                    'Controllo file di sistema (1)'   { 900 }
+                    'Controllo file di sistema (2)'   { 900 }
+                    'Pulizia Residui Aggiornamenti'   { 900 }
+                    'Controllo disco'                 { 600 }
+                    'Controllo disco approfondito'    { 600 }
+                    default                           { 600 }
                 }
-
-                if (!$process.HasExited) {
-                    Stop-Process -Id $process.Id -Force
-                    Write-Host "Timeout di $($processTimeoutSeconds) secondi raggiunto per $($Config.Name). Il processo è stato terminato forzatamente." -ForegroundColor Red
-                }
-                return $process
-            } -UpdateInterval $(
-                # L'UpdateInterval dello spinner dovrebbe riflettere il tempo massimo previsto per l'operazione
-                if ($Config.Tool -ieq 'sfc') { 3600 }
-                elseif ($Config.Tool -ieq 'chkdsk') { 300 } # Nuovo intervallo per chkdsk
-                elseif ($Config.Name -eq 'Pulizia Residui Aggiornamenti') { 600 } # Nuovo intervallo per pulizia aggiornamenti
-                elseif ($Config.Name -eq 'Ripristino immagine Windows') { 900 }
-                else { 600 } # Default per altri task (es. registrazione AppX)
-            )
+            ) -UpdateInterval $(if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 })
 
             $results = @()
             @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
@@ -543,7 +514,7 @@ function WinRepairToolkit {
             }
 
             # Logica controllo errori originale
-            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r' -or $Config.Args -contains '/x') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
+            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
                 Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
                 return @{ Success = $true; ErrorCount = 0 }
             }
@@ -579,7 +550,7 @@ function WinRepairToolkit {
 
     function Start-RepairCycle {
         param([int]$Attempt = 1)
-        
+
         $script:CurrentAttempt = $Attempt
         Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema..."
         Write-Host ''
@@ -603,7 +574,7 @@ function WinRepairToolkit {
     }
 
     function Start-DeepDiskRepair {
-        Write-StyledMessage Info '🔧 Avvio riparazione profonda del disco C:...'
+        Write-StyledMessage Info '🔧 Avvio riparazione profonda del disco C: al prossimo riavvio'
         try {
             Start-Process 'fsutil.exe' @('dirty', 'set', 'C:') -NoNewWindow -Wait
             Start-Process 'cmd.exe' @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -WindowStyle Hidden -Wait
