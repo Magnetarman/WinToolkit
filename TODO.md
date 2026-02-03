@@ -31,18 +31,18 @@
     - [x] Utilizzo di Split-Path -Parent $PROFILE per maggiore affidabilità.
     - [x] Codice più pulito e meno soggetto a errori.
   
-  - Funzione WinRepairToolkit Potenziata. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
-    - [x] Fix pulizia non corretta output durante le barre di progressione.
-    - [x] Aumentato il Timeout delle funzioni in modo da non far fallire le operazioni anche su sistemi datati e poco potenti.
-    - [x] Reso automatico ed "intelligente" l'invocazione della riparazione profonda (Se Checkdisk non genera errori gravi la riparazione profonda non verrà invocata al riavvio del PC)
+- Funzione WinRepairToolkit Potenziata. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
+  - [x] Fix pulizia non corretta output durante le barre di progressione.
+  - [x] Aumentato il Timeout delle funzioni in modo da non far fallire le operazioni anche su sistemi datati e poco potenti.
+  - [x] Reso automatico ed "intelligente" l'invocazione della riparazione profonda (Se Checkdisk non genera errori gravi la riparazione profonda non verrà invocata al riavvio del PC)
     
-- [x] Adeguamento Repository alle regole di Github.
+- Adeguamento Repository alle regole di Github.
   - [x] Rinominato CONTRIBUTORS.md => CONTRIBUTING.md.
   - [x] Creazione documento Codice di condotta `CODE_OF_CONDUCT.md`.
   - [x] Eliminata sezione contributori dal readme.
   - [x] Integrata la sezione contributori nel menu di Github.
 
-- [ ] Potenziato `start.ps1` [[Thanks to @Matteoz]](https://t.me/teo180)
+- Potenziato `start.ps1` [[Thanks to @Matteoz]](https://t.me/teo180)
   - [x] Logica "Force Portable" per Windows Terminal: Nuova funzione Install-WindowsTerminalManual che permette l'estrazione manuale dei binari dal pacchetto .msixbundle in caso di fallimento dei metodi standard.
   - [x] Centralizzazione URL: Inserito l'endpoint GitHub API per le release di Windows Terminal nella configurazione $script:AppConfig per una gestione dinamica degli aggiornamenti.
   - [x] Sistema di Fallback Multi-Livello: Implementata una catena di installazione resiliente per Windows Terminal (Winget -> Appx Nativo -> Estrazione Manuale -> MS Store).
@@ -56,15 +56,15 @@
   - [x] Aggiunto check ulteriore dell'eseguibile Windows Terminal. In caso di applicativi corrotti viene forzata l'installazione della versione Portable.
   - [x] Aggiunta la modifica dei vari puntatori di Windows alla nuova versione di Windows Terminal portable slegata dallo store di windows e da Winget in modo da garantire il funzionamento anche su sistemi fortemente danneggiati.
   
-
 - Rework Gestione `To-Do.md`.
   - [x] Eliminazione `To-Do.md` dal Ramo main.
   - [x] Redirect con link hardcode al `To-Do.md` nel ramo Dev.
-  
 
 
-### V 2.5.2
+### V 2.6 - Auto Debloat
 
+- [ ] Avvio dello script Chris con configurazione personalizzata (`iwr -useb https://christitus.com/win | iex`).
+- **?** Deprovvisioning dell'immagine Windows 11 (studio di fattibilità in corso).
 - Rework Progetto GUI.
   - [ ] Rendere lo script GUI un semplice wrapper.
   - [ ] Inserire download ultima versione `Wintoolkit.ps1`.
@@ -72,18 +72,14 @@
   - [ ] Concatenzazione script da checkbox.
   - [ ] Avanzamento Barra di progressione.
   - [ ] Redirect Output scripts nel box Logs.
-  
 
-### V 2.6 - Auto Debloat
 
-- [ ] Avvio dello script Chris con configurazione personalizzata (`iwr -useb https://christitus.com/win | iex`).
-- **?** Deprovvisioning dell'immagine Windows 11 (studio di fattibilità in corso).
-  
 ### V 2.7 - Security Update
 
 - [ ] Download ed esecuzione di Tron Script con intervento minimo.
 - [ ] Reset dei servizi Windows **[Thanks to @sicolla]**.
 - [ ] Riparazione avanzata Windows Search **[Thanks to @sicolla]**.
+
 
 ### V 2.8 - WinDownloader
 
@@ -101,16 +97,19 @@
   - [ ] Creazione di dispositivo USB Bootable.
   - [ ] Inserimento funzione Blocco selettivo Update Windows.
 
+
 ### V 2.9 - OFFLINE MODE 
 
 - [ ] Possibilità di avviare il download delle ultime risorse necessarie al toolkit.
 - [ ] Salvataggio in file .7z da estrarre.
 - [ ] L'archivio conterrà tutto il necessario ad utilizzare Wintoolkit in modalità offline senza rete.
 
+
 ### V 2.10 - Multi Lang Mode - Codename: "Enza"
 
 - [ ] Conversione Readme.md in inglese.
 - [ ] Possibilità di scegliere la lingua all'avvio di Wintoolkit.
+
 
 ### V X.X - MagnetarMan Mode
 
