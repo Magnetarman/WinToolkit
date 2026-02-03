@@ -4,7 +4,7 @@
 .DESCRIPTION
     Profilo PowerShell con utility, navigazione rapida, informazioni di sistema e configurazioni.
 .NOTES
-    Versione: 2.5.0 - 08/01/2026
+    Versione: 2.5.1 - 03/02/2026
     Autore: MagnetarMan
 #>
 
@@ -17,9 +17,10 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 $adminSuffix = if ($isAdmin) { " [ADMIN]" } else { "" }
 
 # Personalizzazione Prompt
-function Set-Prompt {
+function prompt {
     $promptChar = if ($isAdmin) { "#" } else { "$" }
     Write-Host "[$(Get-Location)] $promptChar " -NoNewline
+    return ""
 }
 
 # Titolo finestra
@@ -46,12 +47,26 @@ function Expand-ZipFile {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true, Position = 0)]
-        [string]$FilePath
+        [string]$FilePath,
+        [string]$DestinationPath = $pwd
     )
-    Write-Host "📦 Estrazione $FilePath in $pwd..." -ForegroundColor Cyan
-    $fullFile = Get-ChildItem -Path $pwd -Filter $FilePath | ForEach-Object { $_.FullName }
-    Expand-Archive -Path $fullFile -DestinationPath $pwd -Force | Out-Null
-    Write-Host "✅ Estrazione completata" -ForegroundColor Green
+    Write-Host "📦 Estrazione $FilePath in $DestinationPath..." -ForegroundColor Cyan
+    
+    # Risolve il percorso completo del file ZIP, che sia un nome o un percorso relativo/assoluto
+    $fullFilePath = Resolve-Path $FilePath | Select-Object -ExpandProperty Path
+
+    if (-not (Test-Path $fullFilePath)) {
+        Write-Host "❌ File ZIP non trovato: '$FilePath'" -ForegroundColor Red
+        return
+    }
+
+    try {
+        Expand-Archive -Path $fullFilePath -DestinationPath $DestinationPath -Force | Out-Null
+        Write-Host "✅ Estrazione completata" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "❌ Errore durante l'estrazione: $($_.Exception.Message)" -ForegroundColor Red
+    }
 }
 
 function Find-File {
@@ -60,9 +75,7 @@ function Find-File {
         [Parameter(Mandatory = $true, Position = 0)]
         [string]$Name
     )
-    Get-ChildItem -Recurse -Filter "*${Name}*" -ErrorAction SilentlyContinue | ForEach-Object {
-        Write-Host "$($_.directory)\$($_)" -ForegroundColor White
-    }
+    Get-ChildItem -Recurse -Filter "*${Name}*" -ErrorAction SilentlyContinue | Select-Object FullName
 }
 
 function New-Mkcd {
@@ -83,9 +96,7 @@ function Set-LocationToDesktop {
     Set-Location -Path "$HOME\Desktop"
 }
 
-function EditProfile {
-    EditPSProfile
-}
+
 
 # ============================================================================
 # INFORMAZIONI DI SISTEMA
@@ -114,6 +125,57 @@ function Get-RAMInfo {
 function FlushDns {
     Clear-DnsClientCache | Out-Null
     Write-Host "✅ Cache DNS svuotata" -ForegroundColor Green
+}
+
+function Speedtest {
+    [CmdletBinding()]
+    param()
+
+    $assetDir = Join-Path $env:LOCALAPPDATA "WinToolkit\asset"
+    $speedtestExePath = Join-Path $assetDir "speedtest.exe"
+    $desktopPath = [Environment]::GetFolderPath("Desktop")
+    $timestamp = Get-Date -Format "dd_MM_yyyy_HH_mm_ss"
+    $outputPath = Join-Path $desktopPath "Speedtest_$timestamp.txt"
+
+    # Assicurati che la directory esista
+    if (-not (Test-Path $assetDir)) {
+        Write-Host "📦 Creazione directory asset: $assetDir" -ForegroundColor Cyan
+        New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
+    }
+
+    # Controlla e scarica speedtest.exe
+    if (-not (Test-Path $speedtestExePath)) {
+        Write-Host "🔍 speedtest.exe non trovato in '$assetDir'." -ForegroundColor Cyan
+        Write-Host "⬇️ Download di speedtest.exe in corso da GitHub..." -ForegroundColor Yellow
+        try {
+            Invoke-WebRequest -Uri "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe" `
+                -OutFile $speedtestExePath `
+                -UseBasicParsing `
+                -ErrorAction Stop
+            Write-Host "✅ speedtest.exe scaricato con successo." -ForegroundColor Green
+        }
+        catch {
+            Write-Host "❌ Errore durante il download di speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
+            return
+        }
+    }
+
+    Write-Host "🚀 Avvio Speedtest..." -ForegroundColor Yellow
+    Write-Host "📝 I risultati (inclusi i progressi) verranno salvati in '$outputPath'." -ForegroundColor Yellow
+
+    try {
+        # Esegui speedtest, unendo tutti gli stream (stdout e stderr per il progresso)
+        # e reindirizzandoli sia alla console che al file.
+        & $speedtestExePath --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
+        Write-Host "✅ Speedtest completato e risultati salvati." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "❌ Errore durante l'esecuzione di speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    finally {
+        Write-Host "♻️ Ricaricamento profilo PowerShell..." -ForegroundColor Cyan
+        ReloadProfile
+    }
 }
 
 # ============================================================================
@@ -145,7 +207,17 @@ function ShutdownComplete {
 # ============================================================================
 
 function Get-PreferredEditor {
-    # Controlla Zed (percorsi comuni)
+    # Controlla se zed è nel PATH (prioritario per flessibilità)
+    if (Test-CommandExists -Name "zed") {
+        $zedCmd = Get-Command zed -ErrorAction SilentlyContinue
+        return @{
+            Name    = 'Zed'
+            Path    = $zedCmd.Source
+            Command = $zedCmd.Source
+        }
+    }
+
+    # Controlla Zed (percorsi comuni, come fallback se non nel PATH)
     $zedPaths = @(
         "$env:LOCALAPPDATA\Programs\Zed\Zed.exe",
         "$env:PROGRAMFILES\Zed\Zed.exe",
@@ -159,16 +231,6 @@ function Get-PreferredEditor {
                 Path    = $path
                 Command = $path
             }
-        }
-    }
-
-    # Controlla se zed è nel PATH
-    if (Test-CommandExists -Name "zed") {
-        $zedCmd = Get-Command zed -ErrorAction SilentlyContinue
-        return @{
-            Name    = 'Zed'
-            Path    = $zedCmd.Source
-            Command = $zedCmd.Source
         }
     }
 
@@ -243,7 +305,6 @@ $($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)              - Crea una di
 
 $($PSStyle.Foreground.Cyan)Navigazione File e Directory$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Set-LocationToDesktop$($PSStyle.Reset) - Naviga alla directory Desktop
-$($PSStyle.Foreground.Green)EditProfile$($PSStyle.Reset)           - Apre il profilo corrente nell'editor
 $($PSStyle.Foreground.Green)EditPSProfile$($PSStyle.Reset)         - Apre il profilo PowerShell nell'editor
 
 $($PSStyle.Foreground.Cyan)Informazioni di Sistema$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------------$($PSStyle.Reset)
@@ -254,6 +315,7 @@ $($PSStyle.Foreground.Green)Get-RAMInfo$($PSStyle.Reset)           - Informazion
 
 $($PSStyle.Foreground.Cyan)Utility di Rete$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)              - Svuota la cache DNS
+$($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)             - Esegue un test della velocità di rete (download automatico di speedtest.exe)
 
 $($PSStyle.Foreground.Cyan)Sistema$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)     - Lancia WinToolkit (stabile)
@@ -294,44 +356,49 @@ Set-PSReadLineOption -Colors @{
 try {
     Write-Host "🔍 Verifica degli aggiornamenti di PowerShell..." -ForegroundColor Cyan
     $updateNeeded = $false
-    $currentVersion = $PSVersionTable.PSVersion.ToString()
+    
+    # Converte la versione corrente in un oggetto [version] per un confronto accurato
+    [version]$currentPSVersion = $PSVersionTable.PSVersion
+
     $gitHubApiUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
     $latestReleaseInfo = Invoke-RestMethod -Uri $gitHubApiUrl -UseBasicParsing
-    $latestVersion = $latestReleaseInfo.tag_name.Trim('v')
+    
+    # Rimuove il prefisso 'v' e converte in un oggetto [version]
+    [version]$latestPSVersion = $latestReleaseInfo.tag_name.Trim('v')
 
-    if ($currentVersion -lt $latestVersion) {
+    if ($currentPSVersion -lt $latestPSVersion) {
         $updateNeeded = $true
     }
 
     if ($updateNeeded) {
-        Write-Host "🔄 Aggiornamento di PowerShell in corso..." -ForegroundColor Yellow
+        # Controllo privilegi di amministratore prima di tentare l'aggiornamento
+        if (-not $isAdmin) {
+            Write-Host "⚠️ Per aggiornare PowerShell è necessario eseguire la shell come Amministratore." -ForegroundColor DarkYellow
+            return
+        }
+        Write-Host "🔄 Aggiornamento di PowerShell in corso (da v$currentPSVersion a v$latestPSVersion)..." -ForegroundColor Yellow
         winget upgrade "Microsoft.PowerShell" --accept-source-agreements --accept-package-agreements | Out-Null
         Write-Host "✅ PowerShell aggiornato. Riavvia la shell per applicare le modifiche." -ForegroundColor Magenta
     }
     else {
-        Write-Host "✅ PowerShell è aggiornato (v$currentVersion)" -ForegroundColor Green
+        Write-Host "✅ PowerShell è aggiornato (v$currentPSVersion)" -ForegroundColor Green
     }
 }
 catch {
-    Write-Host "❌ Impossibile verificare aggiornamenti PowerShell: $_" -ForegroundColor Red
+    Write-Host "❌ Impossibile verificare o aggiornare PowerShell: $($_.Exception.Message)" -ForegroundColor Red
+    # Potrebbe essere utile controllare se l'errore è dovuto a winget non trovato o mancanza di permessi
+    if ($_.Exception.Message -like "*winget*") {
+        Write-Host "Suggerimento: Assicurati che 'winget' sia installato." -ForegroundColor DarkYellow
+    }
 }
 
 # ============================================================================
 # OH MY POSH
 # ============================================================================
 
-# Helper function for cross-edition compatibility
+# Helper function for cross-edition compatibility (semplificata)
 function Get-ProfileDir {
-    if ($PSVersionTable.PSEdition -eq "Core") {
-        return [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
-    }
-    elseif ($PSVersionTable.PSEdition -eq "Desktop") {
-        return [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
-    }
-    else {
-        Write-Error "Unsupported PowerShell edition: $($PSVersionTable.PSEdition)"
-        return $null
-    }
+    return Split-Path -Parent $PROFILE
 }
 
 # Calcola il percorso del tema locale

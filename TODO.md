@@ -5,6 +5,31 @@
 - Funzione WinUpdateDisabler.
   - [ ] Add script relativo e funzioni nel template.
   - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
+
+- Funzione WinUpdateSet.
+  - [ ] Add script relativo e funzioni nel template.
+  - [ ] Imposta tramite criteri di gruppo gli Update di windows.
+
+- `WinToolkit.ps1` Aggiornato.
+  - [ ] Aggiunti nuovi script.
+  - [ ] Riorganizzato il menu principale per maggiore chiarezza.
+
+- Profilo Powershell Aggiornato.
+  - [x] Aggiunto comando per effettuare uno speedtest del PC.
+  - [x] Inserito Salvataggio risultati in documento .txt sul desktop.
+  - [x] Eliminate Funzioni Ridondanti.
+  - [x] Find-File: Resa compatibile con la pipeline di PowerShell.
+    - [x] Eliminata la funzione wrapper `EditProfile` che duplicava `EditPSProfile`.
+    - [x] Documentazione aggiornata per riflettere il singolo comando disponibile.
+  - [x] Get-PreferredEditor: Migliorata la ricerca degli editor.
+    - [x] Prioritizzata la ricerca nel $PATH rispetto ai percorsi hardcoded.
+    - [x] Maggiore compatibilità con installazioni tramite Scoop, Chocolatey e altri package manager.
+  - [x] Aggiornamento PowerShell: Aggiunto controllo privilegi amministratore.
+    - [x] Il sistema ora verifica preventivamente i privilegi prima di tentare l'aggiornamento.
+    - [x] Messaggi di errore più chiari e informativi per l'utente.
+  - [x] Get-ProfileDir: Semplificata la logica di rilevamento directory profilo.
+    - [x] Utilizzo di Split-Path -Parent $PROFILE per maggiore affidabilità.
+    - [x] Codice più pulito e meno soggetto a errori.
   
   - Funzione WinRepairToolkit Potenziata. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
     - [x] Fix pulizia non corretta output durante le barre di progressione.
