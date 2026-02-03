@@ -6,7 +6,7 @@
   - [ ] Add script relativo e funzioni nel template.
   - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
 
-- Funzione WinUpdateSet.
+- Funzione WinUpdateSet (Windows Home non supportato).
   - [ ] Add script relativo e funzioni nel template.
   - [ ] Imposta tramite criteri di gruppo gli Update di windows.
 
