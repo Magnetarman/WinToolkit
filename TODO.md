@@ -18,6 +18,7 @@
   - [x] Inserito Salvataggio risultati in documento .txt sul desktop.
   - [x] Eliminate Funzioni Ridondanti.
   - [x] Aggiunta funzione offline di reset delle risorse di rete. [[Thanks to @ChrisTitusTech]](https://github.com/ChrisTitusTech)
+  - [ ] Aggiunta funzione di aggiornamento del profilo Powershell personalizzato.
   - [x] Find-File: Resa compatibile con la pipeline di PowerShell.
     - [x] Eliminata la funzione wrapper `EditProfile` che duplicava `EditPSProfile`.
     - [x] Documentazione aggiornata per riflettere il singolo comando disponibile.
