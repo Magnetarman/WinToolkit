@@ -1,7 +1,10 @@
 <p align="center">
 	<img src="img/WinToolkit-icon.png" alt="WinToolkit-banner" width="160">
-	<h1>WinToolkit: la soluzione definitiva per <em>sopravvivere</em> con Windows</h1>
+	<h1>WinToolkit: la soluzione definitiva per <em>sopravvivere</em> a Windows</h1>
 </p>
+
+![Maintenance](https://magnetarman.com/countdown.php)
+
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
 	<img src="https://img.shields.io/badge/version-2.5.0-red.svg?style=for-the-badge" alt="versione">
@@ -25,7 +28,7 @@ WinToolkit è una suite di script PowerShell potente e compatta, progettata per 
 > - **spazio libero su disco**: >= 50 GB [(vedere la sezione F.A.Q.)](#-faq---domande-frequenti);
 > - **Windows >= 8.1**.
 
-| Versioni di Windows        | Supportato               |
+| Versioni di Windows          | Supportato             |
 |:---|:---|
 | Windows 11 >= 22H2           | 🟢 Sì                  |
 | Windows 11 <= 21H2           | 🟡 Sì con eccezioni    |
@@ -113,7 +116,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 ## 📌 Changelog
 
 - [Leggi le modifiche introdotte.](/CHANGELOG.md)
-- [Leggi la lista delle funzionalità in sviluppo.](/TODO.md)
+- [Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)
 
 ---
 
@@ -196,10 +199,6 @@ Se non puoi donare, puoi comunque aiutarmi a migliorare WinToolkit attraverso qu
 💬 **[Partecipa alle Discussioni](https://t.me/GlitchTalkGroup)**: condividi le tue idee, fornisci feedback o fai domande.
 
 Grazie di cuore per il tuo supporto!
-
-## 🌟 Lista dei Contributori
-
-[Guarda la lista dei contributori.](/CONTRIBUTORS.md)
 
 ---
 
