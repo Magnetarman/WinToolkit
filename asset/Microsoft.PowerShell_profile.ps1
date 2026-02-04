@@ -31,8 +31,28 @@ function prompt {
 $Host.UI.RawUI.WindowTitle = "PowerShell {0}$adminSuffix" -f $PSVersionTable.PSVersion.ToString()
 
 # ============================================================================
-# FUNZIONI UTILITY
+# CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
+
+$URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
+$URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
+$URL_WINTOOLKIT_DEV = "https://magnetarman.com/WinToolkit-Dev"
+$URL_OHMYPOSH_THEME = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+$URL_PROFILE = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
+
+# ============================================================================
+# FUNZIONI HELPER GLOBALI
+# ============================================================================
+
+function Assert-Admin {
+    [CmdletBinding()]
+    param()
+
+    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        return $false
+    }
+    return $true
+}
 
 function Test-CommandExists {
     [CmdletBinding()]
@@ -148,7 +168,7 @@ function Speedtest {
         Write-Host "⬇️ Download di speedtest.exe in corso da GitHub..." -ForegroundColor Yellow
         try {
             $downloadParams = @{
-                Uri             = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
+                Uri             = $URL_SPEEDTEST
                 OutFile         = $speedtestExePath
                 UseBasicParsing = $true
                 ErrorAction     = 'Stop'
@@ -180,7 +200,7 @@ function Reset-Network {
     param()
 
     # Controllo Amministratore
-    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    if (-not (Assert-Admin)) {
         Write-Host "❌ Questa operazione richiede privilegi di Amministratore" -ForegroundColor Red
         Write-Host "ℹ️ Riavvia PowerShell come Amministratore per eseguire Reset-Network" -ForegroundColor Cyan
         return
@@ -278,34 +298,40 @@ function Get-ProfileVersionDetails {
 
     if (-not $content) { return $null }
 
-    $lines = $content.Split([Environment]::NewLine)
-    # La riga 9 è l'indice 8 in un array 0-indicizzato
-    if ($lines.Count -lt 9) {
-        Write-Warning "Il $sourceDescription non ha abbastanza righe per estrarre la versione (richiesta riga 9)."
-        return $null
-    }
-
-    $versionLine = $lines[8]
     $versionNumber = $null
-    $versionString = "N/A" # Valore predefinito se non trovato
+    $versionString = "N/A"
 
-    # Regex per catturare "Versione: X.Y.Z.W - GG/MM/AAAA"
-    if ($versionLine -match '^\s*Versione:\s*(\d+(\.\d+)*)\s*-\s*(\d{2}/\d{2}/\d{4})\s*$') {
-        try {
-            $versionNumber = [version]$Matches[1]
-            $versionString = $Matches[0].Trim() # La stringa completa corrispondente, trimmata
+    # Step 1: Estrae il contenuto del blocco di commento iniziale <#...#>
+    # (?s) abilita la modalità 'Singleline' per il '.' per matchare anche i newline.
+    # ^<# assicura che si cerchi il blocco di commento all'inizio del file.
+    $commentBlockMatch = [regex]::Match($content, '(?s)^<#(.*?)#>')
+    
+    if ($commentBlockMatch.Success) {
+        $commentBlockContent = $commentBlockMatch.Groups[1].Value
+        
+        # Step 2: Cerca la riga della versione all'interno del contenuto del blocco di commento estratto.
+        # Questo regex cerca '.NOTES', seguito da newline, e poi cattura la riga 'Versione: ...'.
+        # (?:\r?\n|\r) gestisce i diversi tipi di newline (Windows, Linux, vecchi Mac).
+        $versionMatch = [regex]::Match($commentBlockContent, '(?s)\.NOTES\s*(?:\r?\n|\r)\s*Versione:\s*(\d+(?:\.\d+)*)\s*-\s*(\d{2}/\d{2}/\d{4})')
+        
+        if ($versionMatch.Success) {
+            $versionNumber = [version]$versionMatch.Groups[1].Value # Gruppo di cattura 1: il numero di versione
+            $versionString = "Versione: $($versionMatch.Groups[1].Value) - $($versionMatch.Groups[2].Value)" # Ricostruisce la stringa completa
         }
-        catch {
-            Write-Warning "Impossibile convertire la stringa della versione '$($Matches[1])' da $sourceDescription in un oggetto [version]: $($_.Exception.Message)"
+        else {
+            Write-Warning "La riga della versione o la sezione .NOTES non è stata trovata o non è nel formato atteso nel $sourceDescription."
+            return $null
         }
-    } else {
-        Write-Warning "Formato della riga di versione non riconosciuto nel $($sourceDescription): '$versionLine'."
+    }
+    else {
+        Write-Warning "Nessun blocco di commento iniziale PowerShell (<#...#>) trovato nel $sourceDescription."
+        return $null
     }
 
     [PSCustomObject]@{
         VersionNumber = $versionNumber
         VersionString = $versionString
-        Content       = $content # Potrebbe essere utile per verifiche successive o operazioni
+        Content       = $content # Utile per verifiche successive o operazioni.
     }
 }
 
@@ -314,7 +340,7 @@ function PSProfileUpdate {
     param()
 
     $localProfilePath = $PROFILE
-    $remoteProfileUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
+    $remoteProfileUrl = $URL_PROFILE
 
     Write-Host "🔍 Verifica aggiornamenti per il profilo PowerShell..." -ForegroundColor Cyan
 
@@ -359,7 +385,8 @@ function PSProfileUpdate {
 
                 # Verifica l'aggiornamento leggendo nuovamente la versione locale
                 $updatedLocalDetails = Get-ProfileVersionDetails -Source $localProfilePath
-                if ($updatedLocalDetails -and ($updatedLocalDetails.VersionNumber -eq $remoteVersion)) {
+
+                if ($updatedLocalDetails.VersionNumber -eq $remoteVersion) {
                     Write-Host "✅ La versione locale è stata verificata e corrisponde ora a quella remota: $($updatedLocalDetails.VersionString)" -ForegroundColor Green
                 }
                 else {
@@ -367,8 +394,7 @@ function PSProfileUpdate {
                     Write-Host "   Versione locale attuale: $($updatedLocalDetails.VersionString)" -ForegroundColor Red
                 }
 
-                Write-Host "💡 Riavvia il terminale per completare il caricamento del nuovo profilo aggiornato." -ForegroundColor Yellow
-                ReloadProfile # Come richiesto
+                Write-Host "💡 Il tuo profilo è stato aggiornato. Per applicare completamente le modifiche, riavvia la sessione di PowerShell." -ForegroundColor Yellow
             }
             catch {
                 Write-Host "❌ Errore durante l'aggiornamento del profilo: $($_.Exception.Message)" -ForegroundColor Red
@@ -389,11 +415,11 @@ function PSProfileUpdate {
 # ============================================================================
 
 function WinToolkit-Stable {
-    Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/WinToolkit | iex`"" -Verb RunAs
+    Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_WINTOOLKIT_STABLE | iex`"" -Verb RunAs
 }
 
 function WinToolkit-Dev {
-    Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/WinToolkit-Dev | iex`"" -Verb RunAs
+    Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_WINTOOLKIT_DEV | iex`"" -Verb RunAs
 }
 
 function doReboot {
@@ -575,7 +601,7 @@ try {
     }
 
     if ($updateNeeded) {
-        if (-not $isAdmin) {
+        if (-not (Assert-Admin)) {
             Write-Host "⚠️ Per aggiornare PowerShell è necessario eseguire la shell come Amministratore." -ForegroundColor DarkYellow
             return
         }
@@ -604,7 +630,7 @@ $themeName = "atomic"
 $localThemePath = Join-Path $profileDir "Themes\$themeName.omp.json"
 
 if (-not (Test-Path $localThemePath)) {
-    $themeUrl = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+    $themeUrl = $URL_OHMYPOSH_THEME
     try {
         Write-Host "⬇️ Download tema Oh My Posh..." -ForegroundColor Cyan
         $themesDir = Join-Path $profileDir "Themes"
@@ -624,7 +650,7 @@ if (Test-Path $localThemePath) {
     oh-my-posh init pwsh --config $localThemePath | Invoke-Expression
 }
 else {
-    $fallbackUrl = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+    $fallbackUrl = $URL_OHMYPOSH_THEME
     Write-Warning "Tema locale non disponibile. Uso fallback remoto."
     oh-my-posh init pwsh --config $fallbackUrl | Invoke-Expression
 }
