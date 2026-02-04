@@ -272,7 +272,7 @@ function Get-ProfileVersionDetails {
         }
     }
     catch {
-        Write-Warning "Errore nel recuperare il contenuto dal $sourceDescription: $($_.Exception.Message)"
+        Write-Warning "Errore nel recuperare il contenuto dal $($sourceDescription): $($_.Exception.Message)"
         return $null
     }
 
