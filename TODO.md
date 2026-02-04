@@ -2,22 +2,22 @@
 
 ### V 2.5.1
 
-- Funzione WinUpdateDisabler.
-  - [ ] Add script relativo e funzioni nel template.
-  - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
+- Adeguamento Repository alle regole di Github.
+  - [x] Rinominato CONTRIBUTORS.md => CONTRIBUTING.md.
+  - [x] Creazione documento Codice di condotta `CODE_OF_CONDUCT.md`.
+  - [x] Eliminata sezione contributori dal readme.
+  - [x] Integrata la sezione contributori nel menu di Github.
 
-- Funzione WinUpdateSet (Windows Home non supportato).
-  - [ ] Add script relativo e funzioni nel template.
-  - [ ] Imposta tramite criteri di gruppo gli Update di windows.
-
-- `WinToolkit.ps1` Aggiornato.
-  - [ ] Aggiunti nuovi script.
-  - [ ] Riorganizzato il menu principale per maggiore chiarezza.
+- Funzione WinRepairToolkit Potenziata. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
+  - [x] Fix pulizia non corretta output durante le barre di progressione.
+  - [x] Aumentato il Timeout delle funzioni in modo da non far fallire le operazioni anche su sistemi datati e poco potenti.
+  - [x] Reso automatico ed "intelligente" l'invocazione della riparazione profonda (Se Checkdisk non genera errori gravi la riparazione profonda non verrà invocata al riavvio del PC).
 
 - Profilo Powershell Aggiornato.
   - [x] Aggiunto comando per effettuare uno speedtest del PC.
   - [x] Inserito Salvataggio risultati in documento .txt sul desktop.
   - [x] Eliminate Funzioni Ridondanti.
+  - [x] Aggiunta funzione offline di reset delle risorse di rete. [[Thanks to @ChrisTitusTech]](https://github.com/ChrisTitusTech)
   - [x] Find-File: Resa compatibile con la pipeline di PowerShell.
     - [x] Eliminata la funzione wrapper `EditProfile` che duplicava `EditPSProfile`.
     - [x] Documentazione aggiornata per riflettere il singolo comando disponibile.
@@ -30,17 +30,6 @@
   - [x] Get-ProfileDir: Semplificata la logica di rilevamento directory profilo.
     - [x] Utilizzo di Split-Path -Parent $PROFILE per maggiore affidabilità.
     - [x] Codice più pulito e meno soggetto a errori.
-  
-- Funzione WinRepairToolkit Potenziata. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
-  - [x] Fix pulizia non corretta output durante le barre di progressione.
-  - [x] Aumentato il Timeout delle funzioni in modo da non far fallire le operazioni anche su sistemi datati e poco potenti.
-  - [x] Reso automatico ed "intelligente" l'invocazione della riparazione profonda (Se Checkdisk non genera errori gravi la riparazione profonda non verrà invocata al riavvio del PC)
-    
-- Adeguamento Repository alle regole di Github.
-  - [x] Rinominato CONTRIBUTORS.md => CONTRIBUTING.md.
-  - [x] Creazione documento Codice di condotta `CODE_OF_CONDUCT.md`.
-  - [x] Eliminata sezione contributori dal readme.
-  - [x] Integrata la sezione contributori nel menu di Github.
 
 - Potenziato `start.ps1` [[Thanks to @Matteoz]](https://t.me/teo180)
   - [x] Logica "Force Portable" per Windows Terminal: Nuova funzione Install-WindowsTerminalManual che permette l'estrazione manuale dei binari dal pacchetto .msixbundle in caso di fallimento dei metodi standard.
@@ -60,6 +49,20 @@
   - [x] Eliminazione `To-Do.md` dal Ramo main.
   - [x] Redirect con link hardcode al `To-Do.md` nel ramo Dev.
 
+- Aggiunta Funzione `WinDebloat.ps1`.
+  - [ ] Aggiunta Disattivazione Servizi superflui.
+
+- Aggiunta Funzione WinUpdateDisabler.
+  - [ ] Add script relativo e funzioni nel template.
+  - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
+
+- Aggiunta Funzione WinUpdateSet (Windows Home non supportato).
+  - [ ] Add script relativo e funzioni nel template.
+  - [ ] Imposta tramite criteri di gruppo gli Update di windows.
+
+- `WinToolkit.ps1` Aggiornato.
+  - [ ] Aggiunti nuovi script.
+  - [ ] Riorganizzato il menu principale per maggiore chiarezza.
 
 ### V 2.6 - Auto Debloat
 
