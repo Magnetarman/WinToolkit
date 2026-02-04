@@ -6,7 +6,7 @@
     Profilo PowerShell con utility, navigazione rapida, informazioni di sistema e configurazioni.
 
 .NOTES
-    Versione: 2.5.1 - 04/02/2026
+    Versione: 2.5.1.4 - 04/02/2026
     Autore: MagnetarMan
 #>
 
@@ -20,9 +20,11 @@ $adminSuffix = if ($isAdmin) { " [ADMIN]" } else { "" }
 
 # Personalizzazione Prompt
 function prompt {
+    [CmdletBinding()]
+    param()
     $promptChar = if ($isAdmin) { "#" } else { "$" }
-    Write-Host "[$(Get-Location)] $promptChar " -NoNewline
-    return ""
+    $currentLocation = Get-Location
+    return "[${currentLocation}] ${promptChar} "
 }
 
 # Titolo finestra
@@ -170,10 +172,7 @@ function Speedtest {
     catch {
         Write-Host "❌ Errore durante l'esecuzione di speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
     }
-    finally {
-        Write-Host "♻️ Ricaricamento profilo PowerShell..." -ForegroundColor Cyan
-        ReloadProfile
-    }
+
 }
 
 function Reset-Network {
@@ -245,6 +244,147 @@ function Reset-Network {
 }
 
 # ============================================================================
+# AGGIORNAMENTO PROFILO
+# ============================================================================
+
+function Get-ProfileVersionDetails {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, HelpMessage = "Il percorso del file o l'URL del profilo.")]
+        [string]$Source,
+        [Parameter(HelpMessage = "Specifica se la sorgente è un URL.")]
+        [switch]$IsUrl
+    )
+
+    $content = $null
+    $sourceDescription = if ($IsUrl) { "URL '$Source'" } else { "file '$Source'" }
+
+    try {
+        if ($IsUrl) {
+            $content = (Invoke-WebRequest -Uri $Source -UseBasicParsing -ErrorAction Stop).Content
+        }
+        else {
+            if (-not (Test-Path $Source -PathType Leaf)) {
+                Write-Warning "File profilo non trovato: '$Source'. Impossibile recuperare i dettagli della versione."
+                return $null
+            }
+            $content = Get-Content -Path $Source -Raw -ErrorAction Stop
+        }
+    }
+    catch {
+        Write-Warning "Errore nel recuperare il contenuto dal $($sourceDescription): $($_.Exception.Message)"
+        return $null
+    }
+
+    if (-not $content) { return $null }
+
+    $lines = $content.Split([Environment]::NewLine)
+    # La riga 9 è l'indice 8 in un array 0-indicizzato
+    if ($lines.Count -lt 9) {
+        Write-Warning "Il $sourceDescription non ha abbastanza righe per estrarre la versione (richiesta riga 9)."
+        return $null
+    }
+
+    $versionLine = $lines[8]
+    $versionNumber = $null
+    $versionString = "N/A" # Valore predefinito se non trovato
+
+    # Regex per catturare "Versione: X.Y.Z.W - GG/MM/AAAA"
+    if ($versionLine -match '^\s*Versione:\s*(\d+(\.\d+)*)\s*-\s*(\d{2}/\d{2}/\d{4})\s*$') {
+        try {
+            $versionNumber = [version]$Matches[1]
+            $versionString = $Matches[0].Trim() # La stringa completa corrispondente, trimmata
+        }
+        catch {
+            Write-Warning "Impossibile convertire la stringa della versione '$($Matches[1])' da $sourceDescription in un oggetto [version]: $($_.Exception.Message)"
+        }
+    } else {
+        Write-Warning "Formato della riga di versione non riconosciuto nel $($sourceDescription): '$versionLine'."
+    }
+
+    [PSCustomObject]@{
+        VersionNumber = $versionNumber
+        VersionString = $versionString
+        Content       = $content # Potrebbe essere utile per verifiche successive o operazioni
+    }
+}
+
+function PSProfileUpdate {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param()
+
+    $localProfilePath = $PROFILE
+    $remoteProfileUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
+
+    Write-Host "🔍 Verifica aggiornamenti per il profilo PowerShell..." -ForegroundColor Cyan
+
+    $localDetails = Get-ProfileVersionDetails -Source $localProfilePath
+    $remoteDetails = Get-ProfileVersionDetails -Source $remoteProfileUrl -IsUrl
+
+    if (-not $localDetails) {
+        Write-Host "❌ Impossibile recuperare la versione del profilo locale. Annullamento verifica." -ForegroundColor Red
+        return
+    }
+    if (-not $remoteDetails) {
+        Write-Host "❌ Impossibile recuperare la versione del profilo remoto. Annullamento verifica." -ForegroundColor Red
+        return
+    }
+
+    $localVersion = $localDetails.VersionNumber
+    $remoteVersion = $remoteDetails.VersionNumber
+
+    if (-not $localVersion) {
+        Write-Host "⚠️ La versione del profilo locale non è stata trovata o è in un formato non valido. Impossibile confrontare." -ForegroundColor DarkYellow
+        return
+    }
+    if (-not $remoteVersion) {
+        Write-Host "⚠️ La versione del profilo remoto non è stata trovata o è in un formato non valido. Impossibile confrontare." -ForegroundColor DarkYellow
+        return
+    }
+
+    Write-Host "ℹ️ Versione locale: $($localDetails.VersionString)" -ForegroundColor DarkGray
+    Write-Host "ℹ️ Versione remota: $($remoteDetails.VersionString)" -ForegroundColor DarkGray
+
+    if ($localVersion -eq $remoteVersion) {
+        Write-Host "✅ Il profilo è aggiornato all'ultima versione: $($localDetails.VersionString)" -ForegroundColor Green
+    }
+    elseif ($localVersion -lt $remoteVersion) {
+        Write-Host "⚠️ È disponibile una versione aggiornata del profilo PowerShell!" -ForegroundColor Yellow
+        Write-Host "🔄 Aggiornamento in corso da $($localDetails.VersionString) a $($remoteDetails.VersionString)..." -ForegroundColor Cyan
+
+        if ($PSCmdlet.ShouldProcess("il profilo '$localProfilePath'", "scaricare e sostituire il profilo con la versione da '$remoteProfileUrl'")) {
+            try {
+                Invoke-WebRequest -Uri $remoteProfileUrl -OutFile $localProfilePath -UseBasicParsing -Force -ErrorAction Stop
+                Write-Host "✅ Profilo scaricato e sostituito con successo." -ForegroundColor Green
+
+                # Verifica l'aggiornamento leggendo nuovamente la versione locale
+                $updatedLocalDetails = Get-ProfileVersionDetails -Source $localProfilePath
+                if ($updatedLocalDetails -and ($updatedLocalDetails.VersionNumber -eq $remoteVersion)) {
+                    Write-Host "✅ La versione locale è stata verificata e corrisponde ora a quella remota: $($updatedLocalDetails.VersionString)" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "❌ Errore durante la verifica dell'aggiornamento. La versione locale non corrisponde alla remota dopo il download." -ForegroundColor Red
+                    Write-Host "   Versione locale attuale: $($updatedLocalDetails.VersionString)" -ForegroundColor Red
+                }
+
+                Write-Host "💡 Riavvia il terminale per completare il caricamento del nuovo profilo aggiornato." -ForegroundColor Yellow
+                ReloadProfile # Come richiesto
+            }
+            catch {
+                Write-Host "❌ Errore durante l'aggiornamento del profilo: $($_.Exception.Message)" -ForegroundColor Red
+            }
+        }
+        else {
+            Write-Host "ℹ️ Aggiornamento annullato dall'utente." -ForegroundColor Cyan
+        }
+    }
+    else {
+        Write-Host "ℹ️ La versione locale del profilo ($($localDetails.VersionString)) è più recente della versione online ($($remoteDetails.VersionString))." -ForegroundColor DarkYellow
+        Write-Host "   Potresti star usando una versione di sviluppo o personalizzata." -ForegroundColor DarkYellow
+    }
+}
+
+# ============================================================================
 # SISTEMA
 # ============================================================================
 
@@ -273,15 +413,19 @@ function ShutdownComplete {
 # ============================================================================
 
 function Get-PreferredEditor {
+    # Tenta di trovare Zed nel PATH per primo
     if (Test-CommandExists -Name "zed") {
         $zedCmd = Get-Command zed -ErrorAction SilentlyContinue
-        return @{
-            Name    = 'Zed'
-            Path    = $zedCmd.Source
-            Command = $zedCmd.Source
+        if ($zedCmd) {
+            return @{
+                Name    = 'Zed'
+                Path    = $zedCmd.Source
+                Command = $zedCmd.Source
+            }
         }
     }
 
+    # Se non nel PATH, controlla le posizioni di installazione comuni
     $zedPaths = @(
         "$env:LOCALAPPDATA\Programs\Zed\Zed.exe",
         "$env:PROGRAMFILES\Zed\Zed.exe",
@@ -298,6 +442,7 @@ function Get-PreferredEditor {
         }
     }
 
+    # Fallback a Visual Studio Code
     if (Test-CommandExists -Name "code") {
         return @{
             Name    = 'Visual Studio Code'
@@ -306,6 +451,7 @@ function Get-PreferredEditor {
         }
     }
 
+    # Ultimo fallback a Notepad
     return @{
         Name    = 'Notepad'
         Path    = 'notepad.exe'
