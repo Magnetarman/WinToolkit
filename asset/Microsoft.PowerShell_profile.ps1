@@ -380,7 +380,7 @@ function PSProfileUpdate {
 
         if ($PSCmdlet.ShouldProcess("il profilo '$localProfilePath'", "scaricare e sostituire il profilo con la versione da '$remoteProfileUrl'")) {
             try {
-                Invoke-WebRequest -Uri $remoteProfileUrl -OutFile $localProfilePath -UseBasicParsing -Force -ErrorAction Stop
+                Invoke-WebRequest -Uri $remoteProfileUrl -OutFile $localProfilePath -UseBasicParsing -ErrorAction Stop
                 Write-Host "✅ Profilo scaricato e sostituito con successo." -ForegroundColor Green
 
                 # Verifica l'aggiornamento leggendo nuovamente la versione locale
