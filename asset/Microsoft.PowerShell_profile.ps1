@@ -6,7 +6,7 @@
     Profilo PowerShell con utility, navigazione rapida, informazioni di sistema e configurazioni.
 
 .NOTES
-    Versione: 2.5.1 - 04/02/2026
+    Versione: 2.5.1.4 - 04/02/2026
     Autore: MagnetarMan
 #>
 
