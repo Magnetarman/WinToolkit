@@ -509,7 +509,6 @@ $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Estrae 
 $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Cerca file ricorsivamente per nome parziale
 $($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)                  - Crea una directory e ci si sposta
 $($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Aggiorna il profilo PowerShell all'ultima versione
-$($PSStyle.Foreground.Green)Get-ProfileVersionDetails$($PSStyle.Reset) - Estrae i dettagli della versione dal profilo
 
 $($PSStyle.Foreground.Cyan)Navigazione File e Directory$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Set-LocationToDesktop$($PSStyle.Reset)     - Naviga alla directory Desktop
