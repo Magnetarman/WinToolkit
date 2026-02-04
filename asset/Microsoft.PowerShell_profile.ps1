@@ -172,7 +172,7 @@ function Speedtest {
     catch {
         Write-Host "❌ Errore durante l'esecuzione di speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
     }
-    }
+
 }
 
 function Reset-Network {
