@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.1 (Build 10) - 2026-01-27
+    Versione 2.5.1 (Build 11) - 2026-01-27
     Compatibile con PowerShell 5.1+
 #>
 
@@ -19,7 +19,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.1 (Build 10)"
+        Version = "Version 2.5.1 (Build 11)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -120,10 +120,10 @@ function Invoke-WingetCommand {
         # --disable-interactivity è supportato dalla versione 1.4+
         $versionRaw = (winget --version 2>$null) | Out-String
         $isModern = $versionRaw -match 'v1\.[4-9]' -or $versionRaw -match 'v[2-9]'
-        
+
         # Aggiungiamo il flag solo se supportato (v1.4+)
         $finalArgs = if ($isModern) { "$Arguments --disable-interactivity" } else { $Arguments }
-        
+
         $procParams = @{
             FilePath     = 'winget'
             ArgumentList = $finalArgs -split ' '
@@ -549,35 +549,16 @@ function Install-PowerShellCore {
 function Install-WindowsTerminalApp {
     Write-StyledMessage -Type Info -Text "Configurazione Windows Terminal..."
 
-    $wtAlias = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
-    $isWtBroken = $false
-
-    if (Test-Path $wtAlias) {
-        try {
-            # Tenta di aprire e chiudere il file per verificarne l'integrità.
-            $fileStream = [IO.File]::OpenRead($wtAlias)
-            $fileStream.Close()
-        }
-        catch {
-            Write-StyledMessage -Type Warning -Text "⚠️ Rilevato alias Windows Terminal corrotto: $($_.Exception.Message)"
-            $isWtBroken = $true
-            # Pulizia aggressiva (come da obiettivo 4)
-            Remove-Item $wtAlias -Force -ErrorAction SilentlyContinue
-            Write-StyledMessage -Type Info -Text "Tentato di rimuovere l'alias corrotto per 'wt.exe'."
-        }
-    }
-
-    # La condizione iniziale ora include il controllo di integrità
-    if ((Get-Command "wt.exe" -ErrorAction SilentlyContinue) -and -not $isWtBroken) {
-        Write-StyledMessage -Type Success -Text "Windows Terminal è installato e integro."
-        return "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe" # Restituisce il percorso per l'obiettivo 5
+    if (Get-Command "wt.exe" -ErrorAction SilentlyContinue) {
+        Write-StyledMessage -Type Success -Text "Windows Terminal è già installato."
+        return $true
     }
 
     $manualPath = "$env:SystemDrive\WinToolkit\Bin\Terminal\WindowsTerminal.exe"
     if (Test-Path $manualPath) {
         Write-StyledMessage -Type Success -Text "Windows Terminal (Portable) rilevato."
         $global:CustomWTPath = $manualPath
-        return $manualPath # Restituisce il percorso per l'obiettivo 5
+        return $true
     }
 
     Write-StyledMessage -Type Info -Text "Installazione Windows Terminal in corso..."
@@ -591,28 +572,8 @@ function Install-WindowsTerminalApp {
             $result = Invoke-WingetCommand -Arguments "install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent"
             Start-Sleep 3
             if ($result.ExitCode -eq 0 -and (Get-Command "wt.exe" -ErrorAction SilentlyContinue)) {
-                # Nuova verifica di integrità dopo l'installazione via winget
-                $recheckAlias = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
-                $recheckBroken = $false
-                if (Test-Path $recheckAlias) {
-                    try {
-                        $fileStream = [IO.File]::OpenRead($recheckAlias)
-                        $fileStream.Close()
-                    }
-                    catch {
-                        $recheckBroken = $true
-                        Write-StyledMessage -Type Warning -Text "⚠️ Alias Windows Terminal installato via Winget risulta corrotto."
-                        Remove-Item $recheckAlias -Force -ErrorAction SilentlyContinue # Pulizia immediata
-                    }
-                }
-
-                if (-not $recheckBroken) {
-                    Write-StyledMessage -Type Success -Text "Windows Terminal installato via winget."
-                    return "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe" # Restituisce il percorso
-                }
-                else {
-                    Write-StyledMessage -Type Warning -Text "Installazione Winget per Windows Terminal riuscita, ma il binario è corrotto. Fallback..."
-                }
+                Write-StyledMessage -Type Success -Text "Windows Terminal installato via winget."
+                return $true
             }
             else {
                 Write-StyledMessage -Type Warning -Text "Installazione Winget per Windows Terminal non riuscita."
@@ -640,7 +601,7 @@ function Install-WindowsTerminalApp {
         Add-AppxPackage -Path $tempFile -ForceApplicationShutdown -ErrorAction Stop
         Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
         Write-StyledMessage -Type Success -Text "Installazione Appx di Windows Terminal riuscita."
-        return "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe" # Restituisce il percorso
+        return $true
 
     }
     catch {
@@ -650,7 +611,7 @@ function Install-WindowsTerminalApp {
             $exePath = Install-WindowsTerminalManual -DownloadUrl $downloadUrl
             if ($exePath) {
                 $global:CustomWTPath = $exePath
-                return $exePath # Restituisce il percorso
+                return $true
             }
         }
         else {
@@ -660,12 +621,13 @@ function Install-WindowsTerminalApp {
 
     if (-not (Get-Command "wt.exe" -ErrorAction SilentlyContinue) -and -not $global:CustomWTPath) {
         Write-StyledMessage -Type Info -Text "Fallback: Apertura Microsoft Store per Windows Terminal."
-        Start-Process "ms-windows-store://pdp/?ProductId=9N0DX20HK701" -ErrorAction SilentlyContinue
+        Start-Process "ms-windows-store://pdp/?ProductId=9N0DX20HK701"
         Start-Sleep 5
+        return $false
     }
 
     Write-StyledMessage -Type Error -Text "Impossibile installare Windows Terminal tramite qualsiasi metodo automatico."
-    return $null # Restituisce null in caso di fallimento
+    return $false
 }
 
 function Install-PspEnvironment {
@@ -778,40 +740,21 @@ function Install-PspEnvironment {
 
     # 5. Configurazione Settings Windows Terminal
     try {
-        if ($global:CustomWTPath) {
-            $portableSettingsDir = Split-Path $global:CustomWTPath -Parent
-            $settingsPath = Join-Path $portableSettingsDir "settings.json"
-            Write-StyledMessage -Type Info -Text "Applicazione settings per Windows Terminal Portable in '$portableSettingsDir'..."
-            Invoke-WebRequest -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $settingsPath -UseBasicParsing
-            Write-StyledMessage -Type Success -Text "Settings applicati alla versione Portable di Windows Terminal."
-        }
-        else {
-            # Logica originale per la versione AppX
-            $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($wtPath) {
-                $settingsPath = Join-Path $wtPath.FullName "LocalState\settings.json"
-                if (Test-Path (Join-Path $wtPath.FullName "LocalState")) {
-                    Write-StyledMessage -Type Info -Text "Applicazione settings per Windows Terminal Store in '$settingsPath'..."
-                    Invoke-WebRequest -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $settingsPath -UseBasicParsing
-                    Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
-                }
-                else {
-                    Write-StyledMessage -Type Warning -Text "Impossibile trovare la cartella LocalState per i settings di Windows Terminal Store."
-                }
-            }
-            else {
-                Write-StyledMessage -Type Warning -Text "Impossibile trovare la directory del pacchetto Windows Terminal Store."
+        $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($wtPath) {
+            $settingsPath = Join-Path $wtPath.FullName "LocalState\settings.json"
+            if (Test-Path (Join-Path $wtPath.FullName "LocalState")) {
+                Invoke-WebRequest -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $settingsPath -UseBasicParsing
+                Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
             }
         }
     }
     catch {
-        Write-StyledMessage -Type Warning -Text "Errore aggiornamento settings terminal: $($_.Exception.Message)"
+        Write-StyledMessage -Type Warning -Text "Errore aggiornamento settings terminal."
     }
 }
 
 function New-ToolkitDesktopShortcut {
-    param([string]$ResolvedWTPath) # Aggiunto questo parametro
-
     Write-StyledMessage -Type Info -Text "Creazione scorciatoia desktop..."
 
     try {
@@ -831,16 +774,9 @@ function New-ToolkitDesktopShortcut {
 
         $shell = New-Object -ComObject WScript.Shell
         $link = $shell.CreateShortcut($shortcut)
-
-        # Determina il target in base a cosa abbiamo effettivamente installato
-        # Se ResolvedWTPath è vuoto o null, si fallback al percorso di default.
-        $finalExe = if ($ResolvedWTPath) { $ResolvedWTPath } else { "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe" }
-
-        $link.TargetPath = $finalExe
-        # La cartella di lavoro deve essere la cartella contenente l'eseguibile
-        $link.WorkingDirectory = Split-Path $finalExe -Parent
-
+        $link.TargetPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
         $link.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
+        $link.WorkingDirectory = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
         $link.IconLocation = $icon
         $link.Description = "Win Toolkit - SOPRAVVIVI A Windows"
         $link.Save()
@@ -943,7 +879,7 @@ function Invoke-WinToolkitSetup {
         else {
             Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
         }
-        
+
         # FIX: Soppresso output booleano "True"
         Install-GitPackage | Out-Null
 
@@ -975,10 +911,10 @@ function Invoke-WinToolkitSetup {
         exit
     }
 
-    # Cattura il percorso risolto di Windows Terminal (Objective 5)
-    $finalWTPath = Install-WindowsTerminalApp
-    Install-PspEnvironment # Questa funzione ora gestisce i settings per WT portatile tramite $global:CustomWTPath
-    New-ToolkitDesktopShortcut -ResolvedWTPath $finalWTPath # Passa il percorso alla scorciatoia (Objective 5)
+    # FIX: Soppresso output booleano "True"
+    Install-WindowsTerminalApp | Out-Null
+    Install-PspEnvironment
+    New-ToolkitDesktopShortcut
 
     Write-StyledMessage -Type Success -Text "Configurazione completata."
 
@@ -989,33 +925,44 @@ function Invoke-WinToolkitSetup {
         return
     }
 
-    # Rilancia solo se abbiamo un percorso di WT confermato funzionante e non siamo già dentro WT
-    $canLaunchWT = ($finalWTPath -and (Test-Path $finalWTPath))
+    $wtExe = if ($global:CustomWTPath) { $global:CustomWTPath } else { "wt.exe" }
 
+    $canLaunchWT = $false
+    if ($global:CustomWTPath -and (Test-Path $global:CustomWTPath)) {
+        $canLaunchWT = $true
+    }
+    elseif (Get-Command "wt.exe" -ErrorAction SilentlyContinue) {
+        $canLaunchWT = $true
+    }
+
+    # FIX: Check if we are already inside WT before trying to launch it
+    # AND if we fail, do NOT restart script recursively
     if (-not ($env:WT_SESSION) -and $canLaunchWT) {
         Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal..."
 
         $pwshPath = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
         if (-not (Test-Path $pwshPath)) { $pwshPath = "powershell.exe" }
 
-        $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"`"$scriptBlockForRelaunch`"`""
+        # FIX: Aggiunto -d . per directory corrente e semplificato gli argomenti
+        $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
 
         try {
-            Start-Process -FilePath $finalWTPath -ArgumentList $wtArgs
+            Start-Process -FilePath $wtExe -ArgumentList $wtArgs
             Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione corrente..."
             try { Stop-Transcript | Out-Null } catch { }
             exit
         }
         catch {
-            Write-StyledMessage -Type Error -Text "Errore durante l'avvio di Windows Terminal tramite '$finalWTPath': $($_.Exception.Message)"
-            # Se il lancio di WT fallisce, si prosegue con il messaggio di terminazione.
+            Write-StyledMessage -Type Error -Text "Errore durante l'avvio di Windows Terminal: $($_.Exception.Message)"
         }
     }
 
-    # Gestione dei casi in cui non è stato possibile avviare Windows Terminal automaticamente
+    # FIX: Loop Infinito risolto
+    # Se il tentativo di avvio WT fallisce, lo script continua e termina QUI.
+    # Non chiamiamo più Invoke-Expression (che causava il loop).
     if (-not ($env:WT_SESSION) -and -not $canLaunchWT) {
-        Write-StyledMessage -Type Warning -Text "Impossibile avviare Windows Terminal automaticamente."
-        Write-StyledMessage -Type Info -Text "L'installazione è stata comunque completata nella console corrente. Si prega di avviare Windows Terminal manualmente se desiderato."
+        Write-StyledMessage -Type Warning -Text "Impossibile avviare Windows Terminal o non trovato."
+        Write-StyledMessage -Type Info -Text "L'installazione è stata comunque completata nella console corrente."
     }
 
     if ($rebootNeeded) {
