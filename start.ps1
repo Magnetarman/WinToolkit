@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.1. (Build 12) - 2026-02-05
+    Versione 2.5.1. (Build 13) - 2026-02-05
     Compatibile con PowerShell 5.1+
 #>
 
@@ -19,7 +19,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.1 (Build 12)"
+        Version = "Version 2.5.1 (Build 13)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -575,25 +575,56 @@ function Install-PowerShellCore {
 function Install-WindowsTerminalApp {
     Write-StyledMessage -Type Info -Text "Configurazione Windows Terminal..."
 
-    # Controllo iniziale se wt.exe è già installato
-    if (Get-Command "wt.exe" -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -Type Success -Text "Windows Terminal è già installato."
-        return (Get-Command "wt.exe").Source
-    }
+    $installedWtPath = $null
+    $shouldTryPortableFallback = $true
 
-    # Controllo versione portatile già esistente
+    # --- Aggiornamento: Verifica funzionalità di WT esistente ---
+    # Si assume che un WT esistente, se non funzionante, debba essere sostituito/riparato.
+    try {
+        $wtCommand = Get-Command "wt.exe" -ErrorAction SilentlyContinue
+        if ($wtCommand) {
+            Write-StyledMessage -Type Info -Text "🔍 Verifica funzionalità di Windows Terminal esistente..."
+            # Esegui wt.exe --version in un processo separato per catturare l'exit code
+            # e verificare che l'eseguibile sia valido e risponda.
+            $proc = Start-Process -FilePath $wtCommand.Source -ArgumentList "--version" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+            if ($proc) {
+                $proc | Wait-Process -Timeout 5 # Dai un breve tempo al processo per avviarsi e terminare
+                if ($proc.HasExited -and $proc.ExitCode -eq 0) {
+                    Write-StyledMessage -Type Success -Text "✅ Windows Terminal è già installato e funzionante."
+                    $installedWtPath = $wtCommand.Source
+                    $shouldTryPortableFallback = $false # WT esistente e funzionante, non serve altro
+                    return $installedWtPath
+                }
+                else {
+                    # Il comando wt.exe è stato trovato, ma non è funzionale o è uscito con errore.
+                    Write-StyledMessage -Type Warning -Text "⚠️ Windows Terminal rilevato ($($wtCommand.Source)) ma non funzionante (Exit Code: $($proc.ExitCode)). Tentativo di ripristino o installazione alternativa..."
+                }
+            }
+            else {
+                Write-StyledMessage -Type Warning -Text "⚠️ Impossibile avviare il test di Windows Terminal esistente ($($wtCommand.Source)). Procedo con l'installazione/ripristino."
+            }
+        }
+    }
+    catch {
+        Write-StyledMessage -Type Warning -Text "❌ Errore durante il test di Windows Terminal esistente: $($_.Exception.Message). Procedo con l'installazione/ripristino."
+    }
+    # --- Fine aggiornamento ---
+
+
+    # Controllo versione portatile già esistente (se lo script è stato eseguito in precedenza)
     $manualPath = (Join-Path $env:LOCALAPPDATA "WinToolkit\wt\WindowsTerminal.exe")
     if (Test-Path $manualPath) {
         Write-StyledMessage -Type Success -Text "Windows Terminal (Portable) rilevato."
         $global:CustomWTPath = $manualPath
         $global:WTInstalledPortable = $true
+        $shouldTryPortableFallback = $false
         return $manualPath
     }
 
     Write-StyledMessage -Type Info -Text "Installazione Windows Terminal in corso..."
 
+    # Inizializza downloadUrl qui per garantirne la disponibilità per il fallback portatile
     $downloadUrl = $null
-    $shouldTryPortableFallback = $true
 
     # Tentativo 1: Installazione via Winget
     try {
@@ -603,23 +634,31 @@ function Install-WindowsTerminalApp {
             $wingetInstallResult = Invoke-WingetCommand -Arguments "install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent"
             Start-Sleep 3
 
-            # Verifica successo installazione Winget
-            $isWingetSuccess = ($wingetInstallResult.ExitCode -eq 0 -and (Get-Command "wt.exe" -ErrorAction SilentlyContinue))
+            # Dopo l'installazione via winget, verifica se wt.exe è ora presente e funzionante
+            $wtCommandAfterWinget = Get-Command "wt.exe" -ErrorAction SilentlyContinue
+            if ($wtCommandAfterWinget) {
+                $proc = Start-Process -FilePath $wtCommandAfterWinget.Source -ArgumentList "--version" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+                if ($proc) {
+                    $proc | Wait-Process -Timeout 5
+                    if ($proc.HasExited -and $proc.ExitCode -eq 0) {
+                        Write-StyledMessage -Type Success -Text "Windows Terminal installato e funzionante via winget."
+                        $installedWtPath = $wtCommandAfterWinget.Source
+                        $shouldTryPortableFallback = $false
+                        return $installedWtPath
+                    }
+                }
+            }
+
+            # Se non è funzionale dopo winget, controlla gli errori specifici o altri fallimenti
             $isCorruptedError = ($wingetInstallResult.StdErr -match "corrupted and unreadable" -or $wingetInstallResult.StdOut -match "corrupted and unreadable")
 
-            if ($isWingetSuccess) {
-                Write-StyledMessage -Type Success -Text "Windows Terminal installato via winget."
-                $shouldTryPortableFallback = $false
-                return (Get-Command "wt.exe").Source
-            }
-            elseif ($isCorruptedError) {
+            if ($isCorruptedError) {
                 Write-StyledMessage -Type Warning -Text "Windows Terminal è danneggiato irreparabilmente. Procederemo all'utilizzo della versione Portable alternativa."
-                Start-Sleep 3
-                # Continua al fallback portatile
+                # $shouldTryPortableFallback rimane true
             }
             else {
                 Write-StyledMessage -Type Warning -Text "Installazione Winget per Windows Terminal non riuscita (Exit Code: $($wingetInstallResult.ExitCode)). Tentativo con metodi alternativi..."
-                # Continua ai metodi alternativi
+                # $shouldTryPortableFallback rimane true
             }
         }
     }
@@ -627,8 +666,8 @@ function Install-WindowsTerminalApp {
         Write-StyledMessage -Type Warning -Text "Installazione Winget per Windows Terminal fallita: $($_.Exception.Message). Tentativo con metodi alternativi..."
     }
 
-    # Tentativo 2: Installazione APPX Standard (se winget fallisce ma nessun errore di corruzione)
-    if ($shouldTryPortableFallback) {
+    # Tentativo 2: Installazione APPX Standard (se winget fallisce o non ha installato una versione funzionante)
+    if ($shouldTryPortableFallback) { # Questo blocco verrà eseguito se Winget non ha avuto successo o ha rilevato corruzione
         try {
             Write-StyledMessage -Type Info -Text "Recupero URL ultima release di Windows Terminal..."
             $latestRel = Invoke-RestMethod -Uri $script:AppConfig.URLs.TerminalRelease -UseBasicParsing
@@ -643,39 +682,59 @@ function Install-WindowsTerminalApp {
             $tempFile = "$env:TEMP\WinTerminal.msixbundle"
             Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -UseBasicParsing
 
+            # Aggiungi -ForceApplicationShutdown per chiudere istanze esistenti, anche se danneggiate
             Add-AppxPackage -Path $tempFile -ForceApplicationShutdown -ErrorAction Stop
             Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
-            Write-StyledMessage -Type Success -Text "Installazione Appx di Windows Terminal riuscita."
-            $shouldTryPortableFallback = $false
-            return (Get-Command "wt.exe").Source
+            Start-Sleep 3 # Dai tempo al sistema per registrare il pacchetto
+
+            # Dopo l'installazione via AppxPackage, verifica se wt.exe è ora presente e funzionante
+            $wtCommandAfterAppx = Get-Command "wt.exe" -ErrorAction SilentlyContinue
+            if ($wtCommandAfterAppx) {
+                $proc = Start-Process -FilePath $wtCommandAfterAppx.Source -ArgumentList "--version" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+                if ($proc) {
+                    $proc | Wait-Process -Timeout 5
+                    if ($proc.HasExited -and $proc.ExitCode -eq 0) {
+                        Write-StyledMessage -Type Success -Text "Installazione Appx di Windows Terminal riuscita e funzionante."
+                        $installedWtPath = $wtCommandAfterAppx.Source
+                        $shouldTryPortableFallback = $false
+                        return $installedWtPath
+                    }
+                }
+            }
+            Write-StyledMessage -Type Warning -Text "Installazione Appx di Windows Terminal riuscita, ma il terminale non è funzionale. Tenterò il metodo Force/Portable."
         }
         catch {
             Write-StyledMessage -Type Warning -Text "Installazione Standard di Windows Terminal fallita: $($_.Exception.Message). Tento metodo Force/Portable..."
-
-            # Tentativo 3: Installazione Portatile
-            if ($downloadUrl) {
-                $exePath = Install-WindowsTerminalManual -DownloadUrl $downloadUrl
-                if ($exePath) {
-                    $global:CustomWTPath = $exePath
-                    return $exePath
-                }
-            }
-            else {
-                Write-StyledMessage -Type Error -Text "Impossibile recuperare URL per l'installazione manuale."
-            }
         }
     }
 
-    # Fallback finale: Microsoft Store
-    if (-not (Get-Command "wt.exe" -ErrorAction SilentlyContinue) -and -not $global:CustomWTPath) {
-        Write-StyledMessage -Type Info -Text "Fallback: Apertura Microsoft Store per Windows Terminal."
+    # Tentativo 3: Installazione Portatile (Questo blocco verrà eseguito se Winget e Appx non hanno avuto successo)
+    if ($shouldTryPortableFallback -and $downloadUrl) { # Necessario $downloadUrl per la manual install
+        Write-StyledMessage -Type Info -Text "Fallita installazione standard. Procedo con installazione PORTATILE di Windows Terminal."
+        $exePath = Install-WindowsTerminalManual -DownloadUrl $downloadUrl
+        if ($exePath) {
+            $global:CustomWTPath = $exePath
+            $installedWtPath = $exePath
+            $global:WTInstalledPortable = $true
+            return $installedWtPath
+        }
+    }
+    elseif ($shouldTryPortableFallback -and -not $downloadUrl) {
+        Write-StyledMessage -Type Error -Text "Impossibile recuperare URL per l'installazione manuale, impossibile tentare la versione portatile."
+    }
+
+
+    # Fallback finale: Microsoft Store (se nessun metodo automatico ha funzionato e $installedWtPath è ancora null)
+    if (-not $installedWtPath) {
+        Write-StyledMessage -Type Info -Text "Fallback: Apertura Microsoft Store per Windows Terminal. Potrebbe essere necessario installarlo manualmente."
         Start-Process "ms-windows-store://pdp/?ProductId=9N0DX20HK701"
         Start-Sleep 5
         return $null
     }
 
+    # Se siamo arrivati qui, qualcosa è andato storto o non si è potuto installare WT
     Write-StyledMessage -Type Error -Text "Impossibile installare Windows Terminal tramite qualsiasi metodo automatico."
-    return $null
+    return $installedWtPath # Potrebbe essere null o un path di un WT non funzionale, a seconda degli errori precedenti
 }
 
 function Install-PspEnvironment {
