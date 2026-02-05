@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.1. (Build 13) - 2026-02-05
+    Versione 2.5.1. (Build 14) - 2026-02-05
     Compatibile con PowerShell 5.1+
 #>
 
@@ -19,7 +19,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.1 (Build 13)"
+        Version = "Version 2.5.1 (Build 14)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -122,8 +122,49 @@ function Invoke-WingetCommand {
     )
 
     try {
-        # Verifica versione winget per retrocompatibilità
-        $versionRaw = (winget --version 2>$null) | Out-String
+        # Pre-check: Assicurarsi che l'eseguibile winget sia localizzabile e non corrotto prima di Start-Process.
+        # Questo blocca gli errori TerminatingError(Start-Process) a un livello superiore.
+        $wingetExePath = Get-Command winget -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+        if (-not $wingetExePath -or -not (Test-Path $wingetExePath)) {
+            return @{ ExitCode = -1; StdOut = ""; StdErr = "Comando 'winget' non trovato o percorso non valido." }
+        }
+
+        # Verifica preliminare per la corruzione dell'eseguibile stesso.
+        # Tentativo di avviare winget --version per catturare errori di corruzione prima di installazioni.
+        $versionRaw = ""
+        try {
+            # Usiamo un'istanza separata di Start-Process per questo test per isolare l'errore.
+            $versionStdoutFile = Join-Path $env:TEMP "winget_version_stdout_$([Guid]::NewGuid()).txt"
+            $versionStderrFile = Join-Path $env:TEMP "winget_version_stderr_$([Guid]::NewGuid()).txt"
+            
+            $versionProcParams = @{
+                FilePath               = $wingetExePath
+                ArgumentList           = "--version"
+                NoNewWindow            = $true
+                RedirectStandardOutput = $versionStdoutFile
+                RedirectStandardError  = $versionStderrFile
+                Wait                   = $true
+                PassThru               = $true
+            }
+            $versionProcess = Start-Process @versionProcParams
+            $versionProcess | Wait-Process -Timeout 10
+
+            $versionStdout = Get-Content $versionStdoutFile -ErrorAction SilentlyContinue | Out-String
+            $versionStderr = Get-Content $versionStderrFile -ErrorAction SilentlyContinue | Out-String
+
+            Remove-Item $versionStdoutFile -ErrorAction SilentlyContinue
+            Remove-Item $versionStderrFile -ErrorAction SilentlyContinue
+
+            if ($versionProcess.ExitCode -ne 0) {
+                return @{ ExitCode = $versionProcess.ExitCode; StdOut = $versionStdout; StdErr = "Fallimento nel recupero della versione di winget (Exit Code: $($versionProcess.ExitCode)). Errore: $versionStderr" }
+            }
+            $versionRaw = $versionStdout.Trim()
+        }
+        catch {
+            # Se Start-Process per --version fallisce, è un errore critico di winget.
+            return @{ ExitCode = -1; StdOut = ""; StdErr = "Errore critico durante la verifica della versione di winget: $($_.Exception.Message)" }
+        }
+
         $isModern = $versionRaw -match 'v1\.[4-9]' -or $versionRaw -match 'v[2-9]'
 
         # Aggiunta flag --disable-interactivity solo se supportato (v1.4+)
@@ -134,7 +175,7 @@ function Invoke-WingetCommand {
         $tempStderrFile = Join-Path $env:TEMP "winget_stderr_$([Guid]::NewGuid()).txt"
 
         $procParams = @{
-            FilePath               = 'winget'
+            FilePath               = $wingetExePath # Usa il percorso risolto
             ArgumentList           = $finalArgs -split ' '
             Wait                   = $true
             NoNewWindow            = $true
@@ -221,6 +262,7 @@ function Install-WindowsTerminalManual {
 
         if (Test-Path $tempExtract) { Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue }
         Expand-Archive -Path $tempBundle -DestinationPath $tempExtract -Force
+        Write-Host "" # Aggiunto per pulire l'output dopo l'estrazione
 
         $msixPackage = Get-ChildItem -Path $tempExtract -Filter "*x64*.msix" -Recurse | Select-Object -First 1
 
@@ -237,6 +279,7 @@ function Install-WindowsTerminalManual {
 
         Write-Host "  Estrazione binari in $DestinationPath..." -ForegroundColor Cyan
         Expand-Archive -Path $innerZip -DestinationPath $DestinationPath -Force
+        Write-Host "" # Aggiunto per pulire l'output dopo l'estrazione
 
         Remove-Item $tempBundle -Force -ErrorAction SilentlyContinue
         Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
@@ -328,6 +371,7 @@ function Install-WingetCore {
             # Estrazione e installazione mirata
             $extractPath = Join-Path $tempDir "deps"
             Expand-Archive -Path $depZip -DestinationPath $extractPath -Force
+            Write-Host "" # Aggiunto per pulire l'output dopo l'estrazione
 
             $archPattern = if ([Environment]::Is64BitOperatingSystem) { "x64|ne" } else { "x86|ne" }
             $appxFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $archPattern }
@@ -336,6 +380,7 @@ function Install-WingetCore {
                 Write-StyledMessage -Type Info -Text "Installazione dipendenza: $($file.Name)..."
                 # FIX: Aggiunto -ForceUpdateFromAnyVersion e soppressione errori comuni
                 Add-AppxPackage -Path $file.FullName -ErrorAction SilentlyContinue -ForceApplicationShutdown
+                Write-Host "" # Aggiunto per pulire l'output dopo ogni installazione AppxPackage
             }
         }
 
@@ -347,6 +392,7 @@ function Install-WingetCore {
             Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetFile -UseBasicParsing
 
             Add-AppxPackage -Path $wingetFile -ForceApplicationShutdown -ErrorAction Stop
+            Write-Host "" # Aggiunto per pulire l'output dopo l'installazione AppxPackage
             Write-StyledMessage -Type Success -Text "Winget Core installato con successo."
         }
 
@@ -377,6 +423,7 @@ function Install-WingetPackage {
         if (Test-Path $tempPath) {
             Remove-Item -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
             Write-StyledMessage -Type Info -Text "Cache temporanea eliminata."
+            Write-Host "" # Aggiunto per pulire l'output dopo la rimozione della cache
         }
 
         # Reset sorgenti se Winget esiste
@@ -413,6 +460,7 @@ function Install-WingetPackage {
             Invoke-WebRequest -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -UseBasicParsing
             Add-AppxPackage -Path $tempInstaller -ForceApplicationShutdown -ErrorAction Stop
             Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue
+            Write-Host "" # Aggiunto per pulire l'output dopo l'installazione e rimozione
             Start-Sleep 3
         }
 
@@ -420,6 +468,7 @@ function Install-WingetPackage {
         Write-StyledMessage -Type Info -Text "Reset App Installer..."
         if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
             Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
+            Write-Host "" # Aggiunto per pulire l'output dopo Reset-AppxPackage
         }
 
         Start-Sleep 2
@@ -685,6 +734,7 @@ function Install-WindowsTerminalApp {
             # Aggiungi -ForceApplicationShutdown per chiudere istanze esistenti, anche se danneggiate
             Add-AppxPackage -Path $tempFile -ForceApplicationShutdown -ErrorAction Stop
             Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+            Write-Host "" # Aggiunto per pulire l'output dopo l'installazione e rimozione
             Start-Sleep 3 # Dai tempo al sistema per registrare il pacchetto
 
             # Dopo l'installazione via AppxPackage, verifica se wt.exe è ora presente e funzionante
@@ -750,31 +800,66 @@ function Install-PspEnvironment {
 
             # Controllo rapido se il font è già registrato nel sistema
             $fontRegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
-            $installed = Get-ItemProperty -Path $fontRegistryPath -ErrorAction SilentlyContinue |
-            Get-Member -MemberType NoteProperty |
-            Where-Object Name -like "*JetBrainsMono*"
+            $installedFont = Get-ItemProperty -Path $fontRegistryPath -ErrorAction SilentlyContinue |
+                Get-Member -MemberType NoteProperty |
+                Where-Object Name -like "*JetBrainsMono* (TrueType)" # Più specifico per i nomi registrati
 
-            if ($installed) {
+            if ($installedFont) {
                 Write-StyledMessage -Type Success -Text "✅ JetBrainsMono Nerd Font già installato."
                 return $true
             }
 
-            Write-StyledMessage -Type Info -Text "⬇️ Installazione font tramite WinGet (Metodo Rapido)..."
+            Write-StyledMessage -Type Info -Text "⬇️ Tentativo installazione font tramite WinGet..."
+            $wingetResult = Invoke-WingetCommand -Arguments "install -e --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
 
-            # Utilizzo della funzione helper esistente per coerenza logica
-            $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
-
-            if ($result.ExitCode -eq 0) {
-                Write-StyledMessage -Type Success -Text "✅ Nerd Fonts installati con successo."
+            if ($wingetResult.ExitCode -eq 0) {
+                Write-StyledMessage -Type Success -Text "✅ Nerd Fonts installati con successo tramite WinGet."
                 return $true
             }
             else {
-                Write-StyledMessage -Type Warning -Text "⚠️ WinGet ha restituito codice $($result.ExitCode). Il font potrebbe richiedere un riavvio del terminale."
-                return $false
+                Write-StyledMessage -Type Warning -Text "⚠️ Installazione WinGet per JetBrainsMono Nerd Font fallita (Exit Code: $($wingetResult.ExitCode)). Errore: $($wingetResult.StdErr). Tentativo di installazione alternativa..."
+
+                # Fallback: Download e installazione manuale
+                try {
+                    Write-StyledMessage -Type Info -Text "⬇️ Fallback: Download e installazione manuale di JetBrainsMono Nerd Font..."
+                    # Usare l'ultima versione stabile di JetBrainsMono Nerd Font dalle release ufficiali di Nerd Fonts
+                    $fontDownloadUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.1/JetBrainsMono.zip"
+                    $tempFontZip = Join-Path $env:TEMP "JetBrainsMonoNerdFont.zip"
+                    $tempFontDir = Join-Path $env:TEMP "JetBrainsMonoNerdFont_Extract"
+                    $targetFontDir = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\Fonts" # Directory font specifica dell'utente
+
+                    Invoke-WebRequest -Uri $fontDownloadUrl -OutFile $tempFontZip -UseBasicParsing -ErrorAction Stop
+                    Write-Host "" # Aggiunto per pulire l'output dopo Invoke-WebRequest
+
+                    if (Test-Path $tempFontDir) { Remove-Item $tempFontDir -Recurse -Force -ErrorAction SilentlyContinue }
+                    Expand-Archive -Path $tempFontZip -DestinationPath $tempFontDir -Force -ErrorAction Stop
+                    Write-Host "" # Aggiunto per pulire l'output dopo Expand-Archive
+
+                    if (-not (Test-Path $targetFontDir)) { New-Item -ItemType Directory -Path $targetFontDir -Force | Out-Null }
+
+                    $ttfFiles = Get-ChildItem -Path $tempFontDir -Filter "*.ttf" -Recurse -File
+
+                    foreach ($ttfFile in $ttfFiles) {
+                        $destinationFile = Join-Path $targetFontDir $ttfFile.Name
+                        if (Test-Path $destinationFile) { Remove-Item $destinationFile -Force -ErrorAction SilentlyContinue }
+                        Copy-Item -Path $ttfFile.FullName -Destination $destinationFile -Force -ErrorAction Stop
+                    }
+                    Write-Host "" # Aggiunto per pulire l'output dopo Copy-Item
+
+                    Write-StyledMessage -Type Success -Text "✅ JetBrainsMono Nerd Font installato manualmente in modalità portatile."
+                    # Pulizia file temporanei
+                    Remove-Item $tempFontZip -Force -ErrorAction SilentlyContinue
+                    Remove-Item $tempFontDir -Recurse -Force -ErrorAction SilentlyContinue
+                    return $true
+                }
+                catch {
+                    Write-StyledMessage -Type Error -Text "❌ Errore durante l'installazione manuale del font: $($_.Exception.Message)"
+                    return $false
+                }
             }
         }
         catch {
-            Write-StyledMessage -Type Warning -Text "❌ Errore durante l'installazione font: $($_.Exception.Message)"
+            Write-StyledMessage -Type Error -Text "❌ Errore generale durante l'installazione font: $($_.Exception.Message)"
             return $false
         }
     }
@@ -874,6 +959,10 @@ function Install-PspEnvironment {
 }
 
 function New-ToolkitDesktopShortcut {
+    param (
+        [string]$PowerShellExePath,
+        [string]$ScriptRelaunchCommand
+    )
     Write-StyledMessage -Type Info -Text "Creazione scorciatoia desktop..."
 
     try {
@@ -893,8 +982,13 @@ function New-ToolkitDesktopShortcut {
 
         $shell = New-Object -ComObject WScript.Shell
         $link = $shell.CreateShortcut($shortcut)
+        
+        # Target per WT standard
         $link.TargetPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
-        $link.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
+        # Argomenti per Windows Terminal: crea una nuova scheda, imposta il profilo PowerShell e esegui il comando
+        # Il doppio trattino (--) separa gli argomenti di wt da quelli della shell.
+        $wtArguments = "-w 0 new-tab -p `"PowerShell`" -d . -- `"$PowerShellExePath`" -NoProfile -ExecutionPolicy Bypass -Command `"$ScriptRelaunchCommand`""
+        $link.Arguments = $wtArguments
         $link.WorkingDirectory = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
         $link.IconLocation = $icon
         $link.Description = "Win Toolkit - SOPRAVVIVI A Windows"
@@ -914,7 +1008,9 @@ function New-ToolkitDesktopShortcut {
 
 function New-AltToolkitDesktopShortcut {
     param (
-        [string]$WtPortablePath
+        [string]$WtPortablePath,
+        [string]$PowerShellExePath,
+        [string]$ScriptRelaunchCommand
     )
 
     Write-StyledMessage -Type Info -Text "Creazione scorciatoia desktop ALTERNATIVA..."
@@ -941,7 +1037,9 @@ function New-AltToolkitDesktopShortcut {
         $link.TargetPath = $WtPortablePath
         $link.WorkingDirectory = Split-Path $WtPortablePath -Parent
 
-        $link.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
+        # Argomenti per WT portatile: crea una nuova scheda, imposta il profilo PowerShell e esegui il comando
+        $wtArguments = "-w 0 new-tab -p `"PowerShell`" -d . -- `"$PowerShellExePath`" -NoProfile -ExecutionPolicy Bypass -Command `"$ScriptRelaunchCommand`""
+        $link.Arguments = $wtArguments
         $link.IconLocation = $icon
         $link.Description = "Win Toolkit - SOPRAVVIVI A Windows (Alternativa)"
         $link.Save()
@@ -1079,10 +1177,17 @@ function Invoke-WinToolkitSetup {
     # Installazione Windows Terminal e configurazione condizionale
     $installedWtPath = Install-WindowsTerminalApp
 
+    # Determina pwshPath e scriptCommand necessari per le scorciatoie
+    # Queste variabili sono già usate per il rilancio dello script, le consolidiamo e le passiamo.
+    $pwshPathForShortcut = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
+    if (-not (Test-Path $pwshPathForShortcut)) { $pwshPathForShortcut = "powershell.exe" }
+    # $scriptBlockForRelaunch è già definito in Invoke-WinToolkitSetup (riga ~1071)
+    $scriptCommandForShortcut = $scriptBlockForRelaunch
+
     # Configurazione specifica per versione portatile
     if ($global:WTInstalledPortable) {
         # Crea scorciatoia alternativa
-        New-AltToolkitDesktopShortcut -WtPortablePath $installedWtPath
+        New-AltToolkitDesktopShortcut -WtPortablePath $installedWtPath -PowerShellExePath $pwshPathForShortcut -ScriptRelaunchCommand $scriptCommandForShortcut
 
         # Aggiornamento PATH di sistema
         Write-StyledMessage -Type Info -Text "Aggiunta cartella Windows Terminal portable al PATH di sistema..."
@@ -1130,7 +1235,7 @@ function Invoke-WinToolkitSetup {
     }
     elseif ($installedWtPath) {
         # Se Windows Terminal è installato (winget o Appx), ma NON portatile
-        New-ToolkitDesktopShortcut
+        New-ToolkitDesktopShortcut -PowerShellExePath $pwshPathForShortcut -ScriptRelaunchCommand $scriptCommandForShortcut
     }
     else {
         # Nessuna installazione automatica riuscita
