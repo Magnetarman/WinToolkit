@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.1.12 - 2026-02-05
+    Versione 2.5.1. (Build 12) - 2026-02-05
     Compatibile con PowerShell 5.1+
 #>
 
@@ -19,7 +19,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.1.12"
+        Version = "Version 2.5.1 (Build 12)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -245,10 +245,10 @@ function Install-WindowsTerminalManual {
             # Creazione file .portable
             New-Item -Path (Join-Path $DestinationPath ".portable") -ItemType File -Force | Out-Null
             Write-StyledMessage -Type Success -Text "Windows Terminal estratto con successo in modalità portatile."
-            
+
             # Imposta flag globale
             $global:WTInstalledPortable = $true
-            
+
             return "$DestinationPath\WindowsTerminal.exe"
         }
         else {
@@ -857,7 +857,7 @@ function New-AltToolkitDesktopShortcut {
     param (
         [string]$WtPortablePath
     )
-    
+
     Write-StyledMessage -Type Info -Text "Creazione scorciatoia desktop ALTERNATIVA..."
 
     try {
@@ -1060,7 +1060,7 @@ function Invoke-WinToolkitSetup {
                 New-Item -Path $settingsPortableDir -ItemType Directory -Force | Out-Null
                 Write-StyledMessage -Type Info -Text "Creata cartella settings per WT portable."
             }
-            
+
             $targetSettingsPath = Join-Path $settingsPortableDir "settings.json"
             Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/settings.json" -OutFile $targetSettingsPath -UseBasicParsing
             Write-StyledMessage -Type Success -Text "Settings.json aggiornati per Windows Terminal portable."
