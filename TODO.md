@@ -31,18 +31,6 @@
   - [x] Get-ProfileDir: Semplificata la logica di rilevamento directory profilo.
     - [x] Utilizzo di Split-Path -Parent $PROFILE per maggiore affidabilità.
     - [x] Codice più pulito e meno soggetto a errori.
-
-- Potenziato `start.ps1` [[Thanks to @Matteoz]](https://t.me/teo180)
-  - [x] Logica "Force Portable" per Windows Terminal: Nuova funzione Install-WindowsTerminalManual che permette l'estrazione manuale dei binari dal pacchetto .msixbundle in caso di fallimento dei metodi standard.
-  - [x] Centralizzazione URL: Inserito l'endpoint GitHub API per le release di Windows Terminal nella configurazione $script:AppConfig per una gestione dinamica degli aggiornamenti.
-  - [x] Sistema di Fallback Multi-Livello: Implementata una catena di installazione resiliente per Windows Terminal (Winget -> Appx Nativo -> Estrazione Manuale -> MS Store).
-  - [x] Ottimizzazione Invoke-WinToolkitSetup: Centralizzata la costruzione dello scriptblock di rilancio per garantire coerenza tra i vari passaggi di privilegi e versioni di shell.
-  - [x] Logica di Riavvio Intelligente: Migliorato l'avvio finale che ora tenta di lanciare lo script in Windows Terminal + PowerShell 7, con fallback automatico su console legacy in caso di errore.
-  - [x] Gestione Logging: Spostata e protetta la creazione delle directory di log con blocchi try-catch per evitare interruzioni su sistemi con permessi ristretti.
-  - [x] Gestione Flusso Reboot: Spostata la logica rebootNeeded al termine della catena di avvio per prevenire la chiusura prematura dello script durante la fase di setup.
-  - [x] Resilienza Winget: Migliorato il rilevamento degli errori durante il ripristino di Winget, differenziando tra metodo "veloce" (bundle) e "avanzato" (moduli PowerShell).
-  - [x] Aggiunto check ulteriore dell'eseguibile Windows Terminal. In caso di applicativi corrotti viene forzata l'installazione della versione Portable.
-  - [x] Aggiunta la modifica dei vari puntatori di Windows alla nuova versione di Windows Terminal portable slegata dallo store di windows e da Winget in modo da garantire il funzionamento anche su sistemi fortemente danneggiati.
   
 - Rework Gestione `To-Do.md`.
   - [x] Eliminazione `To-Do.md` dal Ramo main.
