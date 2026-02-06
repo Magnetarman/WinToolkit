@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.1 (Build 16) - 2026-02-06
+    Versione 2.5.1 (Build 17) - 2026-02-06
     Compatibile con PowerShell 5.1+
 #>
 
@@ -19,7 +19,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.1 (Build 16)"
+        Version = "Version 2.5.1 (Build 17)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -848,21 +848,26 @@ function Invoke-WinToolkitSetup {
     $wtInstalled = Install-WindowsTerminalApp
     
     # Imposta Windows Terminal come terminale predefinito se installato
-    if ($wtInstalled -and (Get-Command "wt.exe" -ErrorAction SilentlyContinue)) {
-        Write-StyledMessage -Type Info -Text "⚙️ Impostazione Windows Terminal come terminale predefinito..."
+    if ($wtInstalled) {
+        Write-StyledMessage -Type Info -Text "⚙️ Impostazione Windows Terminal come predefinito via Registry..."
         try {
-            $setDefaultParams = @{
-                FilePath     = 'wt.exe'
-                ArgumentList = '--set-default-terminal'
-                NoNewWindow  = $true
-                Wait         = $true
-                ErrorAction  = 'Stop'
+            $registryPath = "HKCU:\Console\%%Startup"
+            if (-not (Test-Path $registryPath)) {
+                New-Item -Path $registryPath -Force | Out-Null
             }
-            Start-Process @setDefaultParams | Out-Null
-            Write-StyledMessage -Type Success -Text "✅ Windows Terminal impostato come predefinito (potrebbe richiedere un riavvio)."
+
+            # CLSID per Windows Terminal (Stable)
+            $wtClsid = "{E12F0936-0E6F-548E-A9F6-B20C69A27D17}"
+            # CLSID per l'host di delega (OpenConsole)
+            $consoleHostClsid = "{B23D10C0-31E3-401A-97EF-4BB30B62E10B}"
+
+            Set-ItemProperty -Path $registryPath -Name "DelegationTerminal" -Value $wtClsid -Force
+            Set-ItemProperty -Path $registryPath -Name "DelegationConsole" -Value $consoleHostClsid -Force
+            
+            Write-StyledMessage -Type Success -Text "✅ Windows Terminal impostato come predefinito nel Registro."
         }
         catch {
-            Write-StyledMessage -Type Warning -Text "⚠️ Impossibile impostare Windows Terminal come predefinito: $($_.Exception.Message)"
+            Write-StyledMessage -Type Warning -Text "⚠️ Impossibile impostare il terminale predefinito: $($_.Exception.Message)"
         }
     }
     
