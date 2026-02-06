@@ -15,7 +15,24 @@
   - [x] Reso automatico ed "intelligente" l'invocazione della riparazione profonda (Se Checkdisk non genera errori gravi la riparazione profonda non verrà invocata al riavvio del PC).
 
 -  `start.ps1` potenziato.
-  - [ ]  
+  - [x] Refactoring del codice con maggiore coerenza strutturale e leggibilità.
+  - [x] Ottimizzazione del flusso di esecuzione dello script e riduzione dei passaggi ridondanti.
+  - [x] Migliore organizzazione delle chiamate alle funzioni già esistenti (nessuna funzione rimossa o aggiunta, ma rivista la logica interna).
+  - [x] Migliorata la verifica della compatibilità e della versione di winget.
+  - [x] Aggiunti controlli e tentativi automatici di ripristino del package manager.
+  - [x] Rafforzata la gestione degli errori durante installazioni via winget.
+  - [x] Logging più chiaro sugli esiti delle installazioni (successo/fallimento).
+  - [x] Maggiore robustezza nei processi di installazione (Git, PowerShell, Windows Terminal, Nerd Fonts, ecc.).
+  - [x] Migliorata la gestione dei fallback quando un’installazione non va a buon fine.
+  - [x] Ridotti i casi di blocco dello script in presenza di prerequisiti mancanti.
+  - [x] Incremento dei blocchi try/catch per una gestione più sicura delle eccezioni.
+  - [x] Messaggi di errore più esplicativi e contestualizzati.
+  - [x] Miglior gestione dei processi interferenti e dei timeout.
+  - [x] Messaggistica più chiara e uniforme tramite Write-StyledMessage.
+  - [x] Miglioramento dei feedback a schermo durante tutte le fasi dello script.
+  - [x] Distinzione più netta tra messaggi informativi, warning, errori e successi.
+  - [x] Migliorata la retrocompatibilità con ambienti Windows differenti.
+  - [x] Rafforzati i controlli su prerequisiti di sistema (es. VC Redist, profili locali, terminale).
 
 - Profilo Powershell Aggiornato. `V 2.5.1.6`
   - [x] Aggiunto comando per effettuare uno speedtest del PC.
