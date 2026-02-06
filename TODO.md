@@ -62,26 +62,24 @@
 
 ### V 2.5.2
 
-- Aggiunta Funzione `WinDebloat.ps1`.
-  - [ ] Aggiunta Disattivazione Servizi superflui.
-
-- Aggiunta Funzione WinUpdateDisabler.
-  - [ ] Add script relativo e funzioni nel template.
-  - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
-
-- Aggiunta Funzione WinUpdateSet (Windows Home non supportato).
-  - [ ] Add script relativo e funzioni nel template.
-  - [ ] Imposta tramite criteri di gruppo gli Update di windows.
-
 - `WinToolkit.ps1` Aggiornato.
   - [ ] Aggiunti nuovi script.
   - [ ] Riorganizzato il menu principale per maggiore chiarezza.
 
+- Aggiunta Funzione `WinUpdateDisabler.ps1`.
+  - [ ] Add script relativo e funzioni nel template.
+  - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
 
-### V 2.6 - Auto Debloat
+- Aggiunta Funzione `WinUpdateSet.ps1` (Windows Home non supportato).
+  - [ ] Add script relativo e funzioni nel template.
+  - [ ] Imposta tramite criteri di gruppo gli Update di windows.
 
-- [ ] Avvio dello script Chris con configurazione personalizzata (`iwr -useb https://christitus.com/win | iex`).
-- **?** Deprovvisioning dell'immagine Windows 11 (studio di fattibilità in corso).
+
+### V 2.6 - WinToolkit GUI - Codename: "Alex"
+
+- <del>Avvio dello script Chris con configurazione personalizzata (`iwr -useb https://christitus.com/win | iex`).</del>
+- Aggiunta Funzione `WinDebloat.ps1`.
+  - [ ] Aggiunta Disattivazione Servizi superflui.
 - Rework Progetto GUI.
   - [ ] Rendere lo script GUI un semplice wrapper.
   - [ ] Inserire download ultima versione `Wintoolkit.ps1`.
@@ -89,6 +87,7 @@
   - [ ] Concatenzazione script da checkbox.
   - [ ] Avanzamento Barra di progressione.
   - [ ] Redirect Output scripts nel box Logs.
+- **?** Deprovvisioning dell'immagine Windows 11 (studio di fattibilità in corso).
 
 
 ### V 2.7 - Security Update
