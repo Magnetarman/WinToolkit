@@ -78,6 +78,7 @@
 ### V 2.6 - WinToolkit GUI - Codename: "Alex"
 
 - <del>Avvio dello script Chris con configurazione personalizzata (`iwr -useb https://christitus.com/win | iex`).</del>
+  - **Questa funzione a causa di lacune nel debloat di Windows 11 ramo *Germanium* 24H2/25H2 verrà corretta ed integrata in uno script nuovo denominato `WinDebloat.ps1`**
 - Aggiunta Funzione `WinDebloat.ps1`.
   - [ ] Aggiunta Disattivazione Servizi superflui.
 - Rework Progetto GUI.
