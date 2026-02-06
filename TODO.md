@@ -14,7 +14,7 @@
   - [x] Aumentato il Timeout delle funzioni in modo da non far fallire le operazioni anche su sistemi datati e poco potenti.
   - [x] Reso automatico ed "intelligente" l'invocazione della riparazione profonda (Se Checkdisk non genera errori gravi la riparazione profonda non verrà invocata al riavvio del PC).
 
--  `start.ps1` potenziato.
+- `start.ps1` potenziato.
   - [x] Refactoring del codice con maggiore coerenza strutturale e leggibilità.
   - [x] Ottimizzazione del flusso di esecuzione dello script e riduzione dei passaggi ridondanti.
   - [x] Migliore organizzazione delle chiamate alle funzioni già esistenti (nessuna funzione rimossa o aggiunta, ma rivista la logica interna).
