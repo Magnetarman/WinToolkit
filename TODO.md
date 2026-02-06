@@ -13,12 +13,17 @@
   - [x] Aumentato il Timeout delle funzioni in modo da non far fallire le operazioni anche su sistemi datati e poco potenti.
   - [x] Reso automatico ed "intelligente" l'invocazione della riparazione profonda (Se Checkdisk non genera errori gravi la riparazione profonda non verrà invocata al riavvio del PC).
 
-- Profilo Powershell Aggiornato.
+-  `start.ps1` potenziato.
+  - [ ]  
+
+- Profilo Powershell Aggiornato. `V 2.5.1.6`
   - [x] Aggiunto comando per effettuare uno speedtest del PC.
-  - [x] Inserito Salvataggio risultati in documento .txt sul desktop.
+    - [x] Inserito Salvataggio risultati in documento .txt sul desktop.
   - [x] Eliminate Funzioni Ridondanti.
+  - [x] Riorganizzata sezione help per maggiore chiarezza.
   - [x] Aggiunta funzione offline di reset delle risorse di rete. [[Thanks to @ChrisTitusTech]](https://github.com/ChrisTitusTech)
   - [x] Aggiunta funzione di aggiornamento del profilo Powershell personalizzato.
+    - [x] `start.ps1` non più necessario per aggiornare il profilo powershell.
   - [x] Find-File: Resa compatibile con la pipeline di PowerShell.
     - [x] Eliminata la funzione wrapper `EditProfile` che duplicava `EditPSProfile`.
     - [x] Documentazione aggiornata per riflettere il singolo comando disponibile.
