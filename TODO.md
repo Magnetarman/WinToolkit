@@ -1,5 +1,6 @@
 # To-Do
 
+
 ### V 2.5.1
 
 - Adeguamento Repository alle regole di Github.
@@ -41,6 +42,9 @@
   - [x] Eliminazione `To-Do.md` dal Ramo main.
   - [x] Redirect con link hardcode al `To-Do.md` nel ramo Dev.
 
+
+### V 2.5.2
+
 - Aggiunta Funzione `WinDebloat.ps1`.
   - [ ] Aggiunta Disattivazione Servizi superflui.
 
@@ -55,6 +59,7 @@
 - `WinToolkit.ps1` Aggiornato.
   - [ ] Aggiunti nuovi script.
   - [ ] Riorganizzato il menu principale per maggiore chiarezza.
+
 
 ### V 2.6 - Auto Debloat
 
