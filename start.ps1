@@ -5,7 +5,7 @@
     Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
     Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
 .NOTES
-    Versione 2.5.1 (Build 15) - 2026-01-27
+    Versione 2.5.1 (Build 16) - 2026-02-06
     Compatibile con PowerShell 5.1+
 #>
 
@@ -19,7 +19,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.1 (Build 15)"
+        Version = "Version 2.5.1 (Build 16)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -708,7 +708,7 @@ function New-ToolkitDesktopShortcut {
         $shell = New-Object -ComObject WScript.Shell
         $link = $shell.CreateShortcut($shortcut)
         $link.TargetPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
-        $link.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
+        $link.Arguments = 'pwsh -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
         $link.WorkingDirectory = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
         $link.IconLocation = $icon
         $link.Description = "Win Toolkit - SOPRAVVIVI A Windows"
@@ -800,8 +800,8 @@ function Invoke-WinToolkitSetup {
             }
             else {
                 Write-StyledMessage -Type Warning -Text "⚠️ Ripristino veloce fallito. Tentativo metodo avanzato (più lento)..."
-                # FIX: Soppresso output booleano "True"
-                Install-WingetPackage | Out-Null
+                # Cattura il risultato dell'installazione per gestione logica
+                $wingetPackageSuccess = Install-WingetPackage
 
                 if (-not (Test-WingetFunctionality)) {
                     Write-StyledMessage -Type Warning -Text "⚠️ Winget non funzionale anche dopo il tentativo di installazione."
@@ -813,8 +813,8 @@ function Invoke-WinToolkitSetup {
             Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
         }
 
-        # FIX: Soppresso output booleano "True"
-        Install-GitPackage | Out-Null
+        # Cattura il risultato dell'installazione Git
+        $gitInstalled = Install-GitPackage
 
         if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
             if (Install-PowerShellCore) {
@@ -844,8 +844,28 @@ function Invoke-WinToolkitSetup {
         exit
     }
 
-    # FIX: Soppresso output booleano "True"
-    Install-WindowsTerminalApp | Out-Null
+    # Cattura il risultato dell'installazione Windows Terminal
+    $wtInstalled = Install-WindowsTerminalApp
+    
+    # Imposta Windows Terminal come terminale predefinito se installato
+    if ($wtInstalled -and (Get-Command "wt.exe" -ErrorAction SilentlyContinue)) {
+        Write-StyledMessage -Type Info -Text "⚙️ Impostazione Windows Terminal come terminale predefinito..."
+        try {
+            $setDefaultParams = @{
+                FilePath     = 'wt.exe'
+                ArgumentList = '--set-default-terminal'
+                NoNewWindow  = $true
+                Wait         = $true
+                ErrorAction  = 'Stop'
+            }
+            Start-Process @setDefaultParams | Out-Null
+            Write-StyledMessage -Type Success -Text "✅ Windows Terminal impostato come predefinito (potrebbe richiedere un riavvio)."
+        }
+        catch {
+            Write-StyledMessage -Type Warning -Text "⚠️ Impossibile impostare Windows Terminal come predefinito: $($_.Exception.Message)"
+        }
+    }
+    
     Install-PspEnvironment
     New-ToolkitDesktopShortcut
 
@@ -905,8 +925,10 @@ function Invoke-WinToolkitSetup {
         Restart-Computer -Force
     }
     else {
-        Write-StyledMessage -Type Success -Text "Nessun riavvio necessario."
+        Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
+        Start-Sleep 3
         try { Stop-Transcript | Out-Null } catch { }
+        exit
     }
 }
 
