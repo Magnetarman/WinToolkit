@@ -102,14 +102,6 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ---
 
-## 📽️ Parlano di WinToolkit
-
-| Nome Canale | Link                                                                                                                          |
-|:---|:---|
-| Zakkos      | <a href="https://www.youtube.com/watch?v=nUKLeYqe1ZI"> WINTOOLKIT 2.5: Dominare Windows 11 con PowerShell by MagnetarMan </a> |
-
----
-
 ## 🪟 Coming soon: GUI - Interfaccia grafica
 
 > [!CAUTION]
@@ -122,6 +114,13 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 - [Leggi le modifiche introdotte.](/CHANGELOG.md)
 - [Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)
+
+---
+## 📽️ Parlano di WinToolkit
+
+| Nome Canale | Link                                                                                                                          |
+|:------------|:------------------------------------------------------------------------------------------------------------------------------|
+| Zakkos      | <a href="https://www.youtube.com/watch?v=nUKLeYqe1ZI"> WINTOOLKIT 2.5: Dominare Windows 11 con PowerShell by MagnetarMan </a> |
 
 ---
 
