@@ -56,11 +56,11 @@ irm https://magnetarman.com/winstart | iex
 > Se stai avviando WinToolkit da versioni parzialmente supportate è consigliabile utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
 
 1. Installa Powershell 7 (o versioni successive) da [Microsoft Store](https://www.microsoft.com/store/apps/9MZ1SNWT0N5D) oppure da [GitHub](https://learn.microsoft.com/it-it/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.5#msi).
-3. Premi il tasto `Windows` sulla tastiera oppure clicca sulla ricerca di Windows.
-4. Digita `Powershell` nel campo della ricerca.
-5. Clicca col tasto destro del mouse sulla voce `Powershell`.
-6. Clicca sulla voce `Esegui come amministratore` dal menù a tendina.
-7. Copia e incolla nella finestra di Powershell il comando seguente:
+2. Premi il tasto `Windows` sulla tastiera oppure clicca sulla ricerca di Windows.
+3. Digita `Powershell` nel campo della ricerca.
+4. Clicca col tasto destro del mouse sulla voce `Powershell`.
+5. Clicca sulla voce `Esegui come amministratore` dal menù a tendina.
+6. Copia e incolla nella finestra di Powershell il comando seguente:
 
 ```powershell
 irm https://magnetarman.com/WinToolkit | iex
@@ -99,6 +99,14 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 > In Windows 11 22H2 o inferiori, WinToolkit consiglierà di effettuare prima la funzione di riparazione di WinGet.
 
 - **BitLocker Toolkit**: Avvia un processo automatizzato per disattivare la crittografia BitLocker sul drive di sistema (C:). Lo strumento verifica lo stato attuale e, se attivo, esegue il comando per avviare la decrittografia del volume in modo controllato. Infine aggiunge al registro di sistema una voce per cercare di contrastare future e possibili ri-attivazione occulte da parte di Microsoft.
+
+---
+
+## 📽️ Parlano di WinToolkit
+
+| Nome Canale | Link                                                                                                                          |
+|:---|:---|
+| Zakkos      | <a href="https://www.youtube.com/watch?v=nUKLeYqe1ZI"> WINTOOLKIT 2.5: Dominare Windows 11 con PowerShell by MagnetarMan </a> |
 
 ---
 
