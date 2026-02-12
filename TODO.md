@@ -75,20 +75,12 @@
   - [ ] Imposta tramite criteri di gruppo gli Update di windows.
 
 
-### V 2.6 - WinToolkit GUI - Codename: "Alex"
+### V 2.6 - Debloat
 
 - <del>Avvio dello script Chris con configurazione personalizzata (`iwr -useb https://christitus.com/win | iex`).</del>
   - **Questa funzione a causa di lacune nel debloat di Windows 11 ramo *Germanium* 24H2/25H2 verrà corretta ed integrata in uno script nuovo denominato `WinDebloat.ps1`**
 - Aggiunta Funzione `WinDebloat.ps1`.
   - [ ] Aggiunta Disattivazione Servizi superflui.
-- Rework Progetto GUI.
-  - [ ] Rendere lo script GUI un semplice wrapper.
-  - [ ] Inserire download ultima versione `Wintoolkit.ps1`.
-  - [ ] Parsing e popolazione funzionalità.
-  - [ ] Concatenzazione script da checkbox.
-  - [ ] Avanzamento Barra di progressione.
-  - [ ] Redirect Output scripts nel box Logs.
-- **?** Deprovvisioning dell'immagine Windows 11 (studio di fattibilità in corso).
 
 
 ### V 2.7 - Security Update
@@ -142,3 +134,15 @@
   - [ ] Pulizia del sistema.
   - [ ] Applicazione Sfondo "MagnetarMan".
   - [ ] Riavvio del PC per completare le modifiche.
+
+
+### V X.X - GUI
+
+- Rework Progetto GUI.
+- [ ] Rendere lo script GUI un semplice wrapper.
+- [ ] Inserire download ultima versione `Wintoolkit.ps1`.
+- [ ] Parsing e popolazione funzionalità.
+- [ ] Concatenzazione script da checkbox.
+- [ ] Avanzamento Barra di progressione.
+- [ ] Redirect Output scripts nel box Logs.
+- **?** Deprovvisioning dell'immagine Windows 11 (studio di fattibilità in corso).
