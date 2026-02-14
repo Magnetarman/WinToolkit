@@ -118,7 +118,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 ---
 ## 📽️ Parlano di WinToolkit
 
-| Nome Canale | Link                                                                                                                          |
+| Favicon Canale | Link                                                                                                                          |
 |:------------|:------------------------------------------------------------------------------------------------------------------------------|
 | <img src="/asset/zakkos.jpg" alt="Zakkos-WinToolkit" width="80">  | <a href="https://www.youtube.com/watch?v=nUKLeYqe1ZI"> WINTOOLKIT 2.5: Dominare Windows 11 con PowerShell by MagnetarMan </a> |
 
