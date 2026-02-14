@@ -34,7 +34,7 @@
   - [x] Migliorata la retrocompatibilità con ambienti Windows differenti.
   - [x] Rafforzati i controlli su prerequisiti di sistema (es. VC Redist, profili locali, terminale).
 
-- Profilo Powershell Aggiornato. `V 2.5.1.10`
+- Profilo Powershell Aggiornato `V 2.5.1.10`. **BREAKING CHANGES**
   - [x] Aggiunto comando per effettuare uno speedtest del PC.
     - [x] Inserito Salvataggio risultati in documento .txt sul desktop.
   - [x] Eliminate Funzioni Ridondanti.
