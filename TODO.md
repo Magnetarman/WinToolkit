@@ -66,6 +66,9 @@
   - [ ] Aggiunti nuovi script.
   - [ ] Riorganizzato il menu principale per maggiore chiarezza.
 
+- `WinReinstallStore.ps1` Aggiornato.
+  - [ ] Fix Output non correttamente soppresso. 
+
 - Aggiunta Funzione `WinUpdateDisabler.ps1`.
   - [ ] Add script relativo e funzioni nel template.
   - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
@@ -114,7 +117,7 @@
 - [ ] L'archivio conterrà tutto il necessario ad utilizzare Wintoolkit in modalità offline senza rete.
 
 
-### V 2.10 - Multi Lang Mode - Codename: "Enza"
+### V 2.10 - Multi Lang Mode
 
 - [ ] Conversione Readme.md in inglese.
 - [ ] Possibilità di scegliere la lingua all'avvio di Wintoolkit.
