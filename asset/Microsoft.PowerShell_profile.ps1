@@ -6,7 +6,7 @@
     Profilo PowerShell con utility, navigazione rapida, informazioni di sistema e configurazioni.
 
 .NOTES
-    Versione: 2.5.1.10 - 07/02/2026
+    Versione: 2.5.1.110 - 17/02/2026
     Autore: MagnetarMan
 #>
 
@@ -368,8 +368,8 @@ function PSProfileUpdate {
         return
     }
 
-    Write-Host "ℹ️ Versione locale: $($localDetails.VersionString)" -ForegroundColor DarkGray
-    Write-Host "ℹ️ Versione remota: $($remoteDetails.VersionString)" -ForegroundColor DarkGray
+    Write-Host "ℹ️ Versione locale: $($localDetails.VersionString)" -ForegroundColor DarkYellow
+    Write-Host "ℹ️ Versione remota: $($remoteDetails.VersionString)" -ForegroundColor Yellow
 
     if ($localVersion -eq $remoteVersion) {
         Write-Host "✅ Il profilo è aggiornato all'ultima versione: $($localDetails.VersionString)" -ForegroundColor Green
