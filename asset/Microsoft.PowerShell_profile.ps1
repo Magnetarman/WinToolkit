@@ -6,29 +6,9 @@
     Profilo PowerShell con utility, navigazione rapida, informazioni di sistema e configurazioni.
 
 .NOTES
-    Versione: 2.5.1.12 - 20/02/2026
+    Versione: 2.5.1.13 - 21/02/2026
     Autore: MagnetarMan
 #>
-
-# ============================================================================
-# AMBIENTE E CONFIGURAZIONE BASE
-# ============================================================================
-
-# Controllo Amministratore
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-$adminSuffix = if ($isAdmin) { " [ADMIN]" } else { "" }
-
-# Personalizzazione Prompt
-function prompt {
-    [CmdletBinding()]
-    param()
-    $promptChar = if ($isAdmin) { "#" } else { "$" }
-    $currentLocation = Get-Location
-    return "[${currentLocation}] ${promptChar} "
-}
-
-# Titolo finestra
-$Host.UI.RawUI.WindowTitle = "PowerShell {0}$adminSuffix" -f $PSVersionTable.PSVersion.ToString()
 
 # ============================================================================
 # CONFIGURAZIONE CENTRALIZZATA (URL)
@@ -39,6 +19,10 @@ $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
 $URL_WINTOOLKIT_DEV = "https://magnetarman.com/WinToolkit-Dev"
 $URL_OHMYPOSH_THEME = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
 $URL_PROFILE = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
+$URL_IP_API = "https://am.i.mullvad.net/ip"
+$URL_WINTOOLKIT_ICO_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
+$URL_PROFILE_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/Microsoft.PowerShell_profile.ps1"
+$URL_PWSH_RELEASE_API = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
 
 # ============================================================================
 # FUNZIONI HELPER GLOBALI
@@ -48,11 +32,17 @@ function Assert-Admin {
     [CmdletBinding()]
     param()
 
-    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        return $false
-    }
-    return $true
+    return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
+
+# ============================================================================
+# AMBIENTE E CONFIGURAZIONE BASE
+# ============================================================================
+
+# Controllo Amministratore
+$isAdmin = Assert-Admin
+
+# Personalizzazione Prompt
 
 function Test-CommandExists {
     [CmdletBinding()]
@@ -116,7 +106,7 @@ function New-Mkcd {
 # ============================================================================
 
 function Set-LocationToDesktop {
-    Set-Location -Path "$HOME\Desktop"
+    Set-Location -Path (Join-Path $HOME "Desktop")
 }
 
 # ============================================================================
@@ -128,7 +118,7 @@ function Get-SystemInfo {
 }
 
 function Get-PublicIP {
-    (Invoke-WebRequest -Uri "https://am.i.mullvad.net/ip" -UseBasicParsing).Content.Trim()
+    (Invoke-WebRequest -Uri $URL_IP_API -UseBasicParsing).Content.Trim()
 }
 
 function Get-MainboardInfo {
@@ -218,7 +208,7 @@ function Reset-Network {
 
     Write-Host "`n🚀 Avvio ripristino impostazioni di rete..." -ForegroundColor Cyan
 
-    # Reset WinSock catalog to a clean state
+    # Ripristina lo stato pulito del catalogo WinSock
     try {
         Write-Host "🔄 Ripristino catalogo Winsock..." -ForegroundColor Cyan
         $processInfo = Start-Process -FilePath "netsh" -ArgumentList "winsock", "reset" -NoNewWindow -Wait -PassThru -ErrorAction Stop
@@ -229,7 +219,7 @@ function Reset-Network {
         Write-Host "❌ Errore ripristino Winsock: $($_.Exception.Message)" -ForegroundColor Red
     }
 
-    # Resets WinHTTP proxy setting to DIRECT
+    # Reimposta le impostazioni proxy WinHTTP su DIRECT
     try {
         Write-Host "🔄 Ripristino impostazioni proxy WinHTTP..." -ForegroundColor Cyan
         $processInfo = Start-Process -FilePath "netsh" -ArgumentList "winhttp", "reset", "proxy" -NoNewWindow -Wait -PassThru -ErrorAction Stop
@@ -240,7 +230,7 @@ function Reset-Network {
         Write-Host "❌ Errore ripristino proxy WinHTTP: $($_.Exception.Message)" -ForegroundColor Red
     }
 
-    # Removes all user configured IP settings
+    # Rimuove tutte le configurazioni IP definite dall'utente
     try {
         Write-Host "🔄 Ripristino configurazioni IP..." -ForegroundColor Cyan
         $processInfo = Start-Process -FilePath "netsh" -ArgumentList "int", "ip", "reset" -NoNewWindow -Wait -PassThru -ErrorAction Stop
@@ -445,22 +435,21 @@ function WinToolkit-Reset {
         Write-Host "📦 Ricreazione scorciatoia desktop..." -ForegroundColor Cyan
         $desktop = [Environment]::GetFolderPath('Desktop')
         $shortcut = Join-Path $desktop "Win Toolkit.lnk"
-        $iconDir = "$env:LOCALAPPDATA\WinToolkit"
+        $iconDir = Join-Path $env:LOCALAPPDATA "WinToolkit"
         $icon = Join-Path $iconDir "WinToolkit.ico"
-        $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
 
         if (-not (Test-Path $iconDir)) {
             New-Item -Path $iconDir -ItemType Directory -Force | Out-Null
         }
 
         # Scarica/Sovrascrive l'icona dal ramo main
-        Invoke-WebRequest -Uri $iconUrl -OutFile $icon -UseBasicParsing -Force
+        Invoke-WebRequest -Uri $URL_WINTOOLKIT_ICO_MAIN -OutFile $icon -UseBasicParsing
 
         $shell = New-Object -ComObject WScript.Shell
         $link = $shell.CreateShortcut($shortcut)
-        $link.TargetPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
-        $link.Arguments = 'pwsh -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
-        $link.WorkingDirectory = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
+        $link.TargetPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\wt.exe"
+        $link.Arguments = 'pwsh -ExecutionPolicy Bypass -Command "irm ' + $URL_WINTOOLKIT_STABLE + ' | iex"'
+        $link.WorkingDirectory = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
         $link.IconLocation = $icon
         $link.Description = "Win Toolkit - SOPRAVVIVI A Windows"
         $link.Save()
@@ -479,10 +468,9 @@ function WinToolkit-Reset {
     # 2. Sostituzione Profilo PowerShell
     try {
         Write-Host "⬇️ Download del profilo PowerShell dal ramo main..." -ForegroundColor Cyan
-        $mainProfileUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/Microsoft.PowerShell_profile.ps1"
 
         # Sovrascrive il profilo senza chiedere conferma
-        Invoke-WebRequest -Uri $mainProfileUrl -OutFile $PROFILE -UseBasicParsing -Force
+        Invoke-WebRequest -Uri $URL_PROFILE_MAIN -OutFile $PROFILE -UseBasicParsing
         Write-Host "✅ Profilo PowerShell sovrascritto con la versione main." -ForegroundColor Green
     }
     catch {
@@ -494,6 +482,48 @@ function WinToolkit-Reset {
     Write-Host "  - Icona desktop 'Win Toolkit' rigenerata e puntata al ramo main." -ForegroundColor Yellow
     Write-Host "  - Profilo PowerShell sostituito con la versione del ramo main." -ForegroundColor Yellow
     Write-Host "`n⚠️  ATTENZIONE: Riavvia il terminale per applicare le modifiche del nuovo profilo." -ForegroundColor Magenta
+}
+
+function PS-Reset {
+    [CmdletBinding()]
+    param()
+
+    Write-Host "⚠️ ATTENZIONE: Questa operazione eliminerà il profilo PowerShell personalizzato e resetterà Windows Terminal alle impostazioni di fabbrica." -ForegroundColor Yellow
+    $confirmation = Read-Host "❓ Vuoi procedere? (S/N)"
+
+    if ($confirmation -notmatch "^[Ss]$") {
+        Write-Host "ℹ️ Operazione annullata." -ForegroundColor Cyan
+        return
+    }
+
+    Write-Host "`n🔄 Avvio reset..." -ForegroundColor Cyan
+
+    # 1. Reset Windows Terminal
+    try {
+        $wtSettingsPath = Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+        if (Test-Path $wtSettingsPath) {
+            Remove-Item -Path $wtSettingsPath -Force -ErrorAction Stop
+            Write-Host "✅ Impostazioni di Windows Terminal eliminate. Verranno ricreate al prossimo avvio." -ForegroundColor Green
+        } else {
+            Write-Host "ℹ️ Impostazioni di Windows Terminal non trovate, reset non necessario." -ForegroundColor DarkYellow
+        }
+    }
+    catch {
+        Write-Host "❌ Errore durante il reset di Windows Terminal: $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    # 2. Eliminazione Profilo PowerShell
+    try {
+        if (Test-Path $PROFILE) {
+            Remove-Item -Path $PROFILE -Force -ErrorAction Stop
+            Write-Host "✅ Profilo PowerShell personalizzato eliminato con successo." -ForegroundColor Green
+        }
+    }
+    catch {
+        Write-Host "❌ Errore durante l'eliminazione del profilo: $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    Write-Host "`n🎉 Reset completato! Chiudi e riapri Windows Terminal per applicare le impostazioni di fabbrica." -ForegroundColor Magenta
 }
 
 # ============================================================================
@@ -515,17 +545,17 @@ function Get-PreferredEditor {
 
     # Se non nel PATH, controlla le posizioni di installazione comuni
     $zedPaths = @(
-        "$env:LOCALAPPDATA\Programs\Zed\Zed.exe",
-        "$env:PROGRAMFILES\Zed\Zed.exe",
-        "C:\Users\$env:USERNAME\AppData\Local\Programs\Zed\Zed.exe"
+        (Join-Path $env:LOCALAPPDATA "Programs\Zed\Zed.exe"),
+        (Join-Path $env:PROGRAMFILES "Zed\Zed.exe"),
+        (Join-Path $HOME "AppData\Local\Programs\Zed\Zed.exe")
     )
 
-    foreach ($path in $zedPaths) {
-        if (Test-Path $path) {
+    foreach ($zpath in $zedPaths) {
+        if (Test-Path $zpath) {
             return @{
                 Name    = 'Zed'
-                Path    = $path
-                Command = $path
+                Path    = $zpath
+                Command = $zpath
             }
         }
     }
@@ -622,6 +652,8 @@ $($PSStyle.Foreground.Cyan)Gestione Profilo Powershell$($PSStyle.Reset) $($PSSty
 $($PSStyle.Foreground.Green)EditPSProfile$($PSStyle.Reset)             - Apre il profilo PowerShell nell'editor
 $($PSStyle.Foreground.Green)ReloadProfile$($PSStyle.Reset)             - Ricarica il profilo PowerShell corrente
 $($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Aggiorna il profilo PowerShell all'ultima versione
+$($PSStyle.Foreground.Green)PS-Reset$($PSStyle.Reset)                  - Resetta Windows Terminal e cancella questo profilo
+$($PSStyle.Foreground.Green)Update-Pwsh$($PSStyle.Reset)               - Aggiorna PowerShell all'ultima versione
 
 $($PSStyle.Foreground.Cyan)Utility terminale$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                      - Monitor delle risorse per il terminale
@@ -652,37 +684,40 @@ Set-PSReadLineOption -Colors @{
 # INSTALLAZIONI E INIZIALIZZAZIONI
 # ============================================================================
 
-# Verifica aggiornamento PowerShell
-try {
-    Write-Host "🔍 Verifica degli aggiornamenti di PowerShell..." -ForegroundColor Cyan
-    $updateNeeded = $false
+function Update-Pwsh {
+    [CmdletBinding()]
+    param()
 
-    [version]$currentPSVersion = $PSVersionTable.PSVersion
-    $gitHubApiUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
-    $latestReleaseInfo = Invoke-RestMethod -Uri $gitHubApiUrl -UseBasicParsing
-    [version]$latestPSVersion = $latestReleaseInfo.tag_name.Trim('v')
+    try {
+        Write-Host "🔍 Verifica degli aggiornamenti di PowerShell..." -ForegroundColor Cyan
+        $updateNeeded = $false
 
-    if ($currentPSVersion -lt $latestPSVersion) {
-        $updateNeeded = $true
-    }
+        [version]$currentPSVersion = $PSVersionTable.PSVersion
+        $latestReleaseInfo = Invoke-RestMethod -Uri $URL_PWSH_RELEASE_API -UseBasicParsing -TimeoutSec 5
+        [version]$latestPSVersion = $latestReleaseInfo.tag_name.Trim('v')
 
-    if ($updateNeeded) {
-        if (-not (Assert-Admin)) {
-            Write-Host "⚠️ Per aggiornare PowerShell è necessario eseguire la shell come Amministratore." -ForegroundColor DarkYellow
-            return
+        if ($currentPSVersion -lt $latestPSVersion) {
+            $updateNeeded = $true
         }
-        Write-Host "🔄 Aggiornamento di PowerShell in corso (da v$currentPSVersion a v$latestPSVersion)..." -ForegroundColor Yellow
-        winget upgrade "Microsoft.PowerShell" --accept-source-agreements --accept-package-agreements | Out-Null
-        Write-Host "✅ PowerShell aggiornato. Riavvia la shell per applicare le modifiche." -ForegroundColor Magenta
+
+        if ($updateNeeded) {
+            if (-not (Assert-Admin)) {
+                Write-Host "⚠️ Per aggiornare PowerShell è necessario eseguire la shell come Amministratore." -ForegroundColor DarkYellow
+                return
+            }
+            Write-Host "🔄 Aggiornamento di PowerShell in corso (da v$currentPSVersion a v$latestPSVersion)..." -ForegroundColor Yellow
+            winget upgrade "Microsoft.PowerShell" --accept-source-agreements --accept-package-agreements | Out-Null
+            Write-Host "✅ PowerShell aggiornato. Riavvia la shell per applicare le modifiche." -ForegroundColor Magenta
+        }
+        else {
+            Write-Host "✅ PowerShell è aggiornato (v$currentPSVersion)" -ForegroundColor Green
+        }
     }
-    else {
-        Write-Host "✅ PowerShell è aggiornato (v$currentPSVersion)" -ForegroundColor Green
-    }
-}
-catch {
-    Write-Host "❌ Impossibile verificare o aggiornare PowerShell: $($_.Exception.Message)" -ForegroundColor Red
-    if ($_.Exception.Message -like "*winget*") {
-        Write-Host "Suggerimento: Assicurati che 'winget' sia installato." -ForegroundColor DarkYellow
+    catch {
+        Write-Host "❌ Impossibile verificare o aggiornare PowerShell: $($_.Exception.Message)" -ForegroundColor Red
+        if ($_.Exception.Message -like "*winget*") {
+            Write-Host "Suggerimento: Assicurati che 'winget' sia installato." -ForegroundColor DarkYellow
+        }
     }
 }
 
@@ -722,10 +757,18 @@ else {
 }
 
 # zoxide
-Invoke-Expression (& { (zoxide init powershell | Out-String) })
+if (Test-CommandExists -Name "zoxide") {
+    Invoke-Expression (& { (zoxide init powershell | Out-String) })
+}
 
 # fastfetch
-fastfetch
+if (Test-CommandExists -Name "fastfetch") {
+    fastfetch
+}
 
 Write-Host ""
 Write-Host "💡 Digita 'help' per scoprire i comandi personalizzati." -ForegroundColor Yellow
+
+# ============================================================================
+# FINE DEL PROFILO
+# ============================================================================
