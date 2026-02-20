@@ -54,11 +54,20 @@
   - [x] Get-ProfileDir: Semplificata la logica di rilevamento directory profilo.
     - [x] Utilizzo di Split-Path -Parent $PROFILE per maggiore affidabilità.
     - [x] Codice più pulito e meno soggetto a errori.
+  - [x] Aggiunto nuova funzione `WinToolkit-Reset`.
+    - [x] In caso di problemi resetta il link dell'icona sul desktop.
+    - [x] Aggiorna il profilo powershell all'ultima versione stabile.
   
 - Rework Gestione `To-Do.md`.
   - [x] Eliminazione `To-Do.md` dal Ramo main.
   - [x] Redirect con link hardcode al `To-Do.md` nel ramo Dev.
 
+- Aggiornato `readme.md`.
+  - [x] Aggiunta sezione "Parlano di WinToolkit".
+
+- `WinRepairToolkit.ps1` potenziato.
+- [x] Aggiunta funzione automatica di copia del log del comando sfc /scannow nella cartella di WinToolkit.
+- [x] Il file verrà rinominato con data e ora in modo da essere utile per eventuali debug.
 
 ### V 2.5.2
 
