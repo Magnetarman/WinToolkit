@@ -6,6 +6,16 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 
 ---
 
+## [2.5.1] - CODENAME: "Deborah" - 2026-02-27 ([#26](https://github.com/MagnetarMan/WinToolkit/issues/26))
+
+### Aggiunte
+
+### Correzioni
+
+### Modifiche
+
+---
+
 ## [2.5.0] - CODENAME: "Deborah" - 2026-01-25 ([#26](https://github.com/MagnetarMan/WinToolkit/issues/26))
 
 ### Aggiunte
