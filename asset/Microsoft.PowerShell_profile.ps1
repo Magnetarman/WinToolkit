@@ -6,7 +6,7 @@
     Profilo PowerShell con utility, navigazione rapida, informazioni di sistema e configurazioni.
 
 .NOTES
-    Versione: 2.5.1.11 - 17/02/2026
+    Versione: 2.5.1.12 - 20/02/2026
     Autore: MagnetarMan
 #>
 
@@ -434,6 +434,68 @@ function ShutdownComplete {
     shutdown /s /full /f /t 0
 }
 
+function WinToolkit-Reset {
+    [CmdletBinding()]
+    param()
+
+    Write-Host "`n🔄 Avvio procedura di reset di WinToolkit (Switch al ramo Main)..." -ForegroundColor Cyan
+
+    # 1. Ricreazione Scorciatoia Desktop
+    try {
+        Write-Host "📦 Ricreazione scorciatoia desktop..." -ForegroundColor Cyan
+        $desktop = [Environment]::GetFolderPath('Desktop')
+        $shortcut = Join-Path $desktop "Win Toolkit.lnk"
+        $iconDir = "$env:LOCALAPPDATA\WinToolkit"
+        $icon = Join-Path $iconDir "WinToolkit.ico"
+        $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
+
+        if (-not (Test-Path $iconDir)) {
+            New-Item -Path $iconDir -ItemType Directory -Force | Out-Null
+        }
+
+        # Scarica/Sovrascrive l'icona dal ramo main
+        Invoke-WebRequest -Uri $iconUrl -OutFile $icon -UseBasicParsing -Force
+
+        $shell = New-Object -ComObject WScript.Shell
+        $link = $shell.CreateShortcut($shortcut)
+        $link.TargetPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
+        $link.Arguments = 'pwsh -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
+        $link.WorkingDirectory = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
+        $link.IconLocation = $icon
+        $link.Description = "Win Toolkit - SOPRAVVIVI A Windows"
+        $link.Save()
+
+        # Abilita esecuzione come amministratore modificando i byte del file .lnk
+        $bytes = [IO.File]::ReadAllBytes($shortcut)
+        $bytes[21] = $bytes[21] -bor 32
+        [IO.File]::WriteAllBytes($shortcut, $bytes)
+
+        Write-Host "✅ Scorciatoia desktop aggiornata al ramo main." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "❌ Errore creazione scorciatoia: $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    # 2. Sostituzione Profilo PowerShell
+    try {
+        Write-Host "⬇️ Download del profilo PowerShell dal ramo main..." -ForegroundColor Cyan
+        $mainProfileUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/Microsoft.PowerShell_profile.ps1"
+
+        # Sovrascrive il profilo senza chiedere conferma
+        Invoke-WebRequest -Uri $mainProfileUrl -OutFile $PROFILE -UseBasicParsing -Force
+        Write-Host "✅ Profilo PowerShell sovrascritto con la versione main." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "❌ Errore aggiornamento profilo: $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    # 3. Avviso all'utente
+    Write-Host "`n🎉 Reset completato con successo! Modifiche effettuate:" -ForegroundColor Green
+    Write-Host "  - Icona desktop 'Win Toolkit' rigenerata e puntata al ramo main." -ForegroundColor Yellow
+    Write-Host "  - Profilo PowerShell sostituito con la versione del ramo main." -ForegroundColor Yellow
+    Write-Host "`n⚠️  ATTENZIONE: Riavvia il terminale per applicare le modifiche del nuovo profilo." -ForegroundColor Magenta
+}
+
 # ============================================================================
 # CONFIGURAZIONE EDITOR CON FALLBACK
 # ============================================================================
@@ -554,6 +616,7 @@ $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Spegnim
 $($PSStyle.Foreground.Cyan)Lancio WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Lancia WinToolkit (stabile)
 $($PSStyle.Foreground.Green)WinToolkit-Dev$($PSStyle.Reset)            - Lancia WinToolkit (Dev)
+$($PSStyle.Foreground.Green)WinToolkit-Reset$($PSStyle.Reset)          - Ripristina l'ambiente (Icona e Profilo) al ramo main
 
 $($PSStyle.Foreground.Cyan)Gestione Profilo Powershell$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)EditPSProfile$($PSStyle.Reset)             - Apre il profilo PowerShell nell'editor
