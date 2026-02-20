@@ -41,6 +41,11 @@
   - [x] Riorganizzata sezione help per maggiore chiarezza.
   - [x] Aggiunta funzione offline di reset delle risorse di rete. [[Thanks to @ChrisTitusTech]](https://github.com/ChrisTitusTech)
   - [x] Aggiunta funzione di aggiornamento del profilo Powershell personalizzato.
+  - [x] Esternalizzata la ricerca di aggiornamenti di Powershell.
+    - [x] Aggiunta nuova funzione `Update-Pwsh`.
+    - [x] Ricerca nuove versioni installabili di Powershell manualmente in caso di necessità.
+    - [x] Eliminato il check automatico ad ogni avvio del terminale.
+    - [x] Reso caricamento profilo powershell nettamente più veloce.
     - [x] `start.ps1` non più necessario per aggiornare il profilo powershell.
   - [x] Find-File: Resa compatibile con la pipeline di PowerShell.
     - [x] Eliminata la funzione wrapper `EditProfile` che duplicava `EditPSProfile`.
@@ -57,6 +62,9 @@
   - [x] Aggiunto nuova funzione `WinToolkit-Reset`.
     - [x] In caso di problemi resetta il link dell'icona sul desktop.
     - [x] Aggiorna il profilo powershell all'ultima versione stabile.
+  - [x] Aggiunto nuova funzione `PS-Reset`. [[Requested by @Pomodori92]](https://github.com/pomodori92)
+    - [x] Elimina il profilo powershell personalizzato nella cartella documenti.
+    - [x]  Riporta Windows Terminal alle impostazioni di fabbrica.
   
 - Rework Gestione `To-Do.md`.
   - [x] Eliminazione `To-Do.md` dal Ramo main.
