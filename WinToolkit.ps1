@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 23)"
+$ToolkitVersion = "2.5.1 (Build 24)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -429,17 +429,32 @@ function WinOSCheck {
 # --- PLACEHOLDER PER COMPILATORE ---
 function WinRepairToolkit {
     <#
-.SYNOPSIS
-    Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk) e salva i log di Scannow nella cartella del Toolkit debug addizionale.
-#>
+    .SYNOPSIS
+        Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk) e salva i log di Scannow nella cartella del Toolkit debug addizionale.
+    #>
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $false)]
         [int]$MaxRetryAttempts = 3,
+
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
+
+        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "WinRepairToolkit"
     Show-Header -SubTitle "Repair Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
+
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
 
     $script:CurrentAttempt = 0
     $RepairTools = @(
@@ -707,20 +722,32 @@ function WinRepairToolkit {
 function WinUpdateReset {
     <#
     .SYNOPSIS
-        Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI.
+        Ripara i componenti di Windows Update, reimposta servizi, registro e criteri di default.
     .DESCRIPTION
         Ripara i problemi comuni di Windows Update, reinstalla componenti critici
         e ripristina le configurazioni di default.
     #>
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 15,
+
+        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "WinUpdateReset"
     Show-Header -SubTitle "Update Reset Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Win Update Reset Toolkit By MagnetarMan"
 
-    # --- FUNZIONI LOCALI ---
+    # ============================================================================
+    # 2. FUNZIONI HELPER LOCALI
+    # ============================================================================
+
 
     function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
         $percent = [math]::Round(($Current / $Total) * 100)
@@ -1298,17 +1325,30 @@ function WinReinstallStore {
 
     .DESCRIPTION
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
-
     #>
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
+
+        [Parameter(Mandatory = $false)]
         [switch]$NoReboot,
+
+        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "WinReinstallStore"
     Show-Header -SubTitle "Store Repair Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
 
+    # ============================================================================
+    # 2. FUNZIONI HELPER LOCALI
+    # ============================================================================
 
     function Clear-ProgressLine {
         Write-Host "`r" -NoNewline
@@ -1874,13 +1914,27 @@ function WinBackupDriver {
         installati sul sistema. Il processo include l'esportazione tramite DISM, compressione
         in formato 7z e spostamento automatico sul desktop.
     #>
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 10,
+
+        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
+
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
+
     
     $script:BackupConfig = @{
         DateTime    = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -1892,6 +1946,10 @@ function WinBackupDriver {
     }
     
     $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
+
+    # ============================================================================
+    # 3. FUNZIONI HELPER LOCALI
+    # ============================================================================
 
     function Test-AdministratorPrivilege {
         $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -2212,14 +2270,23 @@ function OfficeToolkit {
         [switch]$SuppressIndividualReboot
     )
 
-    # 1. Inizializzazione logging
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "OfficeToolkit"
     Show-Header -SubTitle "Office Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
 
-    # Configurazione
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
+
     $TempDir = $AppConfig.Paths.OfficeTemp
 
-    # Funzioni Helper Locali
+    # ============================================================================
+    # 3. FUNZIONI HELPER LOCALI
+    # ============================================================================
     function Clear-ConsoleLine {
         $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
         Write-Host $clearLine -NoNewline
@@ -3853,16 +3920,32 @@ function VideoDriverInstall {
 
     [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
+
+        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "VideoDriverInstall"
     Show-Header -SubTitle "Video Driver Install Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Video Driver Install Toolkit By MagnetarMan"
+
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
 
     $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
     $DriverToolsLocalPath = $AppConfig.Paths.Drivers
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
+
+    # ============================================================================
+    # 3. FUNZIONI HELPER LOCALI
+    # ============================================================================
 
     function Get-GpuManufacturer {
         <#
@@ -4250,16 +4333,25 @@ function GamingToolkit {
         [switch]$SuppressIndividualReboot
     )
 
-    # 1. Inizializzazione logging
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "GamingToolkit"
     Show-Header -SubTitle "Gaming Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
 
-    # 2. Variabili locali
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
+
     $osInfo = Get-ComputerInfo
     $buildNumber = $osInfo.OsBuildNumber
     $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
 
-    # 3. Funzioni helper locali
+    # ============================================================================
+    # 3. FUNZIONI HELPER LOCALI
+    # ============================================================================
     function Test-WingetPackageAvailable([string]$PackageId) {
         try {
             $result = winget search $PackageId 2>&1
@@ -4702,14 +4794,29 @@ function DisableBitlocker {
 function WinExportLog {
     <#
     .SYNOPSIS
-        Comprime i log di WinToolkit e li salva sul desktop invio log errori.
+        Comprime i log di WinToolkit e li salva sul desktop per l'invio diagnostico.
     #>
-    param([int]$CountdownSeconds = 30)
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [int]$CountdownSeconds = 30,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
+    )
+
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
 
     Initialize-ToolLogging -ToolName "WinExportLog"
     Show-Header -SubTitle "Esporta Log Diagnostici"
+    $Host.UI.RawUI.WindowTitle = "Log Export By MagnetarMan"
 
-    # Definizione dei percorsi
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
+
     $logSourcePath = $AppConfig.Paths.Logs
     $desktopPath = $AppConfig.Paths.Desktop
     $timestamp = (Get-Date -Format "yyyyMMdd_HHmmss")
