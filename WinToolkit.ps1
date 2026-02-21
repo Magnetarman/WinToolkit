@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 13)"
+$ToolkitVersion = "2.5.1 (Build 14)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -429,7 +429,7 @@ function WinOSCheck {
 function WinRepairToolkit {
     <#
 .SYNOPSIS
-    Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk).
+    Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk) e salva i log di Scannow nella cartella del Toolkit debug addizionale.
 #>
     param(
         [int]$MaxRetryAttempts = 3,
@@ -516,7 +516,7 @@ function WinRepairToolkit {
 
             $exitCode = $result.ExitCode
             $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
-            
+
             # Per chkdsk /scan, considerare successo se completato (anche con exit code non-zero informativo)
             $isChkdskScan = $isChkdsk -and ($Config.Args -contains '/scan')
             $chkdskCompleted = $isChkdskScan -and (($results -join ' ') -match '(?i)(scansione.*completata|scan.*completed|successfully scanned)')
@@ -528,14 +528,14 @@ function WinRepairToolkit {
                     $trim = $line.Trim()
                     # Escludi linee di progresso, versione e messaggi informativi
                     if ($trim -match '^\[=+\s*\d+' -or $trim -match '(?i)version:|deployment image') { continue }
-                    
+
                     # Per chkdsk, ignora messaggi informativi comuni che non sono errori critici
                     if ($isChkdsk) {
                         # Ignora messaggi informativi di chkdsk
                         if ($trim -match '(?i)(stage|fase|percent complete|verificat|scanned|scanning|errors found.*corrected|volume label)') { continue }
                         # Solo errori critici per chkdsk
-                        if ($trim -match '(?i)(cannot|unable to|access denied|critical|fatal|corrupt file system|bad sectors)') { 
-                            $errors += $trim 
+                        if ($trim -match '(?i)(cannot|unable to|access denied|critical|fatal|corrupt file system|bad sectors)') {
+                            $errors += $trim
                         }
                     }
                     else {
@@ -559,12 +559,12 @@ function WinRepairToolkit {
                         $safeStepName = $Config.Name -replace '[^a-zA-Z0-9]', '_'
                         $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
                         $destLogName = "SFC_CBS_${safeStepName}_${timestamp}.log"
-                        
+
                         # Utilizzo della variabile globale per la cartella dei log
                         $destLogPath = Join-Path $AppConfig.Paths.Logs $destLogName
-                        
+
                         Copy-Item -Path $cbsLogPath -Destination $destLogPath -Force -ErrorAction SilentlyContinue
-                        
+
                         # Verifica post-copia per dare un feedback accurato
                         if (Test-Path $destLogPath) {
                             Write-StyledMessage Info "📄 Log SFC salvato in: $destLogName"
@@ -629,7 +629,7 @@ function WinRepairToolkit {
     # Esecuzione
     try {
         $repairResult = Start-RepairCycle
-        
+
         $deepRepairScheduled = $false
         # Fix 2: Esegue la riparazione profonda solo se ci sono ancora errori dopo 3 tentativi
         if ($repairResult.TotalErrors -gt 0) {
