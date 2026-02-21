@@ -7,7 +7,10 @@ function WinBackupDriver {
         installati sul sistema. Il processo include l'esportazione tramite DISM, compressione
         in formato 7z e spostamento automatico sul desktop.
     #>
-    param([int]$CountdownSeconds = 10)
+    param(
+        [int]$CountdownSeconds = 10,
+        [switch]$SuppressIndividualReboot
+    )
 
     Initialize-ToolLogging -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
@@ -295,8 +298,10 @@ function WinBackupDriver {
             Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction SilentlyContinue
         }
         
-        Write-Host "`nPremi INVIO per terminare..." -ForegroundColor Gray
-        Read-Host | Out-Null
+        if (-not $SuppressIndividualReboot) {
+            Write-Host "`nPremi INVIO per terminare..." -ForegroundColor Gray
+            Read-Host | Out-Null
+        }
         
         try { Stop-Transcript | Out-Null } catch {}
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"

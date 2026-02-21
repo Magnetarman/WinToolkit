@@ -78,14 +78,21 @@
 - [x] Aggiunta funzione automatica di copia del log del comando sfc /scannow nella cartella di WinToolkit.
 - [x] Il file verrà rinominato con data e ora in modo da essere utile per eventuali debug.
 
+- `WinReinstallStore.ps1` Aggiornato.
+  - [x] Fix Output non correttamente soppresso.
+  - [ ] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+
+- `WinBackupDriver.ps1` Aggiornato.
+  - [ ] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+
+- `WinToolkit.ps1` aggiornato.
+  - [x] Fix Bug concatenazione in caso di numeri contenenti spazio + virgola. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)  
+
 ### V 2.5.2
 
 - `WinToolkit.ps1` Aggiornato.
   - [ ] Aggiunti nuovi script.
   - [ ] Riorganizzato il menu principale per maggiore chiarezza.
-
-- `WinReinstallStore.ps1` Aggiornato.
-  - [ ] Fix Output non correttamente soppresso. 
 
 - Aggiunta Funzione `WinUpdateDisabler.ps1`.
   - [ ] Add script relativo e funzioni nel template.

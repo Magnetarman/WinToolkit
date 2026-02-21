@@ -529,8 +529,10 @@ function WinReinstallStore {
         try { Stop-Transcript | Out-Null } catch {}
     }
     finally {
-        Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
-        Read-Host
+        if (-not $SuppressIndividualReboot) {
+            Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
+            Read-Host
+        }
         try { Stop-Transcript | Out-Null } catch {}
     }
 }
