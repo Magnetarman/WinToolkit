@@ -96,7 +96,9 @@
   - [x] Installazione di Office velocizzata.
 
 - `WinCleaner.ps1` Aggiornato.
-  - [ ]  
+  - [x] Aggiunto lo stop del servizio "Windows Update" prima della pulizia delle cartelle relative agli aggiornamenti.
+  - [x] Aggiunto il restart del servizio "Windows Update" dopo la pulizia.
+  - [x] Previene errori relativi a file o cartelle in uso.
 
 
 ### V 2.5.2
