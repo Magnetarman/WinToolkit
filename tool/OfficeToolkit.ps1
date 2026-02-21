@@ -714,8 +714,6 @@ function OfficeToolkit {
         Write-StyledMessage Success "🧹 Pulizia finale..."
         Invoke-SilentRemoval -Path $TempDir -Recurse
 
-        Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
-        Read-Host | Out-Null
         Write-StyledMessage Success "🎯 Office Toolkit terminato"
         try { Stop-Transcript | Out-Null } catch {}
     }
