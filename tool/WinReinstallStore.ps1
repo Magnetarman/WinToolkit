@@ -142,7 +142,14 @@ function WinReinstallStore {
                 $repairModuleActivity = "Riparazione Winget tramite modulo WinGet Client"
                 Write-StyledMessage Info "🔄 $repairModuleActivity..."
                 try {
+                    # Salva posizione cursore per pulizia output
+                    $cursorTop = [Console]::CursorTop
                     $null = Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
+                    
+                    # Pulisci eventuali righe di output rimaste
+                    [Console]::SetCursorPosition(0, $cursorTop)
+                    $clearLine = " " * ([Console]::WindowWidth - 1)
+                    Write-Host "`r$clearLine`r" -NoNewline
                     
                     Start-Sleep 5
                     if (Test-WingetAvailable) {
@@ -166,10 +173,19 @@ function WinReinstallStore {
                 if (Test-Path $temp) { Remove-Item $temp -Force *>$null }
                 Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing *>$null
                 
+                # Cattura posizione cursore per pulizia output
+                $originalPos = [Console]::CursorTop
+                
                 $process = Start-Process powershell -ArgumentList @(
-                    "-NoProfile", "-Command",
-                    "`$ProgressPreference='SilentlyContinue'; try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
-                ) -Wait -PassThru -NoNewWindow -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
+                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                    "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
+                ) -Wait -PassThru -WindowStyle Hidden
+                
+                # Reset cursore e flush output
+                [Console]::SetCursorPosition(0, $originalPos)
+                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                Write-Host $clearLine -NoNewline
+                [Console]::Out.Flush()
 
                 Remove-Item $temp -Force -ErrorAction SilentlyContinue *>$null
                 Start-Sleep 5
@@ -187,17 +203,17 @@ function WinReinstallStore {
                 $resetAppxActivity = "Reset 'Programma di installazione app'"
                 Write-StyledMessage Info "🔄 $resetAppxActivity..."
                 
+                # Esegui Reset-AppxPackage in un processo separato e NASCOSTO per evitare qualsiasi output/progress bar
                 $procParams = @{
-                    FilePath               = 'powershell'
-                    ArgumentList           = @(
+                    FilePath     = 'powershell'
+                    ArgumentList = @(
                         '-NoProfile', 
-                        '-Command', "`$ProgressPreference='SilentlyContinue'; Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue | Reset-AppxPackage -ErrorAction SilentlyContinue"
+                        '-WindowStyle', 'Hidden', 
+                        '-Command', "Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue | Reset-AppxPackage -ErrorAction SilentlyContinue"
                     )
-                    Wait                   = $true
-                    NoNewWindow            = $true
-                    RedirectStandardOutput = 'NUL'
-                    RedirectStandardError  = 'NUL'
-                    PassThru               = $true
+                    Wait         = $true
+                    WindowStyle  = 'Hidden'
+                    PassThru     = $true
                 }
                 
                 $process = Start-Process @procParams
@@ -322,7 +338,16 @@ function WinReinstallStore {
                 try {
                     if ($method.Name -eq "Winget Install") {
                         if (Test-WingetAvailable) {
-                            $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --disable-progress" -Wait -PassThru -NoNewWindow -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
+                            # Cattura posizione cursore per pulizia output
+                            $originalPos = [Console]::CursorTop
+                            
+                            $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                            
+                            # Reset cursore e flush output
+                            [Console]::SetCursorPosition(0, $originalPos)
+                            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                            Write-Host $clearLine -NoNewline
+                            [Console]::Out.Flush()
                             
                             $processResult = @{ Success = $true; ExitCode = $process.ExitCode }
                         }
@@ -332,14 +357,23 @@ function WinReinstallStore {
                         }
                     }
                     elseif ($method.Name -eq "AppX Manifest") {
+                        # Cattura posizione cursore per pulizia output
+                        $originalPos = [Console]::CursorTop
+                        
                         $store = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue | Select-Object -First 1
                         if ($store) {
                             $manifest = "$($store.InstallLocation)\AppXManifest.xml"
                             if (Test-Path $manifest) {
                                 $process = Start-Process powershell -ArgumentList @(
-                                    "-NoProfile", "-Command",
-                                    "`$ProgressPreference='SilentlyContinue'; Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
-                                ) -Wait -PassThru -NoNewWindow -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
+                                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                                    "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
+                                ) -Wait -PassThru -WindowStyle Hidden
+                                
+                                # Reset cursore e flush output
+                                [Console]::SetCursorPosition(0, $originalPos)
+                                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                                Write-Host $clearLine -NoNewline
+                                [Console]::Out.Flush()
                                 
                                 $processResult = @{ Success = $true; ExitCode = $process.ExitCode }
                             }
@@ -348,7 +382,16 @@ function WinReinstallStore {
                         else { $processResult = @{ Success = $false; ExitCode = -1 } }
                     }
                     elseif ($method.Name -eq "DISM Capability") {
-                        $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -NoNewWindow -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
+                        # Cattura posizione cursore per pulizia output
+                        $originalPos = [Console]::CursorTop
+                        
+                        $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
+                        
+                        # Reset cursore e flush output
+                        [Console]::SetCursorPosition(0, $originalPos)
+                        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                        Write-Host $clearLine -NoNewline
+                        [Console]::Out.Flush()
                         
                         $processResult = @{ Success = $true; ExitCode = $process.ExitCode }
                     }
@@ -399,10 +442,19 @@ function WinReinstallStore {
             $unigetActivity = "Installazione UniGet UI"
             Write-StyledMessage Info "🔄 $unigetActivity..."
             
-            $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity --disable-progress" -Wait -PassThru -NoNewWindow -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
-            Start-Sleep 2
-            $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --disable-progress --force" -Wait -PassThru -NoNewWindow -RedirectStandardOutput "NUL" -RedirectStandardError "NUL"
+            # Cattura posizione cursore per pulizia output
+            $originalPos = [Console]::CursorTop
             
+            $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+            Start-Sleep 2
+            $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
+            
+            # Reset cursore e flush output
+            [Console]::SetCursorPosition(0, $originalPos)
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
+
             # Verifica il risultato
             if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010 -or $process.ExitCode -eq 1638 -or $process.ExitCode -eq -1978335189) {
                 Write-StyledMessage Success "$unigetActivity completata."
@@ -477,6 +529,8 @@ function WinReinstallStore {
         try { Stop-Transcript | Out-Null } catch {}
     }
     finally {
+        Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
+        Read-Host
         try { Stop-Transcript | Out-Null } catch {}
     }
 }
