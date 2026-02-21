@@ -102,6 +102,10 @@
   - [x] Aggiunto il restart del servizio "Windows Update" dopo la pulizia.
   - [x] Previene errori relativi a file o cartelle in uso.
 
+- `DisableBitlocker.ps1` Aggiornato.
+  - [x] Adeguata struttura script alle direttive del progetto.
+  - [x] Migliorata leggibilità codice.
+
 
 ### V 2.5.2
 
