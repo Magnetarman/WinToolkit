@@ -176,10 +176,14 @@ function WinReinstallStore {
                 # Cattura posizione cursore per pulizia output
                 $originalPos = [Console]::CursorTop
                 
-                $process = Start-Process powershell -ArgumentList @(
-                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                    "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
-                ) -Wait -PassThru -WindowStyle Hidden
+                $procParams = @{
+                    FilePath     = 'powershell'
+                    ArgumentList = @("-NoProfile", "-WindowStyle", "Hidden", "-Command", "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0")
+                    Wait         = $true
+                    PassThru     = $true
+                    WindowStyle  = 'Hidden'
+                }
+                $process = Start-Process @procParams
                 
                 # Reset cursore e flush output
                 [Console]::SetCursorPosition(0, $originalPos)
@@ -341,7 +345,14 @@ function WinReinstallStore {
                             # Cattura posizione cursore per pulizia output
                             $originalPos = [Console]::CursorTop
                             
-                            $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                            $procParams = @{
+                                FilePath     = 'winget'
+                                ArgumentList = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity'
+                                Wait         = $true
+                                PassThru     = $true
+                                WindowStyle  = 'Hidden'
+                            }
+                            $process = Start-Process @procParams
                             
                             # Reset cursore e flush output
                             [Console]::SetCursorPosition(0, $originalPos)
@@ -364,10 +375,14 @@ function WinReinstallStore {
                         if ($store) {
                             $manifest = "$($store.InstallLocation)\AppXManifest.xml"
                             if (Test-Path $manifest) {
-                                $process = Start-Process powershell -ArgumentList @(
-                                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                                    "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
-                                ) -Wait -PassThru -WindowStyle Hidden
+                                $procParams = @{
+                                    FilePath     = 'powershell'
+                                    ArgumentList = @("-NoProfile", "-WindowStyle", "Hidden", "-Command", "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown")
+                                    Wait         = $true
+                                    PassThru     = $true
+                                    WindowStyle  = 'Hidden'
+                                }
+                                $process = Start-Process @procParams
                                 
                                 # Reset cursore e flush output
                                 [Console]::SetCursorPosition(0, $originalPos)
@@ -385,7 +400,14 @@ function WinReinstallStore {
                         # Cattura posizione cursore per pulizia output
                         $originalPos = [Console]::CursorTop
                         
-                        $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
+                        $procParams = @{
+                            FilePath     = 'DISM'
+                            ArgumentList = @('/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0')
+                            Wait         = $true
+                            PassThru     = $true
+                            WindowStyle  = 'Hidden'
+                        }
+                        $process = Start-Process @procParams
                         
                         # Reset cursore e flush output
                         [Console]::SetCursorPosition(0, $originalPos)
@@ -410,7 +432,13 @@ function WinReinstallStore {
                     Write-StyledMessage Success "$($method.Name) completato con successo."
                     # Esegui wsreset.exe solo una volta, dopo il successo del primo metodo
                     Write-StyledMessage Info "Esecuzione di wsreset.exe per pulire la cache dello Store..."
-                    Start-Process wsreset.exe -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue *>$null
+                    $procParams = @{
+                        FilePath    = 'wsreset.exe'
+                        Wait        = $true
+                        WindowStyle = 'Hidden'
+                        ErrorAction = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams *>$null
                     Write-StyledMessage Success "Cache dello Store ripristinata."
                     $success = $true
                     break # Esci dal loop se un metodo ha successo
@@ -445,9 +473,17 @@ function WinReinstallStore {
             # Cattura posizione cursore per pulizia output
             $originalPos = [Console]::CursorTop
             
-            $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+            $procParams = @{
+                FilePath     = 'winget'
+                ArgumentList = @('uninstall', '--exact', '--id', 'MartiCliment.UniGetUI', '--silent', '--disable-interactivity')
+                Wait         = $true
+                PassThru     = $true
+                WindowStyle  = 'Hidden'
+            }
+            $null = Start-Process @procParams
             Start-Sleep 2
-            $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
+            $procParams.ArgumentList = @('install', '--exact', '--id', 'MartiCliment.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force')
+            $process = Start-Process @procParams
             
             # Reset cursore e flush output
             [Console]::SetCursorPosition(0, $originalPos)
