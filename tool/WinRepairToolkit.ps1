@@ -211,8 +211,20 @@ function WinRepairToolkit {
     function Start-DeepDiskRepair {
         Write-StyledMessage Info '🔧 Avvio riparazione profonda del disco C: al prossimo riavvio'
         try {
-            Start-Process 'fsutil.exe' @('dirty', 'set', 'C:') -NoNewWindow -Wait
-            Start-Process 'cmd.exe' @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -WindowStyle Hidden -Wait
+            $fsutilParams = @{
+                FilePath     = 'fsutil.exe'
+                ArgumentList = @('dirty', 'set', 'C:')
+                NoNewWindow  = $true
+                Wait         = $true
+            }
+            Start-Process @fsutilParams
+            $chkdskParams = @{
+                FilePath     = 'cmd.exe'
+                ArgumentList = @('/c', 'echo Y | chkdsk C: /f /r /v /x /b')
+                WindowStyle  = 'Hidden'
+                Wait         = $true
+            }
+            Start-Process @chkdskParams
             Write-StyledMessage Info 'Comando chkdsk inviato. Riavvia per eseguire.'
             return $true
         }
@@ -237,7 +249,13 @@ function WinRepairToolkit {
         }
 
         Write-StyledMessage Info "⚙️ Impostazione scadenza password illimitata..."
-        Start-Process "net" -ArgumentList "accounts", "/maxpwage:unlimited" -NoNewWindow -Wait
+        $procParams = @{
+            FilePath     = 'net'
+            ArgumentList = @('accounts', '/maxpwage:unlimited')
+            NoNewWindow  = $true
+            Wait         = $true
+        }
+        Start-Process @procParams
 
         if ($deepRepairScheduled) { Write-StyledMessage Warning 'Riavvio necessario per riparazione profonda.' }
 
