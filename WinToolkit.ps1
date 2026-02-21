@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 22)"
+$ToolkitVersion = "2.5.1 (Build 23)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -640,8 +640,20 @@ function WinRepairToolkit {
     function Start-DeepDiskRepair {
         Write-StyledMessage Info '🔧 Avvio riparazione profonda del disco C: al prossimo riavvio'
         try {
-            Start-Process 'fsutil.exe' @('dirty', 'set', 'C:') -NoNewWindow -Wait
-            Start-Process 'cmd.exe' @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -WindowStyle Hidden -Wait
+            $fsutilParams = @{
+                FilePath     = 'fsutil.exe'
+                ArgumentList = @('dirty', 'set', 'C:')
+                NoNewWindow  = $true
+                Wait         = $true
+            }
+            Start-Process @fsutilParams
+            $chkdskParams = @{
+                FilePath     = 'cmd.exe'
+                ArgumentList = @('/c', 'echo Y | chkdsk C: /f /r /v /x /b')
+                WindowStyle  = 'Hidden'
+                Wait         = $true
+            }
+            Start-Process @chkdskParams
             Write-StyledMessage Info 'Comando chkdsk inviato. Riavvia per eseguire.'
             return $true
         }
@@ -666,7 +678,13 @@ function WinRepairToolkit {
         }
 
         Write-StyledMessage Info "⚙️ Impostazione scadenza password illimitata..."
-        Start-Process "net" -ArgumentList "accounts", "/maxpwage:unlimited" -NoNewWindow -Wait
+        $procParams = @{
+            FilePath     = 'net'
+            ArgumentList = @('accounts', '/maxpwage:unlimited')
+            NoNewWindow  = $true
+            Wait         = $true
+        }
+        Start-Process @procParams
 
         if ($deepRepairScheduled) { Write-StyledMessage Warning 'Riavvio necessario per riparazione profonda.' }
 
@@ -807,7 +825,14 @@ function WinUpdateReset {
                 $tempDir = [System.IO.Path]::GetTempPath() + "empty_" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
                 $null = New-Item -ItemType Directory -Path $tempDir -Force
 
-                $null = Start-Process "robocopy.exe" -ArgumentList "`"$tempDir`" `"$path`" /MIR /NFL /NDL /NJH /NJS /NP /NC" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+                $procParams = @{
+                    FilePath     = 'robocopy.exe'
+                    ArgumentList = @("`"$tempDir`"", "`"$path`"", '/MIR', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/NC')
+                    Wait         = $true
+                    WindowStyle  = 'Hidden'
+                    ErrorAction  = 'SilentlyContinue'
+                }
+                $null = Start-Process @procParams
                 Remove-Item $tempDir -Force -ErrorAction SilentlyContinue | Out-Null
                 Remove-Item $path -Force -ErrorAction SilentlyContinue | Out-Null
 
@@ -1444,10 +1469,14 @@ function WinReinstallStore {
                 # Cattura posizione cursore per pulizia output
                 $originalPos = [Console]::CursorTop
                 
-                $process = Start-Process powershell -ArgumentList @(
-                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                    "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0"
-                ) -Wait -PassThru -WindowStyle Hidden
+                $procParams = @{
+                    FilePath     = 'powershell'
+                    ArgumentList = @("-NoProfile", "-WindowStyle", "Hidden", "-Command", "try { Add-AppxPackage -Path '$temp' -ForceApplicationShutdown -ErrorAction Stop } catch { exit 1 }; exit 0")
+                    Wait         = $true
+                    PassThru     = $true
+                    WindowStyle  = 'Hidden'
+                }
+                $process = Start-Process @procParams
                 
                 # Reset cursore e flush output
                 [Console]::SetCursorPosition(0, $originalPos)
@@ -1609,7 +1638,14 @@ function WinReinstallStore {
                             # Cattura posizione cursore per pulizia output
                             $originalPos = [Console]::CursorTop
                             
-                            $process = Start-Process winget -ArgumentList "install 9WZDNCRFJBMP --accept-source-agreements --accept-package-agreements --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                            $procParams = @{
+                                FilePath     = 'winget'
+                                ArgumentList = 'install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity'
+                                Wait         = $true
+                                PassThru     = $true
+                                WindowStyle  = 'Hidden'
+                            }
+                            $process = Start-Process @procParams
                             
                             # Reset cursore e flush output
                             [Console]::SetCursorPosition(0, $originalPos)
@@ -1632,10 +1668,14 @@ function WinReinstallStore {
                         if ($store) {
                             $manifest = "$($store.InstallLocation)\AppXManifest.xml"
                             if (Test-Path $manifest) {
-                                $process = Start-Process powershell -ArgumentList @(
-                                    "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                                    "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown"
-                                ) -Wait -PassThru -WindowStyle Hidden
+                                $procParams = @{
+                                    FilePath     = 'powershell'
+                                    ArgumentList = @("-NoProfile", "-WindowStyle", "Hidden", "-Command", "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown")
+                                    Wait         = $true
+                                    PassThru     = $true
+                                    WindowStyle  = 'Hidden'
+                                }
+                                $process = Start-Process @procParams
                                 
                                 # Reset cursore e flush output
                                 [Console]::SetCursorPosition(0, $originalPos)
@@ -1653,7 +1693,14 @@ function WinReinstallStore {
                         # Cattura posizione cursore per pulizia output
                         $originalPos = [Console]::CursorTop
                         
-                        $process = Start-Process DISM -ArgumentList "/Online /Add-Capability /CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0" -Wait -PassThru -WindowStyle Hidden
+                        $procParams = @{
+                            FilePath     = 'DISM'
+                            ArgumentList = @('/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0')
+                            Wait         = $true
+                            PassThru     = $true
+                            WindowStyle  = 'Hidden'
+                        }
+                        $process = Start-Process @procParams
                         
                         # Reset cursore e flush output
                         [Console]::SetCursorPosition(0, $originalPos)
@@ -1678,7 +1725,13 @@ function WinReinstallStore {
                     Write-StyledMessage Success "$($method.Name) completato con successo."
                     # Esegui wsreset.exe solo una volta, dopo il successo del primo metodo
                     Write-StyledMessage Info "Esecuzione di wsreset.exe per pulire la cache dello Store..."
-                    Start-Process wsreset.exe -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue *>$null
+                    $procParams = @{
+                        FilePath    = 'wsreset.exe'
+                        Wait        = $true
+                        WindowStyle = 'Hidden'
+                        ErrorAction = 'SilentlyContinue'
+                    }
+                    Start-Process @procParams *>$null
                     Write-StyledMessage Success "Cache dello Store ripristinata."
                     $success = $true
                     break # Esci dal loop se un metodo ha successo
@@ -1713,9 +1766,17 @@ function WinReinstallStore {
             # Cattura posizione cursore per pulizia output
             $originalPos = [Console]::CursorTop
             
-            $null = Start-Process winget -ArgumentList "uninstall --exact --id MartiCliment.UniGetUI --silent --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+            $procParams = @{
+                FilePath     = 'winget'
+                ArgumentList = @('uninstall', '--exact', '--id', 'MartiCliment.UniGetUI', '--silent', '--disable-interactivity')
+                Wait         = $true
+                PassThru     = $true
+                WindowStyle  = 'Hidden'
+            }
+            $null = Start-Process @procParams
             Start-Sleep 2
-            $process = Start-Process winget -ArgumentList "install --exact --id MartiCliment.UniGetUI --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity --force" -Wait -PassThru -WindowStyle Hidden
+            $procParams.ArgumentList = @('install', '--exact', '--id', 'MartiCliment.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force')
+            $process = Start-Process @procParams
             
             # Reset cursore e flush output
             [Console]::SetCursorPosition(0, $originalPos)
@@ -1867,11 +1928,15 @@ function WinBackupDriver {
         try {
             # Usa Invoke-WithSpinner per monitorare il processo DISM
             $result = Invoke-WithSpinner -Activity "Esportazione driver DISM" -Process -Action {
-                Start-Process -FilePath 'dism.exe' -ArgumentList @(
-                    '/online',
-                    '/export-driver',
-                    "/destination:`"$($script:BackupConfig.BackupDir)`""
-                ) -NoNewWindow -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+                $procParams = @{
+                    FilePath               = 'dism.exe'
+                    ArgumentList           = @('/online', '/export-driver', "/destination:`"$($script:BackupConfig.BackupDir)`"")
+                    NoNewWindow            = $true
+                    PassThru               = $true
+                    RedirectStandardOutput = $outFile
+                    RedirectStandardError  = $errFile
+                }
+                Start-Process @procParams
             } -TimeoutSeconds 300 -UpdateInterval 1000
             
             if ($result.TimedOut) {
@@ -1991,7 +2056,15 @@ function WinBackupDriver {
 
             # Usa Invoke-WithSpinner per monitorare il processo 7zip
             $result = Invoke-WithSpinner -Activity "Compressione archivio 7-Zip" -Process -Action {
-                Start-Process -FilePath $SevenZipPath -ArgumentList $compressionArgs -NoNewWindow -PassThru -RedirectStandardOutput $stdOutputPath -RedirectStandardError $stdErrorPath
+                $procParams = @{
+                    FilePath               = $SevenZipPath
+                    ArgumentList           = $compressionArgs
+                    NoNewWindow            = $true
+                    PassThru               = $true
+                    RedirectStandardOutput = $stdOutputPath
+                    RedirectStandardError  = $stdErrorPath
+                }
+                Start-Process @procParams
             } -TimeoutSeconds 600 -UpdateInterval 1000
             
             if ($result.TimedOut) {
@@ -3012,7 +3085,15 @@ function WinCleaner {
                 return $true # Non-fatal
             }
             else {
-                $proc = Start-Process -FilePath $Rule.Command -ArgumentList $Rule.Args -PassThru -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+                $procParams = @{
+                    FilePath     = $Rule.Command
+                    ArgumentList = $Rule.Args
+                    PassThru     = $true
+                    WindowStyle  = 'Hidden'
+                    Wait         = $true
+                    ErrorAction  = 'SilentlyContinue'
+                }
+                $proc = Start-Process @procParams
                 if ($proc.ExitCode -eq 0) { return $true }
                 # Suppress warning if exit code is null (process failed to start)
                 if ($null -ne $proc.ExitCode) {
@@ -3844,7 +3925,15 @@ function VideoDriverInstall {
 
         Write-StyledMessage Info "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche..."
         try {
-            $gpupdateProcess = Start-Process -FilePath "gpupdate.exe" -ArgumentList "/force" -Wait -NoNewWindow -PassThru -ErrorAction Stop
+            $procParams = @{
+                FilePath     = 'gpupdate.exe'
+                ArgumentList = '/force'
+                Wait         = $true
+                NoNewWindow  = $true
+                PassThru     = $true
+                ErrorAction  = 'Stop'
+            }
+            $gpupdateProcess = Start-Process @procParams
             if ($gpupdateProcess.ExitCode -eq 0) {
                 Write-StyledMessage Success "Criteri di gruppo aggiornati con successo."
             }
@@ -3961,7 +4050,12 @@ function VideoDriverInstall {
 
             if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
                 Write-StyledMessage Info "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
-                Start-Process -FilePath $amdInstallerPath -Wait -ErrorAction SilentlyContinue
+                $procParams = @{
+                    FilePath    = $amdInstallerPath
+                    Wait        = $true
+                    ErrorAction = 'SilentlyContinue'
+                }
+                Start-Process @procParams
                 Write-StyledMessage Success "Installazione driver video AMD completata o chiusa."
             }
         }
@@ -3971,7 +4065,12 @@ function VideoDriverInstall {
 
             if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
                 Write-StyledMessage Info "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
-                Start-Process -FilePath $nvidiaInstallerPath -Wait -ErrorAction SilentlyContinue
+                $procParams = @{
+                    FilePath    = $nvidiaInstallerPath
+                    Wait        = $true
+                    ErrorAction = 'SilentlyContinue'
+                }
+                Start-Process @procParams
                 Write-StyledMessage Success "Installazione driver video NVIDIA completata o chiusa."
             }
         }
@@ -4056,7 +4155,14 @@ function VideoDriverInstall {
 
         Write-StyledMessage Info "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria..."
         try {
-            Start-Process -FilePath "bcdedit.exe" -ArgumentList "/set {current} safeboot minimal" -Wait -NoNewWindow -ErrorAction Stop
+            $procParams = @{
+                FilePath     = 'bcdedit.exe'
+                ArgumentList = '/set {current} safeboot minimal'
+                Wait         = $true
+                NoNewWindow  = $true
+                ErrorAction  = 'Stop'
+            }
+            Start-Process @procParams
             Write-StyledMessage Success "Modalità Provvisoria configurata per il prossimo avvio."
         }
         catch {
@@ -4076,7 +4182,7 @@ function VideoDriverInstall {
 
             if ($shouldReboot) {
                 try {
-                    shutdown /r /t 0
+                    Restart-Computer -Force
                     Write-StyledMessage Success "Comando di riavvio inviato."
                 }
                 catch {
@@ -4209,11 +4315,6 @@ function GamingToolkit {
         }
     }
 
-    # Verifica OS e Winget
-    $osInfo = Get-ComputerInfo
-    $buildNumber = $osInfo.OsBuildNumber
-    $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
-
     if ($isWindows11Pre23H2) {
         Write-StyledMessage Warning "Versione obsoleta rilevata. Winget potrebbe non funzionare."
         $response = Read-Host "Eseguire riparazione Winget? (Y/N)"
@@ -4300,7 +4401,11 @@ function GamingToolkit {
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo DirectX
         $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action {
-            Start-Process -FilePath $dxPath -PassThru
+            $procParams = @{
+                FilePath = $dxPath
+                PassThru = $true
+            }
+            Start-Process @procParams
         } -TimeoutSeconds 600 -UpdateInterval 700
 
         if (-not $result.Process.HasExited) {
@@ -4354,7 +4459,13 @@ function GamingToolkit {
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo Battle.net
         $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action {
-            Start-Process -FilePath $bnPath -PassThru -Verb RunAs -ErrorAction Stop
+            $procParams = @{
+                FilePath    = $bnPath
+                PassThru    = $true
+                Verb        = 'RunAs'
+                ErrorAction = 'Stop'
+            }
+            Start-Process @procParams
         } -TimeoutSeconds 900 -UpdateInterval 500
 
         if (-not $result.Process.HasExited) {
@@ -4495,28 +4606,35 @@ function DisableBitlocker {
     .DESCRIPTION
         Funzione per disattivare BitLocker sul drive C: e prevenire la crittografia futura.
         Include gestione degli errori e logging dettagliato.
-
-    .PARAMETER RunStandalone
-        Specifica se eseguire lo script in modalità standalone.
-
-    .OUTPUTS
-        None. La funzione non restituisce output.
     #>
-
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false)]
-        [bool]$RunStandalone = $true
+        [int]$CountdownSeconds = 30,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
     )
 
-    # 1. Inizializzazione logging
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "DisableBitlocker"
-    Show-Header -SubTitle "Disattivazione BitLocker"
+    Show-Header -SubTitle "Disable BitLocker Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Disable BitLocker Toolkit By MagnetarMan"
 
-    # 2. Variabili locali
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
+
     $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
+    $Global:DisableBitlockerLog = @()
 
-    # 3. Funzioni helper locali
+    # ============================================================================
+    # 3. FUNZIONI HELPER LOCALI
+    # ============================================================================
+
     function Test-BitLockerStatus {
         param([string]$DriveLetter = "C:")
         try {
@@ -4529,41 +4647,56 @@ function DisableBitlocker {
         }
     }
 
-    # 4. Blocco try principale
+    # ============================================================================
+    # 4. LOGICA PRINCIPALE (TRY-CATCH-FINALLY)
+    # ============================================================================
+
     try {
-        Write-StyledMessage -Type 'Info' -Text "Inizializzazione decrittazione drive C:..."
+        Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione decrittazione drive C:..."
 
         # Tentativo disattivazione
-        $proc = Start-Process manage-bde.exe -ArgumentList "-off C:" -PassThru -Wait -NoNewWindow
+        $procParams = @{
+            FilePath     = 'manage-bde.exe'
+            ArgumentList = @('-off', 'C:')
+            PassThru     = $true
+            Wait         = $true
+            NoNewWindow  = $true
+        }
+        $proc = Start-Process @procParams
 
         if ($proc.ExitCode -eq 0) {
-            Write-StyledMessage -Type 'Success' -Text "Decrittazione avviata/completata con successo."
+            Write-StyledMessage -Type 'Success' -Text "✅ Decrittazione avviata/completata con successo."
+            Start-Sleep -Seconds 2
 
             # Check stato
             $status = Test-BitLockerStatus -DriveLetter "C:"
-            if ($status -match "Decryption in progress") {
-                Write-StyledMessage -Type 'Info' -Text "Decrittazione in corso in background."
+            if ($status -match "Decryption in progress" -or $status -match "Decriptazione in corso") {
+                Write-StyledMessage -Type 'Info' -Text "⏳ Decrittazione in corso in background."
             }
         }
         else {
-            Write-StyledMessage -Type 'Warning' -Text "Codice uscita manage-bde: $($proc.ExitCode). BitLocker potrebbe essere già disattivo."
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ Codice uscita manage-bde: $($proc.ExitCode). BitLocker potrebbe essere già disattivo o in errore."
         }
 
         # Prevenzione crittografia futura
-        Write-StyledMessage -Type 'Info' -Text "Disabilitazione crittografia automatica nel registro..."
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione crittografia automatica nel registro..."
         if (-not (Test-Path $regPath)) {
             New-Item -Path $regPath -Force | Out-Null
         }
         Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
 
-        Write-StyledMessage -Type 'Success' -Text "Configurazione completata."
+        Write-StyledMessage -Type 'Success' -Text "🎉 Configurazione completata."
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message)"
+        Write-StyledMessage -Type 'Error' -Text "❌ Errore critico in DisableBitlocker: $($_.Exception.Message)"
     }
     finally {
-        # Cleanup
-        Write-StyledMessage -Type 'Info' -Text "Pulizia risorse temporanee..."
+        Write-StyledMessage -Type 'Info' -Text "♻️ Pulizia risorse Completata."
+        if (-not $SuppressIndividualReboot) {
+            Write-Host "`nPremi Enter per terminare..." -ForegroundColor Gray
+            Read-Host | Out-Null
+        }
+        try { Stop-Transcript | Out-Null } catch {}
     }
 }
 function WinExportLog {
