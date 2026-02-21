@@ -12,10 +12,12 @@
   - [x] Aggiornato DDU alla v18.1.4.2.
   - [x] Aggiornato AMD-AutoDetect alla v26.1.1.0
 
-- Funzione WinRepairToolkit Potenziata. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
-  - [x] Fix pulizia non corretta output durante le barre di progressione.
+- `WinRepairToolkit.ps1` potenziato & aggiornato. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
+  - [x] Fix pulizia non corretta output durante le barre di progressione. [[#36](https://github.com/MagnetarMan/WinToolkit/issues/36) [@pomodori92]](https://github.com/pomodori92)
   - [x] Aumentato il Timeout delle funzioni in modo da non far fallire le operazioni anche su sistemi datati e poco potenti.
   - [x] Reso automatico ed "intelligente" l'invocazione della riparazione profonda (Se Checkdisk non genera errori gravi la riparazione profonda non verrà invocata al riavvio del PC).
+  - [x] Aggiunta funzione automatica di copia del log del comando sfc /scannow nella cartella di WinToolkit.
+  - [x] Il file verrà rinominato con data e ora in modo da essere utile per eventuali debug.
 
 - `start.ps1` potenziato.
   - [x] Refactoring del codice con maggiore coerenza strutturale e leggibilità.
@@ -76,10 +78,7 @@
 
 - Aggiornato `readme.md`.
   - [x] Aggiunta sezione "Parlano di WinToolkit".
-
-- `WinRepairToolkit.ps1` potenziato.
-- [x] Aggiunta funzione automatica di copia del log del comando sfc /scannow nella cartella di WinToolkit.
-- [x] Il file verrà rinominato con data e ora in modo da essere utile per eventuali debug.
+  - [x] Aggiornata sezione "Traguardi".
 
 - `WinReinstallStore.ps1` Aggiornato.
   - [x] Fix Output non correttamente soppresso.
@@ -88,7 +87,7 @@
 - `WinBackupDriver.ps1` Aggiornato.
   - [x] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#32](https://github.com/MagnetarMan/WinToolkit/issues/32) [@pomodori92]](https://github.com/pomodori92)
 
-- `WinToolkit.ps1` aggiornato.
+- `WinToolkit.ps1` Aggiornato.
   - [x] Fix Bug concatenazione in caso di numeri contenenti spazio + virgola. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
 
 - `OfficeToolkit.ps1` Aggiornato.
