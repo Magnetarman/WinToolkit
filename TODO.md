@@ -80,10 +80,10 @@
 
 - `WinReinstallStore.ps1` Aggiornato.
   - [x] Fix Output non correttamente soppresso.
-  - [ ] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+  - [x] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
 
 - `WinBackupDriver.ps1` Aggiornato.
-  - [ ] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+  - [x] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
 
 - `WinToolkit.ps1` aggiornato.
   - [x] Fix Bug concatenazione in caso di numeri contenenti spazio + virgola. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)  
