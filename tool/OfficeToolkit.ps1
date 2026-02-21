@@ -172,6 +172,7 @@ function OfficeToolkit {
             }
 
             Write-StyledMessage Info "🚀 Avvio processo installazione..."
+            $arguments = "/configure `"$configPath`""
             $procParams = @{
                 FilePath         = $setupPath
                 ArgumentList     = $arguments
