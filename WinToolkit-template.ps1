@@ -287,6 +287,7 @@ function Invoke-WithSpinner {
             }
 
             if (-not $result.HasExited) {
+                if (-not $Global:GuiSessionActive) { Write-Host "" } # Forza il ritorno a capo, chiudendo la riga dello spinner
                 Write-StyledMessage -Type 'Warning' -Text "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
                 $result.Kill()
                 Start-Sleep -Seconds 2
