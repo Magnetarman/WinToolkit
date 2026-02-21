@@ -88,11 +88,6 @@
         }
     }
 
-    # Verifica OS e Winget
-    $osInfo = Get-ComputerInfo
-    $buildNumber = $osInfo.OsBuildNumber
-    $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
-
     if ($isWindows11Pre23H2) {
         Write-StyledMessage Warning "Versione obsoleta rilevata. Winget potrebbe non funzionare."
         $response = Read-Host "Eseguire riparazione Winget? (Y/N)"
@@ -179,7 +174,11 @@
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo DirectX
         $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action {
-            Start-Process -FilePath $dxPath -PassThru
+            $procParams = @{
+                FilePath = $dxPath
+                PassThru = $true
+            }
+            Start-Process @procParams
         } -TimeoutSeconds 600 -UpdateInterval 700
 
         if (-not $result.Process.HasExited) {
@@ -233,7 +232,13 @@
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo Battle.net
         $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action {
-            Start-Process -FilePath $bnPath -PassThru -Verb RunAs -ErrorAction Stop
+            $procParams = @{
+                FilePath    = $bnPath
+                PassThru    = $true
+                Verb        = 'RunAs'
+                ErrorAction = 'Stop'
+            }
+            Start-Process @procParams
         } -TimeoutSeconds 900 -UpdateInterval 500
 
         if (-not $result.Process.HasExited) {
