@@ -18,6 +18,8 @@
   - [x] Reso automatico ed "intelligente" l'invocazione della riparazione profonda (Se Checkdisk non genera errori gravi la riparazione profonda non verrà invocata al riavvio del PC).
   - [x] Aggiunta funzione automatica di copia del log del comando sfc /scannow nella cartella di WinToolkit.
   - [x] Il file verrà rinominato con data e ora in modo da essere utile per eventuali debug.
+  - [ ] Risolto un errore di valutazione dello script in caso di Timeout. Adesso verra considerato un'errore l'interruzione di una funzione a causa di timeout. [[#33](https://github.com/MagnetarMan/WinToolkit/issues/33) [@pomodori92]](https://github.com/pomodori92)
+  - [ ] Risolto un problema grafico per cui in caso di timeout l'avviso non viene stampato su un nuovo rigo. [[#35](https://github.com/MagnetarMan/WinToolkit/issues/35) [@pomodori92]](https://github.com/pomodori92)
 
 - `start.ps1` potenziato.
   - [x] Refactoring del codice con maggiore coerenza strutturale e leggibilità.
