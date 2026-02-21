@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 21)"
+$ToolkitVersion = "2.5.1 (Build 22)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -467,12 +467,12 @@ function WinRepairToolkit {
             $processTimeoutSeconds = 600
 
             switch ($Config.Name) {
-                'Ripristino immagine Windows' { $processTimeoutSeconds = 900 }
+                'Ripristino immagine Windows'   { $processTimeoutSeconds = 900 }
                 'Controllo file di sistema (1)' { $processTimeoutSeconds = 900 }
                 'Controllo file di sistema (2)' { $processTimeoutSeconds = 900 }
                 'Pulizia Residui Aggiornamenti' { $processTimeoutSeconds = 900 }
-                'Controllo disco' { $processTimeoutSeconds = 600 }
-                'Controllo disco approfondito' { $processTimeoutSeconds = 600 }
+                'Controllo disco'               { $processTimeoutSeconds = 600 }
+                'Controllo disco approfondito'  { $processTimeoutSeconds = 600 }
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
 
@@ -516,14 +516,18 @@ function WinRepairToolkit {
             }
 
             $exitCode = $result.ExitCode
-            $hasDismSuccess = ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
+
+            # FIX 1: Un timeout o un'interruzione forzata tipicamente restituisce -1.
+            # Aggiunto controllo per exit code negativo.
+            $isTimeout = ($null -eq $result) -or ($null -eq $exitCode) -or ($exitCode -eq -1)
+
+            # FIX 2: Dism è considerato in successo solo se NON è andato in timeout e ha trovato la stringa
+            $hasDismSuccess = (-not $isTimeout) -and ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
 
             # Per chkdsk /scan, considerare successo se completato (anche con exit code non-zero informativo)
             $isChkdskScan = $isChkdsk -and ($Config.Args -contains '/scan')
-            $chkdskCompleted = $isChkdskScan -and (($results -join ' ') -match '(?i)(scansione.*completata|scan.*completed|successfully scanned)')
-            
-            # FIX: Rilevamento Timeout (ExitCode nullo o $result nullo a causa della terminazione forzata)
-            $isTimeout = ($null -eq $result) -or ($null -eq $exitCode)
+            $chkdskCompleted = (-not $isTimeout) -and $isChkdskScan -and (($results -join ' ') -match '(?i)(scansione.*completata|scan.*completed|successfully scanned)')
+
             $isSuccess = (-not $isTimeout) -and (($exitCode -eq 0) -or $hasDismSuccess -or $chkdskCompleted)
 
             $errors = $warnings = @()
@@ -553,7 +557,7 @@ function WinRepairToolkit {
                         elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
                     }
                 }
-                
+
                 # Fallback: Se il processo fallisce ma i log non contengono keyword di errore
                 if ($errors.Count -eq 0 -and -not $isTimeout) {
                     $errors += "Errore generico o terminazione anomala (ExitCode: $exitCode)."
@@ -562,7 +566,7 @@ function WinRepairToolkit {
 
             # FIX: La variabile di successo deve richiedere che l'operazione non sia fallita/andata in timeout
             $success = $isSuccess -and ($errors.Count -eq 0)
-            
+
             if ($isTimeout) {
                 $message = "$($Config.Name) NON completato (interrotto per Timeout)."
             }
