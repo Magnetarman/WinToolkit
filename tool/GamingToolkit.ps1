@@ -23,16 +23,25 @@
         [switch]$SuppressIndividualReboot
     )
 
-    # 1. Inizializzazione logging
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "GamingToolkit"
     Show-Header -SubTitle "Gaming Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
 
-    # 2. Variabili locali
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
+
     $osInfo = Get-ComputerInfo
     $buildNumber = $osInfo.OsBuildNumber
     $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
 
-    # 3. Funzioni helper locali
+    # ============================================================================
+    # 3. FUNZIONI HELPER LOCALI
+    # ============================================================================
     function Test-WingetPackageAvailable([string]$PackageId) {
         try {
             $result = winget search $PackageId 2>&1

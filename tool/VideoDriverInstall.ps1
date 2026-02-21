@@ -12,16 +12,32 @@ function VideoDriverInstall {
 
     [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
+
+        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "VideoDriverInstall"
     Show-Header -SubTitle "Video Driver Install Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Video Driver Install Toolkit By MagnetarMan"
+
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
 
     $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
     $DriverToolsLocalPath = $AppConfig.Paths.Drivers
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
+
+    # ============================================================================
+    # 3. FUNZIONI HELPER LOCALI
+    # ============================================================================
 
     function Get-GpuManufacturer {
         <#

@@ -1,20 +1,32 @@
 function WinUpdateReset {
     <#
     .SYNOPSIS
-        Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI.
+        Ripara i componenti di Windows Update, reimposta servizi, registro e criteri di default.
     .DESCRIPTION
         Ripara i problemi comuni di Windows Update, reinstalla componenti critici
         e ripristina le configurazioni di default.
     #>
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 15,
+
+        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "WinUpdateReset"
     Show-Header -SubTitle "Update Reset Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Win Update Reset Toolkit By MagnetarMan"
 
-    # --- FUNZIONI LOCALI ---
+    # ============================================================================
+    # 2. FUNZIONI HELPER LOCALI
+    # ============================================================================
+
 
     function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
         $percent = [math]::Round(($Current / $Total) * 100)

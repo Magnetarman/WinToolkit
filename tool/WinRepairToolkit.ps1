@@ -1,16 +1,31 @@
 function WinRepairToolkit {
     <#
-.SYNOPSIS
-    Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk) e salva i log di Scannow nella cartella del Toolkit debug addizionale.
-#>
+    .SYNOPSIS
+        Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk) e salva i log di Scannow nella cartella del Toolkit debug addizionale.
+    #>
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $false)]
         [int]$MaxRetryAttempts = 3,
+
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
+
+        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "WinRepairToolkit"
     Show-Header -SubTitle "Repair Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
+
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
 
     $script:CurrentAttempt = 0
     $RepairTools = @(

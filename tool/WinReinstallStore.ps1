@@ -5,17 +5,30 @@ function WinReinstallStore {
 
     .DESCRIPTION
         Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
-
     #>
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
+
+        [Parameter(Mandatory = $false)]
         [switch]$NoReboot,
+
+        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "WinReinstallStore"
     Show-Header -SubTitle "Store Repair Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
 
+    # ============================================================================
+    # 2. FUNZIONI HELPER LOCALI
+    # ============================================================================
 
     function Clear-ProgressLine {
         Write-Host "`r" -NoNewline

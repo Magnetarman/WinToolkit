@@ -7,13 +7,27 @@ function WinBackupDriver {
         installati sul sistema. Il processo include l'esportazione tramite DISM, compressione
         in formato 7z e spostamento automatico sul desktop.
     #>
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 10,
+
+        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
+
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
+
     
     $script:BackupConfig = @{
         DateTime    = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -25,6 +39,10 @@ function WinBackupDriver {
     }
     
     $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
+
+    # ============================================================================
+    # 3. FUNZIONI HELPER LOCALI
+    # ============================================================================
 
     function Test-AdministratorPrivilege {
         $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()

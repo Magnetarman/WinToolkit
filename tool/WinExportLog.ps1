@@ -1,14 +1,29 @@
 function WinExportLog {
     <#
     .SYNOPSIS
-        Comprime i log di WinToolkit e li salva sul desktop invio log errori.
+        Comprime i log di WinToolkit e li salva sul desktop per l'invio diagnostico.
     #>
-    param([int]$CountdownSeconds = 30)
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [int]$CountdownSeconds = 30,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
+    )
+
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
 
     Initialize-ToolLogging -ToolName "WinExportLog"
     Show-Header -SubTitle "Esporta Log Diagnostici"
+    $Host.UI.RawUI.WindowTitle = "Log Export By MagnetarMan"
 
-    # Definizione dei percorsi
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
+
     $logSourcePath = $AppConfig.Paths.Logs
     $desktopPath = $AppConfig.Paths.Desktop
     $timestamp = (Get-Date -Format "yyyyMMdd_HHmmss")

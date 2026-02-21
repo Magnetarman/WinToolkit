@@ -23,14 +23,23 @@ function OfficeToolkit {
         [switch]$SuppressIndividualReboot
     )
 
-    # 1. Inizializzazione logging
+    # ============================================================================
+    # 1. INIZIALIZZAZIONE
+    # ============================================================================
+
     Initialize-ToolLogging -ToolName "OfficeToolkit"
     Show-Header -SubTitle "Office Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
 
-    # Configurazione
+    # ============================================================================
+    # 2. CONFIGURAZIONE E VARIABILI LOCALI
+    # ============================================================================
+
     $TempDir = $AppConfig.Paths.OfficeTemp
 
-    # Funzioni Helper Locali
+    # ============================================================================
+    # 3. FUNZIONI HELPER LOCALI
+    # ============================================================================
     function Clear-ConsoleLine {
         $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
         Write-Host $clearLine -NoNewline
