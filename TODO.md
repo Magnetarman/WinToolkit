@@ -32,6 +32,7 @@
   - [x] Ridotti i casi di blocco dello script in presenza di prerequisiti mancanti.
   - [x] Incremento dei blocchi try/catch per una gestione più sicura delle eccezioni.
   - [x] Messaggi di errore più esplicativi e contestualizzati.
+  - [x] Aumentata l'opacità del terminale per maggiore comprensione dei testi [[Thanks to @pomodori92]](https://github.com/pomodori92)
   - [x] Miglior gestione dei processi interferenti e dei timeout.
   - [x] Messaggistica più chiara e uniforme tramite Write-StyledMessage.
   - [x] Miglioramento dei feedback a schermo durante tutte le fasi dello script.
@@ -84,15 +85,18 @@
   - [x] Fix Output non correttamente soppresso.
   - [x] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
 
-- `WinBackupDriver.ps1` Aggiornato.
-  - [x] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#32](https://github.com/MagnetarMan/WinToolkit/issues/32) [@pomodori92]](https://github.com/pomodori92)
-
 - `WinToolkit.ps1` Aggiornato.
   - [x] Fix Bug concatenazione in caso di numeri contenenti spazio + virgola. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+
+- `WinBackupDriver.ps1` Aggiornato.
+  - [x] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#32](https://github.com/MagnetarMan/WinToolkit/issues/32) [@pomodori92]](https://github.com/pomodori92)
 
 - `OfficeToolkit.ps1` Aggiornato.
   - [x] Ripristinato il funzionamento dell'installazione personalizzata.
   - [x] Installazione di Office velocizzata.
+
+- `WinCleaner.ps1` Aggiornato.
+  - [ ]  
 
 
 ### V 2.5.2
