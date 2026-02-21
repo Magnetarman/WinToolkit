@@ -8,6 +8,9 @@
   - [x] Creazione documento Codice di condotta `CODE_OF_CONDUCT.md`.
   - [x] Eliminata sezione contributori dal readme.
   - [x] Integrata la sezione contributori nel menu di Github.
+  - [x] Aggiornato 7zip portable alla v26.00.
+  - [x] Aggiornato DDU alla v18.1.4.2.
+  - [x] Aggiornato AMD-AutoDetect alla v26.1.1.0
 
 - Funzione WinRepairToolkit Potenziata. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
   - [x] Fix pulizia non corretta output durante le barre di progressione.
@@ -86,7 +89,10 @@
   - [x] Fix richiesta "Premi Enter per uscire..." che bloccava lo script in modalità concatenazione [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
 
 - `WinToolkit.ps1` aggiornato.
-  - [x] Fix Bug concatenazione in caso di numeri contenenti spazio + virgola. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)  
+  - [x] Fix Bug concatenazione in caso di numeri contenenti spazio + virgola. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+
+- `OfficeToolkit.ps1` Aggiornato.
+  - [ ] Ripristinato il funzionamento dell'installazione personalizzata.
 
 ### V 2.5.2
 
