@@ -5,7 +5,7 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.5.1 - 25/01/2026
+    Versione: 2.5.1 - 21/02/2026
     Autore: MagnetarMan
 #>
 
@@ -140,12 +140,12 @@ function Show-Header {
         Mostra l'intestazione standardizzata.
     #>
     param([string]$SubTitle = "Menu Principale")
-    
+
     # Skip header display if running in GUI mode to prevent console UI issues
     if ($Global:GuiSessionActive) {
         return
     }
-    
+
     Clear-Host
     $width = $Host.UI.RawUI.BufferSize.Width
     $asciiArt = @(
@@ -402,7 +402,7 @@ function WinOSCheck {
     if ($Global:GuiSessionActive) {
         return
     }
-    
+
     Show-Header -SubTitle "System Check"
     $si = Get-SystemInfo
     if (-not $si) { Write-StyledMessage -Type 'Warning' -Text "Info sistema non disponibili."; return }
@@ -645,13 +645,3 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
-
-
-
-
-
-
-
-
-
