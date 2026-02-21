@@ -5,7 +5,7 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.5.1 - 25/01/2026
+    Versione: 2.5.1 - 21/02/2026
     Autore: MagnetarMan
 #>
 
@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 12)"
+$ToolkitVersion = "2.5.1 (Build 13)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -140,12 +140,12 @@ function Show-Header {
         Mostra l'intestazione standardizzata.
     #>
     param([string]$SubTitle = "Menu Principale")
-    
+
     # Skip header display if running in GUI mode to prevent console UI issues
     if ($Global:GuiSessionActive) {
         return
     }
-    
+
     Clear-Host
     $width = $Host.UI.RawUI.BufferSize.Width
     $asciiArt = @(
@@ -402,7 +402,7 @@ function WinOSCheck {
     if ($Global:GuiSessionActive) {
         return
     }
-    
+
     Show-Header -SubTitle "System Check"
     $si = Get-SystemInfo
     if (-not $si) { Write-StyledMessage -Type 'Warning' -Text "Info sistema non disponibili."; return }
@@ -549,6 +549,32 @@ function WinRepairToolkit {
             $success = ($errors.Count -eq 0) -or $hasDismSuccess -or $chkdskCompleted
             $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
             Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
+
+            # Esportazione Log CBS di SFC
+            if ($Config.Tool -ieq 'sfc') {
+                $cbsLogPath = "C:\Windows\Logs\CBS\CBS.log"
+                if (Test-Path $cbsLogPath) {
+                    try {
+                        # Pulizia del nome della fase per renderlo sicuro per il file system
+                        $safeStepName = $Config.Name -replace '[^a-zA-Z0-9]', '_'
+                        $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+                        $destLogName = "SFC_CBS_${safeStepName}_${timestamp}.log"
+                        
+                        # Utilizzo della variabile globale per la cartella dei log
+                        $destLogPath = Join-Path $AppConfig.Paths.Logs $destLogName
+                        
+                        Copy-Item -Path $cbsLogPath -Destination $destLogPath -Force -ErrorAction SilentlyContinue
+                        
+                        # Verifica post-copia per dare un feedback accurato
+                        if (Test-Path $destLogPath) {
+                            Write-StyledMessage Info "📄 Log SFC salvato in: $destLogName"
+                        }
+                    }
+                    catch {
+                        Write-StyledMessage Warning "⚠️ Impossibile esportare il log CBS di SFC (file in uso)."
+                    }
+                }
+            }
 
             return @{ Success = $success; ErrorCount = $errors.Count }
         }
