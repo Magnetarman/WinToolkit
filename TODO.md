@@ -59,12 +59,13 @@
   - [x] Get-ProfileDir: Semplificata la logica di rilevamento directory profilo.
     - [x] Utilizzo di Split-Path -Parent $PROFILE per maggiore affidabilità.
     - [x] Codice più pulito e meno soggetto a errori.
-  - [x] Aggiunto nuova funzione `WinToolkit-Reset`.
+  - [x] Aggiunta nuova funzione `WinToolkit-Reset`.
     - [x] In caso di problemi resetta il link dell'icona sul desktop.
     - [x] Aggiorna il profilo powershell all'ultima versione stabile.
-  - [x] Aggiunto nuova funzione `PS-Reset`. [[Requested by @Pomodori92]](https://github.com/pomodori92)
+  - [x] Aggiunta nuova funzione `PS-Reset`. [[Requested by @Pomodori92]](https://github.com/pomodori92)
     - [x] Elimina il profilo powershell personalizzato nella cartella documenti.
-    - [x]  Riporta Windows Terminal alle impostazioni di fabbrica.
+    - [x] Elimina il profilo di Windows Terminal.
+    - [x] Riporta Windows Terminal alle impostazioni di fabbrica al prossimo riavvio del terminale.
   
 - Rework Gestione `To-Do.md`.
   - [x] Eliminazione `To-Do.md` dal Ramo main.
