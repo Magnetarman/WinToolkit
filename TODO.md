@@ -110,6 +110,10 @@
   - [ ] Add script relativo e funzioni nel template.
   - [ ] Imposta tramite criteri di gruppo gli Update di windows.
 
+- `OfficeToolkit.ps1` Riscritto.
+  - [ ] Semplificata logica generale dello script.
+  - [ ] Meno richieste inutili e maggiore automazione.
+
 
 ### V 2.6 - Debloat
 
