@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 18)"
+$ToolkitVersion = "2.5.1 (Build 19)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -2274,32 +2274,27 @@ function OfficeToolkit {
             Write-Host "💡 Premi INVIO quando l'installazione è completata..." -ForegroundColor Yellow
             Read-Host | Out-Null
 
-            if (Get-UserConfirmation "✅ Installazione completata con successo?" 'Y') {
-                # Nuove configurazioni post-installazione: Disabilitazione Telemetria e Notifiche Crash
-                Write-StyledMessage Info "⚙️ Configurazione post-installazione Office..."
+            # Nuove configurazioni post-installazione: Disabilitazione Telemetria e Notifiche Crash
+            Write-StyledMessage Info "⚙️ Configurazione post-installazione Office..."
 
-                # Configurazione telemetria Office
-                Write-StyledMessage Info "⚙️ Disabilitazione telemetria Office..."
-                $RegPathTelemetry = $AppConfig.Registry.OfficeTelemetry
-                if (-not (Test-Path $RegPathTelemetry)) { New-Item $RegPathTelemetry -Force | Out-Null }
-                Set-ItemProperty -Path $RegPathTelemetry -Name "DisableTelemetry" -Value 1 -Type DWord -Force
-                Write-StyledMessage Success "✅ Telemetria Office disabilitata"
+            # Configurazione telemetria Office
+            Write-StyledMessage Info "⚙️ Disabilitazione telemetria Office..."
+            $RegPathTelemetry = $AppConfig.Registry.OfficeTelemetry
+            if (-not (Test-Path $RegPathTelemetry)) { New-Item $RegPathTelemetry -Force | Out-Null }
+            Set-ItemProperty -Path $RegPathTelemetry -Name "DisableTelemetry" -Value 1 -Type DWord -Force
+            Write-StyledMessage Success "✅ Telemetria Office disabilitata"
 
-                # Configurazione notifiche crash Office
-                Write-StyledMessage Info "⚙️ Disabilitazione notifiche crash Office..."
-                $RegPathFeedback = $AppConfig.Registry.OfficeFeedback
-                if (-not (Test-Path $RegPathFeedback)) { New-Item $RegPathFeedback -Force | Out-Null }
-                Set-ItemProperty -Path $RegPathFeedback -Name "OnBootNotify" -Value 0 -Type DWord -Force
-                Write-StyledMessage Success "✅ Notifiche crash Office disabilitate"
-                # Fine nuove configurazioni
+            # Configurazione notifiche crash Office
+            Write-StyledMessage Info "⚙️ Disabilitazione notifiche crash Office..."
+            $RegPathFeedback = $AppConfig.Registry.OfficeFeedback
+            if (-not (Test-Path $RegPathFeedback)) { New-Item $RegPathFeedback -Force | Out-Null }
+            Set-ItemProperty -Path $RegPathFeedback -Name "OnBootNotify" -Value 0 -Type DWord -Force
+            Write-StyledMessage Success "✅ Notifiche crash Office disabilitate"
+            # Fine nuove configurazioni
 
-                Write-StyledMessage Success "🎉 Installazione Office completata!"
-                return $true
-            }
-            else {
-                Write-StyledMessage Warning "Installazione non completata correttamente"
-                return $false
-            }
+            Write-StyledMessage Success "Installazione completata"
+            Write-StyledMessage Info "Riavvio non necessario"
+            return $true
         }
         catch {
             Write-StyledMessage Error "Errore durante installazione Office: $($_.Exception.Message)"
@@ -2773,19 +2768,21 @@ function OfficeToolkit {
 
             if ($choice -in @('1', '2', '3')) {
                 if ($success) {
-                    Write-StyledMessage Success "🎉 $operation completata!"
-                    if (Get-UserConfirmation "🔄 Riavviare ora per finalizzare?" 'Y') {
-                        if ($SuppressIndividualReboot) {
-                            $Global:NeedsFinalReboot = $true
-                            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+                    if ($choice -ne '1') {
+                        Write-StyledMessage Success "🎉 $operation completata!"
+                        if (Get-UserConfirmation "🔄 Riavviare ora per finalizzare?" 'Y') {
+                            if ($SuppressIndividualReboot) {
+                                $Global:NeedsFinalReboot = $true
+                                Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+                            }
+                            else {
+                                Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "$operation completata"
+                                Restart-Computer -Force
+                            }
                         }
                         else {
-                            Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "$operation completata"
-                            Restart-Computer -Force
+                            Write-StyledMessage Info "💡 Riavvia manualmente quando possibile"
                         }
-                    }
-                    else {
-                        Write-StyledMessage Info "💡 Riavvia manualmente quando possibile"
                     }
                 }
                 else {
