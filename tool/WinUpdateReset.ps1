@@ -119,7 +119,14 @@ function WinUpdateReset {
                 $tempDir = [System.IO.Path]::GetTempPath() + "empty_" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
                 $null = New-Item -ItemType Directory -Path $tempDir -Force
 
-                $null = Start-Process "robocopy.exe" -ArgumentList "`"$tempDir`" `"$path`" /MIR /NFL /NDL /NJH /NJS /NP /NC" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+                $procParams = @{
+                    FilePath     = 'robocopy.exe'
+                    ArgumentList = @("`"$tempDir`"", "`"$path`"", '/MIR', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/NC')
+                    Wait         = $true
+                    WindowStyle  = 'Hidden'
+                    ErrorAction  = 'SilentlyContinue'
+                }
+                $null = Start-Process @procParams
                 Remove-Item $tempDir -Force -ErrorAction SilentlyContinue | Out-Null
                 Remove-Item $path -Force -ErrorAction SilentlyContinue | Out-Null
 
