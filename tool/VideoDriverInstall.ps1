@@ -84,7 +84,15 @@ function VideoDriverInstall {
 
         Write-StyledMessage Info "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche..."
         try {
-            $gpupdateProcess = Start-Process -FilePath "gpupdate.exe" -ArgumentList "/force" -Wait -NoNewWindow -PassThru -ErrorAction Stop
+            $procParams = @{
+                FilePath     = 'gpupdate.exe'
+                ArgumentList = '/force'
+                Wait         = $true
+                NoNewWindow  = $true
+                PassThru     = $true
+                ErrorAction  = 'Stop'
+            }
+            $gpupdateProcess = Start-Process @procParams
             if ($gpupdateProcess.ExitCode -eq 0) {
                 Write-StyledMessage Success "Criteri di gruppo aggiornati con successo."
             }
@@ -201,7 +209,12 @@ function VideoDriverInstall {
 
             if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
                 Write-StyledMessage Info "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
-                Start-Process -FilePath $amdInstallerPath -Wait -ErrorAction SilentlyContinue
+                $procParams = @{
+                    FilePath    = $amdInstallerPath
+                    Wait        = $true
+                    ErrorAction = 'SilentlyContinue'
+                }
+                Start-Process @procParams
                 Write-StyledMessage Success "Installazione driver video AMD completata o chiusa."
             }
         }
@@ -211,7 +224,12 @@ function VideoDriverInstall {
 
             if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
                 Write-StyledMessage Info "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
-                Start-Process -FilePath $nvidiaInstallerPath -Wait -ErrorAction SilentlyContinue
+                $procParams = @{
+                    FilePath    = $nvidiaInstallerPath
+                    Wait        = $true
+                    ErrorAction = 'SilentlyContinue'
+                }
+                Start-Process @procParams
                 Write-StyledMessage Success "Installazione driver video NVIDIA completata o chiusa."
             }
         }
@@ -296,7 +314,14 @@ function VideoDriverInstall {
 
         Write-StyledMessage Info "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria..."
         try {
-            Start-Process -FilePath "bcdedit.exe" -ArgumentList "/set {current} safeboot minimal" -Wait -NoNewWindow -ErrorAction Stop
+            $procParams = @{
+                FilePath     = 'bcdedit.exe'
+                ArgumentList = '/set {current} safeboot minimal'
+                Wait         = $true
+                NoNewWindow  = $true
+                ErrorAction  = 'Stop'
+            }
+            Start-Process @procParams
             Write-StyledMessage Success "Modalità Provvisoria configurata per il prossimo avvio."
         }
         catch {
@@ -316,7 +341,7 @@ function VideoDriverInstall {
 
             if ($shouldReboot) {
                 try {
-                    shutdown /r /t 0
+                    Restart-Computer -Force
                     Write-StyledMessage Success "Comando di riavvio inviato."
                 }
                 catch {
