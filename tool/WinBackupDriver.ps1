@@ -61,11 +61,15 @@ function WinBackupDriver {
         try {
             # Usa Invoke-WithSpinner per monitorare il processo DISM
             $result = Invoke-WithSpinner -Activity "Esportazione driver DISM" -Process -Action {
-                Start-Process -FilePath 'dism.exe' -ArgumentList @(
-                    '/online',
-                    '/export-driver',
-                    "/destination:`"$($script:BackupConfig.BackupDir)`""
-                ) -NoNewWindow -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+                $procParams = @{
+                    FilePath               = 'dism.exe'
+                    ArgumentList           = @('/online', '/export-driver', "/destination:`"$($script:BackupConfig.BackupDir)`"")
+                    NoNewWindow            = $true
+                    PassThru               = $true
+                    RedirectStandardOutput = $outFile
+                    RedirectStandardError  = $errFile
+                }
+                Start-Process @procParams
             } -TimeoutSeconds 300 -UpdateInterval 1000
             
             if ($result.TimedOut) {
@@ -185,7 +189,15 @@ function WinBackupDriver {
 
             # Usa Invoke-WithSpinner per monitorare il processo 7zip
             $result = Invoke-WithSpinner -Activity "Compressione archivio 7-Zip" -Process -Action {
-                Start-Process -FilePath $SevenZipPath -ArgumentList $compressionArgs -NoNewWindow -PassThru -RedirectStandardOutput $stdOutputPath -RedirectStandardError $stdErrorPath
+                $procParams = @{
+                    FilePath               = $SevenZipPath
+                    ArgumentList           = $compressionArgs
+                    NoNewWindow            = $true
+                    PassThru               = $true
+                    RedirectStandardOutput = $stdOutputPath
+                    RedirectStandardError  = $stdErrorPath
+                }
+                Start-Process @procParams
             } -TimeoutSeconds 600 -UpdateInterval 1000
             
             if ($result.TimedOut) {
