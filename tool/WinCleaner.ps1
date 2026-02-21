@@ -179,7 +179,15 @@ function WinCleaner {
                 return $true # Non-fatal
             }
             else {
-                $proc = Start-Process -FilePath $Rule.Command -ArgumentList $Rule.Args -PassThru -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+                $procParams = @{
+                    FilePath     = $Rule.Command
+                    ArgumentList = $Rule.Args
+                    PassThru     = $true
+                    WindowStyle  = 'Hidden'
+                    Wait         = $true
+                    ErrorAction  = 'SilentlyContinue'
+                }
+                $proc = Start-Process @procParams
                 if ($proc.ExitCode -eq 0) { return $true }
                 # Suppress warning if exit code is null (process failed to start)
                 if ($null -ne $proc.ExitCode) {
