@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 17)"
+$ToolkitVersion = "2.5.1 (Build 18)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -2262,6 +2262,7 @@ function OfficeToolkit {
             }
 
             Write-StyledMessage Info "🚀 Avvio processo installazione..."
+            $arguments = "/configure `"$configPath`""
             $procParams = @{
                 FilePath         = $setupPath
                 ArgumentList     = $arguments
@@ -2803,8 +2804,6 @@ function OfficeToolkit {
         Write-StyledMessage Success "🧹 Pulizia finale..."
         Invoke-SilentRemoval -Path $TempDir -Recurse
 
-        Write-Host "`nPremi INVIO per uscire..." -ForegroundColor Gray
-        Read-Host | Out-Null
         Write-StyledMessage Success "🎯 Office Toolkit terminato"
         try { Stop-Transcript | Out-Null } catch {}
     }
