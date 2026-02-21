@@ -37,7 +37,7 @@
   - [x] Migliorata la retrocompatibilità con ambienti Windows differenti.
   - [x] Rafforzati i controlli su prerequisiti di sistema (es. VC Redist, profili locali, terminale).
 
-- Profilo Powershell Aggiornato `V 2.5.1.10`. **BREAKING CHANGES**
+- Profilo Powershell Aggiornato `V 2.5.1.13`. **BREAKING CHANGES**
   - [x] Aggiunto comando per effettuare uno speedtest del PC.
     - [x] Inserito Salvataggio risultati in documento .txt sul desktop.
   - [x] Eliminate Funzioni Ridondanti.
@@ -92,7 +92,9 @@
   - [x] Fix Bug concatenazione in caso di numeri contenenti spazio + virgola. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
 
 - `OfficeToolkit.ps1` Aggiornato.
-  - [ ] Ripristinato il funzionamento dell'installazione personalizzata.
+  - [x] Ripristinato il funzionamento dell'installazione personalizzata.
+  - [x] Installazione di Office velocizzata.
+
 
 ### V 2.5.2
 
