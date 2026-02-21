@@ -45,7 +45,14 @@ function DisableBitlocker {
         Write-StyledMessage -Type 'Info' -Text "Inizializzazione decrittazione drive C:..."
 
         # Tentativo disattivazione
-        $proc = Start-Process manage-bde.exe -ArgumentList "-off C:" -PassThru -Wait -NoNewWindow
+        $procParams = @{
+            FilePath     = 'manage-bde.exe'
+            ArgumentList = @('-off', 'C:')
+            PassThru     = $true
+            Wait         = $true
+            NoNewWindow  = $true
+        }
+        $proc = Start-Process @procParams
 
         if ($proc.ExitCode -eq 0) {
             Write-StyledMessage -Type 'Success' -Text "Decrittazione avviata/completata con successo."
