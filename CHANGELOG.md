@@ -6,13 +6,61 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 
 ---
 
-## [2.5.1] - CODENAME: "Deborah" - 2026-02-27 ([#26](https://github.com/MagnetarMan/WinToolkit/issues/26))
+## [2.5.1] - CODENAME: "Deborah" - 2026-02-27 ([#35](https://github.com/MagnetarMan/WinToolkit/issues/35))
 
 ### Aggiunte
 
+- **Profilo PowerShell:**
+  - Aggiunto comando per effettuare uno **speedtest** del PC con salvataggio automatico dei risultati in un file `.txt` sul desktop.
+  - Aggiunta funzione **offline di reset delle risorse di rete**. [[Thanks to @ChrisTitusTech]](https://github.com/ChrisTitusTech)
+  - Aggiunta funzione di **aggiornamento manuale** del profilo PowerShell.
+  - Nuova funzione `Update-Pwsh`: esternalizzata la ricerca di aggiornamenti di PowerShell (ora manuale) per rendere il caricamento del profilo nettamente più veloce.
+  - Nuova funzione `WinToolkit-Reset`: ripristina il link dell'icona sul desktop e aggiorna il profilo all'ultima versione stabile.
+  - Nuova funzione `PS-Reset`: elimina i profili personalizzati e riporta Windows Terminal alle impostazioni di fabbrica. [[Requested by @Pomodori92]](https://github.com/pomodori92)
+- **Documentazione:**
+  - Creazione del documento `CODE_OF_CONDUCT.md` (Codice di Condotta).
+  - Aggiunte sezioni "Parlano di WinToolkit" e "Traguardi" nel file `README.md`.
+- **WinRepairToolkit:**
+  - Aggiunta funzione automatica di copia del log del comando `sfc /scannow` nella cartella di WinToolkit con rinomina basata su data e ora per facilitare il debug.
+
 ### Correzioni
 
+- **WinRepairToolkit:**
+  - Fix pulizia non corretta dell'output durante la visualizzazione delle barre di progressione. [[#36](https://github.com/MagnetarMan/WinToolkit/issues/36) [@pomodori92]](https://github.com/pomodori92)
+  - Risolto errore di valutazione dello script e problemi grafici in caso di Timeout. [[#33](https://github.com/MagnetarMan/WinToolkit/issues/33) [#35](https://github.com/MagnetarMan/WinToolkit/issues/35) [@pomodori92]](https://github.com/pomodori92)
+- **start.ps1:**
+  - Migliorata la gestione dei fallback e dei blocchi in presenza di prerequisiti mancanti.
+  - Rafforzata la gestione degli errori e il logging durante le installazioni via Winget.
+- **WinReinstallStore:** - Corretto output non soppresso e rimosso il blocco "Premi Enter per uscire" che interrompeva la modalità concatenazione. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+- **WinToolkit.ps1:** - Fix bug della funzione concatenazione in caso di input contenenti spazi e virgole. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+- **WinBackupDriver:** - Rimosso blocco input manuale che interrompeva la modalità concatenazione. [[#32](https://github.com/MagnetarMan/WinToolkit/issues/32) [@pomodori92]](https://github.com/pomodori92)
+- **OfficeToolkit:** - Ripristinato il funzionamento dell'installazione personalizzata.
+- **WinCleaner:** - Prevenuti errori di "file in uso" durante la pulizia degli aggiornamenti tramite l'arresto e il riavvio automatico del servizio Windows Update.
+
 ### Modifiche
+
+- **Repository & Manutenzione:**
+  - Adeguamento alle regole di GitHub: rinominato `CONTRIBUTORS.md` in `CONTRIBUTING.md`.
+  - Rimossa sezione contributori dal README (integrata ora nel menu nativo di GitHub).
+  - Rework gestione `To-Do.md`: rimosso dal ramo *main* e gestito tramite link hardcode verso il ramo *Dev*.
+- **Aggiornamento Dipendenze:**
+  - 7zip portable aggiornato alla v26.00.
+  - DDU (Display Driver Uninstaller) aggiornato alla v18.1.4.2.
+  - AMD-AutoDetect aggiornato alla v26.1.1.0.
+- **WinRepairToolkit:**
+  - Aumentato il Timeout delle funzioni per sistemi datati.
+  - Resa "intelligente" l'invocazione della riparazione profonda: viene attivata al riavvio solo se `chkdsk` rileva errori gravi. [[Thanks to @zakkos]](https://www.youtube.com/c/zakkos)
+- **start.ps1:**
+  - Refactoring completo per maggiore coerenza, leggibilità e riduzione passaggi ridondanti.
+  - Aumentata l'opacità del terminale per migliorare la leggibilità. [[Thanks to @pomodori92]](https://github.com/pomodori92)
+  - Messaggistica uniformata tramite la funzione `Write-StyledMessage`.
+- **Profilo PowerShell:**
+  - Riorganizzata la sezione Help e rimosse funzioni ridondanti.
+  - Migliorata la ricerca dell'editor (`Get-PreferredEditor`) dando priorità al `$PATH` rispetto ai percorsi statici.
+  - Ottimizzata la funzione `Find-File` per la pipeline di PowerShell.
+- **Altro:**
+  - **OfficeToolkit:** Velocizzata la procedura di installazione.
+  - **DisableBitlocker:** Adeguata la struttura del codice alle direttive generali del progetto per migliore leggibilità.
 
 ---
 
