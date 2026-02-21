@@ -14,7 +14,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.1 (Build 20)"
+$ToolkitVersion = "2.5.1 (Build 21)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -287,6 +287,7 @@ function Invoke-WithSpinner {
             }
 
             if (-not $result.HasExited) {
+                if (-not $Global:GuiSessionActive) { Write-Host "" } # Forza il ritorno a capo, chiudendo la riga dello spinner
                 Write-StyledMessage -Type 'Warning' -Text "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
                 $result.Kill()
                 Start-Sleep -Seconds 2
@@ -466,12 +467,12 @@ function WinRepairToolkit {
             $processTimeoutSeconds = 600
 
             switch ($Config.Name) {
-                'Ripristino immagine Windows'     { $processTimeoutSeconds = 900 }
-                'Controllo file di sistema (1)'   { $processTimeoutSeconds = 900 }
-                'Controllo file di sistema (2)'   { $processTimeoutSeconds = 900 }
-                'Pulizia Residui Aggiornamenti'   { $processTimeoutSeconds = 900 }
-                'Controllo disco'                 { $processTimeoutSeconds = 600 }
-                'Controllo disco approfondito'    { $processTimeoutSeconds = 600 }
+                'Ripristino immagine Windows' { $processTimeoutSeconds = 900 }
+                'Controllo file di sistema (1)' { $processTimeoutSeconds = 900 }
+                'Controllo file di sistema (2)' { $processTimeoutSeconds = 900 }
+                'Pulizia Residui Aggiornamenti' { $processTimeoutSeconds = 900 }
+                'Controllo disco' { $processTimeoutSeconds = 600 }
+                'Controllo disco approfondito' { $processTimeoutSeconds = 600 }
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
 
@@ -520,10 +521,18 @@ function WinRepairToolkit {
             # Per chkdsk /scan, considerare successo se completato (anche con exit code non-zero informativo)
             $isChkdskScan = $isChkdsk -and ($Config.Args -contains '/scan')
             $chkdskCompleted = $isChkdskScan -and (($results -join ' ') -match '(?i)(scansione.*completata|scan.*completed|successfully scanned)')
-            $isSuccess = ($exitCode -eq 0) -or $hasDismSuccess -or $chkdskCompleted
+            
+            # FIX: Rilevamento Timeout (ExitCode nullo o $result nullo a causa della terminazione forzata)
+            $isTimeout = ($null -eq $result) -or ($null -eq $exitCode)
+            $isSuccess = (-not $isTimeout) -and (($exitCode -eq 0) -or $hasDismSuccess -or $chkdskCompleted)
 
             $errors = $warnings = @()
             if (-not $isSuccess) {
+                # Se c'è stato un timeout, forza un errore
+                if ($isTimeout) {
+                    $errors += "Timeout: L'operazione ha superato il tempo limite ed è stata terminata."
+                }
+
                 foreach ($line in ($results | Where-Object { $_ -and ![string]::IsNullOrWhiteSpace($_.Trim()) })) {
                     $trim = $line.Trim()
                     # Escludi linee di progresso, versione e messaggi informativi
@@ -544,10 +553,22 @@ function WinRepairToolkit {
                         elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
                     }
                 }
+                
+                # Fallback: Se il processo fallisce ma i log non contengono keyword di errore
+                if ($errors.Count -eq 0 -and -not $isTimeout) {
+                    $errors += "Errore generico o terminazione anomala (ExitCode: $exitCode)."
+                }
             }
 
-            $success = ($errors.Count -eq 0) -or $hasDismSuccess -or $chkdskCompleted
-            $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
+            # FIX: La variabile di successo deve richiedere che l'operazione non sia fallita/andata in timeout
+            $success = $isSuccess -and ($errors.Count -eq 0)
+            
+            if ($isTimeout) {
+                $message = "$($Config.Name) NON completato (interrotto per Timeout)."
+            }
+            else {
+                $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
+            }
             Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
 
             # Esportazione Log CBS di SFC
@@ -635,7 +656,8 @@ function WinRepairToolkit {
         if ($repairResult.TotalErrors -gt 0) {
             Write-StyledMessage Warning "Rilevati errori persistenti. Avvio riparazione profonda..."
             $deepRepairScheduled = Start-DeepDiskRepair
-        } else {
+        }
+        else {
             Write-StyledMessage Success "Sistema in salute. Riparazione profonda non necessaria."
         }
 
