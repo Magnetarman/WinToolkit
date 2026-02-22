@@ -19,7 +19,7 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Nuova funzione `PS-Reset`: elimina i profili personalizzati e riporta Windows Terminal alle impostazioni di fabbrica. [[Requested by @Pomodori92]](https://github.com/pomodori92)
 - **Documentazione:**
   - Creazione del documento `CODE_OF_CONDUCT.md` (Codice di Condotta).
-  - Aggiunte sezioni "Parlano di WinToolkit" e "Traguardi" nel file `README.md`.
+  - Aggiunte sezioni "Parlano di WinToolkit" ed aggioranta sezione "Traguardi" nel file `README.md`.
 - **WinRepairToolkit:**
   - Aggiunta funzione automatica di copia del log del comando `sfc /scannow` nella cartella di WinToolkit con rinomina basata su data e ora per facilitare il debug.
 
