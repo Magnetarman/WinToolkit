@@ -6,7 +6,7 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 
 ---
 
-## [2.5.1] - CODENAME: "Deborah" - 2026-02-26 ([#35](https://github.com/MagnetarMan/WinToolkit/issues/35))
+## [2.5.1] - CODENAME: "Deborah" - 2026-02-26 ([#37](https://github.com/MagnetarMan/WinToolkit/issues/37))
 
 ### Aggiunte
 
