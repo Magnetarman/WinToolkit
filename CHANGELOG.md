@@ -6,7 +6,7 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 
 ---
 
-## [2.5.1] - CODENAME: "Deborah" - 2026-02-27 ([#35](https://github.com/MagnetarMan/WinToolkit/issues/35))
+## [2.5.1] - CODENAME: "Deborah" - 2026-02-26 ([#37](https://github.com/MagnetarMan/WinToolkit/issues/37))
 
 ### Aggiunte
 
@@ -19,7 +19,7 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Nuova funzione `PS-Reset`: elimina i profili personalizzati e riporta Windows Terminal alle impostazioni di fabbrica. [[Requested by @Pomodori92]](https://github.com/pomodori92)
 - **Documentazione:**
   - Creazione del documento `CODE_OF_CONDUCT.md` (Codice di Condotta).
-  - Aggiunte sezioni "Parlano di WinToolkit" e "Traguardi" nel file `README.md`.
+  - Aggiunte sezioni "Parlano di WinToolkit" ed aggioranta sezione "Traguardi" nel file `README.md`.
 - **WinRepairToolkit:**
   - Aggiunta funzione automatica di copia del log del comando `sfc /scannow` nella cartella di WinToolkit con rinomina basata su data e ora per facilitare il debug.
 
@@ -31,11 +31,16 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 - **start.ps1:**
   - Migliorata la gestione dei fallback e dei blocchi in presenza di prerequisiti mancanti.
   - Rafforzata la gestione degli errori e il logging durante le installazioni via Winget.
-- **WinReinstallStore:** - Corretto output non soppresso e rimosso il blocco "Premi Enter per uscire" che interrompeva la modalità concatenazione. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
-- **WinToolkit.ps1:** - Fix bug della funzione concatenazione in caso di input contenenti spazi e virgole. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
-- **WinBackupDriver:** - Rimosso blocco input manuale che interrompeva la modalità concatenazione. [[#32](https://github.com/MagnetarMan/WinToolkit/issues/32) [@pomodori92]](https://github.com/pomodori92)
-- **OfficeToolkit:** - Ripristinato il funzionamento dell'installazione personalizzata.
-- **WinCleaner:** - Prevenuti errori di "file in uso" durante la pulizia degli aggiornamenti tramite l'arresto e il riavvio automatico del servizio Windows Update.
+- **WinReinstallStore:** 
+  - Corretto output non soppresso e rimosso il blocco "Premi Enter per uscire" che interrompeva la modalità concatenazione. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+- **WinToolkit.ps1:** 
+  - Fix bug della funzione concatenazione in caso di input contenenti spazi e virgole. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+- **WinBackupDriver:**
+  - Rimosso blocco input manuale che interrompeva la modalità concatenazione. [[#32](https://github.com/MagnetarMan/WinToolkit/issues/32) [@pomodori92]](https://github.com/pomodori92)
+- **OfficeToolkit:** 
+  - Ripristinato il funzionamento dell'installazione personalizzata.
+- **WinCleaner:**
+  - Prevenuti errori di "file in uso" durante la pulizia degli aggiornamenti tramite l'arresto e il riavvio automatico del servizio Windows Update.
 
 ### Modifiche
 
