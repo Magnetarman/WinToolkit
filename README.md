@@ -2,12 +2,9 @@
 	<img src="img/WinToolkit-icon.png" alt="WinToolkit-banner" width="160">
 	<h1>WinToolkit: la soluzione definitiva per <em>sopravvivere</em> a Windows</h1>
 </p>
-
-![Maintenance](https://magnetarman.com/countdown.php)
-
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
-	<img src="https://img.shields.io/badge/version-2.5.0-red.svg?style=for-the-badge" alt="versione">
+	<img src="https://img.shields.io/badge/version-2.5.1-red.svg?style=for-the-badge" alt="versione">
 	<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
 	<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 	<img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main">
@@ -59,11 +56,11 @@ irm https://magnetarman.com/winstart | iex
 > Se stai avviando WinToolkit da versioni parzialmente supportate è consigliabile utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
 
 1. Installa Powershell 7 (o versioni successive) da [Microsoft Store](https://www.microsoft.com/store/apps/9MZ1SNWT0N5D) oppure da [GitHub](https://learn.microsoft.com/it-it/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.5#msi).
-3. Premi il tasto `Windows` sulla tastiera oppure clicca sulla ricerca di Windows.
-4. Digita `Powershell` nel campo della ricerca.
-5. Clicca col tasto destro del mouse sulla voce `Powershell`.
-6. Clicca sulla voce `Esegui come amministratore` dal menù a tendina.
-7. Copia e incolla nella finestra di Powershell il comando seguente:
+2. Premi il tasto `Windows` sulla tastiera oppure clicca sulla ricerca di Windows.
+3. Digita `Powershell` nel campo della ricerca.
+4. Clicca col tasto destro del mouse sulla voce `Powershell`.
+5. Clicca sulla voce `Esegui come amministratore` dal menù a tendina.
+6. Copia e incolla nella finestra di Powershell il comando seguente:
 
 ```powershell
 irm https://magnetarman.com/WinToolkit | iex
@@ -117,6 +114,13 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 - [Leggi le modifiche introdotte.](/CHANGELOG.md)
 - [Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)
+
+---
+## 📽️ Parlano di WinToolkit
+
+| Img Canale | Link                                                                                                                          |
+|:------------|:------------------------------------------------------------------------------------------------------------------------------|
+| <img src="/img/avatar/zakkos.jpg" alt="Zakkos-WinToolkit" width="80">  | <a href="https://www.youtube.com/watch?v=nUKLeYqe1ZI"> WINTOOLKIT 2.5: Dominare Windows 11 con PowerShell by MagnetarMan </a> |
 
 ---
 
@@ -204,7 +208,13 @@ Grazie di cuore per il tuo supporto!
 
 ## 🎉 Traguardi
 
-- [x] 11/01/2026 - 10 Stelle raggiunte.
+<a href="https://www.star-history.com/#Magnetarman/WinToolkit&type=date&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Magnetarman/WinToolkit&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Magnetarman/WinToolkit&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Magnetarman/WinToolkit&type=date&legend=bottom-right" />
+ </picture>
+</a>
 
 ---
 

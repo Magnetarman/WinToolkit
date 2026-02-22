@@ -33,7 +33,7 @@
   "profiles": {
     "defaults": {
       "backgroundImage": "desktopWallpaper",
-      "backgroundImageOpacity": 0.25,
+      "backgroundImageOpacity": 0.3,
       "backgroundImageStretchMode": "uniformToFill",
       "colorScheme": "Ottosson",
       "elevate": true,
@@ -63,7 +63,7 @@
         "guid": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
         "hidden": false,
         "name": "PowerShell7",
-        "opacity": 75,
+        "opacity": 80,
         "source": "Windows.Terminal.PowershellCore",
         "useAcrylic": true,
         "commandline": "pwsh.exe -ExecutionPolicy Bypass"
