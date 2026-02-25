@@ -2,7 +2,7 @@
 .SYNOPSIS
     Script di installazione e configurazione di WinToolkit.
 .DESCRIPTION
-    Verifica, installa e configura diversi software per poi creare una scorciatoia sul desktop.
+    Verifica, installa e configura diversi software open-source, per poi creare una scorciatoia sul desktop.
 .NOTES
     Versione 2.5.1 (Build 17) - 2026-02-06
     Compatibile con PowerShell 5.1+
