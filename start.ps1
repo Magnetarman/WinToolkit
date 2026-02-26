@@ -1,9 +1,8 @@
 <#
 .SYNOPSIS
-    Script di Start per Win Toolkit.
+    Script di inizio che installa e configura WinToolkit.
 .DESCRIPTION
-    Punto di ingresso per l'installazione e configurazione di Win Toolkit V2.5.0.
-    Verifica e installa Git, PowerShell 7, configura Windows Terminal e crea scorciatoia desktop.
+    Verifica, installa e configura alcuni software, per poi creare una scorciatoia di avvio di WinToolkit sul desktop.
 .NOTES
     Versione 2.5.1 (Build 17) - 2026-02-06
     Compatibile con PowerShell 5.1+
