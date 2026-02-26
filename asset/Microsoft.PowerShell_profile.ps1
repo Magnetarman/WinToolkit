@@ -14,6 +14,8 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
+$ProfileVersion = "2.5.2.1"
+
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
 $URL_WINTOOLKIT_DEV = "https://magnetarman.com/WinToolkit-Dev"
@@ -257,74 +259,6 @@ function Reset-Network {
 # AGGIORNAMENTO PROFILO
 # ============================================================================
 
-function Get-ProfileVersionDetails {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true, HelpMessage = "Il percorso del file o l'URL del profilo.")]
-        [string]$Source,
-        [Parameter(HelpMessage = "Specifica se la sorgente è un URL.")]
-        [switch]$IsUrl
-    )
-
-    $content = $null
-    $sourceDescription = if ($IsUrl) { "URL '$Source'" } else { "file '$Source'" }
-
-    try {
-        if ($IsUrl) {
-            $content = (Invoke-WebRequest -Uri $Source -UseBasicParsing -ErrorAction Stop).Content
-        }
-        else {
-            if (-not (Test-Path $Source -PathType Leaf)) {
-                Write-Warning "File profilo non trovato: '$Source'. Impossibile recuperare i dettagli della versione."
-                return $null
-            }
-            $content = Get-Content -Path $Source -Raw -ErrorAction Stop
-        }
-    }
-    catch {
-        Write-Warning "Errore nel recuperare il contenuto dal $($sourceDescription): $($_.Exception.Message)"
-        return $null
-    }
-
-    if (-not $content) { return $null }
-
-    $versionNumber = $null
-    $versionString = "N/A"
-
-    # Step 1: Estrae il contenuto del blocco di commento iniziale <#...#>
-    # (?s) abilita la modalità 'Singleline' per il '.' per matchare anche i newline.
-    # ^<# assicura che si cerchi il blocco di commento all'inizio del file.
-    $commentBlockMatch = [regex]::Match($content, '(?s)^<#(.*?)#>')
-
-    if ($commentBlockMatch.Success) {
-        $commentBlockContent = $commentBlockMatch.Groups[1].Value
-
-        # Step 2: Cerca la riga della versione all'interno del contenuto del blocco di commento estratto.
-        # Questo regex cerca '.NOTES', seguito da newline, e poi cattura la riga 'Versione: ...'.
-        # (?:\r?\n|\r) gestisce i diversi tipi di newline (Windows, Linux, vecchi Mac).
-        $versionMatch = [regex]::Match($commentBlockContent, '(?s)\.NOTES\s*(?:\r?\n|\r)\s*Versione:\s*(\d+(?:\.\d+)*)\s*-\s*(\d{2}/\d{2}/\d{4})')
-
-        if ($versionMatch.Success) {
-            $versionNumber = [version]$versionMatch.Groups[1].Value # Gruppo di cattura 1: il numero di versione
-            $versionString = "Versione: $($versionMatch.Groups[1].Value) - $($versionMatch.Groups[2].Value)" # Ricostruisce la stringa completa
-        }
-        else {
-            Write-Warning "La riga della versione o la sezione .NOTES non è stata trovata o non è nel formato atteso nel $sourceDescription."
-            return $null
-        }
-    }
-    else {
-        Write-Warning "Nessun blocco di commento iniziale PowerShell (<#...#>) trovato nel $sourceDescription."
-        return $null
-    }
-
-    [PSCustomObject]@{
-        VersionNumber = $versionNumber
-        VersionString = $versionString
-        Content       = $content # Utile per verifiche successive o operazioni.
-    }
-}
-
 function PSProfileUpdate {
     [CmdletBinding(SupportsShouldProcess = $true)]
     param()
@@ -334,69 +268,47 @@ function PSProfileUpdate {
 
     Write-Host "🔍 Verifica aggiornamenti per il profilo PowerShell..." -ForegroundColor Cyan
 
-    $localDetails = Get-ProfileVersionDetails -Source $localProfilePath
-    $remoteDetails = Get-ProfileVersionDetails -Source $remoteProfileUrl -IsUrl
-
-    if (-not $localDetails) {
-        Write-Host "❌ Impossibile recuperare la versione del profilo locale. Annullamento verifica." -ForegroundColor Red
-        return
-    }
-    if (-not $remoteDetails) {
-        Write-Host "❌ Impossibile recuperare la versione del profilo remoto. Annullamento verifica." -ForegroundColor Red
-        return
-    }
-
-    $localVersion = $localDetails.VersionNumber
-    $remoteVersion = $remoteDetails.VersionNumber
-
-    if (-not $localVersion) {
-        Write-Host "⚠️ La versione del profilo locale non è stata trovata o è in un formato non valido. Impossibile confrontare." -ForegroundColor DarkYellow
-        return
-    }
-    if (-not $remoteVersion) {
-        Write-Host "⚠️ La versione del profilo remoto non è stata trovata o è in un formato non valido. Impossibile confrontare." -ForegroundColor DarkYellow
-        return
-    }
-
-    Write-Host "ℹ️ Versione locale: $($localDetails.VersionString)" -ForegroundColor DarkYellow
-    Write-Host "ℹ️ Versione remota: $($remoteDetails.VersionString)" -ForegroundColor Yellow
-
-    if ($localVersion -eq $remoteVersion) {
-        Write-Host "✅ Il profilo è aggiornato all'ultima versione: $($localDetails.VersionString)" -ForegroundColor Green
-    }
-    elseif ($localVersion -lt $remoteVersion) {
-        Write-Host "⚠️ È disponibile una versione aggiornata del profilo PowerShell!" -ForegroundColor Yellow
-        Write-Host "🔄 Aggiornamento in corso da $($localDetails.VersionString) a $($remoteDetails.VersionString)..." -ForegroundColor Cyan
-
-        if ($PSCmdlet.ShouldProcess("il profilo '$localProfilePath'", "scaricare e sostituire il profilo con la versione da '$remoteProfileUrl'")) {
-            try {
-                Invoke-WebRequest -Uri $remoteProfileUrl -OutFile $localProfilePath -UseBasicParsing -ErrorAction Stop
-                Write-Host "✅ Profilo scaricato e sostituito con successo." -ForegroundColor Green
-
-                # Verifica l'aggiornamento leggendo nuovamente la versione locale
-                $updatedLocalDetails = Get-ProfileVersionDetails -Source $localProfilePath
-
-                if ($updatedLocalDetails.VersionNumber -eq $remoteVersion) {
-                    Write-Host "✅ La versione locale è stata verificata e corrisponde ora a quella remota: $($updatedLocalDetails.VersionString)" -ForegroundColor Green
-                }
-                else {
-                    Write-Host "❌ Errore durante la verifica dell'aggiornamento. La versione locale non corrisponde alla remota dopo il download." -ForegroundColor Red
-                    Write-Host "   Versione locale attuale: $($updatedLocalDetails.VersionString)" -ForegroundColor Red
-                }
-
-                Write-Host "💡 Il tuo profilo è stato aggiornato. Per applicare completamente le modifiche, riavvia la sessione di PowerShell." -ForegroundColor Yellow
-            }
-            catch {
-                Write-Host "❌ Errore durante l'aggiornamento del profilo: $($_.Exception.Message)" -ForegroundColor Red
-            }
+    try {
+        # Controlla la versione locale dalla variabile caricata in sessione
+        $localVersion = $null
+        if ($null -ne $ProfileVersion) {
+            $localVersion = [version]$ProfileVersion
+        } else {
+            throw "Variabile `$ProfileVersion non trovata o sconosciuta nel profilo locale."
         }
-        else {
-            Write-Host "ℹ️ Aggiornamento annullato dall'utente." -ForegroundColor Cyan
+
+        # Recupera il contenuto remoto per estrarne la versione
+        $remoteContent = (Invoke-WebRequest -Uri $remoteProfileUrl -UseBasicParsing -ErrorAction Stop).Content
+        $match = [regex]::Match($remoteContent, '(?i)\$ProfileVersion\s*=\s*[''"]([^''"]+)[''"]')
+        
+        if (-not $match.Success) {
+            throw "Impossibile determinare la versione remota dal file scaricato."
         }
+        $remoteVersion = [version]$match.Groups[1].Value
+
+        if ($localVersion -ge $remoteVersion) {
+            Write-Host "✅ Il profilo è aggiornato all'ultima versione: $localVersion" -ForegroundColor Green
+            return
+        }
+
+        Write-Host "⚠️ È disponibile una versione aggiornata! (Locale: $localVersion -> Remota: $remoteVersion)" -ForegroundColor Yellow
+        Write-Host "🔄 Aggiornamento in corso..." -ForegroundColor Cyan
+        
+        Invoke-WebRequest -Uri $remoteProfileUrl -OutFile $localProfilePath -UseBasicParsing -ErrorAction Stop
+        Write-Host "✅ Profilo scaricato e sostituito con successo. Riavvia la sessione per applicare le modifiche." -ForegroundColor Green
+        
     }
-    else {
-        Write-Host "ℹ️ La versione locale del profilo ($($localDetails.VersionString)) è più recente della versione online ($($remoteDetails.VersionString))." -ForegroundColor DarkYellow
-        Write-Host "   Potresti star usando una versione di sviluppo o personalizzata." -ForegroundColor DarkYellow
+    catch {
+        Write-Host "⚠️ Rilevato problema: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "🔄 Forzatura: Scaricamento e sovrascrittura del profilo remoto per eliminare i problemi..." -ForegroundColor Cyan
+        
+        try {
+            Invoke-WebRequest -Uri $remoteProfileUrl -OutFile $localProfilePath -UseBasicParsing -ErrorAction Stop
+            Write-Host "✅ Profilo forzatamente ripristinato dalla versione remota. Riavvia PowerShell." -ForegroundColor Green
+        }
+        catch {
+            Write-Host "❌ Errore critico: Impossibile scaricare il profilo dal link remoto. Controlla la rete." -ForegroundColor Red
+        }
     }
 }
 
@@ -768,6 +680,7 @@ if (Test-CommandExists -Name "fastfetch") {
 
 Write-Host ""
 Write-Host "💡 Digita 'help' per scoprire i comandi personalizzati." -ForegroundColor Yellow
+Write-Host "✅ Profilo caricato - Versione: $ProfileVersion" -ForegroundColor Green
 
 # ============================================================================
 # FINE DEL PROFILO
