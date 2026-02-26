@@ -6,7 +6,6 @@
     Profilo PowerShell con utility, navigazione rapida, informazioni di sistema e configurazioni.
 
 .NOTES
-    Versione: 2.5.1.13 - 21/02/2026
     Autore: MagnetarMan
 #>
 
@@ -273,7 +272,8 @@ function PSProfileUpdate {
         $localVersion = $null
         if ($null -ne $ProfileVersion) {
             $localVersion = [version]$ProfileVersion
-        } else {
+        }
+        else {
             throw "Variabile `$ProfileVersion non trovata o sconosciuta nel profilo locale."
         }
 
@@ -416,7 +416,8 @@ function PS-Reset {
         if (Test-Path $wtSettingsPath) {
             Remove-Item -Path $wtSettingsPath -Force -ErrorAction Stop
             Write-Host "✅ Impostazioni di Windows Terminal eliminate. Verranno ricreate al prossimo avvio." -ForegroundColor Green
-        } else {
+        }
+        else {
             Write-Host "ℹ️ Impostazioni di Windows Terminal non trovate, reset non necessario." -ForegroundColor DarkYellow
         }
     }
