@@ -4,7 +4,6 @@
 .DESCRIPTION
     Verifica, installa e configura alcuni software, per poi creare una scorciatoia di avvio di WinToolkit sul desktop.
 .NOTES
-    Versione 2.5.1 (Build 17) - 2026-02-06
     Compatibile con PowerShell 5.1+
 #>
 
@@ -18,7 +17,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.1 (Build 17)"
+        Version = "Version 2.5.2 (Build 2)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -30,6 +29,7 @@ $script:AppConfig = @{
         WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/settings.json"
         ToolkitIcon             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
         TerminalRelease         = "https://api.github.com/repos/microsoft/terminal/releases/latest"
+        WebInstaller            = "https://magnetarman.com/WinToolkit-Dev"
     }
     Paths  = @{
         Logs          = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -707,7 +707,7 @@ function New-ToolkitDesktopShortcut {
         $shell = New-Object -ComObject WScript.Shell
         $link = $shell.CreateShortcut($shortcut)
         $link.TargetPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
-        $link.Arguments = 'pwsh -ExecutionPolicy Bypass -Command "irm https://magnetarman.com/WinToolkit | iex"'
+        $link.Arguments = 'pwsh -ExecutionPolicy Bypass -Command "irm ' + $script:AppConfig.URLs.WebInstaller + ' | iex"'
         $link.WorkingDirectory = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
         $link.IconLocation = $icon
         $link.Description = "Win Toolkit - SOPRAVVIVI A Windows"
