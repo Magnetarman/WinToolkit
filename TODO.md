@@ -26,6 +26,9 @@
     - [x] Rimosse le configurazioni hardcoded, migliorando flessibilità e manutenibilità del codice.
     - [x] Ottimizzata la gestione del processo per garantire maggiore coerenza tra ambienti e versioni.
 
+- `WinRepairToolkit.ps1` Aggiornato.
+  - [x] Aggiunto nuovo check per le funzioni addizionali Registrazione AppX (Client CBS), Registrazione AppX (UI Xaml CBS), Registrazione AppX (Client Core), in modo che vengano eseguite solo su sistemi interessati dalla problematica (Windows 11 24H2 e superiori).
+
 
 ### V 2.6 - Debloat
 
