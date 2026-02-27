@@ -210,24 +210,35 @@ function Install-WingetCore {
     }
 
     function Test-VCRedist {
+        param (
+            # Architettura da verificare: "x64" oppure "x86"
+            [Parameter(Mandatory = $true)]
+            [ValidateSet('x64', 'x86')]
+            [string]$arch
+        )
+
         # Semplificato: controlla la chiave di registro per VC++ 2015-2022 (v14+)
-        $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
         $regPath = "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\$arch"
-        if (Test-Path $regPath) {
-            $ver = (Get-ItemProperty $regPath).Version
-            if ($ver) { return $true }
+        if (-not (Test-Path $regPath)) {
+            return $false
         }
-        return $false
+
+        if ((Get-ItemProperty $regPath).Version) {
+            return $true
+        }
     }
 
     $tempDir = "$env:TEMP\WinToolkitWinget"
-    if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
+    if (-not (Test-Path $tempDir)) {
+        New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
+    }
 
     try {
+        $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
+
         # 1. Visual C++ Redistributable
-        if (-not (Test-VCRedist)) {
+        if (-not (Test-VCRedist -arch $arch)) {
             Write-StyledMessage -Type Info -Text "Installazione Visual C++ Redistributable..."
-            $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
             $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
             $vcFile = Join-Path $tempDir "vc_redist.exe"
 
@@ -236,9 +247,7 @@ function Install-WingetCore {
             Start-Process -FilePath $vcFile -ArgumentList "/install", "/quiet", "/norestart" -Wait -NoNewWindow
             Write-StyledMessage -Type Success -Text "Visual C++ Redistributable installato."
         }
-        else {
-            Write-StyledMessage -Type Success -Text "Visual C++ Redistributable già presente."
-        }
+        Write-StyledMessage -Type Success -Text "Visual C++ Redistributable già presente."
 
         # 2. Dipendenze (UI.Xaml, VCLibs)
         Write-StyledMessage -Type Info -Text "Download dipendenze Winget..."
