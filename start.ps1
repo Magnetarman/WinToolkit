@@ -167,14 +167,13 @@ function Test-WingetFunctionality {
         # Test download pacchetto leggero per verificare funzionalità
         $result = Invoke-WingetCommand -Arguments "search Microsoft.PowerToys --accept-source-agreements --count 1"
 
-        if ($result.ExitCode -eq 0) {
-            Write-StyledMessage -Type Success -Text "✅ Winget operativo e funzionante."
-            return $true
-        }
-        else {
+        if ($result.ExitCode -ne 0) {
             Write-StyledMessage -Type Warning -Text "Winget presente ma non funzionante (Exit Code: $($result.ExitCode))."
             return $false
         }
+
+        Write-StyledMessage -Type Success -Text "✅ Winget operativo e funzionante. aaa"
+        return $true
     }
     catch {
         Write-StyledMessage -Type Warning -Text "Errore durante test Winget: $($_.Exception.Message)"
