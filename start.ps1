@@ -17,7 +17,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.2 (Build 2)"
+        Version = "Version 2.5.2 (Build 5)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -112,7 +112,12 @@ function Update-EnvironmentPath {
     # Ricarica PATH da Machine e User per rilevare installazioni avvenute nel processo corrente
     $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     $userPath    = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $env:Path    = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
+    $newPath     = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
+
+    # Aggiorna la sessione PowerShell corrente
+    $env:Path    = $newPath
+    # Forza il refresh a livello di processo per i componenti .NET avviati successivamente
+    [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
 }
 
 function Invoke-WingetCommand {
@@ -249,24 +254,34 @@ function Install-WingetCore {
             Write-StyledMessage -Type Success -Text "Visual C++ Redistributable già presente."
         }
 
-        # 2. Dipendenze (UI.Xaml, VCLibs)
+        # 2. Dipendenze (UI.Xaml, VCLibs) — Download diretto per architettura (Enterprise-Ready)
         Write-StyledMessage -Type Info -Text "Download dipendenze Winget..."
-        $depUrl = Get-WingetDownloadUrl -Match 'DesktopAppInstaller_Dependencies.zip'
-        if ($depUrl) {
-            $depZip = Join-Path $tempDir "dependencies.zip"
-            Invoke-WebRequest -Uri $depUrl -OutFile $depZip -UseBasicParsing
 
-            # Estrazione e installazione mirata
-            $extractPath = Join-Path $tempDir "deps"
-            Expand-Archive -Path $depZip -DestinationPath $extractPath -Force
+        # Rilevamento architettura — normalizza AMD64 → x64
+        $sysArch = $env:PROCESSOR_ARCHITECTURE.ToLower()
+        if ($sysArch -eq 'amd64') { $sysArch = 'x64' }
 
-            $archPattern = if ([Environment]::Is64BitOperatingSystem) { "x64|ne" } else { "x86|ne" }
-            $appxFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $archPattern }
+        $dependencies = @(
+            "https://aka.ms/Microsoft.VCLibs.$sysArch.14.00.Desktop.appx",
+            "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.$sysArch.appx"
+        )
 
-            foreach ($file in $appxFiles) {
-                Write-StyledMessage -Type Info -Text "Installazione dipendenza: $($file.Name)..."
-                # FIX: Aggiunto -ForceUpdateFromAnyVersion e soppressione errori comuni
-                Add-AppxPackage -Path $file.FullName -ErrorAction SilentlyContinue -ForceApplicationShutdown
+        foreach ($depUrl in $dependencies) {
+            $depFileName = Split-Path $depUrl -Leaf
+            $depFilePath = Join-Path $tempDir $depFileName
+            Write-StyledMessage -Type Info -Text "Installazione dipendenza: $depFileName..."
+            try {
+                $iwrDepParams = @{
+                    Uri             = $depUrl
+                    OutFile         = $depFilePath
+                    UseBasicParsing = $true
+                    ErrorAction     = 'Stop'
+                }
+                Invoke-WebRequest @iwrDepParams
+                Add-AppxPackage -Path $depFilePath -ForceApplicationShutdown -ErrorAction SilentlyContinue
+            }
+            catch {
+                Write-StyledMessage -Type Warning -Text "Impossibile scaricare o installare: $depFileName. Errore: $($_.Exception.Message)"
             }
         }
 
@@ -314,6 +329,14 @@ function Install-WingetPackage {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Info -Text "Reset sorgenti Winget..."
             & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
+
+            # Pulizia profonda del database SQLite locale (causa principale di blocchi)
+            Write-StyledMessage -Type Info -Text "Pulizia profonda database WinGet locale..."
+            $wingetDbFolder = "$env:LOCALAPPDATA\Packages\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState"
+            if (Test-Path $wingetDbFolder) {
+                Get-ChildItem -Path $wingetDbFolder -Filter 'default.db' -Recurse -ErrorAction SilentlyContinue |
+                    Remove-Item -Force -ErrorAction SilentlyContinue *>$null
+            }
         }
 
         # Fallback: Installazione dipendenze NuGet
@@ -610,6 +633,7 @@ function Install-PspEnvironment {
 
             if ($result.ExitCode -eq 0) {
                 Write-StyledMessage -Type Success -Text "✅ Nerd Fonts installati con successo."
+                Write-StyledMessage -Type Warning -Text "💡 Nota: i font via WinGet richiedono il riavvio del Terminale (o di Explorer) per essere visibili."
                 return $true
             }
             else {
@@ -873,27 +897,32 @@ function Invoke-WinToolkitSetup {
     $wtInstalled = Install-WindowsTerminalApp
     
     # Imposta Windows Terminal come terminale predefinito se installato
-    if ($wtInstalled) {
+    # Verifica assoluta che wt.exe risponda prima di modificare il registro
+    $isWtExecutable = [bool](Get-Command 'wt.exe' -ErrorAction SilentlyContinue)
+    if ($wtInstalled -and $isWtExecutable) {
         Write-StyledMessage -Type Info -Text "⚙️ Impostazione Windows Terminal come predefinito via Registry..."
         try {
             $registryPath = "HKCU:\Console\%%Startup"
             if (-not (Test-Path $registryPath)) {
-                New-Item -Path $registryPath -Force | Out-Null
+                $null = New-Item -Path $registryPath -Force
             }
 
             # CLSID per Windows Terminal (Stable)
-            $wtClsid = "{E12F0936-0E6F-548E-A9F6-B20C69A27D17}"
+            $wtClsid         = '{E12F0936-0E6F-548E-A9F6-B20C69A27D17}'
             # CLSID per l'host di delega (OpenConsole)
-            $consoleHostClsid = "{B23D10C0-31E3-401A-97EF-4BB30B62E10B}"
+            $consoleHostClsid = '{B23D10C0-31E3-401A-97EF-4BB30B62E10B}'
 
-            Set-ItemProperty -Path $registryPath -Name "DelegationTerminal" -Value $wtClsid -Force
-            Set-ItemProperty -Path $registryPath -Name "DelegationConsole" -Value $consoleHostClsid -Force
-            
+            Set-ItemProperty -Path $registryPath -Name 'DelegationTerminal' -Value $wtClsid -Force
+            Set-ItemProperty -Path $registryPath -Name 'DelegationConsole'  -Value $consoleHostClsid -Force
+
             Write-StyledMessage -Type Success -Text "✅ Windows Terminal impostato come predefinito nel Registro."
         }
         catch {
             Write-StyledMessage -Type Warning -Text "⚠️ Impossibile impostare il terminale predefinito: $($_.Exception.Message)"
         }
+    }
+    elseif ($wtInstalled) {
+        Write-StyledMessage -Type Warning -Text "⚠️ Terminale installato ma wt.exe non ancora disponibile nel PATH. Modifica registro saltata per sicurezza."
     }
     
     Install-PspEnvironment
