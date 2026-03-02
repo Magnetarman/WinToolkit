@@ -108,6 +108,13 @@ function Stop-InterferingProcess {
     Start-Sleep 2
 }
 
+function Update-EnvironmentPath {
+    # Ricarica PATH da Machine e User per rilevare installazioni avvenute nel processo corrente
+    $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $userPath    = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $env:Path    = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
+}
+
 function Invoke-WingetCommand {
     param(
         [string]$Arguments,
@@ -158,21 +165,23 @@ function Test-WingetCompatibility {
 function Test-WingetFunctionality {
     Write-StyledMessage -Type Info -Text "🔍 Verifica funzionalità Winget..."
 
+    # Aggiorna il PATH per rilevare installazioni recenti
+    Update-EnvironmentPath
+
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         Write-StyledMessage -Type Warning -Text "Winget non trovato nel PATH."
         return $false
     }
 
     try {
-        # Test download pacchetto leggero per verificare funzionalità
-        $result = Invoke-WingetCommand -Arguments "search Microsoft.PowerToys --accept-source-agreements --count 1"
-
-        if ($result.ExitCode -eq 0) {
-            Write-StyledMessage -Type Success -Text "✅ Winget operativo e funzionante."
+        # Usa --version: locale, immediato, non richiede connessione internet
+        $versionOutput = (& winget --version 2>$null) | Out-String
+        if ($LASTEXITCODE -eq 0 -and $versionOutput -match 'v\d+\.\d+') {
+            Write-StyledMessage -Type Success -Text "✅ Winget operativo (versione: $($versionOutput.Trim()))."
             return $true
         }
         else {
-            Write-StyledMessage -Type Warning -Text "Winget presente ma non funzionante (Exit Code: $($result.ExitCode))."
+            Write-StyledMessage -Type Warning -Text "Winget presente ma non risponde correttamente (ExitCode: $LASTEXITCODE)."
             return $false
         }
     }
@@ -328,11 +337,20 @@ function Install-WingetPackage {
         }
 
         # Fallback finale: installazione via MSIXBundle
+        Update-EnvironmentPath
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
             Write-StyledMessage -Type Info -Text "Download MSIXBundle da Microsoft..."
-            $tempInstaller = "$tempDir\WingetInstaller.msixbundle"
+            $msixTempDir = $script:AppConfig.Paths.Temp
+            if (-not (Test-Path $msixTempDir)) { $null = New-Item -Path $msixTempDir -ItemType Directory -Force }
+            $tempInstaller = Join-Path $msixTempDir "WingetInstaller.msixbundle"
 
-            Invoke-WebRequest -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -UseBasicParsing
+            $iwrParams = @{
+                Uri             = $script:AppConfig.URLs.WingetMSIX
+                OutFile         = $tempInstaller
+                UseBasicParsing = $true
+                ErrorAction     = 'Stop'
+            }
+            Invoke-WebRequest @iwrParams
             Add-AppxPackage -Path $tempInstaller -ForceApplicationShutdown -ErrorAction Stop
             Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue
             Start-Sleep 3
@@ -346,6 +364,7 @@ function Install-WingetPackage {
 
         Start-Sleep 2
 
+        Update-EnvironmentPath
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Success -Text "✅ Winget installato e funzionante."
             return $true
@@ -788,22 +807,29 @@ function Invoke-WinToolkitSetup {
     if (-not $isResumeSetup) {
         Write-StyledMessage -Type Info -Text "Esecuzione controlli base..."
 
-        if (-not (Test-WingetFunctionality)) {
-            Write-StyledMessage -Type Warning -Text "⚠️ Winget non risponde. Tentativo di ripristino..."
+        # Aggiorna PATH prima del check iniziale per rilevare winget già installato
+        Update-EnvironmentPath
 
-            # FIX: Soppresso output booleano "True"
+        if (-not (Test-WingetFunctionality)) {
+            Write-StyledMessage -Type Warning -Text "⚠️ Winget non risponde. Tentativo di ripristino veloce (Core)..."
+
             $coreSuccess = Install-WingetCore
+
+            # Aggiorna PATH dopo install-core prima di ri-testare
+            Update-EnvironmentPath
 
             if ($coreSuccess -and (Test-WingetFunctionality)) {
                 Write-StyledMessage -Type Success -Text "✅ Winget ripristinato velocemente."
             }
             else {
                 Write-StyledMessage -Type Warning -Text "⚠️ Ripristino veloce fallito. Tentativo metodo avanzato (più lento)..."
-                # Cattura il risultato dell'installazione per gestione logica
-                $wingetPackageSuccess = Install-WingetPackage
+                $null = Install-WingetPackage
+
+                # Aggiorna PATH dopo install-package prima del check finale
+                Update-EnvironmentPath
 
                 if (-not (Test-WingetFunctionality)) {
-                    Write-StyledMessage -Type Warning -Text "⚠️ Winget non funzionale anche dopo il tentativo di installazione."
+                    Write-StyledMessage -Type Warning -Text "⚠️ Winget non funzionale dopo tutti i tentativi."
                     Write-StyledMessage -Type Info -Text "Lo script proseguirà, ma l'installazione di pacchetti potrebbe fallire."
                 }
             }
@@ -920,10 +946,9 @@ function Invoke-WinToolkitSetup {
         Write-StyledMessage -Type Info -Text "Riavvio automatico tra 10 secondi..."
 
         for ($i = 10; $i -gt 0; $i--) {
-            Write-Host "`rPreparazione riavvio - $i secondi..." -NoNewline -ForegroundColor Yellow
+            Write-StyledMessage -Type Warning -Text "`rPreparazione riavvio - $i secondi..."
             Start-Sleep 1
         }
-        Write-Host ""
 
         try { Stop-Transcript | Out-Null } catch { }
         Restart-Computer -Force
