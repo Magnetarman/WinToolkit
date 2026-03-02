@@ -19,9 +19,10 @@
   - [ ] Meno richieste inutili e maggiore automazione.
 
 - `start.ps1` Aggiornato.
-  - [x] Aggiornate sezione .SYNOPSIS e .DESCRIPTION [[#39](https://github.com/MagnetarMan/WinToolkit/issues/39) [@pomodori92]](https://github.com/pomodori92)
-  - [x] Aggiornata funzione di aggiornamento del Profilo powershell rendendola maggiormente robusta
+  - [x] Aggiornate sezione .SYNOPSIS e .DESCRIPTION [[#39](https://github.com/MagnetarMan/WinToolkit/issues/39) [@pomodori92]](https://github.com/pomodori92).
+  - [x] Aggiornata funzione di aggiornamento del Profilo powershell rendendola maggiormente robusta.
   - [x] Rifattorizzata la funzione di creazione del collegamento di WinToolkit.
+  - [x] Aggionato Show-Header [[#40](https://github.com/MagnetarMan/WinToolkit/issues/40) [@pomodori92]](https://github.com/pomodori92).
     - [x] Introdotta la generazione dinamica dell’icona desktop all’avvio del ramo di sviluppo.
     - [x] Rimosse le configurazioni hardcoded, migliorando flessibilità e manutenibilità del codice.
     - [x] Ottimizzata la gestione del processo per garantire maggiore coerenza tra ambienti e versioni.
@@ -37,6 +38,7 @@
 - `WinToolkit-template.ps1` Aggiornato.
   - [x] La funzione `Initialize-ToolLogging` usa path hardcoded. Fix applicato.
   - [x] `Invoke-Expression` è un anti-pattern di sicurezza. Fix applicato.
+  - [x] Aggiornato Show-Header in modo da allineare la [PR #40](https://github.com/MagnetarMan/WinToolkit/issues/40).
 
 
 ### V 2.6 - Debloat
