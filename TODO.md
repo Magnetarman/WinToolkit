@@ -22,6 +22,11 @@
   - [x] Aggiornate sezione .SYNOPSIS e .DESCRIPTION [[#39](https://github.com/MagnetarMan/WinToolkit/issues/39) [@pomodori92]](https://github.com/pomodori92).
   - [x] Aggiornata funzione di aggiornamento del Profilo powershell rendendola maggiormente robusta.
   - [x] Rifattorizzata la funzione di creazione del collegamento di WinToolkit.
+  - [x] Nuova Update-EnvironmentPath (L111): ricarica $env:Path da Machine+User per rilevare winget appena installato senza riavviare lo script.
+  - [x] Test-WingetFunctionality più veloce: sostituisce winget search (lento, richiede internet) con winget --version (locale, istantaneo).
+  - [x] Fix bug critico $tempDir: nel fallback MSIXBundle di Install-WingetPackage la variabile non esisteva in quello scope — ora usa $AppConfig.Paths.Temp con splatting
+  - [x] PATH refresh nell'orchestrazione: Update-EnvironmentPath chiamata prima del check iniziale e dopo ogni tentativo di install — elimina i falsi negativi post-installazione.
+  - [x] Fix Write-Host nel countdown reboot → Write-StyledMessage -Type Warning.
   - [x] Aggionato Show-Header [[#40](https://github.com/MagnetarMan/WinToolkit/issues/40) [@pomodori92]](https://github.com/pomodori92).
     - [x] Introdotta la generazione dinamica dell’icona desktop all’avvio del ramo di sviluppo.
     - [x] Rimosse le configurazioni hardcoded, migliorando flessibilità e manutenibilità del codice.
@@ -39,6 +44,15 @@
   - [x] La funzione `Initialize-ToolLogging` usa path hardcoded. Fix applicato.
   - [x] `Invoke-Expression` è un anti-pattern di sicurezza. Fix applicato.
   - [x] Aggiornato Show-Header in modo da allineare la [PR #40](https://github.com/MagnetarMan/WinToolkit/issues/40).
+
+- `WinReinstallStore.ps1` Aggiornato.
+- [x] Helper locali ridondanti rimossi: Clear-ProgressLine, Stop-InterferingProcesses, Test-WingetAvailable erano tutti già disponibili globalmente nel template.
+- [x] $ErrorActionPreference globale eliminato in tutte e 3 le funzioni → -ErrorAction SilentlyContinue per operazione.
+- [x] Write-StyledMessage corretta da sintassi posizionale Write-StyledMessage Info "..." a Write-StyledMessage -Type 'Info' -Text "...".
+- [x] Invoke-WithSpinner adottato per tutti i processi lunghi: Repair-WinGetPackageManager, MSIXBundle, App Installer reset, Store install, UniGetUI install.
+- [x] Fix catch vuoto in Install-UniGetUI → logga l'eccezione con Write-StyledMessage -Type 'Error'.
+- [x] Write-Host nel finally rimosso → gestione riavvio delegata a Start-InterruptibleCountdown.
+
 
 
 ### V 2.6 - Debloat
