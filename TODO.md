@@ -32,7 +32,11 @@
 - `compiler.ps1` aggiornato.
   - [x] Lo script ora accetta -StripComments dalla riga di comando o da pipeline CI/CD.
   - [x] L'etichetta di $warningCount nel box di riepilogo è ora più descrittiva.
-  - [x] Blocco di assemblaggio potenziato. Adesso esegue una Validazione, StripComments e Logging injection. 
+  - [x] Blocco di assemblaggio potenziato. Adesso esegue una Validazione, StripComments e Logging injection.
+
+- `WinToolkit-template.ps1` Aggiornato.
+  - [x] La funzione `Initialize-ToolLogging` usa path hardcoded. Fix applicato.
+  - [x] `Invoke-Expression` è un anti-pattern di sicurezza. Fix applicato.
 
 
 ### V 2.6 - Debloat
