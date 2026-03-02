@@ -148,11 +148,11 @@ function Show-Header {
     Clear-Host
     $width = $Host.UI.RawUI.BufferSize.Width
     $asciiArt = @(
-        '      __        __  _  _   _ ',
-        '      \ \      / / | || \ | |',
-        '       \ \ /\ / /  | ||  \| |',
-        '        \ V  V /   | || |\  |',
-        '         \_/\_/    |_||_| \_|',
+        '      __        __  _   _   _ ',
+        '      \ \      / / | | | \ | |',
+        '       \ \ /\ / /  | | |  \| |',
+        '        \ V  V /   | | | |\  |',
+        '         \_/\_/    |_| |_| \_|',
         '',
         "       WinToolkit - $SubTitle",
         "       Versione $ToolkitVersion"
