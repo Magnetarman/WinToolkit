@@ -5,7 +5,6 @@
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
 .NOTES
-    Versione: 2.5.2 - 25/02/2026
     Autore: MagnetarMan
 #>
 
@@ -14,7 +13,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 4)"
+$ToolkitVersion = "2.5.2 (Build 5)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -173,8 +172,8 @@ function Initialize-ToolLogging {
     #>
     param([string]$ToolName)
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = "$env:LOCALAPPDATA\WinToolkit\logs"
-    if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
+    $logdir = $AppConfig.Paths.Logs
+    if (-not (Test-Path $logdir)) { $null = New-Item -Path $logdir -ItemType Directory -Force }
     try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
     Start-Transcript -Path "$logdir\${ToolName}_$dateTime.log" -Append -Force | Out-Null
 }
@@ -389,7 +388,7 @@ function Get-SystemInfo {
     catch { return $null }
 }
 
-function CheckBitlocker {
+function Get-BitlockerStatus {
     try {
         $out = & manage-bde -status C: 2>&1
         if ($out -match "Stato protezione:\s*(.*)") { return $matches[1].Trim() }
@@ -408,18 +407,14 @@ function WinOSCheck {
     $si = Get-SystemInfo
     if (-not $si) { Write-StyledMessage -Type 'Warning' -Text "Info sistema non disponibili."; return }
 
-    Write-Host "  Sistema: " -NoNewline -ForegroundColor Yellow
-    Write-Host "$($si.ProductName) ($($si.DisplayVersion))" -ForegroundColor White
-    Write-Host ""
+    Write-StyledMessage -Type 'Info' -Text "Sistema: $($si.ProductName) ($($si.DisplayVersion))"
 
-    if ($si.BuildNumber -ge 22000) { Write-StyledMessage 'Success' "Sistema compatibile (Win11/10 recente)." }
-    elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage 'Success' "Sistema compatibile (Win10)." }
-    elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage 'Warning' "Windows 8.1: Compatibilità parziale." }
+    if ($si.BuildNumber -ge 22000) { Write-StyledMessage -Type 'Success' -Text "Sistema compatibile (Win11/10 recente)." }
+    elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage -Type 'Success' -Text "Sistema compatibile (Win10)." }
+    elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage -Type 'Warning' -Text "Windows 8.1: Compatibilità parziale." }
     else {
-        Write-Host ('*' * 65) -ForegroundColor Red
-        Write-Host (Center-Text "🤣 ERRORE CRITICO 🤣" 65) -ForegroundColor Red
-        Write-Host ('*' * 65) -ForegroundColor Red
-        Write-Host "`n  Davvero pensi che questo script possa fare qualcosa per questa versione?`n" -ForegroundColor Red
+        Write-StyledMessage -Type 'Error' -Text "$(Center-Text '🤣 ERRORE CRITICO 🤣' 65)"
+        Write-StyledMessage -Type 'Error' -Text "Davvero pensi che questo script possa fare qualcosa per questa versione?"
         Write-Host "  Vuoi rischiare? [Y/N]" -ForegroundColor Yellow
         if ((Read-Host) -notmatch '^[Yy]$') { exit }
     }
@@ -4982,7 +4977,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             # Output delle informazioni sul disco con colore appropriato
             Write-Host $displayString -ForegroundColor $diskColor -NoNewline
             Write-Host "" # Per una nuova riga dopo le informazioni sul disco
-            $blStatus = CheckBitlocker
+            $blStatus = Get-BitlockerStatus
             $blColor = 'Red'
             if ($blStatus -match 'Disattivato|Non configurato|Off') { $blColor = 'Green' }
             Write-Host "🔒 Stato Bitlocker: " -NoNewline -ForegroundColor White
@@ -5060,11 +5055,11 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             try {
                 if ($isMultiScript) {
                     # Esecuzione con soppressione riavvio individuale
-                    Invoke-Expression "$($scriptToRun.Name) -SuppressIndividualReboot"
+                    & ([scriptblock]::Create("$($scriptToRun.Name) -SuppressIndividualReboot"))
                 }
                 else {
                     # Esecuzione normale (singola selezione)
-                    Invoke-Expression $scriptToRun.Name
+                    & $ExecutionContext.InvokeCommand.GetCommand($scriptToRun.Name, 'Function')
                 }
                 $Global:ExecutionLog += @{ Name = $scriptToRun.Description; Success = $true }
             }
