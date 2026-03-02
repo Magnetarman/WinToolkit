@@ -153,7 +153,7 @@ function WinReinstallStore {
                 $null = New-Item -Path $AppConfig.Paths.Temp -ItemType Directory -Force -ErrorAction SilentlyContinue
 
                 $iwrParams = @{
-                    Uri             = $AppConfig.URLs.WingetMSIX
+                    Uri             = $AppConfig.URLs.WingetInstaller
                     OutFile         = $tempInstaller
                     UseBasicParsing = $true
                     ErrorAction     = 'Stop'
@@ -310,10 +310,10 @@ function WinReinstallStore {
 
                     Write-StyledMessage -Type 'Info' -Text "Esecuzione wsreset.exe per pulire la cache dello Store..."
                     $procParams = @{
-                        FilePath     = 'wsreset.exe'
-                        Wait         = $true
-                        WindowStyle  = 'Hidden'
-                        ErrorAction  = 'SilentlyContinue'
+                        FilePath    = 'wsreset.exe'
+                        Wait        = $true
+                        WindowStyle = 'Hidden'
+                        ErrorAction = 'SilentlyContinue'
                     }
                     Start-Process @procParams *>$null
 
