@@ -29,6 +29,11 @@
 - `WinRepairToolkit.ps1` Aggiornato.
   - [x] Aggiunto nuovo check per le funzioni addizionali Registrazione AppX (Client CBS), Registrazione AppX (UI Xaml CBS), Registrazione AppX (Client Core), in modo che vengano eseguite solo su sistemi interessati dalla problematica (Windows 11 24H2 e superiori).
 
+- `compiler.ps1` aggiornato.
+  - [x] Lo script ora accetta -StripComments dalla riga di comando o da pipeline CI/CD.
+  - [x] L'etichetta di $warningCount nel box di riepilogo è ora più descrittiva.
+  - [x] Blocco di assemblaggio potenziato. Adesso esegue una Validazione, StripComments e Logging injection. 
+
 
 ### V 2.6 - Debloat
 
