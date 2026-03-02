@@ -4,7 +4,7 @@
 </p>
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
-	<img src="https://img.shields.io/badge/version-2.5.1-red.svg?style=for-the-badge" alt="versione">
+	<img src="https://img.shields.io/badge/version-2.5.2-red.svg?style=for-the-badge" alt="versione">
 	<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
 	<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 	<img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main">
@@ -112,8 +112,8 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ## 📌 Changelog
 
-- [Leggi le modifiche introdotte.](/CHANGELOG.md)
-- [Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)
+- [Leggi le modifiche introdotte. (Changelog)](/CHANGELOG.md)
+- [Leggi la lista delle funzionalità in sviluppo. (To-Do)](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)
 
 ---
 ## 📽️ Parlano di WinToolkit
@@ -138,7 +138,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ## 🤔 F.A.Q. - Domande Frequenti
 
-### Perché usare WinToolkit?
+### Perché avviare WinToolkit?
 
 Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemente mantenere il tuo PC personale in perfette condizioni, WinToolkit ti permette di:
 
