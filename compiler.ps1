@@ -1,7 +1,9 @@
 # Script di compilazione per WinToolkit
 # Questo script legge i file .ps1 dalla cartella tool e li inietta nelle funzioni vuote di WinToolkit.ps1
 
-param()
+param(
+    [switch]$StripComments
+)
 
 # Configurazione colori per i messaggi
 function Write-StyledMessage {
@@ -213,7 +215,27 @@ foreach ($file in $toolFiles) {
                 }
             }
 
+            # Validazione firma funzione: avviso se il tool contiene 'function <Nome>' internamente
+            $hasInternalFunction = $fileLines | Select-String -Pattern "(?i)^\s*function\s+$([regex]::Escape($functionName))\b" -Quiet
+            if ($hasInternalFunction) {
+                Write-StyledMessage 'Warning' "Il tool '$functionName' contiene una dichiarazione interna 'function $functionName'."
+                $warningCount++
+            }
+
+            # Rimozione righe di commento se il flag -StripComments è attivo
+            if ($StripComments) {
+                $fileLines = $fileLines | Where-Object { $_ -notmatch '^\s*#' }
+            }
+
             $newLines += "function $functionName {"
+
+            # Iniezione automatica Initialize-ToolLogging se assente
+            $hasLogging = $fileLines | Select-String -Pattern "Initialize-ToolLogging" -Quiet
+            if (-not $hasLogging) {
+                $newLines += "    Initialize-ToolLogging"
+                Write-StyledMessage 'Info' "Iniettato Initialize-ToolLogging in '$functionName'"
+            }
+
             $newLines += $fileLines
             $newLines += "}"
             
@@ -264,10 +286,10 @@ else {
 }
 
 if ($warningCount -gt 0) {
-    Write-Host "║  ⚠️  Avvisi: $warningCount file vuoti" -ForegroundColor Yellow
+    Write-Host "║  ⚠️  Avvisi: $warningCount (file vuoti / funzioni interne / logging iniettato)" -ForegroundColor Yellow
 }
 else {
-    Write-Host "║  ✅ Avvisi: $warningCount file vuoti" -ForegroundColor Green
+    Write-Host "║  ✅ Avvisi: $warningCount" -ForegroundColor Green
 }
 
 if ($errorCount -gt 0) {
