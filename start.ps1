@@ -17,7 +17,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.2 (Build 6)"
+        Version = "Version 2.5.2 (Build 7)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -178,13 +178,6 @@ function Test-WingetFunctionality {
     }
 
     try {
-<<<<<<< remove-else
-        # Test download pacchetto leggero per verificare funzionalità
-        $result = Invoke-WingetCommand -Arguments "search Microsoft.PowerToys --accept-source-agreements --count 1"
-
-        if ($result.ExitCode -ne 0) {
-            Write-StyledMessage -Type Warning -Text "Winget presente ma non funzionante (Exit Code: $($result.ExitCode))."
-=======
         # Usa --version: locale, immediato, non richiede connessione internet
         $versionOutput = (& winget --version 2>$null) | Out-String
         if ($LASTEXITCODE -eq 0 -and $versionOutput -match 'v\d+\.\d+') {
@@ -193,12 +186,8 @@ function Test-WingetFunctionality {
         }
         else {
             Write-StyledMessage -Type Warning -Text "Winget presente ma non risponde correttamente (ExitCode: $LASTEXITCODE)."
->>>>>>> Dev
             return $false
         }
-
-        Write-StyledMessage -Type Success -Text "✅ Winget operativo e funzionante. aaa"
-        return $true
     }
     catch {
         Write-StyledMessage -Type Warning -Text "Errore durante test Winget: $($_.Exception.Message)"
@@ -861,7 +850,7 @@ function Invoke-WinToolkitSetup {
 
     # Cattura il risultato dell'installazione Windows Terminal
     $wtInstalled = Install-WindowsTerminalApp
-    
+
     # Imposta Windows Terminal come terminale predefinito se installato
     # Verifica assoluta che wt.exe risponda prima di modificare il registro
     $isWtExecutable = [bool](Get-Command 'wt.exe' -ErrorAction SilentlyContinue)
@@ -890,7 +879,7 @@ function Invoke-WinToolkitSetup {
     elseif ($wtInstalled) {
         Write-StyledMessage -Type Warning -Text "⚠️ Terminale installato ma wt.exe non ancora disponibile nel PATH. Modifica registro saltata per sicurezza."
     }
-    
+
     Install-PspEnvironment
     New-ToolkitDesktopShortcut
 
