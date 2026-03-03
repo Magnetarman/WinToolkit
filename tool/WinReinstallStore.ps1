@@ -4,7 +4,7 @@ function WinReinstallStore {
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
 
     .DESCRIPTION
-        Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti.
+        Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI senza output bloccanti in modo completo.
     #>
     [CmdletBinding()]
     param(
