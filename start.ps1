@@ -17,7 +17,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.2 (Build 7)"
+        Version = "Version 2.5.2 (Build 8)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -328,14 +328,6 @@ function Install-WingetPackage {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Info -Text "Reset sorgenti Winget..."
             & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
-
-            # Pulizia profonda del database SQLite locale (causa principale di blocchi e Access Violation)
-            Write-StyledMessage -Type Info -Text "Pulizia profonda database WinGet locale..."
-            $wingetDbFolder = "$env:LOCALAPPDATA\Packages\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState"
-            if (Test-Path $wingetDbFolder) {
-                Get-ChildItem -Path $wingetDbFolder -Filter 'default.db*' -Recurse -ErrorAction SilentlyContinue |
-                    Remove-Item -Force -ErrorAction SilentlyContinue *>$null
-            }
         }
 
         # Fallback: Installazione dipendenze NuGet
