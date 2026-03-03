@@ -17,7 +17,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.2 (Build 9)"
+        Version = "Version 2.5.2 (Build 10)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -89,14 +89,13 @@ function Write-StyledMessage {
 }
 
 function Stop-InterferingProcess {
+    # Lista mirata dei processi che bloccano effettivamente l'installazione Appx
     $interferingProcesses = @(
         "WinStore.App",
         "wsappx",
         "AppInstaller",
         "Microsoft.WindowsStore",
         "Microsoft.DesktopAppInstaller",
-        "RuntimeBroker",
-        "dllhost",
         "winget",
         "WindowsPackageManagerServer"
     )
@@ -366,16 +365,20 @@ function Install-NuGetIfRequired {
 function Invoke-ForceCloseWinget {
     <#
     .SYNOPSIS
-    Closes all processes that may interfere with winget installation.
-    Enhanced version based on asheroto's approach.
+    Closes the processes that actually block Appx installation.
+    Safe approach that avoids killing system-critical processes.
     #>
     Write-StyledMessage -Type Info -Text "Chiusura processi interferenti..."
     
+    # Lista mirata dei processi che bloccano effettivamente l'installazione Appx
     $interferingProcesses = @(
-        "WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore",
-        "Microsoft.DesktopAppInstaller", "RuntimeBroker", "dllhost", "winget",
-        "WindowsPackageManagerServer", "WindowsTerminal", "OpenConsole",
-        "powershell", "pwsh", "conhost"
+        "WinStore.App",
+        "wsappx",
+        "AppInstaller",
+        "Microsoft.WindowsStore",
+        "Microsoft.DesktopAppInstaller",
+        "winget",
+        "WindowsPackageManagerServer"
     )
 
     foreach ($procName in $interferingProcesses) {
