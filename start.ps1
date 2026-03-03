@@ -17,12 +17,11 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.2 (Build 5)"
+        Version = "Version 2.5.2 (Build 6)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
         WingetMSIX              = "https://aka.ms/getwinget"
-        GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
         OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
         PowerShellProfile       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
@@ -254,34 +253,34 @@ function Install-WingetCore {
             Write-StyledMessage -Type Success -Text "Visual C++ Redistributable già presente."
         }
 
-        # 2. Dipendenze (UI.Xaml, VCLibs) — Download diretto per architettura (Enterprise-Ready)
-        Write-StyledMessage -Type Info -Text "Download dipendenze Winget..."
-
-        # Rilevamento architettura — normalizza AMD64 → x64
-        $sysArch = $env:PROCESSOR_ARCHITECTURE.ToLower()
-        if ($sysArch -eq 'amd64') { $sysArch = 'x64' }
-
-        $dependencies = @(
-            "https://aka.ms/Microsoft.VCLibs.$sysArch.14.00.Desktop.appx",
-            "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.$sysArch.appx"
-        )
-
-        foreach ($depUrl in $dependencies) {
-            $depFileName = Split-Path $depUrl -Leaf
-            $depFilePath = Join-Path $tempDir $depFileName
-            Write-StyledMessage -Type Info -Text "Installazione dipendenza: $depFileName..."
+        # 2. Dipendenze (UI.Xaml, VCLibs) — Estrazione dal pacchetto ufficiale (Metodo Sicuro)
+        Write-StyledMessage -Type Info -Text "Download dipendenze Winget dal repository ufficiale..."
+        $depUrl = Get-WingetDownloadUrl -Match 'DesktopAppInstaller_Dependencies.zip'
+        if ($depUrl) {
+            $depZip = Join-Path $tempDir "dependencies.zip"
             try {
                 $iwrDepParams = @{
                     Uri             = $depUrl
-                    OutFile         = $depFilePath
+                    OutFile         = $depZip
                     UseBasicParsing = $true
                     ErrorAction     = 'Stop'
                 }
                 Invoke-WebRequest @iwrDepParams
-                Add-AppxPackage -Path $depFilePath -ForceApplicationShutdown -ErrorAction SilentlyContinue
+
+                # Estrazione e installazione mirata per architettura
+                $extractPath = Join-Path $tempDir "deps"
+                Expand-Archive -Path $depZip -DestinationPath $extractPath -Force
+
+                $archPattern = if ([Environment]::Is64BitOperatingSystem) { "x64|ne" } else { "x86|ne" }
+                $appxFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $archPattern }
+
+                foreach ($file in $appxFiles) {
+                    Write-StyledMessage -Type Info -Text "Installazione dipendenza: $($file.Name)..."
+                    Add-AppxPackage -Path $file.FullName -ErrorAction SilentlyContinue -ForceApplicationShutdown
+                }
             }
             catch {
-                Write-StyledMessage -Type Warning -Text "Impossibile scaricare o installare: $depFileName. Errore: $($_.Exception.Message)"
+                Write-StyledMessage -Type Warning -Text "Impossibile estrarre o installare le dipendenze dallo zip ufficiale. Errore: $($_.Exception.Message)"
             }
         }
 
@@ -330,11 +329,11 @@ function Install-WingetPackage {
             Write-StyledMessage -Type Info -Text "Reset sorgenti Winget..."
             & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
 
-            # Pulizia profonda del database SQLite locale (causa principale di blocchi)
+            # Pulizia profonda del database SQLite locale (causa principale di blocchi e Access Violation)
             Write-StyledMessage -Type Info -Text "Pulizia profonda database WinGet locale..."
             $wingetDbFolder = "$env:LOCALAPPDATA\Packages\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState"
             if (Test-Path $wingetDbFolder) {
-                Get-ChildItem -Path $wingetDbFolder -Filter 'default.db' -Recurse -ErrorAction SilentlyContinue |
+                Get-ChildItem -Path $wingetDbFolder -Filter 'default.db*' -Recurse -ErrorAction SilentlyContinue |
                     Remove-Item -Force -ErrorAction SilentlyContinue *>$null
             }
         }
@@ -405,73 +404,25 @@ function Install-WingetPackage {
     }
 }
 
-function Install-GitPackage {
-    Write-StyledMessage -Type Info -Text "Verifica installazione Git..."
+function Test-WingetDeepValidation {
+    Write-StyledMessage -Type Info -Text "🔍 Esecuzione test profondo di Winget (ricerca pacchetti in rete)..."
 
-    $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
-
-    if (Get-Command git -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -Type Success -Text "Git già installato."
-        return $true
-    }
-
-    Write-StyledMessage -Type Info -Text "Installazione Git..."
-
-    # 1. Tentativo via winget (Prioritario)
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        $result = Invoke-WingetCommand -Arguments "install Git.Git --accept-source-agreements --accept-package-agreements --silent"
+    try {
+        # Testa connettività ai repository, integrità del DB locale e parser Winget
+        # senza scaricare né installare nulla
+        $result = Invoke-WingetCommand -Arguments "search --id Git.Git --accept-source-agreements" -TimeoutSeconds 30
 
         if ($result.ExitCode -eq 0) {
-            Start-Sleep 3
-            $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
-
-            if (Get-Command git -ErrorAction SilentlyContinue) {
-                Write-StyledMessage -Type Success -Text "Git installato via winget."
-                return $true
-            }
-        }
-    }
-
-    # 2. Fallback: download diretto da GitHub
-    try {
-        Write-StyledMessage -Type Info -Text "Fallback: Download Git da GitHub..."
-        $release = Invoke-RestMethod -Uri $script:AppConfig.URLs.GitRelease -UseBasicParsing
-        $asset = $release.assets | Where-Object { $_.name -like "*64-bit.exe" } | Select-Object -First 1
-
-        if (-not $asset) {
-            Write-StyledMessage -Type Error -Text "Asset Git 64-bit non trovato."
-            return $false
-        }
-
-        $tempDir = $script:AppConfig.Paths.Temp
-        if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
-        $installerPath = Join-Path $tempDir $asset.name
-
-        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -UseBasicParsing
-
-        Write-StyledMessage -Type Info -Text "Esecuzione installer Git..."
-
-        $procParams = @{
-            FilePath     = $installerPath
-            ArgumentList = @("/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS")
-            Wait         = $true
-            PassThru     = $true
-        }
-        $process = Start-Process @procParams
-
-        Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
-
-        if ($process.ExitCode -eq 0) {
-            $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
-            Write-StyledMessage -Type Success -Text "Git installato con successo."
+            Write-StyledMessage -Type Success -Text "✅ Test profondo superato: Winget comunica correttamente con i repository."
             return $true
         }
-
-        Write-StyledMessage -Type Error -Text "Installazione fallita. Codice: $($process.ExitCode)"
-        return $false
+        else {
+            Write-StyledMessage -Type Warning -Text "⚠️ Test profondo fallito: Winget non riesce a interrogare i repository (ExitCode: $($result.ExitCode))."
+            return $false
+        }
     }
     catch {
-        Write-StyledMessage -Type Error -Text "Errore installazione Git: $($_.Exception.Message)"
+        Write-StyledMessage -Type Error -Text "❌ Errore durante il test profondo di Winget: $($_.Exception.Message)"
         return $false
     }
 }
@@ -862,8 +813,12 @@ function Invoke-WinToolkitSetup {
             Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
         }
 
-        # Cattura il risultato dell'installazione Git
-        $gitInstalled = Install-GitPackage
+        # Validazione profonda di Winget: verifica connettività ai repository e integrità del DB
+        $wingetDeepCheck = Test-WingetDeepValidation
+
+        if (-not $wingetDeepCheck) {
+            Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire a causa di problemi di rete o del repository."
+        }
 
         if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
             if (Install-PowerShellCore) {

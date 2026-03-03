@@ -25,6 +25,10 @@
   - [x] Nuova Update-EnvironmentPath (L111): ricarica $env:Path da Machine+User per rilevare winget appena installato senza riavviare lo script.
   - [x] Test-WingetFunctionality più veloce: sostituisce winget search (lento, richiede internet) con winget --version (locale, istantaneo).
   - [x] Fix bug critico $tempDir: nel fallback MSIXBundle di Install-WingetPackage la variabile non esisteva in quello scope — ora usa $AppConfig.Paths.Temp con splatting
+  - [x] Rafforzamento Install-WingetCore.
+  - [x] Reset profondo di WinGet.
+  - [x] Potenziamento Gestione del Terminale Predefinito.
+  - [x] Ottimizzazione Path.
   - [x] PATH refresh nell'orchestrazione: Update-EnvironmentPath chiamata prima del check iniziale e dopo ogni tentativo di install — elimina i falsi negativi post-installazione.
   - [x] Fix Write-Host nel countdown reboot → Write-StyledMessage -Type Warning.
   - [x] Aggionato Show-Header [[#40](https://github.com/MagnetarMan/WinToolkit/issues/40) [@pomodori92]](https://github.com/pomodori92).
