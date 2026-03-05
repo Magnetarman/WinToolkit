@@ -29,11 +29,11 @@ Per contribuire al progetto WinToolkit, è necessario disporre di:
 
 ### Regole di Branching
 
-> **⚠️ IMPORTANTE: Regola Limitazione sul Branching**
-
-- **Tutte le modifiche DEVONO essere effettuate sul branch `DEV`**
-- Le Pull Request verso il branch `main` verranno **chiuse immediatamente** senza preavviso
-- Il branch `DEV` è l'unico branch accettato per contributi esterni
+> [!WARNING]
+> **Regola Limitazione sul Branching**
+> - **Tutte le modifiche DEVONO essere effettuate sul branch `DEV`**
+> - Le Pull Request verso il branch `main` verranno **chiuse immediatamente** senza preavviso
+> - Il branch `DEV` è l'unico branch accettato per contributi esterni
 
 ---
 
@@ -50,7 +50,8 @@ WinToolkit utilizza una struttura modulare ben definita:
 
 ### ⚠️ DIVIETO ASSOLUTO: Non Modificare Mai `WinToolkit.ps1`
 
-> **WARNING: File Generato Automaticamente**
+> [!WARNING]
+> **File Generato Automaticamente**
 >
 > Il file `WinToolkit.ps1` **NON deve mai essere modificato manualmente**. Questo file è il risultato di una **pipeline automatizzata** GitHub Actions che:
 >
@@ -143,6 +144,7 @@ WinToolkit/
 
 #### Cartella `/tool/` - Moduli Funzionali
 
+> [!Note]
 > **NOTA: Area Principale di Sviluppo**
 >
 > La cartella `/tool/` contiene tutti i moduli funzionali del toolkit. Ogni file PowerShell rappresenta una funzionalità specifica che non può essere sviluppata e testata indipendentemente.
@@ -277,6 +279,7 @@ git checkout -b fix/nome-del-fix
 
 ### Step 5: Effettua le Modifiche
 
+> [!Note]
 > **NOTA: Ricorda la Logica di Sviluppo**
 >
 > - Modifica gli script in `/tool/*.ps1` per le funzionalità.
