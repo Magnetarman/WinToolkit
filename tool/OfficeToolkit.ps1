@@ -186,12 +186,10 @@ function OfficeToolkit {
                 FilePath         = $setupPath
                 ArgumentList     = $arguments
                 WorkingDirectory = $TempDir
+                Wait             = $true
             }
+            Write-StyledMessage Info "⏳ Installazione in corso, attendere il completamento in background..."
             Start-Process @procParams
-
-            Write-StyledMessage Info "⏳ Attesa completamento installazione..."
-            Write-Host "💡 Premi INVIO quando l'installazione è completata..." -ForegroundColor Yellow
-            Read-Host | Out-Null
 
             # Nuove configurazioni post-installazione: Disabilitazione Telemetria e Notifiche Crash
             Write-StyledMessage Info "⚙️ Configurazione post-installazione Office..."
@@ -245,59 +243,37 @@ function OfficeToolkit {
             Write-StyledMessage Success "$cleanedCount cache eliminate"
         }
 
-        Write-StyledMessage Info "🎯 Tipo di riparazione:"
-        Write-Host "  [1] 🚀 Riparazione rapida (offline)" -ForegroundColor Green
-        Write-Host "  [2] 🌐 Riparazione completa (online)" -ForegroundColor Yellow
-
-        do {
-            $choice = Read-Host "Scelta [1-2]"
-        } while ($choice -notin @('1', '2'))
+        $officeClient = "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+        if (-not (Test-Path $officeClient)) {
+            $officeClient = "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+        }
 
         try {
-            $repairType = if ($choice -eq '1') { 'QuickRepair' } else { 'FullRepair' }
-            $repairName = if ($choice -eq '1') { 'rapida' } else { 'completa' }
-
-            Write-StyledMessage Info "🔧 Avvio riparazione $repairName..."
-            $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=$repairType DisplayLevel=True"
-
-            $officeClient = "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
-            if (-not (Test-Path $officeClient)) {
-                $officeClient = "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
-            }
-
-            $procParams = @{
+            Write-StyledMessage Info "🔧 Avvio riparazione rapida (offline)..."
+            $argumentsQuick = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=QuickRepair DisplayLevel=True"
+            $procParamsQuick = @{
                 FilePath     = $officeClient
-                ArgumentList = $arguments
+                ArgumentList = $argumentsQuick
+                Wait         = $true
             }
-            Start-Process @procParams
+            Start-Process @procParamsQuick
 
-            Write-StyledMessage Info "⏳ Attesa completamento riparazione..."
-            Write-Host "💡 Premi INVIO quando la riparazione è completata..." -ForegroundColor Yellow
-            Read-Host | Out-Null
-
-            if (Get-UserConfirmation "✅ Riparazione completata con successo?" 'Y') {
+            if (Get-UserConfirmation "✅ La riparazione rapida ha risolto il problema?" 'Y') {
                 Write-StyledMessage Success "🎉 Riparazione Office completata!"
                 return $true
             }
             else {
-                Write-StyledMessage Warning "Riparazione non completata correttamente"
-                if ($choice -eq '1') {
-                    if (Get-UserConfirmation "🌐 Tentare riparazione completa online?" 'Y') {
-                        Write-StyledMessage Info "🌐 Avvio riparazione completa..."
-                        $arguments = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
-                        $procParams = @{
-                            FilePath     = $officeClient
-                            ArgumentList = $arguments
-                        }
-                        Start-Process @procParams
-
-                        Write-Host "💡 Premi INVIO quando la riparazione completa è terminata..." -ForegroundColor Yellow
-                        Read-Host | Out-Null
-
-                        return Get-UserConfirmation "✅ Riparazione completa riuscita?" 'Y'
-                    }
+                Write-StyledMessage Info "🌐 Avvio riparazione completa (online)..."
+                $argumentsFull = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
+                $procParamsFull = @{
+                    FilePath     = $officeClient
+                    ArgumentList = $argumentsFull
+                    Wait         = $true
                 }
-                return $false
+                Start-Process @procParamsFull
+
+                Write-StyledMessage Success "🎉 Riparazione Office completata!"
+                return $true
             }
         }
         catch {
@@ -601,12 +577,7 @@ function OfficeToolkit {
     }
 
     function Start-OfficeUninstall {
-        Write-StyledMessage Warning "🗑️ Rimozione completa Microsoft Office"
-
-        if (-not (Get-UserConfirmation "❓ Procedere con la rimozione completa?")) {
-            Write-StyledMessage Info "❌ Operazione annullata"
-            return $false
-        }
+        Write-StyledMessage Warning "🗑️ Avvio rimozione completa Microsoft Office..."
 
         Stop-OfficeProcesses
 
@@ -623,10 +594,7 @@ function OfficeToolkit {
             }
             default {
                 Write-StyledMessage Info "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti..."
-                Write-StyledMessage Warning "Questo metodo rimuove file e registro direttamente"
-                if (Get-UserConfirmation "Confermi rimozione diretta?" 'Y') {
-                    $success = Remove-OfficeDirectly
-                }
+                $success = Remove-OfficeDirectly
             }
         }
 
