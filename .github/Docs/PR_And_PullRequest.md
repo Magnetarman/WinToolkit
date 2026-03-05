@@ -64,28 +64,28 @@ WinToolkit utilizza una struttura modulare ben definita:
 ### Flusso di Lavoro Corretto
 
 ```
-/tool/              → Modificare gli script individuali
+/tool/                   → Modificare gli script individuali
 WinToolkit-template.ps1  → Modificare variabili globali
-WinToolkit.ps1     → NON TOCCARE MAI (generato automaticamente)
+WinToolkit.ps1           → NON TOCCARE MAI (generato automaticamente)
 ```
 
 ---
 
 ## Struttura del Progetto
 
-### Panoramica dell'Alberatura
+### Panoramica
 
 WinToolkit è organizzato in una struttura modulare che facilita lo sviluppo, la manutenzione e la distribuzione. Di seguito viene descritta l'organizzazione completa delle cartelle e dei file.
 
-### Alberatura Completa
+### Albero Completo
 
 ```
 WinToolkit/
-├── .github/                    # Configurazione GitHub (CI/CD, Actions, Scripts)
-│   ├── Docs/                   # Documentazione del progetto
-│   ├── linters/                # Configurazione linter PowerShell
-│   ├── scripts/                # Script di automazione build e test
-│   └── workflows/              # Pipeline CI/CD GitHub Actions
+├── .github/                              # Configurazione GitHub (CI/CD, Actions, Scripts)
+│   ├── Docs/                             # Documentazione del progetto
+│   ├── linters/                          # Configurazione linter PowerShell
+│   ├── scripts/                          # Script di automazione build e test
+│   └── workflows/                        # Pipeline CI/CD GitHub Actions
 │
 ├── asset/                                # Risorse statiche e strumenti esterni
 │   ├── png/                              # Icone e immagini UI (formato emoji Unicode)
@@ -145,7 +145,7 @@ WinToolkit/
 
 > **NOTA: Area Principale di Sviluppo**
 >
-> La cartella `/tool/` contiene tutti i moduli funzionali del toolkit. Ogni file PowerShell rappresenta una funzionalità specifica che può essere sviluppata e testata indipendentemente.
+> La cartella `/tool/` contiene tutti i moduli funzionali del toolkit. Ogni file PowerShell rappresenta una funzionalità specifica che non può essere sviluppata e testata indipendentemente.
 
 | File                     | Descrizione                                   |
 | ------------------------ | --------------------------------------------- |
@@ -159,7 +159,7 @@ WinToolkit/
 | `WinExportLog.ps1`       | Esportazione log per debug                    |
 | `WinReinstallStore.ps1`  | Reinstallazione Microsoft Store               |
 | `WinRepairToolkit.ps1`   | Strumenti di riparazione sistema              |
-| `WinUpdateReset.ps1`     | Reset Windows Update & Wing                   |
+| `WinUpdateReset.ps1`     | Reset Windows Update & Winget                 |
 
 #### Cartella `/asset/` - Risorse Esterne
 
@@ -189,19 +189,19 @@ Contiene eseguibili e strumenti di terze parti utilizzati dal toolkit. Questi fi
 
 Ogni commit deve seguire questa struttura:
 
-- **Descrizione in elenco puntato** delle modifiche effettuate
-- **Chiara e concisa**: massimo 72 caratteri per la prima riga
-- **In italiano** per mantenere coerenza con il progetto
+- **Descrizione in elenco puntato** delle modifiche effettuate.
+- **Chiara e concisa**: massimo 72 caratteri per la prima riga.
+- **In italiano** per mantenere coerenza con il progetto.
 
 ### Esempi di Commit Validi
 
 ```bash
 # Esempi di commit corretti
-- Aggiunta funzione di esportazione log in WinExportLog.ps1
-- Corretto bug sul parsing delle variabili d'ambiente
-- Implementato supporto per Windows 11 24H2
-- Ottimizzato algoritmo di pulizia in WinCleaner.ps1
-- Aggiornata documentazione delle variabili globali
+- Aggiunta funzione di esportazione log in WinExportLog.ps1.
+- Corretto bug sul parsing delle variabili d'ambiente.
+- Implementato supporto per Windows 11 24H2.
+- Ottimizzato algoritmo di pulizia in `WinCleaner.ps1`.
+- Aggiornata documentazione delle variabili globali.
 ```
 
 ---
@@ -218,12 +218,12 @@ Ogni commit deve seguire questa struttura:
 
 Quando segnali un bug, includi:
 
-1. **Descrizione chiara** del problema
-2. **Passaggi per riprodurre** il bug
-3. **Output atteso** vs **output effettivo**
-4. **File .zip dei log** (se applicabile)
-5. **Versione del sistema operativo** Windows in uso
-6. **Versione di WinToolkit** utilizzata
+1. **Descrizione chiara** del problema.
+2. **Passaggi per riprodurre** il bug.
+3. **Output atteso** vs **output effettivo**.
+4. **File .zip dei log** (se applicabile).
+5. **Versione del sistema operativo** Windows in uso.
+6. **Versione di WinToolkit** utilizzata.
 
 ---
 
@@ -240,8 +240,8 @@ Il progetto utilizza due categorie principali per la gestione delle task:
 
 ### Criteri di Assegnazione
 
-- **Versione in sviluppo**: Bug critici, hotfix, piccole migliorie che possono essere implementate rapidamente
-- **Backlog**: Feature request complesse, refactoring significativi, discussioni che richiedono valutazione approfondita
+- **Versione in sviluppo**: Bug critici, hotfix, piccole migliorie che possono essere implementate rapidamente.
+- **Backlog**: Feature request complesse, refactoring significativi, discussioni che richiedono valutazione approfondita.
 
 ---
 
@@ -278,9 +278,9 @@ git checkout -b fix/nome-del-fix
 
 > **NOTA: Ricorda la Logica di Sviluppo**
 >
-> - Modifica gli script in `/tool/*.ps1` per le funzionalità
-> - Modifica `WinToolkit-template.ps1` per le variabili globali
-> - **NON toccare mai `WinToolkit.ps1`**
+> - Modifica gli script in `/tool/*.ps1` per le funzionalità.
+> - Modifica `WinToolkit-template.ps1` per le variabili globali.
+> - **NON toccare mai `WinToolkit.ps1`**.
 
 ### Step 6: Committa le Modifiche
 
@@ -296,19 +296,19 @@ git commit -m "- Descrizione chiara della modifica
 git push origin fix/nome-del-fix
 ```
 
-1. Vai su GitHub nella **tua** repository forked
-2. Clicca su **"Compare & pull request"**
-3. Assicurati che il branch base sia **`DEV`** (non `main`!)
-4. Compila il template della PR con tutti i dettagli richiesti
-5. Clicca **"Create pull request"**
+1. Vai su GitHub nella **tua** repository forked.
+2. Clicca su **"Compare & pull request"**.
+3. Assicurati che il branch base sia **`DEV`** (non `main`!).
+4. Compila il template della PR con tutti i dettagli richiesti.
+5. Clicca **"Create pull request"**.
 
 ---
 
 ## Risorse Aggiuntive
 
-- **Documentazione Ufficiale**: [README.md](./README.md)
-- **Changelog**: [CHANGELOG.md](./CHANGELOG.md)
-- **Issue Tracker**: [Issues](https://github.com/MagnetarMan/WinToolkit/issues)
+- **Documentazione Ufficiale**: [README.md](./README.md).
+- **Changelog**: [CHANGELOG.md](./CHANGELOG.md).
+- **Issue Tracker**: [Issues](https://github.com/MagnetarMan/WinToolkit/issues).
 
 ---
 
