@@ -210,7 +210,8 @@ Ogni commit deve seguire questa struttura:
 
 ### Procedura di Segnalazione Bug
 
-> **NOTA: Informazioni Utili per la Risoluzione**
+> [!Note]
+> **Informazioni Utili per la Risoluzione**
 >
 > In caso di bug fix, è **caldamente consigliato** allegare il file `.zip` dei log ottenuto tramite la funzione **"Export Log"** del toolkit. Questo accelera significativamente il processo di debug e risoluzione.
 
@@ -312,6 +313,6 @@ git push origin fix/nome-del-fix
 
 ---
 
-> **Grazie per contribuire a WinToolkit!**
->
-> Il tuo contributo è fondamentale per migliorare questo strumento per tutta la comunità.
+## **Grazie per contribuire a WinToolkit!**
+
+Il tuo contributo è fondamentale per migliorare questo strumento per tutta la comunità.
