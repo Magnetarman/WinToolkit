@@ -1,10 +1,19 @@
-# GitHub Actions Workflow per Continuous Integration con Test PowerShell
-# Questo workflow si attiva solo quando vengono modificati file .ps1 nella cartella /tool
-# Compila automaticamente WinToolkit.ps1 e testa il risultato prima di committare
+# =============================================================================
+# WinToolkit Enterprise CI/CD Pipeline
+# =============================================================================
+# Pipeline modulare per la compilazione, test e rilascio di WinToolkit.ps1
+#
+# Job structure:
+#   1. Linting    -> Analisi statica del codice sorgente
+#   2. Build      -> Compilazione, test e statistiche compressione
+#   3. Release    -> Commit, tag e GitHub Release
+# =============================================================================
 
-name: CI_UpdateWinToolkit_Dev
+name: CI_WinToolkit_Enterprise
 
-# Configurazione del trigger: si attiva solo su modifiche a file .ps1 nella cartella /tool
+# ---------------------------------------------------------------------------
+# TRIGGER
+# ---------------------------------------------------------------------------
 on:
   push:
     branches: [Dev]
@@ -13,572 +22,297 @@ on:
       - "WinToolkit-template.ps1"
       - "compiler.ps1"
 
-# Definizione dei job del workflow
+# ---------------------------------------------------------------------------
+# CONCURRENCY - Previene build simultanee sulla stessa branch
+# ---------------------------------------------------------------------------
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ---------------------------------------------------------------------------
+# JOB 1: LINTING - Analisi statica del codice
+# ---------------------------------------------------------------------------
 jobs:
-  # Job principale che gestisce compilazione, test e commit automatico
-  compile_test_and_commit:
-    # Esecuzione su macchina virtuale Windows (ultima versione stabile)
+  linting:
+    name: Linting
     runs-on: windows-latest
 
-    # Configurazione dei permessi necessari per il workflow
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PowerShell
+        shell: pwsh
+        run: |
+          Write-Host "PowerShell Version:" -ForegroundColor Cyan
+          $PSVersionTable
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Write-Host "Installing PSScriptAnalyzer..." -ForegroundColor Yellow
+            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+          } else {
+            Write-Host "PSScriptAnalyzer already installed" -ForegroundColor Green
+          }
+
+      - name: Run PSScriptAnalyzer on tool files
+        id: lint_tool
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "  ANALISI STATICA FILE /TOOL" -ForegroundColor Cyan
+          Write-Host "========================================" -ForegroundColor Cyan
+
+          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
+          $results = @()
+          $hasErrors = $false
+
+          $toolFiles = Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue
+
+          foreach ($file in $toolFiles) {
+            Write-Host "`nAnalyzing: $($file.Name)" -ForegroundColor Yellow
+
+            $analysis = Invoke-ScriptAnalyzer -Path $file.FullName -Settings $settingsPath -Severity Error,Warning
+
+            if ($analysis) {
+              foreach ($issue in $analysis) {
+                Write-Host "  ❌ $($issue.Severity): $($issue.RuleName)" -ForegroundColor Red
+                Write-Host "     $($issue.Message)" -ForegroundColor Gray
+                $results += [PSCustomObject]@{
+                  File = $file.Name
+                  Line = $issue.Line
+                  Severity = $issue.Severity
+                  Rule = $issue.RuleName
+                  Message = $issue.Message
+                }
+                if ($issue.Severity -eq 'Error') {
+                  $hasErrors = $true
+                }
+              }
+            } else {
+              Write-Host "  ✅ OK" -ForegroundColor Green
+            }
+          }
+
+          # Salva i risultati per il prossimo job
+          $results | ConvertTo-Json -Depth 3 | Out-File -FilePath "$env:TEMP\lint_results.json" -Encoding utf8
+
+          if ($hasErrors) {
+            Write-Host "`n❌ Errori di linting rilevati!" -ForegroundColor Red
+            exit 1
+          } else {
+            Write-Host "`n✅ Linting completato senza errori" -ForegroundColor Green
+          }
+
+      - name: Run PSScriptAnalyzer on template
+        id: lint_template
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "  ANALISI STATICA TEMPLATE" -ForegroundColor Cyan
+          Write-Host "========================================" -ForegroundColor Cyan
+
+          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
+
+          Write-Host "`nAnalyzing: WinToolkit-template.ps1" -ForegroundColor Yellow
+          $analysis = Invoke-ScriptAnalyzer -Path "WinToolkit-template.ps1" -Settings $settingsPath -Severity Error,Warning
+
+          if ($analysis) {
+            foreach ($issue in $analysis) {
+              Write-Host "  $($issue.Severity): $($issue.RuleName)" -ForegroundColor $(if($issue.Severity -eq 'Error'){'Red'}else{'Yellow'})
+              Write-Host "     $($issue.Message)" -ForegroundColor Gray
+            }
+            $hasErrors = $analysis | Where-Object { $_.Severity -eq 'Error' }
+            if ($hasErrors) {
+              Write-Host "`n❌ Errori di linting nel template!" -ForegroundColor Red
+              exit 1
+            }
+          } else {
+            Write-Host "  ✅ OK" -ForegroundColor Green
+          }
+
+      - name: Check for syntax errors in compiler
+        id: lint_compiler
+        shell: pwsh
+        run: |
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "  ANALISI SINTASSI COMPILER" -ForegroundColor Cyan
+          Write-Host "========================================" -ForegroundColor Cyan
+
+          $content = Get-Content -Raw -Path "compiler.ps1" -ErrorAction Stop
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
+
+          if ($parseErrors.Count -gt 0) {
+            Write-Host "❌ Errori di sintassi in compiler.ps1:" -ForegroundColor Red
+            foreach ($error in $parseErrors) {
+              Write-Host "  Linea $($error.Extent.StartLineNumber): $($error.Message)" -ForegroundColor Red
+            }
+            exit 1
+          } else {
+            Write-Host "✅ Sintassi compiler.ps1 OK" -ForegroundColor Green
+          }
+
+  # ---------------------------------------------------------------------------
+  # JOB 2: BUILD & TEST - Compilazione e validazione
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build & Test
+    runs-on: windows-latest
+    needs: linting
+
     permissions:
       contents: write
       actions: read
 
-    # Definizione dei passi sequenziali del job
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      source_kb: ${{ steps.build.outputs.source_kb }}
+      output_kb: ${{ steps.build.outputs.output_kb }}
+      reduction_percent: ${{ steps.build.outputs.reduction_percent }}
+      lines_removed: ${{ steps.build.outputs.lines_removed }}
+      tests_passed: ${{ steps.test.outputs.tests_passed }}
+
     steps:
-      # Step 1: Checkout del codice sorgente con fetch completo per analizzare i commit
-      - name: Checkout del repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      # Step 2: Verifica se ci sono modifiche rilevanti ai file PowerShell
-      - name: Verifica modifiche rilevanti
-        id: check_changes
-        shell: pwsh
-        run: |
-          Write-Host "🔍 VERIFICA MODIFICHE RILEVANTI" -ForegroundColor Cyan
-          Write-Host "=" * 60 -ForegroundColor Yellow
-
-          # Lista dei file che dovrebbero triggerare il workflow
-          $relevantPaths = @(
-            "tool/*.ps1",
-            "WinToolkit-template.ps1",
-            "compiler.ps1"
-          )
-
-          # Ottieni i file modificati nell'ultimo commit
-          $changedFiles = git diff --name-only HEAD~1 HEAD
-
-          if ($changedFiles.Count -eq 0) {
-            Write-Host "ℹ️ Nessun file modificato nel commit corrente" -ForegroundColor Yellow
-            Write-Host "✅ Workflow completato senza azioni necessarie" -ForegroundColor Green
-            exit 0
-          }
-
-          Write-Host "📋 File modificati nell'ultimo commit:" -ForegroundColor Green
-          $changedFiles | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
-
-          # Verifica se almeno uno dei file modificati è rilevante
-          $hasRelevantChanges = $false
-          foreach ($file in $changedFiles) {
-            foreach ($pattern in $relevantPaths) {
-              if ($file -like $pattern) {
-                $hasRelevantChanges = $true
-                break
-              }
-            }
-            if ($hasRelevantChanges) { break }
-          }
-
-          if (-not $hasRelevantChanges) {
-            Write-Host "ℹ️ Nessuna modifica rilevante per questo workflow" -ForegroundColor Yellow
-            Write-Host "✅ Workflow completato senza azioni necessarie" -ForegroundColor Green
-            exit 0
-          }
-
-          Write-Host "✅ Modifiche rilevanti rilevate - procedo con compilazione e test" -ForegroundColor Green
-          Write-Output "has_relevant_changes=true" >> $env:GITHUB_OUTPUT
-
-      # Step 3: Configurazione ambiente PowerShell
       - name: Setup PowerShell
         shell: pwsh
         run: |
-          Write-Host "🔧 CONFIGURAZIONE AMBIENTE POWERSHELL" -ForegroundColor Cyan
+          Write-Host "PowerShell Version:" -ForegroundColor Cyan
           $PSVersionTable
-          Write-Host "✅ PowerShell configurato" -ForegroundColor Green
 
-      # Step 3b: Test sintassi file sorgenti PRIMA della compilazione
-      - name: Test Sintassi File Sorgenti
-        if: steps.check_changes.outputs.has_relevant_changes == 'true'
+      # ========================================
+      # Step: Incrementa Versione
+      # ========================================
+      - name: Incrementa Versione
+        id: version
         shell: pwsh
         run: |
-          Write-Host "🔍 TEST SINTASSI FILE SORGENTI" -ForegroundColor Cyan
-          Write-Host "=" * 70 -ForegroundColor Yellow
+          & .github/scripts/Update-Version.ps1 -TemplatePath "WinToolkit-template.ps1"
 
-          $hasErrors = $false
-          $errorDetails = @()
-
-          # Test compiler.ps1
-          Write-Host "`n📄 Test: compiler.ps1" -ForegroundColor Blue
-          if (Test-Path "compiler.ps1") {
-            try {
-              $content = Get-Content -Raw -Path "compiler.ps1" -ErrorAction Stop
-              $parseErrors = $null
-              $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
-
-              if ($parseErrors.Count -gt 0) {
-                Write-Host "  ❌ Errori di sintassi trovati:" -ForegroundColor Red
-                foreach ($error in $parseErrors) {
-                  $errorMsg = "  → Linea $($error.Extent.StartLineNumber), Colonna $($error.Extent.StartColumnNumber): $($error.Message)"
-                  Write-Host $errorMsg -ForegroundColor Red
-                  $errorDetails += "compiler.ps1: $errorMsg"
-                }
-                $hasErrors = $true
-              } else {
-                Write-Host "  ✅ Sintassi corretta" -ForegroundColor Green
-              }
-            } catch {
-              Write-Host "  ❌ Errore lettura file: $($_.Exception.Message)" -ForegroundColor Red
-              $errorDetails += "compiler.ps1: Errore lettura - $($_.Exception.Message)"
-              $hasErrors = $true
-            }
-          }
-
-          # Test WinToolkit-template.ps1
-          Write-Host "`n📄 Test: WinToolkit-template.ps1" -ForegroundColor Blue
-          if (Test-Path "WinToolkit-template.ps1") {
-            try {
-              $content = Get-Content -Raw -Path "WinToolkit-template.ps1" -ErrorAction Stop
-              $parseErrors = $null
-              $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
-
-              if ($parseErrors.Count -gt 0) {
-                Write-Host "  ❌ Errori di sintassi trovati:" -ForegroundColor Red
-                foreach ($error in $parseErrors) {
-                  $errorMsg = "  → Linea $($error.Extent.StartLineNumber), Colonna $($error.Extent.StartColumnNumber): $($error.Message)"
-                  Write-Host $errorMsg -ForegroundColor Red
-                  $errorDetails += "WinToolkit-template.ps1: $errorMsg"
-                }
-                $hasErrors = $true
-              } else {
-                Write-Host "  ✅ Sintassi corretta" -ForegroundColor Green
-              }
-            } catch {
-              Write-Host "  ❌ Errore lettura file: $($_.Exception.Message)" -ForegroundColor Red
-              $errorDetails += "WinToolkit-template.ps1: Errore lettura - $($_.Exception.Message)"
-              $hasErrors = $true
-            }
-          }
-
-          # Test tutti i file .ps1 nella cartella tool
-          Write-Host "`n📁 Test: File in cartella tool/" -ForegroundColor Blue
-          $toolFiles = Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue
-
-          foreach ($file in $toolFiles) {
-            Write-Host "`n  📄 Test: $($file.Name)" -ForegroundColor Cyan
-            try {
-              $content = Get-Content -Raw -Path $file.FullName -ErrorAction Stop
-              $parseErrors = $null
-              $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
-
-              if ($parseErrors.Count -gt 0) {
-                Write-Host "    ❌ Errori di sintassi trovati:" -ForegroundColor Red
-                foreach ($error in $parseErrors) {
-                  $errorMsg = "    → Linea $($error.Extent.StartLineNumber), Colonna $($error.Extent.StartColumnNumber): $($error.Message)"
-                  Write-Host $errorMsg -ForegroundColor Red
-                  $errorDetails += "$($file.Name): $errorMsg"
-                }
-                $hasErrors = $true
-              } else {
-                Write-Host "    ✅ Sintassi corretta" -ForegroundColor Green
-              }
-            } catch {
-              Write-Host "    ❌ Errore lettura file: $($_.Exception.Message)" -ForegroundColor Red
-              $errorDetails += "$($file.Name): Errore lettura - $($_.Exception.Message)"
-              $hasErrors = $true
-            }
-          }
-
-          # Riepilogo errori
-          if ($hasErrors) {
-            Write-Host "`n╔═══════════════════════════════════════════════════════╗" -ForegroundColor Red
-            Write-Host "║           ❌ ERRORI DI SINTASSI TROVATI              ║" -ForegroundColor Red
-            Write-Host "╚═══════════════════════════════════════════════════════╝" -ForegroundColor Red
-            Write-Host "`n📋 RIEPILOGO ERRORI:" -ForegroundColor Yellow
-            foreach ($detail in $errorDetails) {
-              Write-Host $detail -ForegroundColor Red
-            }
-            Write-Host "`n💡 Correggi gli errori di sintassi prima di procedere" -ForegroundColor Cyan
-            exit 1
-          } else {
-            Write-Host "`n✅ TUTTI I FILE HANNO SINTASSI CORRETTA" -ForegroundColor Green
-          }
-
-      # Step 4: Incremento automatico del numero di build
-      - name: Incrementa Numero Build
-        id: increment_version
-        if: steps.check_changes.outputs.has_relevant_changes == 'true'
-        shell: pwsh
-        run: |
-          Write-Host "📈 INCREMENTO NUMERO BUILD" -ForegroundColor Cyan
-          Write-Host "=" * 60 -ForegroundColor Yellow
-
-          $templatePath = "WinToolkit-template.ps1"
-
-          # Verifica che il file esista
-          if (-not (Test-Path $templatePath)) {
-            Write-Error "❌ File $templatePath non trovato"
-            exit 1
-          }
-
-          # Leggi il contenuto del file
-          $content = Get-Content -Path $templatePath -Raw
-
-          # Trova la riga con la versione e estrai il numero di build
-          $versionPattern = '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]'
-          if ($content -match $versionPattern) {
-            $fullVersion = $matches[1]
-            Write-Host "📋 Versione attuale: $fullVersion" -ForegroundColor Green
-
-            # Estrai il numero di build (numero alla fine tra parentesi)
-            $buildPattern = 'Build\s+(\d+)'
-            if ($fullVersion -match $buildPattern) {
-              $currentBuild = [int]$matches[1]
-              $newBuild = $currentBuild + 1
-              $newVersion = $fullVersion -replace "Build\s+$currentBuild", "Build $newBuild"
-
-              Write-Host "🔄 Incremento build: $currentBuild → $newBuild" -ForegroundColor Blue
-              Write-Host "🆕 Nuova versione: $newVersion" -ForegroundColor Green
-
-              # Sostituisci la riga della versione
-              $newLine = "`$ToolkitVersion = `"$newVersion`""
-              $content = $content -replace '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]', $newLine
-
-              # Scrivi il file aggiornato
-              $content | Set-Content -Path $templatePath -Encoding UTF8
-
-              Write-Host "✅ Versione incrementata con successo" -ForegroundColor Green
-              Write-Output "new_version=$newVersion" >> $env:GITHUB_OUTPUT
-              Write-Output "build_number=$newBuild" >> $env:GITHUB_OUTPUT
-            }
-            else {
-              Write-Error "❌ Impossibile trovare il numero di build nella versione"
-              exit 1
-            }
-          }
-          else {
-            Write-Error "❌ Impossibile trovare la riga della versione nel template"
-            exit 1
-          }
-
-      # Step 5: Commit del template con versione incrementata
       - name: Commit Template Aggiornato
-        if: steps.check_changes.outputs.has_relevant_changes == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
-            🔖 Bump WinToolkit version to ${{ steps.increment_version.outputs.new_version }}
+            🔖 Bump WinToolkit version to ${{ steps.version.outputs.new_version }}
 
             • Incremento automatico numero build
             • Versione aggiornata nel template
+            [skip ci]
           file_pattern: WinToolkit-template.ps1
           branch: Dev
 
-      # Step 6: Compilazione WinToolkit.ps1 tramite compiler.ps1 con debugging migliorato
+      # ========================================
+      # Step: Compilazione
+      # ========================================
       - name: Compilazione WinToolkit.ps1
-        if: steps.check_changes.outputs.has_relevant_changes == 'true'
+        id: build
         shell: pwsh
         run: |
-          Write-Host "🔨 COMPILAZIONE WINTOOLKIT.PS1" -ForegroundColor Cyan
-          Write-Host "=" * 60 -ForegroundColor Yellow
+          $version = "${{ steps.version.outputs.new_version }}"
+          & .github/scripts/Invoke-Build.ps1 -Version $version -OutputPath "WinToolkit.ps1"
 
-          # Verifica che compiler.ps1 esista
-          if (-not (Test-Path "compiler.ps1")) {
-            Write-Error "❌ File compiler.ps1 non trovato"
-            exit 1
-          }
-
-          # Verifica che WinToolkit-template.ps1 esista
-          if (-not (Test-Path "WinToolkit-template.ps1")) {
-            Write-Error "❌ File WinToolkit-template.ps1 non trovato"
-            exit 1
-          }
-
-          # Verifica che ci siano file .ps1 nella cartella tool
-          $toolFiles = Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue
-          if ($toolFiles.Count -eq 0) {
-            Write-Error "❌ Nessun file .ps1 trovato nella cartella tool"
-            exit 1
-          }
-
-          Write-Host "📋 File da compilare: $($toolFiles.Count)" -ForegroundColor Green
-          $toolFiles | ForEach-Object { Write-Host "  - $($_.Name)" -ForegroundColor Gray }
-
-          # Esegui la compilazione con cattura output dettagliato
-          Write-Host "`n🔄 Esecuzione compilazione..." -ForegroundColor Blue
-          try {
-            # Esegui e cattura tutto l'output
-            $output = & ".\compiler.ps1" 2>&1 | Out-String
-
-            # Mostra l'output
-            Write-Host $output
-
-            # Controlla il risultato
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "`n╔═══════════════════════════════════════════════════════╗" -ForegroundColor Red
-              Write-Host "║        ❌ COMPILAZIONE FALLITA                        ║" -ForegroundColor Red
-              Write-Host "╚═══════════════════════════════════════════════════════╝" -ForegroundColor Red
-              Write-Host "`nExit Code: $LASTEXITCODE" -ForegroundColor Red
-              Write-Host "`n💡 Verifica l'output sopra per dettagli sull'errore" -ForegroundColor Cyan
-              exit 1
-            }
-          }
-          catch {
-            Write-Host "`n╔═══════════════════════════════════════════════════════╗" -ForegroundColor Red
-            Write-Host "║     ❌ ERRORE DURANTE LA COMPILAZIONE                 ║" -ForegroundColor Red
-            Write-Host "╚═══════════════════════════════════════════════════════╝" -ForegroundColor Red
-            Write-Host "`n📋 Dettagli errore:" -ForegroundColor Yellow
-            Write-Host "Messaggio: $($_.Exception.Message)" -ForegroundColor Red
-            Write-Host "Tipo: $($_.Exception.GetType().FullName)" -ForegroundColor Red
-            if ($_.InvocationInfo) {
-              Write-Host "Linea: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
-              Write-Host "Comando: $($_.InvocationInfo.Line)" -ForegroundColor Red
-            }
-            if ($_.ScriptStackTrace) {
-              Write-Host "`nStack Trace:" -ForegroundColor Yellow
-              Write-Host $_.ScriptStackTrace -ForegroundColor Red
-            }
-            exit 1
-          }
-
-          # Verifica che il file compilato sia stato creato
-          if (-not (Test-Path "WinToolkit.ps1")) {
-            Write-Host "`n❌ File WinToolkit.ps1 non creato dalla compilazione" -ForegroundColor Red
-            Write-Host "💡 La compilazione potrebbe essere terminata senza errori ma senza produrre output" -ForegroundColor Cyan
-            exit 1
-          }
-
-          $fileSize = (Get-Item "WinToolkit.ps1").Length
-          Write-Host "`n✅ Compilazione completata: $([math]::Round($fileSize/1KB, 2)) KB" -ForegroundColor Green
-
-      # Step 7: Test estesi del file compilato con report errori dettagliato
-      - name: Test Estesi WinToolkit Compilato
-        id: test_compiled_wintoolkit
-        if: steps.check_changes.outputs.has_relevant_changes == 'true'
+      # ========================================
+      # Step: Test File Compilato
+      # ========================================
+      - name: Test File Compilato
+        id: test
         shell: pwsh
         run: |
-          Write-Host "🔍 TEST ESTESI DEL FILE COMPILATO" -ForegroundColor Cyan
-          Write-Host "=" * 70 -ForegroundColor Yellow
+          & .github/scripts/Test-CompiledScript.ps1 -ScriptPath "WinToolkit.ps1"
 
-          $winToolkitPath = "WinToolkit.ps1"
+      # ========================================
+      # Step: Upload Artifact
+      # ========================================
+      - name: Upload WinToolkit.ps1 as artifact
+        uses: actions/upload-artifact@v4
+        if: steps.test.outputs.tests_passed == 'true'
+        with:
+          name: WinToolkit-Compiled
+          path: WinToolkit.ps1
+          retention-days: 30
 
-          # Verifica che il file esista
-          if (-not (Test-Path $winToolkitPath)) {
-            Write-Error "❌ File WinToolkit.ps1 non trovato"
-            exit 1
-          }
+      # ========================================
+      # Step: GitHub Step Summary
+      # ========================================
+      - name: Generate Build Summary
+        if: steps.test.outputs.tests_passed == 'true'
+        shell: pwsh
+        run: |
+          $sourceKB = "${{ steps.build.outputs.source_kb }}"
+          $outputKB = "${{ steps.build.outputs.output_kb }}"
+          $reduction = "${{ steps.build.outputs.reduction_percent }}"
+          $linesRemoved = "${{ steps.build.outputs.lines_removed }}"
+          $version = "${{ steps.version.outputs.new_version }}"
+          $buildNum = "${{ steps.version.outputs.build_number }}"
 
-          Write-Host "📋 Test del file finale: WinToolkit.ps1" -ForegroundColor Green
+          $summary = @"
+          ## 📦 Build Summary - WinToolkit v$version
 
-          $totalErrors = 0
-          $totalWarnings = 0
-          $testResults = @()
-          $criticalErrors = @()
+          ### 📊 Statistiche Compressione
 
-          try {
-            $scriptContent = Get-Content -Raw -Path $winToolkitPath -ErrorAction Stop
+          | Metrica | Valore |
+          |---------|--------|
+          | Peso Sorgente | $sourceKB KB |
+          | Peso Finale | $outputKB KB |
+          | Riduzione | $reduction% |
+          | Righe Eliminate | $linesRemoved |
 
-            # Test 1: Sintassi PowerShell con dettagli completi
-            Write-Host "`n🔍 Test 1: Verifica sintassi..." -ForegroundColor Blue
-            $parseErrors = $null
-            $tokens = $null
-            $null = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$tokens, [ref]$parseErrors)
+          ### ✅ Status Build
 
-            if ($parseErrors.Count -gt 0) {
-              Write-Host "  ❌ Errori di sintassi trovati:" -ForegroundColor Red
-              foreach ($error in $parseErrors) {
-                Write-Host "    ╔════════════════════════════════════════════════════════════" -ForegroundColor Red
-                Write-Host "    ║ ERRORE DI SINTASSI" -ForegroundColor Red
-                Write-Host "    ╠════════════════════════════════════════════════════════════" -ForegroundColor Red
-                Write-Host "    ║ File: WinToolkit.ps1" -ForegroundColor Red
-                Write-Host "    ║ Linea: $($error.Extent.StartLineNumber)" -ForegroundColor Red
-                Write-Host "    ║ Colonna: $($error.Extent.StartColumnNumber) - $($error.Extent.EndColumnNumber)" -ForegroundColor Red
-                Write-Host "    ║ Messaggio: $($error.Message)" -ForegroundColor Red
-                Write-Host "    ║ Severità: $($error.ErrorId)" -ForegroundColor Red
-                Write-Host "    ╠════════════════════════════════════════════════════════════" -ForegroundColor Red
-                Write-Host "    ║ Codice problematico:" -ForegroundColor Red
-                Write-Host "    ║ $($error.Extent.Text)" -ForegroundColor Red
-                Write-Host "    ╚════════════════════════════════════════════════════════════" -ForegroundColor Red
+          - **Versione**: $version (Build $buildNum)
+          - **Stato**: Completato con successo
+          - **Artefatto**: WinToolkit-Compiled.zip
 
-                $errorMsg = "WinToolkit.ps1 Line $($error.Extent.StartLineNumber): $($error.Message)"
-                $criticalErrors += $errorMsg
-              }
-              $totalErrors += $parseErrors.Count
-              $testResults += "❌ Sintassi: $($parseErrors.Count) errori"
-            }
-            else {
-              Write-Host "  ✅ Sintassi OK" -ForegroundColor Green
-              $testResults += "✅ Sintassi: OK"
-            }
+          ---
+          *Generato automaticamente da WinToolkit CI/CD Pipeline*
+          "@
 
-            # Test 2: Verifica funzioni disponibili (rilevamento automatico dalla cartella tool)
-            Write-Host "`n🔍 Test 2: Verifica funzioni disponibili..." -ForegroundColor Blue
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
 
-            # Rilevamento automatico delle funzioni dalla cartella tool/
-            $toolFiles = Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*start-*" }
-            $expectedFunctions = $toolFiles | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) }
+  # ---------------------------------------------------------------------------
+  # JOB 3: RELEASE & TAGGING - Rilascio e creazione tag
+  # ---------------------------------------------------------------------------
+  release:
+    name: Release & Tagging
+    runs-on: windows-latest
+    needs: build
 
-            # Parse del file compilato per trovare le funzioni
-            $scriptAst = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$null)
-            $functions = $scriptAst.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
+    if: needs.build.outputs.tests_passed == 'true'
 
-            $presentFunctions = @()
-            $missingFunctions = @()
-            $emptyFunctions = @()
+    permissions:
+      contents: write
+      actions: read
 
-            foreach ($funcName in $expectedFunctions) {
-              $funcAst = $functions | Where-Object { $_.Name -eq $funcName }
-              if ($funcAst) {
-                # Verifica se la funzione è vuota (solo dichiarazione senza corpo significativo)
-                $bodyText = $funcAst.Body.Extent.Text
-                $nonEmptyLines = $bodyText -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_.Trim()) }
-                # Considera vuota se ha 2 o meno righe (dichiarazione function + { + })
-                if ($nonEmptyLines.Count -le 2) {
-                  $emptyFunctions += $funcName
-                }
-                else {
-                  $presentFunctions += $funcName
-                }
-              }
-              else {
-                $missingFunctions += $funcName
-              }
-            }
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-            Write-Host "  📊 Funzioni attese dalla cartella tool/: $($expectedFunctions.Count)" -ForegroundColor Cyan
-            Write-Host "  📊 Funzioni presenti e compilate: $($presentFunctions.Count)" -ForegroundColor Green
-            if ($presentFunctions.Count -gt 0) {
-              $presentFunctions | ForEach-Object { Write-Host "    ✅ $_" -ForegroundColor Green }
-            }
+      - name: Download compiled artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: WinToolkit-Compiled
+          path: .
 
-            if ($emptyFunctions.Count -gt 0) {
-              Write-Host "  ⚠️ Funzioni vuote (solo dichiarazione, in sviluppo):" -ForegroundColor Yellow
-              $emptyFunctions | ForEach-Object { Write-Host "    🔶 $_" -ForegroundColor Yellow }
-              $testResults += "⚠️ Funzioni vuote: $($emptyFunctions.Count) (in sviluppo)"
-            }
-
-            if ($missingFunctions.Count -gt 0) {
-              Write-Host "  ⚠️ Funzioni non compilate (file tool/ non nel template):" -ForegroundColor Yellow
-              $missingFunctions | ForEach-Object { Write-Host "    ❌ $_" -ForegroundColor Yellow }
-              $testResults += "⚠️ Funzioni non compilate: $($missingFunctions.Count) (verificare template)"
-            }
-
-            if ($presentFunctions.Count -eq $expectedFunctions.Count) {
-              Write-Host "  ✅ Tutte le funzioni implementate e compilate correttamente" -ForegroundColor Green
-              $testResults += "✅ Funzioni: Tutte presenti e compilate"
-            }
-            else {
-              Write-Host "  ℹ️ Funzioni rilevate automaticamente dalla cartella tool/" -ForegroundColor Cyan
-              $testResults += "ℹ️ Funzioni auto-rilevate: $($presentFunctions.Count)/$($expectedFunctions.Count)"
-            }
-
-            # Aggiorna il conteggio warnings per le funzioni vuote
-            $totalWarnings += $emptyFunctions.Count
-
-            # Test 3: Struttura del menu
-            Write-Host "`n🔍 Test 3: Verifica struttura menu..." -ForegroundColor Blue
-            $menuTests = @(
-              @{ Pattern = [regex]::Escape("while (`$true)"); Name = "Menu principale" },
-              @{ Pattern = "Windows & Office"; Name = "Categoria Windows & Office" },
-              @{ Pattern = "Driver & Gaming"; Name = "Categoria Driver & Gaming" },
-              @{ Pattern = "Supporto"; Name = "Categoria Supporto" }
-            )
-
-            foreach ($test in $menuTests) {
-              if ($scriptContent -match $test.Pattern) {
-                Write-Host "  ✅ $($test.Name)" -ForegroundColor Green
-                $testResults += "✅ $($test.Name)"
-              }
-              else {
-                Write-Host "  ❌ $($test.Name) mancante" -ForegroundColor Red
-                $totalErrors++
-                $testResults += "❌ $($test.Name) mancante"
-                $criticalErrors += "Struttura menu: $($test.Name) mancante"
-              }
-            }
-
-            # Test 4: Dimensione del file
-            Write-Host "`n🔍 Test 4: Verifica dimensione file..." -ForegroundColor Blue
-            $fileSize = (Get-Item $winToolkitPath).Length
-            $fileSizeKB = [math]::Round($fileSize/1KB, 2)
-
-            if ($fileSize -lt 10000) {
-              Write-Host "  ❌ File troppo piccolo: $($fileSize) bytes" -ForegroundColor Red
-              $totalErrors++
-              $testResults += "❌ Dimensione: $fileSizeKB KB (troppo piccolo)"
-              $criticalErrors += "Dimensione file sospetta: $fileSizeKB KB (minimo atteso: ~10 KB)"
-            }
-            else {
-              Write-Host "  ✅ Dimensione OK: $fileSizeKB KB" -ForegroundColor Green
-              $testResults += "✅ Dimensione: $fileSizeKB KB"
-            }
-
-            # Test 5: Encoding UTF-8
-            Write-Host "`n🔍 Test 5: Verifica encoding..." -ForegroundColor Blue
-            $encoding = [System.Text.Encoding]::GetEncoding('UTF-8')
-            $preamble = $encoding.GetPreamble()
-            $fileBytes = Get-Content $winToolkitPath -AsByteStream -ReadCount 0
-
-            if ($fileBytes.Length -ge 3 -and $fileBytes[0] -eq $preamble[0] -and $fileBytes[1] -eq $preamble[1] -and $fileBytes[2] -eq $preamble[2]) {
-              Write-Host "  ✅ Encoding UTF-8 con BOM" -ForegroundColor Green
-              $testResults += "✅ Encoding: UTF-8 con BOM"
-            }
-            else {
-              Write-Host "  ⚠️ Encoding senza BOM (accettabile)" -ForegroundColor Yellow
-              $testResults += "⚠️ Encoding: Senza BOM"
-            }
-
-          }
-          catch {
-            $errorMsg = "ERRORE DURANTE I TEST"
-            Write-Host "    ╔════════════════════════════════════════════════════════════" -ForegroundColor Red
-            Write-Host "    ║ $errorMsg" -ForegroundColor Red
-            Write-Host "    ╠════════════════════════════════════════════════════════════" -ForegroundColor Red
-            Write-Host "    ║ Messaggio: $($_.Exception.Message)" -ForegroundColor Red
-            Write-Host "    ║ Tipo: $($_.Exception.GetType().FullName)" -ForegroundColor Red
-            if ($_.InvocationInfo) {
-              Write-Host "    ║ Linea: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
-              Write-Host "    ║ Comando: $($_.InvocationInfo.Line)" -ForegroundColor Red
-            }
-            Write-Host "    ╚════════════════════════════════════════════════════════════" -ForegroundColor Red
-
-            $totalErrors++
-            $criticalErrors += "Test Error: $($_.Exception.Message)"
-            $testResults += "❌ Errore test: $($_.Exception.Message)"
-          }
-
-          # Output risultati test
-          Write-Host ""
-          Write-Host "📊 RIEPILOGO TEST:" -ForegroundColor Cyan
-          $testResults | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
-
-          # Valuta i risultati: procedi sempre se non ci sono errori di sintassi/struttura
-          # Le funzioni mancanti sono normali durante lo sviluppo e non bloccano il workflow
-          if ($totalErrors -gt 0) {
-            Write-Host "`n╔═══════════════════════════════════════════════════════╗" -ForegroundColor Red
-            Write-Host "║           ❌ TEST FALLITI                             ║" -ForegroundColor Red
-            Write-Host "╚═══════════════════════════════════════════════════════╝" -ForegroundColor Red
-            Write-Host "`n📋 ERRORI CRITICI RILEVATI: $totalErrors" -ForegroundColor Red
-
-            if ($criticalErrors.Count -gt 0) {
-              Write-Host "`n🔍 DETTAGLI ERRORI:" -ForegroundColor Yellow
-              foreach ($error in $criticalErrors) {
-                Write-Host $error -ForegroundColor Red
-              }
-            }
-
-            Write-Host "`n💡 Suggerimenti:" -ForegroundColor Cyan
-            Write-Host "  • Verifica la sintassi del file compilato" -ForegroundColor White
-            Write-Host "  • Controlla i file sorgenti in /tool per errori logici" -ForegroundColor White
-            Write-Host "  • Assicurati che il template sia corretto" -ForegroundColor White
-
-            Write-Output "tests_passed=false" >> $env:GITHUB_OUTPUT
-            exit 1
-          }
-          else {
-            Write-Host "`n✅ TUTTI I TEST SUPERATI!" -ForegroundColor Green
-            if ($emptyFunctions.Count -gt 0) {
-              Write-Host "ℹ️ Nota: $($emptyFunctions.Count) funzioni vuote (in sviluppo)" -ForegroundColor Yellow
-            }
-            Write-Output "tests_passed=true" >> $env:GITHUB_OUTPUT
-          }
-
-      # Step 6: Commit automatico del file compilato (solo se i test passano)
-      - name: Commit WinToolkit.ps1
-        if: steps.check_changes.outputs.has_relevant_changes == 'true' && steps.test_compiled_wintoolkit.outputs.tests_passed == 'true'
+      - name: Commit WinToolkit.ps1 Compilato
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
@@ -588,37 +322,110 @@ jobs:
             • Test di sintassi e struttura passati
             • Funzioni rilevate automaticamente dalla cartella tool/
             • File aggiornato e funzionale
+            [skip ci]
           file_pattern: WinToolkit.ps1
           branch: Dev
 
-      # Step 7: Output finale del workflow
-      - name: Risultato Workflow
+      - name: Extract version info
+        id: version_info
+        shell: pwsh
+        run: |
+          $content = Get-Content -Path "WinToolkit-template.ps1" -Raw
+          if ($content -match '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]') {
+            $version = $matches[1]
+            Write-Output "version=$version" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Create Git Tag
+        id: create_tag
+        shell: pwsh
+        run: |
+          $version = "${{ needs.build.outputs.new_version }}"
+          $tagName = "v$($version -replace '[ \(\)]', '_')"
+
+          Write-Host "Creating tag: $tagName" -ForegroundColor Cyan
+          git tag -a $tagName -m "Release WinToolkit $version"
+
+          $pushResult = git push origin $tagName 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Warning: Tag push failed or tag already exists" -ForegroundColor Yellow
+          } else {
+            Write-Host "Tag pushed successfully" -ForegroundColor Green
+          }
+
+          Write-Output "tag_name=$tagName" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        id: create_release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ needs.build.outputs.new_version }}"
+          $sourceKB = "${{ needs.build.outputs.source_kb }}"
+          $outputKB = "${{ needs.build.outputs.output_kb }}"
+          $reduction = "${{ needs.build.outputs.reduction_percent }}"
+          $linesRemoved = "${{ needs.build.outputs.lines_removed }}"
+
+          $body = @"
+            ## 📦 WinToolkit Release $version
+
+            ### 📊 Statistiche Compressione
+
+            | Metrica | Valore |
+            |---------|--------|
+            | Peso Sorgente | $sourceKB KB |
+            | Peso Finale | $outputKB KB |
+            | Riduzione | $reduction% |
+            | Righe Eliminate | $linesRemoved |
+
+            ### ✅ Note di rilascio
+
+            - Compilazione automatica da sorgenti in `/tool`
+            - Test di integrità superati
+            - File pronto per l'uso
+
+            ---
+            *WinToolkit CI/CD Pipeline*
+          "@
+
+          $headers = @{
+            'Authorization' = "Bearer $env:GITHUB_TOKEN"
+            'Accept' = 'application/vnd.github+json'
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+
+          $owner = "${{ github.repository_owner }}"
+          $repo = "${{ github.repo }}"
+
+          $releaseUrl = "https://api.github.com/repos/$owner/$repo/releases"
+
+          $releaseBody = @{
+            tag_name = "v$($version -replace '[\\(\\)]', '_')"
+            name = "WinToolkit $version"
+            body = $body
+            draft = $false
+            prerelease = $false
+          } | ConvertTo-Json
+
+          try {
+            $response = Invoke-RestMethod -Uri $releaseUrl -Method Post -Headers $headers -Body $releaseBody -ContentType 'application/json'
+            Write-Host "Release created successfully: $($response.html_url)" -ForegroundColor Green
+          } catch {
+            Write-Host "Warning: Could not create release. $_" -ForegroundColor Yellow
+          }
+
+      - name: Final Summary
         shell: pwsh
         run: |
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Green
-          Write-Host "║                 🎉 WORKFLOW COMPLETATO!                  ║" -ForegroundColor Green
-          Write-Host "║                                                          ║" -ForegroundColor White
-
-          if ("${{ steps.check_changes.outputs.has_relevant_changes }}" -eq "true") {
-            Write-Host "║  ✅ Modifiche rilevanti rilevate                         ║" -ForegroundColor Green
-            Write-Host "║  🔨 Compilazione eseguita                               ║" -ForegroundColor Green
-
-            if ("${{ steps.test_compiled_wintoolkit.outputs.tests_passed }}" -eq "true") {
-              Write-Host "║  ✅ Tutti i test superati                               ║" -ForegroundColor Green
-              Write-Host "║  📝 Commit automatico eseguito                          ║" -ForegroundColor Green
-              Write-Host "║                                                         ║" -ForegroundColor White
-              Write-Host "║  🚀 WinToolkit.ps1 aggiornato e pronto!                 ║" -ForegroundColor Cyan
-            }
-            else {
-              Write-Host "║  ❌ Test falliti - commit non eseguito                  ║" -ForegroundColor Red
-              Write-Host "║                                                         ║" -ForegroundColor White
-              Write-Host "║  💡 Verifica i dettagli degli errori sopra              ║" -ForegroundColor Cyan
-            }
-          }
-          else {
-            Write-Host "║  ℹ️ Nessuna modifica rilevante                          ║" -ForegroundColor Yellow
-            Write-Host "║  ⏭️ Workflow completato senza azioni                   ║" -ForegroundColor Yellow
-          }
-
+          Write-Host "║          🎉 RELEASE COMPLETATA CON SUCCESSO!          ║" -ForegroundColor Green
           Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "📋 Dettagli:" -ForegroundColor Cyan
+          Write-Host "  • Versione: ${{ needs.build.outputs.new_version }}" -ForegroundColor White
+          Write-Host "  • Build:     ${{ needs.build.outputs.build_number }}" -ForegroundColor White
+          Write-Host "  • Tag Git:   v${{ needs.build.outputs.new_version }}" -ForegroundColor White
+          Write-Host "  • Compressione: ${{ needs.build.outputs.reduction_percent }}%" -ForegroundColor White
+          Write-Host ""
