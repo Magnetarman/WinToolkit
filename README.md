@@ -1,6 +1,6 @@
 <p align="center">
 	<img src="img/WinToolkit-icon.png" alt="WinToolkit-banner" width="160">
-	<h1>WinToolkit: la soluzione definitiva per <em>sopravvivere</em> a Windows</h1>
+	<h1>WinToolkit: Il Tool Powershell definitivo per <em>sopravvivere</em> a Windows</h1>
 </p>
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -25,16 +25,16 @@ WinToolkit è una suite di script PowerShell potente e compatta, progettata per 
 > - **spazio libero su disco**: >= 50 GB [(vedere la sezione F.A.Q.)](#-faq---domande-frequenti);
 > - **Windows >= 8.1**.
 
-| Versioni di Windows          | Supportato             |
-|:---|:---|
-| Windows 11 >= 22H2           | 🟢 Sì                  |
-| Windows 11 <= 21H2           | 🟡 Sì con eccezioni    |
-| Windows 10 >= 1809           | 🟢 Sì                  |
-| Windows 10 <= 1809           | 🟠 Parzialmente        |
-| Windows 8.1                  | 🟠 Parzialmente        |
-| Windows 8 e inferiori        | 🔴 No                  |
+| Versioni di Windows   | Supportato          |
+| :-------------------- | :------------------ |
+| Windows 11 >= 22H2    | 🟢 Sì               |
+| Windows 11 <= 21H2    | 🟡 Sì con eccezioni |
+| Windows 10 >= 1809    | 🟢 Sì               |
+| Windows 10 <= 1809    | 🟠 Parzialmente     |
+| Windows 8.1           | 🟠 Parzialmente     |
+| Windows 8 e inferiori | 🔴 No               |
 
-##  🚀 Come eseguire WinToolkit
+## 🚀 Come eseguire WinToolkit
 
 Installa l'eseguibile di WinToolkit sul desktop seguendo queste istruzioni:
 
@@ -78,6 +78,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 ---
 
 ## 👾 Componenti
+
 - **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows, come: sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
 - **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
 - **Office Toolkit**: Semplifica l'installazione, la riparazione e la rimozione dei componenti o del prodotto intero. È possibile installare una versione "Basic" di Microsoft Office in modo semi-automatico, riparare le installazioni esistenti con due diverse modalità (Riparazione rapida offline e riparazione completa online), oppure rimuovere completamente il software dal sistema utilizzando l'efficace strumento ufficiale "Microsoft Support and Recovery Assistant (SaRA)".
@@ -106,21 +107,22 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 > [!CAUTION]
 > L'interfaccia grafica mostrata di seguito è un'anteprima, pertanto potrà subire modifiche anche significative. La sua condivisione risponde al forte interesse degli utenti verso una futura implementazione.
-<img src="img/Gui.jpg" alt="Gui-Mode-banner" width="800">
+> <img src="img/Gui.jpg" alt="Gui-Mode-banner" width="800">
 
 ---
 
 ## 📌 Changelog
 
-- [Leggi le modifiche introdotte.](/CHANGELOG.md)
-- [Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)
+- [Changelog - Leggi le modifiche introdotte.](/CHANGELOG.md)
+- [To-Do - Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)
 
 ---
+
 ## 📽️ Parlano di WinToolkit
 
-| Img Canale | Link                                                                                                                          |
-|:------------|:------------------------------------------------------------------------------------------------------------------------------|
-| <img src="/img/avatar/zakkos.jpg" alt="Zakkos-WinToolkit" width="80">  | <a href="https://www.youtube.com/watch?v=nUKLeYqe1ZI"> WINTOOLKIT 2.5: Dominare Windows 11 con PowerShell by MagnetarMan </a> |
+| Img Canale                                                            | Link                                                                                                                          |
+| :-------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
+| <img src="/img/avatar/zakkos.jpg" alt="Zakkos-WinToolkit" width="80"> | <a href="https://www.youtube.com/watch?v=nUKLeYqe1ZI"> WINTOOLKIT 2.5: Dominare Windows 11 con PowerShell by MagnetarMan </a> |
 
 ---
 
@@ -138,7 +140,7 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ## 🤔 F.A.Q. - Domande Frequenti
 
-### Perché usare WinToolkit?
+### Perché avviare WinToolkit?
 
 Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemente mantenere il tuo PC personale in perfette condizioni, WinToolkit ti permette di:
 
@@ -197,6 +199,9 @@ Se non puoi donare, puoi comunque aiutarmi a migliorare WinToolkit attraverso qu
 ⭐ **Metti una stella**: mettendo una stella al progetto lo farai diventare più popolare su GitHub.
 
 🐛 **[Segnala un problema](https://github.com/Magnetarman/WinToolkit/issues)**: segnala un bug che hai trovato o richiedi nuove funzionalità.
+
+> [!WARNING]
+> Prima di effettuare Pull Request o aprire issue [PER FAVORE LEGGI ATTENTAMENTE LA GUIDA](https://github.com/Magnetarman/WinToolkit/blob/Dev/.github/Docs/PR_And_PullRequest.md).
 
 💡 **[Invia Pull Request](https://github.com/Magnetarman/WinToolkit/pulls)**: invia la tua risoluzione di un bug o la tua aggiunta di una nuova funzionalità.
 
