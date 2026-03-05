@@ -310,8 +310,8 @@ git push origin fix/nome-del-fix
 
 ## Risorse Aggiuntive
 
-- **Documentazione Ufficiale**: [README.md](./README.md).
-- **Changelog**: [CHANGELOG.md](./CHANGELOG.md).
+- **Documentazione Ufficiale**: [README.md](/README.md).
+- **Changelog**: [CHANGELOG.md](/CHANGELOG.md).
 - **Issue Tracker**: [Issues](https://github.com/MagnetarMan/WinToolkit/issues).
 
 ---
