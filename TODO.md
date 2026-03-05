@@ -20,6 +20,9 @@
   - [x] Reso il debloat di office parametrizzabile.
   - [x] Risolto un'errore che portava lo script di riparazione a non effettuare il debloat a riparazione avvenuta
   - [x] Riscritta la funzione per disabilitare la telemetria di office aggiornando percorsi e chiavi.
+  - [x] Aggiornata l'implementazione grafica del Toolkit ai nuovi standard.
+  - [x] Automatizzate le operazioni di installazione/rimozione di Office.
+  - [x] Migliorato il detect dei processi di installazione per non causare Race Condition.
 
 - `start.ps1` Aggiornato.
   - [x] Aggiornate sezione .SYNOPSIS e .DESCRIPTION [[#39](https://github.com/MagnetarMan/WinToolkit/issues/39) [@pomodori92]](https://github.com/pomodori92).
