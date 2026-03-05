@@ -1,11 +1,17 @@
-# Script di compilazione per WinToolkit
-# Questo script legge i file .ps1 dalla cartella tool e li inietta nelle funzioni vuote di WinToolkit.ps1
+# Script di compilazione per WinToolkit (Enterprise-Grade)
+# Gestisce aggregazione moduli, logging strutturato e minificazione del codice.
 
+[CmdletBinding()]
 param(
-    [switch]$StripComments
+    [switch]$Minify
 )
 
-# Configurazione colori per i messaggi
+$ErrorActionPreference = 'Stop'
+$ScriptStartTime = [System.Diagnostics.Stopwatch]::StartNew()
+
+# ============================================================================
+# 1. SISTEMA DI LOGGING ENTERPRISE
+# ============================================================================
 function Write-StyledMessage {
     param(
         [Parameter(Mandatory = $true)]
@@ -16,333 +22,318 @@ function Write-StyledMessage {
         [string]$Message
     )
     
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    
     switch ($Type) {
-        'Success' { Write-Host "✅ $Message" -ForegroundColor Green }
-        'Warning' { Write-Host "⚠️  $Message" -ForegroundColor Yellow }
-        'Error' { Write-Host "❌ $Message" -ForegroundColor Red }
-        'Info' { Write-Host "ℹ️  $Message" -ForegroundColor Cyan }
+        'Success' { 
+            Write-Host "[$timestamp] " -ForegroundColor DarkGray -NoNewline
+            Write-Host "[SUCCESS] " -ForegroundColor Green -NoNewline
+            Write-Host $Message -ForegroundColor White
+        }
+        'Warning' { 
+            Write-Host "[$timestamp] " -ForegroundColor DarkGray -NoNewline
+            Write-Host "[WARN]    " -ForegroundColor Yellow -NoNewline
+            Write-Host $Message -ForegroundColor White
+        }
+        'Error' { 
+            Write-Host "[$timestamp] " -ForegroundColor DarkGray -NoNewline
+            Write-Host "[ERROR]   " -ForegroundColor Red -NoNewline
+            Write-Host $Message -ForegroundColor White
+        }
+        'Info' { 
+            Write-Host "[$timestamp] " -ForegroundColor DarkGray -NoNewline
+            Write-Host "[INFO]    " -ForegroundColor Cyan -NoNewline
+            Write-Host $Message -ForegroundColor White
+        }
     }
 }
 
-# Definizione dei percorsi (dinamici, relativi alla posizione dello script)
+Write-StyledMessage 'Info' "Avvio processo di build WinToolkit..."
+
+# ============================================================================
+# 2. INIZIALIZZAZIONE E VERIFICA PERCORSI
+# ============================================================================
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $toolFolder = Join-Path $scriptPath "tool"
 $sourceFile = Join-Path $scriptPath "WinToolkit-template.ps1"
 $outputFile = Join-Path $scriptPath "WinToolkit.ps1"
 
-Write-StyledMessage 'Info' "Avvio processo di compilazione WinToolkit"
-Write-Host ""
-
-# Verifica esistenza file e cartelle
-if (-not (Test-Path $sourceFile)) {
-    Write-StyledMessage 'Error' "File WinToolkit-template.ps1 non trovato in: $sourceFile"
-    exit 1
-}
-
-if (-not (Test-Path $toolFolder)) {
-    Write-StyledMessage 'Error' "Cartella tool non trovata in: $toolFolder"
-    exit 1
-}
-
-# Carica il contenuto del file modello come array di righe
-Write-StyledMessage 'Info' "Caricamento file modello: WinToolkit.ps1"
 try {
-    $templateLines = Get-Content $sourceFile -Encoding UTF8 -ErrorAction Stop
+    if (-not (Test-Path $sourceFile)) { throw "File template non trovato in: $sourceFile" }
+    if (-not (Test-Path $toolFolder)) { throw "Cartella tool non trovata in: $toolFolder" }
 }
 catch {
-    Write-StyledMessage 'Error' "Errore durante la lettura di WinToolkit-template.ps1: $($_.Exception.Message)"
+    Write-StyledMessage 'Error' "Errore di inzializzazione: $($_.Exception.Message)"
     exit 1
 }
 
-# Trova tutti i file .ps1 nella cartella tool
-$toolFiles = Get-ChildItem -Path $toolFolder -Filter "*.ps1" -File
+# ============================================================================
+# 3. LETTURA SORGENTI E PREPARAZIONE
+# ============================================================================
+try {
+    Write-StyledMessage 'Info' "Lettura template originario: WinToolkit-template.ps1"
+    $templateLines = Get-Content $sourceFile -Encoding UTF8 -ErrorAction Stop
+    $toolFiles = Get-ChildItem -Path $toolFolder -Filter "*.ps1" -File -ErrorAction Stop
+}
+catch {
+    Write-StyledMessage 'Error' "Errore I/O durante la lettura dei file sorgente: $($_.Exception.Message)"
+    exit 1
+}
 
 if ($toolFiles.Count -eq 0) {
-    Write-StyledMessage 'Warning' "Nessun file .ps1 trovato nella cartella tool"
+    Write-StyledMessage 'Warning' "Nessun modulo .ps1 trovato in $toolFolder. Operazione annullata."
     exit 0
 }
 
-Write-StyledMessage 'Info' "Trovati $($toolFiles.Count) file da processare"
+# Statistiche per la dashboard
+$stats = @{
+    Processed = 0
+    Skipped   = 0
+    Errors    = 0
+    Warnings  = 0
+    TotalSourceSize = (Get-Item $sourceFile).Length
+    TotalSourceLines = $templateLines.Count
+}
+
+Write-StyledMessage 'Info' "Inizio aggregazione di $($toolFiles.Count) moduli..."
 Write-Host ""
 
-# Contatori per statistiche
-$processedCount = 0
-$skippedCount = 0
-$warningCount = 0
-$errorCount = 0
-
-# Ciclo principale: processa ogni file .ps1
+# ============================================================================
+# 4. MOTORE DI AGGREGAZIONE (INIEZIONE CODICE)
+# ============================================================================
 foreach ($file in $toolFiles) {
     $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
-    Write-Host "Processando: $($file.Name) → funzione '$functionName'" -ForegroundColor White
+    $stats.TotalSourceSize += $file.Length
     
     try {
-        # Leggi il contenuto del file come array di righe
         $fileLines = Get-Content $file.FullName -Encoding UTF8 -ErrorAction Stop
+        $stats.TotalSourceLines += $fileLines.Count
         
-        # Gestione file vuoto
+        # Gestione moduli vuoti o con solo spazi
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
-            Write-StyledMessage 'Warning' "File '$($file.Name)' è vuoto - inserimento codice di sviluppo"
-            $fileLines = @(
-                "    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso`""
-            )
-            $warningCount++
+            Write-StyledMessage 'Warning' "Modulo pre-compilato vuoto: '$functionName'. Inserimento stub di svilluppo."
+            $fileLines = @("    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso`"")
+            $stats.Warnings++
         }
         else {
-            # Rimuovi l'ultima riga se è una chiamata alla funzione
+            # Trim self-call (chiamata alla funzione in coda al file)
             $lastNonEmptyIndex = -1
             for ($i = $fileLines.Count - 1; $i -ge 0; $i--) {
-                if (-not [string]::IsNullOrWhiteSpace($fileLines[$i])) {
-                    $lastNonEmptyIndex = $i
-                    break
-                }
+                if (-not [string]::IsNullOrWhiteSpace($fileLines[$i])) { $lastNonEmptyIndex = $i; break }
             }
-            
-            # Se l'ultima riga non vuota è la chiamata alla funzione, rimuovila
             if ($lastNonEmptyIndex -ge 0 -and $fileLines[$lastNonEmptyIndex].Trim() -eq $functionName) {
-                Write-StyledMessage 'Info' "Rimossa chiamata automatica alla funzione dall'ultima riga"
-                $fileLines = $fileLines[0..($lastNonEmptyIndex - 1)]
+                # Sostituiamo rimozione con slice fino a -1
+                if ($lastNonEmptyIndex -eq 0) { $fileLines = @() } else { $fileLines = $fileLines[0..($lastNonEmptyIndex - 1)] }
             }
         }
         
-        # Cerca la funzione nel template
+        # Ricerca del segnaposto function nel template
         $functionFound = $false
         $startIndex = -1
         $endIndex = -1
         
-        # Cerca la definizione della funzione
         for ($i = 0; $i -lt $templateLines.Count; $i++) {
             $line = $templateLines[$i].Trim()
-            
-            # Pattern preciso per trovare solo la dichiarazione della funzione (non chiamate o altro)
             if ($line -match "^function\s+$([regex]::Escape($functionName))\s*\{(.*)$") {
                 $startIndex = $i
                 $functionFound = $true
-                
-                # Verifica se è una funzione su una singola riga
                 $restOfLine = $matches[1].Trim()
-                if ($restOfLine -eq "}") {
-                    # Funzione vuota su una riga: function Nome { }
-                    $endIndex = $i
-                    Write-StyledMessage 'Info' "Trovata funzione vuota su singola riga"
-                    break
-                }
                 
-                # Trova la fine della funzione contando le parentesi graffe
-                $braceCount = 1  # Iniziamo con 1 perché abbiamo già trovato la graffa di apertura
+                # Check graffe su monoriga
+                if ($restOfLine -eq "}") { $endIndex = $i; break }
                 
-                # Conta le graffe rimanenti nella riga corrente dopo 'function Nome {'
-                $remainingBraces = ($restOfLine.ToCharArray() | Where-Object { $_ -eq '{' }).Count
-                $closingBraces = ($restOfLine.ToCharArray() | Where-Object { $_ -eq '}' }).Count
-                $braceCount += $remainingBraces - $closingBraces
+                $braceCount = 1 + ($restOfLine.ToCharArray() | Where-Object { $_ -eq '{' }).Count - ($restOfLine.ToCharArray() | Where-Object { $_ -eq '}' }).Count
+                if ($braceCount -eq 0) { $endIndex = $i; break }
                 
-                if ($braceCount -eq 0) {
-                    # La funzione si chiude sulla stessa riga
-                    $endIndex = $i
-                    break
-                }
-                
-                # Continua a cercare la graffa di chiusura nelle righe successive
+                # Cerca la fine scorrendo le righe del template
                 for ($j = $i + 1; $j -lt $templateLines.Count; $j++) {
                     $currentLine = $templateLines[$j]
-                    
-                    # Conta le parentesi graffe
-                    $openBraces = ($currentLine.ToCharArray() | Where-Object { $_ -eq '{' }).Count
-                    $closeBraces = ($currentLine.ToCharArray() | Where-Object { $_ -eq '}' }).Count
-                    
-                    $braceCount += $openBraces - $closeBraces
-                    
-                    # Se il conteggio è tornato a 0, abbiamo trovato la fine
-                    if ($braceCount -eq 0) {
-                        $endIndex = $j
-                        break
-                    }
-                    
-                    # Sicurezza: se il conteggio va sotto zero, qualcosa è andato storto
-                    if ($braceCount -lt 0) {
-                        Write-StyledMessage 'Warning' "Errore nel conteggio delle parentesi graffe per la funzione '$functionName'"
-                        $functionFound = $false
-                        break
-                    }
+                    $braceCount += ($currentLine.ToCharArray() | Where-Object { $_ -eq '{' }).Count - ($currentLine.ToCharArray() | Where-Object { $_ -eq '}' }).Count
+                    if ($braceCount -eq 0) { $endIndex = $j; break }
                 }
                 break
             }
         }
         
+        # Iniezione del codice processato
         if ($functionFound -and $startIndex -ge 0 -and $endIndex -ge 0) {
-            # Costruisci il nuovo contenuto
             $newLines = @()
+            if ($startIndex -gt 0) { $newLines += $templateLines[0..($startIndex - 1)] }
             
-            # Aggiungi tutto prima della funzione
-            if ($startIndex -gt 0) {
-                $newLines += $templateLines[0..($startIndex - 1)]
-            }
-            
-            # Aggiungi la nuova definizione della funzione (sostituisce completamente quella esistente)
-            # Aggiungi la nuova definizione della funzione (sostituisce completamente quella esistente)
-            # Se il file tool include già la dichiarazione 'function <name> { ... }', la rileviamo anche se ci sono righe vuote/commenti iniziali
+            # Controllo eventuale definizione 'function NomeTool' già presente nel tool stesso
             if ($fileLines.Count -gt 0) {
-                # Trova il primo indice con contenuto significativo
-                $firstNonEmpty = -1
-                for ($i = 0; $i -lt $fileLines.Count; $i++) {
-                    if (-not [string]::IsNullOrWhiteSpace($fileLines[$i])) { $firstNonEmpty = $i; break }
-                }
-                if ($firstNonEmpty -ge 0) {
-                    $firstLine = $fileLines[$firstNonEmpty].Trim()
-                    if ($firstLine -match ("(?i)^function\s+" + [regex]::Escape($functionName) + "\s*\{")) {
-                        # Rimuovi la riga della dichiarazione (prima non vuota)
-                        if ($firstNonEmpty -eq 0) {
-                            if ($fileLines.Count -gt 1) { $fileLines = $fileLines[1..($fileLines.Count - 1)] } else { $fileLines = @() }
-                        }
-                        else {
-                            # Rimuovi l'elemento all'indice $firstNonEmpty
-                            $fileLines = $fileLines[0..($firstNonEmpty - 1)] + $fileLines[($firstNonEmpty + 1)..($fileLines.Count - 1)]
-                        }
-                        # Rimuovi eventuale parentesi di chiusura alla fine (ultima riga non vuota)
-                        $lastNonEmpty = -1
-                        for ($j = $fileLines.Count - 1; $j -ge 0; $j--) {
-                            if (-not [string]::IsNullOrWhiteSpace($fileLines[$j])) { $lastNonEmpty = $j; break }
-                        }
-                        if ($lastNonEmpty -ge 0 -and $fileLines[$lastNonEmpty].Trim() -eq "}") {
-                            if ($lastNonEmpty -eq ($fileLines.Count - 1)) {
-                                if ($fileLines.Count -gt 1) { $fileLines = $fileLines[0..($fileLines.Count - 2)] } else { $fileLines = @() }
-                            }
-                            else {
-                                $fileLines = $fileLines[0..($lastNonEmpty - 1)] + $fileLines[($lastNonEmpty + 1)..($fileLines.Count - 1)]
-                            }
-                        }
-                    }
+                $hasInternalFunction = $fileLines | Select-String -Pattern "(?i)^\s*function\s+$([regex]::Escape($functionName))\b" -Quiet
+                if ($hasInternalFunction) {
+                    Write-StyledMessage 'Warning' "Il tool contiene una keyword function interna. Verificare conformità a file finale."
+                    $stats.Warnings++
                 }
             }
-
-            # Validazione firma funzione: avviso se il tool contiene 'function <Nome>' internamente
-            $hasInternalFunction = $fileLines | Select-String -Pattern "(?i)^\s*function\s+$([regex]::Escape($functionName))\b" -Quiet
-            if ($hasInternalFunction) {
-                Write-StyledMessage 'Warning' "Il tool '$functionName' contiene una dichiarazione interna 'function $functionName'."
-                $warningCount++
-            }
-
-            # Rimozione righe di commento se il flag -StripComments è attivo
-            if ($StripComments) {
-                $fileLines = $fileLines | Where-Object { $_ -notmatch '^\s*#' }
-            }
-
-            $newLines += "function $functionName {"
-
-            # Iniezione automatica Initialize-ToolLogging se assente
+            
+            # Injecting base logic
             $hasLogging = $fileLines | Select-String -Pattern "Initialize-ToolLogging" -Quiet
-            if (-not $hasLogging) {
-                $newLines += "    Initialize-ToolLogging"
-                Write-StyledMessage 'Info' "Iniettato Initialize-ToolLogging in '$functionName'"
+            
+            $newLines += "function $functionName {"
+            if (-not $hasLogging) { 
+                $newLines += "    Initialize-ToolLogging -ToolName `"$functionName`"" 
+                Write-StyledMessage 'Info' "Policy applicata: Iniezione automatica Initialize-ToolLogging"
             }
-
             $newLines += $fileLines
             $newLines += "}"
             
-            # Aggiungi tutto dopo la funzione
-            if ($endIndex + 1 -lt $templateLines.Count) {
-                $newLines += $templateLines[($endIndex + 1)..($templateLines.Count - 1)]
-            }
+            if ($endIndex + 1 -lt $templateLines.Count) { $newLines += $templateLines[($endIndex + 1)..($templateLines.Count - 1)] }
             
-            # Aggiorna il template per le prossime iterazioni
+            # Aggiorna il buffer master con la sostituzione
             $templateLines = $newLines
-            
-            Write-StyledMessage 'Success' "Compilazione di '$functionName' completata"
-            $processedCount++
+            Write-StyledMessage 'Success' "Modulo processato: $functionName"
+            $stats.Processed++
         }
         else {
-            # Funzione non trovata - mostra avviso
-            Write-StyledMessage 'Warning' "La funzione '$functionName' non è stata trovata in WinToolkit-template.ps1 e verrà saltata"
-            $skippedCount++
+            Write-StyledMessage 'Warning' "Nessun endpoint trovato nel template. Skip di: $functionName"
+            $stats.Skipped++
         }
-        
     }
     catch {
-        Write-StyledMessage 'Error' "Errore durante il processamento di '$($file.Name)': $($_.Exception.Message)"
-        $errorCount++
+        Write-StyledMessage 'Error' "Errore I/O aggregando il modulo $functionName`: $($_.Exception.Message)"
+        $stats.Errors++
     }
-    
+}
+Write-Host ""
+
+
+# ============================================================================
+# 5. MOTORE DI MINIFICAZIONE CODEBASE E COMPRESSIONE (-Minify)
+# ============================================================================
+if ($Minify) {
+    Write-StyledMessage 'Info' "Avvio algoritmo di Ottimizzazione e Minificazione del codice..."
+    try {
+        $rawContent = $templateLines -join "`r`n"
+        
+        # [A] Rimozione sicura dei commenti
+        # 1. Block comments multiriga, preservando il contenuto.
+        $rawContent = [regex]::Replace($rawContent, '(?s)<#.*?#>', '')
+        # 2. Commenti a singola riga (limitato alle righe che iniziano per '#' ignorando le tabulazioni, protegge le stringhe col cancelletto interno)
+        $rawContent = [regex]::Replace($rawContent, '(?m)^\s*#.*$', '')
+        
+        # [A1] Annullamento Splatting (Inlining delle variabili hashtable per massimizzare compattazione)
+        $regexSplatDef = '(?s)\$([a-zA-Z0-9_]+)\s*=\s*@\{([^}]+)\}'
+        $splatMatches = [regex]::Matches($rawContent, $regexSplatDef)
+        
+        foreach ($m in $splatMatches) {
+            $varName = $m.Groups[1].Value
+            $hashContent = $m.Groups[2].Value
+            
+            $hashContentStr = [regex]::Replace($hashContent, '(?m)^\s*#.*$', '')
+            $inlineArgs = ""
+            $lines = $hashContentStr -split "[\r\n;]+"
+            foreach ($line in $lines) {
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                if ($line -match '^\s*[''"]?([a-zA-Z0-9_]+)[''"]?\s*=\s*(.+)$') {
+                    $key = $matches[1]
+                    $val = $matches[2].Trim()
+                    $inlineArgs += " -$key $val"
+                }
+            }
+            
+            # Rimuove la dichiarazione della hashTable
+            $rawContent = $rawContent.Replace($m.Value, "")
+            # Sostituisce i riferimenti @varName coi parametri inline
+            $rawContent = [regex]::Replace($rawContent, "(?i)@$varName\b", $inlineArgs)
+        }
+        
+        # [B] Ottimizzazione whitespace estrema
+        # 3. Rimozione blank-space di fine linea e inizio linea (indentazione azzerata per max compressione)
+        $rawContent = [regex]::Replace($rawContent, '(?m)^[ \t]+|[ \t]+$', '')
+        # 4. Rimozione righe composte esclusivamente da spazi o tab (linee vuote "sporche")
+        $rawContent = [regex]::Replace($rawContent, '(?m)^\s+$', '')
+        # 5. Riduzione radicale dei vertical break (compress righe vuote multiple in singole e compatta tutto)
+        $rawContent = [regex]::Replace($rawContent, '\r?\n(\r?\n)+', "`r`n")
+        
+        # [C] Compattazione sintattica sicura per PowerShell
+        # 6. Avvolge l'apertura parentesi graffe singole attaccate
+        $rawContent = [regex]::Replace($rawContent, '(?m)\r?\n\s*\{\s*$', ' {')
+        # 7. Compressione riga se vi è l'orfanità di chiusura graffe
+        $rawContent = [regex]::Replace($rawContent, '(?m)\r?\n\s*\}\s*$', ' }')
+        
+        $templateLines = $rawContent -split "`r`n"
+        # 8. Filtro righe completamente vuote residue prima del join
+        $templateLines = $templateLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        
+        Write-StyledMessage 'Success' "Compressione minificata applicata al buffer."
+    }
+    catch {
+        Write-StyledMessage 'Error' "Errore imprevisto durante la minificazione: $($_.Exception.Message)"
+        exit 1
+    }
     Write-Host ""
 }
 
-# Mostra riepilogo finale
-Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║                 📊 RIEPILOGO COMPILAZIONE               ║" -ForegroundColor Cyan
-Write-Host "║                                                          ║" -ForegroundColor White
 
-if ($processedCount -gt 0) {
-    Write-Host "║  ✅ Processati: $processedCount funzioni" -ForegroundColor Green
-}
-else {
-    Write-Host "║  ❌ Processati: $processedCount funzioni" -ForegroundColor Red
-}
-
-if ($skippedCount -gt 0) {
-    Write-Host "║  ⚠️  Saltati: $skippedCount funzioni (non presenti nel template)" -ForegroundColor Yellow
-}
-else {
-    Write-Host "║  ✅ Saltati: $skippedCount funzioni" -ForegroundColor Green
-}
-
-if ($warningCount -gt 0) {
-    Write-Host "║  ⚠️  Avvisi: $warningCount (file vuoti / funzioni interne / logging iniettato)" -ForegroundColor Yellow
-}
-else {
-    Write-Host "║  ✅ Avvisi: $warningCount" -ForegroundColor Green
-}
-
-if ($errorCount -gt 0) {
-    Write-Host "║  ❌ Errori: $errorCount durante l'elaborazione" -ForegroundColor Red
-}
-else {
-    Write-Host "║  ✅ Errori: $errorCount durante l'elaborazione" -ForegroundColor Green
-}
-
-Write-Host "║                                                          ║" -ForegroundColor White
-Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-
-# Salva il file compilato
-Write-StyledMessage 'Info' "Salvataggio file compilato: WinToolkit.ps1"
+# ============================================================================
+# 6. SCRITTURA COMPILAZIONE FINALE SUL DISCO
+# ============================================================================
 try {
-    # Rimuovi il file di output esistente se presente
-    if (Test-Path $outputFile) {
-        Remove-Item $outputFile -Force
-    }
-
-    # Rimuovi le righe vuote alla fine dell'array
-    $originalCount = $templateLines.Count
-    $lastNonEmptyLine = $originalCount - 1
-    while ($lastNonEmptyLine -ge 0 -and [string]::IsNullOrWhiteSpace($templateLines[$lastNonEmptyLine])) {
-        $lastNonEmptyLine--
-    }
+    Write-StyledMessage 'Info' "Salvataggio eseguibile stand-alone: WinToolkit.ps1"
     
-    # Calcola quante righe vuote sono state rimosse
-    $removedLines = $originalCount - $lastNonEmptyLine - 1
+    if (Test-Path $outputFile) { Remove-Item $outputFile -Force -ErrorAction Stop }
     
-    # Tronca l'array fino all'ultima riga non vuota (inclusa)
-    if ($lastNonEmptyLine -ge 0 -and $lastNonEmptyLine -lt $originalCount - 1) {
-        $templateLines = $templateLines[0..$lastNonEmptyLine]
-        Write-StyledMessage 'Info' "Rimosse $removedLines righe vuote dalla fine del file"
-    }
-
-    # Salva il contenuto compilato con Set-Content per evitare newline extra
-    $templateLines | Set-Content -Path $outputFile -Encoding UTF8
-
-    Write-StyledMessage 'Success' "File WinToolkit.ps1 creato con successo!"
-
-    # Esci con codice di errore solo se ci sono stati errori reali, non per funzioni saltate
-    if ($errorCount -gt 0) {
-        Write-StyledMessage 'Error' "Compilazione completata con errori"
-        exit 1
-    }
-    else {
-        Write-StyledMessage 'Success' "Compilazione completata con successo"
-        exit 0
-    }
-
+    # Scrittura in UTF8 no-BOM per evitare problemi multipiattaforma o avvisi editor
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllLines($outputFile, $templateLines, $utf8NoBom)
+    
 }
 catch {
-    Write-StyledMessage 'Error' "Errore durante il salvataggio: $($_.Exception.Message)"
+    Write-StyledMessage 'Error' "Fallimento irreversibile nella scrittura finale su disco: $($_.Exception.Message)"
     exit 1
+}
+
+
+# ============================================================================
+# 7. METRICHE E BUILD DASHBOARD RIEPILOGATIVA
+# ============================================================================
+$ScriptStartTime.Stop()
+$buildTimeSec = [math]::Round($ScriptStartTime.Elapsed.TotalSeconds, 3)
+
+$minifySize = (Get-Item $outputFile).Length
+$compressionPercent = 0
+if ($stats.TotalSourceSize -gt 0) {
+    $compressionPercent = [math]::Round(100 - (($minifySize / $stats.TotalSourceSize) * 100), 1)
+}
+$sourceMB = [math]::Round($stats.TotalSourceSize / 1KB, 2)
+$finalMB = [math]::Round($minifySize / 1KB, 2)
+$finalLinesCount = $templateLines.Count
+$linesReduction = $stats.TotalSourceLines - $finalLinesCount
+
+Write-Host ""
+Write-Host "╔═════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║                🚀 BUILD DASHBOARD RIEPILOGATIVA                 ║" -ForegroundColor Cyan
+Write-Host "╠═════════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+Write-Host "║ 📊 STATISTICHE MODULI                                           ║" -ForegroundColor Yellow
+Write-Host "║    ✅ Processati : $($stats.Processed)" -ForegroundColor Green
+Write-Host "║    ⚠️  Saltati    : $($stats.Skipped)" -ForegroundColor Yellow
+if ($stats.Errors -gt 0) {
+    Write-Host "║    ❌ Errori     : $($stats.Errors)" -ForegroundColor Red
+} else {
+    Write-Host "║    ❌ Errori     : 0" -ForegroundColor DarkGray
+}
+Write-Host "╠═════════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+Write-Host "║ 💾 STORAGE E COMPRESSIONE                                       ║" -ForegroundColor Yellow
+Write-Host "║    📦 Sorgenti   : $sourceMB KB ($($stats.TotalSourceLines) righe)" -ForegroundColor White
+Write-Host "║    📄 File Finale: $finalMB KB ($finalLinesCount righe)" -ForegroundColor Cyan
+if ($Minify) {
+    Write-Host "║    📉 Riduzione  : $compressionPercent % ($linesReduction righe eliminate)" -ForegroundColor Green
+} else {
+    Write-Host "║    📉 Riduzione  : OFF (Flag -Minify non rilevato)" -ForegroundColor DarkGray
+}
+Write-Host "╠═════════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+Write-Host "║ ⏱️  TIMEDIFF MEASURE                                            ║" -ForegroundColor Yellow
+Write-Host "║    ⏳ Esecuzione : $buildTimeSec sec" -ForegroundColor White
+Write-Host "╚═════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host ""
+
+if ($stats.Errors -gt 0) {
+    Write-StyledMessage 'Warning' "La build è stata completata ma ha riscontrato anomalie minori o moduli saltati."
+    exit 1
+} else {
+    Write-StyledMessage 'Success' "Pipeline compiler.ps1 eseguita con codice 0."
+    exit 0
 }
