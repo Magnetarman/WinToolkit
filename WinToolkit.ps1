@@ -13,7 +13,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 9)"
+$ToolkitVersion = "2.5.2 (Build 10)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -2605,10 +2605,7 @@ function OfficeToolkit {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
-        
-        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
@@ -2641,10 +2638,21 @@ function OfficeToolkit {
 
         try {
             if ($Recurse) {
-                Remove-Item $Path -Recurse -Force -ErrorAction SilentlyContinue *>$null
+                $removeParams = @{
+                    Path        = $Path
+                    Recurse     = $true
+                    Force       = $true
+                    ErrorAction = 'SilentlyContinue'
+                }
+                Remove-Item @removeParams *>$null
             }
             else {
-                Remove-Item $Path -Force -ErrorAction SilentlyContinue *>$null
+                $removeParams = @{
+                    Path        = $Path
+                    Force       = $true
+                    ErrorAction = 'SilentlyContinue'
+                }
+                Remove-Item @removeParams *>$null
             }
 
             Clear-ProgressLine
@@ -2654,6 +2662,38 @@ function OfficeToolkit {
         catch {
             return $false
         }
+    }
+
+
+
+    function Apply-OfficePostConfig {
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione/riparazione Office..."
+
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione telemetria Office..."
+        $regPathTelemetry = $AppConfig.Registry.OfficeTelemetry
+        if (-not (Test-Path $regPathTelemetry)) { $null = New-Item $regPathTelemetry -Force }
+        $telemetryParams = @{
+            Path  = $regPathTelemetry
+            Name  = "DisableTelemetry"
+            Value = 1
+            Type  = 'DWord'
+            Force = $true
+        }
+        Set-ItemProperty @telemetryParams
+        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria Office disabilitata"
+
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione notifiche crash Office..."
+        $regPathFeedback = $AppConfig.Registry.OfficeFeedback
+        if (-not (Test-Path $regPathFeedback)) { $null = New-Item $regPathFeedback -Force }
+        $feedbackParams = @{
+            Path  = $regPathFeedback
+            Name  = "OnBootNotify"
+            Value = 0
+            Type  = 'DWord'
+            Force = $true
+        }
+        Set-ItemProperty @feedbackParams
+        Write-StyledMessage -Type 'Success' -Text "✅ Notifiche crash Office disabilitate"
     }
 
 
@@ -2759,6 +2799,7 @@ function OfficeToolkit {
             Write-StyledMessage -Type 'Info' -Text "🚀 Avvio processo installazione..."
             $arguments = "/configure `"$configPath`""
 
+            $processTimeoutSeconds = 86400 # Attesa indefinita (24 ore)
             $result = Invoke-WithSpinner -Activity "Installazione Office Basic" -Process -Action {
                 $procParams = @{
                     FilePath         = $setupPath
@@ -2769,30 +2810,15 @@ function OfficeToolkit {
                     ErrorAction      = 'Stop'
                 }
                 Start-Process @procParams
-            } -TimeoutSeconds 1800
+            } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
 
             if (-not $result.Success) {
                 Write-StyledMessage -Type 'Error' -Text "Installazione fallita o scaduta"
                 return $false
             }
 
-            # Nuove configurazioni post-installazione: Disabilitazione Telemetria e Notifiche Crash
-            Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione Office..."
-
-            # Configurazione telemetria Office
-            Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione telemetria Office..."
-            $regPathTelemetry = $AppConfig.Registry.OfficeTelemetry
-            if (-not (Test-Path $regPathTelemetry)) { $null = New-Item $regPathTelemetry -Force }
-            Set-ItemProperty -Path $regPathTelemetry -Name "DisableTelemetry" -Value 1 -Type DWord -Force
-            Write-StyledMessage -Type 'Success' -Text "✅ Telemetria Office disabilitata"
-
-            # Configurazione notifiche crash Office
-            Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione notifiche crash Office..."
-            $regPathFeedback = $AppConfig.Registry.OfficeFeedback
-            if (-not (Test-Path $regPathFeedback)) { $null = New-Item $regPathFeedback -Force }
-            Set-ItemProperty -Path $regPathFeedback -Name "OnBootNotify" -Value 0 -Type DWord -Force
-            Write-StyledMessage -Type 'Success' -Text "✅ Notifiche crash Office disabilitate"
-            # Fine nuove configurazioni
+            # Configurazione post-installazione centralizzata
+            Apply-OfficePostConfig
 
             Write-StyledMessage -Type 'Success' -Text "Installazione completata"
             Write-StyledMessage -Type 'Info' -Text "Riavvio non necessario"
@@ -2834,44 +2860,60 @@ function OfficeToolkit {
         }
 
         try {
+            $processTimeoutSeconds = 86400 # Attesa indefinita (24 ore)
             Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione rapida (offline)..."
             $argumentsQuick = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=QuickRepair DisplayLevel=True"
 
             $resultQuick = Invoke-WithSpinner -Activity "Riparazione Rapida Office (Offline)" -Process -Action {
-                $procParamsQuick = @{
+                $procParams = @{
                     FilePath     = $officeClient
                     ArgumentList = $argumentsQuick
                     PassThru     = $true
                     ErrorAction  = 'Stop'
                 }
-                Start-Process @procParamsQuick
-            } -TimeoutSeconds 600
+                $initialProc = Start-Process @procParams
+                Start-Sleep -Seconds 5 # Attende la generazione del processo figlio
+                # Intercetta il processo secondario di riparazione effettivo
+                $activeRepair = Get-Process -Name "OfficeClickToRun" -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $initialProc.Id } | Select-Object -First 1
+                if ($activeRepair) { return $activeRepair }
+                return $initialProc # Fallback
+            } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
 
-            if (Get-UserConfirmation "✅ La riparazione rapida ha risolto il problema?" 'Y') {
-                Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
-                return $true
-            }
-            else {
-                Write-StyledMessage -Type 'Info' -Text "🌐 Avvio riparazione completa (online)..."
+            # Ripristina configurazione post-riparazione (la riparazione può sovrascrivere le impostazioni)
+            Apply-OfficePostConfig
+            Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
+            return $true
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore durante riparazione Office: $($_.Exception.Message)"
+            # Tentativo riparazione online come fallback
+            try {
+                Write-StyledMessage -Type 'Info' -Text "🌐 Tentativo riparazione completa (online) come fallback..."
+                $processTimeoutSeconds = 86400
                 $argumentsFull = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
 
                 $resultFull = Invoke-WithSpinner -Activity "Riparazione Completa Office (Online)" -Process -Action {
-                    $procParamsFull = @{
+                    $procParams = @{
                         FilePath     = $officeClient
                         ArgumentList = $argumentsFull
                         PassThru     = $true
                         ErrorAction  = 'Stop'
                     }
-                    Start-Process @procParamsFull
-                } -TimeoutSeconds 1800
+                    $initialProcFull = Start-Process @procParams
+                    Start-Sleep -Seconds 5
+                    $activeRepairFull = Get-Process -Name "OfficeClickToRun" -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $initialProcFull.Id } | Select-Object -First 1
+                    if ($activeRepairFull) { return $activeRepairFull }
+                    return $initialProcFull
+                } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
 
+                Apply-OfficePostConfig
                 Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
                 return $true
             }
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante riparazione Office: $($_.Exception.Message)"
-            return $false
+            catch {
+                Write-StyledMessage -Type 'Error' -Text "Errore anche durante riparazione online: $($_.Exception.Message)"
+                return $false
+            }
         }
     }
 
@@ -2941,14 +2983,17 @@ function OfficeToolkit {
                         if ($item.UninstallString -and $item.UninstallString -match "msiexec") {
                             try {
                                 $productCode = $item.PSChildName
-                                $procParams = @{
-                                    FilePath     = 'msiexec.exe'
-                                    ArgumentList = @('/x', $productCode, '/qn', '/norestart')
-                                    Wait         = $true
-                                    NoNewWindow  = $true
-                                    ErrorAction  = 'Stop'
-                                }
-                                Start-Process @procParams
+                                $spinnerActivity = "Rimozione: $($item.DisplayName)"
+                                $null = Invoke-WithSpinner -Activity $spinnerActivity -Process -Action {
+                                    $procParams = @{
+                                        FilePath     = 'msiexec.exe'
+                                        ArgumentList = @('/x', $productCode, '/qn', '/norestart')
+                                        PassThru     = $true
+                                        WindowStyle  = 'Hidden'
+                                        ErrorAction  = 'Stop'
+                                    }
+                                    Start-Process @procParams
+                                } -TimeoutSeconds 1800 -UpdateInterval 1000
                             }
                             catch {}
                         }
@@ -3134,6 +3179,7 @@ function OfficeToolkit {
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
 
             try {
+                $processTimeoutSeconds = 86400 # Attesa indefinita (24 ore)
                 $result = Invoke-WithSpinner -Activity "Rimozione Office tramite SaRA" -Process -Action {
                     $procParams = @{
                         FilePath     = $saraExe.FullName
@@ -3143,7 +3189,7 @@ function OfficeToolkit {
                         ErrorAction  = 'Stop'
                     }
                     Start-Process @procParams
-                } -TimeoutSeconds 600
+                } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
 
                 if ($result.ExitCode -eq 0) {
                     Write-StyledMessage -Type 'Success' -Text "✅ SaRA completato con successo"
@@ -3251,13 +3297,10 @@ function OfficeToolkit {
                 if ($success) {
                     if ($choice -ne '1') {
                         Write-StyledMessage -Type 'Success' -Text "🎉 $operation completata!"
-                        if (Get-UserConfirmation "🔄 Riavviare ora per finalizzare?" 'Y') {
-                            $needsReboot = $true
-                            $lastOperation = $operation
-                        }
-                        else {
-                            Write-StyledMessage -Type 'Info' -Text "💡 Riavvia manualmente quando possibile"
-                        }
+                        # Automazione completa: imposta il riavvio necessario senza prompt interattivo
+                        $needsReboot = $true
+                        $lastOperation = $operation
+                        Write-StyledMessage -Type 'Info' -Text "💡 Il sistema verrà riavviato automaticamente alla fine del processo."
                     }
                 }
                 else {
@@ -3281,7 +3324,7 @@ function OfficeToolkit {
     }
 
     # ============================================================================
-    # 4. GESTIONE RIAVVIO — CENTRALIZZATA E SEMPRE ULTIMA
+    # 4. GESTIONE RIAVVIO — SEMPRE ULTIMA
     # ============================================================================
     if ($needsReboot) {
         if ($SuppressIndividualReboot) {
