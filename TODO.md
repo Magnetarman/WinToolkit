@@ -61,6 +61,13 @@
 - [x] Fix catch vuoto in Install-UniGetUI → logga l'eccezione con Write-StyledMessage -Type 'Error'.
 - [x] Write-Host nel finally rimosso → gestione riavvio delegata a Start-InterruptibleCountdown.
 
+- `compiler.ps1` Aggiornato.
+  - [x] Logging aggiornato TimeStamp + Enum-based.
+  - [x] Aggiunto Motore di Minificazione, che elimina lo splatting e compatta il codice per massimizzare l'ottimizzazione a discapito della lettura.
+  - [x] Rimozione dei commenti in blocco.
+  - [x] Dashboard di Compilazione finale riscritta totalmente e potenziate.
+  - [x] Encoding è forzato rigorosamente a UTF8-NoBOM via UTF8Encoding $false per migliorare il supporto.
+
 
 
 ### V 2.6 - Debloat
