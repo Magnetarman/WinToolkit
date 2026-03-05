@@ -241,18 +241,8 @@ function OfficeToolkit {
                 return $false
             }
 
-            # --- NUOVA LOGICA DI ATTESA OFFICE CLICK-TO-RUN ---
-            Write-StyledMessage -Type 'Info' -Text "⏳ Finalizzazione installazione in background (attesa OfficeClickToRun)..."
-            
-            # Ciclo per attendere che il processo di installazione effettivo termini
-            do {
-                $activeInstall = Get-Process -Name "OfficeClickToRun" -ErrorAction SilentlyContinue | 
-                                 Where-Object { $_.Path -match "Common Files\\microsoft shared\\ClickToRun" }
-                if ($activeInstall) { 
-                    Start-Sleep -Seconds 5 
-                }
-            } while ($activeInstall)
-            # --------------------------------------------------
+            # L'attesa è già gestita da Invoke-WithSpinner sul processo Setup.exe.
+            # Il ciclo do-while su OfficeClickToRun è stato rimosso per evitare freeze.
 
             # Configurazione post-installazione centralizzata
             Apply-OfficePostConfig
@@ -308,12 +298,8 @@ function OfficeToolkit {
                     PassThru     = $true
                     ErrorAction  = 'Stop'
                 }
-                $initialProc = Start-Process @procParams
-                Start-Sleep -Seconds 5 # Attende la generazione del processo figlio
-                # Intercetta il processo secondario di riparazione effettivo
-                $activeRepair = Get-Process -Name "OfficeClickToRun" -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $initialProc.Id } | Select-Object -First 1
-                if ($activeRepair) { return $activeRepair }
-                return $initialProc # Fallback
+                # Avvia il processo e lo restituisce direttamente a Invoke-WithSpinner
+                return Start-Process @procParams
             } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
 
             # Ripristina configurazione post-riparazione (la riparazione può sovrascrivere le impostazioni)
@@ -336,11 +322,8 @@ function OfficeToolkit {
                         PassThru     = $true
                         ErrorAction  = 'Stop'
                     }
-                    $initialProcFull = Start-Process @procParams
-                    Start-Sleep -Seconds 5
-                    $activeRepairFull = Get-Process -Name "OfficeClickToRun" -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $initialProcFull.Id } | Select-Object -First 1
-                    if ($activeRepairFull) { return $activeRepairFull }
-                    return $initialProcFull
+                    # Avvia il processo e lo restituisce direttamente a Invoke-WithSpinner
+                    return Start-Process @procParams
                 } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
 
                 Apply-OfficePostConfig
