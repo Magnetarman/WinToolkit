@@ -15,8 +15,8 @@
   - [ ] Imposta tramite criteri di gruppo gli Update di windows.
 
 - `OfficeToolkit.ps1` Riscritto.
-  - [ ] Semplificata logica generale dello script.
-  - [ ] Meno richieste inutili e maggiore automazione.
+  - [x] Semplificata logica generale dello script.
+  - [x] Meno richieste inutili e maggiore automazione.
 
 - `start.ps1` Aggiornato.
   - [x] Aggiornate sezione .SYNOPSIS e .DESCRIPTION [[#39](https://github.com/MagnetarMan/WinToolkit/issues/39) [@pomodori92]](https://github.com/pomodori92).
