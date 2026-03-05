@@ -80,31 +80,44 @@ function OfficeToolkit {
     function Apply-OfficePostConfig {
         Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione/riparazione Office..."
 
-        Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione telemetria Office..."
-        $regPathTelemetry = $AppConfig.Registry.OfficeTelemetry
-        if (-not (Test-Path $regPathTelemetry)) { $null = New-Item $regPathTelemetry -Force }
-        $telemetryParams = @{
-            Path  = $regPathTelemetry
-            Name  = "DisableTelemetry"
+        # Array di configurazione per Telemetria ed Esperienze Connesse
+        $telemetryKeys = @(
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 }
+        )
+
+        foreach ($reg in $telemetryKeys) {
+            if (-not (Test-Path $reg.Path)) { 
+                $null = New-Item -Path $reg.Path -Force
+            }
+            $regParams = @{
+                Path  = $reg.Path
+                Name  = $reg.Name
+                Value = $reg.Value
+                Type  = 'DWord'
+                Force = $true
+            }
+            Set-ItemProperty @regParams
+        }
+
+        # Fix per disabilitare il popup di Opt-In all'avvio e le notifiche di crash
+        $regPathFeedback = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"
+        if (-not (Test-Path $regPathFeedback)) { 
+            $null = New-Item $regPathFeedback -Force
+        }
+        $feedbackParams = @{
+            Path  = $regPathFeedback
+            Name  = "ShownOptIn"
             Value = 1
             Type  = 'DWord'
             Force = $true
         }
-        Set-ItemProperty @telemetryParams
-        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria Office disabilitata"
-
-        Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione notifiche crash Office..."
-        $regPathFeedback = $AppConfig.Registry.OfficeFeedback
-        if (-not (Test-Path $regPathFeedback)) { $null = New-Item $regPathFeedback -Force }
-        $feedbackParams = @{
-            Path  = $regPathFeedback
-            Name  = "OnBootNotify"
-            Value = 0
-            Type  = 'DWord'
-            Force = $true
-        }
         Set-ItemProperty @feedbackParams
-        Write-StyledMessage -Type 'Success' -Text "✅ Notifiche crash Office disabilitate"
+
+        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate in modo profondo"
     }
 
 
@@ -224,9 +237,22 @@ function OfficeToolkit {
             } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
 
             if (-not $result.Success) {
-                Write-StyledMessage -Type 'Error' -Text "Installazione fallita o scaduta"
+                Write-StyledMessage -Type 'Error' -Text "Installazione fallita o scaduta (fase di setup iniziale)"
                 return $false
             }
+
+            # --- NUOVA LOGICA DI ATTESA OFFICE CLICK-TO-RUN ---
+            Write-StyledMessage -Type 'Info' -Text "⏳ Finalizzazione installazione in background (attesa OfficeClickToRun)..."
+            
+            # Ciclo per attendere che il processo di installazione effettivo termini
+            do {
+                $activeInstall = Get-Process -Name "OfficeClickToRun" -ErrorAction SilentlyContinue | 
+                                 Where-Object { $_.Path -match "Common Files\\microsoft shared\\ClickToRun" }
+                if ($activeInstall) { 
+                    Start-Sleep -Seconds 5 
+                }
+            } while ($activeInstall)
+            # --------------------------------------------------
 
             # Configurazione post-installazione centralizzata
             Apply-OfficePostConfig
@@ -518,7 +544,13 @@ function OfficeToolkit {
             foreach ($desktopPath in $desktopPaths) {
                 if (Test-Path $desktopPath) {
                     foreach ($shortcut in $officeShortcuts) {
-                        $shortcutFiles = Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue
+                        $gciParams = @{
+                            Path        = $desktopPath
+                            Filter      = $shortcut
+                            Recurse     = $true
+                            ErrorAction = 'SilentlyContinue'
+                        }
+                        $shortcutFiles = Get-ChildItem @gciParams
                         foreach ($file in $shortcutFiles) {
                             if (Invoke-SilentRemoval -Path $file.FullName) {
                                 $shortcutsRemoved++
@@ -578,7 +610,13 @@ function OfficeToolkit {
                 return $false
             }
 
-            $saraExe = Get-ChildItem -Path $tempDir -Filter "SaRAcmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            $gciParamsExe = @{
+                Path        = $tempDir
+                Filter      = "SaRAcmd.exe"
+                Recurse     = $true
+                ErrorAction = 'SilentlyContinue'
+            }
+            $saraExe = Get-ChildItem @gciParamsExe | Select-Object -First 1
             if (-not $saraExe) {
                 Write-StyledMessage -Type 'Error' -Text "SaRAcmd.exe non trovato"
                 return $false
