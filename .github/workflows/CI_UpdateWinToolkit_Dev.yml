@@ -5,8 +5,8 @@
 #
 # IMPORTANT: This pipeline requires PowerShell 7+ to run properly.
 # PowerShell 7 features (like null-coalescing operator ??) are used in the code.
-# The pipeline automatically sets up PowerShell 7 using actions/setup-powershell.
-#
+# On windows-latest runners, 'shell: pwsh' automatically uses PowerShell 7 (pre-installed).
+# No additional setup action is required.
 # Job structure:
 #   1. Linting    -> Analisi statica del codice sorgente
 #   2. Build      -> Compilazione, test e statistiche compressione
@@ -50,22 +50,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup PowerShell 7
-        uses: actions/setup-powershell@v5
-        with:
-          pwsh: "7"
-          version: "7.*"
-
-      - name: Verify PowerShell Version
-        shell: pwsh
-        run: |
-          Write-Host "PowerShell Version:" -ForegroundColor Cyan
-          $PSVersionTable
-          if ($PSVersionTable.PSVersion.Major -lt 7) {
-            Write-Host "ERROR: PowerShell 7 or higher is required!" -ForegroundColor Red
-            exit 1
-          }
-
+      # windows-latest include già PowerShell 7 (pwsh). shell: pwsh lo usa automaticamente.
       - name: Install PSScriptAnalyzer
         shell: pwsh
         run: |
@@ -204,21 +189,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Setup PowerShell 7
-        uses: actions/setup-powershell@v5
-        with:
-          pwsh: "7"
-          version: "7.*"
-
-      - name: Verify PowerShell Version
-        shell: pwsh
-        run: |
-          Write-Host "PowerShell Version:" -ForegroundColor Cyan
-          $PSVersionTable
-          if ($PSVersionTable.PSVersion.Major -lt 7) {
-            Write-Host "ERROR: PowerShell 7 or higher is required!" -ForegroundColor Red
-            exit 1
-          }
+      # windows-latest include già PowerShell 7 (pwsh). shell: pwsh lo usa automaticamente.
 
       # ========================================
       # Step: Incrementa Versione
@@ -331,11 +302,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Setup PowerShell 7
-        uses: actions/setup-powershell@v5
-        with:
-          pwsh: "7"
-          version: "7.*"
+      # windows-latest include già PowerShell 7 (pwsh). shell: pwsh lo usa automaticamente.
 
       - name: Download compiled artifact
         uses: actions/download-artifact@v4
@@ -428,7 +395,7 @@ jobs:
           }
 
           $owner = "${{ github.repository_owner }}"
-          $repo = "${{ github.repo }}"
+          $repo = "${{ github.event.repository.name }}"
 
           $releaseUrl = "https://api.github.com/repos/$owner/$repo/releases"
 
