@@ -28,8 +28,7 @@ function DisableBitlocker {
     # 2. CONFIGURAZIONE E VARIABILI LOCALI
     # ============================================================================
 
-    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
-    $Global:DisableBitlockerLog = @()
+    $regPath = $AppConfig.Registry.BitLocker
 
     # ============================================================================
     # 3. FUNZIONI HELPER LOCALI
@@ -54,17 +53,18 @@ function DisableBitlocker {
     try {
         Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione decrittazione drive C:..."
 
-        # Tentativo disattivazione
-        $procParams = @{
-            FilePath     = 'manage-bde.exe'
-            ArgumentList = @('-off', 'C:')
-            PassThru     = $true
-            Wait         = $true
-            NoNewWindow  = $true
-        }
-        $proc = Start-Process @procParams
+        # Tentativo disattivazione con spinner
+        $result = Invoke-WithSpinner -Activity "Disattivazione BitLocker" -Process -Action {
+            $procParams = @{
+                FilePath     = 'manage-bde.exe'
+                ArgumentList = @('-off', 'C:')
+                PassThru     = $true
+                WindowStyle  = 'Hidden'
+            }
+            Start-Process @procParams
+        } -TimeoutSeconds 600
 
-        if ($proc.ExitCode -eq 0) {
+        if ($result.ExitCode -eq 0) {
             Write-StyledMessage -Type 'Success' -Text "✅ Decrittazione avviata/completata con successo."
             Start-Sleep -Seconds 2
 
@@ -75,13 +75,13 @@ function DisableBitlocker {
             }
         }
         else {
-            Write-StyledMessage -Type 'Warning' -Text "⚠️ Codice uscita manage-bde: $($proc.ExitCode). BitLocker potrebbe essere già disattivo o in errore."
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ Codice uscita manage-bde: $($result.ExitCode). BitLocker potrebbe essere già disattivo o in errore."
         }
 
         # Prevenzione crittografia futura
         Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione crittografia automatica nel registro..."
         if (-not (Test-Path $regPath)) {
-            New-Item -Path $regPath -Force | Out-Null
+            New-Item -Path $regPath -Force *>$null
         }
         Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
 
@@ -92,10 +92,14 @@ function DisableBitlocker {
     }
     finally {
         Write-StyledMessage -Type 'Info' -Text "♻️ Pulizia risorse Completata."
-        if (-not $SuppressIndividualReboot) {
-            Write-Host "`nPremi Enter per terminare..." -ForegroundColor Gray
-            Read-Host | Out-Null
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
         }
-        try { Stop-Transcript | Out-Null } catch {}
+        else {
+            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio in") {
+                Restart-Computer -Force
+            }
+        }
+        try { Stop-Transcript *>$null } catch {}
     }
 }
