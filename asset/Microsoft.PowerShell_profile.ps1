@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.2.1"
+$ProfileVersion = "2.5.2.2"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
@@ -280,7 +280,7 @@ function PSProfileUpdate {
         # Recupera il contenuto remoto per estrarne la versione
         $remoteContent = (Invoke-WebRequest -Uri $remoteProfileUrl -UseBasicParsing -ErrorAction Stop).Content
         $match = [regex]::Match($remoteContent, '(?i)\$ProfileVersion\s*=\s*[''"]([^''"]+)[''"]')
-        
+
         if (-not $match.Success) {
             throw "Impossibile determinare la versione remota dal file scaricato."
         }
@@ -293,15 +293,15 @@ function PSProfileUpdate {
 
         Write-Host "⚠️ È disponibile una versione aggiornata! (Locale: $localVersion -> Remota: $remoteVersion)" -ForegroundColor Yellow
         Write-Host "🔄 Aggiornamento in corso..." -ForegroundColor Cyan
-        
+
         Invoke-WebRequest -Uri $remoteProfileUrl -OutFile $localProfilePath -UseBasicParsing -ErrorAction Stop
         Write-Host "✅ Profilo scaricato e sostituito con successo. Riavvia la sessione per applicare le modifiche." -ForegroundColor Green
-        
+
     }
     catch {
         Write-Host "⚠️ Rilevato problema: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host "🔄 Forzatura: Scaricamento e sovrascrittura del profilo remoto per eliminare i problemi..." -ForegroundColor Cyan
-        
+
         try {
             Invoke-WebRequest -Uri $remoteProfileUrl -OutFile $localProfilePath -UseBasicParsing -ErrorAction Stop
             Write-Host "✅ Profilo forzatamente ripristinato dalla versione remota. Riavvia PowerShell." -ForegroundColor Green
@@ -400,43 +400,100 @@ function PS-Reset {
     [CmdletBinding()]
     param()
 
-    Write-Host "⚠️ ATTENZIONE: Questa operazione eliminerà il profilo PowerShell personalizzato e resetterà Windows Terminal alle impostazioni di fabbrica." -ForegroundColor Yellow
-    $confirmation = Read-Host "❓ Vuoi procedere? (S/N)"
+    # 1. Controllo Amministratore (Necessario per disinstallazioni e riavvio)
+    if (-not (Assert-Admin)) {
+        Write-Host "❌ Questa operazione richiede privilegi di Amministratore." -ForegroundColor Red
+        Write-Host "ℹ️ Riavvia PowerShell come Amministratore per eseguire PS-Reset." -ForegroundColor Cyan
+        return
+    }
+
+    Write-Host "⚠️ ATTENZIONE: Questa operazione eseguirà un ROLLBACK COMPLETO:" -ForegroundColor Yellow
+    Write-Host "  - Disinstallerà OhMyPosh, Zoxide, Btop, Fastfetch e i font Nerd." -ForegroundColor DarkYellow
+    Write-Host "  - Eliminerà le cartelle WinToolkit, i log e i file temporanei." -ForegroundColor DarkYellow
+    Write-Host "  - Resetterà Windows Terminal e il profilo PowerShell alle impostazioni di fabbrica." -ForegroundColor DarkYellow
+    Write-Host "  - RIAVVIERÀ automaticamente il sistema al termine." -ForegroundColor Red
+
+    $confirmation = Read-Host "`n❓ Vuoi procedere in modo irreversibile? (S/N)"
 
     if ($confirmation -notmatch "^[Ss]$") {
         Write-Host "ℹ️ Operazione annullata." -ForegroundColor Cyan
         return
     }
 
-    Write-Host "`n🔄 Avvio reset..." -ForegroundColor Cyan
+    Write-Host "`n🔄 Avvio procedura di reset profondo..." -ForegroundColor Cyan
 
-    # 1. Reset Windows Terminal
-    try {
-        $wtSettingsPath = Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-        if (Test-Path $wtSettingsPath) {
-            Remove-Item -Path $wtSettingsPath -Force -ErrorAction Stop
-            Write-Host "✅ Impostazioni di Windows Terminal eliminate. Verranno ricreate al prossimo avvio." -ForegroundColor Green
-        }
-        else {
-            Write-Host "ℹ️ Impostazioni di Windows Terminal non trovate, reset non necessario." -ForegroundColor DarkYellow
-        }
+    # 2. Disinstallazione pacchetti Winget
+    $wingetPackages = @(
+        "JanDeDobbeleer.OhMyPosh",
+        "ajeetdsouza.zoxide",
+        "aristocratos.btop4win",
+        "Fastfetch-cli.Fastfetch",
+        "DEVCOM.JetBrainsMonoNerdFont"
+    )
+
+    Write-Host "`n📦 Disinstallazione tool da riga di comando via Winget..." -ForegroundColor Cyan
+    foreach ($pkg in $wingetPackages) {
+        Write-Host "   -> Rimozione di $pkg..." -ForegroundColor DarkGray
+        # Utilizzo di Start-Process per attendere la fine dell'operazione silenziosa
+        Start-Process -FilePath "winget" -ArgumentList "uninstall --id $pkg --silent --accept-source-agreements" -Wait -NoNewWindow
     }
-    catch {
-        Write-Host "❌ Errore durante il reset di Windows Terminal: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "✅ Disinstallazioni Winget completate." -ForegroundColor Green
+
+    # 3. Rimozione Scorciatoia Desktop
+    Write-Host "`n🗑️ Rimozione scorciatoia Desktop..." -ForegroundColor Cyan
+    $desktopPath = [Environment]::GetFolderPath('Desktop')
+    $shortcut = Join-Path $desktopPath "Win Toolkit.lnk"
+    if (Test-Path $shortcut) {
+        Remove-Item -Path $shortcut -Force -ErrorAction SilentlyContinue
+        Write-Host "✅ Scorciatoia Desktop rimossa." -ForegroundColor Green
     }
 
-    # 2. Eliminazione Profilo PowerShell
-    try {
-        if (Test-Path $PROFILE) {
-            Remove-Item -Path $PROFILE -Force -ErrorAction Stop
-            Write-Host "✅ Profilo PowerShell personalizzato eliminato con successo." -ForegroundColor Green
+    # 4. Pulizia cartelle di sistema e temporanee
+    Write-Host "`n🧹 Pulizia file temporanei e directory WinToolkit..." -ForegroundColor Cyan
+    $directoriesToRemove = @(
+        (Join-Path $env:LOCALAPPDATA "WinToolkit"),
+        (Join-Path $env:TEMP "WinToolkitSetup"),
+        (Join-Path $env:TEMP "WinToolkitWinget")
+    )
+
+    foreach ($dir in $directoriesToRemove) {
+        if (Test-Path $dir) {
+            Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "   -> Rimossa directory: $dir" -ForegroundColor DarkGray
         }
     }
-    catch {
-        Write-Host "❌ Errore durante l'eliminazione del profilo: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "✅ Pulizia cartelle completata." -ForegroundColor Green
+
+    # 5. Reset Windows Terminal
+    Write-Host "`n🔄 Reset impostazioni Windows Terminal..." -ForegroundColor Cyan
+    $wtSettingsPath = Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+    if (Test-Path $wtSettingsPath) {
+        Remove-Item -Path $wtSettingsPath -Force -ErrorAction SilentlyContinue
+        Write-Host "✅ Impostazioni di Windows Terminal eliminate." -ForegroundColor Green
     }
 
-    Write-Host "`n🎉 Reset completato! Chiudi e riapri Windows Terminal per applicare le impostazioni di fabbrica." -ForegroundColor Magenta
+    # 6. Eliminazione Directory Profilo PowerShell (Include profili, .bak, e cartella Themes)
+    # Eseguito per ultimo per evitare crash della shell in esecuzione
+    Write-Host "`n🗑️ Eliminazione configurazioni profilo PowerShell..." -ForegroundColor Cyan
+    $profileDir = Split-Path -Parent $PROFILE
+    if (Test-Path $profileDir) {
+        Remove-Item -Path $profileDir -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "✅ Directory del profilo PowerShell eliminata." -ForegroundColor Green
+    }
+
+    # 7. Conclusione e Riavvio temporizzato
+    Write-Host "`n🎉 RESET COMPLETATO CON SUCCESSO!" -ForegroundColor Green
+    Write-Host "L'ambiente è stato riportato alle impostazioni di fabbrica." -ForegroundColor Magenta
+    Write-Host "Il sistema verrà riavviato per pulire i processi in sospeso e finalizzare le modifiche.`n" -ForegroundColor Yellow
+
+    # Countdown di 10 secondi
+    for ($i = 10; $i -gt 0; $i--) {
+        Write-Host "`r⏳ Riavvio automatico tra $i secondi... " -NoNewline -ForegroundColor Red
+        Start-Sleep -Seconds 1
+    }
+
+    Write-Host "`n`n🚀 Avvio riavvio del sistema in corso..." -ForegroundColor Cyan
+    shutdown /r /f /t 0
 }
 
 # ============================================================================
