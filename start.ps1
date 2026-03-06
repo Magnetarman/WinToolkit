@@ -17,7 +17,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.2 (Build 11)"
+        Version = "Version 2.5.2 (Build 12)"
     }
     URLs   = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -806,6 +806,23 @@ function Install-PowerShellCore {
         return $true
     }
 
+    # 1. Tentativo via Winget (Prioritario)
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Write-StyledMessage -Type Info -Text "Tentativo installazione PowerShell 7 via Winget..."
+        # Utilizziamo l'ID ufficiale Microsoft.PowerShell
+        $result = Invoke-WingetCommand -Arguments "install --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements --silent"
+        
+        if ($result.ExitCode -eq 0) {
+            Start-Sleep 3
+            if (Test-Path "$env:ProgramFiles\PowerShell\7") {
+                Write-StyledMessage -Type Success -Text "PowerShell 7 installato via Winget."
+                return $true
+            }
+        }
+        Write-StyledMessage -Type Warning -Text "Installazione Winget fallita o non riuscita (ExitCode: $($result.ExitCode)). Fallback al download diretto..."
+    }
+
+    # 2. Fallback: download diretto MSI da GitHub
     try {
         Write-StyledMessage -Type Info -Text "Recupero ultima release PowerShell..."
         $release = Invoke-RestMethod -Uri $script:AppConfig.URLs.PowerShellRelease -UseBasicParsing
