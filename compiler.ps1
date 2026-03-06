@@ -160,63 +160,59 @@ foreach ($file in $toolFiles) {
             $newLines = @()
             if ($startIndex -gt 0) { $newLines += $templateLines[0..($startIndex - 1)] }
             
-            # Controllo eventuale definizione 'function NomeTool' gia presente nel tool stesso
-            $hasInternalFunction = $false
+            # --- LOGICA DI DE-INCAPSULAMENTO (UNWRAP) ---
+            # Se il file tool include già la dichiarazione 'function <name> { ... }', la rimuoviamo
+            # per evitare la doppia nidificazione (catastrofica).
+            $processedFileLines = $fileLines
+            
             if ($fileLines.Count -gt 0) {
-                # Cerca riga che inizia con 'function NomeTool' (case insensitive)
-                $hasInternalFunction = $fileLines | Select-String -Pattern "(?i)^\s*function\s+$([regex]::Escape($functionName))\b" -Quiet
-            }
-            
-            # Injecting base logic
-            $hasLogging = $fileLines | Select-String -Pattern "Initialize-ToolLogging" -Quiet
-            
-            if ($hasInternalFunction) {
-                Write-StyledMessage 'Info' "Rilevata definizione function interna in $functionName. Sostituzione senza doppia nidificazione."
-                
-                # Rimuovi la dichiarazione 'function NomeTool {' iniziale per evitare duplicazione
-                $toolContentLines = @()
-                $functionHeaderRemoved = $false
-                for ($ln = 0; $ln -lt $fileLines.Count; $ln++) {
-                    $line = $fileLines[$ln]
-                    # Se troviamo la riga function e non l'abbiamo ancora rimossa
-                    if (-not $functionHeaderRemoved -and $line -match "(?i)^\s*function\s+$([regex]::Escape($functionName))\s*\{?") {
-                        $functionHeaderRemoved = $true
-                        # Se la riga contiene anche {, salta questa riga (la { sara aggiunta dopo)
-                        if ($line -match "\{") {
-                            continue
+                # Trova il primo indice con contenuto significativo
+                $firstNonEmpty = -1
+                for ($i = 0; $i -lt $fileLines.Count; $i++) {
+                    if (-not [string]::IsNullOrWhiteSpace($fileLines[$i])) { $firstNonEmpty = $i; break }
+                }
+
+                if ($firstNonEmpty -ge 0) {
+                    $firstLine = $fileLines[$firstNonEmpty].Trim()
+                    # Rilevamento Case-Insensitive della funzione corretta
+                    if ($firstLine -match ("(?i)^function\s+" + [regex]::Escape($functionName) + "\s*\{")) {
+                        Write-StyledMessage 'Info' "Rilevata funzione interna in '$functionName'. Applicazione de-incapsulamento."
+                        
+                        # Rimuoviamo la riga della dichiarazione
+                        if ($firstNonEmpty -eq 0) {
+                            if ($fileLines.Count -gt 1) { $processedFileLines = $fileLines[1..($fileLines.Count - 1)] } else { $processedFileLines = @() }
                         }
-                        # Altrimenti, continua a processare le righe successive
+                        else {
+                            $processedFileLines = $fileLines[0..($firstNonEmpty - 1)] + $fileLines[($firstNonEmpty + 1)..($fileLines.Count - 1)]
+                        }
+                        
+                        # Rimuoviamo eventuale parentesi di chiusura finale '}' (ultima riga non vuota)
+                        $lastNonEmpty = -1
+                        for ($j = $processedFileLines.Count - 1; $j -ge 0; $j--) {
+                            if (-not [string]::IsNullOrWhiteSpace($processedFileLines[$j])) { $lastNonEmpty = $j; break }
+                        }
+                        if ($lastNonEmpty -ge 0 -and $processedFileLines[$lastNonEmpty].Trim() -eq "}") {
+                            if ($lastNonEmpty -eq ($processedFileLines.Count - 1)) {
+                                if ($processedFileLines.Count -gt 1) { $processedFileLines = $processedFileLines[0..($processedFileLines.Count - 2)] } else { $processedFileLines = @() }
+                            }
+                            else {
+                                $processedFileLines = $processedFileLines[0..($lastNonEmpty - 1)] + $processedFileLines[($lastNonEmpty + 1)..($processedFileLines.Count - 1)]
+                            }
+                        }
                     }
-                    if ($functionHeaderRemoved) {
-                        $toolContentLines += $line
-                    }
                 }
-                
-                # Se non abbiamo trovato e rimosso l'header, usa tutto il contenuto (fallback)
-                if (-not $functionHeaderRemoved) {
-                    $toolContentLines = $fileLines
-                }
-                
-                # Aggiungi la dichiarazione di funzione
-                $newLines += "function $functionName {"
-                
-                if (-not $hasLogging) { 
-                    $newLines += "    Initialize-ToolLogging -ToolName `"$functionName`"" 
-                    Write-StyledMessage 'Info' "Policy applicata: Iniezione automatica Initialize-ToolLogging"
-                }
-                $newLines += $toolContentLines
-                $newLines += "}"
             }
-            else {
-                # Modalita classica: avvolgi il codice in una function
-                $newLines += "function $functionName {"
-                if (-not $hasLogging) { 
-                    $newLines += "    Initialize-ToolLogging -ToolName `"$functionName`"" 
-                    Write-StyledMessage 'Info' "Policy applicata: Iniezione automatica Initialize-ToolLogging"
-                }
-                $newLines += $fileLines
-                $newLines += "}"
+            
+            # --- GESTIONE LOGGING E RE-INSERIMENTO ---
+            $hasLogging = $processedFileLines | Select-String -Pattern "Initialize-ToolLogging" -Quiet
+            
+            $newLines += "function $functionName {"
+            if (-not $hasLogging) { 
+                $newLines += "    Initialize-ToolLogging -ToolName `"$functionName`"" 
+                Write-StyledMessage 'Info' "Policy: Iniezione automatica Initialize-ToolLogging per $functionName"
             }
+            $newLines += $processedFileLines
+            $newLines += "}"
             
             if ($endIndex + 1 -lt $templateLines.Count) { $newLines += $templateLines[($endIndex + 1)..($templateLines.Count - 1)] }
             
