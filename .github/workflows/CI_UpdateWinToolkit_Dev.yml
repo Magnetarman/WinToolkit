@@ -211,7 +211,7 @@ jobs:
             [skip ci]
           file_pattern: WinToolkit-template.ps1
           branch: Dev
-          push_force: true
+          push_options: '--force'
 
       # ========================================
       # Step: Compilazione
@@ -323,7 +323,8 @@ jobs:
             [skip ci]
           file_pattern: WinToolkit.ps1
           branch: Dev
-          push_force: true
+          push_options: '--force'
+          skip_fetch: true
 
       - name: Extract version info
         id: version_info
