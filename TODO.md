@@ -24,9 +24,11 @@
   - [x] PATH refresh nell'orchestrazione: Update-EnvironmentPath chiamata prima del check iniziale e dopo ogni tentativo di install — elimina i falsi negativi post-installazione.
   - [x] Fix Write-Host nel countdown reboot → Write-StyledMessage -Type Warning.
   - [x] Aggionato Show-Header [[#40](https://github.com/MagnetarMan/WinToolkit/issues/40) [@pomodori92]](https://github.com/pomodori92).
-    - [x] Introdotta la generazione dinamica dell’icona desktop all’avvio del ramo di sviluppo.
-    - [x] Rimosse le configurazioni hardcoded, migliorando flessibilità e manutenibilità del codice.
-    - [x] Ottimizzata la gestione del processo per garantire maggiore coerenza tra ambienti e versioni.
+  - [x] Introdotta la generazione dinamica dell’icona desktop all’avvio del ramo di sviluppo.
+  - [x] Rimosse le configurazioni hardcoded, migliorando flessibilità e manutenibilità del codice.
+  - [x] Ottimizzata la gestione del processo per garantire maggiore coerenza tra ambienti e versioni.
+  - [x] Modificata l'installazione di Powershell7 preferendo la veloce installazione tramite Winget ed utilizza come fallback il download e l'installazione diretta.
+  - [x] Implementata modularizzazione delle funzioni di reinstallazione di Winget in modo da essere facilmente richiate in altri script senza dover duplicare inutilmente il codice.
 
 - `WinRepairToolkit.ps1` Aggiornato.
   - [x] Aggiunto nuovo check per le funzioni addizionali Registrazione AppX (Client CBS), Registrazione AppX (UI Xaml CBS), Registrazione AppX (Client Core), in modo che vengano eseguite solo su sistemi interessati dalla problematica (Windows 11 24H2 e superiori).
