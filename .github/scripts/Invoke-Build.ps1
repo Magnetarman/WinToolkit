@@ -146,11 +146,11 @@ try {
 
     Write-BuildLog -Message "`n📈 Totale sorgente: $([math]::Round($script:SourceTotalBytes/1KB, 2)) KB, $($script:SourceTotalLines) righe" -Type Header
 
-    # Esegui compilazione
-    Write-BuildLog -Message "`n🔨 Avvio compilazione..." -Type Info
+    # Esegui compilazione con minificazione
+    Write-BuildLog -Message "`n🔨 Avvio compilazione con minificazione..." -Type Info
 
     try {
-        $output = & ".\compiler.ps1" 2>&1 | Out-String
+        $output = & ".\compiler.ps1" -Minify 2>&1 | Out-String
 
         Write-BuildLog -Message "Output compilatore:`n$output" -Type Info
 
