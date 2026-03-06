@@ -216,6 +216,7 @@ jobs:
             [skip ci]
           file_pattern: WinToolkit-template.ps1
           branch: Dev
+          push_force: true
 
       # ========================================
       # Step: Compilazione
@@ -325,6 +326,7 @@ jobs:
             [skip ci]
           file_pattern: WinToolkit.ps1
           branch: Dev
+          push_force: true
 
       - name: Extract version info
         id: version_info
@@ -346,7 +348,7 @@ jobs:
           Write-Host "Creating tag: $tagName" -ForegroundColor Cyan
           git tag -a $tagName -m "Release WinToolkit $version"
 
-          $pushResult = git push origin $tagName 2>&1
+          $pushResult = git push --force origin $tagName 2>&1
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Warning: Tag push failed or tag already exists" -ForegroundColor Yellow
           } else {
