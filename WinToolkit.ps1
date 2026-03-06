@@ -1,7 +1,7 @@
 param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 16)"
+$ToolkitVersion = "2.5.2 (Build 19)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -302,7 +302,6 @@ function WinOSCheck {
     Start-Sleep -Seconds 2
 }
 function WinRepairToolkit {
-function WinRepairToolkit {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false)]
@@ -528,8 +527,6 @@ function WinRepairToolkit {
         Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
     }
 }
-}
-function WinUpdateReset {
 function WinUpdateReset {
     [CmdletBinding()]
     param(
@@ -1035,8 +1032,6 @@ function WinUpdateReset {
         try { Stop-Transcript | Out-Null } catch {}
     }
 }
-}
-function WinReinstallStore {
 function WinReinstallStore {
     [CmdletBinding()]
     param(
@@ -1728,8 +1723,6 @@ function WinReinstallStore {
         }
     }
 }
-}
-function WinBackupDriver {
 function WinBackupDriver {
     [CmdletBinding()]
     param(
@@ -1986,9 +1979,7 @@ function WinBackupDriver {
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
     }
 }
-}
 function WinDriverInstall {}
-function OfficeToolkit {
 function OfficeToolkit {
     [CmdletBinding()]
     param(
@@ -2604,8 +2595,6 @@ function OfficeToolkit {
         }
     }
 }
-}
-function WinCleaner {
 function WinCleaner {
     [CmdletBinding()]
     param(
@@ -3365,8 +3354,6 @@ function WinCleaner {
         }
     }
 }
-}
-function VideoDriverInstall {
 function VideoDriverInstall {
     [CmdletBinding()]
     param(
@@ -3658,8 +3645,6 @@ function VideoDriverInstall {
         }
     } while ($choice.ToUpper() -ne "0")
 }
-}
-function GamingToolkit {
 function GamingToolkit {
     [CmdletBinding()]
     param(
@@ -3962,8 +3947,6 @@ function GamingToolkit {
         }
     }
 }
-}
-function DisableBitlocker {
 function DisableBitlocker {
     [CmdletBinding()]
     param(
@@ -4032,8 +4015,6 @@ function DisableBitlocker {
         try { Stop-Transcript *>$null } catch {}
     }
 }
-}
-function WinExportLog {
 function WinExportLog {
     [CmdletBinding()]
     param(
@@ -4106,7 +4087,6 @@ function WinExportLog {
             Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
-}
 }
 $menuStructure = @(
     @{ 'Name' = 'Windows & Office'; 'Icon' = '🔧'; 'Scripts' = @(
