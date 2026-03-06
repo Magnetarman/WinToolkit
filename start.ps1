@@ -15,11 +15,11 @@ $script:AppConfig = @{
     # ============================================================================
     # HEADER CONFIGURATION - Modifica qui per aggiornare titolo e versione
     # ============================================================================
-    Header = @{
+    Header   = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.2 (Build 13)"
+        Version = "Version 2.5.2 (Build 14)"
     }
-    URLs   = @{
+    URLs     = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
         WingetMSIX              = "https://aka.ms/getwinget"
         PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
@@ -31,7 +31,7 @@ $script:AppConfig = @{
         WebInstaller            = "https://magnetarman.com/WinToolkit-Dev"
         LibBase                 = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/lib"
     }
-    Paths  = @{
+    Paths    = @{
         Logs          = "$env:LOCALAPPDATA\WinToolkit\logs"
         WinToolkitDir = "$env:LOCALAPPDATA\WinToolkit"
         Temp          = "$env:TEMP\WinToolkitSetup"
@@ -55,7 +55,6 @@ function Initialize-WinToolkitLibrary {
 
     # Lista delle funzioni necessarie da scaricare se non presenti localmente
     $libFiles = @(
-        "Add-ToEnvironmentPath.ps1",
         "Apply-WingetPathPermissions.ps1",
         "Find-WinGet.ps1",
         "Install-NuGetIfRequired.ps1",
@@ -78,7 +77,7 @@ function Initialize-WinToolkitLibrary {
                 Invoke-WebRequest -Uri $remoteUrl -OutFile $localFile -UseBasicParsing -ErrorAction Stop
             }
             catch {
-                Write-StyledMessage -Type Warning -Text "Errore download $file: $($_.Exception.Message)"
+                Write-StyledMessage -Type Warning -Text "Errore download ${file}: $($_.Exception.Message)"
             }
         }
         # Carica la funzione se il file esiste
@@ -164,6 +163,35 @@ function Update-EnvironmentPath {
     $env:Path = $newPath
     # Forza il refresh a livello di processo per i componenti .NET avviati successivamente
     [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
+}
+
+function Add-ToEnvironmentPath {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$PathToAdd,
+        [ValidateSet('User', 'System')]
+        [string]$Scope
+    )
+
+    # Check if path already exists
+    if (-not (Path-ExistsInEnvironment -PathToCheck $PathToAdd -Scope $Scope)) {
+        if ($Scope -eq 'System') {
+            $systemEnvPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine)
+            $systemEnvPath += ";$PathToAdd"
+            [System.Environment]::SetEnvironmentVariable('PATH', $systemEnvPath, [System.EnvironmentVariableTarget]::Machine)
+        }
+        elseif ($Scope -eq 'User') {
+            $userEnvPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::User)
+            $userEnvPath += ";$PathToAdd"
+            [System.Environment]::SetEnvironmentVariable('PATH', $userEnvPath, [System.EnvironmentVariableTarget]::User)
+        }
+
+        # Update current process
+        if (-not ($env:PATH -split ';').Contains($PathToAdd)) {
+            $env:PATH += ";$PathToAdd"
+        }
+        Write-StyledMessage -Type Success -Text "PATH aggiornato: $PathToAdd"
+    }
 }
 
 function Invoke-WingetCommand {
