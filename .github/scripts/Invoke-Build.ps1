@@ -26,9 +26,6 @@ param(
     [string]$TemplatePath = "WinToolkit-template.ps1",
 
     [Parameter(Mandatory = $false)]
-    [string]$LogsDirectory = ".github/logs",
-
-    [Parameter(Mandatory = $false)]
     [switch]$Minify = $true
 )
 
@@ -79,14 +76,6 @@ function Get-FileStats {
     }
 }
 
-function Initialize-LogsDirectory {
-    param([string]$LogPath)
-
-    if (-not (Test-Path $LogPath)) {
-        $null = New-Item -Path $LogPath -ItemType Directory -Force
-        Write-BuildLog -Message "📁 Creata directory log: $LogPath" -Type Info
-    }
-}
 
 try {
     Write-BuildLog -Message "========================================" -Type Header
@@ -94,29 +83,17 @@ try {
     Write-BuildLog -Message "  Versione: $Version" -Type Header
     Write-BuildLog -Message "========================================" -Type Header
 
-    # Crea directory logs
-    Initialize-LogsDirectory -LogPath $LogsDirectory
-
-    # Avvia transcript per logging
-    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $transcriptPath = Join-Path $LogsDirectory "build_transcript_$timestamp.log"
-    Start-Transcript -Path $transcriptPath -Append
-
-    Write-BuildLog -Message "📋 Transcript avviato: $transcriptPath" -Type Info
-
     # Verifica prerequisiti
     Write-BuildLog -Message "`n📋 Verifica prerequisiti..." -Type Info
 
     if (-not (Test-Path "compiler.ps1")) {
         Write-BuildLog -Message "❌ File compiler.ps1 non trovato" -Type Error
-        Stop-Transcript -ErrorAction SilentlyContinue
         exit 1
     }
     Write-BuildLog -Message "  ✅ compiler.ps1 presente" -Type Success
 
     if (-not (Test-Path $TemplatePath)) {
         Write-BuildLog -Message "❌ File $TemplatePath non trovato" -Type Error
-        Stop-Transcript -ErrorAction SilentlyContinue
         exit 1
     }
     Write-BuildLog -Message "  ✅ $TemplatePath presente" -Type Success
@@ -125,7 +102,6 @@ try {
     $toolFiles = Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue
     if ($toolFiles.Count -eq 0) {
         Write-BuildLog -Message "❌ Nessun file .ps1 trovato nella cartella tool" -Type Error
-        Stop-Transcript -ErrorAction SilentlyContinue
         exit 1
     }
     Write-BuildLog -Message "  ✅ $($toolFiles.Count) file trovati in /tool" -Type Success
@@ -165,20 +141,17 @@ try {
 
         if ($LASTEXITCODE -ne 0) {
             Write-BuildLog -Message "❌ Compilazione fallita con exit code: $LASTEXITCODE" -Type Error
-            Stop-Transcript -ErrorAction SilentlyContinue
             exit 1
         }
     }
     catch {
         Write-BuildLog -Message "❌ Errore durante compilazione: $($_.Exception.Message)" -Type Error
-        Stop-Transcript -ErrorAction SilentlyContinue
         exit 1
     }
 
     # Verifica output
     if (-not (Test-Path $OutputPath)) {
         Write-BuildLog -Message "❌ File $OutputPath non creato" -Type Error
-        Stop-Transcript -ErrorAction SilentlyContinue
         exit 1
     }
 
@@ -208,17 +181,6 @@ try {
     Write-BuildLog -Message "📝 Righe finali:   $($script:OutputTotalLines)" -Type Info
     Write-BuildLog -Message "📝 Righe eliminate: $linesRemoved" -Type Success
 
-    # Salva log rinominato
-    Stop-Transcript -ErrorAction SilentlyContinue
-
-    $logFileName = "build_v$Version.log"
-    $logFileName = $logFileName -replace '[\\/:]', '_'  # Sanitize filename
-    $finalLogPath = Join-Path $LogsDirectory $logFileName
-
-    if (Test-Path $transcriptPath) {
-        Move-Item -Path $transcriptPath -Destination $finalLogPath -Force
-        Write-BuildLog -Message "📝 Log salvato: $finalLogPath" -Type Success
-    }
 
     Write-BuildLog -Message "`n========================================" -Type Header
     Write-BuildLog -Message "  COMPILAZIONE COMPLETATA" -Type Header
@@ -235,7 +197,6 @@ try {
     Write-Output "reduction_percent=$reductionPercent" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "lines_removed=$linesRemoved" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "files_processed=$script:FilesProcessed" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-    Write-Output "log_path=$finalLogPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
     exit 0
 }
