@@ -76,6 +76,10 @@
   - [x] Aggiunta una suite di test estensiva prima della compilazione in modo da evitare errori di sintassi.
   - [x] Migliorata la struttura all'interno della cartela .github in modo da migliorare la manutenzione e la leggibilità del codice della Pipeline CI/CD. 
 
+- `WinUpdateReset.ps1` Aggiornato.
+  - [x] Migliorata l'esecuzione dello script riducendo il codice boilerplate.
+  - [x] Aggiornata la visualizzazione per essere il tema con il resto del progetto.
+
 
 ### V 2.6 - Debloat
 
