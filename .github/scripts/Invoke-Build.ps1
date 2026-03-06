@@ -29,7 +29,7 @@ param(
     [string]$LogsDirectory = ".github/logs",
 
     [Parameter(Mandatory = $false)]
-    [switch]$Minify
+    [switch]$Minify = $true
 )
 
 # --- Best Practices PowerShell ---
@@ -156,7 +156,8 @@ try {
     try {
         if ($Minify) {
             $output = & ".\compiler.ps1" -Minify 2>&1 | Out-String
-        } else {
+        }
+        else {
             $output = & ".\compiler.ps1" 2>&1 | Out-String
         }
 
