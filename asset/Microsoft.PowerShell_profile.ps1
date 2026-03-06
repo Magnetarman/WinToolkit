@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.2.2"
+$ProfileVersion = "2.5.2.3"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
@@ -422,24 +422,7 @@ function PS-Reset {
 
     Write-Host "`n🔄 Avvio procedura di reset profondo..." -ForegroundColor Cyan
 
-    # 2. Disinstallazione pacchetti Winget
-    $wingetPackages = @(
-        "JanDeDobbeleer.OhMyPosh",
-        "ajeetdsouza.zoxide",
-        "aristocratos.btop4win",
-        "Fastfetch-cli.Fastfetch",
-        "DEVCOM.JetBrainsMonoNerdFont"
-    )
-
-    Write-Host "`n📦 Disinstallazione tool da riga di comando via Winget..." -ForegroundColor Cyan
-    foreach ($pkg in $wingetPackages) {
-        Write-Host "   -> Rimozione di $pkg..." -ForegroundColor DarkGray
-        # Utilizzo di Start-Process per attendere la fine dell'operazione silenziosa
-        Start-Process -FilePath "winget" -ArgumentList "uninstall --id $pkg --silent --accept-source-agreements" -Wait -NoNewWindow
-    }
-    Write-Host "✅ Disinstallazioni Winget completate." -ForegroundColor Green
-
-    # 3. Rimozione Scorciatoia Desktop
+    # 2. Rimozione Scorciatoia Desktop
     Write-Host "`n🗑️ Rimozione scorciatoia Desktop..." -ForegroundColor Cyan
     $desktopPath = [Environment]::GetFolderPath('Desktop')
     $shortcut = Join-Path $desktopPath "Win Toolkit.lnk"
@@ -448,7 +431,7 @@ function PS-Reset {
         Write-Host "✅ Scorciatoia Desktop rimossa." -ForegroundColor Green
     }
 
-    # 4. Pulizia cartelle di sistema e temporanee
+    # 3. Pulizia cartelle di sistema e temporanee
     Write-Host "`n🧹 Pulizia file temporanei e directory WinToolkit..." -ForegroundColor Cyan
     $directoriesToRemove = @(
         (Join-Path $env:LOCALAPPDATA "WinToolkit"),
@@ -464,7 +447,7 @@ function PS-Reset {
     }
     Write-Host "✅ Pulizia cartelle completata." -ForegroundColor Green
 
-    # 5. Reset Windows Terminal
+    # 4. Reset Windows Terminal
     Write-Host "`n🔄 Reset impostazioni Windows Terminal..." -ForegroundColor Cyan
     $wtSettingsPath = Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
     if (Test-Path $wtSettingsPath) {
@@ -472,14 +455,32 @@ function PS-Reset {
         Write-Host "✅ Impostazioni di Windows Terminal eliminate." -ForegroundColor Green
     }
 
-    # 6. Eliminazione Directory Profilo PowerShell (Include profili, .bak, e cartella Themes)
-    # Eseguito per ultimo per evitare crash della shell in esecuzione
+    # 5. Eliminazione Directory Profilo PowerShell (Include profili, .bak, e cartella Themes)
+    # Eseguito prima della disinstallazione di Oh My Posh per evitare crash della shell
     Write-Host "`n🗑️ Eliminazione configurazioni profilo PowerShell..." -ForegroundColor Cyan
     $profileDir = Split-Path -Parent $PROFILE
     if (Test-Path $profileDir) {
         Remove-Item -Path $profileDir -Recurse -Force -ErrorAction SilentlyContinue
         Write-Host "✅ Directory del profilo PowerShell eliminata." -ForegroundColor Green
     }
+
+    # 6. Disinstallazione pacchetti Winget (Eseguita ULTIMA come risorsa finale)
+    # Oh My Posh deve essere disinstallato per ultimo per evitare crash del terminale
+    $wingetPackages = @(
+        "JanDeDobbeleer.OhMyPosh",
+        "ajeetdsouza.zoxide",
+        "aristocratos.btop4win",
+        "Fastfetch-cli.Fastfetch",
+        "DEVCOM.JetBrainsMonoNerdFont"
+    )
+
+    Write-Host "`n📦 Disinstallazione tool da riga di comando via Winget..." -ForegroundColor Cyan
+    foreach ($pkg in $wingetPackages) {
+        Write-Host "   -> Rimozione di $pkg..." -ForegroundColor DarkGray
+        # Utilizzo di Start-Process per attendere la fine dell'operazione silenziosa
+        Start-Process -FilePath "winget" -ArgumentList "uninstall --id $pkg --silent --accept-source-agreements" -Wait -NoNewWindow
+    }
+    Write-Host "✅ Disinstallazioni Winget completate." -ForegroundColor Green
 
     # 7. Conclusione e Riavvio temporizzato
     Write-Host "`n🎉 RESET COMPLETATO CON SUCCESSO!" -ForegroundColor Green
