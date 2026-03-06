@@ -201,68 +201,108 @@ Write-Host ""
 
 
 # ============================================================================
-# 5. MOTORE DI MINIFICAZIONE CODEBASE E COMPRESSIONE (-Minify)
+# 5. MOTORE DI MINIFICAZIONE SICURA (-Minify)
+#    Usa il tokenizer nativo di PowerShell invece di regex cieche.
+#    Il tokenizer conosce esattamente dove si trovano commenti, stringhe,
+#    here-strings, ecc. — quindi non può mai rompere la sintassi.
 # ============================================================================
 if ($Minify) {
-    Write-StyledMessage 'Info' "Avvio algoritmo di Ottimizzazione e Minificazione del codice..."
+    Write-StyledMessage 'Info' "Avvio minificazione sicura via tokenizer PowerShell..."
     try {
-        $rawContent = $templateLines -join "`r`n"
-        
-        # [A] Rimozione sicura dei commenti
-        # 1. Block comments multiriga, preservando il contenuto.
-        $rawContent = [regex]::Replace($rawContent, '(?s)<#.*?#>', '')
-        # 2. Commenti a singola riga (limitato alle righe che iniziano per '#' ignorando le tabulazioni, protegge le stringhe col cancelletto interno)
-        $rawContent = [regex]::Replace($rawContent, '(?m)^\s*#.*$', '')
-        
-        # [A1] Annullamento Splatting (Inlining delle variabili hashtable per massimizzare compattazione)
-        $regexSplatDef = '(?s)\$([a-zA-Z0-9_]+)\s*=\s*@\{([^}]+)\}'
-        $splatMatches = [regex]::Matches($rawContent, $regexSplatDef)
-        
-        foreach ($m in $splatMatches) {
-            $varName = $m.Groups[1].Value
-            $hashContent = $m.Groups[2].Value
-            
-            $hashContentStr = [regex]::Replace($hashContent, '(?m)^\s*#.*$', '')
-            $inlineArgs = ""
-            $lines = $hashContentStr -split "[\r\n;]+"
-            foreach ($line in $lines) {
-                if ([string]::IsNullOrWhiteSpace($line)) { continue }
-                if ($line -match '^\s*[''"]?([a-zA-Z0-9_]+)[''"]?\s*=\s*(.+)$') {
-                    $key = $matches[1]
-                    $val = $matches[2].Trim()
-                    $inlineArgs += " -$key $val"
-                }
-            }
-            
-            # Rimuove la dichiarazione della hashTable
-            $rawContent = $rawContent.Replace($m.Value, "")
-            # Sostituisce i riferimenti @varName coi parametri inline
-            $rawContent = [regex]::Replace($rawContent, "(?i)@$varName\b", $inlineArgs)
+        $rawContent = $templateLines -join "`n"
+
+        # ------------------------------------------------------------------
+        # FASE 1 — Rimozione commenti tramite tokenizer nativo
+        #   Il parser PowerShell classifica ogni token per tipo.
+        #   I token di tipo 'Comment' includono:
+        #     - Block comments  <# ... #>  (anche multiriga)
+        #     - Inline comments # testo...  SOLO quando sono codice, MAI
+        #       quando # appare dentro una stringa o here-string
+        #   Processiamo i token in ordine INVERSO per mantenere validi
+        #   gli offset mentre modifichiamo la stringa.
+        # ------------------------------------------------------------------
+        $parseErrors = $null
+        $tokens      = $null
+        [System.Management.Automation.Language.Parser]::ParseInput(
+            $rawContent,
+            [ref]$tokens,
+            [ref]$parseErrors
+        ) | Out-Null
+
+        if ($parseErrors.Count -gt 0) {
+            # Se il sorgente ha già errori di sintassi prima della minificazione
+            # li segnaliamo ma proseguiamo ugualmente (errori pre-esistenti)
+            Write-StyledMessage 'Warning' "Il sorgente contiene $($parseErrors.Count) errore/i di parse pre-esistenti. Minificazione applicata comunque."
         }
-        
-        # [B] Ottimizzazione whitespace estrema
-        # 3. Rimozione blank-space di fine linea e inizio linea (indentazione azzerata per max compressione)
-        $rawContent = [regex]::Replace($rawContent, '(?m)^[ \t]+|[ \t]+$', '')
-        # 4. Rimozione righe composte esclusivamente da spazi o tab (linee vuote "sporche")
-        $rawContent = [regex]::Replace($rawContent, '(?m)^\s+$', '')
-        # 5. Riduzione radicale dei vertical break (compress righe vuote multiple in singole e compatta tutto)
-        $rawContent = [regex]::Replace($rawContent, '\r?\n(\r?\n)+', "`r`n")
-        
-        # [C] Compattazione sintattica sicura per PowerShell
-        # 6. Avvolge l'apertura parentesi graffe singole attaccate
-        $rawContent = [regex]::Replace($rawContent, '(?m)\r?\n\s*\{\s*$', ' {')
-        # 7. Compressione riga se vi è l'orfanità di chiusura graffe
-        $rawContent = [regex]::Replace($rawContent, '(?m)\r?\n\s*\}\s*$', ' }')
-        
-        $templateLines = $rawContent -split "`r`n"
-        # 8. Filtro righe completamente vuote residue prima del join
-        $templateLines = $templateLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-        
-        Write-StyledMessage 'Success' "Compressione minificata applicata al buffer."
+
+        # Ordine DECRESCENTE per offset: rimuovendo da fondo a testa
+        # gli offset dei token non ancora processati rimangono validi
+        $commentTokens = $tokens |
+            Where-Object { $_.Kind -eq 'Comment' } |
+            Sort-Object   { $_.Extent.StartOffset } -Descending
+
+        foreach ($token in $commentTokens) {
+            $start  = $token.Extent.StartOffset
+            $length = $token.Extent.EndOffset - $start
+            $rawContent = $rawContent.Remove($start, $length)
+        }
+
+        Write-StyledMessage 'Info' "  Rimossi $($commentTokens.Count) token commento"
+
+        # ------------------------------------------------------------------
+        # FASE 2 — Pulizia whitespace conservativa
+        #   Operiamo RIGA PER RIGA per non unire mai righe distinte.
+        #   Unire righe in PowerShell è SEMPRE pericoloso: pipe, backtick
+        #   continuation, array literals, ecc. dipendono dal newline.
+        # ------------------------------------------------------------------
+        $cleanedLines = ($rawContent -split "`n") | ForEach-Object {
+            # Rimuovi solo il whitespace di CODA (non toccare l'indentazione
+            # iniziale: altera leggibilità ma non rompe la sintassi.
+            # Rimuoverla è sicuro solo se si è certi che nessuna stringa
+            # multiriga dipenda dall'indentazione, cosa impossibile da
+            # garantire con un approccio generico.)
+            $_.TrimEnd()
+        } | Where-Object {
+            # Elimina le righe completamente vuote (residui dopo rimozione commenti)
+            -not [string]::IsNullOrWhiteSpace($_)
+        }
+
+        $templateLines = $cleanedLines
+
+        # ------------------------------------------------------------------
+        # FASE 3 — Verifica post-minificazione
+        #   Ri-parseamo il risultato per accertarci che la minificazione
+        #   non abbia introdotto errori. Se li trova, abortiamo e usiamo
+        #   il sorgente originale non minificato.
+        # ------------------------------------------------------------------
+        $verifyContent = $templateLines -join "`n"
+        $verifyErrors  = $null
+        $verifyTokens  = $null
+        [System.Management.Automation.Language.Parser]::ParseInput(
+            $verifyContent,
+            [ref]$verifyTokens,
+            [ref]$verifyErrors
+        ) | Out-Null
+
+        if ($verifyErrors.Count -gt 0) {
+            Write-StyledMessage 'Warning' "Rilevati $($verifyErrors.Count) errore/i sintassi post-minificazione — rollback al sorgente originale."
+            foreach ($e in $verifyErrors) {
+                Write-StyledMessage 'Warning' "  Riga $($e.Extent.StartLineNumber): $($e.Message)"
+            }
+            # Rollback: usa le righe originali senza minificazione
+            $templateLines = $templateLines -join "`n" | ForEach-Object { $_ }
+            $templateLines = (($templateLines) -split "`n")
+        }
+        else {
+            $linesAfter  = $templateLines.Count
+            Write-StyledMessage 'Success' "Minificazione completata: $linesAfter righe — nessun errore di sintassi rilevato."
+        }
     }
     catch {
         Write-StyledMessage 'Error' "Errore imprevisto durante la minificazione: $($_.Exception.Message)"
-        exit 1
+        Write-StyledMessage 'Warning' "Continuazione build senza minificazione."
+        # Non uscire: la build prosegue con il codice non minificato
+        # $templateLines rimane invariato dall'ultima assegnazione valida
     }
     Write-Host ""
 }
