@@ -169,9 +169,9 @@ function WinCleaner {
             # Use timeout for potentially long-running commands
             $timeoutCommands = @("DISM.exe", "cleanmgr.exe")
             if ($Rule.Command -in $timeoutCommands) {
-                $result = Start-ProcessWithTimeout -FilePath $Rule.Command -ArgumentList $Rule.Args -TimeoutSeconds 900 -Activity $Rule.Name -Hidden
+                $result = Start-ProcessWithTimeout -FilePath $Rule.Command -ArgumentList $Rule.Args -TimeoutSeconds 86400 -Activity $Rule.Name -Hidden
                 if ($result.TimedOut) {
-                    Write-StyledMessage -Type 'Warning' -Text "Comando timeout dopo 15 minuti"
+                    Write-StyledMessage -Type 'Warning' -Text "Comando timeout dopo 24 ore."
                     return $true # Non-fatal
                 }
                 if ($result.ExitCode -eq 0) { return $true }
