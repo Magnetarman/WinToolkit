@@ -2,18 +2,6 @@
 
 ### V 2.5.2
 
-- `WinToolkit.ps1` Aggiornato.
-  - [ ] Aggiunti nuovi script.
-  - [ ] Riorganizzato il menu principale per maggiore chiarezza.
-
-- Aggiunta Funzione `WinUpdateDisabler.ps1`.
-  - [ ] Add script relativo e funzioni nel template.
-  - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
-
-- Aggiunta Funzione `WinUpdateSet.ps1` (Windows Home non supportato).
-  - [ ] Add script relativo e funzioni nel template.
-  - [ ] Imposta tramite criteri di gruppo gli Update di windows.
-
 - `OfficeToolkit.ps1` Riscritto.
   - [x] Semplificata logica generale dello script.
   - [x] Meno richieste inutili e maggiore automazione.
@@ -82,6 +70,18 @@
 
 
 ### V 2.6 - Debloat
+
+- `WinToolkit.ps1` Aggiornato.
+  - [ ] Aggiunti nuovi script.
+  - [ ] Riorganizzato il menu principale per maggiore chiarezza.
+
+- Aggiunta Funzione `WinUpdateDisabler.ps1`.
+  - [ ] Add script relativo e funzioni nel template.
+  - [ ] Disabilita permanentemente Windows Update con possibilità di ripristino.
+
+- Aggiunta Funzione `WinUpdateSet.ps1` (Windows Home non supportato).
+  - [ ] Add script relativo e funzioni nel template.
+  - [ ] Imposta tramite criteri di gruppo gli Update di windows.
 
 - <del>Avvio dello script Chris con configurazione personalizzata (`iwr -useb https://christitus.com/win | iex`).</del>
   - **Questa funzione a causa di lacune nel debloat di Windows 11 ramo *Germanium* 24H2/25H2 verrà corretta ed integrata in uno script nuovo denominato `WinDebloat.ps1`**
