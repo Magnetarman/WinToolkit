@@ -204,7 +204,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
-            🔖 Bump WinToolkit version to ${{ steps.version.outputs.new_version }}
+            🔖 Bump WinToolkit version to V${{ steps.version.outputs.new_version }}
 
             • Incremento automatico numero build
             • Versione aggiornata nel template
@@ -271,7 +271,7 @@ jobs:
 
           ### ✅ Status Build
 
-          - **Versione**: $version (Build $buildNum)
+          - **Versione**: $version
           - **Stato**: Completato con successo
           - **Artefatto**: WinToolkit-Compiled.zip
 
@@ -314,7 +314,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
-            🔧 Update WinToolkit.ps1 - Auto-compiled and tested
+            🔖 Bump WinToolkit version to V${{ needs.build.outputs.new_version }}
 
             • Compilazione automatica da file in /tool
             • Test di sintassi e struttura passati
@@ -336,24 +336,6 @@ jobs:
             Write-Output "version=$version" >> $env:GITHUB_OUTPUT
           }
 
-      - name: Create Git Tag
-        id: create_tag
-        shell: pwsh
-        run: |
-          # Configura l'identità del bot per il tag
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          $version = "${{ needs.build.outputs.new_version }}"
-          $tagName = "v$($version -replace '[ \(\)]', '_')"
-          Write-Host "Creating tag: $tagName" -ForegroundColor Cyan
-          git tag -a $tagName -m "Release WinToolkit $version"
-          $pushResult = git push --force origin $tagName 2>&1
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "Warning: Tag push failed or tag already exists" -ForegroundColor Yellow
-          } else {
-            Write-Host "Tag pushed successfully" -ForegroundColor Green
-          }
-          Write-Output "tag_name=$tagName" >> $env:GITHUB_OUTPUT
 
       - name: Create GitHub Release
         id: create_release
@@ -400,9 +382,12 @@ jobs:
 
           $releaseUrl = "https://api.github.com/repos/$owner/$repo/releases"
 
+          # Sanitize version string for tag_name (remove spaces and parentheses)
+          $sanitizedTag = "v$($version -replace '[^a-zA-Z0-9.]', '-')"
+
           $releaseBody = @{
-            tag_name = "v$($version -replace '[\\(\\)]', '_')"
-            name = "WinToolkit $version"
+            tag_name = $sanitizedTag
+            name = "WinToolkit V$version"
             body = $body
             draft = $false
             prerelease = $false
