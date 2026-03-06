@@ -183,10 +183,8 @@ function Test-WingetFunctionality {
             Write-StyledMessage -Type Success -Text "✅ Winget operativo (versione: $($versionOutput.Trim()))."
             return $true
         }
-        else {
-            Write-StyledMessage -Type Warning -Text "Winget presente ma non risponde correttamente (ExitCode: $LASTEXITCODE)."
-            return $false
-        }
+        Write-StyledMessage -Type Warning -Text "Winget presente ma non risponde correttamente (ExitCode: $LASTEXITCODE)."
+        return $false
     }
     catch {
         Write-StyledMessage -Type Warning -Text "Errore durante test Winget: $($_.Exception.Message)"
@@ -331,12 +329,10 @@ function Find-WinGet {
 
         $wingetExe = Join-Path $wingetPath 'winget.exe'
 
-        if (Test-Path -Path $wingetExe) {
-            return $wingetExe
-        }
-        else {
+        if (-not (Test-Path -Path $wingetExe))
             return $null
-        }
+        
+        return $wingetExe
     }
     catch {
         return $null
@@ -486,14 +482,12 @@ function Repair-WingetDatabase {
         # 7. Verifica che winget risponda
         Start-Sleep 2
         $testVersion = & winget --version 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            Write-StyledMessage -Type Success -Text "✅ Database Winget ripristinato (versione: $testVersion)."
-            return $true
-        }
-        else {
+        if ($LASTEXITCODE -ne 0)
             Write-StyledMessage -Type Warning -Text "⚠️ Ripristino completato ma winget potrebbe non funzionare."
-            return $true
-        }
+        else
+            Write-StyledMessage -Type Success -Text "✅ Database Winget ripristinato (versione: $testVersion)."
+
+        return $true
     }
     catch {
         Write-StyledMessage -Type Error -Text "❌ Errore durante ripristino database: $($_.Exception.Message)"
@@ -524,17 +518,18 @@ function Test-WingetDeepValidation {
             }
         }
 
-        if ($exitCode -eq 0) {
-            Write-StyledMessage -Type Success -Text "✅ Test profondo superato: Winget comunica correttamente con i repository."
-            return $true
-        }
-        else {
+        if ($exitCode -ne 0) {
             # Logga i dettagli per debug
             $errorDetails = $searchResult | Out-String
-            if ($errorDetails.Length -gt 200) { $errorDetails = $errorDetails.Substring(0, 200) + "..." }
+            if ($errorDetails.Length -gt 200)
+                $errorDetails = $errorDetails.Substring(0, 200) + "..."
+            
             Write-StyledMessage -Type Warning -Text "⚠️ Test profondo fallito: ExitCode=$exitCode. Dettagli: $errorDetails"
             return $false
         }
+
+        Write-StyledMessage -Type Success -Text "✅ Test profondo superato: Winget comunica correttamente con i repository."
+        return $true
     }
     catch {
         Write-StyledMessage -Type Error -Text "❌ Errore durante il test profondo di Winget: $($_.Exception.Message)"
@@ -846,10 +841,7 @@ function Install-WindowsTerminalApp {
         return $true
     }
 
-
-
     Write-StyledMessage -Type Info -Text "Installazione Windows Terminal in corso..."
-
     $downloadUrl = $null
 
     try {
@@ -862,9 +854,7 @@ function Install-WindowsTerminalApp {
                 Write-StyledMessage -Type Success -Text "Windows Terminal installato via winget."
                 return $true
             }
-            else {
-                Write-StyledMessage -Type Warning -Text "Installazione Winget per Windows Terminal non riuscita."
-            }
+            Write-StyledMessage -Type Warning -Text "Installazione Winget per Windows Terminal non riuscita."
         }
     }
     catch {
@@ -927,7 +917,6 @@ function Install-PspEnvironment {
                 Write-StyledMessage -Type Success -Text "✅ JetBrainsMono Nerd Font già installato."
                 return $true
             }
-
             Write-StyledMessage -Type Info -Text "⬇️ Installazione font tramite WinGet (Metodo Rapido)..."
 
             # Utilizzo della funzione helper esistente per coerenza logica
@@ -938,10 +927,8 @@ function Install-PspEnvironment {
                 Write-StyledMessage -Type Warning -Text "💡 Nota: i font via WinGet richiedono il riavvio del Terminale (o di Explorer) per essere visibili."
                 return $true
             }
-            else {
-                Write-StyledMessage -Type Warning -Text "⚠️ WinGet ha restituito codice $($result.ExitCode). Il font potrebbe richiedere un riavvio del terminale."
-                return $false
-            }
+            Write-StyledMessage -Type Warning -Text "⚠️ WinGet ha restituito codice $($result.ExitCode). Il font potrebbe richiedere un riavvio del terminale."
+            return $false
         }
         catch {
             Write-StyledMessage -Type Warning -Text "❌ Errore durante l'installazione font: $($_.Exception.Message)"
@@ -950,12 +937,10 @@ function Install-PspEnvironment {
     }
 
     function Get-ProfileDirLocal {
-        if ($PSVersionTable.PSEdition -eq "Core") {
+        if ($PSVersionTable.PSEdition -eq "Core")
             return [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
-        }
-        else {
-            return [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
-        }
+
+        return [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
     }
 
     # ============================================================================
@@ -1144,10 +1129,7 @@ function Invoke-WinToolkitSetup {
             # Aggiorna PATH dopo install-core prima di ri-testare
             Update-EnvironmentPath
 
-            if ($coreSuccess -and (Test-WingetFunctionality)) {
-                Write-StyledMessage -Type Success -Text "✅ Winget ripristinato velocemente."
-            }
-            else {
+            if (-not($coreSuccess -and (Test-WingetFunctionality))) {
                 Write-StyledMessage -Type Warning -Text "⚠️ Ripristino veloce fallito. Tentativo metodo avanzato (più lento)..."
                 $null = Install-WingetPackage
 
@@ -1159,10 +1141,9 @@ function Invoke-WinToolkitSetup {
                     Write-StyledMessage -Type Info -Text "Lo script proseguirà, ma l'installazione di pacchetti potrebbe fallire."
                 }
             }
+            Write-StyledMessage -Type Success -Text "✅ Winget ripristinato velocemente."
         }
-        else {
-            Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
-        }
+        Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
 
         # Validazione profonda di Winget: verifica connettività ai repository e integrità del DB
         $wingetDeepCheck = Test-WingetDeepValidation
@@ -1176,9 +1157,7 @@ function Invoke-WinToolkitSetup {
                 $null
             }
         }
-        else {
-            Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
-        }
+        Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
     }
 
     if ($PSVersionTable.PSVersion.Major -lt 7 -and (Test-Path "$env:ProgramFiles\PowerShell\7\pwsh.exe")) {
@@ -1292,12 +1271,11 @@ function Invoke-WinToolkitSetup {
         try { Stop-Transcript *>$null } catch { }
         Restart-Computer -Force
     }
-    else {
-        Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
-        Start-Sleep 3
-        try { Stop-Transcript *>$null } catch { }
-        exit
-    }
+    Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
+    Start-Sleep 3
+    try { Stop-Transcript *>$null }
+    catch { }
+    exit
 }
 
 Invoke-WinToolkitSetup
