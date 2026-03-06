@@ -1290,6 +1290,8 @@ function Invoke-WinToolkitSetup {
 
         $env:WINTOOLKIT_RESUME = "1"
 
+        $ps7Path = $script:AppConfig.Paths.PowerShell7
+
         $procParams = @{
             FilePath     = Join-Path $ps7Path "pwsh.exe"
             ArgumentList = @("-ExecutionPolicy", "Bypass", "-NoExit", "-Command", "`"$scriptBlockForRelaunch`"")
