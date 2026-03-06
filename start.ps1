@@ -472,7 +472,13 @@ function Repair-WingetDatabase {
         # 5. Aggiorna il PATH
         Update-EnvironmentPath
         
-        # 6. Riprova con il modulo WinGet se disponibile
+        # 6. Reset completo del pacchetto AppInstaller (Cruciale per ACCESS_VIOLATION)
+        Write-StyledMessage -Type Info -Text "Reset pacchetto Microsoft.DesktopAppInstaller..."
+        if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
+            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
+        }
+
+        # 7. Riprova con il modulo WinGet se disponibile
         try {
             if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
                 Write-StyledMessage -Type Info -Text "Esecuzione Repair-WinGetPackageManager..."
@@ -483,7 +489,11 @@ function Repair-WingetDatabase {
             Write-StyledMessage -Type Warning -Text "Modulo Riparazione non disponibile: $($_.Exception.Message)"
         }
         
-        # 7. Verifica che winget risponda
+        # 8. Applica permessi e refresh PATH
+        Apply-WingetPathPermissions
+        Update-EnvironmentPath
+        
+        # 9. Verifica che winget risponda
         Start-Sleep 2
         $testVersion = & winget --version 2>$null
         if ($LASTEXITCODE -eq 0) {
@@ -512,12 +522,22 @@ function Test-WingetDeepValidation {
 
         # Check for access violation crash (0xC0000005 = -1073741819 or 3221225781)
         if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
-            Write-StyledMessage -Type Warning -Text "⚠️ Crash rilevato (ExitCode: $exitCode = ACCESS_VIOLATION). Tentativo ripristino database..."
+            Write-StyledMessage -Type Warning -Text "⚠️ Crash rilevato (ExitCode: $exitCode = ACCESS_VIOLATION). Tentativo ripristino avanzato..."
             
-            $repairAttempt = Repair-WingetDatabase
+            # 1. Prova prima il ripristino DB + Reset Appx
+            $null = Repair-WingetDatabase
             
-            if ($repairAttempt) {
-                Write-StyledMessage -Type Info -Text "🔄 Ripetizione test dopo ripristino..."
+            Write-StyledMessage -Type Info -Text "🔄 Ripetizione test dopo ripristino database..."
+            Start-Sleep 3
+            $searchResult = & winget search "Git.Git" --accept-source-agreements 2>&1
+            $exitCode = $LASTEXITCODE
+
+            # 2. Se crasha ancora, prova la reinstallazione completa
+            if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
+                Write-StyledMessage -Type Warning -Text "⚠️ Crash persistente. Avvio reinstallazione completa Winget..."
+                $null = Install-WingetPackage
+                
+                Write-StyledMessage -Type Info -Text "🔄 Test finale dopo reinstallazione..."
                 Start-Sleep 3
                 $searchResult = & winget search "Git.Git" --accept-source-agreements 2>&1
                 $exitCode = $LASTEXITCODE
