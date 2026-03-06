@@ -68,6 +68,9 @@
   - [x] Dashboard di Compilazione finale riscritta totalmente e potenziate.
   - [x] Encoding è forzato rigorosamente a UTF8-NoBOM via UTF8Encoding $false per migliorare il supporto.
 
+- `WinCleaner.ps1` Aggiornato.
+  - [x] Aumentato il comando di Timeout a 24h [[#45](https://github.com/Magnetarman/WinToolkit/issues/45) [@pomodori92]](https://github.com/pomodori92) 
+
 
 
 ### V 2.6 - Debloat
