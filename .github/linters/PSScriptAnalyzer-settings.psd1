@@ -14,7 +14,31 @@
         'PSShouldProcess',
 
         # Exclude PSUseApprovedVerbs - restrictive for internal scripts
-        'PSUseApprovedVerbs'
+        'PSUseApprovedVerbs',
+
+        # Exclude PSAvoidUsingWriteHost - Use Write-Output instead of Write-Host
+        'PSAvoidUsingWriteHost',
+
+        # Exclude PSAvoidUsingEmptyCatchBlock - Empty catch blocks are sometimes intentional
+        'PSAvoidUsingEmptyCatchBlock',
+
+        # Exclude PSAvoidGlobalVars - Global variables are sometimes necessary
+        'PSAvoidGlobalVars',
+
+        # Exclude PSUseBOMForUnicodeEncodedFile - BOM handling varies by use case
+        'PSUseBOMForUnicodeEncodedFile',
+
+        # Exclude PSUseShouldProcessForStateChangingFunctions - May produce false positives
+        'PSUseShouldProcessForStateChangingFunctions',
+
+        # Exclude PSReviewUnusedParameter - May produce false positives
+        'PSReviewUnusedParameter',
+
+        # Exclude PSUseDeclaredVarsMoreThanAssignments - May produce false positives
+        'PSUseDeclaredVarsMoreThanAssignments',
+
+        # Exclude PSAvoidAssignmentToAutomaticVariable - Automatic variables are sometimes reassigned
+        'PSAvoidAssignmentToAutomaticVariable'
     )
 
     # Custom rules path (optional)

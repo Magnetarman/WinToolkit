@@ -211,7 +211,7 @@ jobs:
             [skip ci]
           file_pattern: WinToolkit-template.ps1
           branch: Dev
-          push_options: '--force'
+          push_options: "--force"
 
       # ========================================
       # Step: Compilazione
@@ -323,7 +323,7 @@ jobs:
             [skip ci]
           file_pattern: WinToolkit.ps1
           branch: Dev
-          push_options: '--force'
+          push_options: "--force"
           skip_fetch: true
 
       - name: Extract version info
@@ -340,19 +340,19 @@ jobs:
         id: create_tag
         shell: pwsh
         run: |
+          # Configura l'identità del bot per il tag
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
           $version = "${{ needs.build.outputs.new_version }}"
           $tagName = "v$($version -replace '[ \(\)]', '_')"
-
           Write-Host "Creating tag: $tagName" -ForegroundColor Cyan
           git tag -a $tagName -m "Release WinToolkit $version"
-
           $pushResult = git push --force origin $tagName 2>&1
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Warning: Tag push failed or tag already exists" -ForegroundColor Yellow
           } else {
             Write-Host "Tag pushed successfully" -ForegroundColor Green
           }
-
           Write-Output "tag_name=$tagName" >> $env:GITHUB_OUTPUT
 
       - name: Create GitHub Release
