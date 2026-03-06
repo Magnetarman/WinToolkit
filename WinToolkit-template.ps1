@@ -71,6 +71,7 @@ $AppConfig = @{
         OnBootNotify          = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback\OnBootNotify"
 
         # BitLocker
+        BitLocker             = "HKLM:\SYSTEM\CurrentControlSet\Control\BitLocker"
         BitLockerStatus       = "HKLM:\SOFTWARE\Policies\Microsoft\FVE"
 
         # Focus Assist
