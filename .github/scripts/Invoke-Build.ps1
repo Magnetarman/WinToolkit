@@ -10,8 +10,8 @@
     .\Invoke-Build.ps1 -Version "2.5.2 (Build 13)"
 
 .NOTES
-    Autore: WinToolkit CI/CD
-    Version: 1.0.0
+    Autore: MagnetarMan
+    Version: 1.0.4
 #>
 
 [CmdletBinding()]

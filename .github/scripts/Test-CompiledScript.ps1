@@ -10,8 +10,8 @@
     .\Test-CompiledScript.ps1 -ScriptPath "WinToolkit.ps1"
 
 .NOTES
-    Autore: WinToolkit CI/CD
-    Version: 1.0.0
+    Autore: MagnetarMan
+    Version: 1.0.4
 #>
 
 [CmdletBinding()]

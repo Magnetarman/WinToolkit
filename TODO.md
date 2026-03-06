@@ -43,11 +43,6 @@
 - `WinRepairToolkit.ps1` Aggiornato.
   - [x] Aggiunto nuovo check per le funzioni addizionali Registrazione AppX (Client CBS), Registrazione AppX (UI Xaml CBS), Registrazione AppX (Client Core), in modo che vengano eseguite solo su sistemi interessati dalla problematica (Windows 11 24H2 e superiori).
 
-- `compiler.ps1` aggiornato.
-  - [x] Lo script ora accetta -StripComments dalla riga di comando o da pipeline CI/CD.
-  - [x] L'etichetta di $warningCount nel box di riepilogo è ora più descrittiva.
-  - [x] Blocco di assemblaggio potenziato. Adesso esegue una Validazione, StripComments e Logging injection.
-
 - `WinToolkit-template.ps1` Aggiornato.
   - [x] La funzione `Initialize-ToolLogging` usa path hardcoded. Fix applicato.
   - [x] `Invoke-Expression` è un anti-pattern di sicurezza. Fix applicato.
@@ -61,13 +56,6 @@
 - [x] Fix catch vuoto in Install-UniGetUI → logga l'eccezione con Write-StyledMessage -Type 'Error'.
 - [x] Write-Host nel finally rimosso → gestione riavvio delegata a Start-InterruptibleCountdown.
 
-- `compiler.ps1` Aggiornato.
-  - [x] Logging aggiornato TimeStamp + Enum-based.
-  - [x] Aggiunto Motore di Minificazione, che elimina lo splatting e compatta il codice per massimizzare l'ottimizzazione a discapito della lettura.
-  - [x] Rimozione dei commenti in blocco.
-  - [x] Dashboard di Compilazione finale riscritta totalmente e potenziate.
-  - [x] Encoding è forzato rigorosamente a UTF8-NoBOM via UTF8Encoding $false per migliorare il supporto.
-
 - `WinCleaner.ps1` Aggiornato.
   - [x] Aumentato il comando di Timeout a 24h [[#45](https://github.com/Magnetarman/WinToolkit/issues/45) [@pomodori92]](https://github.com/pomodori92).
 
@@ -75,6 +63,18 @@
   - [x] Potenziata e resa completa la funzion PS-Reset.
   - [x] Esegue ora un rollback completo dell'ambiente in modo da resettare il sistema su cui è stato avviato WinToolkit.
 
+- Pipeline CI/CD Riscritta e potenziata.
+  - [x] `compiler.ps1` Aggiornato.
+  - [x] Logging aggiornato TimeStamp + Enum-based.
+  - [x] Aggiunto Motore di Minificazione, che elimina lo splatting e compatta il codice per massimizzare l'ottimizzazione a discapito della lettura.
+  - [x] Rimozione dei commenti in blocco.
+  - [x] Dashboard di Compilazione finale riscritta totalmente e potenziate.
+  - [x] Encoding è forzato rigorosamente a UTF8-NoBOM via UTF8Encoding $false per migliorare il supporto.
+  - [x] Lo script ora accetta -StripComments dalla riga di comando o da pipeline CI/CD.
+  - [x] L'etichetta di $warningCount nel box di riepilogo è ora più descrittiva.
+  - [x] Blocco di assemblaggio potenziato. Adesso esegue una Validazione, StripComments e Logging injection.
+  - [x] Aggiunta una suite di test estensiva prima della compilazione in modo da evitare errori di sintassi.
+  - [x] Migliorata la struttura all'interno della cartela .github in modo da migliorare la manutenzione e la leggibilità del codice della Pipeline CI/CD. 
 
 
 ### V 2.6 - Debloat
