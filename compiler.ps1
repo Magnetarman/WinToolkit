@@ -87,11 +87,11 @@ if ($toolFiles.Count -eq 0) {
 
 # Statistiche per la dashboard
 $stats = @{
-    Processed = 0
-    Skipped   = 0
-    Errors    = 0
-    Warnings  = 0
-    TotalSourceSize = (Get-Item $sourceFile).Length
+    Processed        = 0
+    Skipped          = 0
+    Errors           = 0
+    Warnings         = 0
+    TotalSourceSize  = (Get-Item $sourceFile).Length
     TotalSourceLines = $templateLines.Count
 }
 
@@ -160,25 +160,63 @@ foreach ($file in $toolFiles) {
             $newLines = @()
             if ($startIndex -gt 0) { $newLines += $templateLines[0..($startIndex - 1)] }
             
-            # Controllo eventuale definizione 'function NomeTool' già presente nel tool stesso
+            # Controllo eventuale definizione 'function NomeTool' gia presente nel tool stesso
+            $hasInternalFunction = $false
             if ($fileLines.Count -gt 0) {
+                # Cerca riga che inizia con 'function NomeTool' (case insensitive)
                 $hasInternalFunction = $fileLines | Select-String -Pattern "(?i)^\s*function\s+$([regex]::Escape($functionName))\b" -Quiet
-                if ($hasInternalFunction) {
-                    Write-StyledMessage 'Warning' "Il tool contiene una keyword function interna. Verificare conformità a file finale."
-                    $stats.Warnings++
-                }
             }
             
             # Injecting base logic
             $hasLogging = $fileLines | Select-String -Pattern "Initialize-ToolLogging" -Quiet
             
-            $newLines += "function $functionName {"
-            if (-not $hasLogging) { 
-                $newLines += "    Initialize-ToolLogging -ToolName `"$functionName`"" 
-                Write-StyledMessage 'Info' "Policy applicata: Iniezione automatica Initialize-ToolLogging"
+            if ($hasInternalFunction) {
+                Write-StyledMessage 'Info' "Rilevata definizione function interna in $functionName. Sostituzione senza doppia nidificazione."
+                
+                # Rimuovi la dichiarazione 'function NomeTool {' iniziale per evitare duplicazione
+                $toolContentLines = @()
+                $functionHeaderRemoved = $false
+                for ($ln = 0; $ln -lt $fileLines.Count; $ln++) {
+                    $line = $fileLines[$ln]
+                    # Se troviamo la riga function e non l'abbiamo ancora rimossa
+                    if (-not $functionHeaderRemoved -and $line -match "(?i)^\s*function\s+$([regex]::Escape($functionName))\s*\{?") {
+                        $functionHeaderRemoved = $true
+                        # Se la riga contiene anche {, salta questa riga (la { sara aggiunta dopo)
+                        if ($line -match "\{") {
+                            continue
+                        }
+                        # Altrimenti, continua a processare le righe successive
+                    }
+                    if ($functionHeaderRemoved) {
+                        $toolContentLines += $line
+                    }
+                }
+                
+                # Se non abbiamo trovato e rimosso l'header, usa tutto il contenuto (fallback)
+                if (-not $functionHeaderRemoved) {
+                    $toolContentLines = $fileLines
+                }
+                
+                # Aggiungi la dichiarazione di funzione
+                $newLines += "function $functionName {"
+                
+                if (-not $hasLogging) { 
+                    $newLines += "    Initialize-ToolLogging -ToolName `"$functionName`"" 
+                    Write-StyledMessage 'Info' "Policy applicata: Iniezione automatica Initialize-ToolLogging"
+                }
+                $newLines += $toolContentLines
+                $newLines += "}"
             }
-            $newLines += $fileLines
-            $newLines += "}"
+            else {
+                # Modalita classica: avvolgi il codice in una function
+                $newLines += "function $functionName {"
+                if (-not $hasLogging) { 
+                    $newLines += "    Initialize-ToolLogging -ToolName `"$functionName`"" 
+                    Write-StyledMessage 'Info' "Policy applicata: Iniezione automatica Initialize-ToolLogging"
+                }
+                $newLines += $fileLines
+                $newLines += "}"
+            }
             
             if ($endIndex + 1 -lt $templateLines.Count) { $newLines += $templateLines[($endIndex + 1)..($templateLines.Count - 1)] }
             
@@ -202,27 +240,14 @@ Write-Host ""
 
 # ============================================================================
 # 5. MOTORE DI MINIFICAZIONE SICURA (-Minify)
-#    Usa il tokenizer nativo di PowerShell invece di regex cieche.
-#    Il tokenizer conosce esattamente dove si trovano commenti, stringhe,
-#    here-strings, ecc. — quindi non può mai rompere la sintassi.
 # ============================================================================
 if ($Minify) {
     Write-StyledMessage 'Info' "Avvio minificazione sicura via tokenizer PowerShell..."
     try {
         $rawContent = $templateLines -join "`n"
 
-        # ------------------------------------------------------------------
-        # FASE 1 — Rimozione commenti tramite tokenizer nativo
-        #   Il parser PowerShell classifica ogni token per tipo.
-        #   I token di tipo 'Comment' includono:
-        #     - Block comments  <# ... #>  (anche multiriga)
-        #     - Inline comments # testo...  SOLO quando sono codice, MAI
-        #       quando # appare dentro una stringa o here-string
-        #   Processiamo i token in ordine INVERSO per mantenere validi
-        #   gli offset mentre modifichiamo la stringa.
-        # ------------------------------------------------------------------
         $parseErrors = $null
-        $tokens      = $null
+        $tokens = $null
         [System.Management.Automation.Language.Parser]::ParseInput(
             $rawContent,
             [ref]$tokens,
@@ -230,54 +255,32 @@ if ($Minify) {
         ) | Out-Null
 
         if ($parseErrors.Count -gt 0) {
-            # Se il sorgente ha già errori di sintassi prima della minificazione
-            # li segnaliamo ma proseguiamo ugualmente (errori pre-esistenti)
             Write-StyledMessage 'Warning' "Il sorgente contiene $($parseErrors.Count) errore/i di parse pre-esistenti. Minificazione applicata comunque."
         }
 
-        # Ordine DECRESCENTE per offset: rimuovendo da fondo a testa
-        # gli offset dei token non ancora processati rimangono validi
         $commentTokens = $tokens |
-            Where-Object { $_.Kind -eq 'Comment' } |
-            Sort-Object   { $_.Extent.StartOffset } -Descending
+        Where-Object { $_.Kind -eq 'Comment' } |
+        Sort-Object { $_.Extent.StartOffset } -Descending
 
         foreach ($token in $commentTokens) {
-            $start  = $token.Extent.StartOffset
+            $start = $token.Extent.StartOffset
             $length = $token.Extent.EndOffset - $start
             $rawContent = $rawContent.Remove($start, $length)
         }
 
         Write-StyledMessage 'Info' "  Rimossi $($commentTokens.Count) token commento"
 
-        # ------------------------------------------------------------------
-        # FASE 2 — Pulizia whitespace conservativa
-        #   Operiamo RIGA PER RIGA per non unire mai righe distinte.
-        #   Unire righe in PowerShell è SEMPRE pericoloso: pipe, backtick
-        #   continuation, array literals, ecc. dipendono dal newline.
-        # ------------------------------------------------------------------
         $cleanedLines = ($rawContent -split "`n") | ForEach-Object {
-            # Rimuovi solo il whitespace di CODA (non toccare l'indentazione
-            # iniziale: altera leggibilità ma non rompe la sintassi.
-            # Rimuoverla è sicuro solo se si è certi che nessuna stringa
-            # multiriga dipenda dall'indentazione, cosa impossibile da
-            # garantire con un approccio generico.)
             $_.TrimEnd()
         } | Where-Object {
-            # Elimina le righe completamente vuote (residui dopo rimozione commenti)
             -not [string]::IsNullOrWhiteSpace($_)
         }
 
         $templateLines = $cleanedLines
 
-        # ------------------------------------------------------------------
-        # FASE 3 — Verifica post-minificazione
-        #   Ri-parseamo il risultato per accertarci che la minificazione
-        #   non abbia introdotto errori. Se li trova, abortiamo e usiamo
-        #   il sorgente originale non minificato.
-        # ------------------------------------------------------------------
         $verifyContent = $templateLines -join "`n"
-        $verifyErrors  = $null
-        $verifyTokens  = $null
+        $verifyErrors = $null
+        $verifyTokens = $null
         [System.Management.Automation.Language.Parser]::ParseInput(
             $verifyContent,
             [ref]$verifyTokens,
@@ -285,24 +288,21 @@ if ($Minify) {
         ) | Out-Null
 
         if ($verifyErrors.Count -gt 0) {
-            Write-StyledMessage 'Warning' "Rilevati $($verifyErrors.Count) errore/i sintassi post-minificazione — rollback al sorgente originale."
+            Write-StyledMessage 'Warning' "Rilevati $($verifyErrors.Count) errore/i sintassi post-minificazione - rollback al sorgente originale."
             foreach ($e in $verifyErrors) {
                 Write-StyledMessage 'Warning' "  Riga $($e.Extent.StartLineNumber): $($e.Message)"
             }
-            # Rollback: usa le righe originali senza minificazione
             $templateLines = $templateLines -join "`n" | ForEach-Object { $_ }
             $templateLines = (($templateLines) -split "`n")
         }
         else {
-            $linesAfter  = $templateLines.Count
-            Write-StyledMessage 'Success' "Minificazione completata: $linesAfter righe — nessun errore di sintassi rilevato."
+            $linesAfter = $templateLines.Count
+            Write-StyledMessage 'Success' "Minificazione completata: $linesAfter righe - nessun errore di sintassi rilevato."
         }
     }
     catch {
         Write-StyledMessage 'Error' "Errore imprevisto durante la minificazione: $($_.Exception.Message)"
         Write-StyledMessage 'Warning' "Continuazione build senza minificazione."
-        # Non uscire: la build prosegue con il codice non minificato
-        # $templateLines rimane invariato dall'ultima assegnazione valida
     }
     Write-Host ""
 }
@@ -316,7 +316,6 @@ try {
     
     if (Test-Path $outputFile) { Remove-Item $outputFile -Force -ErrorAction Stop }
     
-    # Scrittura in UTF8 no-BOM per evitare problemi multipiattaforma o avvisi editor
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllLines($outputFile, $templateLines, $utf8NoBom)
     
@@ -344,36 +343,39 @@ $finalLinesCount = $templateLines.Count
 $linesReduction = $stats.TotalSourceLines - $finalLinesCount
 
 Write-Host ""
-Write-Host "╔═════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║                🚀 BUILD DASHBOARD RIEPILOGATIVA                 ║" -ForegroundColor Cyan
-Write-Host "╠═════════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-Write-Host "║ 📊 STATISTICHE MODULI                                           ║" -ForegroundColor Yellow
-Write-Host "║    ✅ Processati : $($stats.Processed)" -ForegroundColor Green
-Write-Host "║    ⚠️  Saltati    : $($stats.Skipped)" -ForegroundColor Yellow
+Write-Host "======================================================================" -ForegroundColor Cyan
+Write-Host "                  BUILD DASHBOARD RIEPILOGATIVA                       " -ForegroundColor Cyan
+Write-Host "======================================================================" -ForegroundColor Cyan
+Write-Host "📊 STATISTICHE MODULI                                                 " -ForegroundColor Yellow
+Write-Host "    ✅ Processati : $($stats.Processed)" -ForegroundColor Green
+Write-Host "    ⚠️ Saltati     : $($stats.Skipped)" -ForegroundColor Yellow
 if ($stats.Errors -gt 0) {
-    Write-Host "║    ❌ Errori     : $($stats.Errors)" -ForegroundColor Red
-} else {
-    Write-Host "║    ❌ Errori     : 0" -ForegroundColor DarkGray
+    Write-Host "❌ Errori     : $($stats.Errors)" -ForegroundColor Red
 }
-Write-Host "╠═════════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-Write-Host "║ 💾 STORAGE E COMPRESSIONE                                       ║" -ForegroundColor Yellow
-Write-Host "║    📦 Sorgenti   : $sourceMB KB ($($stats.TotalSourceLines) righe)" -ForegroundColor White
-Write-Host "║    📄 File Finale: $finalMB KB ($finalLinesCount righe)" -ForegroundColor Cyan
+else {
+    Write-Host "❌ Errori     : 0" -ForegroundColor DarkGray
+}
+Write-Host "======================================================================" -ForegroundColor Cyan
+Write-Host "💾 STORAGE E COMPRESSIONE                                                 " -ForegroundColor Yellow
+Write-Host "    📦 Sorgenti    : $sourceMB KB ($($stats.TotalSourceLines) righe)" -ForegroundColor White
+Write-Host "    📄 File Finale : $finalMB KB ($finalLinesCount righe)" -ForegroundColor Cyan
 if ($Minify) {
-    Write-Host "║    📉 Riduzione  : $compressionPercent % ($linesReduction righe eliminate)" -ForegroundColor Green
-} else {
-    Write-Host "║    📉 Riduzione  : OFF (Flag -Minify non rilevato)" -ForegroundColor DarkGray
+    Write-Host " 📉 Riduzione  : $compressionPercent % ($linesReduction righe eliminate)" -ForegroundColor Green
 }
-Write-Host "╠═════════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-Write-Host "║ ⏱️  TIMEDIFF MEASURE                                            ║" -ForegroundColor Yellow
-Write-Host "║    ⏳ Esecuzione : $buildTimeSec sec" -ForegroundColor White
-Write-Host "╚═════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+else {
+    Write-Host " 📉 Riduzione  : OFF (Flag -Minify non rilevato)" -ForegroundColor DarkGray
+}
+Write-Host "======================================================================" -ForegroundColor Cyan
+Write-Host "    ⏱️ TIMEDIFF MEASURE                                                       " -ForegroundColor Yellow
+Write-Host "    ⏳ Esecuzione : $buildTimeSec sec" -ForegroundColor White
+Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host ""
 
 if ($stats.Errors -gt 0) {
-    Write-StyledMessage 'Warning' "La build è stata completata ma ha riscontrato anomalie minori o moduli saltati."
+    Write-StyledMessage 'Warning' "La build e stata completata ma ha riscontrato anomalie minori o moduli saltati."
     exit 1
-} else {
+}
+else {
     Write-StyledMessage 'Success' "Pipeline compiler.ps1 eseguita con codice 0."
     exit 0
 }
