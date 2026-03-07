@@ -1,7 +1,7 @@
 param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 23)"
+$ToolkitVersion = "2.5.2 (Build 25)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -731,8 +731,8 @@ function WinUpdateReset {
                     }
                 }
                 'Check' {
-                    $status = if ($service.Status -eq 'Running') { '🟢 Attivo' } else { '🔴 Inattivo' }
-                    $serviceIcon = if ($config) { $config.Icon } else { '⚙️' }
+                    $status = ($service.Status -eq 'Running') ? '🟢 Attivo' : '🔴 Inattivo'
+                    $serviceIcon = $config.Icon ?? '⚙️'
                     Write-StyledMessage -Type 'Info' -Text "$serviceIcon $serviceName - Stato: $status"
                 }
             }
@@ -1120,7 +1120,7 @@ function WinUpdateReset {
         foreach ($service in $verificationServices) {
             $svc = Get-Service -Name $service -ErrorAction SilentlyContinue
             if ($svc) {
-                $status = if ($svc.Status -eq 'Running') { '🟢 ATTIVO' } else { '🟡 INATTIVO' }
+                $status = ($svc.Status -eq 'Running') ? '🟢 ATTIVO' : '🔴 INATTIVO'
                 $startup = $svc.StartType
                 Write-StyledMessage -Type 'Info' -Text "📊 $service - Stato: $status | Avvio: $startup"
             }
