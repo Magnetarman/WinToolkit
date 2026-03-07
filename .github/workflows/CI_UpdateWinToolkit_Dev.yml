@@ -243,44 +243,6 @@ jobs:
           path: WinToolkit.ps1
           retention-days: 30
 
-      # ========================================
-      # Step: GitHub Step Summary
-      # ========================================
-      - name: Generate Build Summary
-        if: steps.test.outputs.tests_passed == 'true'
-        shell: pwsh
-        run: |
-          $sourceKB = "${{ steps.build.outputs.source_kb }}"
-          $outputKB = "${{ steps.build.outputs.output_kb }}"
-          $reduction = "${{ steps.build.outputs.reduction_percent }}"
-          $linesRemoved = "${{ steps.build.outputs.lines_removed }}"
-          $version = "${{ steps.version.outputs.new_version }}"
-          $buildNum = "${{ steps.version.outputs.build_number }}"
-
-          $summary = @"
-          ## 📦 Build Summary - WinToolkit v$version
-
-          ### 📊 Statistiche Compressione
-
-          | Metrica | Valore |
-          |---------|--------|
-          | Peso Sorgente | $sourceKB KB |
-          | Peso Finale | $outputKB KB |
-          | Riduzione | $reduction% |
-          | Righe Eliminate | $linesRemoved |
-
-          ### ✅ Status Build
-
-          - **Versione**: $version
-          - **Stato**: Completato con successo
-          - **Artefatto**: WinToolkit-Compiled.zip
-
-          ---
-          *Generato automaticamente da WinToolkit CI/CD Pipeline*
-          "@
-
-          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
-
   # ---------------------------------------------------------------------------
   # JOB 3: REPORT GENERATION - Riepilogo e commit finale
   # ---------------------------------------------------------------------------
@@ -312,7 +274,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
-            🔖 Build WinToolkit v${{ needs.build.outputs.new_version }} (Build ${{ needs.build.outputs.build_number }})
+            🔖 Build WinToolkit v${{ needs.build.outputs.new_version }}
 
             • Compilazione automatica da file in /tool
             • Test di sintassi e struttura passati
@@ -328,14 +290,13 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ needs.build.outputs.new_version }}"
-          $buildNum = "${{ needs.build.outputs.build_number }}"
           $sourceKB = "${{ needs.build.outputs.source_kb }}"
           $outputKB = "${{ needs.build.outputs.output_kb }}"
           $reduction = "${{ needs.build.outputs.reduction_percent }}"
           $linesRemoved = "${{ needs.build.outputs.lines_removed }}"
 
           $summary = @"
-          ## 📦 Build Summary - WinToolkit v$version (Build $buildNum)
+          ## 📦 Riepilogo Build & Test - WinToolkit v$version
 
           ### 📊 Statistiche Compressione
 
@@ -346,9 +307,9 @@ jobs:
           | Riduzione | $reduction% |
           | Righe Eliminate | $linesRemoved |
 
-          ### ✅ Status Build
+          ### ✅ Stato Build
 
-          - **Versione**: $version (Build $buildNum)
+          - **Versione**: $version
           - **Stato**: Completato con successo
           - **Artefatto**: WinToolkit-Compiled.zip
 
@@ -364,6 +325,6 @@ jobs:
           Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Green
           Write-Host ""
           Write-Host "📋 Riepilogo:" -ForegroundColor Cyan
-          Write-Host "  • Versione: v$version (Build $buildNum)" -ForegroundColor White
+          Write-Host "  • Versione: v$version" -ForegroundColor White
           Write-Host "  • Compressione: $reduction%" -ForegroundColor White
           Write-Host ""
