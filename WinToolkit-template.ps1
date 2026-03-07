@@ -10,6 +10,29 @@
 
 param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 
+# --- GESTIONE INTERRUZIONI (CTRL+C) ---
+function Read-Host {
+    <#
+    .SYNOPSIS
+        Wrapper sicuro per Read-Host che gestisce le interruzioni CTRL+C.
+    #>
+    param($Prompt)
+    try {
+        if ($Prompt) {
+            Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt
+        }
+        else {
+            Microsoft.PowerShell.Utility\Read-Host
+        }
+    }
+    catch [System.Management.Automation.PipelineStoppedException] {
+        return $null
+    }
+    catch {
+        throw $_
+    }
+}
+
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
