@@ -282,10 +282,10 @@ jobs:
           $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
 
   # ---------------------------------------------------------------------------
-  # JOB 3: RELEASE & TAGGING - Rilascio e creazione tag
+  # JOB 3: REPORT GENERATION - Riepilogo e commit finale
   # ---------------------------------------------------------------------------
-  release:
-    name: Release & Tagging
+  report:
+    name: Report Generation
     runs-on: windows-latest
     needs: build
 
@@ -302,8 +302,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      # windows-latest include già PowerShell 7 (pwsh). shell: pwsh lo usa automaticamente.
-
       - name: Download compiled artifact
         uses: actions/download-artifact@v4
         with:
@@ -314,103 +312,58 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
-            🔖 Bump WinToolkit version to V${{ needs.build.outputs.new_version }}
+            🔖 Build WinToolkit v${{ needs.build.outputs.new_version }} (Build ${{ needs.build.outputs.build_number }})
 
             • Compilazione automatica da file in /tool
             • Test di sintassi e struttura passati
             • Funzioni rilevate automaticamente dalla cartella tool/
-            • File aggiornato e funzionale
+            • File aggiornato e funzionale online
             [skip ci]
           file_pattern: WinToolkit.ps1
           branch: Dev
           push_options: "--force"
           skip_fetch: true
 
-      - name: Extract version info
-        id: version_info
+      - name: Generate Build Summary
         shell: pwsh
-        run: |
-          $content = Get-Content -Path "WinToolkit-template.ps1" -Raw
-          if ($content -match '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]') {
-            $version = $matches[1]
-            Write-Output "version=$version" >> $env:GITHUB_OUTPUT
-          }
-
-
-      - name: Create GitHub Release
-        id: create_release
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $version = "${{ needs.build.outputs.new_version }}"
+          $buildNum = "${{ needs.build.outputs.build_number }}"
           $sourceKB = "${{ needs.build.outputs.source_kb }}"
           $outputKB = "${{ needs.build.outputs.output_kb }}"
           $reduction = "${{ needs.build.outputs.reduction_percent }}"
           $linesRemoved = "${{ needs.build.outputs.lines_removed }}"
 
-          $body = @"
-            ## 📦 WinToolkit Release $version
+          $summary = @"
+          ## 📦 Build Summary - WinToolkit v$version (Build $buildNum)
 
-            ### 📊 Statistiche Compressione
+          ### 📊 Statistiche Compressione
 
-            | Metrica | Valore |
-            |---------|--------|
-            | Peso Sorgente | $sourceKB KB |
-            | Peso Finale | $outputKB KB |
-            | Riduzione | $reduction% |
-            | Righe Eliminate | $linesRemoved |
+          | Metrica | Valore |
+          |---------|--------|
+          | Peso Sorgente | $sourceKB KB |
+          | Peso Finale | $outputKB KB |
+          | Riduzione | $reduction% |
+          | Righe Eliminate | $linesRemoved |
 
-            ### ✅ Note di rilascio
+          ### ✅ Status Build
 
-            - Compilazione automatica da sorgenti in `/tool`
-            - Test di integrità superati
-            - File pronto per l'uso
+          - **Versione**: $version (Build $buildNum)
+          - **Stato**: Completato con successo
+          - **Artefatto**: WinToolkit-Compiled.zip
 
-            ---
-            *WinToolkit CI/CD Pipeline*
+          ---
+          *Generato automaticamente da WinToolkit CI/CD Pipeline*
           "@
 
-          $headers = @{
-            'Authorization' = "Bearer $env:GITHUB_TOKEN"
-            'Accept' = 'application/vnd.github+json'
-            'X-GitHub-Api-Version' = '2022-11-28'
-          }
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
 
-          $owner = "${{ github.repository_owner }}"
-          $repo = "${{ github.event.repository.name }}"
-
-          $releaseUrl = "https://api.github.com/repos/$owner/$repo/releases"
-
-          # Sanitize version string for tag_name (remove spaces and parentheses)
-          $sanitizedTag = "v$($version -replace '[^a-zA-Z0-9.]', '-')"
-
-          $releaseBody = @{
-            tag_name = $sanitizedTag
-            name = "WinToolkit V$version"
-            body = $body
-            draft = $false
-            prerelease = $false
-          } | ConvertTo-Json
-
-          try {
-            $response = Invoke-RestMethod -Uri $releaseUrl -Method Post -Headers $headers -Body $releaseBody -ContentType 'application/json'
-            Write-Host "Release created successfully: $($response.html_url)" -ForegroundColor Green
-          } catch {
-            Write-Host "Warning: Could not create release. $_" -ForegroundColor Yellow
-          }
-
-      - name: Final Summary
-        shell: pwsh
-        run: |
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Green
-          Write-Host "║          🎉 RELEASE COMPLETATA CON SUCCESSO!          ║" -ForegroundColor Green
+          Write-Host "║          🎉 BUILD COMPLETATA CON SUCCESSO!           ║" -ForegroundColor Green
           Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Green
           Write-Host ""
-          Write-Host "📋 Dettagli:" -ForegroundColor Cyan
-          Write-Host "  • Versione: ${{ needs.build.outputs.new_version }}" -ForegroundColor White
-          Write-Host "  • Build:     ${{ needs.build.outputs.build_number }}" -ForegroundColor White
-          Write-Host "  • Tag Git:   v${{ needs.build.outputs.new_version }}" -ForegroundColor White
-          Write-Host "  • Compressione: ${{ needs.build.outputs.reduction_percent }}%" -ForegroundColor White
+          Write-Host "📋 Riepilogo:" -ForegroundColor Cyan
+          Write-Host "  • Versione: v$version (Build $buildNum)" -ForegroundColor White
+          Write-Host "  • Compressione: $reduction%" -ForegroundColor White
           Write-Host ""
