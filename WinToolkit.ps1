@@ -1,7 +1,7 @@
 param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 27)"
+$ToolkitVersion = "2.5.2 (Build 28)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1660,15 +1660,7 @@ function OfficeToolkit {
         try {
             $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
             $buildNumber = [int]$osInfo.BuildNumber
-            if ($buildNumber -ge 22631) {
-                return "Windows11_23H2_Plus"
-            }
-            elseif ($buildNumber -ge 22000) {
-                return "Windows11_22H2_Or_Older"
-            }
-            else {
-                return "Windows10_Or_Older"
-            }
+            return $buildNumber -ge 22631 ? "Windows11_23H2_Plus" : ($buildNumber -ge 22000 ? "Windows11_22H2_Or_Older" : "Windows10_Or_Older")
         }
         catch {
             Write-StyledMessage -Type 'Warning' -Text "Impossibile rilevare versione Windows: $_"
@@ -1701,14 +1693,8 @@ function OfficeToolkit {
             $webClient = New-Object System.Net.WebClient
             $webClient.DownloadFile($Url, $OutputPath)
             $webClient.Dispose()
-            if (Test-Path $OutputPath) {
-                Write-StyledMessage -Type 'Success' -Text "Download completato: $Description"
-                return $true
-            }
-            else {
-                Write-StyledMessage -Type 'Error' -Text "File non trovato dopo download: $Description"
-                return $false
-            }
+                Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description")
+                return $success
         }
         catch {
             Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
@@ -1780,10 +1766,7 @@ function OfficeToolkit {
         if ($cleanedCount -gt 0) {
             Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate"
         }
-        $officeClient = "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
-        if (-not (Test-Path $officeClient)) {
-            $officeClient = "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
-        }
+        $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ? "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe" : "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
         try {
             $processTimeoutSeconds = 86400
             Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione rapida (offline)..."
