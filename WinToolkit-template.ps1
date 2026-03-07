@@ -275,8 +275,7 @@ function Write-ToolkitLog {
     if (-not $Global:CurrentLogFile) { return }
 
     $ts    = Get-Date -Format "HH:mm:ss"
-    # Rimuove emoji e caratteri grafici unicode comuni usati nello script
-    clean = $Message -replace '[✅⚠️❌💎🔄🗂️📁🖨️📄🗑️💭⏏▶️💡⏰🎉💻📊⏳🔧🕸️📦💽]', '' -replace '^\s+', ''
+    $clean = $Message -replace '^\s+', ''
     $line  = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {}
