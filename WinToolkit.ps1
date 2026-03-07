@@ -18,7 +18,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 29)"
+$ToolkitVersion = "2.5.2 (Build 30)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1387,7 +1387,7 @@ function WinBackupDriver {
                     RedirectStandardError  = $errFile
                 }
                 Start-Process @procParams
-            } -TimeoutSeconds 300 -UpdateInterval 1000
+            } -TimeoutSeconds 800 -UpdateInterval 1000
             if ($result.TimedOut) {
                 throw "Timeout raggiunto durante l'esportazione DISM"
             }
@@ -1488,7 +1488,7 @@ function WinBackupDriver {
                     RedirectStandardError  = $stdErrorPath
                 }
                 Start-Process @procParams
-            } -TimeoutSeconds 600 -UpdateInterval 1000
+            } -TimeoutSeconds 800 -UpdateInterval 1000
             if ($result.TimedOut) {
                 throw "Timeout raggiunto durante la compressione"
             }
@@ -2513,16 +2513,32 @@ function WinCleaner {
                 Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object { Wevtutil.exe cl $_.LogName 2>$null }
             }
         }
-        @{ Name = "Stop - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Stop" }
-        @{ Name = "Stop - BITS Service"; Type = "Service"; ServiceName = "bits"; Action = "Stop" }
-        @{ Name = "Cleanup - Windows Update Cache"; Type = "File"; Paths = @(
-                "C:\WINDOWS\SoftwareDistribution\DataStore",
-                "C:\WINDOWS\SoftwareDistribution\Download"
-            ); FilesOnly = $false
+        @{ Name = "Clear Windows Update cache"; Type = "Custom"; ScriptBlock = {
+                Write-StyledMessage -Type 'Info' -Text "🔄 Pulizia cache di Windows Update..."
+                $services = @("wuauserv", "bits")
+                foreach ($s in $services) {
+                    Invoke-ServiceAction -Rule @{ ServiceName = $s; Action = "Stop" }
+                }
+                $paths = @(
+                    "C:\Windows\SoftwareDistribution\Download",
+                    "C:\Windows\SoftwareDistribution\DataStore"
+                )
+                foreach ($p in $paths) {
+                    if (Test-Path $p) {
+                        try {
+                            Write-StyledMessage -Type 'Info' -Text "🗑️ Rimozione: $p"
+                            Remove-Item -Path "$p\*" -Recurse -Force -ErrorAction SilentlyContinue
+                        } catch {
+                            Write-StyledMessage -Type 'Warning' -Text "Impossibile pulire completamente $p"
+                        }
+                    }
+                }
+                foreach ($s in $services) {
+                    Invoke-ServiceAction -Rule @{ ServiceName = $s; Action = "Start" }
+                }
+                Write-StyledMessage -Type 'Success' -Text "Windows Update cache cleared."
+            }
         }
-        @{ Name = "Start - BITS Service"; Type = "Service"; ServiceName = "bits"; Action = "Start" }
-        @{ Name = "Start - Windows Update Service"; Type = "Service"; ServiceName = "wuauserv"; Action = "Start" }
-        @{ Name = "Windows App/Download Cache - System"; Type = "File"; Paths = @("C:\WINDOWS\SoftwareDistribution\Download"); FilesOnly = $true }
         @{ Name = "Windows App/Download Cache - User"; Type = "File"; Paths = @(
                 "%LOCALAPPDATA%\Microsoft\Windows\AppCache",
                 "%LOCALAPPDATA%\Microsoft\Windows\Caches"
