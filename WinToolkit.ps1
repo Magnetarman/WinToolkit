@@ -1,7 +1,24 @@
 param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
+function Read-Host {
+    param($Prompt)
+    try {
+        if ($Prompt) {
+            Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt
+        }
+        else {
+            Microsoft.PowerShell.Utility\Read-Host
+        }
+    }
+    catch [System.Management.Automation.PipelineStoppedException] {
+        return $null
+    }
+    catch {
+        throw $_
+    }
+}
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 28)"
+$ToolkitVersion = "2.5.2 (Build 29)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -2280,6 +2297,10 @@ function WinCleaner {
             if ($Rule.Command -in $timeoutCommands) {
                 $result = Start-ProcessWithTimeout -FilePath $Rule.Command -ArgumentList $Rule.Args -TimeoutSeconds 86400 -Activity $Rule.Name -Hidden
                 if ($result.TimedOut) { Write-StyledMessage -Type 'Warning' -Text "Comando timeout dopo 24 ore."; return $true }
+                if ($result.ExitCode -eq -2146498554 -or $result.ExitCode -eq 0x800F0818) {
+                    Write-StyledMessage -Type 'Warning' -Text "ATTENZIONE! - Stai effettuando la pulizia con Windows Update in corso. Aggiorna il sistema e riprova per eseguire la pulizia completa"
+                    return $false
+                }
                 Write-StyledMessage -Type ($result.ExitCode -eq 0 ? 'Info' : 'Warning') -Text ($result.ExitCode -eq 0 ? "Comando completato." : "Comando completato con codice $($result.ExitCode)")
                 return $true
             }
