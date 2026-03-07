@@ -16,6 +16,8 @@ $AppConfig = @{
         BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
         SevenZipOfficial      = "https://www.7-zip.org/a/7zr.exe"
         WingetInstaller       = "https://aka.ms/getwinget"
+        VCRedist86            = "https://aka.ms/vs/17/release/vc_redist.x86.exe"
+        VCRedist64            = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
     }
     Paths    = @{
         Root               = "$env:LOCALAPPDATA\WinToolkit"
@@ -116,12 +118,22 @@ function Initialize-ToolLogging {
     Start-Transcript -Path "$logdir\${ToolName}_$dateTime.log" -Append -Force | Out-Null
 }
 function Reset-Winget {
+    param([switch]$Force)
     $UpdateEnvironmentPath = {
         $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
         $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
         $newPath = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
         $env:Path = $newPath
         [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
+    }
+    function _Get-LatestAssetUrl {
+        param([string]$Match)
+        try {
+            $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing -ErrorAction Stop
+            $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
+            if ($asset) { return $asset.browser_download_url }
+        } catch {}
+        return $null
     }
     function _Test-WingetCompatibility {
         $osInfo = [Environment]::OSVersion
@@ -156,24 +168,61 @@ function Reset-Winget {
         Write-StyledMessage -Type Error -Text "Sistema non compatibile con Winget."
         return $false
     }
-    & $UpdateEnvironmentPath
-    $wingetOk = (Get-Command winget -ErrorAction SilentlyContinue) -and (& winget --version 2>$null | Out-String -Stream | Select-String 'v\d')
-    if (-not $wingetOk) {
-        Write-StyledMessage -Type Warning -Text "Winget non rilevato o danneggiato. Avvio ripristino..."
-        _Invoke-ForceClose
-        Write-StyledMessage -Type Info -Text "Download e installazione Winget Bundle..."
-        $tempFile = Join-Path $env:TEMP "WingetInstaller.msixbundle"
+    Write-StyledMessage -Type Info -Text "Verifica Visual C++ Redistributable..."
+    $vcKey = if ([Environment]::Is64BitOperatingSystem) { "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" } else { "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X86" }
+    if (-not (Test-Path $vcKey) -or $Force) {
+        Write-StyledMessage -Type Info -Text "Installazione VC++ Redistributable..."
+        $vcUrl = if ([Environment]::Is64BitOperatingSystem) { $AppConfig.URLs.VCRedist64 } else { $AppConfig.URLs.VCRedist86 }
+        $tempFile = Join-Path $AppConfig.Paths.Temp "vc_redist.exe"
         try {
-            Invoke-WebRequest -Uri "https://aka.ms/getwinget" -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
-            Add-AppxPackage -Path $tempFile -ForceApplicationShutdown -ErrorAction Stop
-            Write-StyledMessage -Type Success -Text "Pacchetto Winget installato."
+            if (-not (Test-Path $AppConfig.Paths.Temp)) { New-Item -Path $AppConfig.Paths.Temp -ItemType Directory -Force | Out-Null }
+            Invoke-WebRequest -Uri $vcUrl -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
+            Start-Process -FilePath $tempFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
+            Write-StyledMessage -Type Success -Text "VC++ Redist installato."
         } catch {
-            Write-StyledMessage -Type Error -Text "Installazione fallita: $($_.Exception.Message)"
+            Write-StyledMessage -Type Warning -Text "Errore installazione VC++: $($_.Exception.Message)"
         } finally {
             if (Test-Path $tempFile) { Remove-Item $tempFile -Force }
         }
     }
-    Write-StyledMessage -Type Info -Text "Esecuzione riparazione database e reset AppInstaller..."
+    & $UpdateEnvironmentPath
+    $wingetOk = (Get-Command winget -ErrorAction SilentlyContinue) -and (& winget --version 2>$null | Out-String -Stream | Select-String 'v\d')
+    if (-not $wingetOk -or $Force) {
+        Write-StyledMessage -Type Warning -Text "Winget non operativo. Avvio ripristino core..."
+        _Invoke-ForceClose
+        Write-StyledMessage -Type Info -Text "Download dipendenze Appx..."
+        $depUrl = _Get-LatestAssetUrl -Match 'DesktopAppInstaller_Dependencies.zip'
+        if ($depUrl) {
+            $depZip = Join-Path $AppConfig.Paths.Temp "dependencies.zip"
+            $depDir = Join-Path $AppConfig.Paths.Temp "deps"
+            try {
+                Invoke-WebRequest -Uri $depUrl -OutFile $depZip -UseBasicParsing -ErrorAction Stop
+                Expand-Archive -Path $depZip -DestinationPath $depDir -Force
+                $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
+                Get-ChildItem -Path $depDir -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $arch -or $_.Name -match "neutral" } | ForEach-Object {
+                    Add-AppxPackage -Path $_.FullName -ForceApplicationShutdown -ErrorAction SilentlyContinue
+                }
+                Write-StyledMessage -Type Success -Text "Dipendenze Appx installate."
+            } catch {} finally {
+                if (Test-Path $depZip) { Remove-Item $depZip -Force }
+                if (Test-Path $depDir) { Remove-Item $depDir -Recurse -Force }
+            }
+        }
+        Write-StyledMessage -Type Info -Text "Installazione Winget MSIXBundle..."
+        $bundleFile = Join-Path $AppConfig.Paths.Temp "WingetInstaller.msixbundle"
+        try {
+            $bundleUrl = _Get-LatestAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
+            if (-not $bundleUrl) { $bundleUrl = $AppConfig.URLs.WingetInstaller }
+            Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing -ErrorAction Stop
+            Add-AppxPackage -Path $bundleFile -ForceApplicationShutdown -ErrorAction Stop
+            Write-StyledMessage -Type Success -Text "Winget Bundle installato."
+        } catch {
+            Write-StyledMessage -Type Error -Text "Installazione fallita: $($_.Exception.Message)"
+        } finally {
+            if (Test-Path $bundleFile) { Remove-Item $bundleFile -Force }
+        }
+    }
+    Write-StyledMessage -Type Info -Text "Riparazione database e reset sorgenti..."
     try {
         Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
         & winget source reset --force 2>$null
