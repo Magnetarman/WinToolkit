@@ -213,7 +213,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
-            🔖 Bump version to v${{ steps.version.outputs.new_version }} [skip ci]
+            🆙 Bump versione v${{ steps.version.outputs.new_version }}
           file_pattern: "WinToolkit-template.ps1"
           branch: Dev
           push_options: "--force"
@@ -266,9 +266,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
-            🚀 Build WinToolkit v${{ needs.versioning.outputs.new_version }}
-            
-            [skip ci]
+            ✅ Compilato WinToolkit v${{ needs.versioning.outputs.new_version }}
           file_pattern: "WinToolkit.ps1"
           branch: Dev
           push_options: "--force"
@@ -289,21 +287,21 @@ jobs:
 
           $summary = @"
           ## 📦 Riepilogo Build & Test - WinToolkit v`$version
-          
+
           ### 📊 Statistiche Compressione
-          
+
           | Metrica | Valore |
           |---------|--------|
           | Peso Sorgente | `$sourceKB KB |
           | Peso Finale | `$outputKB KB |
           | Riduzione | `$reduction% |
           | Righe Eliminate | `$linesRemoved |
-          
+
           ### ✅ Stato Build
-          
+
           - **Versione**: `$version
           - **Stato**: Completato con successo (Double-Commit Flow)
-          
+
           ---
           *Generato automaticamente da WinToolkit CI/CD Pipeline*
           "@
@@ -312,12 +310,10 @@ jobs:
 
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Green
-          Write-Host "║          🎉 BUILD COMPLETATA CON SUCCESSO!           ║" -ForegroundColor Green
+          Write-Host "║          🎉 BUILD COMPLETATA CON SUCCESSO!               ║" -ForegroundColor Green
           Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Green
           Write-Host ""
           Write-Host "📋 Riepilogo:" -ForegroundColor Cyan
           Write-Host "  • Versione: v`$version" -ForegroundColor White
           Write-Host "  • Compressione: `$reduction%" -ForegroundColor White
           Write-Host ""
-
-
