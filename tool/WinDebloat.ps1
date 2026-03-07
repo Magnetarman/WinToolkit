@@ -21,7 +21,7 @@ function WinDebloat {
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "WinDebloat"
+    Start-ToolkitLog -ToolName "WinDebloat"
     Show-Header -SubTitle "WinDebloat Toolkit"
     $Host.UI.RawUI.WindowTitle = "WinDebloat Toolkit By MagnetarMan"
 
@@ -96,6 +96,11 @@ function WinDebloat {
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text "❌ Errore critico in WinDebloat: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinDebloat" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
     finally {
         Write-StyledMessage -Type 'Info' -Text "♻️ Pulizia risorse e chiusura sessione WinDebloat."

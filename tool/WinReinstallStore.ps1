@@ -22,7 +22,7 @@ function WinReinstallStore {
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "WinReinstallStore"
+    Start-ToolkitLog -ToolName "WinReinstallStore"
     Show-Header -SubTitle "Store Repair Toolkit"
 
     # ============================================================================
@@ -125,8 +125,12 @@ function WinReinstallStore {
         }
 
         try {
-            # Verifica se è già installato
-            $existing = & winget list --id SomePythonThing.WinGetUI --accept-source-agreements 2>$null
+            # Verifica se è già installato (cattura stderr invece di scartarlo)
+            $wingetCheckErr = $null
+            $existing = & winget list --id SomePythonThing.WinGetUI --accept-source-agreements 2>&1 | Tee-Object -Variable wingetCheckErr
+            if ($wingetCheckErr -match 'error' -or $LASTEXITCODE -ne 0) {
+                Write-ToolkitLog -Level DEBUG -Message "winget list check output: $wingetCheckErr"
+            }
             if ($existing -match "SomePythonThing.WinGetUI") {
                 Write-StyledMessage -Type 'Success' -Text "UniGet UI già presente nel sistema."
                 return

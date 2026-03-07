@@ -149,8 +149,17 @@ function Write-StyledMessage {
     )
     $style = $Global:MsgStyles[$Type]
     $timestamp = Get-Date -Format "HH:mm:ss"
-    $cleanText = $Text -replace '^[✅⚠️❌💎🔄🗂️📁🖨️📄🗑️💭⸏▶️💡⏰🎉💻📊]\s*', ''
     Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
+
+    # Bridge: mirror to log file (silently, no UI side-effects)
+    $logLevel = switch ($Type) {
+        'Success'  { 'SUCCESS' }
+        'Warning'  { 'WARNING' }
+        'Error'    { 'ERROR' }
+        'Progress' { 'INFO' }
+        default    { 'INFO' }
+    }
+    Write-ToolkitLog -Level $logLevel -Message $Text
 }
 
 function Center-Text {
@@ -191,17 +200,88 @@ function Show-Header {
     Write-Host ''
 }
 
-function Initialize-ToolLogging {
+function Start-ToolkitLog {
     <#
     .SYNOPSIS
-        Avvia il transcript per un tool specifico.
+        Inizializza il file di log strutturato per un tool specifico.
+        Sostituisce Initialize-ToolLogging con il nuovo
+        motore di logging dual-stream.
     #>
     param([string]$ToolName)
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = $AppConfig.Paths.Logs
-    if (-not (Test-Path $logdir)) { $null = New-Item -Path $logdir -ItemType Directory -Force }
+
+    # Pulizia residui transcript (backward compat)
     try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
-    Start-Transcript -Path "$logdir\${ToolName}_$dateTime.log" -Append -Force | Out-Null
+
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir   = $AppConfig.Paths.Logs
+    if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
+    $Global:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
+
+    # Raccolta metadati di sistema per l'header
+    $os  = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
+    $sys = Get-CimInstance Win32_ComputerSystem   -ErrorAction SilentlyContinue
+    $psVer   = $PSVersionTable.PSVersion.ToString()
+    $psEd    = $PSVersionTable.PSEdition
+    $psCompat = ($PSVersionTable.PSCompatibleVersions | ForEach-Object { $_.ToString() }) -join ', '
+    $gitId   = if ($PSVersionTable.GitCommitId) { $PSVersionTable.GitCommitId } else { 'N/A' }
+    $wsManVer = if ($PSVersionTable.WSManStackVersion) { $PSVersionTable.WSManStackVersion.ToString() } else { 'N/A' }
+    $remoteVer = if ($PSVersionTable.PSRemotingProtocolVersion) { $PSVersionTable.PSRemotingProtocolVersion.ToString() } else { 'N/A' }
+    $serVer  = if ($PSVersionTable.SerializationVersion) { $PSVersionTable.SerializationVersion.ToString() } else { 'N/A' }
+
+    # Mappa build -> versione display
+    $build = [int]$os.BuildNumber
+    $verMap = @{26100='24H2';22631='23H2';22621='22H2';22000='21H2';19045='22H2';19044='21H2'}
+    $dispVer = 'N/A'
+    foreach ($k in ($verMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $dispVer = $verMap[$k]; break } }
+
+    $header = @"
+[START LOG HEADER]
+Start time              : $dateTime
+ToolName                : $ToolName
+Username                : $([Environment]::UserDomainName)\$([Environment]::UserName)
+RunAs User              : $([Security.Principal.WindowsIdentity]::GetCurrent().Name)
+Machine                 : $($sys.Name) ($($os.Caption) $($os.Version))
+Host Application        : $([Environment]::CommandLine)
+Process ID              : $PID
+PSVersion               : $psVer
+PSEdition               : $psEd
+GitCommitId             : $gitId
+ToolkitVersion          : $($Global:ToolkitVersion)
+OS                      : $($os.Caption)
+Version                 : Versione $dispVer (build SO $($os.BuildNumber))
+Platform                : $([Environment]::OSVersion.Platform)
+PSCompatibleVersions    : $psCompat
+PSRemotingProtocolVersion: $remoteVer
+SerializationVersion    : $serVer
+WSManStackVersion       : $wsManVer
+[END LOG HEADER]
+
+"@
+    try { Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+}
+
+function Write-ToolkitLog {
+    <#
+    .SYNOPSIS
+        Scrive una riga di log strutturata SOLO su file. Mai su console.
+        Resiliente: assorbe qualsiasi errore I/O senza crashare il toolkit.
+    #>
+    param(
+        [ValidateSet('DEBUG','INFO','WARNING','ERROR','SUCCESS')]
+        [string]$Level = 'INFO',
+        [string]$Message,
+        [hashtable]$Context = @{}
+    )
+    if (-not $Global:CurrentLogFile) { return }
+
+    $ts    = Get-Date -Format "HH:mm:ss"
+    # Rimuove emoji e caratteri grafici unicode comuni usati nello script
+    $clean = $Message -replace '[\u2705\u26a0\ufe0f\u274c\u1f48e\u1f504\u1f5c2\ufe0f\u1f4c1\u1f5a8\ufe0f\u1f4c4\u1f5d1\ufe0f\u1f4ad\u23cf\u25b6\ufe0f\u1f4a1\u23f0\u1f389\u1f4bb\u1f4ca\u23f3\u1f527\u1f578\ufe0f\u1f4e6\u1f4bd]', '' -replace '\\ufe0f', '' -replace '^\s+', ''
+    $line  = "[$ts] [$Level] $clean"
+    if ($Context.Count -gt 0) {
+        try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {}
+    }
+    try { Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 }
 
 function Reset-Winget {
@@ -259,7 +339,7 @@ function Reset-Winget {
                 $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($administratorsGroup, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
                 $acl.SetAccessRule($rule)
                 Set-Acl -Path $wingetDir.FullName -AclObject $acl
-                
+
                 # Update PATH
                 $sysPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
                 if (-not ($sysPath -split ';').Contains($wingetDir.FullName)) { [Environment]::SetEnvironmentVariable('Path', "$sysPath;$($wingetDir.FullName)", 'Machine') }
@@ -300,11 +380,11 @@ function Reset-Winget {
     # FASE 1: Verifica e Installazione Core
     & $UpdateEnvironmentPath
     $wingetOk = (Get-Command winget -ErrorAction SilentlyContinue) -and (& winget --version 2>$null | Out-String -Stream | Select-String 'v\d')
-    
+
     if (-not $wingetOk -or $Force) {
         Write-StyledMessage -Type Warning -Text "Winget non operativo. Avvio ripristino core..."
         _Invoke-ForceClose
-        
+
         # 1.1 Installazione Dipendenze (UI.Xaml, VCLibs)
         Write-StyledMessage -Type Info -Text "Download dipendenze Appx..."
         $depUrl = _Get-LatestAssetUrl -Match 'DesktopAppInstaller_Dependencies.zip'
@@ -732,9 +812,8 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         if ($c -eq '0') {
             Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
             Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
-            if ($Global:Transcript -or $Transcript) {
-                Stop-Transcript -ErrorAction SilentlyContinue
-            }
+            # Log session end
+            Write-ToolkitLog -Level INFO -Message "Sessione WinToolkit terminata dall'utente."
             Start-Sleep -Seconds 3
             break
         }
@@ -831,7 +910,3 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
-
-
-

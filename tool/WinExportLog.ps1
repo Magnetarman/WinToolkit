@@ -16,7 +16,7 @@ function WinExportLog {
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "WinExportLog"
+    Start-ToolkitLog -ToolName "WinExportLog"
     Show-Header -SubTitle "Esporta Log Diagnostici"
     $Host.UI.RawUI.WindowTitle = "Log Export By MagnetarMan"
 
@@ -99,6 +99,11 @@ function WinExportLog {
     }
     catch {
         Write-StyledMessage Error "Errore critico durante la compressione dei log: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinExportLog" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
 
         # Pulizia forzata in caso di errore
         $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"

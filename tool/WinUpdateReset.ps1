@@ -19,7 +19,7 @@ function WinUpdateReset {
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "WinUpdateReset"
+    Start-ToolkitLog -ToolName "WinUpdateReset"
     Show-Header -SubTitle "Update Reset Toolkit"
     $Host.UI.RawUI.WindowTitle = "Win Update Reset Toolkit By MagnetarMan"
 
@@ -613,11 +613,12 @@ function WinUpdateReset {
     catch {
         Write-StyledMessage -Type 'Error' -Text '═════════════════════════════════════════════════════════════════'
         Write-StyledMessage -Type 'Error' -Text "💥 Errore critico: $($_.Exception.Message)"
-        Write-StyledMessage -Type 'Error' -Text '❌ Si è verificato un errore durante la riparazione.'
-        Write-StyledMessage -Type 'Info' -Text '🔍 Controlla i messaggi sopra per maggiori dettagli.'
-        Write-StyledMessage -Type 'Error' -Text '═════════════════════════════════════════════════════════════════'
         Write-StyledMessage -Type 'Info' -Text '⌨️ Premere un tasto per uscire...'
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        try { Stop-Transcript | Out-Null } catch {}
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinUpdateReset: $($_.Exception.Message)" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
 }

@@ -19,7 +19,7 @@ function WinRepairToolkit {
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "WinRepairToolkit"
+    Start-ToolkitLog -ToolName "WinRepairToolkit"
     Show-Header -SubTitle "Repair Toolkit"
     $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
 
@@ -199,11 +199,26 @@ function WinRepairToolkit {
             return @{ Success = $success; ErrorCount = $errors.Count }
         }
         catch {
-            Write-StyledMessage Error "Errore durante $($Config.Name): $_"
+            Write-StyledMessage Error "Errore durante $($Config.Name): $($_.Exception.Message)"
+            Write-ToolkitLog -Level ERROR -Message "Errore in Invoke-RepairCommand [$($Config.Tool)]" -Context @{
+                Line      = $_.InvocationInfo.ScriptLineNumber
+                Exception = $_.Exception.GetType().FullName
+                Stack     = $_.ScriptStackTrace
+            }
             return @{ Success = $false; ErrorCount = 1 }
         }
         finally {
-            Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
+            # Leggi e logga STDOUT/STDERR prima di eliminare i file temporanei
+            foreach ($f in @($outFile, $errFile)) {
+                if (Test-Path $f) {
+                    $raw = Get-Content $f -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+                    if (-not [string]::IsNullOrWhiteSpace($raw)) {
+                        $label = if ($f -eq $outFile) { 'STDOUT' } else { 'STDERR' }
+                        Write-ToolkitLog -Level DEBUG -Message "[PROCESS $label`: $($Config.Tool)]`n$raw"
+                    }
+                    Remove-Item $f -ErrorAction SilentlyContinue
+                }
+            }
         }
     }
 
@@ -297,5 +312,10 @@ function WinRepairToolkit {
     }
     catch {
         Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinRepairToolkit" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
 }

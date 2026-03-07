@@ -24,7 +24,7 @@ function OfficeToolkit {
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "OfficeToolkit"
+    Start-ToolkitLog -ToolName "OfficeToolkit"
     Show-Header -SubTitle "Office Toolkit"
     $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
 
@@ -729,13 +729,18 @@ function OfficeToolkit {
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text "Errore critico durante esecuzione OfficeToolkit: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in OfficeToolkit" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
     finally {
         Write-StyledMessage -Type 'Success' -Text "🧹 Pulizia finale..."
         Invoke-SilentRemoval -Path $tempDir -Recurse
 
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Toolkit terminato"
-        try { $null = Stop-Transcript } catch {}
+        Write-ToolkitLog -Level INFO -Message "OfficeToolkit sessione terminata."
     }
 
     # ============================================================================

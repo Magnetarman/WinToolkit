@@ -20,7 +20,7 @@ function DisableBitlocker {
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "DisableBitlocker"
+    Start-ToolkitLog -ToolName "DisableBitlocker"
     Show-Header -SubTitle "Disable BitLocker Toolkit"
     $Host.UI.RawUI.WindowTitle = "Disable BitLocker Toolkit By MagnetarMan"
 
@@ -89,6 +89,11 @@ function DisableBitlocker {
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text "❌ Errore critico in DisableBitlocker: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in DisableBitlocker" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
     finally {
         Write-StyledMessage -Type 'Info' -Text "♻️ Pulizia risorse Completata."
@@ -100,6 +105,6 @@ function DisableBitlocker {
                 Restart-Computer -Force
             }
         }
-        try { Stop-Transcript *>$null } catch {}
+        Write-ToolkitLog -Level INFO -Message "DisableBitlocker sessione terminata."
     }
 }

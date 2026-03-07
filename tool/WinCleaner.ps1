@@ -79,13 +79,22 @@ function WinCleaner {
         $icon = $iconMap[$Type]
 
         Write-Host "[$($logEntry.Timestamp)] $icon $Text" -ForegroundColor $color
+
+        # Bridge: mirror to structured log file
+        $logLevel = switch ($Type) {
+            'Success'  { 'SUCCESS' }
+            'Warning'  { 'WARNING' }
+            'Error'    { 'ERROR' }
+            default    { 'INFO' }
+        }
+        Write-ToolkitLog -Level $logLevel -Message $Text
     }
 
     # ============================================================================
     # 1. INIZIALIZZAZIONE CON FRAMEWORK GLOBALE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "WinCleaner"
+    Start-ToolkitLog -ToolName "WinCleaner"
     Show-Header -SubTitle "Cleaner Toolkit"
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
 
@@ -413,8 +422,15 @@ function WinCleaner {
         # --- Event Logs ---
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "📜 Pulizia Event Logs..."
-                & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>$null
-                Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object { Wevtutil.exe cl $_.LogName 2>$null }
+                $wevtErr = $null
+                & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr | Out-Null
+                if ($wevtErr) { Write-ToolkitLog -Level DEBUG -Message "wevtutil sl output: $wevtErr" }
+                Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                    $logName = $_.LogName
+                    $clErr = $null
+                    Wevtutil.exe cl $logName 2>&1 | Out-String -OutVariable clErr | Out-Null
+                    if ($LASTEXITCODE -ne 0 -and $clErr) { Write-ToolkitLog -Level DEBUG -Message "Wevtutil cl [$logName]: $clErr" }
+                }
             }
         }
 
@@ -816,9 +832,16 @@ function WinCleaner {
         # --- Special Operations ---
         @{ Name = "Credential Manager"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "🔑 Pulizia Credenziali..."
-                & cmdkey /list 2>$null | Where-Object { $_ -match '^Target:' } | ForEach-Object {
+                
+                $cmdkeyErr = $null
+                $targets = & cmdkey /list 2>&1 | Tee-Object -Variable cmdkeyErr | Where-Object { $_ -match '^Target:' }
+                if ($cmdkeyErr -and $LASTEXITCODE -ne 0) { Write-ToolkitLog -Level DEBUG -Message "cmdkey list error: $cmdkeyErr" }
+
+                $targets | ForEach-Object {
                     $t = $_.Split(':')[1].Trim()
-                    & cmdkey /delete:$t 2>$null
+                    $delErr = $null
+                    & cmdkey /delete:$t 2>&1 | Tee-Object -Variable delErr | Out-Null
+                    if ($delErr -and $LASTEXITCODE -ne 0) { Write-ToolkitLog -Level DEBUG -Message "cmdkey delete [$t] error: $delErr" }
                 }
             }
         }

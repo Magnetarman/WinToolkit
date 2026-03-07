@@ -27,7 +27,7 @@
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "GamingToolkit"
+    Start-ToolkitLog -ToolName "GamingToolkit"
     Show-Header -SubTitle "Gaming Toolkit"
     $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
 

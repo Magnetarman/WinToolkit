@@ -204,12 +204,12 @@ foreach ($file in $toolFiles) {
             }
             
             # --- GESTIONE LOGGING E RE-INSERIMENTO ---
-            $hasLogging = $processedFileLines | Select-String -Pattern "Initialize-ToolLogging" -Quiet
+            $hasLogging = $processedFileLines | Select-String -Pattern "Start-ToolkitLog" -Quiet
             
             $newLines += "function $functionName {"
             if (-not $hasLogging) { 
-                $newLines += "    Initialize-ToolLogging -ToolName `"$functionName`"" 
-                Write-StyledMessage 'Info' "Policy: Iniezione automatica Initialize-ToolLogging per $functionName"
+                $newLines += "    Start-ToolkitLog -ToolName `"$functionName`"" 
+                Write-StyledMessage 'Info' "Policy: Iniezione automatica Start-ToolkitLog per $functionName"
             }
             $newLines += $processedFileLines
             $newLines += "}"

@@ -23,7 +23,7 @@ function VideoDriverInstall {
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "VideoDriverInstall"
+    Start-ToolkitLog -ToolName "VideoDriverInstall"
     Show-Header -SubTitle "Video Driver Install Toolkit"
     $Host.UI.RawUI.WindowTitle = "Video Driver Install Toolkit By MagnetarMan"
 

@@ -20,7 +20,7 @@ function WinBackupDriver {
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
-    Initialize-ToolLogging -ToolName "WinBackupDriver"
+    Start-ToolkitLog -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
     $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
 
@@ -321,6 +321,11 @@ function WinBackupDriver {
     catch {
         Write-StyledMessage Error "Errore critico durante backup: $($_.Exception.Message)"
         Write-StyledMessage Info "💡 Controlla i log per dettagli tecnici"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinBackupDriver" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
     finally {
         Write-StyledMessage Info "🧹 Pulizia ambiente temporaneo..."
@@ -333,7 +338,7 @@ function WinBackupDriver {
             Read-Host | Out-Null
         }
 
-        try { Stop-Transcript | Out-Null } catch {}
+        Write-ToolkitLog -Level INFO -Message "WinBackupDriver sessione terminata."
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
     }
 }
