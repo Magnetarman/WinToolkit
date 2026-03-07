@@ -162,10 +162,10 @@ jobs:
           }
 
   # ---------------------------------------------------------------------------
-  # JOB 2: BUILD & TEST - Compilazione e validazione
+  # JOB 2: BUILD, TEST & COMMIT - Compilazione, validazione e rilascio
   # ---------------------------------------------------------------------------
   build:
-    name: Build & Test
+    name: Build, Test & Commit
     runs-on: windows-latest
     needs: linting
 
@@ -175,11 +175,6 @@ jobs:
 
     outputs:
       new_version: ${{ steps.version.outputs.new_version }}
-      build_number: ${{ steps.version.outputs.build_number }}
-      source_kb: ${{ steps.build.outputs.source_kb }}
-      output_kb: ${{ steps.build.outputs.output_kb }}
-      reduction_percent: ${{ steps.build.outputs.reduction_percent }}
-      lines_removed: ${{ steps.build.outputs.lines_removed }}
       tests_passed: ${{ steps.test.outputs.tests_passed }}
 
     steps:
@@ -188,8 +183,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-
-      # windows-latest include già PowerShell 7 (pwsh). shell: pwsh lo usa automaticamente.
 
       # ========================================
       # Step: Incrementa Versione
@@ -204,7 +197,7 @@ jobs:
       # Step: Compilazione
       # ========================================
       - name: Compilazione WinToolkit.ps1
-        id: build
+        id: build_script
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.new_version }}"
@@ -220,53 +213,17 @@ jobs:
           & .github/scripts/Test-CompiledScript.ps1 -ScriptPath "WinToolkit.ps1"
 
       # ========================================
-      # Step: Upload Artifact
+      # Step: Commit WinToolkit Files
       # ========================================
-      - name: Upload WinToolkit Artifacts
-        uses: actions/upload-artifact@v4
-        if: steps.test.outputs.tests_passed == 'true'
-        with:
-          name: WinToolkit-Compiled
-          path: |
-            WinToolkit.ps1
-            WinToolkit-template.ps1
-          retention-days: 30
-
-  # ---------------------------------------------------------------------------
-  # JOB 3: REPORT GENERATION - Riepilogo e commit finale
-  # ---------------------------------------------------------------------------
-  report:
-    name: Report Generation
-    runs-on: windows-latest
-    needs: build
-
-    if: needs.build.outputs.tests_passed == 'true'
-
-    permissions:
-      contents: write
-      actions: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Download compiled artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: WinToolkit-Compiled
-          path: .
-
       - name: Commit WinToolkit Files
+        if: steps.test.outputs.tests_passed == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
-            🔖 Build WinToolkit v${{ needs.build.outputs.new_version }}
+            🔖 Build WinToolkit v${{ steps.version.outputs.new_version }}
 
             • Compilazione automatica da file in /tool
-            • Versione aggiornata: v${{ needs.build.outputs.new_version }}
+            • Versione aggiornata: v${{ steps.version.outputs.new_version }}
             • Test di sintassi e struttura passati
             • File aggiornati e funzionali online
             [skip ci]
@@ -277,33 +234,36 @@ jobs:
           push_options: "--force"
           skip_fetch: true
 
+      # ========================================
+      # Step: Generate Build Summary
+      # ========================================
       - name: Generate Build Summary
+        if: steps.test.outputs.tests_passed == 'true'
         shell: pwsh
         run: |
-          $version = "${{ needs.build.outputs.new_version }}"
-          $sourceKB = "${{ needs.build.outputs.source_kb }}"
-          $outputKB = "${{ needs.build.outputs.output_kb }}"
-          $reduction = "${{ needs.build.outputs.reduction_percent }}"
-          $linesRemoved = "${{ needs.build.outputs.lines_removed }}"
+          $version = "${{ steps.version.outputs.new_version }}"
+          $sourceKB = "${{ steps.build_script.outputs.source_kb }}"
+          $outputKB = "${{ steps.build_script.outputs.output_kb }}"
+          $reduction = "${{ steps.build_script.outputs.reduction_percent }}"
+          $linesRemoved = "${{ steps.build_script.outputs.lines_removed }}"
 
           $summary = @"
-          ## 📦 Riepilogo Build & Test - WinToolkit v$version
-
+          ## 📦 Riepilogo Build & Test - WinToolkit v`$version
+          
           ### 📊 Statistiche Compressione
-
+          
           | Metrica | Valore |
           |---------|--------|
-          | Peso Sorgente | $sourceKB KB |
-          | Peso Finale | $outputKB KB |
-          | Riduzione | $reduction% |
-          | Righe Eliminate | $linesRemoved |
-
+          | Peso Sorgente | `$sourceKB KB |
+          | Peso Finale | `$outputKB KB |
+          | Riduzione | `$reduction% |
+          | Righe Eliminate | `$linesRemoved |
+          
           ### ✅ Stato Build
-
-          - **Versione**: $version
+          
+          - **Versione**: `$version
           - **Stato**: Completato con successo
-          - **Artefatto**: WinToolkit-Compiled.zip
-
+          
           ---
           *Generato automaticamente da WinToolkit CI/CD Pipeline*
           "@
@@ -316,6 +276,8 @@ jobs:
           Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Green
           Write-Host ""
           Write-Host "📋 Riepilogo:" -ForegroundColor Cyan
-          Write-Host "  • Versione: v$version" -ForegroundColor White
-          Write-Host "  • Compressione: $reduction%" -ForegroundColor White
+          Write-Host "  • Versione: v`$version" -ForegroundColor White
+          Write-Host "  • Compressione: `$reduction%" -ForegroundColor White
           Write-Host ""
+
+
