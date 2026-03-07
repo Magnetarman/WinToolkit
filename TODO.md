@@ -49,6 +49,7 @@
 - `WinCleaner.ps1` Aggiornato.
   - [x] Aumentato il comando di Timeout a 24h [[#45](https://github.com/Magnetarman/WinToolkit/issues/45) [@pomodori92]](https://github.com/pomodori92).
   - [x] Aggiunto check per verifica dell'errore -2146498554 con inserimento di avvertimento per l'utente.
+  - [x] Migliorata la cancellazione dei Residui di Windows Update. i servizi adesso vengono correttamente stoppati, viene effettuata la pulizia ed infine i servizi vengono riavviati.
 
 - `Microsoft.PowerShell_profile.ps1` Potenziato.
   - [x] Potenziata e resa completa la funzion PS-Reset.
@@ -70,6 +71,9 @@
 - `WinUpdateReset.ps1` Aggiornato.
   - [x] Migliorata l'esecuzione dello script riducendo il codice boilerplate.
   - [x] Aggiornata la visualizzazione per essere il tema con il resto del progetto.
+
+- `WinBackupDriver.ps1` Aggiornato.
+  - [x] Risolto un problema per cui su PC poco potenti il timeout rendeva nulla la funzionalità dello script. Maggiorati a 800 secondi i timeout.
 
 
 ### V 2.6 - Debloat
