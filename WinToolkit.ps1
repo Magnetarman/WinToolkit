@@ -1,7 +1,7 @@
 param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 19)"
+$ToolkitVersion = "2.5.2 (Build 20)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -114,6 +114,81 @@ function Initialize-ToolLogging {
     if (-not (Test-Path $logdir)) { $null = New-Item -Path $logdir -ItemType Directory -Force }
     try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
     Start-Transcript -Path "$logdir\${ToolName}_$dateTime.log" -Append -Force | Out-Null
+}
+function Reset-Winget {
+    $UpdateEnvironmentPath = {
+        $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        $newPath = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
+        $env:Path = $newPath
+        [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
+    }
+    function _Test-WingetCompatibility {
+        $osInfo = [Environment]::OSVersion
+        if ($osInfo.Version.Major -lt 10) { return $false }
+        if ($osInfo.Version.Major -eq 10 -and $osInfo.Version.Build -lt 16299) { return $false }
+        return $true
+    }
+    function _Invoke-ForceClose {
+        Write-StyledMessage -Type Info -Text "Chiusura processi interferenti..."
+        $procs = @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore", "Microsoft.DesktopAppInstaller", "winget", "WindowsPackageManagerServer")
+        foreach ($p in $procs) { Get-Process -Name $p -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID } | Stop-Process -Force -ErrorAction SilentlyContinue }
+        Start-Sleep 2
+    }
+    function _Apply-Permissions {
+        try {
+            $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
+            $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+            if ($wingetDir) {
+                $administratorsGroupSid = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")
+                $administratorsGroup = $administratorsGroupSid.Translate([System.Security.Principal.NTAccount])
+                $acl = Get-Acl -Path $wingetDir.FullName
+                $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($administratorsGroup, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+                $acl.SetAccessRule($rule)
+                Set-Acl -Path $wingetDir.FullName -AclObject $acl
+                $sysPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+                if (-not ($sysPath -split ';').Contains($wingetDir.FullName)) { [Environment]::SetEnvironmentVariable('Path', "$sysPath;$($wingetDir.FullName)", 'Machine') }
+            }
+        } catch {}
+    }
+    Write-StyledMessage -Type Info -Text "🚀 Avvio procedura integrata Reset-Winget..."
+    if (-not (_Test-WingetCompatibility)) {
+        Write-StyledMessage -Type Error -Text "Sistema non compatibile con Winget."
+        return $false
+    }
+    & $UpdateEnvironmentPath
+    $wingetOk = (Get-Command winget -ErrorAction SilentlyContinue) -and (& winget --version 2>$null | Out-String -Stream | Select-String 'v\d')
+    if (-not $wingetOk) {
+        Write-StyledMessage -Type Warning -Text "Winget non rilevato o danneggiato. Avvio ripristino..."
+        _Invoke-ForceClose
+        Write-StyledMessage -Type Info -Text "Download e installazione Winget Bundle..."
+        $tempFile = Join-Path $env:TEMP "WingetInstaller.msixbundle"
+        try {
+            Invoke-WebRequest -Uri "https://aka.ms/getwinget" -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
+            Add-AppxPackage -Path $tempFile -ForceApplicationShutdown -ErrorAction Stop
+            Write-StyledMessage -Type Success -Text "Pacchetto Winget installato."
+        } catch {
+            Write-StyledMessage -Type Error -Text "Installazione fallita: $($_.Exception.Message)"
+        } finally {
+            if (Test-Path $tempFile) { Remove-Item $tempFile -Force }
+        }
+    }
+    Write-StyledMessage -Type Info -Text "Esecuzione riparazione database e reset AppInstaller..."
+    try {
+        Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
+        & winget source reset --force 2>$null
+    } catch {}
+    _Apply-Permissions
+    & $UpdateEnvironmentPath
+    Write-StyledMessage -Type Info -Text "🔍 Verifica finale connettività..."
+    $test = & winget search "Git.Git" --accept-source-agreements 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-StyledMessage -Type Success -Text "✅ Winget ripristinato con successo."
+        return $true
+    } else {
+        Write-StyledMessage -Type Error -Text "❌ Winget non operativo dopo il reset."
+        return $false
+    }
 }
 function Show-ProgressBar {
     param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
