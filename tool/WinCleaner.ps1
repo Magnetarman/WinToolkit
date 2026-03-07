@@ -147,12 +147,7 @@ function WinCleaner {
             ErrorAction  = 'Stop'
         }
 
-        if ($Hidden) {
-            $processParams.WindowStyle = 'Hidden'
-        }
-        else {
-            $processParams.NoNewWindow = $true
-        }
+        if ($Hidden) { $processParams.WindowStyle = 'Hidden' } else { $processParams.NoNewWindow = $true }
 
         $proc = Start-Process @processParams
 
@@ -170,13 +165,9 @@ function WinCleaner {
             $timeoutCommands = @("DISM.exe", "cleanmgr.exe")
             if ($Rule.Command -in $timeoutCommands) {
                 $result = Start-ProcessWithTimeout -FilePath $Rule.Command -ArgumentList $Rule.Args -TimeoutSeconds 86400 -Activity $Rule.Name -Hidden
-                if ($result.TimedOut) {
-                    Write-StyledMessage -Type 'Warning' -Text "Comando timeout dopo 24 ore."
-                    return $true # Non-fatal
-                }
-                if ($result.ExitCode -eq 0) { return $true }
-                Write-StyledMessage -Type 'Warning' -Text "Comando completato con codice $($result.ExitCode)"
-                return $true # Non-fatal
+                if ($result.TimedOut) { Write-StyledMessage -Type 'Warning' -Text "Comando timeout dopo 24 ore."; return $true }
+                Write-StyledMessage -Type ($result.ExitCode -eq 0 ? 'Info' : 'Warning') -Text ($result.ExitCode -eq 0 ? "Comando completato." : "Comando completato con codice $($result.ExitCode)")
+                return $true
             }
             else {
                 $procParams = @{
@@ -188,9 +179,8 @@ function WinCleaner {
                     ErrorAction  = 'SilentlyContinue'
                 }
                 $proc = Start-Process @procParams
-                if ($proc.ExitCode -eq 0) { return $true }
                 # Suppress warning if exit code is null (process failed to start)
-                if ($null -ne $proc.ExitCode) {
+                if ($proc.ExitCode -ne 0) {
                     Write-StyledMessage -Type 'Warning' -Text "Comando completato con codice $($proc.ExitCode)"
                 }
                 return $true # Non-fatal
@@ -308,7 +298,7 @@ function WinCleaner {
                     Write-StyledMessage -Type 'Success' -Text "⚙️ Puliti valori in $key"
                 }
                 else {
-                    Remove-Item -LiteralPath $key -Recurse -Force -ErrorAction Stop | Out-Null
+                    Remove-Item -Path $key -Recurse:$recursive -Force -ErrorAction Stop
                     Write-StyledMessage -Type 'Success' -Text "🗑️ Rimossa chiave $key"
                 }
             }
