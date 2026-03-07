@@ -44,7 +44,6 @@
     # ============================================================================
     function Test-WingetPackageAvailable([string]$PackageId) {
         try {
-            $result = winget search $PackageId 2>&1
             return $LASTEXITCODE -eq 0 -and $result -match $PackageId
         }
         catch {
@@ -201,12 +200,7 @@
             Write-Host "`r" -NoNewline
             $exitCode = $result.Process.ExitCode
             $successCodes = @(0, 3010, 5100, -9, 9, -1442840576)
-            if ($exitCode -in $successCodes) {
-                Write-StyledMessage Success "DirectX installato (codice: $exitCode)."
-            }
-            else {
-                Write-StyledMessage Error "DirectX errore: $exitCode"
-            }
+            Write-StyledMessage -Type ($exitCode -in $successCodes ? 'Success' : 'Error') -Text ($exitCode -in $successCodes ? "DirectX installato (codice: $exitCode)." : "DirectX errore: $exitCode")
         }
     }
     catch {
@@ -260,12 +254,7 @@
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             $exitCode = $result.Process.ExitCode
-            if ($exitCode -in @(0, 3010)) {
-                Write-StyledMessage Success "Battle.net installato."
-            }
-            else {
-                Write-StyledMessage Warning "Battle.net: codice $exitCode"
-            }
+            Write-StyledMessage -Type ($exitCode -in @(0, 3010) ? 'Success' : 'Warning') -Text ($exitCode -in @(0, 3010) ? "Battle.net installato." : "Battle.net: codice $exitCode")
         }
 
         Write-Host "`nPremi un tasto..." -ForegroundColor Gray
@@ -367,9 +356,7 @@
         Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
     }
     else {
-        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario"
-
-        if ($shouldReboot) {
+        if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario") {
             Write-StyledMessage Info '🔄 Riavvio...'
             Restart-Computer -Force
         }
