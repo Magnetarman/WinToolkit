@@ -18,7 +18,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 30)"
+$ToolkitVersion = "2.5.2 (Build 31)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -94,8 +94,15 @@ function Write-StyledMessage {
     )
     $style = $Global:MsgStyles[$Type]
     $timestamp = Get-Date -Format "HH:mm:ss"
-    $cleanText = $Text -replace '^[✅⚠️❌💎🔄🗂️📁🖨️📄🗑️💭⸏▶️💡⏰🎉💻📊]\s*', ''
     Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
+    $logLevel = switch ($Type) {
+        'Success'  { 'SUCCESS' }
+        'Warning'  { 'WARNING' }
+        'Error'    { 'ERROR' }
+        'Progress' { 'INFO' }
+        default    { 'INFO' }
+    }
+    Write-ToolkitLog -Level $logLevel -Message $Text
 }
 function Center-Text {
     param([string]$Text, [int]$Width = $Host.UI.RawUI.BufferSize.Width)
@@ -126,13 +133,65 @@ function Show-Header {
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
     Write-Host ''
 }
-function Initialize-ToolLogging {
+function Start-ToolkitLog {
     param([string]$ToolName)
-    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = $AppConfig.Paths.Logs
-    if (-not (Test-Path $logdir)) { $null = New-Item -Path $logdir -ItemType Directory -Force }
     try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
-    Start-Transcript -Path "$logdir\${ToolName}_$dateTime.log" -Append -Force | Out-Null
+    $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logdir   = $AppConfig.Paths.Logs
+    if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
+    $Global:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
+    $os  = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
+    $sys = Get-CimInstance Win32_ComputerSystem   -ErrorAction SilentlyContinue
+    $psVer   = $PSVersionTable.PSVersion.ToString()
+    $psEd    = $PSVersionTable.PSEdition
+    $psCompat = ($PSVersionTable.PSCompatibleVersions | ForEach-Object { $_.ToString() }) -join ', '
+    $gitId   = if ($PSVersionTable.GitCommitId) { $PSVersionTable.GitCommitId } else { 'N/A' }
+    $wsManVer = if ($PSVersionTable.WSManStackVersion) { $PSVersionTable.WSManStackVersion.ToString() } else { 'N/A' }
+    $remoteVer = if ($PSVersionTable.PSRemotingProtocolVersion) { $PSVersionTable.PSRemotingProtocolVersion.ToString() } else { 'N/A' }
+    $serVer  = if ($PSVersionTable.SerializationVersion) { $PSVersionTable.SerializationVersion.ToString() } else { 'N/A' }
+    $build = [int]$os.BuildNumber
+    $verMap = @{26100='24H2';22631='23H2';22621='22H2';22000='21H2';19045='22H2';19044='21H2'}
+    $dispVer = 'N/A'
+    foreach ($k in ($verMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $dispVer = $verMap[$k]; break } }
+    $header = @"
+[START LOG HEADER]
+Start time              : $dateTime
+ToolName                : $ToolName
+Username                : $([Environment]::UserDomainName)\$([Environment]::UserName)
+RunAs User              : $([Security.Principal.WindowsIdentity]::GetCurrent().Name)
+Machine                 : $($sys.Name) ($($os.Caption) $($os.Version))
+Host Application        : $([Environment]::CommandLine)
+Process ID              : $PID
+PSVersion               : $psVer
+PSEdition               : $psEd
+GitCommitId             : $gitId
+ToolkitVersion          : $($Global:ToolkitVersion)
+OS                      : $($os.Caption)
+Version                 : Versione $dispVer (build SO $($os.BuildNumber))
+Platform                : $([Environment]::OSVersion.Platform)
+PSCompatibleVersions    : $psCompat
+PSRemotingProtocolVersion: $remoteVer
+SerializationVersion    : $serVer
+WSManStackVersion       : $wsManVer
+[END LOG HEADER]
+"@
+    try { Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+}
+function Write-ToolkitLog {
+    param(
+        [ValidateSet('DEBUG','INFO','WARNING','ERROR','SUCCESS')]
+        [string]$Level = 'INFO',
+        [string]$Message,
+        [hashtable]$Context = @{}
+    )
+    if (-not $Global:CurrentLogFile) { return }
+    $ts    = Get-Date -Format "HH:mm:ss"
+    $clean = $Message -replace '[\u2705\u26a0\ufe0f\u274c\u1f48e\u1f504\u1f5c2\ufe0f\u1f4c1\u1f5a8\ufe0f\u1f4c4\u1f5d1\ufe0f\u1f4ad\u23cf\u25b6\ufe0f\u1f4a1\u23f0\u1f389\u1f4bb\u1f4ca\u23f3\u1f527\u1f578\ufe0f\u1f4e6\u1f4bd]', '' -replace '\\ufe0f', '' -replace '^\s+', ''
+    $line  = "[$ts] [$Level] $clean"
+    if ($Context.Count -gt 0) {
+        try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {}
+    }
+    try { Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 }
 function Reset-Winget {
     param([switch]$Force)
@@ -461,7 +520,7 @@ function WinRepairToolkit {
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
-    Initialize-ToolLogging -ToolName "WinRepairToolkit"
+    Start-ToolkitLog -ToolName "WinRepairToolkit"
     Show-Header -SubTitle "Repair Toolkit"
     $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
     $script:CurrentAttempt = 0
@@ -589,11 +648,25 @@ function WinRepairToolkit {
             return @{ Success = $success; ErrorCount = $errors.Count }
         }
         catch {
-            Write-StyledMessage Error "Errore durante $($Config.Name): $_"
+            Write-StyledMessage Error "Errore durante $($Config.Name): $($_.Exception.Message)"
+            Write-ToolkitLog -Level ERROR -Message "Errore in Invoke-RepairCommand [$($Config.Tool)]" -Context @{
+                Line      = $_.InvocationInfo.ScriptLineNumber
+                Exception = $_.Exception.GetType().FullName
+                Stack     = $_.ScriptStackTrace
+            }
             return @{ Success = $false; ErrorCount = 1 }
         }
         finally {
-            Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
+            foreach ($f in @($outFile, $errFile)) {
+                if (Test-Path $f) {
+                    $raw = Get-Content $f -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+                    if (-not [string]::IsNullOrWhiteSpace($raw)) {
+                        $label = if ($f -eq $outFile) { 'STDOUT' } else { 'STDERR' }
+                        Write-ToolkitLog -Level DEBUG -Message "[PROCESS $label`: $($Config.Tool)]`n$raw"
+                    }
+                    Remove-Item $f -ErrorAction SilentlyContinue
+                }
+            }
         }
     }
     function Start-RepairCycle {
@@ -675,6 +748,11 @@ function WinRepairToolkit {
     }
     catch {
         Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinRepairToolkit" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
 }
 function WinUpdateReset {
@@ -685,7 +763,7 @@ function WinUpdateReset {
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
-    Initialize-ToolLogging -ToolName "WinUpdateReset"
+    Start-ToolkitLog -ToolName "WinUpdateReset"
     Show-Header -SubTitle "Update Reset Toolkit"
     $Host.UI.RawUI.WindowTitle = "Win Update Reset Toolkit By MagnetarMan"
     function Set-ServiceStatus {
@@ -1174,12 +1252,13 @@ function WinUpdateReset {
     catch {
         Write-StyledMessage -Type 'Error' -Text '═════════════════════════════════════════════════════════════════'
         Write-StyledMessage -Type 'Error' -Text "💥 Errore critico: $($_.Exception.Message)"
-        Write-StyledMessage -Type 'Error' -Text '❌ Si è verificato un errore durante la riparazione.'
-        Write-StyledMessage -Type 'Info' -Text '🔍 Controlla i messaggi sopra per maggiori dettagli.'
-        Write-StyledMessage -Type 'Error' -Text '═════════════════════════════════════════════════════════════════'
         Write-StyledMessage -Type 'Info' -Text '⌨️ Premere un tasto per uscire...'
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        try { Stop-Transcript | Out-Null } catch {}
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinUpdateReset: $($_.Exception.Message)" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
 }
 function WinReinstallStore {
@@ -1192,7 +1271,7 @@ function WinReinstallStore {
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
-    Initialize-ToolLogging -ToolName "WinReinstallStore"
+    Start-ToolkitLog -ToolName "WinReinstallStore"
     Show-Header -SubTitle "Store Repair Toolkit"
     function Install-MicrosoftStore {
         Write-StyledMessage -Type 'Info' -Text "🔄 Reinstallazione Microsoft Store in corso..."
@@ -1275,7 +1354,11 @@ function WinReinstallStore {
             return
         }
         try {
-            $existing = & winget list --id SomePythonThing.WinGetUI --accept-source-agreements 2>$null
+            $wingetCheckErr = $null
+            $existing = & winget list --id SomePythonThing.WinGetUI --accept-source-agreements 2>&1 | Tee-Object -Variable wingetCheckErr
+            if ($wingetCheckErr -match 'error' -or $LASTEXITCODE -ne 0) {
+                Write-ToolkitLog -Level DEBUG -Message "winget list check output: $wingetCheckErr"
+            }
             if ($existing -match "SomePythonThing.WinGetUI") {
                 Write-StyledMessage -Type 'Success' -Text "UniGet UI già presente nel sistema."
                 return
@@ -1338,7 +1421,7 @@ function WinBackupDriver {
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
-    Initialize-ToolLogging -ToolName "WinBackupDriver"
+    Start-ToolkitLog -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
     $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
     $script:BackupConfig = @{
@@ -1572,6 +1655,11 @@ function WinBackupDriver {
     catch {
         Write-StyledMessage Error "Errore critico durante backup: $($_.Exception.Message)"
         Write-StyledMessage Info "💡 Controlla i log per dettagli tecnici"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinBackupDriver" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
     finally {
         Write-StyledMessage Info "🧹 Pulizia ambiente temporaneo..."
@@ -1582,7 +1670,7 @@ function WinBackupDriver {
             Write-Host "`nPremi INVIO per terminare..." -ForegroundColor Gray
             Read-Host | Out-Null
         }
-        try { Stop-Transcript | Out-Null } catch {}
+        Write-ToolkitLog -Level INFO -Message "WinBackupDriver sessione terminata."
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
     }
 }
@@ -1593,7 +1681,7 @@ function OfficeToolkit {
         [int]$CountdownSeconds = 30,
         [switch]$SuppressIndividualReboot
     )
-    Initialize-ToolLogging -ToolName "OfficeToolkit"
+    Start-ToolkitLog -ToolName "OfficeToolkit"
     Show-Header -SubTitle "Office Toolkit"
     $Host.UI.RawUI.WindowTitle = "Office Toolkit By MagnetarMan"
     $tempDir = $AppConfig.Paths.OfficeTemp
@@ -2166,12 +2254,17 @@ function OfficeToolkit {
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text "Errore critico durante esecuzione OfficeToolkit: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in OfficeToolkit" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
     finally {
         Write-StyledMessage -Type 'Success' -Text "🧹 Pulizia finale..."
         Invoke-SilentRemoval -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Toolkit terminato"
-        try { $null = Stop-Transcript } catch {}
+        Write-ToolkitLog -Level INFO -Message "OfficeToolkit sessione terminata."
     }
     if ($needsReboot) {
         if ($SuppressIndividualReboot) {
@@ -2239,8 +2332,15 @@ function WinCleaner {
         $color = $colorMap[$Type]
         $icon = $iconMap[$Type]
         Write-Host "[$($logEntry.Timestamp)] $icon $Text" -ForegroundColor $color
+        $logLevel = switch ($Type) {
+            'Success'  { 'SUCCESS' }
+            'Warning'  { 'WARNING' }
+            'Error'    { 'ERROR' }
+            default    { 'INFO' }
+        }
+        Write-ToolkitLog -Level $logLevel -Message $Text
     }
-    Initialize-ToolLogging -ToolName "WinCleaner"
+    Start-ToolkitLog -ToolName "WinCleaner"
     Show-Header -SubTitle "Cleaner Toolkit"
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
     $ProgressPreference = 'Continue'
@@ -2509,8 +2609,15 @@ function WinCleaner {
         }
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "📜 Pulizia Event Logs..."
-                & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>$null
-                Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object { Wevtutil.exe cl $_.LogName 2>$null }
+                $wevtErr = $null
+                & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr | Out-Null
+                if ($wevtErr) { Write-ToolkitLog -Level DEBUG -Message "wevtutil sl output: $wevtErr" }
+                Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                    $logName = $_.LogName
+                    $clErr = $null
+                    Wevtutil.exe cl $logName 2>&1 | Out-String -OutVariable clErr | Out-Null
+                    if ($LASTEXITCODE -ne 0 -and $clErr) { Write-ToolkitLog -Level DEBUG -Message "Wevtutil cl [$logName]: $clErr" }
+                }
             }
         }
         @{ Name = "Clear Windows Update cache"; Type = "Custom"; ScriptBlock = {
@@ -2849,9 +2956,14 @@ function WinCleaner {
         }
         @{ Name = "Credential Manager"; Type = "Custom"; ScriptBlock = {
                 Write-StyledMessage -Type 'Info' -Text "🔑 Pulizia Credenziali..."
-                & cmdkey /list 2>$null | Where-Object { $_ -match '^Target:' } | ForEach-Object {
+                $cmdkeyErr = $null
+                $targets = & cmdkey /list 2>&1 | Tee-Object -Variable cmdkeyErr | Where-Object { $_ -match '^Target:' }
+                if ($cmdkeyErr -and $LASTEXITCODE -ne 0) { Write-ToolkitLog -Level DEBUG -Message "cmdkey list error: $cmdkeyErr" }
+                $targets | ForEach-Object {
                     $t = $_.Split(':')[1].Trim()
-                    & cmdkey /delete:$t 2>$null
+                    $delErr = $null
+                    & cmdkey /delete:$t 2>&1 | Tee-Object -Variable delErr | Out-Null
+                    if ($delErr -and $LASTEXITCODE -ne 0) { Write-ToolkitLog -Level DEBUG -Message "cmdkey delete [$t] error: $delErr" }
                 }
             }
         }
@@ -2962,7 +3074,7 @@ function VideoDriverInstall {
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
-    Initialize-ToolLogging -ToolName "VideoDriverInstall"
+    Start-ToolkitLog -ToolName "VideoDriverInstall"
     Show-Header -SubTitle "Video Driver Install Toolkit"
     $Host.UI.RawUI.WindowTitle = "Video Driver Install Toolkit By MagnetarMan"
     $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
@@ -3253,7 +3365,7 @@ function GamingToolkit {
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
-    Initialize-ToolLogging -ToolName "GamingToolkit"
+    Start-ToolkitLog -ToolName "GamingToolkit"
     Show-Header -SubTitle "Gaming Toolkit"
     $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
     $osInfo = Get-ComputerInfo
@@ -3543,7 +3655,7 @@ function DisableBitlocker {
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
-    Initialize-ToolLogging -ToolName "DisableBitlocker"
+    Start-ToolkitLog -ToolName "DisableBitlocker"
     Show-Header -SubTitle "Disable BitLocker Toolkit"
     $Host.UI.RawUI.WindowTitle = "Disable BitLocker Toolkit By MagnetarMan"
     $regPath = $AppConfig.Registry.BitLocker
@@ -3589,6 +3701,11 @@ function DisableBitlocker {
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text "❌ Errore critico in DisableBitlocker: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in DisableBitlocker" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
     }
     finally {
         Write-StyledMessage -Type 'Info' -Text "♻️ Pulizia risorse Completata."
@@ -3600,7 +3717,7 @@ function DisableBitlocker {
                 Restart-Computer -Force
             }
         }
-        try { Stop-Transcript *>$null } catch {}
+        Write-ToolkitLog -Level INFO -Message "DisableBitlocker sessione terminata."
     }
 }
 function WinExportLog {
@@ -3611,7 +3728,7 @@ function WinExportLog {
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
-    Initialize-ToolLogging -ToolName "WinExportLog"
+    Start-ToolkitLog -ToolName "WinExportLog"
     Show-Header -SubTitle "Esporta Log Diagnostici"
     $Host.UI.RawUI.WindowTitle = "Log Export By MagnetarMan"
     $logSourcePath = $AppConfig.Paths.Logs
@@ -3670,6 +3787,11 @@ function WinExportLog {
     }
     catch {
         Write-StyledMessage Error "Errore critico durante la compressione dei log: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinExportLog" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
         $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"
         if (Test-Path $tempFolder) {
             Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
@@ -3761,9 +3883,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         if ($c -eq '0') {
             Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
             Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
-            if ($Global:Transcript -or $Transcript) {
-                Stop-Transcript -ErrorAction SilentlyContinue
-            }
+            Write-ToolkitLog -Level INFO -Message "Sessione WinToolkit terminata dall'utente."
             Start-Sleep -Seconds 3
             break
         }
