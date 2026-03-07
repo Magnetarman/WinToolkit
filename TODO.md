@@ -28,10 +28,10 @@
   - [x] Rimosse le configurazioni hardcoded, migliorando flessibilità e manutenibilità del codice.
   - [x] Ottimizzata la gestione del processo per garantire maggiore coerenza tra ambienti e versioni.
   - [x] Modificata l'installazione di Powershell7 preferendo la veloce installazione tramite Winget ed utilizza come fallback il download e l'installazione diretta.
-  - [x] Implementata modularizzazione delle funzioni di reinstallazione di Winget in modo da essere facilmente richiate in altri script senza dover duplicare inutilmente il codice.
 
 - `WinRepairToolkit.ps1` Aggiornato.
   - [x] Aggiunto nuovo check per le funzioni addizionali Registrazione AppX (Client CBS), Registrazione AppX (UI Xaml CBS), Registrazione AppX (Client Core), in modo che vengano eseguite solo su sistemi interessati dalla problematica (Windows 11 24H2 e superiori).
+  - [x] Aggiunto una GESTIONE INTERRUZIONI (CTRL+C), che invece di interrompere bruscamente il Toolkit mitiga l'effetto permettendo la copia corretta dei messaggi di stato nel terminale.
 
 - `WinToolkit-template.ps1` Aggiornato.
   - [x] La funzione `Initialize-ToolLogging` usa path hardcoded. Fix applicato.
@@ -48,6 +48,7 @@
 
 - `WinCleaner.ps1` Aggiornato.
   - [x] Aumentato il comando di Timeout a 24h [[#45](https://github.com/Magnetarman/WinToolkit/issues/45) [@pomodori92]](https://github.com/pomodori92).
+  - [x] Aggiunto check per verifica dell'errore -2146498554 con inserimento di avvertimento per l'utente.
 
 - `Microsoft.PowerShell_profile.ps1` Potenziato.
   - [x] Potenziata e resa completa la funzion PS-Reset.
