@@ -286,20 +286,20 @@ jobs:
           $linesRemoved = "${{ steps.build_script.outputs.lines_removed }}"
 
           $summary = @"
-          ## 📦 Riepilogo Build & Test - WinToolkit v`$version
+          ## 📦 Riepilogo Build & Test - WinToolkit v$version
 
           ### 📊 Statistiche Compressione
 
           | Metrica | Valore |
           |---------|--------|
-          | Peso Sorgente | `$sourceKB KB |
-          | Peso Finale | `$outputKB KB |
-          | Riduzione | `$reduction% |
-          | Righe Eliminate | `$linesRemoved |
+          | Peso Sorgente | $sourceKB KB |
+          | Peso Finale | $outputKB KB |
+          | Riduzione | $reduction% |
+          | Righe Eliminate | $linesRemoved |
 
           ### ✅ Stato Build
 
-          - **Versione**: `$version
+          - **Versione**: $version
           - **Stato**: Completato con successo (Double-Commit Flow)
 
           ---
@@ -314,6 +314,6 @@ jobs:
           Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Green
           Write-Host ""
           Write-Host "📋 Riepilogo:" -ForegroundColor Cyan
-          Write-Host "  • Versione: v`$version" -ForegroundColor White
-          Write-Host "  • Compressione: `$reduction%" -ForegroundColor White
+          Write-Host "  • Versione: v$version" -ForegroundColor White
+          Write-Host "  • Compressione: $reduction%" -ForegroundColor White
           Write-Host ""
