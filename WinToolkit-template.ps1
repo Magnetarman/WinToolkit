@@ -13,7 +13,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 24)"
+$ToolkitVersion = "2.5.2 (Build 26)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -206,7 +206,8 @@ function Reset-Winget {
             $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing -ErrorAction Stop
             $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
             if ($asset) { return $asset.browser_download_url }
-        } catch {}
+        }
+        catch {}
         return $null
     }
 
@@ -240,7 +241,8 @@ function Reset-Winget {
                 $sysPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
                 if (-not ($sysPath -split ';').Contains($wingetDir.FullName)) { [Environment]::SetEnvironmentVariable('Path', "$sysPath;$($wingetDir.FullName)", 'Machine') }
             }
-        } catch {}
+        }
+        catch {}
     }
 
     # --- Logica Principale ---
@@ -263,9 +265,11 @@ function Reset-Winget {
             Invoke-WebRequest -Uri $vcUrl -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
             Start-Process -FilePath $tempFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
             Write-StyledMessage -Type Success -Text "VC++ Redist installato."
-        } catch {
+        }
+        catch {
             Write-StyledMessage -Type Warning -Text "Errore installazione VC++: $($_.Exception.Message)"
-        } finally {
+        }
+        finally {
             if (Test-Path $tempFile) { Remove-Item $tempFile -Force }
         }
     }
@@ -292,7 +296,8 @@ function Reset-Winget {
                     Add-AppxPackage -Path $_.FullName -ForceApplicationShutdown -ErrorAction SilentlyContinue
                 }
                 Write-StyledMessage -Type Success -Text "Dipendenze Appx installate."
-            } catch {} finally {
+            }
+            catch {} finally {
                 if (Test-Path $depZip) { Remove-Item $depZip -Force }
                 if (Test-Path $depDir) { Remove-Item $depDir -Recurse -Force }
             }
@@ -307,9 +312,11 @@ function Reset-Winget {
             Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing -ErrorAction Stop
             Add-AppxPackage -Path $bundleFile -ForceApplicationShutdown -ErrorAction Stop
             Write-StyledMessage -Type Success -Text "Winget Bundle installato."
-        } catch {
+        }
+        catch {
             Write-StyledMessage -Type Error -Text "Installazione fallita: $($_.Exception.Message)"
-        } finally {
+        }
+        finally {
             if (Test-Path $bundleFile) { Remove-Item $bundleFile -Force }
         }
     }
@@ -319,7 +326,8 @@ function Reset-Winget {
     try {
         Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
         & winget source reset --force 2>$null
-    } catch {}
+    }
+    catch {}
 
     _Apply-Permissions
     & $UpdateEnvironmentPath
@@ -330,7 +338,8 @@ function Reset-Winget {
     if ($LASTEXITCODE -eq 0) {
         Write-StyledMessage -Type Success -Text "✅ Winget ripristinato con successo."
         return $true
-    } else {
+    }
+    else {
         Write-StyledMessage -Type Error -Text "❌ Winget non operativo dopo il reset."
         return $false
     }

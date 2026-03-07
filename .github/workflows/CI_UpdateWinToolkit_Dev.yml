@@ -162,10 +162,10 @@ jobs:
           }
 
   # ---------------------------------------------------------------------------
-  # JOB 2: BUILD, TEST & COMMIT - Compilazione, validazione e rilascio
+  # JOB 2: VERSION & TEST - Incremento versione e validazione template
   # ---------------------------------------------------------------------------
-  build:
-    name: Build, Test & Commit
+  versioning:
+    name: Version & Test
     runs-on: windows-latest
     needs: linting
 
@@ -175,7 +175,6 @@ jobs:
 
     outputs:
       new_version: ${{ steps.version.outputs.new_version }}
-      tests_passed: ${{ steps.test.outputs.tests_passed }}
 
     steps:
       - name: Checkout repository
@@ -185,7 +184,7 @@ jobs:
           fetch-depth: 0
 
       # ========================================
-      # Step: Incrementa Versione
+      # Step: Incrementa Versione nel Template
       # ========================================
       - name: Incrementa Versione
         id: version
@@ -194,13 +193,60 @@ jobs:
           & .github/scripts/Update-Version.ps1 -TemplatePath "WinToolkit-template.ps1"
 
       # ========================================
-      # Step: Compilazione
+      # Step: Test Sintassi Template
+      # ========================================
+      - name: Test Sintassi Template
+        shell: pwsh
+        run: |
+          $content = Get-Content -Raw -Path "WinToolkit-template.ps1"
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            foreach ($err in $parseErrors) { Write-Error "Syntax Error: $($err.Message)" }
+            exit 1
+          }
+
+      # ========================================
+      # Step: Commit Template Aggiornato
+      # ========================================
+      - name: Commit WinToolkit Template
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: |
+            🔖 Bump version to v${{ steps.version.outputs.new_version }} [skip ci]
+          file_pattern: "WinToolkit-template.ps1"
+          branch: Dev
+          push_options: "--force"
+          skip_fetch: true
+
+  # ---------------------------------------------------------------------------
+  # JOB 3: BUILD - Compilazione e commit finale script
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build & Release
+    runs-on: windows-latest
+    needs: versioning
+
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Checkout repository (Latest Dev)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: Dev # Forza il checkout dell'ultimo stato committato da Job 2
+
+      # ========================================
+      # Step: Compilazione WinToolkit.ps1
       # ========================================
       - name: Compilazione WinToolkit.ps1
         id: build_script
         shell: pwsh
         run: |
-          $version = "${{ steps.version.outputs.new_version }}"
+          $version = "${{ needs.versioning.outputs.new_version }}"
           & .github/scripts/Invoke-Build.ps1 -Version $version -OutputPath "WinToolkit.ps1"
 
       # ========================================
@@ -213,23 +259,17 @@ jobs:
           & .github/scripts/Test-CompiledScript.ps1 -ScriptPath "WinToolkit.ps1"
 
       # ========================================
-      # Step: Commit WinToolkit Files
+      # Step: Commit WinToolkit Compiled Script
       # ========================================
-      - name: Commit WinToolkit Files
+      - name: Commit WinToolkit Compiled
         if: steps.test.outputs.tests_passed == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
-            🔖 Build WinToolkit v${{ steps.version.outputs.new_version }}
-
-            • Compilazione automatica da file in /tool
-            • Versione aggiornata: v${{ steps.version.outputs.new_version }}
-            • Test di sintassi e struttura passati
-            • File aggiornati e funzionali online
+            🚀 Build WinToolkit v${{ needs.versioning.outputs.new_version }}
+            
             [skip ci]
-          file_pattern: |
-            WinToolkit.ps1
-            WinToolkit-template.ps1
+          file_pattern: "WinToolkit.ps1"
           branch: Dev
           push_options: "--force"
           skip_fetch: true
@@ -241,7 +281,7 @@ jobs:
         if: steps.test.outputs.tests_passed == 'true'
         shell: pwsh
         run: |
-          $version = "${{ steps.version.outputs.new_version }}"
+          $version = "${{ needs.versioning.outputs.new_version }}"
           $sourceKB = "${{ steps.build_script.outputs.source_kb }}"
           $outputKB = "${{ steps.build_script.outputs.output_kb }}"
           $reduction = "${{ steps.build_script.outputs.reduction_percent }}"
@@ -262,7 +302,7 @@ jobs:
           ### ✅ Stato Build
           
           - **Versione**: `$version
-          - **Stato**: Completato con successo
+          - **Stato**: Completato con successo (Double-Commit Flow)
           
           ---
           *Generato automaticamente da WinToolkit CI/CD Pipeline*
