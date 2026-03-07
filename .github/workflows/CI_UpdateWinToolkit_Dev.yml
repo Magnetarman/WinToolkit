@@ -200,19 +200,6 @@ jobs:
         run: |
           & .github/scripts/Update-Version.ps1 -TemplatePath "WinToolkit-template.ps1"
 
-      - name: Commit Template Aggiornato
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: |
-            🔖 Bump WinToolkit version to V${{ steps.version.outputs.new_version }}
-
-            • Incremento automatico numero build
-            • Versione aggiornata nel template
-            [skip ci]
-          file_pattern: WinToolkit-template.ps1
-          branch: Dev
-          push_options: "--force"
-
       # ========================================
       # Step: Compilazione
       # ========================================
@@ -235,12 +222,14 @@ jobs:
       # ========================================
       # Step: Upload Artifact
       # ========================================
-      - name: Upload WinToolkit.ps1 as artifact
+      - name: Upload WinToolkit Artifacts
         uses: actions/upload-artifact@v4
         if: steps.test.outputs.tests_passed == 'true'
         with:
           name: WinToolkit-Compiled
-          path: WinToolkit.ps1
+          path: |
+            WinToolkit.ps1
+            WinToolkit-template.ps1
           retention-days: 30
 
   # ---------------------------------------------------------------------------
@@ -270,18 +259,20 @@ jobs:
           name: WinToolkit-Compiled
           path: .
 
-      - name: Commit WinToolkit.ps1 Compilato
+      - name: Commit WinToolkit Files
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: |
             🔖 Build WinToolkit v${{ needs.build.outputs.new_version }}
 
             • Compilazione automatica da file in /tool
+            • Versione aggiornata: v${{ needs.build.outputs.new_version }}
             • Test di sintassi e struttura passati
-            • Funzioni rilevate automaticamente dalla cartella tool/
-            • File aggiornato e funzionale online
+            • File aggiornati e funzionali online
             [skip ci]
-          file_pattern: WinToolkit.ps1
+          file_pattern: |
+            WinToolkit.ps1
+            WinToolkit-template.ps1
           branch: Dev
           push_options: "--force"
           skip_fetch: true
