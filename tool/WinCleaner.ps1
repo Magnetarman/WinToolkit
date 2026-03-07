@@ -166,6 +166,14 @@ function WinCleaner {
             if ($Rule.Command -in $timeoutCommands) {
                 $result = Start-ProcessWithTimeout -FilePath $Rule.Command -ArgumentList $Rule.Args -TimeoutSeconds 86400 -Activity $Rule.Name -Hidden
                 if ($result.TimedOut) { Write-StyledMessage -Type 'Warning' -Text "Comando timeout dopo 24 ore."; return $true }
+
+                # Check for specific error code -2146498554 (0x800F0818 - ERROR_STORE_CORRUPT)
+                # This typically occurs when Windows Update is in progress or component store is corrupted
+                if ($result.ExitCode -eq -2146498554 -or $result.ExitCode -eq 0x800F0818) {
+                    Write-StyledMessage -Type 'Warning' -Text "ATTENZIONE! - Stai effettuando la pulizia con Windows Update in corso. Aggiorna il sistema e riprova per eseguire la pulizia completa"
+                    return $false
+                }
+
                 Write-StyledMessage -Type ($result.ExitCode -eq 0 ? 'Info' : 'Warning') -Text ($result.ExitCode -eq 0 ? "Comando completato." : "Comando completato con codice $($result.ExitCode)")
                 return $true
             }
@@ -441,7 +449,7 @@ function WinCleaner {
                             $toDelete = $shadows | Select-Object -Skip 1
                             $count = $toDelete.Count
                             Write-StyledMessage -Type 'Info' -Text "Rilevate $($shadows.Count) shadow copies. Rimozione di $count vecchie..."
-                            
+
                             foreach ($shadow in $toDelete) {
                                 Remove-CimInstance -InputObject $shadow -ErrorAction SilentlyContinue
                             }
