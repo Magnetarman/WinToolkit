@@ -1,24 +1,71 @@
 param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 function Read-Host {
-    param($Prompt)
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0)]
+        [Object]$Prompt,
+        [switch]$AsSecureString,
+        [switch]$MaskInput
+    )
+    if ($Host.Name -ne 'ConsoleHost' -or $Global:GuiSessionActive) {
+        if ($Prompt) { return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt }
+        return Microsoft.PowerShell.Utility\Read-Host
+    }
+    $oldTreatControlC = [console]::TreatControlCAsInput
+    try { [console]::TreatControlCAsInput = $true } catch {}
     try {
         if ($Prompt) {
-            Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt
+            Write-Host "${Prompt}: " -NoNewline -ForegroundColor Cyan
         }
-        else {
-            Microsoft.PowerShell.Utility\Read-Host
+        $inputString = ""
+        while ($true) {
+            if ([console]::KeyAvailable) {
+                $keyInfo = [console]::ReadKey($true)
+                if ($keyInfo.Modifiers -match "Control" -and $keyInfo.Key -eq "C") {
+                    Write-Host ""
+                    return $null
+                }
+                if ($keyInfo.Key -eq "Enter") {
+                    Write-Host ""
+                    if ($AsSecureString) {
+                        $secure = New-Object System.Security.SecureString
+                        foreach ($char in $inputString.ToCharArray()) { $secure.AppendChar($char) }
+                        return $secure
+                    }
+                    return $inputString
+                }
+                if ($keyInfo.Key -eq "Backspace") {
+                    if ($inputString.Length -gt 0) {
+                        $inputString = $inputString.Substring(0, $inputString.Length - 1)
+                        Write-Host "`b `b" -NoNewline
+                    }
+                }
+                else {
+                    if (-not [char]::IsControl($keyInfo.KeyChar)) {
+                        $inputString += $keyInfo.KeyChar
+                        if ($AsSecureString -or $MaskInput) {
+                            Write-Host "*" -NoNewline -ForegroundColor Yellow
+                        }
+                        else {
+                            Write-Host $keyInfo.KeyChar -NoNewline
+                        }
+                    }
+                }
+            }
+            Start-Sleep -Milliseconds 10
         }
-    }
-    catch [System.Management.Automation.PipelineStoppedException] {
-        return $null
     }
     catch {
-        throw $_
+        if ($Prompt) { return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt }
+        return Microsoft.PowerShell.Utility\Read-Host
+    }
+    finally {
+        try { [console]::TreatControlCAsInput = $oldTreatControlC } catch {}
     }
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 33)"
+$ToolkitVersion = "2.5.2 (Build 34)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -96,11 +143,11 @@ function Write-StyledMessage {
     $timestamp = Get-Date -Format "HH:mm:ss"
     Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
     $logLevel = switch ($Type) {
-        'Success'  { 'SUCCESS' }
-        'Warning'  { 'WARNING' }
-        'Error'    { 'ERROR' }
+        'Success' { 'SUCCESS' }
+        'Warning' { 'WARNING' }
+        'Error' { 'ERROR' }
         'Progress' { 'INFO' }
-        default    { 'INFO' }
+        default { 'INFO' }
     }
     Write-ToolkitLog -Level $logLevel -Message $Text
 }
@@ -137,27 +184,27 @@ function Start-ToolkitLog {
     param([string]$ToolName)
     try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir   = $AppConfig.Paths.Logs
+    $logdir = $AppConfig.Paths.Logs
     if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
     $Global:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
-    $os  = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
+    $os = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
     $sys = Get-CimInstance Win32_ComputerSystem   -ErrorAction SilentlyContinue
-    $psVer   = $PSVersionTable.PSVersion.ToString()
-    $psEd    = $PSVersionTable.PSEdition
+    $psVer = $PSVersionTable.PSVersion.ToString()
+    $psEd = $PSVersionTable.PSEdition
     $psCompat = ($PSVersionTable.PSCompatibleVersions | ForEach-Object { $_.ToString() }) -join ', '
-    $gitId   = if ($PSVersionTable.GitCommitId) { $PSVersionTable.GitCommitId } else { 'N/A' }
+    $gitId = if ($PSVersionTable.GitCommitId) { $PSVersionTable.GitCommitId } else { 'N/A' }
     $wsManVer = if ($PSVersionTable.WSManStackVersion) { $PSVersionTable.WSManStackVersion.ToString() } else { 'N/A' }
     $remoteVer = if ($PSVersionTable.PSRemotingProtocolVersion) { $PSVersionTable.PSRemotingProtocolVersion.ToString() } else { 'N/A' }
-    $serVer  = if ($PSVersionTable.SerializationVersion) { $PSVersionTable.SerializationVersion.ToString() } else { 'N/A' }
+    $serVer = if ($PSVersionTable.SerializationVersion) { $PSVersionTable.SerializationVersion.ToString() } else { 'N/A' }
     $build = [int]$os.BuildNumber
-    $verMap = @{26100='24H2';22631='23H2';22621='22H2';22000='21H2';19045='22H2';19044='21H2'}
+    $verMap = @{26100 = '24H2'; 22631 = '23H2'; 22621 = '22H2'; 22000 = '21H2'; 19045 = '22H2'; 19044 = '21H2' }
     $dispVer = 'N/A'
     foreach ($k in ($verMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $dispVer = $verMap[$k]; break } }
     $header = @"
 [START LOG HEADER]
 Start time              : $dateTime
 ToolName                : $ToolName
-Username                : $([Environment]::UserDomainName)\$([Environment]::UserName)
+Username                : $([Environment]::UserDomainName + '\' + [Environment]::UserName)
 RunAs User              : $([Security.Principal.WindowsIdentity]::GetCurrent().Name)
 Machine                 : $($sys.Name) ($($os.Caption) $($os.Version))
 Host Application        : $([Environment]::CommandLine)
@@ -179,15 +226,15 @@ WSManStackVersion       : $wsManVer
 }
 function Write-ToolkitLog {
     param(
-        [ValidateSet('DEBUG','INFO','WARNING','ERROR','SUCCESS')]
+        [ValidateSet('DEBUG', 'INFO', 'WARNING', 'ERROR', 'SUCCESS')]
         [string]$Level = 'INFO',
         [string]$Message,
         [hashtable]$Context = @{}
     )
     if (-not $Global:CurrentLogFile) { return }
-    $ts    = Get-Date -Format "HH:mm:ss"
+    $ts = Get-Date -Format "HH:mm:ss"
     $clean = $Message -replace '^\s+', ''
-    $line  = "[$ts] [$Level] $clean"
+    $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {}
     }
@@ -531,14 +578,14 @@ function WinRepairToolkit {
         @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (1)'; Icon = '🗂️' }
         @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/RestoreHealth'); Name = 'Ripristino immagine Windows'; Icon = '🛠️' }
         @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/StartComponentCleanup', '/ResetBase'); Name = 'Pulizia Residui Aggiornamenti'; Icon = '🕸️' }
-        if ($isWin11_24H2_OrNewer) {
-            @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.CBS_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
-            @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
-            @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
-        }
         @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (2)'; Icon = '🗂️' }
         @{ Tool = 'chkdsk'; Args = @('/f', '/r', '/x'); Name = 'Controllo disco approfondito'; Icon = '💽'; IsCritical = $false }
     )
+    if ($isWin11_24H2_OrNewer) {
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.CBS_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
+    }
     function Invoke-RepairCommand {
         param([hashtable]$Config, [int]$Step, [int]$Total)
         Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)..."
@@ -548,12 +595,12 @@ function WinRepairToolkit {
         try {
             $processTimeoutSeconds = 600
             switch ($Config.Name) {
-                'Ripristino immagine Windows'   { $processTimeoutSeconds = 900 }
-                'Controllo file di sistema (1)' { $processTimeoutSeconds = 900 }
-                'Controllo file di sistema (2)' { $processTimeoutSeconds = 900 }
-                'Pulizia Residui Aggiornamenti' { $processTimeoutSeconds = 900 }
-                'Controllo disco'               { $processTimeoutSeconds = 600 }
-                'Controllo disco approfondito'  { $processTimeoutSeconds = 600 }
+                'Ripristino immagine Windows' { $processTimeoutSeconds = 1200 }
+                'Controllo file di sistema (1)' { $processTimeoutSeconds = 1200 }
+                'Controllo file di sistema (2)' { $processTimeoutSeconds = 1200 }
+                'Pulizia Residui Aggiornamenti' { $processTimeoutSeconds = 1200 }
+                'Controllo disco' { $processTimeoutSeconds = 900 }
+                'Controllo disco approfondito' { $processTimeoutSeconds = 900 }
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
@@ -1665,10 +1712,6 @@ function WinBackupDriver {
         Write-StyledMessage Info "🧹 Pulizia ambiente temporaneo..."
         if (Test-Path $script:BackupConfig.BackupDir) {
             Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        if (-not $SuppressIndividualReboot) {
-            Write-Host "`nPremi INVIO per terminare..." -ForegroundColor Gray
-            Read-Host | Out-Null
         }
         Write-ToolkitLog -Level INFO -Message "WinBackupDriver sessione terminata."
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
