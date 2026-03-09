@@ -65,7 +65,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 34)"
+$ToolkitVersion = "2.5.2 (Build 35)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -242,6 +242,7 @@ function Write-ToolkitLog {
 }
 function Reset-Winget {
     param([switch]$Force)
+    $ProgressPreference = 'SilentlyContinue'
     $UpdateEnvironmentPath = {
         $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
         $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -956,7 +957,8 @@ function WinUpdateReset {
     }
     Write-StyledMessage -Type 'Info' -Text '🔧 Inizializzazione dello Script di Reset Windows Update...'
     Invoke-WithSpinner -Activity "Caricamento moduli" -Timer -Action { Start-Sleep 2 } -TimeoutSeconds 2 | Out-Null
-    Write-StyledMessage -Type 'Info' -Text '🛠️ Avvio riparazione servizi Windows Update...' = @{
+    Write-StyledMessage -Type 'Info' -Text '🛠️ Avvio riparazione servizi Windows Update...'
+    $serviceConfig = @{
         'wuauserv'         = @{ Type = 'Automatic'; Critical = $true; Icon = '🔄'; DisplayName = 'Windows Update' }
         'bits'             = @{ Type = 'Automatic'; Critical = $true; Icon = '📡'; DisplayName = 'Background Intelligent Transfer' }
         'cryptsvc'         = @{ Type = 'Automatic'; Critical = $true; Icon = '🔐'; DisplayName = 'Cryptographic Services' }
@@ -1318,6 +1320,7 @@ function WinReinstallStore {
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
+    $ProgressPreference = 'SilentlyContinue'
     Start-ToolkitLog -ToolName "WinReinstallStore"
     Show-Header -SubTitle "Store Repair Toolkit"
     function Install-MicrosoftStore {
@@ -1351,18 +1354,16 @@ function WinReinstallStore {
             @{
                 Name   = "AppX Manifest"
                 Action = {
-                    $store = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue | Select-Object -First 1
-                    if (-not $store) { return @{ ExitCode = -1 } }
-                    $manifest = "$($store.InstallLocation)\AppXManifest.xml"
+                    $store = Get-AppxPackage -AllUsers *WindowsStore* -ErrorAction SilentlyContinue | Select-Object -First 1
+                    if (-not $store -or -not $store.InstallLocation) { return @{ ExitCode = -1 } }
+                    $manifest = Join-Path $store.InstallLocation "AppxManifest.xml"
                     if (-not (Test-Path $manifest)) { return @{ ExitCode = -1 } }
-                    $procParams = @{
-                        FilePath     = 'powershell'
-                        ArgumentList = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command',
-                            "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown")
-                        PassThru     = $true
-                        WindowStyle  = 'Hidden'
+                    try {
+                        Add-AppxPackage -DisableDevelopmentMode -Register $manifest -ForceApplicationShutdown -ErrorAction Stop
+                        return @{ ExitCode = 0 }
+                    } catch {
+                        return @{ ExitCode = -1 }
                     }
-                    Start-Process @procParams
                 }
             }
         )
@@ -1414,7 +1415,7 @@ function WinReinstallStore {
             $procParams = @{
                 FilePath     = 'winget'
                 ArgumentList = @('install', '--id', 'SomePythonThing.WinGetUI', '--silent',
-                    '--accept-package-agreements', '--accept-source-agreements')
+                    '--accept-package-agreements', '--accept-source-agreements', '--force', '--disable-interactivity')
                 PassThru     = $true
                 WindowStyle  = 'Hidden'
             }
