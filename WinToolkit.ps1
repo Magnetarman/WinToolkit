@@ -65,7 +65,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 35)"
+$ToolkitVersion = "2.5.2 (Build 36)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1472,6 +1472,7 @@ function WinBackupDriver {
     Start-ToolkitLog -ToolName "WinBackupDriver"
     Show-Header -SubTitle "Driver Backup Toolkit"
     $Host.UI.RawUI.WindowTitle = "Driver Backup Toolkit By MagnetarMan"
+    $timeout = 86400
     $script:BackupConfig = @{
         DateTime    = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
         BackupDir   = $AppConfig.Paths.DriverBackupTemp
@@ -1518,7 +1519,7 @@ function WinBackupDriver {
                     RedirectStandardError  = $errFile
                 }
                 Start-Process @procParams
-            } -TimeoutSeconds 800 -UpdateInterval 1000
+            } -TimeoutSeconds $timeout -UpdateInterval 1000
             if ($result.TimedOut) {
                 throw "Timeout raggiunto durante l'esportazione DISM"
             }
@@ -2387,6 +2388,7 @@ function WinCleaner {
     Start-ToolkitLog -ToolName "WinCleaner"
     Show-Header -SubTitle "Cleaner Toolkit"
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
+    $timeout = 86400
     $ProgressPreference = 'Continue'
     $VitalExclusions = @(
         "$env:LOCALAPPDATA\WinToolkit"
@@ -2416,7 +2418,7 @@ function WinCleaner {
             [Parameter(Mandatory = $false)]
             [string[]]$ArgumentList = @(),
             [Parameter(Mandatory = $false)]
-            [int]$TimeoutSeconds = 300,
+            [int]$TimeoutSeconds = 86400,
             [Parameter(Mandatory = $false)]
             [string]$Activity = "Processo in esecuzione",
             [Parameter(Mandatory = $false)]
@@ -2439,7 +2441,7 @@ function WinCleaner {
         try {
             $timeoutCommands = @("DISM.exe", "cleanmgr.exe")
             if ($Rule.Command -in $timeoutCommands) {
-                $result = Start-ProcessWithTimeout -FilePath $Rule.Command -ArgumentList $Rule.Args -TimeoutSeconds 86400 -Activity $Rule.Name -Hidden
+                $result = Start-ProcessWithTimeout -FilePath $Rule.Command -ArgumentList $Rule.Args -TimeoutSeconds $timeout -Activity $Rule.Name -Hidden
                 if ($result.TimedOut) { Write-StyledMessage -Type 'Warning' -Text "Comando timeout dopo 24 ore."; return $true }
                 if ($result.ExitCode -eq -2146498554 -or $result.ExitCode -eq 0x800F0818) {
                     Write-StyledMessage -Type 'Warning' -Text "ATTENZIONE! - Stai effettuando la pulizia con Windows Update in corso. Aggiorna il sistema e riprova per eseguire la pulizia completa"
@@ -3415,6 +3417,7 @@ function GamingToolkit {
     $osInfo = Get-ComputerInfo
     $buildNumber = $osInfo.OsBuildNumber
     $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
+    $timeout = 3600
     function Test-WingetPackageAvailable([string]$PackageId) {
         try {
             return $LASTEXITCODE -eq 0 -and $result -match $PackageId
@@ -3440,7 +3443,7 @@ function GamingToolkit {
                     NoNewWindow  = $true
                 }
                 Start-Process @procParams
-            } -TimeoutSeconds 300 -UpdateInterval 700
+            } -TimeoutSeconds $timeout -UpdateInterval 700
             $exitCode = $result.ExitCode
             $successCodes = @(0, 1638, 3010, -1978335189)
             if ($exitCode -in $successCodes) {
@@ -3535,7 +3538,7 @@ function GamingToolkit {
                 PassThru = $true
             }
             Start-Process @procParams
-        } -TimeoutSeconds 600 -UpdateInterval 700
+        } -TimeoutSeconds $timeout -UpdateInterval 700
         if (-not $result.Process.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
@@ -3581,7 +3584,7 @@ function GamingToolkit {
                 ErrorAction = 'Stop'
             }
             Start-Process @procParams
-        } -TimeoutSeconds 900 -UpdateInterval 500
+        } -TimeoutSeconds $timeout -UpdateInterval 500
         if (-not $result.Process.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
@@ -3703,6 +3706,7 @@ function DisableBitlocker {
     Show-Header -SubTitle "Disable BitLocker Toolkit"
     $Host.UI.RawUI.WindowTitle = "Disable BitLocker Toolkit By MagnetarMan"
     $regPath = $AppConfig.Registry.BitLocker
+    $timeout = 3600
     function Test-BitLockerStatus {
         param([string]$DriveLetter = "C:")
         try {
@@ -3724,7 +3728,7 @@ function DisableBitlocker {
                 WindowStyle  = 'Hidden'
             }
             Start-Process @procParams
-        } -TimeoutSeconds 600
+        } -TimeoutSeconds $timeout
         if ($result.ExitCode -eq 0) {
             Write-StyledMessage -Type 'Success' -Text "✅ Decrittazione avviata/completata con successo."
             Start-Sleep -Seconds 2
