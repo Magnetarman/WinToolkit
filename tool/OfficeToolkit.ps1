@@ -209,7 +209,7 @@ function OfficeToolkit {
             Write-StyledMessage -Type 'Info' -Text "🚀 Avvio processo installazione..."
             $arguments = "/configure `"$configPath`""
 
-            $processTimeoutSeconds = 86400 # Attesa indefinita (24 ore)
+            $processTimeoutSeconds = 86400    # Timer di 24 ore in secondi.
             $result = Invoke-WithSpinner -Activity "Installazione Office Basic" -Process -Action {
                 $procParams = @{
                     FilePath         = $setupPath

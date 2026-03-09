@@ -29,6 +29,7 @@ function DisableBitlocker {
     # ============================================================================
 
     $regPath = $AppConfig.Registry.BitLocker
+    $timeout = 3600    # Un'ora in secondi.
 
     # ============================================================================
     # 3. FUNZIONI HELPER LOCALI
@@ -62,7 +63,7 @@ function DisableBitlocker {
                 WindowStyle  = 'Hidden'
             }
             Start-Process @procParams
-        } -TimeoutSeconds 600
+        } -TimeoutSeconds $timeout
 
         if ($result.ExitCode -eq 0) {
             Write-StyledMessage -Type 'Success' -Text "✅ Decrittazione avviata/completata con successo."

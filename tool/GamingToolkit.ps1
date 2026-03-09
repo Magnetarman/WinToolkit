@@ -38,6 +38,7 @@
     $osInfo = Get-ComputerInfo
     $buildNumber = $osInfo.OsBuildNumber
     $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
+    $timeout = 3600    # Un'ora in secondi
 
     # ============================================================================
     # 3. FUNZIONI HELPER LOCALI
@@ -71,7 +72,7 @@
                     NoNewWindow  = $true
                 }
                 Start-Process @procParams
-            } -TimeoutSeconds 300 -UpdateInterval 700
+            } -TimeoutSeconds $timeout -UpdateInterval 700
 
             $exitCode = $result.ExitCode
             $successCodes = @(0, 1638, 3010, -1978335189)
@@ -187,7 +188,7 @@
                 PassThru = $true
             }
             Start-Process @procParams
-        } -TimeoutSeconds 600 -UpdateInterval 700
+        } -TimeoutSeconds $timeout -UpdateInterval 700
 
         if (-not $result.Process.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
@@ -242,7 +243,7 @@
                 ErrorAction = 'Stop'
             }
             Start-Process @procParams
-        } -TimeoutSeconds 900 -UpdateInterval 500
+        } -TimeoutSeconds $timeout -UpdateInterval 500
 
         if (-not $result.Process.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline

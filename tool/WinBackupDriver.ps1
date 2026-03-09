@@ -28,7 +28,8 @@ function WinBackupDriver {
     # 2. CONFIGURAZIONE E VARIABILI LOCALI
     # ============================================================================
 
-
+    $timeout = 86400    # Timer di un giorno in secondi.
+    
     $script:BackupConfig = @{
         DateTime    = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
         BackupDir   = $AppConfig.Paths.DriverBackupTemp
@@ -88,7 +89,7 @@ function WinBackupDriver {
                     RedirectStandardError  = $errFile
                 }
                 Start-Process @procParams
-            } -TimeoutSeconds 800 -UpdateInterval 1000
+            } -TimeoutSeconds $timeout -UpdateInterval 1000
 
             if ($result.TimedOut) {
                 throw "Timeout raggiunto durante l'esportazione DISM"

@@ -97,7 +97,7 @@ function WinCleaner {
     Start-ToolkitLog -ToolName "WinCleaner"
     Show-Header -SubTitle "Cleaner Toolkit"
     $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
-
+    $timeout = 86400    # Timer di un giorno in secondi.
     $ProgressPreference = 'Continue'
 
     # ============================================================================
@@ -140,7 +140,7 @@ function WinCleaner {
             [string[]]$ArgumentList = @(),
 
             [Parameter(Mandatory = $false)]
-            [int]$TimeoutSeconds = 300,
+            [int]$TimeoutSeconds = 86400,    # Timer di un giorno in secondi.
 
             [Parameter(Mandatory = $false)]
             [string]$Activity = "Processo in esecuzione",
@@ -173,7 +173,7 @@ function WinCleaner {
             # Use timeout for potentially long-running commands
             $timeoutCommands = @("DISM.exe", "cleanmgr.exe")
             if ($Rule.Command -in $timeoutCommands) {
-                $result = Start-ProcessWithTimeout -FilePath $Rule.Command -ArgumentList $Rule.Args -TimeoutSeconds 86400 -Activity $Rule.Name -Hidden
+                $result = Start-ProcessWithTimeout -FilePath $Rule.Command -ArgumentList $Rule.Args -TimeoutSeconds $timeout -Activity $Rule.Name -Hidden
                 if ($result.TimedOut) { Write-StyledMessage -Type 'Warning' -Text "Comando timeout dopo 24 ore."; return $true }
 
                 # Check for specific error code -2146498554 (0x800F0818 - ERROR_STORE_CORRUPT)
