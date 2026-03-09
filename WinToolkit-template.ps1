@@ -18,7 +18,7 @@ function Read-Host {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Position=0)]
+        [Parameter(Position = 0)]
         [Object]$Prompt,
         [switch]$AsSecureString,
         [switch]$MaskInput
@@ -35,7 +35,7 @@ function Read-Host {
 
     try {
         if ($Prompt) { 
-            Write-Host "$Prompt: " -NoNewline -ForegroundColor Cyan
+            Write-Host "${Prompt}: " -NoNewline -ForegroundColor Cyan
         }
         
         $inputString = ""
@@ -212,11 +212,11 @@ function Write-StyledMessage {
 
     # Bridge: mirror to log file (silently, no UI side-effects)
     $logLevel = switch ($Type) {
-        'Success'  { 'SUCCESS' }
-        'Warning'  { 'WARNING' }
-        'Error'    { 'ERROR' }
+        'Success' { 'SUCCESS' }
+        'Warning' { 'WARNING' }
+        'Error' { 'ERROR' }
         'Progress' { 'INFO' }
-        default    { 'INFO' }
+        default { 'INFO' }
     }
     Write-ToolkitLog -Level $logLevel -Message $Text
 }
@@ -272,24 +272,24 @@ function Start-ToolkitLog {
     try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
 
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir   = $AppConfig.Paths.Logs
+    $logdir = $AppConfig.Paths.Logs
     if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
     $Global:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
 
     # Raccolta metadati di sistema per l'header
-    $os  = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
+    $os = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
     $sys = Get-CimInstance Win32_ComputerSystem   -ErrorAction SilentlyContinue
-    $psVer   = $PSVersionTable.PSVersion.ToString()
-    $psEd    = $PSVersionTable.PSEdition
+    $psVer = $PSVersionTable.PSVersion.ToString()
+    $psEd = $PSVersionTable.PSEdition
     $psCompat = ($PSVersionTable.PSCompatibleVersions | ForEach-Object { $_.ToString() }) -join ', '
-    $gitId   = if ($PSVersionTable.GitCommitId) { $PSVersionTable.GitCommitId } else { 'N/A' }
+    $gitId = if ($PSVersionTable.GitCommitId) { $PSVersionTable.GitCommitId } else { 'N/A' }
     $wsManVer = if ($PSVersionTable.WSManStackVersion) { $PSVersionTable.WSManStackVersion.ToString() } else { 'N/A' }
     $remoteVer = if ($PSVersionTable.PSRemotingProtocolVersion) { $PSVersionTable.PSRemotingProtocolVersion.ToString() } else { 'N/A' }
-    $serVer  = if ($PSVersionTable.SerializationVersion) { $PSVersionTable.SerializationVersion.ToString() } else { 'N/A' }
+    $serVer = if ($PSVersionTable.SerializationVersion) { $PSVersionTable.SerializationVersion.ToString() } else { 'N/A' }
 
     # Mappa build -> versione display
     $build = [int]$os.BuildNumber
-    $verMap = @{26100='24H2';22631='23H2';22621='22H2';22000='21H2';19045='22H2';19044='21H2'}
+    $verMap = @{26100 = '24H2'; 22631 = '23H2'; 22621 = '22H2'; 22000 = '21H2'; 19045 = '22H2'; 19044 = '21H2' }
     $dispVer = 'N/A'
     foreach ($k in ($verMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $dispVer = $verMap[$k]; break } }
 
@@ -297,7 +297,7 @@ function Start-ToolkitLog {
 [START LOG HEADER]
 Start time              : $dateTime
 ToolName                : $ToolName
-Username                : $([Environment]::UserDomainName)\$([Environment]::UserName)
+Username                : $([Environment]::UserDomainName + '\' + [Environment]::UserName)
 RunAs User              : $([Security.Principal.WindowsIdentity]::GetCurrent().Name)
 Machine                 : $($sys.Name) ($($os.Caption) $($os.Version))
 Host Application        : $([Environment]::CommandLine)
@@ -326,16 +326,16 @@ function Write-ToolkitLog {
         Resiliente: assorbe qualsiasi errore I/O senza crashare il toolkit.
     #>
     param(
-        [ValidateSet('DEBUG','INFO','WARNING','ERROR','SUCCESS')]
+        [ValidateSet('DEBUG', 'INFO', 'WARNING', 'ERROR', 'SUCCESS')]
         [string]$Level = 'INFO',
         [string]$Message,
         [hashtable]$Context = @{}
     )
     if (-not $Global:CurrentLogFile) { return }
 
-    $ts    = Get-Date -Format "HH:mm:ss"
+    $ts = Get-Date -Format "HH:mm:ss"
     $clean = $Message -replace '^\s+', ''
-    $line  = "[$ts] [$Level] $clean"
+    $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {}
     }
