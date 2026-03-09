@@ -333,11 +333,6 @@ function WinBackupDriver {
             Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction SilentlyContinue
         }
 
-        if (-not $SuppressIndividualReboot) {
-            Write-Host "`nPremi INVIO per terminare..." -ForegroundColor Gray
-            Read-Host | Out-Null
-        }
-
         Write-ToolkitLog -Level INFO -Message "WinBackupDriver sessione terminata."
         Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato"
     }
