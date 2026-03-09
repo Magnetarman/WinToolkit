@@ -22,6 +22,9 @@ function WinReinstallStore {
     # 1. INIZIALIZZAZIONE
     # ============================================================================
 
+    # Suppress native progress bars to prevent UI glitches
+    $ProgressPreference = 'SilentlyContinue'
+
     Start-ToolkitLog -ToolName "WinReinstallStore"
     Show-Header -SubTitle "Store Repair Toolkit"
 
@@ -67,20 +70,19 @@ function WinReinstallStore {
             @{
                 Name   = "AppX Manifest"
                 Action = {
-                    $store = Get-AppxPackage -AllUsers Microsoft.WindowsStore -ErrorAction SilentlyContinue | Select-Object -First 1
-                    if (-not $store) { return @{ ExitCode = -1 } }
-
-                    $manifest = "$($store.InstallLocation)\AppXManifest.xml"
+                    $store = Get-AppxPackage -AllUsers *WindowsStore* -ErrorAction SilentlyContinue | Select-Object -First 1
+                    if (-not $store -or -not $store.InstallLocation) { return @{ ExitCode = -1 } }
+                    
+                    $manifest = Join-Path $store.InstallLocation "AppxManifest.xml"
                     if (-not (Test-Path $manifest)) { return @{ ExitCode = -1 } }
-
-                    $procParams = @{
-                        FilePath     = 'powershell'
-                        ArgumentList = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command',
-                            "Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown")
-                        PassThru     = $true
-                        WindowStyle  = 'Hidden'
+                    
+                    # Usa direttamente Add-AppxPackage all'interno dello script blocco per catturare gli errori reali
+                    try {
+                        Add-AppxPackage -DisableDevelopmentMode -Register $manifest -ForceApplicationShutdown -ErrorAction Stop
+                        return @{ ExitCode = 0 }
+                    } catch {
+                        return @{ ExitCode = -1 }
                     }
-                    Start-Process @procParams
                 }
             }
         )
@@ -140,7 +142,7 @@ function WinReinstallStore {
             $procParams = @{
                 FilePath     = 'winget'
                 ArgumentList = @('install', '--id', 'SomePythonThing.WinGetUI', '--silent',
-                    '--accept-package-agreements', '--accept-source-agreements')
+                    '--accept-package-agreements', '--accept-source-agreements', '--force', '--disable-interactivity')
                 PassThru     = $true
                 WindowStyle  = 'Hidden'
             }

@@ -352,6 +352,9 @@ function Reset-Winget {
     #>
     param([switch]$Force)
 
+    # Suppress native progress bars to prevent UI glitches
+    $ProgressPreference = 'SilentlyContinue'
+
     # --- Helper Interni ---
     $UpdateEnvironmentPath = {
         $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
