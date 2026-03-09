@@ -74,6 +74,7 @@
 
 - `WinBackupDriver.ps1` Aggiornato.
   - [x] Risolto un problema per cui su PC poco potenti il timeout rendeva nulla la funzionalità dello script. Maggiorati a 800 secondi i timeout.
+  - [x] Risolto il problema della richiesta doppio escape.
 
 
 ### V 2.6 - Debloat
