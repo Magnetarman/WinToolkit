@@ -62,12 +62,12 @@ function WinRepairToolkit {
             $processTimeoutSeconds = 600
 
             switch ($Config.Name) {
-                'Ripristino immagine Windows'   { $processTimeoutSeconds = 900 }
-                'Controllo file di sistema (1)' { $processTimeoutSeconds = 900 }
-                'Controllo file di sistema (2)' { $processTimeoutSeconds = 900 }
-                'Pulizia Residui Aggiornamenti' { $processTimeoutSeconds = 900 }
-                'Controllo disco'               { $processTimeoutSeconds = 600 }
-                'Controllo disco approfondito'  { $processTimeoutSeconds = 600 }
+                'Ripristino immagine Windows'   { $processTimeoutSeconds = 1200 }
+                'Controllo file di sistema (1)' { $processTimeoutSeconds = 1200 }
+                'Controllo file di sistema (2)' { $processTimeoutSeconds = 1200 }
+                'Pulizia Residui Aggiornamenti' { $processTimeoutSeconds = 1200 }
+                'Controllo disco'               { $processTimeoutSeconds = 900 }
+                'Controllo disco approfondito'  { $processTimeoutSeconds = 900 }
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
 

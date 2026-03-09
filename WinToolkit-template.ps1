@@ -14,22 +14,81 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
 function Read-Host {
     <#
     .SYNOPSIS
-        Wrapper sicuro per Read-Host che gestisce le interruzioni CTRL+C.
+        Wrapper sicuro per Read-Host che gestisce le interruzioni CTRL+C senza crash.
     #>
-    param($Prompt)
-    try {
-        if ($Prompt) {
-            Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt
-        }
-        else {
-            Microsoft.PowerShell.Utility\Read-Host
-        }
+    [CmdletBinding()]
+    param(
+        [Parameter(Position=0)]
+        [Object]$Prompt,
+        [switch]$AsSecureString,
+        [switch]$MaskInput
+    )
+
+    # Verifica se siamo in una sessione interattiva con console reale
+    if ($Host.Name -ne 'ConsoleHost' -or $Global:GuiSessionActive) {
+        if ($Prompt) { return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt }
+        return Microsoft.PowerShell.Utility\Read-Host
     }
-    catch [System.Management.Automation.PipelineStoppedException] {
-        return $null
+
+    $oldTreatControlC = [console]::TreatControlCAsInput
+    try { [console]::TreatControlCAsInput = $true } catch {}
+
+    try {
+        if ($Prompt) { 
+            Write-Host "$Prompt: " -NoNewline -ForegroundColor Cyan
+        }
+        
+        $inputString = ""
+        while ($true) {
+            if ([console]::KeyAvailable) {
+                $keyInfo = [console]::ReadKey($true)
+
+                # Gestione CTRL+C
+                if ($keyInfo.Modifiers -match "Control" -and $keyInfo.Key -eq "C") {
+                    Write-Host ""
+                    return $null
+                }
+                # Invio / Enter
+                if ($keyInfo.Key -eq "Enter") {
+                    Write-Host ""
+                    if ($AsSecureString) {
+                        $secure = New-Object System.Security.SecureString
+                        foreach ($char in $inputString.ToCharArray()) { $secure.AppendChar($char) }
+                        return $secure
+                    }
+                    return $inputString
+                }
+                # Backspace
+                if ($keyInfo.Key -eq "Backspace") {
+                    if ($inputString.Length -gt 0) {
+                        $inputString = $inputString.Substring(0, $inputString.Length - 1)
+                        # Muove il cursore indietro, scrive uno spazio per cancellare, e torna indietro
+                        Write-Host "`b `b" -NoNewline
+                    }
+                }
+                else {
+                    # Ignora tasti di controllo non testuali (eccetto i necessari)
+                    if (-not [char]::IsControl($keyInfo.KeyChar)) {
+                        $inputString += $keyInfo.KeyChar
+                        if ($AsSecureString -or $MaskInput) { 
+                            Write-Host "*" -NoNewline -ForegroundColor Yellow
+                        }
+                        else { 
+                            Write-Host $keyInfo.KeyChar -NoNewline 
+                        }
+                    }
+                }
+            }
+            Start-Sleep -Milliseconds 10
+        }
     }
     catch {
-        throw $_
+        # Fallback in caso di errori imprevisti nel loop
+        if ($Prompt) { return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt }
+        return Microsoft.PowerShell.Utility\Read-Host
+    }
+    finally {
+        try { [console]::TreatControlCAsInput = $oldTreatControlC } catch {}
     }
 }
 
