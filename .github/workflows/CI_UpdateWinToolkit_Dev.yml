@@ -231,6 +231,12 @@ jobs:
       contents: write
       actions: read
 
+    outputs:
+      source_kb: ${{ steps.build_script.outputs.source_kb }}
+      output_kb: ${{ steps.build_script.outputs.output_kb }}
+      reduction_percent: ${{ steps.build_script.outputs.reduction_percent }}
+      lines_removed: ${{ steps.build_script.outputs.lines_removed }}
+
     steps:
       - name: Checkout repository (Latest Dev)
         uses: actions/checkout@v4
@@ -317,3 +323,101 @@ jobs:
           Write-Host "  • Versione: v$version" -ForegroundColor White
           Write-Host "  • Compressione: $reduction%" -ForegroundColor White
           Write-Host ""
+
+  # ---------------------------------------------------------------------------
+  # JOB 4: RELEASE - Generazione automatica Pre-Release
+  # ---------------------------------------------------------------------------
+  release:
+    name: Release
+    runs-on: windows-latest
+    needs: [versioning, build]
+    if: github.ref == 'refs/heads/Dev'
+
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: Dev
+
+      - name: Extract PRs and Generate Notes
+        id: notes
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ needs.versioning.outputs.new_version }}"
+          $targetDate = $null
+          
+          # Trova l'ultima release se esiste
+          $lastRelease = gh release list --limit 1 | Select-String -Pattern "v\d" | ForEach-Object { ($_ -split "`t")[0] }
+          
+          if ($lastRelease) {
+            Write-Host "Ultima release trovata: $lastRelease"
+            $publishedAt = gh release view $lastRelease --json publishedAt -q .publishedAt
+            $targetDate = [datetime]$publishedAt
+          } else {
+            Write-Host "Nessuna release precedente trovata. Cerco l'ultimo commit '✅ Compilato WinToolkit v*'"
+            $commitDates = (git log --grep="✅ Compilato WinToolkit v" --format="%aI") -split "`n" | Where-Object { $_ -match "\S" }
+            if ($commitDates.Count -gt 1) {
+                # Prende il penultimo commit (quello dell'esecuzione precedente)
+                $targetDate = [datetime]$commitDates[1]
+                Write-Host "Trovato commit precedente: $targetDate"
+            } else {
+                Write-Host "Nessun commit precedente trovato, includo tutte le PR."
+                $targetDate = [datetime]::MinValue
+            }
+          }
+          
+          # Ottieni le PR limitando a 100 per sicurezza
+          $prsJson = gh pr list --state merged --base Dev --limit 100 --json title,url,author,mergedAt
+          $prsObj = $prsJson | ConvertFrom-Json
+          if ($null -eq $prsObj) { $prsObj = @() }
+          
+          # Filtra PR in base alla data e all'autore
+          $validPrs = $prsObj | Where-Object { 
+            ([datetime]$_.mergedAt -gt $targetDate) -and ($_.author.login -ne 'MagnetarMan') 
+          }
+          
+          $releaseBody = "### 🛠 Modifiche dai Collaboratori`n`n"
+          if ($validPrs.Count -gt 0) {
+            foreach ($pr in $validPrs) {
+              $releaseBody += "- [$($pr.title)]($($pr.url)) - @$($pr.author.login)`n"
+            }
+          } else {
+            $releaseBody += "Nessun contributo esterno in questa build.`n"
+          }
+          
+          $sourceKB = "${{ needs.build.outputs.source_kb }}"
+          $outputKB = "${{ needs.build.outputs.output_kb }}"
+          $reduction = "${{ needs.build.outputs.reduction_percent }}"
+          $linesRemoved = "${{ needs.build.outputs.lines_removed }}"
+
+          $releaseBody += "`n### 📊 Statistiche Compressione`n`n"
+          $releaseBody += "| Metrica | Valore |`n"
+          $releaseBody += "|---------|--------|`n"
+          $releaseBody += "| Peso Sorgente | $sourceKB KB |`n"
+          $releaseBody += "| Peso Finale | $outputKB KB |`n"
+          $releaseBody += "| Riduzione | $reduction% |`n"
+          $releaseBody += "| Righe Eliminate | $linesRemoved |`n"
+          
+          Write-Host "Contenuto della release:"
+          Write-Host $releaseBody
+          
+          $releaseBody | Out-File -FilePath release_body.md -Encoding utf8
+
+      - name: Create Pre-Release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ needs.versioning.outputs.new_version }}"
+          $tag = "v$version"
+          
+          Write-Host "Creazione pre-release per il tag $tag"
+          gh release create $tag "WinToolkit.ps1" --title "WinToolkit $tag (Dev Pre-Release)" --notes-file release_body.md --prerelease --target Dev
