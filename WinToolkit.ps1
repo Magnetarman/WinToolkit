@@ -65,7 +65,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 38)"
+$ToolkitVersion = "2.5.2 (Build 39)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -243,6 +243,7 @@ function Write-ToolkitLog {
 function Reset-Winget {
     param([switch]$Force)
     $ProgressPreference = 'SilentlyContinue'
+    $OutputEncoding = [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
     $UpdateEnvironmentPath = {
         $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
         $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -362,13 +363,19 @@ function Reset-Winget {
     _Apply-Permissions
     & $UpdateEnvironmentPath
     Write-StyledMessage -Type Info -Text "🔍 Verifica finale connettività..."
-    $test = & winget search "Git.Git" --accept-source-agreements 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-StyledMessage -Type Success -Text "✅ Winget ripristinato con successo."
-        return $true
+    try {
+        $testProc = Start-Process -FilePath 'winget' -ArgumentList @('search', 'Git.Git', '--accept-source-agreements', '--disable-interactivity') -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop
+        if ($testProc.ExitCode -eq 0) {
+            Write-StyledMessage -Type Success -Text "✅ Winget ripristinato con successo."
+            return $true
+        }
+        else {
+            Write-StyledMessage -Type Error -Text "❌ Winget non operativo dopo il reset (ExitCode: $($testProc.ExitCode))."
+            return $false
+        }
     }
-    else {
-        Write-StyledMessage -Type Error -Text "❌ Winget non operativo dopo il reset."
+    catch {
+        Write-StyledMessage -Type Error -Text "❌ Winget non raggiungibile: $($_.Exception.Message)"
         return $false
     }
 }
