@@ -25,6 +25,3 @@ Indica quali path ai tool o sezioni dei template hai revisionato e la ratio:
 ## Verifica Log e Debug (Opzionale / Fortemente Consigliata se fixing code)
 Se hai sistemato comandi base script, puoi incollare il pezzo di Log con success-output o trascinarne file sezioni interessate generate dopo che hai eseguito compilazione e test locali per conto tuo prima della PR .
 *(Sei in grado di compilare ed emulare il Run per provare le tue funzioni in test sandbox usando `compiler.ps1` localmente al momento)*
-
-## Note aggiuntive per il Maintainer e Reviewers
-Scrivi pure qui note finali se c'è altro da tenere a mente per testare al meglio la tua request.
