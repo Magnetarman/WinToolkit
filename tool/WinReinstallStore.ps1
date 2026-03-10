@@ -3,59 +3,47 @@ function WinReinstallStore {
     .SYNOPSIS
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
     .DESCRIPTION
-        Script ottimizzato per reinstallare Winget, Microsoft Store e UniGet UI.
-        Integra le logiche testate di start.ps1 per risolvere:
-        - Bug grafico (UI bleeding AppX progress bar)
-        - Errore 0xc0000022 tramite risoluzione percorso eseguibile reale
+        Script conforme a style.md v3.0. Reinstalla Winget, Microsoft Store e UniGet UI.
+        Tutti i processi AppX usano System.Diagnostics.Process con CreateNoWindow=true per
+        bloccare le write Win32 native del deployment engine e garantire una TUI pulita.
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
-
-        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
-    # 1. LOGGING — SEMPRE PRIMA
+    # [RULE-STRUCT-01] 1. LOGGING — SEMPRE PRIMA
     Start-ToolkitLog -ToolName "WinReinstallStore"
 
-    # 2. HEADER E PROTEZIONE GRAFICA
+    # [RULE-STRUCT-01] 2. HEADER
     Show-Header -SubTitle "Store Repair Toolkit"
-    $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
 
-    # Salviamo lo stato e forziamo la soppressione a livello GLOBALE
-    # Questo impedisce al deployment AppX di Windows di inviare progress stream alla console
-    $global:OldProgressPreference = $global:ProgressPreference
-    $global:ProgressPreference    = 'SilentlyContinue'
-
-    # Fix W11: il buffer di scrittura AppX lascia residui se non si forza CR prima di ogni riga
-    $onW11 = [Environment]::OSVersion.Version.Build -ge 22000
+    # Soppressione progress stream PowerShell (salvare + ripristinare in finally)
+    $savedProgressPref     = $ProgressPreference
+    $ProgressPreference    = 'SilentlyContinue'
 
     # ============================================================================
-    # 2. FUNZIONI HELPER LOCALI
+    # FUNZIONI HELPER LOCALI
     # ============================================================================
 
-    # Trova il percorso ASSOLUTO e REALE di winget.exe in WindowsApps (bypass alias 0xc0000022)
+    # Trova il percorso ASSOLUTO di winget.exe in WindowsApps (bypass alias 0xc0000022)
     function Get-WingetExecutable {
         try {
-            $wingetPathToResolve = Join-Path $AppConfig.Paths.ProgramFiles 'WindowsApps\Microsoft.DesktopAppInstaller_*_*__8wekyb3d8bbwe'
-            $resolvedPaths = Resolve-Path -Path $wingetPathToResolve -ErrorAction Stop | Sort-Object {
+            $wingetGlob    = "$env:ProgramFiles\WindowsApps\Microsoft.DesktopAppInstaller_*_*__8wekyb3d8bbwe"
+            $resolvedPaths = Resolve-Path -Path $wingetGlob -ErrorAction Stop | Sort-Object {
                 [version]($_.Path -replace '^[^\d]+_((\d+\.)*\d+)_.*', '$1')
             }
             if ($resolvedPaths) {
-                $wingetDir = $resolvedPaths[-1].Path
-                $exePath   = Join-Path $wingetDir 'winget.exe'
+                $exePath = Join-Path $resolvedPaths[-1].Path 'winget.exe'
                 if (Test-Path $exePath) { return $exePath }
             }
         }
         catch { }
-
-        # Fallback: alias utente (potrebbe non funzionare dopo un reset)
         return "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
     }
 
-    # Applica permessi FullControl agli Administrators sulla cartella winget
+    # Applica permessi FullControl Administrators sulla cartella winget
     function Set-WingetPathPermissions {
         param([string]$FolderPath)
         if (-not (Test-Path $FolderPath)) { return }
@@ -80,19 +68,17 @@ function WinReinstallStore {
         [System.Environment]::SetEnvironmentVariable('Path', $env:Path, 'Process')
     }
 
-    # Chiude i processi che bloccano l'installazione AppX
-    function Stop-InterferingProcesses {
-        $interferingProcesses = @('WinStore.App', 'wsappx', 'AppInstaller', 'Microsoft.WindowsStore',
-                                  'Microsoft.DesktopAppInstaller', 'winget', 'WindowsPackageManagerServer')
-        
-        $null = Invoke-WithSpinner -Activity "Arresto processi interferenti" -Process -Action {
-            $interferingProcesses | ForEach-Object {
-                Get-Process -Name $_ -ErrorAction SilentlyContinue |
-                    Where-Object { $_.Id -ne $PID } |
-                    Stop-Process -Force -ErrorAction SilentlyContinue
-            }
-            Start-Sleep 2
-        } -TimeoutSeconds 10
+    # Helper: avvia un processo senza console (blocca output Win32 nativo del deployment AppX)
+    # CreateNoWindow=true + UseShellExecute=false impedisce a WriteConsoleW di scrivere sul buffer
+    function Start-IsolatedProcess {
+        param([string]$Executable, [string]$Arguments)
+        $psi                    = [System.Diagnostics.ProcessStartInfo]::new($Executable)
+        $psi.Arguments          = $Arguments
+        $psi.UseShellExecute    = $false
+        $psi.CreateNoWindow     = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError  = $true
+        return [System.Diagnostics.Process]::Start($psi)
     }
 
     # ============================================================================
@@ -102,13 +88,20 @@ function WinReinstallStore {
     function Invoke-WingetReinstall {
         Write-StyledMessage -Type 'Info' -Text "🛠️ Avvio procedura reinstallazione Winget..."
 
-        Stop-InterferingProcesses
+        # [RULE-PROCESS-01] Chiusura processi interferenti con spinner
+        $null = Invoke-WithSpinner -Activity "Arresto processi interferenti" -Timer -Action {
+            @('WinStore.App','wsappx','AppInstaller','Microsoft.WindowsStore',
+              'Microsoft.DesktopAppInstaller','winget','WindowsPackageManagerServer') | ForEach-Object {
+                Get-Process -Name $_ -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Id -ne $PID } |
+                    Stop-Process -Force -ErrorAction SilentlyContinue
+            }
+        } -TimeoutSeconds 10
 
         $tempDir = Join-Path $AppConfig.Paths.TempFolder 'WinToolkitWinget'
-        $null = New-Item -Path $tempDir -ItemType Directory -Force *>$null
+        $null = New-Item -Path $tempDir -ItemType Directory -Force
 
         try {
-            # Helper per recuperare URL asset GitHub
             function Get-WingetAssetUrl {
                 param([string]$Match)
                 try {
@@ -123,111 +116,98 @@ function WinReinstallStore {
             # Passo 1: Reset sorgenti se winget è già presente
             $currentWinget = Get-WingetExecutable
             if (Test-Path $currentWinget -ErrorAction SilentlyContinue) {
-                Write-StyledMessage -Type 'Info' -Text "Reset sorgenti Winget..."
-                try { $null = & $currentWinget source reset --force 2>$null } catch { }
+                $null = Invoke-WithSpinner -Activity "Reset sorgenti Winget" -Timer -Action {
+                    try { $null = & $currentWinget source reset --force 2>$null } catch { }
+                } -TimeoutSeconds 30
             }
 
-            # Passo 2: Dipendenze (UI.Xaml, VCLibs) — da zip ufficiale del repo
-            Write-StyledMessage -Type 'Info' -Text "💎 Download dipendenze Appx..."
+            # Passo 2: Download dipendenze
+            Write-StyledMessage -Type 'Info' -Text "Download dipendenze Appx..."
             $depUrl = Get-WingetAssetUrl -Match 'DesktopAppInstaller_Dependencies.zip'
             if ($depUrl) {
                 $depZip     = Join-Path $tempDir 'dependencies.zip'
                 $extractDir = Join-Path $tempDir 'deps'
-                $iwrParams = @{
-                    Uri             = $depUrl
-                    OutFile         = $depZip
-                    UseBasicParsing = $true
-                    ErrorAction     = 'Stop'
-                }
-                Invoke-WebRequest @iwrParams
+
+                # [RULE-PROCESS-01] Download con spinner
+                $null = Invoke-WithSpinner -Activity "Download dipendenze da GitHub" -Timer -Action {
+                    $iwrParams = @{
+                        Uri             = $depUrl
+                        OutFile         = $depZip
+                        UseBasicParsing = $true
+                        ErrorAction     = 'Stop'
+                    }
+                    Invoke-WebRequest @iwrParams
+                } -TimeoutSeconds 300
+
                 Expand-Archive -Path $depZip -DestinationPath $extractDir -Force *>$null
 
-                $archPatt = if ([Environment]::Is64BitOperatingSystem) { 'x64|neutral' } else { 'x86|neutral' }
+                $archPatt  = if ([Environment]::Is64BitOperatingSystem) { 'x64|neutral' } else { 'x86|neutral' }
                 $appxFiles = Get-ChildItem -Path $extractDir -Recurse -Filter '*.appx' | Where-Object { $_.Name -match $archPatt }
-                
+
                 foreach ($appx in $appxFiles) {
-                    $null = Invoke-WithSpinner -Activity "Installazione dipendenza: $($appx.Name)" -Process -Action {
-                        $outTmp = Join-Path $AppConfig.Paths.TempFolder "dep_out_$($appx.BaseName).log"
-                        $errTmp = Join-Path $AppConfig.Paths.TempFolder "dep_err_$($appx.BaseName).log"
-                        $procParams = @{
-                            FilePath               = 'powershell.exe'
-                            ArgumentList           = @('-NoProfile','-NonInteractive','-WindowStyle','Hidden','-Command',
-                                                        "`$ProgressPreference='SilentlyContinue'; Add-AppxPackage -Path '$($appx.FullName)' -ForceApplicationShutdown -ErrorAction SilentlyContinue")
-                            PassThru               = $true
-                            WindowStyle            = 'Hidden'
-                            RedirectStandardOutput = $outTmp
-                            RedirectStandardError  = $errTmp
-                        }
-                        $p = Start-Process @procParams -Wait
-                        Remove-Item $outTmp, $errTmp -Force -ErrorAction SilentlyContinue *>$null
-                    } -TimeoutSeconds 300
+                    # [RULE-PROCESS-01] Installazione dipendenza con spinner usando processo isolato
+                    $appxPath = $appx.FullName
+                    $depProc  = Start-IsolatedProcess -Executable 'powershell.exe' `
+                        -Arguments "-NoProfile -NonInteractive -Command `"`$ProgressPreference='SilentlyContinue'; Add-AppxPackage -Path '$appxPath' -ForceApplicationShutdown -ErrorAction SilentlyContinue`""
+                    $null = Invoke-WithSpinner -Activity "Installazione dipendenza: $($appx.Name)" -Process -Action { $depProc } -TimeoutSeconds 300
                 }
                 Write-StyledMessage -Type 'Success' -Text "✅ Dipendenze Appx installate."
             }
 
-            # Passo 3: Winget MSIXBundle
-            Write-StyledMessage -Type 'Info' -Text "💎 Installazione Winget MSIXBundle..."
+            # Passo 3: Download e installazione Winget MSIXBundle
+            Write-StyledMessage -Type 'Info' -Text "Download Winget MSIXBundle..."
             $msixUrl = Get-WingetAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
             if ($msixUrl) {
                 $msixFile = Join-Path $tempDir 'winget.msixbundle'
-                $iwrParams = @{
-                    Uri             = $msixUrl
-                    OutFile         = $msixFile
-                    UseBasicParsing = $true
-                    ErrorAction     = 'Stop'
-                }
-                Invoke-WebRequest @iwrParams
 
-                # Usa processo figlio per isolare completamente il progress stream di appx
-                $null = Invoke-WithSpinner -Activity "Installazione Winget MSIXBundle" -Process -Action {
-                    $outTmp = Join-Path $AppConfig.Paths.TempFolder 'winget_msix_out.log'
-                    $errTmp = Join-Path $AppConfig.Paths.TempFolder 'winget_msix_err.log'
-                    $procParams = @{
-                        FilePath               = 'powershell.exe'
-                        ArgumentList           = @('-NoProfile','-NonInteractive','-WindowStyle','Hidden','-Command',
-                                                    "`$ProgressPreference='SilentlyContinue'; Add-AppxPackage -Path '$msixFile' -ForceApplicationShutdown -ErrorAction Stop")
-                        PassThru               = $true
-                        WindowStyle            = 'Hidden'
-                        RedirectStandardOutput = $outTmp
-                        RedirectStandardError  = $errTmp
+                $null = Invoke-WithSpinner -Activity "Download Winget MSIXBundle da GitHub" -Timer -Action {
+                    $iwrParams = @{
+                        Uri             = $msixUrl
+                        OutFile         = $msixFile
+                        UseBasicParsing = $true
+                        ErrorAction     = 'Stop'
                     }
-                    $p = Start-Process @procParams -Wait
-                    Remove-Item $outTmp, $errTmp -Force -ErrorAction SilentlyContinue *>$null
+                    Invoke-WebRequest @iwrParams
                 } -TimeoutSeconds 300
+
+                $msixProc = Start-IsolatedProcess -Executable 'powershell.exe' `
+                    -Arguments "-NoProfile -NonInteractive -Command `"`$ProgressPreference='SilentlyContinue'; Add-AppxPackage -Path '$msixFile' -ForceApplicationShutdown -ErrorAction Stop`""
+                $null = Invoke-WithSpinner -Activity "Installazione Winget MSIXBundle" -Process -Action { $msixProc } -TimeoutSeconds 300
+                Write-StyledMessage -Type 'Success' -Text "✅ Winget MSIXBundle installato."
             }
 
-            # Passo 4: Reset App Installer (fix ACCESS_VIOLATION)
-            Write-StyledMessage -Type 'Info' -Text "Reset App Installer (fix 0xc0000022)..."
-            if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
-                Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
-            }
-
-            # Passo 5: Permessi PATH
-            Write-StyledMessage -Type 'Info' -Text "Applicazione permessi PATH Winget..."
-            $arch      = if ([Environment]::Is64BitOperatingSystem) { 'x64' } else { 'x86' }
-            $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" `
-                -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" `
-                -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
-            if ($wingetDir) {
-                Set-WingetPathPermissions -FolderPath $wingetDir.FullName
-
-                # Aggiunge al PATH di Sistema
-                $syspath = [Environment]::GetEnvironmentVariable('PATH','Machine')
-                if ($syspath -notmatch [regex]::Escape($wingetDir.FullName)) {
-                    [Environment]::SetEnvironmentVariable('PATH', "$syspath;$($wingetDir.FullName)", 'Machine')
+            # Passo 4: Reset App Installer (fix ACCESS_VIOLATION 0xc0000022)
+            $null = Invoke-WithSpinner -Activity "Reset App Installer (fix 0xc0000022)" -Timer -Action {
+                if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
+                    Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
                 }
-            }
+            } -TimeoutSeconds 60
 
-            # Path utente con %LOCALAPPDATA%
-            $usrPath = [Environment]::GetEnvironmentVariable('PATH','User')
-            if ($usrPath -notmatch [regex]::Escape('%LOCALAPPDATA%\Microsoft\WindowsApps')) {
-                [Environment]::SetEnvironmentVariable('PATH', "$usrPath;%LOCALAPPDATA%\Microsoft\WindowsApps", 'User')
-            }
-
-            Update-SessionPath
-            Start-Sleep 3
+            # Passo 5: Permessi PATH e aggiornamento sessione
+            $null = Invoke-WithSpinner -Activity "Aggiornamento permessi e PATH Winget" -Timer -Action {
+                $arch      = if ([Environment]::Is64BitOperatingSystem) { 'x64' } else { 'x86' }
+                $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" `
+                    -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" `
+                    -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+                if ($wingetDir) {
+                    Set-WingetPathPermissions -FolderPath $wingetDir.FullName
+                    $syspath = [Environment]::GetEnvironmentVariable('PATH','Machine')
+                    if ($syspath -notmatch [regex]::Escape($wingetDir.FullName)) {
+                        [Environment]::SetEnvironmentVariable('PATH', "$syspath;$($wingetDir.FullName)", 'Machine')
+                    }
+                }
+                $usrPath = [Environment]::GetEnvironmentVariable('PATH','User')
+                if ($usrPath -notmatch [regex]::Escape('%LOCALAPPDATA%\Microsoft\WindowsApps')) {
+                    [Environment]::SetEnvironmentVariable('PATH', "$usrPath;%LOCALAPPDATA%\Microsoft\WindowsApps", 'User')
+                }
+                Update-SessionPath
+            } -TimeoutSeconds 30
 
             # Verifica finale
+            $null = Invoke-WithSpinner -Activity "Verifica funzionalità Winget" -Timer -Action {
+                Start-Sleep 3
+            } -TimeoutSeconds 10
+
             $newWinget = Get-WingetExecutable
             if (Test-Path $newWinget -ErrorAction SilentlyContinue) {
                 $ver = & $newWinget --version 2>$null
@@ -256,31 +236,34 @@ function WinReinstallStore {
     function Install-MicrosoftStore {
         Write-StyledMessage -Type 'Info' -Text "🔄 Reinstallazione Microsoft Store in corso..."
 
-        @('AppXSvc', 'ClipSVC', 'WSService') | ForEach-Object {
-            try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch { }
-        }
-
-        @("$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
-          "$env:LOCALAPPDATA\Microsoft\Windows\INetCache") | ForEach-Object {
-            if (Test-Path $_) { Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null }
-        }
+        # Restart servizi Store
+        $null = Invoke-WithSpinner -Activity "Restart servizi Microsoft Store" -Timer -Action {
+            @('AppXSvc', 'ClipSVC', 'WSService') | ForEach-Object {
+                try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch { }
+            }
+            # Pulizia cache locale Store
+            @("$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
+              "$env:LOCALAPPDATA\Microsoft\Windows\INetCache") | ForEach-Object {
+                if (Test-Path $_) { Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null }
+            }
+        } -TimeoutSeconds 30
 
         $wingetExe = Get-WingetExecutable
 
+        # [RULE-BATCH-01] Metodi di installazione come array dichiarativo
         $installMethods = @(
             @{
                 Name   = 'Winget Install'
                 Action = {
                     if (-not (Test-Path $wingetExe -ErrorAction SilentlyContinue)) { return @{ ExitCode = -1 } }
-
                     $outLog = Join-Path $AppConfig.Paths.TempFolder 'winget_store_out.log'
                     $errLog = Join-Path $AppConfig.Paths.TempFolder 'winget_store_err.log'
-
-                    $processResult = Invoke-WithSpinner -Activity "Installazione tramite Winget" -Process -Action {
+                    $processResult = Invoke-WithSpinner -Activity "Installazione Store tramite Winget" -Process -Action {
                         $procParams = @{
                             FilePath               = $wingetExe
-                            ArgumentList           = @('install','9WZDNCRFJBMP','--accept-source-agreements',
-                                                        '--accept-package-agreements','--silent','--disable-interactivity')
+                            ArgumentList           = @('install','9WZDNCRFJBMP',
+                                                        '--accept-source-agreements','--accept-package-agreements',
+                                                        '--silent','--disable-interactivity')
                             PassThru               = $true
                             WindowStyle            = 'Hidden'
                             RedirectStandardOutput = $outLog
@@ -288,7 +271,6 @@ function WinReinstallStore {
                         }
                         Start-Process @procParams
                     } -TimeoutSeconds 300
-                    
                     Remove-Item $outLog, $errLog -Force -ErrorAction SilentlyContinue *>$null
                     return @{ ExitCode = $processResult.ExitCode }
                 }
@@ -296,27 +278,13 @@ function WinReinstallStore {
             @{
                 Name   = 'AppX Manifest'
                 Action = {
-                    $store = Get-AppxPackage -AllUsers *WindowsStore* -ErrorAction SilentlyContinue | Select-Object -First 1
-                    if (-not $store -or -not $store.InstallLocation) { return @{ ExitCode = -1 } }
-                    $manifest = Join-Path $store.InstallLocation 'AppxManifest.xml'
-                    if (-not (Test-Path $manifest)) { return @{ ExitCode = -1 } }
-                    
+                    $store    = Get-AppxPackage -AllUsers *WindowsStore* -ErrorAction SilentlyContinue | Select-Object -First 1
+                    $manifest = if ($store) { Join-Path $store.InstallLocation 'AppxManifest.xml' } else { $null }
+                    if (-not $manifest -or -not (Test-Path $manifest)) { return @{ ExitCode = -1 } }
                     try {
-                        $null = Invoke-WithSpinner -Activity "Registrazione AppXManifest" -Process -Action {
-                            $outTmp = Join-Path $AppConfig.Paths.TempFolder 'appx_store_out.log'
-                            $errTmp = Join-Path $AppConfig.Paths.TempFolder 'appx_store_err.log'
-                            $procParams = @{
-                                FilePath               = 'powershell.exe'
-                                ArgumentList           = @('-NoProfile','-NonInteractive','-WindowStyle','Hidden','-Command',
-                                                            "`$ProgressPreference='SilentlyContinue'; Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown -ErrorAction Stop")
-                                PassThru               = $true
-                                WindowStyle            = 'Hidden'
-                                RedirectStandardOutput = $outTmp
-                                RedirectStandardError  = $errTmp
-                            }
-                            $p = Start-Process @procParams -Wait
-                            Remove-Item $outTmp, $errTmp -Force -ErrorAction SilentlyContinue *>$null
-                        } -TimeoutSeconds 120
+                        $appxProc = Start-IsolatedProcess -Executable 'powershell.exe' `
+                            -Arguments "-NoProfile -NonInteractive -Command `"`$ProgressPreference='SilentlyContinue'; Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown -ErrorAction Stop`""
+                        $null = Invoke-WithSpinner -Activity "Registrazione AppX Manifest Store" -Process -Action { $appxProc } -TimeoutSeconds 120
                         return @{ ExitCode = 0 }
                     }
                     catch { return @{ ExitCode = -1 } }
@@ -325,7 +293,7 @@ function WinReinstallStore {
             @{
                 Name   = 'DISM Capability'
                 Action = {
-                    $processResult = Invoke-WithSpinner -Activity "Aggiunta DISM Capability" -Process -Action {
+                    $result = Invoke-WithSpinner -Activity "Aggiunta Store via DISM" -Process -Action {
                         $procParams = @{
                             FilePath     = 'DISM'
                             ArgumentList = @('/Online','/Add-Capability','/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0')
@@ -334,7 +302,7 @@ function WinReinstallStore {
                         }
                         Start-Process @procParams
                     } -TimeoutSeconds 300
-                    return @{ ExitCode = $processResult.ExitCode }
+                    return @{ ExitCode = $result.ExitCode }
                 }
             }
         )
@@ -344,10 +312,7 @@ function WinReinstallStore {
             Write-StyledMessage -Type 'Info' -Text "Tentativo tramite: $($method.Name)..."
             try {
                 $result    = $method.Action.Invoke()
-                $isSuccess = $result -and (
-                    $result.ExitCode -eq 0 -or $result.ExitCode -eq 3010 -or
-                    $result.ExitCode -eq 1638 -or $result.ExitCode -eq -1978335189
-                )
+                $isSuccess = $result -and ($result.ExitCode -in @(0, 3010, 1638, -1978335189))
                 if ($isSuccess) {
                     Write-StyledMessage -Type 'Success' -Text "Microsoft Store reinstallato tramite $($method.Name)."
                     $success = $true
@@ -363,43 +328,28 @@ function WinReinstallStore {
         }
 
         if ($success) {
-            Write-StyledMessage -Type 'Info' -Text "Esecuzione di wsreset.exe per pulire la cache dello Store..."
-            try {
-                $null = Invoke-WithSpinner -Activity "Reset cache Microsoft Store (wsreset)" -Process -Action {
-                    $procParams = @{
-                        FilePath    = 'wsreset.exe'
-                        PassThru    = $true
-                        WindowStyle = 'Hidden'
-                    }
-                    Start-Process @procParams
-                } -TimeoutSeconds 120
-                Write-StyledMessage -Type 'Success' -Text "Cache dello Store ripristinata."
-            }
-            catch { }
+            $null = Invoke-WithSpinner -Activity "Reset cache Microsoft Store (wsreset)" -Process -Action {
+                $procParams = @{
+                    FilePath    = 'wsreset.exe'
+                    PassThru    = $true
+                    WindowStyle = 'Hidden'
+                }
+                Start-Process @procParams
+            } -TimeoutSeconds 120
+            Write-StyledMessage -Type 'Success' -Text "✅ Cache dello Store ripristinata."
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text "Impossibile reinstallare Microsoft Store tramite i metodi automatici."
-            Write-StyledMessage -Type 'Info' -Text "Esecuzione comando di emergenza (Get-AppxPackage reset)..."
+            Write-StyledMessage -Type 'Error' -Text "Impossibile reinstallare Microsoft Store tramite metodi automatici."
+            Write-StyledMessage -Type 'Info' -Text "Tentativo di emergenza tramite AppXManifest..."
             try {
-                $null = Invoke-WithSpinner -Activity "Ripristino di emergenza Store" -Process -Action {
-                    $outTmp = Join-Path $AppConfig.Paths.TempFolder 'appx_reset_out.log'
-                    $errTmp = Join-Path $AppConfig.Paths.TempFolder 'appx_reset_err.log'
-                    $procParams = @{
-                        FilePath               = 'powershell.exe'
-                        ArgumentList           = @('-NoProfile','-NonInteractive','-WindowStyle','Hidden','-Command',
-                                                    "Get-AppxPackage -AllUsers Microsoft.WindowsStore | ForEach-Object { `$ProgressPreference='SilentlyContinue'; Add-AppxPackage -DisableDevelopmentMode -Register `"`$(`$_.InstallLocation)\AppXManifest.xml`" -ForceApplicationShutdown }")
-                        PassThru               = $true
-                        WindowStyle            = 'Hidden'
-                        RedirectStandardOutput = $outTmp
-                        RedirectStandardError  = $errTmp
-                    }
-                    $p = Start-Process @procParams -Wait
-                    Remove-Item $outTmp, $errTmp -Force -ErrorAction SilentlyContinue *>$null
-                } -TimeoutSeconds 300
-                Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato tramite comando di emergenza."
+                $emergCmd = 'Get-AppxPackage -AllUsers Microsoft.WindowsStore | ForEach-Object { $ProgressPreference=''SilentlyContinue''; Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml" -ForceApplicationShutdown }'
+                $emergProc = Start-IsolatedProcess -Executable 'powershell.exe' `
+                    -Arguments "-NoProfile -NonInteractive -Command `"$emergCmd`""
+                $null = Invoke-WithSpinner -Activity "Ripristino di emergenza Store" -Process -Action { $emergProc } -TimeoutSeconds 300
+                Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato tramite metodo di emergenza."
             }
             catch {
-                Write-StyledMessage -Type 'Error' -Text "Comando di emergenza fallito."
+                Write-StyledMessage -Type 'Error' -Text "Ripristino di emergenza fallito: $($_.Exception.Message)"
             }
         }
 
@@ -415,23 +365,22 @@ function WinReinstallStore {
 
         $wingetExe = Get-WingetExecutable
         if (-not (Test-Path $wingetExe -ErrorAction SilentlyContinue)) {
-            Write-StyledMessage -Type 'Warning' -Text "Winget non disponibile o percorso inaccessibile. UniGet UI richiede Winget."
+            Write-StyledMessage -Type 'Warning' -Text "Winget non disponibile. UniGet UI richiede Winget."
             return $false
         }
 
         try {
             # Disinstalla versione precedente
-            $null = Invoke-WithSpinner -Activity "Disinstallazione versioni precedenti di UniGet UI" -Process -Action {
+            $null = Invoke-WithSpinner -Activity "Disinstallazione versioni precedenti UniGet UI" -Process -Action {
                 $procParams = @{
                     FilePath     = $wingetExe
-                    ArgumentList = @('uninstall','--exact','--id','MartiCliment.UniGetUI','--silent','--disable-interactivity')
+                    ArgumentList = @('uninstall','--exact','--id','MartiCliment.UniGetUI',
+                                     '--silent','--disable-interactivity')
                     PassThru     = $true
                     WindowStyle  = 'Hidden'
                 }
                 Start-Process @procParams
             } -TimeoutSeconds 120
-            
-            Write-StyledMessage -Type 'Info' -Text "Download e installazione silenziosa di UniGet UI..."
 
             $outLog = Join-Path $AppConfig.Paths.TempFolder 'winget_uniget_out.log'
             $errLog = Join-Path $AppConfig.Paths.TempFolder 'winget_uniget_err.log'
@@ -440,30 +389,27 @@ function WinReinstallStore {
                 $procParams = @{
                     FilePath               = $wingetExe
                     ArgumentList           = @('install','--exact','--id','MartiCliment.UniGetUI',
-                                                '--source','winget','--accept-source-agreements','--accept-package-agreements',
-                                                '--silent','--disable-interactivity','--force')
+                                               '--source','winget','--accept-source-agreements',
+                                               '--accept-package-agreements','--silent',
+                                               '--disable-interactivity','--force')
                     PassThru               = $true
                     WindowStyle            = 'Hidden'
                     RedirectStandardOutput = $outLog
                     RedirectStandardError  = $errLog
-                    ErrorAction            = 'Stop'
                 }
                 Start-Process @procParams
             } -TimeoutSeconds 600
-            
+
             Remove-Item $outLog, $errLog -Force -ErrorAction SilentlyContinue *>$null
 
-            $isSuccess = $processResult.ExitCode -eq 0 -or $processResult.ExitCode -eq 3010 -or
-                         $processResult.ExitCode -eq 1638 -or $processResult.ExitCode -eq -1978335189
+            $isSuccess = $processResult.ExitCode -in @(0, 3010, 1638, -1978335189)
 
             if ($isSuccess) {
                 Write-StyledMessage -Type 'Success' -Text "UniGet UI installato correttamente."
-
-                Write-StyledMessage -Type 'Info' -Text "🔄 Disabilitazione avvio automatico UniGet UI..."
                 try {
                     $regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
                     if (Get-ItemProperty -Path $regPath -Name 'WingetUI' -ErrorAction SilentlyContinue) {
-                        Remove-ItemProperty -Path $regPath -Name 'WingetUI' -ErrorAction Stop *>$null
+                        Remove-ItemProperty -Path $regPath -Name 'WingetUI' -ErrorAction SilentlyContinue *>$null
                         Write-StyledMessage -Type 'Success' -Text "Avvio automatico UniGet UI disabilitato."
                     }
                 }
@@ -485,10 +431,9 @@ function WinReinstallStore {
     # 6. ESECUZIONE PRINCIPALE
     # ============================================================================
     try {
-        Write-StyledMessage -Type 'Info' -Text "🚀 AVVIO REINSTALLAZIONE STORE"
-        Write-StyledMessage -Type 'Info' -Text "Inizio procedura di ripristino Store & Winget..."
+        Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget..."
 
-        # Reset Winget: prima prova Reset-Winget del framework, poi Invoke-WingetReinstall se fallisce
+        # Reset Winget: usa Reset-Winget del framework, poi fallback alla reinstallazione completa
         $wingetResult = $false
         if (Get-Command Reset-Winget -ErrorAction SilentlyContinue) {
             $wingetResult = Reset-Winget -Force
@@ -497,37 +442,25 @@ function WinReinstallStore {
             Write-StyledMessage -Type 'Warning' -Text "Fallback: reinstallazione Winget da zero..."
             $wingetResult = Invoke-WingetReinstall
         }
-        Write-StyledMessage -Type $(if ($wingetResult) { 'Success' } else { 'Warning' }) -Text `
-            "Winget $(if ($wingetResult) { 'ripristinato con successo' } else { 'processato (potrebbe richiedere verifica manuale)' })"
+        Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text `
+            "Winget $($wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)')"
 
         $storeResult = Install-MicrosoftStore
-        if (-not $storeResult) {
-            Write-StyledMessage -Type 'Error' -Text "Errore installazione Microsoft Store. Verifica connessione o Windows Update."
-        }
-        else {
-            Write-StyledMessage -Type 'Success' -Text "Microsoft Store installato"
-        }
+        Write-StyledMessage -Type ($storeResult ? 'Success' : 'Error') -Text `
+            "Microsoft Store $($storeResult ? 'reinstallato correttamente' : 'non reinstallato — verifica connessione o Windows Update.')"
 
         $unigetResult = Install-UniGetUI
-        Write-StyledMessage -Type $(if ($unigetResult) { 'Success' } else { 'Warning' }) -Text `
-            "UniGet UI $(if ($unigetResult) { 'installato' } else { 'processato (verifica manuale necessaria)' })"
+        Write-StyledMessage -Type ($unigetResult ? 'Success' : 'Warning') -Text `
+            "UniGet UI $($unigetResult ? 'installato' : 'processato (verifica manuale necessaria)')"
 
-        Write-Host ""
-        Write-Host ('═' * 80) -ForegroundColor Green
-        Write-StyledMessage -Type 'Success' -Text "🎉 OPERAZIONE COMPLETATA"
-        Write-StyledMessage -Type 'Info' -Text "Tutti i componenti (Winget, Store, UniGet UI) sono stati elaborati."
-        Write-Host ('═' * 80) -ForegroundColor Green
-
+        Write-StyledMessage -Type 'Success' -Text "🎉 Operazione completata. Tutti i componenti sono stati elaborati."
     }
     finally {
-        # Ripristino garantito dello stato grafico di PowerShell
-        $global:ProgressPreference = $global:OldProgressPreference
+        # [RULE-ERROR-01] Ripristino garantito della preferenza progress
+        $ProgressPreference = $savedProgressPref
     }
 
-    # ============================================================================
-    # 7. GESTIONE RIAVVIO
-    # ============================================================================
-
+    # [RULE-STRUCT-01] 4. GESTIONE RIAVVIO — SEMPRE ULTIMA
     if ($SuppressIndividualReboot) {
         $Global:NeedsFinalReboot = $true
     }
