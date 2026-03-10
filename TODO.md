@@ -45,6 +45,8 @@
   - [x] Invoke-WithSpinner adottato per tutti i processi lunghi: Repair-WinGetPackageManager, MSIXBundle, App Installer reset, Store install, UniGetUI install.
   - [x] Fix catch vuoto in Install-UniGetUI → logga l'eccezione con Write-StyledMessage -Type 'Error'.
   - [x] Write-Host nel finally rimosso → gestione riavvio delegata a Start-InterruptibleCountdown.
+  - [x] Risolti i problemi che potrebbero causare rotture grafiche dello script durante l'esecuzione.
+  - [x] Adeguato lo script alle linee generali di stile del progetto. 
 
 - `WinCleaner.ps1` Aggiornato.
   - [x] Aumentato il comando di Timeout a 24h [[#45](https://github.com/Magnetarman/WinToolkit/issues/45) [@pomodori92]](https://github.com/pomodori92).
