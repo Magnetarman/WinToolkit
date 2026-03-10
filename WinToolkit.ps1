@@ -65,7 +65,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 37)"
+$ToolkitVersion = "2.5.2 (Build 38)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -900,13 +900,11 @@ function WinUpdateReset {
             Write-StyledMessage -Type 'Info' -Text "💭 Directory $displayName non presente."
             return $true
         }
-        $originalPos = [Console]::CursorTop
         try {
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
             $VerbosePreference = 'SilentlyContinue'
             Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue *>$null
-            [Console]::SetCursorPosition(0, $originalPos)
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLines -NoNewline
             [Console]::Out.Flush()
@@ -914,7 +912,6 @@ function WinUpdateReset {
             return $true
         }
         catch {
-            [Console]::SetCursorPosition(0, $originalPos)
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLines -NoNewline
             Write-StyledMessage -Type 'Warning' -Text "Tentativo fallito, provo con eliminazione forzata..."
@@ -931,7 +928,6 @@ function WinUpdateReset {
                 $null = Start-Process @procParams
                 Remove-Item $tempDir -Force -ErrorAction SilentlyContinue | Out-Null
                 Remove-Item $path -Force -ErrorAction SilentlyContinue | Out-Null
-                [Console]::SetCursorPosition(0, $originalPos)
                 $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Write-Host $clearLines -NoNewline
                 [Console]::Out.Flush()
@@ -1039,11 +1035,9 @@ function WinUpdateReset {
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
-            [Console]::SetCursorPosition(0, [Console]::CursorTop)
             Start-Sleep -Milliseconds 500
         }
         [Console]::Out.Flush()
-        [Console]::SetCursorPosition(0, [Console]::CursorTop)
         Write-StyledMessage -Type 'Info' -Text '🚀 Avvio servizi essenziali...'
         $essentialServices = @('wuauserv', 'cryptsvc', 'bits')
         for ($essentialIndex = 0; $essentialIndex -lt $essentialServices.Count; $essentialIndex++) {
