@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     WinToolkit GUI v2.0
 .DESCRIPTION
@@ -18,7 +18,7 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "2.5.1 (Build 130)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "3.0.0 (Build 3)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
@@ -816,6 +816,27 @@ $xaml = @"
                 </Setter.Value>
             </Setter>
         </Style>
+        
+        <!-- Style per una ProgressBar arrotondata (Pill) -->
+        <Style x:Key="PillProgressBarStyle" TargetType="ProgressBar">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border x:Name="PART_Track" 
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="10" />
+                            <Border x:Name="PART_Indicator"
+                                    Background="{TemplateBinding Foreground}"
+                                    CornerRadius="10" 
+                                    HorizontalAlignment="Left" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid Background="{StaticResource BackgroundDark}">
@@ -1127,16 +1148,18 @@ $xaml = @"
         <Border Grid.Row="3" Background="{StaticResource HeaderBackgroundColor}" 
                 Padding="16" Margin="16,8,16,16" CornerRadius="12">
             <StackPanel>
-                <!-- ProgressBar visibile con altezza 20 e colore azzurro vivido -->
+                <!-- ProgressBar visibile con altezza 20 e colore azzurro vivido, resa pill-shaped via Style -->
                 <ProgressBar x:Name="MainProgressBar"
                              Height="20"
                              Margin="0,0,0,12"
                              Background="{StaticResource PanelBackgroundColor}"
                              BorderBrush="{StaticResource SeparatorGreen}"
+                             BorderThickness="1"
                              Foreground="#2196F3"
                              Minimum="0"
                              Maximum="100"
-                             Value="0"/>
+                             Value="0"
+                             Style="{StaticResource PillProgressBarStyle}"/>
 
                 <!-- Pulsante Esegui centrato, pill-shaped (CornerRadius 25), azzurro -->
                 <Button x:Name="ExecuteButton"
@@ -1165,6 +1188,26 @@ $xaml = @"
 try {
     Write-UnifiedLog -Type 'Info' -Message "Creating WPF window..." -GuiColor "#00CED1"
     $window = [Windows.Markup.XamlReader]::Parse($xaml)
+    
+    # Setup Window Icon (Favicon & Taskbar) - Remote Fallback
+    try {
+        $localImgDir = Join-Path $env:LOCALAPPDATA "WinToolkit\img"
+        if (-not (Test-Path $localImgDir)) { New-Item -Path $localImgDir -ItemType Directory -Force | Out-Null }
+        
+        $iconPath = Join-Path $localImgDir "WinToolkit.ico"
+        $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
+        
+        if (-not (Test-Path $iconPath)) {
+            Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing -ErrorAction Stop
+        }
+        
+        if (Test-Path $iconPath) {
+            $window.Icon = [System.Windows.Media.Imaging.BitmapImage]::new([uri]$iconPath)
+        }
+    } catch {
+        Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile caricare o scaricare l'icona della finestra: $($_.Exception.Message)" -GuiColor "#FFA500"
+    }
+
     Write-UnifiedLog -Type 'Success' -Message "Window created successfully" -GuiColor "#00FF00"
 }
 catch {
@@ -1242,6 +1285,36 @@ try {
         }
     }
     
+    # Inizializza l'icona Tool (WinToolkit logo header) - Remote Fallback
+    if ($ToolIconImage) {
+        try {
+            $localImgDir = Join-Path $env:LOCALAPPDATA "WinToolkit\img"
+            if (-not (Test-Path $localImgDir)) { New-Item -Path $localImgDir -ItemType Directory -Force | Out-Null }
+            
+            # Qui usiamo la stessa icona scaricata prima, o ne scarichiamo un'altra se serve. 
+            # In base alla richiesta utente carichiamo WinToolkit.ico
+            $toolLogoPath = Join-Path $localImgDir "WinToolkit.ico"
+            $toolLogoUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
+            
+            if (-not (Test-Path $toolLogoPath)) {
+                Invoke-WebRequest -Uri $toolLogoUrl -OutFile $toolLogoPath -UseBasicParsing -ErrorAction Stop
+            }
+
+            if (Test-Path $toolLogoPath) {
+                # Usa IconBitmapDecoder per leggere l'ico all'interno delle Image WPF
+                $decoder = New-Object System.Windows.Media.Imaging.IconBitmapDecoder(
+                    [uri]$toolLogoPath,
+                    [System.Windows.Media.Imaging.BitmapCreateOptions]::None,
+                    [System.Windows.Media.Imaging.BitmapCacheOption]::Default
+                )
+                $ToolIconImage.Source = $decoder.Frames[0]
+            }
+        }
+        catch {
+            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Could not load ToolIconImage: $($_.Exception.Message)" -GuiColor "#FFA500"
+        }
+    }
+    
     Write-UnifiedLog -Type 'Success' -Message "✅ ExecuteButton configurato con stile pill-shaped e icona Play" -GuiColor "#00FF00"
 }
 catch {
@@ -1313,7 +1386,7 @@ function Update-SystemInformationPanel {
             
                 # Aggiorna stato Bitlocker
                 try {
-                    $blStatus = CheckBitlocker
+                    $blStatus = Get-BitlockerStatus
                     $SysInfoBitlocker.Text = $blStatus
                     
                     # Colorazione status Bitlocker (verde/giallo/rosso) basato sulla stringa returned
