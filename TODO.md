@@ -39,12 +39,12 @@
   - [x] Aggiornato Show-Header in modo da allineare la [PR #40](https://github.com/MagnetarMan/WinToolkit/issues/40).
 
 - `WinReinstallStore.ps1` Aggiornato.
-- [x] Helper locali ridondanti rimossi: Clear-ProgressLine, Stop-InterferingProcesses, Test-WingetAvailable erano tutti già disponibili globalmente nel template.
-- [x] $ErrorActionPreference globale eliminato in tutte e 3 le funzioni → -ErrorAction SilentlyContinue per operazione.
-- [x] Write-StyledMessage corretta da sintassi posizionale Write-StyledMessage Info "..." a Write-StyledMessage -Type 'Info' -Text "...".
-- [x] Invoke-WithSpinner adottato per tutti i processi lunghi: Repair-WinGetPackageManager, MSIXBundle, App Installer reset, Store install, UniGetUI install.
-- [x] Fix catch vuoto in Install-UniGetUI → logga l'eccezione con Write-StyledMessage -Type 'Error'.
-- [x] Write-Host nel finally rimosso → gestione riavvio delegata a Start-InterruptibleCountdown.
+  - [x] Helper locali ridondanti rimossi: Clear-ProgressLine, Stop-InterferingProcesses, Test-WingetAvailable erano tutti già disponibili globalmente nel template.
+  - [x] $ErrorActionPreference globale eliminato in tutte e 3 le funzioni → -ErrorAction SilentlyContinue per operazione.
+  - [x] Write-StyledMessage corretta da sintassi posizionale Write-StyledMessage Info "..." a Write-StyledMessage -Type 'Info' -Text "...".
+  - [x] Invoke-WithSpinner adottato per tutti i processi lunghi: Repair-WinGetPackageManager, MSIXBundle, App Installer reset, Store install, UniGetUI install.
+  - [x] Fix catch vuoto in Install-UniGetUI → logga l'eccezione con Write-StyledMessage -Type 'Error'.
+  - [x] Write-Host nel finally rimosso → gestione riavvio delegata a Start-InterruptibleCountdown.
 
 - `WinCleaner.ps1` Aggiornato.
   - [x] Aumentato il comando di Timeout a 24h [[#45](https://github.com/Magnetarman/WinToolkit/issues/45) [@pomodori92]](https://github.com/pomodori92).
@@ -67,6 +67,7 @@
   - [x] Blocco di assemblaggio potenziato. Adesso esegue una Validazione, StripComments e Logging injection.
   - [x] Aggiunta una suite di test estensiva prima della compilazione in modo da evitare errori di sintassi.
   - [x] Migliorata la struttura all'interno della cartela .github in modo da migliorare la manutenzione e la leggibilità del codice della Pipeline CI/CD. 
+  - [x] Aggiornata PiPeline CI/CD in modo da integrare una creazione di Pre-Release ad ogni rilascio in dev, con citazione di eventuali PR effettuati dagli utenti.[[Requested by @Pomodori92]](https://github.com/pomodori92).
 
 - `WinUpdateReset.ps1` Aggiornato.
   - [x] Migliorata l'esecuzione dello script riducendo il codice boilerplate.
@@ -75,6 +76,13 @@
 - `WinBackupDriver.ps1` Aggiornato.
   - [x] Risolto un problema per cui su PC poco potenti il timeout rendeva nulla la funzionalità dello script. Maggiorati a 800 secondi i timeout.
   - [x] Risolto il problema della richiesta doppio escape.
+
+- `WinToolkit-GUI.ps1` Aggiornato.
+  - [x] Risolto un bug Grafico dovuto a modifiche nel ramo V 2.5.0.
+  - [x] Aggiornata Funzione check bitlooker.
+  - [x] Aggiunto download e caricamento Favicon ToolKit.
+  - [x] Migliorata la grafica della barra di avanzamento personalizzata.
+  - [x] Resa maggiormente fluida l'animazione di riempimento della barra di avanzamento personalizzata.  
 
 
 ### V 2.6 - Debloat
