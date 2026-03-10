@@ -223,7 +223,7 @@ jobs:
   # JOB 3: BUILD - Compilazione e commit finale script
   # ---------------------------------------------------------------------------
   build:
-    name: Build & Release
+    name: Build
     runs-on: windows-latest
     needs: versioning
 
@@ -417,7 +417,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $version = "${{ needs.versioning.outputs.new_version }}"
-          $tag = "v$version"
           
-          Write-Host "Creazione pre-release per il tag $tag"
+          if (-not $version -or $version -eq '') {
+              Write-Error "ERROR: The release version (tag) is empty. Ensure the versioning job sets outputs.new_version correctly."
+              exit 1
+          }
+          
+          # Sanitize tag name (replaces ' (' with '-', removes ')', and removes spaces)
+          $tag = "v$version" -replace ' \(', '-' -replace '\)', '' -replace ' ', ''
+          
+          Write-Host "Creazione pre-release per la versione '$version' con il tag '$tag'"
           gh release create $tag "WinToolkit.ps1" --title "WinToolkit $tag (Dev Pre-Release)" --notes-file release_body.md --prerelease --target Dev
