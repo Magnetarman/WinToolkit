@@ -27,6 +27,7 @@ function WinReinstallStore {
 
     Start-ToolkitLog -ToolName "WinReinstallStore"
     Show-Header -SubTitle "Store Repair Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Store Repair Toolkit By MagnetarMan"
 
     # ============================================================================
     # 2. FUNZIONI HELPER LOCALI (Microsoft Store & UniGet UI)
@@ -41,12 +42,11 @@ function WinReinstallStore {
         }
 
         # Pulizia cache Store
-        $cachePaths = @(
-            @{ Path = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache"; Description = "Windows Store Local Cache" },
-            @{ Path = "$env:LOCALAPPDATA\Microsoft\Windows\INetCache"; Description = "Internet Cache" }
-        )
-        foreach ($cache in $cachePaths) {
-            if (Test-Path $cache.Path) { Remove-Item $cache.Path -Recurse -Force -ErrorAction SilentlyContinue *>$null }
+        @(
+            "$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
+            "$env:LOCALAPPDATA\Microsoft\Windows\INetCache"
+        ) | ForEach-Object {
+            if (Test-Path $_) { Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null }
         }
 
         # Metodi di installazione in ordine di preferenza
@@ -62,9 +62,11 @@ function WinReinstallStore {
                         ArgumentList = @('install', '9WZDNCRFJBMP', '--accept-source-agreements',
                             '--accept-package-agreements', '--silent', '--disable-interactivity')
                         PassThru     = $true
+                        Wait         = $true
                         WindowStyle  = 'Hidden'
                     }
-                    Start-Process @procParams
+                    $proc = Start-Process @procParams
+                    return @{ ExitCode = $proc.ExitCode }
                 }
             },
             @{
@@ -72,17 +74,31 @@ function WinReinstallStore {
                 Action = {
                     $store = Get-AppxPackage -AllUsers *WindowsStore* -ErrorAction SilentlyContinue | Select-Object -First 1
                     if (-not $store -or -not $store.InstallLocation) { return @{ ExitCode = -1 } }
-                    
+
                     $manifest = Join-Path $store.InstallLocation "AppxManifest.xml"
                     if (-not (Test-Path $manifest)) { return @{ ExitCode = -1 } }
-                    
-                    # Usa direttamente Add-AppxPackage all'interno dello script blocco per catturare gli errori reali
+
                     try {
                         Add-AppxPackage -DisableDevelopmentMode -Register $manifest -ForceApplicationShutdown -ErrorAction Stop
                         return @{ ExitCode = 0 }
-                    } catch {
+                    }
+                    catch {
                         return @{ ExitCode = -1 }
                     }
+                }
+            },
+            @{
+                Name   = "DISM Capability"
+                Action = {
+                    $procParams = @{
+                        FilePath     = 'DISM'
+                        ArgumentList = @('/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0')
+                        PassThru     = $true
+                        Wait         = $true
+                        WindowStyle  = 'Hidden'
+                    }
+                    $proc = Start-Process @procParams
+                    return @{ ExitCode = $proc.ExitCode }
                 }
             }
         )
@@ -90,13 +106,25 @@ function WinReinstallStore {
         $success = $false
         foreach ($method in $installMethods) {
             Write-StyledMessage -Type 'Info' -Text "Tentativo tramite: $($method.Name)..."
-            
+
             try {
                 $processResult = $method.Action.Invoke()
-                if ($processResult -and $processResult.ExitCode -eq 0) {
+
+                # Codici di successo: 0, 3010 (reboot richiesto), 1638 (già installato), -1978335189 (winget noop)
+                $isSuccess = $processResult -and (
+                    $processResult.ExitCode -eq 0 -or
+                    $processResult.ExitCode -eq 3010 -or
+                    $processResult.ExitCode -eq 1638 -or
+                    $processResult.ExitCode -eq -1978335189
+                )
+
+                if ($isSuccess) {
                     Write-StyledMessage -Type 'Success' -Text "Microsoft Store reinstallato tramite $($method.Name)."
                     $success = $true
                     break
+                }
+                else {
+                    Write-StyledMessage -Type 'Warning' -Text "Metodo $($method.Name) non riuscito (ExitCode: $($processResult.ExitCode ?? 'N/A'))."
                 }
             }
             catch {
@@ -104,60 +132,99 @@ function WinReinstallStore {
             }
         }
 
-        if (-not $success) {
+        if ($success) {
+            # Esegui wsreset.exe solo dopo successo, in processo nascosto
+            Write-StyledMessage -Type 'Info' -Text "Esecuzione di wsreset.exe per pulire la cache dello Store..."
+            try {
+                Start-Process -FilePath 'wsreset.exe' -Wait -WindowStyle 'Hidden' -ErrorAction SilentlyContinue
+                Write-StyledMessage -Type 'Success' -Text "Cache dello Store ripristinata."
+            }
+            catch {}
+        }
+        else {
             Write-StyledMessage -Type 'Error' -Text "Impossibile reinstallare Microsoft Store tramite i metodi automatici."
             Write-StyledMessage -Type 'Info' -Text "Esecuzione comando di emergenza (Get-AppxPackage reset)..."
             try {
-                Get-AppxPackage -AllUsers Microsoft.WindowsStore | ForEach-Object { Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml" -ForceApplicationShutdown }
+                Get-AppxPackage -AllUsers Microsoft.WindowsStore | ForEach-Object {
+                    Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml" -ForceApplicationShutdown
+                }
                 Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato tramite comando di emergenza."
             }
             catch {
                 Write-StyledMessage -Type 'Error' -Text "Comando di emergenza fallito."
             }
         }
+
+        return $success
     }
 
     function Install-UniGetUI {
-        Write-StyledMessage -Type 'Info' -Text "🔄 Installazione UniGet UI (WinGetUI)..."
+        Write-StyledMessage -Type 'Info' -Text "🔄 Installazione UniGet UI..."
 
         $isWingetReady = [bool](Get-Command winget -ErrorAction SilentlyContinue)
         if (-not $isWingetReady) {
             Write-StyledMessage -Type 'Warning' -Text "Winget non disponibile. UniGet UI richiede Winget."
-            return
+            return $false
         }
 
         try {
-            # Verifica se è già installato (cattura stderr invece di scartarlo)
-            $wingetCheckErr = $null
-            $existing = & winget list --id SomePythonThing.WinGetUI --accept-source-agreements 2>&1 | Tee-Object -Variable wingetCheckErr
-            if ($wingetCheckErr -match 'error' -or $LASTEXITCODE -ne 0) {
-                Write-ToolkitLog -Level DEBUG -Message "winget list check output: $wingetCheckErr"
-            }
-            if ($existing -match "SomePythonThing.WinGetUI") {
-                Write-StyledMessage -Type 'Success' -Text "UniGet UI già presente nel sistema."
-                return
-            }
+            # Prima disinstalla la versione precedente (se presente)
+            Start-Process -FilePath 'winget' -ArgumentList @(
+                'uninstall', '--exact', '--id', 'MartiCliment.UniGetUI',
+                '--silent', '--disable-interactivity'
+            ) -Wait -WindowStyle 'Hidden' -ErrorAction SilentlyContinue
+            Start-Sleep 2
 
             Write-StyledMessage -Type 'Info' -Text "Download e installazione silenziosa di UniGet UI..."
             $procParams = @{
                 FilePath     = 'winget'
-                ArgumentList = @('install', '--id', 'SomePythonThing.WinGetUI', '--silent',
-                    '--accept-package-agreements', '--accept-source-agreements', '--force', '--disable-interactivity')
+                ArgumentList = @(
+                    'install', '--exact', '--id', 'MartiCliment.UniGetUI',
+                    '--source', 'winget',
+                    '--accept-source-agreements', '--accept-package-agreements',
+                    '--silent', '--disable-interactivity', '--force'
+                )
                 PassThru     = $true
+                Wait         = $true
                 WindowStyle  = 'Hidden'
             }
             $process = Start-Process @procParams
-            $process.WaitForExit()
 
-            if ($process.ExitCode -eq 0) {
+            # Codici di successo: 0, 3010, 1638, -1978335189 (winget noop)
+            $isSuccess = $process.ExitCode -eq 0 -or
+                         $process.ExitCode -eq 3010 -or
+                         $process.ExitCode -eq 1638 -or
+                         $process.ExitCode -eq -1978335189
+
+            if ($isSuccess) {
                 Write-StyledMessage -Type 'Success' -Text "UniGet UI installato correttamente."
+
+                # Disabilita avvio automatico UniGet UI
+                Write-StyledMessage -Type 'Info' -Text "🔄 Disabilitazione avvio automatico UniGet UI..."
+                try {
+                    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+                    $regKeyName = "WingetUI"
+                    if (Get-ItemProperty -Path $regPath -Name $regKeyName -ErrorAction SilentlyContinue) {
+                        Remove-ItemProperty -Path $regPath -Name $regKeyName -ErrorAction Stop | Out-Null
+                        Write-StyledMessage -Type 'Success' -Text "Avvio automatico UniGet UI disabilitato."
+                    }
+                    else {
+                        Write-StyledMessage -Type 'Info' -Text "La voce di avvio automatico per UniGet UI non è stata trovata."
+                    }
+                }
+                catch {
+                    Write-StyledMessage -Type 'Warning' -Text "Impossibile disabilitare l'avvio automatico di UniGet UI: $($_.Exception.Message)"
+                }
+                return $true
             }
             else {
                 Write-StyledMessage -Type 'Warning' -Text "Installazione UniGet UI terminata con codice: $($process.ExitCode)"
+                return $false
             }
         }
         catch {
             Write-StyledMessage -Type 'Error' -Text "Errore durante installazione UniGet UI: $($_.Exception.Message)"
+            return $false
         }
     }
 
@@ -165,27 +232,32 @@ function WinReinstallStore {
     # 3. ESECUZIONE PRINCIPALE
     # ============================================================================
 
+    Write-StyledMessage -Type 'Info' -Text "🚀 AVVIO REINSTALLAZIONE STORE"
     Write-StyledMessage -Type 'Info' -Text "Inizio procedura di ripristino Store & Winget..."
-    
-    # Step 1: Reset Winget (Funzione Core)
+
+    # Step 1: Reset Winget (Funzione Core del framework)
     $wingetResult = Reset-Winget -Force
-    
-    if ($wingetResult) {
-        # Step 2: Install Microsoft Store
-        Install-MicrosoftStore
-        
-        # Step 3: Install UniGet UI
-        Install-UniGetUI
-        
-        Write-Host ""
-        Write-Host ('═' * 80) -ForegroundColor Green
-        Write-StyledMessage -Type 'Success' -Text "Procedura di ripristino completata con successo!"
-        Write-StyledMessage -Type 'Info' -Text "Tutti i componenti (Winget, Store, UniGet UI) sono stati elaborati."
-        Write-Host ('═' * 80) -ForegroundColor Green
+    Write-StyledMessage -Type $(if ($wingetResult) { 'Success' } else { 'Warning' }) -Text "Winget $(if ($wingetResult) { 'ripristinato con successo' } else { 'processato (potrebbe richiedere verifica manuale)' })"
+
+    # Step 2: Install Microsoft Store
+    $storeResult = Install-MicrosoftStore
+    if (-not $storeResult) {
+        Write-StyledMessage -Type 'Error' -Text "Errore installazione Microsoft Store"
+        Write-StyledMessage -Type 'Info' -Text "Verifica: Internet, Admin, Windows Update"
     }
     else {
-        Write-StyledMessage -Type 'Error' -Text "La riparazione di Winget è fallita. Impossibile procedere con Store e UniGet UI."
+        Write-StyledMessage -Type 'Success' -Text "Microsoft Store installato"
     }
+
+    # Step 3: Install UniGet UI
+    $unigetResult = Install-UniGetUI
+    Write-StyledMessage -Type $(if ($unigetResult) { 'Success' } else { 'Warning' }) -Text "UniGet UI $(if ($unigetResult) { 'installato' } else { 'processato (potrebbe richiedere verifica manuale)' })"
+
+    Write-Host ""
+    Write-Host ('═' * 80) -ForegroundColor Green
+    Write-StyledMessage -Type 'Success' -Text "🎉 OPERAZIONE COMPLETATA"
+    Write-StyledMessage -Type 'Info' -Text "Tutti i componenti (Winget, Store, UniGet UI) sono stati elaborati."
+    Write-Host ('═' * 80) -ForegroundColor Green
 
     # ============================================================================
     # 4. GESTIONE RIAVVIO
@@ -204,5 +276,10 @@ function WinReinstallStore {
     }
     else {
         Write-StyledMessage -Type 'Warning' -Text "Riavvio manuale consigliato per applicare tutte le modifiche."
+    }
+
+    if (-not $SuppressIndividualReboot) {
+        Write-Host "`nPremi Enter per uscire..." -ForegroundColor Gray
+        Read-Host
     }
 }
