@@ -126,7 +126,6 @@ function WinUpdateReset {
             return $true
         }
 
-        $originalPos = [Console]::CursorTop
         try {
             $ErrorActionPreference = 'SilentlyContinue'
             $ProgressPreference = 'SilentlyContinue'
@@ -134,7 +133,6 @@ function WinUpdateReset {
 
             Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue *>$null
 
-            [Console]::SetCursorPosition(0, $originalPos)
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLines -NoNewline
             [Console]::Out.Flush()
@@ -143,7 +141,6 @@ function WinUpdateReset {
             return $true
         }
         catch {
-            [Console]::SetCursorPosition(0, $originalPos)
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLines -NoNewline
 
@@ -164,7 +161,6 @@ function WinUpdateReset {
                 Remove-Item $tempDir -Force -ErrorAction SilentlyContinue | Out-Null
                 Remove-Item $path -Force -ErrorAction SilentlyContinue | Out-Null
 
-                [Console]::SetCursorPosition(0, $originalPos)
                 $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Write-Host $clearLines -NoNewline
                 [Console]::Out.Flush()
@@ -291,12 +287,10 @@ function WinUpdateReset {
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
-            [Console]::SetCursorPosition(0, [Console]::CursorTop)
             Start-Sleep -Milliseconds 500
         }
 
         [Console]::Out.Flush()
-        [Console]::SetCursorPosition(0, [Console]::CursorTop)
 
         Write-StyledMessage -Type 'Info' -Text '🚀 Avvio servizi essenziali...'
         $essentialServices = @('wuauserv', 'cryptsvc', 'bits')
