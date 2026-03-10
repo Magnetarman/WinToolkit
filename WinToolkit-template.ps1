@@ -84,18 +84,22 @@ function Read-Host {
     }
     catch {
         # Fallback in caso di errori imprevisti nel loop
-        if ($Prompt) { return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt }
+        if ($Prompt) {
+            return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt
+        }
         return Microsoft.PowerShell.Utility\Read-Host
     }
     finally {
-        try { [console]::TreatControlCAsInput = $oldTreatControlC } catch {}
+        try {
+            [console]::TreatControlCAsInput = $oldTreatControlC
+        } catch {}
     }
 }
 
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 39)"
+$ToolkitVersion = "2.5.2 (Build 40)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -194,8 +198,7 @@ function Clear-ProgressLine {
             $width = $Host.UI.RawUI.WindowSize.Width - 1
             Write-Host "`r$(' ' * $width)" -NoNewline
             Write-Host "`r" -NoNewline
-        }
-        catch {
+        } catch {
             Write-Host "`r                                                                                `r" -NoNewline
         }
     }
@@ -212,17 +215,20 @@ function Write-StyledMessage {
 
     # Bridge: mirror to log file (silently, no UI side-effects)
     $logLevel = switch ($Type) {
-        'Success' { 'SUCCESS' }
-        'Warning' { 'WARNING' }
-        'Error' { 'ERROR' }
+        'Success'  { 'SUCCESS' }
+        'Warning'  { 'WARNING' }
+        'Error'    { 'ERROR' }
         'Progress' { 'INFO' }
-        default { 'INFO' }
+        default    { 'INFO' }
     }
     Write-ToolkitLog -Level $logLevel -Message $Text
 }
 
 function Center-Text {
-    param([string]$Text, [int]$Width = $Host.UI.RawUI.BufferSize.Width)
+    param(
+        [string]$Text,
+        [int]$Width = $Host.UI.RawUI.BufferSize.Width
+    )
     $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
     return (' ' * $padding + $Text)
 }
@@ -238,7 +244,6 @@ function Show-Header {
     if ($Global:GuiSessionActive) {
         return
     }
-
     Clear-Host
     $width = $Host.UI.RawUI.BufferSize.Width
     $asciiArt = @(
@@ -269,11 +274,15 @@ function Start-ToolkitLog {
     param([string]$ToolName)
 
     # Pulizia residui transcript (backward compat)
-    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
+    try {
+        Stop-Transcript -ErrorAction SilentlyContinue
+    } catch {}
 
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = $AppConfig.Paths.Logs
-    if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
+    if (-not (Test-Path $logdir)) {
+        New-Item -Path $logdir -ItemType Directory -Force | Out-Null
+    }
     $Global:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
 
     # Raccolta metadati di sistema per l'header
@@ -291,7 +300,12 @@ function Start-ToolkitLog {
     $build = [int]$os.BuildNumber
     $verMap = @{26100 = '24H2'; 22631 = '23H2'; 22621 = '22H2'; 22000 = '21H2'; 19045 = '22H2'; 19044 = '21H2' }
     $dispVer = 'N/A'
-    foreach ($k in ($verMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $dispVer = $verMap[$k]; break } }
+    foreach ($k in ($verMap.Keys | Sort-Object -Descending)) {
+        if ($build -ge $k) {
+            $dispVer = $verMap[$k]
+            break
+        }
+    }
 
     $header = @"
 [START LOG HEADER]
@@ -316,7 +330,9 @@ WSManStackVersion       : $wsManVer
 [END LOG HEADER]
 
 "@
-    try { Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    try {
+        Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue
+    } catch {}
 }
 
 function Write-ToolkitLog {
@@ -337,9 +353,13 @@ function Write-ToolkitLog {
     $clean = $Message -replace '^\s+', ''
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
-        try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {}
+        try {
+            $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3)
+        } catch {}
     }
-    try { Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    try {
+        Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
+    } catch {}
 }
 
 function Reset-Winget {
@@ -372,23 +392,30 @@ function Reset-Winget {
         try {
             $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing -ErrorAction Stop
             $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
-            if ($asset) { return $asset.browser_download_url }
-        }
-        catch {}
+            if ($asset) {
+                return $asset.browser_download_url
+            }
+        } catch {}
         return $null
     }
 
     function _Test-WingetCompatibility {
         $osInfo = [Environment]::OSVersion
-        if ($osInfo.Version.Major -lt 10) { return $false }
-        if ($osInfo.Version.Major -eq 10 -and $osInfo.Version.Build -lt 16299) { return $false }
+        if ($osInfo.Version.Major -lt 10) {
+            return $false
+        }
+        if ($osInfo.Version.Major -eq 10 -and $osInfo.Version.Build -lt 16299) {
+            return $false
+        }
         return $true
     }
 
     function _Invoke-ForceClose {
         Write-StyledMessage -Type Info -Text "Chiusura processi interferenti..."
         $procs = @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore", "Microsoft.DesktopAppInstaller", "winget", "WindowsPackageManagerServer")
-        foreach ($p in $procs) { Get-Process -Name $p -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID } | Stop-Process -Force -ErrorAction SilentlyContinue }
+        foreach ($p in $procs) {
+            Get-Process -Name $p -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID } | Stop-Process -Force -ErrorAction SilentlyContinue
+        }
         Start-Sleep 2
     }
 
@@ -406,10 +433,11 @@ function Reset-Winget {
 
                 # Update PATH
                 $sysPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-                if (-not ($sysPath -split ';').Contains($wingetDir.FullName)) { [Environment]::SetEnvironmentVariable('Path', "$sysPath;$($wingetDir.FullName)", 'Machine') }
+                if (-not ($sysPath -split ';').Contains($wingetDir.FullName)) {
+                    [Environment]::SetEnvironmentVariable('Path', "$sysPath;$($wingetDir.FullName)", 'Machine')
+                }
             }
-        }
-        catch {}
+        } catch {}
     }
 
     # --- Logica Principale ---
@@ -428,16 +456,18 @@ function Reset-Winget {
         $vcUrl = if ([Environment]::Is64BitOperatingSystem) { $AppConfig.URLs.VCRedist64 } else { $AppConfig.URLs.VCRedist86 }
         $tempFile = Join-Path $AppConfig.Paths.Temp "vc_redist.exe"
         try {
-            if (-not (Test-Path $AppConfig.Paths.Temp)) { New-Item -Path $AppConfig.Paths.Temp -ItemType Directory -Force | Out-Null }
+            if (-not (Test-Path $AppConfig.Paths.Temp)) {
+                New-Item -Path $AppConfig.Paths.Temp -ItemType Directory -Force | Out-Null
+            }
             Invoke-WebRequest -Uri $vcUrl -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
             Start-Process -FilePath $tempFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
             Write-StyledMessage -Type Success -Text "VC++ Redist installato."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "Errore installazione VC++: $($_.Exception.Message)"
-        }
-        finally {
-            if (Test-Path $tempFile) { Remove-Item $tempFile -Force }
+        } finally {
+            if (Test-Path $tempFile) {
+                Remove-Item $tempFile -Force
+            }
         }
     }
 
@@ -463,10 +493,14 @@ function Reset-Winget {
                     Add-AppxPackage -Path $_.FullName -ForceApplicationShutdown -ErrorAction SilentlyContinue
                 }
                 Write-StyledMessage -Type Success -Text "Dipendenze Appx installate."
-            }
-            catch {} finally {
-                if (Test-Path $depZip) { Remove-Item $depZip -Force }
-                if (Test-Path $depDir) { Remove-Item $depDir -Recurse -Force }
+            } catch {}
+            finally {
+                if (Test-Path $depZip) {
+                    Remove-Item $depZip -Force
+                }
+                if (Test-Path $depDir) {
+                    Remove-Item $depDir -Recurse -Force
+                }
             }
         }
 
@@ -479,11 +513,9 @@ function Reset-Winget {
             Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing -ErrorAction Stop
             Add-AppxPackage -Path $bundleFile -ForceApplicationShutdown -ErrorAction Stop
             Write-StyledMessage -Type Success -Text "Winget Bundle installato."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Error -Text "Installazione fallita: $($_.Exception.Message)"
-        }
-        finally {
+        } finally {
             if (Test-Path $bundleFile) { Remove-Item $bundleFile -Force }
         }
     }
@@ -493,8 +525,7 @@ function Reset-Winget {
     try {
         Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
         & winget source reset --force 2>$null
-    }
-    catch {}
+    } catch {}
 
     _Apply-Permissions
     & $UpdateEnvironmentPath
@@ -980,6 +1011,7 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
+
 
 
 
