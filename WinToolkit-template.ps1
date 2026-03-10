@@ -355,6 +355,9 @@ function Reset-Winget {
     # Suppress native progress bars to prevent UI glitches
     $ProgressPreference = 'SilentlyContinue'
 
+    # Fix encoding per chiamate a eseguibili nativi (es. winget)
+    $OutputEncoding = [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+
     # --- Helper Interni ---
     $UpdateEnvironmentPath = {
         $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
@@ -498,13 +501,19 @@ function Reset-Winget {
 
     # FASE 3: Test Finale
     Write-StyledMessage -Type Info -Text "🔍 Verifica finale connettività..."
-    $test = & winget search "Git.Git" --accept-source-agreements 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-StyledMessage -Type Success -Text "✅ Winget ripristinato con successo."
-        return $true
+    try {
+        $testProc = Start-Process -FilePath 'winget' -ArgumentList @('search', 'Git.Git', '--accept-source-agreements', '--disable-interactivity') -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop
+        if ($testProc.ExitCode -eq 0) {
+            Write-StyledMessage -Type Success -Text "✅ Winget ripristinato con successo."
+            return $true
+        }
+        else {
+            Write-StyledMessage -Type Error -Text "❌ Winget non operativo dopo il reset (ExitCode: $($testProc.ExitCode))."
+            return $false
+        }
     }
-    else {
-        Write-StyledMessage -Type Error -Text "❌ Winget non operativo dopo il reset."
+    catch {
+        Write-StyledMessage -Type Error -Text "❌ Winget non raggiungibile: $($_.Exception.Message)"
         return $false
     }
 }
