@@ -69,7 +69,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 47)"
+$ToolkitVersion = "2.5.2 (Build 48)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1388,13 +1388,10 @@ function WinReinstallStore {
         $env:Path    = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
         [System.Environment]::SetEnvironmentVariable('Path', $env:Path, 'Process')
     }
-    function Start-IsolatedProcess {
-        param([string]$Executable, [string]$Arguments)
-        $psi                    = [System.Diagnostics.ProcessStartInfo]::new($Executable)
-        $psi.Arguments          = $Arguments
-        $psi.UseShellExecute    = $false
-        $psi.CreateNoWindow     = $true
-        return [System.Diagnostics.Process]::Start($psi)
+    function Invoke-AppxJob {
+        param([string]$AppxPath, [string]$Flags = '-ForceApplicationShutdown -ErrorAction SilentlyContinue')
+        $cmd = "[void](Add-AppxPackage -Path '$AppxPath' $Flags)"
+        return Start-Job -ScriptBlock { param($c) $ProgressPreference='SilentlyContinue'; Invoke-Expression $c } -ArgumentList $cmd
     }
     function Invoke-WingetReinstall {
         Write-StyledMessage -Type 'Info' -Text "🛠️ Avvio procedura reinstallazione Winget..."
@@ -1440,9 +1437,8 @@ function WinReinstallStore {
                 $appxFiles = Get-ChildItem -Path $extractDir -Recurse -Filter '*.appx' | Where-Object { $_.Name -match $archPatt }
                 foreach ($appx in $appxFiles) {
                     $appxPath = $appx.FullName
-                    $null = Invoke-WithSpinner -Activity "Installazione dipendenza: $($appx.Name)" -Process -Action {
-                        Start-IsolatedProcess -Executable 'powershell.exe' `
-                            -Arguments "-NoProfile -NonInteractive -Command `"`$ProgressPreference='SilentlyContinue'; Add-AppxPackage -Path '$appxPath' -ForceApplicationShutdown -ErrorAction SilentlyContinue`""
+                    $null = Invoke-WithSpinner -Activity "Installazione dipendenza: $($appx.Name)" -Job -Action {
+                        Invoke-AppxJob -AppxPath $appxPath -Flags '-ForceApplicationShutdown -ErrorAction SilentlyContinue'
                     } -TimeoutSeconds 300
                 }
                 Write-StyledMessage -Type 'Success' -Text "✅ Dipendenze Appx installate."
@@ -1458,9 +1454,8 @@ function WinReinstallStore {
                     ErrorAction     = 'Stop'
                 }
                 Invoke-WebRequest @iwrParams
-                $null = Invoke-WithSpinner -Activity "Installazione Winget MSIXBundle" -Process -Action {
-                    Start-IsolatedProcess -Executable 'powershell.exe' `
-                        -Arguments "-NoProfile -NonInteractive -Command `"`$ProgressPreference='SilentlyContinue'; Add-AppxPackage -Path '$msixFile' -ForceApplicationShutdown -ErrorAction Stop`""
+                $null = Invoke-WithSpinner -Activity "Installazione Winget MSIXBundle" -Job -Action {
+                    Invoke-AppxJob -AppxPath $msixFile -Flags '-ForceApplicationShutdown -ErrorAction Stop'
                 } -TimeoutSeconds 300
                 Write-StyledMessage -Type 'Success' -Text "✅ Winget MSIXBundle installato."
             }
@@ -1542,9 +1537,8 @@ function WinReinstallStore {
                     $manifest = if ($store) { Join-Path $store.InstallLocation 'AppxManifest.xml' } else { $null }
                     if (-not $manifest -or -not (Test-Path $manifest)) { return @{ ExitCode = -1 } }
                     try {
-                        $null = Invoke-WithSpinner -Activity "Registrazione AppX Manifest Store" -Process -Action {
-                            Start-IsolatedProcess -Executable 'powershell.exe' `
-                                -Arguments "-NoProfile -NonInteractive -Command `"`$ProgressPreference='SilentlyContinue'; Add-AppxPackage -DisableDevelopmentMode -Register '$manifest' -ForceApplicationShutdown -ErrorAction Stop`""
+                        $null = Invoke-WithSpinner -Activity "Registrazione AppX Manifest Store" -Job -Action {
+                            Invoke-AppxJob -AppxPath $manifest -Flags '-DisableDevelopmentMode -ForceApplicationShutdown -ErrorAction Stop'
                         } -TimeoutSeconds 120
                         return @{ ExitCode = 0 }
                     }
@@ -1601,10 +1595,13 @@ function WinReinstallStore {
             Write-StyledMessage -Type 'Error' -Text "Impossibile reinstallare Microsoft Store tramite metodi automatici."
             Write-StyledMessage -Type 'Info' -Text "Tentativo di emergenza tramite AppXManifest..."
             try {
-                $emergCmd = 'Get-AppxPackage -AllUsers Microsoft.WindowsStore | ForEach-Object { $ProgressPreference=''SilentlyContinue''; Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml" -ForceApplicationShutdown }'
-                $null = Invoke-WithSpinner -Activity "Ripristino di emergenza Store" -Process -Action {
-                    Start-IsolatedProcess -Executable 'powershell.exe' `
-                        -Arguments "-NoProfile -NonInteractive -Command `"$emergCmd`""
+                $null = Invoke-WithSpinner -Activity "Ripristino di emergenza Store" -Job -Action {
+                    Start-Job -ScriptBlock {
+                        $ProgressPreference = 'SilentlyContinue'
+                        Get-AppxPackage -AllUsers Microsoft.WindowsStore | ForEach-Object {
+                            Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml" -ForceApplicationShutdown -ErrorAction SilentlyContinue
+                        }
+                    }
                 } -TimeoutSeconds 300
                 Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato tramite metodo di emergenza."
             }
