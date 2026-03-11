@@ -1234,9 +1234,7 @@ function Invoke-WinToolkitSetup {
             Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire a causa di problemi di rete o del repository."
         }
         if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
-            if (Install-PowerShellCore) {
-                $null
-            }
+            Install-PowerShellCore
         } else {
             Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
         }
