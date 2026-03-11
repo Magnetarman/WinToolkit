@@ -975,13 +975,13 @@ function Install-PspEnvironment {
             # Utilizzo della funzione helper esistente per coerenza logica
             $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
 
-            if ($result.ExitCode -eq 0) {
-                Write-StyledMessage -Type Success -Text "✅ Nerd Fonts installati con successo."
-                Write-StyledMessage -Type Warning -Text "💡 Nota: i font via WinGet richiedono il riavvio del Terminale (o di Explorer) per essere visibili."
-                return $true
+            if ($result.ExitCode -ne 0) {
+                Write-StyledMessage -Type Warning -Text "⚠️ WinGet ha restituito codice $($result.ExitCode). Il font potrebbe richiedere un riavvio del terminale."
+                return $false
             }
-            Write-StyledMessage -Type Warning -Text "⚠️ WinGet ha restituito codice $($result.ExitCode). Il font potrebbe richiedere un riavvio del terminale."
-            return $false
+            Write-StyledMessage -Type Success -Text "✅ Nerd Fonts installati con successo."
+            Write-StyledMessage -Type Warning -Text "💡 Nota: i font via WinGet richiedono il riavvio del Terminale (o di Explorer) per essere visibili."
+            return $true
         }
         catch {
             Write-StyledMessage -Type Warning -Text "Errore durante l'installazione font: $($_.Exception.Message)"
