@@ -282,14 +282,12 @@ function Repair-WingetDatabase {
         # 9. Verifica che winget risponda
         Start-Sleep 2
         $testVersion = & winget --version 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            Write-StyledMessage -Type Success -Text "✅ Database Winget ripristinato (versione: $testVersion)."
-            return $true
-        }
-        else {
+        if ($LASTEXITCODE -ne 0) {
             Write-StyledMessage -Type Warning -Text "⚠️ Ripristino completato ma winget potrebbe non funzionare."
-            return $true
+        } else {
+            Write-StyledMessage -Type Success -Text "✅ Database Winget ripristinato (versione: $testVersion)."
         }
+        return $true
     } catch {
         Write-StyledMessage -Type Error -Text "❌ Errore durante ripristino database: $($_.Exception.Message)"
         return $false
