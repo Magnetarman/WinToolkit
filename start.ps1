@@ -1019,7 +1019,9 @@ function Install-PspEnvironment {
     $profileDir = Get-ProfileDirLocal
     if ($profileDir) {
         $themesFolder = Join-Path $profileDir "Themes"
-        if (-not (Test-Path $themesFolder)) { New-Item -Path $themesFolder -ItemType Directory -Force *>$null }
+        if (-not (Test-Path $themesFolder)) {
+            New-Item -Path $themesFolder -ItemType Directory -Force *>$null
+        }
 
         $themePath = Join-Path $themesFolder "atomic.omp.json"
         try {
@@ -1030,8 +1032,7 @@ function Install-PspEnvironment {
             }
             Invoke-WebRequest @iwrParams
             Write-StyledMessage -Type Success -Text "Tema Oh My Posh scaricato."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "Errore download tema: $($_.Exception.Message)"
         }
     }
@@ -1041,11 +1042,13 @@ function Install-PspEnvironment {
 
     # 4. Configurazione Profilo
     if ($profileDir) {
-        if (-not (Test-Path $profileDir)) { New-Item -Path $profileDir -ItemType Directory -Force *>$null }
-
+        if (-not (Test-Path $profileDir)) {
+            New-Item -Path $profileDir -ItemType Directory -Force *>$null
+        }
         $targetProfile = $PROFILE
-        if (-not $targetProfile) { $targetProfile = Join-Path $profileDir "Microsoft.PowerShell_profile.ps1" }
-
+        if (-not $targetProfile) {
+            $targetProfile = Join-Path $profileDir "Microsoft.PowerShell_profile.ps1"
+        }
         try {
             if (Test-Path $targetProfile) {
                 Move-Item -Path $targetProfile -Destination "$targetProfile.bak" -Force -ErrorAction SilentlyContinue
@@ -1057,8 +1060,7 @@ function Install-PspEnvironment {
             }
             Invoke-WebRequest @iwrParams
             Write-StyledMessage -Type Success -Text "Profilo PowerShell configurato."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "Errore configurazione profilo: $($_.Exception.Message)"
         }
     }
@@ -1078,8 +1080,7 @@ function Install-PspEnvironment {
                 Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
             }
         }
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Warning -Text "Errore aggiornamento settings terminal: $($_.Exception.Message)"
     }
 }
@@ -1127,8 +1128,7 @@ function New-ToolkitDesktopShortcut {
         [IO.File]::WriteAllBytes($shortcut, $bytes)
 
         Write-StyledMessage -Type Success -Text "Scorciatoia creata con successo."
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Error -Text "Errore creazione scorciatoia: $($_.Exception.Message)"
     }
 }
@@ -1156,8 +1156,7 @@ function Invoke-WinToolkitSetup {
     $startUrl = $script:AppConfig.URLs.StartScript
     $scriptBlockForRelaunch = if ($PSCommandPath) {
         "& '$PSCommandPath' $argList"
-    }
-    else {
+    } else {
         "iex (irm '$startUrl') $argList"
     }
 
@@ -1184,8 +1183,7 @@ function Invoke-WinToolkitSetup {
             $null = New-Item @niParams *>$null
         }
         $null = Start-Transcript -Path "$logDir\WinToolkitStarter_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log" -Append -Force *>$null
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Warning -Text "Errore avvio logging: $($_.Exception.Message)"
     }
 
@@ -1197,9 +1195,7 @@ function Invoke-WinToolkitSetup {
     }
 
     Write-StyledMessage -Type Info -Text "Avvio configurazione Win Toolkit..."
-
     $rebootNeeded = $false
-
     if (-not $isResumeSetup) {
         Write-StyledMessage -Type Info -Text "Esecuzione controlli base..."
 
@@ -1216,8 +1212,7 @@ function Invoke-WinToolkitSetup {
 
             if ($coreSuccess -and (Test-WingetFunctionality)) {
                 Write-StyledMessage -Type Success -Text "✅ Winget ripristinato velocemente."
-            }
-            else {
+            } else {
                 Write-StyledMessage -Type Warning -Text "⚠️ Ripristino veloce fallito. Tentativo metodo avanzato (più lento)..."
                 $null = Install-WingetPackage
 
@@ -1229,24 +1224,20 @@ function Invoke-WinToolkitSetup {
                     Write-StyledMessage -Type Info -Text "Lo script proseguirà, ma l'installazione di pacchetti potrebbe fallire."
                 }
             }
-        }
-        else {
+        } else {
             Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
         }
 
         # Validazione profonda di Winget: verifica connettività ai repository e integrità del DB
         $wingetDeepCheck = Test-WingetDeepValidation
-
         if (-not $wingetDeepCheck) {
             Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire a causa di problemi di rete o del repository."
         }
-
         if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
             if (Install-PowerShellCore) {
                 $null
             }
-        }
-        else {
+        } else {
             Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
         }
     }
@@ -1267,7 +1258,9 @@ function Invoke-WinToolkitSetup {
         Start-Process @procParams
 
         Write-StyledMessage -Type Success -Text "Script riavviato su PowerShell 7. Chiusura sessione legacy..."
-        try { Stop-Transcript *>$null } catch { }
+        try {
+            Stop-Transcript *>$null
+        } catch {}
         exit
     }
 
@@ -1307,12 +1300,10 @@ function Invoke-WinToolkitSetup {
             $null = Set-ItemProperty @sipParams2
 
             Write-StyledMessage -Type Success -Text "✅ Windows Terminal impostato come predefinito nel Registro."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "⚠️ Impossibile impostare il terminale predefinito: $($_.Exception.Message)"
         }
-    }
-    elseif ($wtInstalled) {
+    } elseif ($wtInstalled) {
         Write-StyledMessage -Type Warning -Text "⚠️ Terminale installato ma wt.exe non ancora disponibile nel PATH. Modifica registro saltata per sicurezza."
     }
 
@@ -1324,7 +1315,9 @@ function Invoke-WinToolkitSetup {
     # Se siamo già in modalità ripresa, evitiamo di entrare in loop tentando di riaprire terminali
     if ($isResumeSetup) {
         Write-StyledMessage -Type Info -Text "Installazione ripresa, sessione completata. Non tenterò un riavvio del terminale."
-        try { Stop-Transcript *>$null } catch { }
+        try {
+            Stop-Transcript *>$null
+        } catch {}
         return
     }
 
@@ -1337,7 +1330,9 @@ function Invoke-WinToolkitSetup {
         Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal..."
 
         $pwshPath = Join-Path $script:AppConfig.Paths.PowerShell7 "pwsh.exe"
-        if (-not (Test-Path $pwshPath)) { $pwshPath = "powershell.exe" }
+        if (-not (Test-Path $pwshPath)) {
+            $pwshPath = "powershell.exe"
+        }
 
         # FIX: Aggiunto -d . per directory corrente e semplificato gli argomenti
         $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
@@ -1349,10 +1344,11 @@ function Invoke-WinToolkitSetup {
             }
             Start-Process @procParams
             Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione corrente..."
-            try { Stop-Transcript *>$null } catch { }
+            try {
+                Stop-Transcript *>$null
+            } catch {}
             exit
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Error -Text "Errore durante l'avvio di Windows Terminal: $($_.Exception.Message)"
         }
     }
@@ -1373,16 +1369,17 @@ function Invoke-WinToolkitSetup {
             Write-StyledMessage -Type Warning -Text "`rPreparazione riavvio - $i secondi..."
             Start-Sleep 1
         }
-
-        try { Stop-Transcript *>$null } catch { }
+        try {
+            Stop-Transcript *>$null
+        } catch {}
         Restart-Computer -Force
-    }
-    else {
+    } else {
         Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
         Start-Sleep 3
-        try { Stop-Transcript *>$null } catch { }
+        try {
+            Stop-Transcript *>$null
+        } catch {}
         exit
     }
 }
-
 Invoke-WinToolkitSetup
