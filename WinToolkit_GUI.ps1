@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    WinToolkit GUI v2.0
+    WinToolkit GUI v3.0
 .DESCRIPTION
     Refactored WinToolkit GUI that dynamically loads Core Script (WinToolkit.ps1)
     Features: Remote Core loading, dynamic menu generation, output bridging, version sync
@@ -23,7 +23,7 @@ $Global:GuiVersion = "3.0.0 (Build 3)"  # Format: CoreVersion.GuiBuildNumber
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptTitle = "WinToolkit By MagnetarMan"
+$ScriptTitle = "WinToolkit GUI Edition By MagnetarMan"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
 $WindowWidth = 1600  # Increased from 1500 for better readability
 $WindowHeight = 1000  # Increased from 950 for better readability
@@ -703,7 +703,7 @@ foreach ($assembly in $assemblies) {
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Green
-Write-Host "  WinToolkit GUI v2.0 - GUI Edition" -ForegroundColor White
+Write-Host "  WinToolkit GUI v3.0 - GUI Edition" -ForegroundColor White
 Write-Host "  Loading Core Script..." -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Green
 Write-Host ""
