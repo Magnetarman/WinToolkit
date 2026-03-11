@@ -121,12 +121,10 @@ function Test-WingetCompatibility {
         Write-StyledMessage -Type Error -Text "Winget non supportato su Windows $($osInfo.Version.Major)."
         return $false
     }
-
     if ($osInfo.Version.Major -eq 10 -and $build -lt 16299) {
         Write-StyledMessage -Type Error -Text "Windows 10 build $build non supporta Winget."
         return $false
     }
-
     return $true
 }
 
@@ -181,7 +179,6 @@ function Invoke-ForceCloseWinget {
         Where-Object { $_.Id -ne $PID } |  # Don't kill ourselves
         Stop-Process -Force -ErrorAction SilentlyContinue
     }
-
     Start-Sleep 2
     Write-StyledMessage -Type Success -Text "Processi interferenti chiusi."
 }
@@ -204,8 +201,7 @@ function Apply-WingetPathPermissions {
         if ($wingetDir) {
             $wingetFolderPath = $wingetDir.FullName
         }
-    }
-    catch { }
+    } catch { }
 
     if ($wingetFolderPath) {
         # Fix permissions
@@ -237,8 +233,7 @@ function Repair-WingetDatabase {
             ForEach-Object {
                 try {
                     Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
-                }
-                catch { }
+                } catch {}
             }
         }
 
@@ -259,10 +254,7 @@ function Repair-WingetDatabase {
         Write-StyledMessage -Type Info -Text "Reset sorgenti Winget..."
         try {
             $null = & winget.exe source reset --force 2>&1
-        }
-        catch {
-            # Ignora errori durante il reset
-        }
+        } catch {}    # Ignora errori durante il reset
 
         # 5. Aggiorna il PATH
         Update-EnvironmentPath
@@ -279,8 +271,7 @@ function Repair-WingetDatabase {
                 Write-StyledMessage -Type Info -Text "Esecuzione Repair-WinGetPackageManager..."
                 Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
             }
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "Modulo Riparazione non disponibile: $($_.Exception.Message)"
         }
 
@@ -299,8 +290,7 @@ function Repair-WingetDatabase {
             Write-StyledMessage -Type Warning -Text "⚠️ Ripristino completato ma winget potrebbe non funzionare."
             return $true
         }
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Error -Text "❌ Errore durante ripristino database: $($_.Exception.Message)"
         return $false
     }
