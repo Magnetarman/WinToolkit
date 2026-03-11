@@ -382,12 +382,11 @@ function Install-WingetCore {
         try {
             $osDetails = Get-CimInstance -ClassName Win32_OperatingSystem
             $productType = $osDetails.ProductType
-            if ($productType -eq 1) {
-                $type = "Workstation"
-            } elseif ($productType -eq 2 -or $productType -eq 3) {
-                $type = "Server"
-            } else {
-                $type = "Unknown"
+            $type = switch ($productType) {
+                1 { "Workstation" }
+                2 { "Server" }
+                3 { "Server" }
+                default { "Unknown" }
             }
         } catch {
             $type = "Unknown"
