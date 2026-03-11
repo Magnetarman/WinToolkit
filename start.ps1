@@ -333,11 +333,12 @@ function Test-WingetDeepValidation {
         }
         # Logga i dettagli per debug
         $errorDetails = $searchResult | Out-String
-        if ($errorDetails.Length -gt 200) { $errorDetails = $errorDetails.Substring(0, 200) + "..." }
+        if ($errorDetails.Length -gt 200) {
+            $errorDetails = $errorDetails.Substring(0, 200) + "..."
+        }
         Write-StyledMessage -Type Warning -Text "⚠️ Test profondo fallito: ExitCode=$exitCode. Dettagli: $errorDetails"
         return $false
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Error -Text "❌ Errore durante il test profondo di Winget: $($_.Exception.Message)"
         return $false
     }
@@ -358,8 +359,7 @@ function Install-NuGetIfRequired {
             try {
                 Install-PackageProvider -Name "NuGet" -Force -ForceBootstrap -ErrorAction SilentlyContinue *>$null
                 Write-StyledMessage -Type Info -Text "NuGet provider installato."
-            }
-            catch {
+            } catch {
                 Write-StyledMessage -Type Warning -Text "Impossibile installare NuGet provider."
             }
         }
@@ -382,12 +382,16 @@ function Install-WingetCore {
         try {
             $osDetails = Get-CimInstance -ClassName Win32_OperatingSystem
             $productType = $osDetails.ProductType
-            if ($productType -eq 1) { $type = "Workstation" }
-            elseif ($productType -eq 2 -or $productType -eq 3) { $type = "Server" }
-            else { $type = "Unknown" }
+            if ($productType -eq 1) {
+                $type = "Workstation"
+            } elseif ($productType -eq 2 -or $productType -eq 3) {
+                $type = "Server"
+            } else {
+                $type = "Unknown"
+            }
+        } catch {
+            $type = "Unknown"
         }
-        catch { $type = "Unknown" }
-
         return @{
             ReleaseId        = $releaseId
             InstallationType = $installationType
@@ -403,10 +407,11 @@ function Install-WingetCore {
         try {
             $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing
             $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
-            if ($asset) { return $asset.browser_download_url }
+            if ($asset) {
+                return $asset.browser_download_url
+            }
             throw "Asset '$Match' non trovato."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "Errore recupero URL asset: $($_.Exception.Message)"
             return $null
         }
@@ -414,7 +419,9 @@ function Install-WingetCore {
 
     $osInfo = Get-OSInfoSimple
     $tempDir = "$env:TEMP\WinToolkitWinget"
-    if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force *>$null }
+    if (-not (Test-Path $tempDir)) {
+        New-Item -Path $tempDir -ItemType Directory -Force *>$null
+    }
 
     try {
         # 1. Visual C++ Redistributable (usando test avanzato)
@@ -433,8 +440,7 @@ function Install-WingetCore {
             }
             Start-Process @procParams
             Write-StyledMessage -Type Success -Text "Visual C++ Redistributable installato."
-        }
-        else {
+        } else {
             Write-StyledMessage -Type Success -Text "Visual C++ Redistributable già presente."
         }
 
@@ -463,8 +469,7 @@ function Install-WingetCore {
                     Write-StyledMessage -Type Info -Text "Installazione dipendenza: $($file.Name)..."
                     Add-AppxPackage -Path $file.FullName -ErrorAction SilentlyContinue -ForceApplicationShutdown
                 }
-            }
-            catch {
+            } catch {
                 Write-StyledMessage -Type Warning -Text "Impossibile estrarre o installare le dipendenze dallo zip ufficiale. Errore: $($_.Exception.Message)"
             }
         }
