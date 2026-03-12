@@ -193,6 +193,39 @@ $Global:NeedsFinalReboot = $false
 
 # --- FUNZIONI HELPER CONDIVISE ---
 
+function Update-EnvironmentPath {
+    <#
+    .SYNOPSIS
+        Ricarica il PATH dalle variabili di sistema e utente per la sessione corrente.
+    #>
+    $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $newPath = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
+    $env:Path = $newPath
+    [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
+}
+
+function Get-WingetExecutable {
+    <#
+    .SYNOPSIS
+        Risolve il percorso di winget.exe privilegiando l'App Execution Alias.
+    #>
+    # Priorità: Alias di esecuzione (localappdata) -> Evita "Accesso Negato" di WindowsApps
+    $aliasPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
+    if (Test-Path $aliasPath) { return $aliasPath }
+
+    # Fallback: Ricerca in WindowsApps
+    $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
+    $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue | 
+                 Sort-Object Name -Descending | Select-Object -First 1
+    
+    if ($wingetDir) {
+        $exe = Join-Path $wingetDir.FullName "winget.exe"
+        if (Test-Path $exe) { return $exe }
+    }
+    return "winget"
+}
+
 function Clear-ProgressLine {
     if ($Host.Name -eq 'ConsoleHost') {
         try {
@@ -424,31 +457,6 @@ function Reset-Winget {
     $OutputEncoding = [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
     # --- Helper Interni (Porting da start.ps1) ---
-    $UpdateEnvironmentPath = {
-        $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-        $newPath = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
-        $env:Path = $newPath
-        [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
-    }
-
-    function _Get-WingetExecutable {
-        # Priorità: Alias di esecuzione (localappdata) -> Evita "Accesso Negato" di WindowsApps
-        $aliasPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
-        if (Test-Path $aliasPath) { return $aliasPath }
-
-        # Fallback: Ricerca in WindowsApps
-        $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
-        $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue |
-                     Sort-Object Name -Descending | Select-Object -First 1
-
-        if ($wingetDir) {
-            $exe = Join-Path $wingetDir.FullName "winget.exe"
-            if (Test-Path $exe) { return $exe }
-        }
-        return "winget"
-    }
-
     function _Test-VCRedistInstalled {
         $64BitOS = [System.Environment]::Is64BitOperatingSystem
         $registryPath = [string]::Format(
@@ -531,14 +539,14 @@ function Reset-Winget {
         # 4. Reset & Cleanup
         try {
             Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
-            & (_Get-WingetExecutable) source reset --force 2>$null
+            & (Get-WingetExecutable) source reset --force 2>$null
         } catch {}
 
-        & $UpdateEnvironmentPath
+        Update-EnvironmentPath
         Start-Sleep 2
 
         # 5. Test Finale (Profondo)
-        $testExe = _Get-WingetExecutable
+        $testExe = Get-WingetExecutable
         $testResult = try {
             # Testiamo con una ricerca reale per verificare connettività e database
             $proc = Start-Process -FilePath $testExe -ArgumentList "search", "Git.Git", "--accept-source-agreements" -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
