@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 53)"
+$ToolkitVersion = "2.5.2 (Build 55)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1933,11 +1933,12 @@ function OfficeToolkit {
     function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
         try {
             Write-StyledMessage -Type 'Info' -Text "📥 Download $Description..."
-            $webClient = New-Object System.Net.WebClient
+        $webClient = New-Object System.Net.WebClient
             $webClient.DownloadFile($Url, $OutputPath)
             $webClient.Dispose()
-                Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description")
-                return $success
+            $success = (Test-Path $OutputPath)
+            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description")
+            return $success
         }
         catch {
             Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
@@ -2010,6 +2011,10 @@ function OfficeToolkit {
             Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate"
         }
         $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ? "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe" : "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+        if (-not (Test-Path $officeClient)) {
+            Write-StyledMessage -Type 'Error' -Text "OfficeClickToRun.exe non trovato. Office potrebbe non essere installato."
+            return $false
+        }
         try {
             $processTimeoutSeconds = 86400
             Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione rapida (offline)..."
@@ -3513,7 +3518,11 @@ function GamingToolkit {
     $timeout = 3600
     function Test-WingetPackageAvailable([string]$PackageId) {
         try {
-            return $LASTEXITCODE -eq 0 -and $result -match $PackageId
+            $searchResult = winget search --id $PackageId --accept-source-agreements 2>&1
+            if ($LASTEXITCODE -eq 0 -and $searchResult -match $PackageId) {
+                return $true
+            }
+            return $false
         }
         catch {
             $errorMessage = $_.Exception.Message
@@ -3551,7 +3560,7 @@ function GamingToolkit {
         catch {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
-            Write-StyledMessage -Type 'Error' -Text "Eccezione $DisplayName`: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Eccezione $DisplayName : $($_.Exception.Message)"
             return @{ Success = $false }
         }
         finally {
@@ -3632,7 +3641,12 @@ function GamingToolkit {
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 700
-        if (-not $result.Process.HasExited) {
+        if ($null -eq $result -or $null -eq $result.Process) {
+            Write-Host "`r$(' ' * 120)" -NoNewline
+            Write-Host "`r" -NoNewline
+            Write-StyledMessage Error "DirectX: processo non avviato correttamente."
+        }
+        elseif (-not $result.Process.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Warning "Timeout DirectX."
@@ -3678,7 +3692,12 @@ function GamingToolkit {
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 500
-        if (-not $result.Process.HasExited) {
+        if ($null -eq $result -or $null -eq $result.Process) {
+            Write-Host "`r$(' ' * 120)" -NoNewline
+            Write-Host "`r" -NoNewline
+            Write-StyledMessage Error "Battle.net: processo non avviato correttamente."
+        }
+        elseif (-not $result.Process.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Warning "Timeout Battle.net."
