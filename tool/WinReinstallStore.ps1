@@ -238,14 +238,14 @@ function WinReinstallStore {
     # ============================================================================
     # 6. ESECUZIONE PRINCIPALE
     # ============================================================================
-    try {
-        Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget..."
- 
-        # Reset-Winget invoca il deployment engine Windows che scrive "Avanzamento distribuzione:"
-        # direttamente tramite WriteConsoleW (Win32 API), bypassando Console.Out.
-        # L'unico modo per sopprimerlo è redirigere il Win32 STD_OUTPUT/STD_ERROR handle a NUL
-        # prima della chiamata, poi ripristinarlo. Console.Out di .NET non viene influenzato
-        # perché il suo wrapper interno è già inizializzato.
+
+    function Invoke-WithConsoleRedirection {
+        <#
+        .SYNOPSIS
+            Wrapper che sopprime l'output Win32 del deployment engine.
+        #>
+        param([scriptblock]$Action)
+
         if (-not ('WinReinstallStore.NativeConsole' -as [type])) {
             Add-Type -Namespace 'WinReinstallStore' -Name 'NativeConsole' -MemberDefinition @'
                 [DllImport("kernel32.dll")] public static extern bool   SetStdHandle(int nStdHandle, IntPtr hHandle);
@@ -258,22 +258,15 @@ function WinReinstallStore {
                 [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr hObject);
 '@
         }
- 
+
         $STD_OUTPUT = -11; $STD_ERROR = -12
         $INVALID_HANDLE_VALUE = [IntPtr]::new(-1)
 
         $hOrigOut = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_OUTPUT)
         $hOrigErr = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_ERROR)
-        # Apre NUL in scrittura
         $hNull = [WinReinstallStore.NativeConsole]::CreateFileW(
             'NUL', 0x40000000, 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
 
-        # FIX #1 — Valida gli handle prima di usarli.
-        # CreateFileW restituisce INVALID_HANDLE_VALUE (-1) in caso di errore.
-        # GetStdHandle può restituire 0 (NULL) se il processo non ha una console associata
-        # (es. avviato con -WindowStyle Hidden, I/O rediretto, o hosting non-interattivo).
-        # Redirigere con handle non validi corrompe lo stdout del processo e causa
-        # l'eccezione "Handle non valido" all'interno di Reset-Winget/deployment engine.
         $canRedirect = (
             $hNull -ne $INVALID_HANDLE_VALUE -and $hNull -ne [IntPtr]::Zero -and
             $hOrigOut -ne $INVALID_HANDLE_VALUE -and $hOrigOut -ne [IntPtr]::Zero -and
@@ -281,22 +274,15 @@ function WinReinstallStore {
         )
         $handlesRedirected = $false
 
-        $wingetResult = $false
-        $wingetError = $null
         try {
-            $global:ProgressPreference = 'SilentlyContinue'
             if ($canRedirect) {
                 [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNull) | Out-Null
                 [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNull) | Out-Null
                 $handlesRedirected = $true
             }
-            $wingetResult = Reset-Winget -Force
-        }
-        catch {
-            $wingetError = $_.Exception.Message
+            return & $Action
         }
         finally {
-            # Ripristino handle reali prima di qualsiasi Write-*
             if ($handlesRedirected) {
                 [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
                 [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
@@ -304,13 +290,26 @@ function WinReinstallStore {
             if ($hNull -ne $INVALID_HANDLE_VALUE -and $hNull -ne [IntPtr]::Zero) {
                 [WinReinstallStore.NativeConsole]::CloseHandle($hNull) | Out-Null
             }
+        }
+    }
+
+    try {
+        Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget..."
+
+        $wingetResult = $false
+        $wingetError = $null
+
+        try {
+            $global:ProgressPreference = 'SilentlyContinue'
+            $wingetResult = Invoke-WithConsoleRedirection -Action { Reset-Winget -Force }
+        }
+        catch {
+            $wingetError = $_.Exception.Message
+        }
+        finally {
             $global:ProgressPreference = $savedProgressPref
         }
 
-        # Classifica l'errore catturato.
-        # Errori di handle/console sono cosmestica: il deployment engine ha già scritto
-        # il pacchetto su disco prima di tentare l'output — winget può essere operativo.
-        # Tutti gli altri errori indicano un fallimento reale dell'installazione.
         $isHandleError = $wingetError -and ($wingetError -match '(?i)handle|console|accesso negato|not associated')
 
         if ($wingetError -and -not $isHandleError) {
@@ -318,7 +317,6 @@ function WinReinstallStore {
             Write-ToolkitLog -Level ERROR -Message "Reset-Winget fallito: $wingetError"
         }
         elseif ($wingetError -and $isHandleError) {
-            # Avviso cosmestico — non pregiudica l'installazione del binario
             Write-StyledMessage -Type 'Warning' -Text "Winget: avviso console durante l'installazione (non critico) - $wingetError"
             Write-ToolkitLog -Level WARN -Message "Reset-Winget handle warning (cosmestico): $wingetError"
         }
@@ -330,11 +328,6 @@ function WinReinstallStore {
         $storeResult = Install-MicrosoftStore
         $unigetResult = Install-UniGetUI
 
-        # FIX #2 — Verifica finale basata esclusivamente sulla presenza del binario.
-        # La vecchia logica "-not $wingetError" era troppo restrittiva: accoppiava la
-        # verifica operativa di winget a qualsiasi errore, compresi quelli cosmestica
-        # di handle. winget è "operativo" se il binario esiste E l'unico eventuale
-        # errore era appunto cosmestico (handle/console), non un fallimento reale.
         $wingetExe = Get-WingetExecutable
         $wingetBinaryOk = Test-Path $wingetExe -ErrorAction SilentlyContinue
         $wingetOk = $wingetBinaryOk -and (-not $wingetError -or $isHandleError)
@@ -363,7 +356,6 @@ function WinReinstallStore {
         Write-StyledMessage -Type 'Success' -Text "🎉 Operazione completata."
     }
     finally {
-        # Ripristino garantito della preferenza progress
         $ProgressPreference = $savedProgressPref
     }
  
