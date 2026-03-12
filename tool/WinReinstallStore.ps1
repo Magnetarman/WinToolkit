@@ -27,29 +27,6 @@ function WinReinstallStore {
     # FUNZIONI HELPER LOCALI
     # ============================================================================
 
-    # Trova il percorso ASSOLUTO di winget.exe in WindowsApps (bypass alias 0xc0000022)
-    function Get-WingetExecutable {
-        # Priorità 1: Alias di esecuzione (localappdata) -> Evita "Accesso Negato" di WindowsApps
-        $aliasPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
-        if (Test-Path $aliasPath) { return $aliasPath }
-
-        # Priorità 2: Percorso reale in WindowsApps (fallback se alias rotto)
-        try {
-            $windowsApps = Join-Path $env:ProgramFiles "WindowsApps"
-            $wingetGlob = Join-Path $windowsApps "Microsoft.DesktopAppInstaller_*_*__8wekyb3d8bbwe"
-            $resolvedPaths = Resolve-Path -Path $wingetGlob -ErrorAction SilentlyContinue | Sort-Object {
-                $leaf = Split-Path $_.Path -Leaf
-                [version]($leaf -replace '^[^\d]+_((\d+\.)*\d+)_.*', '$1')
-            }
-            if ($resolvedPaths) {
-                $exePath = Join-Path $resolvedPaths[-1].Path 'winget.exe'
-                if (Test-Path $exePath) { return $exePath }
-            }
-        }
-        catch { }
-
-        return "winget" # Speranza finale (PATH)
-    }
 
     # ============================================================================
     # 4. INSTALLAZIONE MICROSOFT STORE
@@ -256,20 +233,27 @@ function WinReinstallStore {
         Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text "Winget $msgWinget"
 
         $storeResult = Install-MicrosoftStore
+        $unigetResult = Install-UniGetUI
+
+        if ($wingetResult) {
+            Write-StyledMessage -Type 'Success' -Text "✅ Winget operativo."
+        } else {
+            Write-StyledMessage -Type 'Error' -Text "❌ Winget non operativo."
+        }
+
         if ($storeResult) {
             Write-StyledMessage -Type 'Success' -Text "✅ Microsoft Store ripristinato correttamente."
         } else {
-            Write-StyledMessage -Type 'Error' -Text "❌ Microsoft Store non ripristinato — verifica manuale necessaria."
+            Write-StyledMessage -Type 'Error' -Text "❌ Microsoft Store non ripristinato."
         }
 
-        $unigetResult = Install-UniGetUI
         if ($unigetResult) {
-            Write-StyledMessage -Type 'Success' -Text "✅ UniGet UI installato con successo."
+            Write-StyledMessage -Type 'Success' -Text "✅ UniGet UI installato."
         } else {
-            Write-StyledMessage -Type 'Warning' -Text "⚠️ UniGet UI processato con avvisi (verifica manuale)."
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ UniGet UI richiedere verifica manuale."
         }
 
-        Write-StyledMessage -Type 'Success' -Text "🎉 Operazione completata. Tutti i componenti sono stati elaborati."
+        Write-StyledMessage -Type 'Success' -Text "🎉 Operazione completata."
     }
     finally {
         # Ripristino garantito della preferenza progress
