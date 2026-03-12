@@ -74,6 +74,7 @@
 - `WinUpdateReset.ps1` Aggiornato.
   - [x] Migliorata l'esecuzione dello script riducendo il codice boilerplate.
   - [x] Aggiornata la visualizzazione per essere il tema con il resto del progetto.
+  - [x] Risolto un bug che causava scritte non allineate durante l'esecuzione.
 
 - `WinBackupDriver.ps1` Aggiornato.
   - [x] Risolto un problema per cui su PC poco potenti il timeout rendeva nulla la funzionalità dello script. Maggiorati a 800 secondi i timeout.
