@@ -107,6 +107,9 @@ function WinReinstallStore {
             Write-StyledMessage -Type 'Info' -Text "Tentativo tramite: $($method.Name)..."
             try {
                 $result = $method.Action.Invoke()
+                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                Write-Host $clearLine -NoNewline
+                [Console]::Out.Flush()
                 $isSuccess = $result -and ($result.ExitCode -in @(0, 3010, 1638, -1978335189))
                 if ($isSuccess) {
                     Write-StyledMessage -Type 'Success' -Text "Microsoft Store reinstallato tramite $($method.Name)."
@@ -131,6 +134,9 @@ function WinReinstallStore {
                 }
                 Start-Process @procParams
             } -TimeoutSeconds 120
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
             Write-StyledMessage -Type 'Success' -Text "Cache dello Store ripristinata."
         }
         else {
@@ -143,6 +149,9 @@ function WinReinstallStore {
                         Start-AppxSilentProcess -AppxPath "$($_.InstallLocation)\AppXManifest.xml" -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown'
                     }
                 } -TimeoutSeconds 300
+                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+                Write-Host $clearLine -NoNewline
+                [Console]::Out.Flush()
                 Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato tramite metodo di emergenza."
                 $success = $true
             }
@@ -180,6 +189,10 @@ function WinReinstallStore {
                 Start-Process @procParams
             } -TimeoutSeconds 120
 
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
+
             $processResult = Invoke-WithSpinner -Activity "Installazione UniGet UI" -Process -Action {
                 $procParams = @{
                     FilePath     = $wingetExe
@@ -192,6 +205,10 @@ function WinReinstallStore {
                 }
                 Start-Process @procParams
             } -TimeoutSeconds 600
+
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            Write-Host $clearLine -NoNewline
+            [Console]::Out.Flush()
 
             $isSuccess = $processResult.ExitCode -in @(0, 3010, 1638, -1978335189)
 
@@ -226,8 +243,14 @@ function WinReinstallStore {
 
         # Utilizza la funzione Reset-Winget dal template per la riparazione di Winget
         $wingetResult = Reset-Winget -Force
-        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-        Write-Host $clearLine -NoNewline
+        $clearLine = ' ' * ([Console]::WindowWidth - 1)
+        # Il deployment engine scrive con \n finale: cursore è già sulla riga successiva.
+        # Pulisce la riga corrente (vuota) poi risale a pulire la riga del deployment.
+        [Console]::Write("`r" + $clearLine + "`r")
+        if ([Console]::CursorTop -gt 0) {
+            [Console]::SetCursorPosition(0, [Console]::CursorTop - 1)
+            [Console]::Write("`r" + $clearLine + "`r")
+        }
         [Console]::Out.Flush()
 
         $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
