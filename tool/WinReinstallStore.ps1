@@ -260,18 +260,36 @@ function WinReinstallStore {
         }
  
         $STD_OUTPUT = -11; $STD_ERROR = -12
+        $INVALID_HANDLE_VALUE = [IntPtr]::new(-1)
+
         $hOrigOut = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_OUTPUT)
         $hOrigErr = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_ERROR)
         # Apre NUL in scrittura
         $hNull = [WinReinstallStore.NativeConsole]::CreateFileW(
             'NUL', 0x40000000, 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
- 
+
+        # FIX #1 — Valida gli handle prima di usarli.
+        # CreateFileW restituisce INVALID_HANDLE_VALUE (-1) in caso di errore.
+        # GetStdHandle può restituire 0 (NULL) se il processo non ha una console associata
+        # (es. avviato con -WindowStyle Hidden, I/O rediretto, o hosting non-interattivo).
+        # Redirigere con handle non validi corrompe lo stdout del processo e causa
+        # l'eccezione "Handle non valido" all'interno di Reset-Winget/deployment engine.
+        $canRedirect = (
+            $hNull -ne $INVALID_HANDLE_VALUE -and $hNull -ne [IntPtr]::Zero -and
+            $hOrigOut -ne $INVALID_HANDLE_VALUE -and $hOrigOut -ne [IntPtr]::Zero -and
+            $hOrigErr -ne $INVALID_HANDLE_VALUE -and $hOrigErr -ne [IntPtr]::Zero
+        )
+        $handlesRedirected = $false
+
         $wingetResult = $false
         $wingetError = $null
         try {
             $global:ProgressPreference = 'SilentlyContinue'
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNull) | Out-Null
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNull) | Out-Null
+            if ($canRedirect) {
+                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNull) | Out-Null
+                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNull) | Out-Null
+                $handlesRedirected = $true
+            }
             $wingetResult = Reset-Winget -Force
         }
         catch {
@@ -279,15 +297,30 @@ function WinReinstallStore {
         }
         finally {
             # Ripristino handle reali prima di qualsiasi Write-*
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
-            [WinReinstallStore.NativeConsole]::CloseHandle($hNull) | Out-Null
+            if ($handlesRedirected) {
+                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
+                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
+            }
+            if ($hNull -ne $INVALID_HANDLE_VALUE -and $hNull -ne [IntPtr]::Zero) {
+                [WinReinstallStore.NativeConsole]::CloseHandle($hNull) | Out-Null
+            }
             $global:ProgressPreference = $savedProgressPref
         }
- 
-        if ($wingetError) {
+
+        # Classifica l'errore catturato.
+        # Errori di handle/console sono cosmestica: il deployment engine ha già scritto
+        # il pacchetto su disco prima di tentare l'output — winget può essere operativo.
+        # Tutti gli altri errori indicano un fallimento reale dell'installazione.
+        $isHandleError = $wingetError -and ($wingetError -match '(?i)handle|console|accesso negato|not associated')
+
+        if ($wingetError -and -not $isHandleError) {
             Write-StyledMessage -Type 'Error' -Text "Winget: errore critico durante l'installazione - $wingetError"
             Write-ToolkitLog -Level ERROR -Message "Reset-Winget fallito: $wingetError"
+        }
+        elseif ($wingetError -and $isHandleError) {
+            # Avviso cosmestico — non pregiudica l'installazione del binario
+            Write-StyledMessage -Type 'Warning' -Text "Winget: avviso console durante l'installazione (non critico) - $wingetError"
+            Write-ToolkitLog -Level WARN -Message "Reset-Winget handle warning (cosmestico): $wingetError"
         }
         else {
             $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
@@ -297,10 +330,14 @@ function WinReinstallStore {
         $storeResult = Install-MicrosoftStore
         $unigetResult = Install-UniGetUI
 
-        # Verifica indipendente: Reset-Winget può restituire $false anche quando winget
-        # è installato correttamente (es. test interno fallito ma binario presente).
+        # FIX #2 — Verifica finale basata esclusivamente sulla presenza del binario.
+        # La vecchia logica "-not $wingetError" era troppo restrittiva: accoppiava la
+        # verifica operativa di winget a qualsiasi errore, compresi quelli cosmestica
+        # di handle. winget è "operativo" se il binario esiste E l'unico eventuale
+        # errore era appunto cosmestico (handle/console), non un fallimento reale.
         $wingetExe = Get-WingetExecutable
-        $wingetOk = (-not $wingetError) -and (Test-Path $wingetExe -ErrorAction SilentlyContinue)
+        $wingetBinaryOk = Test-Path $wingetExe -ErrorAction SilentlyContinue
+        $wingetOk = $wingetBinaryOk -and (-not $wingetError -or $isHandleError)
 
         if ($wingetOk) {
             Write-StyledMessage -Type 'Success' -Text "Winget operativo."
