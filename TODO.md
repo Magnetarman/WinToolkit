@@ -11,6 +11,8 @@
   - [x] Aggiornata l'implementazione grafica del Toolkit ai nuovi standard.
   - [x] Automatizzate le operazioni di installazione/rimozione di Office.
   - [x] Migliorato il detect dei processi di installazione per non causare Race Condition.
+  - [x] Ripristinata Funzionalita di rimozione di Office tramite SaRa [[Thanks To @ServiceDeskCSI]](https://github.com/ServiceDeskCSI).
+  - [x] Inserito Download di SaRa dalla repo di WinToolkit come Default.
 
 - `start.ps1` Aggiornato.
   - [x] Aggiornate sezione .SYNOPSIS e .DESCRIPTION [[#39](https://github.com/MagnetarMan/WinToolkit/issues/39) [@pomodori92]](https://github.com/pomodori92).
