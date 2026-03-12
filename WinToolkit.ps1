@@ -70,14 +70,14 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 67)"
+$ToolkitVersion = "2.5.2 (Build 68)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
         GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
         OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
         OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
-        SaRAInstaller         = "https://aka.ms/SaRA_EnterpriseVersionFiles"
+        SaRAInstaller         = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/SaRACmd_17_01_2877_000.zip"
         AMDInstaller          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
         NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
         DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
@@ -2398,16 +2398,16 @@ function OfficeToolkit {
             }
             $gciParamsExe = @{
                 Path        = $tempDir
-                Filter      = "GetHelpCmd.exe"
+                Filter      = "SaRACmd.exe"
                 Recurse     = $true
                 ErrorAction = 'SilentlyContinue'
             }
             $saraExe = Get-ChildItem @gciParamsExe | Select-Object -First 1
             if (-not $saraExe) {
-                Write-StyledMessage -Type 'Error' -Text "GetHelpCmd.exe non trovato"
+                Write-StyledMessage -Type 'Error' -Text "SaRACmd.exe non trovato"
                 return $false
             }
-            Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite SaRA..."
+            Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite SaRA (backup locale)..."
             Write-StyledMessage -Type 'Warning' -Text "⏰ Questa operazione può richiedere alcuni minuti"
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
             try {
