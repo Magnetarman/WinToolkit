@@ -269,6 +269,7 @@ function WinReinstallStore {
         $wingetResult = $false
         $wingetError = $null
         try {
+            $global:ProgressPreference = 'SilentlyContinue'
             [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNull) | Out-Null
             [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNull) | Out-Null
             $wingetResult = Reset-Winget -Force
@@ -281,6 +282,7 @@ function WinReinstallStore {
             [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
             [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
             [WinReinstallStore.NativeConsole]::CloseHandle($hNull) | Out-Null
+            $global:ProgressPreference = $savedProgressPref
         }
  
         if ($wingetError) {
@@ -291,11 +293,16 @@ function WinReinstallStore {
             $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
             Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text "Winget $msgWinget"
         }
- 
+
         $storeResult = Install-MicrosoftStore
         $unigetResult = Install-UniGetUI
- 
-        if ($wingetResult) {
+
+        # Verifica indipendente: Reset-Winget può restituire $false anche quando winget
+        # è installato correttamente (es. test interno fallito ma binario presente).
+        $wingetExe = Get-WingetExecutable
+        $wingetOk = (-not $wingetError) -and (Test-Path $wingetExe -ErrorAction SilentlyContinue)
+
+        if ($wingetOk) {
             Write-StyledMessage -Type 'Success' -Text "Winget operativo."
         }
         else {
