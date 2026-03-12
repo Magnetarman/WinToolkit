@@ -3,9 +3,7 @@ function WinReinstallStore {
     .SYNOPSIS
         Reinstalla automaticamente il Microsoft Store su Windows 10/11 utilizzando Winget.
     .DESCRIPTION
-        Script conforme a style.md v3.0. Reinstalla Winget, Microsoft Store e UniGet UI.
-        Tutti i processi AppX usano System.Diagnostics.Process con CreateNoWindow=true per
-        bloccare le write Win32 native del deployment engine e garantire una TUI pulita.
+        Reinstalla Winget, Microsoft Store e UniGet UI.
     #>
     [CmdletBinding()]
     param(
@@ -133,7 +131,7 @@ function WinReinstallStore {
                 }
                 Start-Process @procParams
             } -TimeoutSeconds 120
-            Write-StyledMessage -Type 'Success' -Text "✅ Cache dello Store ripristinata."
+            Write-StyledMessage -Type 'Success' -Text "Cache dello Store ripristinata."
         }
         else {
             Write-StyledMessage -Type 'Error' -Text "Impossibile reinstallare Microsoft Store tramite metodi automatici."
@@ -228,7 +226,10 @@ function WinReinstallStore {
 
         # Utilizza la funzione Reset-Winget dal template per la riparazione di Winget
         $wingetResult = Reset-Winget -Force
-        
+        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+        Write-Host $clearLine -NoNewline
+        [Console]::Out.Flush()
+
         $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
         Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text "Winget $msgWinget"
 
@@ -236,20 +237,23 @@ function WinReinstallStore {
         $unigetResult = Install-UniGetUI
 
         if ($wingetResult) {
-            Write-StyledMessage -Type 'Success' -Text "✅ Winget operativo."
-        } else {
+            Write-StyledMessage -Type 'Success' -Text "Winget operativo."
+        }
+        else {
             Write-StyledMessage -Type 'Error' -Text "❌ Winget non operativo."
         }
 
         if ($storeResult) {
-            Write-StyledMessage -Type 'Success' -Text "✅ Microsoft Store ripristinato correttamente."
-        } else {
+            Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato correttamente."
+        }
+        else {
             Write-StyledMessage -Type 'Error' -Text "❌ Microsoft Store non ripristinato."
         }
 
         if ($unigetResult) {
-            Write-StyledMessage -Type 'Success' -Text "✅ UniGet UI installato."
-        } else {
+            Write-StyledMessage -Type 'Success' -Text "UniGet UI installato."
+        }
+        else {
             Write-StyledMessage -Type 'Warning' -Text "⚠️ UniGet UI richiedere verifica manuale."
         }
 
