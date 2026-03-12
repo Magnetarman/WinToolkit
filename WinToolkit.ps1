@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 64)"
+$ToolkitVersion = "2.5.2 (Build 65)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1543,8 +1543,8 @@ function WinReinstallStore {
             return $false
         }
     }
-    try {
-        Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget..."
+    function Invoke-WithConsoleRedirection {
+        param([scriptblock]$Action)
         if (-not ('WinReinstallStore.NativeConsole' -as [type])) {
             Add-Type -Namespace 'WinReinstallStore' -Name 'NativeConsole' -MemberDefinition @'
                 [DllImport("kernel32.dll")] public static extern bool   SetStdHandle(int nStdHandle, IntPtr hHandle);
@@ -1569,19 +1569,13 @@ function WinReinstallStore {
             $hOrigErr -ne $INVALID_HANDLE_VALUE -and $hOrigErr -ne [IntPtr]::Zero
         )
         $handlesRedirected = $false
-        $wingetResult = $false
-        $wingetError = $null
         try {
-            $global:ProgressPreference = 'SilentlyContinue'
             if ($canRedirect) {
                 [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNull) | Out-Null
                 [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNull) | Out-Null
                 $handlesRedirected = $true
             }
-            $wingetResult = Reset-Winget -Force
-        }
-        catch {
-            $wingetError = $_.Exception.Message
+            return & $Action
         }
         finally {
             if ($handlesRedirected) {
@@ -1591,6 +1585,20 @@ function WinReinstallStore {
             if ($hNull -ne $INVALID_HANDLE_VALUE -and $hNull -ne [IntPtr]::Zero) {
                 [WinReinstallStore.NativeConsole]::CloseHandle($hNull) | Out-Null
             }
+        }
+    }
+    try {
+        Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget..."
+        $wingetResult = $false
+        $wingetError = $null
+        try {
+            $global:ProgressPreference = 'SilentlyContinue'
+            $wingetResult = Invoke-WithConsoleRedirection -Action { Reset-Winget -Force }
+        }
+        catch {
+            $wingetError = $_.Exception.Message
+        }
+        finally {
             $global:ProgressPreference = $savedProgressPref
         }
         $isHandleError = $wingetError -and ($wingetError -match '(?i)handle|console|accesso negato|not associated')
