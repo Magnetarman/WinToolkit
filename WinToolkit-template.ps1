@@ -112,7 +112,7 @@ $AppConfig = @{
         # Office
         OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
         OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
-        SaRAInstaller         = "https://aka.ms/SaRA_EnterpriseVersionFiles"
+        SaRAInstaller         = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/SaRACmd_17_01_2877_000.zip"
 
         # Video Driver
         AMDInstaller          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
@@ -216,9 +216,9 @@ function Get-WingetExecutable {
 
     # Fallback: Ricerca in WindowsApps
     $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
-    $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue | 
+    $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue |
                  Sort-Object Name -Descending | Select-Object -First 1
-    
+
     if ($wingetDir) {
         $exe = Join-Path $wingetDir.FullName "winget.exe"
         if (Test-Path $exe) { return $exe }
@@ -1031,18 +1031,3 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

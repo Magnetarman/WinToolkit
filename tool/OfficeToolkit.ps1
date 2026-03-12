@@ -584,17 +584,17 @@ function OfficeToolkit {
 
             $gciParamsExe = @{
                 Path        = $tempDir
-                Filter      = "GetHelpCmd.exe"
+                Filter      = "SaRACmd.exe"
                 Recurse     = $true
                 ErrorAction = 'SilentlyContinue'
             }
             $saraExe = Get-ChildItem @gciParamsExe | Select-Object -First 1
             if (-not $saraExe) {
-                Write-StyledMessage -Type 'Error' -Text "GetHelpCmd.exe non trovato"
+                Write-StyledMessage -Type 'Error' -Text "SaRACmd.exe non trovato"
                 return $false
             }
 
-            Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite SaRA..."
+            Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite SaRA (backup locale)..."
             Write-StyledMessage -Type 'Warning' -Text "⏰ Questa operazione può richiedere alcuni minuti"
 
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
