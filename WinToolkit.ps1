@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 59)"
+$ToolkitVersion = "2.5.2 (Build 60)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1454,7 +1454,7 @@ function WinReinstallStore {
                 }
                 Start-Process @procParams
             } -TimeoutSeconds 120
-            Write-StyledMessage -Type 'Success' -Text "✅ Cache dello Store ripristinata."
+            Write-StyledMessage -Type 'Success' -Text "Cache dello Store ripristinata."
         }
         else {
             Write-StyledMessage -Type 'Error' -Text "Impossibile reinstallare Microsoft Store tramite metodi automatici."
@@ -1531,23 +1531,29 @@ function WinReinstallStore {
     try {
         Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget..."
         $wingetResult = Reset-Winget -Force
+        $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+        Write-Host $clearLine -NoNewline
+        [Console]::Out.Flush()
         $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
         Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text "Winget $msgWinget"
         $storeResult = Install-MicrosoftStore
         $unigetResult = Install-UniGetUI
         if ($wingetResult) {
-            Write-StyledMessage -Type 'Success' -Text "✅ Winget operativo."
-        } else {
+            Write-StyledMessage -Type 'Success' -Text "Winget operativo."
+        }
+        else {
             Write-StyledMessage -Type 'Error' -Text "❌ Winget non operativo."
         }
         if ($storeResult) {
-            Write-StyledMessage -Type 'Success' -Text "✅ Microsoft Store ripristinato correttamente."
-        } else {
+            Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato correttamente."
+        }
+        else {
             Write-StyledMessage -Type 'Error' -Text "❌ Microsoft Store non ripristinato."
         }
         if ($unigetResult) {
-            Write-StyledMessage -Type 'Success' -Text "✅ UniGet UI installato."
-        } else {
+            Write-StyledMessage -Type 'Success' -Text "UniGet UI installato."
+        }
+        else {
             Write-StyledMessage -Type 'Warning' -Text "⚠️ UniGet UI richiedere verifica manuale."
         }
         Write-StyledMessage -Type 'Success' -Text "🎉 Operazione completata."
