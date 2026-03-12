@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 50)"
+$ToolkitVersion = "2.5.2 (Build 51)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -269,15 +269,31 @@ function Write-ToolkitLog {
 }
 function Start-AppxSilentProcess {
     param([string]$AppxPath, [string]$Flags = '-ForceApplicationShutdown')
-    $pathOrRegister = ($Flags -match '-Register') ? '-Register' : "-Path '$($AppxPath -replace "'", "''")'"
-    $cmd = "`$ProgressPreference='SilentlyContinue'; try { Add-AppxPackage $pathOrRegister $Flags -ErrorAction Stop } catch { if (`$_.Exception.Message -match '0x80073D06' -or `$_.Exception.Message -match 'versione successiva') { exit 0 } else { exit 1 } }; exit 0"
+    $isRegister = $Flags -match '-Register'
+    $pathParam = $isRegister ? "" : "-Path '$($AppxPath -replace "'", "''")'"
+    $cmd = @"
+`$ProgressPreference = 'SilentlyContinue';
+`$ErrorActionPreference = 'SilentlyContinue';
+try {
+    Add-AppxPackage $pathParam $Flags -ErrorAction Stop
+}
+catch {
+    if (`$_.Exception.Message -match '0x80073D06' -or `$_.Exception.Message -match 'versione successiva') {
+        exit 0
+    }
+    exit 1
+}
+exit 0
+"@
     $encodedCmd = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cmd))
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = "powershell.exe"
-    $psi.Arguments = "-NoProfile -EncodedCommand $encodedCmd"
+    $psi.Arguments = "-NoProfile -NonInteractive -EncodedCommand $encodedCmd"
     $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
     $psi.CreateNoWindow = $true
     $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
     return [System.Diagnostics.Process]::Start($psi)
 }
 function Reset-Winget {
@@ -322,20 +338,16 @@ function Reset-Winget {
         Start-Sleep 2
     }
     function _Apply-Permissions {
+        param([string]$Path)
         try {
-            $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
-            $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
-            if ($wingetDir) {
-                $administratorsGroupSid = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")
-                $administratorsGroup = $administratorsGroupSid.Translate([System.Security.Principal.NTAccount])
-                $acl = Get-Acl -Path $wingetDir.FullName
-                $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($administratorsGroup, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-                $acl.SetAccessRule($rule)
-                Set-Acl -Path $wingetDir.FullName -AclObject $acl
-                $sysPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-                if (-not ($sysPath -split ';').Contains($wingetDir.FullName)) {
-                    [Environment]::SetEnvironmentVariable('Path', "$sysPath;$($wingetDir.FullName)", 'Machine')
-                }
+            if (-not (Test-Path $Path)) { return }
+            $null = takeown /f $Path /a /r /d Y 2>&1
+            $null = icacls $Path /grant "Administrators:(OI)(CI)F" /t /q /c 2>&1
+            if ($Path -match 'Microsoft.DesktopAppInstaller') {
+               $sysPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+               if (-not ($sysPath -split ';').Contains($Path)) {
+                   [Environment]::SetEnvironmentVariable('Path', "$sysPath;$Path", 'Machine')
+               }
             }
         }
         catch {}
@@ -416,7 +428,9 @@ function Reset-Winget {
         & winget source reset --force 2>$null
     }
     catch {}
-    _Apply-Permissions
+    $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
+    $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+    if ($wingetDir) { _Apply-Permissions -Path $wingetDir.FullName }
     & $UpdateEnvironmentPath
     Write-StyledMessage -Type Info -Text "🔍 Verifica finale connettività..."
     try {
