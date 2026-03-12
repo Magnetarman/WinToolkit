@@ -284,9 +284,10 @@ function WinUpdateReset {
                 Write-StyledMessage -Type 'Info' -Text "💡 Suggerimento: Alcuni file potrebbero essere ricreati dopo il riavvio."
             }
 
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r`n"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
+            Write-Host ""
             Start-Sleep -Milliseconds 500
         }
 
