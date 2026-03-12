@@ -100,7 +100,7 @@ function Read-Host {
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 51)"
+$ToolkitVersion = "2.5.2 (Build 52)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -383,7 +383,7 @@ function Start-AppxSilentProcess {
 `$ProgressPreference = 'SilentlyContinue';
 `$ErrorActionPreference = 'SilentlyContinue';
 try {
-    Add-AppxPackage $pathParam $Flags -ErrorAction Stop
+    Add-AppxPackage $pathParam $Flags -ErrorAction Stop | Out-Null
 }
 catch {
     if (`$_.Exception.Message -match '0x80073D06' -or `$_.Exception.Message -match 'versione successiva') {

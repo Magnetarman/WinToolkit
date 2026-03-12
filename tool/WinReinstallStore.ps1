@@ -29,10 +29,15 @@ function WinReinstallStore {
 
     # Trova il percorso ASSOLUTO di winget.exe in WindowsApps (bypass alias 0xc0000022)
     function Get-WingetExecutable {
+        # Priorità 1: Alias di esecuzione (localappdata) -> Evita "Accesso Negato" di WindowsApps
+        $aliasPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
+        if (Test-Path $aliasPath) { return $aliasPath }
+
+        # Priorità 2: Percorso reale in WindowsApps (fallback se alias rotto)
         try {
             $windowsApps = Join-Path $env:ProgramFiles "WindowsApps"
             $wingetGlob = Join-Path $windowsApps "Microsoft.DesktopAppInstaller_*_*__8wekyb3d8bbwe"
-            $resolvedPaths = Resolve-Path -Path $wingetGlob -ErrorAction Stop | Sort-Object {
+            $resolvedPaths = Resolve-Path -Path $wingetGlob -ErrorAction SilentlyContinue | Sort-Object {
                 $leaf = Split-Path $_.Path -Leaf
                 [version]($leaf -replace '^[^\d]+_((\d+\.)*\d+)_.*', '$1')
             }
@@ -42,7 +47,8 @@ function WinReinstallStore {
             }
         }
         catch { }
-        return Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
+
+        return "winget" # Speranza finale (PATH)
     }
 
     # ============================================================================
@@ -62,7 +68,10 @@ function WinReinstallStore {
             "$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
             (Join-Path $env:LOCALAPPDATA "Microsoft\Windows\INetCache")
         ) | ForEach-Object {
-            if (Test-Path $_) { Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null }
+            if (Test-Path $_) { 
+                $ProgressPreference = 'SilentlyContinue'
+                Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null 
+            }
         }
 
         $wingetExe = Get-WingetExecutable
@@ -247,12 +256,18 @@ function WinReinstallStore {
         Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text "Winget $msgWinget"
 
         $storeResult = Install-MicrosoftStore
-        $msgStore = $storeResult ? 'reinstallato correttamente' : 'non reinstallato — verifica connessione o Windows Update.'
-        Write-StyledMessage -Type ($storeResult ? 'Success' : 'Error') -Text "Microsoft Store $msgStore"
+        if ($storeResult) {
+            Write-StyledMessage -Type 'Success' -Text "✅ Microsoft Store ripristinato correttamente."
+        } else {
+            Write-StyledMessage -Type 'Error' -Text "❌ Microsoft Store non ripristinato — verifica manuale necessaria."
+        }
 
         $unigetResult = Install-UniGetUI
-        $msgUniget = $unigetResult ? 'installato' : 'processato (verifica manuale necessaria)'
-        Write-StyledMessage -Type ($unigetResult ? 'Success' : 'Warning') -Text "UniGet UI $msgUniget"
+        if ($unigetResult) {
+            Write-StyledMessage -Type 'Success' -Text "✅ UniGet UI installato con successo."
+        } else {
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ UniGet UI processato con avvisi (verifica manuale)."
+        }
 
         Write-StyledMessage -Type 'Success' -Text "🎉 Operazione completata. Tutti i componenti sono stati elaborati."
     }
