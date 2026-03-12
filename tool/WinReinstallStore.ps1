@@ -242,13 +242,15 @@ function WinReinstallStore {
     function Invoke-WithConsoleRedirection {
         <#
         .SYNOPSIS
-            Wrapper che sopprime l'output Win32 del deployment engine.
+            Wrapper che sopprime TUTTO l'output Win32 del deployment engine.
+            Aggressivo: redirige stdout, stderr, e sopprime ogni WriteConsoleW.
+            Resiliente: se non c'è console reale, esegue l'azione senza redirezione.
         #>
         param([scriptblock]$Action)
 
         if (-not ('WinReinstallStore.NativeConsole' -as [type])) {
             Add-Type -Namespace 'WinReinstallStore' -Name 'NativeConsole' -MemberDefinition @'
-                [DllImport("kernel32.dll")] public static extern bool   SetStdHandle(int nStdHandle, IntPtr hHandle);
+                [DllImport("kernel32.dll")] public static extern bool SetStdHandle(int nStdHandle, IntPtr hHandle);
                 [DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int nStdHandle);
                 [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
                 public static extern IntPtr CreateFileW(
@@ -259,36 +261,77 @@ function WinReinstallStore {
 '@
         }
 
-        $STD_OUTPUT = -11; $STD_ERROR = -12
+        $STD_OUTPUT = -11
+        $STD_ERROR = -12
+        $STD_INPUT = -10
         $INVALID_HANDLE_VALUE = [IntPtr]::new(-1)
 
-        $hOrigOut = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_OUTPUT)
-        $hOrigErr = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_ERROR)
-        $hNull = [WinReinstallStore.NativeConsole]::CreateFileW(
-            'NUL', 0x40000000, 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
+        $hOrigOut = $null
+        $hOrigErr = $null
+        $hOrigIn = $null
+        $hNullOut = $null
+        $hNullIn = $null
+
+        try {
+            $hOrigOut = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_OUTPUT)
+            $hOrigErr = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_ERROR)
+            $hOrigIn = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_INPUT)
+        }
+        catch {
+            return & $Action
+        }
+
+        if ($hOrigOut -eq $INVALID_HANDLE_VALUE -or $hOrigOut -eq [IntPtr]::Zero -or
+            $hOrigErr -eq $INVALID_HANDLE_VALUE -or $hOrigErr -eq [IntPtr]::Zero) {
+            return & $Action
+        }
+
+        try {
+            $hNullOut = [WinReinstallStore.NativeConsole]::CreateFileW(
+                'NUL', 0x40000000, 3, [IntPtr]::Zero, 3, 0x80, [IntPtr]::Zero)
+            $hNullIn = [WinReinstallStore.NativeConsole]::CreateFileW(
+                'NUL', 0x80000000, 3, [IntPtr]::Zero, 3, 0x80, [IntPtr]::Zero)
+        }
+        catch {
+            return & $Action
+        }
 
         $canRedirect = (
-            $hNull -ne $INVALID_HANDLE_VALUE -and $hNull -ne [IntPtr]::Zero -and
+            $hNullOut -ne $INVALID_HANDLE_VALUE -and $hNullOut -ne [IntPtr]::Zero -and
             $hOrigOut -ne $INVALID_HANDLE_VALUE -and $hOrigOut -ne [IntPtr]::Zero -and
             $hOrigErr -ne $INVALID_HANDLE_VALUE -and $hOrigErr -ne [IntPtr]::Zero
         )
-        $handlesRedirected = $false
 
+        if (-not $canRedirect) {
+            return & $Action
+        }
+
+        $handlesRedirected = $false
         try {
-            if ($canRedirect) {
-                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNull) | Out-Null
-                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNull) | Out-Null
-                $handlesRedirected = $true
-            }
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNullOut) | Out-Null
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNullOut) | Out-Null
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hNullIn) | Out-Null
+            $handlesRedirected = $true
+
+            $env:POWERSHELL_TELEMETRY_OPTOUT = '1'
+            $ProgressPreference = 'SilentlyContinue'
+
             return & $Action
         }
         finally {
             if ($handlesRedirected) {
-                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
-                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
+                try {
+                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
+                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
+                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hOrigIn) | Out-Null
+                }
+                catch { }
             }
-            if ($hNull -ne $INVALID_HANDLE_VALUE -and $hNull -ne [IntPtr]::Zero) {
-                [WinReinstallStore.NativeConsole]::CloseHandle($hNull) | Out-Null
+            if ($hNullOut -and $hNullOut -ne $INVALID_HANDLE_VALUE -and $hNullOut -ne [IntPtr]::Zero) {
+                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullOut) | Out-Null } catch { }
+            }
+            if ($hNullIn -and $hNullIn -ne $INVALID_HANDLE_VALUE -and $hNullIn -ne [IntPtr]::Zero) {
+                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullIn) | Out-Null } catch { }
             }
         }
     }
@@ -318,7 +361,7 @@ function WinReinstallStore {
         }
         elseif ($wingetError -and $isHandleError) {
             Write-StyledMessage -Type 'Warning' -Text "Winget: avviso console durante l'installazione (non critico) - $wingetError"
-            Write-ToolkitLog -Level WARN -Message "Reset-Winget handle warning (cosmestico): $wingetError"
+            Write-ToolkitLog -Level WARNING -Message "Reset-Winget handle warning (cosmestico): $wingetError"
         }
         else {
             $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
