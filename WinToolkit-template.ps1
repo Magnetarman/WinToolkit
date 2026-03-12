@@ -408,8 +408,7 @@ function Start-AppxSilentProcess {
 
     # Costruzione sicura del comando interno
     # Usiamo -Register se presente nei flags, altrimenti -Path
-    $isRegister = $Flags -match '-Register'
-    $pathParam = $isRegister ? "" : "-Path '$($AppxPath -replace "'", "''")'"
+    $pathParam = ($Flags -match '-Register') ? "" : "-Path '$($AppxPath -replace "'", "''")'"
 
     # Script interno: sopprime TUTTO l'output nativo e gestisce il downgrade (0x80073D06)
     $cmd = @"
@@ -568,7 +567,6 @@ function Reset-Winget {
     finally {
         if (Test-Path $AppConfig.Paths.Temp) { Remove-Item $AppConfig.Paths.Temp -Recurse -Force -ErrorAction SilentlyContinue }
     }
-}
 }
 
 function Show-ProgressBar {
