@@ -121,12 +121,10 @@ function Test-WingetCompatibility {
         Write-StyledMessage -Type Error -Text "Winget non supportato su Windows $($osInfo.Version.Major)."
         return $false
     }
-
     if ($osInfo.Version.Major -eq 10 -and $build -lt 16299) {
         Write-StyledMessage -Type Error -Text "Windows 10 build $build non supporta Winget."
         return $false
     }
-
     return $true
 }
 
@@ -181,7 +179,6 @@ function Invoke-ForceCloseWinget {
         Where-Object { $_.Id -ne $PID } |  # Don't kill ourselves
         Stop-Process -Force -ErrorAction SilentlyContinue
     }
-
     Start-Sleep 2
     Write-StyledMessage -Type Success -Text "Processi interferenti chiusi."
 }
@@ -204,8 +201,7 @@ function Apply-WingetPathPermissions {
         if ($wingetDir) {
             $wingetFolderPath = $wingetDir.FullName
         }
-    }
-    catch { }
+    } catch { }
 
     if ($wingetFolderPath) {
         # Fix permissions
@@ -237,8 +233,7 @@ function Repair-WingetDatabase {
             ForEach-Object {
                 try {
                     Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
-                }
-                catch { }
+                } catch {}
             }
         }
 
@@ -259,10 +254,7 @@ function Repair-WingetDatabase {
         Write-StyledMessage -Type Info -Text "Reset sorgenti Winget..."
         try {
             $null = & winget.exe source reset --force 2>&1
-        }
-        catch {
-            # Ignora errori durante il reset
-        }
+        } catch {}    # Ignora errori durante il reset
 
         # 5. Aggiorna il PATH
         Update-EnvironmentPath
@@ -279,8 +271,7 @@ function Repair-WingetDatabase {
                 Write-StyledMessage -Type Info -Text "Esecuzione Repair-WinGetPackageManager..."
                 Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
             }
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "Modulo Riparazione non disponibile: $($_.Exception.Message)"
         }
 
@@ -291,16 +282,13 @@ function Repair-WingetDatabase {
         # 9. Verifica che winget risponda
         Start-Sleep 2
         $testVersion = & winget --version 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            Write-StyledMessage -Type Success -Text "✅ Database Winget ripristinato (versione: $testVersion)."
-            return $true
-        }
-        else {
+        if ($LASTEXITCODE -ne 0) {
             Write-StyledMessage -Type Warning -Text "⚠️ Ripristino completato ma winget potrebbe non funzionare."
-            return $true
+        } else {
+            Write-StyledMessage -Type Success -Text "✅ Database Winget ripristinato (versione: $testVersion)."
         }
-    }
-    catch {
+        return $true
+    } catch {
         Write-StyledMessage -Type Error -Text "❌ Errore durante ripristino database: $($_.Exception.Message)"
         return $false
     }
@@ -345,11 +333,12 @@ function Test-WingetDeepValidation {
         }
         # Logga i dettagli per debug
         $errorDetails = $searchResult | Out-String
-        if ($errorDetails.Length -gt 200) { $errorDetails = $errorDetails.Substring(0, 200) + "..." }
+        if ($errorDetails.Length -gt 200) {
+            $errorDetails = $errorDetails.Substring(0, 200) + "..."
+        }
         Write-StyledMessage -Type Warning -Text "⚠️ Test profondo fallito: ExitCode=$exitCode. Dettagli: $errorDetails"
         return $false
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Error -Text "❌ Errore durante il test profondo di Winget: $($_.Exception.Message)"
         return $false
     }
@@ -370,8 +359,7 @@ function Install-NuGetIfRequired {
             try {
                 Install-PackageProvider -Name "NuGet" -Force -ForceBootstrap -ErrorAction SilentlyContinue *>$null
                 Write-StyledMessage -Type Info -Text "NuGet provider installato."
-            }
-            catch {
+            } catch {
                 Write-StyledMessage -Type Warning -Text "Impossibile installare NuGet provider."
             }
         }
@@ -394,12 +382,15 @@ function Install-WingetCore {
         try {
             $osDetails = Get-CimInstance -ClassName Win32_OperatingSystem
             $productType = $osDetails.ProductType
-            if ($productType -eq 1) { $type = "Workstation" }
-            elseif ($productType -eq 2 -or $productType -eq 3) { $type = "Server" }
-            else { $type = "Unknown" }
+            $type = switch ($productType) {
+                1 { "Workstation" }
+                2 { "Server" }
+                3 { "Server" }
+                default { "Unknown" }
+            }
+        } catch {
+            $type = "Unknown"
         }
-        catch { $type = "Unknown" }
-
         return @{
             ReleaseId        = $releaseId
             InstallationType = $installationType
@@ -415,10 +406,11 @@ function Install-WingetCore {
         try {
             $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing
             $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
-            if ($asset) { return $asset.browser_download_url }
+            if ($asset) {
+                return $asset.browser_download_url
+            }
             throw "Asset '$Match' non trovato."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "Errore recupero URL asset: $($_.Exception.Message)"
             return $null
         }
@@ -426,7 +418,9 @@ function Install-WingetCore {
 
     $osInfo = Get-OSInfoSimple
     $tempDir = "$env:TEMP\WinToolkitWinget"
-    if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force *>$null }
+    if (-not (Test-Path $tempDir)) {
+        New-Item -Path $tempDir -ItemType Directory -Force *>$null
+    }
 
     try {
         # 1. Visual C++ Redistributable (usando test avanzato)
@@ -445,8 +439,7 @@ function Install-WingetCore {
             }
             Start-Process @procParams
             Write-StyledMessage -Type Success -Text "Visual C++ Redistributable installato."
-        }
-        else {
+        } else {
             Write-StyledMessage -Type Success -Text "Visual C++ Redistributable già presente."
         }
 
@@ -475,8 +468,7 @@ function Install-WingetCore {
                     Write-StyledMessage -Type Info -Text "Installazione dipendenza: $($file.Name)..."
                     Add-AppxPackage -Path $file.FullName -ErrorAction SilentlyContinue -ForceApplicationShutdown
                 }
-            }
-            catch {
+            } catch {
                 Write-StyledMessage -Type Warning -Text "Impossibile estrarre o installare le dipendenze dallo zip ufficiale. Errore: $($_.Exception.Message)"
             }
         }
@@ -491,15 +483,14 @@ function Install-WingetCore {
             Add-AppxPackage -Path $wingetFile -ForceApplicationShutdown -ErrorAction Stop
             Write-StyledMessage -Type Success -Text "Winget Core installato con successo."
         }
-
         return $true
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Error -Text "Errore durante il ripristino Winget: $($_.Exception.Message)"
         return $false
-    }
-    finally {
-        if (Test-Path $tempDir) { Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue }
+    } finally {
+        if (Test-Path $tempDir) {
+            Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
         $ProgressPreference = $oldProgress
     }
 }
@@ -507,7 +498,9 @@ function Install-WingetCore {
 function Install-WingetPackage {
     Write-StyledMessage -Type Info -Text "🚀 Avvio procedura installazione/verifica Winget..."
 
-    if (-not (Test-WingetCompatibility)) { return $false }
+    if (-not (Test-WingetCompatibility)) {
+        return $false
+    }
 
     # Usa la funzione avanzata ForceClose
     Invoke-ForceCloseWinget
@@ -527,8 +520,7 @@ function Install-WingetPackage {
             Write-StyledMessage -Type Info -Text "Reset sorgenti Winget..."
             try {
                 $null = & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
-            }
-            catch { }
+            } catch {}
         }
 
         # Installa NuGet se richiesto (basato su asheroto)
@@ -542,8 +534,7 @@ function Install-WingetPackage {
             Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
             Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
             Write-StyledMessage -Type Success -Text "Modulo WinGet Client installato."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "Modulo WinGet Client: $($_.Exception.Message)"
         }
 
@@ -553,8 +544,7 @@ function Install-WingetPackage {
             try {
                 Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
                 Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager eseguito."
-            }
-            catch {
+            } catch {
                 Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)"
             }
             Start-Sleep 3
@@ -565,7 +555,9 @@ function Install-WingetPackage {
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
             Write-StyledMessage -Type Info -Text "Download MSIXBundle da Microsoft..."
             $msixTempDir = $script:AppConfig.Paths.Temp
-            if (-not (Test-Path $msixTempDir)) { $null = New-Item -Path $msixTempDir -ItemType Directory -Force }
+            if (-not (Test-Path $msixTempDir)) {
+                $null = New-Item -Path $msixTempDir -ItemType Directory -Force
+            }
             $tempInstaller = Join-Path $msixTempDir "WingetInstaller.msixbundle"
 
             $iwrParams = @{
@@ -584,24 +576,20 @@ function Install-WingetPackage {
         Write-StyledMessage -Type Info -Text "Reset App Installer..."
         try {
             Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
-        }
-        catch { }
+        } catch {}
 
         # Applica permessi PATH e registrazione (basato su asheroto)
         Apply-WingetPathPermissions
-
         Start-Sleep 2
-
         Update-EnvironmentPath
+
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Success -Text "✅ Winget installato e funzionante."
             return $true
         }
-
         Write-StyledMessage -Type Error -Text "❌ Impossibile installare Winget."
         return $false
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Error -Text "Errore critico: $($_.Exception.Message)"
         return $false
     }
@@ -652,7 +640,6 @@ function Write-StyledMessage {
     if ([Environment]::OSVersion.Version.Build -ge 22000) {
         $Text = "`r$Text"
     }
-
     $colors = @{ Info = 'Cyan'; Warning = 'Yellow'; Error = 'Red'; Success = 'Green' }
     Write-Host $Text -ForegroundColor $colors[$Type]
 }
@@ -668,7 +655,6 @@ function Stop-InterferingProcess {
         "winget",
         "WindowsPackageManagerServer"
     )
-
     foreach ($procName in $interferingProcesses) {
         $null = Get-Process -Name $procName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     }
@@ -740,8 +726,7 @@ function Invoke-WingetCommand {
         }
         $process = Start-Process @procParams
         return @{ ExitCode = $process.ExitCode }
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Warning -Text "Errore comando Winget: $($_.Exception.Message)"
         return @{ ExitCode = -1 }
     }
@@ -757,14 +742,16 @@ function Path-ExistsInEnvironment {
 
     if ($Scope -eq 'User' -or $Scope -eq 'Both') {
         $userEnvPath = $env:PATH
-        if (($userEnvPath -split ';').Contains($PathToCheck)) { $pathExists = $true }
+        if (($userEnvPath -split ';').Contains($PathToCheck)) {
+            $pathExists = $true
+        }
     }
-
     if ($Scope -eq 'System' -or $Scope -eq 'Both') {
         $systemEnvPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine)
-        if (($systemEnvPath -split ';').Contains($PathToCheck)) { $pathExists = $true }
+        if (($systemEnvPath -split ';').Contains($PathToCheck)) {
+            $pathExists = $true
+        }
     }
-
     return $pathExists
 }
 
@@ -777,7 +764,9 @@ function Set-PathPermissions {
         [string]$FolderPath
     )
 
-    if (-not (Test-Path $FolderPath)) { return }
+    if (-not (Test-Path $FolderPath)) {
+        return
+    }
 
     try {
         $administratorsGroupSid = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")
@@ -791,8 +780,7 @@ function Set-PathPermissions {
         $acl.SetAccessRule($accessRule)
         Set-Acl -Path $FolderPath -AclObject $acl -ErrorAction Stop
         Write-StyledMessage -Type Info -Text "Permessi cartella aggiornati: $FolderPath"
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Warning -Text "Impossibile impostare permessi: $($_.Exception.Message)"
     }
 }
@@ -886,11 +874,9 @@ function Install-PowerShellCore {
             Write-StyledMessage -Type Success -Text "PowerShell 7 installato con successo."
             return $true
         }
-
         Write-StyledMessage -Type Error -Text "Installazione fallita. Codice: $($process.ExitCode)"
         return $false
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Error -Text "Errore installazione PowerShell: $($_.Exception.Message)"
         return $false
     }
@@ -905,9 +891,7 @@ function Install-WindowsTerminalApp {
     }
 
     Write-StyledMessage -Type Info -Text "Installazione Windows Terminal in corso..."
-
     $downloadUrl = $null
-
     try {
         $winget = Get-Command winget -ErrorAction SilentlyContinue
         if ($winget) {
@@ -923,8 +907,7 @@ function Install-WindowsTerminalApp {
             }
             Write-StyledMessage -Type Warning -Text "Installazione Winget per Windows Terminal non riuscita."
         }
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Warning -Text "Installazione Winget per Windows Terminal fallita: $($_.Exception.Message)"
     }
 
@@ -951,9 +934,7 @@ function Install-WindowsTerminalApp {
         $null = Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
         Write-StyledMessage -Type Success -Text "Installazione Appx di Windows Terminal riuscita."
         return $true
-
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Warning -Text "Installazione Standard di Windows Terminal fallita: $($_.Exception.Message). Fallback al Microsoft Store."
     }
 
@@ -963,11 +944,9 @@ function Install-WindowsTerminalApp {
         Start-Sleep 5
         return $false
     }
-
     Write-StyledMessage -Type Error -Text "Impossibile installare Windows Terminal tramite qualsiasi metodo automatico."
     return $false
 }
-
 
 function Install-PspEnvironment {
     Write-StyledMessage -Type Info -Text "Avvio configurazione ambiente PowerShell (PSP)..."
@@ -996,13 +975,13 @@ function Install-PspEnvironment {
             # Utilizzo della funzione helper esistente per coerenza logica
             $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
 
-            if ($result.ExitCode -eq 0) {
-                Write-StyledMessage -Type Success -Text "✅ Nerd Fonts installati con successo."
-                Write-StyledMessage -Type Warning -Text "💡 Nota: i font via WinGet richiedono il riavvio del Terminale (o di Explorer) per essere visibili."
-                return $true
+            if ($result.ExitCode -ne 0) {
+                Write-StyledMessage -Type Warning -Text "⚠️ WinGet ha restituito codice $($result.ExitCode). Il font potrebbe richiedere un riavvio del terminale."
+                return $false
             }
-            Write-StyledMessage -Type Warning -Text "⚠️ WinGet ha restituito codice $($result.ExitCode). Il font potrebbe richiedere un riavvio del terminale."
-            return $false
+            Write-StyledMessage -Type Success -Text "✅ Nerd Fonts installati con successo."
+            Write-StyledMessage -Type Warning -Text "💡 Nota: i font via WinGet richiedono il riavvio del Terminale (o di Explorer) per essere visibili."
+            return $true
         }
         catch {
             Write-StyledMessage -Type Warning -Text "Errore durante l'installazione font: $($_.Exception.Message)"
@@ -1040,7 +1019,9 @@ function Install-PspEnvironment {
     $profileDir = Get-ProfileDirLocal
     if ($profileDir) {
         $themesFolder = Join-Path $profileDir "Themes"
-        if (-not (Test-Path $themesFolder)) { New-Item -Path $themesFolder -ItemType Directory -Force *>$null }
+        if (-not (Test-Path $themesFolder)) {
+            New-Item -Path $themesFolder -ItemType Directory -Force *>$null
+        }
 
         $themePath = Join-Path $themesFolder "atomic.omp.json"
         try {
@@ -1051,8 +1032,7 @@ function Install-PspEnvironment {
             }
             Invoke-WebRequest @iwrParams
             Write-StyledMessage -Type Success -Text "Tema Oh My Posh scaricato."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "Errore download tema: $($_.Exception.Message)"
         }
     }
@@ -1062,11 +1042,13 @@ function Install-PspEnvironment {
 
     # 4. Configurazione Profilo
     if ($profileDir) {
-        if (-not (Test-Path $profileDir)) { New-Item -Path $profileDir -ItemType Directory -Force *>$null }
-
+        if (-not (Test-Path $profileDir)) {
+            New-Item -Path $profileDir -ItemType Directory -Force *>$null
+        }
         $targetProfile = $PROFILE
-        if (-not $targetProfile) { $targetProfile = Join-Path $profileDir "Microsoft.PowerShell_profile.ps1" }
-
+        if (-not $targetProfile) {
+            $targetProfile = Join-Path $profileDir "Microsoft.PowerShell_profile.ps1"
+        }
         try {
             if (Test-Path $targetProfile) {
                 Move-Item -Path $targetProfile -Destination "$targetProfile.bak" -Force -ErrorAction SilentlyContinue
@@ -1078,8 +1060,7 @@ function Install-PspEnvironment {
             }
             Invoke-WebRequest @iwrParams
             Write-StyledMessage -Type Success -Text "Profilo PowerShell configurato."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "Errore configurazione profilo: $($_.Exception.Message)"
         }
     }
@@ -1099,8 +1080,7 @@ function Install-PspEnvironment {
                 Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
             }
         }
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Warning -Text "Errore aggiornamento settings terminal: $($_.Exception.Message)"
     }
 }
@@ -1148,8 +1128,7 @@ function New-ToolkitDesktopShortcut {
         [IO.File]::WriteAllBytes($shortcut, $bytes)
 
         Write-StyledMessage -Type Success -Text "Scorciatoia creata con successo."
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Error -Text "Errore creazione scorciatoia: $($_.Exception.Message)"
     }
 }
@@ -1177,8 +1156,7 @@ function Invoke-WinToolkitSetup {
     $startUrl = $script:AppConfig.URLs.StartScript
     $scriptBlockForRelaunch = if ($PSCommandPath) {
         "& '$PSCommandPath' $argList"
-    }
-    else {
+    } else {
         "iex (irm '$startUrl') $argList"
     }
 
@@ -1205,8 +1183,7 @@ function Invoke-WinToolkitSetup {
             $null = New-Item @niParams *>$null
         }
         $null = Start-Transcript -Path "$logDir\WinToolkitStarter_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log" -Append -Force *>$null
-    }
-    catch {
+    } catch {
         Write-StyledMessage -Type Warning -Text "Errore avvio logging: $($_.Exception.Message)"
     }
 
@@ -1218,9 +1195,7 @@ function Invoke-WinToolkitSetup {
     }
 
     Write-StyledMessage -Type Info -Text "Avvio configurazione Win Toolkit..."
-
     $rebootNeeded = $false
-
     if (-not $isResumeSetup) {
         Write-StyledMessage -Type Info -Text "Esecuzione controlli base..."
 
@@ -1237,8 +1212,7 @@ function Invoke-WinToolkitSetup {
 
             if ($coreSuccess -and (Test-WingetFunctionality)) {
                 Write-StyledMessage -Type Success -Text "✅ Winget ripristinato velocemente."
-            }
-            else {
+            } else {
                 Write-StyledMessage -Type Warning -Text "⚠️ Ripristino veloce fallito. Tentativo metodo avanzato (più lento)..."
                 $null = Install-WingetPackage
 
@@ -1250,24 +1224,18 @@ function Invoke-WinToolkitSetup {
                     Write-StyledMessage -Type Info -Text "Lo script proseguirà, ma l'installazione di pacchetti potrebbe fallire."
                 }
             }
-        }
-        else {
+        } else {
             Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
         }
 
         # Validazione profonda di Winget: verifica connettività ai repository e integrità del DB
         $wingetDeepCheck = Test-WingetDeepValidation
-
         if (-not $wingetDeepCheck) {
             Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire a causa di problemi di rete o del repository."
         }
-
         if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
-            if (Install-PowerShellCore) {
-                $null
-            }
-        }
-        else {
+            Install-PowerShellCore
+        } else {
             Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
         }
     }
@@ -1288,7 +1256,9 @@ function Invoke-WinToolkitSetup {
         Start-Process @procParams
 
         Write-StyledMessage -Type Success -Text "Script riavviato su PowerShell 7. Chiusura sessione legacy..."
-        try { Stop-Transcript *>$null } catch { }
+        try {
+            Stop-Transcript *>$null
+        } catch {}
         exit
     }
 
@@ -1328,12 +1298,10 @@ function Invoke-WinToolkitSetup {
             $null = Set-ItemProperty @sipParams2
 
             Write-StyledMessage -Type Success -Text "✅ Windows Terminal impostato come predefinito nel Registro."
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Warning -Text "⚠️ Impossibile impostare il terminale predefinito: $($_.Exception.Message)"
         }
-    }
-    elseif ($wtInstalled) {
+    } elseif ($wtInstalled) {
         Write-StyledMessage -Type Warning -Text "⚠️ Terminale installato ma wt.exe non ancora disponibile nel PATH. Modifica registro saltata per sicurezza."
     }
 
@@ -1345,7 +1313,9 @@ function Invoke-WinToolkitSetup {
     # Se siamo già in modalità ripresa, evitiamo di entrare in loop tentando di riaprire terminali
     if ($isResumeSetup) {
         Write-StyledMessage -Type Info -Text "Installazione ripresa, sessione completata. Non tenterò un riavvio del terminale."
-        try { Stop-Transcript *>$null } catch { }
+        try {
+            Stop-Transcript *>$null
+        } catch {}
         return
     }
 
@@ -1358,7 +1328,9 @@ function Invoke-WinToolkitSetup {
         Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal..."
 
         $pwshPath = Join-Path $script:AppConfig.Paths.PowerShell7 "pwsh.exe"
-        if (-not (Test-Path $pwshPath)) { $pwshPath = "powershell.exe" }
+        if (-not (Test-Path $pwshPath)) {
+            $pwshPath = "powershell.exe"
+        }
 
         # FIX: Aggiunto -d . per directory corrente e semplificato gli argomenti
         $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
@@ -1370,10 +1342,11 @@ function Invoke-WinToolkitSetup {
             }
             Start-Process @procParams
             Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione corrente..."
-            try { Stop-Transcript *>$null } catch { }
+            try {
+                Stop-Transcript *>$null
+            } catch {}
             exit
-        }
-        catch {
+        } catch {
             Write-StyledMessage -Type Error -Text "Errore durante l'avvio di Windows Terminal: $($_.Exception.Message)"
         }
     }
@@ -1394,16 +1367,17 @@ function Invoke-WinToolkitSetup {
             Write-StyledMessage -Type Warning -Text "`rPreparazione riavvio - $i secondi..."
             Start-Sleep 1
         }
-
-        try { Stop-Transcript *>$null } catch { }
+        try {
+            Stop-Transcript *>$null
+        } catch {}
         Restart-Computer -Force
-    }
-    else {
+    } else {
         Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
         Start-Sleep 3
-        try { Stop-Transcript *>$null } catch { }
+        try {
+            Stop-Transcript *>$null
+        } catch {}
         exit
     }
 }
-
 Invoke-WinToolkitSetup
