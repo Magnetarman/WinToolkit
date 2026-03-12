@@ -93,7 +93,7 @@
         catch {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
-            Write-StyledMessage -Type 'Error' -Text "Eccezione $DisplayName: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Eccezione $DisplayName : $($_.Exception.Message)"
             return @{ Success = $false }
         }
         finally {
