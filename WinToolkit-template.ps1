@@ -56,7 +56,7 @@ function Read-Host {
                         foreach ($char in $inputString.ToCharArray()) { $secure.AppendChar($char) }
                         return $secure
                     }
-                    return $inputString
+                    return $inputString ?? ""
                 }
                 # Backspace
                 if ($keyInfo.Key -eq "Backspace") {
@@ -92,14 +92,15 @@ function Read-Host {
     finally {
         try {
             [console]::TreatControlCAsInput = $oldTreatControlC
-        } catch {}
+        }
+        catch {}
     }
 }
 
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 49)"
+$ToolkitVersion = "2.5.2 (Build 50)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -198,7 +199,8 @@ function Clear-ProgressLine {
             $width = $Host.UI.RawUI.WindowSize.Width - 1
             Write-Host "`r$(' ' * $width)" -NoNewline
             Write-Host "`r" -NoNewline
-        } catch {
+        }
+        catch {
             Write-Host "`r                                                                                `r" -NoNewline
         }
     }
@@ -215,11 +217,11 @@ function Write-StyledMessage {
 
     # Bridge: mirror to log file (silently, no UI side-effects)
     $logLevel = switch ($Type) {
-        'Success'  { 'SUCCESS' }
-        'Warning'  { 'WARNING' }
-        'Error'    { 'ERROR' }
+        'Success' { 'SUCCESS' }
+        'Warning' { 'WARNING' }
+        'Error' { 'ERROR' }
         'Progress' { 'INFO' }
-        default    { 'INFO' }
+        default { 'INFO' }
     }
     Write-ToolkitLog -Level $logLevel -Message $Text
 }
@@ -276,7 +278,8 @@ function Start-ToolkitLog {
     # Pulizia residui transcript (backward compat)
     try {
         Stop-Transcript -ErrorAction SilentlyContinue
-    } catch {}
+    }
+    catch {}
 
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = $AppConfig.Paths.Logs
@@ -332,7 +335,8 @@ WSManStackVersion       : $wsManVer
 "@
     try {
         Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue
-    } catch {}
+    }
+    catch {}
 }
 
 function Write-ToolkitLog {
@@ -355,11 +359,35 @@ function Write-ToolkitLog {
     if ($Context.Count -gt 0) {
         try {
             $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3)
-        } catch {}
+        }
+        catch {}
     }
     try {
         Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
-    } catch {}
+    }
+    catch {}
+}
+
+# Helper: installa AppX tramite System.Diagnostics.Process (CreateNoWindow=true).
+# Blocca in modo assoluto le write Win32 native del deployment engine e gestisce l'errore di downgrade.
+function Start-AppxSilentProcess {
+    param([string]$AppxPath, [string]$Flags = '-ForceApplicationShutdown')
+    
+    # Rilevamento automatico switch per Add-AppxPackage
+    $pathOrRegister = ($Flags -match '-Register') ? '-Register' : "-Path '$($AppxPath -replace "'", "''")'"
+    
+    # Script interno che intercetta 0x80073D06 (Versione successiva già installata) e restituisce 0
+    $cmd = "`$ProgressPreference='SilentlyContinue'; try { Add-AppxPackage $pathOrRegister $Flags -ErrorAction Stop } catch { if (`$_.Exception.Message -match '0x80073D06' -or `$_.Exception.Message -match 'versione successiva') { exit 0 } else { exit 1 } }; exit 0"
+    $encodedCmd = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cmd))
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = "powershell.exe"
+    $psi.Arguments = "-NoProfile -EncodedCommand $encodedCmd"
+    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+    $psi.CreateNoWindow = $true
+    $psi.UseShellExecute = $false
+
+    return [System.Diagnostics.Process]::Start($psi)
 }
 
 function Reset-Winget {
@@ -395,7 +423,8 @@ function Reset-Winget {
             if ($asset) {
                 return $asset.browser_download_url
             }
-        } catch {}
+        }
+        catch {}
         return $null
     }
 
@@ -437,7 +466,8 @@ function Reset-Winget {
                     [Environment]::SetEnvironmentVariable('Path', "$sysPath;$($wingetDir.FullName)", 'Machine')
                 }
             }
-        } catch {}
+        }
+        catch {}
     }
 
     # --- Logica Principale ---
@@ -453,21 +483,21 @@ function Reset-Winget {
     $vcKey = if ([Environment]::Is64BitOperatingSystem) { "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" } else { "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X86" }
     if (-not (Test-Path $vcKey) -or $Force) {
         Write-StyledMessage -Type Info -Text "Installazione VC++ Redistributable..."
-        $vcUrl = if ([Environment]::Is64BitOperatingSystem) { $AppConfig.URLs.VCRedist64 } else { $AppConfig.URLs.VCRedist86 }
+        $vcUrl = [Environment]::Is64BitOperatingSystem ? $AppConfig.URLs.VCRedist64 : $AppConfig.URLs.VCRedist86
         $tempFile = Join-Path $AppConfig.Paths.Temp "vc_redist.exe"
         try {
             if (-not (Test-Path $AppConfig.Paths.Temp)) {
-                New-Item -Path $AppConfig.Paths.Temp -ItemType Directory -Force | Out-Null
+                $null = New-Item -Path $AppConfig.Paths.Temp -ItemType Directory -Force
             }
             Invoke-WebRequest -Uri $vcUrl -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
             Start-Process -FilePath $tempFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
             Write-StyledMessage -Type Success -Text "VC++ Redist installato."
-        } catch {
+        }
+        catch {
             Write-StyledMessage -Type Warning -Text "Errore installazione VC++: $($_.Exception.Message)"
-        } finally {
-            if (Test-Path $tempFile) {
-                Remove-Item $tempFile -Force
-            }
+        }
+        finally {
+            if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue *>$null }
         }
     }
 
@@ -490,10 +520,11 @@ function Reset-Winget {
                 Expand-Archive -Path $depZip -DestinationPath $depDir -Force
                 $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
                 Get-ChildItem -Path $depDir -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $arch -or $_.Name -match "neutral" } | ForEach-Object {
-                    Add-AppxPackage -Path $_.FullName -ForceApplicationShutdown -ErrorAction SilentlyContinue
+                    Start-AppxSilentProcess -AppxPath $_.FullName
                 }
                 Write-StyledMessage -Type Success -Text "Dipendenze Appx installate."
-            } catch {}
+            }
+            catch {}
             finally {
                 if (Test-Path $depZip) {
                     Remove-Item $depZip -Force
@@ -508,14 +539,15 @@ function Reset-Winget {
         Write-StyledMessage -Type Info -Text "Installazione Winget MSIXBundle..."
         $bundleFile = Join-Path $AppConfig.Paths.Temp "WingetInstaller.msixbundle"
         try {
-            $bundleUrl = _Get-LatestAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
-            if (-not $bundleUrl) { $bundleUrl = $AppConfig.URLs.WingetInstaller }
+            $bundleUrl = (_Get-LatestAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle') ?? $AppConfig.URLs.WingetInstaller
             Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing -ErrorAction Stop
-            Add-AppxPackage -Path $bundleFile -ForceApplicationShutdown -ErrorAction Stop
+            Start-AppxSilentProcess -AppxPath $bundleFile -Flags '-ForceApplicationShutdown'
             Write-StyledMessage -Type Success -Text "Winget Bundle installato."
-        } catch {
+        }
+        catch {
             Write-StyledMessage -Type Error -Text "Installazione fallita: $($_.Exception.Message)"
-        } finally {
+        }
+        finally {
             if (Test-Path $bundleFile) { Remove-Item $bundleFile -Force }
         }
     }
@@ -525,7 +557,8 @@ function Reset-Winget {
     try {
         Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
         & winget source reset --force 2>$null
-    } catch {}
+    }
+    catch {}
 
     _Apply-Permissions
     & $UpdateEnvironmentPath
@@ -1011,6 +1044,7 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
+
 
 
 
