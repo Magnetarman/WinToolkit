@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 62)"
+$ToolkitVersion = "2.5.2 (Build 63)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1565,6 +1565,7 @@ function WinReinstallStore {
         $wingetResult = $false
         $wingetError = $null
         try {
+            $global:ProgressPreference = 'SilentlyContinue'
             [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNull) | Out-Null
             [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNull) | Out-Null
             $wingetResult = Reset-Winget -Force
@@ -1576,6 +1577,7 @@ function WinReinstallStore {
             [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
             [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
             [WinReinstallStore.NativeConsole]::CloseHandle($hNull) | Out-Null
+            $global:ProgressPreference = $savedProgressPref
         }
         if ($wingetError) {
             Write-StyledMessage -Type 'Error' -Text "Winget: errore critico durante l'installazione - $wingetError"
@@ -1587,7 +1589,9 @@ function WinReinstallStore {
         }
         $storeResult = Install-MicrosoftStore
         $unigetResult = Install-UniGetUI
-        if ($wingetResult) {
+        $wingetExe = Get-WingetExecutable
+        $wingetOk = (-not $wingetError) -and (Test-Path $wingetExe -ErrorAction SilentlyContinue)
+        if ($wingetOk) {
             Write-StyledMessage -Type 'Success' -Text "Winget operativo."
         }
         else {
