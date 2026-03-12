@@ -58,8 +58,10 @@ function WinReinstallStore {
             try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch { }
         }
         # Pulizia cache locale Store
-        @("$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
-            Join-Path $env:LOCALAPPDATA "Microsoft\Windows\INetCache") | ForEach-Object {
+        @(
+            "$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
+            (Join-Path $env:LOCALAPPDATA "Microsoft\Windows\INetCache")
+        ) | ForEach-Object {
             if (Test-Path $_) { Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null }
         }
 
