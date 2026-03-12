@@ -263,10 +263,10 @@ function WinUpdateReset {
         $directories = @(
             @{ Path = "$env:WinDir\SoftwareDistribution"; Name = "SoftwareDistribution" },
             @{ Path = "$env:WinDir\System32\catroot2"; Name = "catroot2" },
-            @{ Path = "$env:WinDir\System32\$dll.dll"; Name = "$dll.dll" },
-            @{ Path = "$env:WinDir\System32\${dll}_BAK.dll"; Name = "${dll}_BAK.dll" },
             @{ Path = "$env:WinDir\System32\WaaSMedicSvc.dll"; Name = "WaaSMedicSvc.dll" },
             @{ Path = "$env:WinDir\System32\wuaueng.dll"; Name = "wuaueng.dll" },
+            @{ Path = "$env:WinDir\System32\WaaSMedicSvc_BAK.dll"; Name = "WaaSMedicSvc_BAK.dll" },
+            @{ Path = "$env:WinDir\System32\wuaueng_BAK.dll"; Name = "wuaueng_BAK.dll" },
             @{ Path = "$env:WinDir\SoftwareDistribution\Download"; Name = "Download" },
             @{ Path = "$env:WinDir\SoftwareDistribution\DataStore"; Name = "DataStore" },
             @{ Path = "$env:WinDir\SoftwareDistribution\Backup"; Name = "Backup" }
@@ -528,22 +528,31 @@ function WinUpdateReset {
         try {
             #Start-Process -FilePath "secedit" -ArgumentList "/configure /cfg $env:windir\inf\defltbase.inf /db defltbase.sdb /verbose" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
             #Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicyUsers" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-            $procParams = @{
-                FilePath     = 'cmd.exe'
-                ArgumentList = '/c', 'RD', '/S', '/Q', "$env:WinDir\System32\GroupPolicy"
-                Wait         = $true
-                WindowStyle  = 'Hidden'
-                ErrorAction  = 'SilentlyContinue'
+            
+            Write-StyledMessage -Type 'Info' -Text '⏳ Eliminazione criteri locali...'
+            $rdProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q `"$env:WinDir\System32\GroupPolicy`"" -WindowStyle Hidden -ErrorAction SilentlyContinue -PassThru
+            $rdTimeout = 10
+            while (-not $rdProc.HasExited -and $rdTimeout -gt 0) {
+                Start-Sleep -Seconds 1
+                $rdTimeout--
             }
-            Start-Process @procParams | Out-Null
-            $procParams = @{
-                FilePath     = 'gpupdate'
-                ArgumentList = '/force'
-                Wait         = $true
-                WindowStyle  = 'Hidden'
-                ErrorAction  = 'SilentlyContinue'
+            if (-not $rdProc.HasExited) { $rdProc | Stop-Process -Force -ErrorAction SilentlyContinue }
+            Write-StyledMessage -Type 'Success' -Text '✅ Criteri eliminati.'
+            
+            Write-StyledMessage -Type 'Info' -Text '⏳ Aggiornamento criteri...'
+            $gpProc = Start-Process -FilePath "gpupdate.exe" -ArgumentList "/force" -WindowStyle Hidden -ErrorAction SilentlyContinue -PassThru
+            $gpTimeout = 15
+            while (-not $gpProc.HasExited -and $gpTimeout -gt 0) {
+                Start-Sleep -Seconds 1
+                $gpTimeout--
             }
-            Start-Process @procParams | Out-Null
+            if (-not $gpProc.HasExited) { 
+                $gpProc | Stop-Process -Force -ErrorAction SilentlyContinue
+                Write-StyledMessage -Type 'Warning' -Text "⚠️ gpupdate terminato per timeout."
+            }
+            else {
+                Write-StyledMessage -Type 'Success' -Text '✅ Criteri aggiornati.'
+            }
 
             # Clean up registry keys
             Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
