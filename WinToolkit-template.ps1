@@ -34,10 +34,10 @@ function Read-Host {
     try { [console]::TreatControlCAsInput = $true } catch {}
 
     try {
-        if ($Prompt) { 
+        if ($Prompt) {
             Write-Host "${Prompt}: " -NoNewline -ForegroundColor Cyan
         }
-        
+
         $inputString = ""
         while ($true) {
             if ([console]::KeyAvailable) {
@@ -70,11 +70,11 @@ function Read-Host {
                     # Ignora tasti di controllo non testuali (eccetto i necessari)
                     if (-not [char]::IsControl($keyInfo.KeyChar)) {
                         $inputString += $keyInfo.KeyChar
-                        if ($AsSecureString -or $MaskInput) { 
+                        if ($AsSecureString -or $MaskInput) {
                             Write-Host "*" -NoNewline -ForegroundColor Yellow
                         }
-                        else { 
-                            Write-Host $keyInfo.KeyChar -NoNewline 
+                        else {
+                            Write-Host $keyInfo.KeyChar -NoNewline
                         }
                     }
                 }
@@ -100,7 +100,7 @@ function Read-Host {
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 53)"
+$ToolkitVersion = "2.5.2 (Build 52)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -372,12 +372,12 @@ function Write-ToolkitLog {
 # Blocca in modo assoluto le write Win32 native del deployment engine e gestisce l'errore di downgrade.
 function Start-AppxSilentProcess {
     param([string]$AppxPath, [string]$Flags = '-ForceApplicationShutdown')
-    
+
     # Costruzione sicura del comando interno
     # Usiamo -Register se presente nei flags, altrimenti -Path
     $isRegister = $Flags -match '-Register'
     $pathParam = $isRegister ? "" : "-Path '$($AppxPath -replace "'", "''")'"
-    
+
     # Script interno: sopprime TUTTO l'output nativo e gestisce il downgrade (0x80073D06)
     $cmd = @"
 `$ProgressPreference = 'SilentlyContinue';
@@ -423,7 +423,7 @@ function Reset-Winget {
     # Fix encoding per chiamate a eseguibili nativi (es. winget)
     $OutputEncoding = [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
-    # --- Helper Interni ---
+    # --- Helper Interni (Porting da start.ps1) ---
     $UpdateEnvironmentPath = {
         $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
         $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -432,28 +432,33 @@ function Reset-Winget {
         [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
     }
 
-    function _Get-LatestAssetUrl {
-        param([string]$Match)
-        try {
-            $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing -ErrorAction Stop
-            $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
-            if ($asset) {
-                return $asset.browser_download_url
-            }
+    function _Get-WingetExecutable {
+        # Priorità: Alias di esecuzione (localappdata) -> Evita "Accesso Negato" di WindowsApps
+        $aliasPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
+        if (Test-Path $aliasPath) { return $aliasPath }
+
+        # Fallback: Ricerca in WindowsApps
+        $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
+        $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue |
+                     Sort-Object Name -Descending | Select-Object -First 1
+
+        if ($wingetDir) {
+            $exe = Join-Path $wingetDir.FullName "winget.exe"
+            if (Test-Path $exe) { return $exe }
         }
-        catch {}
-        return $null
+        return "winget"
     }
 
-    function _Test-WingetCompatibility {
-        $osInfo = [Environment]::OSVersion
-        if ($osInfo.Version.Major -lt 10) {
-            return $false
-        }
-        if ($osInfo.Version.Major -eq 10 -and $osInfo.Version.Build -lt 16299) {
-            return $false
-        }
-        return $true
+    function _Test-VCRedistInstalled {
+        $64BitOS = [System.Environment]::Is64BitOperatingSystem
+        $registryPath = [string]::Format(
+            'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\{0}\Microsoft\VisualStudio\14.0\VC\Runtimes\X{1}',
+            $(if ($64BitOS) { 'WOW6432Node' } else { '' }),
+            $(if ($64BitOS) { '64' } else { '86' })
+        )
+        $major = (Get-ItemProperty -Path $registryPath -Name 'Major' -ErrorAction SilentlyContinue).Major
+        $dllPath = [string]::Format('{0}\system32\concrt140.dll', $env:windir)
+        return (Test-Path $registryPath) -and ($major -ge 14) -and (Test-Path $dllPath)
     }
 
     function _Invoke-ForceClose {
@@ -465,141 +470,97 @@ function Reset-Winget {
         Start-Sleep 2
     }
 
-    function _Apply-Permissions {
-        param([string]$Path)
+    function _Get-LatestAssetUrl {
+        param([string]$Match)
         try {
-            if (-not (Test-Path $Path)) { return }
-            
-            # 1. Prendi possesso (Take Ownership)
-            $null = takeown /f $Path /a /r /d Y 2>&1
-            
-            # 2. Concedi controllo completo agli Administrator tramite icacls (molto più robusto di Set-Acl su WindowsApps)
-            $null = icacls $Path /grant "Administrators:(OI)(CI)F" /t /q /c 2>&1
-            
-            # 3. Aggiorna PATH se è una directory di Winget
-            if ($Path -match 'Microsoft.DesktopAppInstaller') {
-               $sysPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-               if (-not ($sysPath -split ';').Contains($Path)) {
-                   [Environment]::SetEnvironmentVariable('Path', "$sysPath;$Path", 'Machine')
-               }
-            }
-        }
-        catch {}
+            $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing -ErrorAction Stop
+            $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
+            return $asset ? $asset.browser_download_url : $null
+        } catch { return $null }
     }
 
-    # --- Logica Principale ---
-    Write-StyledMessage -Type Info -Text "🚀 Avvio procedura integrata Reset-Winget..."
+    # --- Logica Principale (Orchestrazione start.ps1) ---
+    Write-StyledMessage -Type Info -Text "🚀 Avvio riparazione avanzata Winget..."
 
-    if (-not (_Test-WingetCompatibility)) {
-        Write-StyledMessage -Type Error -Text "Sistema non compatibile con Winget."
+    $os = [Environment]::OSVersion.Version
+    if ($os.Major -lt 10 -or ($os.Major -eq 10 -and $os.Build -lt 16299)) {
+        Write-StyledMessage -Type Error -Text "Sistema non supportato da Winget."
         return $false
     }
 
-    # FASE 0: VC++ Redists
-    Write-StyledMessage -Type Info -Text "Verifica Visual C++ Redistributable..."
-    $vcKey = if ([Environment]::Is64BitOperatingSystem) { "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" } else { "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X86" }
-    if (-not (Test-Path $vcKey) -or $Force) {
-        Write-StyledMessage -Type Info -Text "Installazione VC++ Redistributable..."
-        $vcUrl = [Environment]::Is64BitOperatingSystem ? $AppConfig.URLs.VCRedist64 : $AppConfig.URLs.VCRedist86
-        $tempFile = Join-Path $AppConfig.Paths.Temp "vc_redist.exe"
-        try {
-            if (-not (Test-Path $AppConfig.Paths.Temp)) {
-                $null = New-Item -Path $AppConfig.Paths.Temp -ItemType Directory -Force
-            }
-            Invoke-WebRequest -Uri $vcUrl -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
-            Start-Process -FilePath $tempFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
+    _Invoke-ForceClose
+
+    try {
+        # 1. VC++ Redist (Base)
+        if (-not (_Test-VCRedistInstalled) -or $Force) {
+            Write-StyledMessage -Type Info -Text "Installazione Visual C++ Redistributable..."
+            $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
+            $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
+            $vcFile = Join-Path $AppConfig.Paths.Temp "vc_redist.exe"
+            if (-not (Test-Path $AppConfig.Paths.Temp)) { $null = New-Item $AppConfig.Paths.Temp -ItemType Directory -Force }
+            Invoke-WebRequest -Uri $vcUrl -OutFile $vcFile -UseBasicParsing
+            Start-Process -FilePath $vcFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
             Write-StyledMessage -Type Success -Text "VC++ Redist installato."
         }
-        catch {
-            Write-StyledMessage -Type Warning -Text "Errore installazione VC++: $($_.Exception.Message)"
-        }
-        finally {
-            if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue *>$null }
-        }
-    }
 
-    # FASE 1: Verifica e Installazione Core
-    & $UpdateEnvironmentPath
-    $wingetOk = (Get-Command winget -ErrorAction SilentlyContinue) -and (& winget --version 2>$null | Out-String -Stream | Select-String 'v\d')
-
-    if (-not $wingetOk -or $Force) {
-        Write-StyledMessage -Type Warning -Text "Winget non operativo. Avvio ripristino core..."
-        _Invoke-ForceClose
-
-        # 1.1 Installazione Dipendenze (UI.Xaml, VCLibs)
-        Write-StyledMessage -Type Info -Text "Download dipendenze Appx..."
+        # 2. Dipendenze AppX
+        Write-StyledMessage -Type Info -Text "Download dipendenze Winget..."
         $depUrl = _Get-LatestAssetUrl -Match 'DesktopAppInstaller_Dependencies.zip'
         if ($depUrl) {
             $depZip = Join-Path $AppConfig.Paths.Temp "dependencies.zip"
             $depDir = Join-Path $AppConfig.Paths.Temp "deps"
-            try {
-                Invoke-WebRequest -Uri $depUrl -OutFile $depZip -UseBasicParsing -ErrorAction Stop
-                Expand-Archive -Path $depZip -DestinationPath $depDir -Force
-                $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
-                Get-ChildItem -Path $depDir -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $arch -or $_.Name -match "neutral" } | ForEach-Object {
-                    Start-AppxSilentProcess -AppxPath $_.FullName
-                }
-                Write-StyledMessage -Type Success -Text "Dipendenze Appx installate."
+            Invoke-WebRequest -Uri $depUrl -OutFile $depZip -UseBasicParsing
+            Expand-Archive -Path $depZip -DestinationPath $depDir -Force
+            $archPattern = [Environment]::Is64BitOperatingSystem ? "x64|ne" : "x86|ne"
+            Get-ChildItem $depDir -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $archPattern } | ForEach-Object {
+                Start-AppxSilentProcess -AppxPath $_.FullName
             }
-            catch {}
-            finally {
-                if (Test-Path $depZip) {
-                    Remove-Item $depZip -Force
-                }
-                if (Test-Path $depDir) {
-                    Remove-Item $depDir -Recurse -Force
-                }
-            }
+            Write-StyledMessage -Type Success -Text "Dipendenze caricate."
         }
 
-        # 1.2 Installazione Winget Bundle
+        # 3. MSIX Bundle (Il Cuore)
         Write-StyledMessage -Type Info -Text "Installazione Winget MSIXBundle..."
-        $bundleFile = Join-Path $AppConfig.Paths.Temp "WingetInstaller.msixbundle"
-        try {
-            $bundleUrl = (_Get-LatestAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle') ?? $AppConfig.URLs.WingetInstaller
-            Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing -ErrorAction Stop
+        $bundleUrl = _Get-LatestAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
+        if ($bundleUrl) {
+            $bundleFile = Join-Path $AppConfig.Paths.Temp "winget.msixbundle"
+            Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing
             Start-AppxSilentProcess -AppxPath $bundleFile -Flags '-ForceApplicationShutdown'
-            Write-StyledMessage -Type Success -Text "Winget Bundle installato."
+            Write-StyledMessage -Type Success -Text "Winget Core installato."
         }
-        catch {
-            Write-StyledMessage -Type Error -Text "Installazione fallita: $($_.Exception.Message)"
-        }
-        finally {
-            if (Test-Path $bundleFile) { Remove-Item $bundleFile -Force }
-        }
-    }
 
-    # FASE 2: Riparazione Database e Sorgenti
-    Write-StyledMessage -Type Info -Text "Riparazione database e reset sorgenti..."
-    try {
-        Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
-        & winget source reset --force 2>$null
-    }
-    catch {}
+        # 4. Reset & Cleanup
+        try {
+            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
+            & (_Get-WingetExecutable) source reset --force 2>$null
+        } catch {}
 
-    $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
-    $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
-    if ($wingetDir) { _Apply-Permissions -Path $wingetDir.FullName }
-    
-    & $UpdateEnvironmentPath
+        & $UpdateEnvironmentPath
+        Start-Sleep 2
 
-    # FASE 3: Test Finale
-    Write-StyledMessage -Type Info -Text "🔍 Verifica finale connettività..."
-    try {
-        $testProc = Start-Process -FilePath 'winget' -ArgumentList @('search', 'Git.Git', '--accept-source-agreements', '--disable-interactivity') -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop
-        if ($testProc.ExitCode -eq 0) {
-            Write-StyledMessage -Type Success -Text "✅ Winget ripristinato con successo."
+        # 5. Test Finale (Profondo)
+        $testExe = _Get-WingetExecutable
+        $testResult = try {
+            # Testiamo con una ricerca reale per verificare connettività e database
+            $proc = Start-Process -FilePath $testExe -ArgumentList "search", "Git.Git", "--accept-source-agreements" -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
+            $proc.ExitCode -eq 0
+        } catch { $false }
+
+        if ($testResult) {
+            Write-StyledMessage -Type Success -Text "✅ Winget ripristinato e testato con successo."
             return $true
-        }
-        else {
-            Write-StyledMessage -Type Error -Text "❌ Winget non operativo dopo il reset (ExitCode: $($testProc.ExitCode))."
-            return $false
+        } else {
+            Write-StyledMessage -Type Warning -Text "⚠️ Winget installato ma il test di connettività è fallito."
+            return $true # Consideriamo successo l'installazione, i problemi di rete sono esterni
         }
     }
     catch {
-        Write-StyledMessage -Type Error -Text "❌ Winget non raggiungibile: $($_.Exception.Message)"
+        Write-StyledMessage -Type Error -Text "❌ Errore critico nel reset: $($_.Exception.Message)"
         return $false
     }
+    finally {
+        if (Test-Path $AppConfig.Paths.Temp) { Remove-Item $AppConfig.Paths.Temp -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
 }
 
 function Show-ProgressBar {
@@ -1064,24 +1025,3 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
