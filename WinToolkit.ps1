@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 66)"
+$ToolkitVersion = "2.5.2 (Build 67)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -2398,13 +2398,13 @@ function OfficeToolkit {
             }
             $gciParamsExe = @{
                 Path        = $tempDir
-                Filter      = "SaRAcmd.exe"
+                Filter      = "GetHelpCmd.exe"
                 Recurse     = $true
                 ErrorAction = 'SilentlyContinue'
             }
             $saraExe = Get-ChildItem @gciParamsExe | Select-Object -First 1
             if (-not $saraExe) {
-                Write-StyledMessage -Type 'Error' -Text "SaRAcmd.exe non trovato"
+                Write-StyledMessage -Type 'Error' -Text "GetHelpCmd.exe non trovato"
                 return $false
             }
             Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite SaRA..."
