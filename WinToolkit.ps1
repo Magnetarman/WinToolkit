@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 56)"
+$ToolkitVersion = "2.5.2 (Build 57)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1071,10 +1071,9 @@ function WinUpdateReset {
             if (-not $success) {
                 Write-StyledMessage -Type 'Info' -Text "💡 Suggerimento: Alcuni file potrebbero essere ricreati dopo il riavvio."
             }
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r`n"
+            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
-            Write-Host ""
             Start-Sleep -Milliseconds 500
         }
         [Console]::Out.Flush()
