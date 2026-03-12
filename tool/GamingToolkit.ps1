@@ -45,7 +45,11 @@
     # ============================================================================
     function Test-WingetPackageAvailable([string]$PackageId) {
         try {
-            return $LASTEXITCODE -eq 0 -and $result -match $PackageId
+            $searchResult = winget search --id $PackageId --accept-source-agreements 2>&1
+            if ($LASTEXITCODE -eq 0 -and $searchResult -match $PackageId) {
+                return $true
+            }
+            return $false
         }
         catch {
             $errorMessage = $_.Exception.Message
@@ -89,7 +93,7 @@
         catch {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
-            Write-StyledMessage -Type 'Error' -Text "Eccezione $DisplayName`: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Eccezione $DisplayName: $($_.Exception.Message)"
             return @{ Success = $false }
         }
         finally {
@@ -190,7 +194,12 @@
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 700
 
-        if (-not $result.Process.HasExited) {
+        if ($null -eq $result -or $null -eq $result.Process) {
+            Write-Host "`r$(' ' * 120)" -NoNewline
+            Write-Host "`r" -NoNewline
+            Write-StyledMessage Error "DirectX: processo non avviato correttamente."
+        }
+        elseif (-not $result.Process.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Warning "Timeout DirectX."
@@ -245,7 +254,12 @@
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 500
 
-        if (-not $result.Process.HasExited) {
+        if ($null -eq $result -or $null -eq $result.Process) {
+            Write-Host "`r$(' ' * 120)" -NoNewline
+            Write-Host "`r" -NoNewline
+            Write-StyledMessage Error "Battle.net: processo non avviato correttamente."
+        }
+        elseif (-not $result.Process.HasExited) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Warning "Timeout Battle.net."

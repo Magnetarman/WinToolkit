@@ -171,12 +171,13 @@ function OfficeToolkit {
     function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
         try {
             Write-StyledMessage -Type 'Info' -Text "📥 Download $Description..."
-            $webClient = New-Object System.Net.WebClient
+        $webClient = New-Object System.Net.WebClient
             $webClient.DownloadFile($Url, $OutputPath)
             $webClient.Dispose()
 
-                Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description")
-                return $success
+            $success = (Test-Path $OutputPath)
+            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description")
+            return $success
         }
         catch {
             Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
@@ -268,6 +269,11 @@ function OfficeToolkit {
         }
 
         $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ? "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe" : "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+
+        if (-not (Test-Path $officeClient)) {
+            Write-StyledMessage -Type 'Error' -Text "OfficeClickToRun.exe non trovato. Office potrebbe non essere installato."
+            return $false
+        }
 
         try {
             $processTimeoutSeconds = 86400 # Attesa indefinita (24 ore)
