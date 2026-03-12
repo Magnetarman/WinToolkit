@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 63)"
+$ToolkitVersion = "2.5.2 (Build 64)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1558,30 +1558,49 @@ function WinReinstallStore {
 '@
         }
         $STD_OUTPUT = -11; $STD_ERROR = -12
+        $INVALID_HANDLE_VALUE = [IntPtr]::new(-1)
         $hOrigOut = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_OUTPUT)
         $hOrigErr = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_ERROR)
         $hNull = [WinReinstallStore.NativeConsole]::CreateFileW(
             'NUL', 0x40000000, 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
+        $canRedirect = (
+            $hNull -ne $INVALID_HANDLE_VALUE -and $hNull -ne [IntPtr]::Zero -and
+            $hOrigOut -ne $INVALID_HANDLE_VALUE -and $hOrigOut -ne [IntPtr]::Zero -and
+            $hOrigErr -ne $INVALID_HANDLE_VALUE -and $hOrigErr -ne [IntPtr]::Zero
+        )
+        $handlesRedirected = $false
         $wingetResult = $false
         $wingetError = $null
         try {
             $global:ProgressPreference = 'SilentlyContinue'
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNull) | Out-Null
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNull) | Out-Null
+            if ($canRedirect) {
+                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNull) | Out-Null
+                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNull) | Out-Null
+                $handlesRedirected = $true
+            }
             $wingetResult = Reset-Winget -Force
         }
         catch {
             $wingetError = $_.Exception.Message
         }
         finally {
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
-            [WinReinstallStore.NativeConsole]::CloseHandle($hNull) | Out-Null
+            if ($handlesRedirected) {
+                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
+                [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
+            }
+            if ($hNull -ne $INVALID_HANDLE_VALUE -and $hNull -ne [IntPtr]::Zero) {
+                [WinReinstallStore.NativeConsole]::CloseHandle($hNull) | Out-Null
+            }
             $global:ProgressPreference = $savedProgressPref
         }
-        if ($wingetError) {
+        $isHandleError = $wingetError -and ($wingetError -match '(?i)handle|console|accesso negato|not associated')
+        if ($wingetError -and -not $isHandleError) {
             Write-StyledMessage -Type 'Error' -Text "Winget: errore critico durante l'installazione - $wingetError"
             Write-ToolkitLog -Level ERROR -Message "Reset-Winget fallito: $wingetError"
+        }
+        elseif ($wingetError -and $isHandleError) {
+            Write-StyledMessage -Type 'Warning' -Text "Winget: avviso console durante l'installazione (non critico) - $wingetError"
+            Write-ToolkitLog -Level WARN -Message "Reset-Winget handle warning (cosmestico): $wingetError"
         }
         else {
             $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
@@ -1590,7 +1609,8 @@ function WinReinstallStore {
         $storeResult = Install-MicrosoftStore
         $unigetResult = Install-UniGetUI
         $wingetExe = Get-WingetExecutable
-        $wingetOk = (-not $wingetError) -and (Test-Path $wingetExe -ErrorAction SilentlyContinue)
+        $wingetBinaryOk = Test-Path $wingetExe -ErrorAction SilentlyContinue
+        $wingetOk = $wingetBinaryOk -and (-not $wingetError -or $isHandleError)
         if ($wingetOk) {
             Write-StyledMessage -Type 'Success' -Text "Winget operativo."
         }
