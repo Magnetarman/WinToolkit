@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 61)"
+$ToolkitVersion = "2.5.2 (Build 62)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1545,16 +1545,46 @@ function WinReinstallStore {
     }
     try {
         Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget..."
-        $wingetResult = Reset-Winget -Force
-        $clearLine = ' ' * ([Console]::WindowWidth - 1)
-        [Console]::Write("`r" + $clearLine + "`r")
-        if ([Console]::CursorTop -gt 0) {
-            [Console]::SetCursorPosition(0, [Console]::CursorTop - 1)
-            [Console]::Write("`r" + $clearLine + "`r")
+        if (-not ('WinReinstallStore.NativeConsole' -as [type])) {
+            Add-Type -Namespace 'WinReinstallStore' -Name 'NativeConsole' -MemberDefinition @'
+                [DllImport("kernel32.dll")] public static extern bool   SetStdHandle(int nStdHandle, IntPtr hHandle);
+                [DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int nStdHandle);
+                [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+                public static extern IntPtr CreateFileW(
+                    string lpFileName, uint dwDesiredAccess, uint dwShareMode,
+                    IntPtr lpSecurityAttributes, uint dwCreationDisposition,
+                    uint dwFlagsAndAttributes, IntPtr hTemplateFile);
+                [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr hObject);
+'@
         }
-        [Console]::Out.Flush()
-        $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
-        Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text "Winget $msgWinget"
+        $STD_OUTPUT = -11; $STD_ERROR = -12
+        $hOrigOut = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_OUTPUT)
+        $hOrigErr = [WinReinstallStore.NativeConsole]::GetStdHandle($STD_ERROR)
+        $hNull = [WinReinstallStore.NativeConsole]::CreateFileW(
+            'NUL', 0x40000000, 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
+        $wingetResult = $false
+        $wingetError = $null
+        try {
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNull) | Out-Null
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNull) | Out-Null
+            $wingetResult = Reset-Winget -Force
+        }
+        catch {
+            $wingetError = $_.Exception.Message
+        }
+        finally {
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
+            [WinReinstallStore.NativeConsole]::CloseHandle($hNull) | Out-Null
+        }
+        if ($wingetError) {
+            Write-StyledMessage -Type 'Error' -Text "Winget: errore critico durante l'installazione - $wingetError"
+            Write-ToolkitLog -Level ERROR -Message "Reset-Winget fallito: $wingetError"
+        }
+        else {
+            $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
+            Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text "Winget $msgWinget"
+        }
         $storeResult = Install-MicrosoftStore
         $unigetResult = Install-UniGetUI
         if ($wingetResult) {
