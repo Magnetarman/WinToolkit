@@ -1,4 +1,4 @@
-﻿function GamingToolkit {
+function GamingToolkit {
     <#
     .SYNOPSIS
         Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
@@ -119,7 +119,7 @@
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         Write-StyledMessage Error 'Winget non disponibile.'
         Write-StyledMessage Info 'Esegui reset Store/Winget e riprova.'
-        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare...'
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
         return
     }
@@ -272,14 +272,14 @@
             Write-StyledMessage -Type ($exitCode -in @(0, 3010) ? 'Success' : 'Warning') -Text ($exitCode -in @(0, 3010) ? "Battle.net installato." : "Battle.net: codice $exitCode")
         }
 
-        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare...'
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     catch {
         Write-Host "`r$(' ' * 120)" -NoNewline
         Write-Host "`r" -NoNewline
         Write-StyledMessage Error "Errore durante installazione Battle.net: $($_.Exception.Message)"
-        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare...'
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     Write-Host ''
@@ -359,10 +359,10 @@
     Write-Host ''
 
     # Step 10: Completamento
-    Write-Host ('═' * 80) -ForegroundColor Green
-    Write-StyledMessage Success 'Gaming Toolkit completato!'
-    Write-StyledMessage Success 'Sistema ottimizzato per il gaming.'
-    Write-Host ('═' * 80) -ForegroundColor Green
+    Write-StyledMessage -Type 'Info' -Text ('─' * 60)
+    Write-StyledMessage -Type 'Success' -Text 'Gaming Toolkit completato!'
+    Write-StyledMessage -Type 'Success' -Text 'Sistema ottimizzato per il gaming.'
+    Write-StyledMessage -Type 'Info' -Text ('─' * 60)
     Write-Host ''
 
     # Step 11: Riavvio
@@ -377,7 +377,7 @@
         }
         else {
             Write-StyledMessage Warning 'Riavvia manualmente per applicare tutte le modifiche.'
-            Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+            Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare...'
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
         }
     }
