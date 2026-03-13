@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 71)"
+$ToolkitVersion = "2.5.2 (Build 72)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1965,19 +1965,13 @@ function OfficeToolkit {
             return $false
         }
         try {
+            $removeParams = @{
+                Path        = $Path
+                Force       = $true
+                ErrorAction = 'SilentlyContinue'
+            }
             if ($Recurse) {
-                $removeParams = @{
-                    Path        = $Path
-                    Recurse     = $true
-                    Force       = $true
-                    ErrorAction = 'SilentlyContinue'
-                }
-            } else {
-                $removeParams = @{
-                    Path        = $Path
-                    Force       = $true
-                    ErrorAction = 'SilentlyContinue'
-                }
+                $removeParams.Add('Recurse', $Recurse)
             }
             Remove-Item @removeParams *>$null
             Clear-ProgressLine
