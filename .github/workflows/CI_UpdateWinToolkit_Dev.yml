@@ -28,6 +28,8 @@ on:
       - "tool/*.ps1"
       - "WinToolkit-template.ps1"
       - "compiler.ps1"
+      - "start-offline.ps1"
+      - "start.ps1"
   pull_request:
     branches: [Dev]
 
@@ -109,9 +111,9 @@ jobs:
               core.setFailed("PR contiene modifiche a file protetti fuori dalla cartella /tool.");
             }
 
-# ---------------------------------------------------------------------------
-# JOB 1: LINTING - Analisi statica del codice
-# ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # JOB 1: LINTING - Analisi statica del codice
+  # ---------------------------------------------------------------------------
   linting:
     name: Linting
     runs-on: windows-latest
@@ -438,10 +440,10 @@ jobs:
         run: |
           $version = "${{ needs.versioning.outputs.new_version }}"
           $targetDate = $null
-          
+
           # Trova l'ultima release se esiste
           $lastRelease = gh release list --limit 1 | Select-String -Pattern "v\d" | ForEach-Object { ($_ -split "`t")[0] }
-          
+
           if ($lastRelease) {
             Write-Host "Ultima release trovata: $lastRelease"
             $publishedAt = gh release view $lastRelease --json publishedAt -q .publishedAt
@@ -458,17 +460,17 @@ jobs:
                 $targetDate = [datetime]::MinValue
             }
           }
-          
+
           # Ottieni le PR limitando a 100 per sicurezza
           $prsJson = gh pr list --state merged --base Dev --limit 100 --json title,url,author,mergedAt
           $prsObj = $prsJson | ConvertFrom-Json
           if ($null -eq $prsObj) { $prsObj = @() }
-          
+
           # Filtra PR in base alla data e all'autore
           $validPrs = $prsObj | Where-Object { 
             ([datetime]$_.mergedAt -gt $targetDate) -and ($_.author.login -ne 'MagnetarMan') 
           }
-          
+
           $releaseBody = "### 🛠 Modifiche dai Collaboratori`n`n"
           if ($validPrs.Count -gt 0) {
             foreach ($pr in $validPrs) {
@@ -477,7 +479,7 @@ jobs:
           } else {
             $releaseBody += "Nessun contributo esterno in questa build.`n"
           }
-          
+
           $sourceKB = "${{ needs.build.outputs.source_kb }}"
           $outputKB = "${{ needs.build.outputs.output_kb }}"
           $reduction = "${{ needs.build.outputs.reduction_percent }}"
@@ -490,10 +492,10 @@ jobs:
           $releaseBody += "| Peso Finale | $outputKB KB |`n"
           $releaseBody += "| Riduzione | $reduction% |`n"
           $releaseBody += "| Righe Eliminate | $linesRemoved |`n"
-          
+
           Write-Host "Contenuto della release:"
           Write-Host $releaseBody
-          
+
           $releaseBody | Out-File -FilePath release_body.md -Encoding utf8
 
       - name: Create Pre-Release
@@ -502,14 +504,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $version = "${{ needs.versioning.outputs.new_version }}"
-          
+
           if (-not $version -or $version -eq '') {
               Write-Error "ERROR: The release version (tag) is empty. Ensure the versioning job sets outputs.new_version correctly."
               exit 1
           }
-          
+
           # Sanitize tag name (replaces ' (' with '-', removes ')', and removes spaces)
           $tag = "v$version" -replace ' \(', '-' -replace '\)', '' -replace ' ', ''
-          
+
           Write-Host "Creazione pre-release per la versione '$version' con il tag '$tag'"
           gh release create $tag "WinToolkit.ps1" --title "WinToolkit $tag (Dev Pre-Release)" --notes-file release_body.md --prerelease --target Dev
