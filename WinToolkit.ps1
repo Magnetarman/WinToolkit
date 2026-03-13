@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 72)"
+$ToolkitVersion = "2.5.2 (Build 73)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -3005,7 +3005,8 @@ function WinCleaner {
                         try {
                             Add-CleanerLog -Type 'Info' -Text "🗑️ Rimozione: $p"
                             Remove-Item -Path "$p\*" -Recurse -Force -ErrorAction SilentlyContinue
-                        } catch {
+                        }
+                        catch {
                             Add-CleanerLog -Type 'Warning' -Text "Impossibile pulire completamente $p"
                         }
                     }
@@ -3389,9 +3390,11 @@ function WinCleaner {
         $currentRuleIndex++
         $percent = [math]::Round(($currentRuleIndex / $totalRules) * 100)
         Clear-ProgressLine
+        Write-Host ""
         Show-ProgressBar -Activity "Esecuzione regole" -Status "$($rule.Name)" -Percent $percent -Icon '⚙️'
         $result = Invoke-WinCleanerRule -Rule $rule
         Clear-ProgressLine
+        Write-Host ""
         if ($result) {
             $successCount++
         }
@@ -3408,16 +3411,15 @@ function WinCleaner {
     $sCount = ($stats | Where-Object Name -eq 'Success').Count
     $wCount = ($stats | Where-Object Name -eq 'Warning').Count
     $eCount = ($stats | Where-Object Name -eq 'Error').Count
-    Write-StyledMessage -Type 'Success' -Text "✅ Operazioni completate con successo: $sCount"
-    if ($wCount -gt 0) { Write-StyledMessage -Type 'Warning' -Text "⚠️ Avvisi generati: $wCount" }
-    if ($eCount -gt 0) { Write-StyledMessage -Type 'Error' -Text "❌ Errori riscontrati: $eCount" }
+    Write-StyledMessage -Type 'Success' -Text "Operazioni completate con successo: $sCount"
+    if ($wCount -gt 0) { Write-StyledMessage -Type 'Warning' -Text "Avvisi generati: $wCount" }
+    if ($eCount -gt 0) { Write-StyledMessage -Type 'Error' -Text "Errori riscontrati: $eCount" }
     Write-StyledMessage -Type 'Info' -Text "--------------------------------------------------"
     Write-StyledMessage -Type 'Info' -Text "Dettaglio Errori e Warning:"
-        $problems = $global:WinCleanerLog | Where-Object { $_.Type -in 'Warning', 'Error' }
+    $problems = $global:WinCleanerLog | Where-Object { $_.Type -in 'Warning', 'Error' }
     if ($problems) {
         foreach ($p in $problems) {
-            $icon = if ($p.Type -eq 'Error') { '❌' } else { '⚠️' }
-            Write-StyledMessage -Type $p.Type -Text "$icon $($p.Text)"
+            Write-StyledMessage -Type $p.Type -Text $p.Text
         }
     }
     else {
