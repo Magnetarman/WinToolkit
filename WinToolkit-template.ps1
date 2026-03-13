@@ -401,6 +401,157 @@ function Write-ToolkitLog {
     catch {}
 }
 
+function Invoke-ExternalCommandWithLog {
+    <#
+    .SYNOPSIS
+        Esegue un comando esterno con logging strutturato e cattura completa di STDOUT/STDERR.
+    .DESCRIPTION
+        Wrapper standardizzato per processi esterni.
+        - Logga comando, argomenti, exit code, durata ed eventuali errori.
+        - Restituisce un oggetto con Success, ExitCode, StdOut, StdErr, Elapsed.
+        - Non scrive mai direttamente su console (la responsabilità è del chiamante tramite Write-StyledMessage).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Command,
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$Arguments = @(),
+
+        [Parameter(Mandatory = $false)]
+        [string]$WorkingDirectory,
+
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutSeconds = 0,
+
+        [Parameter(Mandatory = $false)]
+        [string]$LogContextKey = ''
+    )
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $argString = $Arguments -join ' '
+
+    Write-ToolkitLog -Level 'INFO' -Message "Esecuzione comando esterno: $Command $argString" -Context @{
+        Command       = $Command
+        Arguments     = $Arguments
+        WorkingDir    = $WorkingDirectory
+        TimeoutSec    = $TimeoutSeconds
+        ContextKey    = $LogContextKey
+    }
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $Command
+    $psi.Arguments = $argString
+    if ($WorkingDirectory) {
+        $psi.WorkingDirectory = $WorkingDirectory
+    }
+    $psi.UseShellExecute        = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError  = $true
+    $psi.CreateNoWindow         = $true
+
+    $proc = [System.Diagnostics.Process]::new()
+    $proc.StartInfo = $psi
+
+    $stdOut = New-Object System.Text.StringBuilder
+    $stdErr = New-Object System.Text.StringBuilder
+
+    $outputHandler = [System.Diagnostics.DataReceivedEventHandler]{
+        param($sender, $e)
+        if ($e.Data) { [void]$stdOut.AppendLine($e.Data) }
+    }
+    $errorHandler = [System.Diagnostics.DataReceivedEventHandler]{
+        param($sender, $e)
+        if ($e.Data) { [void]$stdErr.AppendLine($e.Data) }
+    }
+
+    $success = $false
+    $exitCode = $null
+
+    try {
+        if (-not $proc.Start()) {
+            throw "Impossibile avviare il processo esterno."
+        }
+
+        $proc.BeginOutputReadLine()
+        $proc.BeginErrorReadLine()
+
+        $proc.add_OutputDataReceived($outputHandler)
+        $proc.add_ErrorDataReceived($errorHandler)
+
+        if ($TimeoutSeconds -gt 0) {
+            if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+                try { $proc.Kill() } catch {}
+                throw "Timeout dopo $TimeoutSeconds secondi."
+            }
+        }
+        else {
+            $proc.WaitForExit()
+        }
+
+        $exitCode = $proc.ExitCode
+        $success = ($exitCode -eq 0)
+    }
+    catch {
+        $exitCode = if ($exitCode -ne $null) { $exitCode } else { -1 }
+        Write-ToolkitLog -Level 'ERROR' -Message "Eccezione durante esecuzione comando esterno" -Context @{
+            Command       = $Command
+            Arguments     = $Arguments
+            WorkingDir    = $WorkingDirectory
+            TimeoutSec    = $TimeoutSeconds
+            ContextKey    = $LogContextKey
+            Exception     = $_.Exception.Message
+            Stack         = $_.ScriptStackTrace
+        }
+    }
+    finally {
+        $stopwatch.Stop()
+        $elapsed = $stopwatch.Elapsed
+
+        $outText = $stdOut.ToString()
+        $errText = $stdErr.ToString()
+
+        # Evita file log enormi: tronca output molto lunghi ma preserva informazione di taglio
+        $maxLen = 8000
+        $outLogged = $outText
+        $errLogged = $errText
+        if ($outLogged.Length -gt $maxLen) {
+            $outLogged = $outLogged.Substring(0, $maxLen) + "`n[...output troncato...]"
+        }
+        if ($errLogged.Length -gt $maxLen) {
+            $errLogged = $errLogged.Substring(0, $maxLen) + "`n[...stderr troncato...]"
+        }
+
+        Write-ToolkitLog -Level 'INFO' -Message "Risultato comando esterno" -Context @{
+            Command       = $Command
+            Arguments     = $Arguments
+            WorkingDir    = $WorkingDirectory
+            TimeoutSec    = $TimeoutSeconds
+            ContextKey    = $LogContextKey
+            ExitCode      = $exitCode
+            Success       = $success
+            Elapsed       = $elapsed.ToString()
+            StdOutSnippet = $outLogged
+            StdErrSnippet = $errLogged
+        }
+
+        if ($proc) {
+            $proc.remove_OutputDataReceived($outputHandler)
+            $proc.remove_ErrorDataReceived($errorHandler)
+            $proc.Dispose()
+        }
+    }
+
+    [pscustomobject]@{
+        Success  = $success
+        ExitCode = $exitCode
+        StdOut   = $stdOut.ToString()
+        StdErr   = $stdErr.ToString()
+        Elapsed  = $stopwatch.Elapsed
+    }
+}
+
 # Helper: installa AppX tramite System.Diagnostics.Process (CreateNoWindow=true).
 # Blocca in modo assoluto le write Win32 native del deployment engine e gestisce l'errore di downgrade.
 function Start-AppxSilentProcess {
