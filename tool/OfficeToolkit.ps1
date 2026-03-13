@@ -57,8 +57,7 @@ function OfficeToolkit {
                     Force       = $true
                     ErrorAction = 'SilentlyContinue'
                 }
-            }
-            else {
+            } else {
                 $removeParams = @{
                     Path        = $Path
                     Force       = $true
