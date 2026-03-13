@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 73)"
+$ToolkitVersion = "2.5.2 (Build 74)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -2761,6 +2761,7 @@ function WinCleaner {
     }
     function Invoke-CommandAction {
         param($Rule)
+        Clear-ProgressLine
         Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione comando: $($Rule.Name)"
         try {
             $timeoutCommands = @("DISM.exe", "cleanmgr.exe")
@@ -2914,6 +2915,7 @@ function WinCleaner {
     }
     function Invoke-WinCleanerRule {
         param($Rule)
+        Clear-ProgressLine
         switch ($Rule.Type) {
             'File' { return Remove-FileItem -Rule $Rule }
             'Registry' { return Remove-RegistryItem -Rule $Rule }
@@ -3390,11 +3392,9 @@ function WinCleaner {
         $currentRuleIndex++
         $percent = [math]::Round(($currentRuleIndex / $totalRules) * 100)
         Clear-ProgressLine
-        Write-Host ""
         Show-ProgressBar -Activity "Esecuzione regole" -Status "$($rule.Name)" -Percent $percent -Icon '⚙️'
         $result = Invoke-WinCleanerRule -Rule $rule
         Clear-ProgressLine
-        Write-Host ""
         if ($result) {
             $successCount++
         }
