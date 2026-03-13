@@ -303,6 +303,7 @@ function WinCleaner {
 
     function Invoke-WinCleanerRule {
         param($Rule)
+        Clear-ProgressLine
         switch ($Rule.Type) {
             'File' { return Remove-FileItem -Rule $Rule }
             'Registry' { return Remove-RegistryItem -Rule $Rule }
