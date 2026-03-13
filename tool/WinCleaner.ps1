@@ -876,13 +876,11 @@ function WinCleaner {
         $percent = [math]::Round(($currentRuleIndex / $totalRules) * 100)
 
         Clear-ProgressLine
-        Write-Host ""
         Show-ProgressBar -Activity "Esecuzione regole" -Status "$($rule.Name)" -Percent $percent -Icon '⚙️'
 
         $result = Invoke-WinCleanerRule -Rule $rule
 
         Clear-ProgressLine
-        Write-Host ""
 
         if ($result) {
             $successCount++
