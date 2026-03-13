@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 69)"
+$ToolkitVersion = "2.5.2 (Build 70)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1961,7 +1961,9 @@ function OfficeToolkit {
             [string]$Path,
             [switch]$Recurse
         )
-        if (-not (Test-Path $Path)) { return $false }
+        if (-not (Test-Path $Path)) {
+            return $false
+        }
         try {
             if ($Recurse) {
                 $removeParams = @{
@@ -1982,8 +1984,7 @@ function OfficeToolkit {
             }
             Clear-ProgressLine
             return $true
-        }
-        catch {
+        } catch {
             return $false
         }
     }
