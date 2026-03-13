@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 75)"
+$ToolkitVersion = "2.5.2 (Build 76)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -3747,7 +3747,8 @@ function GamingToolkit {
     function Test-WingetPackageAvailable([string]$PackageId) {
         try {
             $searchResult = winget search --id $PackageId --accept-source-agreements 2>&1
-            if ($LASTEXITCODE -eq 0 -and $searchResult -match $PackageId) {
+            $outputStr = $searchResult -join ' '
+            if ($outputStr -match [regex]::Escape($PackageId)) {
                 return $true
             }
             return $false
@@ -3768,7 +3769,7 @@ function GamingToolkit {
             $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action {
                 $procParams = @{
                     FilePath     = 'winget'
-                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements')
+                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements')
                     PassThru     = $true
                     NoNewWindow  = $true
                 }
@@ -3869,21 +3870,20 @@ function GamingToolkit {
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 700
-        if ($null -eq $result -or $null -eq $result.Process) {
+        if ($null -eq $result) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Error "DirectX: processo non avviato correttamente."
         }
-        elseif (-not $result.Process.HasExited) {
+        elseif ($result.TimedOut) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Warning "Timeout DirectX."
-            $result.Process.Kill()
         }
         else {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
-            $exitCode = $result.Process.ExitCode
+            $exitCode = $result.ExitCode
             $successCodes = @(0, 3010, 5100, -9, 9, -1442840576)
             Write-StyledMessage -Type ($exitCode -in $successCodes ? 'Success' : 'Error') -Text ($exitCode -in $successCodes ? "DirectX installato (codice: $exitCode)." : "DirectX errore: $exitCode")
         }
@@ -3920,21 +3920,20 @@ function GamingToolkit {
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 500
-        if ($null -eq $result -or $null -eq $result.Process) {
+        if ($null -eq $result) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Error "Battle.net: processo non avviato correttamente."
         }
-        elseif (-not $result.Process.HasExited) {
+        elseif ($result.TimedOut) {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
             Write-StyledMessage Warning "Timeout Battle.net."
-            try { $result.Process.Kill() } catch {}
         }
         else {
             Write-Host "`r$(' ' * 120)" -NoNewline
             Write-Host "`r" -NoNewline
-            $exitCode = $result.Process.ExitCode
+            $exitCode = $result.ExitCode
             Write-StyledMessage -Type ($exitCode -in @(0, 3010) ? 'Success' : 'Warning') -Text ($exitCode -in @(0, 3010) ? "Battle.net installato." : "Battle.net: codice $exitCode")
         }
         Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare...'
