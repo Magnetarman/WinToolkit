@@ -39,6 +39,11 @@ function WinCleaner {
         }
     }
 
+    # NOTE: Legacy logger locale.
+    # La stilizzazione e il bridge verso il log strutturato sono oggi centralizzati
+    # in WinToolkit-template.ps1::Write-StyledMessage. Questa funzione rimane come
+    # wrapper compatibile per mantenere il riepilogo interno di WinCleaner e
+    # verrà ulteriormente semplificata/rimossa in una fase successiva.
     function Write-StyledMessage {
         param(
             [Parameter(Mandatory = $true, Position = 0)]
