@@ -175,7 +175,9 @@ function Prepare-OfflineResources {
         if (-not (Invoke-DownloadFile -Uri $wingetUrl -OutputPath $wingetPath)) {
             $allDownloadsSuccessful = $false
         }
-    } else { Write-StyledMessage -type 'Info' -text "WingetInstaller.msixbundle già presente." }
+    } else {
+        Write-StyledMessage -type 'Info' -text "WingetInstaller.msixbundle già presente."
+    }
 
     # --- Git Installer ---
     $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.1/Git-2.51.0-64-bit.exe"
@@ -184,7 +186,9 @@ function Prepare-OfflineResources {
         if (-not (Invoke-DownloadFile -Uri $gitUrl -OutputPath $gitPath)) {
             $allDownloadsSuccessful = $false
         }
-    } else { Write-StyledMessage -type 'Info' -text "Git-2.51.0-64-bit.exe già presente." }
+    } else {
+        Write-StyledMessage -type 'Info' -text "Git-2.51.0-64-bit.exe già presente."
+    }
 
     # --- PowerShell 7 Installer ---
     $ps7Url = "https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/PowerShell-7.5.2-win-x64.msi"
@@ -193,7 +197,9 @@ function Prepare-OfflineResources {
         if (-not (Invoke-DownloadFile -Uri $ps7Url -OutputPath $ps7Path)) {
             $allDownloadsSuccessful = $false
         }
-    } else { Write-StyledMessage -type 'Info' -text "PowerShell-7.5.2-win-x64.msi già presente." }
+    } else {
+        Write-StyledMessage -type 'Info' -text "PowerShell-7.5.2-win-x64.msi già presente."
+    }
 
     # --- Windows Terminal Installer (latest MSIX bundle from GitHub) ---
     $wtApiPath = "https://api.github.com/repos/microsoft/terminal/releases/latest"
@@ -213,14 +219,14 @@ function Prepare-OfflineResources {
                     if (-not (Invoke-DownloadFile -Uri $wtDownloadUrl -OutputPath $wtPath)) {
                         $allDownloadsSuccessful = $false
                     }
-                } else { Write-StyledMessage -type 'Info' -text "$($asset.name) già presente." }
-            }
-            else {
+                } else {
+                    Write-StyledMessage -type 'Info' -text "$($asset.name) già presente."
+                }
+            } else {
                 Write-StyledMessage -type 'Error' -text "Nessun asset MSIX bundle trovato per Windows Terminal."
                 $allDownloadsSuccessful = $false
             }
-        }
-        catch {
+        } catch {
             Write-StyledMessage -type 'Error' -text "Errore nel recupero release Windows Terminal da GitHub: $($_.Exception.Message)"
             $allDownloadsSuccessful = $false
         }
