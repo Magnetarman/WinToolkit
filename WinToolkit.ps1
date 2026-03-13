@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 70)"
+$ToolkitVersion = "2.5.2 (Build 71)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -219,6 +219,7 @@ function Start-ToolkitLog {
         New-Item -Path $logdir -ItemType Directory -Force | Out-Null
     }
     $Global:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
+    $Global:CurrentCorrelationId = [guid]::NewGuid().ToString()
     $os = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
     $sys = Get-CimInstance Win32_ComputerSystem   -ErrorAction SilentlyContinue
     $psVer = $PSVersionTable.PSVersion.ToString()
@@ -240,6 +241,7 @@ function Start-ToolkitLog {
     $header = @"
 [START LOG HEADER]
 Start time              : $dateTime
+CorrelationId           : $($Global:CurrentCorrelationId)
 ToolName                : $ToolName
 Username                : $([Environment]::UserDomainName + '\' + [Environment]::UserName)
 RunAs User              : $([Security.Principal.WindowsIdentity]::GetCurrent().Name)
@@ -897,27 +899,29 @@ function WinRepairToolkit {
         return @{ Success = ($totalErrors -eq 0); TotalErrors = $totalErrors; AttemptsUsed = $Attempt }
     }
     function Start-DeepDiskRepair {
-        Write-StyledMessage Info '🔧 Avvio riparazione profonda del disco C: al prossimo riavvio'
+        Write-StyledMessage -Type 'Info' -Text '🔧 Avvio riparazione profonda del disco C: al prossimo riavvio'
         try {
-            $fsutilParams = @{
-                FilePath     = 'fsutil.exe'
-                ArgumentList = @('dirty', 'set', 'C:')
-                NoNewWindow  = $true
-                Wait         = $true
+            $fsutilResult = Invoke-ExternalCommandWithLog -Command 'fsutil.exe' -Arguments @('dirty', 'set', 'C:') -TimeoutSeconds 300 -LogContextKey 'DeepDiskRepair-Fsutil'
+            if (-not $fsutilResult.Success) {
+                Write-StyledMessage -Type 'Error' -Text "❌ Impossibile marcare il disco come dirty (fsutil)."
+                return $false
             }
-            Start-Process @fsutilParams
-            $chkdskParams = @{
-                FilePath     = 'cmd.exe'
-                ArgumentList = @('/c', 'echo Y | chkdsk C: /f /r /v /x /b')
-                WindowStyle  = 'Hidden'
-                Wait         = $true
+            $chkdskResult = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -TimeoutSeconds 7200 -LogContextKey 'DeepDiskRepair-Chkdsk'
+            if (-not $chkdskResult.Success) {
+                Write-StyledMessage -Type 'Error' -Text "❌ Errore durante la schedulazione di chkdsk per la riparazione profonda."
+                return $false
             }
-            Start-Process @chkdskParams
-            Write-StyledMessage Info 'Comando chkdsk inviato. Riavvia per eseguire.'
+            Write-StyledMessage -Type 'Info' -Text 'Comando chkdsk inviato. Riavvia per eseguire la riparazione profonda del disco.'
             return $true
         }
         catch {
-            Write-StyledMessage Error "Errore durante la schedulazione della riparazione profonda: $($_.Exception.Message)"
+            Write-ToolkitLog -Level 'ERROR' -Message 'Eccezione in Start-DeepDiskRepair' -Context @{
+                Tool      = 'WinRepairToolkit'
+                Step      = 'Start-DeepDiskRepair'
+                Exception = $_.Exception.Message
+                Stack     = $_.ScriptStackTrace
+            }
+            Write-StyledMessage -Type 'Error' -Text "Errore durante la schedulazione della riparazione profonda: $($_.Exception.Message)"
             return $false
         }
     }
@@ -4215,6 +4219,122 @@ function WinExportLog {
         }
     }
 }
+function Read-ValidatedChoice {
+    [CmdletBinding()]
+    param(
+        [string]$Prompt = 'Selezione',
+        [int]$Min = 1,
+        [int]$Max = 99,
+        [switch]$AllowZero
+    )
+    $rawInput = Read-Host $Prompt
+    if ($null -eq $rawInput) { return @() }
+    if ($AllowZero -and $rawInput.Trim() -eq '0') {
+        Write-ToolkitLog -Level 'INFO' -Message 'Utente ha selezionato: 0 (uscita/annulla)' -Context @{ Input = '0' }
+        return @(0)
+    }
+    $tokens   = $rawInput -split '[\s,]+' | Where-Object { $_ -match '^\d+$' }
+    $valid    = @()
+    $invalid  = @()
+    foreach ($token in $tokens) {
+        $num = [int]$token
+        if ($num -ge $Min -and $num -le $Max) {
+            if ($valid -notcontains $num) { $valid += $num }
+        }
+        else {
+            $invalid += $num
+        }
+    }
+    if ($invalid.Count -gt 0) {
+        Write-StyledMessage -Type Warning -Text "⚠️ Valori fuori range ignorati: $($invalid -join ', ') (range valido: $Min–$Max)"
+    }
+    Write-ToolkitLog -Level 'INFO' -Message 'Input utente validato' -Context @{
+        RawInput = $rawInput
+        Valid    = ($valid -join ',')
+        Invalid  = ($invalid -join ',')
+    }
+    return $valid
+}
+function Get-UserConfirmation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Prompt,
+        [ValidateSet('Y', 'N')]
+        [string]$Default = 'N',
+        [ValidateSet('Info', 'Warning')]
+        [string]$Severity = 'Info'
+    )
+    $yesLabel = if ($Default -eq 'Y') { '[Y]' } else { 'y' }
+    $noLabel  = if ($Default -eq 'N') { '[N]' } else { 'n' }
+    $fullPrompt = "$Prompt ($yesLabel/$noLabel)"
+    Write-StyledMessage -Type $Severity -Text $fullPrompt
+    $answer = Read-Host ''
+    if ([string]::IsNullOrWhiteSpace($answer)) { $answer = $Default }
+    $confirmed = $answer -match '^[Yy]'
+    Write-ToolkitLog -Level 'INFO' -Message 'Conferma utente' -Context @{
+        Prompt    = $Prompt
+        Default   = $Default
+        Answer    = $answer
+        Confirmed = $confirmed
+    }
+    return $confirmed
+}
+function Show-ConsoleTable {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$Rows,
+        [Parameter(Mandatory = $true)]
+        [hashtable[]]$Columns,
+        [string]$Title = ''
+    )
+    $widths = @{}
+    foreach ($col in $Columns) {
+        $widths[$col.Key] = $col.Header.Length
+    }
+    foreach ($row in $Rows) {
+        foreach ($col in $Columns) {
+            $val = if ($row -is [hashtable]) { "$($row[$col.Key])" } else { "$($row.$($col.Key))" }
+            if ($val.Length -gt $widths[$col.Key]) { $widths[$col.Key] = $val.Length }
+        }
+    }
+    $sep = '+' + (($Columns | ForEach-Object { '-' * ($widths[$_.Key] + 2) }) -join '+') + '+'
+    if ($Title) {
+        $totalWidth = $sep.Length
+        $paddedTitle = " $Title "
+        $pad = [Math]::Max(0, [Math]::Floor(($totalWidth - $paddedTitle.Length) / 2))
+        Write-Host ('=' * $totalWidth) -ForegroundColor Cyan
+        Write-Host ((' ' * $pad) + $paddedTitle) -ForegroundColor Cyan
+        Write-Host ('=' * $totalWidth) -ForegroundColor Cyan
+    }
+    Write-Host $sep -ForegroundColor DarkGray
+    $headerLine = '|'
+    foreach ($col in $Columns) {
+        $headerLine += ' ' + $col.Header.PadRight($widths[$col.Key]) + ' |'
+    }
+    Write-Host $headerLine -ForegroundColor Cyan
+    Write-Host $sep -ForegroundColor DarkGray
+    foreach ($row in $Rows) {
+        $line = '|'
+        foreach ($col in $Columns) {
+            $val = if ($row -is [hashtable]) { "$($row[$col.Key])" } else { "$($row.$($col.Key))" }
+            $cell = ' ' + $val.PadRight($widths[$col.Key]) + ' |'
+            $color = if ($col.Color) { $col.Color } else { 'White' }
+            $line += $cell
+        }
+        $rowColor = 'White'
+        $statusKey = ($Columns | Where-Object { $_.Key -eq 'Status' -or $_.Key -eq 'Stato' } | Select-Object -First 1)?.Key
+        if ($statusKey) {
+            $statusVal = if ($row -is [hashtable]) { "$($row[$statusKey])" } else { "$($row.$statusKey)" }
+            if ($statusVal -match '✅|OK|Successo|Completato') { $rowColor = 'Green' }
+            elseif ($statusVal -match '⚠️|Warning|Parziale') { $rowColor = 'Yellow' }
+            elseif ($statusVal -match '❌|Errore|Fallito') { $rowColor = 'Red' }
+        }
+        Write-Host $line -ForegroundColor $rowColor
+    }
+    Write-Host $sep -ForegroundColor DarkGray
+}
 $menuStructure = @(
     @{ 'Name' = 'Windows & Office'; 'Icon' = '🔧'; 'Scripts' = @(
             [pscustomobject]@{Name = 'WinRepairToolkit'; Description = 'Riparazione Windows'; Action = 'RunFunction' },
@@ -4292,26 +4412,20 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         Write-Host ""
         Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
         Write-Host ""
-        $c = Read-Host "Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza"
+        $rawSelections = Read-ValidatedChoice -Prompt 'Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza' -Min 0 -Max $allScripts.Count -AllowZero
+        $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
         if ($c -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
             Start-Process ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('aHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj15QVZVT2tlNGtvYw==')))
             continue
         }
-        if ($c -eq '0') {
+        if ($c -eq 0 -or $c -eq '0') {
             Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
             Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
             Write-ToolkitLog -Level INFO -Message "Sessione WinToolkit terminata dall'utente."
             Start-Sleep -Seconds 3
             break
         }
-        $selections = @()
-        $rawInputs = $c -split '[\s,]+' | Where-Object { $_ -match '^\d+$' }
-        foreach ($input in $rawInputs) {
-            $num = [int]$input
-            if ($num -ge 1 -and $num -le $allScripts.Count) {
-                $selections += $num
-            }
-        }
+        $selections = @($rawSelections | Where-Object { $_ -ge 1 -and $_ -le $allScripts.Count })
         if ($selections.Count -eq 0) {
             Write-StyledMessage -Type 'Warning' -Text '⚠️ Nessuna selezione valida. Riprova.'
             Start-Sleep -Seconds 2
@@ -4346,15 +4460,19 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         }
         if ($isMultiScript) {
             Write-Host ''
-            Write-StyledMessage -Type 'Info' -Text '📊 Riepilogo esecuzione:'
-            foreach ($log in $Global:ExecutionLog) {
-                if ($log.Success) {
-                    Write-Host "  ✅ $($log.Name)" -ForegroundColor Green
-                }
-                else {
-                    Write-Host "  ❌ $($log.Name)" -ForegroundColor Red
+            $tableRows = $Global:ExecutionLog | ForEach-Object {
+                @{
+                    Operazione = $_.Name
+                    Stato      = if ($_.Success) { '✅ Completato' } else { '❌ Errore' }
+                    Dettaglio  = if ($_.Error) { $_.Error } else { '' }
                 }
             }
+            $tableCols = @(
+                @{ Header = 'Operazione'; Key = 'Operazione' },
+                @{ Header = 'Stato';      Key = 'Stato' },
+                @{ Header = 'Dettaglio'; Key = 'Dettaglio' }
+            )
+            Show-ConsoleTable -Rows $tableRows -Columns $tableCols -Title '📊 Riepilogo Esecuzione'
             Write-Host ''
         }
         if ($Global:NeedsFinalReboot) {
