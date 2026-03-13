@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 68)"
+$ToolkitVersion = "2.5.2 (Build 69)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1384,17 +1384,19 @@ function WinReinstallStore {
                 Name   = 'Winget Install'
                 Action = {
                     if (-not (Test-Path $wingetExe -ErrorAction SilentlyContinue)) { return @{ ExitCode = -1 } }
-                    $processResult = Invoke-WithSpinner -Activity "Installazione Store tramite Winget" -Process -Action {
-                        $procParams = @{
-                            FilePath     = $wingetExe
-                            ArgumentList = @('install', '9WZDNCRFJBMP',
-                                '--accept-source-agreements', '--accept-package-agreements',
-                                '--silent', '--disable-interactivity')
-                            PassThru     = $true
-                            WindowStyle  = 'Hidden'
-                        }
-                        Start-Process @procParams
-                    } -TimeoutSeconds 300
+                    $processResult = Invoke-WithConsoleRedirection -Action {
+                        Invoke-WithSpinner -Activity "Installazione Store tramite Winget" -Process -Action {
+                            $procParams = @{
+                                FilePath     = $wingetExe
+                                ArgumentList = @('install', '9WZDNCRFJBMP',
+                                    '--accept-source-agreements', '--accept-package-agreements',
+                                    '--silent', '--disable-interactivity')
+                                PassThru     = $true
+                                WindowStyle  = 'Hidden'
+                            }
+                            Start-Process @procParams
+                        } -TimeoutSeconds 300
+                    }
                     return @{ ExitCode = $processResult.ExitCode }
                 }
             },
@@ -1413,15 +1415,17 @@ function WinReinstallStore {
             @{
                 Name   = 'DISM Capability'
                 Action = {
-                    $result = Invoke-WithSpinner -Activity "Aggiunta Store via DISM" -Process -Action {
-                        $procParams = @{
-                            FilePath     = 'DISM'
-                            ArgumentList = @('/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0')
-                            PassThru     = $true
-                            WindowStyle  = 'Hidden'
-                        }
-                        Start-Process @procParams
-                    } -TimeoutSeconds 300
+                    $result = Invoke-WithConsoleRedirection -Action {
+                        Invoke-WithSpinner -Activity "Aggiunta Store via DISM" -Process -Action {
+                            $procParams = @{
+                                FilePath     = 'DISM'
+                                ArgumentList = @('/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0')
+                                PassThru     = $true
+                                WindowStyle  = 'Hidden'
+                            }
+                            Start-Process @procParams
+                        } -TimeoutSeconds 300
+                    }
                     return @{ ExitCode = $result.ExitCode }
                 }
             }
@@ -1449,14 +1453,16 @@ function WinReinstallStore {
             }
         }
         if ($success) {
-            $null = Invoke-WithSpinner -Activity "Reset cache Microsoft Store (wsreset)" -Process -Action {
-                $procParams = @{
-                    FilePath    = 'wsreset.exe'
-                    PassThru    = $true
-                    WindowStyle = 'Hidden'
-                }
-                Start-Process @procParams
-            } -TimeoutSeconds 120
+            $null = Invoke-WithConsoleRedirection -Action {
+                Invoke-WithSpinner -Activity "Reset cache Microsoft Store (wsreset)" -Process -Action {
+                    $procParams = @{
+                        FilePath    = 'wsreset.exe'
+                        PassThru    = $true
+                        WindowStyle = 'Hidden'
+                    }
+                    Start-Process @procParams
+                } -TimeoutSeconds 120
+            }
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Write-Host $clearLine -NoNewline
             [Console]::Out.Flush()
