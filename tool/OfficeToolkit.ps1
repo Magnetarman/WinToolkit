@@ -45,7 +45,9 @@ function OfficeToolkit {
             [switch]$Recurse
         )
 
-        if (-not (Test-Path $Path)) { return $false }
+        if (-not (Test-Path $Path)) {
+            return $false
+        }
 
         try {
             if ($Recurse) {
@@ -65,12 +67,9 @@ function OfficeToolkit {
                 }
                 Remove-Item @removeParams *>$null
             }
-
             Clear-ProgressLine
-
             return $true
-        }
-        catch {
+        } catch {
             return $false
         }
     }
