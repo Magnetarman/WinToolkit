@@ -28,6 +28,8 @@ on:
       - "tool/*.ps1"
       - "WinToolkit-template.ps1"
       - "compiler.ps1"
+  pull_request:
+    branches: [Dev]
 
 # ---------------------------------------------------------------------------
 # CONCURRENCY - Previene build simultanee sulla stessa branch
@@ -37,9 +39,79 @@ concurrency:
   cancel-in-progress: true
 
 # ---------------------------------------------------------------------------
-# JOB 1: LINTING - Analisi statica del codice
+# JOB 0: SECURITY GUARD - Protegge i file core e chiude PR non conformi
 # ---------------------------------------------------------------------------
 jobs:
+  pr_security_guard:
+    name: PR Security Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Changed Files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            // Definisci i file o le cartelle permesse (solo tool/)
+            const illegalFiles = files.filter(file => !file.filename.startsWith('tool/'));
+
+            if (illegalFiles.length > 0) {
+              const fileList = illegalFiles.map(f => `\`${f.filename}\``).join(', ');
+              
+              const message = `## ⚠️ Accesso Negato / Access Denied
+              
+              Ciao @${context.payload.pull_request.user.login}, 
+              grazie per il tuo contributo! Tuttavia, questa PR è stata chiusa automaticamente per motivi di sicurezza.
+
+              **Regola di contribuzione:**
+              Per garantire l'integrità di WinToolkit, i collaboratori esterni possono modificare **solo** i file all'interno della cartella \`tool/\`. 
+              
+              Hai tentato di modificare i seguenti file protetti:
+              ${fileList}
+
+              **Cosa fare ora?**
+              1. Ripristina i file core nel tuo fork.
+              2. Apporta le tue modifiche esclusivamente ai singoli moduli dentro \`tool/\`.
+              3. Apri una nuova Pull Request.
+
+              *Questo à un messaggio automatico dal sistema di CI/CD di WinToolkit.*`;
+
+              // Scrive il commento
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: message
+              });
+
+              // Chiude la Pull Request
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                state: 'closed'
+              });
+
+              core.setFailed("PR contiene modifiche a file protetti fuori dalla cartella /tool.");
+            }
+
+# ---------------------------------------------------------------------------
+# JOB 1: LINTING - Analisi statica del codice
+# ---------------------------------------------------------------------------
   linting:
     name: Linting
     runs-on: windows-latest
@@ -172,6 +244,7 @@ jobs:
   versioning:
     name: Version & Test
     runs-on: windows-latest
+    if: github.repository == 'Magnetarman/WinToolkit'
     needs: linting
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -232,6 +305,7 @@ jobs:
   build:
     name: Build
     runs-on: windows-latest
+    if: github.repository == 'Magnetarman/WinToolkit'
     needs: versioning
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -339,8 +413,8 @@ jobs:
   release:
     name: Release
     runs-on: windows-latest
+    if: github.repository == 'Magnetarman/WinToolkit' && github.ref == 'refs/heads/Dev'
     needs: [versioning, build]
-    if: github.ref == 'refs/heads/Dev'
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
