@@ -50,19 +50,13 @@ function OfficeToolkit {
         }
 
         try {
+            $removeParams = @{
+                Path        = $Path
+                Force       = $true
+                ErrorAction = 'SilentlyContinue'
+            }
             if ($Recurse) {
-                $removeParams = @{
-                    Path        = $Path
-                    Recurse     = $true
-                    Force       = $true
-                    ErrorAction = 'SilentlyContinue'
-                }
-            } else {
-                $removeParams = @{
-                    Path        = $Path
-                    Force       = $true
-                    ErrorAction = 'SilentlyContinue'
-                }
+                $removeParams.Add('Recurse', $Recurse)
             }
             Remove-Item @removeParams *>$null
             Clear-ProgressLine
@@ -71,8 +65,6 @@ function OfficeToolkit {
             return $false
         }
     }
-
-
 
     function Apply-OfficePostConfig {
         Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione/riparazione Office..."
