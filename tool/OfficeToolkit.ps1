@@ -57,7 +57,6 @@ function OfficeToolkit {
                     Force       = $true
                     ErrorAction = 'SilentlyContinue'
                 }
-                Remove-Item @removeParams *>$null
             }
             else {
                 $removeParams = @{
@@ -65,8 +64,8 @@ function OfficeToolkit {
                     Force       = $true
                     ErrorAction = 'SilentlyContinue'
                 }
-                Remove-Item @removeParams *>$null
             }
+            Remove-Item @removeParams *>$null
             Clear-ProgressLine
             return $true
         } catch {
