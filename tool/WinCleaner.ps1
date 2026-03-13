@@ -130,6 +130,7 @@ function WinCleaner {
 
     function Invoke-CommandAction {
         param($Rule)
+        Clear-ProgressLine
         Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione comando: $($Rule.Name)"
         try {
             # Use timeout for potentially long-running commands
