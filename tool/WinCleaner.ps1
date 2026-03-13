@@ -49,7 +49,6 @@ function WinCleaner {
         }
         $global:WinCleanerLog += $logEntry
 
-        # Delega l'output (console + log file strutturato) al framework globale
         Write-StyledMessage -Type $Type -Text $Text
     }
 
@@ -417,7 +416,8 @@ function WinCleaner {
                         try {
                             Add-CleanerLog -Type 'Info' -Text "🗑️ Rimozione: $p"
                             Remove-Item -Path "$p\*" -Recurse -Force -ErrorAction SilentlyContinue
-                        } catch {
+                        }
+                        catch {
                             Add-CleanerLog -Type 'Warning' -Text "Impossibile pulire completamente $p"
                         }
                     }
@@ -875,14 +875,14 @@ function WinCleaner {
         $currentRuleIndex++
         $percent = [math]::Round(($currentRuleIndex / $totalRules) * 100)
 
-        # Clear line before showing progress to avoid ghosting
         Clear-ProgressLine
+        Write-Host ""
         Show-ProgressBar -Activity "Esecuzione regole" -Status "$($rule.Name)" -Percent $percent -Icon '⚙️'
 
         $result = Invoke-WinCleanerRule -Rule $rule
 
-        # Clear progress bar line after rule execution to ensure next log message is clean
         Clear-ProgressLine
+        Write-Host ""
 
         if ($result) {
             $successCount++
@@ -908,18 +908,17 @@ function WinCleaner {
     $wCount = ($stats | Where-Object Name -eq 'Warning').Count
     $eCount = ($stats | Where-Object Name -eq 'Error').Count
 
-    Write-StyledMessage -Type 'Success' -Text "✅ Operazioni completate con successo: $sCount"
-    if ($wCount -gt 0) { Write-StyledMessage -Type 'Warning' -Text "⚠️ Avvisi generati: $wCount" }
-    if ($eCount -gt 0) { Write-StyledMessage -Type 'Error' -Text "❌ Errori riscontrati: $eCount" }
+    Write-StyledMessage -Type 'Success' -Text "Operazioni completate con successo: $sCount"
+    if ($wCount -gt 0) { Write-StyledMessage -Type 'Warning' -Text "Avvisi generati: $wCount" }
+    if ($eCount -gt 0) { Write-StyledMessage -Type 'Error' -Text "Errori riscontrati: $eCount" }
 
     Write-StyledMessage -Type 'Info' -Text "--------------------------------------------------"
     Write-StyledMessage -Type 'Info' -Text "Dettaglio Errori e Warning:"
 
-        $problems = $global:WinCleanerLog | Where-Object { $_.Type -in 'Warning', 'Error' }
+    $problems = $global:WinCleanerLog | Where-Object { $_.Type -in 'Warning', 'Error' }
     if ($problems) {
         foreach ($p in $problems) {
-            $icon = if ($p.Type -eq 'Error') { '❌' } else { '⚠️' }
-            Write-StyledMessage -Type $p.Type -Text "$icon $($p.Text)"
+            Write-StyledMessage -Type $p.Type -Text $p.Text
         }
     }
     else {
