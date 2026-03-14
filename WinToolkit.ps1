@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 76)"
+$ToolkitVersion = "2.5.2 (Build 77)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -3765,17 +3765,21 @@ function GamingToolkit {
             Write-StyledMessage -Type 'Warning' -Text "Pacchetto $DisplayName non disponibile. Saltando."
             return @{ Success = $true; Skipped = $true }
         }
+        $outFile = "$env:TEMP\winget_$PackageId.log"
+        $errFile = "$env:TEMP\winget_err_$PackageId.log"
         try {
             $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action {
                 $procParams = @{
-                    FilePath     = 'winget'
-                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements')
-                    PassThru     = $true
-                    NoNewWindow  = $true
+                    FilePath               = 'winget'
+                    ArgumentList           = @('install', '--id', $PackageId, '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements')
+                    PassThru               = $true
+                    NoNewWindow            = $true
+                    RedirectStandardOutput = $outFile
+                    RedirectStandardError  = $errFile
                 }
                 Start-Process @procParams
             } -TimeoutSeconds $timeout -UpdateInterval 700
-            $exitCode = $result.ExitCode
+            $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
             $successCodes = @(0, 1638, 3010, -1978335189)
             if ($exitCode -in $successCodes) {
                 Write-StyledMessage -Type 'Success' -Text "Installato: $DisplayName"
@@ -3793,7 +3797,7 @@ function GamingToolkit {
             return @{ Success = $false }
         }
         finally {
-            Remove-Item "$env:TEMP\winget_$PackageId.log", "$env:TEMP\winget_err_$PackageId.log" -ErrorAction SilentlyContinue
+            Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
         }
     }
     if ($isWindows11Pre23H2) {
@@ -3865,25 +3869,23 @@ function GamingToolkit {
         Write-StyledMessage Success 'DirectX scaricato.'
         $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action {
             $procParams = @{
-                FilePath = $dxPath
-                PassThru = $true
+                FilePath     = $dxPath
+                ArgumentList = '/Q'
+                PassThru     = $true
+                NoNewWindow  = $true
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 700
+        Write-Host "`r$(' ' * 120)" -NoNewline
+        Write-Host "`r" -NoNewline
         if ($null -eq $result) {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
             Write-StyledMessage Error "DirectX: processo non avviato correttamente."
         }
-        elseif ($result.TimedOut) {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
+        elseif ($result -is [hashtable] -and $result.Contains('TimedOut') -and $result.TimedOut) {
             Write-StyledMessage Warning "Timeout DirectX."
         }
         else {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
-            $exitCode = $result.ExitCode
+            $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
             $successCodes = @(0, 3010, 5100, -9, 9, -1442840576)
             Write-StyledMessage -Type ($exitCode -in $successCodes ? 'Success' : 'Error') -Text ($exitCode -in $successCodes ? "DirectX installato (codice: $exitCode)." : "DirectX errore: $exitCode")
         }
@@ -3913,27 +3915,24 @@ function GamingToolkit {
         Write-StyledMessage Success 'Battle.net scaricato.'
         $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action {
             $procParams = @{
-                FilePath    = $bnPath
-                PassThru    = $true
-                Verb        = 'RunAs'
-                ErrorAction = 'Stop'
+                FilePath     = $bnPath
+                ArgumentList = '--quiet'
+                PassThru     = $true
+                Verb         = 'RunAs'
+                WindowStyle  = 'Hidden'
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 500
+        Write-Host "`r$(' ' * 120)" -NoNewline
+        Write-Host "`r" -NoNewline
         if ($null -eq $result) {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
             Write-StyledMessage Error "Battle.net: processo non avviato correttamente."
         }
-        elseif ($result.TimedOut) {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
+        elseif ($result -is [hashtable] -and $result.Contains('TimedOut') -and $result.TimedOut) {
             Write-StyledMessage Warning "Timeout Battle.net."
         }
         else {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
-            $exitCode = $result.ExitCode
+            $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
             Write-StyledMessage -Type ($exitCode -in @(0, 3010) ? 'Success' : 'Warning') -Text ($exitCode -in @(0, 3010) ? "Battle.net installato." : "Battle.net: codice $exitCode")
         }
         Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare...'
