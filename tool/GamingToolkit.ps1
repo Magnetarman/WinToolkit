@@ -267,7 +267,7 @@ function GamingToolkit {
                 Write-StyledMessage -Type 'Success' -Text "Reinstallato: $pkg"
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text "$pkg: codice $exitCode"
+                Write-StyledMessage -Type 'Warning' -Text "${pkg}: codice $exitCode"
             }
         }
         catch {
