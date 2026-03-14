@@ -577,11 +577,11 @@ function WinUpdateReset {
         }
 
         # Final status and verification
-        Write-Host ('═' * 80) -ForegroundColor Green
+        Write-StyledMessage -Type 'Info' -Text ('─' * 60)
         Write-StyledMessage -Type 'Success' -Text '🎉 Windows Update è stato RIPRISTINATO ai valori predefiniti!'
         Write-StyledMessage -Type 'Success' -Text '🔄 Servizi, registro e criteri sono stati configurati correttamente.'
         Write-StyledMessage -Type 'Warning' -Text "⚡ Nota: È necessario un riavvio per applicare completamente tutte le modifiche."
-        Write-Host ('═' * 80) -ForegroundColor Green
+        Write-StyledMessage -Type 'Info' -Text ('─' * 60)
 
         Write-StyledMessage -Type 'Info' -Text '🔍 Verifica finale dello stato dei servizi...'
 
@@ -599,11 +599,11 @@ function WinUpdateReset {
         Write-StyledMessage -Type 'Info' -Text '🔧 Verifica aprendo Impostazioni > Aggiornamento e sicurezza.'
         Write-StyledMessage -Type 'Info' -Text '🔄 Se necessario, riavvia il sistema per applicare tutte le modifiche.'
 
-        Write-Host ('═' * 80) -ForegroundColor Green
+        Write-StyledMessage -Type 'Info' -Text ('─' * 60)
         Write-StyledMessage -Type 'Success' -Text '🎉 Riparazione completata con successo!'
         Write-StyledMessage -Type 'Success' -Text '💻 Il sistema necessita di un riavvio per applicare tutte le modifiche.'
         Write-StyledMessage -Type 'Warning' -Text "⚡ Attenzione: il sistema verrà riavviato automaticamente"
-        Write-Host ('═' * 80) -ForegroundColor Green
+        Write-StyledMessage -Type 'Info' -Text ('─' * 60)
 
         if ($SuppressIndividualReboot) {
             $Global:NeedsFinalReboot = $true

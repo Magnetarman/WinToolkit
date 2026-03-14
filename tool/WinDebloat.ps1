@@ -47,8 +47,15 @@ function WinDebloat {
         param(
             [hashtable]$ServiceConfig
         )
-        # Implementare qui la logica di stop/disabilitazione
-        # Utilizzare Write-StyledMessage per il feedback visuale
+        # Implementare qui la logica di stop/disabilitazione.
+        # NOTA DI SICUREZZA: la logica effettiva che arresta o disabilita i servizi
+        # è intenzionalmente disabilitata in questa versione per evitare modifiche
+        # aggressive e poco trasparenti ai servizi di sistema.
+        # L'azione prevista, quando verrà abilitata in futuro, sarà quella di
+        # arrestare e (eventualmente) impostare su Disabled i servizi elencati
+        # in $DebloatServices (es. telemetria, diagnostica non critica, componenti
+        # consumer opzionali) in modo controllato e documentato.
+        # Utilizzare Write-StyledMessage per il feedback visuale verso l'utente.
         Write-StyledMessage -Type 'Info' -Text "Ottimizzazione servizio: $($ServiceConfig.Name) ($($ServiceConfig.Description))..."
 
         try {

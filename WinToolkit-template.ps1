@@ -100,7 +100,7 @@ function Read-Host {
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 72)"
+$ToolkitVersion = "2.5.2 (Build 80)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -321,6 +321,9 @@ function Start-ToolkitLog {
     }
     $Global:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
 
+    # CorrelationId: GUID univoco per questa esecuzione, utile per correlare log tool + transcript GUI + zip supporto
+    $Global:CurrentCorrelationId = [guid]::NewGuid().ToString()
+
     # Raccolta metadati di sistema per l'header
     $os = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
     $sys = Get-CimInstance Win32_ComputerSystem   -ErrorAction SilentlyContinue
@@ -346,6 +349,7 @@ function Start-ToolkitLog {
     $header = @"
 [START LOG HEADER]
 Start time              : $dateTime
+CorrelationId           : $($Global:CurrentCorrelationId)
 ToolName                : $ToolName
 Username                : $([Environment]::UserDomainName + '\' + [Environment]::UserName)
 RunAs User              : $([Security.Principal.WindowsIdentity]::GetCurrent().Name)
@@ -399,6 +403,157 @@ function Write-ToolkitLog {
         Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
     }
     catch {}
+}
+
+function Invoke-ExternalCommandWithLog {
+    <#
+    .SYNOPSIS
+        Esegue un comando esterno con logging strutturato e cattura completa di STDOUT/STDERR.
+    .DESCRIPTION
+        Wrapper standardizzato per processi esterni.
+        - Logga comando, argomenti, exit code, durata ed eventuali errori.
+        - Restituisce un oggetto con Success, ExitCode, StdOut, StdErr, Elapsed.
+        - Non scrive mai direttamente su console (la responsabilità è del chiamante tramite Write-StyledMessage).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Command,
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$Arguments = @(),
+
+        [Parameter(Mandatory = $false)]
+        [string]$WorkingDirectory,
+
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutSeconds = 0,
+
+        [Parameter(Mandatory = $false)]
+        [string]$LogContextKey = ''
+    )
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $argString = $Arguments -join ' '
+
+    Write-ToolkitLog -Level 'INFO' -Message "Esecuzione comando esterno: $Command $argString" -Context @{
+        Command       = $Command
+        Arguments     = $Arguments
+        WorkingDir    = $WorkingDirectory
+        TimeoutSec    = $TimeoutSeconds
+        ContextKey    = $LogContextKey
+    }
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $Command
+    $psi.Arguments = $argString
+    if ($WorkingDirectory) {
+        $psi.WorkingDirectory = $WorkingDirectory
+    }
+    $psi.UseShellExecute        = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError  = $true
+    $psi.CreateNoWindow         = $true
+
+    $proc = [System.Diagnostics.Process]::new()
+    $proc.StartInfo = $psi
+
+    $stdOut = New-Object System.Text.StringBuilder
+    $stdErr = New-Object System.Text.StringBuilder
+
+    $outputHandler = [System.Diagnostics.DataReceivedEventHandler]{
+        param($sender, $e)
+        if ($e.Data) { [void]$stdOut.AppendLine($e.Data) }
+    }
+    $errorHandler = [System.Diagnostics.DataReceivedEventHandler]{
+        param($sender, $e)
+        if ($e.Data) { [void]$stdErr.AppendLine($e.Data) }
+    }
+
+    $success = $false
+    $exitCode = $null
+
+    try {
+        if (-not $proc.Start()) {
+            throw "Impossibile avviare il processo esterno."
+        }
+
+        $proc.BeginOutputReadLine()
+        $proc.BeginErrorReadLine()
+
+        $proc.add_OutputDataReceived($outputHandler)
+        $proc.add_ErrorDataReceived($errorHandler)
+
+        if ($TimeoutSeconds -gt 0) {
+            if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+                try { $proc.Kill() } catch {}
+                throw "Timeout dopo $TimeoutSeconds secondi."
+            }
+        }
+        else {
+            $proc.WaitForExit()
+        }
+
+        $exitCode = $proc.ExitCode
+        $success = ($exitCode -eq 0)
+    }
+    catch {
+        $exitCode = if ($exitCode -ne $null) { $exitCode } else { -1 }
+        Write-ToolkitLog -Level 'ERROR' -Message "Eccezione durante esecuzione comando esterno" -Context @{
+            Command       = $Command
+            Arguments     = $Arguments
+            WorkingDir    = $WorkingDirectory
+            TimeoutSec    = $TimeoutSeconds
+            ContextKey    = $LogContextKey
+            Exception     = $_.Exception.Message
+            Stack         = $_.ScriptStackTrace
+        }
+    }
+    finally {
+        $stopwatch.Stop()
+        $elapsed = $stopwatch.Elapsed
+
+        $outText = $stdOut.ToString()
+        $errText = $stdErr.ToString()
+
+        # Evita file log enormi: tronca output molto lunghi ma preserva informazione di taglio
+        $maxLen = 8000
+        $outLogged = $outText
+        $errLogged = $errText
+        if ($outLogged.Length -gt $maxLen) {
+            $outLogged = $outLogged.Substring(0, $maxLen) + "`n[...output troncato...]"
+        }
+        if ($errLogged.Length -gt $maxLen) {
+            $errLogged = $errLogged.Substring(0, $maxLen) + "`n[...stderr troncato...]"
+        }
+
+        Write-ToolkitLog -Level 'INFO' -Message "Risultato comando esterno" -Context @{
+            Command       = $Command
+            Arguments     = $Arguments
+            WorkingDir    = $WorkingDirectory
+            TimeoutSec    = $TimeoutSeconds
+            ContextKey    = $LogContextKey
+            ExitCode      = $exitCode
+            Success       = $success
+            Elapsed       = $elapsed.ToString()
+            StdOutSnippet = $outLogged
+            StdErrSnippet = $errLogged
+        }
+
+        if ($proc) {
+            $proc.remove_OutputDataReceived($outputHandler)
+            $proc.remove_ErrorDataReceived($errorHandler)
+            $proc.Dispose()
+        }
+    }
+
+    [pscustomobject]@{
+        Success  = $success
+        ExitCode = $exitCode
+        StdOut   = $stdOut.ToString()
+        StdErr   = $stdErr.ToString()
+        Elapsed  = $stopwatch.Elapsed
+    }
 }
 
 # Helper: installa AppX tramite System.Diagnostics.Process (CreateNoWindow=true).
@@ -825,6 +980,201 @@ function GamingToolkit {}
 function DisableBitlocker {}
 function WinExportLog {}
 
+# --- HELPER INPUT E UX AVANZATA ---
+
+function Read-ValidatedChoice {
+    <#
+    .SYNOPSIS
+        Legge e valida una selezione numerica multipla dall'utente.
+    .DESCRIPTION
+        Accetta input del tipo "1 2 3", "1,2,3", "1, 2, 3" o varianti miste.
+        Filtra valori non numerici, valori fuori range e duplicati.
+        Registra la scelta nel log file con contesto strutturato.
+    .PARAMETER Prompt
+        Testo da mostrare come prompt.
+    .PARAMETER Min
+        Valore minimo accettabile (incluso).
+    .PARAMETER Max
+        Valore massimo accettabile (incluso).
+    .PARAMETER AllowZero
+        Se specificato, il valore 0 è accettato come uscita/annulla.
+    .OUTPUTS
+        Array [int[]] di valori selezionati. Array vuoto se nessuna selezione valida.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$Prompt = 'Selezione',
+        [int]$Min = 1,
+        [int]$Max = 99,
+        [switch]$AllowZero
+    )
+
+    $rawInput = Read-Host $Prompt
+    if ($null -eq $rawInput) { return @() }
+
+    if ($AllowZero -and $rawInput.Trim() -eq '0') {
+        Write-ToolkitLog -Level 'INFO' -Message 'Utente ha selezionato: 0 (uscita/annulla)' -Context @{ Input = '0' }
+        return @(0)
+    }
+
+    $tokens   = $rawInput -split '[\s,]+' | Where-Object { $_ -match '^\d+$' }
+    $valid    = @()
+    $invalid  = @()
+
+    foreach ($token in $tokens) {
+        $num = [int]$token
+        if ($num -ge $Min -and $num -le $Max) {
+            if ($valid -notcontains $num) { $valid += $num }
+        }
+        else {
+            $invalid += $num
+        }
+    }
+
+    if ($invalid.Count -gt 0) {
+        Write-StyledMessage -Type Warning -Text "⚠️ Valori fuori range ignorati: $($invalid -join ', ') (range valido: $Min–$Max)"
+    }
+
+    Write-ToolkitLog -Level 'INFO' -Message 'Input utente validato' -Context @{
+        RawInput = $rawInput
+        Valid    = ($valid -join ',')
+        Invalid  = ($invalid -join ',')
+    }
+
+    return $valid
+}
+
+function Get-UserConfirmation {
+    <#
+    .SYNOPSIS
+        Chiede conferma sì/no all'utente in modo uniforme.
+    .DESCRIPTION
+        Mostra un prompt coerente con lo schema di messaggistica del toolkit.
+        Registra la scelta nel log con contesto strutturato.
+    .PARAMETER Prompt
+        Testo della domanda da porre.
+    .PARAMETER Default
+        Valore predefinito: 'Y' oppure 'N'. Default = 'N'.
+    .PARAMETER Severity
+        Livello di enfasi visiva: 'Info' (Cyan) oppure 'Warning' (Yellow).
+    .OUTPUTS
+        [bool] $true se l'utente ha confermato, $false altrimenti.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Prompt,
+
+        [ValidateSet('Y', 'N')]
+        [string]$Default = 'N',
+
+        [ValidateSet('Info', 'Warning')]
+        [string]$Severity = 'Info'
+    )
+
+    $yesLabel = if ($Default -eq 'Y') { '[Y]' } else { 'y' }
+    $noLabel  = if ($Default -eq 'N') { '[N]' } else { 'n' }
+    $fullPrompt = "$Prompt ($yesLabel/$noLabel)"
+
+    Write-StyledMessage -Type $Severity -Text $fullPrompt
+    $answer = Read-Host ''
+
+    if ([string]::IsNullOrWhiteSpace($answer)) { $answer = $Default }
+    $confirmed = $answer -match '^[Yy]'
+
+    Write-ToolkitLog -Level 'INFO' -Message 'Conferma utente' -Context @{
+        Prompt    = $Prompt
+        Default   = $Default
+        Answer    = $answer
+        Confirmed = $confirmed
+    }
+
+    return $confirmed
+}
+
+function Show-ConsoleTable {
+    <#
+    .SYNOPSIS
+        Visualizza dati in formato tabellare ASCII nella console.
+    .DESCRIPTION
+        Accetta una lista di hashtable/oggetti e una lista di colonne.
+        Calcola automaticamente la larghezza delle colonne in base al contenuto.
+        Stampa intestazioni, separatori e righe dati con bordi ASCII puliti.
+    .PARAMETER Rows
+        Array di hashtable o pscustomobject da visualizzare.
+    .PARAMETER Columns
+        Array di hashtable con chiavi 'Header' (string) e 'Key' (string) che
+        corrispondono alle proprietà in Rows. Opzionale: 'Color' (string).
+    .PARAMETER Title
+        Titolo opzionale da mostrare sopra la tabella.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$Rows,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable[]]$Columns,
+
+        [string]$Title = ''
+    )
+
+    # Calcola larghezze colonne (max tra header e contenuto di ogni riga)
+    $widths = @{}
+    foreach ($col in $Columns) {
+        $widths[$col.Key] = $col.Header.Length
+    }
+    foreach ($row in $Rows) {
+        foreach ($col in $Columns) {
+            $val = if ($row -is [hashtable]) { "$($row[$col.Key])" } else { "$($row.$($col.Key))" }
+            if ($val.Length -gt $widths[$col.Key]) { $widths[$col.Key] = $val.Length }
+        }
+    }
+
+    # Costruisce separatore orizzontale
+    $sep = '+' + (($Columns | ForEach-Object { '-' * ($widths[$_.Key] + 2) }) -join '+') + '+'
+
+    if ($Title) {
+        $totalWidth = $sep.Length
+        $paddedTitle = " $Title "
+        $pad = [Math]::Max(0, [Math]::Floor(($totalWidth - $paddedTitle.Length) / 2))
+        Write-Host ('=' * $totalWidth) -ForegroundColor Cyan
+        Write-Host ((' ' * $pad) + $paddedTitle) -ForegroundColor Cyan
+        Write-Host ('=' * $totalWidth) -ForegroundColor Cyan
+    }
+
+    # Intestazione
+    Write-Host $sep -ForegroundColor DarkGray
+    $headerLine = '|'
+    foreach ($col in $Columns) {
+        $headerLine += ' ' + $col.Header.PadRight($widths[$col.Key]) + ' |'
+    }
+    Write-Host $headerLine -ForegroundColor Cyan
+    Write-Host $sep -ForegroundColor DarkGray
+
+    # Righe dati
+    foreach ($row in $Rows) {
+        $line = '|'
+        foreach ($col in $Columns) {
+            $val = if ($row -is [hashtable]) { "$($row[$col.Key])" } else { "$($row.$($col.Key))" }
+            $cell = ' ' + $val.PadRight($widths[$col.Key]) + ' |'
+            $color = if ($col.Color) { $col.Color } else { 'White' }
+            $line += $cell
+        }
+        # Colora l'intera riga in base alla colonna 'Status' se presente
+        $rowColor = 'White'
+        $statusKey = ($Columns | Where-Object { $_.Key -eq 'Status' -or $_.Key -eq 'Stato' } | Select-Object -First 1)?.Key
+        if ($statusKey) {
+            $statusVal = if ($row -is [hashtable]) { "$($row[$statusKey])" } else { "$($row.$statusKey)" }
+            if ($statusVal -match '✅|OK|Successo|Completato') { $rowColor = 'Green' }
+            elseif ($statusVal -match '⚠️|Warning|Parziale') { $rowColor = 'Yellow' }
+            elseif ($statusVal -match '❌|Errore|Fallito') { $rowColor = 'Red' }
+        }
+        Write-Host $line -ForegroundColor $rowColor
+    }
+    Write-Host $sep -ForegroundColor DarkGray
+}
+
 
 # --- MENU PRINCIPALE ---
 $menuStructure = @(
@@ -922,7 +1272,8 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         Write-Host ""
         Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
         Write-Host ""
-        $c = Read-Host "Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza"
+        $rawSelections = Read-ValidatedChoice -Prompt 'Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza' -Min 0 -Max $allScripts.Count -AllowZero
+        $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
 
         # Secret check
         if ($c -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
@@ -930,24 +1281,16 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             continue
         }
 
-        if ($c -eq '0') {
+        if ($c -eq 0 -or $c -eq '0') {
             Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
             Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
-            # Log session end
             Write-ToolkitLog -Level INFO -Message "Sessione WinToolkit terminata dall'utente."
             Start-Sleep -Seconds 3
             break
         }
 
-        # Parsing input multipli: supporta "1 2 3", "1,2,3", "1, 2, 3"
-        $selections = @()
-        $rawInputs = $c -split '[\s,]+' | Where-Object { $_ -match '^\d+$' }
-        foreach ($input in $rawInputs) {
-            $num = [int]$input
-            if ($num -ge 1 -and $num -le $allScripts.Count) {
-                $selections += $num
-            }
-        }
+        # Usa le selezioni già validate da Read-ValidatedChoice (filtra 0 se presente)
+        $selections = @($rawSelections | Where-Object { $_ -ge 1 -and $_ -le $allScripts.Count })
 
         if ($selections.Count -eq 0) {
             Write-StyledMessage -Type 'Warning' -Text '⚠️ Nessuna selezione valida. Riprova.'
@@ -989,18 +1332,22 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Write-Host ''
         }
 
-        # Riepilogo esecuzione (solo se multi-script)
+        # Riepilogo esecuzione (solo se multi-script) — usa Show-ConsoleTable
         if ($isMultiScript) {
             Write-Host ''
-            Write-StyledMessage -Type 'Info' -Text '📊 Riepilogo esecuzione:'
-            foreach ($log in $Global:ExecutionLog) {
-                if ($log.Success) {
-                    Write-Host "  ✅ $($log.Name)" -ForegroundColor Green
-                }
-                else {
-                    Write-Host "  ❌ $($log.Name)" -ForegroundColor Red
+            $tableRows = $Global:ExecutionLog | ForEach-Object {
+                @{
+                    Operazione = $_.Name
+                    Stato      = if ($_.Success) { '✅ Completato' } else { '❌ Errore' }
+                    Dettaglio  = if ($_.Error) { $_.Error } else { '' }
                 }
             }
+            $tableCols = @(
+                @{ Header = 'Operazione'; Key = 'Operazione' },
+                @{ Header = 'Stato';      Key = 'Stato' },
+                @{ Header = 'Dettaglio'; Key = 'Dettaglio' }
+            )
+            Show-ConsoleTable -Rows $tableRows -Columns $tableCols -Title '📊 Riepilogo Esecuzione'
             Write-Host ''
         }
 
@@ -1031,8 +1378,3 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
-
-
-
-

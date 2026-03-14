@@ -248,27 +248,31 @@ function WinRepairToolkit {
     }
 
     function Start-DeepDiskRepair {
-        Write-StyledMessage Info '🔧 Avvio riparazione profonda del disco C: al prossimo riavvio'
+        Write-StyledMessage -Type 'Info' -Text '🔧 Avvio riparazione profonda del disco C: al prossimo riavvio'
         try {
-            $fsutilParams = @{
-                FilePath     = 'fsutil.exe'
-                ArgumentList = @('dirty', 'set', 'C:')
-                NoNewWindow  = $true
-                Wait         = $true
+            $fsutilResult = Invoke-ExternalCommandWithLog -Command 'fsutil.exe' -Arguments @('dirty', 'set', 'C:') -TimeoutSeconds 300 -LogContextKey 'DeepDiskRepair-Fsutil'
+            if (-not $fsutilResult.Success) {
+                Write-StyledMessage -Type 'Error' -Text "❌ Impossibile marcare il disco come dirty (fsutil)."
+                return $false
             }
-            Start-Process @fsutilParams
-            $chkdskParams = @{
-                FilePath     = 'cmd.exe'
-                ArgumentList = @('/c', 'echo Y | chkdsk C: /f /r /v /x /b')
-                WindowStyle  = 'Hidden'
-                Wait         = $true
+
+            $chkdskResult = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -TimeoutSeconds 7200 -LogContextKey 'DeepDiskRepair-Chkdsk'
+            if (-not $chkdskResult.Success) {
+                Write-StyledMessage -Type 'Error' -Text "❌ Errore durante la schedulazione di chkdsk per la riparazione profonda."
+                return $false
             }
-            Start-Process @chkdskParams
-            Write-StyledMessage Info 'Comando chkdsk inviato. Riavvia per eseguire.'
+
+            Write-StyledMessage -Type 'Info' -Text 'Comando chkdsk inviato. Riavvia per eseguire la riparazione profonda del disco.'
             return $true
         }
         catch {
-            Write-StyledMessage Error "Errore durante la schedulazione della riparazione profonda: $($_.Exception.Message)"
+            Write-ToolkitLog -Level 'ERROR' -Message 'Eccezione in Start-DeepDiskRepair' -Context @{
+                Tool      = 'WinRepairToolkit'
+                Step      = 'Start-DeepDiskRepair'
+                Exception = $_.Exception.Message
+                Stack     = $_.ScriptStackTrace
+            }
+            Write-StyledMessage -Type 'Error' -Text "Errore durante la schedulazione della riparazione profonda: $($_.Exception.Message)"
             return $false
         }
     }

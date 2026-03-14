@@ -1,4 +1,4 @@
-﻿function GamingToolkit {
+function GamingToolkit {
     <#
     .SYNOPSIS
         Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
@@ -46,7 +46,13 @@
     function Test-WingetPackageAvailable([string]$PackageId) {
         try {
             $searchResult = winget search --id $PackageId --accept-source-agreements 2>&1
-            if ($LASTEXITCODE -eq 0 -and $searchResult -match $PackageId) {
+            $outputStr = $searchResult -join ' '
+            if ($outputStr -match [regex]::Escape($PackageId)) {
+                return $true
+            }
+            $listResult = winget list --id $PackageId --accept-source-agreements 2>&1
+            $listStr = $listResult -join ' '
+            if ($listStr -match [regex]::Escape($PackageId)) {
                 return $true
             }
             return $false
@@ -61,24 +67,23 @@
     function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
         Write-StyledMessage -Type 'Info' -Text "[$Step/$Total] 📦 Installazione: $DisplayName..."
 
-        if (-not (Test-WingetPackageAvailable $PackageId)) {
-            Write-StyledMessage -Type 'Warning' -Text "Pacchetto $DisplayName non disponibile. Saltando."
-            return @{ Success = $true; Skipped = $true }
-        }
+        $outFile = "$env:TEMP\winget_$PackageId.log"
+        $errFile = "$env:TEMP\winget_err_$PackageId.log"
 
         try {
-            # Usa la funzione globale Invoke-WithSpinner per monitorare il processo winget
             $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action {
                 $procParams = @{
-                    FilePath     = 'winget'
-                    ArgumentList = @('install', '--id', $PackageId, '--silent', '--accept-package-agreements', '--accept-source-agreements')
-                    PassThru     = $true
-                    NoNewWindow  = $true
+                    FilePath               = 'winget'
+                    ArgumentList           = @('install', '--id', $PackageId, '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements')
+                    PassThru               = $true
+                    NoNewWindow            = $true
+                    RedirectStandardOutput = $outFile
+                    RedirectStandardError  = $errFile
                 }
                 Start-Process @procParams
             } -TimeoutSeconds $timeout -UpdateInterval 700
 
-            $exitCode = $result.ExitCode
+            $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
             $successCodes = @(0, 1638, 3010, -1978335189)
 
             if ($exitCode -in $successCodes) {
@@ -97,7 +102,7 @@
             return @{ Success = $false }
         }
         finally {
-            Remove-Item "$env:TEMP\winget_$PackageId.log", "$env:TEMP\winget_err_$PackageId.log" -ErrorAction SilentlyContinue
+            Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
         }
     }
 
@@ -119,7 +124,7 @@
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         Write-StyledMessage Error 'Winget non disponibile.'
         Write-StyledMessage Info 'Esegui reset Store/Winget e riprova.'
-        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare...'
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
         return
     }
@@ -188,27 +193,23 @@
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo DirectX
         $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action {
             $procParams = @{
-                FilePath = $dxPath
-                PassThru = $true
+                FilePath     = $dxPath
+                PassThru     = $true
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 700
 
-        if ($null -eq $result -or $null -eq $result.Process) {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
+        Write-Host "`r$(' ' * 120)" -NoNewline
+        Write-Host "`r" -NoNewline
+
+        if ($null -eq $result) {
             Write-StyledMessage Error "DirectX: processo non avviato correttamente."
         }
-        elseif (-not $result.Process.HasExited) {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
+        elseif ($result -is [hashtable] -and $result.Contains('TimedOut') -and $result.TimedOut) {
             Write-StyledMessage Warning "Timeout DirectX."
-            $result.Process.Kill()
         }
         else {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
-            $exitCode = $result.Process.ExitCode
+            $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
             $successCodes = @(0, 3010, 5100, -9, 9, -1442840576)
             Write-StyledMessage -Type ($exitCode -in $successCodes ? 'Success' : 'Error') -Text ($exitCode -in $successCodes ? "DirectX installato (codice: $exitCode)." : "DirectX errore: $exitCode")
         }
@@ -224,7 +225,7 @@
     $gameClients = @(
         "Amazon.Games", "GOG.Galaxy", "EpicGames.EpicGamesLauncher",
         "ElectronicArts.EADesktop", "Playnite.Playnite", "Valve.Steam",
-        "Ubisoft.Connect", "9MV0B5HZVK9Z"
+        "Ubisoft.Connect"
     )
 
     Write-StyledMessage Info '🎮 Installazione client di gioco...'
@@ -233,6 +234,51 @@
         Write-Host ''
     }
     Write-StyledMessage Success 'Client installati.'
+    Write-Host ''
+
+    # Step 5b: Xbox Game Bar & Xbox App
+    Write-StyledMessage Info '🎮 Reinstallazione Xbox Game Bar & App...'
+
+    $xboxPackages = @("9NZKPSTSNW4P", "9MV0B5HZVK9Z")
+
+    foreach ($pkg in $xboxPackages) {
+        Write-StyledMessage -Type 'Info' -Text "Reinstallazione: $pkg..."
+        
+        $outFile = "$env:TEMP\winget_$pkg.log"
+        $errFile = "$env:TEMP\winget_err_$pkg.log"
+
+        try {
+            $result = Invoke-WithSpinner -Activity "Reinstallazione $pkg" -Process -Action {
+                $procParams = @{
+                    FilePath               = 'winget'
+                    ArgumentList           = @('install', '--id', $pkg, '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements', '--force')
+                    PassThru               = $true
+                    NoNewWindow            = $true
+                    RedirectStandardOutput = $outFile
+                    RedirectStandardError  = $errFile
+                }
+                Start-Process @procParams
+            } -TimeoutSeconds $timeout -UpdateInterval 700
+
+            $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
+            $successCodes = @(0, 1638, 3010, -1978335189)
+
+            if ($exitCode -in $successCodes) {
+                Write-StyledMessage -Type 'Success' -Text "Reinstallato: $pkg"
+            }
+            else {
+                Write-StyledMessage -Type 'Warning' -Text "${pkg}: codice $exitCode"
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore $pkg : $($_.Exception.Message)"
+        }
+        finally {
+            Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
+        }
+        Write-Host ''
+    }
+    Write-StyledMessage Success 'Xbox reinstallati.'
     Write-Host ''
 
     # Step 6: Battle.net
@@ -246,40 +292,37 @@
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo Battle.net
         $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action {
             $procParams = @{
-                FilePath    = $bnPath
-                PassThru    = $true
-                Verb        = 'RunAs'
-                ErrorAction = 'Stop'
+                FilePath     = $bnPath
+                ArgumentList = '--quiet'
+                PassThru     = $true
+                Verb         = 'RunAs'
+                WindowStyle  = 'Hidden'
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 500
 
-        if ($null -eq $result -or $null -eq $result.Process) {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
+        Write-Host "`r$(' ' * 120)" -NoNewline
+        Write-Host "`r" -NoNewline
+
+        if ($null -eq $result) {
             Write-StyledMessage Error "Battle.net: processo non avviato correttamente."
         }
-        elseif (-not $result.Process.HasExited) {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
+        elseif ($result -is [hashtable] -and $result.Contains('TimedOut') -and $result.TimedOut) {
             Write-StyledMessage Warning "Timeout Battle.net."
-            try { $result.Process.Kill() } catch {}
         }
         else {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
-            $exitCode = $result.Process.ExitCode
+            $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
             Write-StyledMessage -Type ($exitCode -in @(0, 3010) ? 'Success' : 'Warning') -Text ($exitCode -in @(0, 3010) ? "Battle.net installato." : "Battle.net: codice $exitCode")
         }
 
-        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare...'
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     catch {
         Write-Host "`r$(' ' * 120)" -NoNewline
         Write-Host "`r" -NoNewline
         Write-StyledMessage Error "Errore durante installazione Battle.net: $($_.Exception.Message)"
-        Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+        Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare...'
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     Write-Host ''
@@ -359,10 +402,10 @@
     Write-Host ''
 
     # Step 10: Completamento
-    Write-Host ('═' * 80) -ForegroundColor Green
-    Write-StyledMessage Success 'Gaming Toolkit completato!'
-    Write-StyledMessage Success 'Sistema ottimizzato per il gaming.'
-    Write-Host ('═' * 80) -ForegroundColor Green
+    Write-StyledMessage -Type 'Info' -Text ('─' * 60)
+    Write-StyledMessage -Type 'Success' -Text 'Gaming Toolkit completato!'
+    Write-StyledMessage -Type 'Success' -Text 'Sistema ottimizzato per il gaming.'
+    Write-StyledMessage -Type 'Info' -Text ('─' * 60)
     Write-Host ''
 
     # Step 11: Riavvio
@@ -377,7 +420,7 @@
         }
         else {
             Write-StyledMessage Warning 'Riavvia manualmente per applicare tutte le modifiche.'
-            Write-Host "`nPremi un tasto..." -ForegroundColor Gray
+            Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare...'
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
         }
     }
