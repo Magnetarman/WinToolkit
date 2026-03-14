@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 77)"
+$ToolkitVersion = "2.5.2 (Build 78)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -3751,6 +3751,11 @@ function GamingToolkit {
             if ($outputStr -match [regex]::Escape($PackageId)) {
                 return $true
             }
+            $listResult = winget list --id $PackageId --accept-source-agreements 2>&1
+            $listStr = $listResult -join ' '
+            if ($listStr -match [regex]::Escape($PackageId)) {
+                return $true
+            }
             return $false
         }
         catch {
@@ -3761,10 +3766,6 @@ function GamingToolkit {
     }
     function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
         Write-StyledMessage -Type 'Info' -Text "[$Step/$Total] 📦 Installazione: $DisplayName..."
-        if (-not (Test-WingetPackageAvailable $PackageId)) {
-            Write-StyledMessage -Type 'Warning' -Text "Pacchetto $DisplayName non disponibile. Saltando."
-            return @{ Success = $true; Skipped = $true }
-        }
         $outFile = "$env:TEMP\winget_$PackageId.log"
         $errFile = "$env:TEMP\winget_err_$PackageId.log"
         try {
@@ -3870,9 +3871,7 @@ function GamingToolkit {
         $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action {
             $procParams = @{
                 FilePath     = $dxPath
-                ArgumentList = '/Q'
                 PassThru     = $true
-                NoNewWindow  = $true
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 700
