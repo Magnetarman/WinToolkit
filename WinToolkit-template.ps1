@@ -1378,16 +1378,3 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
