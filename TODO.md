@@ -54,6 +54,7 @@
   - [x] Aumentato il comando di Timeout a 24h [[#45](https://github.com/Magnetarman/WinToolkit/issues/45) [@pomodori92]](https://github.com/pomodori92).
   - [x] Aggiunto check per verifica dell'errore -2146498554 con inserimento di avvertimento per l'utente.
   - [x] Migliorata la cancellazione dei Residui di Windows Update. i servizi adesso vengono correttamente stoppati, viene effettuata la pulizia ed infine i servizi vengono riavviati.
+  - [x] Risolto un bug che poteva causare artefatti grafici durante l'installazione degli elementi.
 
 - `Microsoft.PowerShell_profile.ps1` Potenziato.
   - [x] Potenziata e resa completa la funzion PS-Reset.
@@ -87,7 +88,11 @@
   - [x] Aggiornata Funzione check bitlooker.
   - [x] Aggiunto download e caricamento Favicon ToolKit.
   - [x] Migliorata la grafica della barra di avanzamento personalizzata.
-  - [x] Resa maggiormente fluida l'animazione di riempimento della barra di avanzamento personalizzata.  
+  - [x] Resa maggiormente fluida l'animazione di riempimento della barra di avanzamento personalizzata. 
+
+- `GamingToolkit.ps1` Aggiornato.
+  - [x] Risolto bug che generava artefatti grafici all'interno del terminale durante l'installazione degli elementi.
+  - [x] Potenziata la reinstallazione di Xbox App e Game Bar (necessarie per i giochi GamePass)
 
 
 ### V 2.6 - Debloat
