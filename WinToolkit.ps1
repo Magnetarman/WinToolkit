@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 78)"
+$ToolkitVersion = "2.5.2 (Build 80)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -3898,7 +3898,7 @@ function GamingToolkit {
     $gameClients = @(
         "Amazon.Games", "GOG.Galaxy", "EpicGames.EpicGamesLauncher",
         "ElectronicArts.EADesktop", "Playnite.Playnite", "Valve.Steam",
-        "Ubisoft.Connect", "9MV0B5HZVK9Z"
+        "Ubisoft.Connect"
     )
     Write-StyledMessage Info '🎮 Installazione client di gioco...'
     for ($clientIndex = 0; $clientIndex -lt $gameClients.Count; $clientIndex++) {
@@ -3906,6 +3906,43 @@ function GamingToolkit {
         Write-Host ''
     }
     Write-StyledMessage Success 'Client installati.'
+    Write-Host ''
+    Write-StyledMessage Info '🎮 Reinstallazione Xbox Game Bar & App...'
+    $xboxPackages = @("9NZKPSTSNW4P", "9MV0B5HZVK9Z")
+    foreach ($pkg in $xboxPackages) {
+        Write-StyledMessage -Type 'Info' -Text "Reinstallazione: $pkg..."
+        $outFile = "$env:TEMP\winget_$pkg.log"
+        $errFile = "$env:TEMP\winget_err_$pkg.log"
+        try {
+            $result = Invoke-WithSpinner -Activity "Reinstallazione $pkg" -Process -Action {
+                $procParams = @{
+                    FilePath               = 'winget'
+                    ArgumentList           = @('install', '--id', $pkg, '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements', '--force')
+                    PassThru               = $true
+                    NoNewWindow            = $true
+                    RedirectStandardOutput = $outFile
+                    RedirectStandardError  = $errFile
+                }
+                Start-Process @procParams
+            } -TimeoutSeconds $timeout -UpdateInterval 700
+            $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
+            $successCodes = @(0, 1638, 3010, -1978335189)
+            if ($exitCode -in $successCodes) {
+                Write-StyledMessage -Type 'Success' -Text "Reinstallato: $pkg"
+            }
+            else {
+                Write-StyledMessage -Type 'Warning' -Text "${pkg}: codice $exitCode"
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore $pkg : $($_.Exception.Message)"
+        }
+        finally {
+            Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
+        }
+        Write-Host ''
+    }
+    Write-StyledMessage Success 'Xbox reinstallati.'
     Write-Host ''
     Write-StyledMessage Info '🎮 Installazione Battle.net...'
     $bnPath = "$env:TEMP\Battle.net-Setup.exe"
