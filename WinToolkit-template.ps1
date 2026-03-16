@@ -987,9 +987,10 @@ function Read-ValidatedChoice {
     .SYNOPSIS
         Legge e valida una selezione numerica multipla dall'utente.
     .DESCRIPTION
-        Accetta input del tipo "1 2 3", "1,2,3", "1, 2, 3" o varianti miste.
+        Accetta input del tipo "1 2 3", "1,2,3", "1, 2 3" o varianti miste.
         Filtra valori non numerici, valori fuori range e duplicati.
         Registra la scelta nel log file con contesto strutturato.
+        Supporta easter egg: "Windows è una merda" attiva un easter egg.
     .PARAMETER Prompt
         Testo da mostrare come prompt.
     .PARAMETER Min
@@ -998,6 +999,8 @@ function Read-ValidatedChoice {
         Valore massimo accettabile (incluso).
     .PARAMETER AllowZero
         Se specificato, il valore 0 è accettato come uscita/annulla.
+    .PARAMETER RawInput
+        Input pre-letto (opzionale). Se fornito, salta Read-Host.
     .OUTPUTS
         Array [int[]] di valori selezionati. Array vuoto se nessuna selezione valida.
     #>
@@ -1006,10 +1009,15 @@ function Read-ValidatedChoice {
         [string]$Prompt = 'Selezione',
         [int]$Min = 1,
         [int]$Max = 99,
-        [switch]$AllowZero
+        [switch]$AllowZero,
+        [string]$RawInput
     )
 
-    $rawInput = Read-Host $Prompt
+    if ([string]::IsNullOrEmpty($RawInput)) {
+        $rawInput = Read-Host $Prompt
+    } else {
+        $rawInput = $RawInput
+    }
     if ($null -eq $rawInput) { return @() }
 
     if ($AllowZero -and $rawInput.Trim() -eq '0') {
@@ -1047,8 +1055,11 @@ function Read-ValidatedChoice {
 function Get-UserConfirmation {
     <#
     .SYNOPSIS
-        Chiede conferma sì/no all'utente in modo uniforme.
+        ⚠️ DEPRECATA: Questa funzione è in fase di eliminazione.
+        Il toolkit sta acquisendo autonomia totale e non richiederà conferme utente.
+        Usa invece Read-Host diretto o Read-ValidatedChoice per le selezioni.
     .DESCRIPTION
+        Chiede conferma sì/no all'utente in modo uniforme.
         Mostra un prompt coerente con lo schema di messaggistica del toolkit.
         Registra la scelta nel log con contesto strutturato.
     .PARAMETER Prompt
@@ -1071,6 +1082,8 @@ function Get-UserConfirmation {
         [ValidateSet('Info', 'Warning')]
         [string]$Severity = 'Info'
     )
+
+    Write-StyledMessage -Type Warning -Text "⚠️ [DEPRECATED] Get-UserConfirmation sarà rimossa. Non richiederà più conferme."
 
     $yesLabel = if ($Default -eq 'Y') { '[Y]' } else { 'y' }
     $noLabel  = if ($Default -eq 'N') { '[N]' } else { 'n' }
@@ -1272,14 +1285,19 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         Write-Host ""
         Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
         Write-Host ""
-        $rawSelections = Read-ValidatedChoice -Prompt 'Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza' -Min 0 -Max $allScripts.Count -AllowZero
-        $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
-
-        # Secret check
-        if ($c -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
+        
+        # Leggi input RAW per Secret check (prima della validazione numerica)
+        $rawInput = Microsoft.PowerShell.Utility\Read-Host 'Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza'
+        
+        # Secret check - valuta PRIMA della validazione numerica
+        if ($rawInput -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
             Start-Process ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('aHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj15QVZVT2tlNGtvYw==')))
             continue
         }
+        
+        # Valida input come numeri per il menu
+        $rawSelections = Read-ValidatedChoice -Prompt 'Inserisci uno o più numeri' -Min 0 -Max $allScripts.Count -AllowZero -RawInput $rawInput
+        $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
 
         if ($c -eq 0 -or $c -eq '0') {
             Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
