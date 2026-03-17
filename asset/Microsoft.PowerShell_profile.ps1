@@ -13,12 +13,13 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.2.4"
+$ProfileVersion = "2.5.2.5"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
 $URL_WINTOOLKIT_DEV = "https://magnetarman.com/WinToolkit-Dev"
 $URL_WINREG = "https://get.activated.win"
+$URL_RustDesk_Setup = "https://raw.githubusercontent.com/Magnetarman/WinStarter/refs/heads/main/Asset/RustDesk/SetRustDesk.ps1"
 $URL_OHMYPOSH_THEME = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
 $URL_PROFILE = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
 $URL_IP_API = "https://am.i.mullvad.net/ip"
@@ -319,6 +320,16 @@ function PSProfileUpdate {
 
 function WinToolkit-Stable {
     Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_WINTOOLKIT_STABLE | iex`"" -Verb RunAs
+}
+
+function SetRustDesk {
+    [CmdletBinding()]
+    param()
+
+    Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_RustDesk_Setup | iex`"" -Verb RunAs
+
+    Write-Host "🔍 Avvio configurazione RustDesk..." -ForegroundColor Cyan
+
 }
 
 function WinReg {
@@ -627,6 +638,7 @@ $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Lancia 
 $($PSStyle.Foreground.Green)WinToolkit-Dev$($PSStyle.Reset)            - Lancia WinToolkit (Dev)
 $($PSStyle.Foreground.Green)WinToolkit-Reset$($PSStyle.Reset)          - Ripristina l'ambiente (Icona e Profilo) al ramo main
 $($PSStyle.Foreground.Green)WinReg$($PSStyle.Reset)                    - Attiva Windows/Office (MAS)
+$($PSStyle.Foreground.Green)SetRustDesk$($PSStyle.Reset)               - Configura RustDesk per il controllo remoto
 
 $($PSStyle.Foreground.Cyan)Gestione Profilo Powershell$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)EditPSProfile$($PSStyle.Reset)             - Apre il profilo PowerShell nell'editor
