@@ -45,37 +45,26 @@ function OfficeToolkit {
             [switch]$Recurse
         )
 
-        if (-not (Test-Path $Path)) { return $false }
+        if (-not (Test-Path $Path)) {
+            return $false
+        }
 
         try {
+            $removeParams = @{
+                Path        = $Path
+                Force       = $true
+                ErrorAction = 'SilentlyContinue'
+            }
             if ($Recurse) {
-                $removeParams = @{
-                    Path        = $Path
-                    Recurse     = $true
-                    Force       = $true
-                    ErrorAction = 'SilentlyContinue'
-                }
-                Remove-Item @removeParams *>$null
+                $removeParams.Add('Recurse', $Recurse)
             }
-            else {
-                $removeParams = @{
-                    Path        = $Path
-                    Force       = $true
-                    ErrorAction = 'SilentlyContinue'
-                }
-                Remove-Item @removeParams *>$null
-            }
-
+            Remove-Item @removeParams *>$null
             Clear-ProgressLine
-
             return $true
-        }
-        catch {
+        } catch {
             return $false
         }
     }
-
-
 
     function Apply-OfficePostConfig {
         Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione/riparazione Office..."
@@ -120,15 +109,25 @@ function OfficeToolkit {
         Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate in modo profondo"
     }
 
-
-
-    function Get-UserConfirmation([string]$Message, [string]$DefaultChoice = 'N') {
+    function Get-UserConfirmation {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Message,
+            
+            [ValidateSet('Y', 'N')]
+            [string]$DefaultChoice = 'N'
+        )
+        
         do {
-            $response = Read-Host "$Message [Y/N]"
-            if ([string]::IsNullOrEmpty($response)) { $response = $DefaultChoice }
-            $response = $response.ToUpper()
-        } while ($response -notin @('Y', 'N'))
-        return $response -eq 'Y'
+            $response = (Read-Host "$Message [Y/N]").Trim().ToUpper()
+            if ($response -eq 'N') {
+                Write-StyledMessage -Type 'Warning' -Text "Inserire Y per confermare."
+            } elseif ($response -ne 'Y') {
+                Write-StyledMessage -Type 'Error' -Text "Input non valido."
+            }
+        } while ($response -ne 'Y')
+        return $response
     }
 
     function Get-WindowsVersion {

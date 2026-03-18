@@ -2090,29 +2090,22 @@ function OfficeToolkit {
             [string]$Path,
             [switch]$Recurse
         )
-        if (-not (Test-Path $Path)) { return $false }
+        if (-not (Test-Path $Path)) {
+            return $false
+        }
         try {
+            $removeParams = @{
+                Path        = $Path
+                Force       = $true
+                ErrorAction = 'SilentlyContinue'
+            }
             if ($Recurse) {
-                $removeParams = @{
-                    Path        = $Path
-                    Recurse     = $true
-                    Force       = $true
-                    ErrorAction = 'SilentlyContinue'
-                }
-                Remove-Item @removeParams *>$null
+                $removeParams.Add('Recurse', $Recurse)
             }
-            else {
-                $removeParams = @{
-                    Path        = $Path
-                    Force       = $true
-                    ErrorAction = 'SilentlyContinue'
-                }
-                Remove-Item @removeParams *>$null
-            }
+            Remove-Item @removeParams *>$null
             Clear-ProgressLine
             return $true
-        }
-        catch {
+        } catch {
             return $false
         }
     }
