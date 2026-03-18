@@ -56,7 +56,7 @@ function WinDebloat {
         # in $DebloatServices (es. telemetria, diagnostica non critica, componenti
         # consumer opzionali) in modo controllato e documentato.
         # Utilizzare Write-StyledMessage per il feedback visuale verso l'utente.
-        Write-StyledMessage -Type 'Info' -Text "Ottimizzazione servizio: $($ServiceConfig.Name) ($($ServiceConfig.Description))..."
+        Write-StyledMessage -Type 'Info' -Text "Ottimizzazione servizio: $($ServiceConfig.Name) ($($ServiceConfig.Description))."
 
         try {
             # PLACEHOLDER: Logica di gestione servizio
@@ -67,7 +67,7 @@ function WinDebloat {
             return $true
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante l'ottimizzazione di $($ServiceConfig.Name): $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'ottimizzazione di $($ServiceConfig.Name): $($_.Exception.Message)."
             return $false
         }
     }
@@ -77,7 +77,7 @@ function WinDebloat {
     # ============================================================================
 
     try {
-        Write-StyledMessage -Type 'Info' -Text "🚀 Avvio processo di debloat dei servizi..."
+        Write-StyledMessage -Type 'Info' -Text "🚀 Avvio processo di debloat dei servizi."
 
         # Ciclo sui servizi definiti (Placeholder)
         foreach ($service in $DebloatServices) {
@@ -102,7 +102,7 @@ function WinDebloat {
         }
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "❌ Errore critico in WinDebloat: $($_.Exception.Message)"
+        Write-StyledMessage -Type 'Error' -Text "❌ Errore critico in WinDebloat: $($_.Exception.Message)."
         Write-ToolkitLog -Level ERROR -Message "Errore critico in WinDebloat" -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName
