@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 80)"
+$ToolkitVersion = "2.5.2 (Build 81)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -4219,9 +4219,14 @@ function Read-ValidatedChoice {
         [string]$Prompt = 'Selezione',
         [int]$Min = 1,
         [int]$Max = 99,
-        [switch]$AllowZero
+        [switch]$AllowZero,
+        [string]$RawInput
     )
-    $rawInput = Read-Host $Prompt
+    if ([string]::IsNullOrEmpty($RawInput)) {
+        $rawInput = Read-Host $Prompt
+    } else {
+        $rawInput = $RawInput
+    }
     if ($null -eq $rawInput) { return @() }
     if ($AllowZero -and $rawInput.Trim() -eq '0') {
         Write-ToolkitLog -Level 'INFO' -Message 'Utente ha selezionato: 0 (uscita/annulla)' -Context @{ Input = '0' }
@@ -4259,6 +4264,7 @@ function Get-UserConfirmation {
         [ValidateSet('Info', 'Warning')]
         [string]$Severity = 'Info'
     )
+    Write-StyledMessage -Type Warning -Text "⚠️ [DEPRECATED] Get-UserConfirmation sarà rimossa. Non richiederà più conferme."
     $yesLabel = if ($Default -eq 'Y') { '[Y]' } else { 'y' }
     $noLabel  = if ($Default -eq 'N') { '[N]' } else { 'n' }
     $fullPrompt = "$Prompt ($yesLabel/$noLabel)"
@@ -4406,12 +4412,13 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         Write-Host ""
         Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
         Write-Host ""
-        $rawSelections = Read-ValidatedChoice -Prompt 'Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza' -Min 0 -Max $allScripts.Count -AllowZero
-        $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
-        if ($c -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
+        $rawInput = Microsoft.PowerShell.Utility\Read-Host 'Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza'
+        if ($rawInput -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
             Start-Process ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('aHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj15QVZVT2tlNGtvYw==')))
             continue
         }
+        $rawSelections = Read-ValidatedChoice -Prompt 'Inserisci uno o più numeri' -Min 0 -Max $allScripts.Count -AllowZero -RawInput $rawInput
+        $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
         if ($c -eq 0 -or $c -eq '0') {
             Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
             Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
