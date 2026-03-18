@@ -112,7 +112,7 @@ function GamingToolkit {
         if ($response -match '^[Yy]$') { WinReinstallStore }
     }
 
-    $Host.UI.RawUI.WindowTitle = "Gaming Toolkit By MagnetarMan"
+    $Host.UI.RawUI.WindowTitle = "Gaming Toolkit by MagnetarMan"
 
     # Countdown preparazione
     Invoke-WithSpinner -Activity "Preparazione" -Timer -Action { Start-Sleep 5 } -TimeoutSeconds 5
