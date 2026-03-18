@@ -131,7 +131,7 @@ function WinCleaner {
     function Invoke-CommandAction {
         param($Rule)
         Clear-ProgressLine
-        Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione comando: $($Rule.Name)"
+        Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione comando: $($Rule.Name)."
         try {
             # Use timeout for potentially long-running commands
             $timeoutCommands = @("DISM.exe", "cleanmgr.exe")
@@ -182,11 +182,11 @@ function WinCleaner {
             if (-not $svc) { return $true }
 
             if ($action -eq 'Stop' -and $svc.Status -eq 'Running') {
-                Add-CleanerLog -Type 'Info' -Text "⏸️ Arresto servizio $svcName..."
+                Add-CleanerLog -Type 'Info' -Text "⏸️ Arresto servizio $svcName."
                 Stop-Service -Name $svcName -Force -ErrorAction Stop | Out-Null
             }
             elseif ($action -eq 'Start' -and $svc.Status -ne 'Running') {
-                Add-CleanerLog -Type 'Info' -Text "▶️ Avvio servizio $svcName..."
+                Add-CleanerLog -Type 'Info' -Text "▶️ Avvio servizio $svcName."
                 Start-Service -Name $svcName -ErrorAction Stop | Out-Null
             }
             return $true
@@ -227,7 +227,7 @@ function WinCleaner {
 
             try {
                 if ($takeOwn) {
-                    Add-CleanerLog -Type 'Info' -Text "🔑 Assunzione proprietà per $path..."
+                    Add-CleanerLog -Type 'Info' -Text "🔑 Assunzione proprietà per $path."
                     $null = & cmd /c "takeown /F `"$path`" /R /A >nul 2>&1"
 
                     $adminSID = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
@@ -250,7 +250,7 @@ function WinCleaner {
                 Add-CleanerLog -Type 'Warning' -Text "Errore rimozione $path : $_"
             }
         }
-        if ($count -gt 0) { Write-StyledMessage -Type 'Success' -Text "🗑️ Puliti $count elementi in $($Rule.Name)" }
+        if ($count -gt 0) { Write-StyledMessage -Type 'Success' -Text "🗑️ Puliti $count elementi in $($Rule.Name)." }
         return $true
     }
 
@@ -335,7 +335,7 @@ function WinCleaner {
     $Rules = @(
         # --- CleanMgr Auto ---
         @{ Name = "CleanMgr Config"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "🧹 Configurazione CleanMgr..."
+                Add-CleanerLog -Type 'Info' -Text "🧹 Configurazione CleanMgr."
                 $reg = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
                 $opts = @(
                     "Active Setup Temp Folders",
@@ -385,7 +385,7 @@ function WinCleaner {
 
         # --- Event Logs ---
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs..."
+                Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs."
                 $wevtErr = $null
                 & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr | Out-Null
                 if ($wevtErr) { Write-ToolkitLog -Level DEBUG -Message "wevtutil sl output: $wevtErr" }
@@ -400,7 +400,7 @@ function WinCleaner {
 
         # --- Windows Update ---
         @{ Name = "Clear Windows Update cache"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "🔄 Pulizia cache di Windows Update..."
+                Add-CleanerLog -Type 'Info' -Text "🔄 Pulizia cache di Windows Update."
                 
                 # Servizi da fermare
                 $services = @("wuauserv", "bits")
@@ -443,15 +443,15 @@ function WinCleaner {
         # --- Restore Points ---
         @{ Name = "System Restore Points"; Type = "ScriptBlock"; ScriptBlock = {
                 try {
-                    Add-CleanerLog -Type 'Info' -Text "💾 Pulizia punti di ripristino sistema..."
+                    Add-CleanerLog -Type 'Info' -Text "💾 Pulizia punti di ripristino sistema."
 
-                    Add-CleanerLog -Type 'Info' -Text "🗑️ Analisi e pulizia shadow copies (mantieni ultima)..."
+                    Add-CleanerLog -Type 'Info' -Text "🗑️ Analisi e pulizia shadow copies (mantieni ultima)."
                     try {
                         $shadows = Get-CimInstance -ClassName Win32_ShadowCopy -ErrorAction Stop | Sort-Object InstallDate -Descending
                         if ($shadows.Count -gt 1) {
                             $toDelete = $shadows | Select-Object -Skip 1
                             $count = $toDelete.Count
-                            Add-CleanerLog -Type 'Info' -Text "Rilevate $($shadows.Count) shadow copies. Rimozione di $count vecchie..."
+                            Add-CleanerLog -Type 'Info' -Text "Rilevate $($shadows.Count) shadow copies. Rimozione di $count vecchie."
 
                             foreach ($shadow in $toDelete) {
                                 Remove-CimInstance -InputObject $shadow -ErrorAction SilentlyContinue
@@ -506,7 +506,7 @@ function WinCleaner {
         }
         @{ Name = "Cookies Cleanup"; Type = "Command"; Command = "RunDll32.exe"; Args = @("InetCpl.cpl", "ClearMyTracksByProcess", "1") }
         @{ Name = "Chromium Browsers Cache (Chrome, Edge, Brave, Vivaldi)"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "🌐 Pulizia Cache Browser Chromium..."
+                Add-CleanerLog -Type 'Info' -Text "🌐 Pulizia Cache Browser Chromium."
 
                 $browsers = @(
                     @{ Name = "Google Chrome"; Path = "Google\Chrome\User Data" },
@@ -536,7 +536,7 @@ function WinCleaner {
             }
         }
         @{ Name = "Firefox Browser Cache"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "🦊 Pulizia Firefox (Cache & Crashes)..."
+                Add-CleanerLog -Type 'Info' -Text "🦊 Pulizia Firefox (Cache & Crashes)."
 
                 $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
                 foreach ($u in $users) {
@@ -677,9 +677,9 @@ function WinCleaner {
         # --- Print Queue (Spooler) ---
         @{ Name = "Print Queue (Spooler)"; Type = "ScriptBlock"; ScriptBlock = {
                 try {
-                    Add-CleanerLog -Type 'Info' -Text "🖨️ Pulizia coda di stampa (Spooler)..."
+                    Add-CleanerLog -Type 'Info' -Text "🖨️ Pulizia coda di stampa (Spooler)."
 
-                    Add-CleanerLog -Type 'Info' -Text "⏸️ Arresto servizio Spooler..."
+                    Add-CleanerLog -Type 'Info' -Text "⏸️ Arresto servizio Spooler."
                     Stop-Service -Name Spooler -Force -ErrorAction Stop | Out-Null
                     Add-CleanerLog -Type 'Info' -Text "Servizio Spooler arrestato."
                     Start-Sleep -Seconds 2
@@ -691,7 +691,7 @@ function WinCleaner {
                         Add-CleanerLog -Type 'Info' -Text "Coda di stampa pulita in $printersPath ($($files.Count) file rimossi)"
                     }
 
-                    Add-CleanerLog -Type 'Info' -Text "▶️ Riavvio servizio Spooler..."
+                    Add-CleanerLog -Type 'Info' -Text "▶️ Riavvio servizio Spooler."
                     Start-Service -Name Spooler -ErrorAction Stop | Out-Null
                     Add-CleanerLog -Type 'Info' -Text "Servizio Spooler riavviato."
 
@@ -718,7 +718,7 @@ function WinCleaner {
 
         # --- Enhanced DiagTrack Service Management ---
         @{ Name = "Enhanced DiagTrack Management"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "🔄 Gestione migliorata servizio DiagTrack..."
+                Add-CleanerLog -Type 'Info' -Text "🔄 Gestione migliorata servizio DiagTrack."
 
                 function Get-StateFilePath($BaseName, $Suffix) {
                     $escapedBaseName = $BaseName.Split([IO.Path]::GetInvalidFileNameChars()) -Join '_'
@@ -731,7 +731,7 @@ function WinCleaner {
                     $suffix = New-Guid
                     $path = Get-StateFilePath -BaseName $BaseName -Suffix $suffix
                     if (Test-Path -Path $path) {
-                        Write-Verbose "Path collision detected at: '$path'. Generating new path..."
+                        Write-Verbose "Path collision detected at: '$path'. Generating new path."
                         return Get-UniqueStateFilePath $serviceName
                     }
                     return $path
@@ -748,7 +748,7 @@ function WinCleaner {
                 }
 
                 $serviceName = 'DiagTrack'
-                Add-CleanerLog -Type 'Info' -Text "Verifica stato servizio $serviceName..."
+                Add-CleanerLog -Type 'Info' -Text "Verifica stato servizio $serviceName."
 
                 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
                 if (-not $service) {
@@ -757,7 +757,7 @@ function WinCleaner {
                 }
 
                 if ($service.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Running) {
-                    Add-CleanerLog -Type 'Info' -Text "Servizio $serviceName attivo, arresto in corso..."
+                    Add-CleanerLog -Type 'Info' -Text "Servizio $serviceName attivo, arresto in corso."
                     try {
                         $service | Stop-Service -Force -ErrorAction Stop
                         $service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(30))
@@ -772,7 +772,7 @@ function WinCleaner {
                     catch { Write-StyledMessage -Type 'Warning' -Text "Errore durante arresto servizio: $_" }
                 }
                 else {
-                    Add-CleanerLog -Type 'Info' -Text "Servizio $serviceName non attivo, verifica riavvio..."
+                    Add-CleanerLog -Type 'Info' -Text "Servizio $serviceName non attivo, verifica riavvio."
                     $fileGlob = Get-StateFilePath -BaseName $serviceName -Suffix '*'
                     $stateFiles = Get-ChildItem -Path $fileGlob -ErrorAction SilentlyContinue
 
@@ -796,7 +796,7 @@ function WinCleaner {
 
         # --- Special Operations ---
         @{ Name = "Credential Manager"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "🔑 Pulizia Credenziali..."
+                Add-CleanerLog -Type 'Info' -Text "🔑 Pulizia Credenziali."
                 
                 $cmdkeyErr = $null
                 $targets = & cmdkey /list 2>&1 | Tee-Object -Variable cmdkeyErr | Where-Object { $_ -match '^Target:' }
@@ -814,7 +814,7 @@ function WinCleaner {
         @{ Name = "Windows.old"; Type = "ScriptBlock"; ScriptBlock = {
                 $path = "C:\Windows.old"
                 if (Test-Path $path) {
-                    Add-CleanerLog -Type 'Info' -Text "🗑️ Rilevata cartella Windows.old. Avvio rimozione sicura con Native CleanMgr..."
+                    Add-CleanerLog -Type 'Info' -Text "🗑️ Rilevata cartella Windows.old. Avvio rimozione sicura con Native CleanMgr."
 
                     # 1. Configura il registro per selezionare automaticamente "Previous Installations"
                     $regKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Previous Installations"
@@ -908,9 +908,9 @@ function WinCleaner {
     $wCount = ($stats | Where-Object Name -eq 'Warning').Count
     $eCount = ($stats | Where-Object Name -eq 'Error').Count
 
-    Write-StyledMessage -Type 'Success' -Text "Operazioni completate con successo: $sCount"
-    if ($wCount -gt 0) { Write-StyledMessage -Type 'Warning' -Text "Avvisi generati: $wCount" }
-    if ($eCount -gt 0) { Write-StyledMessage -Type 'Error' -Text "Errori riscontrati: $eCount" }
+    Write-StyledMessage -Type 'Success' -Text "Operazioni completate con successo: $sCount."
+    if ($wCount -gt 0) { Write-StyledMessage -Type 'Warning' -Text "Avvisi generati: $wCount." }
+    if ($eCount -gt 0) { Write-StyledMessage -Type 'Error' -Text "Errori riscontrati: $eCount." }
 
     Write-StyledMessage -Type 'Info' -Text "--------------------------------------------------"
     Write-StyledMessage -Type 'Info' -Text "Dettaglio Errori e Warning:"
