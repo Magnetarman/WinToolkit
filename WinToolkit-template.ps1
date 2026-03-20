@@ -458,18 +458,8 @@ function Invoke-ExternalCommandWithLog {
     $proc = [System.Diagnostics.Process]::new()
     $proc.StartInfo = $psi
 
-    $stdOut = New-Object System.Text.StringBuilder
-    $stdErr = New-Object System.Text.StringBuilder
-
-    $outputHandler = [System.Diagnostics.DataReceivedEventHandler]{
-        param($sender, $e)
-        if ($e.Data) { [void]$stdOut.AppendLine($e.Data) }
-    }
-    $errorHandler = [System.Diagnostics.DataReceivedEventHandler]{
-        param($sender, $e)
-        if ($e.Data) { [void]$stdErr.AppendLine($e.Data) }
-    }
-
+    $outText = ""
+    $errText = ""
     $success = $false
     $exitCode = $null
 
@@ -478,11 +468,9 @@ function Invoke-ExternalCommandWithLog {
             throw "Impossibile avviare il processo esterno."
         }
 
-        $proc.BeginOutputReadLine()
-        $proc.BeginErrorReadLine()
-
-        $proc.add_OutputDataReceived($outputHandler)
-        $proc.add_ErrorDataReceived($errorHandler)
+        # Lettura asincrona tramite Task (evita crash del runspace causato dai gestori degli eventi non vincolati)
+        $outTask = $proc.StandardOutput.ReadToEndAsync()
+        $errTask = $proc.StandardError.ReadToEndAsync()
 
         if ($TimeoutSeconds -gt 0) {
             if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
@@ -493,6 +481,12 @@ function Invoke-ExternalCommandWithLog {
         else {
             $proc.WaitForExit()
         }
+
+        # Attendi completamento lettura flussi standard
+        try { [System.Threading.Tasks.Task]::WaitAll($outTask, $errTask) } catch {}
+        
+        if ($outTask.Status -eq 'RanToCompletion') { $outText = $outTask.Result }
+        if ($errTask.Status -eq 'RanToCompletion') { $errText = $errTask.Result }
 
         $exitCode = $proc.ExitCode
         $success = ($exitCode -eq 0)
@@ -513,8 +507,8 @@ function Invoke-ExternalCommandWithLog {
         $stopwatch.Stop()
         $elapsed = $stopwatch.Elapsed
 
-        $outText = $stdOut.ToString()
-        $errText = $stdErr.ToString()
+        if ($null -eq $outText) { $outText = "" }
+        if ($null -eq $errText) { $errText = "" }
 
         # Evita file log enormi: tronca output molto lunghi ma preserva informazione di taglio
         $maxLen = 8000
@@ -541,8 +535,7 @@ function Invoke-ExternalCommandWithLog {
         }
 
         if ($proc) {
-            $proc.remove_OutputDataReceived($outputHandler)
-            $proc.remove_ErrorDataReceived($errorHandler)
+            # Handler rimossi per risolvere Issue #12 (Runspace crash)
             $proc.Dispose()
         }
     }
@@ -550,8 +543,8 @@ function Invoke-ExternalCommandWithLog {
     [pscustomobject]@{
         Success  = $success
         ExitCode = $exitCode
-        StdOut   = $stdOut.ToString()
-        StdErr   = $stdErr.ToString()
+        StdOut   = $outText
+        StdErr   = $errText
         Elapsed  = $stopwatch.Elapsed
     }
 }
