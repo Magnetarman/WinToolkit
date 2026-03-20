@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 82)"
+$ToolkitVersion = "2.5.2 (Build 83)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -323,26 +323,16 @@ function Invoke-ExternalCommandWithLog {
     $psi.CreateNoWindow         = $true
     $proc = [System.Diagnostics.Process]::new()
     $proc.StartInfo = $psi
-    $stdOut = New-Object System.Text.StringBuilder
-    $stdErr = New-Object System.Text.StringBuilder
-    $outputHandler = [System.Diagnostics.DataReceivedEventHandler]{
-        param($sender, $e)
-        if ($e.Data) { [void]$stdOut.AppendLine($e.Data) }
-    }
-    $errorHandler = [System.Diagnostics.DataReceivedEventHandler]{
-        param($sender, $e)
-        if ($e.Data) { [void]$stdErr.AppendLine($e.Data) }
-    }
+    $outText = ""
+    $errText = ""
     $success = $false
     $exitCode = $null
     try {
         if (-not $proc.Start()) {
             throw "Impossibile avviare il processo esterno."
         }
-        $proc.BeginOutputReadLine()
-        $proc.BeginErrorReadLine()
-        $proc.add_OutputDataReceived($outputHandler)
-        $proc.add_ErrorDataReceived($errorHandler)
+        $outTask = $proc.StandardOutput.ReadToEndAsync()
+        $errTask = $proc.StandardError.ReadToEndAsync()
         if ($TimeoutSeconds -gt 0) {
             if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
                 try { $proc.Kill() } catch {}
@@ -352,6 +342,9 @@ function Invoke-ExternalCommandWithLog {
         else {
             $proc.WaitForExit()
         }
+        try { [System.Threading.Tasks.Task]::WaitAll($outTask, $errTask) } catch {}
+        if ($outTask.Status -eq 'RanToCompletion') { $outText = $outTask.Result }
+        if ($errTask.Status -eq 'RanToCompletion') { $errText = $errTask.Result }
         $exitCode = $proc.ExitCode
         $success = ($exitCode -eq 0)
     }
@@ -370,8 +363,8 @@ function Invoke-ExternalCommandWithLog {
     finally {
         $stopwatch.Stop()
         $elapsed = $stopwatch.Elapsed
-        $outText = $stdOut.ToString()
-        $errText = $stdErr.ToString()
+        if ($null -eq $outText) { $outText = "" }
+        if ($null -eq $errText) { $errText = "" }
         $maxLen = 8000
         $outLogged = $outText
         $errLogged = $errText
@@ -394,16 +387,14 @@ function Invoke-ExternalCommandWithLog {
             StdErrSnippet = $errLogged
         }
         if ($proc) {
-            $proc.remove_OutputDataReceived($outputHandler)
-            $proc.remove_ErrorDataReceived($errorHandler)
             $proc.Dispose()
         }
     }
     [pscustomobject]@{
         Success  = $success
         ExitCode = $exitCode
-        StdOut   = $stdOut.ToString()
-        StdErr   = $stdErr.ToString()
+        StdOut   = $outText
+        StdErr   = $errText
         Elapsed  = $stopwatch.Elapsed
     }
 }
