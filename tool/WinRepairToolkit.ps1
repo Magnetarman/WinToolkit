@@ -52,7 +52,7 @@ function WinRepairToolkit {
     function Invoke-RepairCommand {
         param([hashtable]$Config, [int]$Step, [int]$Total)
 
-        Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)..."
+        Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)."
         $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
@@ -106,7 +106,7 @@ function WinRepairToolkit {
 
             # Logica controllo errori con gestione flessibile per chkdsk
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
-                Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio"
+                Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
@@ -199,7 +199,7 @@ function WinRepairToolkit {
             return @{ Success = $success; ErrorCount = $errors.Count }
         }
         catch {
-            Write-StyledMessage Error "Errore durante $($Config.Name): $($_.Exception.Message)"
+            Write-StyledMessage Error "Errore durante $($Config.Name): $($_.Exception.Message)."
             Write-ToolkitLog -Level ERROR -Message "Errore in Invoke-RepairCommand [$($Config.Tool)]" -Context @{
                 Line      = $_.InvocationInfo.ScriptLineNumber
                 Exception = $_.Exception.GetType().FullName
@@ -226,7 +226,7 @@ function WinRepairToolkit {
         param([int]$Attempt = 1)
 
         $script:CurrentAttempt = $Attempt
-        Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema..."
+        Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema."
         Write-Host ''
 
         $totalErrors = $successCount = 0
@@ -240,7 +240,7 @@ function WinRepairToolkit {
         }
 
         if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
-            Write-StyledMessage Warning "🔄 $totalErrors errori rilevati. Nuovo tentativo..."
+            Write-StyledMessage Warning "🔄 $totalErrors errori rilevati. Nuovo tentativo."
             Start-Sleep 3
             return Start-RepairCycle -Attempt ($Attempt + 1)
         }
@@ -248,7 +248,7 @@ function WinRepairToolkit {
     }
 
     function Start-DeepDiskRepair {
-        Write-StyledMessage -Type 'Info' -Text '🔧 Avvio riparazione profonda del disco C: al prossimo riavvio'
+        Write-StyledMessage -Type 'Info' -Text '🔧 Avvio riparazione profonda del disco C: al prossimo riavvio.'
         try {
             $fsutilResult = Invoke-ExternalCommandWithLog -Command 'fsutil.exe' -Arguments @('dirty', 'set', 'C:') -TimeoutSeconds 300 -LogContextKey 'DeepDiskRepair-Fsutil'
             if (-not $fsutilResult.Success) {
@@ -272,7 +272,7 @@ function WinRepairToolkit {
                 Exception = $_.Exception.Message
                 Stack     = $_.ScriptStackTrace
             }
-            Write-StyledMessage -Type 'Error' -Text "Errore durante la schedulazione della riparazione profonda: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante la schedulazione della riparazione profonda: $($_.Exception.Message)."
             return $false
         }
     }
@@ -284,14 +284,14 @@ function WinRepairToolkit {
         $deepRepairScheduled = $false
         # Fix 2: Esegue la riparazione profonda solo se ci sono ancora errori dopo 3 tentativi
         if ($repairResult.TotalErrors -gt 0) {
-            Write-StyledMessage Warning "Rilevati errori persistenti. Avvio riparazione profonda..."
+            Write-StyledMessage Warning "Rilevati errori persistenti. Avvio riparazione profonda."
             $deepRepairScheduled = Start-DeepDiskRepair
         }
         else {
             Write-StyledMessage Success "Sistema in salute. Riparazione profonda non necessaria."
         }
 
-        Write-StyledMessage Info "⚙️ Impostazione scadenza password illimitata..."
+        Write-StyledMessage Info "⚙️ Impostazione scadenza password illimitata."
         $procParams = @{
             FilePath     = 'net'
             ArgumentList = @('accounts', '/maxpwage:unlimited')
@@ -315,7 +315,7 @@ function WinRepairToolkit {
         }
     }
     catch {
-        Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)"
+        Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)."
         Write-ToolkitLog -Level ERROR -Message "Errore critico in WinRepairToolkit" -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName

@@ -67,7 +67,7 @@ function OfficeToolkit {
     }
 
     function Apply-OfficePostConfig {
-        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione/riparazione Office..."
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione/riparazione Office."
 
         # Array di configurazione per Telemetria ed Esperienze Connesse
         $telemetryKeys = @(
@@ -106,7 +106,7 @@ function OfficeToolkit {
         }
         Set-ItemProperty @feedbackParams
 
-        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate in modo profondo"
+        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate in modo profondo."
     }
 
     function Get-UserConfirmation {
@@ -148,7 +148,7 @@ function OfficeToolkit {
         $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
         $closed = 0
 
-        Write-StyledMessage -Type 'Info' -Text "📋 Chiusura processi Office..."
+        Write-StyledMessage -Type 'Info' -Text "📋 Chiusura processi Office."
         foreach ($processName in $processes) {
             $runningProcesses = Get-Process -Name $processName -ErrorAction SilentlyContinue
             if ($runningProcesses) {
@@ -157,25 +157,25 @@ function OfficeToolkit {
                     $closed++
                 }
                 catch {
-                    Write-StyledMessage -Type 'Warning' -Text "Impossibile chiudere: $processName"
+                    Write-StyledMessage -Type 'Warning' -Text "Impossibile chiudere: $processName."
                 }
             }
         }
 
         if ($closed -gt 0) {
-            Write-StyledMessage -Type 'Success' -Text "$closed processi Office chiusi"
+            Write-StyledMessage -Type 'Success' -Text "$closed processi Office chiusi."
         }
     }
 
     function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
         try {
-            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description..."
+            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
         $webClient = New-Object System.Net.WebClient
             $webClient.DownloadFile($Url, $OutputPath)
             $webClient.Dispose()
 
             $success = (Test-Path $OutputPath)
-            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description")
+            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
             return $success
         }
         catch {
@@ -185,7 +185,7 @@ function OfficeToolkit {
     }
 
     function Start-OfficeInstallation {
-        Write-StyledMessage -Type 'Info' -Text "🏢 Avvio installazione Office Basic..."
+        Write-StyledMessage -Type 'Info' -Text "🏢 Avvio installazione Office Basic."
 
         try {
             if (-not (Test-Path $tempDir)) {
@@ -206,7 +206,7 @@ function OfficeToolkit {
                 }
             }
 
-            Write-StyledMessage -Type 'Info' -Text "🚀 Avvio processo installazione..."
+            Write-StyledMessage -Type 'Info' -Text "🚀 Avvio processo installazione."
             $arguments = "/configure `"$configPath`""
 
             $processTimeoutSeconds = 86400    # Timer di 24 ore in secondi.
@@ -223,7 +223,7 @@ function OfficeToolkit {
             } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
 
             if (-not $result.Success) {
-                Write-StyledMessage -Type 'Error' -Text "Installazione fallita o scaduta (fase di setup iniziale)"
+                Write-StyledMessage -Type 'Error' -Text "Installazione fallita o scaduta (fase di setup iniziale)."
                 return $false
             }
 
@@ -233,8 +233,8 @@ function OfficeToolkit {
             # Configurazione post-installazione centralizzata
             Apply-OfficePostConfig
 
-            Write-StyledMessage -Type 'Success' -Text "Installazione completata"
-            Write-StyledMessage -Type 'Info' -Text "Riavvio non necessario"
+            Write-StyledMessage -Type 'Success' -Text "Installazione completata."
+            Write-StyledMessage -Type 'Info' -Text "Riavvio non necessario."
             return $true
         }
         catch {
@@ -247,10 +247,10 @@ function OfficeToolkit {
     }
 
     function Start-OfficeRepair {
-        Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione Office..."
+        Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione Office."
         Stop-OfficeProcesses
 
-        Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cache Office..."
+        Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cache Office."
         $caches = @(
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
@@ -264,7 +264,7 @@ function OfficeToolkit {
         }
 
         if ($cleanedCount -gt 0) {
-            Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate"
+            Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate."
         }
 
         $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ? "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe" : "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
@@ -276,7 +276,7 @@ function OfficeToolkit {
 
         try {
             $processTimeoutSeconds = 86400 # Attesa indefinita (24 ore)
-            Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione rapida (offline)..."
+            Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione rapida (offline)."
             $argumentsQuick = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=QuickRepair DisplayLevel=True"
 
             $resultQuick = Invoke-WithSpinner -Activity "Riparazione Rapida Office (Offline)" -Process -Action {
@@ -296,10 +296,10 @@ function OfficeToolkit {
             return $true
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante riparazione Office: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante riparazione Office: $($_.Exception.Message)."
             # Tentativo riparazione online come fallback
             try {
-                Write-StyledMessage -Type 'Info' -Text "🌐 Tentativo riparazione completa (online) come fallback..."
+                Write-StyledMessage -Type 'Info' -Text "🌐 Tentativo riparazione completa (online) come fallback."
                 $processTimeoutSeconds = 86400
                 $argumentsFull = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
 
@@ -319,7 +319,7 @@ function OfficeToolkit {
                 return $true
             }
             catch {
-                Write-StyledMessage -Type 'Error' -Text "Errore anche durante riparazione online: $($_.Exception.Message)"
+                Write-StyledMessage -Type 'Error' -Text "Errore anche durante riparazione online: $($_.Exception.Message)."
                 return $false
             }
         }
@@ -353,28 +353,28 @@ function OfficeToolkit {
     }
 
     function Remove-OfficeDirectly {
-        Write-StyledMessage -Type 'Info' -Text "🔧 Avvio rimozione diretta Office..."
+        Write-StyledMessage -Type 'Info' -Text "🔧 Avvio rimozione diretta Office."
 
         try {
             # Metodo 1: Rimozione pacchetti
-            Write-StyledMessage -Type 'Info' -Text "📋 Ricerca installazioni Office..."
+            Write-StyledMessage -Type 'Info' -Text "📋 Ricerca installazioni Office."
 
             $officePackages = Get-Package -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" -or $_.Name -like "*Office*" }
 
             if ($officePackages) {
-                Write-StyledMessage -Type 'Info' -Text "Trovati $($officePackages.Count) pacchetti Office"
+                Write-StyledMessage -Type 'Info' -Text "Trovati $($officePackages.Count) pacchetti Office."
                 foreach ($package in $officePackages) {
                     try {
                         $null = Uninstall-Package -Name $package.Name -Force -ErrorAction Stop
-                        Write-StyledMessage -Type 'Success' -Text "Rimosso: $($package.Name)"
+                        Write-StyledMessage -Type 'Success' -Text "Rimosso: $($package.Name)."
                     }
                     catch {}
                 }
             }
 
             # Metodo 2: Rimozione tramite registro
-            Write-StyledMessage -Type 'Info' -Text "🔍 Ricerca nel registro..."
+            Write-StyledMessage -Type 'Info' -Text "🔍 Ricerca nel registro."
 
             $uninstallKeys = @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
@@ -411,7 +411,7 @@ function OfficeToolkit {
             }
 
             # Metodo 3: Stop servizi Office
-            Write-StyledMessage -Type 'Info' -Text "🛑 Arresto servizi Office..."
+            Write-StyledMessage -Type 'Info' -Text "🛑 Arresto servizi Office."
 
             $officeServices = @('ClickToRunSvc', 'OfficeSvc', 'OSE')
             $stoppedServices = 0
@@ -421,7 +421,7 @@ function OfficeToolkit {
                     try {
                         Stop-Service -Name $serviceName -Force -ErrorAction Stop
                         Set-Service -Name $serviceName -StartupType Disabled -ErrorAction Stop
-                        Write-StyledMessage -Type 'Success' -Text "Servizio arrestato: $serviceName"
+                        Write-StyledMessage -Type 'Success' -Text "Servizio arrestato: $serviceName."
                         $stoppedServices++
                     }
                     catch {}
@@ -429,7 +429,7 @@ function OfficeToolkit {
             }
 
             # Metodo 4: Pulizia cartelle Office
-            Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cartelle Office..."
+            Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cartelle Office."
 
             $foldersToClean = @(
                 "$env:ProgramFiles\Microsoft Office",
@@ -447,15 +447,15 @@ function OfficeToolkit {
             $folderResult = Remove-ItemsSilently -Paths $foldersToClean -ItemType "cartella"
 
             if ($folderResult.Count -gt 0) {
-                Write-StyledMessage -Type 'Success' -Text "$($folderResult.Count) cartelle Office rimosse"
+                Write-StyledMessage -Type 'Success' -Text "$($folderResult.Count) cartelle Office rimosse."
             }
 
             if ($folderResult.Failed.Count -gt 0) {
-                Write-StyledMessage -Type 'Warning' -Text "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)"
+                Write-StyledMessage -Type 'Warning' -Text "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)."
             }
 
             # Metodo 5: Pulizia registro Office
-            Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia registro Office..."
+            Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia registro Office."
 
             $registryPaths = @(
                 "HKCU:\Software\Microsoft\Office",
@@ -470,11 +470,11 @@ function OfficeToolkit {
             $regResult = Remove-ItemsSilently -Paths $registryPaths -ItemType "chiave"
 
             if ($regResult.Count -gt 0) {
-                Write-StyledMessage -Type 'Success' -Text "$($regResult.Count) chiavi registro Office rimosse"
+                Write-StyledMessage -Type 'Success' -Text "$($regResult.Count) chiavi registro Office rimosse."
             }
 
             # Metodo 6: Pulizia attività pianificate
-            Write-StyledMessage -Type 'Info' -Text "📅 Pulizia attività pianificate..."
+            Write-StyledMessage -Type 'Info' -Text "📅 Pulizia attività pianificate."
 
             try {
                 $officeTasks = Get-ScheduledTask -ErrorAction SilentlyContinue |
@@ -490,13 +490,13 @@ function OfficeToolkit {
                 }
 
                 if ($tasksRemoved -gt 0) {
-                    Write-StyledMessage -Type 'Success' -Text "$tasksRemoved attività Office rimosse"
+                    Write-StyledMessage -Type 'Success' -Text "$tasksRemoved attività Office rimosse."
                 }
             }
             catch {}
 
             # Metodo 7: Rimozione collegamenti
-            Write-StyledMessage -Type 'Info' -Text "🖥️ Rimozione collegamenti Office..."
+            Write-StyledMessage -Type 'Info' -Text "🖥️ Rimozione collegamenti Office."
 
             $officeShortcuts = @(
                 "Microsoft Word*.lnk", "Microsoft Excel*.lnk", "Microsoft PowerPoint*.lnk",
@@ -532,11 +532,11 @@ function OfficeToolkit {
             }
 
             if ($shortcutsRemoved -gt 0) {
-                Write-StyledMessage -Type 'Success' -Text "$shortcutsRemoved collegamenti Office rimossi"
+                Write-StyledMessage -Type 'Success' -Text "$shortcutsRemoved collegamenti Office rimossi."
             }
 
             # Metodo 8: Pulizia residui aggiuntivi
-            Write-StyledMessage -Type 'Info' -Text "💽 Pulizia residui Office..."
+            Write-StyledMessage -Type 'Info' -Text "💽 Pulizia residui Office."
 
             $additionalPaths = @(
                 "$env:LOCALAPPDATA\Microsoft\OneDrive",
@@ -547,13 +547,13 @@ function OfficeToolkit {
 
             $residualsResult = Remove-ItemsSilently -Paths $additionalPaths -ItemType "residuo"
 
-            Write-StyledMessage -Type 'Success' -Text "✅ Rimozione diretta completata"
-            Write-StyledMessage -Type 'Info' -Text "📊 Riepilogo: $($folderResult.Count) cartelle, $($regResult.Count) chiavi registro, $shortcutsRemoved collegamenti, $tasksRemoved attività rimosse"
+            Write-StyledMessage -Type 'Success' -Text "✅ Rimozione diretta completata."
+            Write-StyledMessage -Type 'Info' -Text "📊 Riepilogo: $($folderResult.Count) cartelle, $($regResult.Count) chiavi registro, $shortcutsRemoved collegamenti, $tasksRemoved attività rimosse."
 
             return $true
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante rimozione diretta Office: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante rimozione diretta Office: $($_.Exception.Message)."
             return $false
         }
     }
@@ -571,13 +571,13 @@ function OfficeToolkit {
                 return $false
             }
 
-            Write-StyledMessage -Type 'Info' -Text "📦 Estrazione SaRA..."
+            Write-StyledMessage -Type 'Info' -Text "📦 Estrazione SaRA."
             try {
                 Expand-Archive -Path $saraZipPath -DestinationPath $tempDir -Force
-                Write-StyledMessage -Type 'Success' -Text "Estrazione completata"
+                Write-StyledMessage -Type 'Success' -Text "Estrazione completata."
             }
             catch {
-                Write-StyledMessage -Type 'Error' -Text "Errore durante estrazione archivio SaRA: $($_.Exception.Message)"
+                Write-StyledMessage -Type 'Error' -Text "Errore durante estrazione archivio SaRA: $($_.Exception.Message)."
                 return $false
             }
 
@@ -589,12 +589,12 @@ function OfficeToolkit {
             }
             $saraExe = Get-ChildItem @gciParamsExe | Select-Object -First 1
             if (-not $saraExe) {
-                Write-StyledMessage -Type 'Error' -Text "SaRACmd.exe non trovato"
+                Write-StyledMessage -Type 'Error' -Text "SaRACmd.exe non trovato."
                 return $false
             }
 
-            Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite SaRA (backup locale)..."
-            Write-StyledMessage -Type 'Warning' -Text "⏰ Questa operazione può richiedere alcuni minuti"
+            Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite SaRA (backup locale)."
+            Write-StyledMessage -Type 'Warning' -Text "⏰ Questa operazione può richiedere alcuni minuti."
 
             $arguments = '-S OfficeScrubScenario -AcceptEula -OfficeVersion All'
 
@@ -612,23 +612,23 @@ function OfficeToolkit {
                 } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
 
                 if ($result.ExitCode -eq 0) {
-                    Write-StyledMessage -Type 'Success' -Text "✅ SaRA completato con successo"
+                    Write-StyledMessage -Type 'Success' -Text "✅ SaRA completato con successo."
                     return $true
                 }
                 else {
-                    Write-StyledMessage -Type 'Warning' -Text "SaRA terminato con codice: $($result.ExitCode)"
-                    Write-StyledMessage -Type 'Info' -Text "💡 Tentativo metodo alternativo..."
+                    Write-StyledMessage -Type 'Warning' -Text "SaRA terminato con codice: $($result.ExitCode)."
+                    Write-StyledMessage -Type 'Info' -Text "💡 Tentativo metodo alternativo."
                     return Remove-OfficeDirectly
                 }
             }
             catch {
-                Write-StyledMessage -Type 'Warning' -Text "Errore durante esecuzione SaRA: $($_.Exception.Message)"
-                Write-StyledMessage -Type 'Info' -Text "💡 Passaggio a metodo alternativo..."
+                Write-StyledMessage -Type 'Warning' -Text "Errore durante esecuzione SaRA: $($_.Exception.Message)."
+                Write-StyledMessage -Type 'Info' -Text "💡 Passaggio a metodo alternativo."
                 return Remove-OfficeDirectly
             }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore durante processo SaRA: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Warning' -Text "Errore durante processo SaRA: $($_.Exception.Message)."
             return $false
         }
         finally {
@@ -637,23 +637,23 @@ function OfficeToolkit {
     }
 
     function Start-OfficeUninstall {
-        Write-StyledMessage -Type 'Warning' -Text "🗑️ Avvio rimozione completa Microsoft Office..."
+        Write-StyledMessage -Type 'Warning' -Text "🗑️ Avvio rimozione completa Microsoft Office."
 
         Stop-OfficeProcesses
 
-        Write-StyledMessage -Type 'Info' -Text "🔍 Rilevamento versione Windows..."
+        Write-StyledMessage -Type 'Info' -Text "🔍 Rilevamento versione Windows."
         $windowsVersion = Get-WindowsVersion
-        Write-StyledMessage -Type 'Info' -Text "🎯 Versione rilevata: $windowsVersion"
+        Write-StyledMessage -Type 'Info' -Text "🎯 Versione rilevata: $windowsVersion."
 
         $success = $false
 
         switch ($windowsVersion) {
             'Windows11_23H2_Plus' {
-                Write-StyledMessage -Type 'Info' -Text "🚀 Utilizzo metodo SaRA per Windows 11 23H2+..."
+                Write-StyledMessage -Type 'Info' -Text "🚀 Utilizzo metodo SaRA per Windows 11 23H2+."
                 $success = Start-OfficeUninstallWithSaRA
             }
             default {
-                Write-StyledMessage -Type 'Info' -Text "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti..."
+                Write-StyledMessage -Type 'Info' -Text "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti."
                 $success = Remove-OfficeDirectly
             }
         }
@@ -663,16 +663,16 @@ function OfficeToolkit {
             return $true
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text "Rimozione non completata"
-            Write-StyledMessage -Type 'Info' -Text "💡 Puoi provare un metodo alternativo o rimozione manuale"
+            Write-StyledMessage -Type 'Error' -Text "Rimozione non completata."
+            Write-StyledMessage -Type 'Info' -Text "💡 Puoi provare un metodo alternativo o rimozione manuale."
             return $false
         }
     }
 
     # MAIN EXECUTION
-    Write-StyledMessage -Type 'Progress' -Text "⏳ Inizializzazione sistema..."
+    Write-StyledMessage -Type 'Progress' -Text "⏳ Inizializzazione sistema."
     Start-Sleep 2
-    Write-StyledMessage -Type 'Success' -Text "✅ Sistema pronto"
+    Write-StyledMessage -Type 'Success' -Text "✅ Sistema pronto."
 
     $needsReboot = $false
     $lastOperation = ''
@@ -704,7 +704,7 @@ function OfficeToolkit {
                     $success = Start-OfficeUninstall
                 }
                 '0' {
-                    Write-StyledMessage -Type 'Info' -Text "👋 Uscita dal toolkit..."
+                    Write-StyledMessage -Type 'Info' -Text "👋 Uscita dal toolkit."
                     break
                 }
                 default {
@@ -724,8 +724,8 @@ function OfficeToolkit {
                     }
                 }
                 else {
-                    Write-StyledMessage -Type 'Error' -Text "$operation non riuscita"
-                    Write-StyledMessage -Type 'Info' -Text "💡 Controlla i log per dettagli o contatta il supporto"
+                    Write-StyledMessage -Type 'Error' -Text "$operation non riuscita."
+                    Write-StyledMessage -Type 'Info' -Text "💡 Controlla i log per dettagli o contatta il supporto."
                 }
                 Write-StyledMessage -Type 'Info' -Text ('─' * 50)
             }
@@ -733,7 +733,7 @@ function OfficeToolkit {
         } while ($choice -ne '0')
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore critico durante esecuzione OfficeToolkit: $($_.Exception.Message)"
+        Write-StyledMessage -Type 'Error' -Text "Errore critico durante esecuzione OfficeToolkit: $($_.Exception.Message)."
         Write-ToolkitLog -Level ERROR -Message "Errore critico in OfficeToolkit" -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName
@@ -741,10 +741,10 @@ function OfficeToolkit {
         }
     }
     finally {
-        Write-StyledMessage -Type 'Success' -Text "🧹 Pulizia finale..."
+        Write-StyledMessage -Type 'Success' -Text "🧹 Pulizia finale."
         Invoke-SilentRemoval -Path $tempDir -Recurse
 
-        Write-StyledMessage -Type 'Success' -Text "🎯 Office Toolkit terminato"
+        Write-StyledMessage -Type 'Success' -Text "🎯 Office Toolkit terminato."
         Write-ToolkitLog -Level INFO -Message "OfficeToolkit sessione terminata."
     }
 

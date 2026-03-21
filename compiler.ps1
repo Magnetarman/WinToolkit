@@ -48,7 +48,7 @@ function Write-StyledMessage {
     }
 }
 
-Write-StyledMessage 'Info' "Avvio processo di build WinToolkit..."
+Write-StyledMessage 'Info' "Avvio processo di build WinToolkit."
 
 # ============================================================================
 # 2. INIZIALIZZAZIONE E VERIFICA PERCORSI
@@ -63,7 +63,7 @@ try {
     if (-not (Test-Path $toolFolder)) { throw "Cartella tool non trovata in: $toolFolder" }
 }
 catch {
-    Write-StyledMessage 'Error' "Errore di inzializzazione: $($_.Exception.Message)"
+    Write-StyledMessage 'Error' "Errore di inzializzazione: $($_.Exception.Message)."
     exit 1
 }
 
@@ -71,12 +71,12 @@ catch {
 # 3. LETTURA SORGENTI E PREPARAZIONE
 # ============================================================================
 try {
-    Write-StyledMessage 'Info' "Lettura template originario: WinToolkit-template.ps1"
+    Write-StyledMessage 'Info' "Lettura template originario: WinToolkit-template.ps1."
     $templateLines = Get-Content $sourceFile -Encoding UTF8 -ErrorAction Stop
     $toolFiles = Get-ChildItem -Path $toolFolder -Filter "*.ps1" -File -ErrorAction Stop
 }
 catch {
-    Write-StyledMessage 'Error' "Errore I/O durante la lettura dei file sorgente: $($_.Exception.Message)"
+    Write-StyledMessage 'Error' "Errore I/O durante la lettura dei file sorgente: $($_.Exception.Message)."
     exit 1
 }
 
@@ -95,7 +95,7 @@ $stats = @{
     TotalSourceLines = $templateLines.Count
 }
 
-Write-StyledMessage 'Info' "Inizio aggregazione di $($toolFiles.Count) moduli..."
+Write-StyledMessage 'Info' "Inizio aggregazione di $($toolFiles.Count) moduli."
 Write-Host ""
 
 # ============================================================================
@@ -112,7 +112,7 @@ foreach ($file in $toolFiles) {
         # Gestione moduli vuoti o con solo spazi
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
             Write-StyledMessage 'Warning' "Modulo pre-compilato vuoto: '$functionName'. Inserimento stub di svilluppo."
-            $fileLines = @("    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso`"")
+            $fileLines = @("    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso.`"")
             $stats.Warnings++
         }
         else {
@@ -209,7 +209,7 @@ foreach ($file in $toolFiles) {
             $newLines += "function $functionName {"
             if (-not $hasLogging) { 
                 $newLines += "    Start-ToolkitLog -ToolName `"$functionName`"" 
-                Write-StyledMessage 'Info' "Policy: Iniezione automatica Start-ToolkitLog per $functionName"
+                Write-StyledMessage 'Info' "Policy: Iniezione automatica Start-ToolkitLog per $functionName."
             }
             $newLines += $processedFileLines
             $newLines += "}"
@@ -218,16 +218,16 @@ foreach ($file in $toolFiles) {
             
             # Aggiorna il buffer master con la sostituzione
             $templateLines = $newLines
-            Write-StyledMessage 'Success' "Modulo processato: $functionName"
+            Write-StyledMessage 'Success' "Modulo processato: $functionName."
             $stats.Processed++
         }
         else {
-            Write-StyledMessage 'Warning' "Nessun endpoint trovato nel template. Skip di: $functionName"
+            Write-StyledMessage 'Warning' "Nessun endpoint trovato nel template. Skip di: $functionName."
             $stats.Skipped++
         }
     }
     catch {
-        Write-StyledMessage 'Error' "Errore I/O aggregando il modulo $functionName`: $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore I/O aggregando il modulo $functionName`: $($_.Exception.Message)."
         $stats.Errors++
     }
 }
@@ -238,7 +238,7 @@ Write-Host ""
 # 5. MOTORE DI MINIFICAZIONE SICURA (-Minify)
 # ============================================================================
 if ($Minify) {
-    Write-StyledMessage 'Info' "Avvio minificazione sicura via tokenizer PowerShell..."
+    Write-StyledMessage 'Info' "Avvio minificazione sicura via tokenizer PowerShell."
     try {
         $rawContent = $templateLines -join "`n"
 
@@ -264,7 +264,7 @@ if ($Minify) {
             $rawContent = $rawContent.Remove($start, $length)
         }
 
-        Write-StyledMessage 'Info' "  Rimossi $($commentTokens.Count) token commento"
+        Write-StyledMessage 'Info' "  Rimossi $($commentTokens.Count) token commento."
 
         $cleanedLines = ($rawContent -split "`n") | ForEach-Object {
             $_.TrimEnd()
@@ -286,7 +286,7 @@ if ($Minify) {
         if ($verifyErrors.Count -gt 0) {
             Write-StyledMessage 'Warning' "Rilevati $($verifyErrors.Count) errore/i sintassi post-minificazione - rollback al sorgente originale."
             foreach ($e in $verifyErrors) {
-                Write-StyledMessage 'Warning' "  Riga $($e.Extent.StartLineNumber): $($e.Message)"
+                Write-StyledMessage 'Warning' "  Riga $($e.Extent.StartLineNumber): $($e.Message)."
             }
             $templateLines = $templateLines -join "`n" | ForEach-Object { $_ }
             $templateLines = (($templateLines) -split "`n")
@@ -297,7 +297,7 @@ if ($Minify) {
         }
     }
     catch {
-        Write-StyledMessage 'Error' "Errore imprevisto durante la minificazione: $($_.Exception.Message)"
+        Write-StyledMessage 'Error' "Errore imprevisto durante la minificazione: $($_.Exception.Message)."
         Write-StyledMessage 'Warning' "Continuazione build senza minificazione."
     }
     Write-Host ""
@@ -308,7 +308,7 @@ if ($Minify) {
 # 6. SCRITTURA COMPILAZIONE FINALE SUL DISCO
 # ============================================================================
 try {
-    Write-StyledMessage 'Info' "Salvataggio eseguibile stand-alone: WinToolkit.ps1"
+    Write-StyledMessage 'Info' "Salvataggio eseguibile stand-alone: WinToolkit.ps1."
     
     if (Test-Path $outputFile) { Remove-Item $outputFile -Force -ErrorAction Stop }
     
@@ -317,7 +317,7 @@ try {
     
 }
 catch {
-    Write-StyledMessage 'Error' "Fallimento irreversibile nella scrittura finale su disco: $($_.Exception.Message)"
+    Write-StyledMessage 'Error' "Fallimento irreversibile nella scrittura finale su disco: $($_.Exception.Message)."
     exit 1
 }
 

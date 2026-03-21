@@ -31,10 +31,10 @@ function WinReinstallStore {
     # ============================================================================
 
     function Install-MicrosoftStore {
-        Write-StyledMessage -Type 'Info' -Text "🔄 Reinstallazione Microsoft Store in corso..."
+        Write-StyledMessage -Type 'Info' -Text "🔄 Reinstallazione Microsoft Store in corso."
 
         # Restart servizi Store
-        Write-StyledMessage -Type 'Info' -Text "Restart servizi Microsoft Store..."
+        Write-StyledMessage -Type 'Info' -Text "Restart servizi Microsoft Store."
         @('AppXSvc', 'ClipSVC', 'WSService') | ForEach-Object {
             try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch { }
         }
@@ -108,7 +108,7 @@ function WinReinstallStore {
 
         $success = $false
         foreach ($method in $installMethods) {
-            Write-StyledMessage -Type 'Info' -Text "Tentativo tramite: $($method.Name)..."
+            Write-StyledMessage -Type 'Info' -Text "Tentativo tramite: $($method.Name)."
             try {
                 $result = $method.Action.Invoke()
                 $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
@@ -125,7 +125,7 @@ function WinReinstallStore {
                 }
             }
             catch {
-                Write-StyledMessage -Type 'Warning' -Text "Metodo $($method.Name) fallito: $($_.Exception.Message)"
+                Write-StyledMessage -Type 'Warning' -Text "Metodo $($method.Name) fallito: $($_.Exception.Message)."
             }
         }
 
@@ -147,7 +147,7 @@ function WinReinstallStore {
         }
         else {
             Write-StyledMessage -Type 'Error' -Text "Impossibile reinstallare Microsoft Store tramite metodi automatici."
-            Write-StyledMessage -Type 'Info' -Text "Tentativo di emergenza tramite AppXManifest..."
+            Write-StyledMessage -Type 'Info' -Text "Tentativo di emergenza tramite AppXManifest."
             try {
                 $null = Invoke-WithSpinner -Activity "Ripristino di emergenza Store" -Process -Action {
                     $ProgressPreference = 'SilentlyContinue'
@@ -162,7 +162,7 @@ function WinReinstallStore {
                 $success = $true
             }
             catch {
-                Write-StyledMessage -Type 'Error' -Text "Ripristino di emergenza fallito: $($_.Exception.Message)"
+                Write-StyledMessage -Type 'Error' -Text "Ripristino di emergenza fallito: $($_.Exception.Message)."
             }
         }
 
@@ -174,7 +174,7 @@ function WinReinstallStore {
     # ============================================================================
 
     function Install-UniGetUI {
-        Write-StyledMessage -Type 'Info' -Text "🔄 Installazione UniGet UI..."
+        Write-StyledMessage -Type 'Info' -Text "🔄 Installazione UniGet UI."
 
         $wingetExe = Get-WingetExecutable
         if (-not (Test-Path $wingetExe -ErrorAction SilentlyContinue)) {
@@ -231,12 +231,12 @@ function WinReinstallStore {
                 return $true
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text "Installazione UniGet UI terminata con codice: $($processResult.ExitCode)"
+                Write-StyledMessage -Type 'Warning' -Text "Installazione UniGet UI terminata con codice: $($processResult.ExitCode)."
                 return $false
             }
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante installazione UniGet UI: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante installazione UniGet UI: $($_.Exception.Message)."
             return $false
         }
     }
@@ -343,7 +343,7 @@ function WinReinstallStore {
     }
 
     try {
-        Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget..."
+        Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget."
 
         $wingetResult = $false
         $wingetError = $null
@@ -362,16 +362,16 @@ function WinReinstallStore {
         $isHandleError = $wingetError -and ($wingetError -match '(?i)handle|console|accesso negato|not associated')
 
         if ($wingetError -and -not $isHandleError) {
-            Write-StyledMessage -Type 'Error' -Text "Winget: errore critico durante l'installazione - $wingetError"
+            Write-StyledMessage -Type 'Error' -Text "Winget: errore critico durante l'installazione - $wingetError."
             Write-ToolkitLog -Level ERROR -Message "Reset-Winget fallito: $wingetError"
         }
         elseif ($wingetError -and $isHandleError) {
-            Write-StyledMessage -Type 'Warning' -Text "Winget: avviso console durante l'installazione (non critico) - $wingetError"
+            Write-StyledMessage -Type 'Warning' -Text "Winget: avviso console durante l'installazione (non critico) - $wingetError."
             Write-ToolkitLog -Level WARNING -Message "Reset-Winget handle warning (cosmestico): $wingetError"
         }
         else {
             $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
-            Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text "Winget $msgWinget"
+            Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text "Winget $msgWinget."
         }
 
         $storeResult = Install-MicrosoftStore

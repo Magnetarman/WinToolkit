@@ -31,14 +31,14 @@ function WinExportLog {
     $zipFilePath = Join-Path $desktopPath $zipFileName
 
     try {
-        Write-StyledMessage Info "📂 Verifica presenza cartella log..."
+        Write-StyledMessage Info "📂 Verifica presenza cartella log."
 
         if (-not (Test-Path $logSourcePath -PathType Container)) {
             Write-StyledMessage Warning "La cartella dei log '$logSourcePath' non è stata trovata. Impossibile esportare."
             return
         }
 
-        Write-StyledMessage Info "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso..."
+        Write-StyledMessage Info "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso."
 
         # Metodo alternativo per gestire file in uso
         $tempFolder = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
@@ -67,7 +67,7 @@ function WinExportLog {
             }
         }
         catch {
-            Write-StyledMessage Warning "Errore durante la copia dei file: $($_.Exception.Message)"
+            Write-StyledMessage Warning "Errore durante la copia dei file: $($_.Exception.Message)."
         }
 
         # Comprime la cartella temporanea
@@ -98,7 +98,7 @@ function WinExportLog {
         }
     }
     catch {
-        Write-StyledMessage Error "Errore critico durante la compressione dei log: $($_.Exception.Message)"
+        Write-StyledMessage Error "Errore critico durante la compressione dei log: $($_.Exception.Message)."
         Write-ToolkitLog -Level ERROR -Message "Errore critico in WinExportLog" -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName

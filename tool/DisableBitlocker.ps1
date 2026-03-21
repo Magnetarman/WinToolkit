@@ -52,7 +52,7 @@ function DisableBitlocker {
     # ============================================================================
 
     try {
-        Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione decrittazione drive C:..."
+        Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione decrittazione drive C:."
 
         # Tentativo disattivazione con spinner
         $result = Invoke-WithSpinner -Activity "Disattivazione BitLocker" -Process -Action {
@@ -71,7 +71,7 @@ function DisableBitlocker {
 
             # Check stato
             $status = Test-BitLockerStatus -DriveLetter "C:"
-            if ($status -match "Decryption in progress" -or $status -match "Decriptazione in corso") {
+            if ($status -match "Decryption in progress" -or $status -match "Decriptazione in corso.") {
                 Write-StyledMessage -Type 'Info' -Text "⏳ Decrittazione in corso in background."
             }
         }
@@ -80,7 +80,7 @@ function DisableBitlocker {
         }
 
         # Prevenzione crittografia futura
-        Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione crittografia automatica nel registro..."
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione crittografia automatica nel registro."
         if (-not (Test-Path $regPath)) {
             New-Item -Path $regPath -Force *>$null
         }

@@ -92,23 +92,23 @@ function Show-Host {
         if ($wingetVersion) {
             Write-StyledMessage -type 'Success' -text "📦 Winget: $wingetVersion"
         } else {
-            Write-StyledMessage -type 'Warning' -text "📦 Winget: Non disponibile"
+            Write-StyledMessage -type 'Warning' -text "📦 Winget: Non disponibile."
         }
 
         # Verifica connessione internet
         $internetConnected = Test-Connection -ComputerName 8.8.8.8 -Count 1 -Quiet
         if ($internetConnected) {
-            Write-StyledMessage -type 'Success' -text "🌐 Connessione Internet: Disponibile"
+            Write-StyledMessage -type 'Success' -text "🌐 Connessione Internet: Disponibile."
         } else {
-            Write-StyledMessage -type 'Warning' -text "🌐 Connessione Internet: Non disponibile (modalità offline)"
+            Write-StyledMessage -type 'Warning' -text "🌐 Connessione Internet: Non disponibile (modalità offline)."
         }
 
         Write-Host ""
-        Write-StyledMessage -type 'Info' -text "Script Start-Offline Versione 2.4.1 Build 3"
-        Write-StyledMessage -type 'Info' -text "By MagnetarMan - Win Toolkit Project"
+        Write-StyledMessage -type 'Info' -text "Script Start-Offline Versione 2.4.1 Build 3."
+        Write-StyledMessage -type 'Info' -text "By MagnetarMan - Win Toolkit Project."
     }
     catch {
-        Write-StyledMessage -type 'Error' -text "Errore nel recupero informazioni sistema: $($_.Exception.Message)"
+        Write-StyledMessage -type 'Error' -text "Errore nel recupero informazioni sistema: $($_.Exception.Message)."
     }
 
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
@@ -126,7 +126,7 @@ function Invoke-DownloadFile {
     )
 
     $FileName = Split-Path $OutputPath -Leaf
-    Write-StyledMessage -type 'Info' -text "Download '$FileName' da '$Uri'..."
+    Write-StyledMessage -type 'Info' -text "Download '$FileName' da '$Uri'."
 
     for ($i = 1; $i -le $MaxRetries; $i++) {
         try {
@@ -135,7 +135,7 @@ function Invoke-DownloadFile {
             return $true
         }
         catch {
-            Write-StyledMessage -type 'Warning' -text "Tentativo $i di $MaxRetries fallito per '$FileName': $($_.Exception.Message)"
+            Write-StyledMessage -type 'Warning' -text "Tentativo $i di $MaxRetries fallito per '$FileName': $($_.Exception.Message)."
             if ($i -lt $MaxRetries) {
                 Start-Sleep -Seconds 5
             }
@@ -159,10 +159,10 @@ function Prepare-OfflineResources {
 
     if (-not (Test-Path $OfflineResourcesDir)) {
         New-Item -Path $OfflineResourcesDir -ItemType Directory -Force | Out-Null
-        Write-StyledMessage -type 'Info' -text "Creata directory risorse offline: $OfflineResourcesDir"
+        Write-StyledMessage -type 'Info' -text "Creata directory risorse offline: $OfflineResourcesDir."
     }
     else {
-        Write-StyledMessage -type 'Info' -text "Directory risorse offline esistente: $OfflineResourcesDir"
+        Write-StyledMessage -type 'Info' -text "Directory risorse offline esistente: $OfflineResourcesDir."
     }
     Write-Host ""
 
@@ -207,7 +207,7 @@ function Prepare-OfflineResources {
     $localWtInstaller = Get-ChildItem -Path $OfflineResourcesDir -Filter $wtFileNamePattern -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
 
     if (-not $localWtInstaller) {
-        Write-StyledMessage -type 'Info' -text "Ricerca installer Windows Terminal più recente su GitHub..."
+        Write-StyledMessage -type 'Info' -text "Ricerca installer Windows Terminal più recente su GitHub."
         try {
             $release = Invoke-RestMethod -Uri $wtApiPath -UseBasicParsing -TimeoutSec 30
             $asset = $release.assets | Where-Object { $_.name -like "*Win10*msixbundle" } | Select-Object -First 1
@@ -227,7 +227,7 @@ function Prepare-OfflineResources {
                 $allDownloadsSuccessful = $false
             }
         } catch {
-            Write-StyledMessage -type 'Error' -text "Errore nel recupero release Windows Terminal da GitHub: $($_.Exception.Message)"
+            Write-StyledMessage -type 'Error' -text "Errore nel recupero release Windows Terminal da GitHub: $($_.Exception.Message)."
             $allDownloadsSuccessful = $false
         }
     } else {
@@ -263,18 +263,18 @@ $Host.UI.RawUI.WindowTitle = "Toolkit Starter Offline by MagnetarMan"
 
 Clear-Host
 Show-Host
-Write-StyledMessage -type 'Info' -text "Avvio preparazione ambiente offline..."
+Write-StyledMessage -type 'Info' -text "Avvio preparazione ambiente offline."
 
 if (Prepare-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
-    Write-StyledMessage -type 'Info' -text "Verifica presenza script principale 'start.ps1' in $OfflineResourcesDir..."
+    Write-StyledMessage -type 'Info' -text "Verifica presenza script principale 'start.ps1' in $OfflineResourcesDir."
     if (-not (Test-Path $mainScriptPath)) {
         Write-StyledMessage -type 'Error' -text "Errore: Lo script 'start.ps1' modificato non è presente in '$OfflineResourcesDir'."
         Write-StyledMessage -type 'Error' -text "Assicurati di aver copiato lo script principale modificato (dopo Step 2) in questa directory."
-        Read-Host "Premi Enter per uscire..."
+        Read-Host "Premi Enter per uscire."
         exit 1
     }
 
-    Write-StyledMessage -type 'Success' -text "Risorse pronte. Avvio dello script principale in modalità offline..."
+    Write-StyledMessage -type 'Success' -text "Risorse pronte. Avvio dello script principale in modalità offline."
     Write-Host ""
 
     # Execute the modified main script, passing the offline directory
@@ -284,6 +284,6 @@ if (Prepare-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
 }
 else {
     Write-StyledMessage -type 'Error' -text "La preparazione delle risorse offline è fallita. Impossibile procedere."
-    Read-Host "Premi Enter per uscire..."
+    Read-Host "Premi Enter per uscire."
     exit 1
 }
