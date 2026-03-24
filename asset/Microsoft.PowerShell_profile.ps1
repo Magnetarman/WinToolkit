@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.2.9"
+$ProfileVersion = "2.5.2.10"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
@@ -659,7 +659,13 @@ function EditPSProfile {
 
 function Show-Help {
     $helpText = @"
-$($PSStyle.Foreground.Cyan)Guida al Profilo PowerShell$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)========================================================$($PSStyle.Reset)
+$($PSStyle.Foreground.Cyan)Guida al Profilo PowerShell$($PSStyle.Reset) $($PSStyle.Foreground.Red)========================================================$($PSStyle.Reset)
+
+$($PSStyle.Foreground.Green)Verde (Safe):$($PSStyle.Reset) utilizzo sicuro, non comporta problematiche.
+$($PSStyle.Foreground.Yellow)Giallo (Warning):$($PSStyle.Reset) Attenzione leggere attentamente la descrizione, questo tipo di comandi comportano variazioni distruttive al sistema.
+$($PSStyle.Foreground.Red)Rosso (ALLERT!):$($PSStyle.Reset) Queste funzioni sono state designare per effettuare modifiche profonde e distruttive, attento a cosa stai facendo!
+
+$($PSStyle.Foreground.Green)====================================================================================$($PSStyle.Reset)
 
 $($PSStyle.Foreground.Cyan)Informazioni Sistema e Hardware$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Get-SystemInfo$($PSStyle.Reset)            - Visualizza informazioni di sistema dettagliate.
@@ -676,7 +682,7 @@ $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Estrae 
 $($PSStyle.Foreground.Cyan)Diagnostica e Strumenti di Rete$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Esegue un test della velocità di rete.
 $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)                  - Svuota la cache DNS.
-$($PSStyle.Foreground.Green)Reset-Network$($PSStyle.Reset)             - Ripristina le impostazioni di rete a quelle predefinite.
+$($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Ripristina le impostazioni di rete a quelle predefinite.
 
 $($PSStyle.Foreground.Cyan)Controllo sistema$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)                  - Riavvia il sistema immediatamente.
@@ -685,18 +691,18 @@ $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Spegnim
 
 $($PSStyle.Foreground.Cyan)Lancio WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Lancia WinToolkit (stabile).
-$($PSStyle.Foreground.Green)WinToolkit-Dev$($PSStyle.Reset)            - Lancia WinToolkit (Dev).
-$($PSStyle.Foreground.Green)WinToolkit-Reset$($PSStyle.Reset)          - Ripristina l'ambiente (Icona e Profilo) al ramo main.
-$($PSStyle.Foreground.Green)WinReg$($PSStyle.Reset)                    - Attiva Windows/Office (MAS).
-$($PSStyle.Foreground.Green)SetRustDesk$($PSStyle.Reset)               - Configura RustDesk per il controllo remoto.
+$($PSStyle.Foreground.Yellow)WinToolkit-Dev$($PSStyle.Reset)            - Lancia WinToolkit (Dev).
+$($PSStyle.Foreground.Yellow)WinToolkit-Reset$($PSStyle.Reset)          - Ripristina l'ambiente (Icona e Profilo) al ramo main.
+$($PSStyle.Foreground.Red)WinReg$($PSStyle.Reset)                    - Attiva Windows/Office (MAS).
+$($PSStyle.Foreground.Red)SetRustDesk$($PSStyle.Reset)               - Configura RustDesk per il controllo remoto.
 
 $($PSStyle.Foreground.Cyan)Gestione Profilo Powershell$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)EditPSProfile$($PSStyle.Reset)             - Apre il profilo PowerShell nell'editor.
+$($PSStyle.Foreground.Yellow)EditPSProfile$($PSStyle.Reset)             - Apre il profilo PowerShell nell'editor.
 $($PSStyle.Foreground.Green)ReloadProfile$($PSStyle.Reset)             - Ricarica il profilo PowerShell corrente.
 $($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Aggiorna il profilo PowerShell all'ultima versione.
-$($PSStyle.Foreground.Green)PS-Reset$($PSStyle.Reset)                  - Resetta Windows Terminal e cancella questo profilo.
+$($PSStyle.Foreground.Yellow)PS-Reset$($PSStyle.Reset)                  - Resetta Windows Terminal e cancella questo profilo.
 $($PSStyle.Foreground.Green)Update-Pwsh$($PSStyle.Reset)               - Aggiorna PowerShell all'ultima versione.
-$($PSStyle.Foreground.Green)ReadyToGo$($PSStyle.Reset)                 - Rende pronto il PC per l'uso finale.
+$($PSStyle.Foreground.Red)ReadyToGo$($PSStyle.Reset)                 - Rende pronto il PC per l'uso finale (PC Delivery).
 
 $($PSStyle.Foreground.Cyan)Utility terminale$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                      - Monitor delle risorse per il terminale.
@@ -705,7 +711,7 @@ $($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                      - Monitor
 $($PSStyle.Foreground.Cyan)Editor Configurato$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------------------------------------------------------$($PSStyle.Reset)
 Editor corrente: $($PSStyle.Foreground.Magenta)$($EDITOR_INFO.Name)$($PSStyle.Reset)
 
-$($PSStyle.Foreground.Yellow)====================================================================================$($PSStyle.Reset)
+$($PSStyle.Foreground.Green)====================================================================================$($PSStyle.Reset)
 Scrivi '$($PSStyle.Foreground.Magenta)help$($PSStyle.Reset)' per visualizzare questo messaggio.
 "@
     Write-Host $helpText
