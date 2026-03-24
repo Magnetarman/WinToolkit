@@ -1,0 +1,52 @@
+name: Richiesta Funzionalità
+description: Proponi una nuova idea, uno script o un miglioramento per WinToolkit
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hai un'idea per rendere WinToolkit ancora migliore? Condividila con noi!
+        *📝 Ricorda la nostra logica: 1 Issue = 1 Singola Funzionalità.*
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: C'è un problema alla base di questa richiesta?
+      description: Descrivi la situazione problematica che vorresti risolvere.
+      placeholder: Es. Attualmente l'impostazione X richiede troppi passaggi manuali.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Descrivi la soluzione che vorresti
+      description: Come dovrebbe funzionare questa feature secondo te?
+      placeholder: Vorrei un nuovo pulsante nel menu Y che automatizzi Z...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Qualsiasi alternativa considerata
+      description: Hai pensato ad altri modi per ottenere lo stesso risultato?
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contesto aggiuntivo
+      description: Screenshot, esempi di codice, mockup o link a tool simili.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: logic-check
+    attributes:
+      label: Accordo di Contribuzione
+      options:
+        - label: Comprendo che questa proposta verrà valutata in base alla roadmap attuale del progetto.
+          required: true

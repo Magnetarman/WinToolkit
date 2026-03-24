@@ -1,0 +1,118 @@
+name: Segnalazione Bug
+description: Segnala un malfunzionamento in WinToolkit (per utenti e sviluppatori)
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie per voler segnalare un bug! Ti preghiamo di compilare i campi sottostanti per aiutarci a risolvere il problema il prima possibile.
+        *Ricorda la nostra filosofia: 1 Issue = 1 Singolo Problema.*
+
+  - type: checkboxes
+    id: critical-checks
+    attributes:
+      label: Controlli Preliminari
+      description: Assicurati di aver seguito questi passaggi prima di aprire l'issue.
+      options:
+        - label: Ho controllato che non ci siano Issue già aperte per lo stesso problema.
+          required: true
+        - label: Sto usando l'ultima versione disponibile di WinToolkit.
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrizione del Bug
+      description: Fornisci una descrizione chiara e concisa del problema riscontrato.
+      placeholder: Cosa succede esattamente?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Passaggi per riprodurre
+      description: Cosa dobbiamo fare per far presentare il comportamento anomalo?
+      placeholder: |
+        1. Avvia WinToolkit
+        2. Seleziona l'opzione '...'
+        3. Esegui '...'
+        4. Riscontro del problema
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-output
+    attributes:
+      label: Comportamento Atteso
+      description: Cosa dovrebbe succedere secondo te?
+      placeholder: Es. L'applicazione dovrebbe mostrare un messaggio di successo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-output
+    attributes:
+      label: Comportamento Effettivo
+      description: Cosa succede invece? (Incolla qui eventuali errori rossi della console)
+      placeholder: Es. La console mostra l'errore 'Accesso negato' in rosso.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os-version
+    attributes:
+      label: Versione OS Windows
+      description: Su quale versione di Windows stai riscontrando il problema?
+      options:
+        - Windows 11 25H2
+        - Windows 11 24H2
+        - Windows 11 23H2
+        - Windows 11 22H2
+        - Windows 10 22H2
+        - Windows 10 21H2
+        - Windows Server 2022
+        - Altro (specificare nel contesto)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ps-version
+    attributes:
+      label: Versione PowerShell
+      description: Quale versione di PowerShell stai usando? (Scrivi $PSVersionTable nella console per scoprirlo)
+      options:
+        - PowerShell 7.4+ (Core)
+        - PowerShell 7.2+ (LTS)
+        - Windows PowerShell 5.1
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: is-windows-bug
+    attributes:
+      label: Tipo di Bug
+      options:
+        - label: Questo è un "Windows Bug" (causato da una versione specifica di Windows che impedisce il funzionamento di una feature)
+
+  - type: checkboxes
+    id: logs-check
+    attributes:
+      label: Allegato Log (Fondamentale)
+      description: |
+        Senza i log è molto difficile diagnosticare il problema.
+        **Come generare i log:**
+        1. Avvia **WinToolkit**.
+        2. Seleziona **Esporta Log WinToolkit**.
+        3. Il file `.zip` verrà salvato sul tuo **Desktop**.
+      options:
+        - label: Ho generato e allegato il file .zip dei log trascinandolo qui sotto.
+          required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contesto Aggiuntivo
+      description: Qualsiasi altra informazione utile (screenshot, video, link).
+      placeholder: Ulteriori dettagli...
