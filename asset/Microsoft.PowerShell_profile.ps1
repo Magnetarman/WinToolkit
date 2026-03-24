@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.2.8"
+$ProfileVersion = "2.5.2.9"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
@@ -764,6 +764,34 @@ function Update-Pwsh {
         winget upgrade --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Aggiornamento completato. Chiudi e riapri il terminale per usare PowerShell v$latestPSVersion." -ForegroundColor Green
+        }
+        elseif ($LASTEXITCODE -eq -1978335189) {
+            Write-Host "" -ForegroundColor Yellow
+            Write-Host "⚠️ Rilevata incompatibilità tecnologia installazione (codice: $LASTEXITCODE)." -ForegroundColor Yellow
+            Write-Host "   Il pacchetto installato utilizza un metodo diverso da quello atteso da winget." -ForegroundColor DarkYellow
+            Write-Host "🔄 Avvio procedura di reinstallazione automatica..." -ForegroundColor Cyan
+
+            # Step 1: Disinstallazione
+            Write-Host "   1/2 - Disinstallazione di Microsoft.PowerShell in corso..." -ForegroundColor Cyan
+            winget uninstall --id Microsoft.PowerShell --accept-source-agreements --silent
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "❌ Disinstallazione fallita (codice: $LASTEXITCODE). Operazione interrotta." -ForegroundColor Red
+                Write-Host "   Prova a disinstallare PowerShell manualmente e poi esegui nuovamente Update-Pwsh." -ForegroundColor DarkYellow
+                return
+            }
+            Write-Host "   ✅ Disinstallazione completata." -ForegroundColor Green
+
+            # Step 2: Reinstallazione
+            Write-Host "   2/2 - Installazione di PowerShell v$latestPSVersion in corso..." -ForegroundColor Cyan
+            winget install --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✅ Reinstallazione completata con successo." -ForegroundColor Green
+                Write-Host "⚠️ IMPORTANTE: Devi aprire una nuova sessione del terminale per usare PowerShell v$latestPSVersion." -ForegroundColor Yellow
+            }
+            else {
+                Write-Host "❌ Reinstallazione fallita (codice: $LASTEXITCODE)." -ForegroundColor Red
+                Write-Host "   Consulta l'output di winget qui sopra per dettagli sull'errore." -ForegroundColor DarkYellow
+            }
         }
         else {
             Write-Host "⚠️ winget ha restituito il codice di uscita $LASTEXITCODE. Verifica l'output qui sopra." -ForegroundColor Yellow
