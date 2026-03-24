@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.2.7"
+$ProfileVersion = "2.5.2.8"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
@@ -731,35 +731,48 @@ function Update-Pwsh {
     [CmdletBinding()]
     param()
 
+    # Avviso se eseguito da Windows PowerShell 5.x invece di PowerShell 7+
+    if ($PSVersionTable.PSEdition -ne 'Core') {
+        Write-Host "⚠️ Stai usando Windows PowerShell $($PSVersionTable.PSVersion)." -ForegroundColor DarkYellow
+        Write-Host "   Questa funzione aggiorna PowerShell 7+. Apri una sessione 'pwsh' per continuare." -ForegroundColor DarkYellow
+        return
+    }
+
+    Write-Host "🔍 Verifica degli aggiornamenti di PowerShell..." -ForegroundColor Cyan
+
     try {
-        Write-Host "🔍 Verifica degli aggiornamenti di PowerShell..." -ForegroundColor Cyan
-        $updateNeeded = $false
-
         [version]$currentPSVersion = $PSVersionTable.PSVersion
-        $latestReleaseInfo = Invoke-RestMethod -Uri $URL_PWSH_RELEASE_API -UseBasicParsing -TimeoutSec 5
-        [version]$latestPSVersion = $latestReleaseInfo.tag_name.Trim('v')
+        $latestReleaseInfo = Invoke-RestMethod -Uri $URL_PWSH_RELEASE_API -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+        [version]$latestPSVersion = $latestReleaseInfo.tag_name.TrimStart('v')
 
-        if ($currentPSVersion -lt $latestPSVersion) {
-            $updateNeeded = $true
+        Write-Host "   Versione corrente : v$currentPSVersion" -ForegroundColor Gray
+        Write-Host "   Ultima versione   : v$latestPSVersion" -ForegroundColor Gray
+
+        if ($currentPSVersion -ge $latestPSVersion) {
+            Write-Host "✅ PowerShell è già aggiornato (v$currentPSVersion)" -ForegroundColor Green
+            return
         }
 
-        if ($updateNeeded) {
-            if (-not (Assert-Admin)) {
-                Write-Host "⚠️ Per aggiornare PowerShell è necessario eseguire la shell come Amministratore." -ForegroundColor DarkYellow
-                return
-            }
-            Write-Host "🔄 Aggiornamento di PowerShell in corso (da v$currentPSVersion a v$latestPSVersion)..." -ForegroundColor Yellow
-            winget upgrade "Microsoft.PowerShell" --accept-source-agreements --accept-package-agreements | Out-Null
-            Write-Host "✅ PowerShell aggiornato. Riavvia la shell per applicare le modifiche." -ForegroundColor Magenta
+        # Aggiornamento necessario
+        if (-not (Assert-Admin)) {
+            Write-Host "⚠️ Per aggiornare PowerShell sono necessari i privilegi di Amministratore." -ForegroundColor Yellow
+            Write-Host "   Riesegui la funzione in una sessione 'pwsh' avviata come Amministratore." -ForegroundColor DarkYellow
+            return
+        }
+
+        Write-Host "🔄 Aggiornamento di PowerShell in corso (v$currentPSVersion → v$latestPSVersion)..." -ForegroundColor Yellow
+        winget upgrade --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Aggiornamento completato. Chiudi e riapri il terminale per usare PowerShell v$latestPSVersion." -ForegroundColor Green
         }
         else {
-            Write-Host "✅ PowerShell è aggiornato (v$currentPSVersion)" -ForegroundColor Green
+            Write-Host "⚠️ winget ha restituito il codice di uscita $LASTEXITCODE. Verifica l'output qui sopra." -ForegroundColor Yellow
         }
     }
     catch {
         Write-Host "❌ Impossibile verificare o aggiornare PowerShell: $($_.Exception.Message)" -ForegroundColor Red
-        if ($_.Exception.Message -like "*winget*") {
-            Write-Host "Suggerimento: Assicurati che 'winget' sia installato." -ForegroundColor DarkYellow
+        if (-not (Test-CommandExists 'winget')) {
+            Write-Host "   Suggerimento: 'winget' non trovato. Assicurati che App Installer sia installato." -ForegroundColor DarkYellow
         }
     }
 }
