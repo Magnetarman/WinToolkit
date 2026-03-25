@@ -89,6 +89,17 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: profile-version
+    attributes:
+      label: Versione Profilo PowerShell
+      description: |
+        Indica la versione del profilo caricato.
+        Per conoscerla, avvia il terminale di windows e dove c'è la command line il rigo superiore dovrebbe fornire un testo simile: ✅ Profilo caricato - Versione: 2.5.2.10. Indicare la versione rilevata.
+      placeholder: Es. 2.5.2.10
+    validations:
+      required: true
+
   - type: checkboxes
     id: is-windows-bug
     attributes:
