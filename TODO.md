@@ -59,6 +59,7 @@
 - `Microsoft.PowerShell_profile.ps1` Potenziato.
   - [x] Potenziata e resa completa la funzion PS-Reset.
   - [x] Esegue ora un rollback completo dell'ambiente in modo da resettare il sistema su cui è stato avviato WinToolkit.
+  - [x] Fix della funzione di aggiornamento Powershell che in alcuni casi falliva l'aggiornamento.
 
 - Pipeline CI/CD Riscritta e potenziata.
   - [x] `compiler.ps1` Aggiornato.
@@ -73,6 +74,7 @@
   - [x] Aggiunta una suite di test estensiva prima della compilazione in modo da evitare errori di sintassi.
   - [x] Migliorata la struttura all'interno della cartela .github in modo da migliorare la manutenzione e la leggibilità del codice della Pipeline CI/CD. 
   - [x] Aggiornata PiPeline CI/CD in modo da integrare una creazione di Pre-Release ad ogni rilascio in dev, con citazione di eventuali PR effettuati dagli utenti.[[Requested by @Pomodori92]](https://github.com/pomodori92).
+  - [x] Aggiornati file di Template per le Issue e Pull Request per migliorare le segnalazioni. 
 
 - `WinUpdateReset.ps1` Aggiornato.
   - [x] Migliorata l'esecuzione dello script riducendo il codice boilerplate.
