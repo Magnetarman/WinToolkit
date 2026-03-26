@@ -94,7 +94,10 @@
 
 - `GamingToolkit.ps1` Aggiornato.
   - [x] Risolto bug che generava artefatti grafici all'interno del terminale durante l'installazione degli elementi.
-  - [x] Potenziata la reinstallazione di Xbox App e Game Bar (necessarie per i giochi GamePass)
+  - [x] Potenziata la reinstallazione di Xbox App e Game Bar (necessarie per i giochi GamePass).
+
+- `Readme.md` Aggiornato.
+  - [x] Icona WinToolkit-GUI Aggiornata.
 
 
 ### V 2.6 - Debloat
