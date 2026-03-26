@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.2.10"
+$ProfileVersion = "2.5.2.11"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
@@ -24,6 +24,7 @@ $URL_OHMYPOSH_THEME = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-po
 $URL_PROFILE = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
 $URL_IP_API = "https://am.i.mullvad.net/ip"
 $URL_WINTOOLKIT_ICO_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
+$URL_WINTOOLKIT_ICO_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/img/WinToolkit-Dev.ico"
 $URL_PROFILE_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/Microsoft.PowerShell_profile.ps1"
 $URL_PWSH_RELEASE_API = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
 
@@ -343,6 +344,66 @@ function WinToolkit-Dev {
     Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_WINTOOLKIT_DEV | iex`"" -Verb RunAs
 }
 
+function SetBranch-Dev {
+    [CmdletBinding()]
+    param()
+
+    Write-Host "`n🔄 Avvio procedura di switch di WinToolkit al ramo Dev..." -ForegroundColor Cyan
+
+    # 1. Ricreazione Scorciatoia Desktop
+    try {
+        Write-Host "📦 Ricreazione scorciatoia desktop..." -ForegroundColor Cyan
+        $desktop = [Environment]::GetFolderPath('Desktop')
+        $shortcut = Join-Path $desktop "Win Toolkit.lnk"
+        $iconDir = Join-Path $env:LOCALAPPDATA "WinToolkit"
+        $icon = Join-Path $iconDir "WinToolkit-Dev.ico"
+
+        if (-not (Test-Path $iconDir)) {
+            New-Item -Path $iconDir -ItemType Directory -Force | Out-Null
+        }
+
+        # Scarica/Sovrascrive l'icona dal ramo dev
+        Invoke-WebRequest -Uri $URL_WINTOOLKIT_ICO_DEV -OutFile $icon -UseBasicParsing
+
+        $shell = New-Object -ComObject WScript.Shell
+        $link = $shell.CreateShortcut($shortcut)
+        $link.TargetPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\wt.exe"
+        $link.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm ' + 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/WinToolkit.ps1' + ' | iex"'
+        $link.WorkingDirectory = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+        $link.IconLocation = $icon
+        $link.Description = "Win Toolkit - SOPRAVVIVI A Windows"
+        $link.Save()
+
+        # Abilita esecuzione come amministratore modificando i byte del file .lnk
+        $bytes = [IO.File]::ReadAllBytes($shortcut)
+        $bytes[21] = $bytes[21] -bor 32
+        [IO.File]::WriteAllBytes($shortcut, $bytes)
+
+        Write-Host "✅ Scorciatoia desktop aggiornata al ramo dev." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "❌ Errore creazione scorciatoia: $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    # 2. Sostituzione Profilo PowerShell
+    try {
+        Write-Host "⬇️ Download del profilo PowerShell dal ramo dev..." -ForegroundColor Cyan
+
+        # Sovrascrive il profilo senza chiedere conferma
+        Invoke-WebRequest -Uri $URL_PROFILE -OutFile $PROFILE -UseBasicParsing
+        Write-Host "✅ Profilo PowerShell sovrascritto con la versione dev." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "❌ Errore aggiornamento profilo: $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    # 3. Avviso all'utente
+    Write-Host "`n🎉 Switch al ramo Dev completato con successo! Modifiche effettuate:" -ForegroundColor Green
+    Write-Host "  - Icona desktop 'Win Toolkit' rigenerata e puntata al ramo dev." -ForegroundColor Yellow
+    Write-Host "  - Profilo PowerShell sostituito con la versione del ramo dev." -ForegroundColor Yellow
+    Write-Host "`n⚠️  ATTENZIONE: Riavvia il terminale per applicare le modifiche del nuovo profilo." -ForegroundColor Magenta
+}
+
 function doReboot {
     shutdown /r /f /t 0
 }
@@ -355,11 +416,11 @@ function ShutdownComplete {
     shutdown /s /full /f /t 0
 }
 
-function WinToolkit-Reset {
+function SetBranch-Main {
     [CmdletBinding()]
     param()
 
-    Write-Host "`n🔄 Avvio procedura di reset di WinToolkit (Switch al ramo Main)..." -ForegroundColor Cyan
+    Write-Host "`n🔄 Avvio procedura di switch di WinToolkit al ramo Main..." -ForegroundColor Cyan
 
     # 1. Ricreazione Scorciatoia Desktop
     try {
@@ -409,7 +470,7 @@ function WinToolkit-Reset {
     }
 
     # 3. Avviso all'utente
-    Write-Host "`n🎉 Reset completato con successo! Modifiche effettuate:" -ForegroundColor Green
+    Write-Host "`n🎉 Switch al ramo Main completato con successo! Modifiche effettuate:" -ForegroundColor Green
     Write-Host "  - Icona desktop 'Win Toolkit' rigenerata e puntata al ramo main." -ForegroundColor Yellow
     Write-Host "  - Profilo PowerShell sostituito con la versione del ramo main." -ForegroundColor Yellow
     Write-Host "`n⚠️  ATTENZIONE: Riavvia il terminale per applicare le modifiche del nuovo profilo." -ForegroundColor Magenta
@@ -544,7 +605,8 @@ function ReadyToGo {
         if (Test-Path $edgeUserDataPath) {
             Remove-Item -Path $edgeUserDataPath -Recurse -Force -ErrorAction Stop
             Write-Host "✅ Dati utente di Microsoft Edge eliminati (Reset alle impostazioni di fabbrica)." -ForegroundColor Green
-        } else {
+        }
+        else {
             Write-Host "ℹ️ Cartella dati utente di Microsoft Edge non trovata." -ForegroundColor Yellow
         }
     }
@@ -692,7 +754,8 @@ $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Spegnim
 $($PSStyle.Foreground.Cyan)Lancio WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Lancia WinToolkit (stabile).
 $($PSStyle.Foreground.Yellow)WinToolkit-Dev$($PSStyle.Reset)            - Lancia WinToolkit (Dev).
-$($PSStyle.Foreground.Yellow)WinToolkit-Reset$($PSStyle.Reset)          - Ripristina l'ambiente (Icona e Profilo) al ramo main.
+$($PSStyle.Foreground.Yellow)SetBranch-Main$($PSStyle.Reset)            - Switcha l'ambiente (Icona e Profilo) al ramo main.
+$($PSStyle.Foreground.Yellow)SetBranch-Dev$($PSStyle.Reset)             - Switcha l'ambiente (Icona e Profilo) al ramo dev.
 $($PSStyle.Foreground.Red)WinReg$($PSStyle.Reset)                    - Attiva Windows/Office (MAS).
 $($PSStyle.Foreground.Red)SetRustDesk$($PSStyle.Reset)               - Configura RustDesk per il controllo remoto.
 
