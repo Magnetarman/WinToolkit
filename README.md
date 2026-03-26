@@ -4,7 +4,7 @@
 </p>
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
-	<img src="https://img.shields.io/badge/version-2.5.1-red.svg?style=for-the-badge" alt="versione">
+	<img src="https://img.shields.io/badge/version-2.5.2-red.svg?style=for-the-badge" alt="versione">
 	<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
 	<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 	<img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main">
@@ -198,10 +198,10 @@ Se non puoi donare, puoi comunque aiutarmi a migliorare WinToolkit attraverso qu
 
 ⭐ **Metti una stella**: mettendo una stella al progetto lo farai diventare più popolare su GitHub.
 
-🐛 **[Segnala un problema](https://github.com/Magnetarman/WinToolkit/issues)**: segnala un bug che hai trovato o richiedi nuove funzionalità.
-
 > [!WARNING]
 > Prima di effettuare Pull Request o aprire issue [PER FAVORE LEGGI ATTENTAMENTE LA GUIDA](https://github.com/Magnetarman/WinToolkit/blob/Dev/.github/Docs/PR_And_PullRequest.md).
+
+🐛 **[Segnala un problema](https://github.com/Magnetarman/WinToolkit/issues)**: segnala un bug che hai trovato o richiedi nuove funzionalità.
 
 💡 **[Invia Pull Request](https://github.com/Magnetarman/WinToolkit/pulls)**: invia la tua risoluzione di un bug o la tua aggiunta di una nuova funzionalità.
 
@@ -213,13 +213,7 @@ Grazie di cuore per il tuo supporto!
 
 ## 🎉 Traguardi
 
-<a href="https://www.star-history.com/#Magnetarman/WinToolkit&type=date&legend=bottom-right">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Magnetarman/WinToolkit&type=date&theme=dark&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Magnetarman/WinToolkit&type=date&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Magnetarman/WinToolkit&type=date&legend=bottom-right" />
- </picture>
-</a>
+[![RepoStars](https://repostars.dev/api/embed?repo=Magnetarman%2FWinToolkit&theme=dark)](https://repostars.dev/?repos=Magnetarman%2FWinToolkit&theme=dark)
 
 ---
 

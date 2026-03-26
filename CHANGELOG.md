@@ -6,6 +6,115 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 
 ---
 
+## [2.5.2] - CODENAME: "Deborah" - 2026-03-26 ([#58](https://github.com/MagnetarMan/WinToolkit/issues/58))
+
+### Aggiunte
+
+- **Office Toolkit:**
+  - Nuova funzione `Update-EnvironmentPath`: ricarica `$env:Path` da Machine+User per rilevare Winget appena installato senza riavviare lo script.
+  - Ripristinata funzionalità di rimozione di Office tramite SaRa. [[Thanks To @ServiceDeskCSI]](https://github.com/ServiceDeskCSI)
+  - Inserito download di SaRa dalla repo di WinToolkit come default.
+  - Reso il debloat di Office parametrizzabile.
+  - Automatizzate le operazioni di installazione/rimozione di Office.
+- **start.ps1:**
+  - Introdotta la generazione dinamica dell'icona desktop all'avvio del ramo di sviluppo.
+- **WinRepairToolkit:**
+  - Aggiunto nuovo check per le funzioni addizionali Registrazione AppX (Client CBS), Registrazione AppX (UI Xaml CBS), Registrazione AppX (Client Core), in modo che vengano eseguite solo su sistemi interessati dalla problematica (Windows 11 24H2 e superiori).
+  - Aggiunta gestione interruzioni (CTRL+C), che invece di interrompere bruscamente il Toolkit mitiga l'effetto permettendo la copia corretta dei messaggi di stato nel terminale.
+- **Profilo PowerShell:**
+  - Aggiunte nuove funzioni di switch tra il ramo dev e main di WinToolkit per maggiore praticità.
+  - Inserita leggenda e modificati a livello visivo i colori relativi alle funzioni per una maggiore comprensione.
+  - Potenziata e resa completa la funzione PS-Reset.
+  - Esegue ora un rollback completo dell'ambiente in modo da resettare il sistema su cui è stato avviato WinToolkit.
+- **Pipeline CI/CD:**
+  - Aggiunto motore di Minificazione, che elimina lo splatting e compatta il codice per massimizzare l'ottimizzazione a discapito della lettura.
+  - Rimozione dei commenti in blocco.
+  - Aggiunta una suite di test estensiva prima della compilazione in modo da evitare errori di sintassi.
+  - Lo script ora accetta `-StripComments` dalla riga di comando o da pipeline CI/CD.
+  - Aggiornata pipeline CI/CD in modo da integrare una creazione di Pre-Release ad ogni rilascio in dev, con citazione di eventuali PR effettuati dagli utenti. [[Requested by @Pomodori92]](https://github.com/pomodori92)
+  - Aggiornati file di Template per le Issue e Pull Request per migliorare le segnalazioni.
+- **WinToolkit-GUI:**
+  - Aggiunto download e caricamento Favicon ToolKit.
+
+### Correzioni
+
+- **start.ps1:**
+  - Fix bug critico `$tempDir`: nel fallback MSIXBundle di Install-WingetPackage la variabile non esisteva in quello scope — ora usa `$AppConfig.Paths.Temp` con splatting.
+  - Fix Write-Host nel countdown reboot → `Write-StyledMessage -Type Warning`.
+  - Aggiornate sezione `.SYNOPSIS` e `.DESCRIPTION`. [[#39](https://github.com/MagnetarMan/WinToolkit/issues/39) [@pomodori92]](https://github.com/pomodori92)
+  - Aggiornato Show-Header. [[#40](https://github.com/MagnetarMan/WinToolkit/issues/40) [@pomodori92]](https://github.com/pomodori92)
+- **Office Toolkit:**
+  - Risolto un errore che portava lo script di riparazione a non effettuare il debloat a riparazione avvenuta.
+- **WinToolkit-template:**
+  - La funzione `Initialize-ToolLogging` usava path hardcoded. Fix applicato.
+  - `Invoke-Expression` era un anti-pattern di sicurezza. Fix applicato.
+  - Aggiornato Show-Header in modo da allineare la [PR #40](https://github.com/MagnetarMan/WinToolkit/issues/40).
+- **WinReinstallStore:**
+  - Fix catch vuoto in Install-UniGetUI → logga l'eccezione con `Write-StyledMessage -Type 'Error'`.
+  - Risolti i problemi che potrebbero causare rotture grafiche dello script durante l'esecuzione.
+- **WinCleaner:**
+  - Aggiunto check per verifica dell'errore -2146498554 con inserimento di avvertimento per l'utente.
+  - Risolto un bug che poteva causare artefatti grafici durante l'installazione degli elementi.
+  - Aumentato il comando di Timeout a 24h. [[#45](https://github.com/Magnetarman/WinToolkit/issues/45) [@pomodori92]](https://github.com/pomodori92)
+- **Profilo PowerShell:**
+  - Fix della funzione di aggiornamento PowerShell che in alcuni casi falliva l'aggiornamento.
+- **WinUpdateReset:**
+  - Risolto un bug che causava scritte non allineate durante l'esecuzione.
+- **WinBackupDriver:**
+  - Risolto un problema per cui su PC poco potenti il timeout rendeva nulla la funzionalità dello script. Maggiorati a 800 secondi i timeout.
+  - Risolto il problema della richiesta doppio escape.
+- **WinToolkit-GUI:**
+  - Risolto un bug grafico dovuto a modifiche nel ramo V 2.5.0.
+  - Resa maggiormente fluida l'animazione di riempimento della barra di avanzamento personalizzata.
+- **GamingToolkit:**
+  - Risolto bug che generava artefatti grafici all'interno del terminale durante l'installazione degli elementi.
+
+### Modifiche
+
+- **Office Toolkit:**
+  - Riscritto. Semplificata logica generale dello script con meno richieste inutili e maggiore automazione.
+  - Riscritta la funzione per disabilitare la telemetria di Office aggiornando percorsi e chiavi.
+  - Aggiornata l'implementazione grafica del Toolkit ai nuovi standard.
+  - Migliorato il detect dei processi di installazione per non causare Race Condition.
+- **start.ps1:**
+  - Aggiornata funzione di aggiornamento del profilo PowerShell rendendola maggiormente robusta.
+  - Rifattorizzata la funzione di creazione del collegamento di WinToolkit.
+  - Rafforzamento Install-WingetCore.
+  - Potenziamento gestione del Terminale Predefinito.
+  - Ottimizzazione Path. PATH refresh nell'orchestrazione: `Update-EnvironmentPath` chiamata prima del check iniziale e dopo ogni tentativo di install — elimina i falsi negativi post-installazione.
+  - Rimosse le configurazioni hardcoded, migliorando flessibilità e manutenibilità del codice.
+  - Ottimizzata la gestione del processo per garantire maggiore coerenza tra ambienti e versioni.
+  - Modificata l'installazione di PowerShell 7 preferendo la veloce installazione tramite Winget ed utilizza come fallback il download e l'installazione diretta.
+- **WinReinstallStore:**
+  - Helper locali ridondanti rimossi: `Clear-ProgressLine`, `Stop-InterferingProcesses`, `Test-WingetAvailable` erano tutti già disponibili globalmente nel template.
+  - `$ErrorActionPreference` globale eliminato in tutte e 3 le funzioni → `-ErrorAction SilentlyContinue` per operazione.
+  - `Write-StyledMessage` corretta da sintassi posizionale `Write-StyledMessage Info "..."` a `Write-StyledMessage -Type 'Info' -Text "..."`.
+  - `Invoke-WithSpinner` adottato per tutti i processi lunghi: `Repair-WinGetPackageManager`, MSIXBundle, App Installer reset, Store install, UniGetUI install.
+  - `Write-Host` nel finally rimosso → gestione riavvio delegata a `Start-InterruptibleCountdown`.
+  - Adeguato lo script alle linee generali di stile del progetto.
+- **WinCleaner:**
+  - Migliorata la cancellazione dei Residui di Windows Update. I servizi adesso vengono correttamente stoppati, viene effettuata la pulizia ed infine i servizi vengono riavviati.
+- **Pipeline CI/CD:**
+  - `compiler.ps1` aggiornato.
+  - Logging aggiornato TimeStamp + Enum-based.
+  - Dashboard di compilazione finale riscritta totalmente e potenziata.
+  - Encoding è forzato rigorosamente a UTF8-NoBOM via `UTF8Encoding $false` per migliorare il supporto.
+  - L'etichetta di `$warningCount` nel box di riepilogo è ora più descrittiva.
+  - Blocco di assemblaggio potenziato. Adesso esegue una Validazione, StripComments e Logging injection.
+  - Migliorata la struttura all'interno della cartella `.github` in modo da migliorare la manutenzione e la leggibilità del codice della Pipeline CI/CD.
+- **WinUpdateReset:**
+  - Migliorata l'esecuzione dello script riducendo il codice boilerplate.
+  - Aggiornata la visualizzazione per essere in tema con il resto del progetto.
+- **WinToolkit-GUI:**
+  - Aggiornata funzione check bitlooker.
+  - Migliorata la grafica della barra di avanzamento personalizzata.
+- **GamingToolkit:**
+  - Potenziata la reinstallazione di Xbox App e Game Bar (necessarie per i giochi GamePass).
+- **Readme.md:**
+  - Icona WinToolkit-GUI aggiornata.
+
+---
+
 ## [2.5.1] - CODENAME: "Deborah" - 2026-02-26 ([#37](https://github.com/MagnetarMan/WinToolkit/issues/37))
 
 ### Aggiunte
@@ -31,18 +140,23 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 - **start.ps1:**
   - Migliorata la gestione dei fallback e dei blocchi in presenza di prerequisiti mancanti.
   - Rafforzata la gestione degli errori e il logging durante le installazioni via Winget.
-- **WinReinstallStore:** - Corretto output non soppresso e rimosso il blocco "Premi Enter per uscire" che interrompeva la modalità concatenazione. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
-- **WinToolkit.ps1:** - Fix bug della funzione concatenazione in caso di input contenenti spazi e virgole. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
-- **WinBackupDriver:** - Rimosso blocco input manuale che interrompeva la modalità concatenazione. [[#32](https://github.com/MagnetarMan/WinToolkit/issues/32) [@pomodori92]](https://github.com/pomodori92)
-- **OfficeToolkit:** - Ripristinato il funzionamento dell'installazione personalizzata.
-- **WinCleaner:** - Prevenuti errori di "file in uso" durante la pulizia degli aggiornamenti tramite l'arresto e il riavvio automatico del servizio Windows Update.
+- **WinReinstallStore:**
+  - Corretto output non soppresso e rimosso il blocco "Premi Enter per uscire" che interrompeva la modalità concatenazione. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+- **WinToolkit.ps1:**
+  - Fix bug della funzione concatenazione in caso di input contenenti spazi e virgole. [[#28](https://github.com/MagnetarMan/WinToolkit/issues/28) [@pomodori92]](https://github.com/pomodori92)
+- **WinBackupDriver:**
+  - Rimosso blocco input manuale che interrompeva la modalità concatenazione. [[#32](https://github.com/MagnetarMan/WinToolkit/issues/32) [@pomodori92]](https://github.com/pomodori92)
+- **OfficeToolkit:**
+  - Ripristinato il funzionamento dell'installazione personalizzata.
+- **WinCleaner:**
+  - Prevenuti errori di "file in uso" durante la pulizia degli aggiornamenti tramite l'arresto e il riavvio automatico del servizio Windows Update.
 
 ### Modifiche
 
 - **Repository & Manutenzione:**
   - Adeguamento alle regole di GitHub: rinominato `CONTRIBUTORS.md` in `CONTRIBUTING.md`.
   - Rimossa sezione contributori dal README (integrata ora nel menu nativo di GitHub).
-  - Rework gestione `To-Do.md`: rimosso dal ramo *main* e gestito tramite link hardcode verso il ramo *Dev*.
+  - Rework gestione `To-Do.md`: rimosso dal ramo _main_ e gestito tramite link hardcode verso il ramo _Dev_.
 - **Aggiornamento Dipendenze:**
   - 7zip portable aggiornato alla v26.00.
   - DDU (Display Driver Uninstaller) aggiornato alla v18.1.4.2.
@@ -101,7 +215,6 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Adesso la funzione risulta centralizzata.
   - Lo script utilizza delle variabili per capire se sei in modalità avvio script singolo o concatenato.
   - Migliorata la gestione automatizzata dei vari scenari.
-  
 - Aggiunta funzione di esportazione log.
 
 ### Correzioni
@@ -184,7 +297,7 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
     - Aggiornamento link a `https://magnetarman.com/WinToolkit-Dev`.
     - Aggiornata funzione di richiamo Toolkit e potenziamento per funzionamento Plug and Play.
   - **Varie:**
-    - Traduzione di tutti i commenti del file in italiano.      
+    - Traduzione di tutti i commenti del file in italiano.
 
 - **Funzione WinRepairToolkit** riscritta.
   - Refactor del codice per uniformarlo al resto della codebase.
@@ -298,7 +411,6 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   <del>- Corretto errore di installazione di oh-my-posh e zoxide. [[#22](https://github.com/MagnetarMan/WinToolkit/issues/22) [@pomodori92]](https://github.com/pomodori92)</del>
   <del>- Corretta l'installazione di PowerShell 7 e Git.</del>
   <del>- Aggiunto secondo tentativo di configurazione di Windows Terminal che spesso fallisce a causa di un problema di lettura del file settings.json nello script `start.ps1`.</del>
-
 
 ---
 
