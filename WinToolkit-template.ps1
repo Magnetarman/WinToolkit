@@ -100,7 +100,7 @@ function Read-Host {
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.2 (Build 84)"
+$ToolkitVersion = "2.5.3 (Build 1)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -112,7 +112,7 @@ $AppConfig = @{
         # Office
         OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
         OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
-        SaRAInstaller         = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/SaRACmd_17_01_2877_000.zip"
+        SaRAInstaller         = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/main/asset/SaRACmd_17_01_2877_000.zip"
 
         # Video Driver
         AMDInstaller          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
@@ -217,7 +217,7 @@ function Get-WingetExecutable {
     # Fallback: Ricerca in WindowsApps
     $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
     $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue |
-                 Sort-Object Name -Descending | Select-Object -First 1
+    Sort-Object Name -Descending | Select-Object -First 1
 
     if ($wingetDir) {
         $exe = Join-Path $wingetDir.FullName "winget.exe"
@@ -437,11 +437,11 @@ function Invoke-ExternalCommandWithLog {
     $argString = $Arguments -join ' '
 
     Write-ToolkitLog -Level 'INFO' -Message "Esecuzione comando esterno: $Command $argString" -Context @{
-        Command       = $Command
-        Arguments     = $Arguments
-        WorkingDir    = $WorkingDirectory
-        TimeoutSec    = $TimeoutSeconds
-        ContextKey    = $LogContextKey
+        Command    = $Command
+        Arguments  = $Arguments
+        WorkingDir = $WorkingDirectory
+        TimeoutSec = $TimeoutSeconds
+        ContextKey = $LogContextKey
     }
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -450,10 +450,10 @@ function Invoke-ExternalCommandWithLog {
     if ($WorkingDirectory) {
         $psi.WorkingDirectory = $WorkingDirectory
     }
-    $psi.UseShellExecute        = $false
+    $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError  = $true
-    $psi.CreateNoWindow         = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
 
     $proc = [System.Diagnostics.Process]::new()
     $proc.StartInfo = $psi
@@ -494,13 +494,13 @@ function Invoke-ExternalCommandWithLog {
     catch {
         $exitCode = if ($exitCode -ne $null) { $exitCode } else { -1 }
         Write-ToolkitLog -Level 'ERROR' -Message "Eccezione durante esecuzione comando esterno" -Context @{
-            Command       = $Command
-            Arguments     = $Arguments
-            WorkingDir    = $WorkingDirectory
-            TimeoutSec    = $TimeoutSeconds
-            ContextKey    = $LogContextKey
-            Exception     = $_.Exception.Message
-            Stack         = $_.ScriptStackTrace
+            Command    = $Command
+            Arguments  = $Arguments
+            WorkingDir = $WorkingDirectory
+            TimeoutSec = $TimeoutSeconds
+            ContextKey = $LogContextKey
+            Exception  = $_.Exception.Message
+            Stack      = $_.ScriptStackTrace
         }
     }
     finally {
@@ -631,7 +631,8 @@ function Reset-Winget {
             $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing -ErrorAction Stop
             $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
             return $asset ? $asset.browser_download_url : $null
-        } catch { return $null }
+        }
+        catch { return $null }
     }
 
     # --- Logica Principale (Orchestrazione start.ps1) ---
@@ -687,7 +688,8 @@ function Reset-Winget {
         try {
             Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
             & (Get-WingetExecutable) source reset --force 2>$null
-        } catch {}
+        }
+        catch {}
 
         Update-EnvironmentPath
         Start-Sleep 2
@@ -698,12 +700,14 @@ function Reset-Winget {
             # Testiamo con una ricerca reale per verificare connettività e database
             $proc = Start-Process -FilePath $testExe -ArgumentList "search", "Git.Git", "--accept-source-agreements" -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
             $proc.ExitCode -eq 0
-        } catch { $false }
+        }
+        catch { $false }
 
         if ($testResult) {
             Write-StyledMessage -Type Success -Text "✅ Winget ripristinato e testato con successo."
             return $true
-        } else {
+        }
+        else {
             Write-StyledMessage -Type Warning -Text "⚠️ Winget installato ma il test di connettività è fallito."
             return $true # Consideriamo successo l'installazione, i problemi di rete sono esterni
         }
@@ -1008,7 +1012,8 @@ function Read-ValidatedChoice {
 
     if ([string]::IsNullOrEmpty($RawInput)) {
         $rawInput = Read-Host $Prompt
-    } else {
+    }
+    else {
         $rawInput = $RawInput
     }
     if ($null -eq $rawInput) { return @() }
@@ -1018,9 +1023,9 @@ function Read-ValidatedChoice {
         return @(0)
     }
 
-    $tokens   = $rawInput -split '[\s,]+' | Where-Object { $_ -match '^\d+$' }
-    $valid    = @()
-    $invalid  = @()
+    $tokens = $rawInput -split '[\s,]+' | Where-Object { $_ -match '^\d+$' }
+    $valid = @()
+    $invalid = @()
 
     foreach ($token in $tokens) {
         $num = [int]$token
@@ -1079,7 +1084,7 @@ function Get-UserConfirmation {
     Write-StyledMessage -Type Warning -Text "⚠️ [DEPRECATED] Get-UserConfirmation sarà rimossa. Non richiederà più conferme."
 
     $yesLabel = if ($Default -eq 'Y') { '[Y]' } else { 'y' }
-    $noLabel  = if ($Default -eq 'N') { '[N]' } else { 'n' }
+    $noLabel = if ($Default -eq 'N') { '[N]' } else { 'n' }
     $fullPrompt = "$Prompt ($yesLabel/$noLabel)"
 
     Write-StyledMessage -Type $Severity -Text $fullPrompt
@@ -1355,7 +1360,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             }
             $tableCols = @(
                 @{ Header = 'Operazione'; Key = 'Operazione' },
-                @{ Header = 'Stato';      Key = 'Stato' },
+                @{ Header = 'Stato'; Key = 'Stato' },
                 @{ Header = 'Dettaglio'; Key = 'Dettaglio' }
             )
             Show-ConsoleTable -Rows $tableRows -Columns $tableCols -Title '📊 Riepilogo Esecuzione'
