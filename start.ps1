@@ -8,7 +8,7 @@
 #>
 
 # --- CONFIGURAZIONE GLOBALE ---
-$ErrorActionPreference = 'Stop'
+# $ErrorActionPreference = 'Stop' # Rimossa per resilienza globale
 $Global:MsgStyles = @{
     Success  = @{ Icon = '✅'; Color = 'Green' }
     Warning  = @{ Icon = '⚠️'; Color = 'Yellow' }
@@ -23,11 +23,12 @@ $script:AppConfig = @{
     # ============================================================================
     Header   = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.2 (Build 20)"
+        Version = "Version 2.5.3 (Build 1)"
     }
     URLs     = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
         WingetMSIX              = "https://aka.ms/getwinget"
+        GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
         OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
         PowerShellProfile       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/Microsoft.PowerShell_profile.ps1"
@@ -94,7 +95,7 @@ function Test-VCRedistInstalled {
     # Require running system native process
     if ($64BitOS -and -not $64BitProcess) {
         Write-StyledMessage -Type Warning -Text "Esegui PowerShell nativo (x64)."
-        return $false
+        # Rimosso early return `$false` in modo da procedere comunque
     }
 
     # Check registry
@@ -601,6 +602,77 @@ function Install-WingetPackage {
     }
 }
 
+function Install-GitPackage {
+    Write-StyledMessage -Type Info -Text "Verifica installazione Git..."
+
+    $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        Write-StyledMessage -Type Success -Text "Git già installato."
+        return $true
+    }
+
+    Write-StyledMessage -Type Info -Text "Installazione Git..."
+
+    # 1. Tentativo via winget (Prioritario)
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        $result = Invoke-WingetCommand -Arguments "install Git.Git --accept-source-agreements --accept-package-agreements --silent"
+
+        if ($result.ExitCode -eq 0) {
+            Start-Sleep 3
+            $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+
+            if (Get-Command git -ErrorAction SilentlyContinue) {
+                Write-StyledMessage -Type Success -Text "Git installato via winget."
+                return $true
+            }
+        }
+    }
+
+    # 2. Fallback: download diretto da GitHub
+    try {
+        Write-StyledMessage -Type Info -Text "Fallback: Download Git da GitHub..."
+        $release = Invoke-RestMethod -Uri $script:AppConfig.URLs.GitRelease -UseBasicParsing
+        $asset = $release.assets | Where-Object { $_.name -like "*64-bit.exe" } | Select-Object -First 1
+
+        if (-not $asset) {
+            Write-StyledMessage -Type Error -Text "Asset Git 64-bit non trovato."
+            return $false
+        }
+
+        $tempDir = $script:AppConfig.Paths.Temp
+        if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
+        $installerPath = Join-Path $tempDir $asset.name
+
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -UseBasicParsing
+
+        Write-StyledMessage -Type Info -Text "Esecuzione installer Git..."
+
+        $procParams = @{
+            FilePath     = $installerPath
+            ArgumentList = @("/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS")
+            Wait         = $true
+            PassThru     = $true
+        }
+        $process = Start-Process @procParams
+
+        Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+
+        if ($process.ExitCode -eq 0) {
+            $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+            Write-StyledMessage -Type Success -Text "Git installato con successo."
+            return $true
+        }
+
+        Write-StyledMessage -Type Error -Text "Installazione fallita. Codice: $($process.ExitCode)"
+        return $false
+    }
+    catch {
+        Write-StyledMessage -Type Error -Text "Errore installazione Git: $($_.Exception.Message)"
+        return $false
+    }
+}
+
 function Format-CenteredText {
     param(
         [string]$Text,
@@ -671,11 +743,12 @@ function Start-ToolkitLog {
         New-Item -Path $logdir -ItemType Directory -Force | Out-Null
     }
     $Global:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
+    Start-Transcript -Path "$logdir\${ToolName}_$dateTime.transcript.log" -Append -Force | Out-Null
 
     # Raccolta metadati
     $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
     $psVer = $PSVersionTable.PSVersion.ToString()
-    
+
     $header = @"
 [START LOG HEADER]
 Start time     : $dateTime
@@ -715,10 +788,11 @@ function Start-AppxSilentProcess {
     #>
     param([string]$AppxPath, [string]$Flags = '-ForceApplicationShutdown')
 
+    $errFile = Join-Path $env:TEMP "AppxError_$([guid]::NewGuid()).txt"
     $cmd = @"
 `$ProgressPreference = 'SilentlyContinue';
 try { Add-AppxPackage -Path '$($AppxPath -replace "'", "''")' $Flags -ErrorAction Stop | Out-Null }
-catch { exit 1 }
+catch { `$_.Exception.Message | Out-File '$errFile' -Encoding UTF8; exit 1 }
 exit 0
 "@
     $encodedCmd = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cmd))
@@ -728,10 +802,19 @@ exit 0
     $psi.Arguments = "-NoProfile -NonInteractive -EncodedCommand $encodedCmd"
     $psi.CreateNoWindow = $true
     $psi.UseShellExecute = $false
-    
+
     $proc = [System.Diagnostics.Process]::Start($psi)
     $proc.WaitForExit()
-    return $proc.ExitCode -eq 0
+
+    if ($proc.ExitCode -ne 0) {
+        if (Test-Path $errFile) {
+            $errMsg = Get-Content $errFile -Raw
+            Write-ToolkitLog -Level 'ERROR' -Message "AppX install failed ($AppxPath): $errMsg"
+            Remove-Item $errFile -Force -ErrorAction SilentlyContinue
+        }
+        return $false
+    }
+    return $true
 }
 
 function Stop-InterferingProcess {
@@ -1317,6 +1400,9 @@ function Invoke-WinToolkitSetup {
             if (-not $wingetDeepCheck) {
                 Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire."
             }
+            
+            $gitInstalled = Install-GitPackage
+
             if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
                 Install-PowerShellCore
             }
@@ -1343,7 +1429,7 @@ function Invoke-WinToolkitSetup {
 
         # Installazioni core
         $wtInstalled = Install-WindowsTerminalApp
-        
+
         # Imposta Windows Terminal come terminale predefinito
         $isWtExecutable = [bool](Get-Command 'wt.exe' -ErrorAction SilentlyContinue)
         if ($wtInstalled -and $isWtExecutable) {
