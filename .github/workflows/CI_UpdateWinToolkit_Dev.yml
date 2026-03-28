@@ -441,23 +441,30 @@ jobs:
           $version = "${{ needs.versioning.outputs.new_version }}"
           $targetDate = $null
 
-          # Trova l'ultima release se esiste
-          $lastRelease = gh release list --limit 1 | Select-String -Pattern "v\d" | ForEach-Object { ($_ -split "`t")[0] }
+          # Cerca l'ultima release STABILE (marcata come Latest)
+          $latestRelease = gh release list --exclude-pre-releases --limit 1 | Select-String -Pattern "v\d" | ForEach-Object { ($_ -split "`t")[0] }
 
-          if ($lastRelease) {
-            Write-Host "Ultima release trovata: $lastRelease"
-            $publishedAt = gh release view $lastRelease --json publishedAt -q .publishedAt
+          if ($latestRelease) {
+            Write-Host "Ultima release stabile (Latest) trovata: $latestRelease"
+            $publishedAt = gh release view $latestRelease --json publishedAt -q .publishedAt
             $targetDate = [datetime]$publishedAt
           } else {
-            Write-Host "Nessuna release precedente trovata. Cerco l'ultimo commit '✅ Compilato WinToolkit v*'"
-            $commitDates = (git log --grep="✅ Compilato WinToolkit v" --format="%aI") -split "`n" | Where-Object { $_ -match "\S" }
-            if ($commitDates.Count -gt 1) {
-                # Prende il penultimo commit (quello dell'esecuzione precedente)
-                $targetDate = [datetime]$commitDates[1]
-                Write-Host "Trovato commit precedente: $targetDate"
+            # Se non c'è stabilità, cercane una qualsiasi per fallback (es. pre-release precedente)
+            $lastAny = gh release list --limit 1 | Select-String -Pattern "v\d" | ForEach-Object { ($_ -split "`t")[0] }
+            if ($lastAny) {
+                Write-Host "Nessuna release stabile trovata. Fallback su release più recente: $lastAny"
+                $publishedAt = gh release view $lastAny --json publishedAt -q .publishedAt
+                $targetDate = [datetime]$publishedAt
             } else {
-                Write-Host "Nessun commit precedente trovato, includo tutte le PR."
-                $targetDate = [datetime]::MinValue
+                Write-Host "Nessuna release trovata. Cerco l'ultimo commit '✅ Compilato WinToolkit v*'"
+                $commitDates = (git log --grep="✅ Compilato WinToolkit v" --format="%aI") -split "`n" | Where-Object { $_ -match "\S" }
+                if ($commitDates.Count -gt 1) {
+                    $targetDate = [datetime]$commitDates[1]
+                    Write-Host "Trovato commit precedente di build: $targetDate"
+                } else {
+                    Write-Host "Nessun riferimento trovato, includo tutte le PR."
+                    $targetDate = [datetime]::MinValue
+                }
             }
           }
 
