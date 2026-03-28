@@ -587,6 +587,51 @@ exit 0
     return [System.Diagnostics.Process]::Start($psi)
 }
 
+function Wait-WingetReady {
+    <#
+    .SYNOPSIS
+        Polling fino a 5 minuti per verificare che Winget sia pronto e il database sbloccato.
+    .DESCRIPTION
+        Verifica sia la risposta dell'eseguibile (--version) che l'accessibilità del database (list).
+        Ritorna $true appena Winget risponde correttamente, $false allo scadere del timeout.
+    #>
+    param(
+        [int]$MaxWaitSeconds = 300,
+        [int]$PollIntervalSeconds = 5
+    )
+
+    Write-StyledMessage -Type Info -Text "🔍 Validazione integrità Winget in corso (timeout: $MaxWaitSeconds s)..."
+
+    $wingetExe = Get-WingetExecutable
+    $maxRetries = [Math]::Floor($MaxWaitSeconds / $PollIntervalSeconds)
+
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        try {
+            # Verifica 1: l'eseguibile risponde?
+            $versionProc = Start-Process -FilePath $wingetExe -ArgumentList '--version' `
+                -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
+
+            # Verifica 2: il database è accessibile? (list su app non esistente, ExitCode 0 = DB ok)
+            $dbProc = Start-Process -FilePath $wingetExe `
+                -ArgumentList 'list', 'NonExistentApp_WinToolkitCheck', '--accept-source-agreements' `
+                -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
+
+            if ($versionProc.ExitCode -eq 0 -and $dbProc.ExitCode -eq 0) {
+                Write-StyledMessage -Type Success -Text "✅ Winget pronto e database sbloccato (tentativo $i/$maxRetries)."
+                return $true
+            }
+        }
+        catch { }
+
+        $remaining = $MaxWaitSeconds - ($i * $PollIntervalSeconds)
+        Write-StyledMessage -Type Progress -Text "⏳ Winget non ancora pronto (tentativo $i/$maxRetries, restano $remaining s). Attesa..."
+        Start-Sleep -Seconds $PollIntervalSeconds
+    }
+
+    Write-StyledMessage -Type Warning -Text "⚠️ Winget non ha risposto entro $MaxWaitSeconds secondi. Proseguo comunque."
+    return $false
+}
+
 function Reset-Winget {
     <#
     .SYNOPSIS
@@ -684,15 +729,34 @@ function Reset-Winget {
             Write-StyledMessage -Type Success -Text "Winget Core installato."
         }
 
-        # 4. Reset & Cleanup
+        # 4. Reset & Cleanup (refactored: sopprime glitch barra di avanzamento + polling attivo)
         try {
-            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
-            & (Get-WingetExecutable) source reset --force 2>$null
+            # Re-registrazione manifest via Start-AppxSilentProcess per bloccare al 100% il leak
+            # della barra "Avanzamento distribuzione" nel deployment engine nativo
+            $manifest = (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue).InstallLocation
+            if ($manifest) {
+                $manifestXml = Join-Path $manifest 'AppxManifest.xml'
+                if (Test-Path $manifestXml) {
+                    Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown'
+                }
+            }
         }
-        catch {}
+        catch { }
 
         Update-EnvironmentPath
-        Start-Sleep 2
+
+        # Polling attivo (max 5 minuti) invece di Start-Sleep fisso
+        $wingetReady = Wait-WingetReady -MaxWaitSeconds 300 -PollIntervalSeconds 5
+
+        if ($wingetReady) {
+            # Reset sorgenti solo se Winget è effettivamente pronto
+            try {
+                $wingetExeForReset = Get-WingetExecutable
+                Start-Process -FilePath $wingetExeForReset -ArgumentList 'source', 'reset', '--force' `
+                    -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+            }
+            catch { }
+        }
 
         # 5. Test Finale (Profondo)
         $testExe = Get-WingetExecutable

@@ -182,6 +182,13 @@ function WinReinstallStore {
             return $false
         }
 
+        # Verifica che il database di Winget sia sbloccato prima di procedere
+        # (previene il codice di errore -1978335212 causato dal lock DB post-installazione Core)
+        if (-not (Wait-WingetReady -MaxWaitSeconds 300 -PollIntervalSeconds 5)) {
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ Winget non risponde entro 5 minuti. Impossibile installare UniGet UI in modo affidabile."
+            return $false
+        }
+
         try {
             # Disinstalla versione precedente
             $null = Invoke-WithSpinner -Activity "Disinstallazione versioni precedenti UniGet UI" -Process -Action {
