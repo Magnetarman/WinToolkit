@@ -1,0 +1,92 @@
+name: Release_Wintoolkit
+
+on:
+  workflow_dispatch:
+    # Nessun input richiesto, l'action è automatizzata sul branch Dev
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create_release_branch:
+    name: Generate Release Branch
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Source Repository (Dev)
+        uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0 # Necessario per fare checkout tra branche
+
+      - name: Estrai Versione da WinToolkit.ps1
+        id: extract_version
+        shell: pwsh
+        run: |
+          If (-Not (Test-Path -Path 'WinToolkit.ps1')) {
+            Write-Error "❌ File WinToolkit.ps1 non trovato nel branch Dev."
+            exit 1
+          }
+          
+          # Cerchiamo la riga esatta: $ToolkitVersion = "2.5.3 (Build 4)"
+          $versionLine = Get-Content -Path 'WinToolkit.ps1' | Select-String -Pattern '\$ToolkitVersion\s*=\s*"(.*?)\s*\(Build'
+          
+          if ($versionLine) {
+            # Estrarrà solo '2.5.3' (il primo gruppo di cattura prima di '(Build')
+            $versionStr = $versionLine.Matches[0].Groups[1].Value.Trim()
+            Write-Host "✅ Versione rilevata: $versionStr"
+            
+            # Formattiamo il nome del branch: v2.5.3 (spazi non ammessi in git)
+            $branchName = "release/v$versionStr"
+            Write-Host "🏷️ Nome Branch Futuro: $branchName"
+            
+            # Esportiamo variabili per step successivi
+            echo "VERSION=$versionStr" >> $env:GITHUB_ENV
+            echo "BRANCH_NAME=$branchName" >> $env:GITHUB_ENV
+          } else {
+            Write-Error "❌ Non è stato possibile estrarre la versione dal file. Formato riga inatteso."
+            exit 1
+          }
+
+      - name: Git Config
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Prepara Branch Rilascio Partendo da Main
+        run: |
+          # Checkout di main (e assicuriamoci sia aggiornato)
+          git checkout main
+          git pull origin main
+          
+          # Creiamo il nuovo branch derivato da main
+          echo "Creazione branch ${{ env.BRANCH_NAME }} basato su main..."
+          # Se il branch esiste localmente o remote, fallirà e l'utente dovrà cancellarlo, o forzare
+          git checkout -b ${{ env.BRANCH_NAME }}
+          
+          # Copia (checkout) parziale dal branch Dev origin/Dev
+          echo "Effettuando checkout parziale da origin/Dev..."
+          
+          # I file specificati verranno sovrascritti nel nuovo branch prendendoli da Dev
+          git checkout origin/Dev -- start.ps1 WinToolkit.ps1 README.md CHANGELOG.md img/ asset/ || {
+            echo "::error::❌ Errore durante l'estrazione parziale dei file."
+            exit 1
+          }
+
+      - name: Commit delle Modifiche
+        run: |
+          # Aggiungiamo solo i file esplicitati (status verificherà che ci siano modifiche)
+          git add start.ps1 WinToolkit.ps1 README.md CHANGELOG.md img/ asset/
+          
+          # Se non ci sono cambiamenti, evitiamo che git commit fallisca e fermiamo l'action con successo
+          git diff-index --quiet HEAD || git commit -m "🚀 Preparazione Release v${{ env.VERSION }} dal branch Dev"
+          
+      - name: Push Branch su Origin
+        run: |
+          echo "Pushing branch ${{ env.BRANCH_NAME }} to origin..."
+          git push origin ${{ env.BRANCH_NAME }} || {
+            echo "::error::❌ Errore durate il git push. Verifica che il branch non esista già con conflitti."
+            exit 1
+          }
+          echo "✅ Push completato! Ora puoi aprire la PR per il merge in main."
