@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.3 (Build 3)"
+$ToolkitVersion = "2.5.3 (Build 4)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -426,6 +426,34 @@ exit 0
     $psi.RedirectStandardError = $true
     return [System.Diagnostics.Process]::Start($psi)
 }
+function Wait-WingetReady {
+    param(
+        [int]$MaxWaitSeconds = 300,
+        [int]$PollIntervalSeconds = 5
+    )
+    Write-StyledMessage -Type Info -Text "🔍 Validazione integrità Winget in corso (timeout: $MaxWaitSeconds s)..."
+    $wingetExe = Get-WingetExecutable
+    $maxRetries = [Math]::Floor($MaxWaitSeconds / $PollIntervalSeconds)
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        try {
+            $versionProc = Start-Process -FilePath $wingetExe -ArgumentList '--version' `
+                -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
+            $dbProc = Start-Process -FilePath $wingetExe `
+                -ArgumentList 'list', 'NonExistentApp_WinToolkitCheck', '--accept-source-agreements' `
+                -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
+            if ($versionProc.ExitCode -eq 0 -and $dbProc.ExitCode -eq 0) {
+                Write-StyledMessage -Type Success -Text "✅ Winget pronto e database sbloccato (tentativo $i/$maxRetries)."
+                return $true
+            }
+        }
+        catch { }
+        $remaining = $MaxWaitSeconds - ($i * $PollIntervalSeconds)
+        Write-StyledMessage -Type Progress -Text "⏳ Winget non ancora pronto (tentativo $i/$maxRetries, restano $remaining s). Attesa..."
+        Start-Sleep -Seconds $PollIntervalSeconds
+    }
+    Write-StyledMessage -Type Warning -Text "⚠️ Winget non ha risposto entro $MaxWaitSeconds secondi. Proseguo comunque."
+    return $false
+}
 function Reset-Winget {
     param([switch]$Force)
     $ProgressPreference = 'SilentlyContinue'
@@ -498,12 +526,25 @@ function Reset-Winget {
             Write-StyledMessage -Type Success -Text "Winget Core installato."
         }
         try {
-            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage -ErrorAction SilentlyContinue
-            & (Get-WingetExecutable) source reset --force 2>$null
+            $manifest = (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue).InstallLocation
+            if ($manifest) {
+                $manifestXml = Join-Path $manifest 'AppxManifest.xml'
+                if (Test-Path $manifestXml) {
+                    Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown'
+                }
+            }
         }
-        catch {}
+        catch { }
         Update-EnvironmentPath
-        Start-Sleep 2
+        $wingetReady = Wait-WingetReady -MaxWaitSeconds 300 -PollIntervalSeconds 5
+        if ($wingetReady) {
+            try {
+                $wingetExeForReset = Get-WingetExecutable
+                Start-Process -FilePath $wingetExeForReset -ArgumentList 'source', 'reset', '--force' `
+                    -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+            }
+            catch { }
+        }
         $testExe = Get-WingetExecutable
         $testResult = try {
             $proc = Start-Process -FilePath $testExe -ArgumentList "search", "Git.Git", "--accept-source-agreements" -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
@@ -1613,6 +1654,10 @@ function WinReinstallStore {
         $wingetExe = Get-WingetExecutable
         if (-not (Test-Path $wingetExe -ErrorAction SilentlyContinue)) {
             Write-StyledMessage -Type 'Warning' -Text "Winget non disponibile. UniGet UI richiede Winget."
+            return $false
+        }
+        if (-not (Wait-WingetReady -MaxWaitSeconds 300 -PollIntervalSeconds 5)) {
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ Winget non risponde entro 5 minuti. Impossibile installare UniGet UI in modo affidabile."
             return $false
         }
         try {
