@@ -8,14 +8,17 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   create_release_branch:
     name: Generate Release Branch
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     
     steps:
       - name: Checkout Source Repository (Dev)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: Dev
           fetch-depth: 0 # Necessario per fare checkout tra branche
@@ -50,43 +53,62 @@ jobs:
           }
 
       - name: Git Config
+        shell: pwsh
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # Risolve il problema dei file "identici" visti come modificati (Line Endings CRLF vs LF)
+          git config --global core.autocrlf true
+          git config --global core.safecrlf false
 
       - name: Prepara Branch Rilascio Partendo da Main
+        shell: pwsh
         run: |
           # Checkout di main (e assicuriamoci sia aggiornato)
           git checkout main
           git pull origin main
           
           # Creiamo il nuovo branch derivato da main
-          echo "Creazione branch ${{ env.BRANCH_NAME }} basato su main..."
-          # Se il branch esiste localmente o remote, fallirà e l'utente dovrà cancellarlo, o forzare
-          git checkout -b ${{ env.BRANCH_NAME }}
+          Write-Host "Creazione branch $($env:BRANCH_NAME) basato su main..."
+          # Se il branch esiste localmente o remote, fallirà e l'utente dovrà cancellarlo
+          git checkout -b $env:BRANCH_NAME
           
           # Copia (checkout) parziale dal branch Dev origin/Dev
-          echo "Effettuando checkout parziale da origin/Dev..."
+          Write-Host "Effettuando checkout parziale da origin/Dev..."
           
           # I file specificati verranno sovrascritti nel nuovo branch prendendoli da Dev
-          git checkout origin/Dev -- start.ps1 WinToolkit.ps1 README.md CHANGELOG.md img/ asset/ || {
-            echo "::error::❌ Errore durante l'estrazione parziale dei file."
+          git checkout origin/Dev -- start.ps1 WinToolkit.ps1 README.md CHANGELOG.md img/ asset/
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "❌ Errore durante l'estrazione parziale dei file."
             exit 1
           }
 
+          # Esclusione specifica della cartella png in asset
+          if (Test-Path -Path 'asset/png') {
+            Write-Host "🗑️ Rimoziene cartella asset/png esclusa dal rilascio..."
+            Remove-Item -Recurse -Force 'asset/png'
+          }
+
       - name: Commit delle Modifiche
+        shell: pwsh
         run: |
-          # Aggiungiamo solo i file esplicitati (status verificherà che ci siano modifiche)
           git add start.ps1 WinToolkit.ps1 README.md CHANGELOG.md img/ asset/
           
-          # Se non ci sono cambiamenti, evitiamo che git commit fallisca e fermiamo l'action con successo
-          git diff-index --quiet HEAD || git commit -m "🚀 Preparazione Release v${{ env.VERSION }} dal branch Dev"
+          # Verifica se ci sono modifiche prima di committare
+          git diff-index --quiet HEAD
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "🚀 Preparazione Release v$($env:VERSION) dal branch Dev"
+          } else {
+            Write-Host "Nessuna modifica rilevata, salto il commit."
+          }
           
       - name: Push Branch su Origin
+        shell: pwsh
         run: |
-          echo "Pushing branch ${{ env.BRANCH_NAME }} to origin..."
-          git push origin ${{ env.BRANCH_NAME }} || {
-            echo "::error::❌ Errore durate il git push. Verifica che il branch non esista già con conflitti."
-            exit 1
+          Write-Host "Pushing branch $($env:BRANCH_NAME) to origin..."
+          git push origin $env:BRANCH_NAME
+          if ($LASTEXITCODE -ne 0) {
+             Write-Error "❌ Errore durante il git push. Verifica che il branch non esista già con conflitti."
+             exit 1
           }
-          echo "✅ Push completato! Ora puoi aprire la PR per il merge in main."
+          Write-Host "✅ Push completato! Ora puoi aprire la PR per il merge in main."
