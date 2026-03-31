@@ -498,10 +498,15 @@ jobs:
             if ($latestRecord) {
               Write-Host "✅ Record con isLatest=true trovato: $($latestRecord.tagName)"
 
-              $targetDate = [System.DateTimeOffset]::Parse(
-                $latestRecord.publishedAt.Trim(),
-                [System.Globalization.CultureInfo]::InvariantCulture
-              ).UtcDateTime
+              $targetRaw = $latestRecord.publishedAt
+              $targetDate = if ($targetRaw -is [System.DateTime]) {
+                $targetRaw
+              } else {
+                [System.DateTimeOffset]::Parse(
+                  $targetRaw.Trim(),
+                  [System.Globalization.CultureInfo]::InvariantCulture
+                ).UtcDateTime
+              }
 
               Write-Host "📅 Data di taglio (publishedAt): $targetDate (UTC)"
             }
@@ -562,11 +567,15 @@ jobs:
           )
 
           $validPrs = $prsObj | Where-Object {
-            # Converti mergedAt da ISO8601 in DateTime UTC per confronto sicuro
-            $mergedAtUtc = [System.DateTimeOffset]::Parse(
-              $_.mergedAt.Trim(),
-              [System.Globalization.CultureInfo]::InvariantCulture
-            ).UtcDateTime
+            # mergedAt è già un DateTime (PS7) o una stringa (PS5)? Gestiamo entrambi.
+            $mergedAtUtc = if ($_.mergedAt -is [System.DateTime]) {
+              $_.mergedAt
+            } else {
+              [System.DateTimeOffset]::Parse(
+                $_.mergedAt.Trim(),
+                [System.Globalization.CultureInfo]::InvariantCulture
+              ).UtcDateTime
+            }
 
             $afterCutoff = $mergedAtUtc -gt $targetDate
 
