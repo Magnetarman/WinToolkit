@@ -353,47 +353,28 @@ function WinReinstallStore {
         Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget."
 
         $wingetResult = $false
-        $wingetError = $null
 
         try {
             $global:ProgressPreference = 'SilentlyContinue'
             $wingetResult = Invoke-WithConsoleRedirection -Action { Reset-Winget -Force }
         }
         catch {
-            $wingetError = $_.Exception.Message
+            Write-StyledMessage -Type 'Error' -Text "Errore imprevisto durante Reset-Winget: $($_.Exception.Message)."
+            Write-ToolkitLog -Level ERROR -Message "Reset-Winget eccezione non gestita: $($_.Exception.Message)"
         }
         finally {
             $global:ProgressPreference = $savedProgressPref
         }
 
-        $isHandleError = $wingetError -and ($wingetError -match '(?i)handle|console|accesso negato|not associated')
-
-        if ($wingetError -and -not $isHandleError) {
-            Write-StyledMessage -Type 'Error' -Text "Winget: errore critico durante l'installazione - $wingetError."
-            Write-ToolkitLog -Level ERROR -Message "Reset-Winget fallito: $wingetError"
-        }
-        elseif ($wingetError -and $isHandleError) {
-            Write-StyledMessage -Type 'Warning' -Text "Winget: avviso console durante l'installazione (non critico) - $wingetError."
-            Write-ToolkitLog -Level WARNING -Message "Reset-Winget handle warning (cosmestico): $wingetError"
+        if ($wingetResult) {
+            Write-StyledMessage -Type 'Success' -Text "Winget ripristinato e operativo."
         }
         else {
-            $msgWinget = $wingetResult ? 'ripristinato con successo' : 'processato (potrebbe richiedere verifica manuale)'
-            Write-StyledMessage -Type ($wingetResult ? 'Success' : 'Warning') -Text "Winget $msgWinget."
+            Write-StyledMessage -Type 'Error' -Text "❌ Ripristino Winget fallito."
         }
 
         $storeResult = Install-MicrosoftStore
         $unigetResult = Install-UniGetUI
-
-        $wingetExe = Get-WingetExecutable
-        $wingetBinaryOk = Test-Path $wingetExe -ErrorAction SilentlyContinue
-        $wingetOk = $wingetBinaryOk -and (-not $wingetError -or $isHandleError)
-
-        if ($wingetOk) {
-            Write-StyledMessage -Type 'Success' -Text "Winget operativo."
-        }
-        else {
-            Write-StyledMessage -Type 'Error' -Text "❌ Winget non operativo."
-        }
  
         if ($storeResult) {
             Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato correttamente."

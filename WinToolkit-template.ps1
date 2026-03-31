@@ -637,18 +637,29 @@ function Reset-Winget {
     .SYNOPSIS
         Verifica, ripristina e testa l'installazione di Winget.
     .DESCRIPTION
-        Procedura integrata e robusta per la riparazione di Winget.
-        Include installazione dipendenze, VC++ Redist e validazione profonda.
+        Procedura integrata e robusta a due fasi per la riparazione completa di Winget.
+
+        Fase 1 - Ripristino Core (veloce):
+          Reinstalla Visual C++ Redistributable, dipendenze AppX dal repository ufficiale
+          e il bundle MSIX principale.
+
+        Fase 2 - Ripristino Avanzato (se la Fase 1 non basta):
+          Installa il modulo Microsoft.WinGet.Client, esegue Repair-WinGetPackageManager,
+          ripara il database (cache, file JSON di stato, Reset-AppxPackage) e corregge
+          permessi e voci PATH di sistema e utente.
+
+        Include validazione profonda post-installazione con rilevamento di crash
+        ACCESS_VIOLATION (codice 0xC0000005 / -1073741819).
     #>
     param([switch]$Force)
 
-    # Suppress native progress bars to prevent UI glitches
     $ProgressPreference = 'SilentlyContinue'
-
-    # Fix encoding per chiamate a eseguibili nativi (es. winget)
     $OutputEncoding = [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
-    # --- Helper Interni (Porting da start.ps1) ---
+    # ─────────────────────────────────────────────────────────────────────────
+    # HELPER PRIVATI
+    # ─────────────────────────────────────────────────────────────────────────
+
     function _Test-VCRedistInstalled {
         $64BitOS = [System.Environment]::Is64BitOperatingSystem
         $registryPath = [string]::Format(
@@ -663,9 +674,12 @@ function Reset-Winget {
 
     function _Invoke-ForceClose {
         Write-StyledMessage -Type Info -Text "Chiusura processi interferenti..."
-        $procs = @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore", "Microsoft.DesktopAppInstaller", "winget", "WindowsPackageManagerServer")
+        $procs = @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore",
+            "Microsoft.DesktopAppInstaller", "winget", "WindowsPackageManagerServer")
         foreach ($p in $procs) {
-            Get-Process -Name $p -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID } | Stop-Process -Force -ErrorAction SilentlyContinue
+            Get-Process -Name $p -ErrorAction SilentlyContinue |
+                Where-Object { $_.Id -ne $PID } |
+                Stop-Process -Force -ErrorAction SilentlyContinue
         }
         Start-Sleep 2
     }
@@ -680,19 +694,280 @@ function Reset-Winget {
         catch { return $null }
     }
 
-    # --- Logica Principale (Orchestrazione start.ps1) ---
+    function _Test-WingetCompatibility {
+        $os = [Environment]::OSVersion.Version
+        if ($os.Major -lt 10 -or ($os.Major -eq 10 -and $os.Build -lt 16299)) {
+            Write-StyledMessage -Type Error -Text "Sistema non supportato da Winget (richiesto Windows 10 1709+)."
+            return $false
+        }
+        return $true
+    }
+
+    function _Test-WingetFunctionality {
+        Update-EnvironmentPath
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            Write-StyledMessage -Type Warning -Text "Winget non trovato nel PATH."
+            return $false
+        }
+        try {
+            $versionOutput = (& (Get-WingetExecutable) --version 2>$null) | Out-String
+            if ($LASTEXITCODE -eq 0 -and $versionOutput -match 'v\d+\.\d+') {
+                Write-StyledMessage -Type Success -Text "Winget operativo (versione: $($versionOutput.Trim()))."
+                return $true
+            }
+            Write-StyledMessage -Type Warning -Text "Winget presente ma non risponde correttamente (ExitCode: $LASTEXITCODE)."
+            return $false
+        }
+        catch {
+            Write-StyledMessage -Type Warning -Text "Errore durante test Winget: $($_.Exception.Message)."
+            return $false
+        }
+    }
+
+    function _Test-PathInEnvironment {
+        param([string]$PathToCheck, [string]$Scope = 'Both')
+        $found = $false
+        if ($Scope -in 'User', 'Both') {
+            if (($env:PATH -split ';').Contains($PathToCheck)) { $found = $true }
+        }
+        if ($Scope -in 'System', 'Both') {
+            $syspath = [Environment]::GetEnvironmentVariable('PATH', 'Machine')
+            if (($syspath -split ';').Contains($PathToCheck)) { $found = $true }
+        }
+        return $found
+    }
+
+    function _Add-ToEnvironmentPath {
+        param([string]$PathToAdd, [ValidateSet('User', 'System')][string]$Scope)
+        if (_Test-PathInEnvironment -PathToCheck $PathToAdd -Scope $Scope) { return }
+        if ($Scope -eq 'System') {
+            $cur = [Environment]::GetEnvironmentVariable('PATH', 'Machine')
+            [Environment]::SetEnvironmentVariable('PATH', "$cur;$PathToAdd", 'Machine')
+        }
+        else {
+            $cur = [Environment]::GetEnvironmentVariable('PATH', 'User')
+            [Environment]::SetEnvironmentVariable('PATH', "$cur;$PathToAdd", 'User')
+        }
+        if (-not ($env:PATH -split ';').Contains($PathToAdd)) { $env:PATH += ";$PathToAdd" }
+        Write-StyledMessage -Type Info -Text "PATH aggiornato: $PathToAdd."
+    }
+
+    function _Set-PathPermissions {
+        param([string]$FolderPath)
+        if (-not (Test-Path $FolderPath)) { return }
+        try {
+            $sid = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')
+            $group = $sid.Translate([System.Security.Principal.NTAccount])
+            $acl = Get-Acl -Path $FolderPath -ErrorAction Stop
+            $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                $group, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+            $acl.SetAccessRule($rule)
+            Set-Acl -Path $FolderPath -AclObject $acl -ErrorAction Stop
+            Write-StyledMessage -Type Info -Text "Permessi cartella aggiornati: $FolderPath."
+        }
+        catch {
+            Write-StyledMessage -Type Warning -Text "Impossibile impostare permessi su '$FolderPath': $($_.Exception.Message)."
+        }
+    }
+
+    function _Set-WingetPathPermissions {
+        $wingetFolderPath = $null
+        try {
+            $arch = [Environment]::Is64BitOperatingSystem ? 'x64' : 'x86'
+            $wingetDir = Get-ChildItem "$env:ProgramFiles\WindowsApps" `
+                -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" `
+                -ErrorAction SilentlyContinue |
+                Sort-Object Name -Descending | Select-Object -First 1
+            if ($wingetDir) { $wingetFolderPath = $wingetDir.FullName }
+        }
+        catch {}
+        if ($wingetFolderPath) {
+            _Set-PathPermissions -FolderPath $wingetFolderPath
+            _Add-ToEnvironmentPath -PathToAdd $wingetFolderPath -Scope 'System'
+            _Add-ToEnvironmentPath -PathToAdd '%LOCALAPPDATA%\Microsoft\WindowsApps' -Scope 'User'
+            Write-StyledMessage -Type Success -Text "PATH e permessi Winget aggiornati."
+        }
+    }
+
+    function _Repair-WingetDatabase {
+        Write-StyledMessage -Type Info -Text "🔧 Ripristino database Winget."
+        try {
+            $procs = @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore",
+                "Microsoft.DesktopAppInstaller", "winget", "WindowsPackageManagerServer")
+            foreach ($p in $procs) {
+                Get-Process -Name $p -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Id -ne $PID } |
+                    Stop-Process -Force -ErrorAction SilentlyContinue
+            }
+            Start-Sleep 2
+
+            # Pulizia cache locale (escludi lock e tmp)
+            $cachePath = "$env:LOCALAPPDATA\WinGet"
+            if (Test-Path $cachePath) {
+                Write-StyledMessage -Type Info -Text "Pulizia cache Winget."
+                Get-ChildItem -Path $cachePath -Recurse -Force -ErrorAction SilentlyContinue |
+                    Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
+                    ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {} }
+            }
+
+            # Rimuovi file di stato JSON corrotti
+            @("$env:LOCALAPPDATA\WinGet\Data\USERTEMPLATE.json",
+              "$env:LOCALAPPDATA\WinGet\Data\DEFAULTUSER.json") | ForEach-Object {
+                if (Test-Path $_ -PathType Leaf) {
+                    Write-StyledMessage -Type Info -Text "Reset file stato: $_."
+                    Remove-Item $_ -Force -ErrorAction SilentlyContinue
+                }
+            }
+
+            # Reset sorgenti Winget
+            try { $null = & (Get-WingetExecutable) source reset --force 2>&1 } catch {}
+
+            # Reset pacchetto AppInstaller (corregge ACCESS_VIOLATION)
+            if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
+                Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
+            }
+
+            # Repair via modulo WinGet se disponibile
+            try {
+                if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
+                    Write-StyledMessage -Type Info -Text "Esecuzione Repair-WinGetPackageManager."
+                    Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
+                }
+            }
+            catch {
+                Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager non disponibile: $($_.Exception.Message)."
+            }
+
+            _Set-WingetPathPermissions
+            Update-EnvironmentPath
+            return $true
+        }
+        catch {
+            Write-StyledMessage -Type Error -Text "Errore durante ripristino database: $($_.Exception.Message)."
+            return $false
+        }
+    }
+
+    function _Install-WingetAdvanced {
+        Write-StyledMessage -Type Info -Text "🚀 Installazione avanzata tramite modulo Microsoft.WinGet.Client."
+        try {
+            # NuGet provider (necessario per PS 5.1)
+            if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
+                if ($PSVersionTable.PSVersion.Major -lt 7) {
+                    try {
+                        Install-PackageProvider -Name 'NuGet' -Force -ForceBootstrap -ErrorAction SilentlyContinue *>$null
+                    }
+                    catch { Write-StyledMessage -Type Warning -Text "NuGet provider non installabile." }
+                }
+            }
+
+            # Modulo Microsoft.WinGet.Client
+            Write-StyledMessage -Type Info -Text "Installazione modulo Microsoft.WinGet.Client."
+            try {
+                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
+                Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
+                Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
+                Write-StyledMessage -Type Success -Text "Modulo WinGet Client installato."
+            }
+            catch {
+                Write-StyledMessage -Type Warning -Text "Impossibile installare modulo WinGet Client: $($_.Exception.Message)."
+            }
+
+            # Repair-WinGetPackageManager
+            if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
+                Write-StyledMessage -Type Info -Text "Tentativo Repair-WinGetPackageManager."
+                try {
+                    Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
+                    Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager completato."
+                }
+                catch {
+                    Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)."
+                }
+                Start-Sleep 3
+            }
+
+            # Fallback: MSIXBundle diretto MS se winget ancora assente
+            Update-EnvironmentPath
+            if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+                Write-StyledMessage -Type Info -Text "Fallback: Download MSIXBundle diretto da Microsoft."
+                $tempDir = $AppConfig.Paths.Temp
+                if (-not (Test-Path $tempDir)) { $null = New-Item -Path $tempDir -ItemType Directory -Force }
+                $tempInstaller = Join-Path $tempDir "WingetInstaller.msixbundle"
+                Invoke-WebRequest -Uri $AppConfig.URLs.WingetInstaller -OutFile $tempInstaller -UseBasicParsing -ErrorAction Stop
+                Start-AppxSilentProcess -AppxPath $tempInstaller -Flags '-ForceApplicationShutdown'
+                Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue
+                Start-Sleep 3
+            }
+
+            # Reset finale AppInstaller
+            try { Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null } catch {}
+
+            _Set-WingetPathPermissions
+            Update-EnvironmentPath
+            return $true
+        }
+        catch {
+            Write-StyledMessage -Type Error -Text "Errore installazione avanzata Winget: $($_.Exception.Message)."
+            return $false
+        }
+    }
+
+    function _Test-WingetDeepValidation {
+        Write-StyledMessage -Type Info -Text "🔍 Validazione profonda Winget (connettività + integrità database)."
+        try {
+            $wingetExe = Get-WingetExecutable
+            $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
+            $exitCode = $LASTEXITCODE
+
+            # Rilevamento crash ACCESS_VIOLATION (0xC0000005 = -1073741819)
+            if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
+                Write-StyledMessage -Type Warning -Text "⚠️ Crash ACCESS_VIOLATION (ExitCode: $exitCode). Ripristino database."
+                $null = _Repair-WingetDatabase
+                Start-Sleep 3
+                $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
+                $exitCode = $LASTEXITCODE
+                if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
+                    Write-StyledMessage -Type Warning -Text "⚠️ Crash persistente dopo ripristino database."
+                    return $false
+                }
+            }
+
+            if ($exitCode -eq 0) {
+                Write-StyledMessage -Type Success -Text "✅ Validazione profonda superata: Winget comunica con i repository."
+                return $true
+            }
+            $details = ($searchResult | Out-String).Trim()
+            if ($details.Length -gt 200) { $details = $details.Substring(0, 200) + "..." }
+            Write-StyledMessage -Type Warning -Text "⚠️ Validazione profonda fallita (ExitCode=$exitCode). Dettagli: $details"
+            return $false
+        }
+        catch {
+            Write-StyledMessage -Type Error -Text "Errore validazione profonda: $($_.Exception.Message)."
+            return $false
+        }
+    }
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # LOGICA PRINCIPALE — Orchestrazione a Due Fasi
+    # ─────────────────────────────────────────────────────────────────────────
     Write-StyledMessage -Type Info -Text "🚀 Avvio riparazione avanzata Winget..."
 
-    $os = [Environment]::OSVersion.Version
-    if ($os.Major -lt 10 -or ($os.Major -eq 10 -and $os.Build -lt 16299)) {
-        Write-StyledMessage -Type Error -Text "Sistema non supportato da Winget."
-        return $false
+    # 0. Verifica compatibilità OS
+    if (-not (_Test-WingetCompatibility)) { return $false }
+
+    # 1. Se Winget funziona già e non è forzata la riparazione, esci subito
+    if (-not $Force -and (_Test-WingetFunctionality)) {
+        Write-StyledMessage -Type Success -Text "✅ Winget già operativo. Nessuna riparazione necessaria."
+        return $true
     }
 
     _Invoke-ForceClose
 
     try {
-        # 1. VC++ Redist (Base)
+        # ── FASE 1: RIPRISTINO CORE (VELOCE) ─────────────────────────────────
+        Write-StyledMessage -Type Info -Text "⚡ Fase 1: Ripristino Core (VC++, dipendenze AppX, MSIXBundle)."
+
+        # 1a. VC++ Redistributable
         if (-not (_Test-VCRedistInstalled) -or $Force) {
             Write-StyledMessage -Type Info -Text "Installazione Visual C++ Redistributable..."
             $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
@@ -704,8 +979,8 @@ function Reset-Winget {
             Write-StyledMessage -Type Success -Text "VC++ Redist installato."
         }
 
-        # 2. Dipendenze AppX
-        Write-StyledMessage -Type Info -Text "Download dipendenze Winget..."
+        # 1b. Dipendenze AppX dal repository ufficiale
+        Write-StyledMessage -Type Info -Text "Download dipendenze Winget dal repository ufficiale..."
         $depUrl = _Get-LatestAssetUrl -Match 'DesktopAppInstaller_Dependencies.zip'
         if ($depUrl) {
             $depZip = Join-Path $AppConfig.Paths.Temp "dependencies.zip"
@@ -713,13 +988,16 @@ function Reset-Winget {
             Invoke-WebRequest -Uri $depUrl -OutFile $depZip -UseBasicParsing
             Expand-Archive -Path $depZip -DestinationPath $depDir -Force
             $archPattern = [Environment]::Is64BitOperatingSystem ? "x64|ne" : "x86|ne"
-            Get-ChildItem $depDir -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $archPattern } | ForEach-Object {
-                Start-AppxSilentProcess -AppxPath $_.FullName
-            }
+            Get-ChildItem $depDir -Recurse -Filter "*.appx" |
+                Where-Object { $_.Name -match $archPattern } |
+                ForEach-Object {
+                    Write-StyledMessage -Type Info -Text "Installazione dipendenza: $($_.Name)."
+                    Start-AppxSilentProcess -AppxPath $_.FullName
+                }
             Write-StyledMessage -Type Success -Text "Dipendenze caricate."
         }
 
-        # 3. MSIX Bundle (Il Cuore)
+        # 1c. MSIXBundle principale
         Write-StyledMessage -Type Info -Text "Installazione Winget MSIXBundle..."
         $bundleUrl = _Get-LatestAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
         if ($bundleUrl) {
@@ -729,10 +1007,8 @@ function Reset-Winget {
             Write-StyledMessage -Type Success -Text "Winget Core installato."
         }
 
-        # 4. Reset & Cleanup (refactored: sopprime glitch barra di avanzamento + polling attivo)
+        # 1d. Re-registrazione manifest (previene leak barra avanzamento deployment engine)
         try {
-            # Re-registrazione manifest via Start-AppxSilentProcess per bloccare al 100% il leak
-            # della barra "Avanzamento distribuzione" nel deployment engine nativo
             $manifest = (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue).InstallLocation
             if ($manifest) {
                 $manifestXml = Join-Path $manifest 'AppxManifest.xml'
@@ -745,11 +1021,22 @@ function Reset-Winget {
 
         Update-EnvironmentPath
 
-        # Polling attivo (max 5 minuti) invece di Start-Sleep fisso
+        # Risultato Fase 1
+        if (_Test-WingetFunctionality) {
+            Write-StyledMessage -Type Success -Text "✅ Fase 1 completata. Winget operativo."
+        }
+        else {
+            # ── FASE 2: RIPRISTINO AVANZATO ──────────────────────────────────
+            Write-StyledMessage -Type Warning -Text "⚠️ Fase 1 insufficiente. Avvio Fase 2: Ripristino Avanzato."
+            $null = _Install-WingetAdvanced
+            $null = _Repair-WingetDatabase
+            Update-EnvironmentPath
+        }
+
+        # Polling attivo (max 5 minuti) — attende che Winget e il DB siano pronti
         $wingetReady = Wait-WingetReady -MaxWaitSeconds 300 -PollIntervalSeconds 5
 
         if ($wingetReady) {
-            # Reset sorgenti solo se Winget è effettivamente pronto
             try {
                 $wingetExeForReset = Get-WingetExecutable
                 Start-Process -FilePath $wingetExeForReset -ArgumentList 'source', 'reset', '--force' `
@@ -758,22 +1045,16 @@ function Reset-Winget {
             catch { }
         }
 
-        # 5. Test Finale (Profondo)
-        $testExe = Get-WingetExecutable
-        $testResult = try {
-            # Testiamo con una ricerca reale per verificare connettività e database
-            $proc = Start-Process -FilePath $testExe -ArgumentList "search", "Git.Git", "--accept-source-agreements" -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
-            $proc.ExitCode -eq 0
-        }
-        catch { $false }
+        # Validazione profonda finale (connettività + rilevamento ACCESS_VIOLATION)
+        $deepOk = _Test-WingetDeepValidation
 
-        if ($testResult) {
+        if ($deepOk) {
             Write-StyledMessage -Type Success -Text "✅ Winget ripristinato e testato con successo."
             return $true
         }
         else {
-            Write-StyledMessage -Type Warning -Text "⚠️ Winget installato ma il test di connettività è fallito."
-            return $true # Consideriamo successo l'installazione, i problemi di rete sono esterni
+            Write-StyledMessage -Type Warning -Text "⚠️ Winget installato. La validazione profonda ha rilevato anomalie (possibili problemi di rete o DB)."
+            return $true  # L'installazione è avvenuta; i problemi di rete/DB sono esterni
         }
     }
     catch {
@@ -1458,7 +1739,6 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
 
 
 

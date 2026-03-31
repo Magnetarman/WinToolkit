@@ -35,9 +35,6 @@ function GamingToolkit {
     # 2. CONFIGURAZIONE E VARIABILI LOCALI
     # ============================================================================
 
-    $osInfo = Get-ComputerInfo
-    $buildNumber = $osInfo.OsBuildNumber
-    $isWindows11Pre23H2 = ($buildNumber -ge 22000) -and ($buildNumber -lt 22631)
     $timeout = 3600    # Un'ora in secondi
 
     # ============================================================================
@@ -106,12 +103,6 @@ function GamingToolkit {
         }
     }
 
-    if ($isWindows11Pre23H2) {
-        Write-StyledMessage Warning "Versione obsoleta rilevata. Winget potrebbe non funzionare."
-        $response = Read-Host "Eseguire riparazione Winget? (Y/N)"
-        if ($response -match '^[Yy]$') { WinReinstallStore }
-    }
-
     $Host.UI.RawUI.WindowTitle = "Gaming Toolkit by MagnetarMan"
 
     # Countdown preparazione
@@ -119,16 +110,21 @@ function GamingToolkit {
 
     Show-Header -SubTitle "Gaming Toolkit"
 
-    # Step 1: Verifica Winget
-    Write-StyledMessage Info '🔍 Verifica Winget.'
+    # Step 1: Verifica e ripristino automatico Winget (centralizzato tramite Reset-Winget)
+    Write-StyledMessage Info '🔍 Verifica disponibilità Winget.'
+    Update-EnvironmentPath
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-StyledMessage Error 'Winget non disponibile.'
-        Write-StyledMessage Info 'Esegui reset Store/Winget e riprova.'
-        Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare.'
-        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-        return
+        Write-StyledMessage Warning '⚠️ Winget non disponibile. Avvio ripristino automatico...'
+        $resetOk = Reset-Winget
+        Update-EnvironmentPath
+        if (-not $resetOk -or -not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            Write-StyledMessage Error '❌ Ripristino Winget fallito. Impossibile procedere con Gaming Toolkit.'
+            Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare.'
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            return
+        }
     }
-    Write-StyledMessage Success 'Winget funzionante.'
+    Write-StyledMessage Success '✅ Winget disponibile.'
 
     Write-StyledMessage Info '🔄 Aggiornamento sorgenti Winget.'
     try {
