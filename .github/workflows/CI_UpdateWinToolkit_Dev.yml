@@ -608,15 +608,13 @@ jobs:
           $reduction = "${{ needs.build.outputs.reduction_percent }}"
           $linesRemoved = "${{ needs.build.outputs.lines_removed }}"
 
-          $releaseBody += @"
-`n### 📊 Statistiche Compressione`n
-| Metrica          | Valore         |
-|------------------|----------------|
-| Peso Sorgente    | $sourceKB KB   |
-| Peso Finale      | $outputKB KB   |
-| Riduzione        | $reduction%    |
-| Righe Eliminate  | $linesRemoved  |
-"@
+          $releaseBody += "`n### 📊 Statistiche Compressione`n`n"
+          $releaseBody += "| Metrica          | Valore         |`n"
+          $releaseBody += "|------------------|----------------|`n"
+          $releaseBody += "| Peso Sorgente    | $sourceKB KB   |`n"
+          $releaseBody += "| Peso Finale      | $outputKB KB   |`n"
+          $releaseBody += "| Riduzione        | $reduction%    |`n"
+          $releaseBody += "| Righe Eliminate  | $linesRemoved  |`n"
 
           Write-Host "── Anteprima release_body.md ──"
           Write-Host $releaseBody
