@@ -439,71 +439,195 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $version = "${{ needs.versioning.outputs.new_version }}"
+
+          # ─────────────────────────────────────────────────────────────────────
+          # FASE 1 — Identificazione della release di riferimento ("Latest")
+          #
+          # Logica a tre livelli:
+          #   1. Cerca la release STABILE più recente (--exclude-pre-releases).
+          #      Questo corrisponde alla release marcata "Latest" su GitHub.
+          #   2. Se non esiste, risale l'intera cronologia delle release cercando
+          #      il flag isLatest:true via JSON (include pre-release se è l'unica).
+          #   3. Fallback assoluto: usa la data del primo commit del repository
+          #      così da includere l'intera storia (repo nuovo, nessuna release).
+          # ─────────────────────────────────────────────────────────────────────
           $targetDate = $null
 
-          # Cerca l'ultima release STABILE (marcata come Latest)
-          $latestRelease = gh release list --exclude-pre-releases --limit 1 | Select-String -Pattern "v\d" | ForEach-Object { ($_ -split "`t")[0] }
+          Write-Host "──────────────────────────────────────────"
+          Write-Host "  FASE 1: Ricerca release di riferimento"
+          Write-Host "──────────────────────────────────────────"
 
-          if ($latestRelease) {
-            Write-Host "Ultima release stabile (Latest) trovata: $latestRelease"
-            $publishedAt = gh release view $latestRelease --json publishedAt -q .publishedAt
-            $targetDate = [datetime]$publishedAt
-          } else {
-            # Se non c'è stabilità, cercane una qualsiasi per fallback (es. pre-release precedente)
-            $lastAny = gh release list --limit 1 | Select-String -Pattern "v\d" | ForEach-Object { ($_ -split "`t")[0] }
-            if ($lastAny) {
-                Write-Host "Nessuna release stabile trovata. Fallback su release più recente: $lastAny"
-                $publishedAt = gh release view $lastAny --json publishedAt -q .publishedAt
-                $targetDate = [datetime]$publishedAt
-            } else {
-                Write-Host "Nessuna release trovata. Cerco l'ultimo commit '✅ Compilato WinToolkit v*'"
-                $commitDates = (git log --grep="✅ Compilato WinToolkit v" --format="%aI") -split "`n" | Where-Object { $_ -match "\S" }
-                if ($commitDates.Count -gt 1) {
-                    $targetDate = [datetime]$commitDates[1]
-                    Write-Host "Trovato commit precedente di build: $targetDate"
-                } else {
-                    Write-Host "Nessun riferimento trovato, includo tutte le PR."
-                    $targetDate = [datetime]::MinValue
-                }
+          # ── Tentativo 1: release stabile più recente (status = Latest) ──────
+          $stableTag = gh release list `
+            --exclude-pre-releases `
+            --limit 1 `
+            --json tagName,publishedAt `
+            --jq '.[0].tagName' 2>$null
+
+          if ($stableTag -and $stableTag.Trim() -ne '') {
+            $stableTag = $stableTag.Trim()
+            Write-Host "✅ Release stabile (Latest) trovata: $stableTag"
+
+            $publishedAtRaw = gh release view $stableTag `
+              --json publishedAt `
+              --jq '.publishedAt'
+
+            # Parsing ISO8601 in modo esplicito per evitare errori di cultura
+            $targetDate = [System.DateTimeOffset]::Parse(
+              $publishedAtRaw.Trim(),
+              [System.Globalization.CultureInfo]::InvariantCulture
+            ).UtcDateTime
+
+            Write-Host "📅 Data di taglio (publishedAt): $targetDate (UTC)"
+          }
+
+          # ── Tentativo 2: risali tutte le release cercando isLatest:true ─────
+          if (-not $targetDate) {
+            Write-Host "⚠️  Nessuna release stabile trovata. Scansione cronologia completa..."
+
+            # Recupera tutte le release (max 200) in JSON con i campi utili
+            $allReleasesJson = gh release list `
+              --limit 200 `
+              --json tagName,publishedAt,isLatest,isPrerelease
+
+            $allReleases = $allReleasesJson | ConvertFrom-Json
+
+            # Cerca il primo record con isLatest = true (già ordinato per data desc)
+            $latestRecord = $allReleases | Where-Object { $_.isLatest -eq $true } | Select-Object -First 1
+
+            if ($latestRecord) {
+              Write-Host "✅ Record con isLatest=true trovato: $($latestRecord.tagName)"
+
+              $targetDate = [System.DateTimeOffset]::Parse(
+                $latestRecord.publishedAt.Trim(),
+                [System.Globalization.CultureInfo]::InvariantCulture
+              ).UtcDateTime
+
+              Write-Host "📅 Data di taglio (publishedAt): $targetDate (UTC)"
             }
           }
 
-          # Ottieni le PR limitando a 100 per sicurezza
-          $prsJson = gh pr list --state merged --base Dev --limit 100 --json title,url,author,mergedAt
-          $prsObj = $prsJson | ConvertFrom-Json
-          if ($null -eq $prsObj) { $prsObj = @() }
+          # ── Fallback assoluto: data del primo commit (repository nuovo) ──────
+          if (-not $targetDate) {
+            Write-Host "⚠️  Nessuna release trovata. Uso la data del primo commit come fallback."
 
-          # Filtra PR in base alla data e all'autore
-          $validPrs = $prsObj | Where-Object { 
-            ([datetime]$_.mergedAt -gt $targetDate) -and ($_.author.login -ne 'MagnetarMan') 
+            $firstCommitDateRaw = git log --reverse --format="%aI" | Select-Object -First 1
+
+            if ($firstCommitDateRaw -and $firstCommitDateRaw.Trim() -ne '') {
+              $targetDate = [System.DateTimeOffset]::Parse(
+                $firstCommitDateRaw.Trim(),
+                [System.Globalization.CultureInfo]::InvariantCulture
+              ).UtcDateTime
+
+              # Sottraiamo 1 secondo per includere anche il primissimo commit
+              $targetDate = $targetDate.AddSeconds(-1)
+              Write-Host "📅 Data di taglio (primo commit): $targetDate (UTC)"
+            } else {
+              Write-Host "⚠️  Impossibile determinare il primo commit. Includo tutte le PR."
+              $targetDate = [System.DateTime]::MinValue
+            }
           }
+
+          # ─────────────────────────────────────────────────────────────────────
+          # FASE 2 — Recupero e filtraggio delle Pull Request
+          #
+          # - Base branch: Dev
+          # - Stato: merged
+          # - Filtro data: mergedAt STRETTAMENTE successivo a $targetDate
+          # - Esclusi: owner (MagnetarMan) e bot (login terminante con [bot])
+          # ─────────────────────────────────────────────────────────────────────
+          Write-Host ""
+          Write-Host "──────────────────────────────────────────"
+          Write-Host "  FASE 2: Recupero e filtro PR"
+          Write-Host "──────────────────────────────────────────"
+          Write-Host "🔍 Filtro PR mergiate dopo: $targetDate (UTC)"
+
+          $prsJson = gh pr list `
+            --state merged `
+            --base Dev `
+            --limit 200 `
+            --json title,url,author,mergedAt
+
+          $prsObj = $prsJson | ConvertFrom-Json
+          if (-not $prsObj) { $prsObj = @() }
+
+          Write-Host "📋 PR totali recuperate: $($prsObj.Count)"
+
+          # Lista di pattern bot/automazione da escludere
+          $botPatterns = @(
+            'MagnetarMan',       # Owner del repository
+            '*[bot]',            # Bot generici GitHub (es. github-actions[bot])
+            'dependabot*',       # Dependabot
+            'renovate*'          # Renovate bot
+          )
+
+          $validPrs = $prsObj | Where-Object {
+            # Converti mergedAt da ISO8601 in DateTime UTC per confronto sicuro
+            $mergedAtUtc = [System.DateTimeOffset]::Parse(
+              $_.mergedAt.Trim(),
+              [System.Globalization.CultureInfo]::InvariantCulture
+            ).UtcDateTime
+
+            $afterCutoff = $mergedAtUtc -gt $targetDate
+
+            # Controlla se l'autore corrisponde a uno dei pattern esclusi
+            $authorLogin = $_.author.login
+            $isExcluded = $false
+            foreach ($pattern in $botPatterns) {
+              if ($authorLogin -like $pattern) {
+                $isExcluded = $true
+                break
+              }
+            }
+
+            $afterCutoff -and (-not $isExcluded)
+          }
+
+          Write-Host "✅ PR valide (dopo il filtro): $($validPrs.Count)"
+
+          # ─────────────────────────────────────────────────────────────────────
+          # FASE 3 — Composizione del corpo della release
+          # ─────────────────────────────────────────────────────────────────────
+          Write-Host ""
+          Write-Host "──────────────────────────────────────────"
+          Write-Host "  FASE 3: Generazione release notes"
+          Write-Host "──────────────────────────────────────────"
 
           $releaseBody = "### 🛠 Modifiche dai Collaboratori`n`n"
+
           if ($validPrs.Count -gt 0) {
             foreach ($pr in $validPrs) {
-              $releaseBody += "- [$($pr.title)]($($pr.url)) - @$($pr.author.login)`n"
+              $releaseBody += "- [$($pr.title)]($($pr.url)) — @$($pr.author.login)`n"
             }
           } else {
-            $releaseBody += "Nessun contributo esterno in questa build.`n"
+            $releaseBody += "_Nessun contributo esterno in questa build._`n"
           }
 
-          $sourceKB = "${{ needs.build.outputs.source_kb }}"
-          $outputKB = "${{ needs.build.outputs.output_kb }}"
+          $sourceKB  = "${{ needs.build.outputs.source_kb }}"
+          $outputKB  = "${{ needs.build.outputs.output_kb }}"
           $reduction = "${{ needs.build.outputs.reduction_percent }}"
           $linesRemoved = "${{ needs.build.outputs.lines_removed }}"
 
-          $releaseBody += "`n### 📊 Statistiche Compressione`n`n"
-          $releaseBody += "| Metrica | Valore |`n"
-          $releaseBody += "|---------|--------|`n"
-          $releaseBody += "| Peso Sorgente | $sourceKB KB |`n"
-          $releaseBody += "| Peso Finale | $outputKB KB |`n"
-          $releaseBody += "| Riduzione | $reduction% |`n"
-          $releaseBody += "| Righe Eliminate | $linesRemoved |`n"
+          $releaseBody += @"
+`n### 📊 Statistiche Compressione`n
+| Metrica          | Valore         |
+|------------------|----------------|
+| Peso Sorgente    | $sourceKB KB   |
+| Peso Finale      | $outputKB KB   |
+| Riduzione        | $reduction%    |
+| Righe Eliminate  | $linesRemoved  |
+"@
 
-          Write-Host "Contenuto della release:"
+          Write-Host "── Anteprima release_body.md ──"
           Write-Host $releaseBody
 
-          $releaseBody | Out-File -FilePath release_body.md -Encoding utf8
+          # Scrivi il file in UTF-8 senza BOM (compatibile con gh release)
+          [System.IO.File]::WriteAllText(
+            (Join-Path $PWD "release_body.md"),
+            $releaseBody,
+            [System.Text.UTF8Encoding]::new($false)
+          )
+          Write-Host "✅ release_body.md scritto correttamente."
 
       - name: Create Pre-Release
         shell: pwsh
