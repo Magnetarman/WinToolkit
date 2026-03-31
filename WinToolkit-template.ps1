@@ -1033,17 +1033,16 @@ function Reset-Winget {
             Update-EnvironmentPath
         }
 
-        # Polling attivo (max 5 minuti) — attende che Winget e il DB siano pronti
-        $wingetReady = Wait-WingetReady -MaxWaitSeconds 300 -PollIntervalSeconds 5
+        # Pausa breve di stabilizzazione post-installazione (senza polling bloccante)
+        Start-Sleep -Seconds 3
 
-        if ($wingetReady) {
-            try {
-                $wingetExeForReset = Get-WingetExecutable
-                Start-Process -FilePath $wingetExeForReset -ArgumentList 'source', 'reset', '--force' `
-                    -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-            }
-            catch { }
+        # Reset immediato delle sorgenti Winget
+        try {
+            $wingetExeForReset = Get-WingetExecutable
+            Start-Process -FilePath $wingetExeForReset -ArgumentList 'source', 'reset', '--force' `
+                -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
         }
+        catch { }
 
         # Validazione profonda finale (connettività + rilevamento ACCESS_VIOLATION)
         $deepOk = _Test-WingetDeepValidation
