@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.3 (Build 5)"
+$ToolkitVersion = "2.5.3 (Build 6)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -772,15 +772,13 @@ function Reset-Winget {
             $null = _Repair-WingetDatabase
             Update-EnvironmentPath
         }
-        $wingetReady = Wait-WingetReady -MaxWaitSeconds 300 -PollIntervalSeconds 5
-        if ($wingetReady) {
-            try {
-                $wingetExeForReset = Get-WingetExecutable
-                Start-Process -FilePath $wingetExeForReset -ArgumentList 'source', 'reset', '--force' `
-                    -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-            }
-            catch { }
+        Start-Sleep -Seconds 3
+        try {
+            $wingetExeForReset = Get-WingetExecutable
+            Start-Process -FilePath $wingetExeForReset -ArgumentList 'source', 'reset', '--force' `
+                -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
         }
+        catch { }
         $deepOk = _Test-WingetDeepValidation
         if ($deepOk) {
             Write-StyledMessage -Type Success -Text "✅ Winget ripristinato e testato con successo."
@@ -1885,10 +1883,6 @@ function WinReinstallStore {
         $wingetExe = Get-WingetExecutable
         if (-not (Test-Path $wingetExe -ErrorAction SilentlyContinue)) {
             Write-StyledMessage -Type 'Warning' -Text "Winget non disponibile. UniGet UI richiede Winget."
-            return $false
-        }
-        if (-not (Wait-WingetReady -MaxWaitSeconds 300 -PollIntervalSeconds 5)) {
-            Write-StyledMessage -Type 'Warning' -Text "⚠️ Winget non risponde entro 5 minuti. Impossibile installare UniGet UI in modo affidabile."
             return $false
         }
         try {
