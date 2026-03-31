@@ -202,7 +202,7 @@ function WinReinstallStore {
             $processResult = Invoke-WithSpinner -Activity "Installazione UniGet UI" -Process -Action {
                 $procParams = @{
                     FilePath     = $wingetExe
-                    ArgumentList = @('install', '--exact', '--id', 'MartiCliment.UniGetUI',
+                    ArgumentList = @('install', '--exact', '--id', 'Devolutions.UniGetUI',
                         '--source', 'winget', '--accept-source-agreements',
                         '--accept-package-agreements', '--silent',
                         '--disable-interactivity', '--force')
