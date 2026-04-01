@@ -23,7 +23,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header   = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.3 (Build 5)"
+        Version = "Version 2.5.3 (Build 9)"
     }
     URLs     = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1385,8 +1385,10 @@ function Test-SystemReadiness {
     # 2. Verifica Windows Update (Aggiornamenti pendenti)
     $updatesReady = $false
     try {
+        Write-StyledMessage -Type Progress -Text "Controllo Windows Update (Scansione locale)..."
         $session = New-Object -ComObject Microsoft.Update.Session
         $searcher = $session.CreateUpdateSearcher()
+        $searcher.Online = $false # Impedisce la ricerca in rete che causa il blocco
         # Cerca aggiornamenti non installati
         $result = $searcher.Search("IsInstalled=0 and IsHidden=0")
         if ($result.Updates.Count -eq 0) {
