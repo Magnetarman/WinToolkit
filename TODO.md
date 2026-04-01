@@ -1,6 +1,24 @@
 # To-Do
 
 ### V 2.5.3
+- `WinReinstallStore.ps1` migliorato.
+  - [x] Risolto Bug invalidante nella riparazione di Winget.
+  - [x] Aggiornata la Pipeline di ripristino Store e Winget per adattarla alle modifiche di Windows 24H2 e 25H2.
+  - [x] Fix id installazione UnigetUI causa cambio sviluppatore.
+
+- `WinToolkit.ps1` Aggiornato.
+  - [x] Centralizzata funzione di riparazione Winget.
+  - [x] Eliminato codice ridondante.  
+
+- `start.ps1` migliorato.  
+  - [x] Risolto Bug invalidante nella riparazione di Winget.
+  - [x] Aggiornata la Pipeline di ripristino Store e Winget per adattarla alle modifiche di Windows 24H2 e 25H2.
+  - [x] Aggiunto check dello script di start interattivo per la verifica di aggiornamenti Windows in corso e Defender attivo.
+
+- Aggiornata Pipeline CI/CD.
+  - [x] Fix corretto azzeramento lista contributori dopo release pubblica.
+  - [x] Creata Github action manuale per creazione Pull request di passaggio a Dev a main automatizzata.    
+
 
 ### V 2.6 - Debloat
 
