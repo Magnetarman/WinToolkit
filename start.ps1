@@ -23,7 +23,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header   = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.3 (Build 1)"
+        Version = "Version 2.5.3 (Build 5)"
     }
     URLs     = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -41,7 +41,6 @@ $script:AppConfig = @{
         Logs          = "$env:LOCALAPPDATA\WinToolkit\logs"
         WinToolkitDir = "$env:LOCALAPPDATA\WinToolkit"
         Temp          = "$env:TEMP\WinToolkitSetup"
-        PowerShell7   = "$env:ProgramFiles\PowerShell\7"
         Packages      = "$env:LOCALAPPDATA\Packages"
         Desktop       = [Environment]::GetFolderPath('Desktop')
         wtExe         = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
@@ -1023,8 +1022,10 @@ function Set-PathPermissions {
 function Install-PowerShellCore {
     Write-StyledMessage -Type Info -Text "Verifica PowerShell 7."
 
-    $ps7Path = $script:AppConfig.Paths.PowerShell7
-    if (Test-Path $ps7Path) {
+    $ps7Path64 = "$env:SystemDrive\Program Files\PowerShell\7"
+    $ps7Path32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7"
+
+    if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32)) {
         Write-StyledMessage -Type Success -Text "PowerShell 7 già installato."
         return $true
     }
@@ -1039,7 +1040,7 @@ function Install-PowerShellCore {
 
         if ($result.ExitCode -eq 0) {
             Start-Sleep 3
-            if (Test-Path $ps7Path) {
+            if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Get-Command pwsh -ErrorAction SilentlyContinue)) {
                 Write-StyledMessage -Type Success -Text "PowerShell 7 installato via Winget."
                 return $true
             }
@@ -1367,6 +1368,41 @@ function New-ToolkitDesktopShortcut {
 # FUNZIONE PRINCIPALE
 # ============================================================================
 
+function Test-SystemReadiness {
+    Write-StyledMessage -Type Info -Text "Esecuzione controlli di integrità sistema..."
+    
+    # 1. Verifica Windows Defender
+    $defenderReady = $false
+    try {
+        $status = Get-MpComputerStatus -ErrorAction SilentlyContinue
+        if ($null -eq $status -or ($status.AntivirusEnabled -eq $false -and $status.RealTimeProtectionEnabled -eq $false)) {
+            $defenderReady = $true
+        }
+    } catch {
+        $defenderReady = $true # Se non può leggere lo stato, assumiamo sia spento o rimosso
+    }
+
+    # 2. Verifica Windows Update (Aggiornamenti pendenti)
+    $updatesReady = $false
+    try {
+        $session = New-Object -ComObject Microsoft.Update.Session
+        $searcher = $session.CreateUpdateSearcher()
+        # Cerca aggiornamenti non installati
+        $result = $searcher.Search("IsInstalled=0 and IsHidden=0")
+        if ($result.Updates.Count -eq 0) {
+            $updatesReady = $true
+        }
+    } catch {
+        $updatesReady = $true # Fallback se il servizio update è bloccato
+    }
+
+    return @{
+        Defender = $defenderReady
+        Updates  = $updatesReady
+        Count    = if ($null -eq $result) { 0 } else { $result.Updates.Count }
+    }
+}
+
 function Invoke-WinToolkitSetup {
     param(
         [switch]$InstallProfileOnly
@@ -1405,8 +1441,35 @@ function Invoke-WinToolkitSetup {
             return
         }
 
-        Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
+        # --- INIZIO PRE-FLIGHT CHECK ---
+        while ($true) {
+            Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
+            $check = Test-SystemReadiness
 
+            if ($check.Defender -and $check.Updates) {
+                Write-StyledMessage -Type Success -Text "Ambiente pronto per l'installazione."
+                break # Esci dal loop e prosegui lo script
+            }
+
+            Write-Host "`n" + ("!" * 65) -ForegroundColor Yellow
+            if (-not $check.Defender) {
+                Write-StyledMessage -Type Warning -Text "ATTENZIONE: Windows Defender è ATTIVO."
+                Write-StyledMessage -Type Info -Text "Disabilita la protezione in tempo reale per evitare blocchi."
+            }
+            if (-not $check.Updates) {
+                Write-StyledMessage -Type Warning -Text "ATTENZIONE: Ci sono $($check.Count) aggiornamenti Windows pendenti."
+                Write-StyledMessage -Type Info -Text "Attendi il completamento degli aggiornamenti prima di proseguire."
+            }
+            Write-Host ("!" * 65) -ForegroundColor Yellow
+            
+            Write-Host "`n[Pressione tasto] Riprova i controlli" -ForegroundColor Cyan
+            Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
+            
+            $key = [Console]::ReadKey($true)
+            if ($key.Key -eq 'Escape') { exit }
+            Clear-Host
+        }
+        # --- FINE PRE-FLIGHT CHECK ---
         Write-StyledMessage -Type Info -Text "PowerShell: $($PSVersionTable.PSVersion)."
         if ($PSVersionTable.PSVersion.Major -lt 7) {
             Write-StyledMessage -Type Warning -Text "PowerShell 7 raccomandato per funzionalità avanzate."
@@ -1459,14 +1522,17 @@ function Invoke-WinToolkitSetup {
             }
         }
 
-        if ($PSVersionTable.PSVersion.Major -lt 7 -and (Test-Path "$env:ProgramFiles\PowerShell\7\pwsh.exe")) {
+        $pwshExe64 = "$env:SystemDrive\Program Files\PowerShell\7\pwsh.exe"
+        $pwshExe32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7\pwsh.exe"
+        $pwshExe = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { $null }
+
+        if ($PSVersionTable.PSVersion.Major -lt 7 -and $pwshExe) {
             Write-StyledMessage -Type Info -Text "✨ Rilevata PowerShell 7. Upgrade dell'ambiente di esecuzione."
             Start-Sleep 2
             $env:WINTOOLKIT_RESUME = "1"
-            $ps7Path = $script:AppConfig.Paths.PowerShell7
 
             $procParams = @{
-                FilePath     = Join-Path $ps7Path "pwsh.exe"
+                FilePath     = $pwshExe
                 ArgumentList = @("-ExecutionPolicy", "Bypass", "-NoExit", "-Command", "`"$scriptBlockForRelaunch`"")
                 Verb         = "RunAs"
             }
@@ -1510,8 +1576,10 @@ function Invoke-WinToolkitSetup {
         $canLaunchWT = (Get-Command "wt.exe" -ErrorAction SilentlyContinue)
         if (-not ($env:WT_SESSION) -and $canLaunchWT) {
             Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal."
-            $pwshPath = Join-Path $script:AppConfig.Paths.PowerShell7 "pwsh.exe"
-            if (-not (Test-Path $pwshPath)) { $pwshPath = "powershell.exe" }
+            $pwshExe64 = "$env:SystemDrive\Program Files\PowerShell\7\pwsh.exe"
+            $pwshExe32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7\pwsh.exe"
+            $pwshPath = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { "powershell.exe" }
+            
             $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
 
             try {
