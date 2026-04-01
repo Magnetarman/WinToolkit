@@ -552,22 +552,43 @@ function Invoke-ExternalCommandWithLog {
 # Helper: installa AppX tramite System.Diagnostics.Process (CreateNoWindow=true).
 # Blocca in modo assoluto le write Win32 native del deployment engine e gestisce l'errore di downgrade.
 function Start-AppxSilentProcess {
-    param([string]$AppxPath, [string]$Flags = '-ForceApplicationShutdown')
+    param(
+        [string]$AppxPath, 
+        [string]$Flags = '-ForceApplicationShutdown',
+        [string[]]$DependencyPaths = @()
+    )
 
     # Costruzione sicura del comando interno
     # Usiamo -Register se presente nei flags, altrimenti -Path
     $pathParam = ($Flags -match '-Register') ? "" : "-Path '$($AppxPath -replace "'", "''")'"
+    
+    $depString = ""
+    if ($DependencyPaths.Count -gt 0) {
+        $depString = "-DependencyPackagePath " + (($DependencyPaths | ForEach-Object { "'$($_ -replace "'", "''")'" }) -join ", ")
+    }
 
-    # Script interno: sopprime TUTTO l'output nativo e gestisce il downgrade (0x80073D06)
+    # Script interno: sopprime TUTTO l'output nativo e gestisce il downgrade (0x80073D06) e bypass SYSTEM
     $cmd = @"
 `$ProgressPreference = 'SilentlyContinue';
 `$ErrorActionPreference = 'SilentlyContinue';
 try {
-    Add-AppxPackage $pathParam $Flags -ErrorAction Stop | Out-Null
+    Add-AppxPackage $pathParam $depString $Flags -ErrorAction Stop | Out-Null
 }
 catch {
     if (`$_.Exception.Message -match '0x80073D06' -or `$_.Exception.Message -match 'versione successiva') {
         exit 0
+    }
+    if (`$_.Exception.Message -match '0x80073CF9' -or ([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem)) {
+        try {
+            if ('$pathParam' -eq '') {
+                exit 1 # Register for manifest not supported via Provisioned
+            }
+            Add-AppxProvisionedPackage -Online -PackagePath '$($AppxPath -replace "'", "''")' $depString -SkipLicense -ErrorAction Stop | Out-Null
+            exit 0
+        }
+        catch {
+            exit 1
+        }
     }
     exit 1
 }
@@ -827,6 +848,17 @@ function Reset-Winget {
                 Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
             }
 
+            try {
+                $manifest = (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue).InstallLocation
+                if ($manifest) {
+                    $manifestXml = Join-Path $manifest 'AppxManifest.xml'
+                    if (Test-Path $manifestXml) {
+                        Write-StyledMessage -Type Info -Text "Re-registrazione manifest: AppxManifest.xml."
+                        Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown' | Out-Null
+                    }
+                }
+            } catch { }
+
             # Repair via modulo WinGet se disponibile
             try {
                 if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
@@ -835,7 +867,12 @@ function Reset-Winget {
                 }
             }
             catch {
-                Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager non disponibile: $($_.Exception.Message)."
+                if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
+                    Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager completato (versione superiore già presente)."
+                }
+                else {
+                    Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)."
+                }
             }
 
             _Set-WingetPathPermissions
@@ -881,7 +918,11 @@ function Reset-Winget {
                     Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager completato."
                 }
                 catch {
-                    Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)."
+                    if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
+                        Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager ignorato (versione superiore già presente)."
+                    } else {
+                        Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)."
+                    }
                 }
                 Start-Sleep 3
             }
@@ -988,22 +1029,24 @@ function Reset-Winget {
             Invoke-WebRequest -Uri $depUrl -OutFile $depZip -UseBasicParsing
             Expand-Archive -Path $depZip -DestinationPath $depDir -Force
             $archPattern = [Environment]::Is64BitOperatingSystem ? "x64|ne" : "x86|ne"
+            $script:WingetDependencies = @()
             Get-ChildItem $depDir -Recurse -Filter "*.appx" |
                 Where-Object { $_.Name -match $archPattern } |
                 ForEach-Object {
-                    Write-StyledMessage -Type Info -Text "Installazione dipendenza: $($_.Name)."
-                    Start-AppxSilentProcess -AppxPath $_.FullName
+                    Write-StyledMessage -Type Info -Text "Trovata dipendenza: $($_.Name)."
+                    $script:WingetDependencies += $_.FullName
                 }
             Write-StyledMessage -Type Success -Text "Dipendenze caricate."
         }
 
         # 1c. MSIXBundle principale
-        Write-StyledMessage -Type Info -Text "Installazione Winget MSIXBundle..."
+        Write-StyledMessage -Type Info -Text "Installazione Winget MSIXBundle (con dipendenze)..."
         $bundleUrl = _Get-LatestAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
         if ($bundleUrl) {
             $bundleFile = Join-Path $AppConfig.Paths.Temp "winget.msixbundle"
             Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing
-            Start-AppxSilentProcess -AppxPath $bundleFile -Flags '-ForceApplicationShutdown'
+            $deps = if ($script:WingetDependencies) { $script:WingetDependencies } else { @() }
+            Start-AppxSilentProcess -AppxPath $bundleFile -DependencyPaths $deps -Flags '-ForceApplicationShutdown'
             Write-StyledMessage -Type Success -Text "Winget Core installato."
         }
 
@@ -1738,7 +1781,6 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
 
 
 
