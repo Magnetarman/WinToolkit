@@ -23,7 +23,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header   = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.3 (Build 10)"
+        Version = "Version 2.5.3 (Build 12)"
     }
     URLs     = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -294,7 +294,7 @@ function Repair-WingetDatabase {
         }
         catch {
             if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
-                Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager completato (versione superiore già presente)."
+                Write-StyledMessage -Type Info -Text "Repair-WinGetPackageManager completato (versione superiore già presente)."
             }
             else {
                 Write-StyledMessage -Type Warning -Text "Modulo Riparazione fallito: $($_.Exception.Message)."
@@ -346,7 +346,7 @@ function Test-WingetDeepValidation {
             # 2. Se crasha ancora, prova la reinstallazione completa
             if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
                 Write-StyledMessage -Type Warning -Text "⚠️ Crash persistente. Avvio reinstallazione completa Winget."
-                $null = Install-WingetPackage
+                $null = Install-WingetPackage -Force
 
                 Write-StyledMessage -Type Info -Text "🔄 Test finale dopo reinstallazione."
                 Start-Sleep 3
@@ -507,6 +507,8 @@ function Install-WingetCore {
 }
 
 function Install-WingetPackage {
+    param([switch]$Force)
+
     Write-StyledMessage -Type Info -Text "🚀 Avvio procedura installazione/verifica Winget."
 
     if (-not (Test-WingetCompatibility)) {
@@ -523,44 +525,44 @@ function Install-WingetPackage {
         $tempPath = "$env:TEMP\WinGet"
         if (Test-Path $tempPath) {
             Remove-Item -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
-            Write-StyledMessage -Type Info -Text "Cache temporanea eliminata."
         }
 
         # Reset sorgenti se Winget esiste
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-StyledMessage -Type Info -Text "Reset sorgenti Winget."
             try {
                 $null = & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
             }
             catch {}
         }
 
-        # Installa NuGet se richiesto (basato su asheroto)
-        Write-StyledMessage -Type Info -Text "Verifica/installazione NuGet provider."
-        Install-NuGetIfRequired
+        if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
+            Write-StyledMessage -Type Info -Text "Verifica/installazione NuGet provider."
+            Install-NuGetIfRequired
+        }
 
-        # Fallback: Installazione dipendenze NuGet
-        Write-StyledMessage -Type Info -Text "Installazione modulo Microsoft.WinGet.Client."
-        try {
-            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
-            Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
-            Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
-            Write-StyledMessage -Type Success -Text "Modulo WinGet Client installato."
+        if (-not (Get-Module -ListAvailable Microsoft.WinGet.Client) -or $Force) {
+            Write-StyledMessage -Type Info -Text "Installazione modulo Microsoft.WinGet.Client."
+            try {
+                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
+                Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
+                Write-StyledMessage -Type Success -Text "Modulo WinGet Client installato."
+            }
+            catch {
+                Write-StyledMessage -Type Warning -Text "Modulo WinGet Client: $($_.Exception.Message)."
+            }
         }
-        catch {
-            Write-StyledMessage -Type Warning -Text "Modulo WinGet Client: $($_.Exception.Message)."
-        }
+        Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
 
         # Riparazione via modulo
-        Write-StyledMessage -Type Info -Text "Tentativo riparazione Winget (Repair-WinGetPackageManager)."
         if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
+            Write-StyledMessage -Type Info -Text "Tentativo riparazione Winget (Repair-WinGetPackageManager)."
             try {
                 Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
                 Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager eseguito."
             }
             catch {
                 if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
-                    Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager ignorato (versione superiore già presente)."
+                    Write-StyledMessage -Type Info -Text "Repair-WinGetPackageManager ignorato (versione superiore già presente)."
                 } else {
                     Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)."
                 }
@@ -570,8 +572,9 @@ function Install-WingetPackage {
 
         # Fallback finale: installazione via MSIXBundle
         Update-EnvironmentPath
-        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue) -or $Force) {
             Write-StyledMessage -Type Info -Text "Download MSIXBundle da Microsoft."
+
             $msixTempDir = $script:AppConfig.Paths.Temp
             if (-not (Test-Path $msixTempDir)) {
                 $null = New-Item -Path $msixTempDir -ItemType Directory -Force
