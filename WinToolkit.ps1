@@ -70,7 +70,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.3 (Build 6)"
+$ToolkitVersion = "2.5.3 (Build 7)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
@@ -1902,7 +1902,7 @@ function WinReinstallStore {
             $processResult = Invoke-WithSpinner -Activity "Installazione UniGet UI" -Process -Action {
                 $procParams = @{
                     FilePath     = $wingetExe
-                    ArgumentList = @('install', '--exact', '--id', 'MartiCliment.UniGetUI',
+                    ArgumentList = @('install', '--exact', '--id', 'Devolutions.UniGetUI',
                         '--source', 'winget', '--accept-source-agreements',
                         '--accept-package-agreements', '--silent',
                         '--disable-interactivity', '--force')
