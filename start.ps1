@@ -23,7 +23,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header   = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.3 (Build 9)"
+        Version = "Version 2.5.3 (Build 10)"
     }
     URLs     = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1375,7 +1375,7 @@ function Test-SystemReadiness {
     $defenderReady = $false
     try {
         $status = Get-MpComputerStatus -ErrorAction SilentlyContinue
-        if ($null -eq $status -or ($status.AntivirusEnabled -eq $false -and $status.RealTimeProtectionEnabled -eq $false)) {
+        if ($null -eq $status -or $status.RealTimeProtectionEnabled -eq $false) {
             $defenderReady = $true
         }
     } catch {
