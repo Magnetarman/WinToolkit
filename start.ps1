@@ -23,7 +23,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header   = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.3 (Build 12)"
+        Version = "Version 2.5.3 (Build 13)"
     }
     URLs     = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1028,7 +1028,7 @@ function Install-PowerShellCore {
     $ps7Path64 = "$env:SystemDrive\Program Files\PowerShell\7"
     $ps7Path32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7"
 
-    if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32)) {
+    if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Get-Command pwsh -ErrorAction SilentlyContinue)) {
         Write-StyledMessage -Type Success -Text "PowerShell 7 già installato."
         return $true
     }
@@ -1097,7 +1097,7 @@ function Install-PowerShellCore {
 
         Start-Sleep 3
 
-        if ((Test-Path $ps7Path) -or $process.ExitCode -eq 0) {
+        if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Get-Command pwsh -ErrorAction SilentlyContinue) -or $process.ExitCode -eq 0) {
             Write-StyledMessage -Type Success -Text "PowerShell 7 installato con successo."
             return $true
         }
@@ -1519,7 +1519,8 @@ function Invoke-WinToolkitSetup {
             
             $gitInstalled = Install-GitPackage
 
-            if (-not (Test-Path "$env:ProgramFiles\PowerShell\7")) {
+            # Controllo rapido che non richieda chiamate e garantisca fallback veloce
+            if (-not (Test-Path "$env:ProgramFiles\PowerShell\7") -and -not (Test-Path "${env:ProgramFiles(x86)}\PowerShell\7") -and -not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
                 Install-PowerShellCore
             }
             else {
