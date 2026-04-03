@@ -13,9 +13,9 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.2.11"
+$ProfileVersion = "2.5.3.1"
 
-$URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/main/asset/speedtest.exe"
+$URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
 $URL_WINTOOLKIT_DEV = "https://magnetarman.com/WinToolkit-Dev"
 $URL_WINREG = "https://get.activated.win"
@@ -266,7 +266,7 @@ function PSProfileUpdate {
     param()
 
     $localProfilePath = $PROFILE
-    $remoteProfileUrl = $URL_PROFILE_MAIN
+    $remoteProfileUrl = $URL_PROFILE
 
     Write-Host "🔍 Verifica aggiornamenti per il profilo PowerShell..." -ForegroundColor Cyan
 
