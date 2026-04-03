@@ -77,7 +77,22 @@ jobs:
           Write-Host "Effettuando checkout parziale da origin/Dev..."
           
           # I file specificati verranno sovrascritti nel nuovo branch prendendoli da Dev
-          git checkout origin/Dev -- start.ps1 WinToolkit.ps1 README.md CHANGELOG.md img/ asset/
+          $filesToInclude = @(
+            "start.ps1",
+            "WinToolkit.ps1",
+            "README.md",
+            "CHANGELOG.md",
+            "LICENSE",
+            "img/",
+            "asset/",
+            ".github/ISSUE_TEMPLATE/bug_report.yml",
+            ".github/ISSUE_TEMPLATE/feature_request.yml",
+            ".github/workflows/Release_Wintoolkit.yml",
+            ".github/CODE_OF_CONDUCT.md",
+            ".github/CONTRIBUTING.md",
+            ".github/pull_request_template.md"
+          )
+          git checkout origin/Dev -- $filesToInclude
           if ($LASTEXITCODE -ne 0) {
             Write-Error "❌ Errore durante l'estrazione parziale dei file."
             exit 1
@@ -92,7 +107,22 @@ jobs:
       - name: Commit delle Modifiche
         shell: pwsh
         run: |
-          git add start.ps1 WinToolkit.ps1 README.md CHANGELOG.md img/ asset/
+          $filesToInclude = @(
+            "start.ps1",
+            "WinToolkit.ps1",
+            "README.md",
+            "CHANGELOG.md",
+            "LICENSE",
+            "img/",
+            "asset/",
+            ".github/ISSUE_TEMPLATE/bug_report.yml",
+            ".github/ISSUE_TEMPLATE/feature_request.yml",
+            ".github/workflows/Release_Wintoolkit.yml",
+            ".github/CODE_OF_CONDUCT.md",
+            ".github/CONTRIBUTING.md",
+            ".github/pull_request_template.md"
+          )
+          git add $filesToInclude
           
           # Verifica se ci sono modifiche prima di committare
           git diff-index --quiet HEAD
