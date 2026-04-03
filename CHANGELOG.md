@@ -13,7 +13,7 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 ### Correzioni
 
 - **WinReinstallStore.ps1**
-  - Risolto Bug invalidante nella riparazione di Winget.
+  - Risolto Bug invalidante nella riparazione di Winget. [[#59](https://github.com/MagnetarMan/WinToolkit/issues/59) [@pomodori92]](https://github.com/pomodori92)
   - Aggiornata la Pipeline di ripristino Store e Winget per adattarla alle modifiche di Windows 24H2 e 25H2.
   - Fix id installazione UnigetUI causa cambio sviluppatore.
 
@@ -22,7 +22,7 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
   - Eliminato codice ridondante.  
 
 - **start.ps1**
-  - Risolto Bug invalidante nella riparazione di Winget.
+  - Risolto Bug invalidante nella riparazione di Winget. 
   - Aggiornata la Pipeline di ripristino Store e Winget per adattarla alle modifiche di Windows 24H2 e 25H2.
   - Aggiunto check dello script di start interattivo per la verifica di aggiornamenti Windows in corso e Defender attivo.
 
