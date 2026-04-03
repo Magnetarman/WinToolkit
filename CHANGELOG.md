@@ -6,6 +6,34 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 
 ---
 
+## [2.5.3] - CODENAME: "Deborah" - 2026-04-03 ([#64](https://github.com/MagnetarMan/WinToolkit/issues/64))
+
+### Aggiunte
+
+### Correzioni
+
+- **WinReinstallStore.ps1**
+  - Risolto Bug invalidante nella riparazione di Winget. [[#59](https://github.com/MagnetarMan/WinToolkit/issues/59) [@pomodori92]](https://github.com/pomodori92)
+  - Aggiornata la Pipeline di ripristino Store e Winget per adattarla alle modifiche di Windows 24H2 e 25H2.
+  - Fix id installazione UnigetUI causa cambio sviluppatore.
+
+- **WinToolkit.ps1**
+  - Centralizzata funzione di riparazione Winget.
+  - Eliminato codice ridondante.  
+
+- **start.ps1**
+  - Risolto Bug invalidante nella riparazione di Winget. 
+  - Aggiornata la Pipeline di ripristino Store e Winget per adattarla alle modifiche di Windows 24H2 e 25H2.
+  - Aggiunto check dello script di start interattivo per la verifica di aggiornamenti Windows in corso e Defender attivo.
+
+- **Aggiornata Pipeline CI/CD**
+  - Fix corretto azzeramento lista contributori dopo release pubblica.
+  - Creata Github action manuale per creazione Pull request di passaggio a Dev a main automatizzata.    
+
+### Modifiche
+
+---
+
 ## [2.5.2] - CODENAME: "Deborah" - 2026-03-26 ([#58](https://github.com/MagnetarMan/WinToolkit/issues/58))
 
 ### Aggiunte

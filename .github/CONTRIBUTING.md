@@ -2,6 +2,14 @@
 
 Questo progetto è reso possibile dal contributo di queste fantastiche persone. Un grande **GRAZIE** per il vostro tempo e le vostre energie!
 
+## Hall of Fame
+
+i contributori presenti in questa sezione speciale si sono contraddistinti particolarmente per il supporto al progetto, in forma monetaria tramite donazione di qualsiasi importo oppure agevolazioni varie come supporto allo sviluppo di WinToolkit e per questo meritano un grazie speciale.
+
+| Nome        | Contributo  |
+|------------ |------------ |
+
+
 ---
 
 ## 💻 Contributori Attuali (Ordine Temporale)
