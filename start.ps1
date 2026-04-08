@@ -1517,7 +1517,12 @@ function Invoke-WinToolkitSetup {
                 Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire."
             }
 
-            $gitInstalled = Install-GitPackage
+            # Verifica se l'installazione di Git è andata a buon fine.
+            if (Install-GitPackage) {
+                Write-StyledMessage -Type Success -Text "✅ Git è già operativo."
+            } else {
+                Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: Git non è stato installato oppure potrebbe non funzionare correttamente."
+            }
 
             # Controllo rapido che non richieda chiamate e garantisca fallback veloce
             if (-not (Test-Path "$env:ProgramFiles\PowerShell\7") -and -not (Test-Path "${env:ProgramFiles(x86)}\PowerShell\7") -and -not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
