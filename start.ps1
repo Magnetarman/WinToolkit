@@ -1511,7 +1511,7 @@ function Invoke-WinToolkitSetup {
                 Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
             }
 
-            # Validazione profonda
+            # Verifica in modo approfondito che Winget funzioni correttamente.
             if (-not $(Test-WingetDeepValidation)) {
                 Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire."
             }
