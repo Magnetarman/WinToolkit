@@ -22,7 +22,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header   = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 2)"
+        Version = "Version 2.5.4 (Build 3)"
     }
     URLs     = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1565,7 +1565,10 @@ function Invoke-WinToolkitSetup {
         }
 
         Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
-        Start-Sleep 3
+        for ($i = 5; $i -gt 0; $i--) {
+            Write-Host ("`r[$((Get-Date).ToString('HH:mm:ss'))] ⏳ Chiusura automatica in $i secondi... ") -NoNewline -ForegroundColor Cyan
+            Start-Sleep 1
+        }
         exit
     }
     catch {
