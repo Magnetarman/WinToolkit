@@ -8,9 +8,17 @@
   - [x] Eliminata funzione `Install-NuGetIfRequired` e il suo pre-check ridondante in `Install-WingetPackage`.
   - [x] Rimossa una chiamata ridondante a `Update-EnvironmentPath` prima del fallback MSIX.
   - [x] Rimosso il if con warning non bloccante in `Test-VCRedistInstalled`.
-  - [x] Corretta numerazione passi in `Repair-WingetDatabase`..
+  - [x] Corretta numerazione passi in `Repair-WingetDatabase`.
+  - [x] Aggiunto countdown di 5 secondi prima della chiusura dello script. Adesso alla fine dell'installazione lo script si chiude automaticamente se ogni operazione è stata eseguita con successo.
 
   - `WinToolkit-template.ps1` Aggiornato.
+    - [x] Contrassegnata come `[DEPRECATA]` la funzione `Get-UserConfirmation` per futura rimozione.
+    - [x] Sostituita la chiusura dei processi duplicata nel ripristino di Winget integrando la funzione `Stop-ToolkitProcesses`.
+    - [x] Consolidata e de-duplicata registrazione `AppxManifest.xml` tramite funzione interna dedicata.
+    - [x] Aggiunto caching a `Get-SystemInfo` azzerando latenze CIM durante il ricarico del menu principale.
+    - [x] Inserita funzione `Initialize-ToolkitPaths` centralizzata per i folder log/temp, chiamata fuori ciclo prima della UI.
+    - [x] Ottimizzato wrapper custom `Read-Host` tramite interruzione bloccante `ReadKey()` cancellando overhead della CPU nel polling loop.
+    - [x] Uniformati link e blocchi di configurazioni `AppConfig` centrali.
 
 ### V 2.6 - Debloat
 
