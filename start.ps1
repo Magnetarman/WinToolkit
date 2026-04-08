@@ -65,20 +65,21 @@ function Find-WinGet {
         $resolveWingetPath = Resolve-Path -Path $wingetPathToResolve -ErrorAction Stop | Sort-Object {
             [version]($_.Path -replace '^[^\d]+_((\d+\.)*\d+)_.*', '$1')
         }
-
-        if ($resolveWingetPath) {
-            $wingetPath = $resolveWingetPath[-1].Path
+        if ($null -eq $resolveWingetPath) {
+            Write-StyledMessage -Type Error -Text "Errore nella risoluzione del percorso di Winget."
+            return $null
         }
-
+        $wingetPath = $resolveWingetPath[-1].Path
         $wingetExe = Join-Path $wingetPath 'winget.exe'
-
         if (Test-Path -Path $wingetExe) {
             return $wingetExe
-        }
+        } # else
+        Write-StyledMessage -Type Error -Text "Errore nel trovare il percorso di Winget."
         return $null
     }
     catch {
-        return $null
+       Write-StyledMessage -Type Error -Text "Errore: $($_.Exception.Message)"
+       return $null
     }
 }
 
@@ -283,7 +284,8 @@ function Repair-WingetDatabase {
                     Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown' | Out-Null
                 }
             }
-        } catch { }
+        }
+        catch { }
 
         # 7. Riprova con il modulo WinGet se disponibile
         try {
@@ -563,7 +565,8 @@ function Install-WingetPackage {
             catch {
                 if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
                     Write-StyledMessage -Type Info -Text "Repair-WinGetPackageManager ignorato (versione superiore già presente)."
-                } else {
+                }
+                else {
                     Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)."
                 }
             }
@@ -1381,7 +1384,8 @@ function Test-SystemReadiness {
         if ($null -eq $status -or $status.RealTimeProtectionEnabled -eq $false) {
             $defenderReady = $true
         }
-    } catch {
+    }
+    catch {
         $defenderReady = $true # Se non può leggere lo stato, assumiamo sia spento o rimosso
     }
 
@@ -1397,7 +1401,8 @@ function Test-SystemReadiness {
         if ($result.Updates.Count -eq 0) {
             $updatesReady = $true
         }
-    } catch {
+    }
+    catch {
         $updatesReady = $true # Fallback se il servizio update è bloccato
     }
 
@@ -1511,13 +1516,18 @@ function Invoke-WinToolkitSetup {
                 Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
             }
 
-            # Validazione profonda
-            $wingetDeepCheck = Test-WingetDeepValidation
-            if (-not $wingetDeepCheck) {
+            # Verifica in modo approfondito che Winget funzioni correttamente.
+            if (-not $(Test-WingetDeepValidation)) {
                 Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire."
             }
 
-            $gitInstalled = Install-GitPackage
+            # Verifica se l'installazione di Git è andata a buon fine.
+            if (Install-GitPackage) {
+                Write-StyledMessage -Type Success -Text "✅ Git è già operativo."
+            }
+            else {
+                Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: Git non è stato installato oppure potrebbe non funzionare correttamente."
+            }
 
             # Controllo rapido che non richieda chiamate e garantisca fallback veloce
             if (-not (Test-Path "$env:ProgramFiles\PowerShell\7") -and -not (Test-Path "${env:ProgramFiles(x86)}\PowerShell\7") -and -not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
