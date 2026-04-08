@@ -1512,8 +1512,7 @@ function Invoke-WinToolkitSetup {
             }
 
             # Validazione profonda
-            $wingetDeepCheck = Test-WingetDeepValidation
-            if (-not $wingetDeepCheck) {
+            if (-not $(Test-WingetDeepValidation)) {
                 Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire."
             }
 
