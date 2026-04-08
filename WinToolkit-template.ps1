@@ -100,7 +100,7 @@ function Read-Host {
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.3 (Build 14)"
+$ToolkitVersion = "2.5.4 (Build 1)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
