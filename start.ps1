@@ -73,7 +73,9 @@ function Find-WinGet {
         $wingetExe = Join-Path $wingetPath 'winget.exe'
         if (Test-Path -Path $wingetExe) {
             return $wingetExe
-        }
+        } # else
+        Write-StyledMessage -Type Error -Text "Errore nel trovare il percorso di Winget."
+        return $null
     }
     catch {
        Write-StyledMessage -Type Error -Text "Errore: $($_.Exception.Message)"
