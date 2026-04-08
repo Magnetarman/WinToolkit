@@ -65,16 +65,14 @@ function Find-WinGet {
         $resolveWingetPath = Resolve-Path -Path $wingetPathToResolve -ErrorAction Stop | Sort-Object {
             [version]($_.Path -replace '^[^\d]+_((\d+\.)*\d+)_.*', '$1')
         }
-
-        if ($resolveWingetPath) {
-            $wingetPath = $resolveWingetPath[-1].Path
-        }
-
+        $wingetPath = $resolveWingetPath[-1].Path
         $wingetExe = Join-Path $wingetPath 'winget.exe'
-
         if (Test-Path -Path $wingetExe) {
             return $wingetExe
         }
+    }
+    catch [System.ArgumentNullException] {
+        Write-StyledMessage -Type Error -Text "Errore! Non riesco a risolvere il percorso di WinGet per una variabile vuota!"
         return $null
     }
     catch {
@@ -283,7 +281,8 @@ function Repair-WingetDatabase {
                     Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown' | Out-Null
                 }
             }
-        } catch { }
+        }
+        catch { }
 
         # 7. Riprova con il modulo WinGet se disponibile
         try {
@@ -563,7 +562,8 @@ function Install-WingetPackage {
             catch {
                 if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
                     Write-StyledMessage -Type Info -Text "Repair-WinGetPackageManager ignorato (versione superiore già presente)."
-                } else {
+                }
+                else {
                     Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)."
                 }
             }
@@ -1381,7 +1381,8 @@ function Test-SystemReadiness {
         if ($null -eq $status -or $status.RealTimeProtectionEnabled -eq $false) {
             $defenderReady = $true
         }
-    } catch {
+    }
+    catch {
         $defenderReady = $true # Se non può leggere lo stato, assumiamo sia spento o rimosso
     }
 
@@ -1397,7 +1398,8 @@ function Test-SystemReadiness {
         if ($result.Updates.Count -eq 0) {
             $updatesReady = $true
         }
-    } catch {
+    }
+    catch {
         $updatesReady = $true # Fallback se il servizio update è bloccato
     }
 
@@ -1519,7 +1521,8 @@ function Invoke-WinToolkitSetup {
             # Verifica se l'installazione di Git è andata a buon fine.
             if (Install-GitPackage) {
                 Write-StyledMessage -Type Success -Text "✅ Git è già operativo."
-            } else {
+            }
+            else {
                 Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: Git non è stato installato oppure potrebbe non funzionare correttamente."
             }
 
