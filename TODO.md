@@ -1,7 +1,16 @@
 # To-Do
 
 ### V 2.5.4
+- `start.ps1` Aggiornato.
+  - [x] Rimossa variabile `$rebootNeeded`.
+  - [x] Spostati CLSID Windows Terminal e lista processi interferenti Winget in `$script:AppConfig`.
+  - [x] Rimosso stile Progress da `$Global:MsgStyle`.
+  - [x] Eliminata funzione `Install-NuGetIfRequired` e il suo pre-check ridondante in `Install-WingetPackage`.
+  - [x] Rimossa una chiamata ridondante a `Update-EnvironmentPath` prima del fallback MSIX.
+  - [x] Rimosso il if con warning non bloccante in `Test-VCRedistInstalled`.
+  - [x] Corretta numerazione passi in `Repair-WingetDatabase`..
 
+  - `WinToolkit-template.ps1` Aggiornato.
 
 ### V 2.6 - Debloat
 
