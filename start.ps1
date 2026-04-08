@@ -23,7 +23,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header   = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.3 (Build 13)"
+        Version = "Version 2.5.4 (Build 1)"
     }
     URLs     = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -811,7 +811,7 @@ function Start-AppxSilentProcess {
         Installa AppX in background sopprimendo le barre di progresso native.
     #>
     param(
-        [string]$AppxPath, 
+        [string]$AppxPath,
         [string]$Flags = '-ForceApplicationShutdown',
         [string[]]$DependencyPaths = @()
     )
@@ -821,14 +821,14 @@ function Start-AppxSilentProcess {
     if ($DependencyPaths.Count -gt 0) {
         $depString = "-DependencyPackagePath " + (($DependencyPaths | ForEach-Object { "'$($_ -replace "'", "''")'" }) -join ", ")
     }
-    
+
     $cmd = @"
 `$ProgressPreference = 'SilentlyContinue';
 `$ErrorActionPreference = 'SilentlyContinue';
-try { 
-    Add-AppxPackage -Path '$($AppxPath -replace "'", "''")' $depString $Flags -ErrorAction Stop | Out-Null 
+try {
+    Add-AppxPackage -Path '$($AppxPath -replace "'", "''")' $depString $Flags -ErrorAction Stop | Out-Null
 }
-catch { 
+catch {
     if (`$_.Exception.Message -match '0x80073D06' -or `$_.Exception.Message -match 'versione successiva') {
         exit 0
     }
@@ -841,7 +841,7 @@ catch {
             `$_.Exception.Message | Out-File '$errFile' -Encoding UTF8; exit 1
         }
     }
-    `$_.Exception.Message | Out-File '$errFile' -Encoding UTF8; exit 1 
+    `$_.Exception.Message | Out-File '$errFile' -Encoding UTF8; exit 1
 }
 exit 0
 "@
@@ -1373,7 +1373,7 @@ function New-ToolkitDesktopShortcut {
 
 function Test-SystemReadiness {
     Write-StyledMessage -Type Info -Text "Esecuzione controlli di integrità sistema..."
-    
+
     # 1. Verifica Windows Defender
     $defenderReady = $false
     try {
@@ -1466,10 +1466,10 @@ function Invoke-WinToolkitSetup {
                 Write-StyledMessage -Type Info -Text "Attendi il completamento degli aggiornamenti prima di proseguire."
             }
             Write-Host ("!" * 65) -ForegroundColor Yellow
-            
+
             Write-Host "`n[Pressione tasto] Riprova i controlli" -ForegroundColor Cyan
             Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
-            
+
             $key = [Console]::ReadKey($true)
             if ($key.Key -eq 'Escape') { exit }
             Clear-Host
@@ -1516,7 +1516,7 @@ function Invoke-WinToolkitSetup {
             if (-not $wingetDeepCheck) {
                 Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire."
             }
-            
+
             $gitInstalled = Install-GitPackage
 
             # Controllo rapido che non richieda chiamate e garantisca fallback veloce
@@ -1585,7 +1585,7 @@ function Invoke-WinToolkitSetup {
             $pwshExe64 = "$env:SystemDrive\Program Files\PowerShell\7\pwsh.exe"
             $pwshExe32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7\pwsh.exe"
             $pwshPath = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { "powershell.exe" }
-            
+
             $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
 
             try {
