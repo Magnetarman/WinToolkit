@@ -40,46 +40,43 @@ function Read-Host {
 
         $inputString = ""
         while ($true) {
-            if ([console]::KeyAvailable) {
-                $keyInfo = [console]::ReadKey($true)
+            $keyInfo = [console]::ReadKey($true)
 
-                # Gestione CTRL+C
-                if ($keyInfo.Modifiers -match "Control" -and $keyInfo.Key -eq "C") {
-                    Write-Host ""
-                    return $null
+            # Gestione CTRL+C
+            if ($keyInfo.Modifiers -match "Control" -and $keyInfo.Key -eq "C") {
+                Write-Host ""
+                return $null
+            }
+            # Invio / Enter
+            if ($keyInfo.Key -eq "Enter") {
+                Write-Host ""
+                if ($AsSecureString) {
+                    $secure = New-Object System.Security.SecureString
+                    foreach ($char in $inputString.ToCharArray()) { $secure.AppendChar($char) }
+                    return $secure
                 }
-                # Invio / Enter
-                if ($keyInfo.Key -eq "Enter") {
-                    Write-Host ""
-                    if ($AsSecureString) {
-                        $secure = New-Object System.Security.SecureString
-                        foreach ($char in $inputString.ToCharArray()) { $secure.AppendChar($char) }
-                        return $secure
+                return $inputString ?? ""
+            }
+            # Backspace
+            if ($keyInfo.Key -eq "Backspace") {
+                if ($inputString.Length -gt 0) {
+                    $inputString = $inputString.Substring(0, $inputString.Length - 1)
+                    # Muove il cursore indietro, scrive uno spazio per cancellare, e torna indietro
+                    Write-Host "`b `b" -NoNewline
+                }
+            }
+            else {
+                # Ignora tasti di controllo non testuali (eccetto i necessari)
+                if (-not [char]::IsControl($keyInfo.KeyChar)) {
+                    $inputString += $keyInfo.KeyChar
+                    if ($AsSecureString -or $MaskInput) {
+                        Write-Host "*" -NoNewline -ForegroundColor Yellow
                     }
-                    return $inputString ?? ""
-                }
-                # Backspace
-                if ($keyInfo.Key -eq "Backspace") {
-                    if ($inputString.Length -gt 0) {
-                        $inputString = $inputString.Substring(0, $inputString.Length - 1)
-                        # Muove il cursore indietro, scrive uno spazio per cancellare, e torna indietro
-                        Write-Host "`b `b" -NoNewline
-                    }
-                }
-                else {
-                    # Ignora tasti di controllo non testuali (eccetto i necessari)
-                    if (-not [char]::IsControl($keyInfo.KeyChar)) {
-                        $inputString += $keyInfo.KeyChar
-                        if ($AsSecureString -or $MaskInput) {
-                            Write-Host "*" -NoNewline -ForegroundColor Yellow
-                        }
-                        else {
-                            Write-Host $keyInfo.KeyChar -NoNewline
-                        }
+                    else {
+                        Write-Host $keyInfo.KeyChar -NoNewline
                     }
                 }
             }
-            Start-Sleep -Milliseconds 10
         }
     }
     catch {
@@ -106,21 +103,21 @@ $ToolkitVersion = "2.5.4 (Build 8)"
 $AppConfig = @{
     URLs     = @{
         # GitHub Asset URLs
-        GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/"
-        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/"
+        GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
+        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/"
 
         # Office
         OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
         OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
-        SaRAInstaller         = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/main/asset/SaRACmd_17_01_2877_000.zip"
+        SaRAInstaller         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/SaRACmd_17_01_2877_000.zip"
 
         # Video Driver
-        AMDInstaller          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/AMD-Autodetect.exe"
-        NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/NVCleanstall_1.19.0.exe"
-        DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/DDU.zip"
+        AMDInstaller          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/AMD-Autodetect.exe"
+        NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/NVCleanstall_1.19.0.exe"
+        DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/DDU.zip"
 
         # Gaming
-        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/dxwebsetup.exe"
+        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/dxwebsetup.exe"
         BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
 
         # 7-Zip
@@ -172,8 +169,20 @@ $AppConfig = @{
 
         # Windows Terminal
         WindowsTerminal       = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-
     }
+    WindowsTerminal = @{
+        DelegationTerminalClsid = "{E12F0936-0E6F-548E-A9F6-B20C69A27D17}"
+        DelegationConsoleClsid  = "{B23D10C0-31E3-401A-97EF-4BB30B62E10B}"
+    }
+    WingetProcesses = @(
+        'WinStore.App',
+        'wsappx',
+        'AppInstaller',
+        'Microsoft.WindowsStore',
+        'Microsoft.DesktopAppInstaller',
+        'winget',
+        'WindowsPackageManagerServer'
+    )
 }
 
 
@@ -204,6 +213,25 @@ function Update-EnvironmentPath {
     $env:Path = $newPath
     [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
 }
+
+function Stop-ToolkitProcesses {
+    <#
+    .SYNOPSIS
+        Chiude in modo forzato e silenzioso i processi specificati.
+    #>
+    param(
+        [string[]]$ProcessNames
+    )
+    Write-StyledMessage -Type Info -Text "Chiusura processi interferenti..."
+    
+    foreach ($procName in $ProcessNames) {
+        Get-Process -Name $procName -ErrorAction SilentlyContinue |
+            Where-Object { $_.Id -ne $PID } |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Seconds 2
+}
+
 
 function Get-WingetExecutable {
     <#
@@ -693,16 +721,17 @@ function Reset-Winget {
         return (Test-Path $registryPath) -and ($major -ge 14) -and (Test-Path $dllPath)
     }
 
-    function _Invoke-ForceClose {
-        Write-StyledMessage -Type Info -Text "Chiusura processi interferenti..."
-        $procs = @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore",
-            "Microsoft.DesktopAppInstaller", "winget", "WindowsPackageManagerServer")
-        foreach ($p in $procs) {
-            Get-Process -Name $p -ErrorAction SilentlyContinue |
-                Where-Object { $_.Id -ne $PID } |
-                Stop-Process -Force -ErrorAction SilentlyContinue
-        }
-        Start-Sleep 2
+    function _Register-AppxManifest {
+        try {
+            $manifest = (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue).InstallLocation
+            if ($manifest) {
+                $manifestXml = Join-Path $manifest 'AppxManifest.xml'
+                if (Test-Path $manifestXml) {
+                    Write-StyledMessage -Type Info -Text "Re-registrazione manifest: AppxManifest.xml previene leak."
+                    Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown' | Out-Null
+                }
+            }
+        } catch { }
     }
 
     function _Get-LatestAssetUrl {
@@ -813,14 +842,7 @@ function Reset-Winget {
     function _Repair-WingetDatabase {
         Write-StyledMessage -Type Info -Text "🔧 Ripristino database Winget."
         try {
-            $procs = @("WinStore.App", "wsappx", "AppInstaller", "Microsoft.WindowsStore",
-                "Microsoft.DesktopAppInstaller", "winget", "WindowsPackageManagerServer")
-            foreach ($p in $procs) {
-                Get-Process -Name $p -ErrorAction SilentlyContinue |
-                    Where-Object { $_.Id -ne $PID } |
-                    Stop-Process -Force -ErrorAction SilentlyContinue
-            }
-            Start-Sleep 2
+            Stop-ToolkitProcesses -ProcessNames $AppConfig.WingetProcesses
 
             # Pulizia cache locale (escludi lock e tmp)
             $cachePath = "$env:LOCALAPPDATA\WinGet"
@@ -1002,7 +1024,7 @@ function Reset-Winget {
         return $true
     }
 
-    _Invoke-ForceClose
+    Stop-ToolkitProcesses -ProcessNames $AppConfig.WingetProcesses
 
     try {
         # ── FASE 1: RIPRISTINO CORE (VELOCE) ─────────────────────────────────
@@ -1051,16 +1073,7 @@ function Reset-Winget {
         }
 
         # 1d. Re-registrazione manifest (previene leak barra avanzamento deployment engine)
-        try {
-            $manifest = (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue).InstallLocation
-            if ($manifest) {
-                $manifestXml = Join-Path $manifest 'AppxManifest.xml'
-                if (Test-Path $manifestXml) {
-                    Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown'
-                }
-            }
-        }
-        catch { }
+        _Register-AppxManifest
 
         Update-EnvironmentPath
 
@@ -1292,6 +1305,7 @@ function Start-InterruptibleCountdown {
 }
 
 function Get-SystemInfo {
+    if ($Global:SystemInfoCache) { return $Global:SystemInfoCache }
     try {
         $osInfo = Get-CimInstance Win32_OperatingSystem
         $computerInfo = Get-CimInstance Win32_ComputerSystem
@@ -1306,7 +1320,7 @@ function Get-SystemInfo {
         $ver = "N/A"
         foreach ($k in ($versionMap.Keys | Sort -Desc)) { if ($build -ge $k) { $ver = $versionMap[$k]; break } }
 
-        return @{
+        $Global:SystemInfoCache = @{
             ProductName = $osInfo.Caption -replace 'Microsoft ', ''; BuildNumber = $build; DisplayVersion = $ver
             Architecture = $osInfo.OSArchitecture; ComputerName = $computerInfo.Name
             TotalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
@@ -1314,6 +1328,7 @@ function Get-SystemInfo {
             FreeDisk = [Math]::Round($diskInfo.FreeSpace / 1GB, 0)
             FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
         }
+        return $Global:SystemInfoCache
     }
     catch { return $null }
 }
@@ -1325,6 +1340,23 @@ function Get-BitlockerStatus {
         return "Non configurato"
     }
     catch { return "Disattivato" }
+}
+
+function Initialize-ToolkitPaths {
+    <#
+    .SYNOPSIS
+        Assicura la creazione di tutte le directory necessarie al primo avvio.
+    #>
+    foreach ($path in $AppConfig.Paths.Values) {
+        if (-not (Test-Path $path -PathType Leaf) -and $path -notmatch "\.exe$|\.zip$|\.msixbundle$") {
+            try {
+                if (-not (Test-Path $path)) {
+                    $null = New-Item -Path $path -ItemType Directory -Force -ErrorAction SilentlyContinue
+                }
+            }
+            catch {}
+        }
+    }
 }
 
 function WinOSCheck {
@@ -1596,7 +1628,7 @@ $menuStructure = @(
         )
     }
 )
-
+Initialize-ToolkitPaths
 WinOSCheck
 
 # =============================================================================
