@@ -65,18 +65,19 @@ function Find-WinGet {
         $resolveWingetPath = Resolve-Path -Path $wingetPathToResolve -ErrorAction Stop | Sort-Object {
             [version]($_.Path -replace '^[^\d]+_((\d+\.)*\d+)_.*', '$1')
         }
+        if ($null -eq $resolveWingetPath) {
+            Write-StyledMessage -Type Error -Text "Errore nella risoluzione del percorso di Winget."
+            return $null
+        }
         $wingetPath = $resolveWingetPath[-1].Path
         $wingetExe = Join-Path $wingetPath 'winget.exe'
         if (Test-Path -Path $wingetExe) {
             return $wingetExe
         }
     }
-    catch [System.ArgumentNullException] {
-        Write-StyledMessage -Type Error -Text "Errore! Non riesco a risolvere il percorso di WinGet per una variabile vuota!"
-        return $null
-    }
     catch {
-        return $null
+       Write-StyledMessage -Type Error -Text "Errore: $($_.Exception.Message)"
+       return $null
     }
 }
 
