@@ -22,7 +22,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header   = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 3)"
+        Version = "Version 2.5.4 (Build 4)"
     }
     URLs     = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1508,7 +1508,7 @@ function Invoke-WinToolkitSetup {
             }
             Start-Process @procParams
             Write-StyledMessage -Type Success -Text "Script riavviato su PowerShell 7. Chiusura sessione legacy."
-            exit
+            Stop-Process -Id $PID
         }
 
         # Installazioni core
@@ -1538,30 +1538,29 @@ function Invoke-WinToolkitSetup {
 
         if ($isResumeSetup) {
             Write-StyledMessage -Type Info -Text "Installazione ripresa, sessione completata."
-            return
-        }
+        } else {
+            $canLaunchWT = (Get-Command "wt.exe" -ErrorAction SilentlyContinue)
+            if (-not ($env:WT_SESSION) -and $canLaunchWT) {
+                Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal."
+                $pwshExe64 = "$env:SystemDrive\Program Files\PowerShell\7\pwsh.exe"
+                $pwshExe32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7\pwsh.exe"
+                $pwshPath = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { "powershell.exe" }
 
-        $canLaunchWT = (Get-Command "wt.exe" -ErrorAction SilentlyContinue)
-        if (-not ($env:WT_SESSION) -and $canLaunchWT) {
-            Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal."
-            $pwshExe64 = "$env:SystemDrive\Program Files\PowerShell\7\pwsh.exe"
-            $pwshExe32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7\pwsh.exe"
-            $pwshPath = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { "powershell.exe" }
+                $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
 
-            $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
-
-            try {
-                Start-Process -FilePath "wt.exe" -ArgumentList $wtArgs
-                Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione."
-                exit
+                try {
+                    Start-Process -FilePath "wt.exe" -ArgumentList $wtArgs
+                    Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione."
+                    Stop-Process -Id $PID
+                }
+                catch {
+                    Write-StyledMessage -Type Error -Text "Errore avvio Windows Terminal: $($_.Exception.Message)."
+                }
             }
-            catch {
-                Write-StyledMessage -Type Error -Text "Errore avvio Windows Terminal: $($_.Exception.Message)."
-            }
-        }
 
-        if (-not ($env:WT_SESSION) -and -not $canLaunchWT) {
-            Write-StyledMessage -Type Warning -Text "L'installazione è stata comunque completata nella console corrente."
+            if (-not ($env:WT_SESSION) -and -not $canLaunchWT) {
+                Write-StyledMessage -Type Warning -Text "L'installazione è stata comunque completata nella console corrente."
+            }
         }
 
         Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
@@ -1569,7 +1568,7 @@ function Invoke-WinToolkitSetup {
             Write-Host ("`r[$((Get-Date).ToString('HH:mm:ss'))] ⏳ Chiusura automatica in $i secondi... ") -NoNewline -ForegroundColor Cyan
             Start-Sleep 1
         }
-        exit
+        Stop-Process -Id $PID
     }
     catch {
         Write-StyledMessage -Type Error -Text "❌ Errore critico durante il setup: $($_.Exception.Message)."
