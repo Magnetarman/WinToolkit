@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.3.1"
+$ProfileVersion = "2.5.4.1"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
@@ -842,7 +842,7 @@ function Update-Pwsh {
 
             # Step 1: Disinstallazione
             Write-Host "   1/2 - Disinstallazione di Microsoft.PowerShell in corso..." -ForegroundColor Cyan
-            winget uninstall --id Microsoft.PowerShell --accept-source-agreements --silent
+            winget uninstall --id Microsoft.PowerShell --accept-source-agreements --silent --all-versions
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "❌ Disinstallazione fallita (codice: $LASTEXITCODE). Operazione interrotta." -ForegroundColor Red
                 Write-Host "   Prova a disinstallare PowerShell manualmente e poi esegui nuovamente Update-Pwsh." -ForegroundColor DarkYellow
