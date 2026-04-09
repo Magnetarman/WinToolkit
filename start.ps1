@@ -20,11 +20,11 @@ $script:AppConfig = @{
     # ============================================================================
     # HEADER CONFIGURATION - Modifica qui per aggiornare titolo e versione
     # ============================================================================
-    Header   = @{
+    Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
         Version = "Version 2.5.4 (Build 4)"
     }
-    URLs     = @{
+    URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
@@ -36,7 +36,7 @@ $script:AppConfig = @{
         TerminalRelease         = "https://api.github.com/repos/microsoft/terminal/releases/latest"
         WebInstaller            = "https://magnetarman.com/WinToolkit-Dev"
     }
-    Paths    = @{
+    Paths           = @{
         Logs          = "$env:LOCALAPPDATA\WinToolkit\logs"
         WinToolkitDir = "$env:LOCALAPPDATA\WinToolkit"
         Temp          = "$env:TEMP\WinToolkitSetup"
@@ -45,7 +45,7 @@ $script:AppConfig = @{
         wtExe         = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
         wtDir         = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
     }
-    Registry = @{
+    Registry        = @{
         TerminalStartup = "HKCU:\Console\%%Startup"
     }
     WindowsTerminal = @{
@@ -1475,13 +1475,18 @@ function Invoke-WinToolkitSetup {
                 Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
             }
 
-            # Validazione profonda
-            $wingetDeepCheck = Test-WingetDeepValidation
-            if (-not $wingetDeepCheck) {
+            # Verifica in modo approfondito che Winget funzioni correttamente.
+            if (-not $(Test-WingetDeepValidation)) {
                 Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire."
             }
 
-            $gitInstalled = Install-GitPackage
+            # Verifica se l'installazione di Git è andata a buon fine.
+            if (Install-GitPackage) {
+                Write-StyledMessage -Type Success -Text "✅ Git è già operativo."
+            }
+            else {
+                Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: Git non è stato installato oppure potrebbe non funzionare correttamente."
+            }
 
             # Controllo rapido che non richieda chiamate e garantisca fallback veloce
             if (-not (Test-Path "$env:ProgramFiles\PowerShell\7") -and -not (Test-Path "${env:ProgramFiles(x86)}\PowerShell\7") -and -not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
@@ -1538,7 +1543,8 @@ function Invoke-WinToolkitSetup {
 
         if ($isResumeSetup) {
             Write-StyledMessage -Type Info -Text "Installazione ripresa, sessione completata."
-        } else {
+        }
+        else {
             $canLaunchWT = (Get-Command "wt.exe" -ErrorAction SilentlyContinue)
             if (-not ($env:WT_SESSION) -and $canLaunchWT) {
                 Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal."
