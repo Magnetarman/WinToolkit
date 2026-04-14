@@ -551,7 +551,7 @@ jobs:
             --state merged `
             --base Dev `
             --limit 200 `
-            --json title,url,author,mergedAt
+            --json number,title,url,author,mergedAt,labels
 
           $prsObj = $prsJson | ConvertFrom-Json
           if (-not $prsObj) { $prsObj = @() }
@@ -602,14 +602,70 @@ jobs:
           Write-Host "  FASE 3: Generazione release notes"
           Write-Host "──────────────────────────────────────────"
 
-          $releaseBody = "### 🛠 Modifiche dai Collaboratori`n`n"
+          # Categorize PRs
+          $features = @()
+          $bugFixes = @()
+          $changes = @()
 
-          if ($validPrs.Count -gt 0) {
-            foreach ($pr in $validPrs) {
-              $releaseBody += "- [$($pr.title)]($($pr.url)) — @$($pr.author.login)`n"
+          foreach ($pr in $validPrs) {
+            $title = $pr.title.Trim()
+            $prNumber = $pr.number
+            $formattedLine = "- $title @$($pr.author.login) (#$prNumber)"
+            
+            $labelNames = $pr.labels | ForEach-Object { $_.name.ToLower() }
+            
+            # First categorize by labels (primary method)
+            if ($labelNames -contains 'feature' -or $labelNames -contains 'enhancement') {
+              $features += $formattedLine
             }
-          } else {
-            $releaseBody += "_Nessun contributo esterno in questa build._`n"
+            elseif ($labelNames -contains 'bug' -or $labelNames -contains 'fix' -or $labelNames -contains 'bugfix') {
+              $bugFixes += $formattedLine
+            }
+            # Fallback to title pattern matching if no labels
+            else {
+              # Feature detection patterns
+              if ($title -match '^(feat|feature|add|added|new|implement|implemented)\b' -or 
+                  $title -match '\b(feature|new|added)\b' -or
+                  $title -match '^Update.*\.ps1$') {
+                $features += $formattedLine
+              }
+              # Bug fix detection patterns
+              elseif ($title -match '^(fix|fixed|bugfix|bug|resolve|resolved|repair|repaired)\b' -or 
+                      $title -match '\b(fix|fixed|bug|resolve|resolved)\b') {
+                $bugFixes += $formattedLine
+              }
+              # General changes
+              else {
+                $changes += $formattedLine
+              }
+            }
+          }
+
+          $releaseBody = ""
+
+          # Features section
+          if ($features.Count -gt 0) {
+            $releaseBody += "## 🚀 Features`n`n"
+            $releaseBody += $features -join "`n"
+            $releaseBody += "`n`n"
+          }
+
+          # Bug Fixes section
+          if ($bugFixes.Count -gt 0) {
+            $releaseBody += "## 🐛 Bug Fixes`n`n"
+            $releaseBody += $bugFixes -join "`n"
+            $releaseBody += "`n`n"
+          }
+
+          # General Changes section
+          if ($changes.Count -gt 0) {
+            $releaseBody += "## 🔄 Changes`n`n"
+            $releaseBody += $changes -join "`n"
+            $releaseBody += "`n`n"
+          }
+
+          if ($validPrs.Count -eq 0) {
+            $releaseBody += "_No external contributions in this build._`n`n"
           }
 
           $sourceKB  = "${{ needs.build.outputs.source_kb }}"
