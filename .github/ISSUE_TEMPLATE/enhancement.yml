@@ -1,0 +1,86 @@
+name: Miglioramento Funzionalità
+description: Suggerisci un miglioramento o modifica ad una funzionalità già esistente in WinToolkit
+title: "[ENHANCEMENT]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie per voler suggerire un miglioramento! Questo template è dedicato alle modifiche e ottimizzazioni di funzionalità già presenti in WinToolkit.
+        *📝 Ricorda: 1 Issue = 1 Singolo Miglioramento.*
+
+  - type: checkboxes
+    id: critical-checks
+    attributes:
+      label: Controlli Preliminari
+      description: Assicurati di aver seguito questi passaggi prima di aprire l'issue.
+      options:
+        - label: Ho controllato che non ci siano Issue già aperte per lo stesso miglioramento.
+          required: true
+        - label: Sto usando l'ultima versione disponibile di WinToolkit.
+          required: true
+        - label: Questa proposta è un miglioramento ad una funzionalità già esistente (non una nuova funzionalità).
+          required: true
+
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Comportamento Attuale
+      description: Descrivi come funziona attualmente la funzionalità che vorresti migliorare.
+      placeholder: Es. Attualmente la funzionalità di pulizia disco rimuove solo i file temporanei base.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-improvement
+    attributes:
+      label: Miglioramento Proposto
+      description: Descrivi in modo chiaro cosa vorresti che venisse modificato o migliorato.
+      placeholder: Es. Vorrei che la pulizia disco includesse anche la cancellazione dei file di cache di Windows Update e dei log di sistema più vecchi di 7 giorni.
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Benefici del Miglioramento
+      description: Spiega quali vantaggi porterebbe questa modifica per gli utenti di WinToolkit.
+      placeholder: Es. Questo permetterebbe di recuperare molto più spazio disco in automatico senza necessità di intervento manuale.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priorità
+      description: Quanto ritieni importante questo miglioramento?
+      options:
+        - Bassa (Piccola ottimizzazione, migliora l'usabilità)
+        - Media (Migliora significativamente una funzionalità esistente)
+        - Alta (Risolve una limitazione importante che impedisce l'uso completo della funzionalità)
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Considerate
+      description: Hai pensato ad altri modi per ottenere lo stesso risultato?
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contesto Aggiuntivo
+      description: Qualsiasi altra informazione utile (screenshot, esempi, link a risorse).
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: logic-check
+    attributes:
+      label: Accordo di Contribuzione
+      options:
+        - label: Comprendo che questa proposta verrà valutata in base alla roadmap attuale del progetto.
+          required: true
