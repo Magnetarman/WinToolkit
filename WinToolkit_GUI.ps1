@@ -1204,7 +1204,8 @@ try {
         if (Test-Path $iconPath) {
             $window.Icon = [System.Windows.Media.Imaging.BitmapImage]::new([uri]$iconPath)
         }
-    } catch {
+    }
+    catch {
         Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile caricare o scaricare l'icona della finestra: $($_.Exception.Message)." -GuiColor "#FFA500"
     }
 
@@ -1613,9 +1614,8 @@ function Filter-AndFormatJobOutput {
             
             # IMPROVED VERBOSITY: Log only if percentage OR status has changed
             if ( ($status -ne $Global:LastLoggedProgress.Status) -or 
-                 ($percent -ne $Global:LastLoggedProgress.Percent) 
-               )
-            {
+                ($percent -ne $Global:LastLoggedProgress.Percent) 
+            ) {
                 Write-UnifiedLog -Type 'Progress' -Message "🔄 [$activity] $status ($percent%)." -GuiColor "#2196F3"
                 $Global:LastLoggedProgress.Percent = $percent
                 $Global:LastLoggedProgress.Status = $status
@@ -1994,10 +1994,10 @@ function Start-NextScriptJob {
                 if (-not [string]::IsNullOrEmpty($output)) {
                     # If it's already a tagged message, don't double tag it
                     if ($output -match '\[WINTOOLKIT_.*_TAG\]') {
-                         Write-Warning $output
+                        Write-Warning $output
                     }
                     else {
-                         Write-Warning "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
+                        Write-Warning "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
                     }
                 }
             }
@@ -2174,10 +2174,10 @@ function Tick_JobMonitor {
             try {
                 if ($window -and $window.Dispatcher) {
                     $window.Dispatcher.Invoke([Action] {
-                        foreach ($line in ($newOutputLines | Out-String -Stream)) {
-                            [void](Filter-AndFormatJobOutput -Line $line)
-                        }
-                    })
+                            foreach ($line in ($newOutputLines | Out-String -Stream)) {
+                                [void](Filter-AndFormatJobOutput -Line $line)
+                            }
+                        })
                 }
             }
             catch {
@@ -2322,27 +2322,27 @@ $window.Add_Loaded({
 
 # Cleanup handler for Window Closing to kill running jobs
 $window.Add_Closing({
-    if ($Global:ScriptJob) {
-        Write-UnifiedLog -Type 'Info' -Message "🚨 Finestra GUI chiusa. Tentativo di fermare il job in corso." -GuiColor "#FFA500"
+        if ($Global:ScriptJob) {
+            Write-UnifiedLog -Type 'Info' -Message "🚨 Finestra GUI chiusa. Tentativo di fermare il job in corso." -GuiColor "#FFA500"
+            try {
+                Stop-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
+                Remove-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
+                $Global:ScriptJob = $null
+                Write-UnifiedLog -Type 'Success' -Message "✅ Job in corso fermato e rimosso." -GuiColor "#00FF00"
+            }
+            catch {
+                Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante l'interruzione del job: $($_.Exception.Message)." -GuiColor "#FF0000"
+            }
+        }
+        if ($Global:JobMonitorTimer) {
+            $Global:JobMonitorTimer.Stop()
+            $Global:JobMonitorTimer = $null
+        }
         try {
-            Stop-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
-            $Global:ScriptJob = $null
-            Write-UnifiedLog -Type 'Success' -Message "✅ Job in corso fermato e rimosso." -GuiColor "#00FF00"
+            Stop-Transcript -ErrorAction SilentlyContinue
         }
-        catch {
-            Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante l'interruzione del job: $($_.Exception.Message)." -GuiColor "#FF0000"
-        }
-    }
-    if ($Global:JobMonitorTimer) {
-        $Global:JobMonitorTimer.Stop()
-        $Global:JobMonitorTimer = $null
-    }
-    try {
-        Stop-Transcript -ErrorAction SilentlyContinue
-    }
-    catch {}
-})
+        catch {}
+    })
 
 # Show window
 $window.ShowDialog() | Out-Null
