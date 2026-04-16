@@ -1523,23 +1523,11 @@ function Update-ActionsPanel {
                     
                         # Bold Script Name (White)
                         $titleRun = New-Object System.Windows.Documents.Run
-                        $titleRun.Text = $script.Name
+                        $titleRun.Text = $script.Description
                         $titleRun.FontWeight = [System.Windows.FontWeights]::Bold
                         $titleRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::White)
-                    
-                        # Separator (Gray #BDBDBD)
-                        $separatorRun = New-Object System.Windows.Documents.Run
-                        $separatorRun.Text = " - "
-                        $separatorRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#BDBDBD"))
-                    
-                        # Description (Gray #BDBDBD)
-                        $descRun = New-Object System.Windows.Documents.Run
-                        $descRun.Text = $script.Description
-                        $descRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#BDBDBD"))
-                    
+
                         $textBlock.Inlines.Add($titleRun)
-                        $textBlock.Inlines.Add($separatorRun)
-                        $textBlock.Inlines.Add($descRun)
                         $scriptRow.Children.Add($textBlock) | Out-Null
                     
                         $actionsPanel.Children.Add($scriptRow) | Out-Null
