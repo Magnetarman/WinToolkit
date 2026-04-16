@@ -25,8 +25,8 @@ $Global:GuiVersion = "3.0.0 (Build 3)"  # Format: CoreVersion.GuiBuildNumber
 # =============================================================================
 $ScriptTitle = "WinToolkit GUI Edition By MagnetarMan"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
-$WindowWidth = 1600  # Increased from 1500 for better readability
-$WindowHeight = 1000  # Increased from 950 for better readability
+$WindowWidth = 1280     # HD ready resolution in 16:9.
+$WindowHeight = 720     # HD ready resolution in 16:9.
 $FontFamily = "JetBrains Mono Nerd Font, Cascadia Code, Consolas, Courier New"
 $FontSize = @{Small = 14; Medium = 16; Large = 18; Title = 20 }
 
