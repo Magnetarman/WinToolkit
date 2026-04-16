@@ -1200,8 +1200,7 @@ try {
         if (-not (Test-Path $iconPath)) {
             Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing -ErrorAction Stop
         }
-        
-        if (Test-Path $iconPath) {
+        else {
             $window.Icon = [System.Windows.Media.Imaging.BitmapImage]::new([uri]$iconPath)
         }
     }
