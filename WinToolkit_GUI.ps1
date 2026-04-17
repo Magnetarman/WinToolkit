@@ -18,15 +18,15 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "3.0.0 (Build 3)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "3.0.0 (Build 4)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
 $ScriptTitle = "WinToolkit GUI Edition By MagnetarMan"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
-$WindowWidth = 1600  # Increased from 1500 for better readability
-$WindowHeight = 1000  # Increased from 950 for better readability
+$WindowWidth = 1280     # HD ready resolution in 16:9.
+$WindowHeight = 720     # HD ready resolution in 16:9.
 $FontFamily = "JetBrains Mono Nerd Font, Cascadia Code, Consolas, Courier New"
 $FontSize = @{Small = 14; Medium = 16; Large = 18; Title = 20 }
 
@@ -1200,11 +1200,11 @@ try {
         if (-not (Test-Path $iconPath)) {
             Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing -ErrorAction Stop
         }
-        
-        if (Test-Path $iconPath) {
+        else {
             $window.Icon = [System.Windows.Media.Imaging.BitmapImage]::new([uri]$iconPath)
         }
-    } catch {
+    }
+    catch {
         Write-UnifiedLog -Type 'Warning' -Message "⚠️ Impossibile caricare o scaricare l'icona della finestra: $($_.Exception.Message)." -GuiColor "#FFA500"
     }
 
@@ -1523,23 +1523,11 @@ function Update-ActionsPanel {
                     
                         # Bold Script Name (White)
                         $titleRun = New-Object System.Windows.Documents.Run
-                        $titleRun.Text = $script.Name
+                        $titleRun.Text = $script.Description
                         $titleRun.FontWeight = [System.Windows.FontWeights]::Bold
                         $titleRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::White)
-                    
-                        # Separator (Gray #BDBDBD)
-                        $separatorRun = New-Object System.Windows.Documents.Run
-                        $separatorRun.Text = " - "
-                        $separatorRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#BDBDBD"))
-                    
-                        # Description (Gray #BDBDBD)
-                        $descRun = New-Object System.Windows.Documents.Run
-                        $descRun.Text = $script.Description
-                        $descRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#BDBDBD"))
-                    
+
                         $textBlock.Inlines.Add($titleRun)
-                        $textBlock.Inlines.Add($separatorRun)
-                        $textBlock.Inlines.Add($descRun)
                         $scriptRow.Children.Add($textBlock) | Out-Null
                     
                         $actionsPanel.Children.Add($scriptRow) | Out-Null
@@ -1613,9 +1601,8 @@ function Filter-AndFormatJobOutput {
             
             # IMPROVED VERBOSITY: Log only if percentage OR status has changed
             if ( ($status -ne $Global:LastLoggedProgress.Status) -or 
-                 ($percent -ne $Global:LastLoggedProgress.Percent) 
-               )
-            {
+                ($percent -ne $Global:LastLoggedProgress.Percent) 
+            ) {
                 Write-UnifiedLog -Type 'Progress' -Message "🔄 [$activity] $status ($percent%)." -GuiColor "#2196F3"
                 $Global:LastLoggedProgress.Percent = $percent
                 $Global:LastLoggedProgress.Status = $status
@@ -1994,10 +1981,10 @@ function Start-NextScriptJob {
                 if (-not [string]::IsNullOrEmpty($output)) {
                     # If it's already a tagged message, don't double tag it
                     if ($output -match '\[WINTOOLKIT_.*_TAG\]') {
-                         Write-Warning $output
+                        Write-Warning $output
                     }
                     else {
-                         Write-Warning "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
+                        Write-Warning "[WINTOOLKIT_RAW_HOST_OUTPUT_TAG]$output"
                     }
                 }
             }
@@ -2174,10 +2161,10 @@ function Tick_JobMonitor {
             try {
                 if ($window -and $window.Dispatcher) {
                     $window.Dispatcher.Invoke([Action] {
-                        foreach ($line in ($newOutputLines | Out-String -Stream)) {
-                            [void](Filter-AndFormatJobOutput -Line $line)
-                        }
-                    })
+                            foreach ($line in ($newOutputLines | Out-String -Stream)) {
+                                [void](Filter-AndFormatJobOutput -Line $line)
+                            }
+                        })
                 }
             }
             catch {
@@ -2322,27 +2309,27 @@ $window.Add_Loaded({
 
 # Cleanup handler for Window Closing to kill running jobs
 $window.Add_Closing({
-    if ($Global:ScriptJob) {
-        Write-UnifiedLog -Type 'Info' -Message "🚨 Finestra GUI chiusa. Tentativo di fermare il job in corso." -GuiColor "#FFA500"
+        if ($Global:ScriptJob) {
+            Write-UnifiedLog -Type 'Info' -Message "🚨 Finestra GUI chiusa. Tentativo di fermare il job in corso." -GuiColor "#FFA500"
+            try {
+                Stop-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
+                Remove-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
+                $Global:ScriptJob = $null
+                Write-UnifiedLog -Type 'Success' -Message "✅ Job in corso fermato e rimosso." -GuiColor "#00FF00"
+            }
+            catch {
+                Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante l'interruzione del job: $($_.Exception.Message)." -GuiColor "#FF0000"
+            }
+        }
+        if ($Global:JobMonitorTimer) {
+            $Global:JobMonitorTimer.Stop()
+            $Global:JobMonitorTimer = $null
+        }
         try {
-            Stop-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
-            $Global:ScriptJob = $null
-            Write-UnifiedLog -Type 'Success' -Message "✅ Job in corso fermato e rimosso." -GuiColor "#00FF00"
+            Stop-Transcript -ErrorAction SilentlyContinue
         }
-        catch {
-            Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante l'interruzione del job: $($_.Exception.Message)." -GuiColor "#FF0000"
-        }
-    }
-    if ($Global:JobMonitorTimer) {
-        $Global:JobMonitorTimer.Stop()
-        $Global:JobMonitorTimer = $null
-    }
-    try {
-        Stop-Transcript -ErrorAction SilentlyContinue
-    }
-    catch {}
-})
+        catch {}
+    })
 
 # Show window
 $window.ShowDialog() | Out-Null
