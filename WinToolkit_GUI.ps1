@@ -2059,7 +2059,6 @@ function ProcessJobCompletion {
 
     # *** FIX: Separa logica UI (sincrona) da logica job launching (asincrona) ***
     $window.Dispatcher.Invoke([Action] {
-            $jobResults = $null
             if ($Global:ScriptJob) {
                 $rawOutput = Receive-Job -Job $Global:ScriptJob -ErrorAction SilentlyContinue *>&1
                 $jobResultObject = $rawOutput | Where-Object { $_ -is [hashtable] -and $_.ContainsKey('RebootRequired') } | Select-Object -Last 1
