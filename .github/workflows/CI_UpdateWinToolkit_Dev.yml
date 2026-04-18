@@ -602,8 +602,9 @@ jobs:
           Write-Host "  FASE 3: Generazione release notes"
           Write-Host "──────────────────────────────────────────"
 
-          # Categorize PRs
+          # Categorize PRs and Issues
           $features = @()
+          $enhancements = @()
           $bugFixes = @()
           $changes = @()
 
@@ -614,17 +615,28 @@ jobs:
             
             $labelNames = $pr.labels | ForEach-Object { $_.name.ToLower() }
             
-            # First categorize by labels (primary method)
-            if ($labelNames -contains 'feature' -or $labelNames -contains 'enhancement') {
+            # Check for [ENHANCEMENT] tag in title first (highest priority)
+            if ($title -match '^\[ENHANCEMENT\]' -or $title -match '\[ENHANCEMENT\]') {
+              $enhancements += $formattedLine
+            }
+            # Then categorize by labels (primary method)
+            elseif ($labelNames -contains 'feature') {
               $features += $formattedLine
+            }
+            elseif ($labelNames -contains 'enhancement') {
+              $enhancements += $formattedLine
             }
             elseif ($labelNames -contains 'bug' -or $labelNames -contains 'fix' -or $labelNames -contains 'bugfix') {
               $bugFixes += $formattedLine
             }
             # Fallback to title pattern matching if no labels
             else {
+              # Enhancement detection for [ENHANCEMENT] tag
+              if ($title -match '^\[ENHANCEMENT\]' -or $title -match '\[ENHANCEMENT\]') {
+                $enhancements += $formattedLine
+              }
               # Feature detection patterns
-              if ($title -match '^(feat|feature|add|added|new|implement|implemented)\b' -or 
+              elseif ($title -match '^(feat|feature|add|added|new|implement|implemented)\b' -or 
                   $title -match '\b(feature|new|added)\b' -or
                   $title -match '^Update.*\.ps1$') {
                 $features += $formattedLine
@@ -641,12 +653,69 @@ jobs:
             }
           }
 
+          # Fetch and filter closed GitHub issues
+          Write-Host ""
+          Write-Host "🔍 Recupero Issues GitHub chiuse..."
+          $issuesJson = gh issue list `
+            --state closed `
+            --limit 200 `
+            --json number,title,url,author,closedAt,labels
+
+          $issuesObj = $issuesJson | ConvertFrom-Json
+          if (-not $issuesObj) { $issuesObj = @() }
+          Write-Host "📋 Issues totali recuperate: $($issuesObj.Count)"
+
+          $validIssues = $issuesObj | Where-Object {
+            $closedAtUtc = if ($_.closedAt -is [System.DateTime]) {
+              $_.closedAt
+            } else {
+              [System.DateTimeOffset]::Parse(
+                $_.closedAt.Trim(),
+                [System.Globalization.CultureInfo]::InvariantCulture
+              ).UtcDateTime
+            }
+            
+            $closedAtUtc -gt $targetDate
+          }
+
+          Write-Host "✅ Issues valide (dopo il filtro): $($validIssues.Count)"
+
+          # Categorize issues
+          foreach ($issue in $validIssues) {
+            $title = $issue.title.Trim()
+            $issueNumber = $issue.number
+            $formattedLine = "- $title @$($issue.author.login) (#$issueNumber)"
+            
+            $labelNames = $issue.labels | ForEach-Object { $_.name.ToLower() }
+            
+            # Check for [ENHANCEMENT] tag
+            if ($title -match '^\[ENHANCEMENT\]' -or $title -match '\[ENHANCEMENT\]') {
+              $enhancements += $formattedLine
+            }
+            elseif ($labelNames -contains 'enhancement') {
+              $enhancements += $formattedLine
+            }
+            elseif ($labelNames -contains 'feature') {
+              $features += $formattedLine
+            }
+            elseif ($labelNames -contains 'bug' -or $labelNames -contains 'fix' -or $labelNames -contains 'bugfix') {
+              $bugFixes += $formattedLine
+            }
+          }
+
           $releaseBody = ""
 
           # Features section
           if ($features.Count -gt 0) {
             $releaseBody += "## 🚀 Features`n`n"
             $releaseBody += $features -join "`n"
+            $releaseBody += "`n`n"
+          }
+
+          # Enhancements section
+          if ($enhancements.Count -gt 0) {
+            $releaseBody += "## ✨ ENHANCEMENT`n`n"
+            $releaseBody += $enhancements -join "`n"
             $releaseBody += "`n`n"
           }
 
