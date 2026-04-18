@@ -10,6 +10,19 @@
   - [x] Rimosso il if con warning non bloccante in `Test-VCRedistInstalled`.
   - [x] Corretta numerazione passi in `Repair-WingetDatabase`.
   - [x] Aggiunto countdown di 5 secondi prima della chiusura dello script. Adesso alla fine dell'installazione lo script si chiude automaticamente se ogni operazione è stata eseguita con successo.
+  - [x] Sostituito valore non valido Progress con Info nel parametro -Type di Write-StyledMessage (risolve errore ValidateSet runtime).
+  - [x] Install-GitPackage - Sostituite 3 occorrenze di aggiornamento PATH inline con la funzione Update-EnvironmentPath esistente.
+  - [x] Invoke-WinToolkitSetup - Rimossa duplicazione codice rilevamento percorso pwsh.exe (ora rilevato una sola volta).
+  - [x] Estrazione funzioni annidate:
+    - [x] Get-WingetDownloadUrl estratta da Install-WingetCore.
+    - [x] Install-NerdFontsLocal estratta da Install-PspEnvironment.
+    - [x] Get-ProfileDirLocal estratta da Install-PspEnvironment.
+  - [x] Aggiunta lista UpdateServices in $script:AppConfig e aggiornate Invoke-StopUpdateServices / Invoke-StartUpdateServices.
+  - [x] Spostato $Global:MsgStyles all'interno di AppConfig eliminando scope globale non necessario.
+  - [x] Corretto pattern ProgressPreference in Install-WingetPackage (ora salva e ripristina valore originale).
+  - [x] Uniformato operatore negazione da ! a -not per coerenza.
+  - [x] Corretta numerazione passi mancante (#6) in Repair-WingetDatabase.
+  - [x] Aggiunto Layout.Width in configurazione, rimossi magic number 65 hardcoded.
 
   - `WinToolkit-template.ps1` Aggiornato.
     - [x] Contrassegnata come `[DEPRECATA]` la funzione `Get-UserConfirmation` per futura rimozione.
