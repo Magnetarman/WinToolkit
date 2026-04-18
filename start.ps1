@@ -9,20 +9,19 @@
 
 # --- CONFIGURAZIONE GLOBALE ---
 
-$Global:MsgStyles = @{
-    Success = @{ Icon = '✅'; Color = 'Green' }
-    Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
-    Error   = @{ Icon = '❌'; Color = 'Red' }
-    Info    = @{ Icon = '💎'; Color = 'Cyan' }
-}
-
 $script:AppConfig = @{
+    MsgStyles       = @{
+        Success = @{ Icon = '✅'; Color = 'Green' }
+        Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
+        Error   = @{ Icon = '❌'; Color = 'Red' }
+        Info    = @{ Icon = '💎'; Color = 'Cyan' }
+    }
     # ============================================================================
     # HEADER CONFIGURATION - Modifica qui per aggiornare titolo e versione
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 12)"
+        Version = "Version 2.5.4 (Build 13)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -61,6 +60,10 @@ $script:AppConfig = @{
         'winget',
         'WindowsPackageManagerServer'
     )
+    UpdateServices  = @('wuauserv', 'bits', 'cryptsvc', 'dosvc')
+    Layout          = @{
+        Width = 65
+    }
 }
 
 # ============================================================================
@@ -211,7 +214,7 @@ function Invoke-StopUpdateServices {
     Sospende temporaneamente i servizi di Windows Update e correlati per evitare conflitti con Winget.
     #>
     Write-StyledMessage -Type Info -Text "Sospensione temporanea servizi Windows Update per evitare conflitti."
-    $services = @('wuauserv', 'bits', 'cryptsvc', 'dosvc')
+    $services = $script:AppConfig.UpdateServices
     foreach ($svc in $services) {
         if (Get-Service -Name $svc -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Info -Text "Arresto servizio: $svc..."
@@ -227,7 +230,7 @@ function Invoke-StartUpdateServices {
     Ripristina i servizi di Windows Update e correlati.
     #>
     Write-StyledMessage -Type Info -Text "Ripristino servizi Windows Update."
-    $services = @('wuauserv', 'bits', 'cryptsvc', 'dosvc')
+    $services = $script:AppConfig.UpdateServices
     foreach ($svc in $services) {
         if (Get-Service -Name $svc -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Info -Text "Avvio servizio: $svc..."
@@ -312,6 +315,7 @@ function Repair-WingetDatabase {
             Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
         }
 
+        # 6. Re-registrazione manifest AppInstaller
         try {
             $manifest = (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue).InstallLocation
             if ($manifest) {
@@ -416,27 +420,31 @@ function Test-WingetDeepValidation {
 # FUNZIONI DI INSTALLAZIONE
 # ============================================================================
 
+function Get-WingetDownloadUrl {
+    <#
+    .SYNOPSIS
+    Recupera l'URL di download dell'ultimo asset di Winget CLI da GitHub.
+    #>
+    param([string]$Match)
+    try {
+        $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing
+        $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
+        if ($asset) {
+            return $asset.browser_download_url
+        }
+        throw "Asset '$Match' non trovato."
+    }
+    catch {
+        Write-StyledMessage -Type Warning -Text "Errore recupero URL asset: $($_.Exception.Message)."
+        return $null
+    }
+}
+
 function Install-WingetCore {
     Write-StyledMessage -Type Info -Text "🛠️ Avvio procedura di ripristino Winget (Core)."
 
     $oldProgress = $ProgressPreference
     $ProgressPreference = 'SilentlyContinue'
-
-    function Get-WingetDownloadUrl {
-        param([string]$Match)
-        try {
-            $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing
-            $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
-            if ($asset) {
-                return $asset.browser_download_url
-            }
-            throw "Asset '$Match' non trovato."
-        }
-        catch {
-            Write-StyledMessage -Type Warning -Text "Errore recupero URL asset: $($_.Exception.Message)."
-            return $null
-        }
-    }
 
     $tempDir = "$env:TEMP\WinToolkitWinget"
     if (-not (Test-Path $tempDir)) {
@@ -539,6 +547,7 @@ function Install-WingetPackage {
     Invoke-ForceCloseWinget
 
     try {
+        $oldProgress = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
 
         # Pulizia temporanei
@@ -637,14 +646,14 @@ function Install-WingetPackage {
         return $false
     }
     finally {
-        $ProgressPreference = 'Continue'
+        $ProgressPreference = $oldProgress
     }
 }
 
 function Install-GitPackage {
     Write-StyledMessage -Type Info -Text "Verifica installazione Git..."
 
-    $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+    Update-EnvironmentPath
 
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Write-StyledMessage -Type Success -Text "Git già installato."
@@ -659,7 +668,7 @@ function Install-GitPackage {
 
         if ($result.ExitCode -eq 0) {
             Start-Sleep 3
-            $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+            Update-EnvironmentPath
 
             if (Get-Command git -ErrorAction SilentlyContinue) {
                 Write-StyledMessage -Type Success -Text "Git installato via winget."
@@ -698,7 +707,7 @@ function Install-GitPackage {
         Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
 
         if ($process.ExitCode -eq 0) {
-            $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+            Update-EnvironmentPath
             Write-StyledMessage -Type Success -Text "Git installato con successo."
             return $true
         }
@@ -727,7 +736,7 @@ function Show-Header {
         [string]$Version
     )
     Clear-Host
-    $width = 65
+    $width = $script:AppConfig.Layout.Width
     Write-Host ('═' * $width) -ForegroundColor Green
     @(
         '      __        __  _   _   _ ',
@@ -752,7 +761,7 @@ function Write-StyledMessage {
     # FIX: Windows 11 Indentation Issue
     if ([Environment]::OSVersion.Version.Build -ge 22000) { $Text = "`r$Text" }
 
-    $style = $Global:MsgStyles[$Type]
+    $style = $script:AppConfig.MsgStyles[$Type]
     $timestamp = Get-Date -Format "HH:mm:ss"
     Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
 
@@ -1173,53 +1182,57 @@ function Install-WindowsTerminalApp {
     return $false
 }
 
-function Install-PspEnvironment {
-    Write-StyledMessage -Type Info -Text "Avvio configurazione ambiente PowerShell (PSP)."
+function Install-NerdFontsLocal {
+    <#
+    .SYNOPSIS
+    Verifica e installa JetBrainsMono Nerd Font tramite Winget.
+    #>
+    try {
+        Write-StyledMessage -Type Info -Text "🔍 Verifica presenza JetBrainsMono Nerd Font."
 
-    # ============================================================================
-    # HELPER FUNCTIONS LOCALI
-    # ============================================================================
+        # Controllo rapido se il font è già registrato nel sistema
+        $fontRegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+        $installed = Get-ItemProperty -Path $fontRegistryPath -ErrorAction SilentlyContinue |
+        Get-Member -MemberType NoteProperty |
+        Where-Object Name -like "*JetBrainsMono*"
 
-    function Install-NerdFontsLocal {
-        try {
-            Write-StyledMessage -Type Info -Text "🔍 Verifica presenza JetBrainsMono Nerd Font."
-
-            # Controllo rapido se il font è già registrato nel sistema
-            $fontRegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
-            $installed = Get-ItemProperty -Path $fontRegistryPath -ErrorAction SilentlyContinue |
-            Get-Member -MemberType NoteProperty |
-            Where-Object Name -like "*JetBrainsMono*"
-
-            if ($installed) {
-                Write-StyledMessage -Type Success -Text "✅ JetBrainsMono Nerd Font già installato."
-                return $true
-            }
-
-            Write-StyledMessage -Type Info -Text "⬇️ Installazione font tramite WinGet (Metodo Rapido)."
-
-            # Utilizzo della funzione helper esistente per coerenza logica
-            $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
-
-            if ($result.ExitCode -ne 0) {
-                Write-StyledMessage -Type Warning -Text "⚠️ WinGet ha restituito codice $($result.ExitCode). Il font potrebbe richiedere un riavvio del terminale."
-                return $false
-            }
-            Write-StyledMessage -Type Success -Text "✅ Nerd Fonts installati con successo."
-            Write-StyledMessage -Type Warning -Text "💡 Nota: i font via WinGet richiedono il riavvio del Terminale (o di Explorer) per essere visibili."
+        if ($installed) {
+            Write-StyledMessage -Type Success -Text "✅ JetBrainsMono Nerd Font già installato."
             return $true
         }
-        catch {
-            Write-StyledMessage -Type Warning -Text "Errore durante l'installazione font: $($_.Exception.Message)."
+
+        Write-StyledMessage -Type Info -Text "⬇️ Installazione font tramite WinGet (Metodo Rapido)."
+
+        # Utilizzo della funzione helper esistente per coerenza logica
+        $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
+
+        if ($result.ExitCode -ne 0) {
+            Write-StyledMessage -Type Warning -Text "⚠️ WinGet ha restituito codice $($result.ExitCode). Il font potrebbe richiedere un riavvio del terminale."
             return $false
         }
+        Write-StyledMessage -Type Success -Text "✅ Nerd Fonts installati con successo."
+        Write-StyledMessage -Type Warning -Text "💡 Nota: i font via WinGet richiedono il riavvio del Terminale (o di Explorer) per essere visibili."
+        return $true
     }
+    catch {
+        Write-StyledMessage -Type Warning -Text "Errore durante l'installazione font: $($_.Exception.Message)."
+        return $false
+    }
+}
 
-    function Get-ProfileDirLocal {
-        if ($PSVersionTable.PSEdition -eq "Core") {
-            return [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
-        }
-        return [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
+function Get-ProfileDirLocal {
+    <#
+    .SYNOPSIS
+    Restituisce il percorso della cartella profilo PowerShell corretta per l'edizione corrente.
+    #>
+    if ($PSVersionTable.PSEdition -eq "Core") {
+        return [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
     }
+    return [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
+}
+
+function Install-PspEnvironment {
+    Write-StyledMessage -Type Info -Text "Avvio configurazione ambiente PowerShell (PSP)."
 
     # ============================================================================
     # ESECUZIONE SETUP PSP
@@ -1384,7 +1397,7 @@ function Test-SystemReadiness {
     # 2. Verifica Windows Update (Aggiornamenti pendenti)
     $updatesReady = $false
     try {
-        Write-StyledMessage -Type Progress -Text "Controllo Windows Update (Scansione locale)..."
+        Write-StyledMessage -Type Info -Text "Controllo Windows Update (Scansione locale)..."
         $session = New-Object -ComObject Microsoft.Update.Session
         $searcher = $session.CreateUpdateSearcher()
         $searcher.Online = $false # Impedisce la ricerca in rete che causa il blocco
@@ -1432,7 +1445,7 @@ function Invoke-WinToolkitSetup {
             "iex (irm '$startUrl') $argList"
         }
 
-        if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
             Write-StyledMessage -Type Info -Text "Riavvio con privilegi amministratore."
             $procParams = @{
                 FilePath     = 'powershell'
@@ -1453,7 +1466,7 @@ function Invoke-WinToolkitSetup {
                 break # Esci dal loop e prosegui lo script
             }
 
-            Write-Host "`n" + ("!" * 65) -ForegroundColor Yellow
+            Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Yellow
             if (-not $check.Defender) {
                 Write-StyledMessage -Type Warning -Text "ATTENZIONE: Windows Defender è ATTIVO."
                 Write-StyledMessage -Type Info -Text "Disabilita la protezione in tempo reale per evitare blocchi."
@@ -1462,7 +1475,7 @@ function Invoke-WinToolkitSetup {
                 Write-StyledMessage -Type Warning -Text "ATTENZIONE: Ci sono $($check.Count) aggiornamenti Windows pendenti."
                 Write-StyledMessage -Type Info -Text "Attendi il completamento degli aggiornamenti prima di proseguire."
             }
-            Write-Host ("!" * 65) -ForegroundColor Yellow
+            Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Yellow
 
             Write-Host "`n[Pressione tasto] Riprova i controlli" -ForegroundColor Cyan
             Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
@@ -1585,9 +1598,7 @@ function Invoke-WinToolkitSetup {
             $canLaunchWT = (Get-Command "wt.exe" -ErrorAction SilentlyContinue)
             if (-not ($env:WT_SESSION) -and $canLaunchWT) {
                 Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal."
-                $pwshExe64 = "$env:SystemDrive\Program Files\PowerShell\7\pwsh.exe"
-                $pwshExe32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7\pwsh.exe"
-                $pwshPath = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { "powershell.exe" }
+                $pwshPath = if ($pwshExe) { $pwshExe } else { "powershell.exe" }
 
                 $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
 
