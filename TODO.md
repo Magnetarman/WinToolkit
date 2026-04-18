@@ -23,18 +23,21 @@
   - [x] Uniformato operatore negazione da ! a -not per coerenza.
   - [x] Corretta numerazione passi mancante (#6) in Repair-WingetDatabase.
   - [x] Aggiunto Layout.Width in configurazione, rimossi magic number 65 hardcoded.
+  - [x] Rimossa inizializzazione superflua $downloadUrl = $null a riga 1127
+  - [x] Aggiunto blocco .SYNOPSIS a tutte le 20 funzioni presenti
+  - [x] Riorganizzato il codice in modo più pulito e lineare.
 
-  - `WinToolkit-template.ps1` Aggiornato.
-    - [x] Contrassegnata come `[DEPRECATA]` la funzione `Get-UserConfirmation` per futura rimozione.
-    - [x] Sostituita la chiusura dei processi duplicata nel ripristino di Winget integrando la funzione `Stop-ToolkitProcesses`.
-    - [x] Consolidata e de-duplicata registrazione `AppxManifest.xml` tramite funzione interna dedicata.
-    - [x] Aggiunto caching a `Get-SystemInfo` azzerando latenze CIM durante il ricarico del menu principale.
-    - [x] Inserita funzione `Initialize-ToolkitPaths` centralizzata per i folder log/temp, chiamata fuori ciclo prima della UI.
-    - [x] Ottimizzato wrapper custom `Read-Host` tramite interruzione bloccante `ReadKey()` cancellando overhead della CPU nel polling loop.
-    - [x] Uniformati link e blocchi di configurazioni `AppConfig` centrali.
-    - [x] Gestione Servizi: Aggiunte le funzioni Invoke-StopUpdateServices e Invoke-StartUpdateServices per sospendere temporaneamente wuauserv, bits, cryptsvc e dosvc.
-    - [x] Integrazione: Il sistema ora arresta i servizi subito dopo i controlli preliminari e li riavvia automaticamente in ogni scenario di uscita (completamento, riavvio in PowerShell 7/Terminal o errore critico).
-    - [x] Feedback Utente: Inseriti messaggi di stato per informare correttamente l'utente durante l'arresto e il riavvio dei servizi.
+- `WinToolkit-template.ps1` Aggiornato.
+  - [x] Contrassegnata come `[DEPRECATA]` la funzione `Get-UserConfirmation` per futura rimozione.
+  - [x] Sostituita la chiusura dei processi duplicata nel ripristino di Winget integrando la funzione `Stop-ToolkitProcesses`.
+  - [x] Consolidata e de-duplicata registrazione `AppxManifest.xml` tramite funzione interna dedicata.
+  - [x] Aggiunto caching a `Get-SystemInfo` azzerando latenze CIM durante il ricarico del menu principale.
+  - [x] Inserita funzione `Initialize-ToolkitPaths` centralizzata per i folder log/temp, chiamata fuori ciclo prima della UI.
+  - [x] Ottimizzato wrapper custom `Read-Host` tramite interruzione bloccante `ReadKey()` cancellando overhead della CPU nel polling loop.
+  - [x] Uniformati link e blocchi di configurazioni `AppConfig` centrali.
+  - [x] Gestione Servizi: Aggiunte le funzioni Invoke-StopUpdateServices e Invoke-StartUpdateServices per sospendere temporaneamente wuauserv, bits, cryptsvc e dosvc.
+  - [x] Integrazione: Il sistema ora arresta i servizi subito dopo i controlli preliminari e li riavvia automaticamente in ogni scenario di uscita (completamento, riavvio in PowerShell 7/Terminal o errore critico).
+  - [x] Feedback Utente: Inseriti messaggi di stato per informare correttamente l'utente durante l'arresto e il riavvio dei servizi.
 
 
 ### V 2.6 - Debloat
