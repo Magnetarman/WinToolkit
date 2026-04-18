@@ -67,7 +67,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.4 (Build 10)"
+$ToolkitVersion = "2.5.4 (Build 11)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -1083,12 +1083,12 @@ function WinRepairToolkit {
         try {
             $processTimeoutSeconds = 600
             switch ($Config.Name) {
-                'Ripristino immagine Windows'   { $processTimeoutSeconds = 3600 }
+                'Ripristino immagine Windows'   { $processTimeoutSeconds = 10800 }
                 'Controllo file di sistema (1)' { $processTimeoutSeconds = 3600 }
-                'Controllo file di sistema (2)' { $processTimeoutSeconds = 3600 }
+                'Controllo file di sistema (2)' { $processTimeoutSeconds = 10800 }
                 'Pulizia Residui Aggiornamenti' { $processTimeoutSeconds = 3600 }
                 'Controllo disco' { $processTimeoutSeconds = 900 }
-                'Controllo disco approfondito'  { $processTimeoutSeconds = 900 }
+                'Controllo disco approfondito'  { $processTimeoutSeconds = 3600 }
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
