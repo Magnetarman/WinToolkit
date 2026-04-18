@@ -484,7 +484,7 @@ function Split-EmojiAndText {
     }
 }
 
-function Ensure-AllEmojiIcons {
+function EnsureAllEmojiIcons {
     param(
         [Parameter(Mandatory = $true)][hashtable]$EmojiMap,
         [Parameter(Mandatory = $true)][string]$LocalPath,
@@ -673,7 +673,7 @@ catch {
 }
 
 # Download and cache all required icons
-Ensure-AllEmojiIcons -EmojiMap $emojiMappings -LocalPath $localIconBasePath -RemotePath $remoteIconBasePath
+EnsureAllEmojiIcons -EmojiMap $emojiMappings -LocalPath $localIconBasePath -RemotePath $remoteIconBasePath
 
 # Check administrator privileges
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -1563,7 +1563,7 @@ function Get-ScriptEmoji {
 # =============================================================================
 # HELPER FUNCTION: Filter and format job output
 # =============================================================================
-function Filter-AndFormatJobOutput {
+function FilterAndFormatJobOutput {
     param(
         [string]$Line
     )
@@ -2046,12 +2046,12 @@ function Start-NextScriptJob {
     }
     catch {
         Write-UnifiedLog -Type 'Error' -Message "❌ Errore avvio job '$scriptName': $($_.Exception.Message)." -GuiColor "#FF0000"
-        Process-JobCompletion -JobStatus 'ErrorStarting' -JobName $scriptName
+        ProcessJobCompletion -JobStatus 'ErrorStarting' -JobName $scriptName
     }
 }
 
 # Funzione per processare il completamento del job
-function Process-JobCompletion {
+function ProcessJobCompletion {
     param(
         [string]$JobStatus,
         [string]$JobName
@@ -2073,7 +2073,7 @@ function Process-JobCompletion {
                 }
 
                 foreach ($line in ($finalJobOutput | Out-String -Stream)) {
-                    [void](Filter-AndFormatJobOutput -Line $line)
+                    [void](FilterAndFormatJobOutput -Line $line)
                 }
             }
 
@@ -2159,7 +2159,7 @@ function Tick_JobMonitor {
                 if ($window -and $window.Dispatcher) {
                     $window.Dispatcher.Invoke([Action] {
                             foreach ($line in ($newOutputLines | Out-String -Stream)) {
-                                [void](Filter-AndFormatJobOutput -Line $line)
+                                [void](FilterAndFormatJobOutput -Line $line)
                             }
                         })
                 }
@@ -2172,7 +2172,7 @@ function Tick_JobMonitor {
     }
     elseif ($Global:ScriptJob -and ($Global:ScriptJob.State -eq 'Completed' -or $Global:ScriptJob.State -eq 'Failed' -or $Global:ScriptJob.State -eq 'Stopped')) {
         $Global:JobMonitorTimer.Stop()
-        Process-JobCompletion -JobStatus $Global:ScriptJob.State -JobName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
+        ProcessJobCompletion -JobStatus $Global:ScriptJob.State -JobName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
     }
 }
 
@@ -2246,7 +2246,7 @@ $SendErrorLogsButton.Add_Click({
 # CONSOLE MINIMIZATION HELPER
 # =============================================================================
 
-function Minimize-Console {
+function MinimizeConsole {
     <#
     .SYNOPSIS
         Minimizza la finestra della console PowerShell.
@@ -2297,7 +2297,7 @@ $window.Add_Loaded({
             Write-UnifiedLog -Type 'Info' -Message "💡 Seleziona uno o più script e premi 'Esegui'." -GuiColor "#00CED1"
 
             # Minimize console - DISABLED to prevent handle exhaustion crash (Win32Exception 1816)
-            # Minimize-Console
+            # MinimizeConsole
         }
         catch {
             Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante inizializzazione Loaded: $($_.Exception.Message)." -GuiColor "#FF0000"
