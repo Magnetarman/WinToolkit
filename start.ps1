@@ -21,7 +21,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 13)"
+        Version = "Version 2.5.4 (Build 15)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -147,6 +147,10 @@ function Get-WinGetExecutable {
 }
 
 function Test-WingetCompatibility {
+    <#
+    .SYNOPSIS
+    Verifica la compatibilità del sistema operativo con Winget.
+    #>
     $osInfo = [Environment]::OSVersion
     $build = $osInfo.Version.Build
 
@@ -162,6 +166,10 @@ function Test-WingetCompatibility {
 }
 
 function Test-WingetFunctionality {
+    <#
+    .SYNOPSIS
+    Verifica che Winget sia presente nel PATH e funzioni correttamente.
+    #>
     Write-StyledMessage -Type Info -Text "🔍 Verifica funzionalità Winget."
 
     # Aggiorna il PATH per rilevare installazioni recenti
@@ -269,6 +277,10 @@ function Set-WingetPathPermissions {
 }
 
 function Repair-WingetDatabase {
+    <#
+    .SYNOPSIS
+    Esegue un ripristino completo del database e delle configurazioni di Winget.
+    #>
     Write-StyledMessage -Type Info -Text "🔧 Avvio ripristino database Winget."
 
     try {
@@ -366,6 +378,10 @@ function Repair-WingetDatabase {
 }
 
 function Test-WingetDeepValidation {
+    <#
+    .SYNOPSIS
+    Esegue un test approfondito di connettività e funzionalità di Winget.
+    #>
     Write-StyledMessage -Type Info -Text "🔍 Esecuzione test profondo di Winget (ricerca pacchetti in rete)."
 
     try {
@@ -441,6 +457,10 @@ function Get-WingetDownloadUrl {
 }
 
 function Install-WingetCore {
+    <#
+    .SYNOPSIS
+    Esegue l'installazione minima e dipendenze core di Winget.
+    #>
     Write-StyledMessage -Type Info -Text "🛠️ Avvio procedura di ripristino Winget (Core)."
 
     $oldProgress = $ProgressPreference
@@ -535,6 +555,10 @@ function Install-WingetCore {
 }
 
 function Install-WingetPackage {
+    <#
+    .SYNOPSIS
+    Procedura completa di installazione e ripristino di Winget.
+    #>
     param([switch]$Force)
 
     Write-StyledMessage -Type Info -Text "🚀 Avvio procedura installazione/verifica Winget."
@@ -651,6 +675,10 @@ function Install-WingetPackage {
 }
 
 function Install-GitPackage {
+    <#
+    .SYNOPSIS
+    Verifica e installa Git con fallback a download diretto.
+    #>
     Write-StyledMessage -Type Info -Text "Verifica installazione Git..."
 
     Update-EnvironmentPath
@@ -722,6 +750,10 @@ function Install-GitPackage {
 }
 
 function Format-CenteredText {
+    <#
+    .SYNOPSIS
+    Formatta un testo centrato rispetto alla larghezza specificata.
+    #>
     param(
         [string]$Text,
         [int]$Width = 80
@@ -731,6 +763,10 @@ function Format-CenteredText {
 }
 
 function Show-Header {
+    <#
+    .SYNOPSIS
+    Visualizza l'header grafico dello script con titolo e versione.
+    #>
     param(
         [string]$Title,
         [string]$Version
@@ -753,6 +789,10 @@ function Show-Header {
 }
 
 function Write-StyledMessage {
+    <#
+    .SYNOPSIS
+    Scrive un messaggio formattato con timestamp, icona e colore, e lo salva nel log.
+    #>
     param(
         [ValidateSet('Info', 'Warning', 'Error', 'Success')]
         [string]$Type,
@@ -894,6 +934,10 @@ exit 0
 
 
 function Update-EnvironmentPath {
+    <#
+    .SYNOPSIS
+    Ricarica le variabili PATH di sistema e utente nella sessione corrente.
+    #>
     # Ricarica PATH da Machine e User per rilevare installazioni avvenute nel processo corrente
     $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -905,7 +949,40 @@ function Update-EnvironmentPath {
     [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
 }
 
+function Invoke-DownloadFile {
+    <#
+    .SYNOPSIS
+    Helper DRY per download file con gestione errori centralizzata.
+    #>
+    param(
+        [string]$Uri,
+        [string]$OutFile,
+        [switch]$Silent
+    )
+    
+    try {
+        $iwrParams = @{
+            Uri             = $Uri
+            OutFile         = $OutFile
+            UseBasicParsing = $true
+            ErrorAction     = 'Stop'
+        }
+        Invoke-WebRequest @iwrParams
+        return $true
+    }
+    catch {
+        if (-not $Silent) {
+            Write-StyledMessage -Type Warning -Text "Errore download: $($_.Exception.Message)"
+        }
+        return $false
+    }
+}
+
 function Add-ToEnvironmentPath {
+    <#
+    .SYNOPSIS
+    Aggiunge un percorso alla variabile d'ambiente PATH nello scope specificato.
+    #>
     param (
         [Parameter(Mandatory = $true)]
         [string]$PathToAdd,
@@ -935,6 +1012,10 @@ function Add-ToEnvironmentPath {
 }
 
 function Invoke-WingetCommand {
+    <#
+    .SYNOPSIS
+    Esegue un comando Winget con gestione della compatibilità tra versioni.
+    #>
     param(
         [string]$Arguments,
         [int]$TimeoutSeconds = 120
@@ -972,6 +1053,10 @@ function Invoke-WingetCommand {
 }
 
 function Test-PathInEnvironment {
+    <#
+    .SYNOPSIS
+    Verifica se un percorso è presente nella variabile PATH dell'ambiente specificato.
+    #>
     param (
         [string]$PathToCheck,
         [string]$Scope = 'Both'
@@ -1028,6 +1113,10 @@ function Set-PathPermissions {
 
 
 function Install-PowerShellCore {
+    <#
+    .SYNOPSIS
+    Verifica e installa PowerShell 7 con fallback a download diretto.
+    #>
     Write-StyledMessage -Type Info -Text "Verifica PowerShell 7."
 
     $ps7Path64 = "$env:SystemDrive\Program Files\PowerShell\7"
@@ -1116,6 +1205,10 @@ function Install-PowerShellCore {
 }
 
 function Install-WindowsTerminalApp {
+    <#
+    .SYNOPSIS
+    Verifica e installa Windows Terminal con diversi metodi di fallback.
+    #>
     Write-StyledMessage -Type Info -Text "Configurazione Windows Terminal."
 
     if (Get-Command "wt.exe" -ErrorAction SilentlyContinue) {
@@ -1124,7 +1217,6 @@ function Install-WindowsTerminalApp {
     }
 
     Write-StyledMessage -Type Info -Text "Installazione Windows Terminal in corso."
-    $downloadUrl = $null
     try {
         $winget = Get-Command winget -ErrorAction SilentlyContinue
         if ($winget) {
@@ -1232,6 +1324,10 @@ function Get-ProfileDirLocal {
 }
 
 function Install-PspEnvironment {
+    <#
+    .SYNOPSIS
+    Configura l'ambiente PowerShell con tool, temi e profilo personalizzato.
+    #>
     Write-StyledMessage -Type Info -Text "Avvio configurazione ambiente PowerShell (PSP)."
 
     # ============================================================================
@@ -1262,17 +1358,8 @@ function Install-PspEnvironment {
         }
 
         $themePath = Join-Path $themesFolder "atomic.omp.json"
-        try {
-            $iwrParams = @{
-                Uri             = $script:AppConfig.URLs.OhMyPoshTheme
-                OutFile         = $themePath
-                UseBasicParsing = $true
-            }
-            Invoke-WebRequest @iwrParams
+        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.OhMyPoshTheme -OutFile $themePath) {
             Write-StyledMessage -Type Success -Text "Tema Oh My Posh scaricato."
-        }
-        catch {
-            Write-StyledMessage -Type Warning -Text "Errore download tema: $($_.Exception.Message)."
         }
     }
 
@@ -1292,13 +1379,9 @@ function Install-PspEnvironment {
             if (Test-Path $targetProfile) {
                 Move-Item -Path $targetProfile -Destination "$targetProfile.bak" -Force -ErrorAction SilentlyContinue
             }
-            $iwrParams = @{
-                Uri             = $script:AppConfig.URLs.PowerShellProfile
-                OutFile         = $targetProfile
-                UseBasicParsing = $true
+            if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $targetProfile) {
+                Write-StyledMessage -Type Success -Text "Profilo PowerShell configurato."
             }
-            Invoke-WebRequest @iwrParams
-            Write-StyledMessage -Type Success -Text "Profilo PowerShell configurato."
         }
         catch {
             Write-StyledMessage -Type Warning -Text "Errore configurazione profilo: $($_.Exception.Message)."
@@ -1311,11 +1394,14 @@ function Install-PspEnvironment {
         if ($wtPath) {
             $settingsPath = Join-Path $wtPath.FullName "LocalState\settings.json"
             if (Test-Path (Join-Path $wtPath.FullName "LocalState")) {
-                $iwrParams = @{
-                    Uri             = $script:AppConfig.URLs.WindowsTerminalSettings
-                    OutFile         = $settingsPath
-                    UseBasicParsing = $true
-                }
+            if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $settingsPath) {
+                Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
+            }
+        }
+    }
+    catch {
+        Write-StyledMessage -Type Warning -Text "Errore aggiornamento settings terminal: $($_.Exception.Message)."
+    }
                 Invoke-WebRequest @iwrParams
                 Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
             }
@@ -1346,12 +1432,7 @@ function New-ToolkitDesktopShortcut {
 
         if (-not (Test-Path $icon)) {
             Write-StyledMessage -Type Info -Text "Download icona."
-            $iwrParams = @{
-                Uri             = $script:AppConfig.URLs.ToolkitIcon
-                OutFile         = $icon
-                UseBasicParsing = $true
-            }
-            Invoke-WebRequest @iwrParams
+            Invoke-DownloadFile -Uri $script:AppConfig.URLs.ToolkitIcon -OutFile $icon
         }
 
         $shell = New-Object -ComObject WScript.Shell
@@ -1380,6 +1461,10 @@ function New-ToolkitDesktopShortcut {
 # ============================================================================
 
 function Test-SystemReadiness {
+    <#
+    .SYNOPSIS
+    Esegue i controlli pre-flight sull'ambiente di sistema.
+    #>
     Write-StyledMessage -Type Info -Text "Esecuzione controlli di integrità sistema..."
 
     # 1. Verifica Windows Defender
@@ -1419,9 +1504,10 @@ function Test-SystemReadiness {
 }
 
 function Invoke-WinToolkitSetup {
-    param(
-        [switch]$InstallProfileOnly
-    )
+    <#
+    .SYNOPSIS
+    Funzione principale che orchestra l'intero processo di installazione e configurazione di WinToolkit.
+    #>
 
     try {
         $isResumeSetup = $env:WINTOOLKIT_RESUME -eq "1"
@@ -1485,7 +1571,7 @@ function Invoke-WinToolkitSetup {
             Clear-Host
         }
         # --- FINE PRE-FLIGHT CHECK ---
-        
+
         # Sospensione servizi Windows Update per garantire stabilità a Winget
         Invoke-StopUpdateServices
 
@@ -1529,7 +1615,7 @@ function Invoke-WinToolkitSetup {
                 Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire."
             }
 
-            # Verifica se l'installazione di Git è andata a buon fine.
+            # Installa Git
             if (Install-GitPackage) {
                 Write-StyledMessage -Type Success -Text "✅ Git è già operativo."
             }
@@ -1537,7 +1623,7 @@ function Invoke-WinToolkitSetup {
                 Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: Git non è stato installato oppure potrebbe non funzionare correttamente."
             }
 
-            # Controllo rapido che non richieda chiamate e garantisca fallback veloce
+            # Controllo e installazione PowerShell 7
             if (-not (Test-Path "$env:ProgramFiles\PowerShell\7") -and -not (Test-Path "${env:ProgramFiles(x86)}\PowerShell\7") -and -not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
                 Install-PowerShellCore
             }
@@ -1566,7 +1652,7 @@ function Invoke-WinToolkitSetup {
             Stop-Process -Id $PID
         }
 
-        # Installazioni core
+        # Installazioni core Windows Terminal
         $wtInstalled = Install-WindowsTerminalApp
 
         # Imposta Windows Terminal come terminale predefinito
@@ -1586,7 +1672,9 @@ function Invoke-WinToolkitSetup {
             }
         }
 
+        # SEMPRE eseguito: Installazione ambiente PSP e profilo
         Install-PspEnvironment
+        
         New-ToolkitDesktopShortcut
 
         Write-StyledMessage -Type Success -Text "Configurazione completata."
@@ -1618,7 +1706,7 @@ function Invoke-WinToolkitSetup {
             }
         }
 
-        Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
+        Write-StyledMessage -Type Success -Text "WinToolkit è Pronto! 🚀"
 
         # Ripristino servizi Windows Update prima della chiusura
         Invoke-StartUpdateServices
@@ -1630,15 +1718,15 @@ function Invoke-WinToolkitSetup {
         Stop-Process -Id $PID
     }
     catch {
-        # Ripristino servizi in caso di errore
-        Invoke-StartUpdateServices
+            # Ripristino servizi in caso di errore
+            Invoke-StartUpdateServices
         
-        Write-StyledMessage -Type Error -Text "❌ Errore critico durante il setup: $($_.Exception.Message)."
-        Write-ToolkitLog -Level 'ERROR' -Message "ECCEZIONE UNHANDLED: $($_.Exception.Message) `n $($_.ScriptStackTrace)"
-        Write-Host "Premi un tasto per uscire."
-        $null = [Console]::ReadKey($true)
-        exit 1
+            Write-StyledMessage -Type Error -Text "❌ Errore critico durante il setup: $($_.Exception.Message)."
+            Write-ToolkitLog -Level 'ERROR' -Message "ECCEZIONE UNHANDLED: $($_.Exception.Message) `n $($_.ScriptStackTrace)"
+            Write-Host "Premi un tasto per uscire."
+            $null = [Console]::ReadKey($true)
+            exit 1
+        }
     }
-}
 
-Invoke-WinToolkitSetup
+    Invoke-WinToolkitSetup
