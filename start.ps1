@@ -22,7 +22,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 4)"
+        Version = "Version 2.5.4 (Build 12)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -203,6 +203,38 @@ function Invoke-ForceCloseWinget {
     }
     Start-Sleep 2
     Write-StyledMessage -Type Success -Text "Processi interferenti chiusi."
+}
+
+function Invoke-StopUpdateServices {
+    <#
+    .SYNOPSIS
+    Sospende temporaneamente i servizi di Windows Update e correlati per evitare conflitti con Winget.
+    #>
+    Write-StyledMessage -Type Info -Text "Sospensione temporanea servizi Windows Update per evitare conflitti."
+    $services = @('wuauserv', 'bits', 'cryptsvc', 'dosvc')
+    foreach ($svc in $services) {
+        if (Get-Service -Name $svc -ErrorAction SilentlyContinue) {
+            Write-StyledMessage -Type Info -Text "Arresto servizio: $svc..."
+            Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Write-StyledMessage -Type Success -Text "Servizi di aggiornamento sospesi correttamente."
+}
+
+function Invoke-StartUpdateServices {
+    <#
+    .SYNOPSIS
+    Ripristina i servizi di Windows Update e correlati.
+    #>
+    Write-StyledMessage -Type Info -Text "Ripristino servizi Windows Update."
+    $services = @('wuauserv', 'bits', 'cryptsvc', 'dosvc')
+    foreach ($svc in $services) {
+        if (Get-Service -Name $svc -ErrorAction SilentlyContinue) {
+            Write-StyledMessage -Type Info -Text "Avvio servizio: $svc..."
+            Start-Service -Name $svc -ErrorAction SilentlyContinue
+        }
+    }
+    Write-StyledMessage -Type Success -Text "Servizi di aggiornamento ripristinati."
 }
 
 function Set-WingetPathPermissions {
@@ -1440,6 +1472,10 @@ function Invoke-WinToolkitSetup {
             Clear-Host
         }
         # --- FINE PRE-FLIGHT CHECK ---
+        
+        # Sospensione servizi Windows Update per garantire stabilità a Winget
+        Invoke-StopUpdateServices
+
         Write-StyledMessage -Type Info -Text "PowerShell: $($PSVersionTable.PSVersion)."
         if ($PSVersionTable.PSVersion.Major -lt 7) {
             Write-StyledMessage -Type Warning -Text "PowerShell 7 raccomandato per funzionalità avanzate."
@@ -1512,6 +1548,7 @@ function Invoke-WinToolkitSetup {
                 Verb         = "RunAs"
             }
             Start-Process @procParams
+            Invoke-StartUpdateServices
             Write-StyledMessage -Type Success -Text "Script riavviato su PowerShell 7. Chiusura sessione legacy."
             Stop-Process -Id $PID
         }
@@ -1556,6 +1593,7 @@ function Invoke-WinToolkitSetup {
 
                 try {
                     Start-Process -FilePath "wt.exe" -ArgumentList $wtArgs
+                    Invoke-StartUpdateServices
                     Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione."
                     Stop-Process -Id $PID
                 }
@@ -1570,6 +1608,10 @@ function Invoke-WinToolkitSetup {
         }
 
         Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
+
+        # Ripristino servizi Windows Update prima della chiusura
+        Invoke-StartUpdateServices
+
         for ($i = 5; $i -gt 0; $i--) {
             Write-Host ("`r[$((Get-Date).ToString('HH:mm:ss'))] ⏳ Chiusura automatica in $i secondi... ") -NoNewline -ForegroundColor Cyan
             Start-Sleep 1
@@ -1577,6 +1619,9 @@ function Invoke-WinToolkitSetup {
         Stop-Process -Id $PID
     }
     catch {
+        # Ripristino servizi in caso di errore
+        Invoke-StartUpdateServices
+        
         Write-StyledMessage -Type Error -Text "❌ Errore critico durante il setup: $($_.Exception.Message)."
         Write-ToolkitLog -Level 'ERROR' -Message "ECCEZIONE UNHANDLED: $($_.Exception.Message) `n $($_.ScriptStackTrace)"
         Write-Host "Premi un tasto per uscire."
