@@ -19,6 +19,10 @@
     - [x] Inserita funzione `Initialize-ToolkitPaths` centralizzata per i folder log/temp, chiamata fuori ciclo prima della UI.
     - [x] Ottimizzato wrapper custom `Read-Host` tramite interruzione bloccante `ReadKey()` cancellando overhead della CPU nel polling loop.
     - [x] Uniformati link e blocchi di configurazioni `AppConfig` centrali.
+    - [x] Gestione Servizi: Aggiunte le funzioni Invoke-StopUpdateServices e Invoke-StartUpdateServices per sospendere temporaneamente wuauserv, bits, cryptsvc e dosvc.
+    - [x] Integrazione: Il sistema ora arresta i servizi subito dopo i controlli preliminari e li riavvia automaticamente in ogni scenario di uscita (completamento, riavvio in PowerShell 7/Terminal o errore critico).
+    - [x] Feedback Utente: Inseriti messaggi di stato per informare correttamente l'utente durante l'arresto e il riavvio dei servizi.
+
 
 ### V 2.6 - Debloat
 
