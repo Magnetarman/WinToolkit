@@ -1394,16 +1394,9 @@ function Install-PspEnvironment {
         if ($wtPath) {
             $settingsPath = Join-Path $wtPath.FullName "LocalState\settings.json"
             if (Test-Path (Join-Path $wtPath.FullName "LocalState")) {
-            if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $settingsPath) {
-                Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
-            }
-        }
-    }
-    catch {
-        Write-StyledMessage -Type Warning -Text "Errore aggiornamento settings terminal: $($_.Exception.Message)."
-    }
-                Invoke-WebRequest @iwrParams
-                Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
+                if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $settingsPath) {
+                    Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
+                }
             }
         }
     }
