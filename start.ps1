@@ -21,7 +21,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 15)"
+        Version = "Version 2.5.4 (Build 16)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1540,28 +1540,46 @@ function Invoke-WinToolkitSetup {
             Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
             $check = Test-SystemReadiness
 
-            if ($check.Defender -and $check.Updates) {
-                Write-StyledMessage -Type Success -Text "Ambiente pronto per l'installazione."
-                break # Esci dal loop e prosegui lo script
-            }
-
-            Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Yellow
+            # Windows Defender SEMPRE obbligatorio
             if (-not $check.Defender) {
-                Write-StyledMessage -Type Warning -Text "ATTENZIONE: Windows Defender è ATTIVO."
+                Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
+                Write-StyledMessage -Type Error -Text "OBBLIGATORIO: Windows Defender è ATTIVO."
                 Write-StyledMessage -Type Info -Text "Disabilita la protezione in tempo reale per evitare blocchi."
+                Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
+
+                Write-Host "`n[Pressione tasto] Riprova i controlli" -ForegroundColor Cyan
+                Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
+
+                $key = [Console]::ReadKey($true)
+                if ($key.Key -eq 'Escape') { exit }
+                Clear-Host
+                continue
             }
+
+            # Se Defender è ok, controlla aggiornamenti (opzionale)
             if (-not $check.Updates) {
+                Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Yellow
                 Write-StyledMessage -Type Warning -Text "ATTENZIONE: Ci sono $($check.Count) aggiornamenti Windows pendenti."
-                Write-StyledMessage -Type Info -Text "Attendi il completamento degli aggiornamenti prima di proseguire."
+                Write-StyledMessage -Type Info -Text "Si consiglia di attendere il completamento, ma puoi ignorare questo controllo."
+                Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Yellow
+
+                Write-Host "`n[R] Riprova i controlli" -ForegroundColor Cyan
+                Write-Host "[I] Ignora aggiornamenti e prosegui" -ForegroundColor Yellow
+                Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
+
+                $key = [Console]::ReadKey($true)
+                if ($key.Key -eq 'Escape') { exit }
+                if ($key.Key -eq 'I') {
+                    Write-StyledMessage -Type Warning -Text "⚠️ Hai ignorato il controllo aggiornamenti. Possibili problemi durante installazione."
+                    break
+                }
+                Clear-Host
+                continue
             }
-            Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Yellow
 
-            Write-Host "`n[Pressione tasto] Riprova i controlli" -ForegroundColor Cyan
-            Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
-
-            $key = [Console]::ReadKey($true)
-            if ($key.Key -eq 'Escape') { exit }
-            Clear-Host
+            # Tutti i controlli superati
+            Write-StyledMessage -Type Success -Text "Ambiente pronto per l'installazione."
+            break
         }
         # --- FINE PRE-FLIGHT CHECK ---
 
@@ -1711,15 +1729,15 @@ function Invoke-WinToolkitSetup {
         Stop-Process -Id $PID
     }
     catch {
-            # Ripristino servizi in caso di errore
-            Invoke-StartUpdateServices
+        # Ripristino servizi in caso di errore
+        Invoke-StartUpdateServices
         
-            Write-StyledMessage -Type Error -Text "❌ Errore critico durante il setup: $($_.Exception.Message)."
-            Write-ToolkitLog -Level 'ERROR' -Message "ECCEZIONE UNHANDLED: $($_.Exception.Message) `n $($_.ScriptStackTrace)"
-            Write-Host "Premi un tasto per uscire."
-            $null = [Console]::ReadKey($true)
-            exit 1
-        }
+        Write-StyledMessage -Type Error -Text "❌ Errore critico durante il setup: $($_.Exception.Message)."
+        Write-ToolkitLog -Level 'ERROR' -Message "ECCEZIONE UNHANDLED: $($_.Exception.Message) `n $($_.ScriptStackTrace)"
+        Write-Host "Premi un tasto per uscire."
+        $null = [Console]::ReadKey($true)
+        exit 1
     }
+}
 
-    Invoke-WinToolkitSetup
+Invoke-WinToolkitSetup
