@@ -21,7 +21,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 25)"
+        Version = "Version 2.5.4 (Build 26)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1506,12 +1506,9 @@ function Invoke-WinToolkitSetup {
     Funzione principale che orchestra l'intero processo di installazione e configurazione di WinToolkit.
     #>
     [CmdletBinding()]
-    param(
-        [switch]$Resume
-    )
+    param()
 
     try {
-        $isResumeSetup = ($Resume.IsPresent -or $env:WINTOOLKIT_RESUME -eq '1')
         $Host.UI.RawUI.WindowTitle = "Toolkit Starter by MagnetarMan"
 
         # Inizializza Logging
@@ -1545,8 +1542,7 @@ function Invoke-WinToolkitSetup {
             exit
         }
 
-        # --- PRE-FLIGHT CHECK (solo prima esecuzione, non durante Resume) ---
-        if (-not $isResumeSetup) {
+        # --- PRE-FLIGHT CHECK ---
             while ($true) {
                 Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
                 $check = Test-SystemReadiness
@@ -1579,7 +1575,6 @@ function Invoke-WinToolkitSetup {
 
             # Sospensione servizi Windows Update per garantire stabilità a Winget
             Invoke-StopUpdateServices
-        }
         # --- FINE PRE-FLIGHT CHECK ---
 
         Write-StyledMessage -Type Info -Text "PowerShell: $($PSVersionTable.PSVersion)."
@@ -1588,8 +1583,7 @@ function Invoke-WinToolkitSetup {
         }
 
         Write-StyledMessage -Type Info -Text "Avvio configurazione Win Toolkit."
-        if (-not $isResumeSetup) {
-            Write-StyledMessage -Type Info -Text "Esecuzione controlli base."
+        Write-StyledMessage -Type Info -Text "Esecuzione controlli base."
 
             # Aggiorna PATH prima del check iniziale per rilevare winget già installato
             Update-EnvironmentPath
@@ -1637,26 +1631,7 @@ function Invoke-WinToolkitSetup {
             else {
                 Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
             }
-        }
 
-        $pwshExe64 = "$env:SystemDrive\Program Files\PowerShell\7\pwsh.exe"
-        $pwshExe32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7\pwsh.exe"
-        $pwshExe = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { $null }
-
-        if ($PSVersionTable.PSVersion.Major -lt 7 -and $pwshExe) {
-            Write-StyledMessage -Type Info -Text "✨ Rilevata PowerShell 7. Upgrade dell'ambiente di esecuzione."
-            Start-Sleep 2
-            $env:WINTOOLKIT_RESUME = "1"
-
-            $procParams = @{
-                FilePath     = $pwshExe
-                ArgumentList = @("-ExecutionPolicy", "Bypass", "-NoExit", "-Command", "`"$scriptBlockForRelaunch`"")
-                Verb         = "RunAs"
-            }
-            Start-Process @procParams
-            Write-StyledMessage -Type Success -Text "Script riavviato su PowerShell 7. Chiusura sessione legacy."
-            exit
-        }
 
         # Installazioni core Windows Terminal
         $wtInstalled = Install-WindowsTerminalApp
@@ -1688,44 +1663,9 @@ function Invoke-WinToolkitSetup {
 
         Write-StyledMessage -Type Success -Text "Configurazione completata."
 
-        if ($isResumeSetup) {
-            Write-StyledMessage -Type Info -Text "Installazione ripresa, sessione completata."
-            return
-        }
-
-        $canLaunchWT = [bool](Get-Command "wt.exe" -ErrorAction SilentlyContinue)
-        if (-not ($env:WT_SESSION) -and $canLaunchWT) {
-            Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal."
-            $pwshExe64 = "$env:SystemDrive\Program Files\PowerShell\7\pwsh.exe"
-            $pwshExe32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7\pwsh.exe"
-            $pwshPath = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { "powershell.exe" }
-            
-            $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
-
-            try {
-                Start-Process -FilePath "wt.exe" -ArgumentList $wtArgs
-                Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione."
-                exit
-            }
-            catch {
-                Write-StyledMessage -Type Error -Text "Errore avvio Windows Terminal: $($_.Exception.Message)."
-            }
-        }
-
-        if (-not ($env:WT_SESSION) -and -not $canLaunchWT) {
-            Write-StyledMessage -Type Warning -Text "L'installazione è stata comunque completata nella console corrente."
-        }
-
-        if ($rebootNeeded) {
-            Write-StyledMessage -Type Warning -Text "Riavvio necessario tra 10 secondi."
-            Start-Sleep 10
-            Restart-Computer -Force
-        }
-        else {
-            Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
-            Start-Sleep 3
-            exit
-        }
+        Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
+        Start-Sleep 3
+        exit
     }
     catch {
         # Ripristino servizi in caso di errore
