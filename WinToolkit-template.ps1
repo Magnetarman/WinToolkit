@@ -97,7 +97,7 @@ function Read-Host {
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.4 (Build 22)"
+$ToolkitVersion = "2.5.4 (Build 23)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -1813,6 +1813,7 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
+
 
 
 
