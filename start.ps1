@@ -21,7 +21,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 16)"
+        Version = "Version 2.5.4 (Build 17)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1501,27 +1501,42 @@ function Invoke-WinToolkitSetup {
     .SYNOPSIS
     Funzione principale che orchestra l'intero processo di installazione e configurazione di WinToolkit.
     #>
+    [CmdletBinding()]
+    param(
+        [switch]$Resume
+    )
 
     try {
-        $isResumeSetup = $env:WINTOOLKIT_RESUME -eq "1"
+        $isResumeSetup = $Resume.IsPresent
         $Host.UI.RawUI.WindowTitle = "Toolkit Starter by MagnetarMan"
 
         # Inizializza Logging
         Start-ToolkitLog "WinToolkitStarter"
 
-        # FIX: Correzione Sintassi ForEach-Object e Join (Aggiunte parentesi)
+        # Costruzione argomenti per riavvio (senza -Resume: usato solo per elevazione admin)
         $argList = ($PSBoundParameters.GetEnumerator() | ForEach-Object {
-                if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
+                if ($_.Key -eq 'Resume') { $null } # Viene gestito separatamente
+                elseif ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
                 elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
                 elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
-            }) -join ' '
+            } | Where-Object { $_ }) -join ' '
 
         $startUrl = $script:AppConfig.URLs.StartScript
+
+        # Blocco standard (senza -Resume): usato per il riavvio con privilegi admin
         $scriptBlockForRelaunch = if ($PSCommandPath) {
             "& '$PSCommandPath' $argList"
         }
         else {
             "iex (irm '$startUrl') $argList"
+        }
+
+        # Blocco con -Resume forzato: usato per i riavvii verso PS7 e Windows Terminal
+        $scriptBlockForResumeRelaunch = if ($PSCommandPath) {
+            "& '$PSCommandPath' $argList -Resume"
+        }
+        else {
+            "iex (irm '$startUrl') $argList -Resume"
         }
 
         if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -1535,40 +1550,42 @@ function Invoke-WinToolkitSetup {
             return
         }
 
-        # --- INIZIO PRE-FLIGHT CHECK ---
-        while ($true) {
-            Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
-            $check = Test-SystemReadiness
+        # --- PRE-FLIGHT CHECK (solo prima esecuzione, non durante Resume) ---
+        if (-not $isResumeSetup) {
+            while ($true) {
+                Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
+                $check = Test-SystemReadiness
 
-            # Windows Defender SEMPRE obbligatorio
-            if (-not $check.Defender) {
-                Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
-                Write-StyledMessage -Type Error -Text "OBBLIGATORIO: Windows Defender è ATTIVO."
-                Write-StyledMessage -Type Info -Text "Disabilita la protezione in tempo reale per evitare blocchi."
-                Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
+                # Windows Defender SEMPRE obbligatorio
+                if (-not $check.Defender) {
+                    Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
+                    Write-StyledMessage -Type Error -Text "OBBLIGATORIO: Windows Defender è ATTIVO."
+                    Write-StyledMessage -Type Info -Text "Disabilita la protezione in tempo reale per evitare blocchi."
+                    Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
 
-                Write-Host "`n[Pressione tasto] Riprova i controlli" -ForegroundColor Cyan
-                Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
+                    Write-Host "`n[Pressione tasto] Riprova i controlli" -ForegroundColor Cyan
+                    Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
 
-                $key = [Console]::ReadKey($true)
-                if ($key.Key -eq 'Escape') { exit }
-                Clear-Host
-                continue
+                    $key = [Console]::ReadKey($true)
+                    if ($key.Key -eq 'Escape') { exit }
+                    Clear-Host
+                    continue
+                }
+
+                # Se Defender è ok, controlla aggiornamenti: solo avviso, prosegue automaticamente
+                if (-not $check.Updates) {
+                    Write-StyledMessage -Type Warning -Text "⚠️ Ci sono $($check.Count) aggiornamenti Windows pendenti. Possibili problemi durante installazione."
+                }
+
+                # Tutti i controlli superati
+                Write-StyledMessage -Type Success -Text "Ambiente pronto per l'installazione."
+                break
             }
 
-            # Se Defender è ok, controlla aggiornamenti: solo avviso, prosegue automaticamente
-            if (-not $check.Updates) {
-                Write-StyledMessage -Type Warning -Text "⚠️ Ci sono $($check.Count) aggiornamenti Windows pendenti. Possibili problemi durante installazione."
-            }
-
-            # Tutti i controlli superati
-            Write-StyledMessage -Type Success -Text "Ambiente pronto per l'installazione."
-            break
+            # Sospensione servizi Windows Update per garantire stabilità a Winget
+            Invoke-StopUpdateServices
         }
         # --- FINE PRE-FLIGHT CHECK ---
-
-        # Sospensione servizi Windows Update per garantire stabilità a Winget
-        Invoke-StopUpdateServices
 
         Write-StyledMessage -Type Info -Text "PowerShell: $($PSVersionTable.PSVersion)."
         if ($PSVersionTable.PSVersion.Major -lt 7) {
@@ -1632,17 +1649,17 @@ function Invoke-WinToolkitSetup {
         $pwshExe = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { $null }
 
         if ($PSVersionTable.PSVersion.Major -lt 7 -and $pwshExe) {
-            Write-StyledMessage -Type Info -Text "✨ Rilevata PowerShell 7. Upgrade dell'ambiente di esecuzione."
+            Write-StyledMessage -Type Info -Text "✨ Rilevata PowerShell 7. Upgrade dell'ambiente di esecuzione in corso..."
             Start-Sleep 2
-            $env:WINTOOLKIT_RESUME = "1"
 
+            # Avvio diretto di pwsh.exe con -NoProfile per evitare che Windows Terminal
+            # o altri host intercettino il processo applicando il profilo PS 5.1
             $procParams = @{
                 FilePath     = $pwshExe
-                ArgumentList = @("-ExecutionPolicy", "Bypass", "-NoExit", "-Command", "`"$scriptBlockForRelaunch`"")
+                ArgumentList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-NoExit", "-Command", "`"$scriptBlockForResumeRelaunch`"")
                 Verb         = "RunAs"
             }
             Start-Process @procParams
-            Invoke-StartUpdateServices
             Write-StyledMessage -Type Success -Text "Script riavviato su PowerShell 7. Chiusura sessione legacy."
             Stop-Process -Id $PID
         }
@@ -1683,11 +1700,12 @@ function Invoke-WinToolkitSetup {
                 Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal."
                 $pwshPath = if ($pwshExe) { $pwshExe } else { "powershell.exe" }
 
-                $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
+                # Non usiamo -p <profilo> per evitare che WT carichi il profilo PS 5.1 di default.
+                # Passiamo direttamente l'eseguibile con -Resume per riprendere correttamente.
+                $wtArgs = "-w 0 new-tab -d . `"$pwshPath`" -NoProfile -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForResumeRelaunch`""
 
                 try {
                     Start-Process -FilePath "wt.exe" -ArgumentList $wtArgs
-                    Invoke-StartUpdateServices
                     Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione."
                     Stop-Process -Id $PID
                 }
