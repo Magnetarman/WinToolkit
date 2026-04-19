@@ -7,7 +7,7 @@
   - [x] Rimosso stile Progress da `$Global:MsgStyle`.
   - [x] Eliminata funzione `Install-NuGetIfRequired` e il suo pre-check ridondante in `Install-WingetPackage`.
   - [x] Rimossa una chiamata ridondante a `Update-EnvironmentPath` prima del fallback MSIX.
-  - [x] Rimosso il if con warning non bloccante in `Test-VCRedistInstalled`.
+  - [x] Rimosso if con warning non bloccante in `Test-VCRedistInstalled`.
   - [x] Corretta numerazione passi in `Repair-WingetDatabase`.
   - [x] Aggiunto countdown di 5 secondi prima della chiusura dello script. Adesso alla fine dell'installazione lo script si chiude automaticamente se ogni operazione è stata eseguita con successo.
   - [x] Sostituito valore non valido Progress con Info nel parametro -Type di Write-StyledMessage (risolve errore ValidateSet runtime).
