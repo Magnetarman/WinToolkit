@@ -658,6 +658,12 @@ function OfficeToolkit {
             }
         }
 
+        # Forza la chiusura di eventuali barre di avanzamento rimaste appese (es. da Remove-Item)
+        Write-Progress -Activity "Rimozione" -Completed -ErrorAction SilentlyContinue
+        # Forza degli a capo per garantire che il menu principale venga stampato sotto l'output precedente
+        Write-Host ""
+        Write-Host ""
+
         if ($success) {
             Write-StyledMessage -Type 'Success' -Text "🎉 Rimozione Office completata!"
             return $true
@@ -727,7 +733,13 @@ function OfficeToolkit {
                     Write-StyledMessage -Type 'Error' -Text "$operation non riuscita."
                     Write-StyledMessage -Type 'Info' -Text "💡 Controlla i log per dettagli o contatta il supporto."
                 }
+                
+                # Assicura che la console sia pulita prima di stampare il menu di nuovo
+                $ProgressPreference = 'SilentlyContinue'
+                Write-Host ""
                 Write-StyledMessage -Type 'Info' -Text ('─' * 50)
+                Write-Host ""
+                $ProgressPreference = 'Continue'
             }
 
         } while ($choice -ne '0')
