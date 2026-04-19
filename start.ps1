@@ -21,7 +21,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 17)"
+        Version = "Version 2.5.4 (Build 18)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1507,7 +1507,7 @@ function Invoke-WinToolkitSetup {
     )
 
     try {
-        $isResumeSetup = $Resume.IsPresent
+        $isResumeSetup = ($Resume.IsPresent -or $env:WINTOOLKIT_RESUME -eq '1')
         $Host.UI.RawUI.WindowTitle = "Toolkit Starter by MagnetarMan"
 
         # Inizializza Logging
@@ -1523,7 +1523,7 @@ function Invoke-WinToolkitSetup {
 
         $startUrl = $script:AppConfig.URLs.StartScript
 
-        # Blocco standard (senza -Resume): usato per il riavvio con privilegi admin
+        # Blocco standard (senza Resume): usato per il riavvio con privilegi admin
         $scriptBlockForRelaunch = if ($PSCommandPath) {
             "& '$PSCommandPath' $argList"
         }
@@ -1531,12 +1531,12 @@ function Invoke-WinToolkitSetup {
             "iex (irm '$startUrl') $argList"
         }
 
-        # Blocco con -Resume forzato: usato per i riavvii verso PS7 e Windows Terminal
+        # Blocco con Resume: iniettiamo la variabile d'ambiente direttamente nel processo prima di eseguire il codice
         $scriptBlockForResumeRelaunch = if ($PSCommandPath) {
-            "& '$PSCommandPath' $argList -Resume"
+            "`$env:WINTOOLKIT_RESUME='1'; & '$PSCommandPath' $argList"
         }
         else {
-            "iex (irm '$startUrl') $argList -Resume"
+            "`$env:WINTOOLKIT_RESUME='1'; iex (irm '$startUrl') $argList"
         }
 
         if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
