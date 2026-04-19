@@ -21,7 +21,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 18)"
+        Version = "Version 2.5.4 (Build 20)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1513,30 +1513,21 @@ function Invoke-WinToolkitSetup {
         # Inizializza Logging
         Start-ToolkitLog "WinToolkitStarter"
 
-        # Costruzione argomenti per riavvio (senza -Resume: usato solo per elevazione admin)
+        # Costruzione argomenti per riavvio
         $argList = ($PSBoundParameters.GetEnumerator() | ForEach-Object {
-                if ($_.Key -eq 'Resume') { $null } # Viene gestito separatamente
-                elseif ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
+                if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
                 elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
                 elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
             } | Where-Object { $_ }) -join ' '
 
         $startUrl = $script:AppConfig.URLs.StartScript
 
-        # Blocco standard (senza Resume): usato per il riavvio con privilegi admin
+        # Blocco di riavvio standard
         $scriptBlockForRelaunch = if ($PSCommandPath) {
             "& '$PSCommandPath' $argList"
         }
         else {
             "iex (irm '$startUrl') $argList"
-        }
-
-        # Blocco con Resume: iniettiamo la variabile d'ambiente direttamente nel processo prima di eseguire il codice
-        $scriptBlockForResumeRelaunch = if ($PSCommandPath) {
-            "`$env:WINTOOLKIT_RESUME='1'; & '$PSCommandPath' $argList"
-        }
-        else {
-            "`$env:WINTOOLKIT_RESUME='1'; iex (irm '$startUrl') $argList"
         }
 
         if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -1547,7 +1538,7 @@ function Invoke-WinToolkitSetup {
                 Verb         = 'RunAs'
             }
             Start-Process @procParams
-            return
+            exit
         }
 
         # --- PRE-FLIGHT CHECK (solo prima esecuzione, non durante Resume) ---
@@ -1649,19 +1640,18 @@ function Invoke-WinToolkitSetup {
         $pwshExe = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { $null }
 
         if ($PSVersionTable.PSVersion.Major -lt 7 -and $pwshExe) {
-            Write-StyledMessage -Type Info -Text "✨ Rilevata PowerShell 7. Upgrade dell'ambiente di esecuzione in corso..."
+            Write-StyledMessage -Type Info -Text "✨ Rilevata PowerShell 7. Upgrade dell'ambiente di esecuzione."
             Start-Sleep 2
+            $env:WINTOOLKIT_RESUME = "1"
 
-            # Avvio diretto di pwsh.exe con -NoProfile per evitare che Windows Terminal
-            # o altri host intercettino il processo applicando il profilo PS 5.1
             $procParams = @{
                 FilePath     = $pwshExe
-                ArgumentList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-NoExit", "-Command", "`"$scriptBlockForResumeRelaunch`"")
+                ArgumentList = @("-ExecutionPolicy", "Bypass", "-NoExit", "-Command", "`"$scriptBlockForRelaunch`"")
                 Verb         = "RunAs"
             }
             Start-Process @procParams
             Write-StyledMessage -Type Success -Text "Script riavviato su PowerShell 7. Chiusura sessione legacy."
-            Stop-Process -Id $PID
+            exit
         }
 
         # Installazioni core Windows Terminal
@@ -1699,15 +1689,15 @@ function Invoke-WinToolkitSetup {
             if (-not ($env:WT_SESSION) -and $canLaunchWT) {
                 Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal."
                 $pwshPath = if ($pwshExe) { $pwshExe } else { "powershell.exe" }
+                $env:WINTOOLKIT_RESUME = "1"
 
                 # Non usiamo -p <profilo> per evitare che WT carichi il profilo PS 5.1 di default.
-                # Passiamo direttamente l'eseguibile con -Resume per riprendere correttamente.
-                $wtArgs = "-w 0 new-tab -d . `"$pwshPath`" -NoProfile -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForResumeRelaunch`""
+                $wtArgs = "-w 0 new-tab -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
 
                 try {
                     Start-Process -FilePath "wt.exe" -ArgumentList $wtArgs
                     Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione."
-                    Stop-Process -Id $PID
+                    exit
                 }
                 catch {
                     Write-StyledMessage -Type Error -Text "Errore avvio Windows Terminal: $($_.Exception.Message)."
