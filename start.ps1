@@ -21,7 +21,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 21)"
+        Version = "Version 2.5.4 (Build 22)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -248,7 +248,7 @@ function Invoke-StartUpdateServices {
             catch {
                 # Ignora avvertimenti di avvio in corso e servizi delayed
                 if ($_.Exception.Message -notmatch 'in corso') {
-                    Write-ToolkitLog -Level 'Warning' -Message "Avvio servizio $svc: $($_.Exception.Message)"
+                    Write-ToolkitLog -Level 'Warning' -Message "Avvio servizio $svc: $(${_}.Exception.Message)"
                 }
             }
         }
