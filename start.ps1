@@ -21,7 +21,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 22)"
+        Version = "Version 2.5.4 (Build 25)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -1358,52 +1358,48 @@ function Install-PspEnvironment {
     }
 
     # 2. Installazione Tema Oh My Posh
-    $profileDir = Get-ProfileDirLocal
-    if ($profileDir) {
-        $themesFolder = Join-Path $profileDir "Themes"
-        if (-not (Test-Path $themesFolder)) {
-            New-Item -Path $themesFolder -ItemType Directory -Force *>$null
-        }
+    # Sempre nella cartella PowerShell 7 (il profilo è specifico per PS7 e Windows Terminal)
+    $ps7ProfileDir = [Environment]::GetFolderPath('MyDocuments') + '\PowerShell'
+    $themesFolder = Join-Path $ps7ProfileDir 'Themes'
+    if (-not (Test-Path $themesFolder)) {
+        New-Item -Path $themesFolder -ItemType Directory -Force *>$null
+    }
 
-        $themePath = Join-Path $themesFolder "atomic.omp.json"
-        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.OhMyPoshTheme -OutFile $themePath) {
-            Write-StyledMessage -Type Success -Text "Tema Oh My Posh scaricato."
-        }
+    $themePath = Join-Path $themesFolder 'atomic.omp.json'
+    if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.OhMyPoshTheme -OutFile $themePath) {
+        Write-StyledMessage -Type Success -Text 'Tema Oh My Posh scaricato.'
     }
 
     # 3. Installazione Font
     Install-NerdFontsLocal *>$null
 
-    # 4. Configurazione Profilo
-    if ($profileDir) {
-        if (-not (Test-Path $profileDir)) {
-            New-Item -Path $profileDir -ItemType Directory -Force *>$null
+    # 4. Configurazione Profilo (sempre nella cartella PowerShell 7)
+    if (-not (Test-Path $ps7ProfileDir)) {
+        New-Item -Path $ps7ProfileDir -ItemType Directory -Force *>$null
+    }
+    $targetProfile = Join-Path $ps7ProfileDir 'Microsoft.PowerShell_profile.ps1'
+    try {
+        if (Test-Path $targetProfile) {
+            Move-Item -Path $targetProfile -Destination "$targetProfile.bak" -Force -ErrorAction SilentlyContinue
         }
-        $targetProfile = $PROFILE
-        if (-not $targetProfile) {
-            $targetProfile = Join-Path $profileDir "Microsoft.PowerShell_profile.ps1"
-        }
-        try {
-            if (Test-Path $targetProfile) {
-                Move-Item -Path $targetProfile -Destination "$targetProfile.bak" -Force -ErrorAction SilentlyContinue
-            }
-            if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $targetProfile) {
-                Write-StyledMessage -Type Success -Text "Profilo PowerShell configurato."
-            }
-        }
-        catch {
-            Write-StyledMessage -Type Warning -Text "Errore configurazione profilo: $($_.Exception.Message)."
+        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $targetProfile) {
+            Write-StyledMessage -Type Success -Text 'Profilo PowerShell 7 configurato.'
         }
     }
+    catch {
+        Write-StyledMessage -Type Warning -Text "Errore configurazione profilo: $($_.Exception.Message)."
+    }
 
-    # 5. Configurazione Settings Windows Terminal
+    # 5. Configurazione Settings Windows Terminal (stable e preview)
     try {
-        $wtPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($wtPath) {
-            $settingsPath = Join-Path $wtPath.FullName "LocalState\settings.json"
-            if (Test-Path (Join-Path $wtPath.FullName "LocalState")) {
+        $wtPackages = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory `
+            -Filter 'Microsoft.WindowsTerminal*' -ErrorAction SilentlyContinue
+        foreach ($wtPkg in $wtPackages) {
+            $localStatePath = Join-Path $wtPkg.FullName 'LocalState'
+            if (Test-Path $localStatePath) {
+                $settingsPath = Join-Path $localStatePath 'settings.json'
                 if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $settingsPath) {
-                    Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati."
+                    Write-StyledMessage -Type Success -Text "Settings Windows Terminal aggiornati ($($wtPkg.Name))."
                 }
             }
         }
@@ -1535,7 +1531,7 @@ function Invoke-WinToolkitSetup {
             "& '$PSCommandPath' $argList"
         }
         else {
-            "iex (irm '$startUrl') $argList"
+            "`$s = irm '$startUrl'; & ([scriptblock]::Create(`$s)) $argList"
         }
 
         if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -1687,10 +1683,37 @@ function Invoke-WinToolkitSetup {
         
         New-ToolkitDesktopShortcut
 
+        # Ripristino servizi in caso di successo
+        Invoke-StartUpdateServices
+
         Write-StyledMessage -Type Success -Text "Configurazione completata."
 
         if ($isResumeSetup) {
             Write-StyledMessage -Type Info -Text "Installazione ripresa, sessione completata."
+            return
+        }
+
+        $canLaunchWT = [bool](Get-Command "wt.exe" -ErrorAction SilentlyContinue)
+        if (-not ($env:WT_SESSION) -and $canLaunchWT) {
+            Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal."
+            $pwshExe64 = "$env:SystemDrive\Program Files\PowerShell\7\pwsh.exe"
+            $pwshExe32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7\pwsh.exe"
+            $pwshPath = if (Test-Path $pwshExe64) { $pwshExe64 } elseif (Test-Path $pwshExe32) { $pwshExe32 } else { "powershell.exe" }
+            
+            $wtArgs = "-w 0 new-tab -p `"PowerShell`" -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
+
+            try {
+                Start-Process -FilePath "wt.exe" -ArgumentList $wtArgs
+                Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione."
+                exit
+            }
+            catch {
+                Write-StyledMessage -Type Error -Text "Errore avvio Windows Terminal: $($_.Exception.Message)."
+            }
+        }
+
+        if (-not ($env:WT_SESSION) -and -not $canLaunchWT) {
+            Write-StyledMessage -Type Warning -Text "L'installazione è stata comunque completata nella console corrente."
         }
 
         if ($rebootNeeded) {
