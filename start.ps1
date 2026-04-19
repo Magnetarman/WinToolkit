@@ -21,7 +21,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 20)"
+        Version = "Version 2.5.4 (Build 21)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -242,7 +242,15 @@ function Invoke-StartUpdateServices {
     foreach ($svc in $services) {
         if (Get-Service -Name $svc -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Info -Text "Avvio servizio: $svc..."
-            Start-Service -Name $svc -ErrorAction SilentlyContinue
+            try {
+                Start-Service -Name $svc -ErrorAction Stop
+            }
+            catch {
+                # Ignora avvertimenti di avvio in corso e servizi delayed
+                if ($_.Exception.Message -notmatch 'in corso') {
+                    Write-ToolkitLog -Level 'Warning' -Message "Avvio servizio $svc: $($_.Exception.Message)"
+                }
+            }
         }
     }
     Write-StyledMessage -Type Success -Text "Servizi di aggiornamento ripristinati."
@@ -1684,41 +1692,17 @@ function Invoke-WinToolkitSetup {
         if ($isResumeSetup) {
             Write-StyledMessage -Type Info -Text "Installazione ripresa, sessione completata."
         }
+
+        if ($rebootNeeded) {
+            Write-StyledMessage -Type Warning -Text "Riavvio necessario tra 10 secondi."
+            Start-Sleep 10
+            Restart-Computer -Force
+        }
         else {
-            $canLaunchWT = (Get-Command "wt.exe" -ErrorAction SilentlyContinue)
-            if (-not ($env:WT_SESSION) -and $canLaunchWT) {
-                Write-StyledMessage -Type Info -Text "Riavvio dello script in Windows Terminal."
-                $pwshPath = if ($pwshExe) { $pwshExe } else { "powershell.exe" }
-                $env:WINTOOLKIT_RESUME = "1"
-
-                # Non usiamo -p <profilo> per evitare che WT carichi il profilo PS 5.1 di default.
-                $wtArgs = "-w 0 new-tab -d . `"$pwshPath`" -ExecutionPolicy Bypass -NoExit -Command `"$scriptBlockForRelaunch`""
-
-                try {
-                    Start-Process -FilePath "wt.exe" -ArgumentList $wtArgs
-                    Write-StyledMessage -Type Success -Text "Script riavviato in Windows Terminal. Chiusura sessione."
-                    exit
-                }
-                catch {
-                    Write-StyledMessage -Type Error -Text "Errore avvio Windows Terminal: $($_.Exception.Message)."
-                }
-            }
-
-            if (-not ($env:WT_SESSION) -and -not $canLaunchWT) {
-                Write-StyledMessage -Type Warning -Text "L'installazione è stata comunque completata nella console corrente."
-            }
+            Write-StyledMessage -Type Success -Text "WinToolkit è Pronto sul Desktop! 🚀"
+            Start-Sleep 3
+            exit
         }
-
-        Write-StyledMessage -Type Success -Text "WinToolkit è Pronto! 🚀"
-
-        # Ripristino servizi Windows Update prima della chiusura
-        Invoke-StartUpdateServices
-
-        for ($i = 5; $i -gt 0; $i--) {
-            Write-Host ("`r[$((Get-Date).ToString('HH:mm:ss'))] ⏳ Chiusura automatica in $i secondi... ") -NoNewline -ForegroundColor Cyan
-            Start-Sleep 1
-        }
-        Stop-Process -Id $PID
     }
     catch {
         # Ripristino servizi in caso di errore
