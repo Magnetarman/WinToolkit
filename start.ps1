@@ -1556,25 +1556,9 @@ function Invoke-WinToolkitSetup {
                 continue
             }
 
-            # Se Defender è ok, controlla aggiornamenti (opzionale)
+            # Se Defender è ok, controlla aggiornamenti: solo avviso, prosegue automaticamente
             if (-not $check.Updates) {
-                Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Yellow
-                Write-StyledMessage -Type Warning -Text "ATTENZIONE: Ci sono $($check.Count) aggiornamenti Windows pendenti."
-                Write-StyledMessage -Type Info -Text "Si consiglia di attendere il completamento, ma puoi ignorare questo controllo."
-                Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Yellow
-
-                Write-Host "`n[R] Riprova i controlli" -ForegroundColor Cyan
-                Write-Host "[I] Ignora aggiornamenti e prosegui" -ForegroundColor Yellow
-                Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
-
-                $key = [Console]::ReadKey($true)
-                if ($key.Key -eq 'Escape') { exit }
-                if ($key.Key -eq 'I') {
-                    Write-StyledMessage -Type Warning -Text "⚠️ Hai ignorato il controllo aggiornamenti. Possibili problemi durante installazione."
-                    break
-                }
-                Clear-Host
-                continue
+                Write-StyledMessage -Type Warning -Text "⚠️ Ci sono $($check.Count) aggiornamenti Windows pendenti. Possibili problemi durante installazione."
             }
 
             # Tutti i controlli superati
