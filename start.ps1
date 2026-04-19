@@ -248,7 +248,7 @@ function Invoke-StartUpdateServices {
             catch {
                 # Ignora avvertimenti di avvio in corso e servizi delayed
                 if ($_.Exception.Message -notmatch 'in corso') {
-                    Write-ToolkitLog -Level 'Warning' -Message "Avvio servizio $svc: $($_.Exception.Message)"
+                    Write-ToolkitLog -Level 'Warning' -Message "Avvio servizio ${svc}: $($_.Exception.Message)"
                 }
             }
         }
