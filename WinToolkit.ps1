@@ -67,7 +67,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.4 (Build 26)"
+$ToolkitVersion = "2.5.4 (Build 27)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -2906,6 +2906,9 @@ function OfficeToolkit {
                 $success = Remove-OfficeDirectly
             }
         }
+        Write-Progress -Activity "Rimozione" -Completed -ErrorAction SilentlyContinue
+        Write-Host ""
+        Write-Host ""
         if ($success) {
             Write-StyledMessage -Type 'Success' -Text "🎉 Rimozione Office completata!"
             return $true
@@ -2966,7 +2969,11 @@ function OfficeToolkit {
                     Write-StyledMessage -Type 'Error' -Text "$operation non riuscita."
                     Write-StyledMessage -Type 'Info' -Text "💡 Controlla i log per dettagli o contatta il supporto."
                 }
+                $ProgressPreference = 'SilentlyContinue'
+                Write-Host ""
                 Write-StyledMessage -Type 'Info' -Text ('─' * 50)
+                Write-Host ""
+                $ProgressPreference = 'Continue'
             }
         } while ($choice -ne '0')
     }
