@@ -18,7 +18,7 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "3.0.0 (Build 4)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "3.0.0 (Build 5)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
@@ -607,7 +607,7 @@ function Send-ErrorLogs {
         
         # Apri il browser predefinito alla pagina GitHub Issues
         try {
-            Start-Process -FilePath "https://github.com/Magnetarman/WinToolkit/issues/new"
+            Start-Process -FilePath "https://github.com/Magnetarman/WinToolkit/issues/new?template=bug_report.yml"
             Write-UnifiedLog -Type 'Info' -Message "🌐 Browser aperto per la segnalazione su GitHub." -GuiColor "#00CED1"
         }
         catch {

@@ -38,6 +38,10 @@
   - [x] Gestione Servizi: Aggiunte le funzioni Invoke-StopUpdateServices e Invoke-StartUpdateServices per sospendere temporaneamente wuauserv, bits, cryptsvc e dosvc.
   - [x] Integrazione: Il sistema ora arresta i servizi subito dopo i controlli preliminari e li riavvia automaticamente in ogni scenario di uscita (completamento, riavvio in PowerShell 7/Terminal o errore critico).
   - [x] Feedback Utente: Inseriti messaggi di stato per informare correttamente l'utente durante l'arresto e il riavvio dei servizi.
+  - [x] Introdotta funzione `Test-WindowsUpdateStatus` per rilevare gli aggiornamenti di Windows in sospeso e l'attività del programma di installazione.
+
+- Profilo Powershell Aggiornato.
+  - [x] Aggiunta Funzione caricamento WinToolkit-GUI.
 
 
 ### V 2.6 - Debloat
