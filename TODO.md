@@ -23,9 +23,11 @@
   - [x] Uniformato operatore negazione da ! a -not per coerenza.
   - [x] Corretta numerazione passi mancante (#6) in Repair-WingetDatabase.
   - [x] Aggiunto Layout.Width in configurazione, rimossi magic number 65 hardcoded.
-  - [x] Rimossa inizializzazione superflua $downloadUrl = $null a riga 1127
-  - [x] Aggiunto blocco .SYNOPSIS a tutte le 20 funzioni presenti
+  - [x] Rimossa inizializzazione superflua $downloadUrl = $null a riga 1127.
+  - [x] Aggiunto blocco .SYNOPSIS a tutte le 20 funzioni presenti.
   - [x] Riorganizzato il codice in modo più pulito e lineare.
+  - [x] Rimuovi tutti i caratteri ANSI/colori prima di salvare su file. [[Thanks To @Ennio Costanzi]]()
+  - [x] Corretti errori di parsing funzione non correttamente inizializzata. [[Thanks To @Ennio Costanzi]]()
 
 - `WinToolkit-template.ps1` Aggiornato.
   - [x] Contrassegnata come `[DEPRECATA]` la funzione `Get-UserConfirmation` per futura rimozione.
@@ -39,9 +41,16 @@
   - [x] Integrazione: Il sistema ora arresta i servizi subito dopo i controlli preliminari e li riavvia automaticamente in ogni scenario di uscita (completamento, riavvio in PowerShell 7/Terminal o errore critico).
   - [x] Feedback Utente: Inseriti messaggi di stato per informare correttamente l'utente durante l'arresto e il riavvio dei servizi.
   - [x] Introdotta funzione `Test-WindowsUpdateStatus` per rilevare gli aggiornamenti di Windows in sospeso e l'attività del programma di installazione.
+  - [x] Rimuovi tutti i caratteri ANSI/colori prima di salvare su file. [[Thanks To @Ennio Costanzi]]()
+
+- `WinRepairToolkit` Aggiornato.
+  - [x] Improve AppX registration and chkdsk handling. [[Thanks To @Ennio Costanzi]]()
 
 - Profilo Powershell Aggiornato.
   - [x] Aggiunta Funzione caricamento WinToolkit-GUI.
+
+- `compiler.ps1` Aggiornato.
+  - [x] Corretti errori di parsing funzione non correttamente inizializzata.
 
 
 ### V 2.6 - Debloat
