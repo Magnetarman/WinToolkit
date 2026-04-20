@@ -723,9 +723,9 @@ function Show-Help {
     $helpText = @"
 $($PSStyle.Foreground.Cyan)Guida al Profilo PowerShell$($PSStyle.Reset) $($PSStyle.Foreground.Red)========================================================$($PSStyle.Reset)
 
-$($PSStyle.Foreground.Green)Verde (Safe):$($PSStyle.Reset) utilizzo sicuro, non comporta problematiche.
-$($PSStyle.Foreground.Yellow)Giallo (Warning):$($PSStyle.Reset) Attenzione leggere attentamente la descrizione, questo tipo di comandi comportano variazioni distruttive al sistema.
-$($PSStyle.Foreground.Red)Rosso (ALLERT!):$($PSStyle.Reset) Queste funzioni sono state designare per effettuare modifiche profonde e distruttive, attento a cosa stai facendo!
+$($PSStyle.Foreground.Green)Verde (Safe):$($PSStyle.Reset) L'utilizzo non comporta rischi o problemi.
+$($PSStyle.Foreground.Yellow)Giallo (Warning):$($PSStyle.Reset) Attenzione! Leggere la descrizione perché questi comandi comportano variazioni rischiose al sistema.
+$($PSStyle.Foreground.Red)Rosso (ALERT!):$($PSStyle.Reset) STOP! Queste funzioni sono state designare per effettuare modifiche profonde e distruttive. Attento!
 
 $($PSStyle.Foreground.Green)====================================================================================$($PSStyle.Reset)
 
