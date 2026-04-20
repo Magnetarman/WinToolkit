@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.4.1"
+$ProfileVersion = "2.5.4.2"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
@@ -342,6 +342,10 @@ function WinReg {
 
 function WinToolkit-Dev {
     Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_WINTOOLKIT_DEV | iex`"" -Verb RunAs
+}
+
+function WinToolkit-GUI {
+    Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/Wintoolkit-gui | iex`"" -Verb RunAs
 }
 
 function SetBranch-Dev {
@@ -754,6 +758,7 @@ $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Spegnim
 $($PSStyle.Foreground.Cyan)Lancio WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Lancia WinToolkit (stabile).
 $($PSStyle.Foreground.Yellow)WinToolkit-Dev$($PSStyle.Reset)            - Lancia WinToolkit (Dev).
+$($PSStyle.Foreground.Magenta)WinToolkit-GUI$($PSStyle.Reset)            - Lancia WinToolkit (Versione GUI).
 $($PSStyle.Foreground.Yellow)SetBranch-Main$($PSStyle.Reset)            - Switcha l'ambiente (Icona e Profilo) al ramo main.
 $($PSStyle.Foreground.Yellow)SetBranch-Dev$($PSStyle.Reset)             - Switcha l'ambiente (Icona e Profilo) al ramo dev.
 $($PSStyle.Foreground.Red)WinReg$($PSStyle.Reset)                    - Attiva Windows/Office (MAS).
