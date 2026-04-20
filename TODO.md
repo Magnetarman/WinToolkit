@@ -45,6 +45,11 @@
 
 - `WinRepairToolkit` Aggiornato.
   - [x] Improve AppX registration and chkdsk handling. [[Thanks To @Ennio Costanzi]]()
+  - [x] Controllo iniziale stato sistema: Aggiunta funzione Test-PendingOperations che verifica chiavi di registro per reboot pendente e avvisa l'utente prima di iniziare le riparazioni.
+  - [x] Pulizia stato DISM: Esecuzione automatica di DISM /CancelCommands prima di ogni operazione /StartComponentCleanup per annullare operazioni pendenti.
+  - [x] Gestione specifica errore: 0x800f0806 viene riconosciuto come non critico, viene mostrato un avviso informativo e non viene conteggiato come errore.
+  - [x] Supporto codice exit 3010: DISM /ResetBase che ritorna 3010 (reboot richiesto) viene considerato successo
+  Esclusione errore dal conteggio: 0x800f0806 viene saltato nella logica di rilevazione errori generale.
 
 - Profilo Powershell Aggiornato.
   - [x] Aggiunta Funzione caricamento WinToolkit-GUI.

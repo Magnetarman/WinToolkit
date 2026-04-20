@@ -71,6 +71,13 @@ function WinRepairToolkit {
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
 
+            # Gestione DISM con operazioni pendenti (errore 0x800f0806)
+            if ($Config.Tool -ieq 'DISM' -and $Config.Args -contains '/StartComponentCleanup') {
+                Write-StyledMessage Info "🔧 Pulizia stato DISM prima di avviare Cleanup..."
+                Start-Process -FilePath 'DISM.exe' -ArgumentList @('/Online', '/Cleanup-Image', '/CancelCommands') -NoNewWindow -Wait -ErrorAction SilentlyContinue
+                Start-Sleep 2
+            }
+
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
                 if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
                     $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
@@ -123,14 +130,26 @@ function WinRepairToolkit {
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
+            # Gestione errore DISM 0x800f0806: operazioni pendenti
+            if (($Config.Tool -ieq 'DISM') -and ($results -match '0x800f0806')) {
+                Write-StyledMessage Warning "⚠️ $($Config.Name): Errore 0x800f0806 (operazioni pendenti). Questo non è un errore critico."
+                Write-StyledMessage Info "💡 Riavviare il sistema per completare le operazioni in sospeso."
+                return @{ Success = $true; ErrorCount = 0 }
+            }
+
             # FIX 2: Dism è considerato in successo solo se NON è andato in timeout e ha trovato la stringa
             $hasDismSuccess = (-not $isTimeout) -and ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
+
+            # DISM /ResetBase può ritornare codice 3010 come successo (reboot richiesto)
+            if (($Config.Tool -ieq 'DISM') -and ($Config.Args -contains '/ResetBase') -and $exitCode -eq 3010) {
+                $hasDismSuccess = $true
+            }
 
             # Per chkdsk /scan, considerare successo se completato (anche con exit code non-zero informativo)
             $isChkdskScan = $isChkdsk -and ($Config.Args -contains '/scan')
             $chkdskCompleted = (-not $isTimeout) -and $isChkdskScan -and (($results -join ' ') -match '(?i)(scansione.*completata|scan.*completed|successfully scanned)')
 
-            $isSuccess = (-not $isTimeout) -and (($exitCode -eq 0) -or $hasDismSuccess -or $chkdskCompleted)
+            $isSuccess = (-not $isTimeout) -and (($exitCode -eq 0) -or $exitCode -eq 3010 -or $hasDismSuccess -or $chkdskCompleted)
 
             $errors = $warnings = @()
             if (-not $isSuccess) {
@@ -153,9 +172,12 @@ function WinRepairToolkit {
                             $errors += $trim
                         }
                     }
-                    else {
+                     else {
                         # Logica normale per altri tool
-                        if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
+                        if ($trim -match '0x800f0806') {
+                            # Questo errore viene gestito separatamente e non conteggiato
+                        }
+                        elseif ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
                         elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
                     }
                 }
@@ -282,6 +304,32 @@ function WinRepairToolkit {
             Write-StyledMessage -Type 'Error' -Text "Errore durante la schedulazione della riparazione profonda: $($_.Exception.Message)."
             return $false
         }
+    }
+
+    # ============================================================================
+    # Controllo iniziale stato sistema
+    # ============================================================================
+    function Test-PendingOperations {
+        $pendingRebootKeys = @(
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending',
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired',
+            'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations'
+        )
+        
+        foreach ($key in $pendingRebootKeys) {
+            if (Test-Path $key) {
+                $values = Get-ItemProperty $key -ErrorAction SilentlyContinue
+                if ($values -and $values.PSObject.Properties.Count -gt 1) {
+                    return $true
+                }
+            }
+        }
+        return $false
+    }
+
+    if (Test-PendingOperations) {
+        Write-StyledMessage Warning "⚠️ Rilevate operazioni pendenti che richiedono riavvio. DISM potrebbe fallire."
+        Write-StyledMessage Info "💡 Consigliato riavviare prima di eseguire le riparazioni."
     }
 
     # Esecuzione
