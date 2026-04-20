@@ -44,9 +44,9 @@ function WinRepairToolkit {
 
     # Le registrazioni AppX vengono inserite nell'array solo se la build è >= 26100 (Win11 24H2)
     if ($isWin11_24H2_OrNewer) {
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.CBS_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.CBS_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
     }
 
     function Invoke-RepairCommand {
@@ -78,11 +78,12 @@ function WinRepairToolkit {
 
                     $procParams = @{
                         FilePath               = 'cmd.exe'
-                        ArgumentList           = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
+                        ArgumentList           = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ') 2>&1")
                         RedirectStandardOutput = $outFile
                         RedirectStandardError  = $errFile
                         NoNewWindow            = $true
                         PassThru               = $true
+                        UseNewEnvironment      = $true
                     }
                     Start-Process @procParams
                 }
@@ -115,6 +116,12 @@ function WinRepairToolkit {
             # FIX 1: Un timeout o un'interruzione forzata tipicamente restituisce -1.
             # Aggiunto controllo per exit code negativo.
             $isTimeout = ($null -eq $result) -or ($null -eq $exitCode) -or ($exitCode -eq -1)
+            
+            # FIX CHKDSK: Se chkdsk ritorna 3 = volume in uso, schedulato correttamente
+            if ($isChkdsk -and $exitCode -eq 3) {
+                Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
+                return @{ Success = $true; ErrorCount = 0 }
+            }
 
             # FIX 2: Dism è considerato in successo solo se NON è andato in timeout e ha trovato la stringa
             $hasDismSuccess = (-not $isTimeout) -and ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')

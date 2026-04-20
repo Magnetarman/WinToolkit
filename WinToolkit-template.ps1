@@ -420,6 +420,8 @@ function Write-ToolkitLog {
 
     $ts = Get-Date -Format "HH:mm:ss"
     $clean = $Message -replace '^\s+', ''
+    # Rimuovi tutti i caratteri ANSI/colori prima di salvare su file
+    $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try {

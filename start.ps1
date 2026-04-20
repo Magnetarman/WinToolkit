@@ -809,7 +809,7 @@ function Write-StyledMessage {
     Scrive un messaggio formattato con timestamp, icona e colore, e lo salva nel log.
     #>
     param(
-        [ValidateSet('Info', 'Warning', 'Error', 'Success')]
+        [ValidateSet('Info', 'Warning', 'Error', 'Success', 'Progress')]
         [string]$Type,
         [string]$Text
     )
@@ -880,6 +880,8 @@ function Write-ToolkitLog {
 
     $ts = Get-Date -Format "HH:mm:ss"
     $clean = $Message -replace '^\s+', ''
+    # Rimuovi tutti i caratteri ANSI/colori prima di salvare su file
+    $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
     $line = "[$ts] [$Level] $clean"
     try { Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 }

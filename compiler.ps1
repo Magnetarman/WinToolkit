@@ -15,7 +15,7 @@ $ScriptStartTime = [System.Diagnostics.Stopwatch]::StartNew()
 function Write-StyledMessage {
     param(
         [Parameter(Mandatory = $true)]
-        [ValidateSet('Success', 'Warning', 'Error', 'Info')]
+        [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')]
         [string]$Type,
         
         [Parameter(Mandatory = $true)]
