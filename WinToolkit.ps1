@@ -67,7 +67,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.4 (Build 30)"
+$ToolkitVersion = "2.5.4 (Build 31)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -1092,6 +1092,11 @@ function WinRepairToolkit {
                 'Controllo disco approfondito'  { $processTimeoutSeconds = 3600 }
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
+            if ($Config.Tool -ieq 'DISM' -and $Config.Args -contains '/StartComponentCleanup') {
+                Write-StyledMessage Info "🔧 Pulizia stato DISM prima di avviare Cleanup..."
+                Start-Process -FilePath 'DISM.exe' -ArgumentList @('/Online', '/Cleanup-Image', '/CancelCommands') -NoNewWindow -Wait -ErrorAction SilentlyContinue
+                Start-Sleep 2
+            }
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
                 if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
                     $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
@@ -1133,10 +1138,18 @@ function WinRepairToolkit {
                 Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
                 return @{ Success = $true; ErrorCount = 0 }
             }
+            if (($Config.Tool -ieq 'DISM') -and ($results -match '0x800f0806')) {
+                Write-StyledMessage Warning "⚠️ $($Config.Name): Errore 0x800f0806 (operazioni pendenti). Questo non è un errore critico."
+                Write-StyledMessage Info "💡 Riavviare il sistema per completare le operazioni in sospeso."
+                return @{ Success = $true; ErrorCount = 0 }
+            }
             $hasDismSuccess = (-not $isTimeout) -and ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
+            if (($Config.Tool -ieq 'DISM') -and ($Config.Args -contains '/ResetBase') -and $exitCode -eq 3010) {
+                $hasDismSuccess = $true
+            }
             $isChkdskScan = $isChkdsk -and ($Config.Args -contains '/scan')
             $chkdskCompleted = (-not $isTimeout) -and $isChkdskScan -and (($results -join ' ') -match '(?i)(scansione.*completata|scan.*completed|successfully scanned)')
-            $isSuccess = (-not $isTimeout) -and (($exitCode -eq 0) -or $hasDismSuccess -or $chkdskCompleted)
+            $isSuccess = (-not $isTimeout) -and (($exitCode -eq 0) -or $exitCode -eq 3010 -or $hasDismSuccess -or $chkdskCompleted)
             $errors = $warnings = @()
             if (-not $isSuccess) {
                 if ($isTimeout) {
@@ -1151,8 +1164,10 @@ function WinRepairToolkit {
                             $errors += $trim
                         }
                     }
-                    else {
-                        if ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
+                     else {
+                        if ($trim -match '0x800f0806') {
+                        }
+                        elseif ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
                         elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
                     }
                 }
@@ -1257,6 +1272,26 @@ function WinRepairToolkit {
             Write-StyledMessage -Type 'Error' -Text "Errore durante la schedulazione della riparazione profonda: $($_.Exception.Message)."
             return $false
         }
+    }
+    function Test-PendingOperations {
+        $pendingRebootKeys = @(
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending',
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired',
+            'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations'
+        )
+        foreach ($key in $pendingRebootKeys) {
+            if (Test-Path $key) {
+                $values = Get-ItemProperty $key -ErrorAction SilentlyContinue
+                if ($values -and $values.PSObject.Properties.Count -gt 1) {
+                    return $true
+                }
+            }
+        }
+        return $false
+    }
+    if (Test-PendingOperations) {
+        Write-StyledMessage Warning "⚠️ Rilevate operazioni pendenti che richiedono riavvio. DISM potrebbe fallire."
+        Write-StyledMessage Info "💡 Consigliato riavviare prima di eseguire le riparazioni."
     }
     try {
         $repairResult = Start-RepairCycle
