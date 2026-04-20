@@ -67,7 +67,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.4 (Build 31)"
+$ToolkitVersion = "2.5.4 (Build 32)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -1093,9 +1093,11 @@ function WinRepairToolkit {
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
             if ($Config.Tool -ieq 'DISM' -and $Config.Args -contains '/StartComponentCleanup') {
-                Write-StyledMessage Info "🔧 Pulizia stato DISM prima di avviare Cleanup..."
-                Start-Process -FilePath 'DISM.exe' -ArgumentList @('/Online', '/Cleanup-Image', '/CancelCommands') -NoNewWindow -Wait -ErrorAction SilentlyContinue
-                Start-Sleep 2
+                Write-StyledMessage Info "🔧 Pulizia stato Windows Update prima di avviare Cleanup..."
+                Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+                Start-Sleep 1
+                Remove-Item -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\SessionsPending' -Recurse -Force -ErrorAction SilentlyContinue
+                Start-Sleep 1
             }
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
                 if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
