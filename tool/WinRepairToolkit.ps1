@@ -73,9 +73,13 @@ function WinRepairToolkit {
 
             # Gestione DISM con operazioni pendenti (errore 0x800f0806)
             if ($Config.Tool -ieq 'DISM' -and $Config.Args -contains '/StartComponentCleanup') {
-                Write-StyledMessage Info "🔧 Pulizia stato DISM prima di avviare Cleanup..."
-                Start-Process -FilePath 'DISM.exe' -ArgumentList @('/Online', '/Cleanup-Image', '/CancelCommands') -NoNewWindow -Wait -ErrorAction SilentlyContinue
-                Start-Sleep 2
+                Write-StyledMessage Info "🔧 Pulizia stato Windows Update prima di avviare Cleanup..."
+                # Stop servizio Windows Update per rilasciare lock su component store
+                Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+                Start-Sleep 1
+                # Elimina stato sessione DISM
+                Remove-Item -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\SessionsPending' -Recurse -Force -ErrorAction SilentlyContinue
+                Start-Sleep 1
             }
 
             $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
