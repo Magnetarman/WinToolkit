@@ -1631,6 +1631,105 @@ $menuStructure = @(
 Initialize-ToolkitPaths
 WinOSCheck
 
+function Test-WindowsUpdateStatus {
+    <#
+    .SYNOPSIS
+        Controlla lo stato degli aggiornamenti Windows e avvisa l'utente in caso di operazioni pendenti.
+    .DESCRIPTION
+        Verifica riavvio pendente e stato servizio TrustedInstaller.
+        Utilizza PSWindowsUpdate se disponibile, altrimenti fallback su registro e servizi nativi.
+    #>
+    try {
+        Write-StyledMessage -Type 'Info' -Text "🔍 Controllo stato aggiornamenti Windows..."
+        
+        $pendingReboot = $false
+        $installerRunning = $false
+        
+        # Verifica disponibilità modulo PSWindowsUpdate
+        if (Get-Module -ListAvailable -Name PSWindowsUpdate -ErrorAction SilentlyContinue) {
+            Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue
+            
+            # Controllo riavvio pendente
+            try {
+                $rebootStatus = Get-WURebootStatus -ErrorAction SilentlyContinue
+                if ($rebootStatus -and $rebootStatus.RebootRequired) {
+                    $pendingReboot = $true
+                    Write-StyledMessage -Type 'Warning' -Text "⚠️ Rilevato riavvio pendente per aggiornamenti Windows"
+                }
+            }
+            catch { }
+            
+            # Controllo stato servizio installatore aggiornamenti
+            try {
+                $installerStatus = Get-WUInstallerStatus -ErrorAction SilentlyContinue
+                if ($installerStatus -and $installerStatus.IsBusy) {
+                    $installerRunning = $true
+                    Write-StyledMessage -Type 'Warning' -Text "⚠️ Servizio installazione aggiornamenti Windows attualmente in esecuzione"
+                }
+            }
+            catch { }
+        }
+        else {
+            # Fallback: controllo chiavi registro ufficiali Windows Update
+            $regPaths = @(
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired",
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootRequired",
+                "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations"
+            )
+            
+            foreach ($path in $regPaths) {
+                if (Test-Path $path -ErrorAction SilentlyContinue) {
+                    $pendingReboot = $true
+                    break
+                }
+            }
+            
+            # Controllo servizio TrustedInstaller nativo
+            $trustedInstaller = Get-Service -Name TrustedInstaller -ErrorAction SilentlyContinue
+            if ($trustedInstaller -and $trustedInstaller.Status -eq 'Running') {
+                $installerRunning = $true
+            }
+        }
+        
+        # Mostra avviso dettagliato in caso di condizioni critiche
+        if ($pendingReboot -or $installerRunning) {
+            Write-Host ""
+            Write-Host ('═' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host (Center-Text "⚠️  AVVISO IMPORTANTE ⚠️") -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host " Sono stati rilevati aggiornamenti di sistema pendenti:" -ForegroundColor Yellow
+            if ($pendingReboot) {
+                Write-Host "  ✓ Riavvio del sistema richiesto per completare aggiornamenti" -ForegroundColor Yellow
+            }
+            if ($installerRunning) {
+                Write-Host "  ✓ Servizio installazione aggiornamenti Windows in corso" -ForegroundColor Yellow
+            }
+            Write-Host ""
+            Write-Host " Questo potrebbe causare malfunzionamenti, errori o comportamenti" -ForegroundColor Yellow
+            Write-Host " imprevisti in alcune o tutte le funzionalità di WinToolkit." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host (Center-Text "⚠️  PROCEDERE CON CAUTELA ⚠️") -ForegroundColor Red
+            Write-Host ""
+            Write-Host " Si consiglia vivamente di completare tutti gli aggiornamenti in corso," -ForegroundColor Yellow
+            Write-Host " riavviare il sistema e poi riavviare WinToolkit prima di proseguire." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host ('═' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Yellow
+            Write-Host ""
+            
+            Start-Sleep -Seconds 5
+        }
+        else {
+            Write-StyledMessage -Type 'Success' -Text "✅ Nessun aggiornamento pendente rilevato"
+        }
+    }
+    catch {
+        Write-StyledMessage -Type 'Warning' -Text "⚠️ Impossibile verificare stato aggiornamenti Windows: $($_.Exception.Message)"
+    }
+}
+
+Test-WindowsUpdateStatus
+
 # =============================================================================
 # MENU PRINCIPALE - Esegui solo se NON in modalità ImportOnly o GUI
 # =============================================================================
