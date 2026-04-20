@@ -21,7 +21,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.4 (Build 26)"
+        Version = "Version 2.5.4 (Build 28)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -79,28 +79,35 @@ function Test-VCRedistInstalled {
     #>
 
     $64BitOS = [System.Environment]::Is64BitOperatingSystem
-    $64BitProcess = [System.Environment]::Is64BitProcess
-
-    # Check registry
-    $registryPath = [string]::Format(
-        'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\{0}\Microsoft\VisualStudio\14.0\VC\Runtimes\X{1}',
-        $(if ($64BitOS -and $64BitProcess) { 'WOW6432Node' } else { '' }),
-        $(if ($64BitOS) { '64' } else { '86' })
-    )
-
-    $registryExists = Test-Path -Path $registryPath
-
-    # Check major version
-    $majorVersion = if ($registryExists) {
-        (Get-ItemProperty -Path $registryPath -Name 'Major' -ErrorAction SilentlyContinue).Major
+    $checksPassed = 0
+    
+    # Controlliamo sempre la versione 32bit (esiste sempre su tutti i sistemi)
+    $registryPath32 = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x86'
+    $dllPath32 = "$env:windir\syswow64\concrt140.dll"
+    
+    if ((Test-Path -Path $registryPath32) -and 
+        ((Get-ItemProperty -Path $registryPath32 -Name 'Major' -ErrorAction SilentlyContinue).Major -eq 14) -and
+        [System.IO.File]::Exists($dllPath32)) {
+        $checksPassed++
     }
-    else { 0 }
 
-    # Check DLL exists
-    $dllPath = [string]::Format('{0}\system32\concrt140.dll', $env:windir)
-    $dllExists = [System.IO.File]::Exists($dllPath)
+    # Se il sistema è 64bit controlliamo ANCHE la versione 64bit
+    if ($64BitOS) {
+        $registryPath64 = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64'
+        $dllPath64 = "$env:windir\system32\concrt140.dll"
 
-    return $registryExists -and $majorVersion -eq 14 -and $dllExists
+        if ((Test-Path -Path $registryPath64) -and 
+            ((Get-ItemProperty -Path $registryPath64 -Name 'Major' -ErrorAction SilentlyContinue).Major -eq 14) -and
+            [System.IO.File]::Exists($dllPath64)) {
+            $checksPassed++
+        }
+    }
+
+    # Su sistema 32bit: basta che sia presente la versione 32bit
+    # Su sistema 64bit: devono essere presenti ENTRAMBE le versioni 32 + 64 bit
+    $requiredChecks = if ($64BitOS) { 2 } else { 1 }
+    
+    return $checksPassed -eq $requiredChecks
 }
 
 function Get-WinGetFolder {
@@ -1543,38 +1550,38 @@ function Invoke-WinToolkitSetup {
         }
 
         # --- PRE-FLIGHT CHECK ---
-            while ($true) {
-                Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
-                $check = Test-SystemReadiness
+        while ($true) {
+            Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
+            $check = Test-SystemReadiness
 
-                # Windows Defender SEMPRE obbligatorio
-                if (-not $check.Defender) {
-                    Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
-                    Write-StyledMessage -Type Error -Text "OBBLIGATORIO: Windows Defender è ATTIVO."
-                    Write-StyledMessage -Type Info -Text "Disabilita la protezione in tempo reale per evitare blocchi."
-                    Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
+            # Windows Defender SEMPRE obbligatorio
+            if (-not $check.Defender) {
+                Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
+                Write-StyledMessage -Type Error -Text "OBBLIGATORIO: Windows Defender è ATTIVO."
+                Write-StyledMessage -Type Info -Text "Disabilita la protezione in tempo reale per evitare blocchi."
+                Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
 
-                    Write-Host "`n[Pressione tasto] Riprova i controlli" -ForegroundColor Cyan
-                    Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
+                Write-Host "`n[Pressione tasto] Riprova i controlli" -ForegroundColor Cyan
+                Write-Host "[ESC] Esci dallo script" -ForegroundColor Red
 
-                    $key = [Console]::ReadKey($true)
-                    if ($key.Key -eq 'Escape') { exit }
-                    Clear-Host
-                    continue
-                }
-
-                # Se Defender è ok, controlla aggiornamenti: solo avviso, prosegue automaticamente
-                if (-not $check.Updates) {
-                    Write-StyledMessage -Type Warning -Text "⚠️ Ci sono $($check.Count) aggiornamenti Windows pendenti. Possibili problemi durante installazione."
-                }
-
-                # Tutti i controlli superati
-                Write-StyledMessage -Type Success -Text "Ambiente pronto per l'installazione."
-                break
+                $key = [Console]::ReadKey($true)
+                if ($key.Key -eq 'Escape') { exit }
+                Clear-Host
+                continue
             }
 
-            # Sospensione servizi Windows Update per garantire stabilità a Winget
-            Invoke-StopUpdateServices
+            # Se Defender è ok, controlla aggiornamenti: solo avviso, prosegue automaticamente
+            if (-not $check.Updates) {
+                Write-StyledMessage -Type Warning -Text "⚠️ Ci sono $($check.Count) aggiornamenti Windows pendenti. Possibili problemi durante installazione."
+            }
+
+            # Tutti i controlli superati
+            Write-StyledMessage -Type Success -Text "Ambiente pronto per l'installazione."
+            break
+        }
+
+        # Sospensione servizi Windows Update per garantire stabilità a Winget
+        Invoke-StopUpdateServices
         # --- FINE PRE-FLIGHT CHECK ---
 
         Write-StyledMessage -Type Info -Text "PowerShell: $($PSVersionTable.PSVersion)."
@@ -1585,52 +1592,52 @@ function Invoke-WinToolkitSetup {
         Write-StyledMessage -Type Info -Text "Avvio configurazione Win Toolkit."
         Write-StyledMessage -Type Info -Text "Esecuzione controlli base."
 
-            # Aggiorna PATH prima del check iniziale per rilevare winget già installato
+        # Aggiorna PATH prima del check iniziale per rilevare winget già installato
+        Update-EnvironmentPath
+
+        if (-not (Test-WingetFunctionality)) {
+            Write-StyledMessage -Type Warning -Text "⚠️ Winget non risponde. Tentativo di ripristino veloce (Core)."
+            $coreSuccess = Install-WingetCore
             Update-EnvironmentPath
 
-            if (-not (Test-WingetFunctionality)) {
-                Write-StyledMessage -Type Warning -Text "⚠️ Winget non risponde. Tentativo di ripristino veloce (Core)."
-                $coreSuccess = Install-WingetCore
+            if ($coreSuccess -and (Test-WingetFunctionality)) {
+                Write-StyledMessage -Type Success -Text "✅ Winget ripristinato velocemente."
+            }
+            else {
+                Write-StyledMessage -Type Warning -Text "⚠️ Ripristino veloce fallito. Tentativo metodo avanzato (più lento)."
+                $null = Install-WingetPackage
                 Update-EnvironmentPath
 
-                if ($coreSuccess -and (Test-WingetFunctionality)) {
-                    Write-StyledMessage -Type Success -Text "✅ Winget ripristinato velocemente."
-                }
-                else {
-                    Write-StyledMessage -Type Warning -Text "⚠️ Ripristino veloce fallito. Tentativo metodo avanzato (più lento)."
-                    $null = Install-WingetPackage
-                    Update-EnvironmentPath
-
-                    if (-not (Test-WingetFunctionality)) {
-                        Write-StyledMessage -Type Warning -Text "⚠️ Winget non funzionale dopo tutti i tentativi."
-                        Write-StyledMessage -Type Info -Text "Lo script proseguirà, ma l'installazione di pacchetti potrebbe fallire."
-                    }
+                if (-not (Test-WingetFunctionality)) {
+                    Write-StyledMessage -Type Warning -Text "⚠️ Winget non funzionale dopo tutti i tentativi."
+                    Write-StyledMessage -Type Info -Text "Lo script proseguirà, ma l'installazione di pacchetti potrebbe fallire."
                 }
             }
-            else {
-                Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
-            }
+        }
+        else {
+            Write-StyledMessage -Type Success -Text "✅ Winget è già operativo."
+        }
 
-            # Verifica in modo approfondito che Winget funzioni correttamente.
-            if (-not $(Test-WingetDeepValidation)) {
-                Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire."
-            }
+        # Verifica in modo approfondito che Winget funzioni correttamente.
+        if (-not $(Test-WingetDeepValidation)) {
+            Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: l'installazione dei pacchetti successivi via Winget potrebbe fallire."
+        }
 
-            # Installa Git
-            if (Install-GitPackage) {
-                Write-StyledMessage -Type Success -Text "✅ Git è già operativo."
-            }
-            else {
-                Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: Git non è stato installato oppure potrebbe non funzionare correttamente."
-            }
+        # Installa Git
+        if (Install-GitPackage) {
+            Write-StyledMessage -Type Success -Text "✅ Git è già operativo."
+        }
+        else {
+            Write-StyledMessage -Type Warning -Text "⚠️ Attenzione: Git non è stato installato oppure potrebbe non funzionare correttamente."
+        }
 
-            # Controllo e installazione PowerShell 7
-            if (-not (Test-Path "$env:ProgramFiles\PowerShell\7") -and -not (Test-Path "${env:ProgramFiles(x86)}\PowerShell\7") -and -not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
-                Install-PowerShellCore
-            }
-            else {
-                Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
-            }
+        # Controllo e installazione PowerShell 7
+        if (-not (Test-Path "$env:ProgramFiles\PowerShell\7") -and -not (Test-Path "${env:ProgramFiles(x86)}\PowerShell\7") -and -not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+            Install-PowerShellCore
+        }
+        else {
+            Write-StyledMessage -Type Success -Text "PowerShell 7 già presente."
+        }
 
 
         # Installazioni core Windows Terminal
