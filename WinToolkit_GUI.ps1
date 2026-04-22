@@ -28,7 +28,7 @@ $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
 $WindowWidth = 1280     # HD ready resolution in 16:9.
 $WindowHeight = 720     # HD ready resolution in 16:9.
 $FontFamily = "JetBrains Mono Nerd Font, Cascadia Code, Consolas, Courier New"
-$FontSize = @{Small = 14; Medium = 16; Large = 18; Title = 20 }
+$FontSize = @{Small = 14; Medium = 16; Large = 18; Title = 20; Header = 28; ButtonSmall = 11 }
 
 # Emoji mappings for GUI elements
 $emojiMappings = @{
@@ -484,7 +484,7 @@ function Split-EmojiAndText {
     }
 }
 
-function Ensure-AllEmojiIcons {
+function Test-EmojiIcons {
     param(
         [Parameter(Mandatory = $true)][hashtable]$EmojiMap,
         [Parameter(Mandatory = $true)][string]$LocalPath,
@@ -673,7 +673,7 @@ catch {
 }
 
 # Download and cache all required icons
-Ensure-AllEmojiIcons -EmojiMap $emojiMappings -LocalPath $localIconBasePath -RemotePath $remoteIconBasePath
+Test-EmojiIcons -EmojiMap $emojiMappings -LocalPath $localIconBasePath -RemotePath $remoteIconBasePath
 
 # Check administrator privileges
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -866,12 +866,12 @@ $xaml = @"
                 <!-- Colonna 1: Titolo e Sottotitolo centrati -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="$($ScriptTitle)" 
-                               FontSize="28" FontWeight="Bold" 
+                               FontSize="$($FontSize.Header)" FontWeight="Bold" 
                                Foreground="{StaticResource TextColor}" 
                                FontFamily="{StaticResource PrimaryFont}"
                                TextAlignment="Center"/>
                     <TextBlock Text="GUI Edition v$($Global:GuiVersion) | Core v$($Global:CoreScriptVersion)" 
-                               FontSize="16" FontWeight="Normal"
+                               FontSize="$($FontSize.Medium)" FontWeight="Normal"
                                Foreground="{StaticResource LabelBlue}" 
                                FontFamily="{StaticResource PrimaryFont}"
                                TextAlignment="Center" Margin="0,4,0,0"/>
@@ -887,7 +887,7 @@ $xaml = @"
                     <StackPanel Orientation="Horizontal">
                         <Image x:Name="SendErrorLogsImage" Width="28" Height="28" Margin="0,0,8,0"/>
                         <TextBlock Text="Invia Log Errori" VerticalAlignment="Center" 
-                                   FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="11"/>
+                                   FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="$($FontSize.ButtonSmall)"/>
                     </StackPanel>
                 </Button>
             </Grid>
@@ -909,7 +909,7 @@ $xaml = @"
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
                     <TextBlock Text="▬▬ INFORMAZIONI SISTEMA ▬▬" 
                                Foreground="{StaticResource LabelBlue}" 
-                               FontSize="14" FontWeight="Bold" 
+                               FontSize="$($FontSize.Small)" FontWeight="Bold" 
                                FontFamily="{StaticResource PrimaryFont}" 
                                Margin="0,0,0,12" TextAlignment="Left"/>
                     
@@ -922,10 +922,10 @@ $xaml = @"
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoEditionImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="Edizione Windows:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento." 
-                                   Foreground="{StaticResource TextColor}" FontSize="14" 
+                                   Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
@@ -939,10 +939,10 @@ $xaml = @"
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoVersionImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="Versione:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento." 
-                                   Foreground="{StaticResource TextColor}" FontSize="14" 
+                                   Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
@@ -956,10 +956,10 @@ $xaml = @"
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoArchitectureImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="Architettura:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoArchitecture" Text="Caricamento." 
-                                   Foreground="{StaticResource TextColor}" FontSize="14" 
+                                   Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
@@ -982,11 +982,11 @@ $xaml = @"
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="Funzionalità Script" 
                                        Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="14" FontWeight="Bold" 
+                                       FontSize="$($FontSize.Small)" FontWeight="Bold" 
                                        FontFamily="{StaticResource PrimaryFont}" 
                                        VerticalAlignment="Center"/>
                             <TextBlock x:Name="SysInfoScriptCompatibility" Text="Verifica." 
-                                       Foreground="{StaticResource TextColor}" FontSize="14" 
+                                       Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)" 
                                        FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                        VerticalAlignment="Center" Margin="8,0,0,0"/>
                         </StackPanel>
@@ -1003,11 +1003,11 @@ $xaml = @"
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="Stato Bitlocker" 
                                        Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="14" FontWeight="Bold" 
+                                       FontSize="$($FontSize.Small)" FontWeight="Bold" 
                                        FontFamily="{StaticResource PrimaryFont}" 
                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock x:Name="SysInfoBitlocker" Text="Verifica." 
-                                       Foreground="{StaticResource TextColor}" FontSize="14" 
+                                       Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)" 
                                        FontFamily="{StaticResource PrimaryFont}" 
                                        VerticalAlignment="Center"/>
                         </StackPanel>
@@ -1022,7 +1022,7 @@ $xaml = @"
                 <StackPanel Grid.Column="4" Margin="20,0,0,0">
                     <TextBlock Text="▬▬ HARDWARE ▬▬" 
                                Foreground="{StaticResource LabelBlue}" 
-                               FontSize="14" FontWeight="Bold" 
+                               FontSize="$($FontSize.Small)" FontWeight="Bold" 
                                FontFamily="{StaticResource PrimaryFont}" 
                                Margin="0,0,0,12" TextAlignment="Right"/>
                     
@@ -1035,10 +1035,10 @@ $xaml = @"
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoComputerNameImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="Nome PC:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento." 
-                                   Foreground="{StaticResource TextColor}" FontSize="14" 
+                                   Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
@@ -1052,10 +1052,10 @@ $xaml = @"
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoRAMImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="RAM:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento." 
-                                   Foreground="{StaticResource TextColor}" FontSize="14" 
+                                   Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
@@ -1069,10 +1069,10 @@ $xaml = @"
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoDiskImage" Width="16" Height="16" Margin="0,0,5,0"/>
                             <TextBlock Text="Disco:" Foreground="{StaticResource LabelBlue}" 
-                                       FontSize="14" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
+                                       FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento." 
-                                   Foreground="{StaticResource TextColor}" FontSize="14" 
+                                   Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
@@ -1101,7 +1101,7 @@ $xaml = @"
                         <Image x:Name="CategorySystemImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
                         <TextBlock Text="Funzioni Disponibili" 
-                                   Foreground="{StaticResource TextColor}" FontSize="18" 
+                                   Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Large)" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center"/>
                     </StackPanel>
@@ -1126,7 +1126,7 @@ $xaml = @"
                         <Image x:Name="OutputLogImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
                         <TextBlock Text="Output e Log" 
-                                   Foreground="{StaticResource TextColor}" FontSize="18" 
+                                   Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Large)" 
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}" 
                                    VerticalAlignment="Center"/>
                     </StackPanel>
@@ -1139,7 +1139,7 @@ $xaml = @"
                                  BorderThickness="1"
                                  IsReadOnly="True"
                                  FontFamily="{StaticResource PrimaryFont}"
-                                 FontSize="14"/>
+                                 FontSize="$($FontSize.Small)"/>
                 </Grid>
             </Border>
         </Grid>
@@ -1165,7 +1165,7 @@ $xaml = @"
                 <Button x:Name="ExecuteButton"
                         Background="{StaticResource ExecuteButtonColor}"
                         Foreground="{StaticResource TextColor}"
-                        FontSize="18"
+                        FontSize="$($FontSize.Large)"
                         FontWeight="Bold"
                         FontFamily="{StaticResource PrimaryFont}"
                         Padding="48,18"
@@ -1228,7 +1228,6 @@ $SysInfoRAM = $window.FindName("SysInfoRAM")
 $SysInfoDisk = $window.FindName("SysInfoDisk")
 $SysInfoScriptCompatibility = $window.FindName("SysInfoScriptCompatibility")
 $SysInfoBitlocker = $window.FindName("SysInfoBitlocker")
-$ScriptStatusIcon = $window.FindName("ScriptStatusIcon")
 $BitlockerImage = $window.FindName("BitlockerImage")
 $SysInfoEditionImage = $window.FindName("SysInfoEditionImage")
 $SysInfoVersionImage = $window.FindName("SysInfoVersionImage")
@@ -1437,8 +1436,6 @@ function Update-ActionsPanel {
                     return
                 }
 
-                $isFirstCategory = $true
-
                 foreach ($category in $Global:MenuStructure) {
                     # ========================================
                     # A. CATEGORY HEADER (con Linea Verde + Emoji)
@@ -1469,7 +1466,7 @@ function Update-ActionsPanel {
                     else {
                         $categoryEmoji = New-Object System.Windows.Controls.TextBlock
                         $categoryEmoji.Text = $category.Icon
-                        $categoryEmoji.FontSize = 18
+                        $categoryEmoji.FontSize = $FontSize.Large
                         $categoryEmoji.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
                         $categoryEmoji.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
                         $categoryEmoji.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::White)
@@ -1479,7 +1476,7 @@ function Update-ActionsPanel {
                     # Category Name (Bold, Cyan)
                     $categoryHeader = New-Object System.Windows.Controls.TextBlock
                     $categoryHeader.Text = $category.Name
-                    $categoryHeader.FontSize = 14
+                    $categoryHeader.FontSize = $FontSize.Small
                     $categoryHeader.FontWeight = 'Bold'
                     $categoryHeader.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Cyan)
                     $categoryHeader.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
@@ -1566,7 +1563,7 @@ function Get-ScriptEmoji {
 # =============================================================================
 # HELPER FUNCTION: Filter and format job output
 # =============================================================================
-function Filter-AndFormatJobOutput {
+function Format-JobOutput {
     param(
         [string]$Line
     )
@@ -2049,12 +2046,12 @@ function Start-NextScriptJob {
     }
     catch {
         Write-UnifiedLog -Type 'Error' -Message "❌ Errore avvio job '$scriptName': $($_.Exception.Message)." -GuiColor "#FF0000"
-        Process-JobCompletion -JobStatus 'ErrorStarting' -JobName $scriptName
+        Invoke-JobCompletion -JobStatus 'ErrorStarting' -JobName $scriptName
     }
 }
 
 # Funzione per processare il completamento del job
-function Process-JobCompletion {
+function Invoke-JobCompletion {
     param(
         [string]$JobStatus,
         [string]$JobName
@@ -2062,7 +2059,6 @@ function Process-JobCompletion {
 
     # *** FIX: Separa logica UI (sincrona) da logica job launching (asincrona) ***
     $window.Dispatcher.Invoke([Action] {
-            $jobResults = $null
             if ($Global:ScriptJob) {
                 $rawOutput = Receive-Job -Job $Global:ScriptJob -ErrorAction SilentlyContinue *>&1
                 $jobResultObject = $rawOutput | Where-Object { $_ -is [hashtable] -and $_.ContainsKey('RebootRequired') } | Select-Object -Last 1
@@ -2076,7 +2072,7 @@ function Process-JobCompletion {
                 }
 
                 foreach ($line in ($finalJobOutput | Out-String -Stream)) {
-                    [void](Filter-AndFormatJobOutput -Line $line)
+                    [void](Format-JobOutput -Line $line)
                 }
             }
 
@@ -2162,7 +2158,7 @@ function Tick_JobMonitor {
                 if ($window -and $window.Dispatcher) {
                     $window.Dispatcher.Invoke([Action] {
                             foreach ($line in ($newOutputLines | Out-String -Stream)) {
-                                [void](Filter-AndFormatJobOutput -Line $line)
+                                [void](Format-JobOutput -Line $line)
                             }
                         })
                 }
@@ -2175,7 +2171,7 @@ function Tick_JobMonitor {
     }
     elseif ($Global:ScriptJob -and ($Global:ScriptJob.State -eq 'Completed' -or $Global:ScriptJob.State -eq 'Failed' -or $Global:ScriptJob.State -eq 'Stopped')) {
         $Global:JobMonitorTimer.Stop()
-        Process-JobCompletion -JobStatus $Global:ScriptJob.State -JobName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
+        Invoke-JobCompletion -JobStatus $Global:ScriptJob.State -JobName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
     }
 }
 
@@ -2249,7 +2245,7 @@ $SendErrorLogsButton.Add_Click({
 # CONSOLE MINIMIZATION HELPER
 # =============================================================================
 
-function Minimize-Console {
+function Set-ConsoleWindowMinimized {
     <#
     .SYNOPSIS
         Minimizza la finestra della console PowerShell.
@@ -2300,7 +2296,7 @@ $window.Add_Loaded({
             Write-UnifiedLog -Type 'Info' -Message "💡 Seleziona uno o più script e premi 'Esegui'." -GuiColor "#00CED1"
 
             # Minimize console - DISABLED to prevent handle exhaustion crash (Win32Exception 1816)
-            # Minimize-Console
+            # Set-ConsoleWindowMinimized
         }
         catch {
             Write-UnifiedLog -Type 'Error' -Message "❌ Errore durante inizializzazione Loaded: $($_.Exception.Message)." -GuiColor "#FF0000"
@@ -2339,4 +2335,3 @@ try {
     Stop-Transcript -ErrorAction SilentlyContinue
 }
 catch {}
-
