@@ -67,7 +67,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.4 (Build 32)"
+$ToolkitVersion = "2.5.4 (Build 33)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -1071,13 +1071,13 @@ function WinRepairToolkit {
         @{ Tool = 'chkdsk'; Args = @('/f', '/r', '/x'); Name = 'Controllo disco approfondito'; Icon = '💽'; IsCritical = $false }
     )
     if ($isWin11_24H2_OrNewer) {
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.CBS_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-StyledMessage -Type 'Warning' -Text 'File non trovato: MicrosoftWindows.Client.CBS_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-StyledMessage -Type 'Warning' -Text 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-StyledMessage -Type 'Warning' -Text 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
     }
     function Invoke-RepairCommand {
         param([hashtable]$Config, [int]$Step, [int]$Total)
-        Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)."
+        Write-StyledMessage -Type 'Info' -Text "[$Step/$Total] Avvio $($Config.Name)."
         $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
@@ -1093,7 +1093,7 @@ function WinRepairToolkit {
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
             if ($Config.Tool -ieq 'DISM' -and $Config.Args -contains '/StartComponentCleanup') {
-                Write-StyledMessage Info "🔧 Pulizia stato Windows Update prima di avviare Cleanup..."
+                Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia stato Windows Update prima di avviare Cleanup..."
                 Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
                 Start-Sleep 1
                 Remove-Item -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\SessionsPending' -Recurse -Force -ErrorAction SilentlyContinue
@@ -1131,18 +1131,18 @@ function WinRepairToolkit {
                 $results += Get-Content $_ -ErrorAction SilentlyContinue
             }
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
-                Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
+                Write-StyledMessage -Type 'Info' -Text "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
                 return @{ Success = $true; ErrorCount = 0 }
             }
             $exitCode = $result.ExitCode
             $isTimeout = ($null -eq $result) -or ($null -eq $exitCode) -or ($exitCode -eq -1)
             if ($isChkdsk -and $exitCode -eq 3) {
-                Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
+                Write-StyledMessage -Type 'Info' -Text "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
                 return @{ Success = $true; ErrorCount = 0 }
             }
             if (($Config.Tool -ieq 'DISM') -and ($results -match '0x800f0806')) {
-                Write-StyledMessage Warning "⚠️ $($Config.Name): Errore 0x800f0806 (operazioni pendenti). Questo non è un errore critico."
-                Write-StyledMessage Info "💡 Riavviare il sistema per completare le operazioni in sospeso."
+                Write-StyledMessage -Type 'Warning' -Text "⚠️ $($Config.Name): Errore 0x800f0806 (operazioni pendenti). Questo non è un errore critico."
+                Write-StyledMessage -Type 'Info' -Text "💡 Riavviare il sistema per completare le operazioni in sospeso."
                 return @{ Success = $true; ErrorCount = 0 }
             }
             $hasDismSuccess = (-not $isTimeout) -and ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
@@ -1184,7 +1184,7 @@ function WinRepairToolkit {
             else {
                 $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
             }
-            Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
+            Write-StyledMessage -Type 'Success' -Text $message
             if ($Config.Tool -ieq 'sfc') {
                 $cbsLogPath = "C:\Windows\Logs\CBS\CBS.log"
                 if (Test-Path $cbsLogPath) {
@@ -1195,18 +1195,18 @@ function WinRepairToolkit {
                         $destLogPath = Join-Path $AppConfig.Paths.Logs $destLogName
                         Copy-Item -Path $cbsLogPath -Destination $destLogPath -Force -ErrorAction SilentlyContinue
                         if (Test-Path $destLogPath) {
-                            Write-StyledMessage Info "📄 Log SFC salvato in: $destLogName"
+                            Write-StyledMessage -Type 'Info' -Text "📄 Log SFC salvato in: $destLogName"
                         }
                     }
                     catch {
-                        Write-StyledMessage Warning "⚠️ Impossibile esportare il log CBS di SFC (file in uso)."
+                        Write-StyledMessage -Type 'Warning' -Text "⚠️ Impossibile esportare il log CBS di SFC (file in uso)."
                     }
                 }
             }
             return @{ Success = $success; ErrorCount = $errors.Count }
         }
         catch {
-            Write-StyledMessage Error "Errore durante $($Config.Name): $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante $($Config.Name): $($_.Exception.Message)."
             Write-ToolkitLog -Level ERROR -Message "Errore in Invoke-RepairCommand [$($Config.Tool)]" -Context @{
                 Line      = $_.InvocationInfo.ScriptLineNumber
                 Exception = $_.Exception.GetType().FullName
@@ -1230,8 +1230,7 @@ function WinRepairToolkit {
     function Start-RepairCycle {
         param([int]$Attempt = 1)
         $script:CurrentAttempt = $Attempt
-        Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema."
-        Write-Host ''
+        Write-StyledMessage -Type 'Info' -Text "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema."
         $totalErrors = $successCount = 0
         for ($toolIndex = 0; $toolIndex -lt $RepairTools.Count; $toolIndex++) {
             $result = Invoke-RepairCommand -Config $RepairTools[$toolIndex] -Step ($toolIndex + 1) -Total $RepairTools.Count
@@ -1242,7 +1241,7 @@ function WinRepairToolkit {
             Start-Sleep 1
         }
         if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
-            Write-StyledMessage Warning "🔄 $totalErrors errori rilevati. Nuovo tentativo."
+            Write-StyledMessage -Type 'Warning' -Text "🔄 $totalErrors errori rilevati. Nuovo tentativo."
             Start-Sleep 3
             return Start-RepairCycle -Attempt ($Attempt + 1)
         }
@@ -1292,20 +1291,20 @@ function WinRepairToolkit {
         return $false
     }
     if (Test-PendingOperations) {
-        Write-StyledMessage Warning "⚠️ Rilevate operazioni pendenti che richiedono riavvio. DISM potrebbe fallire."
-        Write-StyledMessage Info "💡 Consigliato riavviare prima di eseguire le riparazioni."
+        Write-StyledMessage -Type 'Warning' -Text "⚠️ Rilevate operazioni pendenti che richiedono riavvio. DISM potrebbe fallire."
+        Write-StyledMessage -Type 'Info' -Text "💡 Consigliato riavviare prima di eseguire le riparazioni."
     }
     try {
         $repairResult = Start-RepairCycle
         $deepRepairScheduled = $false
         if ($repairResult.TotalErrors -gt 0) {
-            Write-StyledMessage Warning "Rilevati errori persistenti. Avvio riparazione profonda."
+            Write-StyledMessage -Type 'Warning' -Text "Rilevati errori persistenti. Avvio riparazione profonda."
             $deepRepairScheduled = Start-DeepDiskRepair
         }
         else {
-            Write-StyledMessage Success "Sistema in salute. Riparazione profonda non necessaria."
+            Write-StyledMessage -Type 'Success' -Text "Sistema in salute. Riparazione profonda non necessaria."
         }
-        Write-StyledMessage Info "⚙️ Impostazione scadenza password illimitata."
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Impostazione scadenza password illimitata."
         $procParams = @{
             FilePath     = 'net'
             ArgumentList = @('accounts', '/maxpwage:unlimited')
@@ -1313,7 +1312,7 @@ function WinRepairToolkit {
             Wait         = $true
         }
         Start-Process @procParams
-        if ($deepRepairScheduled) { Write-StyledMessage Warning 'Riavvio necessario per riparazione profonda.' }
+        if ($deepRepairScheduled) { Write-StyledMessage -Type 'Warning' -Text 'Riavvio necessario per riparazione profonda.' }
         if ($SuppressIndividualReboot) {
             if ($deepRepairScheduled) {
                 $Global:NeedsFinalReboot = $true
@@ -1327,7 +1326,7 @@ function WinRepairToolkit {
         }
     }
     catch {
-        Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)."
+        Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message)."
         Write-ToolkitLog -Level ERROR -Message "Errore critico in WinRepairToolkit" -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName
@@ -1373,7 +1372,7 @@ function WinUpdateReset {
     }
     function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
         $percent = [math]::Round(($Current / $Total) * 100)
-        Invoke-WithSpinner -Activity "$Action $ServiceName" -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1 | Out-Null
+        Invoke-WithSpinner -Activity "$Action $ServiceName" -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1 *>$null
     }
     function Manage-Service($serviceName, $action, $config, $currentStep, $totalSteps) {
         try {
@@ -1396,7 +1395,7 @@ function WinUpdateReset {
                 }
                 'Configure' {
                     Show-ServiceProgress $serviceName "Configurazione" $currentStep $totalSteps
-                    Set-Service -Name $serviceName -StartupType $config.Type -ErrorAction Stop | Out-Null
+                    Set-Service -Name $serviceName -StartupType $config.Type -ErrorAction Stop *>$null
                     Write-StyledMessage -Type 'Success' -Text "$serviceIcon Servizio $serviceName configurato come $($config.Type)."
                 }
                 'Start' {
@@ -1404,9 +1403,9 @@ function WinUpdateReset {
                     $success = $false
                     Invoke-WithSpinner -Activity "Attesa avvio $serviceName" -Timer -Action {
                         $success = Set-ServiceStatus -Name $serviceName -Status 'Running' -Wait -TimeoutSeconds 10
-                    } -TimeoutSeconds 5 | Out-Null
+                    } -TimeoutSeconds 5 *>$null
                     $clearLine = "`r" + (' ' * 80) + "`r"
-                    Write-Host $clearLine -NoNewline
+                    Clear-ProgressLine
                     if ($success) {
                         Write-StyledMessage -Type 'Success' -Text "$serviceIcon Servizio ${serviceName}: avviato correttamente."
                     }
@@ -1430,25 +1429,22 @@ function WinUpdateReset {
     function Remove-DirectorySafely([string]$path, [string]$displayName) {
         if (-not (Test-Path $path)) {
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLines -NoNewline
+            Clear-ProgressLine
             [Console]::Out.Flush()
             Write-StyledMessage -Type 'Info' -Text "💭 Directory $displayName non presente."
             return $true
         }
         try {
-            $ErrorActionPreference = 'SilentlyContinue'
-            $ProgressPreference = 'SilentlyContinue'
-            $VerbosePreference = 'SilentlyContinue'
             Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue *>$null
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLines -NoNewline
+            Clear-ProgressLine
             [Console]::Out.Flush()
             Write-StyledMessage -Type 'Success' -Text "🗑️ Directory $displayName eliminata."
             return $true
         }
         catch {
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLines -NoNewline
+            Clear-ProgressLine
             Write-StyledMessage -Type 'Warning' -Text "Tentativo fallito, provo con eliminazione forzata."
             try {
                 $tempDir = [System.IO.Path]::GetTempPath() + "empty_" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
@@ -1461,10 +1457,10 @@ function WinUpdateReset {
                     ErrorAction  = 'SilentlyContinue'
                 }
                 $null = Start-Process @procParams
-                Remove-Item $tempDir -Force -ErrorAction SilentlyContinue | Out-Null
-                Remove-Item $path -Force -ErrorAction SilentlyContinue | Out-Null
+                Remove-Item $tempDir -Force -ErrorAction SilentlyContinue *>$null
+                Remove-Item $path -Force -ErrorAction SilentlyContinue *>$null
                 $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                Write-Host $clearLines -NoNewline
+                Clear-ProgressLine
                 [Console]::Out.Flush()
                 if (-not (Test-Path $path)) {
                     Write-StyledMessage -Type 'Success' -Text "🗑️ Directory $displayName eliminata (metodo forzato)."
@@ -1480,14 +1476,11 @@ function WinUpdateReset {
                 return $false
             }
             finally {
-                $ErrorActionPreference = 'Continue'
-                $ProgressPreference = 'Continue'
-                $VerbosePreference = 'SilentlyContinue'
             }
         }
     }
     Write-StyledMessage -Type 'Info' -Text '🔧 Inizializzazione dello Script di Reset Windows Update.'
-    Invoke-WithSpinner -Activity "Caricamento moduli" -Timer -Action { Start-Sleep 2 } -TimeoutSeconds 2 | Out-Null
+    Invoke-WithSpinner -Activity "Caricamento moduli" -Timer -Action { Start-Sleep 2 } -TimeoutSeconds 2 *>$null
     Write-StyledMessage -Type 'Info' -Text '🛠️ Avvio riparazione servizi Windows Update.'
     $serviceConfig = @{
         'wuauserv'         = @{ Type = 'Automatic'; Critical = $true; Icon = '🔄'; DisplayName = 'Windows Update' }
@@ -1528,13 +1521,13 @@ function WinUpdateReset {
             Manage-Service $sysService.Name 'Check' @{ Icon = $sysService.Icon } ($systemIndex + 1) $systemServices.Count
         }
         Write-StyledMessage -Type 'Info' -Text '📋 Ripristino chiavi di registro Windows Update.'
-        Invoke-WithSpinner -Activity "Elaborazione registro" -Timer -Action { Start-Sleep 1 } -TimeoutSeconds 1 | Out-Null
+        Invoke-WithSpinner -Activity "Elaborazione registro" -Timer -Action { Start-Sleep 1 } -TimeoutSeconds 1 *>$null
         try {
             @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update",
                 "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
             ) | Where-Object { Test-Path $_ } | ForEach-Object {
-                Remove-Item $_ -Recurse -Force -ErrorAction Stop | Out-Null
+                Remove-Item $_ -Recurse -Force -ErrorAction Stop *>$null
                 Write-StyledMessage -Type 'Success' -Text 'Completato!'
             }
             if (-not @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update", "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate") | Where-Object { Test-Path $_ }) {
@@ -1548,15 +1541,15 @@ function WinUpdateReset {
         }
         Write-StyledMessage -Type 'Info' -Text '🗂️ Eliminazione componenti Windows Update.'
         $directories = @(
-            @{ Path = "$env:WinDir\SoftwareDistribution"; Name = "SoftwareDistribution" },
-            @{ Path = "$env:WinDir\System32\catroot2"; Name = "catroot2" },
-            @{ Path = "$env:WinDir\System32\WaaSMedicSvc.dll"; Name = "WaaSMedicSvc.dll" },
-            @{ Path = "$env:WinDir\System32\wuaueng.dll"; Name = "wuaueng.dll" },
-            @{ Path = "$env:WinDir\System32\WaaSMedicSvc_BAK.dll"; Name = "WaaSMedicSvc_BAK.dll" },
-            @{ Path = "$env:WinDir\System32\wuaueng_BAK.dll"; Name = "wuaueng_BAK.dll" },
-            @{ Path = "$env:WinDir\SoftwareDistribution\Download"; Name = "Download" },
-            @{ Path = "$env:WinDir\SoftwareDistribution\DataStore"; Name = "DataStore" },
-            @{ Path = "$env:WinDir\SoftwareDistribution\Backup"; Name = "Backup" }
+            @{ Path = $AppConfig.Paths.SoftwareDistribution; Name = "SoftwareDistribution" },
+            @{ Path = $AppConfig.Paths.Catroot2; Name = "catroot2" },
+            @{ Path = Join-Path $AppConfig.Paths.System32 "WaaSMedicSvc.dll"; Name = "WaaSMedicSvc.dll" },
+            @{ Path = Join-Path $AppConfig.Paths.System32 "wuaueng.dll"; Name = "wuaueng.dll" },
+            @{ Path = Join-Path $AppConfig.Paths.System32 "WaaSMedicSvc_BAK.dll"; Name = "WaaSMedicSvc_BAK.dll" },
+            @{ Path = Join-Path $AppConfig.Paths.System32 "wuaueng_BAK.dll"; Name = "wuaueng_BAK.dll" },
+            @{ Path = Join-Path $AppConfig.Paths.SoftwareDistribution "Download"; Name = "Download" },
+            @{ Path = Join-Path $AppConfig.Paths.SoftwareDistribution "DataStore"; Name = "DataStore" },
+            @{ Path = Join-Path $AppConfig.Paths.SoftwareDistribution "Backup"; Name = "Backup" }
         )
         for ($dirIndex = 0; $dirIndex -lt $directories.Count; $dirIndex++) {
             $dir = $directories[$dirIndex]
@@ -1568,7 +1561,7 @@ function WinUpdateReset {
                 Write-StyledMessage -Type 'Info' -Text "💡 Suggerimento: Alcuni file potrebbero essere ricreati dopo il riavvio."
             }
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
+                    Clear-ProgressLine
             [Console]::Out.Flush()
             Start-Sleep -Milliseconds 500
         }
@@ -1587,7 +1580,7 @@ function WinUpdateReset {
                 WindowStyle  = 'Hidden'
                 ErrorAction  = 'SilentlyContinue'
             }
-            Start-Process @procParams | Out-Null
+            Start-Process @procParams *>$null
             Write-StyledMessage -Type 'Success' -Text 'Completato!'
             Write-StyledMessage -Type 'Success' -Text "🔄 Client Windows Update reimpostato."
         }
@@ -1599,12 +1592,12 @@ function WinUpdateReset {
         Write-StyledMessage -Type 'Info' -Text '📋 Ripristino impostazioni registro Windows Update.'
         try {
             If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU")) {
-                New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Force | Out-Null
+                New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Force *>$null
             }
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -Type DWord -Value 0
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -Type DWord -Value 3
             If (!(Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config")) {
-                New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Force | Out-Null
+                New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Force *>$null
             }
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -Type DWord -Value 1
             Write-StyledMessage -Type 'Success' -Text "🔑 Impostazioni registro Windows Update ripristinate."
@@ -1634,7 +1627,7 @@ function WinUpdateReset {
                 Write-StyledMessage -Type 'Info' -Text "$($service.Icon) Ripristino $($service.Name) a $($service.StartupType)."
                 $serviceObj = Get-Service -Name $service.Name -ErrorAction SilentlyContinue
                 if ($serviceObj) {
-                    Set-Service -Name $service.Name -StartupType $service.StartupType -ErrorAction SilentlyContinue | Out-Null
+                    Set-Service -Name $service.Name -StartupType $service.StartupType -ErrorAction SilentlyContinue *>$null
                     $procParams = @{
                         FilePath     = 'sc.exe'
                         ArgumentList = 'failure', "$($service.Name)", 'reset= 86400 actions= restart/60000/restart/60000/restart/60000'
@@ -1642,9 +1635,9 @@ function WinUpdateReset {
                         WindowStyle  = 'Hidden'
                         ErrorAction  = 'SilentlyContinue'
                     }
-                    Start-Process @procParams | Out-Null
+                    Start-Process @procParams *>$null
                     if ($service.StartupType -eq "Automatic") {
-                        Set-ServiceStatus -Name $service.Name -Status "Running" -Wait -TimeoutSeconds 5 | Out-Null
+                        Set-ServiceStatus -Name $service.Name -Status "Running" -Wait -TimeoutSeconds 5 *>$null
                     }
                     Write-StyledMessage -Type 'Success' -Text "$($service.Icon) Servizio $($service.Name) ripristinato."
                 }
@@ -1656,8 +1649,8 @@ function WinUpdateReset {
         Write-StyledMessage -Type 'Info' -Text '🔍 Ripristino DLL rinominate.'
         $dlls = @("WaaSMedicSvc", "wuaueng")
         foreach ($dll in $dlls) {
-            $dllPath = "$env:WinDir\System32\$dll.dll"
-            $backupPath = "$env:WinDir\System32\${dll}_BAK.dll"
+            $dllPath = Join-Path $AppConfig.Paths.System32 "$dll.dll"
+            $backupPath = Join-Path $AppConfig.Paths.System32 "${dll}_BAK.dll"
             if ((Test-Path $backupPath) -and !(Test-Path $dllPath)) {
                 try {
                     $procParams = @{
@@ -1667,7 +1660,7 @@ function WinUpdateReset {
                         WindowStyle  = 'Hidden'
                         ErrorAction  = 'SilentlyContinue'
                     }
-                    Start-Process @procParams | Out-Null
+                    Start-Process @procParams *>$null
                     $procParams = @{
                         FilePath     = 'icacls.exe'
                         ArgumentList = "`"$backupPath`"", '/grant', '*S-1-1-0:F'
@@ -1675,8 +1668,8 @@ function WinUpdateReset {
                         WindowStyle  = 'Hidden'
                         ErrorAction  = 'SilentlyContinue'
                     }
-                    Start-Process @procParams | Out-Null
-                    Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue | Out-Null
+                    Start-Process @procParams *>$null
+                    Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue *>$null
                     Write-StyledMessage -Type 'Success' -Text "Ripristinato ${dll}_BAK.dll a $dll.dll."
                     $procParams = @{
                         FilePath     = 'icacls.exe'
@@ -1685,7 +1678,7 @@ function WinUpdateReset {
                         WindowStyle  = 'Hidden'
                         ErrorAction  = 'SilentlyContinue'
                     }
-                    Start-Process @procParams | Out-Null
+                    Start-Process @procParams *>$null
                     $procParams = @{
                         FilePath     = 'icacls.exe'
                         ArgumentList = "`"$dllPath`"", '/remove', '*S-1-1-0'
@@ -1693,7 +1686,7 @@ function WinUpdateReset {
                         WindowStyle  = 'Hidden'
                         ErrorAction  = 'SilentlyContinue'
                     }
-                    Start-Process @procParams | Out-Null
+                    Start-Process @procParams *>$null
                 }
                 catch {
                     Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile ripristinare $dll.dll - $($_.Exception.Message)."
@@ -1719,7 +1712,7 @@ function WinUpdateReset {
             try {
                 $tasks = Get-ScheduledTask -TaskPath $taskPath -ErrorAction SilentlyContinue
                 foreach ($task in $tasks) {
-                    Enable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction SilentlyContinue | Out-Null
+                    Enable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction SilentlyContinue *>$null
                     Write-StyledMessage -Type 'Success' -Text "Task abilitato: $($task.TaskName)."
                 }
             }
@@ -1761,7 +1754,7 @@ function WinUpdateReset {
         Write-StyledMessage -Type 'Info' -Text '📋 Ripristino criteri locali Windows.'
         try {
             Write-StyledMessage -Type 'Info' -Text '⏳ Eliminazione criteri locali.'
-            $rdProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q `"$env:WinDir\System32\GroupPolicy`"" -WindowStyle Hidden -ErrorAction SilentlyContinue -PassThru
+            $rdProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q `"$(Join-Path $AppConfig.Paths.System32 "GroupPolicy")`"" -WindowStyle Hidden -ErrorAction SilentlyContinue -PassThru
             $rdTimeout = 10
             while (-not $rdProc.HasExited -and $rdTimeout -gt 0) {
                 Start-Sleep -Seconds 1
@@ -1783,17 +1776,17 @@ function WinUpdateReset {
             else {
                 Write-StyledMessage -Type 'Success' -Text '✅ Criteri aggiornati.'
             }
-            Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKCU:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKCU:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
+            Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKCU:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKCU:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue *>$null
             Write-StyledMessage -Type 'Success' -Text "📋 Criteri locali Windows ripristinati."
         }
         catch {
@@ -1929,7 +1922,7 @@ function WinReinstallStore {
             try {
                 $result = $method.Action.Invoke()
                 $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                Write-Host $clearLine -NoNewline
+                Clear-ProgressLine
                 [Console]::Out.Flush()
                 $isSuccess = $result -and ($result.ExitCode -in @(0, 3010, 1638, -1978335189))
                 if ($isSuccess) {
@@ -1957,7 +1950,7 @@ function WinReinstallStore {
                 } -TimeoutSeconds 120
             }
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
+                Clear-ProgressLine
             [Console]::Out.Flush()
             Write-StyledMessage -Type 'Success' -Text "Cache dello Store ripristinata."
         }
@@ -1972,7 +1965,7 @@ function WinReinstallStore {
                     }
                 } -TimeoutSeconds 300
                 $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                Write-Host $clearLine -NoNewline
+                Clear-ProgressLine
                 [Console]::Out.Flush()
                 Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato tramite metodo di emergenza."
                 $success = $true
@@ -2002,7 +1995,7 @@ function WinReinstallStore {
                 Start-Process @procParams
             } -TimeoutSeconds 120
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
+                Clear-ProgressLine
             [Console]::Out.Flush()
             $processResult = Invoke-WithSpinner -Activity "Installazione UniGet UI" -Process -Action {
                 $procParams = @{
@@ -2017,7 +2010,7 @@ function WinReinstallStore {
                 Start-Process @procParams
             } -TimeoutSeconds 600
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
+                Clear-ProgressLine
             [Console]::Out.Flush()
             $isSuccess = $processResult.ExitCode -in @(0, 3010, 1638, -1978335189)
             if ($isSuccess) {
@@ -2096,9 +2089,9 @@ function WinReinstallStore {
         }
         $handlesRedirected = $false
         try {
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNullOut) | Out-Null
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNullOut) | Out-Null
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hNullIn) | Out-Null
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNullOut) *>$null
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNullOut) *>$null
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hNullIn) *>$null
             $handlesRedirected = $true
             $env:POWERSHELL_TELEMETRY_OPTOUT = '1'
             $ProgressPreference = 'SilentlyContinue'
@@ -2107,17 +2100,17 @@ function WinReinstallStore {
         finally {
             if ($handlesRedirected) {
                 try {
-                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
-                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
-                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hOrigIn) | Out-Null
+                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) *>$null
+                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) *>$null
+                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hOrigIn) *>$null
                 }
                 catch { }
             }
             if ($hNullOut -and $hNullOut -ne $INVALID_HANDLE_VALUE -and $hNullOut -ne [IntPtr]::Zero) {
-                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullOut) | Out-Null } catch { }
+                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullOut) *>$null } catch { }
             }
             if ($hNullIn -and $hNullIn -ne $INVALID_HANDLE_VALUE -and $hNullIn -ne [IntPtr]::Zero) {
-                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullIn) | Out-Null } catch { }
+                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullIn) *>$null } catch { }
             }
         }
     }
@@ -2125,7 +2118,7 @@ function WinReinstallStore {
         Write-StyledMessage -Type 'Progress' -Text "Avvio reinstallazione Store & Winget."
         $wingetResult = $false
         try {
-            $global:ProgressPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
             $wingetResult = Invoke-WithConsoleRedirection -Action { Reset-Winget -Force }
         }
         catch {
@@ -2133,7 +2126,7 @@ function WinReinstallStore {
             Write-ToolkitLog -Level ERROR -Message "Reset-Winget eccezione non gestita: $($_.Exception.Message)"
         }
         finally {
-            $global:ProgressPreference = $savedProgressPref
+            $ProgressPreference = $savedProgressPref
         }
         if ($wingetResult) {
             Write-StyledMessage -Type 'Success' -Text "Winget ripristinato e operativo."
@@ -2196,24 +2189,24 @@ function WinBackupDriver {
         return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     }
     function Initialize-BackupEnvironment {
-        Write-StyledMessage Info "🗂️ Inizializzazione ambiente backup."
+        Write-StyledMessage -Type 'Info' -Text "🗂️ Inizializzazione ambiente backup."
         try {
             if (Test-Path $script:BackupConfig.BackupDir) {
-                Write-StyledMessage Warning "Rimozione backup precedenti."
-                Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction Stop | Out-Null
+                Write-StyledMessage -Type 'Warning' -Text "Rimozione backup precedenti."
+                Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction Stop *>$null
             }
-            New-Item -ItemType Directory -Path $script:BackupConfig.BackupDir -Force | Out-Null
-            New-Item -ItemType Directory -Path $script:BackupConfig.LogsDir -Force | Out-Null
-            Write-StyledMessage Success "Directory backup e log create."
+            New-Item -ItemType Directory -Path $script:BackupConfig.BackupDir -Force *>$null
+            New-Item -ItemType Directory -Path $script:BackupConfig.LogsDir -Force *>$null
+            Write-StyledMessage -Type 'Success' -Text "Directory backup e log create."
             return $true
         }
         catch {
-            Write-StyledMessage Error "Errore inizializzazione ambiente: $_"
+            Write-StyledMessage -Type 'Error' -Text "Errore inizializzazione ambiente: $_"
             return $false
         }
     }
     function Export-SystemDrivers {
-        Write-StyledMessage Info "💾 Avvio esportazione driver di sistema."
+        Write-StyledMessage -Type 'Info' -Text "💾 Avvio esportazione driver di sistema."
         $outFile = "$($script:BackupConfig.LogsDir)\dism_$($script:BackupConfig.DateTime).log"
         $errFile = "$($script:BackupConfig.LogsDir)\dism_err_$($script:BackupConfig.DateTime).log"
         try {
@@ -2240,17 +2233,17 @@ function WinBackupDriver {
             }
             $exportedDrivers = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
             if (-not $exportedDrivers -or $exportedDrivers.Count -eq 0) {
-                Write-StyledMessage Warning "Nessun driver di terze parti trovato da esportare."
-                Write-StyledMessage Info "💡 I driver integrati di Windows non vengono esportati."
+                Write-StyledMessage -Type 'Warning' -Text "Nessun driver di terze parti trovato da esportare."
+                Write-StyledMessage -Type 'Info' -Text "💡 I driver integrati di Windows non vengono esportati."
                 return $true
             }
             $totalSize = ($exportedDrivers | Measure-Object -Property Length -Sum).Sum
             $totalSizeMB = [Math]::Round($totalSize / 1MB, 2)
-            Write-StyledMessage Success "Esportazione completata: $($exportedDrivers.Count) driver trovati ($totalSizeMB MB)."
+            Write-StyledMessage -Type 'Success' -Text "Esportazione completata: $($exportedDrivers.Count) driver trovati ($totalSizeMB MB)."
             return $true
         }
         catch {
-            Write-StyledMessage Error "Errore durante esportazione driver: $_"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante esportazione driver: $_"
             return $false
         }
     }
@@ -2258,42 +2251,42 @@ function WinBackupDriver {
         return Install-7ZipPortable
     }
     function Install-7ZipPortable {
-        $installDir = "$env:LOCALAPPDATA\WinToolkit\7zip"
+        $installDir = Join-Path $AppConfig.Paths.LocalAppData "WinToolkit\7zip"
         $executablePath = "$installDir\7zr.exe"
         if (Test-Path $executablePath) {
-            Write-StyledMessage Success "7-Zip portable già presente."
+            Write-StyledMessage -Type 'Success' -Text "7-Zip portable già presente."
             return $executablePath
         }
-        New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $installDir -Force *>$null
         $downloadSources = @(
             @{ Url = $AppConfig.URLs.GitHubAssetBaseUrl + "7zr.exe"; Name = "Repository MagnetarMan" },
             @{ Url = $AppConfig.URLs.SevenZipOfficial; Name = "Sito ufficiale 7-Zip" }
         )
         foreach ($source in $downloadSources) {
             try {
-                Write-StyledMessage Info "⬇️ Download 7-Zip da: $($source.Name)"
+                Write-StyledMessage -Type 'Info' -Text "⬇️ Download 7-Zip da: $($source.Name)"
                 Invoke-WebRequest -Uri $source.Url -OutFile $executablePath -UseBasicParsing -ErrorAction Stop
                 if (Test-Path $executablePath) {
                     $fileSize = (Get-Item $executablePath).Length
                     if ($fileSize -gt 100KB -and $fileSize -lt 10MB) {
                         $testResult = & $executablePath 2>&1
                         if ($testResult -match "7-Zip" -or $testResult -match "Licensed") {
-                            Write-StyledMessage Success "7-Zip portable scaricato e verificato."
+                            Write-StyledMessage -Type 'Success' -Text "7-Zip portable scaricato e verificato."
                             return $executablePath
                         }
                     }
-                    Write-StyledMessage Warning "File scaricato non valido (Dimensione: $fileSize bytes)."
+                    Write-StyledMessage -Type 'Warning' -Text "File scaricato non valido (Dimensione: $fileSize bytes)."
                     Remove-Item $executablePath -Force -ErrorAction SilentlyContinue
                 }
             }
             catch {
-                Write-StyledMessage Warning "Download fallito da $($source.Name): $_"
+                Write-StyledMessage -Type 'Warning' -Text "Download fallito da $($source.Name): $_"
                 if (Test-Path $executablePath) {
                     Remove-Item $executablePath -Force -ErrorAction SilentlyContinue
                 }
             }
         }
-        Write-StyledMessage Error "Impossibile scaricare 7-Zip da tutte le fonti."
+        Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare 7-Zip da tutte le fonti."
         return $null
     }
     function Compress-BackupArchive {
@@ -2304,20 +2297,20 @@ function WinBackupDriver {
         if (-not (Test-Path $script:BackupConfig.BackupDir)) {
             throw "Directory backup non trovata: $($script:BackupConfig.BackupDir)"
         }
-        Write-StyledMessage Info "📦 Preparazione compressione archivio."
+        Write-StyledMessage -Type 'Info' -Text "📦 Preparazione compressione archivio."
         $backupFiles = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
         if (-not $backupFiles) {
-            Write-StyledMessage Warning "Nessun file da comprimere nella directory backup."
+            Write-StyledMessage -Type 'Warning' -Text "Nessun file da comprimere nella directory backup."
             return $null
         }
         $totalSizeMB = [Math]::Round(($backupFiles | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
-        Write-StyledMessage Info "Dimensione totale: $totalSizeMB MB"
+        Write-StyledMessage -Type 'Info' -Text "Dimensione totale: $totalSizeMB MB"
         $archivePath = "$($script:BackupConfig.TempPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
         $compressionArgs = @('a', '-t7z', '-mx=6', '-mmt=on', "`"$archivePath`"", "`"$($script:BackupConfig.BackupDir)\*`"")
         $stdOutputPath = "$($script:BackupConfig.LogsDir)\7zip_$($script:BackupConfig.DateTime).log"
         $stdErrorPath = "$($script:BackupConfig.LogsDir)\7zip_err_$($script:BackupConfig.DateTime).log"
         try {
-            Write-StyledMessage Info "🚀 Compressione con 7-Zip."
+            Write-StyledMessage -Type 'Info' -Text "🚀 Compressione con 7-Zip."
             $result = Invoke-WithSpinner -Activity "Compressione archivio 7-Zip" -Process -Action {
                 $procParams = @{
                     FilePath               = $SevenZipPath
@@ -2335,7 +2328,7 @@ function WinBackupDriver {
             if ($result.ExitCode -eq 0 -and (Test-Path $archivePath)) {
                 $compressedSizeMB = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
                 $compressionRatio = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
-                Write-StyledMessage Success "Compressione completata: $compressedSizeMB MB (Riduzione: $compressionRatio%)."
+                Write-StyledMessage -Type 'Success' -Text "Compressione completata: $compressedSizeMB MB (Riduzione: $compressionRatio%)."
                 return $archivePath
             }
             else {
@@ -2344,7 +2337,7 @@ function WinBackupDriver {
                     if ($errorContent) { $errorContent -join '; ' } else { "Log errori vuoto." }
                 }
                 else { "File di log errori non trovato." }
-                Write-StyledMessage Error "Compressione fallita (ExitCode: $($result.ExitCode)). Dettagli: $errorDetails"
+                Write-StyledMessage -Type 'Error' -Text "Compressione fallita (ExitCode: $($result.ExitCode)). Dettagli: $errorDetails"
                 return $null
             }
         }
@@ -2356,53 +2349,48 @@ function WinBackupDriver {
         if ([string]::IsNullOrWhiteSpace($ArchivePath) -or -not (Test-Path $ArchivePath)) {
             throw "Percorso archivio non valido: $ArchivePath"
         }
-        Write-StyledMessage Info "📂 Spostamento archivio su desktop."
+        Write-StyledMessage -Type 'Info' -Text "📂 Spostamento archivio su desktop."
         try {
             if (-not (Test-Path $script:BackupConfig.DesktopPath)) {
                 throw "Directory desktop non accessibile: $($script:BackupConfig.DesktopPath)"
             }
             if (Test-Path $script:FinalArchivePath) {
-                Write-StyledMessage Warning "Rimozione archivio precedente."
+                Write-StyledMessage -Type 'Warning' -Text "Rimozione archivio precedente."
                 Remove-Item $script:FinalArchivePath -Force -ErrorAction Stop
             }
             Copy-Item -Path $ArchivePath -Destination $script:FinalArchivePath -Force -ErrorAction Stop
             if (Test-Path $script:FinalArchivePath) {
-                Write-StyledMessage Success "Archivio salvato sul desktop."
-                Write-StyledMessage Info "Posizione: $script:FinalArchivePath"
+                Write-StyledMessage -Type 'Success' -Text "Archivio salvato sul desktop."
+                Write-StyledMessage -Type 'Info' -Text "Posizione: $script:FinalArchivePath"
                 return $true
             }
             throw "Copia archivio fallita."
         }
         catch {
-            Write-StyledMessage Error "Errore spostamento archivio: $_"
+            Write-StyledMessage -Type 'Error' -Text "Errore spostamento archivio: $_"
             return $false
         }
     }
     try {
         if (-not (Test-AdministratorPrivilege)) {
-            Write-StyledMessage Error "❌ Privilegi amministratore richiesti."
-            Write-StyledMessage Info "💡 Riavvia PowerShell come Amministratore."
+            Write-StyledMessage -Type 'Error' -Text "❌ Privilegi amministratore richiesti."
+            Write-StyledMessage -Type 'Info' -Text "💡 Riavvia PowerShell come Amministratore."
             Read-Host "`nPremi INVIO per uscire"
             return
         }
-        Write-StyledMessage Info "🚀 Inizializzazione sistema."
+        Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione sistema."
         Start-Sleep -Seconds 1
         if (Initialize-BackupEnvironment) {
-            Write-Host ""
             if (Export-SystemDrivers) {
-                Write-Host ""
                 $sevenZipPath = (Resolve-7ZipExecutable | Select-Object -Last 1)
                 if ($sevenZipPath) {
-                    Write-Host ""
                     $compressedArchive = Compress-BackupArchive -SevenZipPath $sevenZipPath
                     if ($compressedArchive) {
-                        Write-Host ""
                         if (Move-ArchiveToDesktop -ArchivePath $compressedArchive) {
-                            Write-Host ""
-                            Write-StyledMessage Success "🎉 Backup driver completato con successo!"
-                            Write-StyledMessage Info "📁 Archivio finale: $script:FinalArchivePath"
-                            Write-StyledMessage Info "💾 Utilizzabile per reinstallare tutti i driver."
-                            Write-StyledMessage Info "🔧 Senza doverli riscaricare singolarmente."
+                            Write-StyledMessage -Type 'Success' -Text "🎉 Backup driver completato con successo!"
+                                Write-StyledMessage -Type 'Info' -Text "📁 Archivio finale: $script:FinalArchivePath"
+                                Write-StyledMessage -Type 'Info' -Text "💾 Utilizzabile per reinstallare tutti i driver."
+                                Write-StyledMessage -Type 'Info' -Text "🔧 Senza doverli riscaricare singolarmente."
                         }
                     }
                 }
@@ -2410,8 +2398,8 @@ function WinBackupDriver {
         }
     }
     catch {
-        Write-StyledMessage Error "Errore critico durante backup: $($_.Exception.Message)"
-        Write-StyledMessage Info "💡 Controlla i log per dettagli tecnici."
+        Write-StyledMessage -Type 'Error' -Text "Errore critico durante backup: $($_.Exception.Message)"
+        Write-StyledMessage -Type 'Info' -Text "💡 Controlla i log per dettagli tecnici."
         Write-ToolkitLog -Level ERROR -Message "Errore critico in WinBackupDriver" -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName
@@ -2419,12 +2407,12 @@ function WinBackupDriver {
         }
     }
     finally {
-        Write-StyledMessage Info "🧹 Pulizia ambiente temporaneo."
+        Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia ambiente temporaneo."
         if (Test-Path $script:BackupConfig.BackupDir) {
             Remove-Item $script:BackupConfig.BackupDir -Recurse -Force -ErrorAction SilentlyContinue
         }
         Write-ToolkitLog -Level INFO -Message "WinBackupDriver sessione terminata."
-        Write-StyledMessage Success "🎯 Driver Backup Toolkit terminato."
+        Write-StyledMessage -Type 'Success' -Text "🎯 Driver Backup Toolkit terminato."
     }
 }
 function WinDriverInstall {}
@@ -3055,7 +3043,7 @@ function WinCleaner {
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
-    $global:WinCleanerLog = @()
+    $script:WinCleanerLog = @()
     function Add-CleanerLog {
         param(
             [Parameter(Mandatory = $true, Position = 0)]
@@ -3070,7 +3058,7 @@ function WinCleaner {
             Type      = $Type
             Text      = $Text
         }
-        $global:WinCleanerLog += $logEntry
+        $script:WinCleanerLog += $logEntry
         Write-StyledMessage -Type $Type -Text $Text
     }
     Start-ToolkitLog -ToolName "WinCleaner"
@@ -3169,11 +3157,11 @@ function WinCleaner {
             if (-not $svc) { return $true }
             if ($action -eq 'Stop' -and $svc.Status -eq 'Running') {
                 Add-CleanerLog -Type 'Info' -Text "⏸️ Arresto servizio $svcName."
-                Stop-Service -Name $svcName -Force -ErrorAction Stop | Out-Null
+                Stop-Service -Name $svcName -Force -ErrorAction Stop *>$null
             }
             elseif ($action -eq 'Start' -and $svc.Status -ne 'Running') {
                 Add-CleanerLog -Type 'Info' -Text "▶️ Avvio servizio $svcName."
-                Start-Service -Name $svcName -ErrorAction Stop | Out-Null
+                Start-Service -Name $svcName -ErrorAction Stop *>$null
             }
             return $true
         }
@@ -3245,12 +3233,12 @@ function WinCleaner {
                 if ($valuesOnly) {
                     $item = Get-Item $key -ErrorAction Stop
                     $item.GetValueNames() | ForEach-Object {
-                        if ($_ -ne '(default)') { Remove-ItemProperty -LiteralPath $key -Name $_ -Force -ErrorAction SilentlyContinue | Out-Null }
+                        if ($_ -ne '(default)') { Remove-ItemProperty -LiteralPath $key -Name $_ -Force -ErrorAction SilentlyContinue *>$null }
                     }
                     if ($recursive) {
                         Get-ChildItem $key -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
                             $currentKeyPath = $_.PSPath
-                            $_.GetValueNames() | ForEach-Object { Remove-ItemProperty -LiteralPath $currentKeyPath -Name $_ -Force -ErrorAction SilentlyContinue | Out-Null }
+                            $_.GetValueNames() | ForEach-Object { Remove-ItemProperty -LiteralPath $currentKeyPath -Name $_ -Force -ErrorAction SilentlyContinue *>$null }
                         }
                     }
                     Add-CleanerLog -Type 'Success' -Text "⚙️ Puliti valori in $key"
@@ -3270,8 +3258,8 @@ function WinCleaner {
         param($Rule)
         $key = $Rule.Key -replace '^(HKCU|HKLM):', '$1:\'
         try {
-            if (-not (Test-Path $key)) { New-Item -Path $key -Force -ErrorAction SilentlyContinue | Out-Null }
-            Set-ItemProperty -Path $key -Name $Rule.ValueName -Value $Rule.ValueData -Type $Rule.ValueType -Force -ErrorAction SilentlyContinue | Out-Null
+            if (-not (Test-Path $key)) { New-Item -Path $key -Force -ErrorAction SilentlyContinue *>$null }
+            Set-ItemProperty -Path $key -Name $Rule.ValueName -Value $Rule.ValueData -Type $Rule.ValueType -Force -ErrorAction SilentlyContinue *>$null
             Add-CleanerLog -Type 'Success' -Text "⚙️ Impostato $key\$($Rule.ValueName)"
             return $true
         }
@@ -3346,12 +3334,12 @@ function WinCleaner {
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
                 Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs."
                 $wevtErr = $null
-                & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr | Out-Null
+                & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr *>$null
                 if ($wevtErr) { Write-ToolkitLog -Level DEBUG -Message "wevtutil sl output: $wevtErr" }
                 Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object {
                     $logName = $_.LogName
                     $clErr = $null
-                    Wevtutil.exe cl $logName 2>&1 | Out-String -OutVariable clErr | Out-Null
+                    Wevtutil.exe cl $logName 2>&1 | Out-String -OutVariable clErr *>$null
                     if ($LASTEXITCODE -ne 0 -and $clErr) { Write-ToolkitLog -Level DEBUG -Message "Wevtutil cl [$logName]: $clErr" }
                 }
             }
@@ -3597,7 +3585,7 @@ function WinCleaner {
                 try {
                     Add-CleanerLog -Type 'Info' -Text "🖨️ Pulizia coda di stampa (Spooler)."
                     Add-CleanerLog -Type 'Info' -Text "⏸️ Arresto servizio Spooler."
-                    Stop-Service -Name Spooler -Force -ErrorAction Stop | Out-Null
+                    Stop-Service -Name Spooler -Force -ErrorAction Stop *>$null
                     Add-CleanerLog -Type 'Info' -Text "Servizio Spooler arrestato."
                     Start-Sleep -Seconds 2
                     $printersPath = 'C:\WINDOWS\System32\spool\PRINTERS'
@@ -3607,7 +3595,7 @@ function WinCleaner {
                         Add-CleanerLog -Type 'Info' -Text "Coda di stampa pulita in $printersPath ($($files.Count) file rimossi)"
                     }
                     Add-CleanerLog -Type 'Info' -Text "▶️ Riavvio servizio Spooler."
-                    Start-Service -Name Spooler -ErrorAction Stop | Out-Null
+                    Start-Service -Name Spooler -ErrorAction Stop *>$null
                     Add-CleanerLog -Type 'Info' -Text "Servizio Spooler riavviato."
                     Add-CleanerLog -Type 'Success' -Text "Print Queue Spooler pulito e riavviato con successo."
                 }
@@ -3642,10 +3630,10 @@ function WinCleaner {
                 function New-EmptyFile($Path) {
                     $parentDirectory = [System.IO.Path]::GetDirectoryName($Path)
                     if (-not (Test-Path $parentDirectory -PathType Container)) {
-                        try { New-Item -ItemType Directory -Path $parentDirectory -Force -ErrorAction Stop | Out-Null }
+                        try { New-Item -ItemType Directory -Path $parentDirectory -Force -ErrorAction Stop *>$null }
                         catch { Write-StyledMessage -Type 'Warning' -Text "Failed to create parent directory: $_"; return $false }
                     }
-                    try { New-Item -ItemType File -Path $Path -Force -ErrorAction Stop | Out-Null; return $true }
+                    try { New-Item -ItemType File -Path $Path -Force -ErrorAction Stop *>$null; return $true }
                     catch { Write-StyledMessage -Type 'Warning' -Text "Failed to create file: $_"; return $false }
                 }
                 $serviceName = 'DiagTrack'
@@ -3699,7 +3687,7 @@ function WinCleaner {
                 $targets | ForEach-Object {
                     $t = $_.Split(':')[1].Trim()
                     $delErr = $null
-                    & cmdkey /delete:$t 2>&1 | Tee-Object -Variable delErr | Out-Null
+                    & cmdkey /delete:$t 2>&1 | Tee-Object -Variable delErr *>$null
                     if ($delErr -and $LASTEXITCODE -ne 0) { Write-ToolkitLog -Level DEBUG -Message "cmdkey delete [$t] error: $delErr" }
                 }
             }
@@ -3767,11 +3755,10 @@ function WinCleaner {
         }
     }
     Clear-ProgressLine
-    Write-Host "`n"
     Write-StyledMessage -Type 'Info' -Text "=================================================="
     Write-StyledMessage -Type 'Info' -Text "               RIEPILOGO OPERAZIONI               "
     Write-StyledMessage -Type 'Info' -Text "=================================================="
-    $stats = $global:WinCleanerLog | Group-Object Type
+    $stats = $script:WinCleanerLog | Group-Object Type
     $sCount = ($stats | Where-Object Name -eq 'Success').Count
     $wCount = ($stats | Where-Object Name -eq 'Warning').Count
     $eCount = ($stats | Where-Object Name -eq 'Error').Count
@@ -3780,7 +3767,7 @@ function WinCleaner {
     if ($eCount -gt 0) { Write-StyledMessage -Type 'Error' -Text "Errori riscontrati: $eCount." }
     Write-StyledMessage -Type 'Info' -Text "--------------------------------------------------"
     Write-StyledMessage -Type 'Info' -Text "Dettaglio Errori e Warning:"
-    $problems = $global:WinCleanerLog | Where-Object { $_.Type -in 'Warning', 'Error' }
+    $problems = $script:WinCleanerLog | Where-Object { $_.Type -in 'Warning', 'Error' }
     if ($problems) {
         foreach ($p in $problems) {
             Write-StyledMessage -Type $p.Type -Text $p.Text
@@ -3790,7 +3777,6 @@ function WinCleaner {
         Write-StyledMessage -Type 'Success' -Text "Nessun problema rilevato."
     }
     Write-StyledMessage -Type 'Info' -Text "=================================================="
-    Write-Host "`n"
     if ($SuppressIndividualReboot) {
         $Global:NeedsFinalReboot = $true
         Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
@@ -3815,11 +3801,11 @@ function VideoDriverInstall {
     $Host.UI.RawUI.WindowTitle = "Video Driver Install Toolkit By MagnetarMan"
     $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
     $DriverToolsLocalPath = $AppConfig.Paths.Drivers
-    $DesktopPath = [Environment]::GetFolderPath('Desktop')
+    $DesktopPath = $AppConfig.Paths.Desktop
     function Get-GpuManufacturer {
         $pnpDevices = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue
         if (-not $pnpDevices) {
-            Write-StyledMessage Warning "Nessun dispositivo display Plug and Play rilevato."
+            Write-StyledMessage -Type 'Warning' -Text "Nessun dispositivo display Plug and Play rilevato."
             return 'Unknown'
         }
         foreach ($device in $pnpDevices) {
@@ -3838,24 +3824,24 @@ function VideoDriverInstall {
         return 'Unknown'
     }
     function Set-BlockWindowsUpdateDrivers {
-        Write-StyledMessage Info "Configurazione per bloccare download driver da Windows Update."
+        Write-StyledMessage -Type 'Info' -Text "Configurazione per bloccare download driver da Windows Update."
         $regPath = $AppConfig.Registry.WindowsUpdatePolicies
         $propertyName = "ExcludeWUDriversInQualityUpdate"
         $propertyValue = 1
         try {
             if (-not (Test-Path $regPath)) {
-                New-Item -Path $regPath -Force | Out-Null
+                New-Item -Path $regPath -Force *>$null
             }
             Set-ItemProperty -Path $regPath -Name $propertyName -Value $propertyValue -Type DWord -Force -ErrorAction Stop
-            Write-StyledMessage Success "Blocco download driver da Windows Update impostato correttamente nel registro."
-            Write-StyledMessage Info "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
+            Write-StyledMessage -Type 'Success' -Text "Blocco download driver da Windows Update impostato correttamente nel registro."
+            Write-StyledMessage -Type 'Info' -Text "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
         }
         catch {
-            Write-StyledMessage Error "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)."
-            Write-StyledMessage Warning "Potrebbe essere necessario eseguire lo script come amministratore."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Potrebbe essere necessario eseguire lo script come amministratore."
             return
         }
-        Write-StyledMessage Info "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche."
+        Write-StyledMessage -Type 'Info' -Text "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche."
         try {
             $procParams = @{
                 FilePath     = 'gpupdate.exe'
@@ -3867,15 +3853,15 @@ function VideoDriverInstall {
             }
             $gpupdateProcess = Start-Process @procParams
             if ($gpupdateProcess.ExitCode -eq 0) {
-                Write-StyledMessage Success "Criteri di gruppo aggiornati con successo."
+                Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati con successo."
             }
             else {
-                Write-StyledMessage Warning "Aggiornamento dei criteri di gruppo completato con codice di uscita non zero: $($gpupdateProcess.ExitCode)."
+                Write-StyledMessage -Type 'Warning' -Text "Aggiornamento dei criteri di gruppo completato con codice di uscita non zero: $($gpupdateProcess.ExitCode)."
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante l'aggiornamento dei criteri di gruppo: $($_.Exception.Message)."
-            Write-StyledMessage Warning "Le modifiche ai criteri potrebbero richiedere un riavvio o del tempo per essere applicate."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'aggiornamento dei criteri di gruppo: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Le modifiche ai criteri potrebbero richiedere un riavvio o del tempo per essere applicate."
         }
     }
     function Download-FileWithProgress {
@@ -3888,14 +3874,14 @@ function VideoDriverInstall {
             [string]$Description,
             [int]$MaxRetries = 3
         )
-        Write-StyledMessage Info "Scaricando $Description."
+        Write-StyledMessage -Type 'Info' -Text "Scaricando $Description."
         $destDir = Split-Path -Path $DestinationPath -Parent
         if (-not (Test-Path $destDir)) {
             try {
-                New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+                New-Item -ItemType Directory -Path $destDir -Force *>$null
             }
             catch {
-                Write-StyledMessage Error "Impossibile creare la cartella di destinazione '$destDir': $($_.Exception.Message)."
+                Write-StyledMessage -Type 'Error' -Text "Impossibile creare la cartella di destinazione '$destDir': $($_.Exception.Message)."
                 return $false
             }
         }
@@ -3927,83 +3913,83 @@ function VideoDriverInstall {
                 $targetStream.Dispose()
                 $responseStream.Dispose()
                 $webResponse.Close()
-                Write-StyledMessage Success "Download di $Description completato."
+                Write-StyledMessage -Type 'Success' -Text "Download di $Description completato."
                 return $true
             }
             catch {
                 Write-Progress -Activity "Download $Description" -Completed
-                Write-StyledMessage Warning "Tentativo $attempt fallito per $Description`: $($_.Exception.Message)."
+                Write-StyledMessage -Type 'Warning' -Text "Tentativo $attempt fallito per $Description`: $($_.Exception.Message)."
                 if ($attempt -lt $MaxRetries) {
                     Start-Sleep -Seconds 2
                 }
             }
         }
-        Write-StyledMessage Error "Errore durante il download di $Description dopo $MaxRetries tentativi."
+        Write-StyledMessage -Type 'Error' -Text "Errore durante il download di $Description dopo $MaxRetries tentativi."
         return $false
     }
     function Handle-InstallVideoDrivers {
-        Write-StyledMessage Info "Opzione 1: Avvio installazione driver video."
+        Write-StyledMessage -Type 'Info' -Text "Opzione 1: Avvio installazione driver video."
         $gpuManufacturer = Get-GpuManufacturer
-        Write-StyledMessage Info "Rilevata GPU: $gpuManufacturer."
+        Write-StyledMessage -Type 'Info' -Text "Rilevata GPU: $gpuManufacturer."
         if ($gpuManufacturer -eq 'AMD') {
             $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
             $amdInstallerPath = Join-Path $DriverToolsLocalPath "AMD-Autodetect.exe"
             if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
-                Write-StyledMessage Info "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
+                    Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
                 $procParams = @{
                     FilePath    = $amdInstallerPath
                     Wait        = $true
                     ErrorAction = 'SilentlyContinue'
                 }
                 Start-Process @procParams
-                Write-StyledMessage Success "Installazione driver video AMD completata o chiusa."
+                Write-StyledMessage -Type 'Success' -Text "Installazione driver video AMD completata o chiusa."
             }
         }
         elseif ($gpuManufacturer -eq 'NVIDIA') {
             $nvidiaInstallerUrl = $AppConfig.URLs.NVCleanstall
             $nvidiaInstallerPath = Join-Path $DriverToolsLocalPath "NVCleanstall_1.19.0.exe"
             if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
-                Write-StyledMessage Info "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
+                    Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
                 $procParams = @{
                     FilePath    = $nvidiaInstallerPath
                     Wait        = $true
                     ErrorAction = 'SilentlyContinue'
                 }
                 Start-Process @procParams
-                Write-StyledMessage Success "Installazione driver video NVIDIA completata o chiusa."
+                        Write-StyledMessage -Type 'Success' -Text "Installazione driver video NVIDIA completata o chiusa."
             }
         }
         elseif ($gpuManufacturer -eq 'Intel') {
-            Write-StyledMessage Info "Rilevata GPU Intel. Utilizza Windows Update per aggiornare i driver integrati."
+            Write-StyledMessage -Type 'Info' -Text "Rilevata GPU Intel. Utilizza Windows Update per aggiornare i driver integrati."
         }
         else {
-            Write-StyledMessage Error "Produttore GPU non supportato o non rilevato per l'installazione automatica dei driver."
+            Write-StyledMessage -Type 'Error' -Text "Produttore GPU non supportato o non rilevato per l'installazione automatica dei driver."
         }
     }
     function Handle-ReinstallRepairVideoDrivers {
-        Write-StyledMessage Warning "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
+        Write-StyledMessage -Type 'Warning' -Text "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
         $dduZipUrl = $AppConfig.URLs.DDUZip
         $dduZipPath = Join-Path $DriverToolsLocalPath "DDU.zip"
         if (-not (Download-FileWithProgress -Url $dduZipUrl -DestinationPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
-            Write-StyledMessage Error "Impossibile scaricare DDU. Annullamento operazione."
+            Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare DDU. Annullamento operazione."
             return
         }
-        Write-StyledMessage Info "Estrazione DDU sul Desktop."
+        Write-StyledMessage -Type 'Info' -Text "Estrazione DDU sul Desktop."
         try {
             Expand-Archive -Path $dduZipPath -DestinationPath $DesktopPath -Force
-            Write-StyledMessage Success "DDU estratto correttamente sul Desktop."
+            Write-StyledMessage -Type 'Success' -Text "DDU estratto correttamente sul Desktop."
         }
         catch {
-            Write-StyledMessage Error "Errore durante l'estrazione di DDU sul Desktop: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'estrazione di DDU sul Desktop: $($_.Exception.Message)."
             return
         }
         $gpuManufacturer = Get-GpuManufacturer
-        Write-StyledMessage Info "Rilevata GPU: $gpuManufacturer."
+        Write-StyledMessage -Type 'Info' -Text "Rilevata GPU: $gpuManufacturer."
         if ($gpuManufacturer -eq 'AMD') {
             $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
             $amdInstallerPath = Join-Path $DesktopPath "AMD-Autodetect.exe"
             if (-not (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool")) {
-                Write-StyledMessage Error "Impossibile scaricare l'installer AMD. Annullamento operazione."
+                Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare l'installer AMD. Annullamento operazione."
                 return
             }
         }
@@ -4011,27 +3997,27 @@ function VideoDriverInstall {
             $nvidiaInstallerUrl = $AppConfig.URLs.NVCleanstall
             $nvidiaInstallerPath = Join-Path $DesktopPath "NVCleanstall_1.19.0.exe"
             if (-not (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool")) {
-                Write-StyledMessage Error "Impossibile scaricare l'installer NVIDIA. Annullamento operazione."
+                Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare l'installer NVIDIA. Annullamento operazione."
                 return
             }
         }
         elseif ($gpuManufacturer -eq 'Intel') {
-            Write-StyledMessage Info "Rilevata GPU Intel. Scarica manualmente i driver da Intel se necessario."
+            Write-StyledMessage -Type 'Info' -Text "Rilevata GPU Intel. Scarica manualmente i driver da Intel se necessario."
         }
         else {
-            Write-StyledMessage Warning "Produttore GPU non supportato o non rilevato. Verrà posizionato solo DDU sul desktop."
+            Write-StyledMessage -Type 'Warning' -Text "Produttore GPU non supportato o non rilevato. Verrà posizionato solo DDU sul desktop."
         }
-        Write-StyledMessage Info "DDU e l'installer dei Driver (se rilevato) sono stati posizionati sul desktop."
+        Write-StyledMessage -Type 'Info' -Text "DDU e l'installer dei Driver (se rilevato) sono stati posizionati sul desktop."
         $batchFilePath = Join-Path $DesktopPath "Switch to Normal Mode.bat"
         try {
             Set-Content -Path $batchFilePath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
-            Write-StyledMessage Info "File batch 'Switch to Normal Mode.bat' creato sul desktop per disabilitare la Modalità Provvisoria."
+            Write-StyledMessage -Type 'Info' -Text "File batch 'Switch to Normal Mode.bat' creato sul desktop per disabilitare la Modalità Provvisoria."
         }
         catch {
-            Write-StyledMessage Warning "Impossibile creare il file batch: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Impossibile creare il file batch: $($_.Exception.Message)."
         }
-        Write-StyledMessage Error "ATTENZIONE: Il sistema sta per riavviarsi in modalità provvisoria."
-        Write-StyledMessage Info "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria."
+        Write-StyledMessage -Type 'Error' -Text "ATTENZIONE: Il sistema sta per riavviarsi in modalità provvisoria."
+        Write-StyledMessage -Type 'Info' -Text "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria."
         try {
             $procParams = @{
                 FilePath     = 'bcdedit.exe'
@@ -4041,11 +4027,11 @@ function VideoDriverInstall {
                 ErrorAction  = 'Stop'
             }
             Start-Process @procParams
-            Write-StyledMessage Success "Modalità Provvisoria configurata per il prossimo avvio."
+            Write-StyledMessage -Type 'Success' -Text "Modalità Provvisoria configurata per il prossimo avvio."
         }
         catch {
-            Write-StyledMessage Error "Errore durante la configurazione della Modalità Provvisoria tramite bcdedit: $($_.Exception.Message)."
-            Write-StyledMessage Warning "Il riavvio potrebbe non avvenire in Modalità Provvisoria. Procedere manualmente."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante la configurazione della Modalità Provvisoria tramite bcdedit: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Il riavvio potrebbe non avvenire in Modalità Provvisoria. Procedere manualmente."
             return
         }
         if ($SuppressIndividualReboot) {
@@ -4058,35 +4044,28 @@ function VideoDriverInstall {
             if ($shouldReboot) {
                 try {
                     Restart-Computer -Force
-                    Write-StyledMessage Success "Comando di riavvio inviato."
+                    Write-StyledMessage -Type 'Success' -Text "Comando di riavvio inviato."
                 }
                 catch {
-                    Write-StyledMessage Error "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)."
+                    Write-StyledMessage -Type 'Error' -Text "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)."
                 }
             }
         }
     }
-    Write-StyledMessage Info '🔧 Inizializzazione dello Script di Installazione Driver Video.'
+    Write-StyledMessage -Type 'Info' -Text '🔧 Inizializzazione dello Script di Installazione Driver Video.'
     Start-Sleep -Seconds 2
     Set-BlockWindowsUpdateDrivers
     $choice = ""
     do {
-        Write-Host ""
-        Write-StyledMessage Info 'Seleziona un''opzione:'
-        Write-Host "  1) Installa Driver Video."
-        Write-Host "  2) Reinstalla/Ripara Driver Video."
-        Write-Host "  0) Torna al menu principale."
-        Write-Host ""
+        Write-StyledMessage -Type 'Info' -Text 'Seleziona un''opzione:'
         $choice = Read-Host "La tua scelta"
-        Write-Host ""
         switch ($choice.ToUpper()) {
             "1" { Handle-InstallVideoDrivers }
             "2" { Handle-ReinstallRepairVideoDrivers }
-            "0" { Write-StyledMessage Info 'Tornando al menu principale.' }
-            default { Write-StyledMessage Warning "Scelta non valida. Riprova." }
+            "0" { Write-StyledMessage -Type 'Info' -Text 'Tornando al menu principale.' }
+            default { Write-StyledMessage -Type 'Warning' -Text "Scelta non valida. Riprova." }
         }
         if ($choice.ToUpper() -ne "0") {
-            Write-Host "Premi un tasto per continuare."
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
             Clear-Host
             Show-Header -SubTitle "Video Driver Install Toolkit"
@@ -4153,8 +4132,8 @@ function GamingToolkit {
             }
         }
         catch {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
+            Clear-ProgressLine
+            Clear-ProgressLine
             Write-StyledMessage -Type 'Error' -Text "Eccezione $DisplayName : $($_.Exception.Message)."
             return @{ Success = $false }
         }
@@ -4165,38 +4144,36 @@ function GamingToolkit {
     $Host.UI.RawUI.WindowTitle = "Gaming Toolkit by MagnetarMan"
     Invoke-WithSpinner -Activity "Preparazione" -Timer -Action { Start-Sleep 5 } -TimeoutSeconds 5
     Show-Header -SubTitle "Gaming Toolkit"
-    Write-StyledMessage Info '🔍 Verifica disponibilità Winget.'
+    Write-StyledMessage -Type 'Info' -Text '🔍 Verifica disponibilità Winget.'
     Update-EnvironmentPath
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-StyledMessage Warning '⚠️ Winget non disponibile. Avvio ripristino automatico...'
+        Write-StyledMessage -Type 'Warning' -Text '⚠️ Winget non disponibile. Avvio ripristino automatico...'
         $resetOk = Reset-Winget
         Update-EnvironmentPath
         if (-not $resetOk -or -not (Get-Command winget -ErrorAction SilentlyContinue)) {
-            Write-StyledMessage Error '❌ Ripristino Winget fallito. Impossibile procedere con Gaming Toolkit.'
+            Write-StyledMessage -Type 'Error' -Text '❌ Ripristino Winget fallito. Impossibile procedere con Gaming Toolkit.'
             Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare.'
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
             return
         }
     }
-    Write-StyledMessage Success '✅ Winget disponibile.'
-    Write-StyledMessage Info '🔄 Aggiornamento sorgenti Winget.'
+    Write-StyledMessage -Type 'Success' -Text '✅ Winget disponibile.'
+    Write-StyledMessage -Type 'Info' -Text '🔄 Aggiornamento sorgenti Winget.'
     try {
-        winget source update | Out-Null
-        Write-StyledMessage Success 'Sorgenti aggiornate.'
+        winget source update *>$null
+        Write-StyledMessage -Type 'Success' -Text 'Sorgenti aggiornate.'
     }
     catch {
-        Write-StyledMessage Warning "Errore aggiornamento sorgenti: $($_.Exception.Message)."
+        Write-StyledMessage -Type 'Warning' -Text "Errore aggiornamento sorgenti: $($_.Exception.Message)."
     }
-    Write-Host ''
-    Write-StyledMessage Info '🔧 Abilitazione NetFramework.'
+    Write-StyledMessage -Type 'Info' -Text '🔧 Abilitazione NetFramework.'
     try {
-        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop | Out-Null
-        Write-StyledMessage Success 'NetFramework abilitato.'
+        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop *>$null
+        Write-StyledMessage -Type 'Success' -Text 'NetFramework abilitato.'
     }
     catch {
-        Write-StyledMessage Error "Errore durante abilitazione NetFramework: $($_.Exception.Message)."
+        Write-StyledMessage -Type 'Error' -Text "Errore durante abilitazione NetFramework: $($_.Exception.Message)."
     }
-    Write-Host ''
     $runtimes = @(
         "Microsoft.DotNet.DesktopRuntime.3_1",
         "Microsoft.DotNet.DesktopRuntime.5",
@@ -4215,20 +4192,18 @@ function GamingToolkit {
         "Microsoft.VCRedist.2015+.x64",
         "Microsoft.VCRedist.2015+.x86"
     )
-    Write-StyledMessage Info '🔥 Installazione runtime .NET e VCRedist.'
+    Write-StyledMessage -Type 'Info' -Text '🔥 Installazione runtime .NET e VCRedist.'
     for ($runtimeIndex = 0; $runtimeIndex -lt $runtimes.Count; $runtimeIndex++) {
-        Invoke-WingetInstallWithProgress $runtimes[$runtimeIndex] $runtimes[$runtimeIndex] ($runtimeIndex + 1) $runtimes.Count | Out-Null
-        Write-Host ''
+        Invoke-WingetInstallWithProgress $runtimes[$runtimeIndex] $runtimes[$runtimeIndex] ($runtimeIndex + 1) $runtimes.Count *>$null
     }
-    Write-StyledMessage Success 'Runtime completati.'
-    Write-Host ''
-    Write-StyledMessage Info '🎮 Installazione DirectX.'
-    $dxDir = "$env:LOCALAPPDATA\WinToolkit\Directx"
+    Write-StyledMessage -Type 'Success' -Text 'Runtime completati.'
+    Write-StyledMessage -Type 'Info' -Text '🎮 Installazione DirectX.'
+    $dxDir = Join-Path $AppConfig.Paths.LocalAppData "WinToolkit\Directx"
     $dxPath = "$dxDir\dxwebsetup.exe"
-    if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force | Out-Null }
+    if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force *>$null }
     try {
         Invoke-WebRequest -Uri $AppConfig.URLs.DirectXWebSetup -OutFile $dxPath -ErrorAction Stop
-        Write-StyledMessage Success 'DirectX scaricato.'
+        Write-StyledMessage -Type 'Success' -Text 'DirectX scaricato.'
         $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action {
             $procParams = @{
                 FilePath     = $dxPath
@@ -4236,13 +4211,13 @@ function GamingToolkit {
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 700
-        Write-Host "`r$(' ' * 120)" -NoNewline
-        Write-Host "`r" -NoNewline
+        Clear-ProgressLine
+        Clear-ProgressLine
         if ($null -eq $result) {
-            Write-StyledMessage Error "DirectX: processo non avviato correttamente."
+            Write-StyledMessage -Type 'Error' -Text "DirectX: processo non avviato correttamente."
         }
         elseif ($result -is [hashtable] -and $result.Contains('TimedOut') -and $result.TimedOut) {
-            Write-StyledMessage Warning "Timeout DirectX."
+            Write-StyledMessage -Type 'Warning' -Text "Timeout DirectX."
         }
         else {
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
@@ -4251,24 +4226,21 @@ function GamingToolkit {
         }
     }
     catch {
-        Write-Host "`r$(' ' * 120)" -NoNewline
-        Write-Host "`r" -NoNewline
-        Write-StyledMessage Error "Errore durante installazione DirectX: $($_.Exception.Message)"
+        Clear-ProgressLine
+        Clear-ProgressLine
+            Write-StyledMessage -Type 'Error' -Text "Errore durante installazione DirectX: $($_.Exception.Message)"
     }
-    Write-Host ''
     $gameClients = @(
         "Amazon.Games", "GOG.Galaxy", "EpicGames.EpicGamesLauncher",
         "ElectronicArts.EADesktop", "Playnite.Playnite", "Valve.Steam",
         "Ubisoft.Connect"
     )
-    Write-StyledMessage Info '🎮 Installazione client di gioco.'
+    Write-StyledMessage -Type 'Info' -Text '🎮 Installazione client di gioco.'
     for ($clientIndex = 0; $clientIndex -lt $gameClients.Count; $clientIndex++) {
-        Invoke-WingetInstallWithProgress $gameClients[$clientIndex] $gameClients[$clientIndex] ($clientIndex + 1) $gameClients.Count | Out-Null
-        Write-Host ''
+        Invoke-WingetInstallWithProgress $gameClients[$clientIndex] $gameClients[$clientIndex] ($clientIndex + 1) $gameClients.Count *>$null
     }
-    Write-StyledMessage Success 'Client installati.'
-    Write-Host ''
-    Write-StyledMessage Info '🎮 Reinstallazione Xbox Game Bar & App.'
+    Write-StyledMessage -Type 'Success' -Text 'Client installati.'
+    Write-StyledMessage -Type 'Info' -Text '🎮 Reinstallazione Xbox Game Bar & App.'
     $xboxPackages = @("9NZKPSTSNW4P", "9MV0B5HZVK9Z")
     foreach ($pkg in $xboxPackages) {
         Write-StyledMessage -Type 'Info' -Text "Reinstallazione: $pkg."
@@ -4301,15 +4273,13 @@ function GamingToolkit {
         finally {
             Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
         }
-        Write-Host ''
     }
-    Write-StyledMessage Success 'Xbox reinstallati.'
-    Write-Host ''
-    Write-StyledMessage Info '🎮 Installazione Battle.net.'
+    Write-StyledMessage -Type 'Success' -Text 'Xbox reinstallati.'
+    Write-StyledMessage -Type 'Info' -Text '🎮 Installazione Battle.net.'
     $bnPath = "$env:TEMP\Battle.net-Setup.exe"
     try {
         Invoke-WebRequest -Uri $AppConfig.URLs.BattleNetInstaller -OutFile $bnPath -ErrorAction Stop
-        Write-StyledMessage Success 'Battle.net scaricato.'
+        Write-StyledMessage -Type 'Success' -Text 'Battle.net scaricato.'
         $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action {
             $procParams = @{
                 FilePath     = $bnPath
@@ -4320,13 +4290,13 @@ function GamingToolkit {
             }
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 500
-        Write-Host "`r$(' ' * 120)" -NoNewline
-        Write-Host "`r" -NoNewline
+        Clear-ProgressLine
+        Clear-ProgressLine
         if ($null -eq $result) {
-            Write-StyledMessage Error "Battle.net: processo non avviato correttamente."
+            Write-StyledMessage -Type 'Error' -Text "Battle.net: processo non avviato correttamente."
         }
         elseif ($result -is [hashtable] -and $result.Contains('TimedOut') -and $result.TimedOut) {
-            Write-StyledMessage Warning "Timeout Battle.net."
+            Write-StyledMessage -Type 'Warning' -Text "Timeout Battle.net."
         }
         else {
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
@@ -4336,94 +4306,89 @@ function GamingToolkit {
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     catch {
-        Write-Host "`r$(' ' * 120)" -NoNewline
-        Write-Host "`r" -NoNewline
-        Write-StyledMessage Error "Errore durante installazione Battle.net: $($_.Exception.Message)"
+        Clear-ProgressLine
+        Clear-ProgressLine
+            Write-StyledMessage -Type 'Error' -Text "Errore durante installazione Battle.net: $($_.Exception.Message)"
         Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare.'
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
-    Write-Host ''
-    Write-StyledMessage Info '🧹 Pulizia avvio automatico.'
+    Write-StyledMessage -Type 'Info' -Text '🧹 Pulizia avvio automatico.'
     $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
     @('Steam', 'Battle.net', 'GOG Galaxy', 'GogGalaxy', 'GalaxyClient') | ForEach-Object {
         if (Get-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue) {
             Remove-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue
-            Write-StyledMessage Success "Rimosso: $_"
+            Write-StyledMessage -Type 'Success' -Text "Rimosso: $_"
         }
     }
-    $startupPath = [Environment]::GetFolderPath('Startup')
+    $startupPath = $AppConfig.Paths.Startup
     @('Steam.lnk', 'Battle.net.lnk', 'GOG Galaxy.lnk') | ForEach-Object {
         $path = Join-Path $startupPath $_
         if (Test-Path $path) {
             Remove-Item $path -Force -ErrorAction SilentlyContinue
-            Write-StyledMessage Success "Rimosso: $_"
+            Write-StyledMessage -Type 'Success' -Text "Rimosso: $_"
         }
     }
-    Write-StyledMessage Success 'Pulizia completata.'
-    Write-Host ''
-    Write-StyledMessage Info '⚡ Configurazione profilo energetico.'
+    Write-StyledMessage -Type 'Success' -Text 'Pulizia completata.'
+    Write-StyledMessage -Type 'Info' -Text '⚡ Configurazione profilo energetico.'
     $ultimateGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61"
     $planName = "WinToolkit Gaming Performance"
     $guid = $null
     $existingPlan = powercfg -list | Select-String -Pattern $planName -ErrorAction SilentlyContinue
     if ($existingPlan) {
         $guid = ($existingPlan.Line -split '\s+')[3]
-        Write-StyledMessage Info "Piano esistente trovato."
+        Write-StyledMessage -Type 'Info' -Text "Piano esistente trovato."
     }
     else {
         try {
             $output = powercfg /duplicatescheme $ultimateGUID | Out-String
             if ($output -match "\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b") {
                 $guid = $matches[0]
-                powercfg /changename $guid $planName "Ottimizzato per Gaming dal WinToolkit" | Out-Null
-                Write-StyledMessage Success "Piano creato."
+                powercfg /changename $guid $planName "Ottimizzato per Gaming dal WinToolkit" *>$null
+                Write-StyledMessage -Type 'Success' -Text "Piano creato."
             }
             else {
-                Write-StyledMessage Error "Errore creazione piano."
+                Write-StyledMessage -Type 'Error' -Text "Errore creazione piano."
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante duplicazione piano energetico: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante duplicazione piano energetico: $($_.Exception.Message)"
         }
     }
     if ($guid) {
         try {
-            powercfg -setactive $guid | Out-Null
-            Write-StyledMessage Success "Piano attivato."
+            powercfg -setactive $guid *>$null
+            Write-StyledMessage -Type 'Success' -Text "Piano attivato."
         }
         catch {
-            Write-StyledMessage Error "Errore durante attivazione piano energetico: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante attivazione piano energetico: $($_.Exception.Message)."
         }
     }
     else {
-        Write-StyledMessage Error "Impossibile attivare piano."
+        Write-StyledMessage -Type 'Error' -Text "Impossibile attivare piano."
     }
-    Write-Host ''
-    Write-StyledMessage Info '🔕 Attivazione Non disturbare.'
+    Write-StyledMessage -Type 'Info' -Text '🔕 Attivazione Non disturbare.'
     try {
         Set-ItemProperty -Path $AppConfig.Registry.FocusAssist -Name "NOC_GLOBAL_SETTING_TOASTS_ENABLED" -Value 0 -Force
-        Write-StyledMessage Success 'Non disturbare attivo.'
+        Write-StyledMessage -Type 'Success' -Text 'Non disturbare attivo.'
     }
     catch {
-        Write-StyledMessage Error "Errore durante configurazione Focus Assist: $($_.Exception.Message)"
+        Write-StyledMessage -Type 'Error' -Text "Errore durante configurazione Focus Assist: $($_.Exception.Message)"
     }
-    Write-Host ''
     Write-StyledMessage -Type 'Info' -Text ('─' * 60)
     Write-StyledMessage -Type 'Success' -Text 'Gaming Toolkit completato!'
     Write-StyledMessage -Type 'Success' -Text 'Sistema ottimizzato per il gaming.'
     Write-StyledMessage -Type 'Info' -Text ('─' * 60)
-    Write-Host ''
     if ($SuppressIndividualReboot) {
         $Global:NeedsFinalReboot = $true
         Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
     }
     else {
         if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario") {
-            Write-StyledMessage Info '🔄 Riavvio.'
+            Write-StyledMessage -Type 'Info' -Text '🔄 Riavvio.'
             Restart-Computer -Force
         }
         else {
-            Write-StyledMessage Warning 'Riavvia manualmente per applicare tutte le modifiche.'
+            Write-StyledMessage -Type 'Warning' -Text 'Riavvia manualmente per applicare tutte le modifiche.'
             Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare.'
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
         }
@@ -4520,17 +4485,17 @@ function WinExportLog {
     $zipFileName = "WinToolkit_Logs_$timestamp.zip"
     $zipFilePath = Join-Path $desktopPath $zipFileName
     try {
-        Write-StyledMessage Info "📂 Verifica presenza cartella log."
+        Write-StyledMessage -Type 'Info' -Text "📂 Verifica presenza cartella log."
         if (-not (Test-Path $logSourcePath -PathType Container)) {
-            Write-StyledMessage Warning "La cartella dei log '$logSourcePath' non è stata trovata. Impossibile esportare."
+            Write-StyledMessage -Type 'Warning' -Text "La cartella dei log '$logSourcePath' non è stata trovata. Impossibile esportare."
             return
         }
-        Write-StyledMessage Info "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso."
+        Write-StyledMessage -Type 'Info' -Text "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso."
         $tempFolder = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
         if (Test-Path $tempFolder) {
             Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
         }
-        New-Item -ItemType Directory -Path $tempFolder -Force | Out-Null
+        New-Item -ItemType Directory -Path $tempFolder -Force *>$null
         $filesCopied = 0
         $filesSkipped = 0
         try {
@@ -4546,30 +4511,30 @@ function WinExportLog {
             }
         }
         catch {
-            Write-StyledMessage Warning "Errore durante la copia dei file: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Errore durante la copia dei file: $($_.Exception.Message)."
         }
         if ($filesCopied -gt 0) {
             Compress-Archive -Path "$tempFolder\*" -DestinationPath $zipFilePath -Force -ErrorAction Stop
             if (Test-Path $zipFilePath) {
-                Write-StyledMessage Success "Log compressi con successo! File salvato: '$zipFileName' sul Desktop."
+                Write-StyledMessage -Type 'Success' -Text "Log compressi con successo! File salvato: '$zipFileName' sul Desktop."
                 if ($filesSkipped -gt 0) {
-                    Write-StyledMessage Info "⚠️ Attenzione: $filesSkipped file sono stati ignorati perché in uso o non accessibili."
+                    Write-StyledMessage -Type 'Info' -Text "⚠️ Attenzione: $filesSkipped file sono stati ignorati perché in uso o non accessibili."
                 }
-                Write-StyledMessage Info "📩 Per favore, invia il file ZIP '$zipFileName' (lo trovi sul tuo Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per aiutarmi nella diagnostica."
+                Write-StyledMessage -Type 'Info' -Text "📩 Per favore, invia il file ZIP '$zipFileName' (lo trovi sul tuo Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per aiutarmi nella diagnostica."
             }
             else {
-                Write-StyledMessage Error "Errore sconosciuto: il file ZIP non è stato creato."
+                Write-StyledMessage -Type 'Error' -Text "Errore sconosciuto: il file ZIP non è stato creato."
             }
         }
         else {
-            Write-StyledMessage Error "Nessun file log è stato copiato. Verifica i permessi e che i file esistano."
+            Write-StyledMessage -Type 'Error' -Text "Nessun file log è stato copiato. Verifica i permessi e che i file esistano."
         }
         if (Test-Path $tempFolder) {
             Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
     catch {
-        Write-StyledMessage Error "Errore critico durante la compressione dei log: $($_.Exception.Message)."
+        Write-StyledMessage -Type 'Error' -Text "Errore critico durante la compressione dei log: $($_.Exception.Message)."
         Write-ToolkitLog -Level ERROR -Message "Errore critico in WinExportLog" -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName
