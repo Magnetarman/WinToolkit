@@ -100,20 +100,12 @@ function VideoDriverInstall {
 
         Write-StyledMessage -Type 'Info' -Text "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche."
         try {
-            $procParams = @{
-                FilePath     = 'gpupdate.exe'
-                ArgumentList = '/force'
-                Wait         = $true
-                NoNewWindow  = $true
-                PassThru     = $true
-                ErrorAction  = 'Stop'
-            }
-            $gpupdateProcess = Start-Process @procParams
+            $gpupdateProcess = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate"
             if ($gpupdateProcess.ExitCode -eq 0) {
                 Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati con successo."
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text "Aggiornamento dei criteri di gruppo completato con codice di uscita non zero: $($gpupdateProcess.ExitCode)."
+                Write-StyledMessage -Type 'Warning' -Text "Aggiornamento dei criteri di gruppo completato con codice di uscita: $($gpupdateProcess.ExitCode)."
             }
         }
         catch {
@@ -225,12 +217,7 @@ function VideoDriverInstall {
 
             if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
                     Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
-                $procParams = @{
-                    FilePath    = $amdInstallerPath
-                    Wait        = $true
-                    ErrorAction = 'SilentlyContinue'
-                }
-                Start-Process @procParams
+                Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdInstallerPath -LogContextKey "Video-Install-AMD"
                 Write-StyledMessage -Type 'Success' -Text "Installazione driver video AMD completata o chiusa."
             }
         }
@@ -240,12 +227,7 @@ function VideoDriverInstall {
 
             if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
                     Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
-                $procParams = @{
-                    FilePath    = $nvidiaInstallerPath
-                    Wait        = $true
-                    ErrorAction = 'SilentlyContinue'
-                }
-                Start-Process @procParams
+                Invoke-WithSpinner -Activity "Esecuzione installer NVIDIA" -Command $nvidiaInstallerPath -LogContextKey "Video-Install-NVIDIA"
                         Write-StyledMessage -Type 'Success' -Text "Installazione driver video NVIDIA completata o chiusa."
             }
         }
@@ -330,14 +312,7 @@ function VideoDriverInstall {
 
         Write-StyledMessage -Type 'Info' -Text "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria."
         try {
-            $procParams = @{
-                FilePath     = 'bcdedit.exe'
-                ArgumentList = '/set {current} safeboot minimal'
-                Wait         = $true
-                NoNewWindow  = $true
-                ErrorAction  = 'Stop'
-            }
-            Start-Process @procParams
+            Invoke-WithSpinner -Activity "Configurazione bcdedit" -Command 'bcdedit.exe' -Arguments '/set {current} safeboot minimal' -LogContextKey "Video-BCDEdit"
             Write-StyledMessage -Type 'Success' -Text "Modalità Provvisoria configurata per il prossimo avvio."
         }
         catch {
@@ -378,14 +353,12 @@ function VideoDriverInstall {
 
 
         Write-StyledMessage -Type 'Info' -Text 'Seleziona un''opzione:'
+        Write-StyledMessage -Type 'Info' -Text '  [1] 🚀 Installa Driver Video (Rilevamento Automatico)'
+        Write-StyledMessage -Type 'Info' -Text '  [2] 🔧 Reinstalla/Ripara Driver Video (Richiede Riavvio in Safe Mode)'
+        Write-StyledMessage -Type 'Info' -Text '  [0] ❌ Torna al Menu Principale'
 
-
-
-
-
-        $choice = Read-Host "La tua scelta"
-
-
+        $selections = Read-ValidatedChoice -Min 0 -Max 2 -Prompt "La tua scelta"
+        $choice = $selections[0]
 
         switch ($choice.ToUpper()) {
             "1" { Handle-InstallVideoDrivers }

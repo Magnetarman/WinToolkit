@@ -55,15 +55,7 @@ function DisableBitlocker {
         Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione decrittazione drive C:."
 
         # Tentativo disattivazione con spinner
-        $result = Invoke-WithSpinner -Activity "Disattivazione BitLocker" -Process -Action {
-            $procParams = @{
-                FilePath     = 'manage-bde.exe'
-                ArgumentList = @('-off', 'C:')
-                PassThru     = $true
-                WindowStyle  = 'Hidden'
-            }
-            Start-Process @procParams
-        } -TimeoutSeconds $timeout
+        $result = Invoke-WithSpinner -Activity "Disattivazione BitLocker" -Command 'manage-bde.exe' -Arguments @('-off', 'C:') -TimeoutSeconds $timeout -LogContextKey "Bitlocker-Disable"
 
         if ($result.ExitCode -eq 0) {
             Write-StyledMessage -Type 'Success' -Text "✅ Decrittazione avviata/completata con successo."

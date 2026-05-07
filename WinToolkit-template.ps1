@@ -101,7 +101,7 @@ $ToolkitVersion = "2.5.4 (Build 36)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
-    URLs     = @{
+    URLs            = @{
         # GitHub Asset URLs
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
         GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/"
@@ -128,7 +128,7 @@ $AppConfig = @{
         VCRedist86            = "https://aka.ms/vs/17/release/vc_redist.x86.exe"
         VCRedist64            = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
     }
-    Paths    = @{
+    Paths           = @{
         # Base paths
         Root               = "$env:LOCALAPPDATA\WinToolkit"
         Logs               = "$env:LOCALAPPDATA\WinToolkit\logs"
@@ -143,7 +143,7 @@ $AppConfig = @{
         Desktop            = [Environment]::GetFolderPath('Desktop')
         TempFolder         = $env:TEMP
     }
-    Registry = @{
+    Registry        = @{
         # Windows Update
         WindowsUpdatePolicies = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
         ExcludeWUDrivers      = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\ExcludeWUDriversInQualityUpdate"
@@ -194,6 +194,7 @@ $Global:MsgStyles = @{
     Error    = @{ Icon = '❌'; Color = 'Red' }
     Info     = @{ Icon = '💎'; Color = 'Cyan' }
     Progress = @{ Icon = '🔄'; Color = 'Magenta' }
+    Question = @{ Icon = '❓'; Color = 'Cyan' }
 }
 
 # --- VARIABILI GLOBALI PER ESECUZIONE MULTI-SCRIPT ---
@@ -226,8 +227,8 @@ function Stop-ToolkitProcesses {
 
     foreach ($procName in $ProcessNames) {
         Get-Process -Name $procName -ErrorAction SilentlyContinue |
-            Where-Object { $_.Id -ne $PID } |
-            Stop-Process -Force -ErrorAction SilentlyContinue
+        Where-Object { $_.Id -ne $PID } |
+        Stop-Process -Force -ErrorAction SilentlyContinue
     }
     Start-Sleep -Seconds 2
 }
@@ -430,7 +431,16 @@ function Write-ToolkitLog {
         catch {}
     }
     try {
-        Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
+        $mutex = New-Object System.Threading.Mutex($false, "Global\WinToolkitLogMutex")
+        $hasHandle = $false
+        try {
+            $hasHandle = $mutex.WaitOne(5000)
+            Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
+        }
+        finally {
+            if ($hasHandle) { $mutex.ReleaseMutex() }
+            $mutex.Dispose()
+        }
     }
     catch {}
 }
@@ -460,7 +470,13 @@ function Invoke-ExternalCommandWithLog {
         [int]$TimeoutSeconds = 0,
 
         [Parameter(Mandatory = $false)]
-        [string]$LogContextKey = ''
+        [string]$LogContextKey = '',
+
+        [Parameter(Mandatory = $false)]
+        [string]$Activity = '',
+
+        [Parameter(Mandatory = $false)]
+        [int]$UpdateInterval = 500
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -492,6 +508,7 @@ function Invoke-ExternalCommandWithLog {
     $errText = ""
     $success = $false
     $exitCode = $null
+    $timedOut = $false
 
     try {
         if (-not $proc.Start()) {
@@ -502,14 +519,42 @@ function Invoke-ExternalCommandWithLog {
         $outTask = $proc.StandardOutput.ReadToEndAsync()
         $errTask = $proc.StandardError.ReadToEndAsync()
 
-        if ($TimeoutSeconds -gt 0) {
-            if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
-                try { $proc.Kill() } catch {}
-                throw "Timeout dopo $TimeoutSeconds secondi."
+        if ($Activity) {
+            $spinnerIndex = 0
+            $percent = 0
+            while (-not $proc.HasExited -and ($TimeoutSeconds -eq 0 -or ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds)) {
+                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
+
+                if ($percent -lt 90) {
+                    $percent += Get-Random -Minimum 1 -Maximum 3
+                }
+
+                Show-ProgressBar -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
+                Start-Sleep -Milliseconds $UpdateInterval
+                $proc.Refresh()
             }
+
+            if (-not $proc.HasExited) {
+                if ($TimeoutSeconds -gt 0) {
+                    try { $proc.Kill() } catch {}
+                    throw "Timeout dopo $TimeoutSeconds secondi."
+                }
+            }
+
+            Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
+            if (-not $Global:GuiSessionActive) { Write-Host "" }
         }
         else {
-            $proc.WaitForExit()
+            if ($TimeoutSeconds -gt 0) {
+                if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+                    try { $proc.Kill() } catch {}
+                    throw "Timeout dopo $TimeoutSeconds secondi."
+                }
+            }
+            else {
+                $proc.WaitForExit()
+            }
         }
 
         # Attendi completamento lettura flussi standard
@@ -523,6 +568,7 @@ function Invoke-ExternalCommandWithLog {
     }
     catch {
         $exitCode = if ($exitCode -ne $null) { $exitCode } else { -1 }
+        if ($_.Exception.Message -match 'Timeout') { $timedOut = $true }
         Write-ToolkitLog -Level 'ERROR' -Message "Eccezione durante esecuzione comando esterno" -Context @{
             Command    = $Command
             Arguments  = $Arguments
@@ -576,6 +622,7 @@ function Invoke-ExternalCommandWithLog {
         StdOut   = $outText
         StdErr   = $errText
         Elapsed  = $stopwatch.Elapsed
+        TimedOut = $timedOut
     }
 }
 
@@ -733,7 +780,8 @@ function Reset-Winget {
                     Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown' | Out-Null
                 }
             }
-        } catch { }
+        }
+        catch { }
     }
 
     function _Get-LatestAssetUrl {
@@ -829,7 +877,7 @@ function Reset-Winget {
             $wingetDir = Get-ChildItem "$env:ProgramFiles\WindowsApps" `
                 -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" `
                 -ErrorAction SilentlyContinue |
-                Sort-Object Name -Descending | Select-Object -First 1
+            Sort-Object Name -Descending | Select-Object -First 1
             if ($wingetDir) { $wingetFolderPath = $wingetDir.FullName }
         }
         catch {}
@@ -851,13 +899,13 @@ function Reset-Winget {
             if (Test-Path $cachePath) {
                 Write-StyledMessage -Type Info -Text "Pulizia cache Winget."
                 Get-ChildItem -Path $cachePath -Recurse -Force -ErrorAction SilentlyContinue |
-                    Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
-                    ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {} }
+                Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
+                ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {} }
             }
 
             # Rimuovi file di stato JSON corrotti
             @("$env:LOCALAPPDATA\WinGet\Data\USERTEMPLATE.json",
-              "$env:LOCALAPPDATA\WinGet\Data\DEFAULTUSER.json") | ForEach-Object {
+                "$env:LOCALAPPDATA\WinGet\Data\DEFAULTUSER.json") | ForEach-Object {
                 if (Test-Path $_ -PathType Leaf) {
                     Write-StyledMessage -Type Info -Text "Reset file stato: $_."
                     Remove-Item $_ -Force -ErrorAction SilentlyContinue
@@ -881,7 +929,8 @@ function Reset-Winget {
                         Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown' | Out-Null
                     }
                 }
-            } catch { }
+            }
+            catch { }
 
             # Repair via modulo WinGet se disponibile
             try {
@@ -944,7 +993,8 @@ function Reset-Winget {
                 catch {
                     if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
                         Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager ignorato (versione superiore già presente)."
-                    } else {
+                    }
+                    else {
                         Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)."
                     }
                 }
@@ -1055,11 +1105,11 @@ function Reset-Winget {
             $archPattern = [Environment]::Is64BitOperatingSystem ? "x64|ne" : "x86|ne"
             $script:WingetDependencies = @()
             Get-ChildItem $depDir -Recurse -Filter "*.appx" |
-                Where-Object { $_.Name -match $archPattern } |
-                ForEach-Object {
-                    Write-StyledMessage -Type Info -Text "Trovata dipendenza: $($_.Name)."
-                    $script:WingetDependencies += $_.FullName
-                }
+            Where-Object { $_.Name -match $archPattern } |
+            ForEach-Object {
+                Write-StyledMessage -Type Info -Text "Trovata dipendenza: $($_.Name)."
+                $script:WingetDependencies += $_.FullName
+            }
             Write-StyledMessage -Type Success -Text "Dipendenze caricate."
         }
 
@@ -1154,7 +1204,7 @@ function Invoke-WithSpinner {
         [Parameter(Mandatory = $true)]
         [string]$Activity,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [scriptblock]$Action,
 
         [Parameter(Mandatory = $false)]
@@ -1173,12 +1223,26 @@ function Invoke-WithSpinner {
         [switch]$Timer,
 
         [Parameter(Mandatory = $false)]
-        [scriptblock]$PercentUpdate
+        [scriptblock]$PercentUpdate,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Command,
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$Arguments = @(),
+
+        [Parameter(Mandatory = $false)]
+        [string]$LogContextKey = ''
     )
 
     $startTime = Get-Date
     $spinnerIndex = 0
     $percent = 0
+
+    # Se viene fornito un comando diretto, usa Invoke-ExternalCommandWithLog
+    if ($Command) {
+        return Invoke-ExternalCommandWithLog -Command $Command -Arguments $Arguments -TimeoutSeconds $TimeoutSeconds -Activity $Activity -UpdateInterval $UpdateInterval -LogContextKey $LogContextKey
+    }
 
     try {
         # Esegue l'azione iniziale
@@ -1306,6 +1370,114 @@ function Start-InterruptibleCountdown {
     return $true
 }
 
+function Get-UserConfirmation {
+    <#
+    .SYNOPSIS
+        Richiede conferma all'utente (Sì/No) in modo standardizzato.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Prompt,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$DefaultYes,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('Info', 'Warning', 'Question')]
+        [string]$Level = 'Question'
+    )
+
+    $choices = if ($DefaultYes) { "[S/n]" } else { "[s/N]" }
+    $fullPrompt = "$Prompt $choices"
+
+    if ($Global:GuiSessionActive) {
+        Write-StyledMessage -Type $Level -Text $fullPrompt
+        return $true
+    }
+
+    Write-StyledMessage -Type $Level -Text "$fullPrompt: " -NoNewLine
+    $response = Read-Host
+    Write-ToolkitLog -Level 'INFO' -Message "User Confirmation Prompt: $Prompt | Response: $response"
+
+    if ([string]::IsNullOrWhiteSpace($response)) {
+        return $DefaultYes
+    }
+
+    # Bridge: mirror to log file
+    Write-ToolkitLog -Level 'INFO' -Message "User Confirmation Prompt: $Prompt | Response: $response"
+ 
+    return $response -match '^[sS]'
+}
+
+function Read-ValidatedChoice {
+    <#
+    .SYNOPSIS
+        Legge e valida scelte numeriche dall'utente (singole o multiple).
+    #>
+    param(
+        [Parameter(Mandatory = $false)]
+        [int[]]$ValidRange,
+
+        [Parameter(Mandatory = $false)]
+        [int]$Min,
+
+        [Parameter(Mandatory = $false)]
+        [int]$Max,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$AllowZero,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Prompt = "Seleziona un'opzione",
+
+        [Parameter(Mandatory = $false)]
+        [string]$RawInput
+    )
+
+    $currentInput = $RawInput
+    while ($true) {
+        $input = if ($null -ne $currentInput) { 
+            $val = $currentInput
+            $currentInput = $null # Consuma l'input
+            $val
+        }
+        else {
+            Write-StyledMessage -Type 'Question' -Text "$Prompt: " -NoNewLine
+            Microsoft.PowerShell.Utility\Read-Host
+        }
+
+        if ([string]::IsNullOrWhiteSpace($input)) {
+            Write-StyledMessage -Type Warning -Text "⚠️ Input vuoto. Riprova."
+            continue
+        }
+
+        # Gestione input multipli (es. 1,2,3 o 1 2 3)
+        $choices = $input -split '[\s,]+' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
+
+        if ($choices) {
+            $isValid = $true
+            foreach ($c in $choices) {
+                if ($null -ne $ValidRange) {
+                    if ($c -notin $ValidRange) { $isValid = $false; break }
+                }
+                else {
+                    if ($AllowZero -and $c -eq 0) { continue }
+                    if ($null -ne $Min -and $c -lt $Min) { $isValid = $false; break }
+                    if ($null -ne $Max -and $c -gt $Max) { $isValid = $false; break }
+                }
+            }
+
+            if ($isValid) {
+                Write-ToolkitLog -Level 'INFO' -Message "User Choices: $($choices -join ',')"
+                return $choices
+            }
+        }
+
+        $rangeStr = if ($null -ne $ValidRange) { "$($ValidRange[0]) e $($ValidRange[-1])" } else { "$Min e $Max" }
+        Write-StyledMessage -Type Warning -Text "⚠️ Scelta non valida. Inserisci numeri compresi tra $rangeStr."
+    }
+}
+
 function Get-SystemInfo {
     if ($Global:SystemInfoCache) { return $Global:SystemInfoCache }
     try {
@@ -1397,132 +1569,6 @@ function VideoDriverInstall {}
 function GamingToolkit {}
 function DisableBitlocker {}
 function WinExportLog {}
-
-# --- HELPER INPUT E UX AVANZATA ---
-
-function Read-ValidatedChoice {
-    <#
-    .SYNOPSIS
-        Legge e valida una selezione numerica multipla dall'utente.
-    .DESCRIPTION
-        Accetta input del tipo "1 2 3", "1,2,3", "1, 2 3" o varianti miste.
-        Filtra valori non numerici, valori fuori range e duplicati.
-        Registra la scelta nel log file con contesto strutturato.
-        Supporta easter egg: "Windows è una merda" attiva un easter egg.
-    .PARAMETER Prompt
-        Testo da mostrare come prompt.
-    .PARAMETER Min
-        Valore minimo accettabile (incluso).
-    .PARAMETER Max
-        Valore massimo accettabile (incluso).
-    .PARAMETER AllowZero
-        Se specificato, il valore 0 è accettato come uscita/annulla.
-    .PARAMETER RawInput
-        Input pre-letto (opzionale). Se fornito, salta Read-Host.
-    .OUTPUTS
-        Array [int[]] di valori selezionati. Array vuoto se nessuna selezione valida.
-    #>
-    [CmdletBinding()]
-    param(
-        [string]$Prompt = 'Selezione',
-        [int]$Min = 1,
-        [int]$Max = 99,
-        [switch]$AllowZero,
-        [string]$RawInput
-    )
-
-    if ([string]::IsNullOrEmpty($RawInput)) {
-        $rawInput = Read-Host $Prompt
-    }
-    else {
-        $rawInput = $RawInput
-    }
-    if ($null -eq $rawInput) { return @() }
-
-    if ($AllowZero -and $rawInput.Trim() -eq '0') {
-        Write-ToolkitLog -Level 'INFO' -Message 'Utente ha selezionato: 0 (uscita/annulla)' -Context @{ Input = '0' }
-        return @(0)
-    }
-
-    $tokens = $rawInput -split '[\s,]+' | Where-Object { $_ -match '^\d+$' }
-    $valid = @()
-    $invalid = @()
-
-    foreach ($token in $tokens) {
-        $num = [int]$token
-        if ($num -ge $Min -and $num -le $Max) {
-            if ($valid -notcontains $num) { $valid += $num }
-        }
-        else {
-            $invalid += $num
-        }
-    }
-
-    if ($invalid.Count -gt 0) {
-        Write-StyledMessage -Type Warning -Text "⚠️ Valori fuori range ignorati: $($invalid -join ', ') (range valido: $Min–$Max)"
-    }
-
-    Write-ToolkitLog -Level 'INFO' -Message 'Input utente validato' -Context @{
-        RawInput = $rawInput
-        Valid    = ($valid -join ',')
-        Invalid  = ($invalid -join ',')
-    }
-
-    return $valid
-}
-
-function Get-UserConfirmation {
-    <#
-    .SYNOPSIS
-        ⚠️ DEPRECATA: Questa funzione è in fase di eliminazione.
-        Il toolkit sta acquisendo autonomia totale e non richiederà conferme utente.
-        Usa invece Read-Host diretto o Read-ValidatedChoice per le selezioni.
-    .DESCRIPTION
-        Chiede conferma sì/no all'utente in modo uniforme.
-        Mostra un prompt coerente con lo schema di messaggistica del toolkit.
-        Registra la scelta nel log con contesto strutturato.
-    .PARAMETER Prompt
-        Testo della domanda da porre.
-    .PARAMETER Default
-        Valore predefinito: 'Y' oppure 'N'. Default = 'N'.
-    .PARAMETER Severity
-        Livello di enfasi visiva: 'Info' (Cyan) oppure 'Warning' (Yellow).
-    .OUTPUTS
-        [bool] $true se l'utente ha confermato, $false altrimenti.
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Prompt,
-
-        [ValidateSet('Y', 'N')]
-        [string]$Default = 'N',
-
-        [ValidateSet('Info', 'Warning')]
-        [string]$Severity = 'Info'
-    )
-
-    Write-StyledMessage -Type Warning -Text "⚠️ [DEPRECATED] Get-UserConfirmation sarà rimossa. Non richiederà più conferme."
-
-    $yesLabel = if ($Default -eq 'Y') { '[Y]' } else { 'y' }
-    $noLabel = if ($Default -eq 'N') { '[N]' } else { 'n' }
-    $fullPrompt = "$Prompt ($yesLabel/$noLabel)"
-
-    Write-StyledMessage -Type $Severity -Text $fullPrompt
-    $answer = Read-Host ''
-
-    if ([string]::IsNullOrWhiteSpace($answer)) { $answer = $Default }
-    $confirmed = $answer -match '^[Yy]'
-
-    Write-ToolkitLog -Level 'INFO' -Message 'Conferma utente' -Context @{
-        Prompt    = $Prompt
-        Default   = $Default
-        Answer    = $answer
-        Confirmed = $confirmed
-    }
-
-    return $confirmed
-}
 
 function Show-ConsoleTable {
     <#

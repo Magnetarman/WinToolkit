@@ -74,39 +74,26 @@ function WinRepairToolkit {
                 Start-Sleep 1
             }
 
-            $result = Invoke-WithSpinner -Activity $Config.Name -Process -Action {
-                if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
-                    $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
-                    $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
-
-                    $procParams = @{
-                        FilePath               = 'cmd.exe'
-                        ArgumentList           = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ') 2>&1")
-                        RedirectStandardOutput = $outFile
-                        RedirectStandardError  = $errFile
-                        NoNewWindow            = $true
-                        PassThru               = $true
-                        UseNewEnvironment      = $true
-                    }
-                    Start-Process @procParams
-                }
-                else {
-                    $procParams = @{
-                        FilePath               = $Config.Tool
-                        ArgumentList           = $Config.Args
-                        RedirectStandardOutput = $outFile
-                        RedirectStandardError  = $errFile
-                        NoNewWindow            = $true
-                        PassThru               = $true
-                    }
-                    Start-Process @procParams
-                }
-            } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval $spinnerUpdateInterval
-
-            $results = @()
-            @($outFile, $errFile) | Where-Object { Test-Path $_ } | ForEach-Object {
-                $results += Get-Content $_ -ErrorAction SilentlyContinue
+            # Gestione speciale per chkdsk che richiede input 'Y'
+            $commandToRun = $Config.Tool
+            $argsToRun = $Config.Args
+            if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
+                $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
+                $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
+                $commandToRun = 'cmd.exe'
+                $argsToRun = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
             }
+
+            # Utilizzo del nuovo pattern Invoke-WithSpinner che internamente usa Invoke-ExternalCommandWithLog
+            $spinnerResult = Invoke-WithSpinner -Activity $Config.Name `
+                -Command $commandToRun `
+                -Arguments $argsToRun `
+                -TimeoutSeconds $processTimeoutSeconds `
+                -UpdateInterval $spinnerUpdateInterval `
+                -LogContextKey "Repair-$($Config.Tool)"
+
+            $exitCode = $spinnerResult.ExitCode
+            $results = ($spinnerResult.StdOut + "`n" + $spinnerResult.StdErr) -split "`n"
 
             # Logica controllo errori con gestione flessibile per chkdsk
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
@@ -114,11 +101,9 @@ function WinRepairToolkit {
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
-            $exitCode = $result.ExitCode
+            # $exitCode già impostato sopra
 
-            # FIX 1: Un timeout o un'interruzione forzata tipicamente restituisce -1.
-            # Aggiunto controllo per exit code negativo.
-            $isTimeout = ($null -eq $result) -or ($null -eq $exitCode) -or ($exitCode -eq -1)
+            $isTimeout = ($spinnerResult.TimedOut -eq $true) -or ($null -eq $exitCode) -or ($exitCode -eq -1)
 
             # FIX CHKDSK: Se chkdsk ritorna 3 = volume in uso, schedulato correttamente
             if ($isChkdsk -and $exitCode -eq 3) {
@@ -233,17 +218,7 @@ function WinRepairToolkit {
             return @{ Success = $false; ErrorCount = 1 }
         }
         finally {
-            # Leggi e logga STDOUT/STDERR prima di eliminare i file temporanei
-            foreach ($f in @($outFile, $errFile)) {
-                if (Test-Path $f) {
-                    $raw = Get-Content $f -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
-                    if (-not [string]::IsNullOrWhiteSpace($raw)) {
-                        $label = if ($f -eq $outFile) { 'STDOUT' } else { 'STDERR' }
-                        Write-ToolkitLog -Level DEBUG -Message "[PROCESS $label`: $($Config.Tool)]`n$raw"
-                    }
-                    Remove-Item $f -ErrorAction SilentlyContinue
-                }
-            }
+            # Pulizia automatica gestita da Invoke-WithSpinner/Invoke-ExternalCommandWithLog
         }
     }
 
@@ -343,13 +318,7 @@ function WinRepairToolkit {
         }
 
         Write-StyledMessage -Type 'Info' -Text "⚙️ Impostazione scadenza password illimitata."
-        $procParams = @{
-            FilePath     = 'net'
-            ArgumentList = @('accounts', '/maxpwage:unlimited')
-            NoNewWindow  = $true
-            Wait         = $true
-        }
-        Start-Process @procParams
+        $null = Invoke-ExternalCommandWithLog -Command 'net' -Arguments @('accounts', '/maxpwage:unlimited') -TimeoutSeconds 30 -LogContextKey 'Repair-NetAccounts'
 
         if ($deepRepairScheduled) { Write-StyledMessage -Type 'Warning' -Text 'Riavvio necessario per riparazione profonda.' }
 

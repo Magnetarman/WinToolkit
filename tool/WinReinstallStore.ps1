@@ -58,17 +58,7 @@ function WinReinstallStore {
                 Action = {
                     if (-not (Test-Path $wingetExe -ErrorAction SilentlyContinue)) { return @{ ExitCode = -1 } }
                     $processResult = Invoke-WithConsoleRedirection -Action {
-                        Invoke-WithSpinner -Activity "Installazione Store tramite Winget" -Process -Action {
-                            $procParams = @{
-                                FilePath     = $wingetExe
-                                ArgumentList = @('install', '9WZDNCRFJBMP',
-                                    '--accept-source-agreements', '--accept-package-agreements',
-                                    '--silent', '--disable-interactivity')
-                                PassThru     = $true
-                                WindowStyle  = 'Hidden'
-                            }
-                            Start-Process @procParams
-                        } -TimeoutSeconds 300
+                        $result = Invoke-WithSpinner -Activity "Installazione Store tramite Winget" -Command $wingetExe -Arguments @('install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity') -TimeoutSeconds 300 -LogContextKey "Store-Winget-Install"
                     }
                     return @{ ExitCode = $processResult.ExitCode }
                 }
@@ -91,15 +81,7 @@ function WinReinstallStore {
                 Name   = 'DISM Capability'
                 Action = {
                     $result = Invoke-WithConsoleRedirection -Action {
-                        Invoke-WithSpinner -Activity "Aggiunta Store via DISM" -Process -Action {
-                            $procParams = @{
-                                FilePath     = 'DISM'
-                                ArgumentList = @('/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0')
-                                PassThru     = $true
-                                WindowStyle  = 'Hidden'
-                            }
-                            Start-Process @procParams
-                        } -TimeoutSeconds 300
+                        Invoke-WithSpinner -Activity "Aggiunta Store via DISM" -Command 'DISM' -Arguments @('/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0') -TimeoutSeconds 300 -LogContextKey "Store-DISM-Add"
                     }
                     return @{ ExitCode = $result.ExitCode }
                 }
@@ -131,14 +113,7 @@ function WinReinstallStore {
 
         if ($success) {
             $null = Invoke-WithConsoleRedirection -Action {
-                Invoke-WithSpinner -Activity "Reset cache Microsoft Store (wsreset)" -Process -Action {
-                    $procParams = @{
-                        FilePath    = 'wsreset.exe'
-                        PassThru    = $true
-                        WindowStyle = 'Hidden'
-                    }
-                    Start-Process @procParams
-                } -TimeoutSeconds 120
+                Invoke-WithSpinner -Activity "Reset cache Microsoft Store (wsreset)" -Command 'wsreset.exe' -TimeoutSeconds 120 -LogContextKey "Store-WSReset"
             }
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Clear-ProgressLine
@@ -184,33 +159,13 @@ function WinReinstallStore {
 
         try {
             # Disinstalla versione precedente
-            $null = Invoke-WithSpinner -Activity "Disinstallazione versioni precedenti UniGet UI" -Process -Action {
-                $procParams = @{
-                    FilePath     = $wingetExe
-                    ArgumentList = @('uninstall', '--exact', '--id', 'MartiCliment.UniGetUI',
-                        '--silent', '--disable-interactivity')
-                    PassThru     = $true
-                    WindowStyle  = 'Hidden'
-                }
-                Start-Process @procParams
-            } -TimeoutSeconds 120
+            $null = Invoke-WithSpinner -Activity "Disinstallazione versioni precedenti UniGet UI" -Command $wingetExe -Arguments @('uninstall', '--exact', '--id', 'MartiCliment.UniGetUI', '--silent', '--disable-interactivity') -TimeoutSeconds 120 -LogContextKey "Store-UniGet-Uninstall"
 
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Clear-ProgressLine
             [Console]::Out.Flush()
 
-            $processResult = Invoke-WithSpinner -Activity "Installazione UniGet UI" -Process -Action {
-                $procParams = @{
-                    FilePath     = $wingetExe
-                    ArgumentList = @('install', '--exact', '--id', 'Devolutions.UniGetUI',
-                        '--source', 'winget', '--accept-source-agreements',
-                        '--accept-package-agreements', '--silent',
-                        '--disable-interactivity', '--force')
-                    PassThru     = $true
-                    WindowStyle  = 'Hidden'
-                }
-                Start-Process @procParams
-            } -TimeoutSeconds 600
+            $processResult = Invoke-WithSpinner -Activity "Installazione UniGet UI" -Command $wingetExe -Arguments @('install', '--exact', '--id', 'Devolutions.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force') -TimeoutSeconds 600 -LogContextKey "Store-UniGet-Install"
 
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Clear-ProgressLine

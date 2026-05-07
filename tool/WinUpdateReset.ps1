@@ -149,14 +149,7 @@ function WinUpdateReset {
                 $tempDir = [System.IO.Path]::GetTempPath() + "empty_" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
                 $null = New-Item -ItemType Directory -Path $tempDir -Force
 
-                $procParams = @{
-                    FilePath     = 'robocopy.exe'
-                    ArgumentList = @("`"$tempDir`"", "`"$path`"", '/MIR', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/NC')
-                    Wait         = $true
-                    WindowStyle  = 'Hidden'
-                    ErrorAction  = 'SilentlyContinue'
-                }
-                $null = Start-Process @procParams
+                $result = Invoke-WithSpinner -Activity "Pulizia $displayName" -Command 'robocopy.exe' -Arguments @("`"$tempDir`"", "`"$path`"", '/MIR', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/NC') -TimeoutSeconds 300 -LogContextKey 'RemoveDirectorySafely-Robocopy'
                 Remove-Item $tempDir -Force -ErrorAction SilentlyContinue *>$null
                 Remove-Item $path -Force -ErrorAction SilentlyContinue *>$null
 
@@ -322,22 +315,14 @@ function WinUpdateReset {
             Manage-Service $essentialServices[$essentialIndex] 'Start' $serviceConfig[$essentialServices[$essentialIndex]] ($essentialIndex + 1) $essentialServices.Count
         }
 
-        Write-StyledMessage -Type 'Progress' -Text '⚡ Esecuzione comando reset. '
-        try {
-            $procParams = @{
-                FilePath     = 'cmd.exe'
-                ArgumentList = '/c', 'wuauclt', '/resetauthorization', '/detectnow'
-                Wait         = $true
-                WindowStyle  = 'Hidden'
-                ErrorAction  = 'SilentlyContinue'
-            }
-            Start-Process @procParams *>$null
-            Write-StyledMessage -Type 'Success' -Text 'Completato!'
-            Write-StyledMessage -Type 'Success' -Text "🔄 Client Windows Update reimpostato."
+        Write-StyledMessage -Type 'Info' -Text '⚡ Esecuzione reset client Windows Update...'
+        $result = Invoke-WithSpinner -Activity 'Reset Client Update' -Command 'cmd.exe' -Arguments @('/c', 'wuauclt', '/resetauthorization', '/detectnow') -TimeoutSeconds 60 -LogContextKey 'UpdateReset-Wuauclt'
+ 
+        if ($result.Success) {
+            Write-StyledMessage -Type 'Success' -Text "🔄 Client Windows Update reimpostato correttamente."
         }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text 'Errore!'
-            Write-StyledMessage -Type 'Warning' -Text "Errore durante il reset del client Windows Update."
+        else {
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ Reset client Windows Update non completato (possibile timeout)."
         }
 
         Write-StyledMessage -Type 'Info' -Text '🔧 Abilitazione Windows Update e servizi correlati.'
@@ -394,14 +379,7 @@ function WinUpdateReset {
                     Set-Service -Name $service.Name -StartupType $service.StartupType -ErrorAction SilentlyContinue *>$null
 
                     # Reset failure actions to default using sc command
-                    $procParams = @{
-                        FilePath     = 'sc.exe'
-                        ArgumentList = 'failure', "$($service.Name)", 'reset= 86400 actions= restart/60000/restart/60000/restart/60000'
-                        Wait         = $true
-                        WindowStyle  = 'Hidden'
-                        ErrorAction  = 'SilentlyContinue'
-                    }
-                    Start-Process @procParams *>$null
+                    $null = Invoke-ExternalCommandWithLog -Command 'sc.exe' -Arguments @('failure', "$($service.Name)", 'reset= 86400', 'actions= restart/60000/restart/60000/restart/60000') -TimeoutSeconds 30 -LogContextKey "ServiceFailureReset-$($service.Name)"
 
                     # Start the service if it should be running
                     if ($service.StartupType -eq "Automatic") {
@@ -428,46 +406,18 @@ function WinUpdateReset {
             if ((Test-Path $backupPath) -and !(Test-Path $dllPath)) {
                 try {
                     # Take ownership of backup file
-                    $procParams = @{
-                        FilePath     = 'takeown.exe'
-                        ArgumentList = '/f', "`"$backupPath`""
-                        Wait         = $true
-                        WindowStyle  = 'Hidden'
-                        ErrorAction  = 'SilentlyContinue'
-                    }
-                    Start-Process @procParams *>$null
+                    $null = Invoke-ExternalCommandWithLog -Command 'takeown.exe' -Arguments @('/f', "`"$backupPath`"") -TimeoutSeconds 30 -LogContextKey "DLLRestore-Takeown-$dll"
 
                     # Grant full control to everyone
-                    $procParams = @{
-                        FilePath     = 'icacls.exe'
-                        ArgumentList = "`"$backupPath`"", '/grant', '*S-1-1-0:F'
-                        Wait         = $true
-                        WindowStyle  = 'Hidden'
-                        ErrorAction  = 'SilentlyContinue'
-                    }
-                    Start-Process @procParams *>$null
+                    $null = Invoke-ExternalCommandWithLog -Command 'icacls.exe' -Arguments @("`"$backupPath`"", '/grant', '*S-1-1-0:F') -TimeoutSeconds 30 -LogContextKey "DLLRestore-IcaclsGrant-$dll"
 
                     # Rename back to original
                     Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue *>$null
                     Write-StyledMessage -Type 'Success' -Text "Ripristinato ${dll}_BAK.dll a $dll.dll."
 
                     # Restore ownership to TrustedInstaller
-                    $procParams = @{
-                        FilePath     = 'icacls.exe'
-                        ArgumentList = "`"$dllPath`"", '/setowner', '"NT SERVICE\TrustedInstaller"'
-                        Wait         = $true
-                        WindowStyle  = 'Hidden'
-                        ErrorAction  = 'SilentlyContinue'
-                    }
-                    Start-Process @procParams *>$null
-                    $procParams = @{
-                        FilePath     = 'icacls.exe'
-                        ArgumentList = "`"$dllPath`"", '/remove', '*S-1-1-0'
-                        Wait         = $true
-                        WindowStyle  = 'Hidden'
-                        ErrorAction  = 'SilentlyContinue'
-                    }
-                    Start-Process @procParams *>$null
+                    $null = Invoke-ExternalCommandWithLog -Command 'icacls.exe' -Arguments @("`"$dllPath`"", '/setowner', '"NT SERVICE\TrustedInstaller"') -TimeoutSeconds 30 -LogContextKey "DLLRestore-IcaclsOwner-$dll"
+                    $null = Invoke-ExternalCommandWithLog -Command 'icacls.exe' -Arguments @("`"$dllPath`"", '/remove', '*S-1-1-0') -TimeoutSeconds 30 -LogContextKey "DLLRestore-IcaclsRemove-$dll"
                 }
                 catch {
                     Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile ripristinare $dll.dll - $($_.Exception.Message)."
@@ -552,25 +502,13 @@ function WinUpdateReset {
         try {
 
             Write-StyledMessage -Type 'Info' -Text '⏳ Eliminazione criteri locali.'
-            $rdProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q `"$(Join-Path $AppConfig.Paths.System32 "GroupPolicy")`"" -WindowStyle Hidden -ErrorAction SilentlyContinue -PassThru
-            $rdTimeout = 10
-            while (-not $rdProc.HasExited -and $rdTimeout -gt 0) {
-                Start-Sleep -Seconds 1
-                $rdTimeout--
-            }
-            if (-not $rdProc.HasExited) { $rdProc | Stop-Process -Force -ErrorAction SilentlyContinue }
+            $rdResult = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'RD', '/S', '/Q', "`"$(Join-Path $AppConfig.Paths.System32 "GroupPolicy")`"") -TimeoutSeconds 30 -LogContextKey 'GPReset-RD'
             Write-StyledMessage -Type 'Success' -Text '✅ Criteri eliminati.'
 
             Write-StyledMessage -Type 'Info' -Text '⏳ Aggiornamento criteri.'
-            $gpProc = Start-Process -FilePath "gpupdate.exe" -ArgumentList "/force" -WindowStyle Hidden -ErrorAction SilentlyContinue -PassThru
-            $gpTimeout = 15
-            while (-not $gpProc.HasExited -and $gpTimeout -gt 0) {
-                Start-Sleep -Seconds 1
-                $gpTimeout--
-            }
-            if (-not $gpProc.HasExited) {
-                $gpProc | Stop-Process -Force -ErrorAction SilentlyContinue
-                Write-StyledMessage -Type 'Warning' -Text "⚠️ gpupdate terminato per timeout."
+            $gpResult = Invoke-ExternalCommandWithLog -Command 'gpupdate.exe' -Arguments @('/force') -TimeoutSeconds 60 -LogContextKey 'GPReset-GPUpdate'
+            if (-not $gpResult.Success) {
+                Write-StyledMessage -Type 'Warning' -Text "⚠️ gpupdate terminato con errori o timeout."
             }
             else {
                 Write-StyledMessage -Type 'Success' -Text '✅ Criteri aggiornati.'

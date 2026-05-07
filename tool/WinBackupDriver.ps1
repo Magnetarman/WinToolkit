@@ -71,36 +71,16 @@ function WinBackupDriver {
         }
     }
 
-    function Export-SystemDrivers {
-        Write-StyledMessage -Type 'Info' -Text "💾 Avvio esportazione driver di sistema."
-
-        $outFile = "$($script:BackupConfig.LogsDir)\dism_$($script:BackupConfig.DateTime).log"
-        $errFile = "$($script:BackupConfig.LogsDir)\dism_err_$($script:BackupConfig.DateTime).log"
-
         try {
-            # Usa Invoke-WithSpinner per monitorare il processo DISM
-            $result = Invoke-WithSpinner -Activity "Esportazione driver DISM" -Process -Action {
-                $procParams = @{
-                    FilePath               = 'dism.exe'
-                    ArgumentList           = @('/online', '/export-driver', "/destination:`"$($script:BackupConfig.BackupDir)`"")
-                    NoNewWindow            = $true
-                    PassThru               = $true
-                    RedirectStandardOutput = $outFile
-                    RedirectStandardError  = $errFile
-                }
-                Start-Process @procParams
-            } -TimeoutSeconds $timeout -UpdateInterval 1000
+            # Utilizzo del nuovo pattern Invoke-WithSpinner che internamente usa Invoke-ExternalCommandWithLog
+            $result = Invoke-WithSpinner -Activity "Esportazione driver DISM" -Command 'dism.exe' -Arguments @('/online', '/export-driver', "/destination:`"$($script:BackupConfig.BackupDir)`"") -TimeoutSeconds $timeout -LogContextKey "Backup-DISM"
 
             if ($result.TimedOut) {
                 throw "Timeout raggiunto durante l'esportazione DISM"
             }
 
             if ($result.ExitCode -ne 0) {
-                $errorDetails = if (Test-Path $errFile) {
-                    (Get-Content $errFile -ErrorAction SilentlyContinue) -join '; '
-                }
-                else { "Dettagli non disponibili" }
-                throw "Esportazione DISM fallita (ExitCode: $($result.ExitCode)). Dettagli: $errorDetails"
+                throw "Esportazione DISM fallita con ExitCode: $($result.ExitCode)."
             }
 
             $exportedDrivers = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
@@ -206,18 +186,7 @@ function WinBackupDriver {
         try {
             Write-StyledMessage -Type 'Info' -Text "🚀 Compressione con 7-Zip."
 
-            # Usa Invoke-WithSpinner per monitorare il processo 7zip
-            $result = Invoke-WithSpinner -Activity "Compressione archivio 7-Zip" -Process -Action {
-                $procParams = @{
-                    FilePath               = $SevenZipPath
-                    ArgumentList           = $compressionArgs
-                    NoNewWindow            = $true
-                    PassThru               = $true
-                    RedirectStandardOutput = $stdOutputPath
-                    RedirectStandardError  = $stdErrorPath
-                }
-                Start-Process @procParams
-            } -TimeoutSeconds 800 -UpdateInterval 1000
+            $result = Invoke-WithSpinner -Activity "Compressione archivio 7-Zip" -Command $SevenZipPath -Arguments $compressionArgs -TimeoutSeconds 800 -LogContextKey "Backup-7Zip"
 
             if ($result.TimedOut) {
                 throw "Timeout raggiunto durante la compressione."
@@ -231,14 +200,7 @@ function WinBackupDriver {
                 return $archivePath
             }
             else {
-                # Log degli errori di 7zip per debugging
-                $errorDetails = if (Test-Path $stdErrorPath) {
-                    $errorContent = Get-Content $stdErrorPath -ErrorAction SilentlyContinue
-                    if ($errorContent) { $errorContent -join '; ' } else { "Log errori vuoto." }
-                }
-                else { "File di log errori non trovato." }
-
-                Write-StyledMessage -Type 'Error' -Text "Compressione fallita (ExitCode: $($result.ExitCode)). Dettagli: $errorDetails"
+                Write-StyledMessage -Type 'Error' -Text "Compressione fallita con ExitCode: $($result.ExitCode)."
                 return $null
             }
         }
@@ -286,7 +248,8 @@ function WinBackupDriver {
         if (-not (Test-AdministratorPrivilege)) {
             Write-StyledMessage -Type 'Error' -Text "❌ Privilegi amministratore richiesti."
             Write-StyledMessage -Type 'Info' -Text "💡 Riavvia PowerShell come Amministratore."
-            Read-Host "`nPremi INVIO per uscire"
+            Write-StyledMessage -Type 'Info' -Text "`n⌨️ Premi un tasto per uscire."
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
             return
         }
 

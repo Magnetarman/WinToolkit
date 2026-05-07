@@ -107,28 +107,8 @@ function OfficeToolkit {
         Set-ItemProperty @feedbackParams
 
         Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate in modo profondo."
-    }
-
-    function Get-UserConfirmation {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$Message,
-            
-            [ValidateSet('Y', 'N')]
-            [string]$DefaultChoice = 'N'
-        )
-        
-        do {
-            $response = (Read-Host "$Message [Y/N]").Trim().ToUpper()
-            if ($response -eq 'N') {
-                Write-StyledMessage -Type 'Warning' -Text "Inserire Y per confermare."
-            } elseif ($response -ne 'Y') {
-                Write-StyledMessage -Type 'Error' -Text "Input non valido."
-            }
-        } while ($response -ne 'Y')
-        return $response
-    }
+       # Get-UserConfirmation rimossa - ora fornita dal framework WinToolkit-template.ps1
+   }
 
     function Get-WindowsVersion {
         try {
@@ -210,17 +190,7 @@ function OfficeToolkit {
             $arguments = "/configure `"$configPath`""
 
             $processTimeoutSeconds = 86400    # Timer di 24 ore in secondi.
-            $result = Invoke-WithSpinner -Activity "Installazione Office Basic" -Process -Action {
-                $procParams = @{
-                    FilePath         = $setupPath
-                    ArgumentList     = $arguments
-                    WorkingDirectory = $tempDir
-                    PassThru         = $true
-                    WindowStyle      = 'Hidden'
-                    ErrorAction      = 'Stop'
-                }
-                Start-Process @procParams
-            } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
+            $result = Invoke-WithSpinner -Activity "Installazione Office Basic" -Command $setupPath -Arguments $arguments -TimeoutSeconds $processTimeoutSeconds -LogContextKey "Office-Install"
 
             if (-not $result.Success) {
                 Write-StyledMessage -Type 'Error' -Text "Installazione fallita o scaduta (fase di setup iniziale)."
@@ -279,16 +249,7 @@ function OfficeToolkit {
             Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione rapida (offline)."
             $argumentsQuick = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=QuickRepair DisplayLevel=True"
 
-            $resultQuick = Invoke-WithSpinner -Activity "Riparazione Rapida Office (Offline)" -Process -Action {
-                $procParams = @{
-                    FilePath     = $officeClient
-                    ArgumentList = $argumentsQuick
-                    PassThru     = $true
-                    ErrorAction  = 'Stop'
-                }
-                # Avvia il processo e lo restituisce direttamente a Invoke-WithSpinner
-                return Start-Process @procParams
-            } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
+            $resultQuick = Invoke-WithSpinner -Activity "Riparazione Rapida Office (Offline)" -Command $officeClient -Arguments $argumentsQuick -TimeoutSeconds $processTimeoutSeconds -LogContextKey "Office-Repair-Quick"
 
             # Ripristina configurazione post-riparazione (la riparazione può sovrascrivere le impostazioni)
             Apply-OfficePostConfig
@@ -303,16 +264,7 @@ function OfficeToolkit {
                 $processTimeoutSeconds = 86400
                 $argumentsFull = "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True"
 
-                $resultFull = Invoke-WithSpinner -Activity "Riparazione Completa Office (Online)" -Process -Action {
-                    $procParams = @{
-                        FilePath     = $officeClient
-                        ArgumentList = $argumentsFull
-                        PassThru     = $true
-                        ErrorAction  = 'Stop'
-                    }
-                    # Avvia il processo e lo restituisce direttamente a Invoke-WithSpinner
-                    return Start-Process @procParams
-                } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
+                $resultFull = Invoke-WithSpinner -Activity "Riparazione Completa Office (Online)" -Command $officeClient -Arguments $argumentsFull -TimeoutSeconds $processTimeoutSeconds -LogContextKey "Office-Repair-Full"
 
                 Apply-OfficePostConfig
                 Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
@@ -392,16 +344,7 @@ function OfficeToolkit {
                             try {
                                 $productCode = $item.PSChildName
                                 $spinnerActivity = "Rimozione: $($item.DisplayName)"
-                                $null = Invoke-WithSpinner -Activity $spinnerActivity -Process -Action {
-                                    $procParams = @{
-                                        FilePath     = 'msiexec.exe'
-                                        ArgumentList = @('/x', $productCode, '/qn', '/norestart')
-                                        PassThru     = $true
-                                        WindowStyle  = 'Hidden'
-                                        ErrorAction  = 'Stop'
-                                    }
-                                    Start-Process @procParams
-                                } -TimeoutSeconds 1800 -UpdateInterval 1000
+                                $null = Invoke-WithSpinner -Activity $spinnerActivity -Command 'msiexec.exe' -Arguments @('/x', $productCode, '/qn', '/norestart') -TimeoutSeconds 1800 -LogContextKey "Office-Uninstall-MSI-$productCode"
                             }
                             catch {}
                         }
@@ -600,16 +543,7 @@ function OfficeToolkit {
 
             try {
                 $processTimeoutSeconds = 86400 # Attesa indefinita (24 ore)
-                $result = Invoke-WithSpinner -Activity "Rimozione Office tramite SaRA" -Process -Action {
-                    $procParams = @{
-                        FilePath     = $saraExe.FullName
-                        ArgumentList = $arguments
-                        Verb         = 'RunAs'
-                        PassThru     = $true
-                        ErrorAction  = 'Stop'
-                    }
-                    Start-Process @procParams
-                } -TimeoutSeconds $processTimeoutSeconds -UpdateInterval 1000
+                $result = Invoke-WithSpinner -Activity "Rimozione Office tramite SaRA" -Command $saraExe.FullName -Arguments $arguments -TimeoutSeconds $processTimeoutSeconds -LogContextKey "Office-Uninstall-SaRA"
 
                 if ($result.ExitCode -eq 0) {
                     Write-StyledMessage -Type 'Success' -Text "✅ SaRA completato con successo."
@@ -691,7 +625,8 @@ function OfficeToolkit {
             Write-StyledMessage -Type 'Info' -Text "  [3]  🗑️ Rimozione completa Office"
             Write-StyledMessage -Type 'Info' -Text "  [0]  ❌ Esci"
 
-            $choice = Read-Host 'Scelta [0-3]'
+            $selections = Read-ValidatedChoice -Min 0 -Max 3 -Prompt 'Scelta [0-3]'
+            $choice = $selections[0]
 
             $success = $false
             $operation = ''

@@ -18,7 +18,7 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "3.0.0 (Build 6)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "3.0.0 (Build 7)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
@@ -571,12 +571,26 @@ function Send-ErrorLogs {
             return
         }
 
+        # Crea il contenuto del file di metadati JSON
+        $metadata = @{
+            Timestamp      = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+            GuiVersion     = $Global:GuiVersion
+            CoreVersion    = $Global:CoreScriptVersion
+            CorrelationId  = if ($Global:CurrentCorrelationId) { $Global:CurrentCorrelationId } else { "N/A" }
+            OS             = (Get-CimInstance Win32_OperatingSystem).Caption
+            OSVersion      = (Get-CimInstance Win32_OperatingSystem).Version
+            MachineName    = $env:COMPUTERNAME
+        }
+        $metadataPath = Join-Path $env:TEMP "metadata.json"
+        $metadata | ConvertTo-Json | Out-File -FilePath $metadataPath -Encoding UTF8 -Force
+
         # Crea il contenuto combinato dei log
         $logContent = "=" * 60 + "`n"
         $logContent += "WinToolkit GUI Error Report`n"
-        $logContent += "Data: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n"
-        $logContent += "Versione GUI: $Global:GuiVersion`n"
-        $logContent += "Versione Core: $Global:CoreScriptVersion`n"
+        $logContent += "Data: $($metadata.Timestamp)`n"
+        $logContent += "CorrelationId: $($metadata.CorrelationId)`n"
+        $logContent += "Versione GUI: $($metadata.GuiVersion)`n"
+        $logContent += "Versione Core: $($metadata.CoreVersion)`n"
         $logContent += "=" * 60 + "`n`n"
 
         foreach ($logFile in $recentLogFiles) {
@@ -589,11 +603,11 @@ function Send-ErrorLogs {
         $tempReportPath = Join-Path $env:TEMP "WinToolkit_GUI_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
         $logContent | Out-File -FilePath $tempReportPath -Encoding UTF8 -Force
 
-        # Comprimi il report in ZIP sul Desktop
-        $zipPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "WinToolkit_GUI_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').zip"
+        # Comprimi il report e i metadati in ZIP sul Desktop
+        $zipPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "WinToolkit_SupportLog_$(Get-Date -Format 'yyyyMMdd_HHmmss').zip"
         if (Get-Command 'Compress-Archive' -ErrorAction SilentlyContinue) {
-            Compress-Archive -Path $tempReportPath -DestinationPath $zipPath -Force
-            Write-UnifiedLog -Type 'Success' -Message "✅ Report errori GUI compresso: $zipPath." -GuiColor "#00FF00"
+            Compress-Archive -Path $tempReportPath, $metadataPath -DestinationPath $zipPath -Force
+            Write-UnifiedLog -Type 'Success' -Message "✅ Pacchetto log supporto creato: $zipPath." -GuiColor "#00FF00"
         }
         else {
             Write-UnifiedLog -Type 'Warning' -Message "⚠️ Compress-Archive non disponibile. Report GUI salvato in: $tempReportPath." -GuiColor "#FFA500"

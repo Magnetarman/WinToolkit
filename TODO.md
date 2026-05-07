@@ -43,6 +43,12 @@
   - [x] Feedback Utente: Inseriti messaggi di stato per informare correttamente l'utente durante l'arresto e il riavvio dei servizi.
   - [x] Introdotta funzione `Test-WindowsUpdateStatus` per rilevare gli aggiornamenti di Windows in sospeso e l'attività del programma di installazione.
   - [x] Rimuovi tutti i caratteri ANSI/colori prima di salvare su file. [[Thanks To @Ennio Costanzi]]()
+  - [x] Aggiunta funzione `Get-UserConfirmation` (sostituisce `Read-YesNoPrompt`).
+  - [x] Aggiunta funzione `Read-ValidatedChoice` (gestisce input multipli e validazione avanzata).
+  - [x] Corretti bug in `Get-UserConfirmation` e `Read-ValidatedChoice`.
+  - [x] Aggiornato menu principale di WinToolkit per sfruttare `Read-ValidatedChoice`.
+  - [x] Adeguati i vari script per utilizzare la nuova funzione Invoke-WithSpinner globale, eliminando le vecchie funzioni Write-Spinner/Stop-Spinner e Write-Wait.
+  - [x] Adeguati i commenti interni in modo che siano coerenti con le modifiche effettuate.
 
 - `WinRepairToolkit` Aggiornato.
   - [x] Improve AppX registration and chkdsk handling. [[Thanks To @Ennio Costanzi]]()

@@ -93,78 +93,30 @@ function WinCleaner {
         return $false
     }
 
-    function Start-ProcessWithTimeout {
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$FilePath,
-
-            [Parameter(Mandatory = $false)]
-            [string[]]$ArgumentList = @(),
-
-            [Parameter(Mandatory = $false)]
-            [int]$TimeoutSeconds = 86400,    # Timer di un giorno in secondi.
-
-            [Parameter(Mandatory = $false)]
-            [string]$Activity = "Processo in esecuzione",
-
-            [Parameter(Mandatory = $false)]
-            [switch]$Hidden
-        )
-
-        $processParams = @{
-            FilePath     = $FilePath
-            ArgumentList = $ArgumentList
-            PassThru     = $true
-            ErrorAction  = 'Stop'
-        }
-
-        if ($Hidden) { $processParams.WindowStyle = 'Hidden' } else { $processParams.NoNewWindow = $true }
-
-        $proc = Start-Process @processParams
-
-        # Usa la funzione globale Invoke-WithSpinner per monitorare il processo
-        $result = Invoke-WithSpinner -Activity $Activity -Process -Action { $proc } -TimeoutSeconds $TimeoutSeconds -UpdateInterval 500
-
-        return $result
-    }
+    # Start-ProcessWithTimeout rimossa in favore di Invoke-WithSpinner -Command del framework
 
     function Invoke-CommandAction {
         param($Rule)
         Clear-ProgressLine
         Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione comando: $($Rule.Name)."
         try {
-            # Use timeout for potentially long-running commands
-            $timeoutCommands = @("DISM.exe", "cleanmgr.exe")
-            if ($Rule.Command -in $timeoutCommands) {
-                $result = Start-ProcessWithTimeout -FilePath $Rule.Command -ArgumentList $Rule.Args -TimeoutSeconds $timeout -Activity $Rule.Name -Hidden
-                if ($result.TimedOut) { Write-StyledMessage -Type 'Warning' -Text "Comando timeout dopo 24 ore."; return $true }
+            # Utilizzo del nuovo pattern Invoke-WithSpinner che internamente usa Invoke-ExternalCommandWithLog
+            $result = Invoke-WithSpinner -Activity $Rule.Name -Command $Rule.Command -Arguments $Rule.Args -TimeoutSeconds $timeout -LogContextKey "Cleaner-$($Rule.Name)"
 
-                # Check for specific error code -2146498554 (0x800F0818 - ERROR_STORE_CORRUPT)
-                # This typically occurs when Windows Update is in progress or component store is corrupted
-                if ($result.ExitCode -eq -2146498554 -or $result.ExitCode -eq 0x800F0818) {
-                    Add-CleanerLog -Type 'Warning' -Text "ATTENZIONE! - Stai effettuando la pulizia con Windows Update in corso. Aggiorna il sistema e riprova per eseguire la pulizia completa"
-                    return $false
-                }
-
-                Add-CleanerLog -Type ($result.ExitCode -eq 0 ? 'Info' : 'Warning') -Text ($result.ExitCode -eq 0 ? "Comando completato." : "Comando completato con codice $($result.ExitCode)")
+            if ($result.TimedOut) {
+                Write-StyledMessage -Type 'Warning' -Text "Comando timeout dopo $($timeout/3600) ore."
                 return $true
             }
-            else {
-                $procParams = @{
-                    FilePath     = $Rule.Command
-                    ArgumentList = $Rule.Args
-                    PassThru     = $true
-                    WindowStyle  = 'Hidden'
-                    Wait         = $true
-                    ErrorAction  = 'SilentlyContinue'
-                }
-                $proc = Start-Process @procParams
-                # Suppress warning if exit code is null (process failed to start)
-                if ($proc.ExitCode -ne 0) {
-                    Add-CleanerLog -Type 'Warning' -Text "Comando completato con codice $($proc.ExitCode)"
-                }
-                return $true # Non-fatal
+
+            # Check for specific error code -2146498554 (0x800F0818 - ERROR_STORE_CORRUPT)
+            if ($result.ExitCode -eq -2146498554 -or $result.ExitCode -eq 0x800F0818) {
+                Add-CleanerLog -Type 'Warning' -Text "ATTENZIONE! - Stai effettuando la pulizia con Windows Update in corso. Aggiorna il sistema e riprova per eseguire la pulizia completa"
+                return $false
             }
+
+            $isSuccess = ($result.ExitCode -eq 0)
+            Add-CleanerLog -Type ($isSuccess ? 'Info' : 'Warning') -Text ($isSuccess ? "Comando completato." : "Comando completato con codice $($result.ExitCode)")
+            return $true
         }
         catch {
             Add-CleanerLog -Type 'Error' -Text "Errore comando: $_"

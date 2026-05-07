@@ -68,17 +68,7 @@ function GamingToolkit {
         $errFile = "$env:TEMP\winget_err_$PackageId.log"
 
         try {
-            $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Process -Action {
-                $procParams = @{
-                    FilePath               = 'winget'
-                    ArgumentList           = @('install', '--id', $PackageId, '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements')
-                    PassThru               = $true
-                    NoNewWindow            = $true
-                    RedirectStandardOutput = $outFile
-                    RedirectStandardError  = $errFile
-                }
-                Start-Process @procParams
-            } -TimeoutSeconds $timeout -UpdateInterval 700
+            $result = Invoke-WithSpinner -Activity "Installazione $DisplayName" -Command 'winget' -Arguments @('install', '--id', $PackageId, '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements') -TimeoutSeconds $timeout -LogContextKey "Gaming-Install-$PackageId"
 
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
             $successCodes = @(0, 1638, 3010, -1978335189)
@@ -191,13 +181,7 @@ function GamingToolkit {
         Write-StyledMessage -Type 'Success' -Text 'DirectX scaricato.'
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo DirectX
-        $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action {
-            $procParams = @{
-                FilePath     = $dxPath
-                PassThru     = $true
-            }
-            Start-Process @procParams
-        } -TimeoutSeconds $timeout -UpdateInterval 700
+        $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Command $dxPath -TimeoutSeconds $timeout -LogContextKey "Gaming-DirectX"
 
         Clear-ProgressLine
         Clear-ProgressLine
@@ -295,16 +279,7 @@ function GamingToolkit {
         Write-StyledMessage -Type 'Success' -Text 'Battle.net scaricato.'
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo Battle.net
-        $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action {
-            $procParams = @{
-                FilePath     = $bnPath
-                ArgumentList = '--quiet'
-                PassThru     = $true
-                Verb         = 'RunAs'
-                WindowStyle  = 'Hidden'
-            }
-            Start-Process @procParams
-        } -TimeoutSeconds $timeout -UpdateInterval 500
+        $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Command $bnPath -Arguments '--quiet' -TimeoutSeconds $timeout -LogContextKey "Gaming-BattleNet"
 
         Clear-ProgressLine
         Clear-ProgressLine
