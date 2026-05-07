@@ -338,6 +338,8 @@ function Start-ToolkitLog {
     #>
     param([string]$ToolName)
 
+    $Global:CurrentToolName = $ToolName
+
     # Pulizia residui transcript (backward compat)
     try {
         Stop-Transcript -ErrorAction SilentlyContinue
@@ -421,9 +423,11 @@ function Write-ToolkitLog {
     if (-not $Global:CurrentLogFile) { return }
 
     $ts = Get-Date -Format "HH:mm:ss"
-    $clean = $Message -replace '^\s+', ''
-    # Rimuovi tutti i caratteri ANSI/colori prima di salvare su file
-    $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
+     $clean = $Message -replace '^\s+', ''
+     # Rimuovi tutti i caratteri ANSI/colori prima di salvare su file
+     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
+     # Rimuovi emoji comuni per evitare problemi con parser log
+     $clean = $clean -replace '[\u{1F600}-\u{1F64F}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2300}-\u{23FF}\u{2705}\u{26A0}]', ''
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try {
@@ -477,13 +481,21 @@ function Invoke-ExternalCommandWithLog {
         [string]$Activity = '',
 
         [Parameter(Mandatory = $false)]
-        [int]$UpdateInterval = 500
+        [int]$UpdateInterval = 500,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Tool = $Global:CurrentToolName,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Step = 'ExternalCommand'
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $argString = $Arguments -join ' '
 
     Write-ToolkitLog -Level 'INFO' -Message "Esecuzione comando esterno: $Command $argString" -Context @{
+        Tool       = $Tool
+        Step       = $Step
         Command    = $Command
         Arguments  = $Arguments
         WorkingDir = $WorkingDirectory

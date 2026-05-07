@@ -299,6 +299,10 @@ function WinRepairToolkit {
     }
 
     if (Test-PendingOperations) {
+        Write-ToolkitLog -Level WARNING -Message "Rilevate operazioni pendenti che richiedono riavvio. DISM potrebbe fallire." -Context @{
+            Tool = 'WinRepairToolkit'
+            Step = 'PreExecutionCheck'
+        }
         Write-StyledMessage -Type 'Warning' -Text "⚠️ Rilevate operazioni pendenti che richiedono riavvio. DISM potrebbe fallire."
         Write-StyledMessage -Type 'Info' -Text "💡 Consigliato riavviare prima di eseguire le riparazioni."
     }
@@ -310,6 +314,11 @@ function WinRepairToolkit {
         $deepRepairScheduled = $false
         # Fix 2: Esegue la riparazione profonda solo se ci sono ancora errori dopo 3 tentativi
         if ($repairResult.TotalErrors -gt 0) {
+            Write-ToolkitLog -Level WARNING -Message "Rilevati errori persistenti. Avvio riparazione profonda." -Context @{
+                Tool = 'WinRepairToolkit'
+                Step = 'RepairCycle'
+                TotalErrors = $repairResult.TotalErrors
+            }
             Write-StyledMessage -Type 'Warning' -Text "Rilevati errori persistenti. Avvio riparazione profonda."
             $deepRepairScheduled = Start-DeepDiskRepair
         }
@@ -333,13 +342,19 @@ function WinRepairToolkit {
                 Restart-Computer -Force
             }
         }
-    }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message)."
+     }
+     catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message). Consulta il log in %LOCALAPPDATA%\WinToolkit\logs o in $Global:CurrentLogFile"
         Write-ToolkitLog -Level ERROR -Message "Errore critico in WinRepairToolkit" -Context @{
+            Tool      = 'WinRepairToolkit'
+            Step      = 'MainExecution'
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName
+            Message   = $_.Exception.Message
             Stack     = $_.ScriptStackTrace
         }
+    }
+    finally {
+        # Cleanup finale se necessario
     }
 }

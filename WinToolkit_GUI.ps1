@@ -584,6 +584,29 @@ function Send-ErrorLogs {
         $metadataPath = Join-Path $env:TEMP "metadata.json"
         $metadata | ConvertTo-Json | Out-File -FilePath $metadataPath -Encoding UTF8 -Force
 
+        # Crea README per il pacchetto log
+        $readmeContent = @"
+WinToolkit Support Log Package
+============================
+Timestamp: $($metadata.Timestamp)
+CorrelationId: $($metadata.CorrelationId)
+GUI Version: $($metadata.GuiVersion)
+Core Version: $($metadata.CoreVersion)
+OS: $($metadata.OS) ($($metadata.OSVersion))
+Machine: $($metadata.MachineName)
+
+Contents:
+- metadata.json: Session metadata
+- README.txt: This file
+- WinToolkit_GUI_ErrorReport_*.txt: Combined log report
+- Core logs from %LOCALAPPDATA%\WinToolkit\logs (if included)
+
+Usage:
+Attach this zip file when reporting issues. The CorrelationId links logs across tools and GUI sessions.
+"@
+        $readmePath = Join-Path $env:TEMP "README.txt"
+        $readmeContent | Out-File -FilePath $readmePath -Encoding UTF8 -Force
+
         # Crea il contenuto combinato dei log
         $logContent = "=" * 60 + "`n"
         $logContent += "WinToolkit GUI Error Report`n"
@@ -606,7 +629,7 @@ function Send-ErrorLogs {
         # Comprimi il report e i metadati in ZIP sul Desktop
         $zipPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "WinToolkit_SupportLog_$(Get-Date -Format 'yyyyMMdd_HHmmss').zip"
         if (Get-Command 'Compress-Archive' -ErrorAction SilentlyContinue) {
-            Compress-Archive -Path $tempReportPath, $metadataPath -DestinationPath $zipPath -Force
+            Compress-Archive -Path $tempReportPath, $metadataPath, $readmePath -DestinationPath $zipPath -Force
             Write-UnifiedLog -Type 'Success' -Message "✅ Pacchetto log supporto creato: $zipPath." -GuiColor "#00FF00"
         }
         else {

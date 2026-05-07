@@ -576,13 +576,19 @@ function WinUpdateReset {
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text '═════════════════════════════════════════════════════════════════'
-        Write-StyledMessage -Type 'Error' -Text "💥 Errore critico: $($_.Exception.Message)."
+        Write-StyledMessage -Type 'Error' -Text "💥 Errore critico: $($_.Exception.Message). Consulta il log in %LOCALAPPDATA%\WinToolkit\logs o in $Global:CurrentLogFile"
         Write-StyledMessage -Type 'Info' -Text '⌨️ Premere un tasto per uscire.'
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinUpdateReset: $($_.Exception.Message)" -Context @{
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinUpdateReset" -Context @{
+            Tool      = 'WinUpdateReset'
+            Step      = 'MainExecution'
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName
+            Message   = $_.Exception.Message
             Stack     = $_.ScriptStackTrace
         }
+    }
+    finally {
+        # Cleanup finale se necessario
     }
 }
