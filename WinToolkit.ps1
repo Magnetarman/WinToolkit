@@ -67,7 +67,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.4 (Build 33)"
+$ToolkitVersion = "2.5.4 (Build 34)"
 $AppConfig = @{
     URLs     = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -1505,6 +1505,29 @@ function WinUpdateReset {
         $stopServices = @('wuauserv', 'cryptsvc', 'bits', 'msiserver')
         for ($serviceIndex = 0; $serviceIndex -lt $stopServices.Count; $serviceIndex++) {
             Manage-Service $stopServices[$serviceIndex] 'Stop' $serviceConfig[$stopServices[$serviceIndex]] ($serviceIndex + 1) $stopServices.Count
+        }
+        Write-StyledMessage -Type 'Info' -Text '🧹 Pulizia cache GPCache e impostazioni WSUS.'
+        try {
+            if (Test-Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UpdatePolicy\GPCache") {
+                Remove-Item "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UpdatePolicy\GPCache" -Recurse -Force -ErrorAction Stop
+                Write-StyledMessage -Type 'Success' -Text "🗑️ Cache GPCache eliminata."
+            } else {
+                Write-StyledMessage -Type 'Info' -Text "💭 Cache GPCache non presente."
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile eliminare cache GPCache - $($_.Exception.Message)."
+        }
+        try {
+            if (Test-Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate") {
+                Remove-Item "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate" -Recurse -Force -ErrorAction Stop
+                Write-StyledMessage -Type 'Success' -Text "🔑 Impostazioni WSUS rimosse."
+            } else {
+                Write-StyledMessage -Type 'Info' -Text "💭 Impostazioni WSUS non presenti."
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile rimuovere impostazioni WSUS - $($_.Exception.Message)."
         }
         Write-StyledMessage -Type 'Info' -Text '⏳ Attesa liberazione risorse.'
         Start-Sleep -Seconds 3
