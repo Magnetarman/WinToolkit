@@ -1,6 +1,7 @@
 # To-Do
 
 ### V 2.5.4
+
 - `start.ps1` Aggiornato.
   - [x] Rimossa variabile `$rebootNeeded`.
   - [x] Spostati CLSID Windows Terminal e lista processi interferenti Winget in `$script:AppConfig`.
@@ -48,15 +49,15 @@
   - [x] Controllo iniziale stato sistema: Aggiunta funzione Test-PendingOperations che verifica chiavi di registro per reboot pendente e avvisa l'utente prima di iniziare le riparazioni.
   - [x] Pulizia stato DISM: Esecuzione automatica di DISM /CancelCommands prima di ogni operazione /StartComponentCleanup per annullare operazioni pendenti.
   - [x] Gestione specifica errore: 0x800f0806 viene riconosciuto come non critico, viene mostrato un avviso informativo e non viene conteggiato come errore.
-  - [x] Supporto codice exit 3010: DISM /ResetBase che ritorna 3010 (reboot richiesto) viene considerato successo
-  Esclusione errore dal conteggio: 0x800f0806 viene saltato nella logica di rilevazione errori generale.
+  - [x] Supporto codice exit 3010: DISM /ResetBase che ritorna 3010 (reboot richiesto) viene considerato successo.
+  - [x] Esclusione errore dal conteggio: 0x800f0806 viene saltato nella logica di rilevazione errori generale.
+  - [x] Rimossa funzione registrazioni AppX in quanto il Fix temporaneo non risulta più necessario con gli ultimi cumulativi di Windows 11.
 
 - Profilo Powershell Aggiornato.
   - [x] Aggiunta Funzione caricamento WinToolkit-GUI.
 
 - `compiler.ps1` Aggiornato.
   - [x] Corretti errori di parsing funzione non correttamente inizializzata.
-
 
 ### V 2.6 - Debloat
 
@@ -73,17 +74,15 @@
   - [ ] Imposta tramite criteri di gruppo gli Update di windows.
 
 - <del>Avvio dello script Chris con configurazione personalizzata (`iwr -useb https://christitus.com/win | iex`).</del>
-  - **Questa funzione a causa di lacune nel debloat di Windows 11 ramo *Germanium* 24H2/25H2 verrà corretta ed integrata in uno script nuovo denominato `WinDebloat.ps1`**
+  - **Questa funzione a causa di lacune nel debloat di Windows 11 ramo _Germanium_ 24H2/25H2 verrà corretta ed integrata in uno script nuovo denominato `WinDebloat.ps1`**
 - Aggiunta Funzione `WinDebloat.ps1`.
   - [ ] Aggiunta Disattivazione Servizi superflui.
-
 
 ### V 2.7 - Security Update
 
 - [ ] Download ed esecuzione di Tron Script con intervento minimo.
 - [ ] Reset dei servizi Windows **[Thanks to @sicolla]**.
 - [ ] Riparazione avanzata Windows Search **[Thanks to @sicolla]**.
-
 
 ### V 2.8 - WinDownloader
 
@@ -101,19 +100,16 @@
   - [ ] Creazione di dispositivo USB Bootable.
   - [ ] Inserimento funzione Blocco selettivo Update Windows.
 
-
-### V 2.9 - OFFLINE MODE 
+### V 2.9 - OFFLINE MODE
 
 - [ ] Possibilità di avviare il download delle ultime risorse necessarie al toolkit.
 - [ ] Salvataggio in file .7z da estrarre.
 - [ ] L'archivio conterrà tutto il necessario ad utilizzare Wintoolkit in modalità offline senza rete.
 
-
 ### V 2.10 - Multi Lang Mode
 
 - [ ] Conversione Readme.md in inglese.
 - [ ] Possibilità di scegliere la lingua all'avvio di Wintoolkit.
-
 
 ### V X.X - MagnetarMan Mode
 
@@ -129,7 +125,6 @@
   - [ ] Pulizia del sistema.
   - [ ] Applicazione Sfondo "MagnetarMan".
   - [ ] Riavvio del PC per completare le modifiche.
-
 
 ### V X.X - GUI
 
