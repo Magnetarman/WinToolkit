@@ -33,7 +33,7 @@ function VideoDriverInstall {
 
     $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
     $DriverToolsLocalPath = $AppConfig.Paths.Drivers
-    $DesktopPath = [Environment]::GetFolderPath('Desktop')
+    $DesktopPath = $AppConfig.Paths.Desktop
 
     # ============================================================================
     # 3. FUNZIONI HELPER LOCALI
@@ -49,7 +49,7 @@ function VideoDriverInstall {
         $pnpDevices = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue
 
         if (-not $pnpDevices) {
-            Write-StyledMessage Warning "Nessun dispositivo display Plug and Play rilevato."
+            Write-StyledMessage -Type 'Warning' -Text "Nessun dispositivo display Plug and Play rilevato."
             return 'Unknown'
         }
 
@@ -78,7 +78,7 @@ function VideoDriverInstall {
             Imposta una chiave di registro per impedire a Windows Update di includere driver negli aggiornamenti di qualità,
             riducendo conflitti con installazioni specifiche del produttore. Richiede privilegi amministrativi.
         #>
-        Write-StyledMessage Info "Configurazione per bloccare download driver da Windows Update."
+        Write-StyledMessage -Type 'Info' -Text "Configurazione per bloccare download driver da Windows Update."
 
         $regPath = $AppConfig.Registry.WindowsUpdatePolicies
         $propertyName = "ExcludeWUDriversInQualityUpdate"
@@ -86,19 +86,19 @@ function VideoDriverInstall {
 
         try {
             if (-not (Test-Path $regPath)) {
-                New-Item -Path $regPath -Force | Out-Null
+                New-Item -Path $regPath -Force *>$null
             }
             Set-ItemProperty -Path $regPath -Name $propertyName -Value $propertyValue -Type DWord -Force -ErrorAction Stop
-            Write-StyledMessage Success "Blocco download driver da Windows Update impostato correttamente nel registro."
-            Write-StyledMessage Info "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
+            Write-StyledMessage -Type 'Success' -Text "Blocco download driver da Windows Update impostato correttamente nel registro."
+            Write-StyledMessage -Type 'Info' -Text "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
         }
         catch {
-            Write-StyledMessage Error "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)."
-            Write-StyledMessage Warning "Potrebbe essere necessario eseguire lo script come amministratore."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Potrebbe essere necessario eseguire lo script come amministratore."
             return
         }
 
-        Write-StyledMessage Info "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche."
+        Write-StyledMessage -Type 'Info' -Text "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche."
         try {
             $procParams = @{
                 FilePath     = 'gpupdate.exe'
@@ -110,15 +110,15 @@ function VideoDriverInstall {
             }
             $gpupdateProcess = Start-Process @procParams
             if ($gpupdateProcess.ExitCode -eq 0) {
-                Write-StyledMessage Success "Criteri di gruppo aggiornati con successo."
+                Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati con successo."
             }
             else {
-                Write-StyledMessage Warning "Aggiornamento dei criteri di gruppo completato con codice di uscita non zero: $($gpupdateProcess.ExitCode)."
+                Write-StyledMessage -Type 'Warning' -Text "Aggiornamento dei criteri di gruppo completato con codice di uscita non zero: $($gpupdateProcess.ExitCode)."
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante l'aggiornamento dei criteri di gruppo: $($_.Exception.Message)."
-            Write-StyledMessage Warning "Le modifiche ai criteri potrebbero richiedere un riavvio o del tempo per essere applicate."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'aggiornamento dei criteri di gruppo: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Le modifiche ai criteri potrebbero richiedere un riavvio o del tempo per essere applicate."
         }
     }
 
@@ -139,15 +139,15 @@ function VideoDriverInstall {
             [int]$MaxRetries = 3
         )
 
-        Write-StyledMessage Info "Scaricando $Description."
+        Write-StyledMessage -Type 'Info' -Text "Scaricando $Description."
 
         $destDir = Split-Path -Path $DestinationPath -Parent
         if (-not (Test-Path $destDir)) {
             try {
-                New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+                New-Item -ItemType Directory -Path $destDir -Force *>$null
             }
             catch {
-                Write-StyledMessage Error "Impossibile creare la cartella di destinazione '$destDir': $($_.Exception.Message)."
+                Write-StyledMessage -Type 'Error' -Text "Impossibile creare la cartella di destinazione '$destDir': $($_.Exception.Message)."
                 return $false
             }
         }
@@ -192,18 +192,18 @@ function VideoDriverInstall {
                 $responseStream.Dispose()
                 $webResponse.Close()
 
-                Write-StyledMessage Success "Download di $Description completato."
+                Write-StyledMessage -Type 'Success' -Text "Download di $Description completato."
                 return $true
             }
             catch {
                 Write-Progress -Activity "Download $Description" -Completed
-                Write-StyledMessage Warning "Tentativo $attempt fallito per $Description`: $($_.Exception.Message)."
+                Write-StyledMessage -Type 'Warning' -Text "Tentativo $attempt fallito per $Description`: $($_.Exception.Message)."
                 if ($attempt -lt $MaxRetries) {
                     Start-Sleep -Seconds 2
                 }
             }
         }
-        Write-StyledMessage Error "Errore durante il download di $Description dopo $MaxRetries tentativi."
+        Write-StyledMessage -Type 'Error' -Text "Errore durante il download di $Description dopo $MaxRetries tentativi."
         return $false
     }
 
@@ -214,24 +214,24 @@ function VideoDriverInstall {
         .DESCRIPTION
             Scarica e avvia l'installer appropriato per la GPU rilevata.
         #>
-        Write-StyledMessage Info "Opzione 1: Avvio installazione driver video."
+        Write-StyledMessage -Type 'Info' -Text "Opzione 1: Avvio installazione driver video."
 
         $gpuManufacturer = Get-GpuManufacturer
-        Write-StyledMessage Info "Rilevata GPU: $gpuManufacturer."
+        Write-StyledMessage -Type 'Info' -Text "Rilevata GPU: $gpuManufacturer."
 
         if ($gpuManufacturer -eq 'AMD') {
             $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
             $amdInstallerPath = Join-Path $DriverToolsLocalPath "AMD-Autodetect.exe"
 
             if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
-                Write-StyledMessage Info "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
+                    Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
                 $procParams = @{
                     FilePath    = $amdInstallerPath
                     Wait        = $true
                     ErrorAction = 'SilentlyContinue'
                 }
                 Start-Process @procParams
-                Write-StyledMessage Success "Installazione driver video AMD completata o chiusa."
+                Write-StyledMessage -Type 'Success' -Text "Installazione driver video AMD completata o chiusa."
             }
         }
         elseif ($gpuManufacturer -eq 'NVIDIA') {
@@ -239,21 +239,21 @@ function VideoDriverInstall {
             $nvidiaInstallerPath = Join-Path $DriverToolsLocalPath "NVCleanstall_1.19.0.exe"
 
             if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
-                Write-StyledMessage Info "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
+                    Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
                 $procParams = @{
                     FilePath    = $nvidiaInstallerPath
                     Wait        = $true
                     ErrorAction = 'SilentlyContinue'
                 }
                 Start-Process @procParams
-                Write-StyledMessage Success "Installazione driver video NVIDIA completata o chiusa."
+                        Write-StyledMessage -Type 'Success' -Text "Installazione driver video NVIDIA completata o chiusa."
             }
         }
         elseif ($gpuManufacturer -eq 'Intel') {
-            Write-StyledMessage Info "Rilevata GPU Intel. Utilizza Windows Update per aggiornare i driver integrati."
+            Write-StyledMessage -Type 'Info' -Text "Rilevata GPU Intel. Utilizza Windows Update per aggiornare i driver integrati."
         }
         else {
-            Write-StyledMessage Error "Produttore GPU non supportato o non rilevato per l'installazione automatica dei driver."
+            Write-StyledMessage -Type 'Error' -Text "Produttore GPU non supportato o non rilevato per l'installazione automatica dei driver."
         }
     }
 
@@ -264,37 +264,37 @@ function VideoDriverInstall {
         .DESCRIPTION
             Scarica DDU e gli installer dei driver, configura la modalità provvisoria e riavvia.
         #>
-        Write-StyledMessage Warning "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
+        Write-StyledMessage -Type 'Warning' -Text "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
 
         # Download DDU
         $dduZipUrl = $AppConfig.URLs.DDUZip
         $dduZipPath = Join-Path $DriverToolsLocalPath "DDU.zip"
 
         if (-not (Download-FileWithProgress -Url $dduZipUrl -DestinationPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
-            Write-StyledMessage Error "Impossibile scaricare DDU. Annullamento operazione."
+            Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare DDU. Annullamento operazione."
             return
         }
 
         # Extract DDU to Desktop
-        Write-StyledMessage Info "Estrazione DDU sul Desktop."
+        Write-StyledMessage -Type 'Info' -Text "Estrazione DDU sul Desktop."
         try {
             Expand-Archive -Path $dduZipPath -DestinationPath $DesktopPath -Force
-            Write-StyledMessage Success "DDU estratto correttamente sul Desktop."
+            Write-StyledMessage -Type 'Success' -Text "DDU estratto correttamente sul Desktop."
         }
         catch {
-            Write-StyledMessage Error "Errore durante l'estrazione di DDU sul Desktop: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'estrazione di DDU sul Desktop: $($_.Exception.Message)."
             return
         }
 
         $gpuManufacturer = Get-GpuManufacturer
-        Write-StyledMessage Info "Rilevata GPU: $gpuManufacturer."
+        Write-StyledMessage -Type 'Info' -Text "Rilevata GPU: $gpuManufacturer."
 
         if ($gpuManufacturer -eq 'AMD') {
             $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
             $amdInstallerPath = Join-Path $DesktopPath "AMD-Autodetect.exe"
 
             if (-not (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool")) {
-                Write-StyledMessage Error "Impossibile scaricare l'installer AMD. Annullamento operazione."
+                Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare l'installer AMD. Annullamento operazione."
                 return
             }
         }
@@ -303,32 +303,32 @@ function VideoDriverInstall {
             $nvidiaInstallerPath = Join-Path $DesktopPath "NVCleanstall_1.19.0.exe"
 
             if (-not (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool")) {
-                Write-StyledMessage Error "Impossibile scaricare l'installer NVIDIA. Annullamento operazione."
+                Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare l'installer NVIDIA. Annullamento operazione."
                 return
             }
         }
         elseif ($gpuManufacturer -eq 'Intel') {
-            Write-StyledMessage Info "Rilevata GPU Intel. Scarica manualmente i driver da Intel se necessario."
+            Write-StyledMessage -Type 'Info' -Text "Rilevata GPU Intel. Scarica manualmente i driver da Intel se necessario."
         }
         else {
-            Write-StyledMessage Warning "Produttore GPU non supportato o non rilevato. Verrà posizionato solo DDU sul desktop."
+            Write-StyledMessage -Type 'Warning' -Text "Produttore GPU non supportato o non rilevato. Verrà posizionato solo DDU sul desktop."
         }
 
-        Write-StyledMessage Info "DDU e l'installer dei Driver (se rilevato) sono stati posizionati sul desktop."
+        Write-StyledMessage -Type 'Info' -Text "DDU e l'installer dei Driver (se rilevato) sono stati posizionati sul desktop."
 
         # Creazione file batch per tornare alla modalità normale
         $batchFilePath = Join-Path $DesktopPath "Switch to Normal Mode.bat"
         try {
             Set-Content -Path $batchFilePath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
-            Write-StyledMessage Info "File batch 'Switch to Normal Mode.bat' creato sul desktop per disabilitare la Modalità Provvisoria."
+            Write-StyledMessage -Type 'Info' -Text "File batch 'Switch to Normal Mode.bat' creato sul desktop per disabilitare la Modalità Provvisoria."
         }
         catch {
-            Write-StyledMessage Warning "Impossibile creare il file batch: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Impossibile creare il file batch: $($_.Exception.Message)."
         }
 
-        Write-StyledMessage Error "ATTENZIONE: Il sistema sta per riavviarsi in modalità provvisoria."
+        Write-StyledMessage -Type 'Error' -Text "ATTENZIONE: Il sistema sta per riavviarsi in modalità provvisoria."
 
-        Write-StyledMessage Info "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria."
+        Write-StyledMessage -Type 'Info' -Text "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria."
         try {
             $procParams = @{
                 FilePath     = 'bcdedit.exe'
@@ -338,11 +338,11 @@ function VideoDriverInstall {
                 ErrorAction  = 'Stop'
             }
             Start-Process @procParams
-            Write-StyledMessage Success "Modalità Provvisoria configurata per il prossimo avvio."
+            Write-StyledMessage -Type 'Success' -Text "Modalità Provvisoria configurata per il prossimo avvio."
         }
         catch {
-            Write-StyledMessage Error "Errore durante la configurazione della Modalità Provvisoria tramite bcdedit: $($_.Exception.Message)."
-            Write-StyledMessage Warning "Il riavvio potrebbe non avvenire in Modalità Provvisoria. Procedere manualmente."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante la configurazione della Modalità Provvisoria tramite bcdedit: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Il riavvio potrebbe non avvenire in Modalità Provvisoria. Procedere manualmente."
             return
         }
 
@@ -358,16 +358,16 @@ function VideoDriverInstall {
             if ($shouldReboot) {
                 try {
                     Restart-Computer -Force
-                    Write-StyledMessage Success "Comando di riavvio inviato."
+                    Write-StyledMessage -Type 'Success' -Text "Comando di riavvio inviato."
                 }
                 catch {
-                    Write-StyledMessage Error "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)."
+                    Write-StyledMessage -Type 'Error' -Text "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)."
                 }
             }
         }
     }
 
-    Write-StyledMessage Info '🔧 Inizializzazione dello Script di Installazione Driver Video.'
+    Write-StyledMessage -Type 'Info' -Text '🔧 Inizializzazione dello Script di Installazione Driver Video.'
     Start-Sleep -Seconds 2
 
     Set-BlockWindowsUpdateDrivers
@@ -375,24 +375,27 @@ function VideoDriverInstall {
     # Main Menu Logic
     $choice = ""
     do {
-        Write-Host ""
-        Write-StyledMessage Info 'Seleziona un''opzione:'
-        Write-Host "  1) Installa Driver Video."
-        Write-Host "  2) Reinstalla/Ripara Driver Video."
-        Write-Host "  0) Torna al menu principale."
-        Write-Host ""
+
+
+        Write-StyledMessage -Type 'Info' -Text 'Seleziona un''opzione:'
+
+
+
+
+
         $choice = Read-Host "La tua scelta"
-        Write-Host ""
+
+
 
         switch ($choice.ToUpper()) {
             "1" { Handle-InstallVideoDrivers }
             "2" { Handle-ReinstallRepairVideoDrivers }
-            "0" { Write-StyledMessage Info 'Tornando al menu principale.' }
-            default { Write-StyledMessage Warning "Scelta non valida. Riprova." }
+            "0" { Write-StyledMessage -Type 'Info' -Text 'Tornando al menu principale.' }
+            default { Write-StyledMessage -Type 'Warning' -Text "Scelta non valida. Riprova." }
         }
 
         if ($choice.ToUpper() -ne "0") {
-            Write-Host "Premi un tasto per continuare."
+
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
             Clear-Host
             Show-Header -SubTitle "Video Driver Install Toolkit"

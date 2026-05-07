@@ -43,9 +43,9 @@ function WinReinstallStore {
             "$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
             (Join-Path $env:LOCALAPPDATA "Microsoft\Windows\INetCache")
         ) | ForEach-Object {
-            if (Test-Path $_) { 
+            if (Test-Path $_) {
                 $ProgressPreference = 'SilentlyContinue'
-                Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null 
+                Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null
             }
         }
 
@@ -79,11 +79,11 @@ function WinReinstallStore {
                     $store = Get-AppxPackage -AllUsers *WindowsStore* -ErrorAction SilentlyContinue | Select-Object -First 1
                     $manifest = if ($store) { Join-Path $store.InstallLocation 'AppxManifest.xml' } else { $null }
                     if (-not $manifest -or -not (Test-Path $manifest)) { return @{ ExitCode = -1 } }
-                    
+
                     $procResult = Invoke-WithSpinner -Activity "Registrazione AppX Manifest Store" -Process -Action {
                         Start-AppxSilentProcess -AppxPath $manifest -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown'
                     } -TimeoutSeconds 120
-                    
+
                     return @{ ExitCode = $procResult.ExitCode }
                 }
             },
@@ -112,7 +112,7 @@ function WinReinstallStore {
             try {
                 $result = $method.Action.Invoke()
                 $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                Write-Host $clearLine -NoNewline
+                Clear-ProgressLine
                 [Console]::Out.Flush()
                 $isSuccess = $result -and ($result.ExitCode -in @(0, 3010, 1638, -1978335189))
                 if ($isSuccess) {
@@ -141,7 +141,7 @@ function WinReinstallStore {
                 } -TimeoutSeconds 120
             }
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
+                Clear-ProgressLine
             [Console]::Out.Flush()
             Write-StyledMessage -Type 'Success' -Text "Cache dello Store ripristinata."
         }
@@ -156,7 +156,7 @@ function WinReinstallStore {
                     }
                 } -TimeoutSeconds 300
                 $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                Write-Host $clearLine -NoNewline
+                Clear-ProgressLine
                 [Console]::Out.Flush()
                 Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato tramite metodo di emergenza."
                 $success = $true
@@ -196,7 +196,7 @@ function WinReinstallStore {
             } -TimeoutSeconds 120
 
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
+                Clear-ProgressLine
             [Console]::Out.Flush()
 
             $processResult = Invoke-WithSpinner -Activity "Installazione UniGet UI" -Process -Action {
@@ -213,7 +213,7 @@ function WinReinstallStore {
             } -TimeoutSeconds 600
 
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
+                Clear-ProgressLine
             [Console]::Out.Flush()
 
             $isSuccess = $processResult.ExitCode -in @(0, 3010, 1638, -1978335189)
@@ -314,9 +314,9 @@ function WinReinstallStore {
 
         $handlesRedirected = $false
         try {
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNullOut) | Out-Null
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNullOut) | Out-Null
-            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hNullIn) | Out-Null
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hNullOut) *>$null
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hNullOut) *>$null
+            [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hNullIn) *>$null
             $handlesRedirected = $true
 
             $env:POWERSHELL_TELEMETRY_OPTOUT = '1'
@@ -327,17 +327,17 @@ function WinReinstallStore {
         finally {
             if ($handlesRedirected) {
                 try {
-                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) | Out-Null
-                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) | Out-Null
-                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hOrigIn) | Out-Null
+                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_OUTPUT, $hOrigOut) *>$null
+                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) *>$null
+                    [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hOrigIn) *>$null
                 }
                 catch { }
             }
             if ($hNullOut -and $hNullOut -ne $INVALID_HANDLE_VALUE -and $hNullOut -ne [IntPtr]::Zero) {
-                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullOut) | Out-Null } catch { }
+                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullOut) *>$null } catch { }
             }
             if ($hNullIn -and $hNullIn -ne $INVALID_HANDLE_VALUE -and $hNullIn -ne [IntPtr]::Zero) {
-                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullIn) | Out-Null } catch { }
+                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullIn) *>$null } catch { }
             }
         }
     }
@@ -348,7 +348,7 @@ function WinReinstallStore {
         $wingetResult = $false
 
         try {
-            $global:ProgressPreference = 'SilentlyContinue'
+            $ProgressPreference = 'SilentlyContinue'
             $wingetResult = Invoke-WithConsoleRedirection -Action { Reset-Winget -Force }
         }
         catch {
@@ -356,7 +356,7 @@ function WinReinstallStore {
             Write-ToolkitLog -Level ERROR -Message "Reset-Winget eccezione non gestita: $($_.Exception.Message)"
         }
         finally {
-            $global:ProgressPreference = $savedProgressPref
+            $ProgressPreference = $savedProgressPref
         }
 
         if ($wingetResult) {
@@ -368,27 +368,27 @@ function WinReinstallStore {
 
         $storeResult = Install-MicrosoftStore
         $unigetResult = Install-UniGetUI
- 
+
         if ($storeResult) {
             Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato correttamente."
         }
         else {
             Write-StyledMessage -Type 'Error' -Text "❌ Microsoft Store non ripristinato."
         }
- 
+
         if ($unigetResult) {
             Write-StyledMessage -Type 'Success' -Text "UniGet UI installato."
         }
         else {
             Write-StyledMessage -Type 'Warning' -Text "⚠️ UniGet UI richiedere verifica manuale."
         }
- 
+
         Write-StyledMessage -Type 'Success' -Text "🎉 Operazione completata."
     }
     finally {
         $ProgressPreference = $savedProgressPref
     }
- 
+
     # ============================================================================
     # 7. GESTIONE RIAVVIO — SEMPRE ULTIMA
     # ============================================================================

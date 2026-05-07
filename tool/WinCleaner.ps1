@@ -18,7 +18,7 @@ function WinCleaner {
     )
 
     # Initialize global execution log BEFORE any function calls
-    $global:WinCleanerLog = @()
+    $script:WinCleanerLog = @()
 
 
     # ============================================================================
@@ -26,7 +26,7 @@ function WinCleaner {
     # ============================================================================
 
     # Add-CleanerLog: accumula i messaggi nel log interno di WinCleaner per il
-    # riepilogo finale ($global:WinCleanerLog) E chiama Write-StyledMessage del
+    # riepilogo finale ($script:WinCleanerLog) E chiama Write-StyledMessage del
     # framework per il feedback all'utente.
     # NOTA: non ridefinisce Write-StyledMessage – delega sempre al template.
     function Add-CleanerLog {
@@ -47,7 +47,7 @@ function WinCleaner {
             Type      = $Type
             Text      = $Text
         }
-        $global:WinCleanerLog += $logEntry
+        $script:WinCleanerLog += $logEntry
 
         Write-StyledMessage -Type $Type -Text $Text
     }
@@ -183,11 +183,11 @@ function WinCleaner {
 
             if ($action -eq 'Stop' -and $svc.Status -eq 'Running') {
                 Add-CleanerLog -Type 'Info' -Text "⏸️ Arresto servizio $svcName."
-                Stop-Service -Name $svcName -Force -ErrorAction Stop | Out-Null
+                Stop-Service -Name $svcName -Force -ErrorAction Stop *>$null
             }
             elseif ($action -eq 'Start' -and $svc.Status -ne 'Running') {
                 Add-CleanerLog -Type 'Info' -Text "▶️ Avvio servizio $svcName."
-                Start-Service -Name $svcName -ErrorAction Stop | Out-Null
+                Start-Service -Name $svcName -ErrorAction Stop *>$null
             }
             return $true
         }
@@ -267,12 +267,12 @@ function WinCleaner {
                 if ($valuesOnly) {
                     $item = Get-Item $key -ErrorAction Stop
                     $item.GetValueNames() | ForEach-Object {
-                        if ($_ -ne '(default)') { Remove-ItemProperty -LiteralPath $key -Name $_ -Force -ErrorAction SilentlyContinue | Out-Null }
+                        if ($_ -ne '(default)') { Remove-ItemProperty -LiteralPath $key -Name $_ -Force -ErrorAction SilentlyContinue *>$null }
                     }
                     if ($recursive) {
                         Get-ChildItem $key -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
                             $currentKeyPath = $_.PSPath
-                            $_.GetValueNames() | ForEach-Object { Remove-ItemProperty -LiteralPath $currentKeyPath -Name $_ -Force -ErrorAction SilentlyContinue | Out-Null }
+                            $_.GetValueNames() | ForEach-Object { Remove-ItemProperty -LiteralPath $currentKeyPath -Name $_ -Force -ErrorAction SilentlyContinue *>$null }
                         }
                     }
                     Add-CleanerLog -Type 'Success' -Text "⚙️ Puliti valori in $key"
@@ -293,8 +293,8 @@ function WinCleaner {
         param($Rule)
         $key = $Rule.Key -replace '^(HKCU|HKLM):', '$1:\'
         try {
-            if (-not (Test-Path $key)) { New-Item -Path $key -Force -ErrorAction SilentlyContinue | Out-Null }
-            Set-ItemProperty -Path $key -Name $Rule.ValueName -Value $Rule.ValueData -Type $Rule.ValueType -Force -ErrorAction SilentlyContinue | Out-Null
+            if (-not (Test-Path $key)) { New-Item -Path $key -Force -ErrorAction SilentlyContinue *>$null }
+            Set-ItemProperty -Path $key -Name $Rule.ValueName -Value $Rule.ValueData -Type $Rule.ValueType -Force -ErrorAction SilentlyContinue *>$null
             Add-CleanerLog -Type 'Success' -Text "⚙️ Impostato $key\$($Rule.ValueName)"
             return $true
         }
@@ -387,12 +387,12 @@ function WinCleaner {
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
                 Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs."
                 $wevtErr = $null
-                & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr | Out-Null
+                & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr *>$null
                 if ($wevtErr) { Write-ToolkitLog -Level DEBUG -Message "wevtutil sl output: $wevtErr" }
                 Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object {
                     $logName = $_.LogName
                     $clErr = $null
-                    Wevtutil.exe cl $logName 2>&1 | Out-String -OutVariable clErr | Out-Null
+                    Wevtutil.exe cl $logName 2>&1 | Out-String -OutVariable clErr *>$null
                     if ($LASTEXITCODE -ne 0 -and $clErr) { Write-ToolkitLog -Level DEBUG -Message "Wevtutil cl [$logName]: $clErr" }
                 }
             }
@@ -401,7 +401,7 @@ function WinCleaner {
         # --- Windows Update ---
         @{ Name = "Clear Windows Update cache"; Type = "Custom"; ScriptBlock = {
                 Add-CleanerLog -Type 'Info' -Text "🔄 Pulizia cache di Windows Update."
-                
+
                 # Servizi da fermare
                 $services = @("wuauserv", "bits")
                 foreach ($s in $services) {
@@ -426,7 +426,7 @@ function WinCleaner {
                 }
 
                 # Riavvio servizi
-                foreach ($s in $services) { 
+                foreach ($s in $services) {
                     Invoke-ServiceAction -Rule @{ ServiceName = $s; Action = "Start" }
                 }
 
@@ -680,7 +680,7 @@ function WinCleaner {
                     Add-CleanerLog -Type 'Info' -Text "🖨️ Pulizia coda di stampa (Spooler)."
 
                     Add-CleanerLog -Type 'Info' -Text "⏸️ Arresto servizio Spooler."
-                    Stop-Service -Name Spooler -Force -ErrorAction Stop | Out-Null
+                    Stop-Service -Name Spooler -Force -ErrorAction Stop *>$null
                     Add-CleanerLog -Type 'Info' -Text "Servizio Spooler arrestato."
                     Start-Sleep -Seconds 2
 
@@ -692,7 +692,7 @@ function WinCleaner {
                     }
 
                     Add-CleanerLog -Type 'Info' -Text "▶️ Riavvio servizio Spooler."
-                    Start-Service -Name Spooler -ErrorAction Stop | Out-Null
+                    Start-Service -Name Spooler -ErrorAction Stop *>$null
                     Add-CleanerLog -Type 'Info' -Text "Servizio Spooler riavviato."
 
                     Add-CleanerLog -Type 'Success' -Text "Print Queue Spooler pulito e riavviato con successo."
@@ -740,10 +740,10 @@ function WinCleaner {
                 function New-EmptyFile($Path) {
                     $parentDirectory = [System.IO.Path]::GetDirectoryName($Path)
                     if (-not (Test-Path $parentDirectory -PathType Container)) {
-                        try { New-Item -ItemType Directory -Path $parentDirectory -Force -ErrorAction Stop | Out-Null }
+                        try { New-Item -ItemType Directory -Path $parentDirectory -Force -ErrorAction Stop *>$null }
                         catch { Write-StyledMessage -Type 'Warning' -Text "Failed to create parent directory: $_"; return $false }
                     }
-                    try { New-Item -ItemType File -Path $Path -Force -ErrorAction Stop | Out-Null; return $true }
+                    try { New-Item -ItemType File -Path $Path -Force -ErrorAction Stop *>$null; return $true }
                     catch { Write-StyledMessage -Type 'Warning' -Text "Failed to create file: $_"; return $false }
                 }
 
@@ -797,7 +797,7 @@ function WinCleaner {
         # --- Special Operations ---
         @{ Name = "Credential Manager"; Type = "Custom"; ScriptBlock = {
                 Add-CleanerLog -Type 'Info' -Text "🔑 Pulizia Credenziali."
-                
+
                 $cmdkeyErr = $null
                 $targets = & cmdkey /list 2>&1 | Tee-Object -Variable cmdkeyErr | Where-Object { $_ -match '^Target:' }
                 if ($cmdkeyErr -and $LASTEXITCODE -ne 0) { Write-ToolkitLog -Level DEBUG -Message "cmdkey list error: $cmdkeyErr" }
@@ -805,7 +805,7 @@ function WinCleaner {
                 $targets | ForEach-Object {
                     $t = $_.Split(':')[1].Trim()
                     $delErr = $null
-                    & cmdkey /delete:$t 2>&1 | Tee-Object -Variable delErr | Out-Null
+                    & cmdkey /delete:$t 2>&1 | Tee-Object -Variable delErr *>$null
                     if ($delErr -and $LASTEXITCODE -ne 0) { Write-ToolkitLog -Level DEBUG -Message "cmdkey delete [$t] error: $delErr" }
                 }
             }
@@ -897,13 +897,14 @@ function WinCleaner {
     # ============================================================================
 
     Clear-ProgressLine
-    Write-Host "`n"
+
+
     Write-StyledMessage -Type 'Info' -Text "=================================================="
     Write-StyledMessage -Type 'Info' -Text "               RIEPILOGO OPERAZIONI               "
     Write-StyledMessage -Type 'Info' -Text "=================================================="
 
     # Group logs by type for summary stats
-    $stats = $global:WinCleanerLog | Group-Object Type
+    $stats = $script:WinCleanerLog | Group-Object Type
     $sCount = ($stats | Where-Object Name -eq 'Success').Count
     $wCount = ($stats | Where-Object Name -eq 'Warning').Count
     $eCount = ($stats | Where-Object Name -eq 'Error').Count
@@ -915,7 +916,7 @@ function WinCleaner {
     Write-StyledMessage -Type 'Info' -Text "--------------------------------------------------"
     Write-StyledMessage -Type 'Info' -Text "Dettaglio Errori e Warning:"
 
-    $problems = $global:WinCleanerLog | Where-Object { $_.Type -in 'Warning', 'Error' }
+    $problems = $script:WinCleanerLog | Where-Object { $_.Type -in 'Warning', 'Error' }
     if ($problems) {
         foreach ($p in $problems) {
             Write-StyledMessage -Type $p.Type -Text $p.Text
@@ -926,7 +927,8 @@ function WinCleaner {
     }
 
     Write-StyledMessage -Type 'Info' -Text "=================================================="
-    Write-Host "`n"
+
+
 
     if ($SuppressIndividualReboot) {
         $Global:NeedsFinalReboot = $true

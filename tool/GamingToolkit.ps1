@@ -18,7 +18,7 @@ function GamingToolkit {
     param(
         [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
-        
+
         [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
@@ -93,8 +93,8 @@ function GamingToolkit {
             }
         }
         catch {
-            Write-Host "`r$(' ' * 120)" -NoNewline
-            Write-Host "`r" -NoNewline
+            Clear-ProgressLine
+            Clear-ProgressLine
             Write-StyledMessage -Type 'Error' -Text "Eccezione $DisplayName : $($_.Exception.Message)."
             return @{ Success = $false }
         }
@@ -111,41 +111,43 @@ function GamingToolkit {
     Show-Header -SubTitle "Gaming Toolkit"
 
     # Step 1: Verifica e ripristino automatico Winget (centralizzato tramite Reset-Winget)
-    Write-StyledMessage Info '🔍 Verifica disponibilità Winget.'
+    Write-StyledMessage -Type 'Info' -Text '🔍 Verifica disponibilità Winget.'
     Update-EnvironmentPath
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-StyledMessage Warning '⚠️ Winget non disponibile. Avvio ripristino automatico...'
+        Write-StyledMessage -Type 'Warning' -Text '⚠️ Winget non disponibile. Avvio ripristino automatico...'
         $resetOk = Reset-Winget
         Update-EnvironmentPath
         if (-not $resetOk -or -not (Get-Command winget -ErrorAction SilentlyContinue)) {
-            Write-StyledMessage Error '❌ Ripristino Winget fallito. Impossibile procedere con Gaming Toolkit.'
+            Write-StyledMessage -Type 'Error' -Text '❌ Ripristino Winget fallito. Impossibile procedere con Gaming Toolkit.'
             Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare.'
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
             return
         }
     }
-    Write-StyledMessage Success '✅ Winget disponibile.'
+    Write-StyledMessage -Type 'Success' -Text '✅ Winget disponibile.'
 
-    Write-StyledMessage Info '🔄 Aggiornamento sorgenti Winget.'
+    Write-StyledMessage -Type 'Info' -Text '🔄 Aggiornamento sorgenti Winget.'
     try {
-        winget source update | Out-Null
-        Write-StyledMessage Success 'Sorgenti aggiornate.'
+        winget source update *>$null
+        Write-StyledMessage -Type 'Success' -Text 'Sorgenti aggiornate.'
     }
     catch {
-        Write-StyledMessage Warning "Errore aggiornamento sorgenti: $($_.Exception.Message)."
+        Write-StyledMessage -Type 'Warning' -Text "Errore aggiornamento sorgenti: $($_.Exception.Message)."
     }
-    Write-Host ''
+
+
 
     # Step 2: NetFramework
-    Write-StyledMessage Info '🔧 Abilitazione NetFramework.'
+    Write-StyledMessage -Type 'Info' -Text '🔧 Abilitazione NetFramework.'
     try {
-        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop | Out-Null
-        Write-StyledMessage Success 'NetFramework abilitato.'
+        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop *>$null
+        Write-StyledMessage -Type 'Success' -Text 'NetFramework abilitato.'
     }
     catch {
-        Write-StyledMessage Error "Errore durante abilitazione NetFramework: $($_.Exception.Message)."
+        Write-StyledMessage -Type 'Error' -Text "Errore durante abilitazione NetFramework: $($_.Exception.Message)."
     }
-    Write-Host ''
+
+
 
     # Step 3: Runtime e VCRedist
     $runtimes = @(
@@ -167,24 +169,26 @@ function GamingToolkit {
         "Microsoft.VCRedist.2015+.x86"
     )
 
-    Write-StyledMessage Info '🔥 Installazione runtime .NET e VCRedist.'
+    Write-StyledMessage -Type 'Info' -Text '🔥 Installazione runtime .NET e VCRedist.'
     for ($runtimeIndex = 0; $runtimeIndex -lt $runtimes.Count; $runtimeIndex++) {
-        Invoke-WingetInstallWithProgress $runtimes[$runtimeIndex] $runtimes[$runtimeIndex] ($runtimeIndex + 1) $runtimes.Count | Out-Null
-        Write-Host ''
+        Invoke-WingetInstallWithProgress $runtimes[$runtimeIndex] $runtimes[$runtimeIndex] ($runtimeIndex + 1) $runtimes.Count *>$null
+
+
     }
-    Write-StyledMessage Success 'Runtime completati.'
-    Write-Host ''
+    Write-StyledMessage -Type 'Success' -Text 'Runtime completati.'
+
+
 
     # Step 4: DirectX
-    Write-StyledMessage Info '🎮 Installazione DirectX.'
-    $dxDir = "$env:LOCALAPPDATA\WinToolkit\Directx"
+    Write-StyledMessage -Type 'Info' -Text '🎮 Installazione DirectX.'
+    $dxDir = Join-Path $AppConfig.Paths.LocalAppData "WinToolkit\Directx"
     $dxPath = "$dxDir\dxwebsetup.exe"
 
-    if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force | Out-Null }
+    if (-not (Test-Path $dxDir)) { New-Item -Path $dxDir -ItemType Directory -Force *>$null }
 
     try {
         Invoke-WebRequest -Uri $AppConfig.URLs.DirectXWebSetup -OutFile $dxPath -ErrorAction Stop
-        Write-StyledMessage Success 'DirectX scaricato.'
+        Write-StyledMessage -Type 'Success' -Text 'DirectX scaricato.'
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo DirectX
         $result = Invoke-WithSpinner -Activity "Installazione DirectX" -Process -Action {
@@ -195,14 +199,14 @@ function GamingToolkit {
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 700
 
-        Write-Host "`r$(' ' * 120)" -NoNewline
-        Write-Host "`r" -NoNewline
+        Clear-ProgressLine
+        Clear-ProgressLine
 
         if ($null -eq $result) {
-            Write-StyledMessage Error "DirectX: processo non avviato correttamente."
+            Write-StyledMessage -Type 'Error' -Text "DirectX: processo non avviato correttamente."
         }
         elseif ($result -is [hashtable] -and $result.Contains('TimedOut') -and $result.TimedOut) {
-            Write-StyledMessage Warning "Timeout DirectX."
+            Write-StyledMessage -Type 'Warning' -Text "Timeout DirectX."
         }
         else {
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
@@ -211,11 +215,12 @@ function GamingToolkit {
         }
     }
     catch {
-        Write-Host "`r$(' ' * 120)" -NoNewline
-        Write-Host "`r" -NoNewline
-        Write-StyledMessage Error "Errore durante installazione DirectX: $($_.Exception.Message)"
+        Clear-ProgressLine
+        Clear-ProgressLine
+            Write-StyledMessage -Type 'Error' -Text "Errore durante installazione DirectX: $($_.Exception.Message)"
     }
-    Write-Host ''
+
+
 
     # Step 5: Client di gioco
     $gameClients = @(
@@ -224,22 +229,24 @@ function GamingToolkit {
         "Ubisoft.Connect"
     )
 
-    Write-StyledMessage Info '🎮 Installazione client di gioco.'
+    Write-StyledMessage -Type 'Info' -Text '🎮 Installazione client di gioco.'
     for ($clientIndex = 0; $clientIndex -lt $gameClients.Count; $clientIndex++) {
-        Invoke-WingetInstallWithProgress $gameClients[$clientIndex] $gameClients[$clientIndex] ($clientIndex + 1) $gameClients.Count | Out-Null
-        Write-Host ''
+        Invoke-WingetInstallWithProgress $gameClients[$clientIndex] $gameClients[$clientIndex] ($clientIndex + 1) $gameClients.Count *>$null
+
+
     }
-    Write-StyledMessage Success 'Client installati.'
-    Write-Host ''
+    Write-StyledMessage -Type 'Success' -Text 'Client installati.'
+
+
 
     # Step 5b: Xbox Game Bar & Xbox App
-    Write-StyledMessage Info '🎮 Reinstallazione Xbox Game Bar & App.'
+    Write-StyledMessage -Type 'Info' -Text '🎮 Reinstallazione Xbox Game Bar & App.'
 
     $xboxPackages = @("9NZKPSTSNW4P", "9MV0B5HZVK9Z")
 
     foreach ($pkg in $xboxPackages) {
         Write-StyledMessage -Type 'Info' -Text "Reinstallazione: $pkg."
-        
+
         $outFile = "$env:TEMP\winget_$pkg.log"
         $errFile = "$env:TEMP\winget_err_$pkg.log"
 
@@ -272,18 +279,20 @@ function GamingToolkit {
         finally {
             Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
         }
-        Write-Host ''
+
+
     }
-    Write-StyledMessage Success 'Xbox reinstallati.'
-    Write-Host ''
+    Write-StyledMessage -Type 'Success' -Text 'Xbox reinstallati.'
+
+
 
     # Step 6: Battle.net
-    Write-StyledMessage Info '🎮 Installazione Battle.net.'
+    Write-StyledMessage -Type 'Info' -Text '🎮 Installazione Battle.net.'
     $bnPath = "$env:TEMP\Battle.net-Setup.exe"
 
     try {
         Invoke-WebRequest -Uri $AppConfig.URLs.BattleNetInstaller -OutFile $bnPath -ErrorAction Stop
-        Write-StyledMessage Success 'Battle.net scaricato.'
+        Write-StyledMessage -Type 'Success' -Text 'Battle.net scaricato.'
 
         # Usa la funzione globale Invoke-WithSpinner per monitorare il processo Battle.net
         $result = Invoke-WithSpinner -Activity "Installazione Battle.net" -Process -Action {
@@ -297,14 +306,14 @@ function GamingToolkit {
             Start-Process @procParams
         } -TimeoutSeconds $timeout -UpdateInterval 500
 
-        Write-Host "`r$(' ' * 120)" -NoNewline
-        Write-Host "`r" -NoNewline
+        Clear-ProgressLine
+        Clear-ProgressLine
 
         if ($null -eq $result) {
-            Write-StyledMessage Error "Battle.net: processo non avviato correttamente."
+            Write-StyledMessage -Type 'Error' -Text "Battle.net: processo non avviato correttamente."
         }
         elseif ($result -is [hashtable] -and $result.Contains('TimedOut') -and $result.TimedOut) {
-            Write-StyledMessage Warning "Timeout Battle.net."
+            Write-StyledMessage -Type 'Warning' -Text "Timeout Battle.net."
         }
         else {
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
@@ -315,37 +324,39 @@ function GamingToolkit {
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     catch {
-        Write-Host "`r$(' ' * 120)" -NoNewline
-        Write-Host "`r" -NoNewline
-        Write-StyledMessage Error "Errore durante installazione Battle.net: $($_.Exception.Message)"
+        Clear-ProgressLine
+        Clear-ProgressLine
+            Write-StyledMessage -Type 'Error' -Text "Errore durante installazione Battle.net: $($_.Exception.Message)"
         Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare.'
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
-    Write-Host ''
+
+
 
     # Step 7: Pulizia avvio automatico
-    Write-StyledMessage Info '🧹 Pulizia avvio automatico.'
+    Write-StyledMessage -Type 'Info' -Text '🧹 Pulizia avvio automatico.'
     $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
     @('Steam', 'Battle.net', 'GOG Galaxy', 'GogGalaxy', 'GalaxyClient') | ForEach-Object {
         if (Get-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue) {
             Remove-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue
-            Write-StyledMessage Success "Rimosso: $_"
+            Write-StyledMessage -Type 'Success' -Text "Rimosso: $_"
         }
     }
 
-    $startupPath = [Environment]::GetFolderPath('Startup')
+    $startupPath = $AppConfig.Paths.Startup
     @('Steam.lnk', 'Battle.net.lnk', 'GOG Galaxy.lnk') | ForEach-Object {
         $path = Join-Path $startupPath $_
         if (Test-Path $path) {
             Remove-Item $path -Force -ErrorAction SilentlyContinue
-            Write-StyledMessage Success "Rimosso: $_"
+            Write-StyledMessage -Type 'Success' -Text "Rimosso: $_"
         }
     }
-    Write-StyledMessage Success 'Pulizia completata.'
-    Write-Host ''
+    Write-StyledMessage -Type 'Success' -Text 'Pulizia completata.'
+
+
 
     # Step 8: Profilo energetico
-    Write-StyledMessage Info '⚡ Configurazione profilo energetico.'
+    Write-StyledMessage -Type 'Info' -Text '⚡ Configurazione profilo energetico.'
     $ultimateGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61"
     $planName = "WinToolkit Gaming Performance"
     $guid = $null
@@ -353,56 +364,59 @@ function GamingToolkit {
     $existingPlan = powercfg -list | Select-String -Pattern $planName -ErrorAction SilentlyContinue
     if ($existingPlan) {
         $guid = ($existingPlan.Line -split '\s+')[3]
-        Write-StyledMessage Info "Piano esistente trovato."
+        Write-StyledMessage -Type 'Info' -Text "Piano esistente trovato."
     }
     else {
         try {
             $output = powercfg /duplicatescheme $ultimateGUID | Out-String
             if ($output -match "\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b") {
                 $guid = $matches[0]
-                powercfg /changename $guid $planName "Ottimizzato per Gaming dal WinToolkit" | Out-Null
-                Write-StyledMessage Success "Piano creato."
+                powercfg /changename $guid $planName "Ottimizzato per Gaming dal WinToolkit" *>$null
+                Write-StyledMessage -Type 'Success' -Text "Piano creato."
             }
             else {
-                Write-StyledMessage Error "Errore creazione piano."
+                Write-StyledMessage -Type 'Error' -Text "Errore creazione piano."
             }
         }
         catch {
-            Write-StyledMessage Error "Errore durante duplicazione piano energetico: $($_.Exception.Message)"
+            Write-StyledMessage -Type 'Error' -Text "Errore durante duplicazione piano energetico: $($_.Exception.Message)"
         }
     }
 
     if ($guid) {
         try {
-            powercfg -setactive $guid | Out-Null
-            Write-StyledMessage Success "Piano attivato."
+            powercfg -setactive $guid *>$null
+            Write-StyledMessage -Type 'Success' -Text "Piano attivato."
         }
         catch {
-            Write-StyledMessage Error "Errore durante attivazione piano energetico: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante attivazione piano energetico: $($_.Exception.Message)."
         }
     }
     else {
-        Write-StyledMessage Error "Impossibile attivare piano."
+        Write-StyledMessage -Type 'Error' -Text "Impossibile attivare piano."
     }
-    Write-Host ''
+
+
 
     # Step 9: Focus Assist
-    Write-StyledMessage Info '🔕 Attivazione Non disturbare.'
+    Write-StyledMessage -Type 'Info' -Text '🔕 Attivazione Non disturbare.'
     try {
         Set-ItemProperty -Path $AppConfig.Registry.FocusAssist -Name "NOC_GLOBAL_SETTING_TOASTS_ENABLED" -Value 0 -Force
-        Write-StyledMessage Success 'Non disturbare attivo.'
+        Write-StyledMessage -Type 'Success' -Text 'Non disturbare attivo.'
     }
     catch {
-        Write-StyledMessage Error "Errore durante configurazione Focus Assist: $($_.Exception.Message)"
+        Write-StyledMessage -Type 'Error' -Text "Errore durante configurazione Focus Assist: $($_.Exception.Message)"
     }
-    Write-Host ''
+
+
 
     # Step 10: Completamento
     Write-StyledMessage -Type 'Info' -Text ('─' * 60)
     Write-StyledMessage -Type 'Success' -Text 'Gaming Toolkit completato!'
     Write-StyledMessage -Type 'Success' -Text 'Sistema ottimizzato per il gaming.'
     Write-StyledMessage -Type 'Info' -Text ('─' * 60)
-    Write-Host ''
+
+
 
     # Step 11: Riavvio
     if ($SuppressIndividualReboot) {
@@ -411,11 +425,11 @@ function GamingToolkit {
     }
     else {
         if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio necessario") {
-            Write-StyledMessage Info '🔄 Riavvio.'
+            Write-StyledMessage -Type 'Info' -Text '🔄 Riavvio.'
             Restart-Computer -Force
         }
         else {
-            Write-StyledMessage Warning 'Riavvia manualmente per applicare tutte le modifiche.'
+            Write-StyledMessage -Type 'Warning' -Text 'Riavvia manualmente per applicare tutte le modifiche.'
             Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare.'
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
         }

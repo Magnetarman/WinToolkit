@@ -34,7 +34,7 @@ function WinUpdateReset {
             [switch]$Wait,
             [int]$TimeoutSeconds = 10
         )
-        
+
         $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
         if (-not $service) { return $false }
         if ($service.Status -eq $Status) { return $true }
@@ -58,7 +58,7 @@ function WinUpdateReset {
 
     function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
         $percent = [math]::Round(($Current / $Total) * 100)
-        Invoke-WithSpinner -Activity "$Action $ServiceName" -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1 | Out-Null
+        Invoke-WithSpinner -Activity "$Action $ServiceName" -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1 *>$null
     }
 
     function Manage-Service($serviceName, $action, $config, $currentStep, $totalSteps) {
@@ -75,7 +75,7 @@ function WinUpdateReset {
                 'Stop' {
                     Show-ServiceProgress $serviceName "Arresto" $currentStep $totalSteps
                     $success = Set-ServiceStatus -Name $serviceName -Status 'Stopped' -Wait -TimeoutSeconds 10
-                    
+
                     if ($success) {
                         Write-StyledMessage -Type 'Info' -Text "$serviceIcon Servizio $serviceName arrestato."
                     }
@@ -85,19 +85,19 @@ function WinUpdateReset {
                 }
                 'Configure' {
                     Show-ServiceProgress $serviceName "Configurazione" $currentStep $totalSteps
-                    Set-Service -Name $serviceName -StartupType $config.Type -ErrorAction Stop | Out-Null
+                    Set-Service -Name $serviceName -StartupType $config.Type -ErrorAction Stop *>$null
                     Write-StyledMessage -Type 'Success' -Text "$serviceIcon Servizio $serviceName configurato come $($config.Type)."
                 }
                 'Start' {
                     Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
-                    
+
                     $success = $false
-                    Invoke-WithSpinner -Activity "Attesa avvio $serviceName" -Timer -Action { 
+                    Invoke-WithSpinner -Activity "Attesa avvio $serviceName" -Timer -Action {
                         $success = Set-ServiceStatus -Name $serviceName -Status 'Running' -Wait -TimeoutSeconds 10
-                    } -TimeoutSeconds 5 | Out-Null
+                    } -TimeoutSeconds 5 *>$null
 
                     $clearLine = "`r" + (' ' * 80) + "`r"
-                    Write-Host $clearLine -NoNewline
+                    Clear-ProgressLine
 
                     if ($success) {
                         Write-StyledMessage -Type 'Success' -Text "$serviceIcon Servizio ${serviceName}: avviato correttamente."
@@ -123,21 +123,17 @@ function WinUpdateReset {
     function Remove-DirectorySafely([string]$path, [string]$displayName) {
         if (-not (Test-Path $path)) {
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLines -NoNewline
+            Clear-ProgressLine
             [Console]::Out.Flush()
             Write-StyledMessage -Type 'Info' -Text "💭 Directory $displayName non presente."
             return $true
         }
 
         try {
-            $ErrorActionPreference = 'SilentlyContinue'
-            $ProgressPreference = 'SilentlyContinue'
-            $VerbosePreference = 'SilentlyContinue'
-
             Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue *>$null
 
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLines -NoNewline
+            Clear-ProgressLine
             [Console]::Out.Flush()
 
             Write-StyledMessage -Type 'Success' -Text "🗑️ Directory $displayName eliminata."
@@ -145,7 +141,7 @@ function WinUpdateReset {
         }
         catch {
             $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLines -NoNewline
+            Clear-ProgressLine
 
             Write-StyledMessage -Type 'Warning' -Text "Tentativo fallito, provo con eliminazione forzata."
 
@@ -161,11 +157,11 @@ function WinUpdateReset {
                     ErrorAction  = 'SilentlyContinue'
                 }
                 $null = Start-Process @procParams
-                Remove-Item $tempDir -Force -ErrorAction SilentlyContinue | Out-Null
-                Remove-Item $path -Force -ErrorAction SilentlyContinue | Out-Null
+                Remove-Item $tempDir -Force -ErrorAction SilentlyContinue *>$null
+                Remove-Item $path -Force -ErrorAction SilentlyContinue *>$null
 
                 $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                Write-Host $clearLines -NoNewline
+                Clear-ProgressLine
                 [Console]::Out.Flush()
 
                 if (-not (Test-Path $path)) {
@@ -182,9 +178,6 @@ function WinUpdateReset {
                 return $false
             }
             finally {
-                $ErrorActionPreference = 'Continue'
-                $ProgressPreference = 'Continue'
-                $VerbosePreference = 'SilentlyContinue'
             }
         }
     }
@@ -194,7 +187,7 @@ function WinUpdateReset {
     Write-StyledMessage -Type 'Info' -Text '🔧 Inizializzazione dello Script di Reset Windows Update.'
 
     # Caricamento moduli
-    Invoke-WithSpinner -Activity "Caricamento moduli" -Timer -Action { Start-Sleep 2 } -TimeoutSeconds 2 | Out-Null
+    Invoke-WithSpinner -Activity "Caricamento moduli" -Timer -Action { Start-Sleep 2 } -TimeoutSeconds 2 *>$null
 
     Write-StyledMessage -Type 'Info' -Text '🛠️ Avvio riparazione servizi Windows Update.'
     $serviceConfig = @{
@@ -243,13 +236,13 @@ function WinUpdateReset {
 
         Write-StyledMessage -Type 'Info' -Text '📋 Ripristino chiavi di registro Windows Update.'
         # Elaborazione registro
-        Invoke-WithSpinner -Activity "Elaborazione registro" -Timer -Action { Start-Sleep 1 } -TimeoutSeconds 1 | Out-Null
+        Invoke-WithSpinner -Activity "Elaborazione registro" -Timer -Action { Start-Sleep 1 } -TimeoutSeconds 1 *>$null
         try {
             @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update",
                 "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
             ) | Where-Object { Test-Path $_ } | ForEach-Object {
-                Remove-Item $_ -Recurse -Force -ErrorAction Stop | Out-Null
+                Remove-Item $_ -Recurse -Force -ErrorAction Stop *>$null
                 Write-StyledMessage -Type 'Success' -Text 'Completato!'
             }
             if (-not @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update", "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate") | Where-Object { Test-Path $_ }) {
@@ -264,15 +257,15 @@ function WinUpdateReset {
 
         Write-StyledMessage -Type 'Info' -Text '🗂️ Eliminazione componenti Windows Update.'
         $directories = @(
-            @{ Path = "$env:WinDir\SoftwareDistribution"; Name = "SoftwareDistribution" },
-            @{ Path = "$env:WinDir\System32\catroot2"; Name = "catroot2" },
-            @{ Path = "$env:WinDir\System32\WaaSMedicSvc.dll"; Name = "WaaSMedicSvc.dll" },
-            @{ Path = "$env:WinDir\System32\wuaueng.dll"; Name = "wuaueng.dll" },
-            @{ Path = "$env:WinDir\System32\WaaSMedicSvc_BAK.dll"; Name = "WaaSMedicSvc_BAK.dll" },
-            @{ Path = "$env:WinDir\System32\wuaueng_BAK.dll"; Name = "wuaueng_BAK.dll" },
-            @{ Path = "$env:WinDir\SoftwareDistribution\Download"; Name = "Download" },
-            @{ Path = "$env:WinDir\SoftwareDistribution\DataStore"; Name = "DataStore" },
-            @{ Path = "$env:WinDir\SoftwareDistribution\Backup"; Name = "Backup" }
+            @{ Path = $AppConfig.Paths.SoftwareDistribution; Name = "SoftwareDistribution" },
+            @{ Path = $AppConfig.Paths.Catroot2; Name = "catroot2" },
+            @{ Path = Join-Path $AppConfig.Paths.System32 "WaaSMedicSvc.dll"; Name = "WaaSMedicSvc.dll" },
+            @{ Path = Join-Path $AppConfig.Paths.System32 "wuaueng.dll"; Name = "wuaueng.dll" },
+            @{ Path = Join-Path $AppConfig.Paths.System32 "WaaSMedicSvc_BAK.dll"; Name = "WaaSMedicSvc_BAK.dll" },
+            @{ Path = Join-Path $AppConfig.Paths.System32 "wuaueng_BAK.dll"; Name = "wuaueng_BAK.dll" },
+            @{ Path = Join-Path $AppConfig.Paths.SoftwareDistribution "Download"; Name = "Download" },
+            @{ Path = Join-Path $AppConfig.Paths.SoftwareDistribution "DataStore"; Name = "DataStore" },
+            @{ Path = Join-Path $AppConfig.Paths.SoftwareDistribution "Backup"; Name = "Backup" }
         )
 
         for ($dirIndex = 0; $dirIndex -lt $directories.Count; $dirIndex++) {
@@ -288,7 +281,7 @@ function WinUpdateReset {
             }
 
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-            Write-Host $clearLine -NoNewline
+                    Clear-ProgressLine
             [Console]::Out.Flush()
             Start-Sleep -Milliseconds 500
         }
@@ -310,7 +303,7 @@ function WinUpdateReset {
                 WindowStyle  = 'Hidden'
                 ErrorAction  = 'SilentlyContinue'
             }
-            Start-Process @procParams | Out-Null
+            Start-Process @procParams *>$null
             Write-StyledMessage -Type 'Success' -Text 'Completato!'
             Write-StyledMessage -Type 'Success' -Text "🔄 Client Windows Update reimpostato."
         }
@@ -326,13 +319,13 @@ function WinUpdateReset {
 
         try {
             If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU")) {
-                New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Force | Out-Null
+                New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Force *>$null
             }
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -Type DWord -Value 0
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -Type DWord -Value 3
 
             If (!(Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config")) {
-                New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Force | Out-Null
+                New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Force *>$null
             }
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -Type DWord -Value 1
 
@@ -370,7 +363,7 @@ function WinUpdateReset {
                 Write-StyledMessage -Type 'Info' -Text "$($service.Icon) Ripristino $($service.Name) a $($service.StartupType)."
                 $serviceObj = Get-Service -Name $service.Name -ErrorAction SilentlyContinue
                 if ($serviceObj) {
-                    Set-Service -Name $service.Name -StartupType $service.StartupType -ErrorAction SilentlyContinue | Out-Null
+                    Set-Service -Name $service.Name -StartupType $service.StartupType -ErrorAction SilentlyContinue *>$null
 
                     # Reset failure actions to default using sc command
                     $procParams = @{
@@ -380,11 +373,11 @@ function WinUpdateReset {
                         WindowStyle  = 'Hidden'
                         ErrorAction  = 'SilentlyContinue'
                     }
-                    Start-Process @procParams | Out-Null
+                    Start-Process @procParams *>$null
 
                     # Start the service if it should be running
                     if ($service.StartupType -eq "Automatic") {
-                        Set-ServiceStatus -Name $service.Name -Status "Running" -Wait -TimeoutSeconds 5 | Out-Null
+                        Set-ServiceStatus -Name $service.Name -Status "Running" -Wait -TimeoutSeconds 5 *>$null
                     }
 
                     Write-StyledMessage -Type 'Success' -Text "$($service.Icon) Servizio $($service.Name) ripristinato."
@@ -401,8 +394,8 @@ function WinUpdateReset {
         $dlls = @("WaaSMedicSvc", "wuaueng")
 
         foreach ($dll in $dlls) {
-            $dllPath = "$env:WinDir\System32\$dll.dll"
-            $backupPath = "$env:WinDir\System32\${dll}_BAK.dll"
+            $dllPath = Join-Path $AppConfig.Paths.System32 "$dll.dll"
+            $backupPath = Join-Path $AppConfig.Paths.System32 "${dll}_BAK.dll"
 
             if ((Test-Path $backupPath) -and !(Test-Path $dllPath)) {
                 try {
@@ -414,7 +407,7 @@ function WinUpdateReset {
                         WindowStyle  = 'Hidden'
                         ErrorAction  = 'SilentlyContinue'
                     }
-                    Start-Process @procParams | Out-Null
+                    Start-Process @procParams *>$null
 
                     # Grant full control to everyone
                     $procParams = @{
@@ -424,10 +417,10 @@ function WinUpdateReset {
                         WindowStyle  = 'Hidden'
                         ErrorAction  = 'SilentlyContinue'
                     }
-                    Start-Process @procParams | Out-Null
+                    Start-Process @procParams *>$null
 
                     # Rename back to original
-                    Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue | Out-Null
+                    Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue *>$null
                     Write-StyledMessage -Type 'Success' -Text "Ripristinato ${dll}_BAK.dll a $dll.dll."
 
                     # Restore ownership to TrustedInstaller
@@ -438,7 +431,7 @@ function WinUpdateReset {
                         WindowStyle  = 'Hidden'
                         ErrorAction  = 'SilentlyContinue'
                     }
-                    Start-Process @procParams | Out-Null
+                    Start-Process @procParams *>$null
                     $procParams = @{
                         FilePath     = 'icacls.exe'
                         ArgumentList = "`"$dllPath`"", '/remove', '*S-1-1-0'
@@ -446,7 +439,7 @@ function WinUpdateReset {
                         WindowStyle  = 'Hidden'
                         ErrorAction  = 'SilentlyContinue'
                     }
-                    Start-Process @procParams | Out-Null
+                    Start-Process @procParams *>$null
                 }
                 catch {
                     Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile ripristinare $dll.dll - $($_.Exception.Message)."
@@ -476,7 +469,7 @@ function WinUpdateReset {
             try {
                 $tasks = Get-ScheduledTask -TaskPath $taskPath -ErrorAction SilentlyContinue
                 foreach ($task in $tasks) {
-                    Enable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction SilentlyContinue | Out-Null
+                    Enable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction SilentlyContinue *>$null
                     Write-StyledMessage -Type 'Success' -Text "Task abilitato: $($task.TaskName)."
                 }
             }
@@ -529,11 +522,9 @@ function WinUpdateReset {
         Write-StyledMessage -Type 'Info' -Text '📋 Ripristino criteri locali Windows.'
 
         try {
-            #Start-Process -FilePath "secedit" -ArgumentList "/configure /cfg $env:windir\inf\defltbase.inf /db defltbase.sdb /verbose" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-            #Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicyUsers" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
-            
+
             Write-StyledMessage -Type 'Info' -Text '⏳ Eliminazione criteri locali.'
-            $rdProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q `"$env:WinDir\System32\GroupPolicy`"" -WindowStyle Hidden -ErrorAction SilentlyContinue -PassThru
+            $rdProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q `"$(Join-Path $AppConfig.Paths.System32 "GroupPolicy")`"" -WindowStyle Hidden -ErrorAction SilentlyContinue -PassThru
             $rdTimeout = 10
             while (-not $rdProc.HasExited -and $rdTimeout -gt 0) {
                 Start-Sleep -Seconds 1
@@ -541,7 +532,7 @@ function WinUpdateReset {
             }
             if (-not $rdProc.HasExited) { $rdProc | Stop-Process -Force -ErrorAction SilentlyContinue }
             Write-StyledMessage -Type 'Success' -Text '✅ Criteri eliminati.'
-            
+
             Write-StyledMessage -Type 'Info' -Text '⏳ Aggiornamento criteri.'
             $gpProc = Start-Process -FilePath "gpupdate.exe" -ArgumentList "/force" -WindowStyle Hidden -ErrorAction SilentlyContinue -PassThru
             $gpTimeout = 15
@@ -549,7 +540,7 @@ function WinUpdateReset {
                 Start-Sleep -Seconds 1
                 $gpTimeout--
             }
-            if (-not $gpProc.HasExited) { 
+            if (-not $gpProc.HasExited) {
                 $gpProc | Stop-Process -Force -ErrorAction SilentlyContinue
                 Write-StyledMessage -Type 'Warning' -Text "⚠️ gpupdate terminato per timeout."
             }
@@ -558,17 +549,17 @@ function WinUpdateReset {
             }
 
             # Clean up registry keys
-            Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKCU:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKCU:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
-            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
+            Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKCU:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKCU:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
+            Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue *>$null
 
             Write-StyledMessage -Type 'Success' -Text "📋 Criteri locali Windows ripristinati."
         }

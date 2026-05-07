@@ -31,14 +31,14 @@ function WinExportLog {
     $zipFilePath = Join-Path $desktopPath $zipFileName
 
     try {
-        Write-StyledMessage Info "📂 Verifica presenza cartella log."
+        Write-StyledMessage -Type 'Info' -Text "📂 Verifica presenza cartella log."
 
         if (-not (Test-Path $logSourcePath -PathType Container)) {
-            Write-StyledMessage Warning "La cartella dei log '$logSourcePath' non è stata trovata. Impossibile esportare."
+            Write-StyledMessage -Type 'Warning' -Text "La cartella dei log '$logSourcePath' non è stata trovata. Impossibile esportare."
             return
         }
 
-        Write-StyledMessage Info "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso."
+        Write-StyledMessage -Type 'Info' -Text "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso."
 
         # Metodo alternativo per gestire file in uso
         $tempFolder = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
@@ -47,7 +47,7 @@ function WinExportLog {
         if (Test-Path $tempFolder) {
             Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
         }
-        New-Item -ItemType Directory -Path $tempFolder -Force | Out-Null
+        New-Item -ItemType Directory -Path $tempFolder -Force *>$null
 
         # Copia i file con gestione degli errori
         $filesCopied = 0
@@ -67,7 +67,7 @@ function WinExportLog {
             }
         }
         catch {
-            Write-StyledMessage Warning "Errore durante la copia dei file: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Errore durante la copia dei file: $($_.Exception.Message)."
         }
 
         # Comprime la cartella temporanea
@@ -75,21 +75,21 @@ function WinExportLog {
             Compress-Archive -Path "$tempFolder\*" -DestinationPath $zipFilePath -Force -ErrorAction Stop
 
             if (Test-Path $zipFilePath) {
-                Write-StyledMessage Success "Log compressi con successo! File salvato: '$zipFileName' sul Desktop."
+                Write-StyledMessage -Type 'Success' -Text "Log compressi con successo! File salvato: '$zipFileName' sul Desktop."
 
                 if ($filesSkipped -gt 0) {
-                    Write-StyledMessage Info "⚠️ Attenzione: $filesSkipped file sono stati ignorati perché in uso o non accessibili."
+                    Write-StyledMessage -Type 'Info' -Text "⚠️ Attenzione: $filesSkipped file sono stati ignorati perché in uso o non accessibili."
                 }
 
                 # Messaggi per l'utente
-                Write-StyledMessage Info "📩 Per favore, invia il file ZIP '$zipFileName' (lo trovi sul tuo Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per aiutarmi nella diagnostica."
+                Write-StyledMessage -Type 'Info' -Text "📩 Per favore, invia il file ZIP '$zipFileName' (lo trovi sul tuo Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per aiutarmi nella diagnostica."
             }
             else {
-                Write-StyledMessage Error "Errore sconosciuto: il file ZIP non è stato creato."
+                Write-StyledMessage -Type 'Error' -Text "Errore sconosciuto: il file ZIP non è stato creato."
             }
         }
         else {
-            Write-StyledMessage Error "Nessun file log è stato copiato. Verifica i permessi e che i file esistano."
+            Write-StyledMessage -Type 'Error' -Text "Nessun file log è stato copiato. Verifica i permessi e che i file esistano."
         }
 
         # Pulizia cartella temporanea
@@ -98,7 +98,7 @@ function WinExportLog {
         }
     }
     catch {
-        Write-StyledMessage Error "Errore critico durante la compressione dei log: $($_.Exception.Message)."
+        Write-StyledMessage -Type 'Error' -Text "Errore critico durante la compressione dei log: $($_.Exception.Message)."
         Write-ToolkitLog -Level ERROR -Message "Errore critico in WinExportLog" -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName

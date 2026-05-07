@@ -36,7 +36,7 @@ function WinDebloat {
         # AGGIUNGERE QUI ALTRI SERVIZI
     )
 
-    $Global:WinDebloatLog = @()
+    $script:WinDebloatLog = @()
     $rebootRequired = $false
 
     # ============================================================================
@@ -62,7 +62,7 @@ function WinDebloat {
             # PLACEHOLDER: Logica di gestione servizio
             # Stop-Service ...
             # Set-Service -StartupType Disabled ...
-            
+
             Write-StyledMessage -Type 'Success' -Text "Servizio $($ServiceConfig.Name) ottimizzato correttamente."
             return $true
         }
@@ -85,7 +85,7 @@ function WinDebloat {
         }
 
         # PLACEHOLDER: Altre operazioni di ottimizzazione (Registro, Task schedulati, etc.)
-        
+
         Write-StyledMessage -Type 'Success' -Text "✅ Operazioni di debloat completate."
 
         # Gestione Riavvio finale

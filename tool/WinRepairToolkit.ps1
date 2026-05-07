@@ -44,15 +44,15 @@ function WinRepairToolkit {
 
     # Le registrazioni AppX vengono inserite nell'array solo se la build è >= 26100 (Win11 24H2)
     if ($isWin11_24H2_OrNewer) {
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.CBS_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-Host 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-StyledMessage -Type 'Warning' -Text 'File non trovato: MicrosoftWindows.Client.CBS_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-StyledMessage -Type 'Warning' -Text 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
+        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-StyledMessage -Type 'Warning' -Text 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
     }
 
     function Invoke-RepairCommand {
         param([hashtable]$Config, [int]$Step, [int]$Total)
 
-        Write-StyledMessage Info "[$Step/$Total] Avvio $($Config.Name)."
+        Write-StyledMessage -Type 'Info' -Text "[$Step/$Total] Avvio $($Config.Name)."
         $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
@@ -73,7 +73,7 @@ function WinRepairToolkit {
 
             # Gestione DISM con operazioni pendenti (errore 0x800f0806)
             if ($Config.Tool -ieq 'DISM' -and $Config.Args -contains '/StartComponentCleanup') {
-                Write-StyledMessage Info "🔧 Pulizia stato Windows Update prima di avviare Cleanup..."
+                Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia stato Windows Update prima di avviare Cleanup..."
                 # Stop servizio Windows Update per rilasciare lock su component store
                 Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
                 Start-Sleep 1
@@ -118,7 +118,7 @@ function WinRepairToolkit {
 
             # Logica controllo errori con gestione flessibile per chkdsk
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
-                Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
+                Write-StyledMessage -Type 'Info' -Text "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
@@ -127,17 +127,17 @@ function WinRepairToolkit {
             # FIX 1: Un timeout o un'interruzione forzata tipicamente restituisce -1.
             # Aggiunto controllo per exit code negativo.
             $isTimeout = ($null -eq $result) -or ($null -eq $exitCode) -or ($exitCode -eq -1)
-            
+
             # FIX CHKDSK: Se chkdsk ritorna 3 = volume in uso, schedulato correttamente
             if ($isChkdsk -and $exitCode -eq 3) {
-                Write-StyledMessage Info "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
+                Write-StyledMessage -Type 'Info' -Text "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
             # Gestione errore DISM 0x800f0806: operazioni pendenti
             if (($Config.Tool -ieq 'DISM') -and ($results -match '0x800f0806')) {
-                Write-StyledMessage Warning "⚠️ $($Config.Name): Errore 0x800f0806 (operazioni pendenti). Questo non è un errore critico."
-                Write-StyledMessage Info "💡 Riavviare il sistema per completare le operazioni in sospeso."
+                Write-StyledMessage -Type 'Warning' -Text "⚠️ $($Config.Name): Errore 0x800f0806 (operazioni pendenti). Questo non è un errore critico."
+                Write-StyledMessage -Type 'Info' -Text "💡 Riavviare il sistema per completare le operazioni in sospeso."
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
@@ -201,7 +201,7 @@ function WinRepairToolkit {
             else {
                 $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
             }
-            Write-StyledMessage $(if ($success) { 'Success' } else { 'Warning' }) $message
+            Write-StyledMessage -Type 'Success' -Text $message
 
             # Esportazione Log CBS di SFC
             if ($Config.Tool -ieq 'sfc') {
@@ -220,11 +220,11 @@ function WinRepairToolkit {
 
                         # Verifica post-copia per dare un feedback accurato
                         if (Test-Path $destLogPath) {
-                            Write-StyledMessage Info "📄 Log SFC salvato in: $destLogName"
+                            Write-StyledMessage -Type 'Info' -Text "📄 Log SFC salvato in: $destLogName"
                         }
                     }
                     catch {
-                        Write-StyledMessage Warning "⚠️ Impossibile esportare il log CBS di SFC (file in uso)."
+                        Write-StyledMessage -Type 'Warning' -Text "⚠️ Impossibile esportare il log CBS di SFC (file in uso)."
                     }
                 }
             }
@@ -232,7 +232,7 @@ function WinRepairToolkit {
             return @{ Success = $success; ErrorCount = $errors.Count }
         }
         catch {
-            Write-StyledMessage Error "Errore durante $($Config.Name): $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante $($Config.Name): $($_.Exception.Message)."
             Write-ToolkitLog -Level ERROR -Message "Errore in Invoke-RepairCommand [$($Config.Tool)]" -Context @{
                 Line      = $_.InvocationInfo.ScriptLineNumber
                 Exception = $_.Exception.GetType().FullName
@@ -259,8 +259,8 @@ function WinRepairToolkit {
         param([int]$Attempt = 1)
 
         $script:CurrentAttempt = $Attempt
-        Write-StyledMessage Info "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema."
-        Write-Host ''
+        Write-StyledMessage -Type 'Info' -Text "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema."
+
 
         $totalErrors = $successCount = 0
         for ($toolIndex = 0; $toolIndex -lt $RepairTools.Count; $toolIndex++) {
@@ -273,7 +273,7 @@ function WinRepairToolkit {
         }
 
         if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
-            Write-StyledMessage Warning "🔄 $totalErrors errori rilevati. Nuovo tentativo."
+            Write-StyledMessage -Type 'Warning' -Text "🔄 $totalErrors errori rilevati. Nuovo tentativo."
             Start-Sleep 3
             return Start-RepairCycle -Attempt ($Attempt + 1)
         }
@@ -319,7 +319,7 @@ function WinRepairToolkit {
             'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired',
             'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations'
         )
-        
+
         foreach ($key in $pendingRebootKeys) {
             if (Test-Path $key) {
                 $values = Get-ItemProperty $key -ErrorAction SilentlyContinue
@@ -332,8 +332,8 @@ function WinRepairToolkit {
     }
 
     if (Test-PendingOperations) {
-        Write-StyledMessage Warning "⚠️ Rilevate operazioni pendenti che richiedono riavvio. DISM potrebbe fallire."
-        Write-StyledMessage Info "💡 Consigliato riavviare prima di eseguire le riparazioni."
+        Write-StyledMessage -Type 'Warning' -Text "⚠️ Rilevate operazioni pendenti che richiedono riavvio. DISM potrebbe fallire."
+        Write-StyledMessage -Type 'Info' -Text "💡 Consigliato riavviare prima di eseguire le riparazioni."
     }
 
     # Esecuzione
@@ -343,14 +343,14 @@ function WinRepairToolkit {
         $deepRepairScheduled = $false
         # Fix 2: Esegue la riparazione profonda solo se ci sono ancora errori dopo 3 tentativi
         if ($repairResult.TotalErrors -gt 0) {
-            Write-StyledMessage Warning "Rilevati errori persistenti. Avvio riparazione profonda."
+            Write-StyledMessage -Type 'Warning' -Text "Rilevati errori persistenti. Avvio riparazione profonda."
             $deepRepairScheduled = Start-DeepDiskRepair
         }
         else {
-            Write-StyledMessage Success "Sistema in salute. Riparazione profonda non necessaria."
+            Write-StyledMessage -Type 'Success' -Text "Sistema in salute. Riparazione profonda non necessaria."
         }
 
-        Write-StyledMessage Info "⚙️ Impostazione scadenza password illimitata."
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Impostazione scadenza password illimitata."
         $procParams = @{
             FilePath     = 'net'
             ArgumentList = @('accounts', '/maxpwage:unlimited')
@@ -359,7 +359,7 @@ function WinRepairToolkit {
         }
         Start-Process @procParams
 
-        if ($deepRepairScheduled) { Write-StyledMessage Warning 'Riavvio necessario per riparazione profonda.' }
+        if ($deepRepairScheduled) { Write-StyledMessage -Type 'Warning' -Text 'Riavvio necessario per riparazione profonda.' }
 
         if ($SuppressIndividualReboot) {
             if ($deepRepairScheduled) {
@@ -374,7 +374,7 @@ function WinRepairToolkit {
         }
     }
     catch {
-        Write-StyledMessage Error "❌ Errore critico: $($_.Exception.Message)."
+        Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message)."
         Write-ToolkitLog -Level ERROR -Message "Errore critico in WinRepairToolkit" -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName

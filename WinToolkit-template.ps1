@@ -223,7 +223,7 @@ function Stop-ToolkitProcesses {
         [string[]]$ProcessNames
     )
     Write-StyledMessage -Type Info -Text "Chiusura processi interferenti..."
-    
+
     foreach ($procName in $ProcessNames) {
         Get-Process -Name $procName -ErrorAction SilentlyContinue |
             Where-Object { $_.Id -ne $PID } |
@@ -514,7 +514,7 @@ function Invoke-ExternalCommandWithLog {
 
         # Attendi completamento lettura flussi standard
         try { [System.Threading.Tasks.Task]::WaitAll($outTask, $errTask) } catch {}
-        
+
         if ($outTask.Status -eq 'RanToCompletion') { $outText = $outTask.Result }
         if ($errTask.Status -eq 'RanToCompletion') { $errText = $errTask.Result }
 
@@ -583,7 +583,7 @@ function Invoke-ExternalCommandWithLog {
 # Blocca in modo assoluto le write Win32 native del deployment engine e gestisce l'errore di downgrade.
 function Start-AppxSilentProcess {
     param(
-        [string]$AppxPath, 
+        [string]$AppxPath,
         [string]$Flags = '-ForceApplicationShutdown',
         [string[]]$DependencyPaths = @()
     )
@@ -591,7 +591,7 @@ function Start-AppxSilentProcess {
     # Costruzione sicura del comando interno
     # Usiamo -Register se presente nei flags, altrimenti -Path
     $pathParam = ($Flags -match '-Register') ? "" : "-Path '$($AppxPath -replace "'", "''")'"
-    
+
     $depString = ""
     if ($DependencyPaths.Count -gt 0) {
         $depString = "-DependencyPackagePath " + (($DependencyPaths | ForEach-Object { "'$($_ -replace "'", "''")'" }) -join ", ")
@@ -1643,14 +1643,14 @@ function Test-WindowsUpdateStatus {
     #>
     try {
         Write-StyledMessage -Type 'Info' -Text "🔍 Controllo stato aggiornamenti Windows..."
-        
+
         $pendingReboot = $false
         $installerRunning = $false
-        
+
         # Verifica disponibilità modulo PSWindowsUpdate
         if (Get-Module -ListAvailable -Name PSWindowsUpdate -ErrorAction SilentlyContinue) {
             Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue
-            
+
             # Controllo riavvio pendente
             try {
                 $rebootStatus = Get-WURebootStatus -ErrorAction SilentlyContinue
@@ -1660,7 +1660,7 @@ function Test-WindowsUpdateStatus {
                 }
             }
             catch { }
-            
+
             # Controllo stato servizio installatore aggiornamenti
             try {
                 $installerStatus = Get-WUInstallerStatus -ErrorAction SilentlyContinue
@@ -1678,21 +1678,21 @@ function Test-WindowsUpdateStatus {
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootRequired",
                 "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations"
             )
-            
+
             foreach ($path in $regPaths) {
                 if (Test-Path $path -ErrorAction SilentlyContinue) {
                     $pendingReboot = $true
                     break
                 }
             }
-            
+
             # Controllo servizio TrustedInstaller nativo
             $trustedInstaller = Get-Service -Name TrustedInstaller -ErrorAction SilentlyContinue
             if ($trustedInstaller -and $trustedInstaller.Status -eq 'Running') {
                 $installerRunning = $true
             }
         }
-        
+
         # Mostra avviso dettagliato in caso di condizioni critiche
         if ($pendingReboot -or $installerRunning) {
             Write-Host ""
@@ -1718,7 +1718,7 @@ function Test-WindowsUpdateStatus {
             Write-Host ""
             Write-Host ('═' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Yellow
             Write-Host ""
-            
+
             Start-Sleep -Seconds 5
         }
         else {
@@ -1803,16 +1803,16 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         Write-Host ""
         Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
         Write-Host ""
-        
+
         # Leggi input RAW per Secret check (prima della validazione numerica)
         $rawInput = Microsoft.PowerShell.Utility\Read-Host 'Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza'
-        
+
         # Secret check - valuta PRIMA della validazione numerica
         if ($rawInput -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
             Start-Process ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('aHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj15QVZVT2tlNGtvYw==')))
             continue
         }
-        
+
         # Valida input come numeri per il menu
         $rawSelections = Read-ValidatedChoice -Prompt 'Inserisci uno o più numeri' -Min 0 -Max $allScripts.Count -AllowZero -RawInput $rawInput
         $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
@@ -1914,62 +1914,3 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
