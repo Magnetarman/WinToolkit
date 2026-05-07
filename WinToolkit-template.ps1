@@ -271,11 +271,12 @@ function Clear-ProgressLine {
 function Write-StyledMessage {
     param(
         [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')][string]$Type,
-        [string]$Text
+        [string]$Text,
+        [switch]$NoNewline
     )
     $style = $Global:MsgStyles[$Type]
     $timestamp = Get-Date -Format "HH:mm:ss"
-    Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
+    Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color -NoNewline:$NoNewline
 
     # Bridge: mirror to log file (silently, no UI side-effects)
     $logLevel = switch ($Type) {
@@ -1329,7 +1330,7 @@ function Invoke-WithSpinner {
         }
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante $Activity`: $($_.Exception.Message)"
+        Write-StyledMessage -Type 'Error' -Text "Errore durante ${Activity}: $($_.Exception.Message)"
         return @{ Success = $false; Error = $_.Exception.Message }
     }
 }
@@ -1395,7 +1396,7 @@ function Get-UserConfirmation {
         return $true
     }
 
-    Write-StyledMessage -Type $Level -Text "$fullPrompt: " -NoNewLine
+    Write-StyledMessage -Type $Level -Text "${fullPrompt}: " -NoNewline
     $response = Read-Host
     Write-ToolkitLog -Level 'INFO' -Message "User Confirmation Prompt: $Prompt | Response: $response"
 
@@ -1442,7 +1443,7 @@ function Read-ValidatedChoice {
             $val
         }
         else {
-            Write-StyledMessage -Type 'Question' -Text "$Prompt: " -NoNewLine
+            Write-StyledMessage -Type 'Question' -Text "${Prompt}: " -NoNewline
             Microsoft.PowerShell.Utility\Read-Host
         }
 
