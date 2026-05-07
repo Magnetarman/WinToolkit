@@ -59,6 +59,9 @@
 - `compiler.ps1` Aggiornato.
   - [x] Corretti errori di parsing funzione non correttamente inizializzata.
 
+- `README.md` Aggiornato.
+  - [x] Aggiunto banner conto totale dei Download [Diventera realistico quando la versione GUI verrà ultimata].
+
 ### V 2.6 - Debloat
 
 - `WinToolkit.ps1` Aggiornato.
