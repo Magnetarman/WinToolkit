@@ -62,6 +62,9 @@
 - `README.md` Aggiornato.
   - [x] Aggiunto banner conto totale dei Download [Diventera realistico quando la versione GUI verrà ultimata].
 
+- `WinCleaner` Aggiornato.
+  - [x] Aggiunta funzione di debloat del modello AI Locale di Google che si installa all'insaputa dell'utente. [[Video](https://www.youtube.com/watch?v=vWNfSGPivHQ)]
+
 ### V 2.6 - Debloat
 
 - `WinToolkit.ps1` Aggiornato.
