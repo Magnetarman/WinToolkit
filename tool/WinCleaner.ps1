@@ -535,6 +535,66 @@ function WinCleaner {
                 }
             }
         }
+        @{ Name = "Google Chrome AI OptGuide Model"; Type = "Custom"; ScriptBlock = {
+                Add-CleanerLog -Type 'Info' -Text "🤖 Pulizia e disattivazione AI Chrome (OptGuide)."
+
+                $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
+                foreach ($u in $users) {
+                    $optGuidePath = Join-Path "$($u.FullName)\AppData\Local" "Google\Chrome\User Data\OptGuideOnDeviceModel"
+                    if (Test-Path $optGuidePath) {
+                        try {
+                            Add-CleanerLog -Type 'Info' -Text "🗑️ Rimozione cartella OptGuide: $optGuidePath"
+                            Remove-Item -Path $optGuidePath -Recurse -Force -ErrorAction Stop
+                        }
+                        catch {
+                            Add-CleanerLog -Type 'Warning' -Text "Errore rimozione $optGuidePath : $_"
+                        }
+                    }
+
+                    # Ricrea la cartella e imposta come read-only per bloccare Chrome
+                    try {
+                        if (-not (Test-Path $optGuidePath)) {
+                            New-Item -Path $optGuidePath -ItemType Directory -Force -ErrorAction Stop *>$null
+                        }
+                        $acl = Get-Acl -Path $optGuidePath -ErrorAction Stop
+                        $acl.SetAccessRuleProtection($true, $false)
+                        $denyRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                            "Everyone", "Write", "ContainerInherit,ObjectInherit", "None", "Deny"
+                        )
+                        $acl.AddAccessRule($denyRule)
+                        Set-Acl -Path $optGuidePath -AclObject $acl -ErrorAction Stop
+                        Add-CleanerLog -Type 'Success' -Text "🔒 Cartella OptGuide impostata in sola lettura: $optGuidePath"
+                    }
+                    catch {
+                        Add-CleanerLog -Type 'Warning' -Text "Errore impostazione read-only per $optGuidePath : $_"
+                    }
+                }
+
+                # Aggiungi chiavi di registro per disattivare le feature AI di Chrome
+                $chromePolicyKey = "HKLM:\SOFTWARE\Policies\Google\Chrome"
+                try {
+                    if (-not (Test-Path $chromePolicyKey)) {
+                        New-Item -Path $chromePolicyKey -Force -ErrorAction Stop *>$null
+                    }
+
+                    $aiPolicies = @{
+                        "GenAILocalFoundationalModelSettings" = 1
+                        "AIModeSettings" = 2
+                        "GeminiSettings" = 1
+                        "HelpMeWriteSettings" = 2
+                        "DevToolsGenAiSettings" = 2
+                    }
+
+                    foreach ($policy in $aiPolicies.GetEnumerator()) {
+                        Set-ItemProperty -Path $chromePolicyKey -Name $policy.Key -Value $policy.Value -Type DWORD -Force -ErrorAction Stop
+                        Add-CleanerLog -Type 'Success' -Text "⚙️ Policy Chrome impostata: $($policy.Key) = $($policy.Value)"
+                    }
+                }
+                catch {
+                    Add-CleanerLog -Type 'Warning' -Text "Errore impostazione policy Chrome AI: $_"
+                }
+            }
+        }
         @{ Name = "Firefox Browser Cache"; Type = "Custom"; ScriptBlock = {
                 Add-CleanerLog -Type 'Info' -Text "🦊 Pulizia Firefox (Cache & Crashes)."
 
