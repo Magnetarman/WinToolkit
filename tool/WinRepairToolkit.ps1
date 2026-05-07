@@ -29,9 +29,7 @@ function WinRepairToolkit {
 
     $script:CurrentAttempt = 0
 
-    # Rilevamento della build di Windows per l'esecuzione condizionale
     $sysInfo = Get-SystemInfo
-    $isWin11_24H2_OrNewer = $sysInfo -and ($sysInfo.BuildNumber -ge 26100)
 
     $RepairTools = @(
         @{ Tool = 'chkdsk'; Args = @('/scan', '/perf'); Name = 'Controllo disco'; Icon = '💽' }
@@ -42,12 +40,6 @@ function WinRepairToolkit {
         @{ Tool = 'chkdsk'; Args = @('/f', '/r', '/x'); Name = 'Controllo disco approfondito'; Icon = '💽'; IsCritical = $false }
     )
 
-    # Le registrazioni AppX vengono inserite nell'array solo se la build è >= 26100 (Win11 24H2)
-    if ($isWin11_24H2_OrNewer) {
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-StyledMessage -Type 'Warning' -Text 'File non trovato: MicrosoftWindows.Client.CBS_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client CBS)'; Icon = '📦'; IsCritical = $false }
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-StyledMessage -Type 'Warning' -Text 'File non trovato: Microsoft.UI.Xaml.CBS_8wekyb3d8bbwe' }"); Name = 'Registrazione AppX (UI Xaml CBS)'; Icon = '📦'; IsCritical = $false }
-        $RepairTools += @{ Tool = 'powershell.exe'; Args = @('-NoProfile', '-NonInteractive', '-NoLogo', '-Command', "if (Test-Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml') { Add-AppxPackage -Register -Path 'C:\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\appxmanifest.xml' -DisableDevelopmentMode -ErrorAction SilentlyContinue } else { Write-StyledMessage -Type 'Warning' -Text 'File non trovato: MicrosoftWindows.Client.Core_cw5n1h2txyewy' }"); Name = 'Registrazione AppX (Client Core)'; Icon = '📦'; IsCritical = $false }
-    }
 
     function Invoke-RepairCommand {
         param([hashtable]$Config, [int]$Step, [int]$Total)
