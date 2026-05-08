@@ -427,7 +427,8 @@ function Write-ToolkitLog {
      # Rimuovi tutti i caratteri ANSI/colori prima di salvare su file
      $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
      # Rimuovi emoji comuni per evitare problemi con parser log
-     $clean = $clean -replace '[\u{1F600}-\u{1F64F}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2300}-\u{23FF}\u{2705}\u{26A0}]', ''
+     # Rimuovi emoji: BMP (sintassi .NET \uXXXX) + supplementari via surrogate pairs (\uD800-\uDFFF)
+     $clean = $clean -replace '[\u2300-\u23FF\u2600-\u27BF\uD800-\uDFFF]', ''
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try {
