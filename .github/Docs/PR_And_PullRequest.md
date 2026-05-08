@@ -2,7 +2,7 @@
 
 > **Documento Ufficiale per i Contributori**  
 > Repository: [MagnetarMan/WinToolkit](https://github.com/MagnetarMan/WinToolkit)  
-> Ultimo aggiornamento: 2026-04-14
+> Ultimo aggiornamento: 2026-05-08
 
 ---
 
@@ -31,9 +31,10 @@ Per contribuire al progetto WinToolkit, è necessario disporre di:
 
 > [!WARNING]
 > **Regola Limitazione sul Branching**
-> - **Tutte le modifiche DEVONO essere effettuate sul branch `DEV`**
+> - Le modifiche possono essere effettuate su branch `Dev` o su branch dedicati (`feature/*`, `fix/*`, `feat/*`, `hotfix/*`)
 > - Le Pull Request verso il branch `main` verranno **chiuse immediatamente** senza preavviso
-> - Il branch `DEV` è l'unico branch accettato per contributi esterni
+> - Il branch `Dev` è l'unico branch accettato come target per le PR
+> - I branch `feature/*`, `fix/*`, `feat/*`, `hotfix/*` attivano automaticamente la pipeline leggera CI
 
 ---
 
@@ -84,9 +85,14 @@ WinToolkit è organizzato in una struttura modulare che facilita lo sviluppo, la
 WinToolkit/
 ├── .github/                              # Configurazione GitHub (CI/CD, Actions, Scripts)
 │   ├── Docs/                             # Documentazione del progetto
+│   ├── ISSUE_TEMPLATE/                   # Template per le issue GitHub
 │   ├── linters/                          # Configurazione linter PowerShell
 │   ├── scripts/                          # Script di automazione build e test
-│   └── workflows/                        # Pipeline CI/CD GitHub Actions
+│   ├── tests/                            # Test automatizzati progetto
+│   ├── workflows/                        # Pipeline CI/CD GitHub Actions
+│   ├── CODE_OF_CONDUCT.md                # Codice di condotta della community
+│   ├── CONTRIBUTING.md                   # Linee guida per i contributi
+│   └── pull_request_template.md          # Template per le Pull Request
 │
 ├── asset/                                # Risorse statiche e strumenti esterni
 │   ├── png/                              # Icone e immagini UI
@@ -174,14 +180,23 @@ Contiene eseguibili e strumenti di terze parti utilizzati dal toolkit. Questi fi
 #### Cartella `/.github/` - Infrastruttura CI/CD
 
 - **workflows/**: Pipeline GitHub Actions per CI/CD e distribuzione automatica
-  - `CI_UpdateWinToolkit_Dev.yml`: Pipeline Dev automatica su ogni push/PR
-  - `Release_Wintoolkit.yml`: Pipeline manuale per release stabili
+  - `CI_UpdateWinToolkit_Dev.yml`: Pipeline Enterprise con gestione adaptive per branch (Dev completa, feature/fix leggera, PR gate di qualità)
+  - `Release_Wintoolkit.yml`: Pipeline manuale per creazione branch release e merge in main
 - **scripts/**: Script PowerShell per build, versioning e test automatici
-  - `Update-Version.ps1`: Incremento automatico numero build
-  - `Invoke-Build.ps1`: Wrapper ufficiale del compilatore
-  - `Test-CompiledScript.ps1`: Validazione post-compilazione
+  - `Update-Version.ps1`: Incremento automatico numero build (comportamento diverso per Dev vs feature/fix)
+  - `Invoke-Build.ps1`: Wrapper ufficiale del compilatore con statistiche compressione
+  - `Test-CompiledScript.ps1`: Validazione post-compilazione (sintassi, funzioni, menu, dimensione, encoding)
+- **tests/**: Test automatizzati progetto
+  - `WinToolkit.Tests.ps1`: Test suite Pester 5 per validazione moduli e funzionalità
 - **linters/**: Configurazione PSScriptAnalyzer
 - **Docs/**: Documentazione ufficiale progetto
+- **ISSUE_TEMPLATE/**: Template per le issue GitHub
+  - `bug_report.yml`: Template per segnalazione bug
+  - `enhancement.yml`: Template per miglioramenti
+  - `feature_request.yml`: Template per nuove funzionalità
+- **CODE_OF_CONDUCT.md**: Codice di condotta della community
+- **CONTRIBUTING.md**: Linee guida per i contributi
+- **pull_request_template.md**: Template per le Pull Request
 
 #### File Radice
 
@@ -211,6 +226,39 @@ Questa modalità utilizza la stessa pipeline ufficiale di build direttamente nel
 2. Branch `Dev` presente e aggiornato nel tuo fork
 3. Nessuna restrizione sulle GitHub Actions nella tua fork
 
+#### 🔄 Trigger della Pipeline
+
+La pipeline si attiva automaticamente su:
+- **Push su Dev** → Pipeline completa: lint → test → versioning → build → release
+- **Push su feature/fix/feat/hotfix/*** → Pipeline leggera: lint → test → versioning (no-op) → build → commit
+- **PR verso Dev** → Gate di qualità: lint → test (no build, no deploy)
+
+I trigger sono limitati ai file:
+- `tool/*.ps1`
+- `WinToolkit-template.ps1`
+- `compiler.ps1`
+- `start-offline.ps1`
+- `start.ps1`
+
+#### 🛡️ PR Security Guard — Politica a Tre Livelli
+
+Ogni PR verso Dev viene analizzata automaticamente da un sistema di sicurezza a tre livelli:
+
+**Livello 1 — Consentiti (silenzioso)**
+- File in `tool/*`
+- ✅ PR procede normalmente senza interventi
+
+**Livello 2 — Consentiti con Warning (revisione manuale)**
+- `start.ps1`, `WinToolkit_GUI.ps1`, `WinToolkit-template.ps1`, `asset/*`
+- ⚠️ PR rimane aperta, viene aggiunto un commento di avviso per il maintainer
+
+**Livello 3 — Protetti (blocco totale)**
+- Tutti gli altri file (`.github/**`, `compiler.ps1`, ecc.)
+- ⛔ PR chiusa automaticamente con commento di accesso negato
+
+> [!WARNING]
+> **Regola per i contributori esterni**: Puoi proporre modifiche **esclusivamente** ai moduli nella cartella `tool/`. Per modifiche ai file core (compiler, workflow CI/CD, script di build), apri una **Issue** descrivendo la proposta.
+
 #### 📋 Passaggi Configurazione
 1. Vai nella pagina del tuo fork su GitHub
 2. Naviga in **Settings > Actions > General**
@@ -235,12 +283,13 @@ git push origin Dev
 Appena pushati:
 1. Il workflow `CI_UpdateWinToolkit_Dev.yml` si avvierà automaticamente
 2. Verranno eseguiti **nella tua fork**:
-   - ✅ Controllo sicurezza sulle modifiche
+   - ✅ Controllo sicurezza sulle modifiche (PR Security Guard a 3 livelli)
    - ✅ Linting completo con PSScriptAnalyzer
-   - ✅ Validazione sintassi compiler.ps1
+   - ✅ Test suite Pester 5 (validazione moduli e funzionalità)
+   - ✅ Validazione sintassi AST (compiler.ps1 e template)
 
 > [!IMPORTANT]
-> **Nota Fondamentale**: I job di versioning, build e generazione release sono **disabilitati automaticamente nelle fork** per motivi di sicurezza. Questo è il comportamento previsto confermato alle righe 249, 310 e 418 del workflow ufficiale.
+> **Nota Fondamentale**: I job di versioning, build e generazione release sono **disabilitati automaticamente nelle fork** per motivi di sicurezza. Questo è il comportamento previsto confermato dalla logica `if: github.event_name == 'push'` presente nei job versioning (linea ~389), build (linea ~464) e release (linea ~600) del workflow ufficiale.
 
 #### ✅ Verifica Risultato
 1. Vai nella tab **Actions** del tuo fork
@@ -390,10 +439,19 @@ git remote add upstream https://github.com/MagnetarMan/WinToolkit.git
 ### Step 4: Crea il Branch di Lavoro
 
 ```bash
-git checkout DEV
-git pull upstream DEV
+git checkout Dev
+git pull upstream Dev
 git checkout -b fix/nome-del-fix
 ```
+
+> [!TIP]
+> **Pattern di branch supportati dalla pipeline**:
+> - `fix/*` o `bugfix/*` → Pipeline leggera (lint + test + build)
+> - `feature/*` o `feat/*` → Pipeline leggera (lint + test + build)
+> - `hotfix/*` → Pipeline leggera (lint + test + build)
+> - `Dev` → Pipeline completa (lint + test + versioning + build + release)
+> 
+> I nomi dei branch devono seguire questi pattern per attivare automaticamente la CI.
 
 ### Step 5: Effettua le Modifiche
 
