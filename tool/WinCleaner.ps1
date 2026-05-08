@@ -723,6 +723,7 @@ function WinCleaner {
 
         # --- Utility Apps ---
         @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
+        @{ Name = "WinUtil Data"; Type = "File"; Paths = @("%LOCALAPPDATA%\winutil"); PerUser = $true }
 
 
         # --- Legacy Applications & Media ---

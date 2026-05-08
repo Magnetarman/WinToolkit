@@ -142,6 +142,11 @@ $AppConfig = @{
         BattleNetSetup     = "$env:TEMP\Battle.net-Setup.exe"
         Desktop            = [Environment]::GetFolderPath('Desktop')
         TempFolder         = $env:TEMP
+        
+        # System Paths
+        System32             = "$env:windir\System32"
+        SoftwareDistribution = "$env:windir\SoftwareDistribution"
+        Catroot2             = "$env:windir\System32\catroot2"
     }
     Registry        = @{
         # Windows Update
@@ -494,13 +499,11 @@ function Invoke-ExternalCommandWithLog {
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $argString = $Arguments -join ' '
 
-    Write-ToolkitLog -Level 'INFO' -Message "Esecuzione comando esterno: $Command $argString" -Context @{
+    Write-ToolkitLog -Level 'INFO' -Message "Esecuzione comando: $Command $argString (Timeout: ${TimeoutSeconds}s)"
+    Write-ToolkitLog -Level 'DEBUG' -Message "Contesto comando" -Context @{
         Tool       = $Tool
         Step       = $Step
-        Command    = $Command
-        Arguments  = $Arguments
         WorkingDir = $WorkingDirectory
-        TimeoutSec = $TimeoutSeconds
         ContextKey = $LogContextKey
     }
 
@@ -611,15 +614,12 @@ function Invoke-ExternalCommandWithLog {
             $errLogged = $errLogged.Substring(0, $maxLen) + "`n[...stderr troncato...]"
         }
 
-        Write-ToolkitLog -Level 'INFO' -Message "Risultato comando esterno" -Context @{
-            Command       = $Command
-            Arguments     = $Arguments
-            WorkingDir    = $WorkingDirectory
-            TimeoutSec    = $TimeoutSeconds
+        $statusMsg = if ($success) { "Completato con successo" } else { "Completato con errori" }
+        $durata = $elapsed.ToString("hh\:mm\:ss")
+        Write-ToolkitLog -Level 'INFO' -Message "Comando $statusMsg (ExitCode: $exitCode, Durata: $durata)"
+
+        Write-ToolkitLog -Level 'DEBUG' -Message "Output comando ($Command)" -Context @{
             ContextKey    = $LogContextKey
-            ExitCode      = $exitCode
-            Success       = $success
-            Elapsed       = $elapsed.ToString()
             StdOutSnippet = $outLogged
             StdErrSnippet = $errLogged
         }
