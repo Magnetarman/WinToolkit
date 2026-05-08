@@ -67,7 +67,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.4 (Build 41)"
+$ToolkitVersion = "2.5.4 (Build 42)"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -97,7 +97,9 @@ $AppConfig = @{
         GamingDirectXSetup = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
         BattleNetSetup     = "$env:TEMP\Battle.net-Setup.exe"
         Desktop            = [Environment]::GetFolderPath('Desktop')
+        Startup            = [Environment]::GetFolderPath('Startup')
         TempFolder         = $env:TEMP
+        LocalAppData       = $env:LOCALAPPDATA
         System32             = "$env:windir\System32"
         SoftwareDistribution = "$env:windir\SoftwareDistribution"
         Catroot2             = "$env:windir\System32\catroot2"
@@ -186,7 +188,7 @@ function Clear-ProgressLine {
 }
 function Write-StyledMessage {
     param(
-        [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')][string]$Type,
+        [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress', 'Question')][string]$Type,
         [string]$Text,
         [switch]$NoNewline
     )
@@ -1079,7 +1081,7 @@ function Read-ValidatedChoice {
         [Parameter(Mandatory = $false)]
         [string]$RawInput
     )
-    $currentInput = $RawInput
+    $currentInput = if ($PSBoundParameters.ContainsKey('RawInput')) { $RawInput } else { $null }
     while ($true) {
         $input = if ($null -ne $currentInput) {
             $val = $currentInput
@@ -1948,7 +1950,7 @@ function WinReinstallStore {
                 Action = {
                     if (-not (Test-Path $wingetExe -ErrorAction SilentlyContinue)) { return @{ ExitCode = -1 } }
                     $processResult = Invoke-WithConsoleRedirection -Action {
-                        $result = Invoke-WithSpinner -Activity "Installazione Store tramite Winget" -Command $wingetExe -Arguments @('install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity') -TimeoutSeconds 300 -LogContextKey "Store-Winget-Install"
+                        Invoke-WithSpinner -Activity "Installazione Store tramite Winget" -Command $wingetExe -Arguments @('install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity') -TimeoutSeconds 300 -LogContextKey "Store-Winget-Install"
                     }
                     return @{ ExitCode = $processResult.ExitCode }
                 }
