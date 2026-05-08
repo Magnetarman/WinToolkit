@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.4.3"
+$ProfileVersion = "2.5.4.4"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
@@ -21,7 +21,7 @@ $URL_WINTOOLKIT_DEV = "https://magnetarman.com/WinToolkit-Dev"
 $URL_WINREG = "https://get.activated.win"
 $URL_RustDesk_Setup = "https://raw.githubusercontent.com/Magnetarman/WinStarter/refs/heads/main/Asset/RustDesk/SetRustDesk.ps1"
 $URL_OHMYPOSH_THEME = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-$URL_PROFILE = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
+$URL_PROFILE_DEV = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
 $URL_IP_API = "https://am.i.mullvad.net/ip"
 $URL_WINTOOLKIT_ICO_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
 $URL_WINTOOLKIT_ICO_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/img/WinToolkit-Dev.ico"
@@ -266,7 +266,7 @@ function PSProfileUpdate {
     param()
 
     $localProfilePath = $PROFILE
-    $remoteProfileUrl = $URL_PROFILE
+    $remoteProfileUrl = $URL_PROFILE_MAIN
 
     Write-Host "🔍 Verifica aggiornamenti per il profilo PowerShell..." -ForegroundColor Cyan
 
@@ -394,7 +394,7 @@ function SetBranch-Dev {
         Write-Host "⬇️ Download del profilo PowerShell dal ramo dev..." -ForegroundColor Cyan
 
         # Sovrascrive il profilo senza chiedere conferma
-        Invoke-WebRequest -Uri $URL_PROFILE -OutFile $PROFILE -UseBasicParsing
+        Invoke-WebRequest -Uri $URL_PROFILE_DEV -OutFile $PROFILE -UseBasicParsing
         Write-Host "✅ Profilo PowerShell sovrascritto con la versione dev." -ForegroundColor Green
     }
     catch {
