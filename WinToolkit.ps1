@@ -67,7 +67,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.4 (Build 39)"
+$ToolkitVersion = "2.5.4 (Build 40)"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -302,7 +302,7 @@ function Write-ToolkitLog {
     $ts = Get-Date -Format "HH:mm:ss"
      $clean = $Message -replace '^\s+', ''
      $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
-     $clean = $clean -replace '[\u{1F600}-\u{1F64F}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2300}-\u{23FF}\u{2705}\u{26A0}]', ''
+     $clean = $clean -replace '[\u2300-\u23FF\u2600-\u27BF\uD800-\uDFFF]', ''
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try {
