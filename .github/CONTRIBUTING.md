@@ -10,6 +10,7 @@ i contributori presenti in questa sezione speciale si sono contraddistinti parti
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | [@Pomodori92](https://github.com/pomodori92) | #1 - Contributore del Progetto. Direttore Vision del Progetto WinToolkit.                                       |
 | [@federicolm](https://github.com/federicolm) | Messa a disposizione gratuita del Progetto WinToolkit di piattaforma Cloud remota di Testing basata su Proxmox. |
+| [@SimonePizzi](https://t.me/SimonePizzi)     | Messa a disposizione gratuita del Progetto WinToolkit di 4 Giorni di Prova del Piano Pro di Claude Code.        |
 
 ---
 
