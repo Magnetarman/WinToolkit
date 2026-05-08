@@ -31,7 +31,6 @@
   - [x] Corretti errori di parsing funzione non correttamente inizializzata. [[Thanks To @Ennio Costanzi]]()
 
 - `WinToolkit-template.ps1` Aggiornato.
-  - [x] Contrassegnata come `[DEPRECATA]` la funzione `Get-UserConfirmation` per futura rimozione.
   - [x] Sostituita la chiusura dei processi duplicata nel ripristino di Winget integrando la funzione `Stop-ToolkitProcesses`.
   - [x] Consolidata e de-duplicata registrazione `AppxManifest.xml` tramite funzione interna dedicata.
   - [x] Aggiunto caching a `Get-SystemInfo` azzerando latenze CIM durante il ricarico del menu principale.
@@ -49,6 +48,8 @@
   - [x] Aggiornato menu principale di WinToolkit per sfruttare `Read-ValidatedChoice`.
   - [x] Adeguati i vari script per utilizzare la nuova funzione Invoke-WithSpinner globale, eliminando le vecchie funzioni Write-Spinner/Stop-Spinner e Write-Wait.
   - [x] Adeguati i commenti interni in modo che siano coerenti con le modifiche effettuate.
+  - [x] Aggiornata funzione di Log e resa globale in modo da limitare chiamate multiple durante l'avvio di ogni singola funzione.
+  - [x] Rimosse funzioni deprecate come `Get-UserConfirmation`, aggiornamento dei vari script al nuovo paradigma completo.
 
 - `WinRepairToolkit` Aggiornato.
   - [x] Improve AppX registration and chkdsk handling. [[Thanks To @Ennio Costanzi]]()
