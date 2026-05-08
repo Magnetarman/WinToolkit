@@ -141,7 +141,9 @@ $AppConfig = @{
         GamingDirectXSetup = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
         BattleNetSetup     = "$env:TEMP\Battle.net-Setup.exe"
         Desktop            = [Environment]::GetFolderPath('Desktop')
+        Startup            = [Environment]::GetFolderPath('Startup')
         TempFolder         = $env:TEMP
+        LocalAppData       = $env:LOCALAPPDATA
         
         # System Paths
         System32             = "$env:windir\System32"
@@ -275,7 +277,7 @@ function Clear-ProgressLine {
 
 function Write-StyledMessage {
     param(
-        [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress')][string]$Type,
+        [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress', 'Question')][string]$Type,
         [string]$Text,
         [switch]$NoNewline
     )
@@ -1448,7 +1450,7 @@ function Read-ValidatedChoice {
         [string]$RawInput
     )
 
-    $currentInput = $RawInput
+    $currentInput = if ($PSBoundParameters.ContainsKey('RawInput')) { $RawInput } else { $null }
     while ($true) {
         $input = if ($null -ne $currentInput) { 
             $val = $currentInput
