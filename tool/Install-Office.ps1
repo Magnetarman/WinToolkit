@@ -33,26 +33,42 @@ function Install-Office {
     }
 
     function Apply-OfficePostConfig {
-        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione Office."
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Ottimizzazione profonda di Microsoft Office."
 
-        $telemetryKeys = @(
+        $registrySettings = @(
+            # Privacy & Telemetria
             @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
             @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
             @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
             @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
-            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 }
+            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "ShownOptIn"; Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"; Name = "Enabled"; Value = 0 },
+            # Performance & UI
+            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableAnimations"; Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableHardwareAcceleration"; Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "DisableBootToStartScreen"; Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\LinkedIn"; Name = "ShowLinkedInIntegration"; Value = 0 }
         )
 
-        foreach ($reg in $telemetryKeys) {
+        foreach ($reg in $registrySettings) {
             if (-not (Test-Path $reg.Path)) { $null = New-Item -Path $reg.Path -Force }
             Set-ItemProperty -Path $reg.Path -Name $reg.Name -Value $reg.Value -Type 'DWord' -Force
         }
 
-        $feedbackPath = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"
-        if (-not (Test-Path $feedbackPath)) { $null = New-Item $feedbackPath -Force }
-        Set-ItemProperty -Path $feedbackPath -Name "ShownOptIn" -Value 1 -Type 'DWord' -Force
+        $tasksToDisable = @(
+            "OfficeTelemetryAgentLogon",
+            "OfficeTelemetryAgentFallback",
+            "OfficeBackgroundTaskHandlerRegistration",
+            "OfficeBackgroundTaskHandlerLogon",
+            "OfficeFeatureUpdates",
+            "OfficeFeatureUpdatesLogon"
+        )
+        foreach ($tName in $tasksToDisable) {
+            Get-ScheduledTask | Where-Object { $_.TaskName -eq $tName } | Disable-ScheduledTask -ErrorAction SilentlyContinue
+        }
 
-        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
+        Write-StyledMessage -Type 'Success' -Text "✅ Office ottimizzato: telemetria, privacy e task pianificati rimossi."
     }
 
     function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
