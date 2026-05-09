@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit Enterprise CI/CD Pipeline V 3.1.0
+# WinToolkit Enterprise CI/CD Pipeline V 3.1.1
 # =============================================================================
 # Pipeline adattiva per branch:
 #   • Dev           → Pipeline Completa: lint → test → build (versione letta, no bump)
@@ -114,14 +114,15 @@ jobs:
               pull_number: context.issue.number,
             });
 
-            const author   = context.payload.pull_request.user.login;
-            const prNumber = context.issue.number;
+            const author       = context.payload.pull_request.user.login;
+            const prNumber     = context.issue.number;
+            const isMaintainer = (author === 'MagnetarMan');
 
             // ── CLASSIFICAZIONE DEI FILE ──────────────────────────────────
             //
             // Livello 1: tool/* → sempre consentiti, nessuna azione.
             // Livello 2: file sensibili noti + asset/* → accettati, warning.
-            // Livello 3: tutto il resto → blocco totale.
+            // Livello 3: tutto il resto → blocco totale (salvo maintainer).
 
             const SENSITIVE_FILES = new Set([
               'start.ps1',
@@ -136,8 +137,16 @@ jobs:
               return 3;                                           // protetto
             }
 
-            const level2Files = files.filter(f => classifyFile(f.filename) === 2);
-            const level3Files = files.filter(f => classifyFile(f.filename) === 3);
+            let level2Files = files.filter(f => classifyFile(f.filename) === 2);
+            let level3Files = files.filter(f => classifyFile(f.filename) === 3);
+
+            // ── BYPASS MAINTENER ──────────────────────────────────────────
+            // Se l'autore è MagnetarMan, i file di Livello 3 vengono trattati
+            // come Livello 2 (Warning non bloccante).
+            if (isMaintainer && level3Files.length > 0) {
+              level2Files = [...level2Files, ...level3Files];
+              level3Files = [];
+            }
 
             // ── LIVELLO 3: BLOCCO TOTALE ──────────────────────────────────
             if (level3Files.length > 0) {
@@ -562,4 +571,3 @@ jobs:
           Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Green
           Write-Host "  Versione : v$version"    -ForegroundColor White
           Write-Host "  Riduzione: $reduction%"  -ForegroundColor White
-
