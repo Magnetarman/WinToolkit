@@ -425,6 +425,26 @@ function Write-ToolkitLog {
 }
 
 
+function Write-ToolkitError {
+    <#
+    .SYNOPSIS
+        Scrive un errore strutturato su console e su file di log.
+        Sostituisce il blocco catch+log ripetuto in ogni tool.
+    #>
+    param(
+        [System.Management.Automation.ErrorRecord]$Record,
+        [string]$ToolName,
+        [string]$Message = "Errore critico"
+    )
+    Write-StyledMessage -Type 'Error' -Text "$Message in ${ToolName}: $($Record.Exception.Message)"
+    Write-ToolkitLog -Level ERROR -Message "$Message in $ToolName" -Context @{
+        Line      = $Record.InvocationInfo.ScriptLineNumber
+        Exception = $Record.Exception.GetType().FullName
+        Stack     = $Record.ScriptStackTrace
+    }
+}
+
+
 # ==============================================================================
 # SEZIONE 5 · SISTEMA — INFORMAZIONI E STATO
 # Raccolta dati sul sistema operativo, hardware e servizi di sicurezza.
@@ -472,6 +492,16 @@ function Get-BitlockerStatus {
 }
 
 
+function Get-LocalUserProfiles {
+    <#
+    .SYNOPSIS
+        Restituisce le directory utente reali, escludendo i profili di sistema.
+    #>
+    return Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notmatch '^(Public|Default|Default User|All Users)$' }
+}
+
+
 # ==============================================================================
 # SEZIONE 6 · AMBIENTE — PERCORSI E INIZIALIZZAZIONE
 # Creazione directory di lavoro e refresh del PATH di processo.
@@ -502,6 +532,17 @@ function Update-EnvironmentPath {
     $newPath     = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
     $env:Path    = $newPath
     [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
+}
+
+
+function Set-RegistryValue {
+    <#
+    .SYNOPSIS
+        Crea la chiave di registro se mancante e imposta il valore specificato.
+    #>
+    param([string]$Path, [string]$Name, $Value, [string]$Type = 'DWord')
+    if (-not (Test-Path $Path)) { $null = New-Item -Path $Path -Force }
+    Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force
 }
 
 
@@ -759,6 +800,108 @@ function Start-InterruptibleCountdown {
     }
     Write-Host "`n"
     return $true
+}
+
+
+function Start-ToolkitSession {
+    <#
+    .SYNOPSIS
+        Inizializzazione standard di ogni tool: log, header, titolo finestra.
+        Sostituisce il blocco di 3 righe identico presente in tutti i tool.
+    #>
+    param([string]$ToolName, [string]$SubTitle = $ToolName)
+    Start-ToolkitLog -ToolName $ToolName
+    Show-Header -SubTitle $SubTitle
+    try { $Host.UI.RawUI.WindowTitle = "$SubTitle By MagnetarMan" } catch {}
+}
+
+function Invoke-ToolkitReboot {
+    <#
+    .SYNOPSIS
+        Gestione centralizzata del riavvio: soppresso (multi-script) o countdown interrompibile.
+        Sostituisce il blocco if/else da 9 righe presente in 11 tool.
+    #>
+    param(
+        [string]$Message                 = "Operazione completata",
+        [int]$Seconds                    = 30,
+        [switch]$SuppressIndividualReboot
+    )
+    if ($SuppressIndividualReboot) {
+        $Global:NeedsFinalReboot = $true
+        Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+    } else {
+        if (Start-InterruptibleCountdown -Seconds $Seconds -Message $Message) {
+            Restart-Computer -Force
+        }
+    }
+}
+
+function Remove-ItemSafely {
+    <#
+    .SYNOPSIS
+        Rimuove un path (file o directory) in modo silenzioso, senza eccezioni.
+        Versione generalizzata di Invoke-OfficeSilentRemoval.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path, [switch]$Recurse)
+    if (-not (Test-Path $Path)) { return $false }
+    try {
+        $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
+        if ($Recurse) { $params['Recurse'] = $true }
+        Remove-Item @params *>$null
+        Clear-ProgressLine
+        return $true
+    } catch { return $false }
+}
+
+function Invoke-ToolkitDownload {
+    <#
+    .SYNOPSIS
+        Download di un file con retry automatico e messaggi standardizzati.
+        Versione unificata dei 3 pattern di download esistenti nel progetto.
+    #>
+    param(
+        [string]$Uri,
+        [string]$OutputPath,
+        [string]$Description = "file",
+        [int]$MaxRetries     = 3
+    )
+    Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
+    for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+        try {
+            $wc = New-Object System.Net.WebClient
+            $wc.DownloadFile($Uri, $OutputPath)
+            $wc.Dispose()
+            if (Test-Path $OutputPath) {
+                Write-StyledMessage -Type 'Success' -Text "Download completato: $Description."
+                return $true
+            }
+        } catch {
+            if ($attempt -lt $MaxRetries) {
+                Write-StyledMessage -Type 'Warning' -Text "Tentativo $attempt/$MaxRetries fallito. Riprovo..."
+                Start-Sleep -Seconds 2
+            }
+        }
+    }
+    Write-StyledMessage -Type 'Error' -Text "Download fallito dopo $MaxRetries tentativi: $Description."
+    return $false
+}
+
+function Restart-ServiceSafely {
+    <#
+    .SYNOPSIS
+        Stop + Start di un servizio Windows con gestione errori standardizzata.
+    #>
+    param([string]$Name, [int]$WaitSeconds = 1)
+    try {
+        Stop-Service -Name $Name -Force -ErrorAction Stop
+        Start-Sleep -Seconds $WaitSeconds
+        Start-Service -Name $Name -ErrorAction Stop
+        Write-StyledMessage -Type 'Success' -Text "Servizio riavviato: $Name."
+        return $true
+    } catch {
+        Write-StyledMessage -Type 'Warning' -Text "Impossibile riavviare '$Name': $($_.Exception.Message)."
+        return $false
+    }
 }
 
 
@@ -1461,15 +1604,7 @@ function Test-WindowsUpdateStatus {
 
 function Invoke-OfficeSilentRemoval {
     param([Parameter(Mandatory = $true)][string]$Path, [switch]$Recurse)
-    if (-not (Test-Path $Path)) { return $false }
-    try {
-        $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
-        if ($Recurse) { $params['Recurse'] = $true }
-        Remove-Item @params *>$null
-        Clear-ProgressLine
-        return $true
-    }
-    catch { return $false }
+    return Remove-ItemSafely -Path $Path -Recurse:$Recurse
 }
 
 function Stop-OfficeProcesses {
@@ -1487,19 +1622,7 @@ function Stop-OfficeProcesses {
 }
 
 function Invoke-OfficeDownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
-    try {
-        Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
-        $webClient = New-Object System.Net.WebClient
-        $webClient.DownloadFile($Url, $OutputPath)
-        $webClient.Dispose()
-        $success = (Test-Path $OutputPath)
-        Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
-        return $success
-    }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
-        return $false
-    }
+    return Invoke-ToolkitDownload -Uri $Url -OutputPath $OutputPath -Description $Description
 }
 
 function Set-OfficePostConfig {
