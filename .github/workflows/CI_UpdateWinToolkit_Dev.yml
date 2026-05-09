@@ -19,8 +19,8 @@
 
 name: CI_WinToolkit_Enterprise
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+# env:
+#   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # ---------------------------------------------------------------------------
 # TRIGGER
@@ -89,12 +89,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Verify Changed Files
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -236,11 +236,11 @@ jobs:
     permissions:
       contents: read
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+#      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -327,11 +327,11 @@ jobs:
     permissions:
       contents: read
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+#      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -376,7 +376,7 @@ jobs:
 
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pester-test-results
           path: TestResults.xml
@@ -397,14 +397,14 @@ jobs:
       contents: write
       actions: read
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+#      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     outputs:
       new_version: ${{ steps.version.outputs.new_version }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -472,7 +472,7 @@ jobs:
       contents: write
       actions: read
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+#      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     outputs:
       source_kb: ${{ steps.build_script.outputs.source_kb }}
@@ -482,7 +482,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -608,11 +608,11 @@ jobs:
       contents: write
       pull-requests: read
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+#      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0

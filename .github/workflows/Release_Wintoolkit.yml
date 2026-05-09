@@ -8,8 +8,8 @@ permissions:
   contents: write
   pull-requests: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+# env:
+#   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   create_release_branch:
@@ -18,7 +18,7 @@ jobs:
     
     steps:
       - name: Checkout Source Repository (Dev)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: Dev
           fetch-depth: 0 # Necessario per fare checkout tra branche

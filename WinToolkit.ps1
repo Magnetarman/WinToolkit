@@ -66,7 +66,7 @@ function Read-Host {
     }
 }
 $ErrorActionPreference = 'Stop'
-$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
+try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
 $ToolkitVersion = "2.5.4 (Build 42)"
 $AppConfig = @{
     URLs            = @{
@@ -86,20 +86,20 @@ $AppConfig = @{
         VCRedist64            = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
     }
     Paths           = @{
-        Root               = "$env:LOCALAPPDATA\WinToolkit"
-        Logs               = "$env:LOCALAPPDATA\WinToolkit\logs"
-        Temp               = "$env:TEMP\WinToolkit"
-        Drivers            = "$env:LOCALAPPDATA\WinToolkit\Drivers"
-        OfficeTemp         = "$env:LOCALAPPDATA\WinToolkit\Office"
-        DriverBackupTemp   = "$env:TEMP\DriverBackup_Temp"
-        DriverBackupLogs   = "$env:LOCALAPPDATA\WinToolkit\logs"
-        GamingDirectX      = "$env:LOCALAPPDATA\WinToolkit\Directx"
-        GamingDirectXSetup = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
-        BattleNetSetup     = "$env:TEMP\Battle.net-Setup.exe"
-        Desktop            = [Environment]::GetFolderPath('Desktop')
-        Startup            = [Environment]::GetFolderPath('Startup')
-        TempFolder         = $env:TEMP
-        LocalAppData       = $env:LOCALAPPDATA
+        Root                 = "$env:LOCALAPPDATA\WinToolkit"
+        Logs                 = "$env:LOCALAPPDATA\WinToolkit\logs"
+        Temp                 = "$env:TEMP\WinToolkit"
+        Drivers              = "$env:LOCALAPPDATA\WinToolkit\Drivers"
+        OfficeTemp           = "$env:LOCALAPPDATA\WinToolkit\Office"
+        DriverBackupTemp     = "$env:TEMP\DriverBackup_Temp"
+        DriverBackupLogs     = "$env:LOCALAPPDATA\WinToolkit\logs"
+        GamingDirectX        = "$env:LOCALAPPDATA\WinToolkit\Directx"
+        GamingDirectXSetup   = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
+        BattleNetSetup       = "$env:TEMP\Battle.net-Setup.exe"
+        Desktop              = [Environment]::GetFolderPath('Desktop')
+        Startup              = [Environment]::GetFolderPath('Startup')
+        TempFolder           = $env:TEMP
+        LocalAppData         = $env:LOCALAPPDATA
         System32             = "$env:windir\System32"
         SoftwareDistribution = "$env:windir\SoftwareDistribution"
         Catroot2             = "$env:windir\System32\catroot2"
@@ -207,8 +207,11 @@ function Write-StyledMessage {
 function Center-Text {
     param(
         [string]$Text,
-        [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        [int]$Width = 0
     )
+    if ($Width -eq 0) {
+        $Width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
+    }
     $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
     return (' ' * $padding + $Text)
 }
@@ -217,8 +220,8 @@ function Show-Header {
     if ($Global:GuiSessionActive) {
         return
     }
-    Clear-Host
-    $width = $Host.UI.RawUI.BufferSize.Width
+    try { Clear-Host } catch {}
+    $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
     $asciiArt = @(
         '      __        __  _   _   _ ',
         '      \ \      / / | | | \ | |',
@@ -305,9 +308,9 @@ function Write-ToolkitLog {
     )
     if (-not $Global:CurrentLogFile) { return }
     $ts = Get-Date -Format "HH:mm:ss"
-     $clean = $Message -replace '^\s+', ''
-     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
-     $clean = $clean -replace '[\u2300-\u23FF\u2600-\u27BF\uD800-\uDFFF]', ''
+    $clean = $Message -replace '^\s+', ''
+    $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
+    $clean = $clean -replace '[\u2300-\u23FF\u2600-\u27BF\uD800-\uDFFF]', ''
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try {
@@ -316,7 +319,7 @@ function Write-ToolkitLog {
         catch {}
     }
     try {
-        $mutex = New-Object System.Threading.Mutex($false, "Global\WinToolkitLogMutex")
+        $mutex = New-Object System.Threading.Mutex($false, "WinToolkitLogMutex")
         $hasHandle = $false
         try {
             $hasHandle = $mutex.WaitOne(5000)
@@ -352,6 +355,7 @@ function Invoke-ExternalCommandWithLog {
         [string]$Step = 'ExternalCommand'
     )
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $startTime = Get-Date
     $argString = $Arguments -join ' '
     Write-ToolkitLog -Level 'INFO' -Message "Esecuzione comando: $Command $argString (Timeout: ${TimeoutSeconds}s)"
     Write-ToolkitLog -Level 'DEBUG' -Message "Contesto comando" -Context @{
@@ -902,7 +906,7 @@ function Show-ProgressBar {
     param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
     $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
     $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-    $empty = '▒' * (30 - $filled.Length)
+    $empty = '░' * (30 - $filled.Length)
     $bar = "[$filled$empty] {0,3}%" -f $safePercent
     if (-not $Global:GuiSessionActive) {
         Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
@@ -1097,7 +1101,7 @@ function Read-ValidatedChoice {
             continue
         }
         $choices = $input -split '[\s,]+' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
-        if ($choices) {
+        if ($choices.Count -gt 0) {
             $isValid = $true
             foreach ($c in $choices) {
                 if ($null -ne $ValidRange) {
@@ -4526,10 +4530,17 @@ $menuStructure = @(
         )
     }
 )
-Initialize-ToolkitPaths
-WinOSCheck
+if (-not $ImportOnly) {
+    Initialize-ToolkitPaths
+}
+if (-not $ImportOnly) {
+    WinOSCheck
+}
 function Test-WindowsUpdateStatus {
     try {
+        if ($Global:GuiSessionActive) {
+            return
+        }
         Write-StyledMessage -Type 'Info' -Text "🔍 Controllo stato aggiornamenti Windows..."
         $pendingReboot = $false
         $installerRunning = $false
@@ -4570,8 +4581,9 @@ function Test-WindowsUpdateStatus {
             }
         }
         if ($pendingReboot -or $installerRunning) {
+            $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
             Write-Host ""
-            Write-Host ('═' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Yellow
+            Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
             Write-Host ""
             Write-Host (Center-Text "⚠️  AVVISO IMPORTANTE ⚠️") -ForegroundColor Yellow
             Write-Host ""
@@ -4591,7 +4603,7 @@ function Test-WindowsUpdateStatus {
             Write-Host " Si consiglia vivamente di completare tutti gli aggiornamenti in corso," -ForegroundColor Yellow
             Write-Host " riavviare il sistema e poi riavviare WinToolkit prima di proseguire." -ForegroundColor Yellow
             Write-Host ""
-            Write-Host ('═' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Yellow
+            Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
             Write-Host ""
             Start-Sleep -Seconds 5
         }
@@ -4603,14 +4615,16 @@ function Test-WindowsUpdateStatus {
         Write-StyledMessage -Type 'Warning' -Text "⚠️ Impossibile verificare stato aggiornamenti Windows: $($_.Exception.Message)"
     }
 }
-Test-WindowsUpdateStatus
+if (-not $ImportOnly) {
+    Test-WindowsUpdateStatus
+}
 if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
     Write-Host ""
     Write-StyledMessage -Type 'Info' -Text '💎 WinToolkit avviato in modalità interattiva'
     Write-Host ""
     while ($true) {
         Show-Header -SubTitle "Menu Principale"
-        $width = $Host.UI.RawUI.BufferSize.Width
+        $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
         Write-Host ('*' * 50) -ForegroundColor Red
         Write-Host ''
         Write-Host "==== 💻 INFORMAZIONI DI SISTEMA 💻 ====" -ForegroundColor Cyan
