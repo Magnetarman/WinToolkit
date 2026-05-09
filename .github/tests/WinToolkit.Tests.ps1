@@ -160,7 +160,7 @@ Describe 'Get-WingetExecutable' {
             # Mock Test-Path in modo che restituisca $true SOLO per il percorso alias
             $script:AliasPath = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\winget.exe'
             Mock Test-Path {
-                param($Path)
+                param([Parameter(ValueFromPipeline)]$Path)
                 $Path -eq $script:AliasPath
             }
         }
@@ -288,20 +288,20 @@ Describe 'Write-ToolkitLog' {
             $jobs = 1..5 | ForEach-Object {
                 $idx = $_
                 $rs  = [powershell]::Create()
-                $null = $rs.AddScript({
-                    param([string]$tPath, [string]$logFile, [int]$idx)
-                    # Forziamo ImportOnly per caricare solo le funzioni core
-                    . $tPath -ImportOnly
-                    $Global:CurrentLogFile = $logFile
-                    for ($i = 0; $i -lt 5; $i++) {
-                        Write-ToolkitLog -Level 'INFO' -Message "THREAD-$idx-ENTRY-$i"
+                # Passiamo solo lo stretto necessario al runspace
+                $null = $rs.AddScript(@"
+                    function Write-ToolkitLog { $writeToolkitLogDef }
+                    $writeHostMockDef
+                    `$Global:CurrentLogFile = '$($tmpLog -replace '\\', '\\\\')'
+                    for (`$i = 0; `$i -lt 10; `$i++) {
+                        Write-ToolkitLog -Level 'INFO' -Message "THREAD-$idx-ENTRY-`$i"
                     }
-                }).AddArgument($templatePathStr).AddArgument($tmpLog).AddArgument($idx)
+"@)
                 [PSCustomObject]@{ PS = $rs; Handle = $rs.BeginInvoke() }
             }
 
             foreach ($j in $jobs) {
-                try   { $null = $j.PS.EndInvoke($j.Handle) } catch {}
+                try { $null = $j.PS.EndInvoke($j.Handle) } catch {}
                 $j.PS.Dispose()
             }
 
