@@ -11,47 +11,26 @@ function WinReinstallStore {
         [switch]$SuppressIndividualReboot
     )
 
-    # [RULE-STRUCT-01] 1. LOGGING — SEMPRE PRIMA
-    Start-ToolkitLog -ToolName "WinReinstallStore"
+    Start-ToolkitSession -ToolName "WinReinstallStore" -SubTitle "Store Repair Toolkit"
 
-    # [RULE-STRUCT-01] 2. HEADER
-    Show-Header -SubTitle "Store Repair Toolkit"
-
-    # Soppressione progress stream PowerShell (salvare + ripristinare in finally)
     $savedProgressPref = $ProgressPreference
     $ProgressPreference = 'SilentlyContinue'
-
-    # ============================================================================
-    # FUNZIONI HELPER LOCALI
-    # ============================================================================
-
-
-    # ============================================================================
-    # 4. INSTALLAZIONE MICROSOFT STORE
-    # ============================================================================
 
     function Install-MicrosoftStore {
         Write-StyledMessage -Type 'Info' -Text "🔄 Reinstallazione Microsoft Store in corso."
 
-        # Restart servizi Store
         Write-StyledMessage -Type 'Info' -Text "Restart servizi Microsoft Store."
         @('AppXSvc', 'ClipSVC', 'WSService') | ForEach-Object {
             try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch { }
         }
-        # Pulizia cache locale Store
+
         @(
             "$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
             (Join-Path $env:LOCALAPPDATA "Microsoft\Windows\INetCache")
-        ) | ForEach-Object {
-            if (Test-Path $_) {
-                $ProgressPreference = 'SilentlyContinue'
-                Remove-Item $_ -Recurse -Force -ErrorAction SilentlyContinue *>$null
-            }
-        }
+        ) | ForEach-Object { Remove-ItemSafely -Path $_ -Recurse }
 
         $wingetExe = Get-WingetExecutable
 
-        # [RULE-BATCH-01] Metodi di installazione come array dichiarativo
         $installMethods = @(
             @{
                 Name   = 'Winget Install'
@@ -93,7 +72,6 @@ function WinReinstallStore {
             Write-StyledMessage -Type 'Info' -Text "Tentativo tramite: $($method.Name)."
             try {
                 $result = $method.Action.Invoke()
-                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Clear-ProgressLine
                 [Console]::Out.Flush()
                 $isSuccess = $result -and ($result.ExitCode -in @(0, 3010, 1638, -1978335189))
@@ -115,8 +93,7 @@ function WinReinstallStore {
             $null = Invoke-WithConsoleRedirection -Action {
                 Invoke-WithSpinner -Activity "Reset cache Microsoft Store (wsreset)" -Command 'wsreset.exe' -TimeoutSeconds 120 -LogContextKey "Store-WSReset"
             }
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                Clear-ProgressLine
+            Clear-ProgressLine
             [Console]::Out.Flush()
             Write-StyledMessage -Type 'Success' -Text "Cache dello Store ripristinata."
         }
@@ -130,7 +107,6 @@ function WinReinstallStore {
                         Start-AppxSilentProcess -AppxPath "$($_.InstallLocation)\AppXManifest.xml" -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown'
                     }
                 } -TimeoutSeconds 300
-                $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Clear-ProgressLine
                 [Console]::Out.Flush()
                 Write-StyledMessage -Type 'Success' -Text "Microsoft Store ripristinato tramite metodo di emergenza."
@@ -144,10 +120,6 @@ function WinReinstallStore {
         return $success
     }
 
-    # ============================================================================
-    # 5. INSTALLAZIONE UNIGET UI
-    # ============================================================================
-
     function Install-UniGetUI {
         Write-StyledMessage -Type 'Info' -Text "🔄 Installazione UniGet UI."
 
@@ -158,17 +130,14 @@ function WinReinstallStore {
         }
 
         try {
-            # Disinstalla versione precedente
             $null = Invoke-WithSpinner -Activity "Disinstallazione versioni precedenti UniGet UI" -Command $wingetExe -Arguments @('uninstall', '--exact', '--id', 'MartiCliment.UniGetUI', '--silent', '--disable-interactivity') -TimeoutSeconds 120 -LogContextKey "Store-UniGet-Uninstall"
 
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                Clear-ProgressLine
+            Clear-ProgressLine
             [Console]::Out.Flush()
 
             $processResult = Invoke-WithSpinner -Activity "Installazione UniGet UI" -Command $wingetExe -Arguments @('install', '--exact', '--id', 'Devolutions.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force') -TimeoutSeconds 600 -LogContextKey "Store-UniGet-Install"
 
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                Clear-ProgressLine
+            Clear-ProgressLine
             [Console]::Out.Flush()
 
             $isSuccess = $processResult.ExitCode -in @(0, 3010, 1638, -1978335189)
@@ -195,10 +164,6 @@ function WinReinstallStore {
             return $false
         }
     }
-
-    # ============================================================================
-    # 6. ESECUZIONE PRINCIPALE
-    # ============================================================================
 
     function Invoke-WithConsoleRedirection {
         <#
@@ -344,15 +309,5 @@ function WinReinstallStore {
         $ProgressPreference = $savedProgressPref
     }
 
-    # ============================================================================
-    # 7. GESTIONE RIAVVIO — SEMPRE ULTIMA
-    # ============================================================================
-    if ($SuppressIndividualReboot) {
-        $Global:NeedsFinalReboot = $true
-    }
-    else {
-        if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio in") {
-            Restart-Computer -Force
-        }
-    }
+    Invoke-ToolkitReboot -Message "Riavvio in" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
 }
