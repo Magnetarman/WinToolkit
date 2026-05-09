@@ -5,30 +5,18 @@ function WinExportLog {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
-
-        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
-    # ============================================================================
-    # 1. INIZIALIZZAZIONE
-    # ============================================================================
-
-    Start-ToolkitLog -ToolName "WinExportLog"
-    Show-Header -SubTitle "Esporta Log Diagnostici"
-    $Host.UI.RawUI.WindowTitle = "Log Export By MagnetarMan"
-
-    # ============================================================================
-    # 2. CONFIGURAZIONE E VARIABILI LOCALI
-    # ============================================================================
+    Start-ToolkitSession -ToolName "WinExportLog" -SubTitle "Esporta Log Diagnostici"
 
     $logSourcePath = $AppConfig.Paths.Logs
-    $desktopPath = $AppConfig.Paths.Desktop
-    $timestamp = (Get-Date -Format "yyyyMMdd_HHmmss")
-    $zipFileName = "WinToolkit_Logs_$timestamp.zip"
-    $zipFilePath = Join-Path $desktopPath $zipFileName
+    $desktopPath   = $AppConfig.Paths.Desktop
+    $timestamp     = Get-Date -Format "yyyyMMdd_HHmmss"
+    $zipFileName   = "WinToolkit_Logs_$timestamp.zip"
+    $zipFilePath   = Join-Path $desktopPath $zipFileName
+    $tempFolder    = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
 
     try {
         Write-StyledMessage -Type 'Info' -Text "📂 Verifica presenza cartella log."
@@ -40,17 +28,10 @@ function WinExportLog {
 
         Write-StyledMessage -Type 'Info' -Text "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso."
 
-        # Metodo alternativo per gestire file in uso
-        $tempFolder = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
-
-        # Crea cartella temporanea
-        if (Test-Path $tempFolder) {
-            Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
-        }
+        Remove-ItemSafely -Path $tempFolder -Recurse
         New-Item -ItemType Directory -Path $tempFolder -Force *>$null
 
-        # Copia i file con gestione degli errori
-        $filesCopied = 0
+        $filesCopied  = 0
         $filesSkipped = 0
 
         try {
@@ -60,7 +41,6 @@ function WinExportLog {
                     $filesCopied++
                 }
                 catch {
-                    # File in uso o altri errori - salta silenziosamente
                     $filesSkipped++
                     Write-Debug "File ignorato: $($_.Name) - $($_.Exception.Message)"
                 }
@@ -70,45 +50,29 @@ function WinExportLog {
             Write-StyledMessage -Type 'Warning' -Text "Errore durante la copia dei file: $($_.Exception.Message)."
         }
 
-        # Comprime la cartella temporanea
         if ($filesCopied -gt 0) {
             Compress-Archive -Path "$tempFolder\*" -DestinationPath $zipFilePath -Force -ErrorAction Stop
 
             if (Test-Path $zipFilePath) {
                 Write-StyledMessage -Type 'Success' -Text "Log compressi con successo! File salvato: '$zipFileName' sul Desktop."
-
                 if ($filesSkipped -gt 0) {
-                    Write-StyledMessage -Type 'Info' -Text "⚠️ Attenzione: $filesSkipped file sono stati ignorati perché in uso o non accessibili."
+                    Write-StyledMessage -Type 'Info' -Text "⚠️ $filesSkipped file ignorati perché in uso o non accessibili."
                 }
-
-                # Messaggi per l'utente
-                Write-StyledMessage -Type 'Info' -Text "📩 Per favore, invia il file ZIP '$zipFileName' (lo trovi sul tuo Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per aiutarmi nella diagnostica."
+                Write-StyledMessage -Type 'Info' -Text "📩 Invia '$zipFileName' (Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per la diagnostica."
             }
             else {
                 Write-StyledMessage -Type 'Error' -Text "Errore sconosciuto: il file ZIP non è stato creato."
             }
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text "Nessun file log è stato copiato. Verifica i permessi e che i file esistano."
-        }
-
-        # Pulizia cartella temporanea
-        if (Test-Path $tempFolder) {
-            Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
+            Write-StyledMessage -Type 'Error' -Text "Nessun file log copiato. Verifica i permessi e che i file esistano."
         }
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore critico durante la compressione dei log: $($_.Exception.Message)."
-        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinExportLog" -Context @{
-            Line      = $_.InvocationInfo.ScriptLineNumber
-            Exception = $_.Exception.GetType().FullName
-            Stack     = $_.ScriptStackTrace
-        }
-
-        # Pulizia forzata in caso di errore
-        $tempFolder = Join-Path $env:TEMP "WinToolkit_Logs_Temp_$timestamp"
-        if (Test-Path $tempFolder) {
-            Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
-        }
+        Write-ToolkitError -Record $_ -ToolName "WinExportLog" -Message "Errore durante la compressione dei log"
+    }
+    finally {
+        Remove-ItemSafely -Path $tempFolder -Recurse
+        Write-ToolkitLog -Level INFO -Message "WinExportLog sessione terminata."
     }
 }
