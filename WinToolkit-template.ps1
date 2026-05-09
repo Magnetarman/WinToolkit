@@ -109,7 +109,7 @@ $AppConfig = @{
         # Office
         OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
         OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
-        SaRAInstaller         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/SaRACmd_17_01_2877_000.zip"
+        GetHelpInstaller      = "https://aka.ms/SaRA_EnterpriseVersionFiles"
 
         # Video Driver
         AMDInstaller          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/AMD-Autodetect.exe"
