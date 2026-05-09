@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    WinToolkit - Suite di manutenzione Windows
+    WinToolkit - Sopravvivi a Windows
 .DESCRIPTION
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
@@ -144,7 +144,7 @@ $AppConfig = @{
         Startup              = [Environment]::GetFolderPath('Startup')
         TempFolder           = $env:TEMP
         LocalAppData         = $env:LOCALAPPDATA
-        
+
         # System Paths
         System32             = "$env:windir\System32"
         SoftwareDistribution = "$env:windir\SoftwareDistribution"
@@ -1425,7 +1425,7 @@ function Get-UserConfirmation {
 
     # Bridge: mirror to log file
     Write-ToolkitLog -Level 'INFO' -Message "User Confirmation Prompt: $Prompt | Response: $response"
- 
+
     return $response -match '^[sS]'
 }
 
@@ -1456,7 +1456,7 @@ function Read-ValidatedChoice {
 
     $currentInput = if ($PSBoundParameters.ContainsKey('RawInput')) { $RawInput } else { $null }
     while ($true) {
-        $input = if ($null -ne $currentInput) { 
+        $input = if ($null -ne $currentInput) {
             $val = $currentInput
             $currentInput = $null # Consuma l'input
             $val
@@ -1992,13 +1992,3 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
-
-
-
-
-
-
-
-
-

@@ -49,6 +49,9 @@ on:
       - "compiler.ps1"
       - "start-offline.ps1"
       - "start.ps1"
+      - ".github/workflows/*.yml"
+      - ".github/tests/*.ps1"
+      - ".github/scripts/*.ps1"
   pull_request:
     branches: [Dev]
 
