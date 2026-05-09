@@ -43,6 +43,12 @@ on:
       - "[Ff]eat-*"
       - "[Hh]otfix/**"
       - "[Hh]otfix-*"
+      - "[Bb][Uu][Gg]/**"
+      - "[Bb][Uu][Gg]-*"
+      - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]/**"
+      - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]-*"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]/**"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]-*"
     paths:
       - "tool/*.ps1"
       - "WinToolkit-template.ps1"
