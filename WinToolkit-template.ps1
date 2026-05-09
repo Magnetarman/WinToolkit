@@ -1478,7 +1478,7 @@ function Read-ValidatedChoice {
         # Gestione input multipli (es. 1,2,3 o 1 2 3)
         $choices = $input -split '[\s,]+' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
 
-        if ($choices) {
+        if ($null -ne $choices -and $choices.Count -gt 0) {
             $isValid = $true
             foreach ($c in $choices) {
                 if ($null -ne $ValidRange) {
