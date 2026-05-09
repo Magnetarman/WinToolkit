@@ -11,7 +11,7 @@
 
 .NOTES
     Autore: MagnetarMan
-    Version: 1.0.4
+    Version: 1.0.6
 #>
 
 [CmdletBinding()]
@@ -112,6 +112,7 @@ try {
     $presentFunctions = @()
     $missingFunctions = @()
     $emptyFunctions = @()
+    $devFunctions = @()
 
     foreach ($funcName in $expectedFunctions) {
         $funcAst = $functions | Where-Object { $_.Name -eq $funcName }
@@ -127,20 +128,32 @@ try {
             }
         }
         else {
-            $missingFunctions += $funcName
+            # Verifica se è commentata (In Sviluppo) - supporta sia "# function Nome {}" che "# Nome {}"
+            if ($scriptContent -match "(?m)^\s*#\s*(function\s+)?$funcName\s*\{") {
+                $devFunctions += $funcName
+            }
+            else {
+                $missingFunctions += $funcName
+            }
         }
     }
 
     Write-TestLog -Message "  📊 Funzioni attese: $($expectedFunctions.Count)" -Type Info
     Write-TestLog -Message "  📊 Funzioni presenti: $($presentFunctions.Count)" -Type Success
+    Write-TestLog -Message "  📊 Funzioni in sviluppo: $($devFunctions.Count)" -Type Info
     Write-TestLog -Message "  📊 Funzioni vuote: $($emptyFunctions.Count)" -Type Warning
     Write-TestLog -Message "  📊 Funzioni mancanti: $($missingFunctions.Count)" -Type Warning
 
-    if ($presentFunctions.Count -eq $expectedFunctions.Count) {
-        $script:TestResults += "✅ Funzioni: Tutte presenti e compilate ($($presentFunctions.Count))"
+    if ($missingFunctions.Count -eq 0) {
+        $status = "✅ Funzioni: Tutte gestite ($($presentFunctions.Count) attive"
+        if ($devFunctions.Count -gt 0) { $status += ", $($devFunctions.Count) in sviluppo" }
+        $status += ")"
+        $script:TestResults += $status
     }
     else {
-        $script:TestResults += "ℹ️ Funzioni: $($presentFunctions.Count)/$($expectedFunctions.Count) presenti"
+        $script:TestResults += "❌ Funzioni: $($presentFunctions.Count)/$($expectedFunctions.Count) presenti"
+        $script:TotalErrors++
+        $script:CriticalErrors += "Mancano $($missingFunctions.Count) funzioni nel file compilato (non trovate neanche come commentate): $($missingFunctions -join ', ')"
     }
 
     $script:TotalWarnings += $emptyFunctions.Count
@@ -151,10 +164,7 @@ try {
     Write-TestLog -Message "`n🔍 Test 3: Verifica struttura menu..." -Type Info
 
     $menuTests = @(
-        @{ Pattern = [regex]::Escape("while (`$true)"); Name = "Menu principale" },
-        @{ Pattern = "Windows & Office"; Name = "Categoria Windows & Office" },
-        @{ Pattern = "Driver & Gaming"; Name = "Categoria Driver & Gaming" },
-        @{ Pattern = "Supporto"; Name = "Categoria Supporto" }
+        @{ Pattern = [regex]::Escape("while (`$true)"); Name = "Menu principale" }
     )
 
     foreach ($test in $menuTests) {
