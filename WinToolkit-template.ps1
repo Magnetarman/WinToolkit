@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    WinToolkit - Suite di manutenzione Windows
+    WinToolkit - Sopravvivi a Windows
 .DESCRIPTION
     Framework modulare unificato.
     Contiene le funzioni core (UI, Log, Info) e il menu principale.
@@ -96,8 +96,8 @@ function Read-Host {
 
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
-$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
-$ToolkitVersion = "2.5.4 (Build 42)"
+try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
+$ToolkitVersion = "2.5.4 (Build 44)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
 $AppConfig = @{
@@ -130,21 +130,21 @@ $AppConfig = @{
     }
     Paths           = @{
         # Base paths
-        Root               = "$env:LOCALAPPDATA\WinToolkit"
-        Logs               = "$env:LOCALAPPDATA\WinToolkit\logs"
-        Temp               = "$env:TEMP\WinToolkit"
-        Drivers            = "$env:LOCALAPPDATA\WinToolkit\Drivers"
-        OfficeTemp         = "$env:LOCALAPPDATA\WinToolkit\Office"
-        DriverBackupTemp   = "$env:TEMP\DriverBackup_Temp"
-        DriverBackupLogs   = "$env:LOCALAPPDATA\WinToolkit\logs"
-        GamingDirectX      = "$env:LOCALAPPDATA\WinToolkit\Directx"
-        GamingDirectXSetup = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
-        BattleNetSetup     = "$env:TEMP\Battle.net-Setup.exe"
-        Desktop            = [Environment]::GetFolderPath('Desktop')
-        Startup            = [Environment]::GetFolderPath('Startup')
-        TempFolder         = $env:TEMP
-        LocalAppData       = $env:LOCALAPPDATA
-        
+        Root                 = "$env:LOCALAPPDATA\WinToolkit"
+        Logs                 = "$env:LOCALAPPDATA\WinToolkit\logs"
+        Temp                 = "$env:TEMP\WinToolkit"
+        Drivers              = "$env:LOCALAPPDATA\WinToolkit\Drivers"
+        OfficeTemp           = "$env:LOCALAPPDATA\WinToolkit\Office"
+        DriverBackupTemp     = "$env:TEMP\DriverBackup_Temp"
+        DriverBackupLogs     = "$env:LOCALAPPDATA\WinToolkit\logs"
+        GamingDirectX        = "$env:LOCALAPPDATA\WinToolkit\Directx"
+        GamingDirectXSetup   = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
+        BattleNetSetup       = "$env:TEMP\Battle.net-Setup.exe"
+        Desktop              = [Environment]::GetFolderPath('Desktop')
+        Startup              = [Environment]::GetFolderPath('Startup')
+        TempFolder           = $env:TEMP
+        LocalAppData         = $env:LOCALAPPDATA
+
         # System Paths
         System32             = "$env:windir\System32"
         SoftwareDistribution = "$env:windir\SoftwareDistribution"
@@ -299,8 +299,11 @@ function Write-StyledMessage {
 function Center-Text {
     param(
         [string]$Text,
-        [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        [int]$Width = 0
     )
+    if ($Width -eq 0) {
+        $Width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
+    }
     $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
     return (' ' * $padding + $Text)
 }
@@ -316,8 +319,8 @@ function Show-Header {
     if ($Global:GuiSessionActive) {
         return
     }
-    Clear-Host
-    $width = $Host.UI.RawUI.BufferSize.Width
+    try { Clear-Host } catch {}
+    $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
     $asciiArt = @(
         '      __        __  _   _   _ ',
         '      \ \      / / | | | \ | |',
@@ -430,12 +433,12 @@ function Write-ToolkitLog {
     if (-not $Global:CurrentLogFile) { return }
 
     $ts = Get-Date -Format "HH:mm:ss"
-     $clean = $Message -replace '^\s+', ''
-     # Rimuovi tutti i caratteri ANSI/colori prima di salvare su file
-     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
-     # Rimuovi emoji comuni per evitare problemi con parser log
-     # Rimuovi emoji: BMP (sintassi .NET \uXXXX) + supplementari via surrogate pairs (\uD800-\uDFFF)
-     $clean = $clean -replace '[\u2300-\u23FF\u2600-\u27BF\uD800-\uDFFF]', ''
+    $clean = $Message -replace '^\s+', ''
+    # Rimuovi tutti i caratteri ANSI/colori prima di salvare su file
+    $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
+    # Rimuovi emoji comuni per evitare problemi con parser log
+    # Rimuovi emoji: BMP (sintassi .NET \uXXXX) + supplementari via surrogate pairs (\uD800-\uDFFF)
+    $clean = $clean -replace '[\u2300-\u23FF\u2600-\u27BF\uD800-\uDFFF]', ''
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try {
@@ -448,7 +451,9 @@ function Write-ToolkitLog {
         $hasHandle = $false
         try {
             $hasHandle = $mutex.WaitOne(5000)
-            Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
+            if ($hasHandle) {
+                Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
+            }
         }
         finally {
             if ($hasHandle) { $mutex.ReleaseMutex() }
@@ -499,6 +504,7 @@ function Invoke-ExternalCommandWithLog {
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $startTime = Get-Date
     $argString = $Arguments -join ' '
 
     Write-ToolkitLog -Level 'INFO' -Message "Esecuzione comando: $Command $argString (Timeout: ${TimeoutSeconds}s)"
@@ -1197,7 +1203,7 @@ function Show-ProgressBar {
     param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
     $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
     $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-    $empty = '▒' * (30 - $filled.Length)
+    $empty = '░' * (30 - $filled.Length)
     $bar = "[$filled$empty] {0,3}%" -f $safePercent
     # Only write to console if NOT in GUI session (to avoid interfering with job output)
     if (-not $Global:GuiSessionActive) {
@@ -1421,7 +1427,7 @@ function Get-UserConfirmation {
 
     # Bridge: mirror to log file
     Write-ToolkitLog -Level 'INFO' -Message "User Confirmation Prompt: $Prompt | Response: $response"
- 
+
     return $response -match '^[sS]'
 }
 
@@ -1452,7 +1458,7 @@ function Read-ValidatedChoice {
 
     $currentInput = if ($PSBoundParameters.ContainsKey('RawInput')) { $RawInput } else { $null }
     while ($true) {
-        $input = if ($null -ne $currentInput) { 
+        $input = if ($null -ne $currentInput) {
             $val = $currentInput
             $currentInput = $null # Consuma l'input
             $val
@@ -1470,7 +1476,7 @@ function Read-ValidatedChoice {
         # Gestione input multipli (es. 1,2,3 o 1 2 3)
         $choices = $input -split '[\s,]+' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
 
-        if ($choices) {
+        if ($choices.Count -gt 0) {
             $isValid = $true
             foreach ($c in $choices) {
                 if ($null -ne $ValidRange) {
@@ -1579,9 +1585,8 @@ function WinUpdateReset {}
 function WinReinstallStore {}
 function WinBackupDriver {}
 function WinDriverInstall {}
-function Install-Office {}
-function Repair-Office {}
-function Uninstall-Office {}
+function WinDebloat {}
+function OfficeToolkit {}
 function WinCleaner {}
 function VideoDriverInstall {}
 function GamingToolkit {}
@@ -1674,19 +1679,14 @@ function Show-ConsoleTable {
 
 # --- MENU PRINCIPALE ---
 $menuStructure = @(
-    @{ 'Name' = 'Windows'; 'Icon' = '🔧'; 'Scripts' = @(
+    @{ 'Name' = 'Windows & Office'; 'Icon' = '🔧'; 'Scripts' = @(
             [pscustomobject]@{Name = 'WinRepairToolkit'; Description = 'Riparazione Windows'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' }
-        )
-    },
-    @{ 'Name' = 'Office'; 'Icon' = '🏢'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'Install-Office'; Description = 'Installa Office Basic'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'Repair-Office'; Description = 'Ripara Office'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'Uninstall-Office'; Description = 'Rimuovi Office'; Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
         )
     },
     @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
@@ -1699,8 +1699,12 @@ $menuStructure = @(
         )
     }
 )
-Initialize-ToolkitPaths
-WinOSCheck
+if (-not $ImportOnly) {
+    Initialize-ToolkitPaths
+}
+if (-not $ImportOnly) {
+    WinOSCheck
+}
 
 function Test-WindowsUpdateStatus {
     <#
@@ -1711,6 +1715,10 @@ function Test-WindowsUpdateStatus {
         Utilizza PSWindowsUpdate se disponibile, altrimenti fallback su registro e servizi nativi.
     #>
     try {
+        # Salta il controllo se in modalità GUI per evitare output in console durante il caricamento
+        if ($Global:GuiSessionActive) {
+            return
+        }
         Write-StyledMessage -Type 'Info' -Text "🔍 Controllo stato aggiornamenti Windows..."
 
         $pendingReboot = $false
@@ -1764,8 +1772,9 @@ function Test-WindowsUpdateStatus {
 
         # Mostra avviso dettagliato in caso di condizioni critiche
         if ($pendingReboot -or $installerRunning) {
+            $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
             Write-Host ""
-            Write-Host ('═' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Yellow
+            Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
             Write-Host ""
             Write-Host (Center-Text "⚠️  AVVISO IMPORTANTE ⚠️") -ForegroundColor Yellow
             Write-Host ""
@@ -1785,7 +1794,7 @@ function Test-WindowsUpdateStatus {
             Write-Host " Si consiglia vivamente di completare tutti gli aggiornamenti in corso," -ForegroundColor Yellow
             Write-Host " riavviare il sistema e poi riavviare WinToolkit prima di proseguire." -ForegroundColor Yellow
             Write-Host ""
-            Write-Host ('═' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Yellow
+            Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
             Write-Host ""
 
             Start-Sleep -Seconds 5
@@ -1799,7 +1808,9 @@ function Test-WindowsUpdateStatus {
     }
 }
 
-Test-WindowsUpdateStatus
+if (-not $ImportOnly) {
+    Test-WindowsUpdateStatus
+}
 
 # =============================================================================
 # MENU PRINCIPALE - Esegui solo se NON in modalità ImportOnly o GUI
@@ -1807,6 +1818,7 @@ Test-WindowsUpdateStatus
 
 if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
     # Modalità interattiva TUI standard
+
     Write-Host ""
     Write-StyledMessage -Type 'Info' -Text '💎 WinToolkit avviato in modalità interattiva'
     Write-Host ""
@@ -1815,7 +1827,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         Show-Header -SubTitle "Menu Principale"
 
         # Info Sistema
-        $width = $Host.UI.RawUI.BufferSize.Width
+        $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
         Write-Host ('*' * 50) -ForegroundColor Red
         Write-Host ''
         Write-Host "==== 💻 INFORMAZIONI DI SISTEMA 💻 ====" -ForegroundColor Cyan
@@ -1983,13 +1995,4 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
-
-
-
-
-
-
-
-
 
