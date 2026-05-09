@@ -1585,6 +1585,87 @@ function WinUpdateReset {}
 function WinReinstallStore {}
 function WinBackupDriver {}
 function WinDriverInstall {}
+# ============================================================================
+# OFFICE: Funzioni helper condivise (Install / Repair / Uninstall)
+# ============================================================================
+function Invoke-OfficeSilentRemoval {
+    param([Parameter(Mandatory = $true)][string]$Path, [switch]$Recurse)
+    if (-not (Test-Path $Path)) { return $false }
+    try {
+        $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
+        if ($Recurse) { $params['Recurse'] = $true }
+        Remove-Item @params *>$null
+        Clear-ProgressLine
+        return $true
+    } catch { return $false }
+}
+
+function Stop-OfficeProcesses {
+    $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
+    $closed = 0
+    Write-StyledMessage -Type 'Info' -Text "📋 Chiusura processi Office."
+    foreach ($processName in $processes) {
+        $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
+        if ($running) {
+            try { $running | Stop-Process -Force -ErrorAction Stop; $closed++ }
+            catch { Write-StyledMessage -Type 'Warning' -Text "Impossibile chiudere: $processName." }
+        }
+    }
+    if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text "$closed processi Office chiusi." }
+}
+
+function Invoke-OfficeDownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
+    try {
+        Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
+        $webClient = New-Object System.Net.WebClient
+        $webClient.DownloadFile($Url, $OutputPath)
+        $webClient.Dispose()
+        $success = (Test-Path $OutputPath)
+        Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
+        return $success
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
+        return $false
+    }
+}
+
+function Set-OfficePostConfig {
+    Write-StyledMessage -Type 'Info' -Text "⚙️ Ottimizzazione profonda di Microsoft Office."
+
+    $registrySettings = @(
+        # Privacy & Telemetria
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
+        @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "ShownOptIn"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"; Name = "Enabled"; Value = 0 },
+        # Performance & UI
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableAnimations"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableHardwareAcceleration"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "DisableBootToStartScreen"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\LinkedIn"; Name = "ShowLinkedInIntegration"; Value = 0 }
+    )
+
+    foreach ($reg in $registrySettings) {
+        if (-not (Test-Path $reg.Path)) { $null = New-Item -Path $reg.Path -Force }
+        Set-ItemProperty -Path $reg.Path -Name $reg.Name -Value $reg.Value -Type 'DWord' -Force
+    }
+
+    $tasksToDisable = @(
+        "OfficeTelemetryAgentLogon", "OfficeTelemetryAgentFallback",
+        "OfficeBackgroundTaskHandlerRegistration", "OfficeBackgroundTaskHandlerLogon",
+        "OfficeFeatureUpdates", "OfficeFeatureUpdatesLogon"
+    )
+    foreach ($tName in $tasksToDisable) {
+        Get-ScheduledTask | Where-Object { $_.TaskName -eq $tName } | Disable-ScheduledTask -ErrorAction SilentlyContinue
+    }
+
+    Write-StyledMessage -Type 'Success' -Text "✅ Office ottimizzato: telemetria, privacy e task pianificati rimossi."
+}
+
 function Install-Office {}
 function Repair-Office {}
 function Uninstall-Office {}

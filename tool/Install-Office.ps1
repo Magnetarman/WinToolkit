@@ -17,76 +17,6 @@ function Install-Office {
 
     $tempDir = $AppConfig.Paths.OfficeTemp
 
-    function Invoke-SilentRemoval {
-        param(
-            [Parameter(Mandatory = $true)][string]$Path,
-            [switch]$Recurse
-        )
-        if (-not (Test-Path $Path)) { return $false }
-        try {
-            $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
-            if ($Recurse) { $params['Recurse'] = $true }
-            Remove-Item @params *>$null
-            Clear-ProgressLine
-            return $true
-        } catch { return $false }
-    }
-
-    function Apply-OfficePostConfig {
-        Write-StyledMessage -Type 'Info' -Text "⚙️ Ottimizzazione profonda di Microsoft Office."
-
-        $registrySettings = @(
-            # Privacy & Telemetria
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
-            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "ShownOptIn"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"; Name = "Enabled"; Value = 0 },
-            # Performance & UI
-            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableAnimations"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableHardwareAcceleration"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "DisableBootToStartScreen"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\LinkedIn"; Name = "ShowLinkedInIntegration"; Value = 0 }
-        )
-
-        foreach ($reg in $registrySettings) {
-            if (-not (Test-Path $reg.Path)) { $null = New-Item -Path $reg.Path -Force }
-            Set-ItemProperty -Path $reg.Path -Name $reg.Name -Value $reg.Value -Type 'DWord' -Force
-        }
-
-        $tasksToDisable = @(
-            "OfficeTelemetryAgentLogon",
-            "OfficeTelemetryAgentFallback",
-            "OfficeBackgroundTaskHandlerRegistration",
-            "OfficeBackgroundTaskHandlerLogon",
-            "OfficeFeatureUpdates",
-            "OfficeFeatureUpdatesLogon"
-        )
-        foreach ($tName in $tasksToDisable) {
-            Get-ScheduledTask | Where-Object { $_.TaskName -eq $tName } | Disable-ScheduledTask -ErrorAction SilentlyContinue
-        }
-
-        Write-StyledMessage -Type 'Success' -Text "✅ Office ottimizzato: telemetria, privacy e task pianificati rimossi."
-    }
-
-    function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
-        try {
-            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
-            $webClient = New-Object System.Net.WebClient
-            $webClient.DownloadFile($Url, $OutputPath)
-            $webClient.Dispose()
-            $success = (Test-Path $OutputPath)
-            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
-            return $success
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
-            return $false
-        }
-    }
-
     try {
         Write-StyledMessage -Type 'Info' -Text "🏢 Avvio installazione Office Basic."
 
@@ -101,7 +31,7 @@ function Install-Office {
         )
 
         foreach ($dl in $downloads) {
-            if (-not (Invoke-DownloadFile $dl.Url $dl.Path $dl.Name)) {
+            if (-not (Invoke-OfficeDownloadFile $dl.Url $dl.Path $dl.Name)) {
                 Write-StyledMessage -Type 'Error' -Text "Download fallito. Installazione annullata."
                 return
             }
@@ -118,7 +48,7 @@ function Install-Office {
             return
         }
 
-        Apply-OfficePostConfig
+        Set-OfficePostConfig
         Write-StyledMessage -Type 'Success' -Text "✅ Installazione completata."
         Write-StyledMessage -Type 'Info' -Text "Riavvio non necessario."
     }
@@ -131,7 +61,7 @@ function Install-Office {
         }
     }
     finally {
-        Invoke-SilentRemoval -Path $tempDir -Recurse
+        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Install terminato."
         Write-ToolkitLog -Level INFO -Message "Install-Office sessione terminata."
     }
