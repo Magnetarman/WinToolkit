@@ -49,6 +49,9 @@ on:
       - "compiler.ps1"
       - "start-offline.ps1"
       - "start.ps1"
+      - ".github/workflows/*.yml"
+      - ".github/tests/*.ps1"
+      - ".github/scripts/*.ps1"
   pull_request:
     branches: [Dev]
 
@@ -89,12 +92,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Verify Changed Files
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -240,7 +243,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -331,7 +334,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -376,7 +379,7 @@ jobs:
 
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pester-test-results
           path: TestResults.xml
@@ -404,7 +407,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -482,7 +485,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -612,7 +615,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -703,15 +706,11 @@ jobs:
 
           function Get-PrCategory {
             param([string]$Title, [string[]]$Labels)
-            if ($Title -match '\[ENHANCEMENT\]')                                   { return 'enhancement' }
-            if ($Labels -contains 'feature')                                       { return 'feature' }
-            if ($Labels -contains 'enhancement')                                   { return 'enhancement' }
-            if ($Labels -contains 'bug' -or $Labels -contains 'fix' `
-                -or $Labels -contains 'bugfix')                                    { return 'bugfix' }
-            if ($Title -match '^(feat|feature|add|new|implement)\b' `
-                -or $Title -match '^Update.*\.ps1$')                              { return 'feature' }
-            if ($Title -match '^(fix|bugfix|resolve|repair)\b' `
-                -or $Title -match '\b(fix|bug|resolve)\b')                        { return 'bugfix' }
+            $t = $Title.ToLower()
+            # Sezioni prioritarie basate sui tag dei template
+            if ($t -match '\[feature\]' -or $Labels -contains 'feature' -or $t -match '^(feat|feature|add|new|implement)\b') { return 'feature' }
+            if ($t -match '\[bug\]' -or $t -match '\[bugfix\]' -or $t -match '\[fix\]' -or $Labels -contains 'bug' -or $Labels -contains 'fix' -or $Labels -contains 'bugfix' -or $t -match '^(fix|bugfix|resolve|repair)\b' -or $t -match '\b(fix|bug|resolve)\b') { return 'bugfix' }
+            if ($t -match '\[enhancement\]' -or $Labels -contains 'enhancement' -or $t -match '^(update|improve|optimize|enhance)\b') { return 'enhancement' }
             return 'change'
           }
 
@@ -751,10 +750,10 @@ jobs:
 
           # Composizione release body
           $body = ""
-          if ($features.Count     -gt 0) { $body += "## Features`n`n"     + ($features     -join "`n") + "`n`n" }
-          if ($bugFixes.Count     -gt 0) { $body += "## Bug Fixes`n`n"    + ($bugFixes     -join "`n") + "`n`n" }
-          if ($enhancements.Count -gt 0) { $body += "## Enhancement`n`n"  + ($enhancements -join "`n") + "`n`n" }
-          if ($changes.Count      -gt 0) { $body += "## Changes`n`n"      + ($changes      -join "`n") + "`n`n" }
+          if ($features.Count     -gt 0) { $body += "## 🚀 Features`n`n"     + ($features     -join "`n") + "`n`n" }
+          if ($bugFixes.Count     -gt 0) { $body += "## 🐛 Bug Fixes`n`n"    + ($bugFixes     -join "`n") + "`n`n" }
+          if ($enhancements.Count -gt 0) { $body += "## ✨ Enhancement`n`n"  + ($enhancements -join "`n") + "`n`n" }
+          if ($changes.Count      -gt 0) { $body += "## 🔄 Changes`n`n"      + ($changes      -join "`n") + "`n`n" }
           if ($validPrs.Count -eq 0)     { $body += "_Nessun contributo esterno in questa build._`n`n" }
 
           $sourceKB     = "${{ needs.build.outputs.source_kb }}"
@@ -762,7 +761,7 @@ jobs:
           $reduction    = "${{ needs.build.outputs.reduction_percent }}"
           $linesRemoved = "${{ needs.build.outputs.lines_removed }}"
 
-          $body += "`n### Statistiche Compressione`n`n"
+          $body += "`n### 📊 Statistiche Compressione`n`n"
           $body += "| Metrica         | Valore        |`n"
           $body += "|-----------------|---------------|`n"
           $body += "| Peso Sorgente   | $sourceKB KB  |`n"
