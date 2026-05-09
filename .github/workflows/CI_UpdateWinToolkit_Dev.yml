@@ -116,7 +116,7 @@ jobs:
 
             const author       = context.payload.pull_request.user.login;
             const prNumber     = context.issue.number;
-            const isMaintainer = (author === 'MagnetarMan');
+            const isMaintainer = (author.toLowerCase() === 'magnetarman');
 
             // ── CLASSIFICAZIONE DEI FILE ──────────────────────────────────
             //
