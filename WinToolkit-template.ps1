@@ -447,11 +447,13 @@ function Write-ToolkitLog {
         catch {}
     }
     try {
-        $mutex = New-Object System.Threading.Mutex($false, "WinToolkitLogMutex")
+        $mutex = New-Object System.Threading.Mutex($false, "Global\WinToolkitLogMutex")
         $hasHandle = $false
         try {
             $hasHandle = $mutex.WaitOne(5000)
-            Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
+            if ($hasHandle) {
+                Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
+            }
         }
         finally {
             if ($hasHandle) { $mutex.ReleaseMutex() }
