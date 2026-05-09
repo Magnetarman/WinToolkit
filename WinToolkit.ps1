@@ -2703,6 +2703,7 @@ function Uninstall-Office {
             Write-StyledMessage -Type 'Warning' -Text "Impossibile rilevare versione Windows: $_"
             return "Unknown"
         }
+        return @{ Removed = $removed; Failed = $failed; Count = $removed.Count }
     }
     function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
         try {
