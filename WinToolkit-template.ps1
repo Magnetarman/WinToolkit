@@ -299,8 +299,11 @@ function Write-StyledMessage {
 function Center-Text {
     param(
         [string]$Text,
-        [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        [int]$Width = 0
     )
+    if ($Width -eq 0) {
+        $Width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
+    }
     $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
     return (' ' * $padding + $Text)
 }
@@ -316,8 +319,8 @@ function Show-Header {
     if ($Global:GuiSessionActive) {
         return
     }
-    Clear-Host
-    $width = $Host.UI.RawUI.BufferSize.Width
+    try { Clear-Host } catch {}
+    $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
     $asciiArt = @(
         '      __        __  _   _   _ ',
         '      \ \      / / | | | \ | |',
@@ -1693,7 +1696,9 @@ $menuStructure = @(
     }
 )
 Initialize-ToolkitPaths
-WinOSCheck
+if (-not $ImportOnly) {
+    WinOSCheck
+}
 
 function Test-WindowsUpdateStatus {
     <#
@@ -1704,6 +1709,10 @@ function Test-WindowsUpdateStatus {
         Utilizza PSWindowsUpdate se disponibile, altrimenti fallback su registro e servizi nativi.
     #>
     try {
+        # Salta il controllo se in modalità GUI per evitare output in console durante il caricamento
+        if ($Global:GuiSessionActive) {
+            return
+        }
         Write-StyledMessage -Type 'Info' -Text "🔍 Controllo stato aggiornamenti Windows..."
 
         $pendingReboot = $false
@@ -1757,8 +1766,9 @@ function Test-WindowsUpdateStatus {
 
         # Mostra avviso dettagliato in caso di condizioni critiche
         if ($pendingReboot -or $installerRunning) {
+            $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
             Write-Host ""
-            Write-Host ('═' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Yellow
+            Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
             Write-Host ""
             Write-Host (Center-Text "⚠️  AVVISO IMPORTANTE ⚠️") -ForegroundColor Yellow
             Write-Host ""
@@ -1778,7 +1788,7 @@ function Test-WindowsUpdateStatus {
             Write-Host " Si consiglia vivamente di completare tutti gli aggiornamenti in corso," -ForegroundColor Yellow
             Write-Host " riavviare il sistema e poi riavviare WinToolkit prima di proseguire." -ForegroundColor Yellow
             Write-Host ""
-            Write-Host ('═' * ($Host.UI.RawUI.BufferSize.Width - 1)) -ForegroundColor Yellow
+            Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
             Write-Host ""
 
             Start-Sleep -Seconds 5
@@ -1792,7 +1802,9 @@ function Test-WindowsUpdateStatus {
     }
 }
 
-Test-WindowsUpdateStatus
+if (-not $ImportOnly) {
+    Test-WindowsUpdateStatus
+}
 
 # =============================================================================
 # MENU PRINCIPALE - Esegui solo se NON in modalità ImportOnly o GUI
@@ -1800,6 +1812,7 @@ Test-WindowsUpdateStatus
 
 if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
     # Modalità interattiva TUI standard
+
     Write-Host ""
     Write-StyledMessage -Type 'Info' -Text '💎 WinToolkit avviato in modalità interattiva'
     Write-Host ""
@@ -1808,7 +1821,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         Show-Header -SubTitle "Menu Principale"
 
         # Info Sistema
-        $width = $Host.UI.RawUI.BufferSize.Width
+        $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
         Write-Host ('*' * 50) -ForegroundColor Red
         Write-Host ''
         Write-Host "==== 💻 INFORMAZIONI DI SISTEMA 💻 ====" -ForegroundColor Cyan
