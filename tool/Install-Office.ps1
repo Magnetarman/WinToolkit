@@ -95,6 +95,8 @@ function Install-Office {
         $result = Invoke-WithSpinner -Activity "Installazione Office Basic" -Command $setupPath `
             -Arguments "/configure `"$configPath`"" -TimeoutSeconds 86400 -LogContextKey "Office-Install"
 
+        Clear-ProgressLine
+
         if (-not $result.Success) {
             Write-StyledMessage -Type 'Error' -Text "Installazione fallita."
             return

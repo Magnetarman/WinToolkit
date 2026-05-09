@@ -67,14 +67,14 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.5.4 (Build 44)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
         GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/"
         OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
         OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
-        SaRAInstaller         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/SaRACmd_17_01_2877_000.zip"
+        GetHelpInstaller      = "https://aka.ms/SaRA_EnterpriseVersionFiles"
         AMDInstaller          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/AMD-Autodetect.exe"
         NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/NVCleanstall_1.19.0.exe"
         DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/DDU.zip"
@@ -2500,6 +2500,7 @@ function Install-Office {
         Write-StyledMessage -Type 'Info' -Text "🚀 Avvio processo installazione."
         $result = Invoke-WithSpinner -Activity "Installazione Office Basic" -Command $setupPath `
             -Arguments "/configure `"$configPath`"" -TimeoutSeconds 86400 -LogContextKey "Office-Install"
+        Clear-ProgressLine
         if (-not $result.Success) {
             Write-StyledMessage -Type 'Error' -Text "Installazione fallita."
             return
@@ -2702,6 +2703,7 @@ function Uninstall-Office {
             Write-StyledMessage -Type 'Warning' -Text "Impossibile rilevare versione Windows: $_"
             return "Unknown"
         }
+        return @{ Removed = $removed; Failed = $failed; Count = $removed.Count }
     }
     function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
         try {
@@ -2862,51 +2864,69 @@ function Uninstall-Office {
             return $false
         }
     }
-    function Start-OfficeUninstallWithSaRA {
+    function Start-OfficeUninstallWithGetHelp {
         try {
             if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
-            $saraZipPath = Join-Path $tempDir 'SaRA.zip'
-            if (-not (Invoke-DownloadFile $AppConfig.URLs.SaRAInstaller $saraZipPath 'Microsoft SaRA')) {
+            $getHelpZipPath = Join-Path $tempDir 'GetHelp.zip'
+            if (-not (Invoke-DownloadFile $AppConfig.URLs.GetHelpInstaller $getHelpZipPath 'Microsoft Get Help')) {
                 return $false
             }
-            Write-StyledMessage -Type 'Info' -Text "📦 Estrazione SaRA."
+            Write-StyledMessage -Type 'Info' -Text "📦 Estrazione Get Help."
             try {
-                Expand-Archive -Path $saraZipPath -DestinationPath $tempDir -Force
+                Expand-Archive -Path $getHelpZipPath -DestinationPath $tempDir -Force
                 Write-StyledMessage -Type 'Success' -Text "Estrazione completata."
             }
             catch {
-                Write-StyledMessage -Type 'Error' -Text "Errore durante estrazione archivio SaRA: $($_.Exception.Message)."
+                Write-StyledMessage -Type 'Error' -Text "Errore durante estrazione archivio Get Help: $($_.Exception.Message)."
                 return $false
             }
-            $saraExe = Get-ChildItem -Path $tempDir -Filter "SaRACmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            if (-not $saraExe) {
-                Write-StyledMessage -Type 'Error' -Text "SaRACmd.exe non trovato."
+            $getHelpExe = Get-ChildItem -Path $tempDir -Filter "GetHelpCmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $getHelpExe) {
+                Write-StyledMessage -Type 'Error' -Text "GetHelpCmd.exe non trovato."
                 return $false
             }
-            Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite SaRA."
+            Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite Get Help."
             Write-StyledMessage -Type 'Warning' -Text "⏰ Questa operazione può richiedere alcuni minuti."
             try {
-                $result = Invoke-WithSpinner -Activity "Rimozione Office tramite SaRA" -Command $saraExe.FullName `
-                    -Arguments '-S OfficeScrubScenario -AcceptEula -OfficeVersion All' `
-                    -TimeoutSeconds 86400 -LogContextKey "Office-Uninstall-SaRA"
-                if ($result.ExitCode -eq 0) {
-                    Write-StyledMessage -Type 'Success' -Text "✅ SaRA completato con successo."
+                $result = Invoke-WithSpinner -Activity "Rimozione Office tramite Get Help" -Command $getHelpExe.FullName `
+                    -Arguments '-S OfficeScrubScenario -AcceptEula' `
+                    -TimeoutSeconds 86400 -LogContextKey "Office-Uninstall-GetHelp"
+                $outputStr = $result.StdOut + $result.StdErr
+                $isInvalidArgs = $outputStr -match "Error: Invalid command line arguments" -or $outputStr -match "Usage: GetHelpCmd\.exe"
+                if ($result.ExitCode -eq 0 -and -not $isInvalidArgs) {
+                    $blockingProcesses = @('Setup', 'SaRACmd', 'Microsoft.Support.Recovery.Assistant.App', 'OfficeClickToRun', 'Integrator', 'GetHelpCmd', 'OfficeScrub', 'cscript')
+                    $waitStart = Get-Date
+                    Start-Sleep -Seconds 12
+                    if (Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) {
+                        Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna."
+                        Write-StyledMessage -Type 'Info' -Text "   Il Toolkit rimarrà in attesa fino alla chiusura del processo di rimozione..."
+                        $spinnerIndex = 0
+                        while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalSeconds -lt 2700) {
+                            $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
+                            $spinner = if ($Global:Spinners) { $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length] } else { '' }
+                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso in finestra esterna... ($elapsed secondi)" -Percent 90 -Icon '⏳' -Spinner $spinner
+                            Start-Sleep -Milliseconds 500
+                        }
+                        Clear-ProgressLine
+                    }
+                    Write-StyledMessage -Type 'Success' -Text "✅ Get Help completato con successo."
                     return $true
                 }
                 else {
-                    Write-StyledMessage -Type 'Warning' -Text "SaRA terminato con codice: $($result.ExitCode)."
-                    Write-StyledMessage -Type 'Info' -Text "💡 Tentativo metodo alternativo."
+                    $reason = if ($isInvalidArgs) { "Parametri non supportati dalla versione del tool" } else { "Codice uscita: $($result.ExitCode)" }
+                    Write-StyledMessage -Type 'Warning' -Text "Get Help fallito: $reason."
+                    Write-StyledMessage -Type 'Info' -Text "💡 Tentativo metodo alternativo (Rimozione Diretta)."
                     return Remove-OfficeDirectly
                 }
             }
             catch {
-                Write-StyledMessage -Type 'Warning' -Text "Errore durante esecuzione SaRA: $($_.Exception.Message)."
+                Write-StyledMessage -Type 'Warning' -Text "Errore durante esecuzione Get Help: $($_.Exception.Message)."
                 Write-StyledMessage -Type 'Info' -Text "💡 Passaggio a metodo alternativo."
                 return Remove-OfficeDirectly
             }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore durante processo SaRA: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Errore durante processo Get Help: $($_.Exception.Message)."
             return $false
         }
         finally {
@@ -2922,8 +2942,8 @@ function Uninstall-Office {
         Write-StyledMessage -Type 'Info' -Text "🎯 Versione rilevata: $windowsVersion."
         $success = switch ($windowsVersion) {
             'Windows11_23H2_Plus' {
-                Write-StyledMessage -Type 'Info' -Text "🚀 Utilizzo metodo SaRA per Windows 11 23H2+."
-                Start-OfficeUninstallWithSaRA
+                Write-StyledMessage -Type 'Info' -Text "🚀 Utilizzo metodo Get Help per Windows 11 23H2+."
+                Start-OfficeUninstallWithGetHelp
             }
             default {
                 Write-StyledMessage -Type 'Info' -Text "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti."
