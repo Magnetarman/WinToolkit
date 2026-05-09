@@ -12,32 +12,15 @@ function VideoDriverInstall {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
-
-        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
-    # ============================================================================
-    # 1. INIZIALIZZAZIONE
-    # ============================================================================
-
-    Start-ToolkitLog -ToolName "VideoDriverInstall"
-    Show-Header -SubTitle "Video Driver Install Toolkit"
-    $Host.UI.RawUI.WindowTitle = "Video Driver Install Toolkit By MagnetarMan"
-
-    # ============================================================================
-    # 2. CONFIGURAZIONE E VARIABILI LOCALI
-    # ============================================================================
+    Start-ToolkitSession -ToolName "VideoDriverInstall" -SubTitle "Video Driver Install Toolkit"
 
     $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
     $DriverToolsLocalPath = $AppConfig.Paths.Drivers
     $DesktopPath = $AppConfig.Paths.Desktop
-
-    # ============================================================================
-    # 3. FUNZIONI HELPER LOCALI
-    # ============================================================================
 
     function Get-GpuManufacturer {
         <#
@@ -71,24 +54,12 @@ function VideoDriverInstall {
     }
 
     function Set-BlockWindowsUpdateDrivers {
-        <#
-        .SYNOPSIS
-            Blocca Windows Update dal scaricare automaticamente i driver.
-        .DESCRIPTION
-            Imposta una chiave di registro per impedire a Windows Update di includere driver negli aggiornamenti di qualità,
-            riducendo conflitti con installazioni specifiche del produttore. Richiede privilegi amministrativi.
-        #>
         Write-StyledMessage -Type 'Info' -Text "Configurazione per bloccare download driver da Windows Update."
 
         $regPath = $AppConfig.Registry.WindowsUpdatePolicies
-        $propertyName = "ExcludeWUDriversInQualityUpdate"
-        $propertyValue = 1
 
         try {
-            if (-not (Test-Path $regPath)) {
-                New-Item -Path $regPath -Force *>$null
-            }
-            Set-ItemProperty -Path $regPath -Name $propertyName -Value $propertyValue -Type DWord -Force -ErrorAction Stop
+            Set-RegistryValue -Path $regPath -Name "ExcludeWUDriversInQualityUpdate" -Value 1
             Write-StyledMessage -Type 'Success' -Text "Blocco download driver da Windows Update impostato correttamente nel registro."
             Write-StyledMessage -Type 'Info' -Text "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
         }
@@ -117,9 +88,7 @@ function VideoDriverInstall {
     function Download-FileWithProgress {
         <#
         .SYNOPSIS
-            Scarica un file con barra di progresso.
-        .DESCRIPTION
-            Scarica un file dall'URL specificato con barra di progresso che mostra la percentuale di download e gestione retry.
+            Scarica un file con barra di progresso e gestione retry.
         #>
         param(
             [Parameter(Mandatory = $true)]
@@ -155,27 +124,22 @@ function VideoDriverInstall {
                 $downloadedBytes = 0
                 $bytesRead = 0
 
-                # Inizializza la barra di progresso
                 Write-Progress -Activity "Download $Description" -Status "Inizio download." -PercentComplete 0
 
-                # Download con aggiornamento barra di progresso
                 do {
                     $bytesRead = $responseStream.Read($buffer, 0, $buffer.Length)
                     if ($bytesRead -gt 0) {
                         $targetStream.Write($buffer, 0, $bytesRead)
                         $downloadedBytes += $bytesRead
 
-                        # Calcola la percentuale
                         $percentComplete = [System.Math]::Round(($downloadedBytes / $totalBytes) * 100, 1)
                         $speed = if ($downloadedBytes -gt 0) { [System.Math]::Round(($downloadedBytes / 1024 / 1024), 2) } else { 0 }
                         $totalSize = [System.Math]::Round(($totalBytes / 1024 / 1024), 2)
 
-                        # Aggiorna la barra di progresso
                         Write-Progress -Activity "Download $Description" -Status "$speed MB / $totalSize MB" -PercentComplete $percentComplete
                     }
                 } while ($bytesRead -gt 0)
 
-                # Completa la barra di progresso
                 Write-Progress -Activity "Download $Description" -Status "Completato" -PercentComplete 100 -Completed
 
                 $targetStream.Flush()
@@ -200,12 +164,6 @@ function VideoDriverInstall {
     }
 
     function Handle-InstallVideoDrivers {
-        <#
-        .SYNOPSIS
-            Gestisce l'installazione dei driver video.
-        .DESCRIPTION
-            Scarica e avvia l'installer appropriato per la GPU rilevata.
-        #>
         Write-StyledMessage -Type 'Info' -Text "Opzione 1: Avvio installazione driver video."
 
         $gpuManufacturer = Get-GpuManufacturer
@@ -216,7 +174,7 @@ function VideoDriverInstall {
             $amdInstallerPath = Join-Path $DriverToolsLocalPath "AMD-Autodetect.exe"
 
             if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
-                    Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
+                Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
                 Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdInstallerPath -LogContextKey "Video-Install-AMD"
                 Write-StyledMessage -Type 'Success' -Text "Installazione driver video AMD completata o chiusa."
             }
@@ -226,9 +184,9 @@ function VideoDriverInstall {
             $nvidiaInstallerPath = Join-Path $DriverToolsLocalPath "NVCleanstall_1.19.0.exe"
 
             if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
-                    Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
+                Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
                 Invoke-WithSpinner -Activity "Esecuzione installer NVIDIA" -Command $nvidiaInstallerPath -LogContextKey "Video-Install-NVIDIA"
-                        Write-StyledMessage -Type 'Success' -Text "Installazione driver video NVIDIA completata o chiusa."
+                Write-StyledMessage -Type 'Success' -Text "Installazione driver video NVIDIA completata o chiusa."
             }
         }
         elseif ($gpuManufacturer -eq 'Intel') {
@@ -240,15 +198,8 @@ function VideoDriverInstall {
     }
 
     function Handle-ReinstallRepairVideoDrivers {
-        <#
-        .SYNOPSIS
-            Gestisce la reinstallazione/riparazione dei driver video.
-        .DESCRIPTION
-            Scarica DDU e gli installer dei driver, configura la modalità provvisoria e riavvia.
-        #>
         Write-StyledMessage -Type 'Warning' -Text "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
 
-        # Download DDU
         $dduZipUrl = $AppConfig.URLs.DDUZip
         $dduZipPath = Join-Path $DriverToolsLocalPath "DDU.zip"
 
@@ -257,7 +208,6 @@ function VideoDriverInstall {
             return
         }
 
-        # Extract DDU to Desktop
         Write-StyledMessage -Type 'Info' -Text "Estrazione DDU sul Desktop."
         try {
             Expand-Archive -Path $dduZipPath -DestinationPath $DesktopPath -Force
@@ -298,7 +248,6 @@ function VideoDriverInstall {
 
         Write-StyledMessage -Type 'Info' -Text "DDU e l'installer dei Driver (se rilevato) sono stati posizionati sul desktop."
 
-        # Creazione file batch per tornare alla modalità normale
         $batchFilePath = Join-Path $DesktopPath "Switch to Normal Mode.bat"
         try {
             Set-Content -Path $batchFilePath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
@@ -322,7 +271,6 @@ function VideoDriverInstall {
         }
 
         if ($SuppressIndividualReboot) {
-            # In modalità concatenata, non riavviare in safe mode ma segnalare riavvio finale
             $Global:NeedsFinalReboot = $true
             Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio in modalità provvisoria soppresso (esecuzione concatenata)."
             Write-StyledMessage -Type 'Warning' -Text "⚠️ DDU e installer driver sono sul Desktop. Al prossimo riavvio sarai in SAFE MODE."
@@ -347,11 +295,8 @@ function VideoDriverInstall {
 
     Set-BlockWindowsUpdateDrivers
 
-    # Main Menu Logic
     $choice = ""
     do {
-
-
         Write-StyledMessage -Type 'Info' -Text 'Seleziona un''opzione:'
         Write-StyledMessage -Type 'Info' -Text '  [1] 🚀 Installa Driver Video (Rilevamento Automatico)'
         Write-StyledMessage -Type 'Info' -Text '  [2] 🔧 Reinstalla/Ripara Driver Video (Richiede Riavvio in Safe Mode)'
@@ -368,7 +313,6 @@ function VideoDriverInstall {
         }
 
         if ($choice.ToUpper() -ne "0") {
-
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
             Clear-Host
             Show-Header -SubTitle "Video Driver Install Toolkit"
