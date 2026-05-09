@@ -273,16 +273,21 @@ function Uninstall-Office {
 
             try {
                 $result = Invoke-WithSpinner -Activity "Rimozione Office tramite Get Help" -Command $getHelpExe.FullName `
-                    -Arguments '-S OfficeScrubScenario -AcceptEula -OfficeVersion All' `
+                    -Arguments '-S OfficeScrubScenario -AcceptEula' `
                     -TimeoutSeconds 86400 -LogContextKey "Office-Uninstall-GetHelp"
 
-                if ($result.ExitCode -eq 0) {
+                # Verifica se l'output contiene errori o il menu di aiuto (segno di parametri errati)
+                $outputStr = $result.StdOut + $result.StdErr
+                $isInvalidArgs = $outputStr -match "Error: Invalid command line arguments" -or $outputStr -match "Usage: GetHelpCmd\.exe"
+
+                if ($result.ExitCode -eq 0 -and -not $isInvalidArgs) {
                     Write-StyledMessage -Type 'Success' -Text "✅ Get Help completato con successo."
                     return $true
                 }
                 else {
-                    Write-StyledMessage -Type 'Warning' -Text "Get Help terminato con codice: $($result.ExitCode)."
-                    Write-StyledMessage -Type 'Info' -Text "💡 Tentativo metodo alternativo."
+                    $reason = if ($isInvalidArgs) { "Parametri non supportati dalla versione del tool" } else { "Codice uscita: $($result.ExitCode)" }
+                    Write-StyledMessage -Type 'Warning' -Text "Get Help fallito: $reason."
+                    Write-StyledMessage -Type 'Info' -Text "💡 Tentativo metodo alternativo (Rimozione Diretta)."
                     return Remove-OfficeDirectly
                 }
             }
