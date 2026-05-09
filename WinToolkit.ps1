@@ -14,9 +14,7 @@ function Read-Host {
     $oldTreatControlC = [console]::TreatControlCAsInput
     try { [console]::TreatControlCAsInput = $true } catch {}
     try {
-        if ($Prompt) {
-            Write-Host "${Prompt}: " -NoNewline -ForegroundColor Cyan
-        }
+        if ($Prompt) { Write-Host "${Prompt}: " -NoNewline -ForegroundColor Cyan }
         $inputString = ""
         while ($true) {
             $keyInfo = [console]::ReadKey($true)
@@ -42,27 +40,18 @@ function Read-Host {
             else {
                 if (-not [char]::IsControl($keyInfo.KeyChar)) {
                     $inputString += $keyInfo.KeyChar
-                    if ($AsSecureString -or $MaskInput) {
-                        Write-Host "*" -NoNewline -ForegroundColor Yellow
-                    }
-                    else {
-                        Write-Host $keyInfo.KeyChar -NoNewline
-                    }
+                    if ($AsSecureString -or $MaskInput) { Write-Host "*" -NoNewline -ForegroundColor Yellow }
+                    else { Write-Host $keyInfo.KeyChar -NoNewline }
                 }
             }
         }
     }
     catch {
-        if ($Prompt) {
-            return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt
-        }
+        if ($Prompt) { return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt }
         return Microsoft.PowerShell.Utility\Read-Host
     }
     finally {
-        try {
-            [console]::TreatControlCAsInput = $oldTreatControlC
-        }
-        catch {}
+        try { [console]::TreatControlCAsInput = $oldTreatControlC } catch {}
     }
 }
 $ErrorActionPreference = 'Stop'
@@ -123,17 +112,13 @@ $AppConfig = @{
         DelegationConsoleClsid  = "{B23D10C0-31E3-401A-97EF-4BB30B62E10B}"
     }
     WingetProcesses = @(
-        'WinStore.App',
-        'wsappx',
-        'AppInstaller',
-        'Microsoft.WindowsStore',
-        'Microsoft.DesktopAppInstaller',
-        'winget',
-        'WindowsPackageManagerServer'
+        'WinStore.App', 'wsappx', 'AppInstaller',
+        'Microsoft.WindowsStore', 'Microsoft.DesktopAppInstaller',
+        'winget', 'WindowsPackageManagerServer'
     )
 }
-$Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
-$Global:MsgStyles = @{
+$Global:Spinners        = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+$Global:MsgStyles       = @{
     Success  = @{ Icon = '✅'; Color = 'Green' }
     Warning  = @{ Icon = '⚠️'; Color = 'Yellow' }
     Error    = @{ Icon = '❌'; Color = 'Red' }
@@ -141,39 +126,8 @@ $Global:MsgStyles = @{
     Progress = @{ Icon = '🔄'; Color = 'Magenta' }
     Question = @{ Icon = '❓'; Color = 'Cyan' }
 }
-$Global:ExecutionLog = @()
+$Global:ExecutionLog    = @()
 $Global:NeedsFinalReboot = $false
-function Update-EnvironmentPath {
-    $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $newPath = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
-    $env:Path = $newPath
-    [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
-}
-function Stop-ToolkitProcesses {
-    param(
-        [string[]]$ProcessNames
-    )
-    Write-StyledMessage -Type Info -Text "Chiusura processi interferenti..."
-    foreach ($procName in $ProcessNames) {
-        Get-Process -Name $procName -ErrorAction SilentlyContinue |
-        Where-Object { $_.Id -ne $PID } |
-        Stop-Process -Force -ErrorAction SilentlyContinue
-    }
-    Start-Sleep -Seconds 2
-}
-function Get-WingetExecutable {
-    $aliasPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
-    if (Test-Path $aliasPath) { return $aliasPath }
-    $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
-    $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue |
-    Sort-Object Name -Descending | Select-Object -First 1
-    if ($wingetDir) {
-        $exe = Join-Path $wingetDir.FullName "winget.exe"
-        if (Test-Path $exe) { return $exe }
-    }
-    return "winget"
-}
 function Clear-ProgressLine {
     if ($Host.Name -eq 'ConsoleHost') {
         try {
@@ -186,6 +140,12 @@ function Clear-ProgressLine {
         }
     }
 }
+function Center-Text {
+    param([string]$Text, [int]$Width = 0)
+    if ($Width -eq 0) { $Width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 } }
+    $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+    return (' ' * $padding + $Text)
+}
 function Write-StyledMessage {
     param(
         [ValidateSet('Success', 'Warning', 'Error', 'Info', 'Progress', 'Question')][string]$Type,
@@ -196,30 +156,24 @@ function Write-StyledMessage {
     $timestamp = Get-Date -Format "HH:mm:ss"
     Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color -NoNewline:$NoNewline
     $logLevel = switch ($Type) {
-        'Success' { 'SUCCESS' }
-        'Warning' { 'WARNING' }
-        'Error' { 'ERROR' }
-        'Progress' { 'INFO' }
-        default { 'INFO' }
+        'Success' { 'SUCCESS' } 'Warning' { 'WARNING' } 'Error' { 'ERROR' } default { 'INFO' }
     }
     Write-ToolkitLog -Level $logLevel -Message $Text
 }
-function Center-Text {
-    param(
-        [string]$Text,
-        [int]$Width = 0
-    )
-    if ($Width -eq 0) {
-        $Width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
+function Show-ProgressBar {
+    param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
+    $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
+    $filled = '█' * [math]::Floor($safePercent * 30 / 100)
+    $empty  = '░' * (30 - $filled.Length)
+    $bar    = "[$filled$empty] {0,3}%" -f $safePercent
+    if (-not $Global:GuiSessionActive) {
+        Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
+        if ($Percent -ge 100) { Write-Host '' }
     }
-    $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
-    return (' ' * $padding + $Text)
 }
 function Show-Header {
     param([string]$SubTitle = "Menu Principale")
-    if ($Global:GuiSessionActive) {
-        return
-    }
+    if ($Global:GuiSessionActive) { return }
     try { Clear-Host } catch {}
     $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
     $asciiArt = @(
@@ -233,44 +187,79 @@ function Show-Header {
         "       Versione $ToolkitVersion"
     )
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-    foreach ($line in $asciiArt) {
-        Write-Host (Center-Text $line $width) -ForegroundColor White
-    }
+    foreach ($line in $asciiArt) { Write-Host (Center-Text $line $width) -ForegroundColor White }
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
     Write-Host ''
+}
+function Show-ConsoleTable {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][object[]]$Rows,
+        [Parameter(Mandatory = $true)][hashtable[]]$Columns,
+        [string]$Title = ''
+    )
+    $widths = @{}
+    foreach ($col in $Columns) { $widths[$col.Key] = $col.Header.Length }
+    foreach ($row in $Rows) {
+        foreach ($col in $Columns) {
+            $val = if ($row -is [hashtable]) { "$($row[$col.Key])" } else { "$($row.$($col.Key))" }
+            if ($val.Length -gt $widths[$col.Key]) { $widths[$col.Key] = $val.Length }
+        }
+    }
+    $sep = '+' + (($Columns | ForEach-Object { '-' * ($widths[$_.Key] + 2) }) -join '+') + '+'
+    if ($Title) {
+        $totalWidth  = $sep.Length
+        $paddedTitle = " $Title "
+        $pad         = [Math]::Max(0, [Math]::Floor(($totalWidth - $paddedTitle.Length) / 2))
+        Write-Host ('=' * $totalWidth) -ForegroundColor Cyan
+        Write-Host ((' ' * $pad) + $paddedTitle) -ForegroundColor Cyan
+        Write-Host ('=' * $totalWidth) -ForegroundColor Cyan
+    }
+    Write-Host $sep -ForegroundColor DarkGray
+    $headerLine = '|'
+    foreach ($col in $Columns) { $headerLine += ' ' + $col.Header.PadRight($widths[$col.Key]) + ' |' }
+    Write-Host $headerLine -ForegroundColor Cyan
+    Write-Host $sep -ForegroundColor DarkGray
+    foreach ($row in $Rows) {
+        $line = '|'
+        foreach ($col in $Columns) {
+            $val  = if ($row -is [hashtable]) { "$($row[$col.Key])" } else { "$($row.$($col.Key))" }
+            $line += ' ' + $val.PadRight($widths[$col.Key]) + ' |'
+        }
+        $rowColor  = 'White'
+        $statusKey = ($Columns | Where-Object { $_.Key -eq 'Status' -or $_.Key -eq 'Stato' } | Select-Object -First 1)?.Key
+        if ($statusKey) {
+            $statusVal = if ($row -is [hashtable]) { "$($row[$statusKey])" } else { "$($row.$statusKey)" }
+            if ($statusVal -match '✅|OK|Successo|Completato')  { $rowColor = 'Green' }
+            elseif ($statusVal -match '⚠️|Warning|Parziale')    { $rowColor = 'Yellow' }
+            elseif ($statusVal -match '❌|Errore|Fallito')       { $rowColor = 'Red' }
+        }
+        Write-Host $line -ForegroundColor $rowColor
+    }
+    Write-Host $sep -ForegroundColor DarkGray
 }
 function Start-ToolkitLog {
     param([string]$ToolName)
     $Global:CurrentToolName = $ToolName
-    try {
-        Stop-Transcript -ErrorAction SilentlyContinue
-    }
-    catch {}
+    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logdir = $AppConfig.Paths.Logs
-    if (-not (Test-Path $logdir)) {
-        New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-    }
-    $Global:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
+    $logdir   = $AppConfig.Paths.Logs
+    if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
+    $Global:CurrentLogFile      = "$logdir\${ToolName}_$dateTime.log"
     $Global:CurrentCorrelationId = [guid]::NewGuid().ToString()
-    $os = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
-    $sys = Get-CimInstance Win32_ComputerSystem   -ErrorAction SilentlyContinue
-    $psVer = $PSVersionTable.PSVersion.ToString()
-    $psEd = $PSVersionTable.PSEdition
+    $os      = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
+    $sys     = Get-CimInstance Win32_ComputerSystem   -ErrorAction SilentlyContinue
+    $psVer   = $PSVersionTable.PSVersion.ToString()
+    $psEd    = $PSVersionTable.PSEdition
     $psCompat = ($PSVersionTable.PSCompatibleVersions | ForEach-Object { $_.ToString() }) -join ', '
-    $gitId = if ($PSVersionTable.GitCommitId) { $PSVersionTable.GitCommitId } else { 'N/A' }
-    $wsManVer = if ($PSVersionTable.WSManStackVersion) { $PSVersionTable.WSManStackVersion.ToString() } else { 'N/A' }
+    $gitId   = if ($PSVersionTable.GitCommitId) { $PSVersionTable.GitCommitId } else { 'N/A' }
+    $wsManVer  = if ($PSVersionTable.WSManStackVersion) { $PSVersionTable.WSManStackVersion.ToString() } else { 'N/A' }
     $remoteVer = if ($PSVersionTable.PSRemotingProtocolVersion) { $PSVersionTable.PSRemotingProtocolVersion.ToString() } else { 'N/A' }
-    $serVer = if ($PSVersionTable.SerializationVersion) { $PSVersionTable.SerializationVersion.ToString() } else { 'N/A' }
-    $build = [int]$os.BuildNumber
-    $verMap = @{26100 = '24H2'; 22631 = '23H2'; 22621 = '22H2'; 22000 = '21H2'; 19045 = '22H2'; 19044 = '21H2' }
+    $serVer    = if ($PSVersionTable.SerializationVersion) { $PSVersionTable.SerializationVersion.ToString() } else { 'N/A' }
+    $build   = [int]$os.BuildNumber
+    $verMap  = @{26100 = '24H2'; 22631 = '23H2'; 22621 = '22H2'; 22000 = '21H2'; 19045 = '22H2'; 19044 = '21H2' }
     $dispVer = 'N/A'
-    foreach ($k in ($verMap.Keys | Sort-Object -Descending)) {
-        if ($build -ge $k) {
-            $dispVer = $verMap[$k]
-            break
-        }
-    }
+    foreach ($k in ($verMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $dispVer = $verMap[$k]; break } }
     $header = @"
 [START LOG HEADER]
 Start time              : $dateTime
@@ -294,10 +283,7 @@ SerializationVersion    : $serVer
 WSManStackVersion       : $wsManVer
 [END LOG HEADER]
 "@
-    try {
-        Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue
-    }
-    catch {}
+    try { Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 }
 function Write-ToolkitLog {
     param(
@@ -307,25 +293,20 @@ function Write-ToolkitLog {
         [hashtable]$Context = @{}
     )
     if (-not $Global:CurrentLogFile) { return }
-    $ts = Get-Date -Format "HH:mm:ss"
+    $ts    = Get-Date -Format "HH:mm:ss"
     $clean = $Message -replace '^\s+', ''
     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
-    $clean = $clean -replace '[\u2300-\u23FF\u2600-\u27BF\uD800-\uDFFF]', ''
-    $line = "[$ts] [$Level] $clean"
+    $clean = $clean -replace '[⌀-⏿☀-➿\uD800-\uDFFF]', ''
+    $line  = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
-        try {
-            $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3)
-        }
-        catch {}
+        try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {}
     }
     try {
-        $mutex = New-Object System.Threading.Mutex($false, "Global\WinToolkitLogMutex")
+        $mutex     = New-Object System.Threading.Mutex($false, "Global\WinToolkitLogMutex")
         $hasHandle = $false
         try {
             $hasHandle = $mutex.WaitOne(5000)
-            if ($hasHandle) {
-                Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
-            }
+            if ($hasHandle) { Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue }
         }
         finally {
             if ($hasHandle) { $mutex.ReleaseMutex() }
@@ -334,79 +315,119 @@ function Write-ToolkitLog {
     }
     catch {}
 }
+function Get-SystemInfo {
+    if ($Global:SystemInfoCache) { return $Global:SystemInfoCache }
+    try {
+        $osInfo       = Get-CimInstance Win32_OperatingSystem
+        $computerInfo = Get-CimInstance Win32_ComputerSystem
+        $diskInfo     = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+        $versionMap   = @{
+            28000 = "26H1"; 26200 = "25H2"; 26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
+            19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"; 19041 = "2004"; 18363 = "1909"
+            18362 = "1903"; 17763 = "1809"; 17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
+            10586 = "1511"; 10240 = "1507"
+        }
+        $build = [int]$osInfo.BuildNumber
+        $ver   = "N/A"
+        foreach ($k in ($versionMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $ver = $versionMap[$k]; break } }
+        $Global:SystemInfoCache = @{
+            ProductName    = $osInfo.Caption -replace 'Microsoft ', ''
+            BuildNumber    = $build
+            DisplayVersion = $ver
+            Architecture   = $osInfo.OSArchitecture
+            ComputerName   = $computerInfo.Name
+            TotalRAM       = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
+            TotalDisk      = [Math]::Round($diskInfo.Size / 1GB, 0)
+            FreeDisk       = [Math]::Round($diskInfo.FreeSpace / 1GB, 0)
+            FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
+        }
+        return $Global:SystemInfoCache
+    }
+    catch { return $null }
+}
+function Get-BitlockerStatus {
+    try {
+        $out = & manage-bde -status C: 2>&1
+        if ($out -match "Stato protezione:\s*(.*)") { return $matches[1].Trim() }
+        return "Non configurato"
+    }
+    catch { return "Disattivato" }
+}
+function Initialize-ToolkitPaths {
+    foreach ($path in $AppConfig.Paths.Values) {
+        if (-not (Test-Path $path -PathType Leaf) -and $path -notmatch "\.exe$|\.zip$|\.msixbundle$") {
+            try {
+                if (-not (Test-Path $path)) { $null = New-Item -Path $path -ItemType Directory -Force -ErrorAction SilentlyContinue }
+            }
+            catch {}
+        }
+    }
+}
+function Update-EnvironmentPath {
+    $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $userPath    = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $newPath     = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
+    $env:Path    = $newPath
+    [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
+}
+function Stop-ToolkitProcesses {
+    param([string[]]$ProcessNames)
+    Write-StyledMessage -Type Info -Text "Chiusura processi interferenti..."
+    foreach ($procName in $ProcessNames) {
+        Get-Process -Name $procName -ErrorAction SilentlyContinue |
+            Where-Object { $_.Id -ne $PID } |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Seconds 2
+}
 function Invoke-ExternalCommandWithLog {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$Command,
-        [Parameter(Mandatory = $false)]
-        [string[]]$Arguments = @(),
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $true)][string]$Command,
+        [string[]]$Arguments      = @(),
         [string]$WorkingDirectory,
-        [Parameter(Mandatory = $false)]
-        [int]$TimeoutSeconds = 0,
-        [Parameter(Mandatory = $false)]
-        [string]$LogContextKey = '',
-        [Parameter(Mandatory = $false)]
-        [string]$Activity = '',
-        [Parameter(Mandatory = $false)]
-        [int]$UpdateInterval = 500,
-        [Parameter(Mandatory = $false)]
-        [string]$Tool = $Global:CurrentToolName,
-        [Parameter(Mandatory = $false)]
-        [string]$Step = 'ExternalCommand'
+        [int]$TimeoutSeconds      = 0,
+        [string]$LogContextKey    = '',
+        [string]$Activity         = '',
+        [int]$UpdateInterval      = 500,
+        [string]$Tool             = $Global:CurrentToolName,
+        [string]$Step             = 'ExternalCommand'
     )
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $startTime = Get-Date
     $argString = $Arguments -join ' '
     Write-ToolkitLog -Level 'INFO' -Message "Esecuzione comando: $Command $argString (Timeout: ${TimeoutSeconds}s)"
     Write-ToolkitLog -Level 'DEBUG' -Message "Contesto comando" -Context @{
-        Tool       = $Tool
-        Step       = $Step
-        WorkingDir = $WorkingDirectory
-        ContextKey = $LogContextKey
+        Tool = $Tool; Step = $Step; WorkingDir = $WorkingDirectory; ContextKey = $LogContextKey
     }
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $Command
-    $psi.Arguments = $argString
-    if ($WorkingDirectory) {
-        $psi.WorkingDirectory = $WorkingDirectory
-    }
-    $psi.UseShellExecute = $false
+    $psi.FileName               = $Command
+    $psi.Arguments              = $argString
+    if ($WorkingDirectory) { $psi.WorkingDirectory = $WorkingDirectory }
+    $psi.UseShellExecute        = $false
     $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.CreateNoWindow = $true
-    $proc = [System.Diagnostics.Process]::new()
+    $psi.RedirectStandardError  = $true
+    $psi.CreateNoWindow         = $true
+    $proc     = [System.Diagnostics.Process]::new()
     $proc.StartInfo = $psi
-    $outText = ""
-    $errText = ""
-    $success = $false
-    $exitCode = $null
-    $timedOut = $false
+    $outText  = ""; $errText = ""; $success = $false; $exitCode = $null; $timedOut = $false
     try {
-        if (-not $proc.Start()) {
-            throw "Impossibile avviare il processo esterno."
-        }
+        if (-not $proc.Start()) { throw "Impossibile avviare il processo esterno." }
         $outTask = $proc.StandardOutput.ReadToEndAsync()
         $errTask = $proc.StandardError.ReadToEndAsync()
         if ($Activity) {
-            $spinnerIndex = 0
-            $percent = 0
+            $spinnerIndex = 0; $percent = 0
             while (-not $proc.HasExited -and ($TimeoutSeconds -eq 0 -or ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds)) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
-                if ($percent -lt 90) {
-                    $percent += Get-Random -Minimum 1 -Maximum 3
-                }
+                if ($percent -lt 90) { $percent += Get-Random -Minimum 1 -Maximum 3 }
                 Show-ProgressBar -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
                 Start-Sleep -Milliseconds $UpdateInterval
                 $proc.Refresh()
             }
-            if (-not $proc.HasExited) {
-                if ($TimeoutSeconds -gt 0) {
-                    try { $proc.Kill() } catch {}
-                    throw "Timeout dopo $TimeoutSeconds secondi."
-                }
+            if (-not $proc.HasExited -and $TimeoutSeconds -gt 0) {
+                try { $proc.Kill() } catch {}
+                throw "Timeout dopo $TimeoutSeconds secondi."
             }
             Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
             if (-not $Global:GuiSessionActive) { Write-Host "" }
@@ -418,54 +439,36 @@ function Invoke-ExternalCommandWithLog {
                     throw "Timeout dopo $TimeoutSeconds secondi."
                 }
             }
-            else {
-                $proc.WaitForExit()
-            }
+            else { $proc.WaitForExit() }
         }
         try { [System.Threading.Tasks.Task]::WaitAll($outTask, $errTask) } catch {}
         if ($outTask.Status -eq 'RanToCompletion') { $outText = $outTask.Result }
         if ($errTask.Status -eq 'RanToCompletion') { $errText = $errTask.Result }
         $exitCode = $proc.ExitCode
-        $success = ($exitCode -eq 0)
+        $success  = ($exitCode -eq 0)
     }
     catch {
         $exitCode = if ($exitCode -ne $null) { $exitCode } else { -1 }
         if ($_.Exception.Message -match 'Timeout') { $timedOut = $true }
         Write-ToolkitLog -Level 'ERROR' -Message "Eccezione durante esecuzione comando esterno" -Context @{
-            Command    = $Command
-            Arguments  = $Arguments
-            WorkingDir = $WorkingDirectory
-            TimeoutSec = $TimeoutSeconds
-            ContextKey = $LogContextKey
-            Exception  = $_.Exception.Message
-            Stack      = $_.ScriptStackTrace
+            Command = $Command; Arguments = $Arguments; WorkingDir = $WorkingDirectory
+            TimeoutSec = $TimeoutSeconds; ContextKey = $LogContextKey
+            Exception = $_.Exception.Message; Stack = $_.ScriptStackTrace
         }
     }
     finally {
         $stopwatch.Stop()
-        $elapsed = $stopwatch.Elapsed
         if ($null -eq $outText) { $outText = "" }
         if ($null -eq $errText) { $errText = "" }
         $maxLen = 8000
-        $outLogged = $outText
-        $errLogged = $errText
-        if ($outLogged.Length -gt $maxLen) {
-            $outLogged = $outLogged.Substring(0, $maxLen) + "`n[...output troncato...]"
-        }
-        if ($errLogged.Length -gt $maxLen) {
-            $errLogged = $errLogged.Substring(0, $maxLen) + "`n[...stderr troncato...]"
-        }
+        $outLogged = if ($outText.Length -gt $maxLen) { $outText.Substring(0, $maxLen) + "`n[...output troncato...]" } else { $outText }
+        $errLogged = if ($errText.Length -gt $maxLen) { $errText.Substring(0, $maxLen) + "`n[...stderr troncato...]" } else { $errText }
         $statusMsg = if ($success) { "Completato con successo" } else { "Completato con errori" }
-        $durata = $elapsed.ToString("hh\:mm\:ss")
-        Write-ToolkitLog -Level 'INFO' -Message "Comando $statusMsg (ExitCode: $exitCode, Durata: $durata)"
+        Write-ToolkitLog -Level 'INFO'  -Message "Comando $statusMsg (ExitCode: $exitCode, Durata: $($stopwatch.Elapsed.ToString('hh\:mm\:ss')))"
         Write-ToolkitLog -Level 'DEBUG' -Message "Output comando ($Command)" -Context @{
-            ContextKey    = $LogContextKey
-            StdOutSnippet = $outLogged
-            StdErrSnippet = $errLogged
+            ContextKey = $LogContextKey; StdOutSnippet = $outLogged; StdErrSnippet = $errLogged
         }
-        if ($proc) {
-            $proc.Dispose()
-        }
+        if ($proc) { $proc.Dispose() }
     }
     [pscustomobject]@{
         Success  = $success
@@ -476,10 +479,120 @@ function Invoke-ExternalCommandWithLog {
         TimedOut = $timedOut
     }
 }
+function Invoke-WithSpinner {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Activity,
+        [scriptblock]$Action,
+        [int]$TimeoutSeconds  = 300,
+        [int]$UpdateInterval  = 500,
+        [switch]$Process,
+        [switch]$Job,
+        [switch]$Timer,
+        [scriptblock]$PercentUpdate,
+        [string]$Command,
+        [string[]]$Arguments  = @(),
+        [string]$LogContextKey = ''
+    )
+    $startTime    = Get-Date
+    $spinnerIndex = 0
+    $percent      = 0
+    if ($Command) {
+        return Invoke-ExternalCommandWithLog -Command $Command -Arguments $Arguments `
+            -TimeoutSeconds $TimeoutSeconds -Activity $Activity -UpdateInterval $UpdateInterval -LogContextKey $LogContextKey
+    }
+    try {
+        $result = & $Action
+        if ($Timer) {
+            $totalSeconds = $TimeoutSeconds
+            for ($i = $totalSeconds; $i -gt 0; $i--) {
+                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                $percent = if ($PercentUpdate) { & $PercentUpdate } else { [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100) }
+                if (-not $Global:GuiSessionActive) { Write-Host "`r$spinner ⏳ $Activity - $i secondi..." -NoNewline -ForegroundColor Yellow }
+                Start-Sleep -Seconds 1
+            }
+            if (-not $Global:GuiSessionActive) { Write-Host '' }
+            return $true
+        }
+        elseif ($Process -and $result -and $result.GetType().Name -eq 'Process') {
+            while (-not $result.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
+                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
+                $percent = if ($PercentUpdate) { & $PercentUpdate } elseif ($percent -lt 90) { $percent + (Get-Random -Minimum 1 -Maximum 3) } else { $percent }
+                if (-not $Global:GuiSessionActive) { Write-Host "`r" -NoNewline }
+                Show-ProgressBar -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
+                Start-Sleep -Milliseconds $UpdateInterval
+                $result.Refresh()
+            }
+            if (-not $result.HasExited) {
+                if (-not $Global:GuiSessionActive) { Write-Host "" }
+                Write-StyledMessage -Type 'Warning' -Text "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
+                $result.Kill(); Start-Sleep -Seconds 2
+                return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
+            }
+            if (-not $Global:GuiSessionActive) { Clear-ProgressLine }
+            Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
+            if (-not $Global:GuiSessionActive) { Write-Host "" }
+            return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
+        }
+        elseif ($Job -and $result -and $result.GetType().Name -eq 'Job') {
+            while ($result.State -eq 'Running') {
+                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
+                Start-Sleep -Milliseconds $UpdateInterval
+            }
+            $jobResult = Receive-Job $result -Wait
+            Write-Host ''
+            return $jobResult
+        }
+        else {
+            Start-Sleep -Seconds $TimeoutSeconds
+            return $result
+        }
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore durante ${Activity}: $($_.Exception.Message)"
+        return @{ Success = $false; Error = $_.Exception.Message }
+    }
+}
+function Start-InterruptibleCountdown {
+    param([int]$Seconds = 30, [string]$Message = "Riavvio automatico", [switch]$Suppress)
+    if ($Suppress) { return $true }
+    Write-StyledMessage -Type 'Info' -Text '💡 Premi un tasto qualsiasi per annullare...'
+    Write-Host ''
+    for ($i = $Seconds; $i -gt 0; $i--) {
+        if ([Console]::KeyAvailable) {
+            $null = [Console]::ReadKey($true)
+            Write-Host "`n"
+            Write-StyledMessage -Type 'Warning' -Text '⏸️ Riavvio del sistema annullato.'
+            return $false
+        }
+        $percent  = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
+        $filled   = [Math]::Floor($percent * 20 / 100)
+        $bar      = "[$('█' * $filled)$('▒' * (20 - $filled))]"
+        Write-Host "`r⏰ $Message tra $i secondi $bar" -NoNewline -ForegroundColor Red
+        Start-Sleep 1
+    }
+    Write-Host "`n"
+    return $true
+}
+function Get-WingetExecutable {
+    $aliasPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
+    if (Test-Path $aliasPath) { return $aliasPath }
+    $arch      = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
+    $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" `
+        -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue |
+        Sort-Object Name -Descending | Select-Object -First 1
+    if ($wingetDir) {
+        $exe = Join-Path $wingetDir.FullName "winget.exe"
+        if (Test-Path $exe) { return $exe }
+    }
+    return "winget"
+}
 function Start-AppxSilentProcess {
     param(
         [string]$AppxPath,
-        [string]$Flags = '-ForceApplicationShutdown',
+        [string]$Flags             = '-ForceApplicationShutdown',
         [string[]]$DependencyPaths = @()
     )
     $pathParam = ($Flags -match '-Register') ? "" : "-Path '$($AppxPath -replace "'", "''")'"
@@ -494,20 +607,14 @@ try {
     Add-AppxPackage $pathParam $depString $Flags -ErrorAction Stop | Out-Null
 }
 catch {
-    if (`$_.Exception.Message -match '0x80073D06' -or `$_.Exception.Message -match 'versione successiva') {
-        exit 0
-    }
+    if (`$_.Exception.Message -match '0x80073D06' -or `$_.Exception.Message -match 'versione successiva') { exit 0 }
     if (`$_.Exception.Message -match '0x80073CF9' -or ([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem)) {
         try {
-            if ('$pathParam' -eq '') {
-                exit 1 # Register for manifest not supported via Provisioned
-            }
+            if ('$pathParam' -eq '') { exit 1 }
             Add-AppxProvisionedPackage -Online -PackagePath '$($AppxPath -replace "'", "''")' $depString -SkipLicense -ErrorAction Stop | Out-Null
             exit 0
         }
-        catch {
-            exit 1
-        }
+        catch { exit 1 }
     }
     exit 1
 }
@@ -515,22 +622,19 @@ exit 0
 "@
     $encodedCmd = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cmd))
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = "powershell.exe"
-    $psi.Arguments = "-NoProfile -NonInteractive -EncodedCommand $encodedCmd"
-    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-    $psi.CreateNoWindow = $true
-    $psi.UseShellExecute = $false
+    $psi.FileName               = "powershell.exe"
+    $psi.Arguments              = "-NoProfile -NonInteractive -EncodedCommand $encodedCmd"
+    $psi.WindowStyle            = [System.Diagnostics.ProcessWindowStyle]::Hidden
+    $psi.CreateNoWindow         = $true
+    $psi.UseShellExecute        = $false
     $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
+    $psi.RedirectStandardError  = $true
     return [System.Diagnostics.Process]::Start($psi)
 }
 function Wait-WingetReady {
-    param(
-        [int]$MaxWaitSeconds = 300,
-        [int]$PollIntervalSeconds = 5
-    )
+    param([int]$MaxWaitSeconds = 300, [int]$PollIntervalSeconds = 5)
     Write-StyledMessage -Type Info -Text "🔍 Validazione integrità Winget in corso (timeout: $MaxWaitSeconds s)..."
-    $wingetExe = Get-WingetExecutable
+    $wingetExe  = Get-WingetExecutable
     $maxRetries = [Math]::Floor($MaxWaitSeconds / $PollIntervalSeconds)
     for ($i = 1; $i -le $maxRetries; $i++) {
         try {
@@ -544,7 +648,7 @@ function Wait-WingetReady {
                 return $true
             }
         }
-        catch { }
+        catch {}
         $remaining = $MaxWaitSeconds - ($i * $PollIntervalSeconds)
         Write-StyledMessage -Type Progress -Text "⏳ Winget non ancora pronto (tentativo $i/$maxRetries, restano $remaining s). Attesa..."
         Start-Sleep -Seconds $PollIntervalSeconds
@@ -563,7 +667,7 @@ function Reset-Winget {
             $(if ($64BitOS) { 'WOW6432Node' } else { '' }),
             $(if ($64BitOS) { '64' } else { '86' })
         )
-        $major = (Get-ItemProperty -Path $registryPath -Name 'Major' -ErrorAction SilentlyContinue).Major
+        $major   = (Get-ItemProperty -Path $registryPath -Name 'Major' -ErrorAction SilentlyContinue).Major
         $dllPath = [string]::Format('{0}\system32\concrt140.dll', $env:windir)
         return (Test-Path $registryPath) -and ($major -ge 14) -and (Test-Path $dllPath)
     }
@@ -578,13 +682,13 @@ function Reset-Winget {
                 }
             }
         }
-        catch { }
+        catch {}
     }
     function _Get-LatestAssetUrl {
         param([string]$Match)
         try {
             $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing -ErrorAction Stop
-            $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
+            $asset  = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
             return $asset ? $asset.browser_download_url : $null
         }
         catch { return $null }
@@ -620,9 +724,7 @@ function Reset-Winget {
     function _Test-PathInEnvironment {
         param([string]$PathToCheck, [string]$Scope = 'Both')
         $found = $false
-        if ($Scope -in 'User', 'Both') {
-            if (($env:PATH -split ';').Contains($PathToCheck)) { $found = $true }
-        }
+        if ($Scope -in 'User', 'Both') { if (($env:PATH -split ';').Contains($PathToCheck)) { $found = $true } }
         if ($Scope -in 'System', 'Both') {
             $syspath = [Environment]::GetEnvironmentVariable('PATH', 'Machine')
             if (($syspath -split ';').Contains($PathToCheck)) { $found = $true }
@@ -647,27 +749,24 @@ function Reset-Winget {
         param([string]$FolderPath)
         if (-not (Test-Path $FolderPath)) { return }
         try {
-            $sid = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')
+            $sid   = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')
             $group = $sid.Translate([System.Security.Principal.NTAccount])
-            $acl = Get-Acl -Path $FolderPath -ErrorAction Stop
-            $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+            $acl   = Get-Acl -Path $FolderPath -ErrorAction Stop
+            $rule  = New-Object System.Security.AccessControl.FileSystemAccessRule(
                 $group, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
             $acl.SetAccessRule($rule)
             Set-Acl -Path $FolderPath -AclObject $acl -ErrorAction Stop
             Write-StyledMessage -Type Info -Text "Permessi cartella aggiornati: $FolderPath."
         }
-        catch {
-            Write-StyledMessage -Type Warning -Text "Impossibile impostare permessi su '$FolderPath': $($_.Exception.Message)."
-        }
+        catch { Write-StyledMessage -Type Warning -Text "Impossibile impostare permessi su '$FolderPath': $($_.Exception.Message)." }
     }
     function _Set-WingetPathPermissions {
         $wingetFolderPath = $null
         try {
-            $arch = [Environment]::Is64BitOperatingSystem ? 'x64' : 'x86'
+            $arch      = [Environment]::Is64BitOperatingSystem ? 'x64' : 'x86'
             $wingetDir = Get-ChildItem "$env:ProgramFiles\WindowsApps" `
-                -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" `
-                -ErrorAction SilentlyContinue |
-            Sort-Object Name -Descending | Select-Object -First 1
+                -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue |
+                Sort-Object Name -Descending | Select-Object -First 1
             if ($wingetDir) { $wingetFolderPath = $wingetDir.FullName }
         }
         catch {}
@@ -686,11 +785,11 @@ function Reset-Winget {
             if (Test-Path $cachePath) {
                 Write-StyledMessage -Type Info -Text "Pulizia cache Winget."
                 Get-ChildItem -Path $cachePath -Recurse -Force -ErrorAction SilentlyContinue |
-                Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
-                ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {} }
+                    Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
+                    ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {} }
             }
             @("$env:LOCALAPPDATA\WinGet\Data\USERTEMPLATE.json",
-                "$env:LOCALAPPDATA\WinGet\Data\DEFAULTUSER.json") | ForEach-Object {
+              "$env:LOCALAPPDATA\WinGet\Data\DEFAULTUSER.json") | ForEach-Object {
                 if (Test-Path $_ -PathType Leaf) {
                     Write-StyledMessage -Type Info -Text "Reset file stato: $_."
                     Remove-Item $_ -Force -ErrorAction SilentlyContinue
@@ -710,7 +809,7 @@ function Reset-Winget {
                     }
                 }
             }
-            catch { }
+            catch {}
             try {
                 if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
                     Write-StyledMessage -Type Info -Text "Esecuzione Repair-WinGetPackageManager."
@@ -721,9 +820,7 @@ function Reset-Winget {
                 if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
                     Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager completato (versione superiore già presente)."
                 }
-                else {
-                    Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)."
-                }
+                else { Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)." }
             }
             _Set-WingetPathPermissions
             Update-EnvironmentPath
@@ -739,9 +836,7 @@ function Reset-Winget {
         try {
             if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
                 if ($PSVersionTable.PSVersion.Major -lt 7) {
-                    try {
-                        Install-PackageProvider -Name 'NuGet' -Force -ForceBootstrap -ErrorAction SilentlyContinue *>$null
-                    }
+                    try { Install-PackageProvider -Name 'NuGet' -Force -ForceBootstrap -ErrorAction SilentlyContinue *>$null }
                     catch { Write-StyledMessage -Type Warning -Text "NuGet provider non installabile." }
                 }
             }
@@ -752,9 +847,7 @@ function Reset-Winget {
                 Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
                 Write-StyledMessage -Type Success -Text "Modulo WinGet Client installato."
             }
-            catch {
-                Write-StyledMessage -Type Warning -Text "Impossibile installare modulo WinGet Client: $($_.Exception.Message)."
-            }
+            catch { Write-StyledMessage -Type Warning -Text "Impossibile installare modulo WinGet Client: $($_.Exception.Message)." }
             if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
                 Write-StyledMessage -Type Info -Text "Tentativo Repair-WinGetPackageManager."
                 try {
@@ -765,9 +858,7 @@ function Reset-Winget {
                     if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
                         Write-StyledMessage -Type Success -Text "Repair-WinGetPackageManager ignorato (versione superiore già presente)."
                     }
-                    else {
-                        Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)."
-                    }
+                    else { Write-StyledMessage -Type Warning -Text "Repair-WinGetPackageManager fallito: $($_.Exception.Message)." }
                 }
                 Start-Sleep 3
             }
@@ -795,15 +886,15 @@ function Reset-Winget {
     function _Test-WingetDeepValidation {
         Write-StyledMessage -Type Info -Text "🔍 Validazione profonda Winget (connettività + integrità database)."
         try {
-            $wingetExe = Get-WingetExecutable
+            $wingetExe    = Get-WingetExecutable
             $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
-            $exitCode = $LASTEXITCODE
+            $exitCode     = $LASTEXITCODE
             if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
                 Write-StyledMessage -Type Warning -Text "⚠️ Crash ACCESS_VIOLATION (ExitCode: $exitCode). Ripristino database."
                 $null = _Repair-WingetDatabase
                 Start-Sleep 3
                 $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
-                $exitCode = $LASTEXITCODE
+                $exitCode     = $LASTEXITCODE
                 if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
                     Write-StyledMessage -Type Warning -Text "⚠️ Crash persistente dopo ripristino database."
                     return $false
@@ -834,8 +925,8 @@ function Reset-Winget {
         Write-StyledMessage -Type Info -Text "⚡ Fase 1: Ripristino Core (VC++, dipendenze AppX, MSIXBundle)."
         if (-not (_Test-VCRedistInstalled) -or $Force) {
             Write-StyledMessage -Type Info -Text "Installazione Visual C++ Redistributable..."
-            $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
-            $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
+            $arch   = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
+            $vcUrl  = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
             $vcFile = Join-Path $AppConfig.Paths.Temp "vc_redist.exe"
             if (-not (Test-Path $AppConfig.Paths.Temp)) { $null = New-Item $AppConfig.Paths.Temp -ItemType Directory -Force }
             Invoke-WebRequest -Uri $vcUrl -OutFile $vcFile -UseBasicParsing
@@ -849,14 +940,11 @@ function Reset-Winget {
             $depDir = Join-Path $AppConfig.Paths.Temp "deps"
             Invoke-WebRequest -Uri $depUrl -OutFile $depZip -UseBasicParsing
             Expand-Archive -Path $depZip -DestinationPath $depDir -Force
-            $archPattern = [Environment]::Is64BitOperatingSystem ? "x64|ne" : "x86|ne"
+            $archPattern           = [Environment]::Is64BitOperatingSystem ? "x64|ne" : "x86|ne"
             $script:WingetDependencies = @()
             Get-ChildItem $depDir -Recurse -Filter "*.appx" |
-            Where-Object { $_.Name -match $archPattern } |
-            ForEach-Object {
-                Write-StyledMessage -Type Info -Text "Trovata dipendenza: $($_.Name)."
-                $script:WingetDependencies += $_.FullName
-            }
+                Where-Object { $_.Name -match $archPattern } |
+                ForEach-Object { Write-StyledMessage -Type Info -Text "Trovata dipendenza: $($_.Name)."; $script:WingetDependencies += $_.FullName }
             Write-StyledMessage -Type Success -Text "Dipendenze caricate."
         }
         Write-StyledMessage -Type Info -Text "Installazione Winget MSIXBundle (con dipendenze)..."
@@ -881,18 +969,17 @@ function Reset-Winget {
         }
         Start-Sleep -Seconds 3
         try {
-            $wingetExeForReset = Get-WingetExecutable
-            Start-Process -FilePath $wingetExeForReset -ArgumentList 'source', 'reset', '--force' `
+            Start-Process -FilePath (Get-WingetExecutable) -ArgumentList 'source', 'reset', '--force' `
                 -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
         }
-        catch { }
+        catch {}
         $deepOk = _Test-WingetDeepValidation
         if ($deepOk) {
             Write-StyledMessage -Type Success -Text "✅ Winget ripristinato e testato con successo."
             return $true
         }
         else {
-            Write-StyledMessage -Type Warning -Text "⚠️ Winget installato. La validazione profonda ha rilevato anomalie (possibili problemi di rete o DB)."
+            Write-StyledMessage -Type Warning -Text "⚠️ Winget installato. Validazione profonda con anomalie (possibili problemi di rete o DB)."
             return $true
         }
     }
@@ -904,160 +991,13 @@ function Reset-Winget {
         if (Test-Path $AppConfig.Paths.Temp) { Remove-Item $AppConfig.Paths.Temp -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }
-function Show-ProgressBar {
-    param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
-    $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
-    $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-    $empty = '░' * (30 - $filled.Length)
-    $bar = "[$filled$empty] {0,3}%" -f $safePercent
-    if (-not $Global:GuiSessionActive) {
-        Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
-        if ($Percent -ge 100) { Write-Host '' }
-    }
-}
-function Invoke-WithSpinner {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Activity,
-        [Parameter(Mandatory = $false)]
-        [scriptblock]$Action,
-        [Parameter(Mandatory = $false)]
-        [int]$TimeoutSeconds = 300,
-        [Parameter(Mandatory = $false)]
-        [int]$UpdateInterval = 500,
-        [Parameter(Mandatory = $false)]
-        [switch]$Process,
-        [Parameter(Mandatory = $false)]
-        [switch]$Job,
-        [Parameter(Mandatory = $false)]
-        [switch]$Timer,
-        [Parameter(Mandatory = $false)]
-        [scriptblock]$PercentUpdate,
-        [Parameter(Mandatory = $false)]
-        [string]$Command,
-        [Parameter(Mandatory = $false)]
-        [string[]]$Arguments = @(),
-        [Parameter(Mandatory = $false)]
-        [string]$LogContextKey = ''
-    )
-    $startTime = Get-Date
-    $spinnerIndex = 0
-    $percent = 0
-    if ($Command) {
-        return Invoke-ExternalCommandWithLog -Command $Command -Arguments $Arguments -TimeoutSeconds $TimeoutSeconds -Activity $Activity -UpdateInterval $UpdateInterval -LogContextKey $LogContextKey
-    }
-    try {
-        $result = & $Action
-        if ($Timer) {
-            $totalSeconds = $TimeoutSeconds
-            for ($i = $totalSeconds; $i -gt 0; $i--) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                $elapsed = $totalSeconds - $i
-                if ($PercentUpdate) {
-                    $percent = & $PercentUpdate
-                }
-                else {
-                    $percent = [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100)
-                }
-                if (-not $Global:GuiSessionActive) {
-                    Write-Host "`r$spinner ⏳ $Activity - $i secondi..." -NoNewline -ForegroundColor Yellow
-                }
-                Start-Sleep -Seconds 1
-            }
-            if (-not $Global:GuiSessionActive) { Write-Host '' }
-            return $true
-        }
-        elseif ($Process -and $result -and $result.GetType().Name -eq 'Process') {
-            while (-not $result.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
-                if ($PercentUpdate) {
-                    $percent = & $PercentUpdate
-                }
-                elseif ($percent -lt 90) {
-                    $percent += Get-Random -Minimum 1 -Maximum 3
-                }
-                if (-not $Global:GuiSessionActive) {
-                    Write-Host "`r" -NoNewline
-                }
-                Show-ProgressBar -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
-                Start-Sleep -Milliseconds $UpdateInterval
-                $result.Refresh()
-            }
-            if (-not $result.HasExited) {
-                if (-not $Global:GuiSessionActive) { Write-Host "" }
-                Write-StyledMessage -Type 'Warning' -Text "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
-                $result.Kill()
-                Start-Sleep -Seconds 2
-                return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
-            }
-            if (-not $Global:GuiSessionActive) {
-                Clear-ProgressLine
-            }
-            Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
-            if (-not $Global:GuiSessionActive) { Write-Host "" }
-            return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
-        }
-        elseif ($Job -and $result -and $result.GetType().Name -eq 'Job') {
-            while ($result.State -eq 'Running') {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
-                Start-Sleep -Milliseconds $UpdateInterval
-            }
-            $jobResult = Receive-Job $result -Wait
-            Write-Host ''
-            return $jobResult
-        }
-        else {
-            Start-Sleep -Seconds $TimeoutSeconds
-            return $result
-        }
-    }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante ${Activity}: $($_.Exception.Message)"
-        return @{ Success = $false; Error = $_.Exception.Message }
-    }
-}
-function Start-InterruptibleCountdown {
-    param(
-        [int]$Seconds = 30,
-        [string]$Message = "Riavvio automatico",
-        [switch]$Suppress
-    )
-    if ($Suppress) {
-        return $true
-    }
-    Write-StyledMessage -Type 'Info' -Text '💡 Premi un tasto qualsiasi per annullare...'
-    Write-Host ''
-    for ($i = $Seconds; $i -gt 0; $i--) {
-        if ([Console]::KeyAvailable) {
-            $null = [Console]::ReadKey($true)
-            Write-Host "`n"
-            Write-StyledMessage -Type 'Warning' -Text '⏸️ Riavvio del sistema annullato.'
-            return $false
-        }
-        $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
-        $filled = [Math]::Floor($percent * 20 / 100)
-        $remaining = 20 - $filled
-        $bar = "[$('█' * $filled)$('▒' * $remaining)]"
-        Write-Host "`r⏰ $Message tra $i secondi $bar" -NoNewline -ForegroundColor Red
-        Start-Sleep 1
-    }
-    Write-Host "`n"
-    return $true
-}
 function Get-UserConfirmation {
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$Prompt,
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $true)][string]$Prompt,
         [switch]$DefaultYes,
-        [Parameter(Mandatory = $false)]
-        [ValidateSet('Info', 'Warning', 'Question')]
-        [string]$Level = 'Question'
+        [ValidateSet('Info', 'Warning', 'Question')][string]$Level = 'Question'
     )
-    $choices = if ($DefaultYes) { "[S/n]" } else { "[s/N]" }
+    $choices    = if ($DefaultYes) { "[S/n]" } else { "[s/N]" }
     $fullPrompt = "$Prompt $choices"
     if ($Global:GuiSessionActive) {
         Write-StyledMessage -Type $Level -Text $fullPrompt
@@ -1066,33 +1006,22 @@ function Get-UserConfirmation {
     Write-StyledMessage -Type $Level -Text "${fullPrompt}: " -NoNewline
     $response = Read-Host
     Write-ToolkitLog -Level 'INFO' -Message "User Confirmation Prompt: $Prompt | Response: $response"
-    if ([string]::IsNullOrWhiteSpace($response)) {
-        return $DefaultYes
-    }
-    Write-ToolkitLog -Level 'INFO' -Message "User Confirmation Prompt: $Prompt | Response: $response"
+    if ([string]::IsNullOrWhiteSpace($response)) { return $DefaultYes }
     return $response -match '^[sS]'
 }
 function Read-ValidatedChoice {
     param(
-        [Parameter(Mandatory = $false)]
         [int[]]$ValidRange,
-        [Parameter(Mandatory = $false)]
         [int]$Min,
-        [Parameter(Mandatory = $false)]
         [int]$Max,
-        [Parameter(Mandatory = $false)]
         [switch]$AllowZero,
-        [Parameter(Mandatory = $false)]
-        [string]$Prompt = "Seleziona un'opzione",
-        [Parameter(Mandatory = $false)]
+        [string]$Prompt   = "Seleziona un'opzione",
         [string]$RawInput
     )
     $currentInput = if ($PSBoundParameters.ContainsKey('RawInput')) { $RawInput } else { $null }
     while ($true) {
         $input = if ($null -ne $currentInput) {
-            $val = $currentInput
-            $currentInput = $null
-            $val
+            $val = $currentInput; $currentInput = $null; $val
         }
         else {
             Write-StyledMessage -Type 'Question' -Text "${Prompt}: " -NoNewline
@@ -1106,9 +1035,7 @@ function Read-ValidatedChoice {
         if ($choices.Count -gt 0) {
             $isValid = $true
             foreach ($c in $choices) {
-                if ($null -ne $ValidRange) {
-                    if ($c -notin $ValidRange) { $isValid = $false; break }
-                }
+                if ($null -ne $ValidRange) { if ($c -notin $ValidRange) { $isValid = $false; break } }
                 else {
                     if ($AllowZero -and $c -eq 0) { continue }
                     if ($null -ne $Min -and $c -lt $Min) { $isValid = $false; break }
@@ -1124,64 +1051,15 @@ function Read-ValidatedChoice {
         Write-StyledMessage -Type Warning -Text "⚠️ Scelta non valida. Inserisci numeri compresi tra $rangeStr."
     }
 }
-function Get-SystemInfo {
-    if ($Global:SystemInfoCache) { return $Global:SystemInfoCache }
-    try {
-        $osInfo = Get-CimInstance Win32_OperatingSystem
-        $computerInfo = Get-CimInstance Win32_ComputerSystem
-        $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
-        $versionMap = @{
-            28000 = "26H1"; 26200 = "25H2"; 26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2";
-            19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"; 19041 = "2004"; 18363 = "1909";
-            18362 = "1903"; 17763 = "1809"; 17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607";
-            10586 = "1511"; 10240 = "1507"
-        }
-        $build = [int]$osInfo.BuildNumber
-        $ver = "N/A"
-        foreach ($k in ($versionMap.Keys | Sort -Desc)) { if ($build -ge $k) { $ver = $versionMap[$k]; break } }
-        $Global:SystemInfoCache = @{
-            ProductName = $osInfo.Caption -replace 'Microsoft ', ''; BuildNumber = $build; DisplayVersion = $ver
-            Architecture = $osInfo.OSArchitecture; ComputerName = $computerInfo.Name
-            TotalRAM = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
-            TotalDisk = [Math]::Round($diskInfo.Size / 1GB, 0)
-            FreeDisk = [Math]::Round($diskInfo.FreeSpace / 1GB, 0)
-            FreePercentage = [Math]::Round(($diskInfo.FreeSpace / $diskInfo.Size) * 100, 0)
-        }
-        return $Global:SystemInfoCache
-    }
-    catch { return $null }
-}
-function Get-BitlockerStatus {
-    try {
-        $out = & manage-bde -status C: 2>&1
-        if ($out -match "Stato protezione:\s*(.*)") { return $matches[1].Trim() }
-        return "Non configurato"
-    }
-    catch { return "Disattivato" }
-}
-function Initialize-ToolkitPaths {
-    foreach ($path in $AppConfig.Paths.Values) {
-        if (-not (Test-Path $path -PathType Leaf) -and $path -notmatch "\.exe$|\.zip$|\.msixbundle$") {
-            try {
-                if (-not (Test-Path $path)) {
-                    $null = New-Item -Path $path -ItemType Directory -Force -ErrorAction SilentlyContinue
-                }
-            }
-            catch {}
-        }
-    }
-}
 function WinOSCheck {
-    if ($Global:GuiSessionActive) {
-        return
-    }
+    if ($Global:GuiSessionActive) { return }
     Show-Header -SubTitle "System Check"
     $si = Get-SystemInfo
     if (-not $si) { Write-StyledMessage -Type 'Warning' -Text "Info sistema non disponibili."; return }
     Write-StyledMessage -Type 'Info' -Text "Sistema: $($si.ProductName) ($($si.DisplayVersion))"
-    if ($si.BuildNumber -ge 22000) { Write-StyledMessage -Type 'Success' -Text "Sistema compatibile (Win11/10 recente)." }
+    if ($si.BuildNumber -ge 22000)     { Write-StyledMessage -Type 'Success' -Text "Sistema compatibile (Win11/10 recente)." }
     elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage -Type 'Success' -Text "Sistema compatibile (Win10)." }
-    elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage -Type 'Warning' -Text "Windows 8.1: Compatibilità parziale." }
+    elseif ($si.BuildNumber -eq 9600)  { Write-StyledMessage -Type 'Warning' -Text "Windows 8.1: Compatibilità parziale." }
     else {
         Write-StyledMessage -Type 'Error' -Text "$(Center-Text '🤣 ERRORE CRITICO 🤣' 65)"
         Write-StyledMessage -Type 'Error' -Text "Davvero pensi che questo script possa fare qualcosa per questa versione?"
@@ -1189,6 +1067,143 @@ function WinOSCheck {
         if ((Read-Host) -notmatch '^[Yy]$') { exit }
     }
     Start-Sleep -Seconds 2
+}
+function Test-WindowsUpdateStatus {
+    try {
+        if ($Global:GuiSessionActive) { return }
+        Write-StyledMessage -Type 'Info' -Text "🔍 Controllo stato aggiornamenti Windows..."
+        $pendingReboot    = $false
+        $installerRunning = $false
+        if (Get-Module -ListAvailable -Name PSWindowsUpdate -ErrorAction SilentlyContinue) {
+            Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue
+            try {
+                $rebootStatus = Get-WURebootStatus -ErrorAction SilentlyContinue
+                if ($rebootStatus -and $rebootStatus.RebootRequired) {
+                    $pendingReboot = $true
+                    Write-StyledMessage -Type 'Warning' -Text "⚠️ Rilevato riavvio pendente per aggiornamenti Windows"
+                }
+            }
+            catch {}
+            try {
+                $installerStatus = Get-WUInstallerStatus -ErrorAction SilentlyContinue
+                if ($installerStatus -and $installerStatus.IsBusy) {
+                    $installerRunning = $true
+                    Write-StyledMessage -Type 'Warning' -Text "⚠️ Servizio installazione aggiornamenti Windows attualmente in esecuzione"
+                }
+            }
+            catch {}
+        }
+        else {
+            $regPaths = @(
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired",
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootRequired",
+                "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations"
+            )
+            foreach ($path in $regPaths) {
+                if (Test-Path $path -ErrorAction SilentlyContinue) { $pendingReboot = $true; break }
+            }
+            $trustedInstaller = Get-Service -Name TrustedInstaller -ErrorAction SilentlyContinue
+            if ($trustedInstaller -and $trustedInstaller.Status -eq 'Running') { $installerRunning = $true }
+        }
+        if ($pendingReboot -or $installerRunning) {
+            $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
+            Write-Host ""
+            Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host (Center-Text "⚠️  AVVISO IMPORTANTE ⚠️") -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host " Sono stati rilevati aggiornamenti di sistema pendenti:" -ForegroundColor Yellow
+            if ($pendingReboot)    { Write-Host "  ✓ Riavvio del sistema richiesto per completare aggiornamenti" -ForegroundColor Yellow }
+            if ($installerRunning) { Write-Host "  ✓ Servizio installazione aggiornamenti Windows in corso" -ForegroundColor Yellow }
+            Write-Host ""
+            Write-Host " Questo potrebbe causare malfunzionamenti, errori o comportamenti" -ForegroundColor Yellow
+            Write-Host " imprevisti in alcune o tutte le funzionalità di WinToolkit." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host (Center-Text "⚠️  PROCEDERE CON CAUTELA ⚠️") -ForegroundColor Red
+            Write-Host ""
+            Write-Host " Si consiglia vivamente di completare tutti gli aggiornamenti in corso," -ForegroundColor Yellow
+            Write-Host " riavviare il sistema e poi riavviare WinToolkit prima di proseguire." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
+            Write-Host ""
+            Start-Sleep -Seconds 5
+        }
+        else {
+            Write-StyledMessage -Type 'Success' -Text "✅ Nessun aggiornamento pendente rilevato"
+        }
+    }
+    catch {
+        Write-StyledMessage -Type 'Warning' -Text "⚠️ Impossibile verificare stato aggiornamenti Windows: $($_.Exception.Message)"
+    }
+}
+function Invoke-OfficeSilentRemoval {
+    param([Parameter(Mandatory = $true)][string]$Path, [switch]$Recurse)
+    if (-not (Test-Path $Path)) { return $false }
+    try {
+        $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
+        if ($Recurse) { $params['Recurse'] = $true }
+        Remove-Item @params *>$null
+        Clear-ProgressLine
+        return $true
+    }
+    catch { return $false }
+}
+function Stop-OfficeProcesses {
+    $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
+    $closed    = 0
+    Write-StyledMessage -Type 'Info' -Text "📋 Chiusura processi Office."
+    foreach ($processName in $processes) {
+        $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
+        if ($running) {
+            try { $running | Stop-Process -Force -ErrorAction Stop; $closed++ }
+            catch { Write-StyledMessage -Type 'Warning' -Text "Impossibile chiudere: $processName." }
+        }
+    }
+    if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text "$closed processi Office chiusi." }
+}
+function Invoke-OfficeDownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
+    try {
+        Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
+        $webClient = New-Object System.Net.WebClient
+        $webClient.DownloadFile($Url, $OutputPath)
+        $webClient.Dispose()
+        $success = (Test-Path $OutputPath)
+        Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
+        return $success
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
+        return $false
+    }
+}
+function Set-OfficePostConfig {
+    Write-StyledMessage -Type 'Info' -Text "⚙️ Ottimizzazione profonda di Microsoft Office."
+    $registrySettings = @(
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
+        @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "ShownOptIn"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"; Name = "Enabled"; Value = 0 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableAnimations"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableHardwareAcceleration"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "DisableBootToStartScreen"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\LinkedIn"; Name = "ShowLinkedInIntegration"; Value = 0 }
+    )
+    foreach ($reg in $registrySettings) {
+        if (-not (Test-Path $reg.Path)) { $null = New-Item -Path $reg.Path -Force }
+        Set-ItemProperty -Path $reg.Path -Name $reg.Name -Value $reg.Value -Type 'DWord' -Force
+    }
+    $tasksToDisable = @(
+        "OfficeTelemetryAgentLogon", "OfficeTelemetryAgentFallback",
+        "OfficeBackgroundTaskHandlerRegistration", "OfficeBackgroundTaskHandlerLogon",
+        "OfficeFeatureUpdates", "OfficeFeatureUpdatesLogon"
+    )
+    foreach ($tName in $tasksToDisable) {
+        Get-ScheduledTask | Where-Object { $_.TaskName -eq $tName } | Disable-ScheduledTask -ErrorAction SilentlyContinue
+    }
+    Write-StyledMessage -Type 'Success' -Text "✅ Office ottimizzato: telemetria, privacy e task pianificati rimossi."
 }
 function WinRepairToolkit {
     [CmdletBinding()]
@@ -2425,491 +2440,6 @@ function WinBackupDriver {
     }
 }
 function WinDriverInstall {}
-function Invoke-OfficeSilentRemoval {
-    param([Parameter(Mandatory = $true)][string]$Path, [switch]$Recurse)
-    if (-not (Test-Path $Path)) { return $false }
-    try {
-        $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
-        if ($Recurse) { $params['Recurse'] = $true }
-        Remove-Item @params *>$null
-        Clear-ProgressLine
-        return $true
-    } catch { return $false }
-}
-function Stop-OfficeProcesses {
-    $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
-    $closed = 0
-    Write-StyledMessage -Type 'Info' -Text "📋 Chiusura processi Office."
-    foreach ($processName in $processes) {
-        $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
-        if ($running) {
-            try { $running | Stop-Process -Force -ErrorAction Stop; $closed++ }
-            catch { Write-StyledMessage -Type 'Warning' -Text "Impossibile chiudere: $processName." }
-        }
-    }
-    if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text "$closed processi Office chiusi." }
-}
-function Invoke-OfficeDownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
-    try {
-        Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
-        $webClient = New-Object System.Net.WebClient
-        $webClient.DownloadFile($Url, $OutputPath)
-        $webClient.Dispose()
-        $success = (Test-Path $OutputPath)
-        Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
-        return $success
-    }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
-        return $false
-    }
-}
-function Set-OfficePostConfig {
-    Write-StyledMessage -Type 'Info' -Text "⚙️ Ottimizzazione profonda di Microsoft Office."
-    $registrySettings = @(
-        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
-        @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
-        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
-        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
-        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
-        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "ShownOptIn"; Value = 1 },
-        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"; Name = "Enabled"; Value = 0 },
-        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableAnimations"; Value = 1 },
-        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableHardwareAcceleration"; Value = 1 },
-        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "DisableBootToStartScreen"; Value = 1 },
-        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\LinkedIn"; Name = "ShowLinkedInIntegration"; Value = 0 }
-    )
-    foreach ($reg in $registrySettings) {
-        if (-not (Test-Path $reg.Path)) { $null = New-Item -Path $reg.Path -Force }
-        Set-ItemProperty -Path $reg.Path -Name $reg.Name -Value $reg.Value -Type 'DWord' -Force
-    }
-    $tasksToDisable = @(
-        "OfficeTelemetryAgentLogon", "OfficeTelemetryAgentFallback",
-        "OfficeBackgroundTaskHandlerRegistration", "OfficeBackgroundTaskHandlerLogon",
-        "OfficeFeatureUpdates", "OfficeFeatureUpdatesLogon"
-    )
-    foreach ($tName in $tasksToDisable) {
-        Get-ScheduledTask | Where-Object { $_.TaskName -eq $tName } | Disable-ScheduledTask -ErrorAction SilentlyContinue
-    }
-    Write-StyledMessage -Type 'Success' -Text "✅ Office ottimizzato: telemetria, privacy e task pianificati rimossi."
-}
-function Install-Office {
-    [CmdletBinding()]
-    param(
-        [int]$CountdownSeconds = 30,
-        [switch]$SuppressIndividualReboot
-    )
-    Start-ToolkitLog -ToolName "OfficeInstall"
-    Show-Header -SubTitle "Office Install"
-    $Host.UI.RawUI.WindowTitle = "Office Install By MagnetarMan"
-    $tempDir = $AppConfig.Paths.OfficeTemp
-    try {
-        Write-StyledMessage -Type 'Info' -Text "🏢 Avvio installazione Office Basic."
-        if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
-        $setupPath  = Join-Path $tempDir 'Setup.exe'
-        $configPath = Join-Path $tempDir 'Basic.xml'
-        $downloads = @(
-            @{ Url = $AppConfig.URLs.OfficeSetup; Path = $setupPath; Name = 'Setup Office' },
-            @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
-        )
-        foreach ($dl in $downloads) {
-            if (-not (Invoke-OfficeDownloadFile $dl.Url $dl.Path $dl.Name)) {
-                Write-StyledMessage -Type 'Error' -Text "Download fallito. Installazione annullata."
-                return
-            }
-        }
-        Write-StyledMessage -Type 'Info' -Text "🚀 Avvio processo installazione."
-        $result = Invoke-WithSpinner -Activity "Installazione Office Basic" -Command $setupPath `
-            -Arguments "/configure `"$configPath`"" -TimeoutSeconds 86400 -LogContextKey "Office-Install"
-        Clear-ProgressLine
-        if (-not $result.Success) {
-            Write-StyledMessage -Type 'Error' -Text "Installazione fallita."
-            return
-        }
-        Set-OfficePostConfig
-        Write-StyledMessage -Type 'Success' -Text "✅ Installazione completata."
-        Write-StyledMessage -Type 'Info' -Text "Riavvio non necessario."
-    }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante installazione Office: $($_.Exception.Message)"
-        Write-ToolkitLog -Level ERROR -Message "Errore critico in Install-Office" -Context @{
-            Line      = $_.InvocationInfo.ScriptLineNumber
-            Exception = $_.Exception.GetType().FullName
-            Stack     = $_.ScriptStackTrace
-        }
-    }
-    finally {
-        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
-        Write-StyledMessage -Type 'Success' -Text "🎯 Office Install terminato."
-        Write-ToolkitLog -Level INFO -Message "Install-Office sessione terminata."
-    }
-}
-function Repair-Office {
-    [CmdletBinding()]
-    param(
-        [int]$CountdownSeconds = 30,
-        [switch]$SuppressIndividualReboot
-    )
-    Start-ToolkitLog -ToolName "OfficeRepair"
-    Show-Header -SubTitle "Office Repair"
-    $Host.UI.RawUI.WindowTitle = "Office Repair By MagnetarMan"
-    $needsReboot = $false
-    try {
-        Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione Office."
-        Stop-OfficeProcesses
-        Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cache Office."
-        $caches = @(
-            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
-            "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
-        )
-        $cleanedCount = 0
-        foreach ($cache in $caches) {
-            if (Invoke-OfficeSilentRemoval -Path $cache -Recurse) { $cleanedCount++ }
-        }
-        if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate." }
-        $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ?
-            "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe" :
-            "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
-        if (-not (Test-Path $officeClient)) {
-            Write-StyledMessage -Type 'Error' -Text "OfficeClickToRun.exe non trovato. Office potrebbe non essere installato."
-            return
-        }
-        try {
-            Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione rapida (offline)."
-            $null = Invoke-WithSpinner -Activity "Riparazione Rapida Office (Offline)" -Command $officeClient `
-                -Arguments "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=QuickRepair DisplayLevel=True" `
-                -TimeoutSeconds 86400 -LogContextKey "Office-Repair-Quick"
-            Set-OfficePostConfig
-            Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
-            $needsReboot = $true
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante riparazione rapida: $($_.Exception.Message)."
-            try {
-                Write-StyledMessage -Type 'Info' -Text "🌐 Tentativo riparazione completa (online) come fallback."
-                $null = Invoke-WithSpinner -Activity "Riparazione Completa Office (Online)" -Command $officeClient `
-                    -Arguments "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True" `
-                    -TimeoutSeconds 86400 -LogContextKey "Office-Repair-Full"
-                Set-OfficePostConfig
-                Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
-                $needsReboot = $true
-            }
-            catch {
-                Write-StyledMessage -Type 'Error' -Text "Errore anche durante riparazione online: $($_.Exception.Message)."
-            }
-        }
-    }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore critico durante riparazione Office: $($_.Exception.Message)"
-        Write-ToolkitLog -Level ERROR -Message "Errore critico in Repair-Office" -Context @{
-            Line      = $_.InvocationInfo.ScriptLineNumber
-            Exception = $_.Exception.GetType().FullName
-            Stack     = $_.ScriptStackTrace
-        }
-    }
-    finally {
-        Write-StyledMessage -Type 'Success' -Text "🎯 Office Repair terminato."
-        Write-ToolkitLog -Level INFO -Message "Repair-Office sessione terminata."
-    }
-    if ($needsReboot) {
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
-        }
-        else {
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riparazione completata") {
-                Restart-Computer -Force
-            }
-        }
-    }
-}
-function Uninstall-Office {
-    [CmdletBinding()]
-    param(
-        [int]$CountdownSeconds = 30,
-        [switch]$SuppressIndividualReboot
-    )
-    Start-ToolkitLog -ToolName "OfficeUninstall"
-    Show-Header -SubTitle "Office Uninstall"
-    $Host.UI.RawUI.WindowTitle = "Office Uninstall By MagnetarMan"
-    $tempDir = $AppConfig.Paths.OfficeTemp
-    function Get-WindowsVersion {
-        try {
-            $buildNumber = [int](Get-CimInstance -ClassName Win32_OperatingSystem).BuildNumber
-            return $buildNumber -ge 22631 ? "Windows11_23H2_Plus" : ($buildNumber -ge 22000 ? "Windows11_22H2_Or_Older" : "Windows10_Or_Older")
-        }
-        catch {
-            Write-StyledMessage -Type 'Warning' -Text "Impossibile rilevare versione Windows: $_"
-            return "Unknown"
-        }
-    }
-    function Remove-ItemsSilently {
-        param([string[]]$Paths, [string]$ItemType = "cartella")
-        $removed = @()
-        $failed  = @()
-        foreach ($path in $Paths) {
-            if (Test-Path $path) {
-                if (Invoke-OfficeSilentRemoval -Path $path -Recurse) { $removed += $path }
-                else { $failed += $path }
-            }
-        }
-        return @{ Removed = $removed; Failed = $failed; Count = $removed.Count }
-    }
-    function Remove-OfficeDirectly {
-        Write-StyledMessage -Type 'Info' -Text "🔧 Avvio rimozione diretta Office."
-        try {
-            Write-StyledMessage -Type 'Info' -Text "📋 Ricerca installazioni Office."
-            $officePackages = Get-Package -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" -or $_.Name -like "*Office*" }
-            if ($officePackages) {
-                Write-StyledMessage -Type 'Info' -Text "Trovati $($officePackages.Count) pacchetti Office."
-                foreach ($package in $officePackages) {
-                    try {
-                        $null = Uninstall-Package -Name $package.Name -Force -ErrorAction Stop
-                        Write-StyledMessage -Type 'Success' -Text "Rimosso: $($package.Name)."
-                    }
-                    catch {}
-                }
-            }
-            Write-StyledMessage -Type 'Info' -Text "🔍 Ricerca nel registro."
-            $uninstallKeys = @(
-                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
-                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
-                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
-            )
-            foreach ($keyPath in $uninstallKeys) {
-                try {
-                    $items = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue |
-                        Where-Object { $_.DisplayName -like "*Office*" -or $_.DisplayName -like "*Microsoft 365*" }
-                    foreach ($item in $items) {
-                        if ($item.UninstallString -and $item.UninstallString -match "msiexec") {
-                            try {
-                                $null = Invoke-WithSpinner -Activity "Rimozione: $($item.DisplayName)" -Command 'msiexec.exe' `
-                                    -Arguments @('/x', $item.PSChildName, '/qn', '/norestart') -TimeoutSeconds 1800 `
-                                    -LogContextKey "Office-Uninstall-MSI-$($item.PSChildName)"
-                            }
-                            catch {}
-                        }
-                    }
-                }
-                catch {}
-            }
-            Write-StyledMessage -Type 'Info' -Text "🛑 Arresto servizi Office."
-            $stoppedServices = 0
-            foreach ($serviceName in @('ClickToRunSvc', 'OfficeSvc', 'OSE')) {
-                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-                if ($service) {
-                    try {
-                        Stop-Service -Name $serviceName -Force -ErrorAction Stop
-                        Set-Service -Name $serviceName -StartupType Disabled -ErrorAction Stop
-                        Write-StyledMessage -Type 'Success' -Text "Servizio arrestato: $serviceName."
-                        $stoppedServices++
-                    }
-                    catch {}
-                }
-            }
-            Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cartelle Office."
-            $foldersToClean = @(
-                "$env:ProgramFiles\Microsoft Office",
-                "${env:ProgramFiles(x86)}\Microsoft Office",
-                "$env:ProgramFiles\Microsoft Office 15",
-                "${env:ProgramFiles(x86)}\Microsoft Office 15",
-                "$env:ProgramFiles\Microsoft Office 16",
-                "${env:ProgramFiles(x86)}\Microsoft Office 16",
-                "$env:ProgramData\Microsoft\Office",
-                "$env:LOCALAPPDATA\Microsoft\Office",
-                "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun",
-                "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun"
-            )
-            $folderResult = Remove-ItemsSilently -Paths $foldersToClean -ItemType "cartella"
-            if ($folderResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text "$($folderResult.Count) cartelle Office rimosse." }
-            if ($folderResult.Failed.Count -gt 0) { Write-StyledMessage -Type 'Warning' -Text "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)." }
-            Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia registro Office."
-            $registryPaths = @(
-                "HKCU:\Software\Microsoft\Office",
-                "HKLM:\SOFTWARE\Microsoft\Office",
-                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office",
-                "HKCU:\Software\Microsoft\Office\16.0",
-                "HKLM:\SOFTWARE\Microsoft\Office\16.0",
-                "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun",
-                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun"
-            )
-            $regResult = Remove-ItemsSilently -Paths $registryPaths -ItemType "chiave"
-            if ($regResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text "$($regResult.Count) chiavi registro Office rimosse." }
-            Write-StyledMessage -Type 'Info' -Text "📅 Pulizia attività pianificate."
-            $tasksRemoved = 0
-            try {
-                $officeTasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -like "*Office*" }
-                foreach ($task in $officeTasks) {
-                    try { Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false -ErrorAction Stop; $tasksRemoved++ }
-                    catch {}
-                }
-                if ($tasksRemoved -gt 0) { Write-StyledMessage -Type 'Success' -Text "$tasksRemoved attività Office rimosse." }
-            }
-            catch {}
-            Write-StyledMessage -Type 'Info' -Text "🖥️ Rimozione collegamenti Office."
-            $officeShortcuts = @(
-                "Microsoft Word*.lnk", "Microsoft Excel*.lnk", "Microsoft PowerPoint*.lnk",
-                "Microsoft Outlook*.lnk", "Microsoft OneNote*.lnk", "Microsoft Access*.lnk",
-                "Office*.lnk", "Word*.lnk", "Excel*.lnk", "PowerPoint*.lnk", "Outlook*.lnk"
-            )
-            $desktopPaths = @(
-                $AppConfig.Paths.Desktop,
-                "$env:PUBLIC\Desktop",
-                "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
-                "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs"
-            )
-            $shortcutsRemoved = 0
-            foreach ($desktopPath in $desktopPaths) {
-                if (Test-Path $desktopPath) {
-                    foreach ($shortcut in $officeShortcuts) {
-                        $shortcutFiles = Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue
-                        foreach ($file in $shortcutFiles) {
-                            if (Invoke-OfficeSilentRemoval -Path $file.FullName) { $shortcutsRemoved++ }
-                        }
-                    }
-                }
-            }
-            if ($shortcutsRemoved -gt 0) { Write-StyledMessage -Type 'Success' -Text "$shortcutsRemoved collegamenti Office rimossi." }
-            Write-StyledMessage -Type 'Info' -Text "💽 Pulizia residui Office."
-            $null = Remove-ItemsSilently -Paths @(
-                "$env:LOCALAPPDATA\Microsoft\OneDrive",
-                "$env:APPDATA\Microsoft\OneDrive",
-                "$env:TEMP\Office*",
-                "$env:TEMP\MSO*"
-            ) -ItemType "residuo"
-            Write-StyledMessage -Type 'Success' -Text "✅ Rimozione diretta completata."
-            Write-StyledMessage -Type 'Info' -Text "📊 Riepilogo: $($folderResult.Count) cartelle, $($regResult.Count) chiavi registro, $shortcutsRemoved collegamenti, $tasksRemoved attività rimosse."
-            return $true
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante rimozione diretta Office: $($_.Exception.Message)."
-            return $false
-        }
-    }
-    function Start-OfficeUninstallWithGetHelp {
-        try {
-            if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
-            $getHelpZipPath = Join-Path $tempDir 'GetHelp.zip'
-            if (-not (Invoke-OfficeDownloadFile $AppConfig.URLs.GetHelpInstaller $getHelpZipPath 'Microsoft Get Help')) {
-                return $false
-            }
-            Write-StyledMessage -Type 'Info' -Text "📦 Estrazione Get Help."
-            try {
-                Expand-Archive -Path $getHelpZipPath -DestinationPath $tempDir -Force
-                Write-StyledMessage -Type 'Success' -Text "Estrazione completata."
-            }
-            catch {
-                Write-StyledMessage -Type 'Error' -Text "Errore durante estrazione archivio Get Help: $($_.Exception.Message)."
-                return $false
-            }
-            $getHelpExe = Get-ChildItem -Path $tempDir -Filter "GetHelpCmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            if (-not $getHelpExe) {
-                Write-StyledMessage -Type 'Error' -Text "GetHelpCmd.exe non trovato."
-                return $false
-            }
-            Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite Get Help."
-            Write-StyledMessage -Type 'Warning' -Text "⏰ Questa operazione può richiedere alcuni minuti."
-            try {
-                $result = Invoke-WithSpinner -Activity "Rimozione Office tramite Get Help" -Command $getHelpExe.FullName `
-                    -Arguments '-S OfficeScrubScenario -AcceptEula' `
-                    -TimeoutSeconds 86400 -LogContextKey "Office-Uninstall-GetHelp"
-                $outputStr = $result.StdOut + $result.StdErr
-                $isInvalidArgs = $outputStr -match "Error: Invalid command line arguments" -or $outputStr -match "Usage: GetHelpCmd\.exe"
-                if ($result.ExitCode -eq 0 -and -not $isInvalidArgs) {
-                    $blockingProcesses = @('Setup', 'SaRACmd', 'Microsoft.Support.Recovery.Assistant.App', 'OfficeClickToRun', 'Integrator', 'GetHelpCmd', 'OfficeScrub', 'cscript')
-                    $waitStart = Get-Date
-                    Start-Sleep -Seconds 12
-                    if (Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) {
-                        Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna."
-                        Write-StyledMessage -Type 'Info' -Text "   Il Toolkit rimarrà in attesa fino alla chiusura del processo di rimozione..."
-                        while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalMinutes -lt 45) {
-                            $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalMinutes, 1)
-                            $spinner = if ($Global:Spinners) { $Global:Spinners[(Get-Date).Millisecond % $Global:Spinners.Length] } else { '' }
-                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso in finestra esterna... ($elapsed min)" -Percent 90 -Icon '⏳' -Spinner $spinner
-                            Start-Sleep -Seconds 5
-                        }
-                        Clear-ProgressLine
-                    }
-                    Write-StyledMessage -Type 'Success' -Text "✅ Get Help completato con successo."
-                    return $true
-                }
-                else {
-                    $reason = if ($isInvalidArgs) { "Parametri non supportati dalla versione del tool" } else { "Codice uscita: $($result.ExitCode)" }
-                    Write-StyledMessage -Type 'Warning' -Text "Get Help fallito: $reason."
-                    Write-StyledMessage -Type 'Info' -Text "💡 Tentativo metodo alternativo (Rimozione Diretta)."
-                    return Remove-OfficeDirectly
-                }
-            }
-            catch {
-                Write-StyledMessage -Type 'Warning' -Text "Errore durante esecuzione Get Help: $($_.Exception.Message)."
-                Write-StyledMessage -Type 'Info' -Text "💡 Passaggio a metodo alternativo."
-                return Remove-OfficeDirectly
-            }
-        }
-        catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore durante processo Get Help: $($_.Exception.Message)."
-            return $false
-        }
-        finally {
-            Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
-        }
-    }
-    $needsReboot = $false
-    try {
-        Write-StyledMessage -Type 'Warning' -Text "🗑️ Avvio rimozione completa Microsoft Office."
-        Stop-OfficeProcesses
-        Write-StyledMessage -Type 'Info' -Text "🔍 Rilevamento versione Windows."
-        $windowsVersion = Get-WindowsVersion
-        Write-StyledMessage -Type 'Info' -Text "🎯 Versione rilevata: $windowsVersion."
-        $success = switch ($windowsVersion) {
-            'Windows11_23H2_Plus' {
-                Write-StyledMessage -Type 'Info' -Text "🚀 Utilizzo metodo Get Help per Windows 11 23H2+."
-                Start-OfficeUninstallWithGetHelp
-            }
-            default {
-                Write-StyledMessage -Type 'Info' -Text "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti."
-                Remove-OfficeDirectly
-            }
-        }
-        Write-Progress -Activity "Rimozione" -Completed -ErrorAction SilentlyContinue
-        Write-Host ""
-        Write-Host ""
-        if ($success) {
-            Write-StyledMessage -Type 'Success' -Text "🎉 Rimozione Office completata!"
-            $needsReboot = $true
-        }
-        else {
-            Write-StyledMessage -Type 'Error' -Text "Rimozione non completata."
-            Write-StyledMessage -Type 'Info' -Text "💡 Puoi provare un metodo alternativo o rimozione manuale."
-        }
-    }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore critico durante rimozione Office: $($_.Exception.Message)"
-        Write-ToolkitLog -Level ERROR -Message "Errore critico in Uninstall-Office" -Context @{
-            Line      = $_.InvocationInfo.ScriptLineNumber
-            Exception = $_.Exception.GetType().FullName
-            Stack     = $_.ScriptStackTrace
-        }
-    }
-    finally {
-        Write-StyledMessage -Type 'Success' -Text "🧹 Pulizia finale."
-        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
-        Write-StyledMessage -Type 'Success' -Text "🎯 Office Uninstall terminato."
-        Write-ToolkitLog -Level INFO -Message "Uninstall-Office sessione terminata."
-    }
-    if ($needsReboot) {
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
-        }
-        else {
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Rimozione completata") {
-                Restart-Computer -Force
-            }
-        }
-    }
-}
 function WinDebloat {
     [CmdletBinding()]
     param(
@@ -3739,6 +3269,489 @@ function WinCleaner {
         }
     }
 }
+function DisableBitlocker {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [int]$CountdownSeconds = 30,
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
+    )
+    Start-ToolkitLog -ToolName "DisableBitlocker"
+    Show-Header -SubTitle "Disable BitLocker Toolkit"
+    $Host.UI.RawUI.WindowTitle = "Disable BitLocker Toolkit By MagnetarMan"
+    $regPath = $AppConfig.Registry.BitLocker
+    $timeout = 3600
+    function Test-BitLockerStatus {
+        param([string]$DriveLetter = "C:")
+        try {
+            $status = manage-bde -status $DriveLetter
+            return $status
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Impossibile verificare lo stato BitLocker: $($_.Exception.Message)"
+            return $null
+        }
+    }
+    try {
+        Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione decrittazione drive C:."
+        $result = Invoke-WithSpinner -Activity "Disattivazione BitLocker" -Command 'manage-bde.exe' -Arguments @('-off', 'C:') -TimeoutSeconds $timeout -LogContextKey "Bitlocker-Disable"
+        if ($result.ExitCode -eq 0) {
+            Write-StyledMessage -Type 'Success' -Text "✅ Decrittazione avviata/completata con successo."
+            Start-Sleep -Seconds 2
+            $status = Test-BitLockerStatus -DriveLetter "C:"
+            if ($status -match "Decryption in progress" -or $status -match "Decriptazione in corso.") {
+                Write-StyledMessage -Type 'Info' -Text "⏳ Decrittazione in corso in background."
+            }
+        }
+        else {
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ Codice uscita manage-bde: $($result.ExitCode). BitLocker potrebbe essere già disattivo o in errore."
+        }
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione crittografia automatica nel registro."
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force *>$null
+        }
+        Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
+        Write-StyledMessage -Type 'Success' -Text "🎉 Configurazione completata."
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "❌ Errore critico in DisableBitlocker: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in DisableBitlocker" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
+    }
+    finally {
+        Write-StyledMessage -Type 'Info' -Text "♻️ Pulizia risorse Completata."
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
+        }
+        else {
+            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio in") {
+                Restart-Computer -Force
+            }
+        }
+        Write-ToolkitLog -Level INFO -Message "DisableBitlocker sessione terminata."
+    }
+}
+function Install-Office {
+    [CmdletBinding()]
+    param(
+        [int]$CountdownSeconds = 30,
+        [switch]$SuppressIndividualReboot
+    )
+    Start-ToolkitLog -ToolName "OfficeInstall"
+    Show-Header -SubTitle "Office Install"
+    $Host.UI.RawUI.WindowTitle = "Office Install By MagnetarMan"
+    $tempDir = $AppConfig.Paths.OfficeTemp
+    try {
+        Write-StyledMessage -Type 'Info' -Text "🏢 Avvio installazione Office Basic."
+        if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
+        $setupPath  = Join-Path $tempDir 'Setup.exe'
+        $configPath = Join-Path $tempDir 'Basic.xml'
+        $downloads = @(
+            @{ Url = $AppConfig.URLs.OfficeSetup; Path = $setupPath; Name = 'Setup Office' },
+            @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
+        )
+        foreach ($dl in $downloads) {
+            if (-not (Invoke-OfficeDownloadFile $dl.Url $dl.Path $dl.Name)) {
+                Write-StyledMessage -Type 'Error' -Text "Download fallito. Installazione annullata."
+                return
+            }
+        }
+        Write-StyledMessage -Type 'Info' -Text "🚀 Avvio processo installazione."
+        $result = Invoke-WithSpinner -Activity "Installazione Office Basic" -Command $setupPath `
+            -Arguments "/configure `"$configPath`"" -TimeoutSeconds 86400 -LogContextKey "Office-Install"
+        Clear-ProgressLine
+        if (-not $result.Success) {
+            Write-StyledMessage -Type 'Error' -Text "Installazione fallita."
+            return
+        }
+        Set-OfficePostConfig
+        Write-StyledMessage -Type 'Success' -Text "✅ Installazione completata."
+        Write-StyledMessage -Type 'Info' -Text "Riavvio non necessario."
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore durante installazione Office: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in Install-Office" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
+    }
+    finally {
+        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
+        Write-StyledMessage -Type 'Success' -Text "🎯 Office Install terminato."
+        Write-ToolkitLog -Level INFO -Message "Install-Office sessione terminata."
+    }
+}
+function Repair-Office {
+    [CmdletBinding()]
+    param(
+        [int]$CountdownSeconds = 30,
+        [switch]$SuppressIndividualReboot
+    )
+    Start-ToolkitLog -ToolName "OfficeRepair"
+    Show-Header -SubTitle "Office Repair"
+    $Host.UI.RawUI.WindowTitle = "Office Repair By MagnetarMan"
+    $needsReboot = $false
+    try {
+        Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione Office."
+        Stop-OfficeProcesses
+        Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cache Office."
+        $caches = @(
+            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
+            "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
+        )
+        $cleanedCount = 0
+        foreach ($cache in $caches) {
+            if (Invoke-OfficeSilentRemoval -Path $cache -Recurse) { $cleanedCount++ }
+        }
+        if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate." }
+        $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ?
+            "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe" :
+            "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+        if (-not (Test-Path $officeClient)) {
+            Write-StyledMessage -Type 'Error' -Text "OfficeClickToRun.exe non trovato. Office potrebbe non essere installato."
+            return
+        }
+        try {
+            Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione rapida (offline)."
+            $null = Invoke-WithSpinner -Activity "Riparazione Rapida Office (Offline)" -Command $officeClient `
+                -Arguments "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=QuickRepair DisplayLevel=True" `
+                -TimeoutSeconds 86400 -LogContextKey "Office-Repair-Quick"
+            Set-OfficePostConfig
+            Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
+            $needsReboot = $true
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore durante riparazione rapida: $($_.Exception.Message)."
+            try {
+                Write-StyledMessage -Type 'Info' -Text "🌐 Tentativo riparazione completa (online) come fallback."
+                $null = Invoke-WithSpinner -Activity "Riparazione Completa Office (Online)" -Command $officeClient `
+                    -Arguments "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True" `
+                    -TimeoutSeconds 86400 -LogContextKey "Office-Repair-Full"
+                Set-OfficePostConfig
+                Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
+                $needsReboot = $true
+            }
+            catch {
+                Write-StyledMessage -Type 'Error' -Text "Errore anche durante riparazione online: $($_.Exception.Message)."
+            }
+        }
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore critico durante riparazione Office: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in Repair-Office" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
+    }
+    finally {
+        Write-StyledMessage -Type 'Success' -Text "🎯 Office Repair terminato."
+        Write-ToolkitLog -Level INFO -Message "Repair-Office sessione terminata."
+    }
+    if ($needsReboot) {
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+        }
+        else {
+            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riparazione completata") {
+                Restart-Computer -Force
+            }
+        }
+    }
+}
+function Uninstall-Office {
+    [CmdletBinding()]
+    param(
+        [int]$CountdownSeconds = 30,
+        [switch]$SuppressIndividualReboot
+    )
+    Start-ToolkitLog -ToolName "OfficeUninstall"
+    Show-Header -SubTitle "Office Uninstall"
+    $Host.UI.RawUI.WindowTitle = "Office Uninstall By MagnetarMan"
+    $tempDir = $AppConfig.Paths.OfficeTemp
+    function Get-WindowsVersion {
+        try {
+            $buildNumber = [int](Get-CimInstance -ClassName Win32_OperatingSystem).BuildNumber
+            return $buildNumber -ge 22631 ? "Windows11_23H2_Plus" : ($buildNumber -ge 22000 ? "Windows11_22H2_Or_Older" : "Windows10_Or_Older")
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Impossibile rilevare versione Windows: $_"
+            return "Unknown"
+        }
+    }
+    function Remove-ItemsSilently {
+        param([string[]]$Paths, [string]$ItemType = "cartella")
+        $removed = @()
+        $failed  = @()
+        foreach ($path in $Paths) {
+            if (Test-Path $path) {
+                if (Invoke-OfficeSilentRemoval -Path $path -Recurse) { $removed += $path }
+                else { $failed += $path }
+            }
+        }
+        return @{ Removed = $removed; Failed = $failed; Count = $removed.Count }
+    }
+    function Remove-OfficeDirectly {
+        Write-StyledMessage -Type 'Info' -Text "🔧 Avvio rimozione diretta Office."
+        try {
+            Write-StyledMessage -Type 'Info' -Text "📋 Ricerca installazioni Office."
+            $officePackages = Get-Package -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" -or $_.Name -like "*Office*" }
+            if ($officePackages) {
+                Write-StyledMessage -Type 'Info' -Text "Trovati $($officePackages.Count) pacchetti Office."
+                foreach ($package in $officePackages) {
+                    try {
+                        $null = Uninstall-Package -Name $package.Name -Force -ErrorAction Stop
+                        Write-StyledMessage -Type 'Success' -Text "Rimosso: $($package.Name)."
+                    }
+                    catch {}
+                }
+            }
+            Write-StyledMessage -Type 'Info' -Text "🔍 Ricerca nel registro."
+            $uninstallKeys = @(
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+            )
+            foreach ($keyPath in $uninstallKeys) {
+                try {
+                    $items = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue |
+                        Where-Object { $_.DisplayName -like "*Office*" -or $_.DisplayName -like "*Microsoft 365*" }
+                    foreach ($item in $items) {
+                        if ($item.UninstallString -and $item.UninstallString -match "msiexec") {
+                            try {
+                                $null = Invoke-WithSpinner -Activity "Rimozione: $($item.DisplayName)" -Command 'msiexec.exe' `
+                                    -Arguments @('/x', $item.PSChildName, '/qn', '/norestart') -TimeoutSeconds 1800 `
+                                    -LogContextKey "Office-Uninstall-MSI-$($item.PSChildName)"
+                            }
+                            catch {}
+                        }
+                    }
+                }
+                catch {}
+            }
+            Write-StyledMessage -Type 'Info' -Text "🛑 Arresto servizi Office."
+            $stoppedServices = 0
+            foreach ($serviceName in @('ClickToRunSvc', 'OfficeSvc', 'OSE')) {
+                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                if ($service) {
+                    try {
+                        Stop-Service -Name $serviceName -Force -ErrorAction Stop
+                        Set-Service -Name $serviceName -StartupType Disabled -ErrorAction Stop
+                        Write-StyledMessage -Type 'Success' -Text "Servizio arrestato: $serviceName."
+                        $stoppedServices++
+                    }
+                    catch {}
+                }
+            }
+            Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cartelle Office."
+            $foldersToClean = @(
+                "$env:ProgramFiles\Microsoft Office",
+                "${env:ProgramFiles(x86)}\Microsoft Office",
+                "$env:ProgramFiles\Microsoft Office 15",
+                "${env:ProgramFiles(x86)}\Microsoft Office 15",
+                "$env:ProgramFiles\Microsoft Office 16",
+                "${env:ProgramFiles(x86)}\Microsoft Office 16",
+                "$env:ProgramData\Microsoft\Office",
+                "$env:LOCALAPPDATA\Microsoft\Office",
+                "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun",
+                "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun"
+            )
+            $folderResult = Remove-ItemsSilently -Paths $foldersToClean -ItemType "cartella"
+            if ($folderResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text "$($folderResult.Count) cartelle Office rimosse." }
+            if ($folderResult.Failed.Count -gt 0) { Write-StyledMessage -Type 'Warning' -Text "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)." }
+            Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia registro Office."
+            $registryPaths = @(
+                "HKCU:\Software\Microsoft\Office",
+                "HKLM:\SOFTWARE\Microsoft\Office",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office",
+                "HKCU:\Software\Microsoft\Office\16.0",
+                "HKLM:\SOFTWARE\Microsoft\Office\16.0",
+                "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun"
+            )
+            $regResult = Remove-ItemsSilently -Paths $registryPaths -ItemType "chiave"
+            if ($regResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text "$($regResult.Count) chiavi registro Office rimosse." }
+            Write-StyledMessage -Type 'Info' -Text "📅 Pulizia attività pianificate."
+            $tasksRemoved = 0
+            try {
+                $officeTasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -like "*Office*" }
+                foreach ($task in $officeTasks) {
+                    try { Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false -ErrorAction Stop; $tasksRemoved++ }
+                    catch {}
+                }
+                if ($tasksRemoved -gt 0) { Write-StyledMessage -Type 'Success' -Text "$tasksRemoved attività Office rimosse." }
+            }
+            catch {}
+            Write-StyledMessage -Type 'Info' -Text "🖥️ Rimozione collegamenti Office."
+            $officeShortcuts = @(
+                "Microsoft Word*.lnk", "Microsoft Excel*.lnk", "Microsoft PowerPoint*.lnk",
+                "Microsoft Outlook*.lnk", "Microsoft OneNote*.lnk", "Microsoft Access*.lnk",
+                "Office*.lnk", "Word*.lnk", "Excel*.lnk", "PowerPoint*.lnk", "Outlook*.lnk"
+            )
+            $desktopPaths = @(
+                $AppConfig.Paths.Desktop,
+                "$env:PUBLIC\Desktop",
+                "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
+                "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs"
+            )
+            $shortcutsRemoved = 0
+            foreach ($desktopPath in $desktopPaths) {
+                if (Test-Path $desktopPath) {
+                    foreach ($shortcut in $officeShortcuts) {
+                        $shortcutFiles = Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue
+                        foreach ($file in $shortcutFiles) {
+                            if (Invoke-OfficeSilentRemoval -Path $file.FullName) { $shortcutsRemoved++ }
+                        }
+                    }
+                }
+            }
+            if ($shortcutsRemoved -gt 0) { Write-StyledMessage -Type 'Success' -Text "$shortcutsRemoved collegamenti Office rimossi." }
+            Write-StyledMessage -Type 'Info' -Text "💽 Pulizia residui Office."
+            $null = Remove-ItemsSilently -Paths @(
+                "$env:LOCALAPPDATA\Microsoft\OneDrive",
+                "$env:APPDATA\Microsoft\OneDrive",
+                "$env:TEMP\Office*",
+                "$env:TEMP\MSO*"
+            ) -ItemType "residuo"
+            Write-StyledMessage -Type 'Success' -Text "✅ Rimozione diretta completata."
+            Write-StyledMessage -Type 'Info' -Text "📊 Riepilogo: $($folderResult.Count) cartelle, $($regResult.Count) chiavi registro, $shortcutsRemoved collegamenti, $tasksRemoved attività rimosse."
+            return $true
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore durante rimozione diretta Office: $($_.Exception.Message)."
+            return $false
+        }
+    }
+    function Start-OfficeUninstallWithGetHelp {
+        try {
+            if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
+            $getHelpZipPath = Join-Path $tempDir 'GetHelp.zip'
+            if (-not (Invoke-OfficeDownloadFile $AppConfig.URLs.GetHelpInstaller $getHelpZipPath 'Microsoft Get Help')) {
+                return $false
+            }
+            Write-StyledMessage -Type 'Info' -Text "📦 Estrazione Get Help."
+            try {
+                Expand-Archive -Path $getHelpZipPath -DestinationPath $tempDir -Force
+                Write-StyledMessage -Type 'Success' -Text "Estrazione completata."
+            }
+            catch {
+                Write-StyledMessage -Type 'Error' -Text "Errore durante estrazione archivio Get Help: $($_.Exception.Message)."
+                return $false
+            }
+            $getHelpExe = Get-ChildItem -Path $tempDir -Filter "GetHelpCmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $getHelpExe) {
+                Write-StyledMessage -Type 'Error' -Text "GetHelpCmd.exe non trovato."
+                return $false
+            }
+            Write-StyledMessage -Type 'Info' -Text "🚀 Rimozione tramite Get Help."
+            Write-StyledMessage -Type 'Warning' -Text "⏰ Questa operazione può richiedere alcuni minuti."
+            try {
+                $result = Invoke-WithSpinner -Activity "Rimozione Office tramite Get Help" -Command $getHelpExe.FullName `
+                    -Arguments '-S OfficeScrubScenario -AcceptEula' `
+                    -TimeoutSeconds 86400 -LogContextKey "Office-Uninstall-GetHelp"
+                $outputStr = $result.StdOut + $result.StdErr
+                $isInvalidArgs = $outputStr -match "Error: Invalid command line arguments" -or $outputStr -match "Usage: GetHelpCmd\.exe"
+                if ($result.ExitCode -eq 0 -and -not $isInvalidArgs) {
+                    $blockingProcesses = @('Setup', 'SaRACmd', 'Microsoft.Support.Recovery.Assistant.App', 'OfficeClickToRun', 'Integrator', 'GetHelpCmd', 'OfficeScrub', 'cscript')
+                    $waitStart = Get-Date
+                    Start-Sleep -Seconds 12
+                    if (Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) {
+                        Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna."
+                        Write-StyledMessage -Type 'Info' -Text "   Il Toolkit rimarrà in attesa fino alla chiusura del processo di rimozione..."
+                        while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalMinutes -lt 45) {
+                            $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalMinutes, 1)
+                            $spinner = if ($Global:Spinners) { $Global:Spinners[(Get-Date).Millisecond % $Global:Spinners.Length] } else { '' }
+                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso in finestra esterna... ($elapsed min)" -Percent 90 -Icon '⏳' -Spinner $spinner
+                            Start-Sleep -Seconds 5
+                        }
+                        Clear-ProgressLine
+                    }
+                    Write-StyledMessage -Type 'Success' -Text "✅ Get Help completato con successo."
+                    return $true
+                }
+                else {
+                    $reason = if ($isInvalidArgs) { "Parametri non supportati dalla versione del tool" } else { "Codice uscita: $($result.ExitCode)" }
+                    Write-StyledMessage -Type 'Warning' -Text "Get Help fallito: $reason."
+                    Write-StyledMessage -Type 'Info' -Text "💡 Tentativo metodo alternativo (Rimozione Diretta)."
+                    return Remove-OfficeDirectly
+                }
+            }
+            catch {
+                Write-StyledMessage -Type 'Warning' -Text "Errore durante esecuzione Get Help: $($_.Exception.Message)."
+                Write-StyledMessage -Type 'Info' -Text "💡 Passaggio a metodo alternativo."
+                return Remove-OfficeDirectly
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Errore durante processo Get Help: $($_.Exception.Message)."
+            return $false
+        }
+        finally {
+            Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
+        }
+    }
+    $needsReboot = $false
+    try {
+        Write-StyledMessage -Type 'Warning' -Text "🗑️ Avvio rimozione completa Microsoft Office."
+        Stop-OfficeProcesses
+        Write-StyledMessage -Type 'Info' -Text "🔍 Rilevamento versione Windows."
+        $windowsVersion = Get-WindowsVersion
+        Write-StyledMessage -Type 'Info' -Text "🎯 Versione rilevata: $windowsVersion."
+        $success = switch ($windowsVersion) {
+            'Windows11_23H2_Plus' {
+                Write-StyledMessage -Type 'Info' -Text "🚀 Utilizzo metodo Get Help per Windows 11 23H2+."
+                Start-OfficeUninstallWithGetHelp
+            }
+            default {
+                Write-StyledMessage -Type 'Info' -Text "⚡ Utilizzo rimozione diretta per Windows 11 22H2 o precedenti."
+                Remove-OfficeDirectly
+            }
+        }
+        Write-Progress -Activity "Rimozione" -Completed -ErrorAction SilentlyContinue
+        Write-Host ""
+        Write-Host ""
+        if ($success) {
+            Write-StyledMessage -Type 'Success' -Text "🎉 Rimozione Office completata!"
+            $needsReboot = $true
+        }
+        else {
+            Write-StyledMessage -Type 'Error' -Text "Rimozione non completata."
+            Write-StyledMessage -Type 'Info' -Text "💡 Puoi provare un metodo alternativo o rimozione manuale."
+        }
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore critico durante rimozione Office: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in Uninstall-Office" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
+    }
+    finally {
+        Write-StyledMessage -Type 'Success' -Text "🧹 Pulizia finale."
+        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
+        Write-StyledMessage -Type 'Success' -Text "🎯 Office Uninstall terminato."
+        Write-ToolkitLog -Level INFO -Message "Uninstall-Office sessione terminata."
+    }
+    if ($needsReboot) {
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+        }
+        else {
+            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Rimozione completata") {
+                Restart-Computer -Force
+            }
+        }
+    }
+}
 function VideoDriverInstall {
     [CmdletBinding()]
     param(
@@ -4299,72 +4312,6 @@ function GamingToolkit {
         }
     }
 }
-function DisableBitlocker {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $false)]
-        [int]$CountdownSeconds = 30,
-        [Parameter(Mandatory = $false)]
-        [switch]$SuppressIndividualReboot
-    )
-    Start-ToolkitLog -ToolName "DisableBitlocker"
-    Show-Header -SubTitle "Disable BitLocker Toolkit"
-    $Host.UI.RawUI.WindowTitle = "Disable BitLocker Toolkit By MagnetarMan"
-    $regPath = $AppConfig.Registry.BitLocker
-    $timeout = 3600
-    function Test-BitLockerStatus {
-        param([string]$DriveLetter = "C:")
-        try {
-            $status = manage-bde -status $DriveLetter
-            return $status
-        }
-        catch {
-            Write-StyledMessage -Type 'Warning' -Text "Impossibile verificare lo stato BitLocker: $($_.Exception.Message)"
-            return $null
-        }
-    }
-    try {
-        Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione decrittazione drive C:."
-        $result = Invoke-WithSpinner -Activity "Disattivazione BitLocker" -Command 'manage-bde.exe' -Arguments @('-off', 'C:') -TimeoutSeconds $timeout -LogContextKey "Bitlocker-Disable"
-        if ($result.ExitCode -eq 0) {
-            Write-StyledMessage -Type 'Success' -Text "✅ Decrittazione avviata/completata con successo."
-            Start-Sleep -Seconds 2
-            $status = Test-BitLockerStatus -DriveLetter "C:"
-            if ($status -match "Decryption in progress" -or $status -match "Decriptazione in corso.") {
-                Write-StyledMessage -Type 'Info' -Text "⏳ Decrittazione in corso in background."
-            }
-        }
-        else {
-            Write-StyledMessage -Type 'Warning' -Text "⚠️ Codice uscita manage-bde: $($result.ExitCode). BitLocker potrebbe essere già disattivo o in errore."
-        }
-        Write-StyledMessage -Type 'Info' -Text "⚙️ Disabilitazione crittografia automatica nel registro."
-        if (-not (Test-Path $regPath)) {
-            New-Item -Path $regPath -Force *>$null
-        }
-        Set-ItemProperty -Path $regPath -Name "PreventDeviceEncryption" -Type DWord -Value 1 -Force
-        Write-StyledMessage -Type 'Success' -Text "🎉 Configurazione completata."
-    }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "❌ Errore critico in DisableBitlocker: $($_.Exception.Message)"
-        Write-ToolkitLog -Level ERROR -Message "Errore critico in DisableBitlocker" -Context @{
-            Line      = $_.InvocationInfo.ScriptLineNumber
-            Exception = $_.Exception.GetType().FullName
-            Stack     = $_.ScriptStackTrace
-        }
-    }
-    finally {
-        Write-StyledMessage -Type 'Info' -Text "♻️ Pulizia risorse Completata."
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-        }
-        else {
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio in") {
-                Restart-Computer -Force
-            }
-        }
-        Write-ToolkitLog -Level INFO -Message "DisableBitlocker sessione terminata."
-    }
-}
 function WinExportLog {
     [CmdletBinding()]
     param(
@@ -4443,173 +4390,35 @@ function WinExportLog {
         }
     }
 }
-function Show-ConsoleTable {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [object[]]$Rows,
-        [Parameter(Mandatory = $true)]
-        [hashtable[]]$Columns,
-        [string]$Title = ''
-    )
-    $widths = @{}
-    foreach ($col in $Columns) {
-        $widths[$col.Key] = $col.Header.Length
-    }
-    foreach ($row in $Rows) {
-        foreach ($col in $Columns) {
-            $val = if ($row -is [hashtable]) { "$($row[$col.Key])" } else { "$($row.$($col.Key))" }
-            if ($val.Length -gt $widths[$col.Key]) { $widths[$col.Key] = $val.Length }
-        }
-    }
-    $sep = '+' + (($Columns | ForEach-Object { '-' * ($widths[$_.Key] + 2) }) -join '+') + '+'
-    if ($Title) {
-        $totalWidth = $sep.Length
-        $paddedTitle = " $Title "
-        $pad = [Math]::Max(0, [Math]::Floor(($totalWidth - $paddedTitle.Length) / 2))
-        Write-Host ('=' * $totalWidth) -ForegroundColor Cyan
-        Write-Host ((' ' * $pad) + $paddedTitle) -ForegroundColor Cyan
-        Write-Host ('=' * $totalWidth) -ForegroundColor Cyan
-    }
-    Write-Host $sep -ForegroundColor DarkGray
-    $headerLine = '|'
-    foreach ($col in $Columns) {
-        $headerLine += ' ' + $col.Header.PadRight($widths[$col.Key]) + ' |'
-    }
-    Write-Host $headerLine -ForegroundColor Cyan
-    Write-Host $sep -ForegroundColor DarkGray
-    foreach ($row in $Rows) {
-        $line = '|'
-        foreach ($col in $Columns) {
-            $val = if ($row -is [hashtable]) { "$($row[$col.Key])" } else { "$($row.$($col.Key))" }
-            $cell = ' ' + $val.PadRight($widths[$col.Key]) + ' |'
-            $color = if ($col.Color) { $col.Color } else { 'White' }
-            $line += $cell
-        }
-        $rowColor = 'White'
-        $statusKey = ($Columns | Where-Object { $_.Key -eq 'Status' -or $_.Key -eq 'Stato' } | Select-Object -First 1)?.Key
-        if ($statusKey) {
-            $statusVal = if ($row -is [hashtable]) { "$($row[$statusKey])" } else { "$($row.$statusKey)" }
-            if ($statusVal -match '✅|OK|Successo|Completato') { $rowColor = 'Green' }
-            elseif ($statusVal -match '⚠️|Warning|Parziale') { $rowColor = 'Yellow' }
-            elseif ($statusVal -match '❌|Errore|Fallito') { $rowColor = 'Red' }
-        }
-        Write-Host $line -ForegroundColor $rowColor
-    }
-    Write-Host $sep -ForegroundColor DarkGray
-}
 $menuStructure = @(
     @{ 'Name' = 'Windows'; 'Icon' = '🔧'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'WinRepairToolkit'; Description = 'Riparazione Windows'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'WinRepairToolkit'; Description = 'Riparazione Windows';        Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinUpdateReset';   Description = 'Reset Windows Update';        Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinReinstallStore';Description = 'Winget/WinStore Reset';        Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinBackupDriver';  Description = 'Backup Driver PC';             Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinCleaner';       Description = 'Pulizia File Temporanei';      Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker';         Action = 'RunFunction' }
         )
     },
     @{ 'Name' = 'Office'; 'Icon' = '🏢'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'Install-Office'; Description = 'Installa Office Basic'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'Repair-Office'; Description = 'Ripara Office'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'Uninstall-Office'; Description = 'Rimuovi Office'; Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'Install-Office';   Description = 'Installa Office Basic';        Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'Repair-Office';    Description = 'Ripara Office';                Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'Uninstall-Office'; Description = 'Rimuovi Office';               Action = 'RunFunction' }
         )
     },
     @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'VideoDriverInstall'; Description = 'Driver Video Toolkit'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'VideoDriverInstall';Description = 'Driver Video Toolkit';        Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'GamingToolkit';    Description = 'Gaming Toolkit';               Action = 'RunFunction' }
         )
     },
     @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'WinExportLog'; Description = 'Esporta Log WinToolkit'; Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'WinExportLog';     Description = 'Esporta Log WinToolkit';       Action = 'RunFunction' }
         )
     }
 )
 if (-not $ImportOnly) {
     Initialize-ToolkitPaths
-}
-if (-not $ImportOnly) {
     WinOSCheck
-}
-function Test-WindowsUpdateStatus {
-    try {
-        if ($Global:GuiSessionActive) {
-            return
-        }
-        Write-StyledMessage -Type 'Info' -Text "🔍 Controllo stato aggiornamenti Windows..."
-        $pendingReboot = $false
-        $installerRunning = $false
-        if (Get-Module -ListAvailable -Name PSWindowsUpdate -ErrorAction SilentlyContinue) {
-            Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue
-            try {
-                $rebootStatus = Get-WURebootStatus -ErrorAction SilentlyContinue
-                if ($rebootStatus -and $rebootStatus.RebootRequired) {
-                    $pendingReboot = $true
-                    Write-StyledMessage -Type 'Warning' -Text "⚠️ Rilevato riavvio pendente per aggiornamenti Windows"
-                }
-            }
-            catch { }
-            try {
-                $installerStatus = Get-WUInstallerStatus -ErrorAction SilentlyContinue
-                if ($installerStatus -and $installerStatus.IsBusy) {
-                    $installerRunning = $true
-                    Write-StyledMessage -Type 'Warning' -Text "⚠️ Servizio installazione aggiornamenti Windows attualmente in esecuzione"
-                }
-            }
-            catch { }
-        }
-        else {
-            $regPaths = @(
-                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired",
-                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootRequired",
-                "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations"
-            )
-            foreach ($path in $regPaths) {
-                if (Test-Path $path -ErrorAction SilentlyContinue) {
-                    $pendingReboot = $true
-                    break
-                }
-            }
-            $trustedInstaller = Get-Service -Name TrustedInstaller -ErrorAction SilentlyContinue
-            if ($trustedInstaller -and $trustedInstaller.Status -eq 'Running') {
-                $installerRunning = $true
-            }
-        }
-        if ($pendingReboot -or $installerRunning) {
-            $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
-            Write-Host ""
-            Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
-            Write-Host ""
-            Write-Host (Center-Text "⚠️  AVVISO IMPORTANTE ⚠️") -ForegroundColor Yellow
-            Write-Host ""
-            Write-Host " Sono stati rilevati aggiornamenti di sistema pendenti:" -ForegroundColor Yellow
-            if ($pendingReboot) {
-                Write-Host "  ✓ Riavvio del sistema richiesto per completare aggiornamenti" -ForegroundColor Yellow
-            }
-            if ($installerRunning) {
-                Write-Host "  ✓ Servizio installazione aggiornamenti Windows in corso" -ForegroundColor Yellow
-            }
-            Write-Host ""
-            Write-Host " Questo potrebbe causare malfunzionamenti, errori o comportamenti" -ForegroundColor Yellow
-            Write-Host " imprevisti in alcune o tutte le funzionalità di WinToolkit." -ForegroundColor Yellow
-            Write-Host ""
-            Write-Host (Center-Text "⚠️  PROCEDERE CON CAUTELA ⚠️") -ForegroundColor Red
-            Write-Host ""
-            Write-Host " Si consiglia vivamente di completare tutti gli aggiornamenti in corso," -ForegroundColor Yellow
-            Write-Host " riavviare il sistema e poi riavviare WinToolkit prima di proseguire." -ForegroundColor Yellow
-            Write-Host ""
-            Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
-            Write-Host ""
-            Start-Sleep -Seconds 5
-        }
-        else {
-            Write-StyledMessage -Type 'Success' -Text "✅ Nessun aggiornamento pendente rilevato"
-        }
-    }
-    catch {
-        Write-StyledMessage -Type 'Warning' -Text "⚠️ Impossibile verificare stato aggiornamenti Windows: $($_.Exception.Message)"
-    }
-}
-if (-not $ImportOnly) {
     Test-WindowsUpdateStatus
 }
 if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
@@ -4629,28 +4438,21 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Write-Host "💻 Edizione: $editionIcon $($si.ProductName)" -ForegroundColor White
             Write-Host "🆔 Versione: " -NoNewline -ForegroundColor White
             Write-Host "Ver. $($si.DisplayVersion) (Build $($si.BuildNumber))" -ForegroundColor Green
-            Write-Host "🔑 Architettura: $($si.Architecture)" -ForegroundColor White
-            Write-Host "🔧 Nome PC: $($si.ComputerName)" -ForegroundColor White
-            Write-Host "🧠 RAM: $($si.TotalRAM) GB" -ForegroundColor White
+            Write-Host "🔑 Architettura: $($si.Architecture)"  -ForegroundColor White
+            Write-Host "🔧 Nome PC: $($si.ComputerName)"       -ForegroundColor White
+            Write-Host "🧠 RAM: $($si.TotalRAM) GB"            -ForegroundColor White
             Write-Host "💾 Disco: " -NoNewline -ForegroundColor White
-            $diskFreeGB = $si.FreeDisk
+            $diskFreeGB    = $si.FreeDisk
             $displayString = "$($si.FreePercentage)% Libero ($($diskFreeGB) GB)"
-            $diskColor = "Green"
-            if ($diskFreeGB -lt 50) {
-                $diskColor = "Red"
-            }
-            elseif ($diskFreeGB -ge 50 -and $diskFreeGB -le 80) {
-                $diskColor = "Yellow"
-            }
+            $diskColor     = if ($diskFreeGB -lt 50) { "Red" } elseif ($diskFreeGB -le 80) { "Yellow" } else { "Green" }
             Write-Host $displayString -ForegroundColor $diskColor -NoNewline
             Write-Host ""
             $blStatus = Get-BitlockerStatus
-            $blColor = 'Red'
-            if ($blStatus -match 'Disattivato|Non configurato|Off') { $blColor = 'Green' }
+            $blColor  = if ($blStatus -match 'Disattivato|Non configurato|Off') { 'Green' } else { 'Red' }
             Write-Host "🔒 Stato Bitlocker: " -NoNewline -ForegroundColor White
             Write-Host "$blStatus" -ForegroundColor $blColor
-            Write-Host ('*' * 50) -ForegroundColor Red
         }
+        Write-Host ('*' * 50) -ForegroundColor Red
         Write-Host ""
         $allScripts = @(); $idx = 1
         foreach ($cat in $menuStructure) {
@@ -4687,9 +4489,9 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Start-Sleep -Seconds 2
             continue
         }
-        $Global:ExecutionLog = @()
-        $Global:NeedsFinalReboot = $false
-        $isMultiScript = ($selections.Count -gt 1)
+        $Global:ExecutionLog      = @()
+        $Global:NeedsFinalReboot  = $false
+        $isMultiScript            = ($selections.Count -gt 1)
         Write-Host ''
         if ($isMultiScript) {
             Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione sequenziale di $($selections.Count) operazioni..."
@@ -4700,12 +4502,8 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Write-StyledMessage -Type 'Progress' -Text "▶️ Avvio: $($scriptToRun.Description)"
             Write-Host ''
             try {
-                if ($isMultiScript) {
-                    & ([scriptblock]::Create("$($scriptToRun.Name) -SuppressIndividualReboot"))
-                }
-                else {
-                    & $ExecutionContext.InvokeCommand.GetCommand($scriptToRun.Name, 'Function')
-                }
+                if ($isMultiScript) { & ([scriptblock]::Create("$($scriptToRun.Name) -SuppressIndividualReboot")) }
+                else                { & $ExecutionContext.InvokeCommand.GetCommand($scriptToRun.Name, 'Function') }
                 $Global:ExecutionLog += @{ Name = $scriptToRun.Description; Success = $true }
             }
             catch {
@@ -4717,18 +4515,13 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         if ($isMultiScript) {
             Write-Host ''
             $tableRows = $Global:ExecutionLog | ForEach-Object {
-                @{
-                    Operazione = $_.Name
-                    Stato      = if ($_.Success) { '✅ Completato' } else { '❌ Errore' }
-                    Dettaglio  = if ($_.Error) { $_.Error } else { '' }
-                }
+                @{ Operazione = $_.Name; Stato = if ($_.Success) { '✅ Completato' } else { '❌ Errore' }; Dettaglio = if ($_.Error) { $_.Error } else { '' } }
             }
-            $tableCols = @(
+            Show-ConsoleTable -Rows $tableRows -Columns @(
                 @{ Header = 'Operazione'; Key = 'Operazione' },
-                @{ Header = 'Stato'; Key = 'Stato' },
-                @{ Header = 'Dettaglio'; Key = 'Dettaglio' }
-            )
-            Show-ConsoleTable -Rows $tableRows -Columns $tableCols -Title '📊 Riepilogo Esecuzione'
+                @{ Header = 'Stato';      Key = 'Stato' },
+                @{ Header = 'Dettaglio';  Key = 'Dettaglio' }
+            ) -Title '📊 Riepilogo Esecuzione'
             Write-Host ''
         }
         if ($Global:NeedsFinalReboot) {
