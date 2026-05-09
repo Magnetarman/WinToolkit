@@ -19,8 +19,8 @@
 
 name: CI_WinToolkit_Enterprise
 
-# env:
-#   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # ---------------------------------------------------------------------------
 # TRIGGER
@@ -236,7 +236,7 @@ jobs:
     permissions:
       contents: read
     env:
-#      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
@@ -327,7 +327,7 @@ jobs:
     permissions:
       contents: read
     env:
-#      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
@@ -397,7 +397,7 @@ jobs:
       contents: write
       actions: read
     env:
-#      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     outputs:
       new_version: ${{ steps.version.outputs.new_version }}
@@ -472,7 +472,7 @@ jobs:
       contents: write
       actions: read
     env:
-#      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     outputs:
       source_kb: ${{ steps.build_script.outputs.source_kb }}
@@ -608,7 +608,7 @@ jobs:
       contents: write
       pull-requests: read
     env:
-#      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
