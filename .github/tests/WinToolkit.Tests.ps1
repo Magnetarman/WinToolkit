@@ -281,9 +281,9 @@ Describe 'Write-ToolkitLog' {
         It 'Deve preservare tutte le entry sotto scrittura concorrente (5 runspace x 5 entry = 25)' {
             $tmpLog = [System.IO.Path]::GetTempFileName()
 
-            # Ogni runspace dot-sourca il template e scrive 5 entry
-            # Ridotto a 5 runspace per non sovraccaricare il runner CI
-            $templatePathStr = $script:TemplatePath.Path
+            # Cattura la definizione della funzione per passarla ai runspace
+            $writeToolkitLogDef = (Get-Command Write-ToolkitLog).Definition
+            $writeHostMockDef = "function Write-Host { }" 
 
             $jobs = 1..5 | ForEach-Object {
                 $idx = $_
@@ -293,7 +293,7 @@ Describe 'Write-ToolkitLog' {
                     function Write-ToolkitLog { $writeToolkitLogDef }
                     $writeHostMockDef
                     `$Global:CurrentLogFile = '$($tmpLog -replace '\\', '\\\\')'
-                    for (`$i = 0; `$i -lt 10; `$i++) {
+                    for (`$i = 0; `$i -lt 5; `$i++) {
                         Write-ToolkitLog -Level 'INFO' -Message "THREAD-$idx-ENTRY-`$i"
                     }
 "@)
