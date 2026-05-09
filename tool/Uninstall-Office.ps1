@@ -18,43 +18,8 @@ function Uninstall-Office {
     $tempDir = $AppConfig.Paths.OfficeTemp
 
     # ============================================================================
-    # FUNZIONI HELPER
+    # FUNZIONI HELPER SPECIFICHE PER UNINSTALL
     # ============================================================================
-
-    function Invoke-SilentRemoval {
-        param(
-            [Parameter(Mandatory = $true)][string]$Path,
-            [switch]$Recurse
-        )
-        if (-not (Test-Path $Path)) { return $false }
-        try {
-            $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
-            if ($Recurse) { $params['Recurse'] = $true }
-            Remove-Item @params *>$null
-            Clear-ProgressLine
-            return $true
-        } catch { return $false }
-    }
-
-    function Stop-OfficeProcesses {
-        $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
-        $closed = 0
-
-        Write-StyledMessage -Type 'Info' -Text "📋 Chiusura processi Office."
-        foreach ($processName in $processes) {
-            $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
-            if ($running) {
-                try {
-                    $running | Stop-Process -Force -ErrorAction Stop
-                    $closed++
-                }
-                catch {
-                    Write-StyledMessage -Type 'Warning' -Text "Impossibile chiudere: $processName."
-                }
-            }
-        }
-        if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text "$closed processi Office chiusi." }
-    }
 
     function Get-WindowsVersion {
         try {
@@ -67,29 +32,13 @@ function Uninstall-Office {
         }
     }
 
-    function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
-        try {
-            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
-            $webClient = New-Object System.Net.WebClient
-            $webClient.DownloadFile($Url, $OutputPath)
-            $webClient.Dispose()
-            $success = (Test-Path $OutputPath)
-            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
-            return $success
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
-            return $false
-        }
-    }
-
     function Remove-ItemsSilently {
         param([string[]]$Paths, [string]$ItemType = "cartella")
         $removed = @()
         $failed  = @()
         foreach ($path in $Paths) {
             if (Test-Path $path) {
-                if (Invoke-SilentRemoval -Path $path -Recurse) { $removed += $path }
+                if (Invoke-OfficeSilentRemoval -Path $path -Recurse) { $removed += $path }
                 else { $failed += $path }
             }
         }
@@ -218,7 +167,7 @@ function Uninstall-Office {
                     foreach ($shortcut in $officeShortcuts) {
                         $shortcutFiles = Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue
                         foreach ($file in $shortcutFiles) {
-                            if (Invoke-SilentRemoval -Path $file.FullName) { $shortcutsRemoved++ }
+                            if (Invoke-OfficeSilentRemoval -Path $file.FullName) { $shortcutsRemoved++ }
                         }
                     }
                 }
@@ -248,7 +197,7 @@ function Uninstall-Office {
             if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
 
             $getHelpZipPath = Join-Path $tempDir 'GetHelp.zip'
-            if (-not (Invoke-DownloadFile $AppConfig.URLs.GetHelpInstaller $getHelpZipPath 'Microsoft Get Help')) {
+            if (-not (Invoke-OfficeDownloadFile $AppConfig.URLs.GetHelpInstaller $getHelpZipPath 'Microsoft Get Help')) {
                 return $false
             }
 
@@ -276,28 +225,24 @@ function Uninstall-Office {
                     -Arguments '-S OfficeScrubScenario -AcceptEula' `
                     -TimeoutSeconds 86400 -LogContextKey "Office-Uninstall-GetHelp"
 
-                # Verifica se l'output contiene errori o il menu di aiuto (segno di parametri errati)
                 $outputStr = $result.StdOut + $result.StdErr
                 $isInvalidArgs = $outputStr -match "Error: Invalid command line arguments" -or $outputStr -match "Usage: GetHelpCmd\.exe"
 
                 if ($result.ExitCode -eq 0 -and -not $isInvalidArgs) {
-                    # Attendere che i processi esterni (Setup, SaRA, etc.) terminino davvero
                     $blockingProcesses = @('Setup', 'SaRACmd', 'Microsoft.Support.Recovery.Assistant.App', 'OfficeClickToRun', 'Integrator', 'GetHelpCmd', 'OfficeScrub', 'cscript')
                     $waitStart = Get-Date
-                    
-                    # Breve attesa per permettere lo spawn del processo esterno
+
                     Start-Sleep -Seconds 12
-                    
+
                     if (Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) {
                         Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna."
                         Write-StyledMessage -Type 'Info' -Text "   Il Toolkit rimarrà in attesa fino alla chiusura del processo di rimozione..."
-                        
-                        $spinnerIndex = 0
-                        while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalSeconds -lt 2700) {
-                            $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
-                            $spinner = if ($Global:Spinners) { $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length] } else { '' }
-                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso in finestra esterna... ($elapsed secondi)" -Percent 90 -Icon '⏳' -Spinner $spinner
-                            Start-Sleep -Milliseconds 500
+
+                        while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalMinutes -lt 45) {
+                            $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalMinutes, 1)
+                            $spinner = if ($Global:Spinners) { $Global:Spinners[(Get-Date).Millisecond % $Global:Spinners.Length] } else { '' }
+                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso in finestra esterna... ($elapsed min)" -Percent 90 -Icon '⏳' -Spinner $spinner
+                            Start-Sleep -Seconds 5
                         }
                         Clear-ProgressLine
                     }
@@ -323,7 +268,7 @@ function Uninstall-Office {
             return $false
         }
         finally {
-            Invoke-SilentRemoval -Path $tempDir -Recurse
+            Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
         }
     }
 
@@ -375,7 +320,7 @@ function Uninstall-Office {
     }
     finally {
         Write-StyledMessage -Type 'Success' -Text "🧹 Pulizia finale."
-        Invoke-SilentRemoval -Path $tempDir -Recurse
+        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Uninstall terminato."
         Write-ToolkitLog -Level INFO -Message "Uninstall-Office sessione terminata."
     }
