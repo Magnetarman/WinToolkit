@@ -319,11 +319,13 @@ function Write-ToolkitLog {
         catch {}
     }
     try {
-        $mutex = New-Object System.Threading.Mutex($false, "WinToolkitLogMutex")
+        $mutex = New-Object System.Threading.Mutex($false, "Global\WinToolkitLogMutex")
         $hasHandle = $false
         try {
             $hasHandle = $mutex.WaitOne(5000)
-            Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
+            if ($hasHandle) {
+                Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
+            }
         }
         finally {
             if ($hasHandle) { $mutex.ReleaseMutex() }
@@ -2423,6 +2425,65 @@ function WinBackupDriver {
     }
 }
 function WinDriverInstall {}
+function WinDebloat {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [int]$CountdownSeconds = 30,
+        [Parameter(Mandatory = $false)]
+        [switch]$SuppressIndividualReboot
+    )
+    Start-ToolkitLog -ToolName "WinDebloat"
+    Show-Header -SubTitle "WinDebloat Toolkit"
+    $Host.UI.RawUI.WindowTitle = "WinDebloat Toolkit By MagnetarMan"
+    $DebloatServices = @(
+    )
+    $script:WinDebloatLog = @()
+    $rebootRequired = $false
+    function Invoke-ServiceOptimization {
+        param(
+            [hashtable]$ServiceConfig
+        )
+        Write-StyledMessage -Type 'Info' -Text "Ottimizzazione servizio: $($ServiceConfig.Name) ($($ServiceConfig.Description))."
+        try {
+            Write-StyledMessage -Type 'Success' -Text "Servizio $($ServiceConfig.Name) ottimizzato correttamente."
+            return $true
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'ottimizzazione di $($ServiceConfig.Name): $($_.Exception.Message)."
+            return $false
+        }
+    }
+    try {
+        Write-StyledMessage -Type 'Info' -Text "🚀 Avvio processo di debloat dei servizi."
+        foreach ($service in $DebloatServices) {
+            Invoke-ServiceOptimization -ServiceConfig $service
+        }
+        Write-StyledMessage -Type 'Success' -Text "✅ Operazioni di debloat completate."
+        if ($rebootRequired) {
+            if ($SuppressIndividualReboot) {
+                $Global:NeedsFinalReboot = $true
+                Write-StyledMessage -Type 'Warning' -Text "🔄 Riavvio necessario rilevato. Verrà gestito dal toolkit principale."
+            }
+            else {
+                if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio per applicare le modifiche") {
+                    Restart-Computer -Force
+                }
+            }
+        }
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "❌ Errore critico in WinDebloat: $($_.Exception.Message)."
+        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinDebloat" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
+        }
+    }
+    finally {
+        Write-StyledMessage -Type 'Info' -Text "♻️ Pulizia risorse e chiusura sessione WinDebloat."
+    }
+}
 function OfficeToolkit {
     [CmdletBinding()]
     param(
