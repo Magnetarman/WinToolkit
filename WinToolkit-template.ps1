@@ -1203,7 +1203,7 @@ function Show-ProgressBar {
     param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
     $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
     $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-    $empty = '░' * (30 - $filled.Length)
+    $empty = '▒' * (30 - $filled.Length)
     $bar = "[$filled$empty] {0,3}%" -f $safePercent
     # Only write to console if NOT in GUI session (to avoid interfering with job output)
     if (-not $Global:GuiSessionActive) {
@@ -1585,8 +1585,10 @@ function WinUpdateReset {}
 function WinReinstallStore {}
 function WinBackupDriver {}
 function WinDriverInstall {}
+function Install-Office {}
+function Repair-Office {}
+function Uninstall-Office {}
 function WinDebloat {}
-function OfficeToolkit {}
 function WinCleaner {}
 function VideoDriverInstall {}
 function GamingToolkit {}
@@ -1679,14 +1681,19 @@ function Show-ConsoleTable {
 
 # --- MENU PRINCIPALE ---
 $menuStructure = @(
-    @{ 'Name' = 'Windows & Office'; 'Icon' = '🔧'; 'Scripts' = @(
+    @{ 'Name' = 'Windows'; 'Icon' = '🔧'; 'Scripts' = @(
             [pscustomobject]@{Name = 'WinRepairToolkit'; Description = 'Riparazione Windows'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'OfficeToolkit'; Description = 'Office Toolkit'; Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' }
+        )
+    },
+    @{ 'Name' = 'Office'; 'Icon' = '🏢'; 'Scripts' = @(
+            [pscustomobject]@{Name = 'Install-Office'; Description = 'Installa Office Basic'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'Repair-Office'; Description = 'Ripara Office'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'Uninstall-Office'; Description = 'Rimuovi Office'; Action = 'RunFunction' }
         )
     },
     @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
