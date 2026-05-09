@@ -42,6 +42,9 @@ BeforeAll {
     $Global:CurrentLogFile   = $null
     $Global:CurrentToolName  = 'PesterTest'
     $Global:GuiSessionActive = $false
+
+    # Mock globale di Read-Host per evitare hang in CI
+    Mock Read-Host { return '' }
 }
 
 # =============================================================================
@@ -157,7 +160,7 @@ Describe 'Get-WingetExecutable' {
             # Mock Test-Path in modo che restituisca $true SOLO per il percorso alias
             $script:AliasPath = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\winget.exe'
             Mock Test-Path {
-                param([Parameter(ValueFromPipeline)][string]$Path)
+                param([Parameter(ValueFromPipeline)]$Path)
                 $Path -eq $script:AliasPath
             }
         }
@@ -275,36 +278,35 @@ Describe 'Write-ToolkitLog' {
 
     Context 'Protezione Mutex — scritture concorrenti' {
 
-        It 'Deve preservare tutte le entry sotto scrittura concorrente (10 runspace x 5 entry = 50)' {
+        It 'Deve preservare tutte le entry sotto scrittura concorrente (5 runspace x 10 entry = 50)' {
             $tmpLog = [System.IO.Path]::GetTempFileName()
 
-            # Ogni runspace dot-sourca il template e scrive 5 entry
-            $templatePathStr = $script:TemplatePath.Path
+            # Estraiamo le definizioni delle funzioni necessarie per evitare di ricaricare tutto il template
+            $writeToolkitLogDef = Get-Command Write-ToolkitLog | Select-Object -ExpandProperty Definition
+            $writeHostMockDef = "function Write-Host { param([Object]`$Object, [switch]`$NoNewline, [string]`$ForegroundColor) }" # Mock minimalista
 
-            $jobs = 1..10 | ForEach-Object {
+            $jobs = 1..5 | ForEach-Object {
                 $idx = $_
                 $rs  = [powershell]::Create()
-                $null = $rs.AddScript({
-                    param([string]$tPath, [string]$logFile, [int]$idx)
-                    . $tPath -ImportOnly
-                    $Global:CurrentLogFile = $logFile
-                    for ($i = 0; $i -lt 5; $i++) {
-                        Write-ToolkitLog -Level 'INFO' -Message "THREAD-$idx-ENTRY-$i"
+                # Passiamo solo lo stretto necessario al runspace
+                $null = $rs.AddScript(@"
+                    function Write-ToolkitLog { $writeToolkitLogDef }
+                    $writeHostMockDef
+                    `$Global:CurrentLogFile = '$($tmpLog -replace '\\', '\\\\')'
+                    for (`$i = 0; `$i -lt 10; `$i++) {
+                        Write-ToolkitLog -Level 'INFO' -Message "THREAD-$idx-ENTRY-`$i"
                     }
-                }).AddArgument($templatePathStr).AddArgument($tmpLog).AddArgument($idx)
+"@)
                 [PSCustomObject]@{ PS = $rs; Handle = $rs.BeginInvoke() }
             }
 
             foreach ($j in $jobs) {
-                try   { $null = $j.PS.EndInvoke($j.Handle) } catch {}
+                try { $null = $j.PS.EndInvoke($j.Handle) } catch {}
                 $j.PS.Dispose()
             }
 
             $lines = Get-Content -Path $tmpLog | Where-Object { $_ -match 'THREAD-\d+-ENTRY-\d+' }
-
-            # Senza mutex potrebbero esserci entry mancanti o corrotte
             $lines.Count | Should -Be 50
-
             Remove-Item $tmpLog -ErrorAction SilentlyContinue
         }
     }
