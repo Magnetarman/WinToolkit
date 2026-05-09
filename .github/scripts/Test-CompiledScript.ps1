@@ -20,7 +20,10 @@ param(
     [string]$ScriptPath = "WinToolkit.ps1",
 
     [Parameter(Mandatory = $false)]
-    [string]$ToolPath = "tool"
+    [string]$ToolPath = "tool",
+
+    [Parameter(Mandatory = $false)]
+    [string]$TemplatePath = "WinToolkit-template.ps1"
 )
 
 # --- Best Practices PowerShell ---
@@ -128,9 +131,15 @@ try {
             }
         }
         else {
-            # Verifica se è commentata (In Sviluppo) - supporta sia "# function Nome {}" che "# Nome {}"
-            if ($scriptContent -match "(?m)^\s*#\s*(function\s+)?$funcName\s*\{") {
+            # Se manca nel compilato, controlliamo nel template (perché la minificazione rimuove i commenti)
+            $templateContent = if (Test-Path $TemplatePath) { Get-Content -Raw $TemplatePath } else { "" }
+            
+            if ($templateContent -match "(?m)^\s*#\s*(function\s+)?$funcName\s*\{") {
                 $devFunctions += $funcName
+            }
+            elseif ($templateContent -match "(?m)^\s*function\s+$funcName\s*\{") {
+                 # Presente nel template ma non nel compilato? Strano, ma lo consideriamo in sviluppo/saltato
+                 $devFunctions += $funcName
             }
             else {
                 $missingFunctions += $funcName
