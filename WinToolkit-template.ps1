@@ -1585,6 +1585,7 @@ function WinUpdateReset {}
 function WinReinstallStore {}
 function WinBackupDriver {}
 function WinDriverInstall {}
+function WinDebloat {}
 function OfficeToolkit {}
 function WinCleaner {}
 function VideoDriverInstall {}
