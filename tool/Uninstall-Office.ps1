@@ -238,11 +238,12 @@ function Uninstall-Office {
                         Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna."
                         Write-StyledMessage -Type 'Info' -Text "   Il Toolkit rimarrà in attesa fino alla chiusura del processo di rimozione..."
 
-                        while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalMinutes -lt 45) {
-                            $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalMinutes, 1)
-                            $spinner = if ($Global:Spinners) { $Global:Spinners[(Get-Date).Millisecond % $Global:Spinners.Length] } else { '' }
-                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso in finestra esterna... ($elapsed min)" -Percent 90 -Icon '⏳' -Spinner $spinner
-                            Start-Sleep -Seconds 5
+                        $spinnerIndex = 0
+                        while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalSeconds -lt 2700) {
+                            $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
+                            $spinner = if ($Global:Spinners) { $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length] } else { '' }
+                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso in finestra esterna... ($elapsed secondi)" -Percent 90 -Icon '⏳' -Spinner $spinner
+                            Start-Sleep -Milliseconds 500
                         }
                         Clear-ProgressLine
                     }
