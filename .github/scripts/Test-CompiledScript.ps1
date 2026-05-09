@@ -140,9 +140,21 @@ try {
 
     Write-TestLog -Message "  📊 Funzioni attese: $($expectedFunctions.Count)" -Type Info
     Write-TestLog -Message "  📊 Funzioni presenti: $($presentFunctions.Count)" -Type Success
-    Write-TestLog -Message "  📊 Funzioni in sviluppo: $($devFunctions.Count)" -Type Info
-    Write-TestLog -Message "  📊 Funzioni vuote: $($emptyFunctions.Count)" -Type Warning
-    Write-TestLog -Message "  📊 Funzioni mancanti: $($missingFunctions.Count)" -Type Warning
+    
+    if ($devFunctions.Count -gt 0) {
+        Write-TestLog -Message "  🚧 Funzioni in sviluppo (commentate): $($devFunctions.Count)" -Type Info
+        foreach ($f in $devFunctions) { Write-TestLog -Message "    → $f (In Sviluppo)" -Type Info }
+    }
+    
+    if ($emptyFunctions.Count -gt 0) {
+        Write-TestLog -Message "  ⚠️ Funzioni vuote: $($emptyFunctions.Count)" -Type Warning
+        foreach ($f in $emptyFunctions) { Write-TestLog -Message "    → $f (Vuota)" -Type Warning }
+    }
+
+    if ($missingFunctions.Count -gt 0) {
+        Write-TestLog -Message "  ❌ Funzioni MANCANTI: $($missingFunctions.Count)" -Type Error
+        foreach ($f in $missingFunctions) { Write-TestLog -Message "    → $f (NON TROVATA)" -Type Error }
+    }
 
     if ($missingFunctions.Count -eq 0) {
         $status = "✅ Funzioni: Tutte gestite ($($presentFunctions.Count) attive"
@@ -153,7 +165,8 @@ try {
     else {
         $script:TestResults += "❌ Funzioni: $($presentFunctions.Count)/$($expectedFunctions.Count) presenti"
         $script:TotalErrors++
-        $script:CriticalErrors += "Mancano $($missingFunctions.Count) funzioni nel file compilato (non trovate neanche come commentate): $($missingFunctions -join ', ')"
+        $errorMsg = "MODULI MANCANTI NEL TEMPLATE: I seguenti script in /tool non hanno un placeholder (nemmeno commentato) in WinToolkit-template.ps1: $($missingFunctions -join ', ')"
+        $script:CriticalErrors += $errorMsg
     }
 
     $script:TotalWarnings += $emptyFunctions.Count
