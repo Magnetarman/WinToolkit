@@ -706,15 +706,11 @@ jobs:
 
           function Get-PrCategory {
             param([string]$Title, [string[]]$Labels)
-            if ($Title -match '\[ENHANCEMENT\]')                                   { return 'enhancement' }
-            if ($Labels -contains 'feature')                                       { return 'feature' }
-            if ($Labels -contains 'enhancement')                                   { return 'enhancement' }
-            if ($Labels -contains 'bug' -or $Labels -contains 'fix' `
-                -or $Labels -contains 'bugfix')                                    { return 'bugfix' }
-            if ($Title -match '^(feat|feature|add|new|implement)\b' `
-                -or $Title -match '^Update.*\.ps1$')                              { return 'feature' }
-            if ($Title -match '^(fix|bugfix|resolve|repair)\b' `
-                -or $Title -match '\b(fix|bug|resolve)\b')                        { return 'bugfix' }
+            $t = $Title.ToLower()
+            # Sezioni prioritarie basate sui tag dei template
+            if ($t -match '\[feature\]' -or $Labels -contains 'feature' -or $t -match '^(feat|feature|add|new|implement)\b') { return 'feature' }
+            if ($t -match '\[bug\]' -or $t -match '\[bugfix\]' -or $t -match '\[fix\]' -or $Labels -contains 'bug' -or $Labels -contains 'fix' -or $Labels -contains 'bugfix' -or $t -match '^(fix|bugfix|resolve|repair)\b' -or $t -match '\b(fix|bug|resolve)\b') { return 'bugfix' }
+            if ($t -match '\[enhancement\]' -or $Labels -contains 'enhancement' -or $t -match '^(update|improve|optimize|enhance)\b') { return 'enhancement' }
             return 'change'
           }
 
@@ -754,10 +750,10 @@ jobs:
 
           # Composizione release body
           $body = ""
-          if ($features.Count     -gt 0) { $body += "## Features`n`n"     + ($features     -join "`n") + "`n`n" }
-          if ($bugFixes.Count     -gt 0) { $body += "## Bug Fixes`n`n"    + ($bugFixes     -join "`n") + "`n`n" }
-          if ($enhancements.Count -gt 0) { $body += "## Enhancement`n`n"  + ($enhancements -join "`n") + "`n`n" }
-          if ($changes.Count      -gt 0) { $body += "## Changes`n`n"      + ($changes      -join "`n") + "`n`n" }
+          if ($features.Count     -gt 0) { $body += "## 🚀 Features`n`n"     + ($features     -join "`n") + "`n`n" }
+          if ($bugFixes.Count     -gt 0) { $body += "## 🐛 Bug Fixes`n`n"    + ($bugFixes     -join "`n") + "`n`n" }
+          if ($enhancements.Count -gt 0) { $body += "## ✨ Enhancement`n`n"  + ($enhancements -join "`n") + "`n`n" }
+          if ($changes.Count      -gt 0) { $body += "## 🔄 Changes`n`n"      + ($changes      -join "`n") + "`n`n" }
           if ($validPrs.Count -eq 0)     { $body += "_Nessun contributo esterno in questa build._`n`n" }
 
           $sourceKB     = "${{ needs.build.outputs.source_kb }}"
@@ -765,7 +761,7 @@ jobs:
           $reduction    = "${{ needs.build.outputs.reduction_percent }}"
           $linesRemoved = "${{ needs.build.outputs.lines_removed }}"
 
-          $body += "`n### Statistiche Compressione`n`n"
+          $body += "`n### 📊 Statistiche Compressione`n`n"
           $body += "| Metrica         | Valore        |`n"
           $body += "|-----------------|---------------|`n"
           $body += "| Peso Sorgente   | $sourceKB KB  |`n"
