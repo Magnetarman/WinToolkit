@@ -2655,6 +2655,33 @@ function Uninstall-Office {
         }
         return @{ Removed = $removed; Failed = $failed; Count = $removed.Count }
     }
+    function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
+        try {
+            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
+            $webClient = New-Object System.Net.WebClient
+            $webClient.DownloadFile($Url, $OutputPath)
+            $webClient.Dispose()
+            $success = (Test-Path $OutputPath)
+            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
+            return $success
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
+            return $false
+        }
+    }
+    function Remove-ItemsSilently {
+        param([string[]]$Paths, [string]$ItemType = "cartella")
+        $removed = @()
+        $failed  = @()
+        foreach ($path in $Paths) {
+            if (Test-Path $path) {
+                if (Invoke-SilentRemoval -Path $path -Recurse) { $removed += $path }
+                else { $failed += $path }
+            }
+        }
+        return @{ Removed = $removed; Failed = $failed; Count = $removed.Count }
+    }
     function Remove-OfficeDirectly {
         Write-StyledMessage -Type 'Info' -Text "🔧 Avvio rimozione diretta Office."
         try {
