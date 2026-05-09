@@ -67,7 +67,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "Sviluppo in Corso"
+$ToolkitVersion = "2.5.4 (Build 44)"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -2650,33 +2650,6 @@ function Uninstall-Office {
         foreach ($path in $Paths) {
             if (Test-Path $path) {
                 if (Invoke-OfficeSilentRemoval -Path $path -Recurse) { $removed += $path }
-                else { $failed += $path }
-            }
-        }
-        return @{ Removed = $removed; Failed = $failed; Count = $removed.Count }
-    }
-    function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
-        try {
-            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
-            $webClient = New-Object System.Net.WebClient
-            $webClient.DownloadFile($Url, $OutputPath)
-            $webClient.Dispose()
-            $success = (Test-Path $OutputPath)
-            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
-            return $success
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
-            return $false
-        }
-    }
-    function Remove-ItemsSilently {
-        param([string[]]$Paths, [string]$ItemType = "cartella")
-        $removed = @()
-        $failed  = @()
-        foreach ($path in $Paths) {
-            if (Test-Path $path) {
-                if (Invoke-SilentRemoval -Path $path -Recurse) { $removed += $path }
                 else { $failed += $path }
             }
         }
