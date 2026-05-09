@@ -282,7 +282,7 @@ function Uninstall-Office {
 
                 if ($result.ExitCode -eq 0 -and -not $isInvalidArgs) {
                     # Attendere che i processi esterni (Setup, SaRA, etc.) terminino davvero
-                    $blockingProcesses = @('Setup', 'SaRACmd', 'Microsoft.Support.Recovery.Assistant.App', 'OfficeClickToRun', 'Integrator', 'GetHelpCmd', 'OfficeScrub')
+                    $blockingProcesses = @('Setup', 'SaRACmd', 'Microsoft.Support.Recovery.Assistant.App', 'OfficeClickToRun', 'Integrator', 'GetHelpCmd', 'OfficeScrub', 'cscript')
                     $waitStart = Get-Date
                     
                     # Breve attesa per permettere lo spawn del processo esterno
