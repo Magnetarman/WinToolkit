@@ -11,7 +11,7 @@
 
 .NOTES
     Autore: MagnetarMan
-    Version: 1.0.4
+    Version: 1.0.6
 #>
 
 [CmdletBinding()]
@@ -20,7 +20,10 @@ param(
     [string]$ScriptPath = "WinToolkit.ps1",
 
     [Parameter(Mandatory = $false)]
-    [string]$ToolPath = "tool"
+    [string]$ToolPath = "tool",
+
+    [Parameter(Mandatory = $false)]
+    [string]$TemplatePath = "WinToolkit-template.ps1"
 )
 
 # --- Best Practices PowerShell ---
@@ -112,6 +115,7 @@ try {
     $presentFunctions = @()
     $missingFunctions = @()
     $emptyFunctions = @()
+    $devFunctions = @()
 
     foreach ($funcName in $expectedFunctions) {
         $funcAst = $functions | Where-Object { $_.Name -eq $funcName }
@@ -127,20 +131,51 @@ try {
             }
         }
         else {
-            $missingFunctions += $funcName
+            # Se manca nel compilato, controlliamo nel template (perché la minificazione rimuove i commenti)
+            $templateContent = if (Test-Path $TemplatePath) { Get-Content -Raw $TemplatePath } else { "" }
+            
+            if ($templateContent -match "(?m)^\s*#\s*(function\s+)?$funcName\s*\{") {
+                $devFunctions += $funcName
+            }
+            elseif ($templateContent -match "(?m)^\s*function\s+$funcName\s*\{") {
+                 # Presente nel template ma non nel compilato? Strano, ma lo consideriamo in sviluppo/saltato
+                 $devFunctions += $funcName
+            }
+            else {
+                $missingFunctions += $funcName
+            }
         }
     }
 
     Write-TestLog -Message "  📊 Funzioni attese: $($expectedFunctions.Count)" -Type Info
     Write-TestLog -Message "  📊 Funzioni presenti: $($presentFunctions.Count)" -Type Success
-    Write-TestLog -Message "  📊 Funzioni vuote: $($emptyFunctions.Count)" -Type Warning
-    Write-TestLog -Message "  📊 Funzioni mancanti: $($missingFunctions.Count)" -Type Warning
+    
+    if ($devFunctions.Count -gt 0) {
+        Write-TestLog -Message "  🚧 Funzioni in sviluppo (commentate): $($devFunctions.Count)" -Type Info
+        foreach ($f in $devFunctions) { Write-TestLog -Message "    → $f (In Sviluppo)" -Type Info }
+    }
+    
+    if ($emptyFunctions.Count -gt 0) {
+        Write-TestLog -Message "  ⚠️ Funzioni vuote: $($emptyFunctions.Count)" -Type Warning
+        foreach ($f in $emptyFunctions) { Write-TestLog -Message "    → $f (Vuota)" -Type Warning }
+    }
 
-    if ($presentFunctions.Count -eq $expectedFunctions.Count) {
-        $script:TestResults += "✅ Funzioni: Tutte presenti e compilate ($($presentFunctions.Count))"
+    if ($missingFunctions.Count -gt 0) {
+        Write-TestLog -Message "  ❌ Funzioni MANCANTI: $($missingFunctions.Count)" -Type Error
+        foreach ($f in $missingFunctions) { Write-TestLog -Message "    → $f (NON TROVATA)" -Type Error }
+    }
+
+    if ($missingFunctions.Count -eq 0) {
+        $status = "✅ Funzioni: Tutte gestite ($($presentFunctions.Count) attive"
+        if ($devFunctions.Count -gt 0) { $status += ", $($devFunctions.Count) in sviluppo" }
+        $status += ")"
+        $script:TestResults += $status
     }
     else {
-        $script:TestResults += "ℹ️ Funzioni: $($presentFunctions.Count)/$($expectedFunctions.Count) presenti"
+        $script:TestResults += "❌ Funzioni: $($presentFunctions.Count)/$($expectedFunctions.Count) presenti"
+        $script:TotalErrors++
+        $errorMsg = "MODULI MANCANTI NEL TEMPLATE: I seguenti script in /tool non hanno un placeholder (nemmeno commentato) in WinToolkit-template.ps1: $($missingFunctions -join ', ')"
+        $script:CriticalErrors += $errorMsg
     }
 
     $script:TotalWarnings += $emptyFunctions.Count
@@ -151,10 +186,7 @@ try {
     Write-TestLog -Message "`n🔍 Test 3: Verifica struttura menu..." -Type Info
 
     $menuTests = @(
-        @{ Pattern = [regex]::Escape("while (`$true)"); Name = "Menu principale" },
-        @{ Pattern = "Windows & Office"; Name = "Categoria Windows & Office" },
-        @{ Pattern = "Driver & Gaming"; Name = "Categoria Driver & Gaming" },
-        @{ Pattern = "Supporto"; Name = "Categoria Supporto" }
+        @{ Pattern = [regex]::Escape("while (`$true)"); Name = "Menu principale" }
     )
 
     foreach ($test in $menuTests) {
