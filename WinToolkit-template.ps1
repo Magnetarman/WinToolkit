@@ -24,13 +24,19 @@ function Read-Host {
         [switch]$MaskInput
     )
 
+    # Helper per verificare se la console è disponibile (evita "The handle is invalid" in CI)
+    function Test-ConsoleAvailable {
+        try { $null = $Host.UI.RawUI.BufferSize; return $true } catch { return $false }
+    }
+
     # Verifica se siamo in una sessione interattiva con console reale
-    if ($Host.Name -ne 'ConsoleHost' -or $Global:GuiSessionActive) {
+    if ($Host.Name -ne 'ConsoleHost' -or $Global:GuiSessionActive -or -not (Test-ConsoleAvailable)) {
         if ($Prompt) { return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt }
         return Microsoft.PowerShell.Utility\Read-Host
     }
 
-    $oldTreatControlC = [console]::TreatControlCAsInput
+    $oldTreatControlC = $false
+    try { $oldTreatControlC = [console]::TreatControlCAsInput } catch {}
     try { [console]::TreatControlCAsInput = $true } catch {}
 
     try {
@@ -96,7 +102,7 @@ function Read-Host {
 
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
-$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
+try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
 $ToolkitVersion = "2.5.4 (Build 42)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
@@ -299,9 +305,11 @@ function Write-StyledMessage {
 function Center-Text {
     param(
         [string]$Text,
-        [int]$Width = $Host.UI.RawUI.BufferSize.Width
+        [int]$Width = 80
     )
-    $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
+    # Tenta di leggere la larghezza reale, altrimenti usa default 80
+    $safeWidth = try { $Host.UI.RawUI.BufferSize.Width } catch { $Width }
+    $padding = [Math]::Max(0, [Math]::Floor(($safeWidth - $Text.Length) / 2))
     return (' ' * $padding + $Text)
 }
 
@@ -312,12 +320,12 @@ function Show-Header {
     #>
     param([string]$SubTitle = "Menu Principale")
 
-    # Skip header display if running in GUI mode to prevent console UI issues
-    if ($Global:GuiSessionActive) {
+    # Skip header display if running in GUI mode or headless CI
+    if ($Global:GuiSessionActive -or $ImportOnly) {
         return
     }
-    Clear-Host
-    $width = $Host.UI.RawUI.BufferSize.Width
+    try { Clear-Host } catch {}
+    $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
     $asciiArt = @(
         '      __        __  _   _   _ ',
         '      \ \      / / | | | \ | |',
@@ -1699,8 +1707,10 @@ $menuStructure = @(
         )
     }
 )
-Initialize-ToolkitPaths
-WinOSCheck
+if (-not $ImportOnly) {
+    Initialize-ToolkitPaths
+    WinOSCheck
+}
 
 function Test-WindowsUpdateStatus {
     <#
