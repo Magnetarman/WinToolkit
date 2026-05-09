@@ -96,7 +96,7 @@ function Read-Host {
 
 # --- CONFIGURAZIONE GLOBALE ---
 $ErrorActionPreference = 'Stop'
-$Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan"
+try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
 $ToolkitVersion = "2.5.4 (Build 42)"
 
 # --- CONFIGURAZIONE CENTRALIZZATA ---
@@ -130,20 +130,20 @@ $AppConfig = @{
     }
     Paths           = @{
         # Base paths
-        Root               = "$env:LOCALAPPDATA\WinToolkit"
-        Logs               = "$env:LOCALAPPDATA\WinToolkit\logs"
-        Temp               = "$env:TEMP\WinToolkit"
-        Drivers            = "$env:LOCALAPPDATA\WinToolkit\Drivers"
-        OfficeTemp         = "$env:LOCALAPPDATA\WinToolkit\Office"
-        DriverBackupTemp   = "$env:TEMP\DriverBackup_Temp"
-        DriverBackupLogs   = "$env:LOCALAPPDATA\WinToolkit\logs"
-        GamingDirectX      = "$env:LOCALAPPDATA\WinToolkit\Directx"
-        GamingDirectXSetup = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
-        BattleNetSetup     = "$env:TEMP\Battle.net-Setup.exe"
-        Desktop            = [Environment]::GetFolderPath('Desktop')
-        Startup            = [Environment]::GetFolderPath('Startup')
-        TempFolder         = $env:TEMP
-        LocalAppData       = $env:LOCALAPPDATA
+        Root                 = "$env:LOCALAPPDATA\WinToolkit"
+        Logs                 = "$env:LOCALAPPDATA\WinToolkit\logs"
+        Temp                 = "$env:TEMP\WinToolkit"
+        Drivers              = "$env:LOCALAPPDATA\WinToolkit\Drivers"
+        OfficeTemp           = "$env:LOCALAPPDATA\WinToolkit\Office"
+        DriverBackupTemp     = "$env:TEMP\DriverBackup_Temp"
+        DriverBackupLogs     = "$env:LOCALAPPDATA\WinToolkit\logs"
+        GamingDirectX        = "$env:LOCALAPPDATA\WinToolkit\Directx"
+        GamingDirectXSetup   = "$env:LOCALAPPDATA\WinToolkit\Directx\dxwebsetup.exe"
+        BattleNetSetup       = "$env:TEMP\Battle.net-Setup.exe"
+        Desktop              = [Environment]::GetFolderPath('Desktop')
+        Startup              = [Environment]::GetFolderPath('Startup')
+        TempFolder           = $env:TEMP
+        LocalAppData         = $env:LOCALAPPDATA
         
         # System Paths
         System32             = "$env:windir\System32"
@@ -430,12 +430,12 @@ function Write-ToolkitLog {
     if (-not $Global:CurrentLogFile) { return }
 
     $ts = Get-Date -Format "HH:mm:ss"
-     $clean = $Message -replace '^\s+', ''
-     # Rimuovi tutti i caratteri ANSI/colori prima di salvare su file
-     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
-     # Rimuovi emoji comuni per evitare problemi con parser log
-     # Rimuovi emoji: BMP (sintassi .NET \uXXXX) + supplementari via surrogate pairs (\uD800-\uDFFF)
-     $clean = $clean -replace '[\u2300-\u23FF\u2600-\u27BF\uD800-\uDFFF]', ''
+    $clean = $Message -replace '^\s+', ''
+    # Rimuovi tutti i caratteri ANSI/colori prima di salvare su file
+    $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
+    # Rimuovi emoji comuni per evitare problemi con parser log
+    # Rimuovi emoji: BMP (sintassi .NET \uXXXX) + supplementari via surrogate pairs (\uD800-\uDFFF)
+    $clean = $clean -replace '[\u2300-\u23FF\u2600-\u27BF\uD800-\uDFFF]', ''
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try {
