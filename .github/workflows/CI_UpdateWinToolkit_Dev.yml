@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit Enterprise CI/CD Pipeline
+# WinToolkit Enterprise CI/CD Pipeline V 3.0.1
 # =============================================================================
 # Pipeline adattiva per branch:
 #   • Dev           → Pipeline Completa: lint → test → versioning → build → release
@@ -33,10 +33,16 @@ on:
   push:
     branches:
       - Dev
-      - 'feature/**'
-      - 'fix/**'
-      - 'feat/**'
-      - 'hotfix/**'
+      - "[Ff]eature/**"
+      - "[Ff]eatures/**"
+      - "[Ff]eature-*"
+      - "[Ff]eatures-*"
+      - "[Ff]ix/**"
+      - "[Ff]ix-*"
+      - "[Ff]eat/**"
+      - "[Ff]eat-*"
+      - "[Hh]otfix/**"
+      - "[Hh]otfix-*"
     paths:
       - "tool/*.ps1"
       - "WinToolkit-template.ps1"
@@ -57,7 +63,6 @@ concurrency:
 # JOBS
 # ---------------------------------------------------------------------------
 jobs:
-
   # ===========================================================================
   # JOB 0: PR SECURITY GUARD — Politica a tre livelli
   #
@@ -470,10 +475,10 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     outputs:
-      source_kb:         ${{ steps.build_script.outputs.source_kb }}
-      output_kb:         ${{ steps.build_script.outputs.output_kb }}
+      source_kb: ${{ steps.build_script.outputs.source_kb }}
+      output_kb: ${{ steps.build_script.outputs.output_kb }}
       reduction_percent: ${{ steps.build_script.outputs.reduction_percent }}
-      lines_removed:     ${{ steps.build_script.outputs.lines_removed }}
+      lines_removed: ${{ steps.build_script.outputs.lines_removed }}
 
     steps:
       - name: Checkout repository
