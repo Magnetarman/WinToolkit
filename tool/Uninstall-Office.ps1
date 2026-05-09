@@ -281,6 +281,26 @@ function Uninstall-Office {
                 $isInvalidArgs = $outputStr -match "Error: Invalid command line arguments" -or $outputStr -match "Usage: GetHelpCmd\.exe"
 
                 if ($result.ExitCode -eq 0 -and -not $isInvalidArgs) {
+                    # Attendere che i processi esterni (Setup, SaRA, etc.) terminino davvero
+                    $blockingProcesses = @('Setup', 'SaRACmd', 'Microsoft.Support.Recovery.Assistant.App', 'OfficeClickToRun', 'Integrator', 'GetHelpCmd', 'OfficeScrub')
+                    $waitStart = Get-Date
+                    
+                    # Breve attesa per permettere lo spawn del processo esterno
+                    Start-Sleep -Seconds 12
+                    
+                    if (Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) {
+                        Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna."
+                        Write-StyledMessage -Type 'Info' -Text "   Il Toolkit rimarrà in attesa fino alla chiusura del processo di rimozione..."
+                        
+                        while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalMinutes -lt 45) {
+                            $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalMinutes, 1)
+                            $spinner = if ($Global:Spinners) { $Global:Spinners[(Get-Date).Millisecond % $Global:Spinners.Length] } else { '' }
+                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso in finestra esterna... ($elapsed min)" -Percent 90 -Icon '⏳' -Spinner $spinner
+                            Start-Sleep -Seconds 5
+                        }
+                        Clear-ProgressLine
+                    }
+
                     Write-StyledMessage -Type 'Success' -Text "✅ Get Help completato con successo."
                     return $true
                 }
