@@ -1203,7 +1203,7 @@ function Show-ProgressBar {
     param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
     $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
     $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-    $empty = '▒' * (30 - $filled.Length)
+    $empty = '░' * (30 - $filled.Length)
     $bar = "[$filled$empty] {0,3}%" -f $safePercent
     # Only write to console if NOT in GUI session (to avoid interfering with job output)
     if (-not $Global:GuiSessionActive) {
