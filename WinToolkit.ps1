@@ -2425,6 +2425,74 @@ function WinBackupDriver {
     }
 }
 function WinDriverInstall {}
+function Invoke-OfficeSilentRemoval {
+    param([Parameter(Mandatory = $true)][string]$Path, [switch]$Recurse)
+    if (-not (Test-Path $Path)) { return $false }
+    try {
+        $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
+        if ($Recurse) { $params['Recurse'] = $true }
+        Remove-Item @params *>$null
+        Clear-ProgressLine
+        return $true
+    } catch { return $false }
+}
+function Stop-OfficeProcesses {
+    $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
+    $closed = 0
+    Write-StyledMessage -Type 'Info' -Text "📋 Chiusura processi Office."
+    foreach ($processName in $processes) {
+        $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
+        if ($running) {
+            try { $running | Stop-Process -Force -ErrorAction Stop; $closed++ }
+            catch { Write-StyledMessage -Type 'Warning' -Text "Impossibile chiudere: $processName." }
+        }
+    }
+    if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text "$closed processi Office chiusi." }
+}
+function Invoke-OfficeDownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
+    try {
+        Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
+        $webClient = New-Object System.Net.WebClient
+        $webClient.DownloadFile($Url, $OutputPath)
+        $webClient.Dispose()
+        $success = (Test-Path $OutputPath)
+        Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
+        return $success
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
+        return $false
+    }
+}
+function Set-OfficePostConfig {
+    Write-StyledMessage -Type 'Info' -Text "⚙️ Ottimizzazione profonda di Microsoft Office."
+    $registrySettings = @(
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
+        @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "ShownOptIn"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Feedback"; Name = "Enabled"; Value = 0 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableAnimations"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Graphics"; Name = "DisableHardwareAcceleration"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"; Name = "DisableBootToStartScreen"; Value = 1 },
+        @{ Path = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\LinkedIn"; Name = "ShowLinkedInIntegration"; Value = 0 }
+    )
+    foreach ($reg in $registrySettings) {
+        if (-not (Test-Path $reg.Path)) { $null = New-Item -Path $reg.Path -Force }
+        Set-ItemProperty -Path $reg.Path -Name $reg.Name -Value $reg.Value -Type 'DWord' -Force
+    }
+    $tasksToDisable = @(
+        "OfficeTelemetryAgentLogon", "OfficeTelemetryAgentFallback",
+        "OfficeBackgroundTaskHandlerRegistration", "OfficeBackgroundTaskHandlerLogon",
+        "OfficeFeatureUpdates", "OfficeFeatureUpdatesLogon"
+    )
+    foreach ($tName in $tasksToDisable) {
+        Get-ScheduledTask | Where-Object { $_.TaskName -eq $tName } | Disable-ScheduledTask -ErrorAction SilentlyContinue
+    }
+    Write-StyledMessage -Type 'Success' -Text "✅ Office ottimizzato: telemetria, privacy e task pianificati rimossi."
+}
 function Install-Office {
     [CmdletBinding()]
     param(
@@ -2435,53 +2503,6 @@ function Install-Office {
     Show-Header -SubTitle "Office Install"
     $Host.UI.RawUI.WindowTitle = "Office Install By MagnetarMan"
     $tempDir = $AppConfig.Paths.OfficeTemp
-    function Invoke-SilentRemoval {
-        param(
-            [Parameter(Mandatory = $true)][string]$Path,
-            [switch]$Recurse
-        )
-        if (-not (Test-Path $Path)) { return $false }
-        try {
-            $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
-            if ($Recurse) { $params['Recurse'] = $true }
-            Remove-Item @params *>$null
-            Clear-ProgressLine
-            return $true
-        } catch { return $false }
-    }
-    function Apply-OfficePostConfig {
-        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione Office."
-        $telemetryKeys = @(
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
-            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 }
-        )
-        foreach ($reg in $telemetryKeys) {
-            if (-not (Test-Path $reg.Path)) { $null = New-Item -Path $reg.Path -Force }
-            Set-ItemProperty -Path $reg.Path -Name $reg.Name -Value $reg.Value -Type 'DWord' -Force
-        }
-        $feedbackPath = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"
-        if (-not (Test-Path $feedbackPath)) { $null = New-Item $feedbackPath -Force }
-        Set-ItemProperty -Path $feedbackPath -Name "ShownOptIn" -Value 1 -Type 'DWord' -Force
-        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
-    }
-    function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
-        try {
-            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
-            $webClient = New-Object System.Net.WebClient
-            $webClient.DownloadFile($Url, $OutputPath)
-            $webClient.Dispose()
-            $success = (Test-Path $OutputPath)
-            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
-            return $success
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
-            return $false
-        }
-    }
     try {
         Write-StyledMessage -Type 'Info' -Text "🏢 Avvio installazione Office Basic."
         if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
@@ -2492,7 +2513,7 @@ function Install-Office {
             @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
         )
         foreach ($dl in $downloads) {
-            if (-not (Invoke-DownloadFile $dl.Url $dl.Path $dl.Name)) {
+            if (-not (Invoke-OfficeDownloadFile $dl.Url $dl.Path $dl.Name)) {
                 Write-StyledMessage -Type 'Error' -Text "Download fallito. Installazione annullata."
                 return
             }
@@ -2505,7 +2526,7 @@ function Install-Office {
             Write-StyledMessage -Type 'Error' -Text "Installazione fallita."
             return
         }
-        Apply-OfficePostConfig
+        Set-OfficePostConfig
         Write-StyledMessage -Type 'Success' -Text "✅ Installazione completata."
         Write-StyledMessage -Type 'Info' -Text "Riavvio non necessario."
     }
@@ -2518,7 +2539,7 @@ function Install-Office {
         }
     }
     finally {
-        Invoke-SilentRemoval -Path $tempDir -Recurse
+        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Install terminato."
         Write-ToolkitLog -Level INFO -Message "Install-Office sessione terminata."
     }
@@ -2532,56 +2553,6 @@ function Repair-Office {
     Start-ToolkitLog -ToolName "OfficeRepair"
     Show-Header -SubTitle "Office Repair"
     $Host.UI.RawUI.WindowTitle = "Office Repair By MagnetarMan"
-    function Invoke-SilentRemoval {
-        param(
-            [Parameter(Mandatory = $true)][string]$Path,
-            [switch]$Recurse
-        )
-        if (-not (Test-Path $Path)) { return $false }
-        try {
-            $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
-            if ($Recurse) { $params['Recurse'] = $true }
-            Remove-Item @params *>$null
-            Clear-ProgressLine
-            return $true
-        } catch { return $false }
-    }
-    function Stop-OfficeProcesses {
-        $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
-        $closed = 0
-        Write-StyledMessage -Type 'Info' -Text "📋 Chiusura processi Office."
-        foreach ($processName in $processes) {
-            $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
-            if ($running) {
-                try {
-                    $running | Stop-Process -Force -ErrorAction Stop
-                    $closed++
-                }
-                catch {
-                    Write-StyledMessage -Type 'Warning' -Text "Impossibile chiudere: $processName."
-                }
-            }
-        }
-        if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text "$closed processi Office chiusi." }
-    }
-    function Apply-OfficePostConfig {
-        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-riparazione Office."
-        $telemetryKeys = @(
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
-            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 }
-        )
-        foreach ($reg in $telemetryKeys) {
-            if (-not (Test-Path $reg.Path)) { $null = New-Item -Path $reg.Path -Force }
-            Set-ItemProperty -Path $reg.Path -Name $reg.Name -Value $reg.Value -Type 'DWord' -Force
-        }
-        $feedbackPath = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"
-        if (-not (Test-Path $feedbackPath)) { $null = New-Item $feedbackPath -Force }
-        Set-ItemProperty -Path $feedbackPath -Name "ShownOptIn" -Value 1 -Type 'DWord' -Force
-        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
-    }
     $needsReboot = $false
     try {
         Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione Office."
@@ -2593,7 +2564,7 @@ function Repair-Office {
         )
         $cleanedCount = 0
         foreach ($cache in $caches) {
-            if (Invoke-SilentRemoval -Path $cache -Recurse) { $cleanedCount++ }
+            if (Invoke-OfficeSilentRemoval -Path $cache -Recurse) { $cleanedCount++ }
         }
         if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate." }
         $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ?
@@ -2608,7 +2579,7 @@ function Repair-Office {
             $null = Invoke-WithSpinner -Activity "Riparazione Rapida Office (Offline)" -Command $officeClient `
                 -Arguments "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=QuickRepair DisplayLevel=True" `
                 -TimeoutSeconds 86400 -LogContextKey "Office-Repair-Quick"
-            Apply-OfficePostConfig
+            Set-OfficePostConfig
             Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
             $needsReboot = $true
         }
@@ -2619,7 +2590,7 @@ function Repair-Office {
                 $null = Invoke-WithSpinner -Activity "Riparazione Completa Office (Online)" -Command $officeClient `
                     -Arguments "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True" `
                     -TimeoutSeconds 86400 -LogContextKey "Office-Repair-Full"
-                Apply-OfficePostConfig
+                Set-OfficePostConfig
                 Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
                 $needsReboot = $true
             }
@@ -2662,38 +2633,6 @@ function Uninstall-Office {
     Show-Header -SubTitle "Office Uninstall"
     $Host.UI.RawUI.WindowTitle = "Office Uninstall By MagnetarMan"
     $tempDir = $AppConfig.Paths.OfficeTemp
-    function Invoke-SilentRemoval {
-        param(
-            [Parameter(Mandatory = $true)][string]$Path,
-            [switch]$Recurse
-        )
-        if (-not (Test-Path $Path)) { return $false }
-        try {
-            $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
-            if ($Recurse) { $params['Recurse'] = $true }
-            Remove-Item @params *>$null
-            Clear-ProgressLine
-            return $true
-        } catch { return $false }
-    }
-    function Stop-OfficeProcesses {
-        $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
-        $closed = 0
-        Write-StyledMessage -Type 'Info' -Text "📋 Chiusura processi Office."
-        foreach ($processName in $processes) {
-            $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
-            if ($running) {
-                try {
-                    $running | Stop-Process -Force -ErrorAction Stop
-                    $closed++
-                }
-                catch {
-                    Write-StyledMessage -Type 'Warning' -Text "Impossibile chiudere: $processName."
-                }
-            }
-        }
-        if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text "$closed processi Office chiusi." }
-    }
     function Get-WindowsVersion {
         try {
             $buildNumber = [int](Get-CimInstance -ClassName Win32_OperatingSystem).BuildNumber
@@ -2704,28 +2643,13 @@ function Uninstall-Office {
             return "Unknown"
         }
     }
-    function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
-        try {
-            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
-            $webClient = New-Object System.Net.WebClient
-            $webClient.DownloadFile($Url, $OutputPath)
-            $webClient.Dispose()
-            $success = (Test-Path $OutputPath)
-            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
-            return $success
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
-            return $false
-        }
-    }
     function Remove-ItemsSilently {
         param([string[]]$Paths, [string]$ItemType = "cartella")
         $removed = @()
         $failed  = @()
         foreach ($path in $Paths) {
             if (Test-Path $path) {
-                if (Invoke-SilentRemoval -Path $path -Recurse) { $removed += $path }
+                if (Invoke-OfficeSilentRemoval -Path $path -Recurse) { $removed += $path }
                 else { $failed += $path }
             }
         }
@@ -2841,7 +2765,7 @@ function Uninstall-Office {
                     foreach ($shortcut in $officeShortcuts) {
                         $shortcutFiles = Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue
                         foreach ($file in $shortcutFiles) {
-                            if (Invoke-SilentRemoval -Path $file.FullName) { $shortcutsRemoved++ }
+                            if (Invoke-OfficeSilentRemoval -Path $file.FullName) { $shortcutsRemoved++ }
                         }
                     }
                 }
@@ -2867,7 +2791,7 @@ function Uninstall-Office {
         try {
             if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
             $getHelpZipPath = Join-Path $tempDir 'GetHelp.zip'
-            if (-not (Invoke-DownloadFile $AppConfig.URLs.GetHelpInstaller $getHelpZipPath 'Microsoft Get Help')) {
+            if (-not (Invoke-OfficeDownloadFile $AppConfig.URLs.GetHelpInstaller $getHelpZipPath 'Microsoft Get Help')) {
                 return $false
             }
             Write-StyledMessage -Type 'Info' -Text "📦 Estrazione Get Help."
@@ -2928,7 +2852,7 @@ function Uninstall-Office {
             return $false
         }
         finally {
-            Invoke-SilentRemoval -Path $tempDir -Recurse
+            Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
         }
     }
     $needsReboot = $false
@@ -2970,7 +2894,7 @@ function Uninstall-Office {
     }
     finally {
         Write-StyledMessage -Type 'Success' -Text "🧹 Pulizia finale."
-        Invoke-SilentRemoval -Path $tempDir -Recurse
+        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Uninstall terminato."
         Write-ToolkitLog -Level INFO -Message "Uninstall-Office sessione terminata."
     }
