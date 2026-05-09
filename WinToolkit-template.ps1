@@ -447,7 +447,7 @@ function Write-ToolkitLog {
         catch {}
     }
     try {
-        $mutex = New-Object System.Threading.Mutex($false, "Global\WinToolkitLogMutex")
+        $mutex = New-Object System.Threading.Mutex($false, "WinToolkitLogMutex")
         $hasHandle = $false
         try {
             $hasHandle = $mutex.WaitOne(5000)
@@ -502,6 +502,7 @@ function Invoke-ExternalCommandWithLog {
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $startTime = Get-Date
     $argString = $Arguments -join ' '
 
     Write-ToolkitLog -Level 'INFO' -Message "Esecuzione comando: $Command $argString (Timeout: ${TimeoutSeconds}s)"
@@ -1200,7 +1201,7 @@ function Show-ProgressBar {
     param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
     $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
     $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-    $empty = '▒' * (30 - $filled.Length)
+    $empty = '░' * (30 - $filled.Length)
     $bar = "[$filled$empty] {0,3}%" -f $safePercent
     # Only write to console if NOT in GUI session (to avoid interfering with job output)
     if (-not $Global:GuiSessionActive) {
@@ -1473,7 +1474,7 @@ function Read-ValidatedChoice {
         # Gestione input multipli (es. 1,2,3 o 1 2 3)
         $choices = $input -split '[\s,]+' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
 
-        if ($choices) {
+        if ($choices.Count -gt 0) {
             $isValid = $true
             foreach ($c in $choices) {
                 if ($null -ne $ValidRange) {
@@ -1695,7 +1696,9 @@ $menuStructure = @(
         )
     }
 )
-Initialize-ToolkitPaths
+if (-not $ImportOnly) {
+    Initialize-ToolkitPaths
+}
 if (-not $ImportOnly) {
     WinOSCheck
 }
