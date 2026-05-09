@@ -150,7 +150,7 @@ $AppConfig = @{
         Startup            = [Environment]::GetFolderPath('Startup')
         TempFolder         = $env:TEMP
         LocalAppData       = $env:LOCALAPPDATA
-        
+
         # System Paths
         System32             = "$env:windir\System32"
         SoftwareDistribution = "$env:windir\SoftwareDistribution"
@@ -1429,7 +1429,7 @@ function Get-UserConfirmation {
 
     # Bridge: mirror to log file
     Write-ToolkitLog -Level 'INFO' -Message "User Confirmation Prompt: $Prompt | Response: $response"
- 
+
     return $response -match '^[sS]'
 }
 
@@ -1460,7 +1460,7 @@ function Read-ValidatedChoice {
 
     $currentInput = if ($PSBoundParameters.ContainsKey('RawInput')) { $RawInput } else { $null }
     while ($true) {
-        $input = if ($null -ne $currentInput) { 
+        $input = if ($null -ne $currentInput) {
             $val = $currentInput
             $currentInput = $null # Consuma l'input
             $val
@@ -1587,7 +1587,7 @@ function WinUpdateReset {}
 function WinReinstallStore {}
 function WinBackupDriver {}
 function WinDriverInstall {}
-# function WinDebloat {}
+#function WinDebloat {}
 function Install-Office {}
 function Repair-Office {}
 function Uninstall-Office {}
@@ -1994,13 +1994,3 @@ else {
     # Esponi $menuStructure globalmente per la GUI
     $Global:menuStructure = $menuStructure
 }
-
-
-
-
-
-
-
-
-
-
