@@ -1,10 +1,12 @@
 # =============================================================================
-# WinToolkit Enterprise CI/CD Pipeline V 3.0.4
+# WinToolkit Enterprise CI/CD Pipeline V 3.1.0
 # =============================================================================
 # Pipeline adattiva per branch:
-#   • Dev           → Pipeline Completa: lint → test → versioning → build → release
-#   • feature/fix/* → Pipeline Leggera:  lint → test → versioning(no-op) → build → commit
+#   • Dev           → Pipeline Completa: lint → test → build (versione letta, no bump)
+#   • feature/fix/* → Pipeline Leggera:  lint → test → build (label: "Sviluppo in Corso")
 #   • PR verso Dev  → Gate di qualità:   lint → test  (no build, no deploy)
+#
+# VERSIONING E RELEASE: gestiti dal workflow Create_Release (workflow_dispatch).
 #
 # REGOLA D'ORO (Integrità):
 #   WinToolkit.ps1 è sempre rigenerato da zero dai sorgenti puri.
@@ -392,83 +394,16 @@ jobs:
           retention-days: 30
 
   # ===========================================================================
-  # JOB 3: VERSIONING
-  # Gira solo su push (non su PR).
-  # • Dev:          incrementa il build number nel template e commita.
-  # • feature/fix:  legge la versione corrente senza modificarla (passthrough).
-  # ===========================================================================
-  versioning:
-    name: Versioning
-    runs-on: windows-latest
-    if: github.event_name == 'push'
-    needs: [linting, testing]
-    permissions:
-      contents: write
-      actions: read
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-    outputs:
-      new_version: ${{ steps.version.outputs.new_version }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Gestione Versione
-        id: version
-        shell: pwsh
-        run: |
-          if ('${{ github.ref }}' -eq 'refs/heads/Dev') {
-            Write-Host "Branch Dev: incremento build number." -ForegroundColor Cyan
-            & .github/scripts/Update-Version.ps1 -TemplatePath "WinToolkit-template.ps1"
-          } else {
-            Write-Host "Branch feature/fix (${{ github.ref_name }}): lettura versione corrente, nessun bump." -ForegroundColor Yellow
-            $content = Get-Content -Raw -Path "WinToolkit-template.ps1"
-            if ($content -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
-              $currentVersion = $Matches[1]
-              Write-Host "Versione corrente: $currentVersion"
-              "new_version=$currentVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-            } else {
-              Write-Host "::error::Impossibile leggere ToolkitVersion dal template."
-              exit 1
-            }
-          }
-
-      - name: Verifica sintassi template (post-bump)
-        shell: pwsh
-        run: |
-          $content = Get-Content -Raw -Path "WinToolkit-template.ps1"
-          $errors = $null
-          $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$errors)
-          if ($errors.Count -gt 0) {
-            foreach ($e in $errors) {
-              Write-Host "::error file=WinToolkit-template.ps1,line=$($e.Extent.StartLineNumber),col=$($e.Extent.StartColumnNumber)::ERRORE DI SINTASSI: $($e.Message)"
-            }
-            exit 1
-          }
-          Write-Host "Template sintassi OK" -ForegroundColor Green
-
-      - name: Commit Template aggiornato (solo Dev)
-        if: github.ref == 'refs/heads/Dev'
-        uses: stefanzweifel/git-auto-commit-action@v7
-        with:
-          commit_message: "🆙 Bump versione v${{ steps.version.outputs.new_version }}"
-          file_pattern: "WinToolkit-template.ps1"
-          branch: Dev
-          push_options: "--force"
-          skip_fetch: true
-
-  # ===========================================================================
-  # JOB 4: BUILD
-  # Gira solo su push. Dipende da testing + versioning.
+  # JOB 3: BUILD
+  # Gira solo su push. Dipende da testing.
   #
   # REGOLA D'ORO: elimina WinToolkit.ps1 pre-esistente prima di compilare,
   # garantendo che l'output non contenga mai residui di versioni precedenti
   # o conflitti di merge non risolti.
+  #
+  # LABELING DINAMICO: su rami non-Dev, sovrascrive $ToolkitVersion con
+  # "Sviluppo in Corso" nel workspace (mai committato). Su Dev, legge la
+  # versione corrente senza modificarla (il bump avviene solo in Create_Release).
   #
   # Il commit del file compilato usa il branch corrente (Dev o feature/*).
   # ===========================================================================
@@ -476,7 +411,7 @@ jobs:
     name: Build
     runs-on: windows-latest
     if: github.event_name == 'push'
-    needs: [testing, versioning]
+    needs: [testing]
     permissions:
       contents: write
       actions: read
@@ -509,6 +444,31 @@ jobs:
             Write-Host "WinToolkit.ps1 non presente — nessuna pulizia necessaria." -ForegroundColor Cyan
           }
           Write-Host "::endgroup::"
+
+      # ── LABELING VERSIONE DINAMICO ──────────────────────────────────────
+      # Su rami non-Dev: imposta $ToolkitVersion = "Sviluppo in Corso" nel
+      # workspace (mai committato). Su Dev: legge la versione esistente.
+      - name: Labeling Versione Dinamico
+        id: version_label
+        shell: pwsh
+        run: |
+          $templatePath = "WinToolkit-template.ps1"
+          $content = Get-Content -Raw -Path $templatePath -Encoding UTF8
+          if ('${{ github.ref_name }}' -ne 'Dev') {
+            $content = $content -replace '\$ToolkitVersion\s*=\s*"[^"]+"', '$ToolkitVersion = "Sviluppo in Corso"'
+            Set-Content -Path $templatePath -Value $content -Encoding UTF8
+            Write-Host "Label di versione impostata su 'Sviluppo in Corso' per ramo ${{ github.ref_name }}." -ForegroundColor Yellow
+            "new_version=Sviluppo in Corso" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            if ($content -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+              $currentVersion = $Matches[1]
+              Write-Host "Branch Dev: versione corrente: $currentVersion" -ForegroundColor Cyan
+              "new_version=$currentVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            } else {
+              Write-Host "::error::Impossibile leggere ToolkitVersion dal template."
+              exit 1
+            }
+          }
 
       # ── PRE-CHECK SINTATTICO ─────────────────────────────────────────────
       - name: Validazione Sintattica Pre-Build
@@ -550,7 +510,7 @@ jobs:
         id: build_script
         shell: pwsh
         run: |
-          $version = "${{ needs.versioning.outputs.new_version }}"
+          $version = "${{ steps.version_label.outputs.new_version }}"
           & .github/scripts/Invoke-Build.ps1 -Version $version -OutputPath "WinToolkit.ps1"
 
       # ── VERIFICA FILE COMPILATO ──────────────────────────────────────────
@@ -565,7 +525,7 @@ jobs:
         if: steps.test_compiled.outputs.tests_passed == 'true'
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
-          commit_message: "✅ Compilato WinToolkit v${{ needs.versioning.outputs.new_version }}"
+          commit_message: "✅ Compilato WinToolkit v${{ steps.version_label.outputs.new_version }}"
           file_pattern: "WinToolkit.ps1"
           branch: ${{ github.ref_name }}
           push_options: "--force"
@@ -576,7 +536,7 @@ jobs:
         if: steps.test_compiled.outputs.tests_passed == 'true' && github.ref == 'refs/heads/Dev'
         shell: pwsh
         run: |
-          $version      = "${{ needs.versioning.outputs.new_version }}"
+          $version      = "${{ steps.version_label.outputs.new_version }}"
           $sourceKB     = "${{ steps.build_script.outputs.source_kb }}"
           $outputKB     = "${{ steps.build_script.outputs.output_kb }}"
           $reduction    = "${{ steps.build_script.outputs.reduction_percent }}"
@@ -603,200 +563,3 @@ jobs:
           Write-Host "  Versione : v$version"    -ForegroundColor White
           Write-Host "  Riduzione: $reduction%"  -ForegroundColor White
 
-  # ===========================================================================
-  # JOB 5: RELEASE (solo Dev, solo push)
-  # Genera release notes con PR/Issue incluse (MagnetarMan NON escluso).
-  # Categorizza in: Features, Bug Fixes, Enhancement, Changes.
-  # ===========================================================================
-  release:
-    name: Release
-    runs-on: windows-latest
-    if: github.ref == 'refs/heads/Dev' && github.event_name == 'push'
-    needs: [versioning, build]
-    permissions:
-      contents: write
-      pull-requests: read
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-          ref: Dev
-
-      - name: Extract PRs and Generate Notes
-        id: notes
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $version = "${{ needs.versioning.outputs.new_version }}"
-
-          # ─── FASE 1: Identificazione release di riferimento ────────────────
-          Write-Host "::group::FASE 1 — Ricerca release di riferimento"
-          $targetDate = $null
-
-          # Tentativo 1: release stabile piu recente
-          $stableTag = gh release list `
-            --exclude-pre-releases --limit 1 `
-            --json tagName,publishedAt --jq '.[0].tagName' 2>$null
-
-          if ($stableTag -and $stableTag.Trim() -ne '') {
-            $stableTag = $stableTag.Trim()
-            Write-Host "Release stabile trovata: $stableTag"
-            $publishedAtRaw = gh release view $stableTag --json publishedAt --jq '.publishedAt'
-            $targetDate = [System.DateTimeOffset]::Parse(
-              $publishedAtRaw.Trim(),
-              [System.Globalization.CultureInfo]::InvariantCulture
-            ).UtcDateTime
-            Write-Host "Data di taglio: $targetDate (UTC)"
-          }
-
-          # Tentativo 2: scansione cronologia per isLatest=true
-          if (-not $targetDate) {
-            Write-Host "Nessuna release stabile. Scansione cronologia..."
-            $allReleases = (gh release list --limit 200 --json tagName,publishedAt,isLatest,isPrerelease) | ConvertFrom-Json
-            $latestRecord = $allReleases | Where-Object { $_.isLatest -eq $true } | Select-Object -First 1
-            if ($latestRecord) {
-              $targetRaw  = $latestRecord.publishedAt
-              $targetDate = if ($targetRaw -is [System.DateTime]) { $targetRaw } else {
-                [System.DateTimeOffset]::Parse($targetRaw.Trim(), [System.Globalization.CultureInfo]::InvariantCulture).UtcDateTime
-              }
-              Write-Host "isLatest=true: $($latestRecord.tagName) — $targetDate (UTC)"
-            }
-          }
-
-          # Fallback: data primo commit
-          if (-not $targetDate) {
-            Write-Host "Nessuna release trovata — uso data primo commit."
-            $firstRaw = git log --reverse --format="%aI" | Select-Object -First 1
-            if ($firstRaw -and $firstRaw.Trim() -ne '') {
-              $targetDate = ([System.DateTimeOffset]::Parse($firstRaw.Trim(), [System.Globalization.CultureInfo]::InvariantCulture).UtcDateTime).AddSeconds(-1)
-              Write-Host "Data primo commit: $targetDate (UTC)"
-            } else {
-              $targetDate = [System.DateTime]::MinValue
-            }
-          }
-          Write-Host "::endgroup::"
-
-          # ─── FASE 2: Recupero e filtro PR ──────────────────────────────────
-          Write-Host "::group::FASE 2 — Recupero e filtro PR"
-          Write-Host "Filtro PR mergiate dopo: $targetDate (UTC)"
-
-          $prsObj = (gh pr list --state merged --base Dev --limit 200 `
-            --json number,title,url,author,mergedAt,labels) | ConvertFrom-Json
-          if (-not $prsObj) { $prsObj = @() }
-          Write-Host "PR totali: $($prsObj.Count)"
-
-          # Solo bot automatici esclusi — MagnetarMan (owner) è incluso
-          $botPatterns = @('*[bot]', 'dependabot*', 'renovate*')
-
-          $validPrs = $prsObj | Where-Object {
-            $mergedAtUtc = if ($_.mergedAt -is [System.DateTime]) { $_.mergedAt } else {
-              [System.DateTimeOffset]::Parse($_.mergedAt.Trim(), [System.Globalization.CultureInfo]::InvariantCulture).UtcDateTime
-            }
-            $afterCutoff = $mergedAtUtc -gt $targetDate
-            $isExcluded  = $false
-            foreach ($p in $botPatterns) { if ($_.author.login -like $p) { $isExcluded = $true; break } }
-            $afterCutoff -and (-not $isExcluded)
-          }
-          Write-Host "PR valide: $($validPrs.Count)"
-          Write-Host "::endgroup::"
-
-          # ─── FASE 3: Categorizzazione ───────────────────────────────────────
-          Write-Host "::group::FASE 3 — Generazione release notes"
-          $features = @(); $enhancements = @(); $bugFixes = @(); $changes = @()
-
-          function Get-PrCategory {
-            param([string]$Title, [string[]]$Labels)
-            $t = $Title.ToLower()
-            # Sezioni prioritarie basate sui tag dei template
-            if ($t -match '\[feature\]' -or $Labels -contains 'feature' -or $t -match '^(feat|feature|add|new|implement)\b') { return 'feature' }
-            if ($t -match '\[bug\]' -or $t -match '\[bugfix\]' -or $t -match '\[fix\]' -or $Labels -contains 'bug' -or $Labels -contains 'fix' -or $Labels -contains 'bugfix' -or $t -match '^(fix|bugfix|resolve|repair)\b' -or $t -match '\b(fix|bug|resolve)\b') { return 'bugfix' }
-            if ($t -match '\[enhancement\]' -or $Labels -contains 'enhancement' -or $t -match '^(update|improve|optimize|enhance)\b') { return 'enhancement' }
-            return 'change'
-          }
-
-          foreach ($pr in $validPrs) {
-            $line   = "- $($pr.title.Trim()) @$($pr.author.login) (#$($pr.number))"
-            $labels = $pr.labels | ForEach-Object { $_.name.ToLower() }
-            switch (Get-PrCategory -Title $pr.title.Trim() -Labels $labels) {
-              'feature'     { $features     += $line }
-              'enhancement' { $enhancements += $line }
-              'bugfix'      { $bugFixes     += $line }
-              default       { $changes      += $line }
-            }
-          }
-
-          # Issues chiuse
-          $issuesObj = (gh issue list --state closed --limit 200 `
-            --json number,title,url,author,closedAt,labels) | ConvertFrom-Json
-          if (-not $issuesObj) { $issuesObj = @() }
-
-          $validIssues = $issuesObj | Where-Object {
-            $closedAtUtc = if ($_.closedAt -is [System.DateTime]) { $_.closedAt } else {
-              [System.DateTimeOffset]::Parse($_.closedAt.Trim(), [System.Globalization.CultureInfo]::InvariantCulture).UtcDateTime
-            }
-            $closedAtUtc -gt $targetDate
-          }
-          Write-Host "Issues valide: $($validIssues.Count)"
-
-          foreach ($issue in $validIssues) {
-            $line   = "- $($issue.title.Trim()) @$($issue.author.login) (#$($issue.number))"
-            $labels = $issue.labels | ForEach-Object { $_.name.ToLower() }
-            switch (Get-PrCategory -Title $issue.title.Trim() -Labels $labels) {
-              'feature'     { $features     += $line }
-              'enhancement' { $enhancements += $line }
-              'bugfix'      { $bugFixes     += $line }
-            }
-          }
-
-          # Composizione release body
-          $body = ""
-          if ($features.Count     -gt 0) { $body += "## 🚀 Features`n`n"     + ($features     -join "`n") + "`n`n" }
-          if ($bugFixes.Count     -gt 0) { $body += "## 🐛 Bug Fixes`n`n"    + ($bugFixes     -join "`n") + "`n`n" }
-          if ($enhancements.Count -gt 0) { $body += "## ✨ Enhancement`n`n"  + ($enhancements -join "`n") + "`n`n" }
-          if ($changes.Count      -gt 0) { $body += "## 🔄 Changes`n`n"      + ($changes      -join "`n") + "`n`n" }
-          if ($validPrs.Count -eq 0)     { $body += "_Nessun contributo esterno in questa build._`n`n" }
-
-          $sourceKB     = "${{ needs.build.outputs.source_kb }}"
-          $outputKB     = "${{ needs.build.outputs.output_kb }}"
-          $reduction    = "${{ needs.build.outputs.reduction_percent }}"
-          $linesRemoved = "${{ needs.build.outputs.lines_removed }}"
-
-          $body += "`n### 📊 Statistiche Compressione`n`n"
-          $body += "| Metrica         | Valore        |`n"
-          $body += "|-----------------|---------------|`n"
-          $body += "| Peso Sorgente   | $sourceKB KB  |`n"
-          $body += "| Peso Finale     | $outputKB KB  |`n"
-          $body += "| Riduzione       | $reduction%   |`n"
-          $body += "| Righe Eliminate | $linesRemoved |`n"
-
-          [System.IO.File]::WriteAllText(
-            (Join-Path $PWD "release_body.md"),
-            $body,
-            [System.Text.UTF8Encoding]::new($false)   # UTF-8 senza BOM
-          )
-          Write-Host "release_body.md scritto."
-          Write-Host "::endgroup::"
-
-      - name: Create Pre-Release
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $version = "${{ needs.versioning.outputs.new_version }}"
-          if (-not $version -or $version -eq '') {
-            Write-Host "::error::La versione della release e vuota. Verificare l'output del job versioning."
-            exit 1
-          }
-          $tag = "v$version" -replace ' \(', '-' -replace '\)', '' -replace ' ', ''
-          Write-Host "Creazione pre-release: '$version' -> tag '$tag'"
-          gh release create $tag "WinToolkit.ps1" `
-            --title "WinToolkit $tag (Dev Pre-Release)" `
-            --notes-file release_body.md `
-            --prerelease `
-            --target Dev
