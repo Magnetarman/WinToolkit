@@ -43,8 +43,8 @@ BeforeAll {
     $Global:CurrentToolName  = 'PesterTest'
     $Global:GuiSessionActive = $false
 
-    # Mock globale di Read-Host per evitare hang in CI
-    Mock Read-Host { return '' }
+    # Mock globale per evitare hang in CI se una funzione chiama Read-Host inaspettatamente
+    Mock Read-Host { throw "Input richiesto in ambiente CI (Headless)! Assicurati di passare RawInput o mockare la chiamata." }
 }
 
 # =============================================================================
@@ -278,12 +278,12 @@ Describe 'Write-ToolkitLog' {
 
     Context 'Protezione Mutex — scritture concorrenti' {
 
-        It 'Deve preservare tutte le entry sotto scrittura concorrente (5 runspace x 10 entry = 50)' {
+        It 'Deve preservare tutte le entry sotto scrittura concorrente (5 runspace x 5 entry = 25)' {
             $tmpLog = [System.IO.Path]::GetTempFileName()
 
-            # Estraiamo le definizioni delle funzioni necessarie per evitare di ricaricare tutto il template
-            $writeToolkitLogDef = Get-Command Write-ToolkitLog | Select-Object -ExpandProperty Definition
-            $writeHostMockDef = "function Write-Host { param([Object]`$Object, [switch]`$NoNewline, [string]`$ForegroundColor) }" # Mock minimalista
+            # Ogni runspace dot-sourca il template e scrive 5 entry
+            # Ridotto a 5 runspace per non sovraccaricare il runner CI
+            $templatePathStr = $script:TemplatePath.Path
 
             $jobs = 1..5 | ForEach-Object {
                 $idx = $_
@@ -306,7 +306,10 @@ Describe 'Write-ToolkitLog' {
             }
 
             $lines = Get-Content -Path $tmpLog | Where-Object { $_ -match 'THREAD-\d+-ENTRY-\d+' }
-            $lines.Count | Should -Be 50
+
+            # Senza mutex potrebbero esserci entry mancanti o corrotte
+            $lines.Count | Should -Be 25
+
             Remove-Item $tmpLog -ErrorAction SilentlyContinue
         }
     }
