@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit — Create_Release V 3.1.0
+# WinToolkit — Create_Release V 3.1.1
 # =============================================================================
 # Workflow manuale per la creazione di release ufficiali.
 #
@@ -55,7 +55,7 @@ jobs:
 
       - name: Verifica Attore
         run: |
-          if [ "${{ github.actor }}" != "MagnetarMan" ]; then
+          if [ "${GITHUB_ACTOR,,}" != "magnetarman" ]; then
             echo "::error::Questo workflow può essere eseguito solo dall'utente MagnetarMan. Attore corrente: ${{ github.actor }}"
             exit 1
           fi
@@ -68,7 +68,7 @@ jobs:
     name: Versioning (Bump)
     runs-on: windows-latest
     needs: validate
-    if: github.actor == 'MagnetarMan'
+    if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
     permissions:
       contents: write
       actions: read
@@ -125,7 +125,7 @@ jobs:
     name: Build
     runs-on: windows-latest
     needs: versioning
-    if: github.actor == 'MagnetarMan'
+    if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
     permissions:
       contents: write
       actions: read
@@ -253,7 +253,7 @@ jobs:
     name: Release
     runs-on: windows-latest
     needs: [versioning, build]
-    if: github.actor == 'MagnetarMan'
+    if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
     permissions:
       contents: write
       pull-requests: read
