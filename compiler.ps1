@@ -204,7 +204,7 @@ foreach ($file in $toolFiles) {
             }
             
             # --- GESTIONE LOGGING E RE-INSERIMENTO ---
-            $hasLogging = $processedFileLines | Select-String -Pattern "Start-ToolkitLog" -Quiet
+            $hasLogging = $processedFileLines | Select-String -Pattern "Start-ToolkitLog|Start-ToolkitSession" -Quiet
             
             $newLines += "function $functionName {"
             if (-not $hasLogging) { 

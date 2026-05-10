@@ -9,26 +9,17 @@ function WinCleaner {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false)]
         [ValidateRange(0, 300)]
         [int]$CountdownSeconds = 30,
 
-        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
-    # Initialize global execution log BEFORE any function calls
     $script:WinCleanerLog = @()
-
-
-    # ============================================================================
-    # FUNZIONI LOCALI DI SUPPORTO
-    # ============================================================================
 
     # Add-CleanerLog: accumula i messaggi nel log interno di WinCleaner per il
     # riepilogo finale ($script:WinCleanerLog) E chiama Write-StyledMessage del
     # framework per il feedback all'utente.
-    # NOTA: non ridefinisce Write-StyledMessage – delega sempre al template.
     function Add-CleanerLog {
         param(
             [Parameter(Mandatory = $true, Position = 0)]
@@ -41,43 +32,27 @@ function WinCleaner {
 
         Clear-ProgressLine
 
-        # Accumulo nel log interno per il riepilogo finale
-        $logEntry = @{
+        $script:WinCleanerLog += @{
             Timestamp = Get-Date -Format "HH:mm:ss"
             Type      = $Type
             Text      = $Text
         }
-        $script:WinCleanerLog += $logEntry
 
         Write-StyledMessage -Type $Type -Text $Text
     }
 
-    # ============================================================================
-    # 1. INIZIALIZZAZIONE CON FRAMEWORK GLOBALE
-    # ============================================================================
-
-    Start-ToolkitLog -ToolName "WinCleaner"
-    Show-Header -SubTitle "Cleaner Toolkit"
-    $Host.UI.RawUI.WindowTitle = "Cleaner Toolkit By MagnetarMan"
-    $timeout = 86400    # Timer di un giorno in secondi.
+    Start-ToolkitSession -ToolName "WinCleaner" -SubTitle "Cleaner Toolkit"
+    $timeout = 86400
     $ProgressPreference = 'Continue'
-
-    # ============================================================================
-    # 2. ESCLUSIONI VITALI
-    # ============================================================================
 
     $VitalExclusions = @(
         "$env:LOCALAPPDATA\WinToolkit"
     )
 
-    # ============================================================================
-    # 3. FUNZIONI CORE
-    # ============================================================================
-
     function Test-VitalExclusion {
         param([string]$Path)
         if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
-        $fullPath = $Path -replace '"', '' # Remove quotes
+        $fullPath = $Path -replace '"', ''
         try {
             if (-not [System.IO.Path]::IsPathRooted($fullPath)) {
                 $fullPath = Join-Path (Get-Location) $fullPath
@@ -93,14 +68,11 @@ function WinCleaner {
         return $false
     }
 
-    # Start-ProcessWithTimeout rimossa in favore di Invoke-WithSpinner -Command del framework
-
     function Invoke-CommandAction {
         param($Rule)
         Clear-ProgressLine
         Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione comando: $($Rule.Name)."
         try {
-            # Utilizzo del nuovo pattern Invoke-WithSpinner che internamente usa Invoke-ExternalCommandWithLog
             $result = Invoke-WithSpinner -Activity $Rule.Name -Command $Rule.Command -Arguments $Rule.Args -TimeoutSeconds $timeout -LogContextKey "Cleaner-$($Rule.Name)"
 
             if ($result.TimedOut) {
@@ -108,7 +80,6 @@ function WinCleaner {
                 return $true
             }
 
-            # Check for specific error code -2146498554 (0x800F0818 - ERROR_STORE_CORRUPT)
             if ($result.ExitCode -eq -2146498554 -or $result.ExitCode -eq 0x800F0818) {
                 Add-CleanerLog -Type 'Warning' -Text "ATTENZIONE! - Stai effettuando la pulizia con Windows Update in corso. Aggiorna il sistema e riprova per eseguire la pulizia completa"
                 return $false
@@ -127,7 +98,7 @@ function WinCleaner {
     function Invoke-ServiceAction {
         param($Rule)
         $svcName = $Rule.ServiceName
-        $action = $Rule.Action # Start/Stop
+        $action = $Rule.Action
 
         try {
             $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
@@ -158,7 +129,7 @@ function WinCleaner {
 
         $targetPaths = @()
         if ($isPerUser) {
-            $users = Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
+            $users = Get-LocalUserProfiles
             foreach ($user in $users) {
                 foreach ($p in $paths) {
                     $targetPaths += $p -replace '%USERPROFILE%', $user.FullName `
@@ -210,7 +181,7 @@ function WinCleaner {
         param($Rule)
         $keys = $Rule.Keys
         $recursive = $Rule.Recursive
-        $valuesOnly = $Rule.ValuesOnly # If true, clear values but keep key
+        $valuesOnly = $Rule.ValuesOnly
 
         foreach ($rawKey in $keys) {
             $key = $rawKey -replace '^(HKCU|HKLM):\\*', '$1:\'
@@ -245,8 +216,7 @@ function WinCleaner {
         param($Rule)
         $key = $Rule.Key -replace '^(HKCU|HKLM):', '$1:\'
         try {
-            if (-not (Test-Path $key)) { New-Item -Path $key -Force -ErrorAction SilentlyContinue *>$null }
-            Set-ItemProperty -Path $key -Name $Rule.ValueName -Value $Rule.ValueData -Type $Rule.ValueType -Force -ErrorAction SilentlyContinue *>$null
+            Set-RegistryValue -Path $key -Name $Rule.ValueName -Value $Rule.ValueData -Type $Rule.ValueType
             Add-CleanerLog -Type 'Success' -Text "⚙️ Impostato $key\$($Rule.ValueName)"
             return $true
         }
@@ -263,14 +233,12 @@ function WinCleaner {
             'Service' { return Invoke-ServiceAction -Rule $Rule }
             'Command' { return Invoke-CommandAction -Rule $Rule }
             'ScriptBlock' {
-                # Operazioni multi-passo complesse
                 if ($Rule.ScriptBlock) {
                     & $Rule.ScriptBlock
                     return $true
                 }
             }
             'Custom' {
-                # Operazioni complesse specializzate
                 if ($Rule.ScriptBlock) {
                     & $Rule.ScriptBlock
                     return $true
@@ -279,10 +247,6 @@ function WinCleaner {
         }
         return $true
     }
-
-    # ============================================================================
-    # 4. DEFINIZIONE REGOLE
-    # ============================================================================
 
     $Rules = @(
         # --- CleanMgr Auto ---
@@ -312,8 +276,6 @@ function WinCleaner {
                     if (Test-Path $p) { Set-ItemProperty -Path $p -Name "StateFlags0065" -Value 2 -Type DWORD -Force -ErrorAction SilentlyContinue }
                 }
 
-                # Esegui cleanmgr.exe attendendo il completamento, sfruttando Invoke-CommandAction
-                # che include già logica di timeout per cleanmgr.exe e gestisce la visualizzazione.
                 $cleanMgrExecutionRule = @{
                     Name    = "Esecuzione CleanMgr con /sagerun:65";
                     Type    = "Command";
@@ -354,13 +316,11 @@ function WinCleaner {
         @{ Name = "Clear Windows Update cache"; Type = "Custom"; ScriptBlock = {
                 Add-CleanerLog -Type 'Info' -Text "🔄 Pulizia cache di Windows Update."
 
-                # Servizi da fermare
                 $services = @("wuauserv", "bits")
                 foreach ($s in $services) {
                     Invoke-ServiceAction -Rule @{ ServiceName = $s; Action = "Stop" }
                 }
 
-                # Pulizia cartelle SoftwareDistribution
                 $paths = @(
                     "C:\Windows\SoftwareDistribution\Download",
                     "C:\Windows\SoftwareDistribution\DataStore"
@@ -377,7 +337,6 @@ function WinCleaner {
                     }
                 }
 
-                # Riavvio servizi
                 foreach ($s in $services) {
                     Invoke-ServiceAction -Rule @{ ServiceName = $s; Action = "Start" }
                 }
@@ -436,7 +395,7 @@ function WinCleaner {
         # --- Thumbnails ---
         @{ Name = "Cleanup - Explorer Thumbnail/Icon Cache"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\Explorer"); PerUser = $true; FilesOnly = $true; TakeOwnership = $true }
 
-        # --- Browser & Web Cache (Consolidato) ---
+        # --- Browser & Web Cache ---
         @{ Name = "WinInet Cache - User"; Type = "File"; Paths = @(
                 "%LOCALAPPDATA%\Microsoft\Windows\INetCache\IE",
                 "%LOCALAPPDATA%\Microsoft\Windows\WebCache",
@@ -467,7 +426,7 @@ function WinCleaner {
                     @{ Name = "Vivaldi"; Path = "Vivaldi\User Data" }
                 )
 
-                $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
+                $users = Get-LocalUserProfiles
                 foreach ($u in $users) {
                     foreach ($b in $browsers) {
                         $userDataPath = Join-Path "$($u.FullName)\AppData\Local" $b.Path
@@ -490,7 +449,7 @@ function WinCleaner {
         @{ Name = "Google Chrome AI OptGuide Model"; Type = "Custom"; ScriptBlock = {
                 Add-CleanerLog -Type 'Info' -Text "🤖 Pulizia e disattivazione AI Chrome (OptGuide)."
 
-                $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
+                $users = Get-LocalUserProfiles
                 foreach ($u in $users) {
                     $optGuidePath = Join-Path "$($u.FullName)\AppData\Local" "Google\Chrome\User Data\OptGuideOnDeviceModel"
                     if (Test-Path $optGuidePath) {
@@ -522,7 +481,6 @@ function WinCleaner {
                     }
                 }
 
-                # Aggiungi chiavi di registro per disattivare le feature AI di Chrome
                 $chromePolicyKey = "HKLM:\SOFTWARE\Policies\Google\Chrome"
                 try {
                     if (-not (Test-Path $chromePolicyKey)) {
@@ -550,9 +508,8 @@ function WinCleaner {
         @{ Name = "Firefox Browser Cache"; Type = "Custom"; ScriptBlock = {
                 Add-CleanerLog -Type 'Info' -Text "🦊 Pulizia Firefox (Cache & Crashes)."
 
-                $users = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notmatch '^(Public|Default|All Users)$' }
+                $users = Get-LocalUserProfiles
                 foreach ($u in $users) {
-                    # Standard Firefox (Cache in Local AppData)
                     $cleanPaths = @(
                         "$($u.FullName)\AppData\Local\Mozilla\Firefox\Profiles",
                         "$($u.FullName)\AppData\Local\Mozilla\Firefox\Crash Reports"
@@ -561,7 +518,6 @@ function WinCleaner {
                         if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue }
                     }
 
-                    # Microsoft Store Firefox (UWP)
                     $msStoreProfiles = Get-ChildItem `
                         "$($u.FullName)\AppData\Local\Packages" `
                         -Directory -Filter "Mozilla.Firefox_*" `
@@ -588,9 +544,8 @@ function WinCleaner {
 
         @{ Name = "DNS Flush"; Type = "Command"; Command = "ipconfig"; Args = @("/flushdns") }
 
-        # --- Temp Files (Consolidato) ---
+        # --- Temp Files ---
         @{ Name = "System Temp Files"; Type = "File"; Paths = @("C:\WINDOWS\Temp"); FilesOnly = $false }
-        # %TEMP% is expanded for each user profile in the Remove-FileItem logic
         @{ Name = "User Temp Files"; Type = "File"; Paths = @(
                 "%TEMP%",
                 "%USERPROFILE%\AppData\Local\Temp",
@@ -647,7 +602,7 @@ function WinCleaner {
         }
         @{ Name = "Adobe Media Browser Key"; Type = "Registry"; Keys = @("HKCU:\Software\Adobe\MediaBrowser\MRU"); ValuesOnly = $false }
 
-        # --- Developer Telemetry (Consolidato) ---
+        # --- Developer Telemetry ---
         @{ Name = "Developer Telemetry & Traces"; Type = "File"; Paths = @(
                 "%USERPROFILE%\.dotnet\TelemetryStorageService",
                 "%LOCALAPPDATA%\Microsoft\CLR_v4.0\UsageTraces",
@@ -724,7 +679,6 @@ function WinCleaner {
         # --- Utility Apps ---
         @{ Name = "Listary Index"; Type = "File"; Paths = @("%APPDATA%\Listary\UserData"); PerUser = $true }
         @{ Name = "WinUtil Data"; Type = "File"; Paths = @("%LOCALAPPDATA%\winutil"); PerUser = $true }
-
 
         # --- Legacy Applications & Media ---
         @{ Name = "Flash Player Traces"; Type = "File"; Paths = @("%APPDATA%\Macromedia\Flash Player"); PerUser = $true }
@@ -829,7 +783,6 @@ function WinCleaner {
                 if (Test-Path $path) {
                     Add-CleanerLog -Type 'Info' -Text "🗑️ Rilevata cartella Windows.old. Avvio rimozione sicura con Native CleanMgr."
 
-                    # 1. Configura il registro per selezionare automaticamente "Previous Installations"
                     $regKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Previous Installations"
                     if (-not (Test-Path $regKey)) {
                         Add-CleanerLog -Type 'Warning' -Text "Chiave registro 'Previous Installations' non trovata. Tentativo di esecuzione standard."
@@ -844,8 +797,6 @@ function WinCleaner {
                         }
                     }
 
-                    # 2. Esegui CleanMgr sfruttando la funzione di gestione processi sicura
-                    # Utilizziamo Invoke-CommandAction simulando una regola per beneficiare del timeout e spinner
                     $cleanMgrRule = @{
                         Name    = "Rimozione Windows.old (CleanMgr)";
                         Type    = "Command";
@@ -853,9 +804,8 @@ function WinCleaner {
                         Args    = @("/sagerun:66");
                     }
 
-                    $result = Invoke-CommandAction -Rule $cleanMgrRule
+                    $null = Invoke-CommandAction -Rule $cleanMgrRule
 
-                    # 3. Verifica finale (CleanMgr potrebbe richiedere riavvio, quindi non è un vero errore se rimane)
                     if (Test-Path $path) {
                         Add-CleanerLog -Type 'Info' -Text "ℹ️ La cartella Windows.old potrebbe richiedere un riavvio per la rimozione completa."
                     }
@@ -864,7 +814,6 @@ function WinCleaner {
                     }
                 }
                 else {
-                    # Silent or low verbosity if not present
                     Add-CleanerLog -Type 'Info' -Text "💭 Nessuna cartella Windows.old rilevata."
                 }
             }
@@ -876,14 +825,9 @@ function WinCleaner {
         }
     )
 
-    # ============================================================================
-    # 5. ESECUZIONE REGOLE
-    # ============================================================================
-
     $totalRules = $Rules.Count
     $currentRuleIndex = 0
     $successCount = 0
-    $warningCount = 0
     $errorCount = 0
 
     foreach ($rule in $Rules) {
@@ -897,26 +841,16 @@ function WinCleaner {
 
         Clear-ProgressLine
 
-        if ($result) {
-            $successCount++
-        }
-        else {
-            $errorCount++
-        }
+        if ($result) { $successCount++ }
+        else { $errorCount++ }
     }
 
-    # ============================================================================
-    # 6. RIEPILOGO OPERAZIONI
-    # ============================================================================
-
     Clear-ProgressLine
-
 
     Write-StyledMessage -Type 'Info' -Text "=================================================="
     Write-StyledMessage -Type 'Info' -Text "               RIEPILOGO OPERAZIONI               "
     Write-StyledMessage -Type 'Info' -Text "=================================================="
 
-    # Group logs by type for summary stats
     $stats = $script:WinCleanerLog | Group-Object Type
     $sCount = ($stats | Where-Object Name -eq 'Success').Count
     $wCount = ($stats | Where-Object Name -eq 'Warning').Count
@@ -941,16 +875,5 @@ function WinCleaner {
 
     Write-StyledMessage -Type 'Info' -Text "=================================================="
 
-
-
-    if ($SuppressIndividualReboot) {
-        $Global:NeedsFinalReboot = $true
-        Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
-    }
-    else {
-        $shouldReboot = Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riavvio sistema in"
-        if ($shouldReboot) {
-            Restart-Computer -Force
-        }
-    }
+    Invoke-ToolkitReboot -Message "Riavvio sistema in" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
 }

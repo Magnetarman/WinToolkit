@@ -8,24 +8,11 @@ function WinUpdateReset {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
-
-        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
-    # ============================================================================
-    # 1. INIZIALIZZAZIONE
-    # ============================================================================
-
-    Start-ToolkitLog -ToolName "WinUpdateReset"
-    Show-Header -SubTitle "Update Reset Toolkit"
-    $Host.UI.RawUI.WindowTitle = "Win Update Reset Toolkit By MagnetarMan"
-
-    # ============================================================================
-    # 2. FUNZIONI HELPER LOCALI
-    # ============================================================================
+    Start-ToolkitSession -ToolName "WinUpdateReset" -SubTitle "Update Reset Toolkit"
 
     function Set-ServiceStatus {
         param (
@@ -57,7 +44,6 @@ function WinUpdateReset {
     }
 
     function Show-ServiceProgress([string]$ServiceName, [string]$Action, [int]$Current, [int]$Total) {
-        $percent = [math]::Round(($Current / $Total) * 100)
         Invoke-WithSpinner -Activity "$Action $ServiceName" -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1 *>$null
     }
 
@@ -91,12 +77,9 @@ function WinUpdateReset {
                 'Start' {
                     Show-ServiceProgress $serviceName "Avvio" $currentStep $totalSteps
 
-                    $success = $false
-                    Invoke-WithSpinner -Activity "Attesa avvio $serviceName" -Timer -Action {
-                        $success = Set-ServiceStatus -Name $serviceName -Status 'Running' -Wait -TimeoutSeconds 10
-                    } -TimeoutSeconds 5 *>$null
+                    Invoke-WithSpinner -Activity "Attesa avvio $serviceName" -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1 *>$null
+                    $success = Set-ServiceStatus -Name $serviceName -Status 'Running' -Wait -TimeoutSeconds 10
 
-                    $clearLine = "`r" + (' ' * 80) + "`r"
                     Clear-ProgressLine
 
                     if ($success) {
@@ -122,7 +105,6 @@ function WinUpdateReset {
 
     function Remove-DirectorySafely([string]$path, [string]$displayName) {
         if (-not (Test-Path $path)) {
-            $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Clear-ProgressLine
             [Console]::Out.Flush()
             Write-StyledMessage -Type 'Info' -Text "💭 Directory $displayName non presente."
@@ -132,7 +114,6 @@ function WinUpdateReset {
         try {
             Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue *>$null
 
-            $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Clear-ProgressLine
             [Console]::Out.Flush()
 
@@ -140,7 +121,6 @@ function WinUpdateReset {
             return $true
         }
         catch {
-            $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
             Clear-ProgressLine
 
             Write-StyledMessage -Type 'Warning' -Text "Tentativo fallito, provo con eliminazione forzata."
@@ -149,11 +129,10 @@ function WinUpdateReset {
                 $tempDir = [System.IO.Path]::GetTempPath() + "empty_" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
                 $null = New-Item -ItemType Directory -Path $tempDir -Force
 
-                $result = Invoke-WithSpinner -Activity "Pulizia $displayName" -Command 'robocopy.exe' -Arguments @("`"$tempDir`"", "`"$path`"", '/MIR', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/NC') -TimeoutSeconds 300 -LogContextKey 'RemoveDirectorySafely-Robocopy'
+                $null = Invoke-WithSpinner -Activity "Pulizia $displayName" -Command 'robocopy.exe' -Arguments @("`"$tempDir`"", "`"$path`"", '/MIR', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/NC') -TimeoutSeconds 300 -LogContextKey 'RemoveDirectorySafely-Robocopy'
                 Remove-Item $tempDir -Force -ErrorAction SilentlyContinue *>$null
                 Remove-Item $path -Force -ErrorAction SilentlyContinue *>$null
 
-                $clearLines = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Clear-ProgressLine
                 [Console]::Out.Flush()
 
@@ -170,16 +149,11 @@ function WinUpdateReset {
                 Write-StyledMessage -Type 'Warning' -Text "Impossibile eliminare completamente $displayName - file in uso."
                 return $false
             }
-            finally {
-            }
         }
     }
 
-    # --- MAIN LOGIC ---
-
     Write-StyledMessage -Type 'Info' -Text '🔧 Inizializzazione dello Script di Reset Windows Update.'
 
-    # Caricamento moduli
     Invoke-WithSpinner -Activity "Caricamento moduli" -Timer -Action { Start-Sleep 2 } -TimeoutSeconds 2 *>$null
 
     Write-StyledMessage -Type 'Info' -Text '🛠️ Avvio riparazione servizi Windows Update.'
@@ -212,7 +186,6 @@ function WinUpdateReset {
 
         Write-StyledMessage -Type 'Info' -Text '🧹 Pulizia cache GPCache e impostazioni WSUS.'
 
-        # Clean GPCache
         try {
             if (Test-Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UpdatePolicy\GPCache") {
                 Remove-Item "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UpdatePolicy\GPCache" -Recurse -Force -ErrorAction Stop
@@ -225,7 +198,6 @@ function WinUpdateReset {
             Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile eliminare cache GPCache - $($_.Exception.Message)."
         }
 
-        # Clean WSUS policies
         try {
             if (Test-Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate") {
                 Remove-Item "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate" -Recurse -Force -ErrorAction Stop
@@ -256,7 +228,6 @@ function WinUpdateReset {
         }
 
         Write-StyledMessage -Type 'Info' -Text '📋 Ripristino chiavi di registro Windows Update.'
-        # Elaborazione registro
         Invoke-WithSpinner -Activity "Elaborazione registro" -Timer -Action { Start-Sleep 1 } -TimeoutSeconds 1 *>$null
         try {
             @(
@@ -301,8 +272,7 @@ function WinUpdateReset {
                 Write-StyledMessage -Type 'Info' -Text "💡 Suggerimento: Alcuni file potrebbero essere ricreati dopo il riavvio."
             }
 
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
-                    Clear-ProgressLine
+            Clear-ProgressLine
             [Console]::Out.Flush()
             Start-Sleep -Milliseconds 500
         }
@@ -317,7 +287,7 @@ function WinUpdateReset {
 
         Write-StyledMessage -Type 'Info' -Text '⚡ Esecuzione reset client Windows Update...'
         $result = Invoke-WithSpinner -Activity 'Reset Client Update' -Command 'cmd.exe' -Arguments @('/c', 'wuauclt', '/resetauthorization', '/detectnow') -TimeoutSeconds 60 -LogContextKey 'UpdateReset-Wuauclt'
- 
+
         if ($result.Success) {
             Write-StyledMessage -Type 'Success' -Text "🔄 Client Windows Update reimpostato correttamente."
         }
@@ -326,29 +296,18 @@ function WinUpdateReset {
         }
 
         Write-StyledMessage -Type 'Info' -Text '🔧 Abilitazione Windows Update e servizi correlati.'
-
-        # Restore Windows Update registry settings to defaults
         Write-StyledMessage -Type 'Info' -Text '📋 Ripristino impostazioni registro Windows Update.'
 
         try {
-            If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU")) {
-                New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Force *>$null
-            }
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -Type DWord -Value 0
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -Type DWord -Value 3
-
-            If (!(Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config")) {
-                New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Force *>$null
-            }
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -Type DWord -Value 1
-
+            Set-RegistryValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -Value 0
+            Set-RegistryValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -Value 3
+            Set-RegistryValue -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -Value 1
             Write-StyledMessage -Type 'Success' -Text "🔑 Impostazioni registro Windows Update ripristinate."
         }
         catch {
             Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile ripristinare alcune chiavi di registro - $($_.Exception.Message)"
         }
 
-        # Reset WaaSMedicSvc registry settings to defaults
         Write-StyledMessage -Type 'Info' -Text '🔧 Ripristino impostazioni WaaSMedicSvc.'
 
         try {
@@ -360,7 +319,6 @@ function WinUpdateReset {
             Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile ripristinare WaaSMedicSvc - $($_.Exception.Message)."
         }
 
-        # Restore update services to their default state
         Write-StyledMessage -Type 'Info' -Text '🔄 Ripristino servizi di update.'
 
         $services = @(
@@ -378,10 +336,8 @@ function WinUpdateReset {
                 if ($serviceObj) {
                     Set-Service -Name $service.Name -StartupType $service.StartupType -ErrorAction SilentlyContinue *>$null
 
-                    # Reset failure actions to default using sc command
                     $null = Invoke-ExternalCommandWithLog -Command 'sc.exe' -Arguments @('failure', "$($service.Name)", 'reset= 86400', 'actions= restart/60000/restart/60000/restart/60000') -TimeoutSeconds 30 -LogContextKey "ServiceFailureReset-$($service.Name)"
 
-                    # Start the service if it should be running
                     if ($service.StartupType -eq "Automatic") {
                         Set-ServiceStatus -Name $service.Name -Status "Running" -Wait -TimeoutSeconds 5 *>$null
                     }
@@ -394,7 +350,6 @@ function WinUpdateReset {
             }
         }
 
-        # Restore renamed DLLs if they exist
         Write-StyledMessage -Type 'Info' -Text '🔍 Ripristino DLL rinominate.'
 
         $dlls = @("WaaSMedicSvc", "wuaueng")
@@ -405,17 +360,10 @@ function WinUpdateReset {
 
             if ((Test-Path $backupPath) -and !(Test-Path $dllPath)) {
                 try {
-                    # Take ownership of backup file
                     $null = Invoke-ExternalCommandWithLog -Command 'takeown.exe' -Arguments @('/f', "`"$backupPath`"") -TimeoutSeconds 30 -LogContextKey "DLLRestore-Takeown-$dll"
-
-                    # Grant full control to everyone
                     $null = Invoke-ExternalCommandWithLog -Command 'icacls.exe' -Arguments @("`"$backupPath`"", '/grant', '*S-1-1-0:F') -TimeoutSeconds 30 -LogContextKey "DLLRestore-IcaclsGrant-$dll"
-
-                    # Rename back to original
                     Rename-Item -Path $backupPath -NewName "$dll.dll" -ErrorAction SilentlyContinue *>$null
                     Write-StyledMessage -Type 'Success' -Text "Ripristinato ${dll}_BAK.dll a $dll.dll."
-
-                    # Restore ownership to TrustedInstaller
                     $null = Invoke-ExternalCommandWithLog -Command 'icacls.exe' -Arguments @("`"$dllPath`"", '/setowner', '"NT SERVICE\TrustedInstaller"') -TimeoutSeconds 30 -LogContextKey "DLLRestore-IcaclsOwner-$dll"
                     $null = Invoke-ExternalCommandWithLog -Command 'icacls.exe' -Arguments @("`"$dllPath`"", '/remove', '*S-1-1-0') -TimeoutSeconds 30 -LogContextKey "DLLRestore-IcaclsRemove-$dll"
                 }
@@ -431,7 +379,6 @@ function WinUpdateReset {
             }
         }
 
-        # Enable update related scheduled tasks
         Write-StyledMessage -Type 'Info' -Text '📅 Riabilitazione task pianificati.'
 
         $taskPaths = @(
@@ -456,7 +403,6 @@ function WinUpdateReset {
             }
         }
 
-        # Enable driver offering through Windows Update
         Write-StyledMessage -Type 'Info' -Text '🖨️ Abilitazione driver tramite Windows Update.'
 
         try {
@@ -471,7 +417,6 @@ function WinUpdateReset {
             Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile abilitare driver - $($_.Exception.Message)."
         }
 
-        # Enable Windows Update automatic restart
         Write-StyledMessage -Type 'Info' -Text '🔄 Abilitazione riavvio automatico Windows Update.'
 
         try {
@@ -483,7 +428,6 @@ function WinUpdateReset {
             Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile abilitare riavvio automatico - $($_.Exception.Message)."
         }
 
-        # Reset Windows Update settings to default
         Write-StyledMessage -Type 'Info' -Text '⚙️ Ripristino impostazioni Windows Update.'
 
         try {
@@ -496,13 +440,11 @@ function WinUpdateReset {
             Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile ripristinare alcune impostazioni - $($_.Exception.Message)."
         }
 
-        # Reset Windows Local Policies to Default
         Write-StyledMessage -Type 'Info' -Text '📋 Ripristino criteri locali Windows.'
 
         try {
-
             Write-StyledMessage -Type 'Info' -Text '⏳ Eliminazione criteri locali.'
-            $rdResult = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'RD', '/S', '/Q', "`"$(Join-Path $AppConfig.Paths.System32 "GroupPolicy")`"") -TimeoutSeconds 30 -LogContextKey 'GPReset-RD'
+            $null = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'RD', '/S', '/Q', "`"$(Join-Path $AppConfig.Paths.System32 "GroupPolicy")`"") -TimeoutSeconds 30 -LogContextKey 'GPReset-RD'
             Write-StyledMessage -Type 'Success' -Text '✅ Criteri eliminati.'
 
             Write-StyledMessage -Type 'Info' -Text '⏳ Aggiornamento criteri.'
@@ -514,7 +456,6 @@ function WinUpdateReset {
                 Write-StyledMessage -Type 'Success' -Text '✅ Criteri aggiornati.'
             }
 
-            # Clean up registry keys
             Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
             Remove-Item -Path "HKCU:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue *>$null
             Remove-Item -Path "HKCU:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
@@ -533,7 +474,6 @@ function WinUpdateReset {
             Write-StyledMessage -Type 'Warning' -Text "Avviso: Impossibile ripristinare alcuni criteri - $($_.Exception.Message)."
         }
 
-        # Final status and verification
         Write-StyledMessage -Type 'Info' -Text ('─' * 60)
         Write-StyledMessage -Type 'Success' -Text '🎉 Windows Update è stato RIPRISTINATO ai valori predefiniti!'
         Write-StyledMessage -Type 'Success' -Text '🔄 Servizi, registro e criteri sono stati configurati correttamente.'
@@ -554,39 +494,20 @@ function WinUpdateReset {
 
         Write-StyledMessage -Type 'Info' -Text '💡 Windows Update dovrebbe ora funzionare normalmente.'
         Write-StyledMessage -Type 'Info' -Text '🔧 Verifica aprendo Impostazioni > Aggiornamento e sicurezza.'
-        Write-StyledMessage -Type 'Info' -Text '🔄 Se necessario, riavvia il sistema per applicare tutte le modifiche.'
-
         Write-StyledMessage -Type 'Info' -Text ('─' * 60)
         Write-StyledMessage -Type 'Success' -Text '🎉 Riparazione completata con successo!'
         Write-StyledMessage -Type 'Success' -Text '💻 Il sistema necessita di un riavvio per applicare tutte le modifiche.'
         Write-StyledMessage -Type 'Warning' -Text "⚡ Attenzione: il sistema verrà riavviato automaticamente."
         Write-StyledMessage -Type 'Info' -Text ('─' * 60)
 
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
-        }
-        else {
-            $shouldReboot = Start-InterruptibleCountdown $CountdownSeconds "Preparazione riavvio sistema"
-            if ($shouldReboot) {
-                Write-StyledMessage -Type 'Info' -Text "🔄 Riavvio in corso."
-                Restart-Computer -Force
-            }
-        }
+        Invoke-ToolkitReboot -Message "Preparazione riavvio sistema" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text '═════════════════════════════════════════════════════════════════'
         Write-StyledMessage -Type 'Error' -Text "💥 Errore critico: $($_.Exception.Message). Consulta il log in %LOCALAPPDATA%\WinToolkit\logs o in $Global:CurrentLogFile"
         Write-StyledMessage -Type 'Info' -Text '⌨️ Premere un tasto per uscire.'
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinUpdateReset" -Context @{
-            Tool      = 'WinUpdateReset'
-            Step      = 'MainExecution'
-            Line      = $_.InvocationInfo.ScriptLineNumber
-            Exception = $_.Exception.GetType().FullName
-            Message   = $_.Exception.Message
-            Stack     = $_.ScriptStackTrace
-        }
+        Write-ToolkitError -Record $_ -ToolName "WinUpdateReset"
     }
     finally {
         # Cleanup finale se necessario
