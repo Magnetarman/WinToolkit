@@ -56,7 +56,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "Sviluppo in Corso"
+$ToolkitVersion = "2.5.4 (Build 44)"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -2422,9 +2422,6 @@ function WinDebloat {
         if ($rebootRequired) {
             Invoke-ToolkitReboot -Message "Riavvio per applicare le modifiche" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
         }
-        Set-OfficePostConfig
-        Write-StyledMessage -Type 'Success' -Text "✅ Installazione completata."
-        Write-StyledMessage -Type 'Info' -Text "Riavvio non necessario."
     }
     catch {
         Write-ToolkitError -Record $_ -ToolName "WinDebloat"
