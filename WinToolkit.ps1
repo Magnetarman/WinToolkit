@@ -2422,6 +2422,9 @@ function WinDebloat {
         if ($rebootRequired) {
             Invoke-ToolkitReboot -Message "Riavvio per applicare le modifiche" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
         }
+        Set-OfficePostConfig
+        Write-StyledMessage -Type 'Success' -Text "✅ Installazione completata."
+        Write-StyledMessage -Type 'Info' -Text "Riavvio non necessario."
     }
     catch {
         Write-ToolkitError -Record $_ -ToolName "WinDebloat"
