@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit — Create_Release V 3.1.1
+# WinToolkit — Create_Release V 3.1.2
 # =============================================================================
 # Workflow manuale per la creazione di release ufficiali.
 #
@@ -352,22 +352,44 @@ jobs:
           $features = @(); $enhancements = @(); $bugFixes = @(); $changes = @()
 
           function Get-PrCategory {
-            param([string]$Title, [string[]]$Labels)
-            $t = $Title.ToLower()
-            if ($t -match '\[feature\]' -or $Labels -contains 'feature' -or $t -match '^(feat|feature|add|new|implement)\b') { return 'feature' }
-            if ($t -match '\[bug\]' -or $t -match '\[bugfix\]' -or $t -match '\[fix\]' -or $Labels -contains 'bug' -or $Labels -contains 'fix' -or $Labels -contains 'bugfix' -or $t -match '^(fix|bugfix|resolve|repair)\b' -or $t -match '\b(fix|bug|resolve)\b') { return 'bugfix' }
-            if ($t -match '\[enhancement\]' -or $Labels -contains 'enhancement' -or $t -match '^(update|improve|optimize|enhance)\b') { return 'enhancement' }
-            return 'change'
+            param([string]$Title, [string[]]$Labels, [string]$Author)
+            $t = $Title.ToLower().Trim()
+            $a = $Author.ToLower()
+
+            # 1. Contributori esterni: tutte le loro PR vanno in External Changes
+            if ($a -ne 'magnetarman') { return 'external' }
+
+            # 2. Categorie specifiche (Magnetarman)
+            if ($t -match '^\[?gui\]?' -or $t -match '^gui\b') { return 'gui' }
+            if ($t -match '^\[?feature\]?' -or $Labels -contains 'feature' -or $t -match '^(feat|feature|add|new|implement)\b') { return 'feature' }
+            if ($t -match '^\[?bug(fix)?\]?' -or $t -match '^\[?fix\]?' -or $Labels -contains 'bug' -or $Labels -contains 'fix' -or $Labels -contains 'bugfix' -or $t -match '^(fix|bugfix|resolve|repair)\b' -or $t -match '\b(fix|bug|resolve)\b') { return 'bugfix' }
+            if ($t -match '^\[?enhancement\]?' -or $Labels -contains 'enhancement' -or $t -match '^(update|improve|optimize|enhance|enhancement)\b') { return 'enhancement' }
+
+            return 'external'
           }
 
+          $cleanRegex = '^\[?(feature|feat|bug|bugfix|fix|hotfix|enhancement|enhance|update|improve|optimize|new|add|implement|gui)\]?[:\s-]*'
+          $gui = @(); $features = @(); $enhancements = @(); $bugFixes = @(); $externalChanges = @()
+          
           foreach ($pr in $validPrs) {
-            $line   = "- $($pr.title.Trim()) @$($pr.author.login) (#$($pr.number))"
-            $labels = $pr.labels | ForEach-Object { $_.name.ToLower() }
-            switch (Get-PrCategory -Title $pr.title.Trim() -Labels $labels) {
-              'feature'     { $features     += $line }
-              'enhancement' { $enhancements += $line }
-              'bugfix'      { $bugFixes     += $line }
-              default       { $changes      += $line }
+            $rawTitle = $pr.title.Trim()
+            $author   = $pr.author.login
+            $labels   = $pr.labels | ForEach-Object { $_.name.ToLower() }
+            $category = Get-PrCategory -Title $rawTitle -Labels $labels -Author $author
+            
+            # Pulizia titolo: rimuove prefissi e normalizza maiuscola
+            $cleanTitle = $rawTitle -replace $cleanRegex, ''
+            $cleanTitle = $cleanTitle.Trim()
+            if ($cleanTitle.Length -gt 0) { $cleanTitle = $cleanTitle.Substring(0,1).ToUpper() + $cleanTitle.Substring(1) }
+            else { $cleanTitle = $rawTitle }
+
+            $line = "- $cleanTitle @$author (#$($pr.number))"
+            switch ($category) {
+              'gui'             { $gui             += $line }
+              'feature'         { $features        += $line }
+              'enhancement'     { $enhancements    += $line }
+              'bugfix'          { $bugFixes        += $line }
+              default           { $externalChanges += $line }
             }
           }
 
@@ -385,22 +407,35 @@ jobs:
           Write-Host "Issues valide: $($validIssues.Count)"
 
           foreach ($issue in $validIssues) {
-            $line   = "- $($issue.title.Trim()) @$($issue.author.login) (#$($issue.number))"
-            $labels = $issue.labels | ForEach-Object { $_.name.ToLower() }
-            switch (Get-PrCategory -Title $issue.title.Trim() -Labels $labels) {
+            $rawTitle = $issue.title.Trim()
+            $author   = $issue.author.login
+            $labels   = $issue.labels | ForEach-Object { $_.name.ToLower() }
+            $category = Get-PrCategory -Title $rawTitle -Labels $labels -Author $author
+
+            # Pulizia titolo
+            $cleanTitle = $rawTitle -replace $cleanRegex, ''
+            $cleanTitle = $cleanTitle.Trim()
+            if ($cleanTitle.Length -gt 0) { $cleanTitle = $cleanTitle.Substring(0,1).ToUpper() + $cleanTitle.Substring(1) }
+            else { $cleanTitle = $rawTitle }
+
+            $line = "- $cleanTitle @$author (#$($issue.number))"
+            switch ($category) {
+              'gui'         { $gui          += $line }
               'feature'     { $features     += $line }
               'enhancement' { $enhancements += $line }
               'bugfix'      { $bugFixes     += $line }
+              default       { $externalChanges += $line }
             }
           }
 
           # Composizione release body
           $body = ""
-          if ($features.Count     -gt 0) { $body += "## 🚀 Features`n`n"     + ($features     -join "`n") + "`n`n" }
-          if ($bugFixes.Count     -gt 0) { $body += "## 🐛 Bug Fixes`n`n"    + ($bugFixes     -join "`n") + "`n`n" }
-          if ($enhancements.Count -gt 0) { $body += "## ✨ Enhancement`n`n"  + ($enhancements -join "`n") + "`n`n" }
-          if ($changes.Count      -gt 0) { $body += "## 🔄 Changes`n`n"      + ($changes      -join "`n") + "`n`n" }
-          if ($validPrs.Count -eq 0)     { $body += "_Nessun contributo esterno in questa build._`n`n" }
+          if ($features.Count         -gt 0) { $body += "## 🚀 Features`n`n"          + ($features        -join "`n") + "`n`n" }
+          if ($gui.Count              -gt 0) { $body += "## 🖥️ GUI`n`n"               + ($gui             -join "`n") + "`n`n" }
+          if ($bugFixes.Count         -gt 0) { $body += "## 🐛 Bug Fixes`n`n"         + ($bugFixes        -join "`n") + "`n`n" }
+          if ($enhancements.Count     -gt 0) { $body += "## ✨ Enhancement`n`n"       + ($enhancements    -join "`n") + "`n`n" }
+          if ($externalChanges.Count  -gt 0) { $body += "## 🔄 External Changes`n`n"  + ($externalChanges -join "`n") + "`n`n" }
+          if (($validPrs.Count + $validIssues.Count) -eq 0) { $body += "_Nessun contributo in questa build._`n`n" }
 
           $sourceKB     = "${{ needs.build.outputs.source_kb }}"
           $outputKB     = "${{ needs.build.outputs.output_kb }}"
