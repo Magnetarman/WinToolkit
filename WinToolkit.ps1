@@ -67,7 +67,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.5.4 (Build 44)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -2044,10 +2044,11 @@ function WinReinstallStore {
             return $false
         }
         try {
-            $null = Invoke-WithSpinner -Activity "Disinstallazione versioni precedenti UniGet UI" -Command $wingetExe -Arguments @('uninstall', '--exact', '--id', 'MartiCliment.UniGetUI', '--silent', '--disable-interactivity') -TimeoutSeconds 120 -LogContextKey "Store-UniGet-Uninstall"
-            $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
+            foreach ($oldId in @('MartiCliment.UniGetUI', 'Devolutions.UniGetUI')) {
+                $null = Invoke-WithSpinner -Activity "Disinstallazione $oldId" -Command $wingetExe -Arguments @('uninstall', '--exact', '--id', $oldId, '--silent', '--disable-interactivity') -TimeoutSeconds 120 -LogContextKey "Store-UniGet-Uninstall"
                 Clear-ProgressLine
-            [Console]::Out.Flush()
+                [Console]::Out.Flush()
+            }
             $processResult = Invoke-WithSpinner -Activity "Installazione UniGet UI" -Command $wingetExe -Arguments @('install', '--exact', '--id', 'Devolutions.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force') -TimeoutSeconds 600 -LogContextKey "Store-UniGet-Install"
             $clearLine = "`r" + (' ' * ([Console]::WindowWidth - 1)) + "`r"
                 Clear-ProgressLine
@@ -2057,9 +2058,19 @@ function WinReinstallStore {
                 Write-StyledMessage -Type 'Success' -Text "UniGet UI installato correttamente."
                 try {
                     $regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-                    if (Get-ItemProperty -Path $regPath -Name 'WingetUI' -ErrorAction SilentlyContinue) {
-                        Remove-ItemProperty -Path $regPath -Name 'WingetUI' -ErrorAction SilentlyContinue *>$null
-                        Write-StyledMessage -Type 'Success' -Text "Avvio automatico UniGet UI disabilitato."
+                    foreach ($runName in @('WingetUI', 'UniGetUI', 'UniGet UI')) {
+                        if (Get-ItemProperty -Path $regPath -Name $runName -ErrorAction SilentlyContinue) {
+                            Remove-ItemProperty -Path $regPath -Name $runName -ErrorAction SilentlyContinue *>$null
+                            Write-StyledMessage -Type 'Success' -Text "Avvio automatico '$runName' rimosso dal registro."
+                        }
+                    }
+                    $startupFolder = [Environment]::GetFolderPath('Startup')
+                    foreach ($lnkName in @('UniGetUI.lnk', 'WingetUI.lnk', 'UniGet UI.lnk')) {
+                        $lnkPath = Join-Path $startupFolder $lnkName
+                        if (Test-Path $lnkPath) {
+                            Remove-Item $lnkPath -Force -ErrorAction SilentlyContinue *>$null
+                            Write-StyledMessage -Type 'Success' -Text "Collegamento avvio automatico '$lnkName' rimosso."
+                        }
                     }
                 }
                 catch { }
