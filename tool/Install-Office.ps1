@@ -11,11 +11,22 @@ function Install-Office {
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitLog -ToolName "OfficeInstall"
-    Show-Header -SubTitle "Office Install"
-    $Host.UI.RawUI.WindowTitle = "Office Install By MagnetarMan"
+    Start-ToolkitSession -ToolName "OfficeInstall" -SubTitle "Office Install"
 
     $tempDir = $AppConfig.Paths.OfficeTemp
+
+    function Set-OfficePostConfig {
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione Office."
+        foreach ($reg in @(
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";     Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "usercontentdisabled";   Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "downloadcontentdisabled"; Value = 1 },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 }
+        )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
+        Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
+        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
+    }
 
     try {
         Write-StyledMessage -Type 'Info' -Text "🏢 Avvio installazione Office Basic."
@@ -25,13 +36,11 @@ function Install-Office {
         $setupPath  = Join-Path $tempDir 'Setup.exe'
         $configPath = Join-Path $tempDir 'Basic.xml'
 
-        $downloads = @(
-            @{ Url = $AppConfig.URLs.OfficeSetup; Path = $setupPath; Name = 'Setup Office' },
+        foreach ($dl in @(
+            @{ Url = $AppConfig.URLs.OfficeSetup;       Path = $setupPath;  Name = 'Setup Office' },
             @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
-        )
-
-        foreach ($dl in $downloads) {
-            if (-not (Invoke-OfficeDownloadFile $dl.Url $dl.Path $dl.Name)) {
+        )) {
+            if (-not (Invoke-ToolkitDownload -Uri $dl.Url -OutputPath $dl.Path -Description $dl.Name)) {
                 Write-StyledMessage -Type 'Error' -Text "Download fallito. Installazione annullata."
                 return
             }
@@ -61,7 +70,7 @@ function Install-Office {
         }
     }
     finally {
-        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
+        Remove-ItemSafely -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Install terminato."
         Write-ToolkitLog -Level INFO -Message "Install-Office sessione terminata."
     }
