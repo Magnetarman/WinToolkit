@@ -56,7 +56,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.5.4 (Build 46)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -3644,259 +3644,207 @@ function Uninstall-Office {
         }
     }
 }
-function VideoDriverInstall {
+function AutoVideoDriverInstall {
     [CmdletBinding()]
     param(
         [int]$CountdownSeconds = 30,
         [switch]$SuppressIndividualReboot
     )
-    Start-ToolkitSession -ToolName "VideoDriverInstall" -SubTitle "Video Driver Install Toolkit"
-    $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
-    $DriverToolsLocalPath = $AppConfig.Paths.Drivers
-    $DesktopPath = $AppConfig.Paths.Desktop
+    Start-ToolkitSession -ToolName "AutoVideoDriverInstall" -SubTitle "Auto Video Driver Install"
+    $driverToolsPath = $AppConfig.Paths.Drivers
     function Get-GpuManufacturer {
         $pnpDevices = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue
         if (-not $pnpDevices) {
-            Write-StyledMessage -Type 'Warning' -Text "Nessun dispositivo display Plug and Play rilevato."
+            Write-StyledMessage -Type 'Warning' -Text "Nessun dispositivo display PnP rilevato."
             return 'Unknown'
         }
         foreach ($device in $pnpDevices) {
-            $manufacturer = $device.Manufacturer
-            $friendlyName = $device.FriendlyName
-            if ($friendlyName -match 'NVIDIA|GeForce|Quadro|Tesla' -or $manufacturer -match 'NVIDIA') {
-                return 'NVIDIA'
-            }
-            elseif ($friendlyName -match 'AMD|Radeon|ATI' -or $manufacturer -match 'AMD|ATI') {
-                return 'AMD'
-            }
-            elseif ($friendlyName -match 'Intel|Iris|UHD|HD Graphics' -or $manufacturer -match 'Intel') {
-                return 'Intel'
-            }
+            $name = $device.FriendlyName
+            $mfr  = $device.Manufacturer
+            if ($name -match 'NVIDIA|GeForce|Quadro|Tesla' -or $mfr -match 'NVIDIA') { return 'NVIDIA' }
+            if ($name -match 'AMD|Radeon|ATI'               -or $mfr -match 'AMD|ATI') { return 'AMD'    }
+            if ($name -match 'Intel|Iris|UHD|HD Graphics'   -or $mfr -match 'Intel')  { return 'Intel'  }
         }
         return 'Unknown'
     }
     function Set-BlockWindowsUpdateDrivers {
-        Write-StyledMessage -Type 'Info' -Text "Configurazione per bloccare download driver da Windows Update."
-        $regPath = $AppConfig.Registry.WindowsUpdatePolicies
+        Write-StyledMessage -Type 'Info' -Text "Blocco driver automatici da Windows Update."
         try {
-            Set-RegistryValue -Path $regPath -Name "ExcludeWUDriversInQualityUpdate" -Value 1
-            Write-StyledMessage -Type 'Success' -Text "Blocco download driver da Windows Update impostato correttamente nel registro."
-            Write-StyledMessage -Type 'Info' -Text "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)."
-            Write-StyledMessage -Type 'Warning' -Text "Potrebbe essere necessario eseguire lo script come amministratore."
-            return
-        }
-        Write-StyledMessage -Type 'Info' -Text "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche."
-        try {
-            $gpupdateProcess = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate"
-            if ($gpupdateProcess.ExitCode -eq 0) {
-                Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati con successo."
+            Set-RegistryValue -Path $AppConfig.Registry.WindowsUpdatePolicies -Name "ExcludeWUDriversInQualityUpdate" -Value 1
+            Write-StyledMessage -Type 'Success' -Text "Blocco WU driver impostato."
+            $gpupdateResult = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate"
+            if ($gpupdateResult.ExitCode -eq 0) {
+                Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati."
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text "Aggiornamento dei criteri di gruppo completato con codice di uscita: $($gpupdateProcess.ExitCode)."
+                Write-StyledMessage -Type 'Warning' -Text "gpupdate completato con codice: $($gpupdateResult.ExitCode)."
             }
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante l'aggiornamento dei criteri di gruppo: $($_.Exception.Message)."
-            Write-StyledMessage -Type 'Warning' -Text "Le modifiche ai criteri potrebbero richiedere un riavvio o del tempo per essere applicate."
+            Write-StyledMessage -Type 'Warning' -Text "Errore blocco WU driver: $($_.Exception.Message)."
         }
     }
-    function Download-FileWithProgress {
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$Url,
-            [Parameter(Mandatory = $true)]
-            [string]$DestinationPath,
-            [Parameter(Mandatory = $true)]
-            [string]$Description,
-            [int]$MaxRetries = 3
-        )
-        Write-StyledMessage -Type 'Info' -Text "Scaricando $Description."
-        $destDir = Split-Path -Path $DestinationPath -Parent
-        if (-not (Test-Path $destDir)) {
-            try {
-                New-Item -ItemType Directory -Path $destDir -Force *>$null
-            }
-            catch {
-                Write-StyledMessage -Type 'Error' -Text "Impossibile creare la cartella di destinazione '$destDir': $($_.Exception.Message)."
-                return $false
-            }
-        }
-        for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
-            try {
-                $webRequest = [System.Net.WebRequest]::Create($Url)
-                $webResponse = $webRequest.GetResponse()
-                $totalBytes = $webResponse.ContentLength
-                $responseStream = $webResponse.GetResponseStream()
-                $targetStream = [System.IO.FileStream]::new($DestinationPath, [System.IO.FileMode]::Create)
-                $buffer = New-Object byte[] 64KB
-                $downloadedBytes = 0
-                $bytesRead = 0
-                Write-Progress -Activity "Download $Description" -Status "Inizio download." -PercentComplete 0
-                do {
-                    $bytesRead = $responseStream.Read($buffer, 0, $buffer.Length)
-                    if ($bytesRead -gt 0) {
-                        $targetStream.Write($buffer, 0, $bytesRead)
-                        $downloadedBytes += $bytesRead
-                        $percentComplete = [System.Math]::Round(($downloadedBytes / $totalBytes) * 100, 1)
-                        $speed = if ($downloadedBytes -gt 0) { [System.Math]::Round(($downloadedBytes / 1024 / 1024), 2) } else { 0 }
-                        $totalSize = [System.Math]::Round(($totalBytes / 1024 / 1024), 2)
-                        Write-Progress -Activity "Download $Description" -Status "$speed MB / $totalSize MB" -PercentComplete $percentComplete
-                    }
-                } while ($bytesRead -gt 0)
-                Write-Progress -Activity "Download $Description" -Status "Completato" -PercentComplete 100 -Completed
-                $targetStream.Flush()
-                $targetStream.Close()
-                $targetStream.Dispose()
-                $responseStream.Dispose()
-                $webResponse.Close()
-                Write-StyledMessage -Type 'Success' -Text "Download di $Description completato."
-                return $true
-            }
-            catch {
-                Write-Progress -Activity "Download $Description" -Completed
-                Write-StyledMessage -Type 'Warning' -Text "Tentativo $attempt fallito per $Description`: $($_.Exception.Message)."
-                if ($attempt -lt $MaxRetries) {
-                    Start-Sleep -Seconds 2
+    try {
+        Write-StyledMessage -Type 'Info' -Text "🚀 Avvio installazione automatica driver video."
+        Set-BlockWindowsUpdateDrivers
+        $gpuManufacturer = Get-GpuManufacturer
+        Write-StyledMessage -Type 'Info' -Text "GPU rilevata: $gpuManufacturer."
+        switch ($gpuManufacturer) {
+            'AMD' {
+                $amdPath = Join-Path $driverToolsPath "AMD-Autodetect.exe"
+                if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool") {
+                    Write-StyledMessage -Type 'Info' -Text "Avvio installer AMD. Chiudi il terminale al termine dell'installazione."
+                    $null = Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdPath -LogContextKey "Video-Install-AMD"
+                    Write-StyledMessage -Type 'Success' -Text "Installazione driver AMD completata."
                 }
             }
-        }
-        Write-StyledMessage -Type 'Error' -Text "Errore durante il download di $Description dopo $MaxRetries tentativi."
-        return $false
-    }
-    function Handle-InstallVideoDrivers {
-        Write-StyledMessage -Type 'Info' -Text "Opzione 1: Avvio installazione driver video."
-        $gpuManufacturer = Get-GpuManufacturer
-        Write-StyledMessage -Type 'Info' -Text "Rilevata GPU: $gpuManufacturer."
-        if ($gpuManufacturer -eq 'AMD') {
-            $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
-            $amdInstallerPath = Join-Path $DriverToolsLocalPath "AMD-Autodetect.exe"
-            if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
-                Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
-                Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdInstallerPath -LogContextKey "Video-Install-AMD"
-                Write-StyledMessage -Type 'Success' -Text "Installazione driver video AMD completata o chiusa."
+            'NVIDIA' {
+                $nvidiaPath = Join-Path $driverToolsPath "NVCleanstall_1.19.0.exe"
+                if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall") {
+                    Write-StyledMessage -Type 'Info' -Text "Avvio NVCleanstall. Chiudi il terminale al termine dell'installazione."
+                    $null = Invoke-WithSpinner -Activity "Esecuzione NVCleanstall" -Command $nvidiaPath -LogContextKey "Video-Install-NVIDIA"
+                    Write-StyledMessage -Type 'Success' -Text "Installazione driver NVIDIA completata."
+                }
+            }
+            'Intel' {
+                Write-StyledMessage -Type 'Info' -Text "GPU Intel rilevata. Usa Windows Update per aggiornare i driver integrati."
+            }
+            default {
+                Write-StyledMessage -Type 'Error' -Text "Produttore GPU non supportato o non rilevato per l'installazione automatica."
             }
         }
-        elseif ($gpuManufacturer -eq 'NVIDIA') {
-            $nvidiaInstallerUrl = $AppConfig.URLs.NVCleanstall
-            $nvidiaInstallerPath = Join-Path $DriverToolsLocalPath "NVCleanstall_1.19.0.exe"
-            if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
-                Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
-                Invoke-WithSpinner -Activity "Esecuzione installer NVIDIA" -Command $nvidiaInstallerPath -LogContextKey "Video-Install-NVIDIA"
-                Write-StyledMessage -Type 'Success' -Text "Installazione driver video NVIDIA completata o chiusa."
-            }
-        }
-        elseif ($gpuManufacturer -eq 'Intel') {
-            Write-StyledMessage -Type 'Info' -Text "Rilevata GPU Intel. Utilizza Windows Update per aggiornare i driver integrati."
-        }
-        else {
-            Write-StyledMessage -Type 'Error' -Text "Produttore GPU non supportato o non rilevato per l'installazione automatica dei driver."
+    }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore durante installazione driver: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore in AutoVideoDriverInstall" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
         }
     }
-    function Handle-ReinstallRepairVideoDrivers {
-        Write-StyledMessage -Type 'Warning' -Text "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
-        $dduZipUrl = $AppConfig.URLs.DDUZip
-        $dduZipPath = Join-Path $DriverToolsLocalPath "DDU.zip"
-        if (-not (Download-FileWithProgress -Url $dduZipUrl -DestinationPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
-            Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare DDU. Annullamento operazione."
+    finally {
+        Write-StyledMessage -Type 'Success' -Text "🎯 Auto Video Driver Install terminato."
+        Write-ToolkitLog -Level INFO -Message "AutoVideoDriverInstall sessione terminata."
+    }
+}
+function VideoDriverReinstall {
+    [CmdletBinding()]
+    param(
+        [int]$CountdownSeconds = 30,
+        [switch]$SuppressIndividualReboot
+    )
+    Start-ToolkitSession -ToolName "VideoDriverReinstall" -SubTitle "Video Driver Reinstall"
+    $driverToolsPath = $AppConfig.Paths.Drivers
+    $desktopPath     = $AppConfig.Paths.Desktop
+    function Get-GpuManufacturer {
+        $pnpDevices = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue
+        if (-not $pnpDevices) {
+            Write-StyledMessage -Type 'Warning' -Text "Nessun dispositivo display PnP rilevato."
+            return 'Unknown'
+        }
+        foreach ($device in $pnpDevices) {
+            $name = $device.FriendlyName
+            $mfr  = $device.Manufacturer
+            if ($name -match 'NVIDIA|GeForce|Quadro|Tesla' -or $mfr -match 'NVIDIA') { return 'NVIDIA' }
+            if ($name -match 'AMD|Radeon|ATI'               -or $mfr -match 'AMD|ATI') { return 'AMD'    }
+            if ($name -match 'Intel|Iris|UHD|HD Graphics'   -or $mfr -match 'Intel')  { return 'Intel'  }
+        }
+        return 'Unknown'
+    }
+    function Set-BlockWindowsUpdateDrivers {
+        Write-StyledMessage -Type 'Info' -Text "Blocco driver automatici da Windows Update."
+        try {
+            Set-RegistryValue -Path $AppConfig.Registry.WindowsUpdatePolicies -Name "ExcludeWUDriversInQualityUpdate" -Value 1
+            Write-StyledMessage -Type 'Success' -Text "Blocco WU driver impostato."
+            $gpupdateResult = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate"
+            if ($gpupdateResult.ExitCode -eq 0) {
+                Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati."
+            }
+            else {
+                Write-StyledMessage -Type 'Warning' -Text "gpupdate completato con codice: $($gpupdateResult.ExitCode)."
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Errore blocco WU driver: $($_.Exception.Message)."
+        }
+    }
+    $needsReboot = $false
+    try {
+        Write-StyledMessage -Type 'Warning' -Text "🔧 Avvio procedura reinstallazione/riparazione driver video."
+        Set-BlockWindowsUpdateDrivers
+        $dduZipPath = Join-Path $driverToolsPath "DDU.zip"
+        if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.DDUZip -OutputPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
+            Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare DDU. Annullamento."
             return
         }
         Write-StyledMessage -Type 'Info' -Text "Estrazione DDU sul Desktop."
         try {
-            Expand-Archive -Path $dduZipPath -DestinationPath $DesktopPath -Force
-            Write-StyledMessage -Type 'Success' -Text "DDU estratto correttamente sul Desktop."
+            Expand-Archive -Path $dduZipPath -DestinationPath $desktopPath -Force
+            Write-StyledMessage -Type 'Success' -Text "DDU estratto sul Desktop."
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante l'estrazione di DDU sul Desktop: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text "Errore estrazione DDU: $($_.Exception.Message)."
             return
         }
         $gpuManufacturer = Get-GpuManufacturer
-        Write-StyledMessage -Type 'Info' -Text "Rilevata GPU: $gpuManufacturer."
-        if ($gpuManufacturer -eq 'AMD') {
-            $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
-            $amdInstallerPath = Join-Path $DesktopPath "AMD-Autodetect.exe"
-            if (-not (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool")) {
-                Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare l'installer AMD. Annullamento operazione."
-                return
-            }
-        }
-        elseif ($gpuManufacturer -eq 'NVIDIA') {
-            $nvidiaInstallerUrl = $AppConfig.URLs.NVCleanstall
-            $nvidiaInstallerPath = Join-Path $DesktopPath "NVCleanstall_1.19.0.exe"
-            if (-not (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool")) {
-                Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare l'installer NVIDIA. Annullamento operazione."
-                return
-            }
-        }
-        elseif ($gpuManufacturer -eq 'Intel') {
-            Write-StyledMessage -Type 'Info' -Text "Rilevata GPU Intel. Scarica manualmente i driver da Intel se necessario."
-        }
-        else {
-            Write-StyledMessage -Type 'Warning' -Text "Produttore GPU non supportato o non rilevato. Verrà posizionato solo DDU sul desktop."
-        }
-        Write-StyledMessage -Type 'Info' -Text "DDU e l'installer dei Driver (se rilevato) sono stati posizionati sul desktop."
-        $batchFilePath = Join-Path $DesktopPath "Switch to Normal Mode.bat"
-        try {
-            Set-Content -Path $batchFilePath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
-            Write-StyledMessage -Type 'Info' -Text "File batch 'Switch to Normal Mode.bat' creato sul desktop per disabilitare la Modalità Provvisoria."
-        }
-        catch {
-            Write-StyledMessage -Type 'Warning' -Text "Impossibile creare il file batch: $($_.Exception.Message)."
-        }
-        Write-StyledMessage -Type 'Error' -Text "ATTENZIONE: Il sistema sta per riavviarsi in modalità provvisoria."
-        Write-StyledMessage -Type 'Info' -Text "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria."
-        try {
-            Invoke-WithSpinner -Activity "Configurazione bcdedit" -Command 'bcdedit.exe' -Arguments '/set {current} safeboot minimal' -LogContextKey "Video-BCDEdit"
-            Write-StyledMessage -Type 'Success' -Text "Modalità Provvisoria configurata per il prossimo avvio."
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante la configurazione della Modalità Provvisoria tramite bcdedit: $($_.Exception.Message)."
-            Write-StyledMessage -Type 'Warning' -Text "Il riavvio potrebbe non avvenire in Modalità Provvisoria. Procedere manualmente."
-            return
-        }
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio in modalità provvisoria soppresso (esecuzione concatenata)."
-            Write-StyledMessage -Type 'Warning' -Text "⚠️ DDU e installer driver sono sul Desktop. Al prossimo riavvio sarai in SAFE MODE."
-        }
-        else {
-            $shouldReboot = Start-InterruptibleCountdown -Seconds 30 -Message "Riavvio in modalità provvisoria in corso."
-            if ($shouldReboot) {
-                try {
-                    Restart-Computer -Force
-                    Write-StyledMessage -Type 'Success' -Text "Comando di riavvio inviato."
-                }
-                catch {
-                    Write-StyledMessage -Type 'Error' -Text "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)."
+        Write-StyledMessage -Type 'Info' -Text "GPU rilevata: $gpuManufacturer."
+        switch ($gpuManufacturer) {
+            'AMD' {
+                $amdPath = Join-Path $desktopPath "AMD-Autodetect.exe"
+                if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool")) {
+                    Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare installer AMD. Annullamento."
+                    return
                 }
             }
+            'NVIDIA' {
+                $nvidiaPath = Join-Path $desktopPath "NVCleanstall_1.19.0.exe"
+                if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall")) {
+                    Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare NVCleanstall. Annullamento."
+                    return
+                }
+            }
+            'Intel' {
+                Write-StyledMessage -Type 'Info' -Text "GPU Intel: scarica driver manualmente da Intel se necessario."
+            }
+            default {
+                Write-StyledMessage -Type 'Warning' -Text "GPU non rilevata: solo DDU verrà posizionato sul Desktop."
+            }
+        }
+        $batchPath = Join-Path $desktopPath "Switch to Normal Mode.bat"
+        try {
+            Set-Content -Path $batchPath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
+            Write-StyledMessage -Type 'Info' -Text "Batch 'Switch to Normal Mode.bat' creato sul Desktop."
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Impossibile creare batch Safe Mode: $($_.Exception.Message)."
+        }
+        Write-StyledMessage -Type 'Error' -Text "ATTENZIONE: Il sistema si riavvierà in modalità provvisoria."
+        Write-StyledMessage -Type 'Info' -Text "In Safe Mode: esegui DDU per pulire i driver, poi reinstalla con l'installer sul Desktop. Infine usa il batch per tornare alla modalità normale."
+        try {
+            $null = Invoke-WithSpinner -Activity "Configurazione Safe Mode (bcdedit)" -Command 'bcdedit.exe' `
+                -Arguments '/set {current} safeboot minimal' -LogContextKey "Video-BCDEdit"
+            Write-StyledMessage -Type 'Success' -Text "Modalità provvisoria configurata per il prossimo avvio."
+            $needsReboot = $true
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore configurazione Safe Mode: $($_.Exception.Message)."
         }
     }
-    Write-StyledMessage -Type 'Info' -Text '🔧 Inizializzazione dello Script di Installazione Driver Video.'
-    Start-Sleep -Seconds 2
-    Set-BlockWindowsUpdateDrivers
-    $choice = ""
-    do {
-        Write-StyledMessage -Type 'Info' -Text 'Seleziona un''opzione:'
-        Write-StyledMessage -Type 'Info' -Text '  [1] 🚀 Installa Driver Video (Rilevamento Automatico)'
-        Write-StyledMessage -Type 'Info' -Text '  [2] 🔧 Reinstalla/Ripara Driver Video (Richiede Riavvio in Safe Mode)'
-        Write-StyledMessage -Type 'Info' -Text '  [0] ❌ Torna al Menu Principale'
-        $selections = Read-ValidatedChoice -Min 0 -Max 2 -Prompt "La tua scelta"
-        $choice = $selections[0]
-        switch ($choice.ToUpper()) {
-            "1" { Handle-InstallVideoDrivers }
-            "2" { Handle-ReinstallRepairVideoDrivers }
-            "0" { Write-StyledMessage -Type 'Info' -Text 'Tornando al menu principale.' }
-            default { Write-StyledMessage -Type 'Warning' -Text "Scelta non valida. Riprova." }
+    catch {
+        Write-StyledMessage -Type 'Error' -Text "Errore critico durante reinstallazione driver: $($_.Exception.Message)"
+        Write-ToolkitLog -Level ERROR -Message "Errore in VideoDriverReinstall" -Context @{
+            Line      = $_.InvocationInfo.ScriptLineNumber
+            Exception = $_.Exception.GetType().FullName
+            Stack     = $_.ScriptStackTrace
         }
-        if ($choice.ToUpper() -ne "0") {
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            Clear-Host
-            Show-Header -SubTitle "Video Driver Install Toolkit"
-        }
-    } while ($choice.ToUpper() -ne "0")
+    }
+    finally {
+        Write-StyledMessage -Type 'Success' -Text "🎯 Video Driver Reinstall terminato."
+        Write-ToolkitLog -Level INFO -Message "VideoDriverReinstall sessione terminata."
+    }
+    if ($needsReboot) {
+        Invoke-ToolkitReboot -Message "Riavvio in Safe Mode per DDU" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
+    }
 }
 function GamingToolkit {
     [CmdletBinding()]
@@ -4259,8 +4207,9 @@ $menuStructure = @(
         )
     },
     @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'VideoDriverInstall';Description = 'Driver Video Toolkit';        Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'GamingToolkit';    Description = 'Gaming Toolkit';               Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'AutoVideoDriverInstall'; Description = 'Installa Driver Video (Auto)';         Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'VideoDriverReinstall';   Description = 'Reinstalla Driver Video (Safe Mode)';  Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'GamingToolkit';          Description = 'Gaming Toolkit';                       Action = 'RunFunction' }
         )
     },
     @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @(
