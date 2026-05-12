@@ -11,24 +11,34 @@ function Repair-Office {
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitLog -ToolName "OfficeRepair"
-    Show-Header -SubTitle "Office Repair"
-    $Host.UI.RawUI.WindowTitle = "Office Repair By MagnetarMan"
+    Start-ToolkitSession -ToolName "OfficeRepair" -SubTitle "Office Repair"
+
+    function Set-OfficePostConfig {
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-riparazione Office."
+        foreach ($reg in @(
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";       Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "usercontentdisabled";     Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "downloadcontentdisabled"; Value = 1 },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 }
+        )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
+        Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
+        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
+    }
 
     $needsReboot = $false
 
     try {
         Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione Office."
-        Stop-OfficeProcesses
+        Stop-ToolkitProcesses -ProcessNames @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
 
         Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cache Office."
-        $caches = @(
+        $cleanedCount = 0
+        foreach ($cache in @(
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
-        )
-        $cleanedCount = 0
-        foreach ($cache in $caches) {
-            if (Invoke-OfficeSilentRemoval -Path $cache -Recurse) { $cleanedCount++ }
+        )) {
+            if (Remove-ItemSafely -Path $cache -Recurse) { $cleanedCount++ }
         }
         if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate." }
 
@@ -82,14 +92,6 @@ function Repair-Office {
     }
 
     if ($needsReboot) {
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
-        }
-        else {
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riparazione completata") {
-                Restart-Computer -Force
-            }
-        }
+        Invoke-ToolkitReboot -Message "Riparazione completata" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
     }
 }
