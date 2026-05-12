@@ -56,7 +56,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.5.4 (Build 46)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -2225,10 +2225,6 @@ function WinBackupDriver {
         LogsDir     = $AppConfig.Paths.DriverBackupLogs
     }
     $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
-    function Test-AdministratorPrivilege {
-        $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    }
     function Initialize-BackupEnvironment {
         Write-StyledMessage -Type 'Info' -Text "🗂️ Inizializzazione ambiente backup."
         try {
@@ -2360,13 +2356,6 @@ function WinBackupDriver {
         }
     }
     try {
-        if (-not (Test-AdministratorPrivilege)) {
-            Write-StyledMessage -Type 'Error' -Text "❌ Privilegi amministratore richiesti."
-            Write-StyledMessage -Type 'Info'  -Text "💡 Riavvia PowerShell come Amministratore."
-            Write-StyledMessage -Type 'Info'  -Text "`n⌨️ Premi un tasto per uscire."
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            return
-        }
         Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione sistema."
         Start-Sleep -Seconds 1
         if (-not (Initialize-BackupEnvironment)) { return }
