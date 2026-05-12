@@ -299,7 +299,21 @@ function WinCleaner {
 
         # --- Event Logs ---
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs."
+                Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs (classici + moderni)."
+
+                # Log classici (Application, System, Security, ecc.) via Clear-EventLog
+                $classicLogs = Get-EventLog -List -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Log
+                foreach ($logName in $classicLogs) {
+                    try {
+                        Clear-EventLog -LogName $logName -ErrorAction Stop
+                        Write-ToolkitLog -Level DEBUG -Message "Clear-EventLog: $logName"
+                    }
+                    catch {
+                        Write-ToolkitLog -Level DEBUG -Message "Clear-EventLog [$logName]: $($_.Exception.Message)"
+                    }
+                }
+
+                # Log moderni (Vista+) via wevtutil — copre tutto quello che Clear-EventLog non raggiunge
                 $wevtErr = $null
                 & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr *>$null
                 if ($wevtErr) { Write-ToolkitLog -Level DEBUG -Message "wevtutil sl output: $wevtErr" }
@@ -309,6 +323,8 @@ function WinCleaner {
                     Wevtutil.exe cl $logName 2>&1 | Out-String -OutVariable clErr *>$null
                     if ($LASTEXITCODE -ne 0 -and $clErr) { Write-ToolkitLog -Level DEBUG -Message "Wevtutil cl [$logName]: $clErr" }
                 }
+
+                Add-CleanerLog -Type 'Success' -Text "Event Log classici e moderni cancellati."
             }
         }
 
