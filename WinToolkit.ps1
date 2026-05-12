@@ -56,7 +56,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.5.4 (Build 46)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -2685,7 +2685,17 @@ function WinCleaner {
             ); FilesOnly = $false
         }
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs."
+                Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs (classici + moderni)."
+                $classicLogs = Get-EventLog -List -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Log
+                foreach ($logName in $classicLogs) {
+                    try {
+                        Clear-EventLog -LogName $logName -ErrorAction Stop
+                        Write-ToolkitLog -Level DEBUG -Message "Clear-EventLog: $logName"
+                    }
+                    catch {
+                        Write-ToolkitLog -Level DEBUG -Message "Clear-EventLog [$logName]: $($_.Exception.Message)"
+                    }
+                }
                 $wevtErr = $null
                 & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr *>$null
                 if ($wevtErr) { Write-ToolkitLog -Level DEBUG -Message "wevtutil sl output: $wevtErr" }
@@ -2695,6 +2705,7 @@ function WinCleaner {
                     Wevtutil.exe cl $logName 2>&1 | Out-String -OutVariable clErr *>$null
                     if ($LASTEXITCODE -ne 0 -and $clErr) { Write-ToolkitLog -Level DEBUG -Message "Wevtutil cl [$logName]: $clErr" }
                 }
+                Add-CleanerLog -Type 'Success' -Text "Event Log classici e moderni cancellati."
             }
         }
         @{ Name = "Clear Windows Update cache"; Type = "Custom"; ScriptBlock = {
