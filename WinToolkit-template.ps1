@@ -346,7 +346,6 @@ function Start-ToolkitLog {
     $Global:CurrentCorrelationId = [guid]::NewGuid().ToString()
 
     $os      = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
-    $sys     = Get-CimInstance Win32_ComputerSystem   -ErrorAction SilentlyContinue
     $psVer   = $PSVersionTable.PSVersion.ToString()
     $psEd    = $PSVersionTable.PSEdition
     $psCompat = ($PSVersionTable.PSCompatibleVersions | ForEach-Object { $_.ToString() }) -join ', '
@@ -365,11 +364,6 @@ function Start-ToolkitLog {
 Start time              : $dateTime
 CorrelationId           : $($Global:CurrentCorrelationId)
 ToolName                : $ToolName
-Username                : $([Environment]::UserDomainName + '\' + [Environment]::UserName)
-RunAs User              : $([Security.Principal.WindowsIdentity]::GetCurrent().Name)
-Machine                 : $($sys.Name) ($($os.Caption) $($os.Version))
-Host Application        : $([Environment]::CommandLine)
-Process ID              : $PID
 PSVersion               : $psVer
 PSEdition               : $psEd
 GitCommitId             : $gitId
