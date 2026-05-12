@@ -1684,7 +1684,8 @@ function Repair-Office {}
 function Uninstall-Office {}
 
 # Driver & Gaming
-function VideoDriverInstall {}
+function AutoVideoDriverInstall {}
+function VideoDriverReinstall {}
 function GamingToolkit {}
 
 # Supporto
@@ -1713,8 +1714,9 @@ $menuStructure = @(
         )
     },
     @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'VideoDriverInstall';Description = 'Driver Video Toolkit';        Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'GamingToolkit';    Description = 'Gaming Toolkit';               Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'AutoVideoDriverInstall'; Description = 'Installa Driver Video (Auto)';         Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'VideoDriverReinstall';   Description = 'Reinstalla Driver Video (Safe Mode)';  Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'GamingToolkit';          Description = 'Gaming Toolkit';                       Action = 'RunFunction' }
         )
     },
     @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @(
