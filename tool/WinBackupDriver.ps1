@@ -28,11 +28,6 @@ function WinBackupDriver {
 
     # ── Helper locali ─────────────────────────────────────────────────────────
 
-    function Test-AdministratorPrivilege {
-        $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    }
-
     function Initialize-BackupEnvironment {
         Write-StyledMessage -Type 'Info' -Text "🗂️ Inizializzazione ambiente backup."
         try {
@@ -195,14 +190,6 @@ function WinBackupDriver {
     # ── Logica principale ─────────────────────────────────────────────────────
 
     try {
-        if (-not (Test-AdministratorPrivilege)) {
-            Write-StyledMessage -Type 'Error' -Text "❌ Privilegi amministratore richiesti."
-            Write-StyledMessage -Type 'Info'  -Text "💡 Riavvia PowerShell come Amministratore."
-            Write-StyledMessage -Type 'Info'  -Text "`n⌨️ Premi un tasto per uscire."
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            return
-        }
-
         Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione sistema."
         Start-Sleep -Seconds 1
 
