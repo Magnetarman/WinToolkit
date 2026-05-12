@@ -856,8 +856,7 @@ function Start-ToolkitLog {
 [START LOG HEADER]
 Start time     : $dateTime
 ToolName       : $ToolName
-Username       : $([Environment]::UserDomainName + '\' + [Environment]::UserName)
-Machine        : $($env:COMPUTERNAME) ($($os.Caption) $($os.Version))
+OS             : $($os.Caption) $($os.Version)
 PSVersion      : $psVer
 ToolkitVersion : $($script:AppConfig.Header.Version)
 [END LOG HEADER]
