@@ -148,6 +148,15 @@ jobs:
               level3Files = [];
             }
 
+            // ── ESCLUSIONE WinToolkit.ps1 PER IL MAINTAINER ───────────────
+            // WinToolkit.ps1 è l'output compilato dalla CI stessa: per
+            // MagnetarMan non richiede revisione manuale ed è trattato come
+            // Livello 1 (silenzioso). Per tutti gli altri collaboratori il
+            // comportamento rimane invariato (Livello 3 → blocco).
+            if (isMaintainer) {
+              level2Files = level2Files.filter(f => f.filename !== 'WinToolkit.ps1');
+            }
+
             // ── LIVELLO 3: BLOCCO TOTALE ──────────────────────────────────
             if (level3Files.length > 0) {
               const fileList = level3Files.map(f => `- \`${f.filename}\``).join('\n');
