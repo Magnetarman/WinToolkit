@@ -56,7 +56,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.5.4 (Build 46)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -3232,21 +3232,30 @@ function Install-Office {
         [int]$CountdownSeconds = 30,
         [switch]$SuppressIndividualReboot
     )
-    Start-ToolkitLog -ToolName "OfficeInstall"
-    Show-Header -SubTitle "Office Install"
-    $Host.UI.RawUI.WindowTitle = "Office Install By MagnetarMan"
+    Start-ToolkitSession -ToolName "OfficeInstall" -SubTitle "Office Install"
     $tempDir = $AppConfig.Paths.OfficeTemp
+    function Set-OfficePostConfig {
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione Office."
+        foreach ($reg in @(
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";     Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "usercontentdisabled";   Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "downloadcontentdisabled"; Value = 1 },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 }
+        )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
+        Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
+        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
+    }
     try {
         Write-StyledMessage -Type 'Info' -Text "🏢 Avvio installazione Office Basic."
         if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
         $setupPath  = Join-Path $tempDir 'Setup.exe'
         $configPath = Join-Path $tempDir 'Basic.xml'
-        $downloads = @(
-            @{ Url = $AppConfig.URLs.OfficeSetup; Path = $setupPath; Name = 'Setup Office' },
+        foreach ($dl in @(
+            @{ Url = $AppConfig.URLs.OfficeSetup;       Path = $setupPath;  Name = 'Setup Office' },
             @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
-        )
-        foreach ($dl in $downloads) {
-            if (-not (Invoke-OfficeDownloadFile $dl.Url $dl.Path $dl.Name)) {
+        )) {
+            if (-not (Invoke-ToolkitDownload -Uri $dl.Url -OutputPath $dl.Path -Description $dl.Name)) {
                 Write-StyledMessage -Type 'Error' -Text "Download fallito. Installazione annullata."
                 return
             }
@@ -3272,7 +3281,7 @@ function Install-Office {
         }
     }
     finally {
-        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
+        Remove-ItemSafely -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Install terminato."
         Write-ToolkitLog -Level INFO -Message "Install-Office sessione terminata."
     }
@@ -3283,21 +3292,30 @@ function Repair-Office {
         [int]$CountdownSeconds = 30,
         [switch]$SuppressIndividualReboot
     )
-    Start-ToolkitLog -ToolName "OfficeRepair"
-    Show-Header -SubTitle "Office Repair"
-    $Host.UI.RawUI.WindowTitle = "Office Repair By MagnetarMan"
+    Start-ToolkitSession -ToolName "OfficeRepair" -SubTitle "Office Repair"
+    function Set-OfficePostConfig {
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-riparazione Office."
+        foreach ($reg in @(
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";       Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "usercontentdisabled";     Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "downloadcontentdisabled"; Value = 1 },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 }
+        )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
+        Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
+        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
+    }
     $needsReboot = $false
     try {
         Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione Office."
-        Stop-OfficeProcesses
+        Stop-ToolkitProcesses -ProcessNames @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
         Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cache Office."
-        $caches = @(
+        $cleanedCount = 0
+        foreach ($cache in @(
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
-        )
-        $cleanedCount = 0
-        foreach ($cache in $caches) {
-            if (Invoke-OfficeSilentRemoval -Path $cache -Recurse) { $cleanedCount++ }
+        )) {
+            if (Remove-ItemSafely -Path $cache -Recurse) { $cleanedCount++ }
         }
         if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate." }
         $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ?
@@ -3345,15 +3363,7 @@ function Repair-Office {
         Write-ToolkitLog -Level INFO -Message "Repair-Office sessione terminata."
     }
     if ($needsReboot) {
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
-        }
-        else {
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riparazione completata") {
-                Restart-Computer -Force
-            }
-        }
+        Invoke-ToolkitReboot -Message "Riparazione completata" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
     }
 }
 function Uninstall-Office {
@@ -3362,9 +3372,7 @@ function Uninstall-Office {
         [int]$CountdownSeconds = 30,
         [switch]$SuppressIndividualReboot
     )
-    Start-ToolkitLog -ToolName "OfficeUninstall"
-    Show-Header -SubTitle "Office Uninstall"
-    $Host.UI.RawUI.WindowTitle = "Office Uninstall By MagnetarMan"
+    Start-ToolkitSession -ToolName "OfficeUninstall" -SubTitle "Office Uninstall"
     $tempDir = $AppConfig.Paths.OfficeTemp
     function Get-WindowsVersion {
         try {
@@ -3382,7 +3390,7 @@ function Uninstall-Office {
         $failed  = @()
         foreach ($path in $Paths) {
             if (Test-Path $path) {
-                if (Invoke-OfficeSilentRemoval -Path $path -Recurse) { $removed += $path }
+                if (Remove-ItemSafely -Path $path -Recurse) { $removed += $path }
                 else { $failed += $path }
             }
         }
@@ -3405,12 +3413,11 @@ function Uninstall-Office {
                 }
             }
             Write-StyledMessage -Type 'Info' -Text "🔍 Ricerca nel registro."
-            $uninstallKeys = @(
+            foreach ($keyPath in @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
                 "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
-            )
-            foreach ($keyPath in $uninstallKeys) {
+            )) {
                 try {
                     $items = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue |
                         Where-Object { $_.DisplayName -like "*Office*" -or $_.DisplayName -like "*Microsoft 365*" }
@@ -3433,8 +3440,8 @@ function Uninstall-Office {
                 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
                 if ($service) {
                     try {
-                        Stop-Service -Name $serviceName -Force -ErrorAction Stop
-                        Set-Service -Name $serviceName -StartupType Disabled -ErrorAction Stop
+                        Stop-Service  -Name $serviceName -Force -ErrorAction Stop
+                        Set-Service   -Name $serviceName -StartupType Disabled -ErrorAction Stop
                         Write-StyledMessage -Type 'Success' -Text "Servizio arrestato: $serviceName."
                         $stoppedServices++
                     }
@@ -3442,7 +3449,7 @@ function Uninstall-Office {
                 }
             }
             Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cartelle Office."
-            $foldersToClean = @(
+            $folderResult = Remove-ItemsSilently -Paths @(
                 "$env:ProgramFiles\Microsoft Office",
                 "${env:ProgramFiles(x86)}\Microsoft Office",
                 "$env:ProgramFiles\Microsoft Office 15",
@@ -3453,12 +3460,11 @@ function Uninstall-Office {
                 "$env:LOCALAPPDATA\Microsoft\Office",
                 "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun",
                 "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun"
-            )
-            $folderResult = Remove-ItemsSilently -Paths $foldersToClean -ItemType "cartella"
-            if ($folderResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text "$($folderResult.Count) cartelle Office rimosse." }
-            if ($folderResult.Failed.Count -gt 0) { Write-StyledMessage -Type 'Warning' -Text "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)." }
+            ) -ItemType "cartella"
+            if ($folderResult.Count -gt 0)        { Write-StyledMessage -Type 'Success' -Text "$($folderResult.Count) cartelle Office rimosse." }
+            if ($folderResult.Failed.Count -gt 0)  { Write-StyledMessage -Type 'Warning' -Text "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)." }
             Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia registro Office."
-            $registryPaths = @(
+            $regResult = Remove-ItemsSilently -Paths @(
                 "HKCU:\Software\Microsoft\Office",
                 "HKLM:\SOFTWARE\Microsoft\Office",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office",
@@ -3466,8 +3472,7 @@ function Uninstall-Office {
                 "HKLM:\SOFTWARE\Microsoft\Office\16.0",
                 "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun"
-            )
-            $regResult = Remove-ItemsSilently -Paths $registryPaths -ItemType "chiave"
+            ) -ItemType "chiave"
             if ($regResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text "$($regResult.Count) chiavi registro Office rimosse." }
             Write-StyledMessage -Type 'Info' -Text "📅 Pulizia attività pianificate."
             $tasksRemoved = 0
@@ -3481,24 +3486,21 @@ function Uninstall-Office {
             }
             catch {}
             Write-StyledMessage -Type 'Info' -Text "🖥️ Rimozione collegamenti Office."
-            $officeShortcuts = @(
-                "Microsoft Word*.lnk", "Microsoft Excel*.lnk", "Microsoft PowerPoint*.lnk",
-                "Microsoft Outlook*.lnk", "Microsoft OneNote*.lnk", "Microsoft Access*.lnk",
-                "Office*.lnk", "Word*.lnk", "Excel*.lnk", "PowerPoint*.lnk", "Outlook*.lnk"
-            )
-            $desktopPaths = @(
+            $shortcutsRemoved = 0
+            foreach ($desktopPath in @(
                 $AppConfig.Paths.Desktop,
                 "$env:PUBLIC\Desktop",
                 "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
                 "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs"
-            )
-            $shortcutsRemoved = 0
-            foreach ($desktopPath in $desktopPaths) {
+            )) {
                 if (Test-Path $desktopPath) {
-                    foreach ($shortcut in $officeShortcuts) {
-                        $shortcutFiles = Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue
-                        foreach ($file in $shortcutFiles) {
-                            if (Invoke-OfficeSilentRemoval -Path $file.FullName) { $shortcutsRemoved++ }
+                    foreach ($shortcut in @(
+                        "Microsoft Word*.lnk", "Microsoft Excel*.lnk", "Microsoft PowerPoint*.lnk",
+                        "Microsoft Outlook*.lnk", "Microsoft OneNote*.lnk", "Microsoft Access*.lnk",
+                        "Office*.lnk", "Word*.lnk", "Excel*.lnk", "PowerPoint*.lnk", "Outlook*.lnk"
+                    )) {
+                        foreach ($file in (Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue)) {
+                            if (Remove-ItemSafely -Path $file.FullName) { $shortcutsRemoved++ }
                         }
                     }
                 }
@@ -3524,7 +3526,7 @@ function Uninstall-Office {
         try {
             if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
             $getHelpZipPath = Join-Path $tempDir 'GetHelp.zip'
-            if (-not (Invoke-OfficeDownloadFile $AppConfig.URLs.GetHelpInstaller $getHelpZipPath 'Microsoft Get Help')) {
+            if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.GetHelpInstaller -OutputPath $getHelpZipPath -Description 'Microsoft Get Help')) {
                 return $false
             }
             Write-StyledMessage -Type 'Info' -Text "📦 Estrazione Get Help."
@@ -3547,20 +3549,19 @@ function Uninstall-Office {
                 $result = Invoke-WithSpinner -Activity "Rimozione Office tramite Get Help" -Command $getHelpExe.FullName `
                     -Arguments '-S OfficeScrubScenario -AcceptEula' `
                     -TimeoutSeconds 86400 -LogContextKey "Office-Uninstall-GetHelp"
-                $outputStr = $result.StdOut + $result.StdErr
+                $outputStr    = $result.StdOut + $result.StdErr
                 $isInvalidArgs = $outputStr -match "Error: Invalid command line arguments" -or $outputStr -match "Usage: GetHelpCmd\.exe"
                 if ($result.ExitCode -eq 0 -and -not $isInvalidArgs) {
-                    $blockingProcesses = @('Setup', 'SaRACmd', 'Microsoft.Support.Recovery.Assistant.App', 'OfficeClickToRun', 'Integrator', 'GetHelpCmd', 'OfficeScrub', 'cscript')
-                    $waitStart = Get-Date
+                    $blockingProcesses = @('Setup', 'GetHelpCmd', 'OfficeClickToRun', 'Integrator', 'OfficeScrub', 'cscript')
+                    $waitStart         = Get-Date
                     Start-Sleep -Seconds 12
                     if (Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) {
-                        Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna."
-                        Write-StyledMessage -Type 'Info' -Text "   Il Toolkit rimarrà in attesa fino alla chiusura del processo di rimozione..."
+                        Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna. Attesa completamento..."
                         $spinnerIndex = 0
                         while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalSeconds -lt 2700) {
                             $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
                             $spinner = if ($Global:Spinners) { $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length] } else { '' }
-                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso in finestra esterna... ($elapsed secondi)" -Percent 90 -Icon '⏳' -Spinner $spinner
+                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso... ($elapsed secondi)" -Percent 90 -Icon '⏳' -Spinner $spinner
                             Start-Sleep -Milliseconds 500
                         }
                         Clear-ProgressLine
@@ -3570,14 +3571,12 @@ function Uninstall-Office {
                 }
                 else {
                     $reason = if ($isInvalidArgs) { "Parametri non supportati dalla versione del tool" } else { "Codice uscita: $($result.ExitCode)" }
-                    Write-StyledMessage -Type 'Warning' -Text "Get Help fallito: $reason."
-                    Write-StyledMessage -Type 'Info' -Text "💡 Tentativo metodo alternativo (Rimozione Diretta)."
+                    Write-StyledMessage -Type 'Warning' -Text "Get Help fallito: $reason. Tentativo metodo alternativo."
                     return Remove-OfficeDirectly
                 }
             }
             catch {
-                Write-StyledMessage -Type 'Warning' -Text "Errore durante esecuzione Get Help: $($_.Exception.Message)."
-                Write-StyledMessage -Type 'Info' -Text "💡 Passaggio a metodo alternativo."
+                Write-StyledMessage -Type 'Warning' -Text "Errore durante esecuzione Get Help: $($_.Exception.Message). Passaggio a metodo alternativo."
                 return Remove-OfficeDirectly
             }
         }
@@ -3586,13 +3585,13 @@ function Uninstall-Office {
             return $false
         }
         finally {
-            Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
+            Remove-ItemSafely -Path $tempDir -Recurse
         }
     }
     $needsReboot = $false
     try {
         Write-StyledMessage -Type 'Warning' -Text "🗑️ Avvio rimozione completa Microsoft Office."
-        Stop-OfficeProcesses
+        Stop-ToolkitProcesses -ProcessNames @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
         Write-StyledMessage -Type 'Info' -Text "🔍 Rilevamento versione Windows."
         $windowsVersion = Get-WindowsVersion
         Write-StyledMessage -Type 'Info' -Text "🎯 Versione rilevata: $windowsVersion."
@@ -3628,20 +3627,12 @@ function Uninstall-Office {
     }
     finally {
         Write-StyledMessage -Type 'Success' -Text "🧹 Pulizia finale."
-        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
+        Remove-ItemSafely -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Uninstall terminato."
         Write-ToolkitLog -Level INFO -Message "Uninstall-Office sessione terminata."
     }
     if ($needsReboot) {
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
-        }
-        else {
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Rimozione completata") {
-                Restart-Computer -Force
-            }
-        }
+        Invoke-ToolkitReboot -Message "Rimozione completata" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
     }
 }
 function VideoDriverInstall {
