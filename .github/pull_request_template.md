@@ -1,44 +1,52 @@
-## 🚀 Pull Request Info
+## Descrizione
 
-| Tipo di Modifica | Dettaglio |
-| :--- | :--- |
-| **Branch Destinazione** | `DEV` (Obbligatorio) |
-| **Issue Collegata** | Fixes # |
-| **Ambito** | [Es. Tooling / UI / Core] |
+<!-- Spiega cosa cambia e perché. Sii conciso ma completo. -->
+
+Fixes # <!-- Rimuovi se non c'è un'issue collegata -->
 
 ---
 
-## 📝 Descrizione delle Modifiche
-Fornisci un riepilogo tecnico ma leggibile di cosa cambia e perché. Utilizza elenchi puntati se necessario.
+## Tipo di Modifica
+
+<!-- Seleziona tutti i tipi applicabili -->
+- [ ] 🐛 Bug fix
+- [ ] ✨ Nuova feature
+- [ ] ♻️ Refactoring (nessun cambio funzionale)
+- [ ] 🧹 Pulizia / Manutenzione
+- [ ] 📖 Documentazione
 
 ---
 
-## 🛑 CHECKLIST DI QUALITÀ (Standard WinToolkit)
-*L'assenza di una spunta o la violazione delle regole comporterà il rifiuto automatico della PR.*
+## File Modificati
 
-- [ ] **Branch di destinazione**: Ho indirizzato la PR a `DEV`. (PR verso `main` saranno chiuse immediatamente).
-- [ ] **Atomicità**: Questa PR risolve **UN** singolo problema o aggiunge **UNA** singola feature.
-- [ ] **Integrità Build**: Dichiaro di NON aver modificato manualmente `WinToolkit.ps1` (gestito dall'automazione).
-- [ ] **Targeting Corretto**: Ho modificato solo i file in `/tool/*.ps1` o `WinToolkit-template.ps1`.
-- [ ] **Stile Code**: Ho seguito lo stile di scripting esistente e non ho lasciato debug code.
-- [ ] **Lingua e Commit**: Ho scritto commit chiari in italiano (max 72 char per riga).
+<!-- Elenca ogni file con una riga di descrizione -->
+- `tool/NomeFile.ps1` — descrizione della modifica
 
 ---
 
-## 🛠️ Dettagli Tecnici & Architetturali
-Elenca i file modificati e la logica applicata:
-- `file1.ps1` -> Descrizione modifica...
-- `file2.ps1` -> Descrizione modifica...
+## Test & Verifica
+
+- [ ] Verificato localmente tramite `compiler.ps1`
+- [ ] Log di esecuzione allegati (snippet o screenshot)
+
+<details>
+<summary>Log / Screenshot</summary>
+
+```
+Incolla qui i log rilevanti
+```
+
+</details>
 
 ---
 
-## 🧪 Risultati dei Test e Log
-È fortemente consigliato includere uno snippet dei log di test o uno screenshot del corretto funzionamento.
-- [ ] Ho verificato le modifiche localmente tramite `compiler.ps1`.
-- [ ] Ho allegato/incollato i log di successo qui sotto.
+## Checklist
 
----
+> L'assenza di una spunta o la violazione di una regola comporta il rifiuto automatico della PR.
 
-## 📖 Documentazione (Se applicabile)
-- [ ] Ho aggiornato i commenti nel codice (fogli di aiuto/help docs).
-- [ ] Ho aggiornato il README o la documentazione esterna se necessario.
+- [ ] PR indirizzata a `DEV` — le PR verso `main` vengono chiuse immediatamente
+- [ ] Modifica atomica: un solo problema o una sola feature per PR
+- [ ] `WinToolkit.ps1` **non** modificato manualmente (gestito dall'automazione CI)
+- [ ] Modificati solo file in `/tool/*.ps1` o `WinToolkit-template.ps1`
+- [ ] Stile di codice esistente rispettato, nessun debug code lasciato
+- [ ] Commit chiari in italiano, max 72 caratteri per riga
