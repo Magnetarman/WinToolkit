@@ -112,7 +112,7 @@ jobs:
           commit_message: "🆙 Bump versione v${{ steps.version.outputs.new_version }}"
           file_pattern: "WinToolkit-template.ps1"
           branch: Dev
-          push_options: "--force"
+          push_options: "--force-with-lease"
           skip_fetch: true
 
   # ===========================================================================
@@ -216,7 +216,7 @@ jobs:
           commit_message: "✅ Compilato WinToolkit v${{ needs.versioning.outputs.new_version }}"
           file_pattern: "WinToolkit.ps1"
           branch: Dev
-          push_options: "--force"
+          push_options: "--force-with-lease"
           skip_fetch: true
 
       # ── SUMMARY ─────────────────────────────────────────────────────────
