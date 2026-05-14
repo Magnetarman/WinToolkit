@@ -546,7 +546,7 @@ jobs:
           commit_message: "✅ Compilato WinToolkit v${{ steps.version_label.outputs.new_version }}"
           file_pattern: "WinToolkit.ps1"
           branch: ${{ github.ref_name }}
-          push_options: "--force"
+          push_options: "--force-with-lease"
           skip_fetch: true
 
       # ── SUMMARY (solo Dev) ───────────────────────────────────────────────
