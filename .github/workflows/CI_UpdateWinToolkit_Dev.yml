@@ -255,6 +255,46 @@ jobs:
             // ── LIVELLO 1: solo tool/ — nessuna azione necessaria ─────────
 
   # ===========================================================================
+  # JOB DETECT_CHANGES — Rileva modifiche a file sorgente PS1
+  # Se le modifiche riguardano solo file CI/CD (.yml) o documentazione,
+  # linting/test/build vengono saltati (inutili senza cambiamenti al codice).
+  # ===========================================================================
+  detect_changes:
+    name: Detect Source Changes
+    runs-on: ubuntu-latest
+    outputs:
+      run_checks: ${{ steps.filter.outputs.run_checks }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for PS1 source changes
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git show --name-only --format="" HEAD)
+            else
+              CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+            fi
+          fi
+          echo "File modificati:"
+          echo "$CHANGED"
+          if echo "$CHANGED" | grep -qE '^(tool/[^/]+\.ps1|WinToolkit-template\.ps1|start\.ps1|start-offline\.ps1|WinToolkit-GUI\.ps1|compiler\.ps1|\.github/(tests|scripts)/[^/]+\.ps1)$'; then
+            echo "run_checks=true" >> "$GITHUB_OUTPUT"
+            echo "Modifiche a file sorgente PS1 rilevate — pipeline completa."
+          else
+            echo "run_checks=false" >> "$GITHUB_OUTPUT"
+            echo "Nessuna modifica a file sorgente PS1 — linting/test/build saltati."
+          fi
+
+  # ===========================================================================
   # JOB 1: LINTING
   # Analisi statica con PSScriptAnalyzer + check sintattico AST su compiler.ps1.
   # Gira su tutti gli eventi (push + PR).
@@ -262,6 +302,8 @@ jobs:
   linting:
     name: Linting
     runs-on: windows-latest
+    needs: detect_changes
+    if: needs.detect_changes.outputs.run_checks == 'true'
     permissions:
       contents: read
     env:
