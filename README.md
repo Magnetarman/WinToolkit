@@ -119,19 +119,6 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ---
 
-## 🏗️ Architettura e sviluppo
-
-> [!NOTE]
-> Questa sezione è rivolta a **contributor e utenti avanzati** che vogliono capire come funziona WinToolkit internamente, come modificarlo o come testare le proprie modifiche prima di aprire una PR.
-
-WinToolkit usa un sistema di build personalizzato: i sorgenti risiedono nel branch **`Dev`** e vengono compilati automaticamente dalla pipeline CI in un unico file distribuibile su **`main`**. Gli utenti finali clonano `main` e ottengono il toolkit pronto all'uso; i contributor lavorano su `Dev`.
-
-Per orientarsi nell'architettura del progetto — flusso `Dev` → `main`, compilatore, struttura dei moduli, pipeline CI/CD e istruzioni per testare localmente — leggi:
-
-📄 **[ARCHITECTURE.md](ARCHITECTURE.md)**
-
----
-
 ## 📽️ Parlano di WinToolkit
 
 | Img Canale                                                            | Link                                                                                                                          |
@@ -205,6 +192,21 @@ Per effettuare una donazione, clicca sul bottone PayPal qui sotto aggiungendo un
 🏆 Entra nella Hall of Fame: ogni donatore verrà incluso in una nuova sezione dedicata all'interno della lista dei contributori come ringraziamento per il tuo prezioso supporto.
 
 ✨ Accesso esclusivo alla futura "GUI Edition" (coming soon): per coprire i costi e il tempo di sviluppo che impiego, la futura e attesissima versione con interfaccia grafica (GUI) sarà facilmente offerta in anteprima a chi avrà supportato il progetto con una donazione libera. La versione da terminale (attualmente disponibile) rimarrà comunque completamente gratuita per tutti.
+
+---
+
+## 🏗️ Architettura e sviluppo
+
+> [!NOTE]
+> Questa sezione è rivolta a **contributor e utenti avanzati** che vogliono capire come funziona WinToolkit internamente, come modificarlo o come testare le proprie modifiche prima di aprire una PR.
+
+WinToolkit usa un sistema di build personalizzato: i sorgenti risiedono nel branch **`Dev`** e vengono compilati automaticamente dalla pipeline CI in un unico file distribuibile su **`main`**. Gli utenti finali clonano `main` e ottengono il toolkit pronto all'uso; i contributor lavorano su `Dev`.
+
+Per orientarsi nell'architettura del progetto — flusso `Dev` → `main`, compilatore, struttura dei moduli, pipeline CI/CD e istruzioni per testare localmente — leggi:
+
+📄 **[ARCHITECTURE.md](.github/Docs/ARCHITECTURE.md)**
+
+---
 
 ### 🔰 Contribuisci
 
