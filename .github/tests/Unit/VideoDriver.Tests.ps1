@@ -40,8 +40,10 @@ Describe 'VideoDriverInstall — Firma' {
     }
 
     It '-CountdownSeconds deve avere valore di default 30' {
-        $default = (Get-Command VideoDriverInstall).Parameters['CountdownSeconds'].DefaultValue
-        $default | Should -Be 30
+        $cmd = Get-Command VideoDriverInstall
+        $param = $cmd.ScriptBlock.Ast.Body.ParamBlock.Parameters |
+            Where-Object { $_.Name.VariablePath.UserPath -eq 'CountdownSeconds' }
+        $param.DefaultValue.Value | Should -Be 30
     }
 }
 

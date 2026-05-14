@@ -4,7 +4,7 @@
 </p>
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
-	<img src="https://img.shields.io/badge/version-2.5.4-brightgreen.svg?style=for-the-badge" alt="versione">
+	<img src="https://img.shields.io/github/v/release/Magnetarman/WinToolkit?style=for-the-badge&label=versione&color=brightgreen" alt="versione">
 	<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
 	<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 	<img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main">
@@ -116,6 +116,19 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 - [Changelog - Leggi le modifiche introdotte.](/CHANGELOG.md)
 - [To-Do - Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)
+
+---
+
+## 🏗️ Architettura e sviluppo
+
+> [!NOTE]
+> Questa sezione è rivolta a **contributor e utenti avanzati** che vogliono capire come funziona WinToolkit internamente, come modificarlo o come testare le proprie modifiche prima di aprire una PR.
+
+WinToolkit usa un sistema di build personalizzato: i sorgenti risiedono nel branch **`Dev`** e vengono compilati automaticamente dalla pipeline CI in un unico file distribuibile su **`main`**. Gli utenti finali clonano `main` e ottengono il toolkit pronto all'uso; i contributor lavorano su `Dev`.
+
+Per orientarsi nell'architettura del progetto — flusso `Dev` → `main`, compilatore, struttura dei moduli, pipeline CI/CD e istruzioni per testare localmente — leggi:
+
+📄 **[ARCHITECTURE.md](ARCHITECTURE.md)**
 
 ---
 

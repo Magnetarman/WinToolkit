@@ -1,0 +1,29 @@
+# Normalizzazione line ending — sostituisce la configurazione manuale
+# di core.autocrlf nei workflow CI.
+
+* text=auto
+
+# PowerShell: CRLF (Windows standard)
+*.ps1  text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+*.ps1xml text eol=crlf
+
+# YAML, Markdown, JSON: LF (Unix standard, compatibile con GitHub/Actions)
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.txt  text eol=lf
+
+# Binari: nessuna conversione
+*.exe  binary
+*.zip  binary
+*.dll  binary
+*.png  binary
+*.jpg  binary
+*.ico  binary
+
+# Batch: CRLF (richiesto da Windows)
+*.bat  text eol=crlf
+*.cmd  text eol=crlf

@@ -1,0 +1,30 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# PowerShell usa CRLF per compatibilità Windows
+[*.{ps1,psm1,psd1,ps1xml}]
+end_of_line = crlf
+indent_size = 4
+
+# Batch scripts
+[*.{bat,cmd}]
+end_of_line = crlf
+
+# YAML: 2 spazi per convenzione
+[*.{yml,yaml}]
+indent_size = 2
+
+# JSON
+[*.json]
+indent_size = 2
+
+# Markdown
+[*.md]
+trim_trailing_whitespace = false
