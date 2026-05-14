@@ -114,8 +114,8 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ## 📌 Changelog
 
-- [Changelog - Leggi le modifiche introdotte.](/CHANGELOG.md)
-- [To-Do - Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)
+- 📄 **[Changelog.md - Leggi le modifiche introdotte.](/CHANGELOG.md)**
+- 📄 **[To-Do.md - Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)**
 
 ---
 
