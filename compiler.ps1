@@ -240,6 +240,7 @@ Write-Host ""
 if ($Minify) {
     Write-StyledMessage 'Info' "Avvio minificazione sicura via tokenizer PowerShell."
     try {
+        $backupLines = $templateLines
         $rawContent = $templateLines -join "`n"
 
         $parseErrors = $null
@@ -288,8 +289,7 @@ if ($Minify) {
             foreach ($e in $verifyErrors) {
                 Write-StyledMessage 'Warning' "  Riga $($e.Extent.StartLineNumber): $($e.Message)."
             }
-            $templateLines = $templateLines -join "`n" | ForEach-Object { $_ }
-            $templateLines = (($templateLines) -split "`n")
+            $templateLines = $backupLines
         }
         else {
             $linesAfter = $templateLines.Count
