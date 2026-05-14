@@ -86,8 +86,10 @@ try {
             $newLine = "`$ToolkitVersion = `"$script:NewVersion`""
             $content = $content -replace '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]', $newLine
 
-            # Scrivi il file aggiornato con encoding UTF8
-            $content | Set-Content -Path $TemplatePath -Encoding UTF8
+            # Scrivi il file aggiornato in modo atomico (temp + rename)
+            $tempPath = "$TemplatePath.tmp"
+            $content | Set-Content -Path $tempPath -Encoding UTF8
+            Move-Item $tempPath $TemplatePath -Force
 
             Write-StatusMessage -Message "✅ Versione incrementata con successo" -Type Success
         }
