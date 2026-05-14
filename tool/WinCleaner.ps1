@@ -452,7 +452,7 @@ function WinCleaner {
                                 ForEach-Object { Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue }
                             Get-ChildItem -Path $p -Recurse -Directory -Force -ErrorAction SilentlyContinue |
                                 Sort-Object { $_.FullName.Length } -Descending |
-                                ForEach-Object { Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue }
+                                ForEach-Object { Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
                         }
                     }
                 }
