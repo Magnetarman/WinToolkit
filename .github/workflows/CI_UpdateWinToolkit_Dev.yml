@@ -22,6 +22,7 @@
 name: CI_WinToolkit_Enterprise
 
 env:
+  # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # ---------------------------------------------------------------------------
@@ -100,12 +101,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
       - name: Verify Changed Files
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -255,6 +256,46 @@ jobs:
             // ── LIVELLO 1: solo tool/ — nessuna azione necessaria ─────────
 
   # ===========================================================================
+  # JOB DETECT_CHANGES — Rileva modifiche a file sorgente PS1
+  # Se le modifiche riguardano solo file CI/CD (.yml) o documentazione,
+  # linting/test/build vengono saltati (inutili senza cambiamenti al codice).
+  # ===========================================================================
+  detect_changes:
+    name: Detect Source Changes
+    runs-on: ubuntu-latest
+    outputs:
+      run_checks: ${{ steps.filter.outputs.run_checks }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for PS1 source changes
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git show --name-only --format="" HEAD)
+            else
+              CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+            fi
+          fi
+          echo "File modificati:"
+          echo "$CHANGED"
+          if echo "$CHANGED" | grep -qE '^(tool/[^/]+\.ps1|WinToolkit-template\.ps1|start\.ps1|start-offline\.ps1|WinToolkit-GUI\.ps1|compiler\.ps1|\.github/(tests|scripts)/[^/]+\.ps1)$'; then
+            echo "run_checks=true" >> "$GITHUB_OUTPUT"
+            echo "Modifiche a file sorgente PS1 rilevate — pipeline completa."
+          else
+            echo "run_checks=false" >> "$GITHUB_OUTPUT"
+            echo "Nessuna modifica a file sorgente PS1 — linting/test/build saltati."
+          fi
+
+  # ===========================================================================
   # JOB 1: LINTING
   # Analisi statica con PSScriptAnalyzer + check sintattico AST su compiler.ps1.
   # Gira su tutti gli eventi (push + PR).
@@ -262,6 +303,8 @@ jobs:
   linting:
     name: Linting
     runs-on: windows-latest
+    needs: detect_changes
+    if: needs.detect_changes.outputs.run_checks == 'true'
     permissions:
       contents: read
     env:
@@ -269,7 +312,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
@@ -360,7 +403,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
@@ -381,12 +424,21 @@ jobs:
         run: |
           Write-Host "::group::WinToolkit Pester Test Suite"
           $config = New-PesterConfiguration
-          $config.Run.Path                = '.github/tests/WinToolkit.Tests.ps1'
+          $config.Run.Path                = @(
+            '.github/tests/WinToolkit.Tests.ps1',
+            '.github/tests/Unit',
+            '.github/tests/Integration'
+          )
           $config.Run.PassThru            = $true
           $config.Output.Verbosity        = 'Detailed'
           $config.TestResult.Enabled      = $true
           $config.TestResult.OutputPath   = 'TestResults.xml'
           $config.TestResult.OutputFormat = 'NUnitXml'
+          $config.CodeCoverage.Enabled               = $true
+          $config.CodeCoverage.CoveragePercentTarget = 70
+          $config.CodeCoverage.Path                  = @('WinToolkit-template.ps1', 'tool/*.ps1')
+          $config.CodeCoverage.OutputPath            = 'coverage.xml'
+          $config.Filter.ExcludeTag                  = @('Slow')
           $result = Invoke-Pester -Configuration $config
           Write-Host "::endgroup::"
 
@@ -405,10 +457,12 @@ jobs:
 
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: pester-test-results
-          path: TestResults.xml
+          path: |
+            TestResults.xml
+            coverage.xml
           retention-days: 30
 
   # ===========================================================================
@@ -444,7 +498,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -541,7 +595,7 @@ jobs:
       # ── COMMIT — branch-aware (Dev o feature/*) ─────────────────────────
       - name: Commit WinToolkit.ps1
         if: steps.test_compiled.outputs.tests_passed == 'true'
-        uses: stefanzweifel/git-auto-commit-action@v7
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
         with:
           commit_message: "✅ Compilato WinToolkit v${{ steps.version_label.outputs.new_version }}"
           file_pattern: "WinToolkit.ps1"
