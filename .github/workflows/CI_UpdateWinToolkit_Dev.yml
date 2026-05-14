@@ -106,7 +106,7 @@ jobs:
           fetch-depth: 0
 
       - name: Verify Changed Files
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -424,12 +424,21 @@ jobs:
         run: |
           Write-Host "::group::WinToolkit Pester Test Suite"
           $config = New-PesterConfiguration
-          $config.Run.Path                = '.github/tests/WinToolkit.Tests.ps1'
+          $config.Run.Path                = @(
+            '.github/tests/WinToolkit.Tests.ps1',
+            '.github/tests/Unit',
+            '.github/tests/Integration'
+          )
           $config.Run.PassThru            = $true
           $config.Output.Verbosity        = 'Detailed'
           $config.TestResult.Enabled      = $true
           $config.TestResult.OutputPath   = 'TestResults.xml'
           $config.TestResult.OutputFormat = 'NUnitXml'
+          $config.CodeCoverage.Enabled               = $true
+          $config.CodeCoverage.CoveragePercentTarget = 70
+          $config.CodeCoverage.Path                  = @('WinToolkit-template.ps1', 'tool/*.ps1')
+          $config.CodeCoverage.OutputPath            = 'coverage.xml'
+          $config.Filter.ExcludeTag                  = @('Slow')
           $result = Invoke-Pester -Configuration $config
           Write-Host "::endgroup::"
 
@@ -448,7 +457,7 @@ jobs:
 
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: pester-test-results
           path: TestResults.xml
@@ -584,7 +593,7 @@ jobs:
       # ── COMMIT — branch-aware (Dev o feature/*) ─────────────────────────
       - name: Commit WinToolkit.ps1
         if: steps.test_compiled.outputs.tests_passed == 'true'
-        uses: stefanzweifel/git-auto-commit-action@v7
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
         with:
           commit_message: "✅ Compilato WinToolkit v${{ steps.version_label.outputs.new_version }}"
           file_pattern: "WinToolkit.ps1"
