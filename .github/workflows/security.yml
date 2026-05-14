@@ -56,7 +56,10 @@ jobs:
             -Path . `
             -Recurse `
             -Severity Error `
-            -Settings .github/linters/PSScriptAnalyzer-settings.psd1
+            -IncludeRule PSAvoidUsingConvertToSecureStringWithPlainText,
+                         PSAvoidUsingPlainTextForPassword,
+                         PSAvoidUsingUsernameAndPasswordParams,
+                         PSAvoidUsingInvokeExpression
 
           if ($errors) {
             $errors | Format-Table -AutoSize
