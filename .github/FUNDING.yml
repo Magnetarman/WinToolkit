@@ -1,0 +1,9 @@
+# GitHub mostra automaticamente un pulsante "Sponsor" con questo file.
+# Supporta WinToolkit con una donazione!
+
+# Donazione spot (una tantum) — PayPal
+custom:
+  - https://www.paypal.com/paypalme/MagnetarManIT
+
+# Donazione ricorrente — Ko-fi
+ko_fi: magnetarman

@@ -1,0 +1,9 @@
+# Tutti i file del repository richiedono revisione di @Magnetarman
+* @Magnetarman
+
+# File core e workflow CI
+/.github/workflows/ @Magnetarman
+/.github/scripts/ @Magnetarman
+
+# Moduli tool
+/tool/ @Magnetarman
