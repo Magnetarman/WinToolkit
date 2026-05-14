@@ -9,16 +9,17 @@ permissions:
   pull-requests: write
 
 env:
+  # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   create_release_branch:
     name: Generate Release Branch
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout Source Repository (Dev)
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: Dev
           fetch-depth: 0 # Necessario per fare checkout tra branche
@@ -31,10 +32,10 @@ jobs:
             Write-Error "❌ File WinToolkit.ps1 non trovato nel branch Dev."
             exit 1
           }
-          
+
           # Cerchiamo la riga esatta: $ToolkitVersion = "2.5.3 (Build 4)"
           $versionLine = Get-Content -Path 'WinToolkit.ps1' | Select-String -Pattern '\$ToolkitVersion\s*=\s*"(.*?)\s*\(Build'
-          
+
           if ($versionLine) {
             # Estrarrà solo '2.5.3' (il primo gruppo di cattura prima di '(Build')
             $versionStr = $versionLine.Matches[0].Groups[1].Value.Trim()
@@ -67,15 +68,21 @@ jobs:
           # Checkout di main (e assicuriamoci sia aggiornato)
           git checkout main
           git pull origin main
-          
+
+          # Verifica preventiva: se il branch esiste già su remote, fallisce subito
+          $branchExists = git ls-remote --heads origin $env:BRANCH_NAME
+          if ($branchExists) {
+              Write-Error "❌ Il branch $($env:BRANCH_NAME) esiste già su origin. Eliminarlo prima di procedere."
+              exit 1
+          }
+
           # Creiamo il nuovo branch derivato da main
           Write-Host "Creazione branch $($env:BRANCH_NAME) basato su main..."
-          # Se il branch esiste localmente o remote, fallirà e l'utente dovrà cancellarlo
           git checkout -b $env:BRANCH_NAME
-          
+
           # Copia (checkout) parziale dal branch Dev origin/Dev
           Write-Host "Effettuando checkout parziale da origin/Dev..."
-          
+
           # I file specificati verranno sovrascritti nel nuovo branch prendendoli da Dev
           $filesToInclude = @(
             "start.ps1",
@@ -90,7 +97,7 @@ jobs:
             ".github/workflows/Release_Wintoolkit.yml",
             ".github/CODE_OF_CONDUCT.md",
             ".github/CONTRIBUTING.md",
-            ".github/pull_request_template.md"
+            ".github/Docs/PR_And_PullRequest.md"
           )
           git checkout origin/Dev -- $filesToInclude
           if ($LASTEXITCODE -ne 0) {
@@ -120,10 +127,10 @@ jobs:
             ".github/workflows/Release_Wintoolkit.yml",
             ".github/CODE_OF_CONDUCT.md",
             ".github/CONTRIBUTING.md",
-            ".github/pull_request_template.md"
+            ".github/Docs/PR_And_PullRequest.md"
           )
           git add $filesToInclude
-          
+
           # Verifica se ci sono modifiche prima di committare
           git diff-index --quiet HEAD
           if ($LASTEXITCODE -ne 0) {
@@ -131,7 +138,7 @@ jobs:
           } else {
             Write-Host "Nessuna modifica rilevata, salto il commit."
           }
-          
+
       - name: Push Branch su Origin
         shell: pwsh
         run: |
