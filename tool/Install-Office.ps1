@@ -31,7 +31,9 @@ function Install-Office {
     try {
         Write-StyledMessage -Type 'Info' -Text "🏢 Avvio installazione Office Basic."
 
-        if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
+        if (-not (Test-Path $tempDir)) {
+            $null = New-Item -ItemType Directory -Path $tempDir -Force
+        }
 
         $setupPath  = Join-Path $tempDir 'Setup.exe'
         $configPath = Join-Path $tempDir 'Basic.xml'
