@@ -417,11 +417,42 @@ jobs:
           } else {
             Write-Host "Pester $($installed[0].Version) gia installato" -ForegroundColor Green
           }
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Write-Host "Installing PSScriptAnalyzer..." -ForegroundColor Yellow
+            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+          } else {
+            Write-Host "PSScriptAnalyzer gia installato" -ForegroundColor Green
+          }
 
       - name: Run Pester Tests
         id: pester
         shell: pwsh
         run: |
+          # ── PSScriptAnalyzer Check ──────────────────────────────────────────
+          Write-Host "::group::PSScriptAnalyzer — Analisi statica sorgenti"
+          $analyzerConfig = @{
+            ExcludeRules = @(
+              'PSUseApprovedVerbs',
+              'PSAvoidUsingPositionalParameters'
+            )
+          }
+          $analyzerResults = Invoke-ScriptAnalyzer `
+            -Path '*.ps1' `
+            -Severity Warning `
+            -Settings $analyzerConfig
+          $analyzerResults += Invoke-ScriptAnalyzer `
+            -Path 'tool\*.ps1' `
+            -Severity Warning `
+            -Settings $analyzerConfig
+          Write-Host "::endgroup::"
+          if ($analyzerResults) {
+            $analyzerResults | Format-Table -AutoSize
+            Write-Host "::error::PSScriptAnalyzer ha rilevato $($analyzerResults.Count) violazione/i — pipeline bloccata."
+            exit 1
+          }
+          Write-Host "PSScriptAnalyzer: nessuna violazione rilevata." -ForegroundColor Green
+
+          # ── Pester Test Suite ───────────────────────────────────────────────
           Write-Host "::group::WinToolkit Pester Test Suite"
           $config = New-PesterConfiguration
           $config.Run.Path                = @(
