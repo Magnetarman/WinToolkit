@@ -56,7 +56,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.5.4 (Build 46)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
@@ -2689,16 +2689,30 @@ function WinCleaner {
             ); FilesOnly = $false
         }
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs."
+                Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs (classici + moderni)."
+                $classicLogs = Get-EventLog -List -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Log
+                foreach ($logName in $classicLogs) {
+                    try {
+                        Clear-EventLog -LogName $logName -ErrorAction Stop
+                        Write-ToolkitLog -Level DEBUG -Message "Clear-EventLog: $logName"
+                    }
+                    catch {
+                        Write-ToolkitLog -Level DEBUG -Message "Clear-EventLog [$logName]: $($_.Exception.Message)"
+                    }
+                }
                 $wevtErr = $null
                 & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr *>$null
                 if ($wevtErr) { Write-ToolkitLog -Level DEBUG -Message "wevtutil sl output: $wevtErr" }
                 Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object {
                     $logName = $_.LogName
+                    if ($_.LogType -in 'Analytical', 'Debug') {
+                        Wevtutil.exe sl $logName /e:false *>$null
+                    }
                     $clErr = $null
                     Wevtutil.exe cl $logName 2>&1 | Out-String -OutVariable clErr *>$null
                     if ($LASTEXITCODE -ne 0 -and $clErr) { Write-ToolkitLog -Level DEBUG -Message "Wevtutil cl [$logName]: $clErr" }
                 }
+                Add-CleanerLog -Type 'Success' -Text "Event Log classici e moderni cancellati."
             }
         }
         @{ Name = "Clear Windows Update cache"; Type = "Custom"; ScriptBlock = {
@@ -2768,13 +2782,48 @@ function WinCleaner {
         }
         @{ Name = "Cleanup - Windows Prefetch Cache"; Type = "File"; Paths = @("C:\WINDOWS\Prefetch"); FilesOnly = $false }
         @{ Name = "Cleanup - Explorer Thumbnail/Icon Cache"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\Explorer"); PerUser = $true; FilesOnly = $true; TakeOwnership = $true }
-        @{ Name = "WinInet Cache - User"; Type = "File"; Paths = @(
-                "%LOCALAPPDATA%\Microsoft\Windows\INetCache\IE",
-                "%LOCALAPPDATA%\Microsoft\Windows\WebCache",
-                "%LOCALAPPDATA%\Microsoft\Feeds Cache",
-                "%LOCALAPPDATA%\Microsoft\InternetExplorer\DOMStore",
-                "%LOCALAPPDATA%\Microsoft\Internet Explorer"
-            ); PerUser = $true; FilesOnly = $false
+        @{ Name = "WinInet Cache - User"; Type = "Custom"; ScriptBlock = {
+                Add-CleanerLog -Type 'Info' -Text "🌐 Pulizia cache WinInet/WebCache."
+                $cacheTaskDisabled = $false
+                try {
+                    $ct = Get-ScheduledTask -TaskPath '\Microsoft\Windows\Wininet\' -TaskName 'CacheTask' -ErrorAction SilentlyContinue
+                    if ($ct -and $ct.State -ne 'Disabled') {
+                        Stop-ScheduledTask -TaskPath '\Microsoft\Windows\Wininet\' -TaskName 'CacheTask' -ErrorAction SilentlyContinue
+                        Disable-ScheduledTask -TaskPath '\Microsoft\Windows\Wininet\' -TaskName 'CacheTask' -ErrorAction SilentlyContinue *>$null
+                        $cacheTaskDisabled = $true
+                        Start-Sleep -Seconds 2
+                    }
+                }
+                catch { Write-ToolkitLog -Level DEBUG -Message "CacheTask disable error: $_" }
+                $users = Get-LocalUserProfiles
+                foreach ($u in $users) {
+                    $paths = @(
+                        "$($u.FullName)\AppData\Local\Microsoft\Windows\INetCache\IE",
+                        "$($u.FullName)\AppData\Local\Microsoft\Windows\WebCache",
+                        "$($u.FullName)\AppData\Local\Microsoft\Feeds Cache",
+                        "$($u.FullName)\AppData\Local\Microsoft\InternetExplorer\DOMStore",
+                        "$($u.FullName)\AppData\Local\Microsoft\Internet Explorer"
+                    )
+                    foreach ($p in $paths) {
+                        if (-not (Test-Path $p)) { continue }
+                        Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
+                        if (Test-Path $p) {
+                            Get-ChildItem -Path $p -Recurse -File -Force -ErrorAction SilentlyContinue |
+                                ForEach-Object { Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue }
+                            Get-ChildItem -Path $p -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+                                Sort-Object { $_.FullName.Length } -Descending |
+                                ForEach-Object { Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+                        }
+                    }
+                }
+                if ($cacheTaskDisabled) {
+                    try {
+                        Enable-ScheduledTask -TaskPath '\Microsoft\Windows\Wininet\' -TaskName 'CacheTask' -ErrorAction SilentlyContinue *>$null
+                    }
+                    catch { Write-ToolkitLog -Level DEBUG -Message "CacheTask enable error: $_" }
+                }
+                Add-CleanerLog -Type 'Success' -Text "✅ Cache WinInet/WebCache pulita."
+            }
         }
         @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @(
                 "%USERPROFILE%\Local Settings\Temporary Internet Files"
