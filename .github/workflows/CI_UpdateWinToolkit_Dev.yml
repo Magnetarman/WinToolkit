@@ -431,14 +431,14 @@ jobs:
           # ── PSScriptAnalyzer Check ──────────────────────────────────────────
           Write-Host "::group::PSScriptAnalyzer — Analisi statica sorgenti"
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
-          $analyzerResults = Invoke-ScriptAnalyzer `
+          $analyzerResults = @(Invoke-ScriptAnalyzer `
             -Path '*.ps1' `
             -Severity Warning,Error `
-            -Settings $settingsPath
-          $analyzerResults += Invoke-ScriptAnalyzer `
+            -Settings $settingsPath)
+          $analyzerResults += @(Invoke-ScriptAnalyzer `
             -Path 'tool\*.ps1' `
             -Severity Warning,Error `
-            -Settings $settingsPath
+            -Settings $settingsPath)
           Write-Host "::endgroup::"
           if ($analyzerResults) {
             $analyzerResults | Format-Table -AutoSize
