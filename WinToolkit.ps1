@@ -2064,9 +2064,19 @@ function WinReinstallStore {
                 Write-StyledMessage -Type 'Success' -Text "UniGet UI installato correttamente."
                 try {
                     $regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-                    if (Get-ItemProperty -Path $regPath -Name 'WingetUI' -ErrorAction SilentlyContinue) {
-                        Remove-ItemProperty -Path $regPath -Name 'WingetUI' -ErrorAction SilentlyContinue *>$null
-                        Write-StyledMessage -Type 'Success' -Text "Avvio automatico UniGet UI disabilitato."
+                    foreach ($runName in @('WingetUI', 'UniGetUI', 'UniGet UI')) {
+                        if (Get-ItemProperty -Path $regPath -Name $runName -ErrorAction SilentlyContinue) {
+                            Remove-ItemProperty -Path $regPath -Name $runName -ErrorAction SilentlyContinue *>$null
+                            Write-StyledMessage -Type 'Success' -Text "Avvio automatico '$runName' rimosso dal registro."
+                        }
+                    }
+                    $startupFolder = [Environment]::GetFolderPath('Startup')
+                    foreach ($lnkName in @('UniGetUI.lnk', 'WingetUI.lnk', 'UniGet UI.lnk')) {
+                        $lnkPath = Join-Path $startupFolder $lnkName
+                        if (Test-Path $lnkPath) {
+                            Remove-Item $lnkPath -Force -ErrorAction SilentlyContinue *>$null
+                            Write-StyledMessage -Type 'Success' -Text "Collegamento avvio automatico '$lnkName' rimosso."
+                        }
                     }
                 }
                 catch { }
