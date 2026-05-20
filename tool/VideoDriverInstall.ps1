@@ -65,7 +65,6 @@ function VideoDriverInstall {
         }
         catch {
             Write-StyledMessage -Type 'Error' -Text "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)."
-            Write-StyledMessage -Type 'Warning' -Text "Potrebbe essere necessario eseguire lo script come amministratore."
             return
         }
 

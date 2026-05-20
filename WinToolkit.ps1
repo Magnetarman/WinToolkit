@@ -2229,10 +2229,6 @@ function WinBackupDriver {
         LogsDir     = $AppConfig.Paths.DriverBackupLogs
     }
     $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
-    function Test-AdministratorPrivilege {
-        $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    }
     function Initialize-BackupEnvironment {
         Write-StyledMessage -Type 'Info' -Text "🗂️ Inizializzazione ambiente backup."
         try {
@@ -2364,13 +2360,6 @@ function WinBackupDriver {
         }
     }
     try {
-        if (-not (Test-AdministratorPrivilege)) {
-            Write-StyledMessage -Type 'Error' -Text "❌ Privilegi amministratore richiesti."
-            Write-StyledMessage -Type 'Info'  -Text "💡 Riavvia PowerShell come Amministratore."
-            Write-StyledMessage -Type 'Info'  -Text "`n⌨️ Premi un tasto per uscire."
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            return
-        }
         Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione sistema."
         Start-Sleep -Seconds 1
         if (-not (Initialize-BackupEnvironment)) { return }
@@ -3738,7 +3727,6 @@ function VideoDriverInstall {
         }
         catch {
             Write-StyledMessage -Type 'Error' -Text "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)."
-            Write-StyledMessage -Type 'Warning' -Text "Potrebbe essere necessario eseguire lo script come amministratore."
             return
         }
         Write-StyledMessage -Type 'Info' -Text "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche."
