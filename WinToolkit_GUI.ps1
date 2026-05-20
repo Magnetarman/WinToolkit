@@ -2049,7 +2049,8 @@ function Start-NextScriptJob {
         try {
             if (Get-Command $CmdName -ErrorAction SilentlyContinue) {
                 $Global:NeedsFinalReboot = $false
-                Invoke-Expression ("& $CmdName $($argsToPass -join ' ') *>&1")
+                $scriptBlock = [ScriptBlock]::Create("& $CmdName $($argsToPass -join ' ') *>&1")
+                & $scriptBlock
             }
             else {
                 Write-Error "Function '$CmdName' not found after dot-sourcing within job."
