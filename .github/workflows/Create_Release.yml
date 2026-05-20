@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit — Create_Release V 3.1.2
+# WinToolkit — Create_Release V 3.2.0
 # =============================================================================
 # Workflow manuale per la creazione di release ufficiali.
 #
@@ -73,6 +73,7 @@ jobs:
     permissions:
       contents: write
       actions: read
+      workflows: write
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -83,7 +84,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: Dev
 
@@ -107,11 +108,19 @@ jobs:
           }
           Write-Host "Template sintassi OK" -ForegroundColor Green
 
+      - name: Sincronizzazione cartella .github
+        shell: pwsh
+        run: |
+          Write-Host "::group::Sincronizzazione Area Staging .github"
+          git add -A .github/
+          Write-Host "Cartella .github/ aggiunta all'area di staging." -ForegroundColor Green
+          Write-Host "::endgroup::"
+
       - name: Commit Version Bump
         uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
         with:
-          commit_message: "🆙 Bump versione v${{ steps.version.outputs.new_version }}"
-          file_pattern: "WinToolkit-template.ps1"
+          commit_message: "🆙 Bump versione v${{ steps.version.outputs.new_version }} e Sync .github"
+          file_pattern: "WinToolkit-template.ps1 .github/"
           branch: Dev
           push_options: "--force-with-lease"
           skip_fetch: true
@@ -143,7 +152,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: Dev
 
@@ -265,7 +274,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: Dev
 
