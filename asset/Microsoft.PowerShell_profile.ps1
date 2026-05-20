@@ -906,17 +906,20 @@ if (-not (Test-Path $localThemePath)) {
 }
 
 if (Test-Path $localThemePath) {
-    oh-my-posh init pwsh --config $localThemePath | Invoke-Expression
+    $ompScript = oh-my-posh init pwsh --config $localThemePath | Out-String
+    . ([ScriptBlock]::Create($ompScript))
 }
 else {
     $fallbackUrl = $URL_OHMYPOSH_THEME
     Write-Warning "Tema locale non disponibile. Uso fallback remoto."
-    oh-my-posh init pwsh --config $fallbackUrl | Invoke-Expression
+    $ompScript = oh-my-posh init pwsh --config $fallbackUrl | Out-String
+    . ([ScriptBlock]::Create($ompScript))
 }
 
 # zoxide
 if (Test-CommandExists -Name "zoxide") {
-    Invoke-Expression (& { (zoxide init powershell | Out-String) })
+    $zoxideScript = zoxide init powershell | Out-String
+    . ([ScriptBlock]::Create($zoxideScript))
 }
 
 # fastfetch
