@@ -2655,12 +2655,16 @@ function WinCleaner {
                     "BranchCache",
                     "D3D Shader Cache",
                     "Delivery Optimization Files",
+                    "Device Driver Packages",
                     "Downloaded Program Files",
                     "Internet Cache Files",
                     "Memory Dump Files",
+                    "Old ChkDsk Files",
                     "Recycle Bin",
                     "Temporary Files",
                     "Thumbnail Cache",
+                    "Update Cleanup",
+                    "Windows Defender",
                     "Windows Error Reporting Files",
                     "Setup Log Files",
                     "System error memory dump files",
@@ -2679,6 +2683,12 @@ function WinCleaner {
                     Args    = @("/sagerun:65");
                 }
                 Invoke-CommandAction -Rule $cleanMgrExecutionRule
+                Add-CleanerLog -Type 'Info' -Text "⏳ Attesa completamento CleanMgr (può richiedere alcuni minuti)..."
+                $cmDeadline = (Get-Date).AddHours(1)
+                while ((Get-Process -Name "cleanmgr" -ErrorAction SilentlyContinue) -and (Get-Date) -lt $cmDeadline) {
+                    Start-Sleep -Seconds 10
+                }
+                Add-CleanerLog -Type 'Info' -Text "✅ CleanMgr completato."
             }
         }
         @{ Name = "WinSxS Cleanup"; Type = "Command"; Command = "DISM.exe"; Args = @("/Online", "/Cleanup-Image", "/StartComponentCleanup", "/ResetBase") }
@@ -2955,7 +2965,6 @@ function WinCleaner {
         @{ Name = "DNS Flush"; Type = "Command"; Command = "ipconfig"; Args = @("/flushdns") }
         @{ Name = "System Temp Files"; Type = "File"; Paths = @("C:\WINDOWS\Temp"); FilesOnly = $false }
         @{ Name = "User Temp Files"; Type = "File"; Paths = @(
-                "%TEMP%",
                 "%USERPROFILE%\AppData\Local\Temp",
                 "%USERPROFILE%\AppData\LocalLow\Temp"
             ); PerUser = $true; FilesOnly = $false
