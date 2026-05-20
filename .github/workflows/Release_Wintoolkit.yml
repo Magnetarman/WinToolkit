@@ -1,3 +1,17 @@
+# =============================================================================
+# WinToolkit Enterprise CI/CD Pipeline — Release Automation V 3.2.0
+# =============================================================================
+# Questa pipeline gestisce la preparazione e la generazione dei branch di rilascio.
+#
+# SCOPO:
+#   • Estrarre automaticamente l'ultima versione compilata da WinToolkit.ps1.
+#   • Creare un nuovo branch di rilascio (release/v*) partendo dallo stato di 'main'.
+#   • Prelevare dal branch 'Dev' solo i file destinati alla distribuzione ufficiale.
+#   • Eseguire il commit e il push del nuovo branch di rilascio per la PR verso 'main'.
+#
+# RUNTIME: PowerShell 7+ (pwsh) su windows-latest
+# =============================================================================
+
 name: Release_Wintoolkit
 
 on:
@@ -95,6 +109,7 @@ jobs:
             ".github/ISSUE_TEMPLATE/bug_report.yml",
             ".github/ISSUE_TEMPLATE/feature_request.yml",
             ".github/workflows/Release_Wintoolkit.yml",
+            ".github/workflows/CI_UpdateWinToolkit_Main.yml",
             ".github/CODE_OF_CONDUCT.md",
             ".github/CONTRIBUTING.md",
             ".github/Docs/PR_And_PullRequest.md"
@@ -125,6 +140,7 @@ jobs:
             ".github/ISSUE_TEMPLATE/bug_report.yml",
             ".github/ISSUE_TEMPLATE/feature_request.yml",
             ".github/workflows/Release_Wintoolkit.yml",
+            ".github/workflows/CI_UpdateWinToolkit_Main.yml",
             ".github/CODE_OF_CONDUCT.md",
             ".github/CONTRIBUTING.md",
             ".github/Docs/PR_And_PullRequest.md"
