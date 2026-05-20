@@ -73,16 +73,20 @@ irm https://magnetarman.com/WinToolkit | iex
 > Avviare le versioni in fase di sviluppo è **rischioso e potrebbe causare danni al tuo sistema.** Sono presenti funzionalità in corso di sviluppo e/o in fase di test. Se non sei sicuro o non sai cosa stai facendo, vai alla sezione "Esecuzione consigliata".
 
 ```powershell
-irm https://magnetarman.com/WinToolkit-Dev | iex
+irm https://magnetarman.com/winstart-dev | iex
 ```
 
 ---
 
 ## 👾 Componenti
 
-- **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows, come: sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
-- **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
-- **Office Toolkit**: Semplifica l'installazione, la riparazione e la rimozione dei componenti o del prodotto intero. È possibile installare una versione "Basic" di Microsoft Office in modo semi-automatico, riparare le installazioni esistenti con due diverse modalità (Riparazione rapida offline e riparazione completa online), oppure rimuovere completamente il software dal sistema utilizzando l'efficace strumento ufficiale "Microsoft Support and Recovery Assistant (SaRA)".
+- **Sezione Windows**:
+  - **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows, come: sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
+  - **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
+- **Sezione Office**:
+  - **Install Office**: Consente di installare una versione "Basic" di Microsoft Office in modo semi-automatico.
+  - **Repair Office**: Ripara le installazioni esistenti offrendo la modalità rapida offline o completa online.
+  - **Uninstall Office**: Rimuove completamente la suite dal sistema utilizzando l'efficace strumento ufficiale "GetHelpCMD" (EX saRA).
 - **Windows Store Repair**: Esegue una reinstallazione di componenti critici come: Microsoft Store, WinGet, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando WinGet).
 - **Win Backup Driver**: Semplifica il processo di backup dei driver, che automatizza l'esportazione di tutti i driver di terze parti installati utilizzando il comando DISM per garantire un'operazione completa e affidabile.
 - **Cleaner Toolkit**: Libera spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda.
@@ -104,18 +108,24 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ---
 
-## 🪟 Coming soon: GUI - Interfaccia grafica
+## 🪟 GUI - Interfaccia grafica [ALPHA]
 
 > [!CAUTION]
 > L'interfaccia grafica mostrata di seguito è un'anteprima, pertanto potrà subire modifiche anche significative. La sua condivisione risponde al forte interesse degli utenti verso una futura implementazione.
 > <img src="img/Gui.jpg" alt="Gui-Mode-banner" width="800">
+
+### 👨‍💻 Per testare la GUI
+
+```powershell
+irm https://magnetarman.com/Wintoolkit-gui | iex
+```
 
 ---
 
 ## 📌 Changelog
 
 - 📄 **[Changelog.md - Leggi le modifiche introdotte.](/CHANGELOG.md)**
-- 📄 **[To-Do.md - Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)**
+- 📄 **[To-Do.md - Leggi la lista delle funzionalità in sviluppo.(In Dismissione)](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)**
 
 ---
 
@@ -183,9 +193,7 @@ Se WinToolkit ti è stato utile, considera di supportare attivamente il progetto
 
 La tua donazione non è solo un ringraziamento, ma un investimento diretto nel futuro e nello sviluppo di questo strumento.
 
-Per effettuare una donazione, clicca sul bottone PayPal qui sotto aggiungendo un riferimento a "WinToolkit" nel messaggio, così entrerai nella Hall of Fame dei Contributori.
-
-[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/MagnetarManit/10)
+Per effettuare una donazione, scopri come cliccand sul pulsante Sponsor in alto a destra.
 
 🚀 Sviluppo continuo: le donazioni mi permettono di dedicare più tempo e risorse per mantenere la versione attuale aggiornata e compatibile, e per implementare nuove e potenti funzionalità.
 
