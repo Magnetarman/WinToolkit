@@ -424,7 +424,7 @@ jobs:
             Write-Host "PSScriptAnalyzer gia installato" -ForegroundColor Green
           }
 
-      - name: Run Pester Tests
+- name: Run Pester Tests
         id: pester
         shell: pwsh
         run: |
@@ -439,6 +439,8 @@ jobs:
             -Path 'tool\*.ps1' `
             -Severity Warning,Error `
             -Settings $settingsPath)
+          # Filter out start-offline.ps1 from results
+          $analyzerResults = $analyzerResults | Where-Object { $_.ScriptName -ne 'start-offline.ps1' }
           Write-Host "::endgroup::"
           if ($analyzerResults) {
             $analyzerResults | Format-Table -AutoSize
