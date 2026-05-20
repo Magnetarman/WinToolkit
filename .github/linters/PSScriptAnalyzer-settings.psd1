@@ -16,6 +16,9 @@
         # Exclude PSUseApprovedVerbs - restrictive for internal scripts
         'PSUseApprovedVerbs',
 
+        # Exclude PSAvoidUsingPositionalParameters - acceptable for internal scripts
+        'PSAvoidUsingPositionalParameters',
+
         # Exclude PSAvoidUsingWriteHost - Use Write-Output instead of Write-Host
         'PSAvoidUsingWriteHost',
 
