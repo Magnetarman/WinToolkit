@@ -430,20 +430,15 @@ jobs:
         run: |
           # ── PSScriptAnalyzer Check ──────────────────────────────────────────
           Write-Host "::group::PSScriptAnalyzer — Analisi statica sorgenti"
-          $analyzerConfig = @{
-            ExcludeRules = @(
-              'PSUseApprovedVerbs',
-              'PSAvoidUsingPositionalParameters'
-            )
-          }
+          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $analyzerResults = Invoke-ScriptAnalyzer `
             -Path '*.ps1' `
-            -Severity Warning `
-            -Settings $analyzerConfig
+            -Severity Warning,Error `
+            -Settings $settingsPath
           $analyzerResults += Invoke-ScriptAnalyzer `
             -Path 'tool\*.ps1' `
-            -Severity Warning `
-            -Settings $analyzerConfig
+            -Severity Warning,Error `
+            -Settings $settingsPath
           Write-Host "::endgroup::"
           if ($analyzerResults) {
             $analyzerResults | Format-Table -AutoSize
