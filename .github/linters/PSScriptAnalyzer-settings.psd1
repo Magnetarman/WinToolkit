@@ -28,8 +28,17 @@
         # Exclude PSAvoidGlobalVars - Global variables are sometimes necessary
         'PSAvoidGlobalVars',
 
+        # Exclude PSAvoidOverwritingBuiltInCmdlets - Common pattern for output redirection
+        'PSAvoidOverwritingBuiltInCmdlets',
+
+        # Exclude PSPossibleIncorrectComparisonWithNull - Style preference
+        'PSPossibleIncorrectComparisonWithNull',
+
         # Exclude PSUseBOMForUnicodeEncodedFile - BOM handling varies by use case
         'PSUseBOMForUnicodeEncodedFile',
+
+        # Exclude PSAvoidUsingWMICmdlet - CIM and WMI both acceptable for internal scripts
+        'PSAvoidUsingWMICmdlet',
 
         # Exclude PSUseShouldProcessForStateChangingFunctions - May produce false positives
         'PSUseShouldProcessForStateChangingFunctions',
