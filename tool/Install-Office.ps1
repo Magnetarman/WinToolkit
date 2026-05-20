@@ -11,64 +11,21 @@ function Install-Office {
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitLog -ToolName "OfficeInstall"
-    Show-Header -SubTitle "Office Install"
-    $Host.UI.RawUI.WindowTitle = "Office Install By MagnetarMan"
+    Start-ToolkitSession -ToolName "OfficeInstall" -SubTitle "Office Install"
 
     $tempDir = $AppConfig.Paths.OfficeTemp
 
-    function Invoke-SilentRemoval {
-        param(
-            [Parameter(Mandatory = $true)][string]$Path,
-            [switch]$Recurse
-        )
-        if (-not (Test-Path $Path)) { return $false }
-        try {
-            $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
-            if ($Recurse) { $params['Recurse'] = $true }
-            Remove-Item @params *>$null
-            Clear-ProgressLine
-            return $true
-        } catch { return $false }
-    }
-
-    function Apply-OfficePostConfig {
+    function Set-OfficePostConfig {
         Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione Office."
-
-        $telemetryKeys = @(
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
-            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 }
-        )
-
-        foreach ($reg in $telemetryKeys) {
-            if (-not (Test-Path $reg.Path)) { $null = New-Item -Path $reg.Path -Force }
-            Set-ItemProperty -Path $reg.Path -Name $reg.Name -Value $reg.Value -Type 'DWord' -Force
-        }
-
-        $feedbackPath = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"
-        if (-not (Test-Path $feedbackPath)) { $null = New-Item $feedbackPath -Force }
-        Set-ItemProperty -Path $feedbackPath -Name "ShownOptIn" -Value 1 -Type 'DWord' -Force
-
+        foreach ($reg in @(
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";     Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "usercontentdisabled";   Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "downloadcontentdisabled"; Value = 1 },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 }
+        )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
+        Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
         Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
-    }
-
-    function Invoke-DownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
-        try {
-            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
-            $webClient = New-Object System.Net.WebClient
-            $webClient.DownloadFile($Url, $OutputPath)
-            $webClient.Dispose()
-            $success = (Test-Path $OutputPath)
-            Write-StyledMessage -Type ($success ? 'Success' : 'Error') -Text ($success ? "Download completato: $Description" : "File non trovato dopo download: $Description.")
-            return $success
-        }
-        catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore download $Description`: $_"
-            return $false
-        }
     }
 
     try {
@@ -79,13 +36,11 @@ function Install-Office {
         $setupPath  = Join-Path $tempDir 'Setup.exe'
         $configPath = Join-Path $tempDir 'Basic.xml'
 
-        $downloads = @(
-            @{ Url = $AppConfig.URLs.OfficeSetup; Path = $setupPath; Name = 'Setup Office' },
+        foreach ($dl in @(
+            @{ Url = $AppConfig.URLs.OfficeSetup;       Path = $setupPath;  Name = 'Setup Office' },
             @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
-        )
-
-        foreach ($dl in $downloads) {
-            if (-not (Invoke-DownloadFile $dl.Url $dl.Path $dl.Name)) {
+        )) {
+            if (-not (Invoke-ToolkitDownload -Uri $dl.Url -OutputPath $dl.Path -Description $dl.Name)) {
                 Write-StyledMessage -Type 'Error' -Text "Download fallito. Installazione annullata."
                 return
             }
@@ -95,12 +50,14 @@ function Install-Office {
         $result = Invoke-WithSpinner -Activity "Installazione Office Basic" -Command $setupPath `
             -Arguments "/configure `"$configPath`"" -TimeoutSeconds 86400 -LogContextKey "Office-Install"
 
+        Clear-ProgressLine
+
         if (-not $result.Success) {
             Write-StyledMessage -Type 'Error' -Text "Installazione fallita."
             return
         }
 
-        Apply-OfficePostConfig
+        Set-OfficePostConfig
         Write-StyledMessage -Type 'Success' -Text "✅ Installazione completata."
         Write-StyledMessage -Type 'Info' -Text "Riavvio non necessario."
     }
@@ -113,7 +70,7 @@ function Install-Office {
         }
     }
     finally {
-        Invoke-SilentRemoval -Path $tempDir -Recurse
+        Remove-ItemSafely -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Install terminato."
         Write-ToolkitLog -Level INFO -Message "Install-Office sessione terminata."
     }

@@ -5,27 +5,12 @@ function WinRepairToolkit {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false)]
         [int]$MaxRetryAttempts = 3,
-
-        [Parameter(Mandatory = $false)]
         [int]$CountdownSeconds = 30,
-
-        [Parameter(Mandatory = $false)]
         [switch]$SuppressIndividualReboot
     )
 
-    # ============================================================================
-    # 1. INIZIALIZZAZIONE
-    # ============================================================================
-
-    Start-ToolkitLog -ToolName "WinRepairToolkit"
-    Show-Header -SubTitle "Repair Toolkit"
-    $Host.UI.RawUI.WindowTitle = "Repair Toolkit By MagnetarMan"
-
-    # ============================================================================
-    # 2. CONFIGURAZIONE E VARIABILI LOCALI
-    # ============================================================================
+    Start-ToolkitSession -ToolName "WinRepairToolkit" -SubTitle "Repair Toolkit"
 
     $script:CurrentAttempt = 0
 
@@ -40,7 +25,6 @@ function WinRepairToolkit {
         @{ Tool = 'chkdsk'; Args = @('/f', '/r', '/x'); Name = 'Controllo disco approfondito'; Icon = '💽'; IsCritical = $false }
     )
 
-
     function Invoke-RepairCommand {
         param([hashtable]$Config, [int]$Step, [int]$Total)
 
@@ -50,7 +34,6 @@ function WinRepairToolkit {
         $errFile = [System.IO.Path]::GetTempFileName()
 
         try {
-            # Calcolo timeout centralizzato (Fix 3: eliminata duplicazione)
             $processTimeoutSeconds = 600
 
             switch ($Config.Name) {
@@ -63,18 +46,14 @@ function WinRepairToolkit {
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
 
-            # Gestione DISM con operazioni pendenti (errore 0x800f0806)
             if ($Config.Tool -ieq 'DISM' -and $Config.Args -contains '/StartComponentCleanup') {
                 Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia stato Windows Update prima di avviare Cleanup..."
-                # Stop servizio Windows Update per rilasciare lock su component store
                 Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
                 Start-Sleep 1
-                # Elimina stato sessione DISM
-                Remove-Item -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\SessionsPending' -Recurse -Force -ErrorAction SilentlyContinue
+                Remove-ItemSafely -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\SessionsPending' -Recurse
                 Start-Sleep 1
             }
 
-            # Gestione speciale per chkdsk che richiede input 'Y'
             $commandToRun = $Config.Tool
             $argsToRun = $Config.Args
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
@@ -84,7 +63,6 @@ function WinRepairToolkit {
                 $argsToRun = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
             }
 
-            # Utilizzo del nuovo pattern Invoke-WithSpinner che internamente usa Invoke-ExternalCommandWithLog
             $spinnerResult = Invoke-WithSpinner -Activity $Config.Name `
                 -Command $commandToRun `
                 -Arguments $argsToRun `
@@ -95,38 +73,30 @@ function WinRepairToolkit {
             $exitCode = $spinnerResult.ExitCode
             $results = ($spinnerResult.StdOut + "`n" + $spinnerResult.StdErr) -split "`n"
 
-            # Logica controllo errori con gestione flessibile per chkdsk
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
                 Write-StyledMessage -Type 'Info' -Text "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
-            # $exitCode già impostato sopra
-
             $isTimeout = ($spinnerResult.TimedOut -eq $true) -or ($null -eq $exitCode) -or ($exitCode -eq -1)
 
-            # FIX CHKDSK: Se chkdsk ritorna 3 = volume in uso, schedulato correttamente
             if ($isChkdsk -and $exitCode -eq 3) {
                 Write-StyledMessage -Type 'Info' -Text "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
-            # Gestione errore DISM 0x800f0806: operazioni pendenti
             if (($Config.Tool -ieq 'DISM') -and ($results -match '0x800f0806')) {
                 Write-StyledMessage -Type 'Warning' -Text "⚠️ $($Config.Name): Errore 0x800f0806 (operazioni pendenti). Questo non è un errore critico."
                 Write-StyledMessage -Type 'Info' -Text "💡 Riavviare il sistema per completare le operazioni in sospeso."
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
-            # FIX 2: Dism è considerato in successo solo se NON è andato in timeout e ha trovato la stringa
             $hasDismSuccess = (-not $isTimeout) -and ($Config.Tool -ieq 'DISM') -and ($results -match '(?i)completed successfully')
 
-            # DISM /ResetBase può ritornare codice 3010 come successo (reboot richiesto)
             if (($Config.Tool -ieq 'DISM') -and ($Config.Args -contains '/ResetBase') -and $exitCode -eq 3010) {
                 $hasDismSuccess = $true
             }
 
-            # Per chkdsk /scan, considerare successo se completato (anche con exit code non-zero informativo)
             $isChkdskScan = $isChkdsk -and ($Config.Args -contains '/scan')
             $chkdskCompleted = (-not $isTimeout) -and $isChkdskScan -and (($results -join ' ') -match '(?i)(scansione.*completata|scan.*completed|successfully scanned)')
 
@@ -134,42 +104,34 @@ function WinRepairToolkit {
 
             $errors = $warnings = @()
             if (-not $isSuccess) {
-                # Se c'è stato un timeout, forza un errore
                 if ($isTimeout) {
                     $errors += "Timeout: L'operazione ha superato il tempo limite ed è stata terminata."
                 }
 
                 foreach ($line in ($results | Where-Object { $_ -and ![string]::IsNullOrWhiteSpace($_.Trim()) })) {
                     $trim = $line.Trim()
-                    # Escludi linee di progresso, versione e messaggi informativi
                     if ($trim -match '^\[=+\s*\d+' -or $trim -match '(?i)version:|deployment image') { continue }
 
-                    # Per chkdsk, ignora messaggi informativi comuni che non sono errori critici
                     if ($isChkdsk) {
-                        # Ignora messaggi informativi di chkdsk
                         if ($trim -match '(?i)(stage|fase|percent complete|verificat|scanned|scanning|errors found.*corrected|volume label)') { continue }
-                        # Solo errori critici per chkdsk
                         if ($trim -match '(?i)(cannot|unable to|access denied|critical|fatal|corrupt file system|bad sectors)') {
                             $errors += $trim
                         }
                     }
-                     else {
-                        # Logica normale per altri tool
+                    else {
                         if ($trim -match '0x800f0806') {
-                            # Questo errore viene gestito separatamente e non conteggiato
+                            # gestito separatamente
                         }
                         elseif ($trim -match '(?i)(errore|error|failed|impossibile|corrotto|corruption)') { $errors += $trim }
                         elseif ($trim -match '(?i)(warning|avviso|attenzione)') { $warnings += $trim }
                     }
                 }
 
-                # Fallback: Se il processo fallisce ma i log non contengono keyword di errore
                 if ($errors.Count -eq 0 -and -not $isTimeout) {
                     $errors += "Errore generico o terminazione anomala (ExitCode: $exitCode)."
                 }
             }
 
-            # FIX: La variabile di successo deve richiedere che l'operazione non sia fallita/andata in timeout
             $success = $isSuccess -and ($errors.Count -eq 0)
 
             if ($isTimeout) {
@@ -180,22 +142,15 @@ function WinRepairToolkit {
             }
             Write-StyledMessage -Type 'Success' -Text $message
 
-            # Esportazione Log CBS di SFC
             if ($Config.Tool -ieq 'sfc') {
                 $cbsLogPath = "C:\Windows\Logs\CBS\CBS.log"
                 if (Test-Path $cbsLogPath) {
                     try {
-                        # Pulizia del nome della fase per renderlo sicuro per il file system
                         $safeStepName = $Config.Name -replace '[^a-zA-Z0-9]', '_'
                         $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
                         $destLogName = "SFC_CBS_${safeStepName}_${timestamp}.log"
-
-                        # Utilizzo della variabile globale per la cartella dei log
                         $destLogPath = Join-Path $AppConfig.Paths.Logs $destLogName
-
                         Copy-Item -Path $cbsLogPath -Destination $destLogPath -Force -ErrorAction SilentlyContinue
-
-                        # Verifica post-copia per dare un feedback accurato
                         if (Test-Path $destLogPath) {
                             Write-StyledMessage -Type 'Info' -Text "📄 Log SFC salvato in: $destLogName"
                         }
@@ -209,16 +164,8 @@ function WinRepairToolkit {
             return @{ Success = $success; ErrorCount = $errors.Count }
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore durante $($Config.Name): $($_.Exception.Message)."
-            Write-ToolkitLog -Level ERROR -Message "Errore in Invoke-RepairCommand [$($Config.Tool)]" -Context @{
-                Line      = $_.InvocationInfo.ScriptLineNumber
-                Exception = $_.Exception.GetType().FullName
-                Stack     = $_.ScriptStackTrace
-            }
+            Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit" -Message "Errore in Invoke-RepairCommand [$($Config.Tool)]"
             return @{ Success = $false; ErrorCount = 1 }
-        }
-        finally {
-            # Pulizia automatica gestita da Invoke-WithSpinner/Invoke-ExternalCommandWithLog
         }
     }
 
@@ -227,7 +174,6 @@ function WinRepairToolkit {
 
         $script:CurrentAttempt = $Attempt
         Write-StyledMessage -Type 'Info' -Text "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema."
-
 
         $totalErrors = $successCount = 0
         for ($toolIndex = 0; $toolIndex -lt $RepairTools.Count; $toolIndex++) {
@@ -266,20 +212,11 @@ function WinRepairToolkit {
             return $true
         }
         catch {
-            Write-ToolkitLog -Level 'ERROR' -Message 'Eccezione in Start-DeepDiskRepair' -Context @{
-                Tool      = 'WinRepairToolkit'
-                Step      = 'Start-DeepDiskRepair'
-                Exception = $_.Exception.Message
-                Stack     = $_.ScriptStackTrace
-            }
-            Write-StyledMessage -Type 'Error' -Text "Errore durante la schedulazione della riparazione profonda: $($_.Exception.Message)."
+            Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit" -Message "Eccezione in Start-DeepDiskRepair"
             return $false
         }
     }
 
-    # ============================================================================
-    # Controllo iniziale stato sistema
-    # ============================================================================
     function Test-PendingOperations {
         $pendingRebootKeys = @(
             'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending',
@@ -307,12 +244,10 @@ function WinRepairToolkit {
         Write-StyledMessage -Type 'Info' -Text "💡 Consigliato riavviare prima di eseguire le riparazioni."
     }
 
-    # Esecuzione
     try {
         $repairResult = Start-RepairCycle
 
         $deepRepairScheduled = $false
-        # Fix 2: Esegue la riparazione profonda solo se ci sono ancora errori dopo 3 tentativi
         if ($repairResult.TotalErrors -gt 0) {
             Write-ToolkitLog -Level WARNING -Message "Rilevati errori persistenti. Avvio riparazione profonda." -Context @{
                 Tool = 'WinRepairToolkit'
@@ -342,17 +277,9 @@ function WinRepairToolkit {
                 Restart-Computer -Force
             }
         }
-     }
-     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore critico: $($_.Exception.Message). Consulta il log in %LOCALAPPDATA%\WinToolkit\logs o in $Global:CurrentLogFile"
-        Write-ToolkitLog -Level ERROR -Message "Errore critico in WinRepairToolkit" -Context @{
-            Tool      = 'WinRepairToolkit'
-            Step      = 'MainExecution'
-            Line      = $_.InvocationInfo.ScriptLineNumber
-            Exception = $_.Exception.GetType().FullName
-            Message   = $_.Exception.Message
-            Stack     = $_.ScriptStackTrace
-        }
+    }
+    catch {
+        Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit"
     }
     finally {
         # Cleanup finale se necessario

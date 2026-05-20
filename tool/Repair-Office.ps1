@@ -11,65 +11,18 @@ function Repair-Office {
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitLog -ToolName "OfficeRepair"
-    Show-Header -SubTitle "Office Repair"
-    $Host.UI.RawUI.WindowTitle = "Office Repair By MagnetarMan"
+    Start-ToolkitSession -ToolName "OfficeRepair" -SubTitle "Office Repair"
 
-    function Invoke-SilentRemoval {
-        param(
-            [Parameter(Mandatory = $true)][string]$Path,
-            [switch]$Recurse
-        )
-        if (-not (Test-Path $Path)) { return $false }
-        try {
-            $params = @{ Path = $Path; Force = $true; ErrorAction = 'SilentlyContinue' }
-            if ($Recurse) { $params['Recurse'] = $true }
-            Remove-Item @params *>$null
-            Clear-ProgressLine
-            return $true
-        } catch { return $false }
-    }
-
-    function Stop-OfficeProcesses {
-        $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
-        $closed = 0
-
-        Write-StyledMessage -Type 'Info' -Text "📋 Chiusura processi Office."
-        foreach ($processName in $processes) {
-            $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
-            if ($running) {
-                try {
-                    $running | Stop-Process -Force -ErrorAction Stop
-                    $closed++
-                }
-                catch {
-                    Write-StyledMessage -Type 'Warning' -Text "Impossibile chiudere: $processName."
-                }
-            }
-        }
-        if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text "$closed processi Office chiusi." }
-    }
-
-    function Apply-OfficePostConfig {
+    function Set-OfficePostConfig {
         Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-riparazione Office."
-
-        $telemetryKeys = @(
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
-            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 }
-        )
-
-        foreach ($reg in $telemetryKeys) {
-            if (-not (Test-Path $reg.Path)) { $null = New-Item -Path $reg.Path -Force }
-            Set-ItemProperty -Path $reg.Path -Name $reg.Name -Value $reg.Value -Type 'DWord' -Force
-        }
-
-        $feedbackPath = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General"
-        if (-not (Test-Path $feedbackPath)) { $null = New-Item $feedbackPath -Force }
-        Set-ItemProperty -Path $feedbackPath -Name "ShownOptIn" -Value 1 -Type 'DWord' -Force
-
+        foreach ($reg in @(
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";       Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "usercontentdisabled";     Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "downloadcontentdisabled"; Value = 1 },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 }
+        )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
+        Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
         Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
     }
 
@@ -77,16 +30,15 @@ function Repair-Office {
 
     try {
         Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione Office."
-        Stop-OfficeProcesses
+        Stop-ToolkitProcesses -ProcessNames @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
 
         Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cache Office."
-        $caches = @(
+        $cleanedCount = 0
+        foreach ($cache in @(
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
-        )
-        $cleanedCount = 0
-        foreach ($cache in $caches) {
-            if (Invoke-SilentRemoval -Path $cache -Recurse) { $cleanedCount++ }
+        )) {
+            if (Remove-ItemSafely -Path $cache -Recurse) { $cleanedCount++ }
         }
         if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate." }
 
@@ -105,7 +57,7 @@ function Repair-Office {
                 -Arguments "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=QuickRepair DisplayLevel=True" `
                 -TimeoutSeconds 86400 -LogContextKey "Office-Repair-Quick"
 
-            Apply-OfficePostConfig
+            Set-OfficePostConfig
             Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
             $needsReboot = $true
         }
@@ -117,7 +69,7 @@ function Repair-Office {
                     -Arguments "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True" `
                     -TimeoutSeconds 86400 -LogContextKey "Office-Repair-Full"
 
-                Apply-OfficePostConfig
+                Set-OfficePostConfig
                 Write-StyledMessage -Type 'Success' -Text "🎉 Riparazione Office completata!"
                 $needsReboot = $true
             }
@@ -140,14 +92,6 @@ function Repair-Office {
     }
 
     if ($needsReboot) {
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
-        }
-        else {
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riparazione completata") {
-                Restart-Computer -Force
-            }
-        }
+        Invoke-ToolkitReboot -Message "Riparazione completata" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
     }
 }

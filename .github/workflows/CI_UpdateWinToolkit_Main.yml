@@ -1,0 +1,277 @@
+# =============================================================================
+# WinToolkit Enterprise CI/CD Pipeline — Main Branch Protection V 3.2.0
+# =============================================================================
+# Questa pipeline è progettata specificamente per il ramo 'main'.
+#
+# SCOPO:
+#   • Impedire qualsiasi contributo esterno (Pull Request) diretto verso 'main'.
+#   • Consentire le PR verso 'main' esclusivamente al Maintainer (magnetarman)
+#     per i rilasci stabili (es. merge dei branch release/v*).
+#   • Eseguire controlli di qualità e test (linting + testing) per garantire
+#     che il codice integrato in 'main' sia perfettamente stabile.
+#
+# RUNTIME: GitHub Actions (ubuntu-latest & windows-latest)
+# =============================================================================
+
+name: CI_WinToolkit_Main_Protection
+
+env:
+  # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# ---------------------------------------------------------------------------
+# TRIGGER
+# Si attiva esclusivamente sulle Pull Request che hanno come target il ramo 'main'.
+# ---------------------------------------------------------------------------
+on:
+  pull_request:
+    branches:
+      - main
+
+# ---------------------------------------------------------------------------
+# CONCURRENCY — un solo run attivo per PR
+# ---------------------------------------------------------------------------
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ---------------------------------------------------------------------------
+# JOBS
+# ---------------------------------------------------------------------------
+jobs:
+  # ===========================================================================
+  # JOB 0: MAIN BRANCH GUARD — Blocco totale contributi esterni
+  #
+  # Chiude automaticamente qualsiasi PR verso 'main' che non sia aperta
+  # dal maintainer (magnetarman).
+  # ===========================================================================
+  main_branch_guard:
+    name: Main Branch Authorization Check
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Verify PR Author
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const author       = context.payload.pull_request.user.login;
+            const prNumber     = context.issue.number;
+            const isMaintainer = (author.toLowerCase() === 'magnetarman');
+
+            if (!isMaintainer) {
+              const blockedMessage = [
+                `## ⛔ Accesso Negato — Pull Request Chiusa Automaticamente`,
+                ``,
+                `Ciao @${author},`,
+                `grazie per il tuo interesse in WinToolkit!`,
+                ``,
+                `Purtroppo questa Pull Request è stata **chiusa automaticamente** perché è indirizzata direttamente verso il ramo \`main\`.`,
+                ``,
+                `### Regole di Contribuzione`,
+                ``,
+                `- Il ramo \`main\` è **rigidamente protetto** ed è riservato esclusivamente ai rilasci ufficiali e stabili del progetto gestiti dal maintainer.`,
+                `- Tutti i contributi esterni, le nuove funzionalità e le correzioni di bug devono essere proposti tramite Pull Request verso il ramo di sviluppo \`Dev\`.`,
+                `- Ricorda che i collaboratori esterni possono proporre modifiche **esclusivamente** ai moduli all'interno della cartella \`tool/\`.`,
+                ``,
+                `### Come procedere`,
+                ``,
+                `1. **Chiudi** questa PR se non è già chiusa.`,
+                `2. **Apri una nuova Pull Request** selezionando il ramo \`Dev\` come base (Target Branch).`,
+                `3. Assicurati che le modifiche siano limitate esclusivamente ai file sotto la cartella \`tool/\`.`,
+                ``,
+                `Grazie per la collaborazione!`,
+                ``,
+                `---`,
+                `*Messaggio automatico del sistema di protezione di WinToolkit — PR #${prNumber}.*`,
+              ].join('\n');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: blockedMessage,
+              });
+
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                state: 'closed',
+              });
+
+              core.setFailed(
+                `PR #${prNumber} chiusa automaticamente: l'utente @${author} non è autorizzato a inviare PR direttamente su 'main'.`
+              );
+            } else {
+              core.info(`PR #${prNumber} autorizzata: l'autore è il maintainer (@${author}).`);
+            }
+
+  # ===========================================================================
+  # JOB DETECT_CHANGES — Rileva modifiche a file sorgente PS1
+  # ===========================================================================
+  detect_changes:
+    name: Detect Source Changes
+    runs-on: ubuntu-latest
+    needs: main_branch_guard
+    outputs:
+      run_checks: ${{ steps.filter.outputs.run_checks }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for PS1 source changes
+        id: filter
+        run: |
+          CHANGED=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+          echo "File modificati nella PR:"
+          echo "$CHANGED"
+          if echo "$CHANGED" | grep -qE '^(tool/[^/]+\.ps1|WinToolkit-template\.ps1|start\.ps1|start-offline\.ps1|WinToolkit-GUI\.ps1|compiler\.ps1|\.github/(tests|scripts)/[^/]+\.ps1)$'; then
+            echo "run_checks=true" >> "$GITHUB_OUTPUT"
+            echo "Modifiche a file sorgente PS1 rilevate."
+          else
+            echo "run_checks=false" >> "$GITHUB_OUTPUT"
+            echo "Nessuna modifica a file sorgente PS1 rilevata."
+          fi
+
+  # ===========================================================================
+  # JOB 1: LINTING — Analisi statica
+  # ===========================================================================
+  linting:
+    name: Linting
+    runs-on: windows-latest
+    needs: detect_changes
+    if: needs.detect_changes.outputs.run_checks == 'true'
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Write-Host "Installing PSScriptAnalyzer..." -ForegroundColor Yellow
+            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+          }
+
+      - name: Lint /tool files
+        shell: pwsh
+        run: |
+          Write-Host "::group::PSScriptAnalyzer — /tool"
+          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
+          $hasErrors = $false
+          foreach ($file in (Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue)) {
+            $analysis = Invoke-ScriptAnalyzer -Path $file.FullName -Settings $settingsPath -Severity Error,Warning
+            if ($analysis) {
+              foreach ($issue in $analysis) {
+                $col = if ($issue.Severity -eq 'Error') { 'Red' } else { 'Yellow' }
+                Write-Host "  [$($issue.Severity)] $($issue.RuleName): $($issue.Message)" -ForegroundColor $col
+                if ($issue.Severity -eq 'Error') { $hasErrors = $true }
+              }
+            }
+          }
+          Write-Host "::endgroup::"
+          if ($hasErrors) {
+            Write-Host "::error::Errori di linting rilevati nei file /tool."
+            exit 1
+          }
+
+      - name: Lint WinToolkit-template.ps1
+        shell: pwsh
+        run: |
+          Write-Host "::group::PSScriptAnalyzer — template"
+          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
+          $analysis = Invoke-ScriptAnalyzer -Path "WinToolkit-template.ps1" -Settings $settingsPath -Severity Error,Warning
+          if ($analysis) {
+            foreach ($issue in $analysis) {
+              $col = if ($issue.Severity -eq 'Error') { 'Red' } else { 'Yellow' }
+              Write-Host "  [$($issue.Severity)] $($issue.RuleName): $($issue.Message)" -ForegroundColor $col
+            }
+            if ($analysis | Where-Object { $_.Severity -eq 'Error' }) {
+              Write-Host "::endgroup::"
+              Write-Host "::error::Errori di linting nel template."
+              exit 1
+            }
+          }
+          Write-Host "::endgroup::"
+
+      - name: Verifica sintassi compiler.ps1
+        shell: pwsh
+        run: |
+          $content = Get-Content -Raw -Path "compiler.ps1" -ErrorAction Stop
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            foreach ($e in $parseErrors) {
+              Write-Host "::error file=compiler.ps1,line=$($e.Extent.StartLineNumber),col=$($e.Extent.StartColumnNumber)::ERRORE DI SINTASSI: $($e.Message)"
+            }
+            exit 1
+          }
+
+  # ===========================================================================
+  # JOB 2: TESTING — Suite Pester 5
+  # ===========================================================================
+  testing:
+    name: Pester Tests
+    runs-on: windows-latest
+    needs: linting
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Pester 5
+        shell: pwsh
+        run: |
+          $installed = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -ge '5.0.0' }
+          if (-not $installed) {
+            Write-Host "Installing Pester 5..." -ForegroundColor Yellow
+            Install-Module -Name Pester -MinimumVersion 5.0.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          }
+
+      - name: Run Pester Tests
+        shell: pwsh
+        run: |
+          Write-Host "::group::WinToolkit Pester Test Suite"
+          $config = New-PesterConfiguration
+          $config.Run.Path                = @(
+            '.github/tests/WinToolkit.Tests.ps1',
+            '.github/tests/Unit',
+            '.github/tests/Integration'
+          )
+          $config.Run.PassThru            = $true
+          $config.Output.Verbosity        = 'Detailed'
+          $config.TestResult.Enabled      = $true
+          $config.TestResult.OutputPath   = 'TestResults.xml'
+          $config.TestResult.OutputFormat = 'NUnitXml'
+          $config.CodeCoverage.Enabled               = $true
+          $config.CodeCoverage.CoveragePercentTarget = 70
+          $config.CodeCoverage.Path                  = @('WinToolkit-template.ps1', 'tool/*.ps1')
+          $config.CodeCoverage.OutputPath            = 'coverage.xml'
+          $config.Filter.ExcludeTag                  = @('Slow')
+          $result = Invoke-Pester -Configuration $config
+          Write-Host "::endgroup::"
+
+          Write-Host ""
+          Write-Host "Risultati Test:" -ForegroundColor Cyan
+          Write-Host "  Superati : $($result.PassedCount)"  -ForegroundColor Green
+          Write-Host "  Falliti  : $($result.FailedCount)"  -ForegroundColor $(if ($result.FailedCount -gt 0) { 'Red' } else { 'Green' })
+
+          if ($result.FailedCount -gt 0) {
+            Write-Host "::error::$($result.FailedCount) test Pester falliti — pipeline bloccata."
+            exit 1
+          }
