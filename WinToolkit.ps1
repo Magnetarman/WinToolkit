@@ -637,27 +637,86 @@ function Invoke-ToolkitDownload {
     )
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
         try {
-            if ($NoSpinner) {
-                Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
+            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description..."
+            $parentDir = Split-Path -Parent $OutputPath
+            if (-not (Test-Path $parentDir)) {
+                New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
             }
-            $result = Invoke-WithSpinner -Activity "Download $Description" -Action {
-                $wc = New-Object System.Net.WebClient
-                if ($Uri -match 'drivers\.amd\.com|amd-software') {
-                    $wc.Headers.Add("Referer", "https://www.amd.com")
-                    $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            $handler = New-Object System.Net.Http.HttpClientHandler
+            $handler.AllowAutoRedirect = $true
+            $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
+            $httpClient = New-Object System.Net.Http.HttpClient($handler)
+            $httpClient.Timeout = [TimeSpan]::FromSeconds(300)
+            $httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            if ($Uri -match 'drivers\.amd\.com|amd-software') {
+                $httpClient.DefaultRequestHeaders.Add("Referer", "https://www.amd.com")
+            }
+            $totalBytes = 0
+            try {
+                $headRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Head, $Uri)
+                $headResponse = $httpClient.SendAsync($headRequest).Result
+                if ($headResponse.Content.Headers.ContentLength -gt 0) {
+                    $totalBytes = $headResponse.Content.Headers.ContentLength
                 }
-                $wc.DownloadFile($Uri, $OutputPath)
-                $wc.Dispose()
-                return (Test-Path $OutputPath)
+                $headResponse.Dispose()
             }
-            if ($result) {
+            catch {}
+            $getRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $Uri)
+            $getResponse = $httpClient.SendAsync($getRequest).Result
+            if (-not $getResponse.IsSuccessStatusCode) {
+                throw "HTTP Error $($getResponse.StatusCode): $($getResponse.ReasonPhrase)"
+            }
+            $contentStream = $getResponse.Content.ReadAsStreamAsync().Result
+            $fileStream = [System.IO.File]::Create($OutputPath)
+            $buffer = New-Object byte[] 8192
+            $totalRead = 0
+            $lastPercent = -1
+            try {
+                while ($true) {
+                    $read = $contentStream.Read($buffer, 0, $buffer.Length)
+                    if ($read -eq 0) { break }
+                    $fileStream.Write($buffer, 0, $read)
+                    $totalRead += $read
+                    if ($totalBytes -gt 0 -and -not $Global:GuiSessionActive) {
+                        $percent = [Math]::Round(($totalRead / $totalBytes) * 100)
+                        if ($percent -ne $lastPercent) {
+                            $filled = '█' * [Math]::Floor($percent * 30 / 100)
+                            $empty = '░' * (30 - $filled.Length)
+                            $bar = "[$filled$empty] {0,3}%" -f $percent
+                            $currentDisplay = if ($totalRead -gt 1048576) {
+                                "$([Math]::Round($totalRead / 1048576, 1)) MB"
+                            } else {
+                                "$([Math]::Round($totalRead / 1024, 1)) KB"
+                            }
+                            $totalDisplay = if ($totalBytes -gt 1048576) {
+                                "$([Math]::Round($totalBytes / 1048576, 1)) MB"
+                            } else {
+                                "$([Math]::Round($totalBytes / 1024, 1)) KB"
+                            }
+                            Write-Host "`r⏳ Download $Description $bar ($currentDisplay / $totalDisplay)" -NoNewline -ForegroundColor Cyan
+                            $lastPercent = $percent
+                        }
+                    }
+                }
+            }
+            finally {
+                $fileStream.Dispose()
+                $contentStream.Dispose()
+            }
+            $httpClient.Dispose()
+            $handler.Dispose()
+            if (Test-Path $OutputPath) {
+                if (-not $Global:GuiSessionActive) { Write-Host "" }
                 Write-StyledMessage -Type 'Success' -Text "✅ Download completato: $Description."
                 return $true
             }
         }
         catch {
+            if (Test-Path $OutputPath) {
+                Remove-Item $OutputPath -Force -ErrorAction SilentlyContinue
+            }
             if ($attempt -lt $MaxRetries) {
-                Write-StyledMessage -Type 'Warning' -Text "⚠️  Tentativo $attempt/$MaxRetries fallito. Riprovo..."
+                Write-StyledMessage -Type 'Warning' -Text "⚠️  Tentativo $attempt/$MaxRetries fallito: $($_.Exception.Message). Riprovo..."
                 Start-Sleep -Seconds 2
             }
         }
@@ -3825,7 +3884,7 @@ function AutoVideoDriverInstall {
         [switch]$SuppressIndividualReboot
     )
     Start-ToolkitSession -ToolName "AutoVideoDriverInstall" -SubTitle "Auto Video Driver Install"
-    $driverToolsPath = $AppConfig.Paths.Drivers
+    $desktopPath = $AppConfig.Paths.Desktop
     function Set-BlockWindowsUpdateDrivers {
         Write-StyledMessage -Type 'Info' -Text "Blocco driver automatici da Windows Update."
         try {
@@ -3849,6 +3908,7 @@ function AutoVideoDriverInstall {
     try {
         Write-StyledMessage -Type 'Info' -Text "🚀 Avvio installazione automatica driver video."
         Set-BlockWindowsUpdateDrivers
+        Write-StyledMessage -Type 'Info' -Text "🔍 Rilevamento configurazione GPU in corso..."
         $gpuAnalysis = VcardAnalizer
         $gpuManufacturer = $gpuAnalysis.PrimaryManufacturer
         Write-StyledMessage -Type 'Info' -Text "GPU rilevata: $gpuManufacturer."
@@ -3857,10 +3917,10 @@ function AutoVideoDriverInstall {
             foreach ($match in $gpuAnalysis.Matches) {
                 if ([string]::IsNullOrWhiteSpace($match.DownloadUrl)) { continue }
                 $targetName = if (-not [string]::IsNullOrWhiteSpace($match.FileName)) { $match.FileName } else { "$($match.Key).exe" }
-                $targetPath = Join-Path $driverToolsPath $targetName
+                $targetPath = Join-Path $desktopPath $targetName
                 $displayName = if (-not [string]::IsNullOrWhiteSpace($match.DisplayName)) { $match.DisplayName } else { $match.Key }
                 if (Invoke-ToolkitDownload -Uri $match.DownloadUrl -OutputPath $targetPath -Description $displayName) {
-                    Write-StyledMessage -Type 'Success' -Text "Driver stabile scaricato: $displayName"
+                    Write-StyledMessage -Type 'Success' -Text "Driver stabile scaricato sul desktop: $displayName"
                     $stableDownloadDone = $true
                 }
             }
@@ -3869,26 +3929,24 @@ function AutoVideoDriverInstall {
             Write-StyledMessage -Type 'Warning' -Text "Nessun driver stabile conosciuto trovato. Uso fallback autodetect."
             switch ($gpuManufacturer) {
                 'AMD' {
-                    $amdPath = Join-Path $driverToolsPath "AMD-Autodetect.exe"
-                    if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool") {
-                        Write-StyledMessage -Type 'Info' -Text "Avvio installer AMD. Chiudi il terminale al termine dell'installazione."
-                        $null = Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdPath -LogContextKey "Video-Install-AMD"
-                        Write-StyledMessage -Type 'Success' -Text "✅ Installazione driver AMD completata."
+                    $amdPath = Join-Path $desktopPath "AMD-Autodetect.exe"
+                    if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool")) {
+                        Write-StyledMessage -Type 'Error' -Text "❌ Impossibile scaricare installer AMD. Annullamento."
+                        return
                     }
                 }
                 'NVIDIA' {
-                    $nvidiaPath = Join-Path $driverToolsPath "NVCleanstall_1.19.0.exe"
-                    if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall") {
-                        Write-StyledMessage -Type 'Info' -Text "Avvio NVCleanstall. Chiudi il terminale al termine dell'installazione."
-                        $null = Invoke-WithSpinner -Activity "Esecuzione NVCleanstall" -Command $nvidiaPath -LogContextKey "Video-Install-NVIDIA"
-                        Write-StyledMessage -Type 'Success' -Text "✅ Installazione driver NVIDIA completata."
+                    $nvidiaPath = Join-Path $desktopPath "NVCleanstall_1.19.0.exe"
+                    if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall")) {
+                        Write-StyledMessage -Type 'Error' -Text "❌ Impossibile scaricare NVCleanstall. Annullamento."
+                        return
                     }
                 }
                 'Intel' {
-                    Write-StyledMessage -Type 'Info' -Text "GPU Intel rilevata. Usa Windows Update per aggiornare i driver integrati."
+                    Write-StyledMessage -Type 'Info' -Text "GPU Intel: scarica driver manualmente da Intel se necessario."
                 }
                 default {
-                    Write-StyledMessage -Type 'Error' -Text "Produttore GPU non supportato o non rilevato per l'installazione automatica."
+                    Write-StyledMessage -Type 'Warning' -Text "GPU non rilevata: driver non disponibile per l'installazione automatica."
                 }
             }
         }
@@ -3939,6 +3997,7 @@ function VideoDriverReinstall {
     try {
         Write-StyledMessage -Type 'Warning' -Text "🔧 Avvio procedura reinstallazione/riparazione driver video."
         Set-BlockWindowsUpdateDrivers
+        Write-StyledMessage -Type 'Info' -Text "📥 Preparazione download strumenti necessari..."
         $dduZipPath = Join-Path $driverToolsPath "DDU.zip"
         if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.DDUZip -OutputPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
             Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare DDU. Annullamento."
