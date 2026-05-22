@@ -424,7 +424,7 @@ jobs:
             Write-Host "PSScriptAnalyzer gia installato" -ForegroundColor Green
           }
 
-- name: Run Pester Tests
+      - name: Run Pester Tests
         id: pester
         shell: pwsh
         run: |
