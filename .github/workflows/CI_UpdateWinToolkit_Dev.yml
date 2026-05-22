@@ -455,6 +455,7 @@ jobs:
           $config.Run.Path                = @(
             '.github/tests/WinToolkit.Tests.ps1',
             '.github/tests/Unit'
+            '.github/tests/Integration'
           )
           $config.Run.PassThru            = $true
           $config.Output.Verbosity        = 'Detailed'
@@ -474,7 +475,7 @@ jobs:
           } catch {
             Write-Host "⚠️ Pester execution encountered an error: $($_.Exception.Message)" -ForegroundColor Yellow
             Write-Host "Retrying without code coverage..." -ForegroundColor Yellow
-            
+
             $config.CodeCoverage.Enabled = $false
             $result = Invoke-Pester -Configuration $config
           }
