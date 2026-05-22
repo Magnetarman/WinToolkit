@@ -979,15 +979,25 @@ function Invoke-ToolkitDownload {
                         }
                         
                         $now = Get-Date
+                        $timeSinceLast = ($now - $lastProgressTime).TotalMilliseconds
                         $shouldUpdate = $false
-                        if ($totalBytes -gt 0) {
-                            if ($percent -ne $lastPercent) { $shouldUpdate = $true }
+
+                        if ($lastPercent -eq -1) {
+                            # First update: always show immediately (0% or first chunk)
+                            $shouldUpdate = $true
                         }
-                        else {
-                            if (($now - $lastProgressTime).TotalMilliseconds -gt 400 -or $percent -ne $lastPercent) {
+                        elseif ($totalBytes -gt 0) {
+                            # Known size: rate-limited + percent change (smooth, non-schizzofrenico)
+                            if ($percent -ne $lastPercent -and $timeSinceLast -gt 250) {
                                 $shouldUpdate = $true
                             }
                         }
+                        else {
+                            if ($timeSinceLast -gt 400 -or $percent -ne $lastPercent) {
+                                $shouldUpdate = $true
+                            }
+                        }
+
                         if ($shouldUpdate) {
                             Write-ProgressUpdate -Activity "Download $Description" -Status $status -Percent $percent -Icon $icon -Color $col
                             $lastPercent = $percent
