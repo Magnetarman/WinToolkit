@@ -1,14 +1,26 @@
 # =============================================================================
-# WinToolkit Enterprise CI/CD Pipeline — Main Branch Protection V 3.2.2
+# WinToolkit Enterprise CI/CD Pipeline — Main Branch Protection V 3.3.0
 # =============================================================================
-# Questa pipeline è progettata specificamente per il ramo 'main'.
+# Pipeline per il ramo 'main' — Protezione stabilità e gestione release stabili.
 #
-# SCOPO:
-#   • Impedire qualsiasi contributo esterno (Pull Request) diretto verso 'main'.
-#   • Consentire le PR verso 'main' esclusivamente al Maintainer (magnetarman)
-#     per i rilasci stabili (es. merge dei branch release/v*).
-#   • Eseguire controlli di qualità e test (linting + testing) per garantire
-#     che il codice integrato in 'main' sia perfettamente stabile.
+# FLUSSO:
+#   • PR opened/synchronize → Guard + Lint/Test + Versioning Bump su Dev
+#   • PR closed (merged)    → Stable Release su GitHub (tag + release notes)
+#
+# PROTEZIONE MAIN:
+#   • Blocco totale a contributi esterni — solo maintainer (@magnetarman)
+#   • PR non-release/v* autorizzate ma con avviso
+#   • Linting + Testing obbligatori prima del merge
+#
+# RELEASE STABILE (al merge della PR release/v*):
+#   • Lettura versione + metriche da WinToolkit.ps1 compilato
+#   • Generazione release notes con commit categorizzati (New-ReleaseNotes.ps1)
+#   • Creazione GitHub Release su main con tag vX.Y.Z
+#
+# REGOLA D'ORO (Integrità):
+#   WinToolkit.ps1 è sempre rigenerato da zero dai sorgenti puri.
+#   Il file pre-esistente viene eliminato prima di ogni compilazione per evitare
+#   che residui di versioni precedenti o conflitti di merge producano output corrotto.
 #
 # RUNTIME: GitHub Actions (ubuntu-latest & windows-latest)
 # =============================================================================
@@ -16,17 +28,23 @@
 name: CI_WinToolkit_Main_Protection
 
 env:
-  # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 # ---------------------------------------------------------------------------
 # TRIGGER
-# Si attiva esclusivamente sulle Pull Request che hanno come target il ramo 'main'.
+# Si attiva sulle Pull Request che hanno come target il ramo 'main'.
+# Tipi coperti:
+#   opened/synchronize → guard + lint/test + versioning bump su Dev
+#   closed (merged)    → stable release su main
 # ---------------------------------------------------------------------------
 on:
   pull_request:
     branches:
       - main
+    types:
+      - opened
+      - synchronize
+      - closed
 
 # ---------------------------------------------------------------------------
 # CONCURRENCY — un solo run attivo per PR
@@ -47,6 +65,8 @@ jobs:
   official_repo_guard:
     name: Official Repository Guard
     runs-on: ubuntu-latest
+    # Gira su tutti i tipi di evento (opened, synchronize, closed/merged)
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
     permissions:
       contents: read
     steps:
@@ -66,24 +86,28 @@ jobs:
   # JOB 0: MAIN BRANCH GUARD — Blocco totale contributi esterni
   #
   # Chiude automaticamente qualsiasi PR verso 'main' che non sia aperta
-  # dal maintainer (magnetarman).
+  # dal maintainer (magnetarman) o proveniente da un branch release/v*.
   # ===========================================================================
   main_branch_guard:
     name: Main Branch Authorization Check
     runs-on: ubuntu-latest
+    # Solo su opened/synchronize, non al merge
+    if: github.event.action != 'closed'
     permissions:
       pull-requests: write
       contents: read
     needs: official_repo_guard
 
     steps:
-      - name: Verify PR Author
+      - name: Verify PR Author and Source Branch
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const author       = context.payload.pull_request.user.login;
             const prNumber     = context.issue.number;
+            const headBranch   = context.payload.pull_request.head.ref;
             const isMaintainer = (author.toLowerCase() === 'magnetarman');
+            const isReleaseBranch = headBranch.startsWith('release/v');
 
             if (!isMaintainer) {
               const blockedMessage = [
@@ -129,8 +153,12 @@ jobs:
               core.setFailed(
                 `PR #${prNumber} chiusa automaticamente: l'utente @${author} non è autorizzato a inviare PR direttamente su 'main'.`
               );
+            } else if (!isReleaseBranch) {
+              core.warning(
+                `PR #${prNumber} autorizzata (maintainer), ma il branch sorgente '${headBranch}' non segue la convenzione release/v*. Procedendo comunque.`
+              );
             } else {
-              core.info(`PR #${prNumber} autorizzata: l'autore è il maintainer (@${author}).`);
+              core.info(`PR #${prNumber} autorizzata: maintainer (@${author}), branch release/v* conforme ✓`);
             }
 
   # ===========================================================================
@@ -139,6 +167,7 @@ jobs:
   detect_changes:
     name: Detect Source Changes
     runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
     needs: main_branch_guard
     outputs:
       run_checks: ${{ steps.filter.outputs.run_checks }}
@@ -169,8 +198,8 @@ jobs:
   linting:
     name: Linting
     runs-on: windows-latest
+    if: github.event.action != 'closed' && needs.detect_changes.outputs.run_checks == 'true'
     needs: detect_changes
-    if: needs.detect_changes.outputs.run_checks == 'true'
     permissions:
       contents: read
 
@@ -248,6 +277,7 @@ jobs:
   testing:
     name: Pester Tests
     runs-on: windows-latest
+    if: github.event.action != 'closed'
     needs: linting
     permissions:
       contents: read
@@ -299,3 +329,203 @@ jobs:
             Write-Host "::error::$($result.FailedCount) test Pester falliti — pipeline bloccata."
             exit 1
           }
+
+  # ===========================================================================
+  # JOB 3: VERSIONING BUMP — Ad ogni commit/push su PR release/v* aperta
+  #
+  # Eseguito dopo testing (o dopo main_branch_guard se i check sono saltati).
+  # Bumpa il build number su Dev tramite Update-Version.ps1, verifica sintassi
+  # e committa WinToolkit-template.ps1 aggiornato su Dev.
+  # NON agisce sul branch release/v*, modifica solo Dev.
+  # ===========================================================================
+  versioning_bump:
+    name: Versioning Bump on Dev
+    runs-on: windows-latest
+    # Gira solo su PR aperte (opened/synchronize), non al merge
+    if: |
+      github.event.action != 'closed' &&
+      startsWith(github.head_ref, 'release/v')
+    # Dipende da testing se i check sono abilitati, altrimenti da detect_changes
+    needs: [detect_changes, testing]
+    # Il job è opzionale: se testing è saltato (run_checks=false) lo gestiamo
+    # tramite la condizione sul needs — testing ha `if` che lo salta, ma
+    # needs.testing non blocca se il job è stato saltato.
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+
+    steps:
+      - name: Checkout Dev
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: Dev
+
+      - name: Bump Version su Dev
+        id: version
+        shell: pwsh
+        run: |
+          & .github/scripts/Update-Version.ps1 -TemplatePath "WinToolkit-template.ps1"
+
+      - name: Verifica sintassi template (post-bump)
+        shell: pwsh
+        run: |
+          $content = Get-Content -Raw -Path "WinToolkit-template.ps1"
+          $errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$errors)
+          if ($errors.Count -gt 0) {
+            foreach ($e in $errors) {
+              Write-Host "::error file=WinToolkit-template.ps1,line=$($e.Extent.StartLineNumber),col=$($e.Extent.StartColumnNumber)::ERRORE DI SINTASSI: $($e.Message)"
+            }
+            exit 1
+          }
+          Write-Host "Template sintassi OK — v${{ steps.version.outputs.new_version }}" -ForegroundColor Green
+
+      - name: Commit Version Bump su Dev
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
+        with:
+          commit_message: "🆙 [CI] Bump build number v${{ steps.version.outputs.new_version }} — PR ${{ github.event.pull_request.number }}"
+          file_pattern: "WinToolkit-template.ps1"
+          branch: Dev
+          push_options: "--force-with-lease"
+          skip_fetch: true
+
+  # ===========================================================================
+  # JOB 4: STABLE RELEASE — Al merge della PR release/v* su main
+  #
+  # Triggered da: pull_request closed + merged == true + branch release/v*
+  # Flusso:
+  #   1. Checkout main (appena aggiornato dal merge)
+  #   2. Legge metriche da WinToolkit.ps1 compilato
+  #   3. Chiama New-ReleaseNotes.ps1
+  #   4. Crea release stabile GitHub con tag vX.Y.Z targetata su main
+  #      (nessun branch aggiuntivo — solo tag sul commit di merge)
+  # ===========================================================================
+  stable_release:
+    name: Stable Release on Merge
+    runs-on: windows-latest
+    if: |
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'release/v')
+    needs: official_repo_guard
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: main
+
+      - name: Estrai Versione e Metriche da WinToolkit.ps1
+        id: metrics
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "WinToolkit.ps1")) {
+            Write-Host "::error::WinToolkit.ps1 non trovato su main dopo il merge."
+            exit 1
+          }
+
+          # Estrai versione
+          $versionLine = Get-Content -Path 'WinToolkit.ps1' | Select-String -Pattern '\$ToolkitVersion\s*=\s*"(.*?)\s*\(Build'
+          if (-not $versionLine) {
+            Write-Host "::error::Impossibile estrarre la versione da WinToolkit.ps1."
+            exit 1
+          }
+          $version = $versionLine.Matches[0].Groups[1].Value.Trim()
+          Write-Host "Versione rilevata: $version"
+
+          # Metriche dimensione
+          $outputKB = [math]::Round((Get-Item "WinToolkit.ps1").Length / 1KB, 2)
+
+          # Conta righe totali del compilato
+          $totalLines = (Get-Content "WinToolkit.ps1").Count
+
+          # Stima righe sorgente sommando tool/*.ps1 + template
+          $sourceLines = 0
+          Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
+            $sourceLines += (Get-Content $_.FullName).Count
+          }
+          if (Test-Path "WinToolkit-template.ps1") {
+            $sourceLines += (Get-Content "WinToolkit-template.ps1").Count
+          }
+          $linesRemoved = [math]::Max(0, $sourceLines - $totalLines)
+
+          # Stima KB sorgente
+          $sourceBytes = 0
+          Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
+            $sourceBytes += $_.Length
+          }
+          if (Test-Path "WinToolkit-template.ps1") {
+            $sourceBytes += (Get-Item "WinToolkit-template.ps1").Length
+          }
+          $sourceKB = [math]::Round($sourceBytes / 1KB, 2)
+          $reduction = if ($sourceKB -gt 0) { [math]::Round((($sourceKB - $outputKB) / $sourceKB) * 100, 1) } else { 0 }
+
+          Write-Host "Metriche: sourceKB=$sourceKB, outputKB=$outputKB, reduction=$reduction%, linesRemoved=$linesRemoved"
+
+          echo "VERSION=$version"           >> $env:GITHUB_ENV
+          echo "SOURCE_KB=$sourceKB"        >> $env:GITHUB_ENV
+          echo "OUTPUT_KB=$outputKB"        >> $env:GITHUB_ENV
+          echo "REDUCTION=$reduction"       >> $env:GITHUB_ENV
+          echo "LINES_REMOVED=$linesRemoved" >> $env:GITHUB_ENV
+
+      - name: Genera Note di Rilascio
+        id: notes
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          & .github/scripts/New-ReleaseNotes.ps1 `
+            -Version          "${{ env.VERSION }}" `
+            -SourceKB         "${{ env.SOURCE_KB }}" `
+            -OutputKB         "${{ env.OUTPUT_KB }}" `
+            -ReductionPercent "${{ env.REDUCTION }}" `
+            -LinesRemoved     "${{ env.LINES_REMOVED }}"
+
+      - name: Crea Release Stabile su GitHub
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ env.VERSION }}"
+          if (-not $version -or $version -eq '') {
+            Write-Host "::error::Versione vuota — impossibile creare la release."
+            exit 1
+          }
+
+          # Normalizza tag: "2.5.3" → "v2.5.3"
+          $tag = "v$version" -replace ' \(', '-' -replace '\)', '' -replace ' ', ''
+          Write-Host "Creazione release stabile: '$version' -> tag '$tag' su main"
+
+           gh release create $tag "WinToolkit.ps1" `
+             --title "WinToolkit $tag" `
+             --notes-file release_body.md `
+             --target main
+           # Nota: nessun --prerelease → release stabile
+           # Nota: release_body.md contiene commit categorizzati (Bug Fixes, Features, etc.) + statistiche compressione
+           # Nota: nessun branch creato → gh release crea solo il tag sul commit HEAD di main
+
+      - name: Generate Release Summary
+        shell: pwsh
+        run: |
+          $summary = @"
+          ## Release Stabile — WinToolkit v${{ env.VERSION }}
+
+          | Metrica          | Valore                    |
+          |------------------|---------------------------|
+          | Peso Sorgente    | ${{ env.SOURCE_KB }} KB   |
+          | Peso Finale      | ${{ env.OUTPUT_KB }} KB   |
+          | Riduzione        | ${{ env.REDUCTION }}%     |
+          | Righe Eliminate  | ${{ env.LINES_REMOVED }}  |
+
+          **Branch**: main | **Workflow**: CI_UpdateWinToolkit_Main | **Stato**: Release stabile pubblicata ✅
+          "@
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
