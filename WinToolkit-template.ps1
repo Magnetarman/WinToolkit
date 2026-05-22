@@ -930,6 +930,10 @@ function Invoke-ToolkitDownload {
                     if ($totalBytes -gt 0 -and -not $Global:GuiSessionActive) {
                         $percent = [Math]::Round(($totalRead / $totalBytes) * 100)
                         if ($percent -ne $lastPercent) {
+                            $filled = '█' * [Math]::Floor($percent * 30 / 100)
+                            $empty = '░' * (30 - $filled.Length)
+                            $bar = "[$filled$empty] {0,3}%" -f $percent
+                            
                             # Convertire bytes in KB/MB appropriato
                             $currentDisplay = if ($totalRead -gt 1048576) {
                                 "$([Math]::Round($totalRead / 1048576, 1)) MB"
@@ -943,8 +947,7 @@ function Invoke-ToolkitDownload {
                                 "$([Math]::Round($totalBytes / 1024, 1)) KB"
                             }
                             
-                            Clear-ProgressLine
-                            Show-ProgressBar -Activity "Download $Description" -Status "($currentDisplay / $totalDisplay)" -Percent $percent -Icon '📥' -Color 'Cyan'
+                            Write-Host "`r⏳ Download $Description $bar ($currentDisplay / $totalDisplay)" -NoNewline -ForegroundColor Cyan
                             $lastPercent = $percent
                         }
                     }
@@ -959,7 +962,7 @@ function Invoke-ToolkitDownload {
             $handler.Dispose()
             
             if (Test-Path $OutputPath) {
-                if (-not $Global:GuiSessionActive) { Clear-ProgressLine; Write-Host "" }
+                if (-not $Global:GuiSessionActive) { Write-Host "" }
                 Write-StyledMessage -Type 'Success' -Text "✅ Download completato: $Description."
                 return $true
             }

@@ -13,71 +13,76 @@ function AutoVideoDriverInstall {
 
     Start-ToolkitSession -ToolName "AutoVideoDriverInstall" -SubTitle "Auto Video Driver Install"
 
-    $driverToolsPath = $AppConfig.Paths.Drivers
-
-    function Get-GpuManufacturer {
-        $pnpDevices = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue
-        if (-not $pnpDevices) {
-            Write-StyledMessage -Type 'Warning' -Text "Nessun dispositivo display PnP rilevato."
-            return 'Unknown'
-        }
-        foreach ($device in $pnpDevices) {
-            $name = $device.FriendlyName
-            $mfr  = $device.Manufacturer
-            if ($name -match 'NVIDIA|GeForce|Quadro|Tesla' -or $mfr -match 'NVIDIA') { return 'NVIDIA' }
-            if ($name -match 'AMD|Radeon|ATI'               -or $mfr -match 'AMD|ATI') { return 'AMD'    }
-            if ($name -match 'Intel|Iris|UHD|HD Graphics'   -or $mfr -match 'Intel')  { return 'Intel'  }
-        }
-        return 'Unknown'
-    }
+    $desktopPath = $AppConfig.Paths.Desktop
 
     function Set-BlockWindowsUpdateDrivers {
         Write-StyledMessage -Type 'Info' -Text "Blocco driver automatici da Windows Update."
         try {
             Set-RegistryValue -Path $AppConfig.Registry.WindowsUpdatePolicies -Name "ExcludeWUDriversInQualityUpdate" -Value 1
             Write-StyledMessage -Type 'Success' -Text "Blocco WU driver impostato."
-            $gpupdateResult = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate"
-            if ($gpupdateResult.ExitCode -eq 0) {
-                Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati."
+            $gpupdateResult = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo (può impiegare 1-2 minuti)" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate" -TimeoutSeconds 180
+            if ($gpupdateResult -and $gpupdateResult.ExitCode -eq 0) {
+                Write-StyledMessage -Type 'Success' -Text "✅ Criteri di gruppo aggiornati."
+            }
+            elseif ($gpupdateResult) {
+                Write-StyledMessage -Type 'Warning' -Text "⚠️  gpupdate completato con codice: $($gpupdateResult.ExitCode). Proseguo comunque."
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text "gpupdate completato con codice: $($gpupdateResult.ExitCode)."
+                Write-StyledMessage -Type 'Warning' -Text "⚠️  gpupdate non ha risposto. Proseguo comunque."
             }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore blocco WU driver: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "⚠️  Errore blocco WU driver: $($_.Exception.Message). Proseguo comunque."
         }
     }
 
     try {
         Write-StyledMessage -Type 'Info' -Text "🚀 Avvio installazione automatica driver video."
         Set-BlockWindowsUpdateDrivers
-
-        $gpuManufacturer = Get-GpuManufacturer
+        
+        Write-StyledMessage -Type 'Info' -Text "🔍 Rilevamento configurazione GPU in corso..."
+        $gpuAnalysis = VcardAnalizer
+        $gpuManufacturer = $gpuAnalysis.PrimaryManufacturer
         Write-StyledMessage -Type 'Info' -Text "GPU rilevata: $gpuManufacturer."
 
-        switch ($gpuManufacturer) {
-            'AMD' {
-                $amdPath = Join-Path $driverToolsPath "AMD-Autodetect.exe"
-                if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool") {
-                    Write-StyledMessage -Type 'Info' -Text "Avvio installer AMD. Chiudi il terminale al termine dell'installazione."
-                    $null = Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdPath -LogContextKey "Video-Install-AMD"
-                    Write-StyledMessage -Type 'Success' -Text "Installazione driver AMD completata."
+        $stableDownloadDone = $false
+        if ($gpuAnalysis.Matches.Count -gt 0) {
+            foreach ($match in $gpuAnalysis.Matches) {
+                if ([string]::IsNullOrWhiteSpace($match.DownloadUrl)) { continue }
+                $targetName = if (-not [string]::IsNullOrWhiteSpace($match.FileName)) { $match.FileName } else { "$($match.Key).exe" }
+                $targetPath = Join-Path $desktopPath $targetName
+                $displayName = if (-not [string]::IsNullOrWhiteSpace($match.DisplayName)) { $match.DisplayName } else { $match.Key }
+
+                if (Invoke-ToolkitDownload -Uri $match.DownloadUrl -OutputPath $targetPath -Description $displayName) {
+                    Write-StyledMessage -Type 'Success' -Text "Driver stabile scaricato sul desktop: $displayName"
+                    $stableDownloadDone = $true
                 }
             }
-            'NVIDIA' {
-                $nvidiaPath = Join-Path $driverToolsPath "NVCleanstall_1.19.0.exe"
-                if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall") {
-                    Write-StyledMessage -Type 'Info' -Text "Avvio NVCleanstall. Chiudi il terminale al termine dell'installazione."
-                    $null = Invoke-WithSpinner -Activity "Esecuzione NVCleanstall" -Command $nvidiaPath -LogContextKey "Video-Install-NVIDIA"
-                    Write-StyledMessage -Type 'Success' -Text "Installazione driver NVIDIA completata."
+        }
+
+        if (-not $stableDownloadDone) {
+            Write-StyledMessage -Type 'Warning' -Text "Nessun driver stabile conosciuto trovato. Uso fallback autodetect."
+            switch ($gpuManufacturer) {
+                'AMD' {
+                    $amdPath = Join-Path $desktopPath "AMD-Autodetect.exe"
+                    if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool")) {
+                        Write-StyledMessage -Type 'Error' -Text "❌ Impossibile scaricare installer AMD. Annullamento."
+                        return
+                    }
                 }
-            }
-            'Intel' {
-                Write-StyledMessage -Type 'Info' -Text "GPU Intel rilevata. Usa Windows Update per aggiornare i driver integrati."
-            }
-            default {
-                Write-StyledMessage -Type 'Error' -Text "Produttore GPU non supportato o non rilevato per l'installazione automatica."
+                'NVIDIA' {
+                    $nvidiaPath = Join-Path $desktopPath "NVCleanstall_1.19.0.exe"
+                    if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall")) {
+                        Write-StyledMessage -Type 'Error' -Text "❌ Impossibile scaricare NVCleanstall. Annullamento."
+                        return
+                    }
+                }
+                'Intel' {
+                    Write-StyledMessage -Type 'Info' -Text "GPU Intel: scarica driver manualmente da Intel se necessario."
+                }
+                default {
+                    Write-StyledMessage -Type 'Warning' -Text "GPU non rilevata: driver non disponibile per l'installazione automatica."
+                }
             }
         }
     }
