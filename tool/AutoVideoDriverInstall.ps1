@@ -64,7 +64,7 @@ function AutoVideoDriverInstall {
                     if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool") {
                         Write-StyledMessage -Type 'Info' -Text "Avvio installer AMD. Chiudi il terminale al termine dell'installazione."
                         $null = Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdPath -LogContextKey "Video-Install-AMD"
-                        Write-StyledMessage -Type 'Success' -Text "Installazione driver AMD completata."
+                        Write-StyledMessage -Type 'Success' -Text "✅ Installazione driver AMD completata."
                     }
                 }
                 'NVIDIA' {
@@ -72,7 +72,7 @@ function AutoVideoDriverInstall {
                     if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall") {
                         Write-StyledMessage -Type 'Info' -Text "Avvio NVCleanstall. Chiudi il terminale al termine dell'installazione."
                         $null = Invoke-WithSpinner -Activity "Esecuzione NVCleanstall" -Command $nvidiaPath -LogContextKey "Video-Install-NVIDIA"
-                        Write-StyledMessage -Type 'Success' -Text "Installazione driver NVIDIA completata."
+                        Write-StyledMessage -Type 'Success' -Text "✅ Installazione driver NVIDIA completata."
                     }
                 }
                 'Intel' {
