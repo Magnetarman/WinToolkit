@@ -713,7 +713,7 @@ function Invoke-ToolkitDownload {
                         }
                         else {
                             $progressCounter++
-                            $percent = ($progressCounter * 7) % 100
+                            $percent = [math]::Min(95, [math]::Floor($progressCounter / 2.5))
                             $status = "$currentDisplay scaricati (dimensione sconosciuta)"
                             $icon = '📥'
                             $col = 'Cyan'
