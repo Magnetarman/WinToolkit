@@ -719,12 +719,18 @@ function Invoke-ToolkitDownload {
                             $col = 'Cyan'
                         }
                         $now = Get-Date
+                        $timeSinceLast = ($now - $lastProgressTime).TotalMilliseconds
                         $shouldUpdate = $false
-                        if ($totalBytes -gt 0) {
-                            if ($percent -ne $lastPercent) { $shouldUpdate = $true }
+                        if ($lastPercent -eq -1) {
+                            $shouldUpdate = $true
+                        }
+                        elseif ($totalBytes -gt 0) {
+                            if ($percent -ne $lastPercent -and $timeSinceLast -gt 250) {
+                                $shouldUpdate = $true
+                            }
                         }
                         else {
-                            if (($now - $lastProgressTime).TotalMilliseconds -gt 400 -or $percent -ne $lastPercent) {
+                            if ($timeSinceLast -gt 400 -or $percent -ne $lastPercent) {
                                 $shouldUpdate = $true
                             }
                         }
