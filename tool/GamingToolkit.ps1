@@ -16,6 +16,7 @@ function GamingToolkit {
 
     [CmdletBinding()]
     param(
+        [Parameter()]
         [ValidateRange(0, 300)]
         [int]$CountdownSeconds = 30,
         [switch]$SuppressIndividualReboot
