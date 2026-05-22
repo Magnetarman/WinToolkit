@@ -679,12 +679,20 @@ function Invoke-ToolkitDownload {
             if ($totalBytes -eq 0 -and $getResponse.Content.Headers.ContentLength -gt 0) {
                 $totalBytes = $getResponse.Content.Headers.ContentLength
             }
+            $isUnknownSize = ($totalBytes -eq 0)
+            $fakeProgressStart = $null
+            if ($isUnknownSize -and -not $Global:GuiSessionActive) {
+                $fakeProgressStart = Get-Date
+                Write-ProgressUpdate -Activity "Download $Description" `
+                                     -Status "Avvio download in corso..." `
+                                     -Percent 8 -Icon '📥' -Color 'Cyan'
+                Start-Sleep -Milliseconds 120
+            }
             $contentStream = $getResponse.Content.ReadAsStreamAsync().Result
             $fileStream = [System.IO.File]::Create($OutputPath)
             $buffer = New-Object byte[] 8192
             $totalRead = 0
             $lastPercent = -1
-            $progressCounter = 0
             $lastProgressTime = Get-Date
             try {
                 while ($true) {
@@ -712,9 +720,13 @@ function Invoke-ToolkitDownload {
                             $col = 'Cyan'
                         }
                         else {
-                            $progressCounter++
-                            $percent = [math]::Min(95, [math]::Floor($progressCounter / 2.5))
-                            $status = "$currentDisplay scaricati (dimensione sconosciuta)"
+                            if ($fakeProgressStart) {
+                                $elapsed = ((Get-Date) - $fakeProgressStart).TotalSeconds
+                                $percent = [math]::Min(95, [math]::Floor(8 + ($elapsed * 1.52)))
+                            } else {
+                                $percent = 50
+                            }
+                            $status = "$currentDisplay scaricati"
                             $icon = '📥'
                             $col = 'Cyan'
                         }
