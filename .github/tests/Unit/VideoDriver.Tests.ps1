@@ -1,74 +1,49 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 <#
 .SYNOPSIS
-    Unit test per il modulo VideoDriverInstall.
-.NOTES
-    Strategia: dot-source del template (-ImportOnly) per il framework,
-    dot-source di tool/VideoDriverInstall.ps1 per la funzione sotto test.
-    Get-PnpDevice viene mockato per evitare accesso hardware reale.
+    Unit tests per i moduli video driver dopo refactoring.
+.DESCRIPTION
+    Verifica che i nuovi script esistano, siano caricabili e che i riferimenti
+    al vecchio script VideoDriverInstall siano stati rimossi.
 #>
 
 BeforeAll {
-    $script:TemplatePath = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\WinToolkit-template.ps1')
-    $script:ToolPath     = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\tool\VideoDriverInstall.ps1')
+    $script:RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
+    $script:ToolDir  = Join-Path $script:RepoRoot 'tool'
 
-    . $script:TemplatePath -ImportOnly
-    . $script:ToolPath
-
-    Mock Start-ToolkitSession { }
-    Mock Start-ToolkitLog     { }
-    Mock Write-StyledMessage  { }
-    Mock Read-ValidatedChoice { return 0 }
-    Mock Read-Host            { throw "Read-Host non ammesso in CI" }
+    $script:AutoScript = Join-Path $script:ToolDir 'AutoVideoDriverInstall.ps1'
+    $script:ReScript   = Join-Path $script:ToolDir 'VideoDriverReinstall.ps1'
+    $script:OldScript  = Join-Path $script:ToolDir 'VideoDriverInstall.ps1'
+    $script:Template   = Join-Path $script:RepoRoot 'WinToolkit-template.ps1'
 }
 
-# =============================================================================
-# Firma della funzione
-# =============================================================================
-Describe 'VideoDriverInstall — Firma' {
-
-    It 'La funzione VideoDriverInstall deve essere disponibile' {
-        Get-Command VideoDriverInstall -ErrorAction SilentlyContinue | Should -Not -BeNull
+Describe 'Video Driver scripts refactor integrity' {
+    It 'Nuovi script video driver devono esistere' {
+        Test-Path $script:AutoScript | Should -BeTrue
+        Test-Path $script:ReScript   | Should -BeTrue
     }
 
-    It 'Deve esporre il parametro -CountdownSeconds' {
-        (Get-Command VideoDriverInstall).Parameters.ContainsKey('CountdownSeconds') | Should -Be $true
+    It 'Vecchio script VideoDriverInstall.ps1 non deve esistere' {
+        Test-Path $script:OldScript | Should -BeFalse
     }
 
-    It 'Deve esporre il parametro -SuppressIndividualReboot' {
-        (Get-Command VideoDriverInstall).Parameters.ContainsKey('SuppressIndividualReboot') | Should -Be $true
+    It 'AutoVideoDriverInstall.ps1 deve dichiarare la funzione corretta' {
+        (Get-Content -Raw $script:AutoScript) | Should -Match 'function\s+AutoVideoDriverInstall\s*\{'
     }
 
-    It '-CountdownSeconds deve avere valore di default 30' {
-        $cmd = Get-Command VideoDriverInstall
-        $param = $cmd.ScriptBlock.Ast.Body.ParamBlock.Parameters |
-            Where-Object { $_.Name.VariablePath.UserPath -eq 'CountdownSeconds' }
-        $param.DefaultValue.Value | Should -Be 30
-    }
-}
-
-# =============================================================================
-# Rilevamento GPU — stringa sorgente
-# =============================================================================
-Describe 'VideoDriverInstall — Rilevamento GPU' {
-
-    It 'Il modulo deve supportare il rilevamento NVIDIA' {
-        $source = Get-Content -Path $script:ToolPath -Raw
-        $source | Should -Match 'NVIDIA'
+    It 'VideoDriverReinstall.ps1 deve dichiarare la funzione corretta' {
+        (Get-Content -Raw $script:ReScript) | Should -Match 'function\s+VideoDriverReinstall\s*\{'
     }
 
-    It 'Il modulo deve supportare il rilevamento AMD' {
-        $source = Get-Content -Path $script:ToolPath -Raw
-        $source | Should -Match 'AMD'
+    It 'WinToolkit-template deve referenziare i nuovi tool video' {
+        $content = Get-Content -Raw $script:Template
+        $content | Should -Match 'function\s+AutoVideoDriverInstall\s*\{\s*\}'
+        $content | Should -Match 'function\s+VideoDriverReinstall\s*\{\s*\}'
+        $content | Should -Match "Name\s*=\s*'AutoVideoDriverInstall'"
+        $content | Should -Match "Name\s*=\s*'VideoDriverReinstall'"
     }
 
-    It 'Il modulo deve supportare il rilevamento Intel' {
-        $source = Get-Content -Path $script:ToolPath -Raw
-        $source | Should -Match 'Intel'
-    }
-
-    It 'Il modulo deve gestire il caso Unknown per GPU non riconosciuta' {
-        $source = Get-Content -Path $script:ToolPath -Raw
-        $source | Should -Match 'Unknown'
+    It 'WinToolkit-template non deve referenziare il vecchio VideoDriverInstall' {
+        (Get-Content -Raw $script:Template) | Should -Not -Match 'VideoDriverInstall'
     }
 }
