@@ -931,6 +931,18 @@ function Invoke-ToolkitDownload {
             if ($totalBytes -eq 0 -and $getResponse.Content.Headers.ContentLength -gt 0) {
                 $totalBytes = $getResponse.Content.Headers.ContentLength
             }
+
+            # === NUOVA LOGICA: Barra fake scollegata dal download ===
+            $isUnknownSize = ($totalBytes -eq 0)
+            $fakeProgressStart = $null
+            if ($isUnknownSize -and -not $Global:GuiSessionActive) {
+                $fakeProgressStart = Get-Date
+                # Mostra subito la barra fake (prima di iniziare a leggere i dati)
+                Write-ProgressUpdate -Activity "Download $Description" `
+                                     -Status "Avvio download in corso..." `
+                                     -Percent 8 -Icon '📥' -Color 'Cyan'
+                Start-Sleep -Milliseconds 120   # piccolo delay visivo per far apparire la barra
+            }
             
             # Leggere il flusso e scrivere con tracking di progresso
             $contentStream = $getResponse.Content.ReadAsStreamAsync().Result
@@ -938,7 +950,6 @@ function Invoke-ToolkitDownload {
             $buffer = New-Object byte[] 8192
             $totalRead = 0
             $lastPercent = -1
-            $progressCounter = 0
             $lastProgressTime = Get-Date
             
             try {
@@ -971,11 +982,17 @@ function Invoke-ToolkitDownload {
                             $col = 'Cyan'
                         }
                         else {
-                            # Fake progress bar (dimensione sconosciuta): riempimento simulato, non reale
-                            $progressCounter++
-                            # Rampa lenta e costante verso ~95% (mai 100% durante il download)
-                            $percent = [math]::Min(95, [math]::Floor($progressCounter / 2.5))
-                            $status = "$currentDisplay scaricati (dimensione sconosciuta)"
+                            # === Barra COMPLETAMENTE SCOLLEGATA dal download ===
+                            # Usa solo il tempo trascorso da quando è apparsa la barra fake
+                            if ($fakeProgressStart) {
+                                $elapsed = ((Get-Date) - $fakeProgressStart).TotalSeconds
+                                # Rampa uniforme e prevedibile - max 95% durante il download
+                                # (il 100% viene forzato solo quando il file è scritto su disco)
+                                $percent = [math]::Min(95, [math]::Floor(8 + ($elapsed * 1.52)))
+                            } else {
+                                $percent = 50   # fallback
+                            }
+                            $status = "$currentDisplay scaricati"
                             $icon = '📥'
                             $col = 'Cyan'
                         }
