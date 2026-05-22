@@ -2,7 +2,7 @@
 
 > **Documento Ufficiale per i Contributori**  
 > Repository: [MagnetarMan/WinToolkit](https://github.com/MagnetarMan/WinToolkit)  
-> Ultimo aggiornamento: 2026-05-08
+> Ultimo aggiornamento: 2026-05-22
 
 ---
 
@@ -31,6 +31,7 @@ Per contribuire al progetto WinToolkit, è necessario disporre di:
 
 > [!WARNING]
 > **Regola Limitazione sul Branching**
+>
 > - Le modifiche possono essere effettuate su branch `Dev` o su branch dedicati (`feature/*`, `fix/*`, `feat/*`, `hotfix/*`)
 > - Le Pull Request verso il branch `main` verranno **chiuse immediatamente** senza preavviso
 > - Il branch `Dev` è l'unico branch accettato come target per le PR
@@ -85,67 +86,77 @@ WinToolkit è organizzato in una struttura modulare che facilita lo sviluppo, la
 WinToolkit/
 ├── .github/                              # Configurazione GitHub (CI/CD, Actions, Scripts)
 │   ├── Docs/                             # Documentazione del progetto
+│   │   ├── PR_And_PullRequest.md         # Guida alle PR (questo documento)
+│   │   ├── ARCHITECTURE.md               # Architettura del sistema
+│   │   └── SECURITY.md                   # Politiche di sicurezza
 │   ├── ISSUE_TEMPLATE/                   # Template per le issue GitHub
 │   ├── linters/                          # Configurazione linter PowerShell
 │   ├── scripts/                          # Script di automazione build e test
 │   ├── tests/                            # Test automatizzati progetto
+│   │   ├── Unit/                         # Test unitari moduli
+│   │   └── Integration/                  # Test di integrazione
 │   ├── workflows/                        # Pipeline CI/CD GitHub Actions
+│   ├── CODEOWNERS                        # Proprietari del codebase
 │   ├── CODE_OF_CONDUCT.md                # Codice di condotta della community
 │   ├── CONTRIBUTING.md                   # Linee guida per i contributi
+│   ├── dependabot.yml                    # Configurazione Dependabot
+│   ├── FUNDING.yml                       # Configurazione funding
 │   └── pull_request_template.md          # Template per le Pull Request
 │
 ├── asset/                                # Risorse statiche e strumenti esterni
-│   ├── png/                              # Icone e immagini UI
-│   ├── 7zr.exe                           # Estrazione archivi 7-Zip (Versione CLI)
-│   ├── AMD-Autodetect.exe                # Tool rilevamento automatico driver AMD
-│   ├── Basic.xml                         # File Configurazione installazione Office
+│   ├── 7zr.exe                           # Estrazione archivi 7-Zip (CLI)
+│   ├── AMD-Autodetect.exe                # Tool rilevamento driver AMD
+│   ├── Basic.xml                         # Configurazione Office
 │   ├── DDU.zip                           # Display Driver Uninstaller
 │   ├── dxwebsetup.exe                    # DirectX Web Setup
 │   ├── Microsoft.PowerShell_profile.ps1  # Profilo PowerShell personalizzato
 │   ├── NVCleanstall_1.19.0.exe           # NVIDIA Driver Cleaner
-│   ├── OOSU10.exe                        # O&O ShutUp10 (Debloat di Windows)
-│   ├── Setup.exe                         # Programma setup di Office 365
-│   ├── speedtest.exe                     # Tool test velocità rete
-│   └── settings.json                     # Configurazioni Windows Terminal
+│   ├── OOSU10.exe                        # O&O ShutUp10 (Debloat Windows)
+│   ├── OOSU10.cfg                        # Configurazione O&O ShutUp10
+│   ├── Setup.exe                         # Setup Office 365
+│   └── speedtest.exe                     # Test velocità rete
 │
 ├── Docs/                                 # Documentazione tecnica
 │   └── Windows Updates and the Shared Servicing Model V1.2.pdf
 │
 ├── img/                                  # Immagini e risorse grafiche
-│   ├── avatar/                           # Avatar sezione readme "Parlano di Wintoolkit"
-│   ├── Gui.jpg                           # Screenshot WinToolkit GUI Version
-│   ├── RepairToolkit-old.jpg             # Screenshot WinToolkit versione vecchia UI
-│   ├── Run-old.jpg                       # Screenshot Sezione "Dove tutto è iniziato (ver. 1.0)"
-│   ├── Run.jpg                           # Screenshot Principale nel Readme.md
-│   ├── WinToolkit-icon.png               # Favicon del Readme.md
-│   └── WinToolkit.ico                    # Icona Wintoolkit
-│
-├── To-Do/                                # Note di sviluppo, bug tracking, idee
+│   ├── avatar/                           # Avatar contributori
+│   │   └── zakkos.jpg
+│   ├── Gui.jpg                           # Screenshot GUI Version
+│   ├── RepairToolkit-old.jpg           # Screenshot versione vecchia UI
+│   ├── Run-old.jpg                       # Screenshot ver. 1.0
+│   ├── Run.jpg                           # Screenshot principale Readme
+│   ├── WinToolkit-Dev.ico                # Icona Dev
+│   ├── WinToolkit-icon.png               # Favicon Readme
+│   └── WinToolkit.ico                    # Icona WinToolkit
 │
 ├── tool/                                 # Moduli funzionali del toolkit
-│   ├── DisableBitlocker.ps1              # Gestione e disabilitazione BitLocker
-│   ├── GamingToolkit.ps1                 # Ottimizzazioni specifiche per il gaming
-│   ├── OfficeToolkit.ps1                 # Strumenti per gestione Microsoft Office
-│   ├── VideoDriverInstall.ps1            # Installazione driver video avanzata
-│   ├── WinBackupDriver.ps1               # Backup e ripristino driver di sistema
-│   ├── WinCleaner.ps1                    # Pulizia file temporanei e cache
-│   ├── WinDebloat.ps1                    # Rimozione bloatware Windows
-│   ├── WinExportLog.ps1                  # Esportazione log per debug
-│   ├── WinReinstallStore.ps1             # Reinstallazione Microsoft Store & Winget
-│   ├── WinRepairToolkit.ps1              # Strumenti di riparazione sistema
-│   └── WinUpdateReset.ps1                # Reset completo Windows Update
+│   ├── DisableBitlocker.ps1              # Gestione BitLocker
+│   ├── GamingToolkit.ps1                 # Ottimizzazioni gaming
+│   ├── Install-Office.ps1                # Installazione Microsoft Office
+│   ├── Repair-Office.ps1                 # Riparazione Microsoft Office
+│   ├── Uninstall-Office.ps1              # Disinstallazione Microsoft Office
+│   ├── VideoDriverInstall.ps1            # Installazione driver video
+│   ├── WinBackupDriver.ps1               # Backup driver di sistema
+│   ├── WinCleaner.ps1                    # Pulizia file temporanei
+│   ├── WinDebloat.ps1                    # Rimozione bloatware
+│   ├── WinExportLog.ps1                  # Esportazione log diagnostici
+│   ├── WinReinstallStore.ps1             # Reinstallazione Microsoft Store
+│   ├── WinRepairToolkit.ps1              # Strumenti riparazione sistema
+│   └── WinUpdateReset.ps1                # Reset Windows Update
 │
+├── version.json                          # Fonte unica di verità per versione
 ├── .gitignore                            # File ignorati da Git
 ├── CHANGELOG.md                          # Storico modifiche
-├── compiler.ps1                          # Sistema di compilazione modulare ufficiale
+├── compiler.ps1                          # Sistema di compilazione modulare
 ├── LICENSE                               # Licenza MIT
 ├── README.md                             # Documentazione principale
 ├── start-offline.ps1                     # Avvio modalità offline
 ├── start.ps1                             # Script di avvio principale
 ├── TODO.md                               # Task e sviluppi futuri
-├── WinToolkit_GUI.ps1                    # Versione WinToolkit GUI (WPF)
-├── WinToolkit-template.ps1               # Template base con funzioni core (MODIFICABILE)
-└── WinToolkit.ps1                        # File compilato finale (NON MODIFICARE MAI)
+├── WinToolkit_GUI.ps1                    # Versione con interfaccia grafica WPF
+├── WinToolkit-template.ps1               # Template base con funzioni core
+└── WinToolkit.ps1                        # File compilato finale (NON MODIFICARE)
 ```
 
 ### Descrizione Dettagliata dei Componenti
@@ -159,19 +170,21 @@ WinToolkit/
 >
 > Il compilatore inietta automaticamente ogni modulo nel template principale durante la fase di build.
 
-| File                     | Descrizione                                   |
-| ------------------------ | --------------------------------------------- |
-| `DisableBitlocker.ps1`   | Gestione e disabilitazione BitLocker          |
-| `GamingToolkit.ps1`      | Ottimizzazioni specifiche per il gaming       |
-| `OfficeToolkit.ps1`      | Strumenti per la gestione di Microsoft Office |
-| `VideoDriverInstall.ps1` | Installazione driver video avanzata           |
-| `WinBackupDriver.ps1`    | Backup e ripristino driver di sistema         |
-| `WinCleaner.ps1`         | Pulizia file temporanei e cache               |
-| `WinDebloat.ps1`         | Rimozione bloatware e telemetria Windows      |
-| `WinExportLog.ps1`       | Esportazione log diagnostici per debug        |
-| `WinReinstallStore.ps1`  | Reinstallazione Microsoft Store & WinGet      |
-| `WinRepairToolkit.ps1`   | Strumenti di riparazione sistema (SFC/DISM)   |
-| `WinUpdateReset.ps1`     | Reset completo servizi e cache Windows Update |
+| File                     | Descrizione                                |
+| ------------------------ | ------------------------------------------ |
+| `DisableBitlocker.ps1`   | Gestione e disabilitazione BitLocker       |
+| `GamingToolkit.ps1`      | Ottimizzazioni specifiche per il gaming    |
+| `Install-Office.ps1`     | Installazione e configurazione Office      |
+| `Repair-Office.ps1`      | Riparazione installazioni Office           |
+| `Uninstall-Office.ps1`   | Disinstallazione e rimozione Office        |
+| `VideoDriverInstall.ps1` | Installazione driver video avanzata        |
+| `WinBackupDriver.ps1`    | Backup e ripristino driver di sistema      |
+| `WinCleaner.ps1`         | Pulizia file temporanei e cache            |
+| `WinDebloat.ps1`         | Rimozione bloatware Windows                |
+| `WinExportLog.ps1`       | Esportazione log diagnostici per debug     |
+| `WinReinstallStore.ps1`  | Reinstallazione Microsoft Store & WinGet   |
+| `WinRepairToolkit.ps1`   | Strumenti di riparazione sistema (SFC/DISM)|
+| `WinUpdateReset.ps1`     | Reset completo Windows Update              |
 
 #### Cartella `/asset/` - Risorse Esterne
 
@@ -180,34 +193,43 @@ Contiene eseguibili e strumenti di terze parti utilizzati dal toolkit. Questi fi
 #### Cartella `/.github/` - Infrastruttura CI/CD
 
 - **workflows/**: Pipeline GitHub Actions per CI/CD e distribuzione automatica
-  - `CI_UpdateWinToolkit_Dev.yml`: Pipeline Enterprise con gestione adaptive per branch (Dev completa, feature/fix leggera, PR gate di qualità)
-  - `Release_Wintoolkit.yml`: Pipeline manuale per creazione branch release e merge in main
-- **scripts/**: Script PowerShell per build, versioning e test automatici
-  - `Update-Version.ps1`: Incremento automatico numero build (comportamento diverso per Dev vs feature/fix)
-  - `Invoke-Build.ps1`: Wrapper ufficiale del compilatore con statistiche compressione
-  - `Test-CompiledScript.ps1`: Validazione post-compilazione (sintassi, funzioni, menu, dimensione, encoding)
+    - `CI_UpdateWinToolkit_Dev.yml`: Pipeline Enterprise adattiva (Dev completa, feature/fix leggera, PR gate di qualità)
+    - `CI_UpdateWinToolkit_Main.yml`: Pipeline per verifica su branch main
+    - `Create_Release.yml`: Workflow per creazione release e generazione note
+    - `Release_Wintoolkit.yml`: Pipeline per creazione branch release e merge in main
+    - `security.yml`, `stale.yml`: Workflow di manutenzione
+- **scripts/**: Script PowerShell per build e test automatici
+    - `Update-Version.ps1`: Gestione versione del progetto
+    - `Invoke-Build.ps1`: Wrapper ufficiale del compilatore con statistiche compressione
+    - `Test-CompiledScript.ps1`: Validazione post-compilazione (sintassi, funzioni, menu, dimensione, encoding)
+    - `New-ReleaseNotes.ps1`: Generazione note di release
 - **tests/**: Test automatizzati progetto
-  - `WinToolkit.Tests.ps1`: Test suite Pester 5 per validazione moduli e funzionalità
+    - `WinToolkit.Tests.ps1`: Test suite Pester 5 per validazione moduli e funzionalità
+    - **Unit/**: Test unitari per singoli moduli (VideoDriver, GamingToolkit, WinCleaner)
+    - **Integration/**: Test di integrazione (Build.Tests.ps1)
 - **linters/**: Configurazione PSScriptAnalyzer
 - **Docs/**: Documentazione ufficiale progetto
 - **ISSUE_TEMPLATE/**: Template per le issue GitHub
-  - `bug_report.yml`: Template per segnalazione bug
-  - `enhancement.yml`: Template per miglioramenti
-  - `feature_request.yml`: Template per nuove funzionalità
+    - `bug_report.yml`: Template per segnalazione bug
+    - `enhancement.yml`: Template per miglioramenti
+    - `feature_request.yml`: Template per nuove funzionalità
 - **CODE_OF_CONDUCT.md**: Codice di condotta della community
 - **CONTRIBUTING.md**: Linee guida per i contributi
 - **pull_request_template.md**: Template per le Pull Request
+- **CODEOWNERS**: Proprietari del codebase
 
 #### File Radice
 
-| File                      | Ruolo                                                                 |
-| ------------------------- | --------------------------------------------------------------------- |
+| File                      | Ruolo                                                                  |
+| ------------------------- | ---------------------------------------------------------------------- |
+| `version.json`            | Fonte unica di verità per versione e build number                     |
 | `WinToolkit-template.ps1` | Template base con funzioni core, logging e UI (MODIFICABILE)          |
 | `WinToolkit.ps1`          | File compilato finale distribuito (GENERATO AUTOMATICAMENTE)          |
-| `compiler.ps1`            | Sistema di compilazione ufficiale con tokenizer e minificazione sicura |
-| `WinToolkit_GUI.ps1`      | Versione con interfaccia grafica WPF                                  |
-| `start.ps1`               | Entry point ufficiale per distribuzione one-liner                     |
-| `start-offline.ps1`       | Modalità di avvio senza connessione internet                          |
+| `compiler.ps1`            | Sistema di compilazione ufficiale con tokenizer e minificazione sicura|
+| `WinToolkit_GUI.ps1`      | Versione con interfaccia grafica WPF                                   |
+| `start.ps1`               | Entry point ufficiale per distribuzione one-liner                       |
+| `start-offline.ps1`       | Modalità di avvio senza connessione internet                           |
+| `TODO.md`                 | Task e sviluppi futuri                                                 |
 
 ---
 
@@ -222,6 +244,7 @@ Dopo aver effettuato delle modifiche, è obbligatorio testare la versione compil
 Questa modalità utilizza la stessa pipeline ufficiale di build direttamente nella tua fork, garantendo che il tuo codice funzioni esattamente come nel repository principale.
 
 #### ✅ Prerequisiti
+
 1. Fork del repository WinToolkit sul tuo account GitHub
 2. Branch `Dev` presente e aggiornato nel tuo fork
 3. Nessuna restrizione sulle GitHub Actions nella tua fork
@@ -229,30 +252,39 @@ Questa modalità utilizza la stessa pipeline ufficiale di build direttamente nel
 #### 🔄 Trigger della Pipeline
 
 La pipeline si attiva automaticamente su:
-- **Push su Dev** → Pipeline completa: lint → test → versioning → build → release
-- **Push su feature/fix/feat/hotfix/*** → Pipeline leggera: lint → test → versioning (no-op) → build → commit
+
+- **Push su Dev** → Pipeline completa: lint → test → build
+- **Push su feature/fix/feat/hotfix/*** → Pipeline leggera: lint → test → build → commit
 - **PR verso Dev** → Gate di qualità: lint → test (no build, no deploy)
 
 I trigger sono limitati ai file:
+
 - `tool/*.ps1`
 - `WinToolkit-template.ps1`
 - `compiler.ps1`
 - `start-offline.ps1`
 - `start.ps1`
+- `.github/workflows/*.yml`
+- `.github/tests/*.ps1`
+- `.github/scripts/*.ps1`
 
 #### 🛡️ PR Security Guard — Politica a Tre Livelli
 
 Ogni PR verso Dev viene analizzata automaticamente da un sistema di sicurezza a tre livelli:
 
 **Livello 1 — Consentiti (silenzioso)**
+
 - File in `tool/*`
+- `WinToolkit.ps1` (solo per maintainer)
 - ✅ PR procede normalmente senza interventi
 
 **Livello 2 — Consentiti con Warning (revisione manuale)**
+
 - `start.ps1`, `WinToolkit_GUI.ps1`, `WinToolkit-template.ps1`, `asset/*`
 - ⚠️ PR rimane aperta, viene aggiunto un commento di avviso per il maintainer
 
 **Livello 3 — Protetti (blocco totale)**
+
 - Tutti gli altri file (`.github/**`, `compiler.ps1`, ecc.)
 - ⛔ PR chiusa automaticamente con commento di accesso negato
 
@@ -260,6 +292,7 @@ Ogni PR verso Dev viene analizzata automaticamente da un sistema di sicurezza a 
 > **Regola per i contributori esterni**: Puoi proporre modifiche **esclusivamente** ai moduli nella cartella `tool/`. Per modifiche ai file core (compiler, workflow CI/CD, script di build), apri una **Issue** descrivendo la proposta.
 
 #### 📋 Passaggi Configurazione
+
 1. Vai nella pagina del tuo fork su GitHub
 2. Naviga in **Settings > Actions > General**
 3. Imposta **Actions permissions** su `Allow all actions and reusable workflows`
@@ -267,6 +300,7 @@ Ogni PR verso Dev viene analizzata automaticamente da un sistema di sicurezza a 
 5. Salva le modifiche
 
 #### 🔄 Comandi Esecuzione
+
 ```bash
 # 1. Assicurati di essere sul branch Dev
 git checkout Dev
@@ -280,18 +314,21 @@ git push origin Dev
 ```
 
 #### ⚙️ Funzionamento Automatico
+
 Appena pushati:
+
 1. Il workflow `CI_UpdateWinToolkit_Dev.yml` si avvierà automaticamente
 2. Verranno eseguiti **nella tua fork**:
-   - ✅ Controllo sicurezza sulle modifiche (PR Security Guard a 3 livelli)
-   - ✅ Linting completo con PSScriptAnalyzer
-   - ✅ Test suite Pester 5 (validazione moduli e funzionalità)
-   - ✅ Validazione sintassi AST (compiler.ps1 e template)
+    - ✅ Controllo sicurezza sulle modifiche (PR Security Guard a 3 livelli)
+    - ✅ Linting completo con PSScriptAnalyzer
+    - ✅ Test suite Pester 5 (validazione moduli e funzionalità)
+    - ✅ Validazione sintassi AST (compiler.ps1 e template)
 
 > [!IMPORTANT]
-> **Nota Fondamentale**: I job di versioning, build e generazione release sono **disabilitati automaticamente nelle fork** per motivi di sicurezza. Questo è il comportamento previsto confermato dalla logica `if: github.event_name == 'push'` presente nei job versioning (linea ~389), build (linea ~464) e release (linea ~600) del workflow ufficiale.
+> **Nota Fondamentale**: La pipeline su push esegue lint, test e build. Il versioning ufficiale avviene esclusivamente tramite il workflow `Create_Release.yml` (manualmente attivato). Nelle fork, i job di build committano il file `WinToolkit.ps1` generato.
 
 #### ✅ Verifica Risultato
+
 1. Vai nella tab **Actions** del tuo fork
 2. Controlla che il workflow sia completato con successo (✅)
 3. Se tutti i controlli passano, il tuo codice è valido e compatibile
@@ -308,25 +345,31 @@ Appena pushati:
 Questa modalità permette di compilare e testare WinToolkit completamente offline senza necessità di pushare su GitHub.
 
 #### ✅ Prerequisiti Sistema
+
 - Windows 10 1809+ / Windows 11 22H2+
 - PowerShell 5.1 o PowerShell 7+
 - Privilegi Amministratore
 - Nessuna dipendenza esterna richiesta
 
 #### 📋 Passaggi Esecuzione
+
 1. Apri PowerShell come Amministratore
 2. Naviga nella cartella root del repository:
+
 ```powershell
 cd C:\Percorso\A\WinToolkit
 ```
 
 3. Esegui il compilatore ufficiale:
+
 ```powershell
 .\compiler.ps1
 ```
 
 #### ⚙️ Fasi Compilazione
+
 Il compilatore eseguirà automaticamente queste operazioni:
+
 1. Validazione prerequisiti e struttura cartelle
 2. Caricamento template e tutti i moduli da `/tool/`
 3. Iniezione automatica di ogni funzione nel template
@@ -335,13 +378,16 @@ Il compilatore eseguirà automaticamente queste operazioni:
 6. Generazione dashboard statistiche
 
 #### ✅ Verifica Risultato
+
 Al termine della compilazione verrà mostrato un report con:
+
 - Numero moduli processati
 - Dimensione sorgente vs finale
 - Percentuale di compressione
 - Tempo totale compilazione
 
 Per testare il file generato:
+
 ```powershell
 # Esegui direttamente il file compilato
 .\WinToolkit.ps1
@@ -349,6 +395,42 @@ Per testare il file generato:
 
 > [!Note]
 > In caso di errori durante la compilazione, il compilatore mostrerà l'esatto punto di errore e ripristinerà automaticamente lo stato precedente. Non verrà generato un file corrotto.
+
+---
+
+## 🏷️ Tag per la Categorizzazione delle Pull Request
+
+> [!IMPORTANT]
+> **Obbligatorio: Usa i tag corretti**
+>
+> Quando apri una Pull Request, è fondamentale categorizzarla correttamente tramite uno dei tag supportati.
+> I tag permettono al maintainer di identificare rapidamente la natura della modifica e di gestire le PR in modo ordinato.
+> L'uso scorretto dei tag comporta il rifiuto o il rinvio della PR fino alla correzione.
+
+### Tag Supportati
+
+| Tag                | Categoria                                    | Descrizione                                                                                                            |
+| ------------------ | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `BUG`              | Bug Fixes                                    | Correzione di un errore o comportamento difettoso già presente nel codice. La PR deve riferirsi a una issue esistente. |
+| `ENHANCEMENT`      | Miglioramento Funzione                       | Modifica o miglioramento di una funzione già esistente che ne aumenta la qualità, la velocità o la robustezza.         |
+| `FEATURE`          | Aggiunta Funzionalità Richiesta non presente | Implementazione di una nuova funzionalità precedentemente richiesta e non ancora disponibile nel toolkit.              |
+| `GUI`              | Modifica GUI                                 | Qualsiasi modifica all'interfaccia grafica (`WinToolkit_GUI.ps1`) o ai componenti visuali del toolkit.                 |
+| `External Changes` | Modifiche dei Contributori Esterni           | Modifica proposta da un collaboratore esterno che non fa parte del team di sviluppo diretto. Riservato al maintainer.  |
+
+### Come Usare i Tag
+
+Inserisci il tag all'inizio del titolo della Pull Request, separato da uno `/` o `-` dalla descrizione:
+
+```
+BUG/corretto crash su WinCleaner durante pulizia cartella Temp
+ENHANCEMENT/ottimizzato algoritmo ordinamento in GamingToolkit
+FEATURE/aggiunta opzione backup automatico in WinBackupDriver
+GUI/aggiustato layout finestra principale di WinToolkit_GUI
+```
+
+> [!TIP]
+> È possibile combinare il tag con il prefisso del branch (es. `fix/BUG/nome`) ma **non è obbligatorio**.
+> La pipeline CI riconosce entrambe le forme e processa la PR correttamente.
 
 ---
 
@@ -405,12 +487,14 @@ Il progetto utilizza due categorie principali per la gestione delle task:
 
 | Milestone                | Descrizione                                                   | Tipologia      |
 | ------------------------ | ------------------------------------------------------------- | -------------- |
-| **Versione in sviluppo** | Quick fixes, correzioni urgenti, miglioramenti incrementali   | Priorità Alta  |
+| **Dev**                  | Branch di lavoro per sviluppo, test e integrazione continua   | Target PR      |
+| **main**                 | Branch di distribuzione, contiene solo WinToolkit.ps1 compilato| Release        |
 | **Backlog**              | Problemi complessi, nuove feature, discussioni architecturali | Bassa Priorità |
 
 ### Criteri di Assegnazione
 
-- **Versione in sviluppo**: Bug critici, hotfix, piccole migliorie che possono essere implementate rapidamente.
+- **Dev**: Tutti i contributi vanno diretti a questo branch. Qui si svolge lo sviluppo e i test.
+- **main**: Branch protetto. L'output compilato (`WinToolkit.ps1`) viene qui committato tramite release.
 - **Backlog**: Feature request complesse, refactoring significativi, discussioni che richiedono valutazione approfondita.
 
 ---
@@ -446,11 +530,13 @@ git checkout -b fix/nome-del-fix
 
 > [!TIP]
 > **Pattern di branch supportati dalla pipeline**:
+>
 > - `fix/*` o `bugfix/*` → Pipeline leggera (lint + test + build)
 > - `feature/*` o `feat/*` → Pipeline leggera (lint + test + build)
 > - `hotfix/*` → Pipeline leggera (lint + test + build)
-> - `Dev` → Pipeline completa (lint + test + versioning + build + release)
-> 
+> - `BUG/*`, `ENHANCEMENT/*`, `FEATURE/*` → Pipeline leggera (lint + test + build)
+> - `Dev` → Pipeline completa (lint + test + build)
+>
 > I nomi dei branch devono seguire questi pattern per attivare automaticamente la CI.
 
 ### Step 5: Effettua le Modifiche
