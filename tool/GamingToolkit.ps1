@@ -14,6 +14,7 @@ function GamingToolkit {
         None. La funzione non restituisce output.
     #>
 
+    [CmdletBinding()]
     param(
         [ValidateRange(0, 300)]
         [int]$CountdownSeconds = 30,
