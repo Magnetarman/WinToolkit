@@ -106,7 +106,7 @@ $AppConfig = @{
         AMDInstaller          = "https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.5.2-minimalsetup-260513_web.exe"
         NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/NVCleanstall_1.19.0.exe"
         DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/DDU.zip"
-        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/ENHANCEMENT-Upgrade-Video-Driver-Install-Script/asset/DriverOverrides.json"
+        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/DriverOverrides.json"
 
         # Gaming
         DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/dxwebsetup.exe"
@@ -937,13 +937,15 @@ function Invoke-ToolkitDownload {
                             # Convertire bytes in KB/MB appropriato
                             $currentDisplay = if ($totalRead -gt 1048576) {
                                 "$([Math]::Round($totalRead / 1048576, 1)) MB"
-                            } else {
+                            }
+                            else {
                                 "$([Math]::Round($totalRead / 1024, 1)) KB"
                             }
                             
                             $totalDisplay = if ($totalBytes -gt 1048576) {
                                 "$([Math]::Round($totalBytes / 1048576, 1)) MB"
-                            } else {
+                            }
+                            else {
                                 "$([Math]::Round($totalBytes / 1024, 1)) KB"
                             }
                             
