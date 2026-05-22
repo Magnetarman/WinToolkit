@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit Enterprise CI/CD Pipeline — Release Automation V 3.2.0
+# WinToolkit Enterprise CI/CD Pipeline — Release Automation V 3.2.2
 # =============================================================================
 # Questa pipeline gestisce la preparazione e la generazione dei branch di rilascio.
 #
@@ -24,12 +24,35 @@ permissions:
 
 env:
   # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  validate_release_context:
+    name: Validate Official Repo and Maintainer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify Official Repository
+        run: |
+          if [ "${{ github.repository }}" != "Magnetarman/WinToolkit" ]; then
+            echo "::error::Azione non consentita: questo workflow manuale è supportato solo nella repository ufficiale https://github.com/Magnetarman/WinToolkit/. Repository corrente: ${{ github.repository }}"
+            exit 1
+          fi
+          echo "Repository ufficiale verificata ✓"
+
+      - name: Verify Maintainer
+        run: |
+          if [ "${GITHUB_ACTOR,,}" != "magnetarman" ]; then
+            echo "::error::Azione non consentita: questo workflow manuale è supportato solo per il maintainer @Magnetarman nella repository ufficiale. Attore corrente: ${{ github.actor }}"
+            exit 1
+          fi
+          echo "Maintainer verificato ✓"
+
   create_release_branch:
     name: Generate Release Branch
     runs-on: windows-latest
+    needs: validate_release_context
 
     steps:
       - name: Checkout Source Repository (Dev)

@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit — Create_Release V 3.1.2
+# WinToolkit — Create_Release V 3.2.2
 # =============================================================================
 # Workflow manuale per la creazione di release ufficiali.
 #
@@ -38,7 +38,8 @@ concurrency:
 jobs:
   # ===========================================================================
   # JOB 0: VALIDATE — Controlli di sicurezza
-  # Fallisce immediatamente se branch != Dev o actor != MagnetarMan.
+  # Fallisce immediatamente se repo != Magnetarman/WinToolkit, branch != Dev
+  # o actor != MagnetarMan.
   # Gira su ubuntu-latest per velocità (nessuna dipendenza PS).
   # ===========================================================================
   validate:
@@ -54,10 +55,18 @@ jobs:
           fi
           echo "Branch: Dev ✓"
 
+      - name: Verifica Repository Ufficiale
+        run: |
+          if [ "${{ github.repository }}" != "Magnetarman/WinToolkit" ]; then
+            echo "::error::Azione non consentita: questo workflow manuale è supportato solo nella repository ufficiale https://github.com/Magnetarman/WinToolkit/. Repository corrente: ${{ github.repository }}"
+            exit 1
+          fi
+          echo "Repository ufficiale verificata ✓"
+
       - name: Verifica Attore
         run: |
           if [ "${GITHUB_ACTOR,,}" != "magnetarman" ]; then
-            echo "::error::Questo workflow può essere eseguito solo dall'utente MagnetarMan. Attore corrente: ${{ github.actor }}"
+            echo "::error::Azione non consentita: questo workflow manuale è supportato solo per il maintainer @Magnetarman nella repository ufficiale. Attore corrente: ${{ github.actor }}"
             exit 1
           fi
           echo "Attore: MagnetarMan ✓"

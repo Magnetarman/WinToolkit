@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit Enterprise CI/CD Pipeline — Main Branch Protection V 3.2.0
+# WinToolkit Enterprise CI/CD Pipeline — Main Branch Protection V 3.2.2
 # =============================================================================
 # Questa pipeline è progettata specificamente per il ramo 'main'.
 #
@@ -17,7 +17,7 @@ name: CI_WinToolkit_Main_Protection
 
 env:
   # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 # ---------------------------------------------------------------------------
 # TRIGGER
@@ -40,6 +40,29 @@ concurrency:
 # ---------------------------------------------------------------------------
 jobs:
   # ===========================================================================
+  # JOB -1: OFFICIAL REPO GUARD
+  # Blocca il workflow se avviato fuori dalla repository ufficiale o da utenti
+  # diversi dal maintainer.
+  # ===========================================================================
+  official_repo_guard:
+    name: Official Repository Guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify Official Repository and Maintainer
+        run: |
+          if [ "${{ github.repository }}" != "Magnetarman/WinToolkit" ]; then
+            echo "::error::Azione non consentita: CI_UpdateWinToolkit_Main è supportata solo nella repository ufficiale https://github.com/Magnetarman/WinToolkit/. Repository corrente: ${{ github.repository }}"
+            exit 1
+          fi
+          if [ "${GITHUB_ACTOR,,}" != "magnetarman" ]; then
+            echo "::error::Azione non consentita: il ramo main può essere sincronizzato solo dal maintainer @Magnetarman nella repository ufficiale. Attore corrente: ${{ github.actor }}"
+            exit 1
+          fi
+          echo "Repository e maintainer verificati ✓"
+
+  # ===========================================================================
   # JOB 0: MAIN BRANCH GUARD — Blocco totale contributi esterni
   #
   # Chiude automaticamente qualsiasi PR verso 'main' che non sia aperta
@@ -51,6 +74,7 @@ jobs:
     permissions:
       pull-requests: write
       contents: read
+    needs: official_repo_guard
 
     steps:
       - name: Verify PR Author
