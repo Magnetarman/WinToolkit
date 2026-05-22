@@ -106,7 +106,7 @@ $AppConfig = @{
         AMDInstaller          = "https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.5.2-minimalsetup-260513_web.exe"
         NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/NVCleanstall_1.19.0.exe"
         DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/DDU.zip"
-        DriverOverridesJson   = ""
+        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/ENHANCEMENT-Upgrade-Video-Driver-Install-Script/asset/DriverOverrides.json"
 
         # Gaming
         DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/dxwebsetup.exe"
@@ -1674,7 +1674,11 @@ function VcardAnalizer {
         [string]$OverridesPath
     )
 
-    $defaultLocalOverrides = Join-Path (Get-Location) 'asset\DriverOverrides.json'
+    $assetCacheDir = Join-Path $AppConfig.Paths.Root 'asset'
+    if (-not (Test-Path $assetCacheDir)) {
+        $null = New-Item -Path $assetCacheDir -ItemType Directory -Force
+    }
+    $defaultLocalOverrides = Join-Path $assetCacheDir 'DriverOverrides.json'
     $resolvedOverridesPath = if ($OverridesPath) { $OverridesPath } else { $defaultLocalOverrides }
 
     $analysis = [pscustomobject]@{
@@ -1715,17 +1719,18 @@ function VcardAnalizer {
 
     $overrides = @()
     $remoteUrl = $AppConfig.URLs.DriverOverridesJson
-    if (-not [string]::IsNullOrWhiteSpace($remoteUrl)) {
-        try {
-            $downloadTarget = Join-Path $AppConfig.Paths.Temp 'DriverOverrides.json'
-            if (Invoke-ToolkitDownload -Uri $remoteUrl -OutputPath $downloadTarget -Description 'Driver Overrides JSON') {
-                $resolvedOverridesPath = $downloadTarget
-                $analysis.OverridesSource = $resolvedOverridesPath
-            }
+    if ([string]::IsNullOrWhiteSpace($remoteUrl)) {
+        $remoteUrl = "$($AppConfig.URLs.GitHubAssetBaseUrl)DriverOverrides.json"
+    }
+
+    try {
+        if (Invoke-ToolkitDownload -Uri $remoteUrl -OutputPath $defaultLocalOverrides -Description 'Driver Overrides JSON') {
+            $resolvedOverridesPath = $defaultLocalOverrides
+            $analysis.OverridesSource = $resolvedOverridesPath
         }
-        catch {
-            Write-StyledMessage -Type 'Warning' -Text "Download DriverOverrides.json fallito, uso fallback locale."
-        }
+    }
+    catch {
+        Write-StyledMessage -Type 'Warning' -Text "Download DriverOverrides.json fallito, uso cache locale se disponibile."
     }
 
     if (Test-Path $resolvedOverridesPath) {
