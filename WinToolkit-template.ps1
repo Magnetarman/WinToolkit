@@ -853,11 +853,11 @@ function Remove-ItemSafely {
 function Invoke-ToolkitDownload {
     <#
     .SYNOPSIS
-        Download di un file con retry automatico, referrer AMD, spinner grafico e messaggi standardizzati.
-        Versione unificata dei 3 pattern di download esistenti nel progetto.
+        Download di un file con retry automatico, barra di progresso, referrer AMD e messaggi standardizzati.
     .DESCRIPTION
-        Supporta download da AMD (con referrer https://www.amd.com per aggirare i blocchi)
-        e da altri provider. Implementa retry automatico, fallback e visualizzazione spinner.
+        Implementa download con visualizzazione della barra di progresso in tempo reale.
+        Supporta URL AMD con referrer per aggirare i blocchi.
+        Retry automatico e fallback robusti per connessioni instabili.
     #>
     param(
         [string]$Uri,
@@ -869,32 +869,112 @@ function Invoke-ToolkitDownload {
     
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
         try {
-            if ($NoSpinner) {
-                Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
+            Write-StyledMessage -Type 'Info' -Text "📥 Download $Description..."
+            
+            # Creare parent directory se non esiste
+            $parentDir = Split-Path -Parent $OutputPath
+            if (-not (Test-Path $parentDir)) {
+                New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
             }
             
-            $result = Invoke-WithSpinner -Activity "Download $Description" -Action {
-                $wc = New-Object System.Net.WebClient
-                
-                # Aggiungi referrer per URL AMD (bypass del blocco AMD)
-                if ($Uri -match 'drivers\.amd\.com|amd-software') {
-                    $wc.Headers.Add("Referer", "https://www.amd.com")
-                    $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            # Creare HttpClient con timeout di 5 minuti
+            $handler = New-Object System.Net.Http.HttpClientHandler
+            $handler.AllowAutoRedirect = $true
+            $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
+            
+            $httpClient = New-Object System.Net.Http.HttpClient($handler)
+            $httpClient.Timeout = [TimeSpan]::FromSeconds(300)
+            
+            # Aggiungere headers personalizzati
+            $httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            if ($Uri -match 'drivers\.amd\.com|amd-software') {
+                $httpClient.DefaultRequestHeaders.Add("Referer", "https://www.amd.com")
+            }
+            
+            # Effettuare la richiesta HEAD per ottenere le dimensioni
+            $totalBytes = 0
+            try {
+                $headRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Head, $Uri)
+                $headResponse = $httpClient.SendAsync($headRequest).Result
+                if ($headResponse.Content.Headers.ContentLength -gt 0) {
+                    $totalBytes = $headResponse.Content.Headers.ContentLength
                 }
-                
-                $wc.DownloadFile($Uri, $OutputPath)
-                $wc.Dispose()
-                return (Test-Path $OutputPath)
+                $headResponse.Dispose()
+            }
+            catch {}  # Continua anche se HEAD fallisce
+            
+            # Effettuare il download GET
+            $getRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $Uri)
+            $getResponse = $httpClient.SendAsync($getRequest).Result
+            
+            if (-not $getResponse.IsSuccessStatusCode) {
+                throw "HTTP Error $($getResponse.StatusCode): $($getResponse.ReasonPhrase)"
             }
             
-            if ($result) {
+            # Leggere il flusso e scrivere con tracking di progresso
+            $contentStream = $getResponse.Content.ReadAsStreamAsync().Result
+            $fileStream = [System.IO.File]::Create($OutputPath)
+            $buffer = New-Object byte[] 8192
+            $totalRead = 0
+            $lastPercent = -1
+            
+            try {
+                while ($true) {
+                    $read = $contentStream.Read($buffer, 0, $buffer.Length)
+                    if ($read -eq 0) { break }
+                    
+                    $fileStream.Write($buffer, 0, $read)
+                    $totalRead += $read
+                    
+                    # Mostrare la barra di progresso se conosciamo il totale
+                    if ($totalBytes -gt 0 -and -not $Global:GuiSessionActive) {
+                        $percent = [Math]::Round(($totalRead / $totalBytes) * 100)
+                        if ($percent -ne $lastPercent) {
+                            $filled = '█' * [Math]::Floor($percent * 30 / 100)
+                            $empty = '░' * (30 - $filled.Length)
+                            $bar = "[$filled$empty] {0,3}%" -f $percent
+                            
+                            # Convertire bytes in KB/MB appropriato
+                            $currentDisplay = if ($totalRead -gt 1048576) {
+                                "$([Math]::Round($totalRead / 1048576, 1)) MB"
+                            } else {
+                                "$([Math]::Round($totalRead / 1024, 1)) KB"
+                            }
+                            
+                            $totalDisplay = if ($totalBytes -gt 1048576) {
+                                "$([Math]::Round($totalBytes / 1048576, 1)) MB"
+                            } else {
+                                "$([Math]::Round($totalBytes / 1024, 1)) KB"
+                            }
+                            
+                            Write-Host "`r⏳ Download $Description $bar ($currentDisplay / $totalDisplay)" -NoNewline -ForegroundColor Cyan
+                            $lastPercent = $percent
+                        }
+                    }
+                }
+            }
+            finally {
+                $fileStream.Dispose()
+                $contentStream.Dispose()
+            }
+            
+            $httpClient.Dispose()
+            $handler.Dispose()
+            
+            if (Test-Path $OutputPath) {
+                if (-not $Global:GuiSessionActive) { Write-Host "" }
                 Write-StyledMessage -Type 'Success' -Text "✅ Download completato: $Description."
                 return $true
             }
         }
         catch {
+            # Pulire in caso di errore
+            if (Test-Path $OutputPath) {
+                Remove-Item $OutputPath -Force -ErrorAction SilentlyContinue
+            }
+            
             if ($attempt -lt $MaxRetries) {
-                Write-StyledMessage -Type 'Warning' -Text "⚠️  Tentativo $attempt/$MaxRetries fallito. Riprovo..."
+                Write-StyledMessage -Type 'Warning' -Text "⚠️  Tentativo $attempt/$MaxRetries fallito: $($_.Exception.Message). Riprovo..."
                 Start-Sleep -Seconds 2
             }
         }
