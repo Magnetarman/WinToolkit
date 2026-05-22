@@ -853,44 +853,53 @@ function Remove-ItemSafely {
 function Invoke-ToolkitDownload {
     <#
     .SYNOPSIS
-        Download di un file con retry automatico, referrer AMD e messaggi standardizzati.
+        Download di un file con retry automatico, referrer AMD, spinner grafico e messaggi standardizzati.
         Versione unificata dei 3 pattern di download esistenti nel progetto.
     .DESCRIPTION
         Supporta download da AMD (con referrer https://www.amd.com per aggirare i blocchi)
-        e da altri provider. Implementa retry automatico e fallback.
+        e da altri provider. Implementa retry automatico, fallback e visualizzazione spinner.
     #>
     param(
         [string]$Uri,
         [string]$OutputPath,
         [string]$Description = "file",
-        [int]$MaxRetries = 3
+        [int]$MaxRetries = 3,
+        [switch]$NoSpinner
     )
-    Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
+    
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
         try {
-            $wc = New-Object System.Net.WebClient
-            
-            # Aggiungi referrer per URL AMD (bypass del blocco AMD)
-            if ($Uri -match 'drivers\.amd\.com|amd-software') {
-                $wc.Headers.Add("Referer", "https://www.amd.com")
-                $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            if ($NoSpinner) {
+                Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
             }
             
-            $wc.DownloadFile($Uri, $OutputPath)
-            $wc.Dispose()
-            if (Test-Path $OutputPath) {
-                Write-StyledMessage -Type 'Success' -Text "Download completato: $Description."
+            $result = Invoke-WithSpinner -Activity "Download $Description" -Action {
+                $wc = New-Object System.Net.WebClient
+                
+                # Aggiungi referrer per URL AMD (bypass del blocco AMD)
+                if ($Uri -match 'drivers\.amd\.com|amd-software') {
+                    $wc.Headers.Add("Referer", "https://www.amd.com")
+                    $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                }
+                
+                $wc.DownloadFile($Uri, $OutputPath)
+                $wc.Dispose()
+                return (Test-Path $OutputPath)
+            }
+            
+            if ($result) {
+                Write-StyledMessage -Type 'Success' -Text "✅ Download completato: $Description."
                 return $true
             }
         }
         catch {
             if ($attempt -lt $MaxRetries) {
-                Write-StyledMessage -Type 'Warning' -Text "Tentativo $attempt/$MaxRetries fallito. Riprovo..."
+                Write-StyledMessage -Type 'Warning' -Text "⚠️  Tentativo $attempt/$MaxRetries fallito. Riprovo..."
                 Start-Sleep -Seconds 2
             }
         }
     }
-    Write-StyledMessage -Type 'Error' -Text "Download fallito dopo $MaxRetries tentativi: $Description."
+    Write-StyledMessage -Type 'Error' -Text "❌ Download fallito dopo $MaxRetries tentativi: $Description."
     return $false
 }
 
