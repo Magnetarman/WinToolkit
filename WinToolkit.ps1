@@ -67,7 +67,7 @@ $AppConfig = @{
         AMDInstaller          = "https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.5.2-minimalsetup-260513_web.exe"
         NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/NVCleanstall_1.19.0.exe"
         DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/DDU.zip"
-        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/ENHANCEMENT-Upgrade-Video-Driver-Install-Script/asset/DriverOverrides.json"
+        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/DriverOverrides.json"
         DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/dxwebsetup.exe"
         BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
         SevenZipOfficial      = "https://www.7-zip.org/a/7zr.exe"
@@ -685,12 +685,14 @@ function Invoke-ToolkitDownload {
                             $bar = "[$filled$empty] {0,3}%" -f $percent
                             $currentDisplay = if ($totalRead -gt 1048576) {
                                 "$([Math]::Round($totalRead / 1048576, 1)) MB"
-                            } else {
+                            }
+                            else {
                                 "$([Math]::Round($totalRead / 1024, 1)) KB"
                             }
                             $totalDisplay = if ($totalBytes -gt 1048576) {
                                 "$([Math]::Round($totalBytes / 1048576, 1)) MB"
-                            } else {
+                            }
+                            else {
                                 "$([Math]::Round($totalBytes / 1024, 1)) KB"
                             }
                             Write-Host "`r⏳ Download $Description $bar ($currentDisplay / $totalDisplay)" -NoNewline -ForegroundColor Cyan
@@ -1487,12 +1489,12 @@ function WinRepairToolkit {
         try {
             $processTimeoutSeconds = 600
             switch ($Config.Name) {
-                'Ripristino immagine Windows'   { $processTimeoutSeconds = 10800 }
+                'Ripristino immagine Windows' { $processTimeoutSeconds = 10800 }
                 'Controllo file di sistema (1)' { $processTimeoutSeconds = 3600 }
                 'Controllo file di sistema (2)' { $processTimeoutSeconds = 10800 }
                 'Pulizia Residui Aggiornamenti' { $processTimeoutSeconds = 3600 }
                 'Controllo disco' { $processTimeoutSeconds = 900 }
-                'Controllo disco approfondito'  { $processTimeoutSeconds = 3600 }
+                'Controllo disco approfondito' { $processTimeoutSeconds = 3600 }
             }
             $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
             if ($Config.Tool -ieq 'DISM' -and $Config.Args -contains '/StartComponentCleanup') {
@@ -1667,8 +1669,8 @@ function WinRepairToolkit {
         $deepRepairScheduled = $false
         if ($repairResult.TotalErrors -gt 0) {
             Write-ToolkitLog -Level WARNING -Message "Rilevati errori persistenti. Avvio riparazione profonda." -Context @{
-                Tool = 'WinRepairToolkit'
-                Step = 'RepairCycle'
+                Tool        = 'WinRepairToolkit'
+                Step        = 'RepairCycle'
                 TotalErrors = $repairResult.TotalErrors
             }
             Write-StyledMessage -Type 'Warning' -Text "Rilevati errori persistenti. Avvio riparazione profonda."
@@ -1854,7 +1856,8 @@ function WinUpdateReset {
             if (Test-Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UpdatePolicy\GPCache") {
                 Remove-Item "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UpdatePolicy\GPCache" -Recurse -Force -ErrorAction Stop
                 Write-StyledMessage -Type 'Success' -Text "🗑️ Cache GPCache eliminata."
-            } else {
+            }
+            else {
                 Write-StyledMessage -Type 'Info' -Text "💭 Cache GPCache non presente."
             }
         }
@@ -1865,7 +1868,8 @@ function WinUpdateReset {
             if (Test-Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate") {
                 Remove-Item "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate" -Recurse -Force -ErrorAction Stop
                 Write-StyledMessage -Type 'Success' -Text "🔑 Impostazioni WSUS rimosse."
-            } else {
+            }
+            else {
                 Write-StyledMessage -Type 'Info' -Text "💭 Impostazioni WSUS non presenti."
             }
         }
@@ -2440,7 +2444,7 @@ function WinBackupDriver {
             $result = Invoke-WithSpinner -Activity "Esportazione driver DISM" -Command 'dism.exe' `
                 -Arguments @('/online', '/export-driver', "/destination:`"$($script:BackupConfig.BackupDir)`"") `
                 -TimeoutSeconds $timeout -LogContextKey "Backup-DISM"
-            if ($result.TimedOut)       { throw "Timeout raggiunto durante l'esportazione DISM" }
+            if ($result.TimedOut) { throw "Timeout raggiunto durante l'esportazione DISM" }
             if ($result.ExitCode -ne 0) { throw "Esportazione DISM fallita con ExitCode: $($result.ExitCode)." }
             $exportedDrivers = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
             if (-not $exportedDrivers -or $exportedDrivers.Count -eq 0) {
@@ -2458,7 +2462,7 @@ function WinBackupDriver {
         }
     }
     function Install-7ZipPortable {
-        $installDir     = Join-Path $AppConfig.Paths.LocalAppData "WinToolkit\7zip"
+        $installDir = Join-Path $AppConfig.Paths.LocalAppData "WinToolkit\7zip"
         $executablePath = "$installDir\7zr.exe"
         if (Test-Path $executablePath) {
             Write-StyledMessage -Type 'Success' -Text "7-Zip portable già presente."
@@ -2467,7 +2471,7 @@ function WinBackupDriver {
         New-Item -ItemType Directory -Path $installDir -Force *>$null
         $downloadSources = @(
             @{ Url = $AppConfig.URLs.GitHubAssetBaseUrl + "7zr.exe"; Name = "Repository MagnetarMan" },
-            @{ Url = $AppConfig.URLs.SevenZipOfficial;                Name = "Sito ufficiale 7-Zip" }
+            @{ Url = $AppConfig.URLs.SevenZipOfficial; Name = "Sito ufficiale 7-Zip" }
         )
         foreach ($source in $downloadSources) {
             try {
@@ -2497,7 +2501,7 @@ function WinBackupDriver {
     function Compress-BackupArchive {
         param([string]$SevenZipPath)
         if (-not $SevenZipPath -or -not (Test-Path $SevenZipPath)) { throw "Percorso 7-Zip non valido: $SevenZipPath" }
-        if (-not (Test-Path $script:BackupConfig.BackupDir))        { throw "Directory backup non trovata: $($script:BackupConfig.BackupDir)" }
+        if (-not (Test-Path $script:BackupConfig.BackupDir)) { throw "Directory backup non trovata: $($script:BackupConfig.BackupDir)" }
         Write-StyledMessage -Type 'Info' -Text "📦 Preparazione compressione archivio."
         $backupFiles = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
         if (-not $backupFiles) {
@@ -2506,15 +2510,15 @@ function WinBackupDriver {
         }
         $totalSizeMB = [Math]::Round(($backupFiles | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
         Write-StyledMessage -Type 'Info' -Text "Dimensione totale: $totalSizeMB MB"
-        $archivePath    = "$($script:BackupConfig.TempPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
+        $archivePath = "$($script:BackupConfig.TempPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
         $compressionArgs = @('a', '-t7z', '-mx=6', '-mmt=on', "`"$archivePath`"", "`"$($script:BackupConfig.BackupDir)\*`"")
         Write-StyledMessage -Type 'Info' -Text "🚀 Compressione con 7-Zip."
         $result = Invoke-WithSpinner -Activity "Compressione archivio 7-Zip" -Command $SevenZipPath `
             -Arguments $compressionArgs -TimeoutSeconds 800 -LogContextKey "Backup-7Zip"
         if ($result.TimedOut) { throw "Timeout raggiunto durante la compressione." }
         if ($result.ExitCode -eq 0 -and (Test-Path $archivePath)) {
-            $compressedSizeMB  = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
-            $compressionRatio  = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
+            $compressedSizeMB = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
+            $compressionRatio = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
             Write-StyledMessage -Type 'Success' -Text "Compressione completata: $compressedSizeMB MB (Riduzione: $compressionRatio%)."
             return $archivePath
         }
@@ -2552,7 +2556,7 @@ function WinBackupDriver {
         Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione sistema."
         Start-Sleep -Seconds 1
         if (-not (Initialize-BackupEnvironment)) { return }
-        if (-not (Export-SystemDrivers))         { return }
+        if (-not (Export-SystemDrivers)) { return }
         $sevenZipPath = Install-7ZipPortable | Select-Object -Last 1
         if (-not $sevenZipPath) { return }
         $compressedArchive = Compress-BackupArchive -SevenZipPath $sevenZipPath
@@ -2997,10 +3001,10 @@ function WinCleaner {
                         Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
                         if (Test-Path $p) {
                             Get-ChildItem -Path $p -Recurse -File -Force -ErrorAction SilentlyContinue |
-                                ForEach-Object { Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue }
+                            ForEach-Object { Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue }
                             Get-ChildItem -Path $p -Recurse -Directory -Force -ErrorAction SilentlyContinue |
-                                Sort-Object { $_.FullName.Length } -Descending |
-                                ForEach-Object { Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+                            Sort-Object { $_.FullName.Length } -Descending |
+                            ForEach-Object { Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
                         }
                     }
                 }
@@ -3091,10 +3095,10 @@ function WinCleaner {
                     }
                     $aiPolicies = @{
                         "GenAILocalFoundationalModelSettings" = 1
-                        "AIModeSettings" = 2
-                        "GeminiSettings" = 1
-                        "HelpMeWriteSettings" = 2
-                        "DevToolsGenAiSettings" = 2
+                        "AIModeSettings"                      = 2
+                        "GeminiSettings"                      = 1
+                        "HelpMeWriteSettings"                 = 2
+                        "DevToolsGenAiSettings"               = 2
                     }
                     foreach ($policy in $aiPolicies.GetEnumerator()) {
                         Set-ItemProperty -Path $chromePolicyKey -Name $policy.Key -Value $policy.Value -Type DWORD -Force -ErrorAction Stop
@@ -3477,12 +3481,12 @@ function Install-Office {
     function Set-OfficePostConfig {
         Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione Office."
         foreach ($reg in @(
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";     Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "usercontentdisabled";   Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "downloadcontentdisabled"; Value = 1 },
-            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 }
-        )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
+                @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
+                @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
+                @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
+                @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
+                @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 }
+            )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
         Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
         Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
     }
@@ -3491,12 +3495,12 @@ function Install-Office {
         if (-not (Test-Path $tempDir)) {
             $null = New-Item -ItemType Directory -Path $tempDir -Force
         }
-        $setupPath  = Join-Path $tempDir 'Setup.exe'
+        $setupPath = Join-Path $tempDir 'Setup.exe'
         $configPath = Join-Path $tempDir 'Basic.xml'
         foreach ($dl in @(
-            @{ Url = $AppConfig.URLs.OfficeSetup;       Path = $setupPath;  Name = 'Setup Office' },
-            @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
-        )) {
+                @{ Url = $AppConfig.URLs.OfficeSetup; Path = $setupPath; Name = 'Setup Office' },
+                @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
+            )) {
             if (-not (Invoke-ToolkitDownload -Uri $dl.Url -OutputPath $dl.Path -Description $dl.Name)) {
                 Write-StyledMessage -Type 'Error' -Text "Download fallito. Installazione annullata."
                 return
@@ -3538,12 +3542,12 @@ function Repair-Office {
     function Set-OfficePostConfig {
         Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-riparazione Office."
         foreach ($reg in @(
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";       Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "usercontentdisabled";     Value = 1 },
-            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "downloadcontentdisabled"; Value = 1 },
-            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 }
-        )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
+                @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
+                @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },
+                @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "usercontentdisabled"; Value = 1 },
+                @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "downloadcontentdisabled"; Value = 1 },
+                @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 }
+            )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
         Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
         Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
     }
@@ -3554,15 +3558,15 @@ function Repair-Office {
         Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cache Office."
         $cleanedCount = 0
         foreach ($cache in @(
-            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
-            "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
-        )) {
+                "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
+                "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
+            )) {
             if (Remove-ItemSafely -Path $cache -Recurse) { $cleanedCount++ }
         }
         if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate." }
         $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ?
-            "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe" :
-            "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+        "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe" :
+        "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
         if (-not (Test-Path $officeClient)) {
             Write-StyledMessage -Type 'Error' -Text "OfficeClickToRun.exe non trovato. Office potrebbe non essere installato."
             return
@@ -3629,7 +3633,7 @@ function Uninstall-Office {
     function Remove-ItemsSilently {
         param([string[]]$Paths, [string]$ItemType = "cartella")
         $removed = @()
-        $failed  = @()
+        $failed = @()
         foreach ($path in $Paths) {
             if (Test-Path $path) {
                 if (Remove-ItemSafely -Path $path -Recurse) { $removed += $path }
@@ -3643,7 +3647,7 @@ function Uninstall-Office {
         try {
             Write-StyledMessage -Type 'Info' -Text "📋 Ricerca installazioni Office."
             $officePackages = Get-Package -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" -or $_.Name -like "*Office*" }
+            Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" -or $_.Name -like "*Office*" }
             if ($officePackages) {
                 Write-StyledMessage -Type 'Info' -Text "Trovati $($officePackages.Count) pacchetti Office."
                 foreach ($package in $officePackages) {
@@ -3656,13 +3660,13 @@ function Uninstall-Office {
             }
             Write-StyledMessage -Type 'Info' -Text "🔍 Ricerca nel registro."
             foreach ($keyPath in @(
-                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
-                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
-                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
-            )) {
+                    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+                )) {
                 try {
                     $items = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue |
-                        Where-Object { $_.DisplayName -like "*Office*" -or $_.DisplayName -like "*Microsoft 365*" }
+                    Where-Object { $_.DisplayName -like "*Office*" -or $_.DisplayName -like "*Microsoft 365*" }
                     foreach ($item in $items) {
                         if ($item.UninstallString -and $item.UninstallString -match "msiexec") {
                             try {
@@ -3703,8 +3707,8 @@ function Uninstall-Office {
                 "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun",
                 "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun"
             ) -ItemType "cartella"
-            if ($folderResult.Count -gt 0)        { Write-StyledMessage -Type 'Success' -Text "$($folderResult.Count) cartelle Office rimosse." }
-            if ($folderResult.Failed.Count -gt 0)  { Write-StyledMessage -Type 'Warning' -Text "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)." }
+            if ($folderResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text "$($folderResult.Count) cartelle Office rimosse." }
+            if ($folderResult.Failed.Count -gt 0) { Write-StyledMessage -Type 'Warning' -Text "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)." }
             Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia registro Office."
             $regResult = Remove-ItemsSilently -Paths @(
                 "HKCU:\Software\Microsoft\Office",
@@ -3730,17 +3734,17 @@ function Uninstall-Office {
             Write-StyledMessage -Type 'Info' -Text "🖥️ Rimozione collegamenti Office."
             $shortcutsRemoved = 0
             foreach ($desktopPath in @(
-                $AppConfig.Paths.Desktop,
-                "$env:PUBLIC\Desktop",
-                "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
-                "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs"
-            )) {
+                    $AppConfig.Paths.Desktop,
+                    "$env:PUBLIC\Desktop",
+                    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
+                    "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs"
+                )) {
                 if (Test-Path $desktopPath) {
                     foreach ($shortcut in @(
-                        "Microsoft Word*.lnk", "Microsoft Excel*.lnk", "Microsoft PowerPoint*.lnk",
-                        "Microsoft Outlook*.lnk", "Microsoft OneNote*.lnk", "Microsoft Access*.lnk",
-                        "Office*.lnk", "Word*.lnk", "Excel*.lnk", "PowerPoint*.lnk", "Outlook*.lnk"
-                    )) {
+                            "Microsoft Word*.lnk", "Microsoft Excel*.lnk", "Microsoft PowerPoint*.lnk",
+                            "Microsoft Outlook*.lnk", "Microsoft OneNote*.lnk", "Microsoft Access*.lnk",
+                            "Office*.lnk", "Word*.lnk", "Excel*.lnk", "PowerPoint*.lnk", "Outlook*.lnk"
+                        )) {
                         foreach ($file in (Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue)) {
                             if (Remove-ItemSafely -Path $file.FullName) { $shortcutsRemoved++ }
                         }
@@ -3791,11 +3795,11 @@ function Uninstall-Office {
                 $result = Invoke-WithSpinner -Activity "Rimozione Office tramite Get Help" -Command $getHelpExe.FullName `
                     -Arguments '-S OfficeScrubScenario -AcceptEula' `
                     -TimeoutSeconds 86400 -LogContextKey "Office-Uninstall-GetHelp"
-                $outputStr    = $result.StdOut + $result.StdErr
+                $outputStr = $result.StdOut + $result.StdErr
                 $isInvalidArgs = $outputStr -match "Error: Invalid command line arguments" -or $outputStr -match "Usage: GetHelpCmd\.exe"
                 if ($result.ExitCode -eq 0 -and -not $isInvalidArgs) {
                     $blockingProcesses = @('Setup', 'GetHelpCmd', 'OfficeClickToRun', 'Integrator', 'OfficeScrub', 'cscript')
-                    $waitStart         = Get-Date
+                    $waitStart = Get-Date
                     Start-Sleep -Seconds 12
                     if (Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) {
                         Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna. Attesa completamento..."
@@ -3972,7 +3976,7 @@ function VideoDriverReinstall {
     )
     Start-ToolkitSession -ToolName "VideoDriverReinstall" -SubTitle "Video Driver Reinstall"
     $driverToolsPath = $AppConfig.Paths.Drivers
-    $desktopPath     = $AppConfig.Paths.Desktop
+    $desktopPath = $AppConfig.Paths.Desktop
     function Set-BlockWindowsUpdateDrivers {
         Write-StyledMessage -Type 'Info' -Text "Blocco driver automatici da Windows Update."
         try {
@@ -4379,11 +4383,11 @@ function WinExportLog {
     )
     Start-ToolkitSession -ToolName "WinExportLog" -SubTitle "Esporta Log Diagnostici"
     $logSourcePath = $AppConfig.Paths.Logs
-    $desktopPath   = $AppConfig.Paths.Desktop
-    $timestamp     = Get-Date -Format "yyyyMMdd_HHmmss"
-    $zipFileName   = "WinToolkit_Logs_$timestamp.zip"
-    $zipFilePath   = Join-Path $desktopPath $zipFileName
-    $tempFolder    = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
+    $desktopPath = $AppConfig.Paths.Desktop
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $zipFileName = "WinToolkit_Logs_$timestamp.zip"
+    $zipFilePath = Join-Path $desktopPath $zipFileName
+    $tempFolder = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
     try {
         Write-StyledMessage -Type 'Info' -Text "📂 Verifica presenza cartella log."
         if (-not (Test-Path $logSourcePath -PathType Container)) {
@@ -4393,7 +4397,7 @@ function WinExportLog {
         Write-StyledMessage -Type 'Info' -Text "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso."
         Remove-ItemSafely -Path $tempFolder -Recurse
         New-Item -ItemType Directory -Path $tempFolder -Force *>$null
-        $filesCopied  = 0
+        $filesCopied = 0
         $filesSkipped = 0
         try {
             Get-ChildItem -Path $logSourcePath -File | ForEach-Object {
