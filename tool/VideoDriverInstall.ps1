@@ -21,6 +21,17 @@ function VideoDriverInstall {
     $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
     $DriverToolsLocalPath = $AppConfig.Paths.Drivers
     $DesktopPath = $AppConfig.Paths.Desktop
+    $StableDriverOverrides = @(
+        @{
+            Key            = "AMD_RX_580"
+            Manufacturer   = "AMD"
+            NamePattern    = "RX 580|RX-580|Radeon RX 580"
+            PnpIdPattern   = "PCI\\VEN_1002&DEV_67DF*"
+            DownloadUrl    = "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-23.8.2-win10-win11-aug31.exe"
+            FileName       = "AMD-RX580-23.8.2-WHQL.exe"
+            DisplayName    = "AMD RX 580 Stable Driver (23.8.2 WHQL)"
+        }
+    )
 
     function Get-GpuManufacturer {
         <#
@@ -51,6 +62,69 @@ function VideoDriverInstall {
             }
         }
         return 'Unknown'
+    }
+
+    function Get-GpuStableDriverPreference {
+        param(
+            [string]$GpuName,
+            [string]$PnpDeviceId
+        )
+
+        foreach ($override in $StableDriverOverrides) {
+            $nameMatches = $false
+            $idMatches = $false
+
+            if (-not [string]::IsNullOrWhiteSpace($GpuName) -and -not [string]::IsNullOrWhiteSpace($override.NamePattern)) {
+                $nameMatches = $GpuName -match $override.NamePattern
+            }
+            if (-not [string]::IsNullOrWhiteSpace($PnpDeviceId) -and -not [string]::IsNullOrWhiteSpace($override.PnpIdPattern)) {
+                $idMatches = $PnpDeviceId -like $override.PnpIdPattern
+            }
+
+            if ($nameMatches -or $idMatches) {
+                return $override
+            }
+        }
+
+        return $null
+    }
+
+    function Get-GpuProfile {
+        $manufacturer = Get-GpuManufacturer
+        $gpuName = $null
+        $pnpDeviceId = $null
+        $stablePreference = $null
+
+        try {
+            $videoCards = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue
+            if ($videoCards) {
+                foreach ($card in $videoCards) {
+                    $candidateName = [string]$card.Name
+                    $candidatePnpId = [string]$card.PNPDeviceID
+                    $candidatePreference = Get-GpuStableDriverPreference -GpuName $candidateName -PnpDeviceId $candidatePnpId
+
+                    if (-not $gpuName -and $candidateName) { $gpuName = $candidateName }
+                    if (-not $pnpDeviceId -and $candidatePnpId) { $pnpDeviceId = $candidatePnpId }
+
+                    if ($candidatePreference) {
+                        $stablePreference = $candidatePreference
+                        $gpuName = $candidateName
+                        $pnpDeviceId = $candidatePnpId
+                        break
+                    }
+                }
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Impossibile interrogare Win32_VideoController: $($_.Exception.Message)."
+        }
+
+        return [pscustomobject]@{
+            Manufacturer    = $manufacturer
+            Name            = $gpuName
+            PnpDeviceId     = $pnpDeviceId
+            StablePreference = $stablePreference
+        }
     }
 
     function Set-BlockWindowsUpdateDrivers {
@@ -165,14 +239,29 @@ function VideoDriverInstall {
     function Handle-InstallVideoDrivers {
         Write-StyledMessage -Type 'Info' -Text "Opzione 1: Avvio installazione driver video."
 
-        $gpuManufacturer = Get-GpuManufacturer
+        $gpuProfile = Get-GpuProfile
+        $gpuManufacturer = $gpuProfile.Manufacturer
         Write-StyledMessage -Type 'Info' -Text "Rilevata GPU: $gpuManufacturer."
+        if ($gpuProfile.Name) {
+            Write-StyledMessage -Type 'Info' -Text "Dettaglio GPU: $($gpuProfile.Name)"
+        }
+        if ($gpuProfile.PnpDeviceId) {
+            Write-StyledMessage -Type 'Info' -Text "PNPDeviceID: $($gpuProfile.PnpDeviceId)"
+        }
 
         if ($gpuManufacturer -eq 'AMD') {
             $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
             $amdInstallerPath = Join-Path $DriverToolsLocalPath "AMD-Autodetect.exe"
+            $amdDescription = "AMD Auto-Detect Tool"
 
-            if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
+            if ($gpuProfile.StablePreference -and $gpuProfile.StablePreference.Manufacturer -eq 'AMD') {
+                $amdInstallerUrl = $gpuProfile.StablePreference.DownloadUrl
+                $amdInstallerPath = Join-Path $DriverToolsLocalPath $gpuProfile.StablePreference.FileName
+                $amdDescription = $gpuProfile.StablePreference.DisplayName
+                Write-StyledMessage -Type 'Info' -Text "Eccezione driver stabile attiva: $amdDescription."
+            }
+
+            if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description $amdDescription) {
                 Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
                 Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdInstallerPath -LogContextKey "Video-Install-AMD"
                 Write-StyledMessage -Type 'Success' -Text "Installazione driver video AMD completata o chiusa."
@@ -217,14 +306,29 @@ function VideoDriverInstall {
             return
         }
 
-        $gpuManufacturer = Get-GpuManufacturer
+        $gpuProfile = Get-GpuProfile
+        $gpuManufacturer = $gpuProfile.Manufacturer
         Write-StyledMessage -Type 'Info' -Text "Rilevata GPU: $gpuManufacturer."
+        if ($gpuProfile.Name) {
+            Write-StyledMessage -Type 'Info' -Text "Dettaglio GPU: $($gpuProfile.Name)"
+        }
+        if ($gpuProfile.PnpDeviceId) {
+            Write-StyledMessage -Type 'Info' -Text "PNPDeviceID: $($gpuProfile.PnpDeviceId)"
+        }
 
         if ($gpuManufacturer -eq 'AMD') {
             $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
             $amdInstallerPath = Join-Path $DesktopPath "AMD-Autodetect.exe"
+            $amdDescription = "AMD Auto-Detect Tool"
 
-            if (-not (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool")) {
+            if ($gpuProfile.StablePreference -and $gpuProfile.StablePreference.Manufacturer -eq 'AMD') {
+                $amdInstallerUrl = $gpuProfile.StablePreference.DownloadUrl
+                $amdInstallerPath = Join-Path $DesktopPath $gpuProfile.StablePreference.FileName
+                $amdDescription = $gpuProfile.StablePreference.DisplayName
+                Write-StyledMessage -Type 'Info' -Text "Eccezione driver stabile attiva: $amdDescription."
+            }
+
+            if (-not (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description $amdDescription)) {
                 Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare l'installer AMD. Annullamento operazione."
                 return
             }
