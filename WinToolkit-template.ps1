@@ -971,8 +971,10 @@ function Invoke-ToolkitDownload {
                             $col = 'Cyan'
                         }
                         else {
+                            # Fake progress bar (dimensione sconosciuta): riempimento simulato, non reale
                             $progressCounter++
-                            $percent = ($progressCounter * 7) % 100
+                            # Rampa lenta e costante verso ~95% (mai 100% durante il download)
+                            $percent = [math]::Min(95, [math]::Floor($progressCounter / 2.5))
                             $status = "$currentDisplay scaricati (dimensione sconosciuta)"
                             $icon = '📥'
                             $col = 'Cyan'
