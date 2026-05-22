@@ -638,6 +638,10 @@ function Invoke-ToolkitDownload {
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
         try {
             $wc = New-Object System.Net.WebClient
+            if ($Uri -match 'drivers\.amd\.com|amd-software') {
+                $wc.Headers.Add("Referer", "https://www.amd.com")
+                $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            }
             $wc.DownloadFile($Uri, $OutputPath)
             $wc.Dispose()
             if (Test-Path $OutputPath) {
