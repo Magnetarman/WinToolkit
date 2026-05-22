@@ -248,7 +248,6 @@ function Start-ToolkitLog {
     $Global:CurrentLogFile      = "$logdir\${ToolName}_$dateTime.log"
     $Global:CurrentCorrelationId = [guid]::NewGuid().ToString()
     $os      = Get-CimInstance Win32_OperatingSystem  -ErrorAction SilentlyContinue
-    $sys     = Get-CimInstance Win32_ComputerSystem   -ErrorAction SilentlyContinue
     $psVer   = $PSVersionTable.PSVersion.ToString()
     $psEd    = $PSVersionTable.PSEdition
     $psCompat = ($PSVersionTable.PSCompatibleVersions | ForEach-Object { $_.ToString() }) -join ', '
@@ -265,11 +264,6 @@ function Start-ToolkitLog {
 Start time              : $dateTime
 CorrelationId           : $($Global:CurrentCorrelationId)
 ToolName                : $ToolName
-Username                : $([Environment]::UserDomainName + '\' + [Environment]::UserName)
-RunAs User              : $([Security.Principal.WindowsIdentity]::GetCurrent().Name)
-Machine                 : $($sys.Name) ($($os.Caption) $($os.Version))
-Host Application        : $([Environment]::CommandLine)
-Process ID              : $PID
 PSVersion               : $psVer
 PSEdition               : $psEd
 GitCommitId             : $gitId
@@ -2070,9 +2064,19 @@ function WinReinstallStore {
                 Write-StyledMessage -Type 'Success' -Text "UniGet UI installato correttamente."
                 try {
                     $regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-                    if (Get-ItemProperty -Path $regPath -Name 'WingetUI' -ErrorAction SilentlyContinue) {
-                        Remove-ItemProperty -Path $regPath -Name 'WingetUI' -ErrorAction SilentlyContinue *>$null
-                        Write-StyledMessage -Type 'Success' -Text "Avvio automatico UniGet UI disabilitato."
+                    foreach ($runName in @('WingetUI', 'UniGetUI', 'UniGet UI')) {
+                        if (Get-ItemProperty -Path $regPath -Name $runName -ErrorAction SilentlyContinue) {
+                            Remove-ItemProperty -Path $regPath -Name $runName -ErrorAction SilentlyContinue *>$null
+                            Write-StyledMessage -Type 'Success' -Text "Avvio automatico '$runName' rimosso dal registro."
+                        }
+                    }
+                    $startupFolder = [Environment]::GetFolderPath('Startup')
+                    foreach ($lnkName in @('UniGetUI.lnk', 'WingetUI.lnk', 'UniGet UI.lnk')) {
+                        $lnkPath = Join-Path $startupFolder $lnkName
+                        if (Test-Path $lnkPath) {
+                            Remove-Item $lnkPath -Force -ErrorAction SilentlyContinue *>$null
+                            Write-StyledMessage -Type 'Success' -Text "Collegamento avvio automatico '$lnkName' rimosso."
+                        }
                     }
                 }
                 catch { }
@@ -2225,10 +2229,6 @@ function WinBackupDriver {
         LogsDir     = $AppConfig.Paths.DriverBackupLogs
     }
     $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
-    function Test-AdministratorPrivilege {
-        $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    }
     function Initialize-BackupEnvironment {
         Write-StyledMessage -Type 'Info' -Text "🗂️ Inizializzazione ambiente backup."
         try {
@@ -2360,13 +2360,6 @@ function WinBackupDriver {
         }
     }
     try {
-        if (-not (Test-AdministratorPrivilege)) {
-            Write-StyledMessage -Type 'Error' -Text "❌ Privilegi amministratore richiesti."
-            Write-StyledMessage -Type 'Info'  -Text "💡 Riavvia PowerShell come Amministratore."
-            Write-StyledMessage -Type 'Info'  -Text "`n⌨️ Premi un tasto per uscire."
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            return
-        }
         Write-StyledMessage -Type 'Info' -Text "🚀 Inizializzazione sistema."
         Start-Sleep -Seconds 1
         if (-not (Initialize-BackupEnvironment)) { return }
@@ -2651,12 +2644,16 @@ function WinCleaner {
                     "BranchCache",
                     "D3D Shader Cache",
                     "Delivery Optimization Files",
+                    "Device Driver Packages",
                     "Downloaded Program Files",
                     "Internet Cache Files",
                     "Memory Dump Files",
+                    "Old ChkDsk Files",
                     "Recycle Bin",
                     "Temporary Files",
                     "Thumbnail Cache",
+                    "Update Cleanup",
+                    "Windows Defender",
                     "Windows Error Reporting Files",
                     "Setup Log Files",
                     "System error memory dump files",
@@ -2675,6 +2672,12 @@ function WinCleaner {
                     Args    = @("/sagerun:65");
                 }
                 Invoke-CommandAction -Rule $cleanMgrExecutionRule
+                Add-CleanerLog -Type 'Info' -Text "⏳ Attesa completamento CleanMgr (può richiedere alcuni minuti)..."
+                $cmDeadline = (Get-Date).AddHours(1)
+                while ((Get-Process -Name "cleanmgr" -ErrorAction SilentlyContinue) -and (Get-Date) -lt $cmDeadline) {
+                    Start-Sleep -Seconds 10
+                }
+                Add-CleanerLog -Type 'Info' -Text "✅ CleanMgr completato."
             }
         }
         @{ Name = "WinSxS Cleanup"; Type = "Command"; Command = "DISM.exe"; Args = @("/Online", "/Cleanup-Image", "/StartComponentCleanup", "/ResetBase") }
@@ -2685,16 +2688,30 @@ function WinCleaner {
             ); FilesOnly = $false
         }
         @{ Name = "Clear Event Logs"; Type = "Custom"; ScriptBlock = {
-                Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs."
+                Add-CleanerLog -Type 'Info' -Text "📜 Pulizia Event Logs (classici + moderni)."
+                $classicLogs = Get-EventLog -List -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Log
+                foreach ($logName in $classicLogs) {
+                    try {
+                        Clear-EventLog -LogName $logName -ErrorAction Stop
+                        Write-ToolkitLog -Level DEBUG -Message "Clear-EventLog: $logName"
+                    }
+                    catch {
+                        Write-ToolkitLog -Level DEBUG -Message "Clear-EventLog [$logName]: $($_.Exception.Message)"
+                    }
+                }
                 $wevtErr = $null
                 & wevtutil sl 'Microsoft-Windows-LiveId/Operational' /ca:'O:BAG:SYD:(A;;0x1;;;SY)(A;;0x5;;;BA)(A;;0x1;;;LA)' 2>&1 | Out-String -OutVariable wevtErr *>$null
                 if ($wevtErr) { Write-ToolkitLog -Level DEBUG -Message "wevtutil sl output: $wevtErr" }
                 Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object {
                     $logName = $_.LogName
+                    if ($_.LogType -in 'Analytical', 'Debug') {
+                        Wevtutil.exe sl $logName /e:false *>$null
+                    }
                     $clErr = $null
                     Wevtutil.exe cl $logName 2>&1 | Out-String -OutVariable clErr *>$null
                     if ($LASTEXITCODE -ne 0 -and $clErr) { Write-ToolkitLog -Level DEBUG -Message "Wevtutil cl [$logName]: $clErr" }
                 }
+                Add-CleanerLog -Type 'Success' -Text "Event Log classici e moderni cancellati."
             }
         }
         @{ Name = "Clear Windows Update cache"; Type = "Custom"; ScriptBlock = {
@@ -2764,13 +2781,48 @@ function WinCleaner {
         }
         @{ Name = "Cleanup - Windows Prefetch Cache"; Type = "File"; Paths = @("C:\WINDOWS\Prefetch"); FilesOnly = $false }
         @{ Name = "Cleanup - Explorer Thumbnail/Icon Cache"; Type = "File"; Paths = @("%LOCALAPPDATA%\Microsoft\Windows\Explorer"); PerUser = $true; FilesOnly = $true; TakeOwnership = $true }
-        @{ Name = "WinInet Cache - User"; Type = "File"; Paths = @(
-                "%LOCALAPPDATA%\Microsoft\Windows\INetCache\IE",
-                "%LOCALAPPDATA%\Microsoft\Windows\WebCache",
-                "%LOCALAPPDATA%\Microsoft\Feeds Cache",
-                "%LOCALAPPDATA%\Microsoft\InternetExplorer\DOMStore",
-                "%LOCALAPPDATA%\Microsoft\Internet Explorer"
-            ); PerUser = $true; FilesOnly = $false
+        @{ Name = "WinInet Cache - User"; Type = "Custom"; ScriptBlock = {
+                Add-CleanerLog -Type 'Info' -Text "🌐 Pulizia cache WinInet/WebCache."
+                $cacheTaskDisabled = $false
+                try {
+                    $ct = Get-ScheduledTask -TaskPath '\Microsoft\Windows\Wininet\' -TaskName 'CacheTask' -ErrorAction SilentlyContinue
+                    if ($ct -and $ct.State -ne 'Disabled') {
+                        Stop-ScheduledTask -TaskPath '\Microsoft\Windows\Wininet\' -TaskName 'CacheTask' -ErrorAction SilentlyContinue
+                        Disable-ScheduledTask -TaskPath '\Microsoft\Windows\Wininet\' -TaskName 'CacheTask' -ErrorAction SilentlyContinue *>$null
+                        $cacheTaskDisabled = $true
+                        Start-Sleep -Seconds 2
+                    }
+                }
+                catch { Write-ToolkitLog -Level DEBUG -Message "CacheTask disable error: $_" }
+                $users = Get-LocalUserProfiles
+                foreach ($u in $users) {
+                    $paths = @(
+                        "$($u.FullName)\AppData\Local\Microsoft\Windows\INetCache\IE",
+                        "$($u.FullName)\AppData\Local\Microsoft\Windows\WebCache",
+                        "$($u.FullName)\AppData\Local\Microsoft\Feeds Cache",
+                        "$($u.FullName)\AppData\Local\Microsoft\InternetExplorer\DOMStore",
+                        "$($u.FullName)\AppData\Local\Microsoft\Internet Explorer"
+                    )
+                    foreach ($p in $paths) {
+                        if (-not (Test-Path $p)) { continue }
+                        Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
+                        if (Test-Path $p) {
+                            Get-ChildItem -Path $p -Recurse -File -Force -ErrorAction SilentlyContinue |
+                                ForEach-Object { Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue }
+                            Get-ChildItem -Path $p -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+                                Sort-Object { $_.FullName.Length } -Descending |
+                                ForEach-Object { Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+                        }
+                    }
+                }
+                if ($cacheTaskDisabled) {
+                    try {
+                        Enable-ScheduledTask -TaskPath '\Microsoft\Windows\Wininet\' -TaskName 'CacheTask' -ErrorAction SilentlyContinue *>$null
+                    }
+                    catch { Write-ToolkitLog -Level DEBUG -Message "CacheTask enable error: $_" }
+                }
+                Add-CleanerLog -Type 'Success' -Text "✅ Cache WinInet/WebCache pulita."
+            }
         }
         @{ Name = "Temporary Internet Files"; Type = "File"; Paths = @(
                 "%USERPROFILE%\Local Settings\Temporary Internet Files"
@@ -2902,7 +2954,6 @@ function WinCleaner {
         @{ Name = "DNS Flush"; Type = "Command"; Command = "ipconfig"; Args = @("/flushdns") }
         @{ Name = "System Temp Files"; Type = "File"; Paths = @("C:\WINDOWS\Temp"); FilesOnly = $false }
         @{ Name = "User Temp Files"; Type = "File"; Paths = @(
-                "%TEMP%",
                 "%USERPROFILE%\AppData\Local\Temp",
                 "%USERPROFILE%\AppData\LocalLow\Temp"
             ); PerUser = $true; FilesOnly = $false
@@ -3232,21 +3283,30 @@ function Install-Office {
         [int]$CountdownSeconds = 30,
         [switch]$SuppressIndividualReboot
     )
-    Start-ToolkitLog -ToolName "OfficeInstall"
-    Show-Header -SubTitle "Office Install"
-    $Host.UI.RawUI.WindowTitle = "Office Install By MagnetarMan"
+    Start-ToolkitSession -ToolName "OfficeInstall" -SubTitle "Office Install"
     $tempDir = $AppConfig.Paths.OfficeTemp
+    function Set-OfficePostConfig {
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-installazione Office."
+        foreach ($reg in @(
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";     Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "usercontentdisabled";   Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "downloadcontentdisabled"; Value = 1 },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 }
+        )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
+        Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
+        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
+    }
     try {
         Write-StyledMessage -Type 'Info' -Text "🏢 Avvio installazione Office Basic."
         if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
         $setupPath  = Join-Path $tempDir 'Setup.exe'
         $configPath = Join-Path $tempDir 'Basic.xml'
-        $downloads = @(
-            @{ Url = $AppConfig.URLs.OfficeSetup; Path = $setupPath; Name = 'Setup Office' },
+        foreach ($dl in @(
+            @{ Url = $AppConfig.URLs.OfficeSetup;       Path = $setupPath;  Name = 'Setup Office' },
             @{ Url = $AppConfig.URLs.OfficeBasicConfig; Path = $configPath; Name = 'Configurazione Basic' }
-        )
-        foreach ($dl in $downloads) {
-            if (-not (Invoke-OfficeDownloadFile $dl.Url $dl.Path $dl.Name)) {
+        )) {
+            if (-not (Invoke-ToolkitDownload -Uri $dl.Url -OutputPath $dl.Path -Description $dl.Name)) {
                 Write-StyledMessage -Type 'Error' -Text "Download fallito. Installazione annullata."
                 return
             }
@@ -3272,7 +3332,7 @@ function Install-Office {
         }
     }
     finally {
-        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
+        Remove-ItemSafely -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Install terminato."
         Write-ToolkitLog -Level INFO -Message "Install-Office sessione terminata."
     }
@@ -3283,21 +3343,30 @@ function Repair-Office {
         [int]$CountdownSeconds = 30,
         [switch]$SuppressIndividualReboot
     )
-    Start-ToolkitLog -ToolName "OfficeRepair"
-    Show-Header -SubTitle "Office Repair"
-    $Host.UI.RawUI.WindowTitle = "Office Repair By MagnetarMan"
+    Start-ToolkitSession -ToolName "OfficeRepair" -SubTitle "Office Repair"
+    function Set-OfficePostConfig {
+        Write-StyledMessage -Type 'Info' -Text "⚙️ Configurazione post-riparazione Office."
+        foreach ($reg in @(
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";       Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "usercontentdisabled";     Value = 1 },
+            @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "downloadcontentdisabled"; Value = 1 },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 }
+        )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
+        Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
+        Write-StyledMessage -Type 'Success' -Text "✅ Telemetria e Privacy Office disabilitate."
+    }
     $needsReboot = $false
     try {
         Write-StyledMessage -Type 'Info' -Text "🔧 Avvio riparazione Office."
-        Stop-OfficeProcesses
+        Stop-ToolkitProcesses -ProcessNames @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
         Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cache Office."
-        $caches = @(
+        $cleanedCount = 0
+        foreach ($cache in @(
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\OfficeFileCache"
-        )
-        $cleanedCount = 0
-        foreach ($cache in $caches) {
-            if (Invoke-OfficeSilentRemoval -Path $cache -Recurse) { $cleanedCount++ }
+        )) {
+            if (Remove-ItemSafely -Path $cache -Recurse) { $cleanedCount++ }
         }
         if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate." }
         $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ?
@@ -3345,15 +3414,7 @@ function Repair-Office {
         Write-ToolkitLog -Level INFO -Message "Repair-Office sessione terminata."
     }
     if ($needsReboot) {
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
-        }
-        else {
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Riparazione completata") {
-                Restart-Computer -Force
-            }
-        }
+        Invoke-ToolkitReboot -Message "Riparazione completata" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
     }
 }
 function Uninstall-Office {
@@ -3362,9 +3423,7 @@ function Uninstall-Office {
         [int]$CountdownSeconds = 30,
         [switch]$SuppressIndividualReboot
     )
-    Start-ToolkitLog -ToolName "OfficeUninstall"
-    Show-Header -SubTitle "Office Uninstall"
-    $Host.UI.RawUI.WindowTitle = "Office Uninstall By MagnetarMan"
+    Start-ToolkitSession -ToolName "OfficeUninstall" -SubTitle "Office Uninstall"
     $tempDir = $AppConfig.Paths.OfficeTemp
     function Get-WindowsVersion {
         try {
@@ -3382,7 +3441,7 @@ function Uninstall-Office {
         $failed  = @()
         foreach ($path in $Paths) {
             if (Test-Path $path) {
-                if (Invoke-OfficeSilentRemoval -Path $path -Recurse) { $removed += $path }
+                if (Remove-ItemSafely -Path $path -Recurse) { $removed += $path }
                 else { $failed += $path }
             }
         }
@@ -3405,12 +3464,11 @@ function Uninstall-Office {
                 }
             }
             Write-StyledMessage -Type 'Info' -Text "🔍 Ricerca nel registro."
-            $uninstallKeys = @(
+            foreach ($keyPath in @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
                 "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
-            )
-            foreach ($keyPath in $uninstallKeys) {
+            )) {
                 try {
                     $items = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue |
                         Where-Object { $_.DisplayName -like "*Office*" -or $_.DisplayName -like "*Microsoft 365*" }
@@ -3433,8 +3491,8 @@ function Uninstall-Office {
                 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
                 if ($service) {
                     try {
-                        Stop-Service -Name $serviceName -Force -ErrorAction Stop
-                        Set-Service -Name $serviceName -StartupType Disabled -ErrorAction Stop
+                        Stop-Service  -Name $serviceName -Force -ErrorAction Stop
+                        Set-Service   -Name $serviceName -StartupType Disabled -ErrorAction Stop
                         Write-StyledMessage -Type 'Success' -Text "Servizio arrestato: $serviceName."
                         $stoppedServices++
                     }
@@ -3442,7 +3500,7 @@ function Uninstall-Office {
                 }
             }
             Write-StyledMessage -Type 'Info' -Text "🧹 Pulizia cartelle Office."
-            $foldersToClean = @(
+            $folderResult = Remove-ItemsSilently -Paths @(
                 "$env:ProgramFiles\Microsoft Office",
                 "${env:ProgramFiles(x86)}\Microsoft Office",
                 "$env:ProgramFiles\Microsoft Office 15",
@@ -3453,12 +3511,11 @@ function Uninstall-Office {
                 "$env:LOCALAPPDATA\Microsoft\Office",
                 "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun",
                 "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun"
-            )
-            $folderResult = Remove-ItemsSilently -Paths $foldersToClean -ItemType "cartella"
-            if ($folderResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text "$($folderResult.Count) cartelle Office rimosse." }
-            if ($folderResult.Failed.Count -gt 0) { Write-StyledMessage -Type 'Warning' -Text "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)." }
+            ) -ItemType "cartella"
+            if ($folderResult.Count -gt 0)        { Write-StyledMessage -Type 'Success' -Text "$($folderResult.Count) cartelle Office rimosse." }
+            if ($folderResult.Failed.Count -gt 0)  { Write-StyledMessage -Type 'Warning' -Text "Impossibile rimuovere $($folderResult.Failed.Count) cartelle (potrebbero essere in uso)." }
             Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia registro Office."
-            $registryPaths = @(
+            $regResult = Remove-ItemsSilently -Paths @(
                 "HKCU:\Software\Microsoft\Office",
                 "HKLM:\SOFTWARE\Microsoft\Office",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office",
@@ -3466,8 +3523,7 @@ function Uninstall-Office {
                 "HKLM:\SOFTWARE\Microsoft\Office\16.0",
                 "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun"
-            )
-            $regResult = Remove-ItemsSilently -Paths $registryPaths -ItemType "chiave"
+            ) -ItemType "chiave"
             if ($regResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text "$($regResult.Count) chiavi registro Office rimosse." }
             Write-StyledMessage -Type 'Info' -Text "📅 Pulizia attività pianificate."
             $tasksRemoved = 0
@@ -3481,24 +3537,21 @@ function Uninstall-Office {
             }
             catch {}
             Write-StyledMessage -Type 'Info' -Text "🖥️ Rimozione collegamenti Office."
-            $officeShortcuts = @(
-                "Microsoft Word*.lnk", "Microsoft Excel*.lnk", "Microsoft PowerPoint*.lnk",
-                "Microsoft Outlook*.lnk", "Microsoft OneNote*.lnk", "Microsoft Access*.lnk",
-                "Office*.lnk", "Word*.lnk", "Excel*.lnk", "PowerPoint*.lnk", "Outlook*.lnk"
-            )
-            $desktopPaths = @(
+            $shortcutsRemoved = 0
+            foreach ($desktopPath in @(
                 $AppConfig.Paths.Desktop,
                 "$env:PUBLIC\Desktop",
                 "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
                 "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs"
-            )
-            $shortcutsRemoved = 0
-            foreach ($desktopPath in $desktopPaths) {
+            )) {
                 if (Test-Path $desktopPath) {
-                    foreach ($shortcut in $officeShortcuts) {
-                        $shortcutFiles = Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue
-                        foreach ($file in $shortcutFiles) {
-                            if (Invoke-OfficeSilentRemoval -Path $file.FullName) { $shortcutsRemoved++ }
+                    foreach ($shortcut in @(
+                        "Microsoft Word*.lnk", "Microsoft Excel*.lnk", "Microsoft PowerPoint*.lnk",
+                        "Microsoft Outlook*.lnk", "Microsoft OneNote*.lnk", "Microsoft Access*.lnk",
+                        "Office*.lnk", "Word*.lnk", "Excel*.lnk", "PowerPoint*.lnk", "Outlook*.lnk"
+                    )) {
+                        foreach ($file in (Get-ChildItem -Path $desktopPath -Filter $shortcut -Recurse -ErrorAction SilentlyContinue)) {
+                            if (Remove-ItemSafely -Path $file.FullName) { $shortcutsRemoved++ }
                         }
                     }
                 }
@@ -3524,7 +3577,7 @@ function Uninstall-Office {
         try {
             if (-not (Test-Path $tempDir)) { $null = New-Item -ItemType Directory -Path $tempDir -Force }
             $getHelpZipPath = Join-Path $tempDir 'GetHelp.zip'
-            if (-not (Invoke-OfficeDownloadFile $AppConfig.URLs.GetHelpInstaller $getHelpZipPath 'Microsoft Get Help')) {
+            if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.GetHelpInstaller -OutputPath $getHelpZipPath -Description 'Microsoft Get Help')) {
                 return $false
             }
             Write-StyledMessage -Type 'Info' -Text "📦 Estrazione Get Help."
@@ -3547,20 +3600,19 @@ function Uninstall-Office {
                 $result = Invoke-WithSpinner -Activity "Rimozione Office tramite Get Help" -Command $getHelpExe.FullName `
                     -Arguments '-S OfficeScrubScenario -AcceptEula' `
                     -TimeoutSeconds 86400 -LogContextKey "Office-Uninstall-GetHelp"
-                $outputStr = $result.StdOut + $result.StdErr
+                $outputStr    = $result.StdOut + $result.StdErr
                 $isInvalidArgs = $outputStr -match "Error: Invalid command line arguments" -or $outputStr -match "Usage: GetHelpCmd\.exe"
                 if ($result.ExitCode -eq 0 -and -not $isInvalidArgs) {
-                    $blockingProcesses = @('Setup', 'SaRACmd', 'Microsoft.Support.Recovery.Assistant.App', 'OfficeClickToRun', 'Integrator', 'GetHelpCmd', 'OfficeScrub', 'cscript')
-                    $waitStart = Get-Date
+                    $blockingProcesses = @('Setup', 'GetHelpCmd', 'OfficeClickToRun', 'Integrator', 'OfficeScrub', 'cscript')
+                    $waitStart         = Get-Date
                     Start-Sleep -Seconds 12
                     if (Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) {
-                        Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna."
-                        Write-StyledMessage -Type 'Info' -Text "   Il Toolkit rimarrà in attesa fino alla chiusura del processo di rimozione..."
+                        Write-StyledMessage -Type 'Info' -Text "⏳ Get Help ha avviato la rimozione in una finestra esterna. Attesa completamento..."
                         $spinnerIndex = 0
                         while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalSeconds -lt 2700) {
                             $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
                             $spinner = if ($Global:Spinners) { $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length] } else { '' }
-                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso in finestra esterna... ($elapsed secondi)" -Percent 90 -Icon '⏳' -Spinner $spinner
+                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso... ($elapsed secondi)" -Percent 90 -Icon '⏳' -Spinner $spinner
                             Start-Sleep -Milliseconds 500
                         }
                         Clear-ProgressLine
@@ -3570,14 +3622,12 @@ function Uninstall-Office {
                 }
                 else {
                     $reason = if ($isInvalidArgs) { "Parametri non supportati dalla versione del tool" } else { "Codice uscita: $($result.ExitCode)" }
-                    Write-StyledMessage -Type 'Warning' -Text "Get Help fallito: $reason."
-                    Write-StyledMessage -Type 'Info' -Text "💡 Tentativo metodo alternativo (Rimozione Diretta)."
+                    Write-StyledMessage -Type 'Warning' -Text "Get Help fallito: $reason. Tentativo metodo alternativo."
                     return Remove-OfficeDirectly
                 }
             }
             catch {
-                Write-StyledMessage -Type 'Warning' -Text "Errore durante esecuzione Get Help: $($_.Exception.Message)."
-                Write-StyledMessage -Type 'Info' -Text "💡 Passaggio a metodo alternativo."
+                Write-StyledMessage -Type 'Warning' -Text "Errore durante esecuzione Get Help: $($_.Exception.Message). Passaggio a metodo alternativo."
                 return Remove-OfficeDirectly
             }
         }
@@ -3586,13 +3636,13 @@ function Uninstall-Office {
             return $false
         }
         finally {
-            Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
+            Remove-ItemSafely -Path $tempDir -Recurse
         }
     }
     $needsReboot = $false
     try {
         Write-StyledMessage -Type 'Warning' -Text "🗑️ Avvio rimozione completa Microsoft Office."
-        Stop-OfficeProcesses
+        Stop-ToolkitProcesses -ProcessNames @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
         Write-StyledMessage -Type 'Info' -Text "🔍 Rilevamento versione Windows."
         $windowsVersion = Get-WindowsVersion
         Write-StyledMessage -Type 'Info' -Text "🎯 Versione rilevata: $windowsVersion."
@@ -3628,223 +3678,266 @@ function Uninstall-Office {
     }
     finally {
         Write-StyledMessage -Type 'Success' -Text "🧹 Pulizia finale."
-        Invoke-OfficeSilentRemoval -Path $tempDir -Recurse
+        Remove-ItemSafely -Path $tempDir -Recurse
         Write-StyledMessage -Type 'Success' -Text "🎯 Office Uninstall terminato."
         Write-ToolkitLog -Level INFO -Message "Uninstall-Office sessione terminata."
     }
     if ($needsReboot) {
-        if ($SuppressIndividualReboot) {
-            $Global:NeedsFinalReboot = $true
-            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+        Invoke-ToolkitReboot -Message "Rimozione completata" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
+    }
+}
+function VideoDriverInstall {
+    [CmdletBinding()]
+    param(
+        [int]$CountdownSeconds = 30,
+        [switch]$SuppressIndividualReboot
+    )
+    Start-ToolkitSession -ToolName "VideoDriverInstall" -SubTitle "Video Driver Install Toolkit"
+    $GitHubAssetBaseUrl = $AppConfig.URLs.GitHubAssetBaseUrl
+    $DriverToolsLocalPath = $AppConfig.Paths.Drivers
+    $DesktopPath = $AppConfig.Paths.Desktop
+    function Get-GpuManufacturer {
+        $pnpDevices = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue
+        if (-not $pnpDevices) {
+            Write-StyledMessage -Type 'Warning' -Text "Nessun dispositivo display Plug and Play rilevato."
+            return 'Unknown'
+        }
+        foreach ($device in $pnpDevices) {
+            $manufacturer = $device.Manufacturer
+            $friendlyName = $device.FriendlyName
+            if ($friendlyName -match 'NVIDIA|GeForce|Quadro|Tesla' -or $manufacturer -match 'NVIDIA') {
+                return 'NVIDIA'
+            }
+            elseif ($friendlyName -match 'AMD|Radeon|ATI' -or $manufacturer -match 'AMD|ATI') {
+                return 'AMD'
+            }
+            elseif ($friendlyName -match 'Intel|Iris|UHD|HD Graphics' -or $manufacturer -match 'Intel') {
+                return 'Intel'
+            }
+        }
+        return 'Unknown'
+    }
+    function Set-BlockWindowsUpdateDrivers {
+        Write-StyledMessage -Type 'Info' -Text "Configurazione per bloccare download driver da Windows Update."
+        $regPath = $AppConfig.Registry.WindowsUpdatePolicies
+        try {
+            Set-RegistryValue -Path $regPath -Name "ExcludeWUDriversInQualityUpdate" -Value 1
+            Write-StyledMessage -Type 'Success' -Text "Blocco download driver da Windows Update impostato correttamente nel registro."
+            Write-StyledMessage -Type 'Info' -Text "Questa impostazione impedisce a Windows Update di installare driver automaticamente."
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'impostazione del blocco download driver da Windows Update: $($_.Exception.Message)."
+            return
+        }
+        Write-StyledMessage -Type 'Info' -Text "Aggiornamento dei criteri di gruppo in corso per applicare le modifiche."
+        try {
+            $gpupdateProcess = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate"
+            if ($gpupdateProcess.ExitCode -eq 0) {
+                Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati con successo."
+            }
+            else {
+                Write-StyledMessage -Type 'Warning' -Text "Aggiornamento dei criteri di gruppo completato con codice di uscita: $($gpupdateProcess.ExitCode)."
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'aggiornamento dei criteri di gruppo: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Le modifiche ai criteri potrebbero richiedere un riavvio o del tempo per essere applicate."
+        }
+    }
+    function Download-FileWithProgress {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Url,
+            [Parameter(Mandatory = $true)]
+            [string]$DestinationPath,
+            [Parameter(Mandatory = $true)]
+            [string]$Description,
+            [int]$MaxRetries = 3
+        )
+        Write-StyledMessage -Type 'Info' -Text "Scaricando $Description."
+        $destDir = Split-Path -Path $DestinationPath -Parent
+        if (-not (Test-Path $destDir)) {
+            try {
+                New-Item -ItemType Directory -Path $destDir -Force *>$null
+            }
+            catch {
+                Write-StyledMessage -Type 'Error' -Text "Impossibile creare la cartella di destinazione '$destDir': $($_.Exception.Message)."
+                return $false
+            }
+        }
+        for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+            try {
+                $webRequest = [System.Net.WebRequest]::Create($Url)
+                $webResponse = $webRequest.GetResponse()
+                $totalBytes = $webResponse.ContentLength
+                $responseStream = $webResponse.GetResponseStream()
+                $targetStream = [System.IO.FileStream]::new($DestinationPath, [System.IO.FileMode]::Create)
+                $buffer = New-Object byte[] 64KB
+                $downloadedBytes = 0
+                $bytesRead = 0
+                Write-Progress -Activity "Download $Description" -Status "Inizio download." -PercentComplete 0
+                do {
+                    $bytesRead = $responseStream.Read($buffer, 0, $buffer.Length)
+                    if ($bytesRead -gt 0) {
+                        $targetStream.Write($buffer, 0, $bytesRead)
+                        $downloadedBytes += $bytesRead
+                        $percentComplete = [System.Math]::Round(($downloadedBytes / $totalBytes) * 100, 1)
+                        $speed = if ($downloadedBytes -gt 0) { [System.Math]::Round(($downloadedBytes / 1024 / 1024), 2) } else { 0 }
+                        $totalSize = [System.Math]::Round(($totalBytes / 1024 / 1024), 2)
+                        Write-Progress -Activity "Download $Description" -Status "$speed MB / $totalSize MB" -PercentComplete $percentComplete
+                    }
+                } while ($bytesRead -gt 0)
+                Write-Progress -Activity "Download $Description" -Status "Completato" -PercentComplete 100 -Completed
+                $targetStream.Flush()
+                $targetStream.Close()
+                $targetStream.Dispose()
+                $responseStream.Dispose()
+                $webResponse.Close()
+                Write-StyledMessage -Type 'Success' -Text "Download di $Description completato."
+                return $true
+            }
+            catch {
+                Write-Progress -Activity "Download $Description" -Completed
+                Write-StyledMessage -Type 'Warning' -Text "Tentativo $attempt fallito per $Description`: $($_.Exception.Message)."
+                if ($attempt -lt $MaxRetries) {
+                    Start-Sleep -Seconds 2
+                }
+            }
+        }
+        Write-StyledMessage -Type 'Error' -Text "Errore durante il download di $Description dopo $MaxRetries tentativi."
+        return $false
+    }
+    function Handle-InstallVideoDrivers {
+        Write-StyledMessage -Type 'Info' -Text "Opzione 1: Avvio installazione driver video."
+        $gpuManufacturer = Get-GpuManufacturer
+        Write-StyledMessage -Type 'Info' -Text "Rilevata GPU: $gpuManufacturer."
+        if ($gpuManufacturer -eq 'AMD') {
+            $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
+            $amdInstallerPath = Join-Path $DriverToolsLocalPath "AMD-Autodetect.exe"
+            if (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool") {
+                Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video AMD. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
+                Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdInstallerPath -LogContextKey "Video-Install-AMD"
+                Write-StyledMessage -Type 'Success' -Text "Installazione driver video AMD completata o chiusa."
+            }
+        }
+        elseif ($gpuManufacturer -eq 'NVIDIA') {
+            $nvidiaInstallerUrl = $AppConfig.URLs.NVCleanstall
+            $nvidiaInstallerPath = Join-Path $DriverToolsLocalPath "NVCleanstall_1.19.0.exe"
+            if (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool") {
+                Write-StyledMessage -Type 'Info' -Text "Avvio installazione driver video NVIDIA Ottimizzato. Premi un tasto per chiudere correttamente il terminale quando l'installazione è completata."
+                Invoke-WithSpinner -Activity "Esecuzione installer NVIDIA" -Command $nvidiaInstallerPath -LogContextKey "Video-Install-NVIDIA"
+                Write-StyledMessage -Type 'Success' -Text "Installazione driver video NVIDIA completata o chiusa."
+            }
+        }
+        elseif ($gpuManufacturer -eq 'Intel') {
+            Write-StyledMessage -Type 'Info' -Text "Rilevata GPU Intel. Utilizza Windows Update per aggiornare i driver integrati."
         }
         else {
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message "Rimozione completata") {
-                Restart-Computer -Force
-            }
+            Write-StyledMessage -Type 'Error' -Text "Produttore GPU non supportato o non rilevato per l'installazione automatica dei driver."
         }
     }
-}
-function AutoVideoDriverInstall {
-    [CmdletBinding()]
-    param(
-        [int]$CountdownSeconds = 30,
-        [switch]$SuppressIndividualReboot
-    )
-    Start-ToolkitSession -ToolName "AutoVideoDriverInstall" -SubTitle "Auto Video Driver Install"
-    $driverToolsPath = $AppConfig.Paths.Drivers
-    function Get-GpuManufacturer {
-        $pnpDevices = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue
-        if (-not $pnpDevices) {
-            Write-StyledMessage -Type 'Warning' -Text "Nessun dispositivo display PnP rilevato."
-            return 'Unknown'
-        }
-        foreach ($device in $pnpDevices) {
-            $name = $device.FriendlyName
-            $mfr  = $device.Manufacturer
-            if ($name -match 'NVIDIA|GeForce|Quadro|Tesla' -or $mfr -match 'NVIDIA') { return 'NVIDIA' }
-            if ($name -match 'AMD|Radeon|ATI'               -or $mfr -match 'AMD|ATI') { return 'AMD'    }
-            if ($name -match 'Intel|Iris|UHD|HD Graphics'   -or $mfr -match 'Intel')  { return 'Intel'  }
-        }
-        return 'Unknown'
-    }
-    function Set-BlockWindowsUpdateDrivers {
-        Write-StyledMessage -Type 'Info' -Text "Blocco driver automatici da Windows Update."
-        try {
-            Set-RegistryValue -Path $AppConfig.Registry.WindowsUpdatePolicies -Name "ExcludeWUDriversInQualityUpdate" -Value 1
-            Write-StyledMessage -Type 'Success' -Text "Blocco WU driver impostato."
-            $gpupdateResult = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate"
-            if ($gpupdateResult.ExitCode -eq 0) {
-                Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati."
-            }
-            else {
-                Write-StyledMessage -Type 'Warning' -Text "gpupdate completato con codice: $($gpupdateResult.ExitCode)."
-            }
-        }
-        catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore blocco WU driver: $($_.Exception.Message)."
-        }
-    }
-    try {
-        Write-StyledMessage -Type 'Info' -Text "🚀 Avvio installazione automatica driver video."
-        Set-BlockWindowsUpdateDrivers
-        $gpuManufacturer = Get-GpuManufacturer
-        Write-StyledMessage -Type 'Info' -Text "GPU rilevata: $gpuManufacturer."
-        switch ($gpuManufacturer) {
-            'AMD' {
-                $amdPath = Join-Path $driverToolsPath "AMD-Autodetect.exe"
-                if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool") {
-                    Write-StyledMessage -Type 'Info' -Text "Avvio installer AMD. Chiudi il terminale al termine dell'installazione."
-                    $null = Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdPath -LogContextKey "Video-Install-AMD"
-                    Write-StyledMessage -Type 'Success' -Text "Installazione driver AMD completata."
-                }
-            }
-            'NVIDIA' {
-                $nvidiaPath = Join-Path $driverToolsPath "NVCleanstall_1.19.0.exe"
-                if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall") {
-                    Write-StyledMessage -Type 'Info' -Text "Avvio NVCleanstall. Chiudi il terminale al termine dell'installazione."
-                    $null = Invoke-WithSpinner -Activity "Esecuzione NVCleanstall" -Command $nvidiaPath -LogContextKey "Video-Install-NVIDIA"
-                    Write-StyledMessage -Type 'Success' -Text "Installazione driver NVIDIA completata."
-                }
-            }
-            'Intel' {
-                Write-StyledMessage -Type 'Info' -Text "GPU Intel rilevata. Usa Windows Update per aggiornare i driver integrati."
-            }
-            default {
-                Write-StyledMessage -Type 'Error' -Text "Produttore GPU non supportato o non rilevato per l'installazione automatica."
-            }
-        }
-    }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante installazione driver: $($_.Exception.Message)"
-        Write-ToolkitLog -Level ERROR -Message "Errore in AutoVideoDriverInstall" -Context @{
-            Line      = $_.InvocationInfo.ScriptLineNumber
-            Exception = $_.Exception.GetType().FullName
-            Stack     = $_.ScriptStackTrace
-        }
-    }
-    finally {
-        Write-StyledMessage -Type 'Success' -Text "🎯 Auto Video Driver Install terminato."
-        Write-ToolkitLog -Level INFO -Message "AutoVideoDriverInstall sessione terminata."
-    }
-}
-function VideoDriverReinstall {
-    [CmdletBinding()]
-    param(
-        [int]$CountdownSeconds = 30,
-        [switch]$SuppressIndividualReboot
-    )
-    Start-ToolkitSession -ToolName "VideoDriverReinstall" -SubTitle "Video Driver Reinstall"
-    $driverToolsPath = $AppConfig.Paths.Drivers
-    $desktopPath     = $AppConfig.Paths.Desktop
-    function Get-GpuManufacturer {
-        $pnpDevices = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue
-        if (-not $pnpDevices) {
-            Write-StyledMessage -Type 'Warning' -Text "Nessun dispositivo display PnP rilevato."
-            return 'Unknown'
-        }
-        foreach ($device in $pnpDevices) {
-            $name = $device.FriendlyName
-            $mfr  = $device.Manufacturer
-            if ($name -match 'NVIDIA|GeForce|Quadro|Tesla' -or $mfr -match 'NVIDIA') { return 'NVIDIA' }
-            if ($name -match 'AMD|Radeon|ATI'               -or $mfr -match 'AMD|ATI') { return 'AMD'    }
-            if ($name -match 'Intel|Iris|UHD|HD Graphics'   -or $mfr -match 'Intel')  { return 'Intel'  }
-        }
-        return 'Unknown'
-    }
-    function Set-BlockWindowsUpdateDrivers {
-        Write-StyledMessage -Type 'Info' -Text "Blocco driver automatici da Windows Update."
-        try {
-            Set-RegistryValue -Path $AppConfig.Registry.WindowsUpdatePolicies -Name "ExcludeWUDriversInQualityUpdate" -Value 1
-            Write-StyledMessage -Type 'Success' -Text "Blocco WU driver impostato."
-            $gpupdateResult = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate"
-            if ($gpupdateResult.ExitCode -eq 0) {
-                Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati."
-            }
-            else {
-                Write-StyledMessage -Type 'Warning' -Text "gpupdate completato con codice: $($gpupdateResult.ExitCode)."
-            }
-        }
-        catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore blocco WU driver: $($_.Exception.Message)."
-        }
-    }
-    $needsReboot = $false
-    try {
-        Write-StyledMessage -Type 'Warning' -Text "🔧 Avvio procedura reinstallazione/riparazione driver video."
-        Set-BlockWindowsUpdateDrivers
-        $dduZipPath = Join-Path $driverToolsPath "DDU.zip"
-        if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.DDUZip -OutputPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
-            Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare DDU. Annullamento."
+    function Handle-ReinstallRepairVideoDrivers {
+        Write-StyledMessage -Type 'Warning' -Text "Opzione 2: Avvio procedura di reinstallazione/riparazione driver video. Richiesto riavvio."
+        $dduZipUrl = $AppConfig.URLs.DDUZip
+        $dduZipPath = Join-Path $DriverToolsLocalPath "DDU.zip"
+        if (-not (Download-FileWithProgress -Url $dduZipUrl -DestinationPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
+            Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare DDU. Annullamento operazione."
             return
         }
         Write-StyledMessage -Type 'Info' -Text "Estrazione DDU sul Desktop."
         try {
-            Expand-Archive -Path $dduZipPath -DestinationPath $desktopPath -Force
-            Write-StyledMessage -Type 'Success' -Text "DDU estratto sul Desktop."
+            Expand-Archive -Path $dduZipPath -DestinationPath $DesktopPath -Force
+            Write-StyledMessage -Type 'Success' -Text "DDU estratto correttamente sul Desktop."
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore estrazione DDU: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante l'estrazione di DDU sul Desktop: $($_.Exception.Message)."
             return
         }
         $gpuManufacturer = Get-GpuManufacturer
-        Write-StyledMessage -Type 'Info' -Text "GPU rilevata: $gpuManufacturer."
-        switch ($gpuManufacturer) {
-            'AMD' {
-                $amdPath = Join-Path $desktopPath "AMD-Autodetect.exe"
-                if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool")) {
-                    Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare installer AMD. Annullamento."
-                    return
-                }
-            }
-            'NVIDIA' {
-                $nvidiaPath = Join-Path $desktopPath "NVCleanstall_1.19.0.exe"
-                if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall")) {
-                    Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare NVCleanstall. Annullamento."
-                    return
-                }
-            }
-            'Intel' {
-                Write-StyledMessage -Type 'Info' -Text "GPU Intel: scarica driver manualmente da Intel se necessario."
-            }
-            default {
-                Write-StyledMessage -Type 'Warning' -Text "GPU non rilevata: solo DDU verrà posizionato sul Desktop."
+        Write-StyledMessage -Type 'Info' -Text "Rilevata GPU: $gpuManufacturer."
+        if ($gpuManufacturer -eq 'AMD') {
+            $amdInstallerUrl = $AppConfig.URLs.AMDInstaller
+            $amdInstallerPath = Join-Path $DesktopPath "AMD-Autodetect.exe"
+            if (-not (Download-FileWithProgress -Url $amdInstallerUrl -DestinationPath $amdInstallerPath -Description "AMD Auto-Detect Tool")) {
+                Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare l'installer AMD. Annullamento operazione."
+                return
             }
         }
-        $batchPath = Join-Path $desktopPath "Switch to Normal Mode.bat"
+        elseif ($gpuManufacturer -eq 'NVIDIA') {
+            $nvidiaInstallerUrl = $AppConfig.URLs.NVCleanstall
+            $nvidiaInstallerPath = Join-Path $DesktopPath "NVCleanstall_1.19.0.exe"
+            if (-not (Download-FileWithProgress -Url $nvidiaInstallerUrl -DestinationPath $nvidiaInstallerPath -Description "NVCleanstall Tool")) {
+                Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare l'installer NVIDIA. Annullamento operazione."
+                return
+            }
+        }
+        elseif ($gpuManufacturer -eq 'Intel') {
+            Write-StyledMessage -Type 'Info' -Text "Rilevata GPU Intel. Scarica manualmente i driver da Intel se necessario."
+        }
+        else {
+            Write-StyledMessage -Type 'Warning' -Text "Produttore GPU non supportato o non rilevato. Verrà posizionato solo DDU sul desktop."
+        }
+        Write-StyledMessage -Type 'Info' -Text "DDU e l'installer dei Driver (se rilevato) sono stati posizionati sul desktop."
+        $batchFilePath = Join-Path $DesktopPath "Switch to Normal Mode.bat"
         try {
-            Set-Content -Path $batchPath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
-            Write-StyledMessage -Type 'Info' -Text "Batch 'Switch to Normal Mode.bat' creato sul Desktop."
+            Set-Content -Path $batchFilePath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
+            Write-StyledMessage -Type 'Info' -Text "File batch 'Switch to Normal Mode.bat' creato sul desktop per disabilitare la Modalità Provvisoria."
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Impossibile creare batch Safe Mode: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Impossibile creare il file batch: $($_.Exception.Message)."
         }
-        Write-StyledMessage -Type 'Error' -Text "ATTENZIONE: Il sistema si riavvierà in modalità provvisoria."
-        Write-StyledMessage -Type 'Info' -Text "In Safe Mode: esegui DDU per pulire i driver, poi reinstalla con l'installer sul Desktop. Infine usa il batch per tornare alla modalità normale."
+        Write-StyledMessage -Type 'Error' -Text "ATTENZIONE: Il sistema sta per riavviarsi in modalità provvisoria."
+        Write-StyledMessage -Type 'Info' -Text "Configurazione del sistema per l'avvio automatico in Modalità Provvisoria."
         try {
-            $null = Invoke-WithSpinner -Activity "Configurazione Safe Mode (bcdedit)" -Command 'bcdedit.exe' `
-                -Arguments '/set {current} safeboot minimal' -LogContextKey "Video-BCDEdit"
-            Write-StyledMessage -Type 'Success' -Text "Modalità provvisoria configurata per il prossimo avvio."
-            $needsReboot = $true
+            Invoke-WithSpinner -Activity "Configurazione bcdedit" -Command 'bcdedit.exe' -Arguments '/set {current} safeboot minimal' -LogContextKey "Video-BCDEdit"
+            Write-StyledMessage -Type 'Success' -Text "Modalità Provvisoria configurata per il prossimo avvio."
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore configurazione Safe Mode: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text "Errore durante la configurazione della Modalità Provvisoria tramite bcdedit: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "Il riavvio potrebbe non avvenire in Modalità Provvisoria. Procedere manualmente."
+            return
+        }
+        if ($SuppressIndividualReboot) {
+            $Global:NeedsFinalReboot = $true
+            Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio in modalità provvisoria soppresso (esecuzione concatenata)."
+            Write-StyledMessage -Type 'Warning' -Text "⚠️ DDU e installer driver sono sul Desktop. Al prossimo riavvio sarai in SAFE MODE."
+        }
+        else {
+            $shouldReboot = Start-InterruptibleCountdown -Seconds 30 -Message "Riavvio in modalità provvisoria in corso."
+            if ($shouldReboot) {
+                try {
+                    Restart-Computer -Force
+                    Write-StyledMessage -Type 'Success' -Text "Comando di riavvio inviato."
+                }
+                catch {
+                    Write-StyledMessage -Type 'Error' -Text "Errore durante l'esecuzione del comando di riavvio: $($_.Exception.Message)."
+                }
+            }
         }
     }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore critico durante reinstallazione driver: $($_.Exception.Message)"
-        Write-ToolkitLog -Level ERROR -Message "Errore in VideoDriverReinstall" -Context @{
-            Line      = $_.InvocationInfo.ScriptLineNumber
-            Exception = $_.Exception.GetType().FullName
-            Stack     = $_.ScriptStackTrace
+    Write-StyledMessage -Type 'Info' -Text '🔧 Inizializzazione dello Script di Installazione Driver Video.'
+    Start-Sleep -Seconds 2
+    Set-BlockWindowsUpdateDrivers
+    $choice = ""
+    do {
+        Write-StyledMessage -Type 'Info' -Text 'Seleziona un''opzione:'
+        Write-StyledMessage -Type 'Info' -Text '  [1] 🚀 Installa Driver Video (Rilevamento Automatico)'
+        Write-StyledMessage -Type 'Info' -Text '  [2] 🔧 Reinstalla/Ripara Driver Video (Richiede Riavvio in Safe Mode)'
+        Write-StyledMessage -Type 'Info' -Text '  [0] ❌ Torna al Menu Principale'
+        $selections = Read-ValidatedChoice -Min 0 -Max 2 -Prompt "La tua scelta"
+        $choice = $selections[0]
+        switch ($choice.ToUpper()) {
+            "1" { Handle-InstallVideoDrivers }
+            "2" { Handle-ReinstallRepairVideoDrivers }
+            "0" { Write-StyledMessage -Type 'Info' -Text 'Tornando al menu principale.' }
+            default { Write-StyledMessage -Type 'Warning' -Text "Scelta non valida. Riprova." }
         }
-    }
-    finally {
-        Write-StyledMessage -Type 'Success' -Text "🎯 Video Driver Reinstall terminato."
-        Write-ToolkitLog -Level INFO -Message "VideoDriverReinstall sessione terminata."
-    }
-    if ($needsReboot) {
-        Invoke-ToolkitReboot -Message "Riavvio in Safe Mode per DDU" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
-    }
+        if ($choice.ToUpper() -ne "0") {
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            Clear-Host
+            Show-Header -SubTitle "Video Driver Install Toolkit"
+        }
+    } while ($choice.ToUpper() -ne "0")
 }
 function GamingToolkit {
     [CmdletBinding()]
@@ -4207,9 +4300,8 @@ $menuStructure = @(
         )
     },
     @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'AutoVideoDriverInstall'; Description = 'Installa Driver Video (Auto)';         Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'VideoDriverReinstall';   Description = 'Reinstalla Driver Video (Safe Mode)';  Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'GamingToolkit';          Description = 'Gaming Toolkit';                       Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'VideoDriverInstall';Description = 'Driver Video Toolkit';        Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'GamingToolkit';    Description = 'Gaming Toolkit';               Action = 'RunFunction' }
         )
     },
     @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @(
