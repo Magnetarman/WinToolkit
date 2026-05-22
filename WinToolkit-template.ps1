@@ -106,6 +106,7 @@ $AppConfig = @{
         AMDInstaller          = "https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.5.2-minimalsetup-260513_web.exe"
         NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/NVCleanstall_1.19.0.exe"
         DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/DDU.zip"
+        DriverOverridesJson   = ""
 
         # Gaming
         DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/dxwebsetup.exe"
@@ -1659,6 +1660,138 @@ function Set-OfficePostConfig {
     Write-StyledMessage -Type 'Success' -Text "✅ Office ottimizzato: telemetria, privacy e task pianificati rimossi."
 }
 
+function VcardAnalizer {
+    <#
+    .SYNOPSIS
+        Analizza le GPU presenti e prova ad associare driver stabili da DriverOverrides.json.
+    .DESCRIPTION
+        Rileva schede anche senza driver completi usando Win32_VideoController (Name/Caption/PNPDeviceID),
+        confronta i dati con un file JSON di override e salva il risultato in
+        $Global:VcardAnalysisResult per riuso nei tool.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$OverridesPath
+    )
+
+    $defaultLocalOverrides = Join-Path (Get-Location) 'asset\DriverOverrides.json'
+    $resolvedOverridesPath = if ($OverridesPath) { $OverridesPath } else { $defaultLocalOverrides }
+
+    $analysis = [pscustomobject]@{
+        Cards               = @()
+        Matches             = @()
+        PrimaryManufacturer = 'Unknown'
+        OverridesLoaded     = $false
+        OverridesSource     = $resolvedOverridesPath
+    }
+
+    try {
+        $cards = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue
+        foreach ($card in $cards) {
+            $name = [string]$card.Name
+            $caption = [string]$card.Caption
+            $pnpId = [string]$card.PNPDeviceID
+            $manufacturer = 'Unknown'
+
+            if ($name -match 'NVIDIA|GeForce|Quadro|Tesla' -or $caption -match 'NVIDIA') { $manufacturer = 'NVIDIA' }
+            elseif ($name -match 'AMD|Radeon|ATI' -or $caption -match 'AMD|ATI') { $manufacturer = 'AMD' }
+            elseif ($name -match 'Intel|Iris|UHD|HD Graphics' -or $caption -match 'Intel') { $manufacturer = 'Intel' }
+
+            $analysis.Cards += [pscustomobject]@{
+                Name         = $name
+                Caption      = $caption
+                PnpDeviceID  = $pnpId
+                Manufacturer = $manufacturer
+            }
+        }
+    }
+    catch {
+        Write-StyledMessage -Type 'Warning' -Text "Analisi GPU: errore durante lettura Win32_VideoController: $($_.Exception.Message)"
+    }
+
+    if ($analysis.Cards.Count -gt 0) {
+        $analysis.PrimaryManufacturer = ($analysis.Cards | Select-Object -First 1).Manufacturer
+    }
+
+    $overrides = @()
+    $remoteUrl = $AppConfig.URLs.DriverOverridesJson
+    if (-not [string]::IsNullOrWhiteSpace($remoteUrl)) {
+        try {
+            $downloadTarget = Join-Path $AppConfig.Paths.Temp 'DriverOverrides.json'
+            if (Invoke-ToolkitDownload -Uri $remoteUrl -OutputPath $downloadTarget -Description 'Driver Overrides JSON') {
+                $resolvedOverridesPath = $downloadTarget
+                $analysis.OverridesSource = $resolvedOverridesPath
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "Download DriverOverrides.json fallito, uso fallback locale."
+        }
+    }
+
+    if (Test-Path $resolvedOverridesPath) {
+        try {
+            $jsonRaw = Get-Content -Path $resolvedOverridesPath -Raw -Encoding UTF8
+            $parsed = $jsonRaw | ConvertFrom-Json -ErrorAction Stop
+            if ($parsed -is [System.Array]) { $overrides = $parsed }
+            elseif ($parsed) { $overrides = @($parsed) }
+            $analysis.OverridesLoaded = $true
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text "DriverOverrides.json non valido: $($_.Exception.Message)"
+        }
+    }
+    else {
+        Write-StyledMessage -Type 'Warning' -Text "DriverOverrides.json non trovato in $resolvedOverridesPath"
+    }
+
+    foreach ($gpu in $analysis.Cards) {
+        foreach ($ovr in $overrides) {
+            $namePattern = [string]$ovr.NamePattern
+            $pnpPattern = [string]$ovr.PnpIdPattern
+            $manufacturer = [string]$ovr.Manufacturer
+
+            $nameMatches = $false
+            $pnpMatches = $false
+            $mfrMatches = $false
+
+            if (-not [string]::IsNullOrWhiteSpace($namePattern) -and -not [string]::IsNullOrWhiteSpace($gpu.Name)) {
+                $nameMatches = $gpu.Name -match $namePattern
+            }
+            if (-not [string]::IsNullOrWhiteSpace($pnpPattern) -and -not [string]::IsNullOrWhiteSpace($gpu.PnpDeviceID)) {
+                $pnpMatches = $gpu.PnpDeviceID -like $pnpPattern
+            }
+            if (-not [string]::IsNullOrWhiteSpace($manufacturer) -and $gpu.Manufacturer -ne 'Unknown') {
+                $mfrMatches = $gpu.Manufacturer -eq $manufacturer
+            }
+
+            if (($nameMatches -or $pnpMatches) -and ($mfrMatches -or [string]::IsNullOrWhiteSpace($manufacturer))) {
+                $analysis.Matches += [pscustomobject]@{
+                    Key          = [string]$ovr.Key
+                    Manufacturer = [string]$ovr.Manufacturer
+                    NamePattern  = [string]$ovr.NamePattern
+                    PnpIdPattern = [string]$ovr.PnpIdPattern
+                    DownloadUrl  = [string]$ovr.DownloadUrl
+                    FileName     = [string]$ovr.FileName
+                    DisplayName  = [string]$ovr.DisplayName
+                    MatchedGpu   = [string]$gpu.Name
+                    MatchedPnpId = [string]$gpu.PnpDeviceID
+                }
+            }
+        }
+    }
+
+    if ($analysis.Matches.Count -gt 0) {
+        $analysis.Matches = @($analysis.Matches | Group-Object Key | ForEach-Object { $_.Group | Select-Object -First 1 })
+        Write-StyledMessage -Type 'Success' -Text "Rilevate $($analysis.Matches.Count) corrispondenze driver stabili da DriverOverrides.json."
+    }
+    else {
+        Write-StyledMessage -Type 'Warning' -Text "Nessun driver stabile conosciuto trovato per le GPU rilevate."
+    }
+
+    $Global:VcardAnalysisResult = $analysis
+    return $analysis
+}
+
 
 # ==============================================================================
 # SEZIONE 12 · PLACEHOLDER COMPILATORE
@@ -1682,7 +1815,8 @@ function Repair-Office {}
 function Uninstall-Office {}
 
 # Driver & Gaming
-function VideoDriverInstall {}
+function AutoVideoDriverInstall {}
+function VideoDriverReinstall {}
 function GamingToolkit {}
 
 # Supporto
@@ -1711,7 +1845,8 @@ $menuStructure = @(
         )
     },
     @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'VideoDriverInstall'; Description = 'Driver Video Toolkit'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'AutoVideoDriverInstall'; Description = 'Installa Driver Video (Auto)'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'VideoDriverReinstall'; Description = 'Reinstalla Driver Video (Safe Mode)'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
         )
     },
