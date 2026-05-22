@@ -20,16 +20,19 @@ function AutoVideoDriverInstall {
         try {
             Set-RegistryValue -Path $AppConfig.Registry.WindowsUpdatePolicies -Name "ExcludeWUDriversInQualityUpdate" -Value 1
             Write-StyledMessage -Type 'Success' -Text "Blocco WU driver impostato."
-            $gpupdateResult = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate"
-            if ($gpupdateResult.ExitCode -eq 0) {
-                Write-StyledMessage -Type 'Success' -Text "Criteri di gruppo aggiornati."
+            $gpupdateResult = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo (può impiegare 1-2 minuti)" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate" -TimeoutSeconds 180
+            if ($gpupdateResult -and $gpupdateResult.ExitCode -eq 0) {
+                Write-StyledMessage -Type 'Success' -Text "✅ Criteri di gruppo aggiornati."
+            }
+            elseif ($gpupdateResult) {
+                Write-StyledMessage -Type 'Warning' -Text "⚠️  gpupdate completato con codice: $($gpupdateResult.ExitCode). Proseguo comunque."
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text "gpupdate completato con codice: $($gpupdateResult.ExitCode)."
+                Write-StyledMessage -Type 'Warning' -Text "⚠️  gpupdate non ha risposto. Proseguo comunque."
             }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore blocco WU driver: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text "⚠️  Errore blocco WU driver: $($_.Exception.Message). Proseguo comunque."
         }
     }
 
