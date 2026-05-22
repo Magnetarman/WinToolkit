@@ -914,12 +914,19 @@ function Invoke-ToolkitDownload {
                 throw "HTTP Error $($getResponse.StatusCode): $($getResponse.ReasonPhrase)"
             }
             
+            # Prova a ottenere la dimensione dal response GET se HEAD ha fallito
+            if ($totalBytes -eq 0 -and $getResponse.Content.Headers.ContentLength -gt 0) {
+                $totalBytes = $getResponse.Content.Headers.ContentLength
+            }
+            
             # Leggere il flusso e scrivere con tracking di progresso
             $contentStream = $getResponse.Content.ReadAsStreamAsync().Result
             $fileStream = [System.IO.File]::Create($OutputPath)
             $buffer = New-Object byte[] 8192
             $totalRead = 0
             $lastPercent = -1
+            $progressCounter = 0
+            $lastProgressTime = Get-Date
             
             try {
                 while ($true) {
@@ -929,27 +936,47 @@ function Invoke-ToolkitDownload {
                     $fileStream.Write($buffer, 0, $read)
                     $totalRead += $read
                     
-                    # Mostrare la barra di progresso se conosciamo il totale
-                    if ($totalBytes -gt 0 -and -not $Global:GuiSessionActive) {
-                        $percent = [Math]::Round(($totalRead / $totalBytes) * 100)
-                        if ($percent -ne $lastPercent) {
-                            $currentDisplay = if ($totalRead -gt 1048576) {
-                                "$([Math]::Round($totalRead / 1048576, 1)) MB"
-                            }
-                            else {
-                                "$([Math]::Round($totalRead / 1024, 1)) KB"
-                            }
-                            
+                    # Mostrare la barra di progresso (sempre, anche se dimensione sconosciuta)
+                    if (-not $Global:GuiSessionActive) {
+                        $currentDisplay = if ($totalRead -gt 1048576) {
+                            "$([Math]::Round($totalRead / 1048576, 1)) MB"
+                        }
+                        else {
+                            "$([Math]::Round($totalRead / 1024, 1)) KB"
+                        }
+                        
+                        if ($totalBytes -gt 0) {
+                            $percent = [Math]::Round(($totalRead / $totalBytes) * 100)
                             $totalDisplay = if ($totalBytes -gt 1048576) {
                                 "$([Math]::Round($totalBytes / 1048576, 1)) MB"
                             }
                             else {
                                 "$([Math]::Round($totalBytes / 1024, 1)) KB"
                             }
-                            
+                            $status = "($currentDisplay / $totalDisplay)"
+                        }
+                        else {
+                            # Dimensione sconosciuta: barra animata + MB scaricati
+                            $progressCounter++
+                            $percent = ($progressCounter * 7) % 100
+                            $status = "$currentDisplay scaricati (dimensione sconosciuta)"
+                        }
+                        
+                        $now = Get-Date
+                        $shouldUpdate = $false
+                        if ($totalBytes -gt 0) {
+                            if ($percent -ne $lastPercent) { $shouldUpdate = $true }
+                        }
+                        else {
+                            if (($now - $lastProgressTime).TotalMilliseconds -gt 400 -or $percent -ne $lastPercent) {
+                                $shouldUpdate = $true
+                            }
+                        }
+                        if ($shouldUpdate) {
                             Clear-ProgressLine
-                            Show-ProgressBar -Activity "Download $Description" -Status "($currentDisplay / $totalDisplay)" -Percent $percent -Icon '📥' -Color 'Cyan'
+                            Show-ProgressBar -Activity "Download $Description" -Status $status -Percent $percent -Icon '📥' -Color 'Cyan'
                             $lastPercent = $percent
+                            $lastProgressTime = $now
                         }
                     }
                 }
