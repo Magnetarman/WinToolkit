@@ -632,31 +632,37 @@ function Invoke-ToolkitDownload {
         [string]$Uri,
         [string]$OutputPath,
         [string]$Description = "file",
-        [int]$MaxRetries = 3
+        [int]$MaxRetries = 3,
+        [switch]$NoSpinner
     )
-    Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
         try {
-            $wc = New-Object System.Net.WebClient
-            if ($Uri -match 'drivers\.amd\.com|amd-software') {
-                $wc.Headers.Add("Referer", "https://www.amd.com")
-                $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            if ($NoSpinner) {
+                Write-StyledMessage -Type 'Info' -Text "📥 Download $Description."
             }
-            $wc.DownloadFile($Uri, $OutputPath)
-            $wc.Dispose()
-            if (Test-Path $OutputPath) {
-                Write-StyledMessage -Type 'Success' -Text "Download completato: $Description."
+            $result = Invoke-WithSpinner -Activity "Download $Description" -Action {
+                $wc = New-Object System.Net.WebClient
+                if ($Uri -match 'drivers\.amd\.com|amd-software') {
+                    $wc.Headers.Add("Referer", "https://www.amd.com")
+                    $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                }
+                $wc.DownloadFile($Uri, $OutputPath)
+                $wc.Dispose()
+                return (Test-Path $OutputPath)
+            }
+            if ($result) {
+                Write-StyledMessage -Type 'Success' -Text "✅ Download completato: $Description."
                 return $true
             }
         }
         catch {
             if ($attempt -lt $MaxRetries) {
-                Write-StyledMessage -Type 'Warning' -Text "Tentativo $attempt/$MaxRetries fallito. Riprovo..."
+                Write-StyledMessage -Type 'Warning' -Text "⚠️  Tentativo $attempt/$MaxRetries fallito. Riprovo..."
                 Start-Sleep -Seconds 2
             }
         }
     }
-    Write-StyledMessage -Type 'Error' -Text "Download fallito dopo $MaxRetries tentativi: $Description."
+    Write-StyledMessage -Type 'Error' -Text "❌ Download fallito dopo $MaxRetries tentativi: $Description."
     return $false
 }
 function Restart-ServiceSafely {
@@ -3864,7 +3870,7 @@ function AutoVideoDriverInstall {
                     if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool") {
                         Write-StyledMessage -Type 'Info' -Text "Avvio installer AMD. Chiudi il terminale al termine dell'installazione."
                         $null = Invoke-WithSpinner -Activity "Esecuzione installer AMD" -Command $amdPath -LogContextKey "Video-Install-AMD"
-                        Write-StyledMessage -Type 'Success' -Text "Installazione driver AMD completata."
+                        Write-StyledMessage -Type 'Success' -Text "✅ Installazione driver AMD completata."
                     }
                 }
                 'NVIDIA' {
@@ -3872,7 +3878,7 @@ function AutoVideoDriverInstall {
                     if (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall") {
                         Write-StyledMessage -Type 'Info' -Text "Avvio NVCleanstall. Chiudi il terminale al termine dell'installazione."
                         $null = Invoke-WithSpinner -Activity "Esecuzione NVCleanstall" -Command $nvidiaPath -LogContextKey "Video-Install-NVIDIA"
-                        Write-StyledMessage -Type 'Success' -Text "Installazione driver NVIDIA completata."
+                        Write-StyledMessage -Type 'Success' -Text "✅ Installazione driver NVIDIA completata."
                     }
                 }
                 'Intel' {
@@ -3963,14 +3969,14 @@ function VideoDriverReinstall {
                 'AMD' {
                     $amdPath = Join-Path $desktopPath "AMD-Autodetect.exe"
                     if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool")) {
-                        Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare installer AMD. Annullamento."
+                        Write-StyledMessage -Type 'Error' -Text "❌ Impossibile scaricare installer AMD. Annullamento."
                         return
                     }
                 }
                 'NVIDIA' {
                     $nvidiaPath = Join-Path $desktopPath "NVCleanstall_1.19.0.exe"
                     if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall")) {
-                        Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare NVCleanstall. Annullamento."
+                        Write-StyledMessage -Type 'Error' -Text "❌ Impossibile scaricare NVCleanstall. Annullamento."
                         return
                     }
                 }
