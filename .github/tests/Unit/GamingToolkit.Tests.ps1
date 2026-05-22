@@ -40,8 +40,9 @@ Describe 'GamingToolkit — Firma' {
     }
 
     It '-CountdownSeconds deve avere valore di default 30' {
-        $default = (Get-Command GamingToolkit).Parameters['CountdownSeconds'].DefaultValue
-        $default | Should -Be 30
+        # Verifica leggendo il sorgente, poiché .DefaultValue non funziona con definizioni semplici
+        $source = Get-Content -Path $script:ToolPath -Raw
+        $source | Should -Match '\[int\]\$CountdownSeconds\s*=\s*30'
     }
 }
 
