@@ -43,7 +43,8 @@ function VideoDriverReinstall {
     try {
         Write-StyledMessage -Type 'Warning' -Text "🔧 Avvio procedura reinstallazione/riparazione driver video."
         Set-BlockWindowsUpdateDrivers
-
+        
+        Write-StyledMessage -Type 'Info' -Text "📥 Preparazione download strumenti necessari..."
         # Download e estrazione DDU
         $dduZipPath = Join-Path $driverToolsPath "DDU.zip"
         if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.DDUZip -OutputPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
