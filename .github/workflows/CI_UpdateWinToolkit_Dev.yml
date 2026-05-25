@@ -1,0 +1,675 @@
+# =============================================================================
+# WinToolkit Enterprise CI/CD Pipeline V 3.2.2
+# =============================================================================
+# Pipeline adattiva per branch:
+#   • Dev           → Pipeline Completa: lint → test → build (versione letta, no bump)
+#   • feature/fix/* → Pipeline Leggera:  lint → test → build (label: "Sviluppo in Corso")
+#   • PR verso Dev  → Gate di qualità:   lint → test  (no build, no deploy)
+#
+# VERSIONING E RELEASE: gestiti dal workflow Create_Release (workflow_dispatch).
+#
+# REGOLA D'ORO (Integrità):
+#   WinToolkit.ps1 è sempre rigenerato da zero dai sorgenti puri.
+#   Il file pre-esistente viene eliminato prima di ogni compilazione per evitare
+#   che residui di versioni precedenti o conflitti di merge producano output corrotto.
+#
+# SINTASSI: Tutti i file .ps1 sono validati via AST prima della compilazione.
+#   Gli errori vengono emessi come annotazioni inline GitHub (::error file=...).
+#
+# RUNTIME: PowerShell 7+ (pwsh) — incluso in windows-latest, nessuna installazione aggiuntiva.
+# =============================================================================
+
+name: CI_WinToolkit_Enterprise
+
+env:
+  # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+# ---------------------------------------------------------------------------
+# TRIGGER
+# • Dev             — Pipeline completa al push
+# • feature/**      — Pipeline leggera (test + build locale, no release)
+# • fix/** feat/**  — Idem
+# • PR verso Dev    — Gate di qualità (lint + test, no deploy)
+# ---------------------------------------------------------------------------
+on:
+  push:
+    branches:
+      - Dev
+      - "[Ff]eature/**"
+      - "[Ff]eatures/**"
+      - "[Ff]eature-*"
+      - "[Ff]eatures-*"
+      - "[Ff]ix/**"
+      - "[Ff]ix-*"
+      - "[Ff]eat/**"
+      - "[Ff]eat-*"
+      - "[Hh]otfix/**"
+      - "[Hh]otfix-*"
+      - "[Bb][Uu][Gg]/**"
+      - "[Bb][Uu][Gg]-*"
+      - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]/**"
+      - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]-*"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]/**"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]-*"
+    paths:
+      - "tool/*.ps1"
+      - "WinToolkit-template.ps1"
+      - "compiler.ps1"
+      - "start-offline.ps1"
+      - "start.ps1"
+      - ".github/workflows/*.yml"
+      - ".github/tests/*.ps1"
+      - ".github/scripts/*.ps1"
+  pull_request:
+    branches: [Dev]
+
+# ---------------------------------------------------------------------------
+# CONCURRENCY — un solo run attivo per branch/PR
+# ---------------------------------------------------------------------------
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ---------------------------------------------------------------------------
+# JOBS
+# ---------------------------------------------------------------------------
+jobs:
+  # ===========================================================================
+  # JOB 0: PR SECURITY GUARD — Politica a tre livelli
+  #
+  # Livello 1 — Consentiti (silenzioso)
+  #   tool/*
+  #
+  # Livello 2 — Consentiti con Warning (revisione manuale richiesta)
+  #   start.ps1 | WinToolkit_GUI.ps1 | WinToolkit-template.ps1 | asset/*
+  #   → Commento di avviso, PR rimane aperta, job non fallisce.
+  #
+  # Livello 3 — Protetti (blocco totale)
+  #   Qualsiasi altro file (compiler.ps1, .github/**, ecc.)
+  #   → Commento accesso negato, PR chiusa automaticamente, job fallisce.
+  #
+  # Gira solo su eventi pull_request verso Dev.
+  # ===========================================================================
+  pr_security_guard:
+    name: PR Security Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify Changed Files
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const author       = context.payload.pull_request.user.login;
+            const prNumber     = context.issue.number;
+            const isMaintainer = (author.toLowerCase() === 'magnetarman');
+
+            // ── CLASSIFICAZIONE DEI FILE ──────────────────────────────────
+            //
+            // Livello 1: tool/* → sempre consentiti, nessuna azione.
+            // Livello 2: file sensibili noti + asset/* → accettati, warning.
+            // Livello 3: tutto il resto → blocco totale (salvo maintainer).
+
+            const SENSITIVE_FILES = new Set([
+              'start.ps1',
+              'WinToolkit_GUI.ps1',
+              'WinToolkit-template.ps1',
+            ]);
+
+            function classifyFile(filename) {
+              if (filename.startsWith('tool/'))        return 1; // consentito
+              if (SENSITIVE_FILES.has(filename))       return 2; // sensibile
+              if (filename.startsWith('asset/'))       return 2; // sensibile
+              return 3;                                           // protetto
+            }
+
+            let level2Files = files.filter(f => classifyFile(f.filename) === 2);
+            let level3Files = files.filter(f => classifyFile(f.filename) === 3);
+
+            // ── BYPASS MAINTENER ──────────────────────────────────────────
+            // Se l'autore è MagnetarMan, i file di Livello 3 vengono trattati
+            // come Livello 2 (Warning non bloccante).
+            if (isMaintainer && level3Files.length > 0) {
+              level2Files = [...level2Files, ...level3Files];
+              level3Files = [];
+            }
+
+            // ── ESCLUSIONE WinToolkit.ps1 PER IL MAINTAINER ───────────────
+            // WinToolkit.ps1 è l'output compilato dalla CI stessa: per
+            // MagnetarMan non richiede revisione manuale ed è trattato come
+            // Livello 1 (silenzioso). Per tutti gli altri collaboratori il
+            // comportamento rimane invariato (Livello 3 → blocco).
+            if (isMaintainer) {
+              level2Files = level2Files.filter(f => f.filename !== 'WinToolkit.ps1');
+            }
+
+            // ── LIVELLO 3: BLOCCO TOTALE ──────────────────────────────────
+            if (level3Files.length > 0) {
+              const fileList = level3Files.map(f => `- \`${f.filename}\``).join('\n');
+
+              const blockedMessage = [
+                `## ⛔ Accesso Negato — PR Chiusa Automaticamente`,
+                ``,
+                `Ciao @${author},`,
+                `grazie per il tuo interesse in WinToolkit! Purtroppo questa PR è stata **chiusa automaticamente** perché include modifiche a file protetti del core del progetto.`,
+                ``,
+                `### File protetti rilevati`,
+                ``,
+                fileList,
+                ``,
+                `### Regola di contribuzione`,
+                ``,
+                `I collaboratori esterni possono proporre modifiche **esclusivamente** ai moduli all'interno della cartella \`tool/\`.`,
+                `I file core (compiler, workflow CI/CD, script di build, configurazioni) sono gestiti direttamente dal maintainer per garantire la stabilità del progetto.`,
+                ``,
+                `### Come procedere`,
+                ``,
+                `1. **Ripristina** i file protetti al loro stato originale nel tuo fork.`,
+                `2. **Limita** le tue modifiche ai file dentro \`tool/\`.`,
+                `3. **Apri una nuova PR** con solo le modifiche ai moduli.`,
+                ``,
+                `Se ritieni che una modifica ai file core sia necessaria, apri invece una **Issue** descrivendo la proposta: sarà valutata dal maintainer.`,
+                ``,
+                `---`,
+                `*Messaggio automatico del sistema CI/CD di WinToolkit — PR #${prNumber}.*`,
+              ].join('\n');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: blockedMessage,
+              });
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                state: 'closed',
+              });
+              core.setFailed(
+                `PR #${prNumber} chiusa: contiene modifiche a ${level3Files.length} file protetti fuori da /tool.`
+              );
+              return;
+            }
+
+            // ── LIVELLO 2: WARNING (PR rimane aperta) ─────────────────────
+            if (level2Files.length > 0) {
+              const fileList = level2Files.map(f => `- \`${f.filename}\``).join('\n');
+
+              const warningMessage = [
+                `## 👀 Attenzione — Revisione Manuale Richiesta`,
+                ``,
+                `Ciao @${author},`,
+                `grazie per il tuo contributo! Questa PR è stata **accettata** e può procedere normalmente nel flusso di revisione.`,
+                ``,
+                `Tuttavia, il sistema di controllo automatico ha rilevato che sono stati modificati uno o più file **sensibili** di WinToolkit, che influenzano l'interfaccia utente, il template principale o le risorse statiche del progetto:`,
+                ``,
+                `### File sensibili modificati`,
+                ``,
+                fileList,
+                ``,
+                `### Perché questo avviso?`,
+                ``,
+                `Questi file non sono bloccati per i collaboratori, ma richiedono una **verifica supplementare** da parte del maintainer prima del merge, poiché modifiche non previste potrebbero:`,
+                ``,
+                `- Alterare il comportamento dell'interfaccia (\`WinToolkit_GUI.ps1\`, \`start.ps1\`)`,
+                `- Impattare la compilazione o le funzioni core del framework (\`WinToolkit-template.ps1\`)`,
+                `- Introdurre risorse non verificate nella distribuzione (\`asset/\`)`,
+                ``,
+                `### Prossimi passi`,
+                ``,
+                `Non è richiesta alcuna azione da parte tua. Il maintainer esaminerà le modifiche con maggiore attenzione prima di procedere al merge.`,
+                ``,
+                `---`,
+                `*Notifica automatica del sistema CI/CD di WinToolkit — PR #${prNumber}.*`,
+              ].join('\n');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: warningMessage,
+              });
+
+              // Avviso visibile nei log di Actions senza fallire il job
+              core.notice(
+                `PR #${prNumber}: ${level2Files.length} file sensibili modificati ` +
+                `(${level2Files.map(f => f.filename).join(', ')}) — revisione manuale consigliata.`
+              );
+            }
+
+            // ── LIVELLO 1: solo tool/ — nessuna azione necessaria ─────────
+
+  # ===========================================================================
+  # JOB DETECT_CHANGES — Rileva modifiche a file sorgente PS1
+  # Se le modifiche riguardano solo file CI/CD (.yml) o documentazione,
+  # linting/test/build vengono saltati (inutili senza cambiamenti al codice).
+  # ===========================================================================
+  detect_changes:
+    name: Detect Source Changes
+    runs-on: ubuntu-latest
+    outputs:
+      run_checks: ${{ steps.filter.outputs.run_checks }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for PS1 source changes
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git show --name-only --format="" HEAD)
+            else
+              CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+            fi
+          fi
+          echo "File modificati:"
+          echo "$CHANGED"
+          if echo "$CHANGED" | grep -qE '^(tool/[^/]+\.ps1|WinToolkit-template\.ps1|start\.ps1|start-offline\.ps1|WinToolkit-GUI\.ps1|compiler\.ps1|\.github/(tests|scripts)/[^/]+\.ps1)$'; then
+            echo "run_checks=true" >> "$GITHUB_OUTPUT"
+            echo "Modifiche a file sorgente PS1 rilevate — pipeline completa."
+          else
+            echo "run_checks=false" >> "$GITHUB_OUTPUT"
+            echo "Nessuna modifica a file sorgente PS1 — linting/test/build saltati."
+          fi
+
+  # ===========================================================================
+  # JOB 1: LINTING
+  # Analisi statica con PSScriptAnalyzer + check sintattico AST su compiler.ps1.
+  # Gira su tutti gli eventi (push + PR).
+  # ===========================================================================
+  linting:
+    name: Linting
+    runs-on: windows-latest
+    needs: detect_changes
+    if: needs.detect_changes.outputs.run_checks == 'true'
+    permissions:
+      contents: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Write-Host "Installing PSScriptAnalyzer..." -ForegroundColor Yellow
+            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+          } else {
+            Write-Host "PSScriptAnalyzer gia installato" -ForegroundColor Green
+          }
+
+      - name: Lint /tool files
+        id: lint_tool
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Write-Host "::group::PSScriptAnalyzer — /tool"
+          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
+          $hasErrors = $false
+          foreach ($file in (Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue)) {
+            Write-Host "`nAnalyzing: $($file.Name)" -ForegroundColor Yellow
+            $analysis = Invoke-ScriptAnalyzer -Path $file.FullName -Settings $settingsPath -Severity Error,Warning
+            if ($analysis) {
+              foreach ($issue in $analysis) {
+                $col = if ($issue.Severity -eq 'Error') { 'Red' } else { 'Yellow' }
+                Write-Host "  [$($issue.Severity)] $($issue.RuleName): $($issue.Message)" -ForegroundColor $col
+                if ($issue.Severity -eq 'Error') { $hasErrors = $true }
+              }
+            } else { Write-Host "  OK" -ForegroundColor Green }
+          }
+          Write-Host "::endgroup::"
+          if ($hasErrors) {
+            Write-Host "::error::Errori di linting rilevati nei file /tool."
+            exit 1
+          }
+          Write-Host "Linting /tool superato." -ForegroundColor Green
+
+      - name: Lint WinToolkit-template.ps1
+        id: lint_template
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Write-Host "::group::PSScriptAnalyzer — template"
+          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
+          $analysis = Invoke-ScriptAnalyzer -Path "WinToolkit-template.ps1" -Settings $settingsPath -Severity Error,Warning
+          if ($analysis) {
+            foreach ($issue in $analysis) {
+              $col = if ($issue.Severity -eq 'Error') { 'Red' } else { 'Yellow' }
+              Write-Host "  [$($issue.Severity)] $($issue.RuleName): $($issue.Message)" -ForegroundColor $col
+            }
+            if ($analysis | Where-Object { $_.Severity -eq 'Error' }) {
+              Write-Host "::endgroup::"
+              Write-Host "::error::Errori di linting nel template."
+              exit 1
+            }
+          } else { Write-Host "  OK" -ForegroundColor Green }
+          Write-Host "::endgroup::"
+
+      - name: Verifica sintassi compiler.ps1
+        id: lint_compiler
+        shell: pwsh
+        run: |
+          $content = Get-Content -Raw -Path "compiler.ps1" -ErrorAction Stop
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            foreach ($e in $parseErrors) {
+              Write-Host "::error file=compiler.ps1,line=$($e.Extent.StartLineNumber),col=$($e.Extent.StartColumnNumber)::ERRORE DI SINTASSI: $($e.Message)"
+            }
+            exit 1
+          }
+          Write-Host "compiler.ps1 sintassi OK" -ForegroundColor Green
+
+  # ===========================================================================
+  # JOB 2: TESTING — Suite Pester 5 (BLOCCANTE per tutti i job successivi)
+  # Gira su tutti gli eventi (push + PR).
+  # ===========================================================================
+  testing:
+    name: Pester Tests
+    runs-on: windows-latest
+    needs: linting
+    permissions:
+      contents: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Pester 5
+        shell: pwsh
+        run: |
+          $installed = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -ge '5.0.0' }
+          if (-not $installed) {
+            Write-Host "Installing Pester 5..." -ForegroundColor Yellow
+            Install-Module -Name Pester -MinimumVersion 5.0.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          } else {
+            Write-Host "Pester $($installed[0].Version) gia installato" -ForegroundColor Green
+          }
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Write-Host "Installing PSScriptAnalyzer..." -ForegroundColor Yellow
+            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+          } else {
+            Write-Host "PSScriptAnalyzer gia installato" -ForegroundColor Green
+          }
+
+      - name: Run Pester Tests
+        id: pester
+        shell: pwsh
+        run: |
+          # ── PSScriptAnalyzer Check ──────────────────────────────────────────
+          Write-Host "::group::PSScriptAnalyzer — Analisi statica sorgenti"
+          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
+          $analyzerResults = @(Invoke-ScriptAnalyzer `
+            -Path '*.ps1' `
+            -Severity Warning,Error `
+            -Settings $settingsPath)
+          $analyzerResults += @(Invoke-ScriptAnalyzer `
+            -Path 'tool\*.ps1' `
+            -Severity Warning,Error `
+            -Settings $settingsPath)
+          # Filter out start-offline.ps1 from results
+          $analyzerResults = $analyzerResults | Where-Object { $_.ScriptName -ne 'start-offline.ps1' }
+          Write-Host "::endgroup::"
+          if ($analyzerResults) {
+            $analyzerResults | Format-Table -AutoSize
+            Write-Host "::error::PSScriptAnalyzer ha rilevato $($analyzerResults.Count) violazione/i — pipeline bloccata."
+            exit 1
+          }
+          Write-Host "PSScriptAnalyzer: nessuna violazione rilevata." -ForegroundColor Green
+
+          # ── Pester Test Suite ───────────────────────────────────────────────
+          Write-Host "::group::WinToolkit Pester Test Suite"
+          $config = New-PesterConfiguration
+          $config.Run.Path                = @(
+            '.github/tests/WinToolkit.Tests.ps1',
+            '.github/tests/Unit'
+            '.github/tests/Integration'
+          )
+          $config.Run.PassThru            = $true
+          $config.Output.Verbosity        = 'Detailed'
+          $config.TestResult.Enabled      = $true
+          $config.TestResult.OutputPath   = 'TestResults.xml'
+          $config.TestResult.OutputFormat = 'NUnitXml'
+          # ── FIX: Conditional code coverage with error handling ──────────────
+          $config.CodeCoverage.Enabled               = $true
+          $config.CodeCoverage.CoveragePercentTarget = 60
+          $config.CodeCoverage.Path                  = @('WinToolkit-template.ps1', 'tool/*.ps1')
+          $config.CodeCoverage.OutputPath            = 'coverage.xml'
+          $config.CodeCoverage.UseBreakpoints        = $false
+          $config.Filter.ExcludeTag                  = @('Slow')
+
+          try {
+            $result = Invoke-Pester -Configuration $config -ErrorAction Stop
+          } catch {
+            Write-Host "⚠️ Pester execution encountered an error: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "Retrying without code coverage..." -ForegroundColor Yellow
+
+            $config.CodeCoverage.Enabled = $false
+            $result = Invoke-Pester -Configuration $config
+          }
+          Write-Host "::endgroup::"
+
+          Write-Host ""
+          Write-Host "Risultati Test:" -ForegroundColor Cyan
+          Write-Host "  Superati : $($result.PassedCount)"  -ForegroundColor Green
+          Write-Host "  Falliti  : $($result.FailedCount)"  -ForegroundColor $(if ($result.FailedCount -gt 0) { 'Red' } else { 'Green' })
+          Write-Host "  Saltati  : $($result.SkippedCount)" -ForegroundColor Yellow
+          Write-Host "  Totale   : $($result.TotalCount)"   -ForegroundColor White
+
+          if ($result.FailedCount -gt 0) {
+            Write-Host "::error::$($result.FailedCount) test Pester falliti — pipeline bloccata."
+            exit 1
+          }
+          Write-Host "Tutti i test superati." -ForegroundColor Green
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pester-test-results
+          path: |
+            TestResults.xml
+            coverage.xml
+          retention-days: 30
+
+  # ===========================================================================
+  # JOB 3: BUILD
+  # Gira solo su push. Dipende da testing.
+  #
+  # REGOLA D'ORO: elimina WinToolkit.ps1 pre-esistente prima di compilare,
+  # garantendo che l'output non contenga mai residui di versioni precedenti
+  # o conflitti di merge non risolti.
+  #
+  # LABELING DINAMICO: su rami non-Dev, sovrascrive $ToolkitVersion con
+  # "Sviluppo in Corso" nel workspace (mai committato). Su Dev, legge la
+  # versione corrente senza modificarla (il bump avviene solo in Create_Release).
+  #
+  # Il commit del file compilato usa il branch corrente (Dev o feature/*).
+  # ===========================================================================
+  build:
+    name: Build
+    runs-on: windows-latest
+    if: github.event_name == 'push'
+    needs: [testing]
+    permissions:
+      contents: write
+      actions: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+    outputs:
+      source_kb: ${{ steps.build_script.outputs.source_kb }}
+      output_kb: ${{ steps.build_script.outputs.output_kb }}
+      reduction_percent: ${{ steps.build_script.outputs.reduction_percent }}
+      lines_removed: ${{ steps.build_script.outputs.lines_removed }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      # ── REGOLA D'ORO ────────────────────────────────────────────────────
+      - name: Rimozione WinToolkit.ps1 Pre-Esistente (Integrità Build)
+        shell: pwsh
+        run: |
+          Write-Host "::group::Integrità Build — Pulizia pre-build"
+          if (Test-Path "WinToolkit.ps1") {
+            Remove-Item "WinToolkit.ps1" -Force
+            Write-Host "WinToolkit.ps1 eliminato — la compilazione parte dai sorgenti puri." -ForegroundColor Green
+          } else {
+            Write-Host "WinToolkit.ps1 non presente — nessuna pulizia necessaria." -ForegroundColor Cyan
+          }
+          Write-Host "::endgroup::"
+
+      # ── LABELING VERSIONE DINAMICO ──────────────────────────────────────
+      # Su rami non-Dev: imposta $ToolkitVersion = "Sviluppo in Corso" nel
+      # workspace (mai committato). Su Dev: legge la versione esistente.
+      - name: Labeling Versione Dinamico
+        id: version_label
+        shell: pwsh
+        run: |
+          $templatePath = "WinToolkit-template.ps1"
+          $content = Get-Content -Raw -Path $templatePath -Encoding UTF8
+          if ('${{ github.ref_name }}' -ne 'Dev') {
+            $content = $content -replace '\$ToolkitVersion\s*=\s*"[^"]+"', '$ToolkitVersion = "Sviluppo in Corso"'
+            Set-Content -Path $templatePath -Value $content -Encoding UTF8
+            Write-Host "Label di versione impostata su 'Sviluppo in Corso' per ramo ${{ github.ref_name }}." -ForegroundColor Yellow
+            "new_version=Sviluppo in Corso" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            if ($content -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+              $currentVersion = $Matches[1]
+              Write-Host "Branch Dev: versione corrente: $currentVersion" -ForegroundColor Cyan
+              "new_version=$currentVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            } else {
+              Write-Host "::error::Impossibile leggere ToolkitVersion dal template."
+              exit 1
+            }
+          }
+
+      # ── PRE-CHECK SINTATTICO ─────────────────────────────────────────────
+      - name: Validazione Sintattica Pre-Build
+        id: syntax_check
+        shell: pwsh
+        run: |
+          Write-Host "::group::Validazione Sintattica Pre-Build"
+          $hasErrors    = $false
+          $filesToCheck = @(Get-ChildItem -Path "tool" -Filter "*.ps1") + @(Get-Item "WinToolkit-template.ps1")
+
+          foreach ($file in $filesToCheck) {
+            Write-Host "Controllo: $($file.Name)" -ForegroundColor Yellow
+            $code   = Get-Content -Raw -Path $file.FullName -Encoding UTF8
+            $tokens = $null
+            $errors = $null
+            $null = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$tokens, [ref]$errors)
+
+            if ($errors.Count -gt 0) {
+              foreach ($e in $errors) {
+                # Annotazione inline visibile nella tab "Files changed" della PR
+                Write-Host "::error file=$($file.Name),line=$($e.Extent.StartLineNumber),col=$($e.Extent.StartColumnNumber)::ERRORE DI SINTASSI: $($e.Message)"
+                Write-Host "  ERRORE $($file.Name) riga $($e.Extent.StartLineNumber): $($e.Message)" -ForegroundColor Red
+              }
+              $hasErrors = $true
+            } else {
+              Write-Host "  OK — $($file.Name)" -ForegroundColor Green
+            }
+          }
+          Write-Host "::endgroup::"
+
+          if ($hasErrors) {
+            Write-Host "::error::Validazione sintattica fallita — build interrotta per evitare output corrotto."
+            exit 1
+          }
+          Write-Host "Tutti i sorgenti superano la validazione sintattica." -ForegroundColor Green
+
+      # ── COMPILAZIONE ────────────────────────────────────────────────────
+      - name: Compilazione WinToolkit.ps1
+        id: build_script
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version_label.outputs.new_version }}"
+          & .github/scripts/Invoke-Build.ps1 -Version $version -OutputPath "WinToolkit.ps1"
+
+      # ── VERIFICA FILE COMPILATO ──────────────────────────────────────────
+      - name: Test File Compilato
+        id: test_compiled
+        shell: pwsh
+        run: |
+          & .github/scripts/Test-CompiledScript.ps1 -ScriptPath "WinToolkit.ps1"
+
+      # ── COMMIT — branch-aware (Dev o feature/*) ─────────────────────────
+      - name: Commit WinToolkit.ps1
+        if: steps.test_compiled.outputs.tests_passed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
+        with:
+          commit_message: "✅ Compilato WinToolkit v${{ steps.version_label.outputs.new_version }}"
+          file_pattern: "WinToolkit.ps1"
+          branch: ${{ github.ref_name }}
+          push_options: "--force-with-lease"
+          skip_fetch: true
+
+      # ── SUMMARY (solo Dev) ───────────────────────────────────────────────
+      - name: Generate Build Summary
+        if: steps.test_compiled.outputs.tests_passed == 'true' && github.ref == 'refs/heads/Dev'
+        shell: pwsh
+        run: |
+          $version      = "${{ steps.version_label.outputs.new_version }}"
+          $sourceKB     = "${{ steps.build_script.outputs.source_kb }}"
+          $outputKB     = "${{ steps.build_script.outputs.output_kb }}"
+          $reduction    = "${{ steps.build_script.outputs.reduction_percent }}"
+          $linesRemoved = "${{ steps.build_script.outputs.lines_removed }}"
+
+          $summary = @"
+          ## Riepilogo Build - WinToolkit v$version
+
+          | Metrica          | Valore         |
+          |------------------|----------------|
+          | Peso Sorgente    | $sourceKB KB   |
+          | Peso Finale      | $outputKB KB   |
+          | Riduzione        | $reduction%    |
+          | Righe Eliminate  | $linesRemoved  |
+
+          **Branch**: ${{ github.ref_name }} | **Stato**: Build completata con successo
+          "@
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Green
+          Write-Host "║   BUILD COMPLETATA CON SUCCESSO          ║" -ForegroundColor Green
+          Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Green
+          Write-Host "  Versione : v$version"    -ForegroundColor White
+          Write-Host "  Riduzione: $reduction%"  -ForegroundColor White

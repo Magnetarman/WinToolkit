@@ -7,7 +7,7 @@ on:
     branches: [Dev]
   schedule:
     # Ogni lunedì alle 00:00 UTC
-    - cron: '0 0 * * 1'
+    - cron: "0 0 * * 1"
 
 jobs:
   security-scan:
