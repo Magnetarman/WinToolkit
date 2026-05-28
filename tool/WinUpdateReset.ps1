@@ -263,7 +263,7 @@ function WinUpdateReset {
         for ($dirIndex = 0; $dirIndex -lt $directories.Count; $dirIndex++) {
             $dir = $directories[$dirIndex]
             $percent = [math]::Round((($dirIndex + 1) / $directories.Count) * 100)
-            Show-ProgressBar "Directory ($($dirIndex + 1)/$($directories.Count))" "Eliminazione $($dir.Name)" $percent '🗑️' '' 'Yellow'
+            Write-ProgressUpdate -Activity "Directory ($($dirIndex + 1)/$($directories.Count))" -Status "Eliminazione $($dir.Name)" -Percent $percent -Icon '🗑️' -Color 'Yellow'
 
             Start-Sleep -Milliseconds 300
 

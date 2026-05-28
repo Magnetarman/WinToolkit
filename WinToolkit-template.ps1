@@ -106,7 +106,7 @@ $AppConfig = @{
         AMDInstaller          = "https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.5.2-minimalsetup-260513_web.exe"
         NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/NVCleanstall_1.19.0.exe"
         DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/DDU.zip"
-        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/ENHANCEMENT-Upgrade-Video-Driver-Install-Script/asset/DriverOverrides.json"
+        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/DriverOverrides.json"
 
         # Gaming
         DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/dxwebsetup.exe"
@@ -233,6 +233,25 @@ function Show-ProgressBar {
         Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
         if ($Percent -ge 100) { Write-Host '' }
     }
+}
+
+function Write-ProgressUpdate {
+    <#
+    .SYNOPSIS
+        Helper DRY: pulisce la riga e disegna Show-ProgressBar in un'unica chiamata.
+        Usato da tutti gli spinner, download e countdown per evitare duplicazione di Clear + Write.
+    #>
+    param(
+        [string]$Activity,
+        [string]$Status = '',
+        [int]$Percent = 0,
+        [string]$Icon = '⏳',
+        [string]$Color = 'Green',
+        [string]$Spinner = ''
+    )
+    if ($Global:GuiSessionActive) { return }
+    Clear-ProgressLine
+    Show-ProgressBar -Activity $Activity -Status $Status -Percent $Percent -Icon $Icon -Spinner $Spinner -Color $Color
 }
 
 function Show-Header {
@@ -618,7 +637,7 @@ function Invoke-ExternalCommandWithLog {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
                 if ($percent -lt 90) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                Show-ProgressBar -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
+                Write-ProgressUpdate -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
                 Start-Sleep -Milliseconds $UpdateInterval
                 $proc.Refresh()
             }
@@ -626,7 +645,7 @@ function Invoke-ExternalCommandWithLog {
                 try { $proc.Kill() } catch {}
                 throw "Timeout dopo $TimeoutSeconds secondi."
             }
-            Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
+            Write-ProgressUpdate -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
             if (-not $Global:GuiSessionActive) { Write-Host "" }
         }
         else {
@@ -722,7 +741,7 @@ function Invoke-WithSpinner {
             for ($i = $totalSeconds; $i -gt 0; $i--) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $percent = if ($PercentUpdate) { & $PercentUpdate } else { [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100) }
-                if (-not $Global:GuiSessionActive) { Write-Host "`r$spinner ⏳ $Activity - $i secondi..." -NoNewline -ForegroundColor Yellow }
+                Write-ProgressUpdate -Activity "$Activity - $i secondi" -Status '' -Percent $percent -Icon '⏳' -Spinner $spinner -Color 'Yellow'
                 Start-Sleep -Seconds 1
             }
             if (-not $Global:GuiSessionActive) { Write-Host '' }
@@ -733,19 +752,18 @@ function Invoke-WithSpinner {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
                 $percent = if ($PercentUpdate) { & $PercentUpdate } elseif ($percent -lt 90) { $percent + (Get-Random -Minimum 1 -Maximum 3) } else { $percent }
-                if (-not $Global:GuiSessionActive) { Clear-ProgressLine }
-                Show-ProgressBar -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
+                Write-ProgressUpdate -Activity $Activity -Status "Esecuzione in corso... ($elapsed secondi)" -Percent $percent -Icon '⏳' -Spinner $spinner
                 Start-Sleep -Milliseconds $UpdateInterval
                 $result.Refresh()
             }
             if (-not $result.HasExited) {
-                if (-not $Global:GuiSessionActive) { Clear-ProgressLine; Write-Host "" }
+                Write-ProgressUpdate -Activity $Activity -Status '' -Percent 0
+                if (-not $Global:GuiSessionActive) { Write-Host "" }
                 Write-StyledMessage -Type 'Warning' -Text "Timeout raggiunto dopo $TimeoutSeconds secondi, terminazione processo..."
                 $result.Kill(); Start-Sleep -Seconds 2
                 return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
             }
-            if (-not $Global:GuiSessionActive) { Clear-ProgressLine }
-            Show-ProgressBar -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
+            Write-ProgressUpdate -Activity $Activity -Status 'Completato' -Percent 100 -Icon '✅'
             if (-not $Global:GuiSessionActive) { Write-Host "" }
             return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
         }
@@ -788,9 +806,7 @@ function Start-InterruptibleCountdown {
             return $false
         }
         $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
-        $filled = [Math]::Floor($percent * 20 / 100)
-        $bar = "[$('█' * $filled)$('▒' * (20 - $filled))]"
-        Write-Host "`r⏰ $Message tra $i secondi $bar" -NoNewline -ForegroundColor Red
+        Write-ProgressUpdate -Activity "$Message tra $i secondi" -Status '' -Percent $percent -Icon '⏰' -Color 'Red'
         Start-Sleep 1
     }
     Write-Host "`n"
@@ -905,10 +921,27 @@ function Invoke-ToolkitDownload {
             
             # Effettuare il download GET
             $getRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $Uri)
-            $getResponse = $httpClient.SendAsync($getRequest).Result
+            $getResponse = $httpClient.SendAsync($getRequest, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
             
             if (-not $getResponse.IsSuccessStatusCode) {
                 throw "HTTP Error $($getResponse.StatusCode): $($getResponse.ReasonPhrase)"
+            }
+            
+            # Prova a ottenere la dimensione dal response GET se HEAD ha fallito
+            if ($totalBytes -eq 0 -and $getResponse.Content.Headers.ContentLength -gt 0) {
+                $totalBytes = $getResponse.Content.Headers.ContentLength
+            }
+
+            # === NUOVA LOGICA: Barra fake scollegata dal download ===
+            $isUnknownSize = ($totalBytes -eq 0)
+            $fakeProgressStart = $null
+            if ($isUnknownSize -and -not $Global:GuiSessionActive) {
+                $fakeProgressStart = Get-Date
+                # Mostra subito la barra fake (prima di iniziare a leggere i dati)
+                Write-ProgressUpdate -Activity "Download $Description" `
+                                     -Status "Avvio download in corso..." `
+                                     -Percent 8 -Icon '📥' -Color 'Cyan'
+                Start-Sleep -Milliseconds 120   # piccolo delay visivo per far apparire la barra
             }
             
             # Leggere il flusso e scrivere con tracking di progresso
@@ -917,6 +950,7 @@ function Invoke-ToolkitDownload {
             $buffer = New-Object byte[] 8192
             $totalRead = 0
             $lastPercent = -1
+            $lastProgressTime = Get-Date
             
             try {
                 while ($true) {
@@ -926,29 +960,67 @@ function Invoke-ToolkitDownload {
                     $fileStream.Write($buffer, 0, $read)
                     $totalRead += $read
                     
-                    # Mostrare la barra di progresso se conosciamo il totale
-                    if ($totalBytes -gt 0 -and -not $Global:GuiSessionActive) {
-                        $percent = [Math]::Round(($totalRead / $totalBytes) * 100)
-                        if ($percent -ne $lastPercent) {
-                            $filled = '█' * [Math]::Floor($percent * 30 / 100)
-                            $empty = '░' * (30 - $filled.Length)
-                            $bar = "[$filled$empty] {0,3}%" -f $percent
-                            
-                            # Convertire bytes in KB/MB appropriato
-                            $currentDisplay = if ($totalRead -gt 1048576) {
-                                "$([Math]::Round($totalRead / 1048576, 1)) MB"
-                            } else {
-                                "$([Math]::Round($totalRead / 1024, 1)) KB"
-                            }
-                            
+                    # Calcolo stato progresso (DRY: logica qui, rendering delegato)
+                    if (-not $Global:GuiSessionActive) {
+                        $currentDisplay = if ($totalRead -gt 1048576) {
+                            "$([Math]::Round($totalRead / 1048576, 1)) MB"
+                        }
+                        else {
+                            "$([Math]::Round($totalRead / 1024, 1)) KB"
+                        }
+                        
+                        if ($totalBytes -gt 0) {
+                            $percent = [Math]::Round(($totalRead / $totalBytes) * 100)
                             $totalDisplay = if ($totalBytes -gt 1048576) {
                                 "$([Math]::Round($totalBytes / 1048576, 1)) MB"
-                            } else {
+                            }
+                            else {
                                 "$([Math]::Round($totalBytes / 1024, 1)) KB"
                             }
-                            
-                            Write-Host "`r⏳ Download $Description $bar ($currentDisplay / $totalDisplay)" -NoNewline -ForegroundColor Cyan
+                            $status = "($currentDisplay / $totalDisplay)"
+                            $icon = '📥'
+                            $col = 'Cyan'
+                        }
+                        else {
+                            # === Barra COMPLETAMENTE SCOLLEGATA dal download ===
+                            # Usa solo il tempo trascorso da quando è apparsa la barra fake
+                            if ($fakeProgressStart) {
+                                $elapsed = ((Get-Date) - $fakeProgressStart).TotalSeconds
+                                # Rampa uniforme e prevedibile - max 95% durante il download
+                                # (il 100% viene forzato solo quando il file è scritto su disco)
+                                $percent = [math]::Min(95, [math]::Floor(8 + ($elapsed * 1.52)))
+                            } else {
+                                $percent = 50   # fallback
+                            }
+                            $status = "$currentDisplay scaricati"
+                            $icon = '📥'
+                            $col = 'Cyan'
+                        }
+                        
+                        $now = Get-Date
+                        $timeSinceLast = ($now - $lastProgressTime).TotalMilliseconds
+                        $shouldUpdate = $false
+
+                        if ($lastPercent -eq -1) {
+                            # First update: always show immediately (0% or first chunk)
+                            $shouldUpdate = $true
+                        }
+                        elseif ($totalBytes -gt 0) {
+                            # Known size: rate-limited + percent change (smooth, non-schizzofrenico)
+                            if ($percent -ne $lastPercent -and $timeSinceLast -gt 250) {
+                                $shouldUpdate = $true
+                            }
+                        }
+                        else {
+                            if ($timeSinceLast -gt 400 -or $percent -ne $lastPercent) {
+                                $shouldUpdate = $true
+                            }
+                        }
+
+                        if ($shouldUpdate) {
+                            Write-ProgressUpdate -Activity "Download $Description" -Status $status -Percent $percent -Icon $icon -Color $col
                             $lastPercent = $percent
+                            $lastProgressTime = $now
                         }
                     }
                 }
@@ -962,8 +1034,14 @@ function Invoke-ToolkitDownload {
             $handler.Dispose()
             
             if (Test-Path $OutputPath) {
-                if (-not $Global:GuiSessionActive) { Write-Host "" }
-                Write-StyledMessage -Type 'Success' -Text "✅ Download completato: $Description."
+                if ($totalBytes -gt 0) {
+                    Write-ProgressUpdate -Activity "Download $Description" -Status 'Completato' -Percent 100 -Icon '✅' -Color 'Green'
+                }
+                else {
+                    Write-ProgressUpdate -Activity "Download $Description" -Status 'Completato' -Percent 100 -Icon '✅' -Color 'Green'
+                    if (-not $Global:GuiSessionActive) { Write-Host "" }
+                }
+                Write-StyledMessage -Type 'Success' -Text "Download completato: $Description."
                 return $true
             }
         }
