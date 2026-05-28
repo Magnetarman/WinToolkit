@@ -1,0 +1,11 @@
+[
+  {
+    "Key": "AMD_RX_580",
+    "Manufacturer": "AMD",
+    "NamePattern": "RX 580|RX-580|Radeon RX 580",
+    "PnpIdPattern": "PCI\\VEN_1002&DEV_67DF*",
+    "DownloadUrl": "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-23.8.2-win10-win11-aug31.exe",
+    "FileName": "AMD-RX580-23.8.2-WHQL.exe",
+    "DisplayName": "AMD RX 580 Stable Driver (23.8.2 WHQL)"
+  }
+]
