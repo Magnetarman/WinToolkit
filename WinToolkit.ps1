@@ -672,7 +672,7 @@ function Invoke-ToolkitDownload {
             }
             catch {}
             $getRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $Uri)
-            $getResponse = $httpClient.SendAsync($getRequest).Result
+            $getResponse = $httpClient.SendAsync($getRequest, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
             if (-not $getResponse.IsSuccessStatusCode) {
                 throw "HTTP Error $($getResponse.StatusCode): $($getResponse.ReasonPhrase)"
             }
@@ -1981,7 +1981,7 @@ function WinUpdateReset {
         for ($dirIndex = 0; $dirIndex -lt $directories.Count; $dirIndex++) {
             $dir = $directories[$dirIndex]
             $percent = [math]::Round((($dirIndex + 1) / $directories.Count) * 100)
-            Show-ProgressBar "Directory ($($dirIndex + 1)/$($directories.Count))" "Eliminazione $($dir.Name)" $percent '🗑️' '' 'Yellow'
+            Write-ProgressUpdate -Activity "Directory ($($dirIndex + 1)/$($directories.Count))" -Status "Eliminazione $($dir.Name)" -Percent $percent -Icon '🗑️' -Color 'Yellow'
             Start-Sleep -Milliseconds 300
             $success = Remove-DirectorySafely -path $dir.Path -displayName $dir.Name
             if (-not $success) {
@@ -3450,8 +3450,7 @@ function WinCleaner {
     foreach ($rule in $Rules) {
         $currentRuleIndex++
         $percent = [math]::Round(($currentRuleIndex / $totalRules) * 100)
-        Clear-ProgressLine
-        Show-ProgressBar -Activity "Esecuzione regole" -Status "$($rule.Name)" -Percent $percent -Icon '⚙️'
+        Write-ProgressUpdate -Activity "Esecuzione regole" -Status "$($rule.Name)" -Percent $percent -Icon '⚙️'
         $result = Invoke-WinCleanerRule -Rule $rule
         Clear-ProgressLine
         if ($result) { $successCount++ }
@@ -3864,7 +3863,7 @@ function Uninstall-Office {
                         while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalSeconds -lt 2700) {
                             $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
                             $spinner = if ($Global:Spinners) { $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length] } else { '' }
-                            Show-ProgressBar -Activity "Rimozione Office" -Status "In corso... ($elapsed secondi)" -Percent 90 -Icon '⏳' -Spinner $spinner
+                            Write-ProgressUpdate -Activity "Rimozione Office" -Status "In corso... ($elapsed secondi)" -Percent 90 -Icon '⏳' -Spinner $spinner
                             Start-Sleep -Milliseconds 500
                         }
                         Clear-ProgressLine
