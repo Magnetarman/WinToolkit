@@ -921,7 +921,7 @@ function Invoke-ToolkitDownload {
             
             # Effettuare il download GET
             $getRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $Uri)
-            $getResponse = $httpClient.SendAsync($getRequest).Result
+            $getResponse = $httpClient.SendAsync($getRequest, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
             
             if (-not $getResponse.IsSuccessStatusCode) {
                 throw "HTTP Error $($getResponse.StatusCode): $($getResponse.ReasonPhrase)"
