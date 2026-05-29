@@ -939,8 +939,8 @@ function Invoke-ToolkitDownload {
                 $fakeProgressStart = Get-Date
                 # Mostra subito la barra fake (prima di iniziare a leggere i dati)
                 Write-ProgressUpdate -Activity "Download $Description" `
-                                     -Status "Avvio download in corso..." `
-                                     -Percent 8 -Icon '📥' -Color 'Cyan'
+                    -Status "Avvio download in corso..." `
+                    -Percent 8 -Icon '📥' -Color 'Cyan'
                 Start-Sleep -Milliseconds 120   # piccolo delay visivo per far apparire la barra
             }
             
@@ -989,7 +989,8 @@ function Invoke-ToolkitDownload {
                                 # Rampa uniforme e prevedibile - max 95% durante il download
                                 # (il 100% viene forzato solo quando il file è scritto su disco)
                                 $percent = [math]::Min(95, [math]::Floor(8 + ($elapsed * 1.52)))
-                            } else {
+                            }
+                            else {
                                 $percent = 50   # fallback
                             }
                             $status = "$currentDisplay scaricati"
@@ -2027,8 +2028,8 @@ $menuStructure = @(
         )
     },
     @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'AutoVideoDriverInstall'; Description = 'Installa Driver Video (Auto)'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'VideoDriverReinstall'; Description = 'Reinstalla Driver Video (Safe Mode)'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'AutoVideoDriverInstall'; Description = 'Auto Install Driver Video [Nvidia-AMD]'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'VideoDriverReinstall'; Description = 'Reinstalla Driver Video'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
         )
     },
@@ -2068,7 +2069,6 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
 
         # ── Informazioni di sistema ───────────────────────────────────────────
         $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
-        Write-Host ('*' * 50) -ForegroundColor Red
         Write-Host ''
         Write-Host "==== 💻 INFORMAZIONI DI SISTEMA 💻 ====" -ForegroundColor Cyan
         Write-Host ''
