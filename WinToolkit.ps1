@@ -684,8 +684,8 @@ function Invoke-ToolkitDownload {
             if ($isUnknownSize -and -not $Global:GuiSessionActive) {
                 $fakeProgressStart = Get-Date
                 Write-ProgressUpdate -Activity "Download $Description" `
-                                     -Status "Avvio download in corso..." `
-                                     -Percent 8 -Icon '📥' -Color 'Cyan'
+                    -Status "Avvio download in corso..." `
+                    -Percent 8 -Icon '📥' -Color 'Cyan'
                 Start-Sleep -Milliseconds 120
             }
             $contentStream = $getResponse.Content.ReadAsStreamAsync().Result
@@ -723,7 +723,8 @@ function Invoke-ToolkitDownload {
                             if ($fakeProgressStart) {
                                 $elapsed = ((Get-Date) - $fakeProgressStart).TotalSeconds
                                 $percent = [math]::Min(95, [math]::Floor(8 + ($elapsed * 1.52)))
-                            } else {
+                            }
+                            else {
                                 $percent = 50
                             }
                             $status = "$currentDisplay scaricati"
@@ -4512,8 +4513,8 @@ $menuStructure = @(
         )
     },
     @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'AutoVideoDriverInstall'; Description = 'Installa Driver Video (Auto)'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'VideoDriverReinstall'; Description = 'Reinstalla Driver Video (Safe Mode)'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'AutoVideoDriverInstall'; Description = 'Auto Install Driver Video [Nvidia-AMD]'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'VideoDriverReinstall'; Description = 'Reinstalla Driver Video'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
         )
     },
@@ -4534,7 +4535,6 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
     while ($true) {
         Show-Header -SubTitle "Menu Principale"
         $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
-        Write-Host ('*' * 50) -ForegroundColor Red
         Write-Host ''
         Write-Host "==== 💻 INFORMAZIONI DI SISTEMA 💻 ====" -ForegroundColor Cyan
         Write-Host ''
