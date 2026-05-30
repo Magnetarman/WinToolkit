@@ -6,6 +6,132 @@ Il formato si basa su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) e
 
 ---
 
+## [2.5.4] - CODENAME: "Deborah" - 2026-05-30 ([#114](https://github.com/MagnetarMan/WinToolkit/issues/114))
+
+### Aggiunte
+
+- **start.ps1**
+  - Aggiunto countdown di 5 secondi prima della chiusura dello script. Adesso alla fine dell'installazione lo script si chiude automaticamente se ogni operazione è stata eseguita con successo.
+- **Profilo PowerShell**
+  - Aggiunta funzione caricamento WinToolkit-GUI.
+- **WinCleaner**
+  - Aggiunta funzione di debloat del modello AI Locale di Google che si installa all'insaputa dell'utente. [[Video]](https://www.youtube.com/watch?v=vWNfSGPivHQ)
+
+### Correzioni
+
+- **WinToolkit-template.ps1**
+  - Aggiunta funzione pulizia log eventi. [[#104](https://github.com/MagnetarMan/WinToolkit/issues/104) [@Magnetarman]](https://github.com/Magnetarman)
+  - Fix testo spinner in `Invoke-WithSpinner`. [[#112](https://github.com/MagnetarMan/WinToolkit/issues/112) [@Magnetarman]](https://github.com/Magnetarman)
+  - Fix assert funzioni admin. [[#105](https://github.com/MagnetarMan/WinToolkit/issues/105) [@Magnetarman]](https://github.com/Magnetarman)
+  - Fix pulizia `WinCleaner`. [[#103](https://github.com/MagnetarMan/WinToolkit/issues/103) [@Magnetarman]](https://github.com/Magnetarman)
+  - Fix errore avvio UniGetUI. [[#102](https://github.com/MagnetarMan/WinToolkit/issues/102) [@Magnetarman]](https://github.com/Magnetarman)
+  - Fix avvisi sicurezza durante i test. [[#101](https://github.com/MagnetarMan/WinToolkit/issues/101) [@Magnetarman]](https://github.com/Magnetarman)
+  - Fix regex case-insensitive nel compiler. [[#90](https://github.com/MagnetarMan/WinToolkit/issues/90) [@Magnetarman]](https://github.com/Magnetarman)
+  - Fix etichettatura toolkit. [[#89](https://github.com/MagnetarMan/WinToolkit/issues/89) [@Magnetarman]](https://github.com/Magnetarman)
+  - Fix rollback `compiler.ps1`. [[#88](https://github.com/MagnetarMan/WinToolkit/issues/88) [@Magnetarman]](https://github.com/Magnetarman)
+  - Fix perdita privacy log. [[#87](https://github.com/MagnetarMan/WinToolkit/issues/87) [@Magnetarman]](https://github.com/Magnetarman)
+  - Refactor completo `Office Toolkit`. [[#86](https://github.com/MagnetarMan/WinToolkit/issues/86) [@Magnetarman]](https://github.com/Magnetarman)
+  - Fix test falliti WinToolkit. [[#76](https://github.com/MagnetarMan/WinToolkit/issues/76) [@Magnetarman]](https://github.com/Magnetarman)
+
+- **start.ps1**
+  - Rimossa variabile `$rebootNeeded`.
+  - Spostati CLSID Windows Terminal e lista processi interferenti Winget in `$script:AppConfig`.
+  - Rimosso stile Progress da `$Global:MsgStyle`.
+  - Eliminata funzione `Install-NuGetIfRequired` e il suo pre-check ridondante in `Install-WingetPackage`.
+  - Rimossa una chiamata ridondante a `Update-EnvironmentPath` prima del fallback MSIX.
+  - Rimosso if con warning non bloccante in `Test-VCRedistInstalled`.
+  - Corretta numerazione passi in `Repair-WingetDatabase`.
+  - Sostituito valore non valido Progress con Info nel parametro -Type di Write-StyledMessage (risolve errore ValidateSet runtime).
+  - Install-GitPackage - Sostituite 3 occorrenze di aggiornamento PATH inline con la funzione `Update-EnvironmentPath` esistente.
+  - Invoke-WinToolkitSetup - Rimossa duplicazione codice rilevamento percorso pwsh.exe (ora rilevato una sola volta).
+  - Estrazione funzioni annidate:
+    - `Get-WingetDownloadUrl` estratta da `Install-WingetCore`.
+    - `Install-NerdFontsLocal` estratta da `Install-PspEnvironment`.
+    - `Get-ProfileDirLocal` estratta da `Install-PspEnvironment`.
+  - Aggiunta lista UpdateServices in $script:AppConfig e aggiornate Invoke-StopUpdateServices / Invoke-StartUpdateServices.
+  - Spostato $Global:MsgStyles all'interno di AppConfig eliminando scope globale non necessario.
+  - Corretto pattern ProgressPreference in Install-WingetPackage (ora salva e ripristina valore originale).
+  - Uniformato operatore negazione da ! a -not per coerenza.
+  - Corretta numerazione passi mancante (#6) in Repair-WingetDatabase.
+  - Aggiunto Layout.Width in configurazione, rimossi magic number 65 hardcoded.
+  - Rimossa inizializzazione superflua `$downloadUrl = $null` a riga 1127.
+  - Aggiunto blocco .SYNOPSIS a tutte le 20 funzioni presenti.
+  - Riorganizzato il codice in modo più pulito e lineare.
+  - Rimuovi tutti i caratteri ANSI/colori prima di salvare su file. [[Thanks To @Ennio Costanzi]]()
+  - Corretti errori di parsing funzione non correttamente inizializzata. [[Thanks To @Ennio Costanzi]]()
+
+- **WinToolkit-template.ps1**
+  - Sostituita la chiusura dei processi duplicata nel ripristino di Winget integrando la funzione `Stop-ToolkitProcesses`.
+  - Consolidata e de-duplicata registrazione `AppxManifest.xml` tramite funzione interna dedicata.
+  - Aggiunto caching a `Get-SystemInfo` azzerando latenze CIM durante il ricarico del menu principale.
+  - Inserita funzione `Initialize-ToolkitPaths` centralizzata per i folder log/temp, chiamata fuori ciclo prima della UI.
+  - Ottimizzato wrapper custom `Read-Host` tramite interruzione bloccante `ReadKey()` cancellando overhead della CPU nel polling loop.
+  - Uniformati link e blocchi di configurazioni `AppConfig` centrali.
+  - Gestione Servizi: Aggiunte le funzioni Invoke-StopUpdateServices e Invoke-StartUpdateServices per sospendere temporaneamente wuauserv, bits, cryptsvc e dosvc.
+  - Integrazione: Il sistema ora arresta i servizi subito dopo i controlli preliminari e li riavvia automaticamente in ogni scenario di uscita (completamento, riavvio in PowerShell 7/Terminal o errore critico).
+  - Feedback Utente: Inseriti messaggi di stato per informare correttamente l'utente durante l'arresto e il riavvio dei servizi.
+  - Introdotta funzione `Test-WindowsUpdateStatus` per rilevare gli aggiornamenti di Windows in sospeso e l'attività del programma di installazione.
+  - Rimuovi tutti i caratteri ANSI/colori prima di salvare su file. [[Thanks To @Ennio Costanzi]]()
+  - Corretti bug in `Get-UserConfirmation` e `Read-ValidatedChoice`.
+  - Aggiornato menu principale di WinToolkit per sfruttare `Read-ValidatedChoice`.
+  - Adeguati i vari script per utilizzare la nuova funzione Invoke-WithSpinner globale, eliminando le vecchie funzioni Write-Spinner/Stop-Spinner e Write-Wait.
+  - Adeguati i commenti interni in modo che siano coerenti con le modifiche effettuate.
+  - Aggiornata funzione di Log e resa globale in modo da limitare chiamate multiple durante l'avvio di ogni singola funzione.
+
+- **WinRepairToolkit**
+  - Improve AppX registration and chkdsk handling. [[Thanks To @Ennio Costanzi]]()
+  - Controllo iniziale stato sistema: Aggiunta funzione `Test-PendingOperations` che verifica chiavi di registro per reboot pendente e avvisa l'utente prima di iniziare le riparazioni.
+  - Pulizia stato DISM: Esecuzione automatica di DISM /CancelCommands prima di ogni operazione /StartComponentCleanup per annullare operazioni pendenti.
+  - Gestione specifica errore: 0x800f0806 viene riconosciuto come non critico, viene mostrato un avviso informativo e non viene conteggiato come errore.
+  - Supporto codice exit 3010: DISM /ResetBase che ritorna 3010 (reboot richiesto) viene considerato successo.
+  - Esclusione errore dal conteggio: 0x800f0806 viene saltato nella logica di rilevazione errori generale.
+  - Rimossa funzione registrazioni AppX in quanto il Fix temporaneo non risulta più necessario con gli ultimi cumulativi di Windows 11.
+
+- **compiler.ps1**
+  - Corretti errori di parsing funzione non correttamente inizializzata.
+
+- **README.md**
+  - Aggiunto banner conto totale dei Download [Diventera realistico quando la versione GUI verrà ultimata].
+
+### Modifiche
+
+- **WinToolkit-template.ps1**
+  - Aggiunta funzione `Get-UserConfirmation` (sostituisce `Read-YesNoPrompt`).
+  - Aggiunta funzione `Read-ValidatedChoice` (gestisce input multipli e validazione avanzata).
+  - Rimosse funzioni deprecate come `Get-UserConfirmation`, aggiornamento dei vari script al nuovo paradigma completo.
+
+- **VideoDriverInstall.ps1**
+  - Upgrade script installazione driver video. [[#109](https://github.com/MagnetarMan/WinToolkit/issues/109) [@Magnetarman]](https://github.com/Magnetarman)
+  - Refactor `Video Driver Toolkit`. [[#108](https://github.com/MagnetarMan/WinToolkit/issues/108) [@Magnetarman]](https://github.com/Magnetarman)
+
+- **Pipeline CI/CD**
+  - Upgrade workflow pipeline CI/CD. [[#91](https://github.com/MagnetarMan/WinToolkit/issues/91) [@Magnetarman]](https://github.com/Magnetarman)
+  - Pipeline CI/CD v 3.1.0. [[#77](https://github.com/MagnetarMan/WinToolkit/issues/77) [@Magnetarman]](https://github.com/Magnetarman)
+
+- **WinToolkit-template.ps1**
+  - Refactor del template principale. [[#81](https://github.com/MagnetarMan/WinToolkit/issues/81) [@Magnetarman]](https://github.com/Magnetarman)
+
+- **Office Toolkit**
+  - Upgrade debloat dopo installazione. [[#80](https://github.com/MagnetarMan/WinToolkit/issues/80) [@Magnetarman]](https://github.com/Magnetarman)
+  - Office uninstall SaRA con comando Get Help. [[#79](https://github.com/MagnetarMan/WinToolkit/issues/79) [@Magnetarman]](https://github.com/Magnetarman)
+  - Rework `Office Toolkit`. [[#78](https://github.com/MagnetarMan/WinToolkit/issues/78) [@Magnetarman]](https://github.com/Magnetarman)
+
+- **Profilo PowerShell**
+  - Aggiunta breakline in istruzione if. [[#99](https://github.com/MagnetarMan/WinToolkit/issues/99) [@pomodori92]](https://github.com/pomodori92)
+  - Status supporto versioni Windows nel README. [[#96](https://github.com/MagnetarMan/WinToolkit/issues/96) [@pomodori92]](https://github.com/pomodori92)
+  - Rimosse variabile inutilizzata da `WinToolkit-GUI.ps1`. [[#74](https://github.com/MagnetarMan/WinToolkit/issues/74) [@pomodori92]](https://github.com/pomodori92)
+  - Testi help per Safe, Warning e Alert nel profilo PowerShell. [[#73](https://github.com/MagnetarMan/WinToolkit/issues/73) [@pomodori92]](https://github.com/pomodori92)
+  - Modifiche `WinToolkit-GUI.ps1`. [[#72](https://github.com/MagnetarMan/WinToolkit/issues/72) [@pomodori92]](https://github.com/pomodori92)
+  - Refactor check `Install-GitPackage` e rimossa variabile `wingetDeepCheck`. [[#67](https://github.com/MagnetarMan/WinToolkit/issues/67) [@pomodori92]](https://github.com/pomodori92)
+  - Check se `$resolveWingetPath` è null e messaggi di errore. [[#66](https://github.com/MagnetarMan/WinToolkit/issues/66) [@pomodori92]](https://github.com/pomodori92)
+  - Comando winget uninstall per includere tutte le versioni PowerShell. [[#65](https://github.com/MagnetarMan/WinToolkit/issues/65) [@pomodori92]](https://github.com/pomodori92)
+  - PowerShell aggiornato con successo, ma dice "Installazione interrotta". [[#75](https://github.com/MagnetarMan/WinToolkit/issues/75) [@pomodori92]](https://github.com/pomodori92)
+  - Timeout riparazioni a 3 ore. [[#71](https://github.com/MagnetarMan/WinToolkit/issues/71) [@pomodori92]](https://github.com/pomodori92)
+  - OfficeTool: barra file eliminati appare sotto le opzioni menu. [[#68](https://github.com/MagnetarMan/WinToolkit/issues/68) [@pomodori92]](https://github.com/pomodori92)
+  - Dopo aver selezionato l'opzione 3, si blocca durante il ripristino Winget. [[#59](https://github.com/MagnetarMan/WinToolkit/issues/59) [@pomodori92]](https://github.com/pomodori92)
+
+---
+
 ## [2.5.3] - CODENAME: "Deborah" - 2026-04-03 ([#64](https://github.com/MagnetarMan/WinToolkit/issues/64))
 
 ### Aggiunte

@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.3.1"
+$ProfileVersion = "2.5.4.5"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
@@ -21,10 +21,10 @@ $URL_WINTOOLKIT_DEV = "https://magnetarman.com/WinToolkit-Dev"
 $URL_WINREG = "https://get.activated.win"
 $URL_RustDesk_Setup = "https://raw.githubusercontent.com/Magnetarman/WinStarter/refs/heads/main/Asset/RustDesk/SetRustDesk.ps1"
 $URL_OHMYPOSH_THEME = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-$URL_PROFILE = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
+$URL_PROFILE_DEV = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
 $URL_IP_API = "https://am.i.mullvad.net/ip"
 $URL_WINTOOLKIT_ICO_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
-$URL_WINTOOLKIT_ICO_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/img/WinToolkit-Dev.ico"
+$URL_WINTOOLKIT_ICO_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit-Dev.ico"
 $URL_PROFILE_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/Microsoft.PowerShell_profile.ps1"
 $URL_PWSH_RELEASE_API = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
 
@@ -266,7 +266,7 @@ function PSProfileUpdate {
     param()
 
     $localProfilePath = $PROFILE
-    $remoteProfileUrl = $URL_PROFILE
+    $remoteProfileUrl = $URL_PROFILE_MAIN
 
     Write-Host "🔍 Verifica aggiornamenti per il profilo PowerShell..." -ForegroundColor Cyan
 
@@ -344,6 +344,10 @@ function WinToolkit-Dev {
     Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_WINTOOLKIT_DEV | iex`"" -Verb RunAs
 }
 
+function WinToolkit-GUI {
+    Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/Wintoolkit-gui | iex`"" -Verb RunAs
+}
+
 function SetBranch-Dev {
     [CmdletBinding()]
     param()
@@ -390,7 +394,7 @@ function SetBranch-Dev {
         Write-Host "⬇️ Download del profilo PowerShell dal ramo dev..." -ForegroundColor Cyan
 
         # Sovrascrive il profilo senza chiedere conferma
-        Invoke-WebRequest -Uri $URL_PROFILE -OutFile $PROFILE -UseBasicParsing
+        Invoke-WebRequest -Uri $URL_PROFILE_DEV -OutFile $PROFILE -UseBasicParsing
         Write-Host "✅ Profilo PowerShell sovrascritto con la versione dev." -ForegroundColor Green
     }
     catch {
@@ -723,9 +727,9 @@ function Show-Help {
     $helpText = @"
 $($PSStyle.Foreground.Cyan)Guida al Profilo PowerShell$($PSStyle.Reset) $($PSStyle.Foreground.Red)========================================================$($PSStyle.Reset)
 
-$($PSStyle.Foreground.Green)Verde (Safe):$($PSStyle.Reset) utilizzo sicuro, non comporta problematiche.
-$($PSStyle.Foreground.Yellow)Giallo (Warning):$($PSStyle.Reset) Attenzione leggere attentamente la descrizione, questo tipo di comandi comportano variazioni distruttive al sistema.
-$($PSStyle.Foreground.Red)Rosso (ALLERT!):$($PSStyle.Reset) Queste funzioni sono state designare per effettuare modifiche profonde e distruttive, attento a cosa stai facendo!
+$($PSStyle.Foreground.Green)Verde (Safe):$($PSStyle.Reset) L'utilizzo non comporta rischi o problemi.
+$($PSStyle.Foreground.Yellow)Giallo (Warning):$($PSStyle.Reset) Attenzione! Leggere la descrizione perché questi comandi comportano variazioni rischiose al sistema.
+$($PSStyle.Foreground.Red)Rosso (ALERT!):$($PSStyle.Reset) STOP! Queste funzioni sono state designare per effettuare modifiche profonde e distruttive. Attento!
 
 $($PSStyle.Foreground.Green)====================================================================================$($PSStyle.Reset)
 
@@ -754,6 +758,7 @@ $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Spegnim
 $($PSStyle.Foreground.Cyan)Lancio WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Lancia WinToolkit (stabile).
 $($PSStyle.Foreground.Yellow)WinToolkit-Dev$($PSStyle.Reset)            - Lancia WinToolkit (Dev).
+$($PSStyle.Foreground.Magenta)WinToolkit-GUI$($PSStyle.Reset)            - Lancia WinToolkit (Versione GUI).
 $($PSStyle.Foreground.Yellow)SetBranch-Main$($PSStyle.Reset)            - Switcha l'ambiente (Icona e Profilo) al ramo main.
 $($PSStyle.Foreground.Yellow)SetBranch-Dev$($PSStyle.Reset)             - Switcha l'ambiente (Icona e Profilo) al ramo dev.
 $($PSStyle.Foreground.Red)WinReg$($PSStyle.Reset)                    - Attiva Windows/Office (MAS).
@@ -842,7 +847,7 @@ function Update-Pwsh {
 
             # Step 1: Disinstallazione
             Write-Host "   1/2 - Disinstallazione di Microsoft.PowerShell in corso..." -ForegroundColor Cyan
-            winget uninstall --id Microsoft.PowerShell --accept-source-agreements --silent
+            winget uninstall --id Microsoft.PowerShell --accept-source-agreements --silent --all-versions
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "❌ Disinstallazione fallita (codice: $LASTEXITCODE). Operazione interrotta." -ForegroundColor Red
                 Write-Host "   Prova a disinstallare PowerShell manualmente e poi esegui nuovamente Update-Pwsh." -ForegroundColor DarkYellow
@@ -901,17 +906,20 @@ if (-not (Test-Path $localThemePath)) {
 }
 
 if (Test-Path $localThemePath) {
-    oh-my-posh init pwsh --config $localThemePath | Invoke-Expression
+    $ompScript = oh-my-posh init pwsh --config $localThemePath | Out-String
+    . ([ScriptBlock]::Create($ompScript))
 }
 else {
     $fallbackUrl = $URL_OHMYPOSH_THEME
     Write-Warning "Tema locale non disponibile. Uso fallback remoto."
-    oh-my-posh init pwsh --config $fallbackUrl | Invoke-Expression
+    $ompScript = oh-my-posh init pwsh --config $fallbackUrl | Out-String
+    . ([ScriptBlock]::Create($ompScript))
 }
 
 # zoxide
 if (Test-CommandExists -Name "zoxide") {
-    Invoke-Expression (& { (zoxide init powershell | Out-String) })
+    $zoxideScript = zoxide init powershell | Out-String
+    . ([ScriptBlock]::Create($zoxideScript))
 }
 
 # fastfetch

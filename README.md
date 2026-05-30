@@ -4,13 +4,12 @@
 </p>
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
-	<img src="https://img.shields.io/badge/version-2.5.3-red.svg?style=for-the-badge" alt="versione">
+	<img src="https://img.shields.io/github/v/release/Magnetarman/WinToolkit?style=for-the-badge&label=versione&color=brightgreen" alt="versione">
 	<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
 	<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
 	<img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main">
+	<img src="https://img.shields.io/github/downloads/Magnetarman/WinToolkit/latest/WinToolkit.ps1?style=for-the-badge&logo=github&logoColor=white&color=0080ff&label=Downloads" alt="downloads-main">
 </p>
-
-![Maintenance](https://magnetarman.com/countdown.php)
 
 <img src="img/Run.jpg" alt="Run-banner" width="800">
 
@@ -27,14 +26,14 @@ WinToolkit è una suite di script PowerShell potente e compatta, progettata per 
 > - **spazio libero su disco**: >= 50 GB [(vedere la sezione F.A.Q.)](#-faq---domande-frequenti);
 > - **Windows >= 8.1**.
 
-| Versioni di Windows   | Supportato          |
-| :-------------------- | :------------------ |
-| Windows 11 >= 22H2    | 🟢 Sì               |
-| Windows 11 <= 21H2    | 🟡 Sì con eccezioni |
-| Windows 10 >= 1809    | 🟢 Sì               |
-| Windows 10 <= 1809    | 🟠 Parzialmente     |
-| Windows 8.1           | 🟠 Parzialmente     |
-| Windows 8 e inferiori | 🔴 No               |
+| Versioni di Windows   | Supportato      |
+| :-------------------- | :-------------- |
+| Windows 11 >= 22H2    | 🟢 Sì           |
+| Windows 10 >= 1809    | 🟢 Sì           |
+| Windows 11 <= 21H2    | 🟡 Parzialmente |
+| Windows 10 <= 1809    | 🟡 Parzialmente |
+| Windows 8.1           | 🟡 Parzialmente |
+| Windows 8 e inferiori | 🔴 No           |
 
 ## 🚀 Come eseguire WinToolkit
 
@@ -74,16 +73,29 @@ irm https://magnetarman.com/WinToolkit | iex
 > Avviare le versioni in fase di sviluppo è **rischioso e potrebbe causare danni al tuo sistema.** Sono presenti funzionalità in corso di sviluppo e/o in fase di test. Se non sei sicuro o non sai cosa stai facendo, vai alla sezione "Esecuzione consigliata".
 
 ```powershell
-irm https://magnetarman.com/WinToolkit-Dev | iex
+irm https://magnetarman.com/winstart-dev | iex
+```
+
+## 🪟 GUI - Interfaccia grafica
+
+> [!CAUTION]
+> La Versione GUI è disponibile in versione ALPHA, pertanto potrà subire modifiche anche significative. Il funzionamento di questa versione è fortemente instabile, utilizzare a proprio rischio e pericolo.
+
+```powershell
+irm https://magnetarman.com/Wintoolkit-gui | iex
 ```
 
 ---
 
 ## 👾 Componenti
 
-- **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows, come: sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
-- **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
-- **Office Toolkit**: Semplifica l'installazione, la riparazione e la rimozione dei componenti o del prodotto intero. È possibile installare una versione "Basic" di Microsoft Office in modo semi-automatico, riparare le installazioni esistenti con due diverse modalità (Riparazione rapida offline e riparazione completa online), oppure rimuovere completamente il software dal sistema utilizzando l'efficace strumento ufficiale "Microsoft Support and Recovery Assistant (SaRA)".
+- **Sezione Windows**:
+    - **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows, come: sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
+    - **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
+- **Sezione Office**:
+    - **Install Office**: Consente di installare una versione "Basic" di Microsoft Office in modo semi-automatico.
+    - **Repair Office**: Ripara le installazioni esistenti offrendo la modalità rapida offline o completa online.
+    - **Uninstall Office**: Rimuove completamente la suite dal sistema utilizzando l'efficace strumento ufficiale "GetHelpCMD" (EX saRA).
 - **Windows Store Repair**: Esegue una reinstallazione di componenti critici come: Microsoft Store, WinGet, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando WinGet).
 - **Win Backup Driver**: Semplifica il processo di backup dei driver, che automatizza l'esportazione di tutti i driver di terze parti installati utilizzando il comando DISM per garantire un'operazione completa e affidabile.
 - **Cleaner Toolkit**: Libera spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda.
@@ -105,18 +117,9 @@ irm https://magnetarman.com/WinToolkit-Dev | iex
 
 ---
 
-## 🪟 Coming soon: GUI - Interfaccia grafica
-
-> [!CAUTION]
-> L'interfaccia grafica mostrata di seguito è un'anteprima, pertanto potrà subire modifiche anche significative. La sua condivisione risponde al forte interesse degli utenti verso una futura implementazione.
-> <img src="img/Gui.jpg" alt="Gui-Mode-banner" width="800">
-
----
-
 ## 📌 Changelog
 
-- [Changelog - Leggi le modifiche introdotte.](/CHANGELOG.md)
-- [To-Do - Leggi la lista delle funzionalità in sviluppo.](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)
+- 📄 **[Changelog.md - Leggi le modifiche introdotte.](/CHANGELOG.md)**
 
 ---
 
@@ -184,15 +187,26 @@ Se WinToolkit ti è stato utile, considera di supportare attivamente il progetto
 
 La tua donazione non è solo un ringraziamento, ma un investimento diretto nel futuro e nello sviluppo di questo strumento.
 
-Per effettuare una donazione, clicca sul bottone PayPal qui sotto aggiungendo un riferimento a "WinToolkit" nel messaggio, così entrerai nella Hall of Fame dei Contributori.
-
-[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/MagnetarManit/10)
+Per effettuare una donazione, scopri come cliccand sul pulsante Sponsor in alto a destra.
 
 🚀 Sviluppo continuo: le donazioni mi permettono di dedicare più tempo e risorse per mantenere la versione attuale aggiornata e compatibile, e per implementare nuove e potenti funzionalità.
 
 🏆 Entra nella Hall of Fame: ogni donatore verrà incluso in una nuova sezione dedicata all'interno della lista dei contributori come ringraziamento per il tuo prezioso supporto.
 
-✨ Accesso esclusivo alla futura "GUI Edition" (coming soon): per coprire i costi e il tempo di sviluppo che impiego, la futura e attesissima versione con interfaccia grafica (GUI) sarà facilmente offerta in anteprima a chi avrà supportato il progetto con una donazione libera. La versione da terminale (attualmente disponibile) rimarrà comunque completamente gratuita per tutti.
+---
+
+## 🏗️ Architettura e sviluppo
+
+> [!NOTE]
+> Questa sezione è rivolta a **contributor e utenti avanzati** che vogliono capire come funziona WinToolkit internamente, come modificarlo o come testare le proprie modifiche prima di aprire una PR.
+
+WinToolkit usa un sistema di build personalizzato: i sorgenti risiedono nel branch **`Dev`** e vengono compilati automaticamente dalla pipeline CI in un unico file distribuibile su **`main`**. Gli utenti finali clonano `main` e ottengono il toolkit pronto all'uso; i contributor lavorano su `Dev`.
+
+Per orientarsi nell'architettura del progetto — flusso `Dev` → `main`, compilatore, struttura dei moduli, pipeline CI/CD e istruzioni per testare localmente — leggi:
+
+📄 **[ARCHITECTURE.md](.github/Docs/ARCHITECTURE.md)**
+
+---
 
 ### 🔰 Contribuisci
 
@@ -201,7 +215,7 @@ Se non puoi donare, puoi comunque aiutarmi a migliorare WinToolkit attraverso qu
 ⭐ **Metti una stella**: mettendo una stella al progetto lo farai diventare più popolare su GitHub.
 
 > [!WARNING]
-> Prima di effettuare Pull Request o aprire issue [PER FAVORE LEGGI ATTENTAMENTE LA GUIDA](https://github.com/Magnetarman/WinToolkit/blob/Dev/.github/Docs/PR_And_PullRequest.md).
+> Prima di effettuare Pull Request o aprire issue [PER FAVORE LEGGI ATTENTAMENTE LA GUIDA](/.github/Docs/PR_And_PullRequest.md).
 
 🐛 **[Segnala un problema](https://github.com/Magnetarman/WinToolkit/issues)**: segnala un bug che hai trovato o richiedi nuove funzionalità.
 
