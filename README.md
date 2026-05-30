@@ -26,14 +26,14 @@ WinToolkit è una suite di script PowerShell potente e compatta, progettata per 
 > - **spazio libero su disco**: >= 50 GB [(vedere la sezione F.A.Q.)](#-faq---domande-frequenti);
 > - **Windows >= 8.1**.
 
-| Versioni di Windows   | Supportato          |
-| :-------------------- | :------------------ |
-| Windows 11 >= 22H2    | 🟢 Sì               |
-| Windows 10 >= 1809    | 🟢 Sì               |
-| Windows 11 <= 21H2    | 🟡 Parzialmente     |
-| Windows 10 <= 1809    | 🟡 Parzialmente     |
-| Windows 8.1           | 🟡 Parzialmente     |
-| Windows 8 e inferiori | 🔴 No               |
+| Versioni di Windows   | Supportato      |
+| :-------------------- | :-------------- |
+| Windows 11 >= 22H2    | 🟢 Sì           |
+| Windows 10 >= 1809    | 🟢 Sì           |
+| Windows 11 <= 21H2    | 🟡 Parzialmente |
+| Windows 10 <= 1809    | 🟡 Parzialmente |
+| Windows 8.1           | 🟡 Parzialmente |
+| Windows 8 e inferiori | 🔴 No           |
 
 ## 🚀 Come eseguire WinToolkit
 
@@ -76,17 +76,26 @@ irm https://magnetarman.com/WinToolkit | iex
 irm https://magnetarman.com/winstart-dev | iex
 ```
 
+## 🪟 GUI - Interfaccia grafica
+
+> [!CAUTION]
+> La Versione GUI è disponibile in versione ALPHA, pertanto potrà subire modifiche anche significative. Il funzionamento di questa versione è fortemente instabile, utilizzare a proprio rischio e pericolo.
+
+```powershell
+irm https://magnetarman.com/Wintoolkit-gui | iex
+```
+
 ---
 
 ## 👾 Componenti
 
 - **Sezione Windows**:
-  - **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows, come: sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
-  - **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
+    - **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows, come: sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
+    - **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
 - **Sezione Office**:
-  - **Install Office**: Consente di installare una versione "Basic" di Microsoft Office in modo semi-automatico.
-  - **Repair Office**: Ripara le installazioni esistenti offrendo la modalità rapida offline o completa online.
-  - **Uninstall Office**: Rimuove completamente la suite dal sistema utilizzando l'efficace strumento ufficiale "GetHelpCMD" (EX saRA).
+    - **Install Office**: Consente di installare una versione "Basic" di Microsoft Office in modo semi-automatico.
+    - **Repair Office**: Ripara le installazioni esistenti offrendo la modalità rapida offline o completa online.
+    - **Uninstall Office**: Rimuove completamente la suite dal sistema utilizzando l'efficace strumento ufficiale "GetHelpCMD" (EX saRA).
 - **Windows Store Repair**: Esegue una reinstallazione di componenti critici come: Microsoft Store, WinGet, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando WinGet).
 - **Win Backup Driver**: Semplifica il processo di backup dei driver, che automatizza l'esportazione di tutti i driver di terze parti installati utilizzando il comando DISM per garantire un'operazione completa e affidabile.
 - **Cleaner Toolkit**: Libera spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda.
@@ -108,24 +117,9 @@ irm https://magnetarman.com/winstart-dev | iex
 
 ---
 
-## 🪟 GUI - Interfaccia grafica [ALPHA]
-
-> [!CAUTION]
-> L'interfaccia grafica mostrata di seguito è un'anteprima, pertanto potrà subire modifiche anche significative. La sua condivisione risponde al forte interesse degli utenti verso una futura implementazione.
-> <img src="img/Gui.jpg" alt="Gui-Mode-banner" width="800">
-
-### 👨‍💻 Per testare la GUI
-
-```powershell
-irm https://magnetarman.com/Wintoolkit-gui | iex
-```
-
----
-
 ## 📌 Changelog
 
 - 📄 **[Changelog.md - Leggi le modifiche introdotte.](/CHANGELOG.md)**
-- 📄 **[To-Do.md - Leggi la lista delle funzionalità in sviluppo.(In Dismissione)](https://github.com/Magnetarman/WinToolkit/blob/Dev/TODO.md)**
 
 ---
 
@@ -198,8 +192,6 @@ Per effettuare una donazione, scopri come cliccand sul pulsante Sponsor in alto 
 🚀 Sviluppo continuo: le donazioni mi permettono di dedicare più tempo e risorse per mantenere la versione attuale aggiornata e compatibile, e per implementare nuove e potenti funzionalità.
 
 🏆 Entra nella Hall of Fame: ogni donatore verrà incluso in una nuova sezione dedicata all'interno della lista dei contributori come ringraziamento per il tuo prezioso supporto.
-
-✨ Accesso esclusivo alla futura "GUI Edition" (coming soon): per coprire i costi e il tempo di sviluppo che impiego, la futura e attesissima versione con interfaccia grafica (GUI) sarà facilmente offerta in anteprima a chi avrà supportato il progetto con una donazione libera. La versione da terminale (attualmente disponibile) rimarrà comunque completamente gratuita per tutti.
 
 ---
 
