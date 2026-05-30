@@ -215,7 +215,7 @@ Se non puoi donare, puoi comunque aiutarmi a migliorare WinToolkit attraverso qu
 ⭐ **Metti una stella**: mettendo una stella al progetto lo farai diventare più popolare su GitHub.
 
 > [!WARNING]
-> Prima di effettuare Pull Request o aprire issue [PER FAVORE LEGGI ATTENTAMENTE LA GUIDA](https://github.com/Magnetarman/WinToolkit/blob/Dev/.github/Docs/PR_And_PullRequest.md).
+> Prima di effettuare Pull Request o aprire issue [PER FAVORE LEGGI ATTENTAMENTE LA GUIDA](/.github/Docs/PR_And_PullRequest.md).
 
 🐛 **[Segnala un problema](https://github.com/Magnetarman/WinToolkit/issues)**: segnala un bug che hai trovato o richiedi nuove funzionalità.
 
