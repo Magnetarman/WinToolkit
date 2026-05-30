@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit Enterprise CI/CD Pipeline — Main Branch Protection V 3.3.0
+# WinToolkit Enterprise CI/CD Pipeline — Main Branch Protection V 3.3.1
 # =============================================================================
 # Pipeline per il ramo 'main' — Protezione stabilità e gestione release stabili.
 #
@@ -73,7 +73,7 @@ jobs:
       - name: Verify Official Repository and Maintainer
         run: |
           if [ "${{ github.repository }}" != "Magnetarman/WinToolkit" ]; then
-            echo "::error::Azione non consentita: CI_UpdateWinToolkit_Main è supportata solo nella repository ufficiale https://github.com/Magnetarman/WinToolkit/. Repository corrente: ${{ github.repository }}"
+            echo "::error::Azione non consentita: CI_UpdateWinToolkit_Main è supportata solo nella repository ufficiale https://github.com/Magnetarman/WinToolkit/. Repository corrente: ${{ github[...]
             exit 1
           fi
           if [ "${GITHUB_ACTOR,,}" != "magnetarman" ]; then
@@ -239,24 +239,9 @@ jobs:
             exit 1
           }
 
-      - name: Lint WinToolkit-template.ps1
-        shell: pwsh
-        run: |
-          Write-Host "::group::PSScriptAnalyzer — template"
-          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
-          $analysis = Invoke-ScriptAnalyzer -Path "WinToolkit-template.ps1" -Settings $settingsPath -Severity Error,Warning
-          if ($analysis) {
-            foreach ($issue in $analysis) {
-              $col = if ($issue.Severity -eq 'Error') { 'Red' } else { 'Yellow' }
-              Write-Host "  [$($issue.Severity)] $($issue.RuleName): $($issue.Message)" -ForegroundColor $col
-            }
-            if ($analysis | Where-Object { $_.Severity -eq 'Error' }) {
-              Write-Host "::endgroup::"
-              Write-Host "::error::Errori di linting nel template."
-              exit 1
-            }
-          }
-          Write-Host "::endgroup::"
+      # NOTE: WinToolkit-template.ps1 is exclusive to the Dev branch
+      # and should never exist on Main. Linting of this file occurs only on PR toward Dev,
+      # not on PR toward Main. This step has been removed to prevent unnecessary failures.
 
       - name: Verifica sintassi compiler.ps1
         shell: pwsh
