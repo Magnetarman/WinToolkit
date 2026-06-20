@@ -1,7 +1,4 @@
-#requires -version 5.1
-#requires -RunAsAdministrator
-
-function DeleteUserProfilesInWindows11 {
+function WinDeleteUserProfiles {
     <#
     .SYNOPSIS
         Rimuove in modo sicuro i profili utente locali non caricati e le cartelle residue in C:\Users.
@@ -16,6 +13,12 @@ function DeleteUserProfilesInWindows11 {
 
     .PARAMETER MaxThreads
         Numero massimo di runspace paralleli. Per Win32_UserProfile viene limitato automaticamente a 4.
+
+    .PARAMETER CountdownSeconds
+        Secondi del countdown prima di un eventuale riavvio consigliato.
+
+    .PARAMETER SuppressIndividualReboot
+        Sopprime il riavvio individuale e delega il riavvio finale al toolkit.
 
     .PARAMETER UsersRoot
         Percorso radice dei profili utente locali.
@@ -33,15 +36,20 @@ function DeleteUserProfilesInWindows11 {
         Non richiama Start-ToolkitSession anche se disponibile.
 
     .EXAMPLE
-        DeleteUserProfilesInWindows11
+        WinDeleteUserProfiles
 
     .EXAMPLE
-        DeleteUserProfilesInWindows11 -MinimumProfileAgeDays 30
+        WinDeleteUserProfiles -MinimumProfileAgeDays 30
     #>
     [CmdletBinding()]
     param(
         [ValidateRange(1, 16)]
         [int]$MaxThreads = [Math]::Min(2, [Environment]::ProcessorCount),
+
+        [ValidateRange(0, 3600)]
+        [int]$CountdownSeconds = 30,
+
+        [switch]$SuppressIndividualReboot,
 
         [ValidateNotNullOrEmpty()]
         [string]$UsersRoot = 'C:\Users',
@@ -58,7 +66,7 @@ function DeleteUserProfilesInWindows11 {
     )
 
     begin {
-        $script:ToolName = 'DeleteUserProfilesInWindows11'
+        $script:ToolName = 'WinDeleteUserProfiles'
         $script:ToolVersion = '3.1'
         $script:SessionStart = Get-Date
         $script:UsersRoot = [System.IO.Path]::GetFullPath($UsersRoot.TrimEnd('\') + '\')
@@ -66,6 +74,9 @@ function DeleteUserProfilesInWindows11 {
         $script:LogFile = Join-Path $script:LogFolder ("{0}_{1}.log" -f $script:ToolName, (Get-Date -Format 'yyyyMMdd_HHmmss'))
         $script:CurrentUser = $env:USERNAME
         $script:ComputerName = $env:COMPUTERNAME
+        $script:CountdownSeconds = $CountdownSeconds
+        $script:SuppressIndividualReboot = $SuppressIndividualReboot
+        $script:RebootRecommended = $false
         $script:MinimumLastUseDate = if ($MinimumProfileAgeDays -gt 0) { (Get-Date).AddDays(-$MinimumProfileAgeDays) } else { $null }
 
         $script:ProtectedProfileNames = @(
@@ -93,28 +104,25 @@ function DeleteUserProfilesInWindows11 {
     }
 
     process {
-        function Write-ToolkitMessage {
-            param(
-                [ValidateSet('Info', 'Success', 'Warning', 'Error')]
-                [string]$Type = 'Info',
+        if (-not (Get-Command -Name Write-StyledMessage -ErrorAction SilentlyContinue)) {
+            function Write-StyledMessage {
+                param(
+                    [ValidateSet('Info', 'Success', 'Warning', 'Error', 'Progress')]
+                    [string]$Type = 'Info',
 
-                [Parameter(Mandatory = $true)]
-                [string]$Text
-            )
+                    [Parameter(Mandatory = $true)]
+                    [string]$Text
+                )
 
-            if (Get-Command -Name Write-StyledMessage -ErrorAction SilentlyContinue) {
-                Write-StyledMessage -Type $Type -Text $Text
-                return
+                $color = switch ($Type) {
+                    'Success' { 'Green' }
+                    'Warning' { 'Yellow' }
+                    'Error'   { 'Red' }
+                    default   { 'Cyan' }
+                }
+
+                Write-Host $Text -ForegroundColor $color
             }
-
-            $color = switch ($Type) {
-                'Success' { 'Green' }
-                'Warning' { 'Yellow' }
-                'Error'   { 'Red' }
-                default   { 'Cyan' }
-            }
-
-            Write-Host $Text -ForegroundColor $color
         }
 
 
@@ -130,6 +138,44 @@ function DeleteUserProfilesInWindows11 {
             $script:LogQueue.Enqueue(
                 ('{0} [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Text)
             )
+        }
+
+
+        function Set-ProfileCleanupRebootRecommended {
+            param(
+                [Parameter(Mandatory = $true)]
+                [string]$Reason
+            )
+
+            $script:RebootRecommended = $true
+            Add-ProfileCleanupLog -Level 'WARNING' -Text "Riavvio consigliato: $Reason"
+        }
+
+
+        function Invoke-ProfileCleanupReboot {
+            if (-not $script:RebootRecommended) {
+                return
+            }
+
+            if (Get-Command -Name Invoke-ToolkitReboot -ErrorAction SilentlyContinue) {
+                Invoke-ToolkitReboot -Message 'Riavvio consigliato dopo pulizia profili' -Seconds $script:CountdownSeconds -SuppressIndividualReboot:$script:SuppressIndividualReboot
+                return
+            }
+
+            if ($script:SuppressIndividualReboot) {
+                $Global:NeedsFinalReboot = $true
+                Write-StyledMessage -Type 'Info' -Text '🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale.'
+                return
+            }
+
+            if (Get-Command -Name Start-InterruptibleCountdown -ErrorAction SilentlyContinue) {
+                if (Start-InterruptibleCountdown -Seconds $script:CountdownSeconds -Message 'Riavvio consigliato dopo pulizia profili') {
+                    Restart-Computer -Force
+                }
+                return
+            }
+
+            Write-StyledMessage -Type 'Warning' -Text 'Riavvio consigliato per completare la pulizia dei profili non rimossi.'
         }
 
 
@@ -153,7 +199,7 @@ function DeleteUserProfilesInWindows11 {
 
             $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
             if ($os -and $os.Caption -notmatch 'Windows 11') {
-                Write-ToolkitMessage -Type 'Warning' -Text "⚠️ Sistema rilevato: $($os.Caption). Lo script è pensato per Windows 11."
+                Write-StyledMessage -Type 'Warning' -Text "⚠️ Sistema rilevato: $($os.Caption). Lo script è pensato per Windows 11."
             }
 
             if (-not $SuppressToolkitSession -and (Get-Command -Name Start-ToolkitSession -ErrorAction SilentlyContinue)) {
@@ -167,14 +213,14 @@ function DeleteUserProfilesInWindows11 {
                 Write-Host ''
             }
 
-            Write-ToolkitMessage -Type 'Info' -Text ("🖥️ Computer: {0}" -f $script:ComputerName)
-            Write-ToolkitMessage -Type 'Info' -Text ("👤 Utente corrente protetto: {0}" -f $script:CurrentUser)
-            Write-ToolkitMessage -Type 'Info' -Text ("📁 Percorso profili: {0}" -f $script:UsersRoot)
-            Write-ToolkitMessage -Type 'Info' -Text ("🧵 Thread configurati: {0}" -f $MaxThreads)
-            Write-ToolkitMessage -Type 'Warning' -Text '⚠️ Modalità non interattiva: nessuna conferma verrà richiesta prima delle cancellazioni.'
+            Write-StyledMessage -Type 'Info' -Text ("🖥️ Computer: {0}" -f $script:ComputerName)
+            Write-StyledMessage -Type 'Info' -Text ("👤 Utente corrente protetto: {0}" -f $script:CurrentUser)
+            Write-StyledMessage -Type 'Info' -Text ("📁 Percorso profili: {0}" -f $script:UsersRoot)
+            Write-StyledMessage -Type 'Info' -Text ("🧵 Thread configurati: {0}" -f $MaxThreads)
+            Write-StyledMessage -Type 'Warning' -Text '⚠️ Modalità non interattiva: nessuna conferma verrà richiesta prima delle cancellazioni.'
 
             if ($script:MinimumLastUseDate) {
-                Write-ToolkitMessage -Type 'Info' -Text ("📅 Soglia ultima attività: profili non usati da almeno {0} giorni." -f $MinimumProfileAgeDays)
+                Write-StyledMessage -Type 'Info' -Text ("📅 Soglia ultima attività: profili non usati da almeno {0} giorni." -f $MinimumProfileAgeDays)
             }
 
             Add-ProfileCleanupLog -Text "Sessione avviata su $script:ComputerName."
@@ -212,7 +258,7 @@ function DeleteUserProfilesInWindows11 {
         function Get-RemovableUserProfiles {
             $excluded = New-ProtectedNameSet
 
-            Write-ToolkitMessage -Type 'Info' -Text '🔍 Scansione profili locali registrati in corso.'
+            Write-StyledMessage -Type 'Info' -Text '🔍 Scansione profili locali registrati in corso.'
 
             $profiles = Get-CimInstance -ClassName Win32_UserProfile | Where-Object {
                 -not $_.Special -and
@@ -249,7 +295,7 @@ function DeleteUserProfilesInWindows11 {
             )
 
             Write-Host ''
-            Write-ToolkitMessage -Type 'Warning' -Text 'Profili registrati selezionati per la rimozione automatica:'
+            Write-StyledMessage -Type 'Warning' -Text 'Profili registrati selezionati per la rimozione automatica:'
             Write-Host ''
 
             $Profiles |
@@ -412,7 +458,7 @@ function DeleteUserProfilesInWindows11 {
             $excluded = New-ProtectedNameSet
             $registeredProfilePaths = Get-RegisteredProfilePathSet
 
-            Write-ToolkitMessage -Type 'Info' -Text '🔎 Controllo cartelle residue nella directory utenti.'
+            Write-StyledMessage -Type 'Info' -Text '🔎 Controllo cartelle residue nella directory utenti.'
 
             $folders = Get-ChildItem -Path $UsersRoot -Directory -Force |
                 Where-Object {
@@ -538,14 +584,14 @@ function DeleteUserProfilesInWindows11 {
                 Show-ProfileCleanupPreview -Profiles $targets
 
                 Write-Host ''
-                Write-ToolkitMessage -Type 'Info' -Text ("🚀 Avvio rimozione automatica di {0} profili registrati." -f $targets.Count)
+                Write-StyledMessage -Type 'Info' -Text ("🚀 Avvio rimozione automatica di {0} profili registrati." -f $targets.Count)
                 Write-Host ''
 
                 $profileResults = @(Invoke-ProfileRemovalBatch -Profiles $targets)
             }
             else {
                 Write-Host ''
-                Write-ToolkitMessage -Type 'Success' -Text '✅ Nessun profilo registrato rimovibile trovato.'
+                Write-StyledMessage -Type 'Success' -Text '✅ Nessun profilo registrato rimovibile trovato.'
                 Add-ProfileCleanupLog -Level 'SUCCESS' -Text 'Nessun profilo registrato rimovibile trovato.'
             }
 
@@ -554,22 +600,22 @@ function DeleteUserProfilesInWindows11 {
 
                 if ($residualFolders -and $residualFolders.Count -gt 0) {
                     Write-Host ''
-                    Write-ToolkitMessage -Type 'Warning' -Text ("Cartelle residue selezionate per la rimozione automatica: {0}" -f $residualFolders.Count)
+                    Write-StyledMessage -Type 'Warning' -Text ("Cartelle residue selezionate per la rimozione automatica: {0}" -f $residualFolders.Count)
                     $residualFolders | Select-Object Name, Path | Format-Table -AutoSize
 
                     Write-Host ''
-                    Write-ToolkitMessage -Type 'Info' -Text '🧹 Avvio rimozione cartelle residue.'
+                    Write-StyledMessage -Type 'Info' -Text '🧹 Avvio rimozione cartelle residue.'
                     Write-Host ''
 
                     $residualResults = @(Remove-ResidualUserFolders -Folders $residualFolders)
                 }
                 else {
-                    Write-ToolkitMessage -Type 'Success' -Text '✅ Nessuna cartella residua rimovibile trovata in C:\Users.'
+                    Write-StyledMessage -Type 'Success' -Text '✅ Nessuna cartella residua rimovibile trovata in C:\Users.'
                     Add-ProfileCleanupLog -Level 'SUCCESS' -Text 'Nessuna cartella residua rimovibile trovata.'
                 }
             }
             else {
-                Write-ToolkitMessage -Type 'Warning' -Text 'Pulizia cartelle residue saltata per parametro SkipResidualFolderCleanup.'
+                Write-StyledMessage -Type 'Warning' -Text 'Pulizia cartelle residue saltata per parametro SkipResidualFolderCleanup.'
                 Add-ProfileCleanupLog -Level 'WARNING' -Text 'Pulizia cartelle residue saltata.'
             }
 
@@ -578,6 +624,10 @@ function DeleteUserProfilesInWindows11 {
             $failedCount = @($allResults | Where-Object { -not $_.Success }).Count
             $profileSuccessCount = @($profileResults | Where-Object { $_.Success }).Count
             $residualSuccessCount = @($residualResults | Where-Object { $_.Success }).Count
+
+            if ($failedCount -gt 0) {
+                Set-ProfileCleanupRebootRecommended -Reason "$failedCount elementi non rimossi potrebbero essere bloccati da sessioni o handle aperti."
+            }
 
             $script:SessionEnd = Get-Date
             $totalDuration = New-TimeSpan -Start $script:SessionStart -End $script:SessionEnd
@@ -590,18 +640,20 @@ function DeleteUserProfilesInWindows11 {
             Write-Host ' COMPLETATO'
             Write-Host '====================================================' -ForegroundColor Green
             Write-Host ''
-            Write-ToolkitMessage -Type 'Success' -Text ("✅ Profili registrati rimossi: {0}" -f $profileSuccessCount)
-            Write-ToolkitMessage -Type 'Success' -Text ("✅ Cartelle residue rimosse: {0}" -f $residualSuccessCount)
+            Write-StyledMessage -Type 'Success' -Text ("✅ Profili registrati rimossi: {0}" -f $profileSuccessCount)
+            Write-StyledMessage -Type 'Success' -Text ("✅ Cartelle residue rimosse: {0}" -f $residualSuccessCount)
             if ($failedCount -gt 0) {
-                Write-ToolkitMessage -Type 'Warning' -Text ("⚠️ Elementi non rimossi: {0}" -f $failedCount)
+                Write-StyledMessage -Type 'Warning' -Text ("⚠️ Elementi non rimossi: {0}" -f $failedCount)
             }
-            Write-ToolkitMessage -Type 'Info' -Text ("⏱️ Durata: {0:hh\:mm\:ss}" -f $totalDuration)
-            Write-ToolkitMessage -Type 'Info' -Text ("📄 Log: {0}" -f $script:LogFile)
+            Write-StyledMessage -Type 'Info' -Text ("⏱️ Durata: {0:hh\:mm\:ss}" -f $totalDuration)
+            Write-StyledMessage -Type 'Info' -Text ("📄 Log: {0}" -f $script:LogFile)
+
+            Invoke-ProfileCleanupReboot
         }
         catch {
             Add-ProfileCleanupLog -Level 'ERROR' -Text $_.Exception.Message
             try { Save-ProfileCleanupLog } catch { }
-            Write-ToolkitMessage -Type 'Error' -Text ("❌ Errore: {0}" -f $_.Exception.Message)
+            Write-StyledMessage -Type 'Error' -Text ("❌ Errore: {0}" -f $_.Exception.Message)
             throw
         }
         finally {
@@ -611,5 +663,3 @@ function DeleteUserProfilesInWindows11 {
         }
     }
 }
-
-DeleteUserProfilesInWindows11 @args
