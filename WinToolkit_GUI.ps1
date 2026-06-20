@@ -1048,7 +1048,7 @@ $xaml = @"
                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock x:Name="SysInfoBitlocker" Text="Verifica."
                                        Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)"
-                                       FontFamily="{StaticResource PrimaryFont}"
+                                       FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                     </Grid>
