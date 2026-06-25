@@ -1991,6 +1991,7 @@ function WinDriverInstall {}
 function WinDebloat {}
 function WinCleaner {}
 function DisableBitlocker {}
+function WinDeleteUserProfiles {}
 
 # Office
 function Install-Office {}
@@ -2018,7 +2019,8 @@ $menuStructure = @(
             [pscustomobject]@{Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' }
+            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinDeleteUserProfiles'; Description = 'Cancella profili utenti di Windows'; Action = 'RunFunction' }
         )
     },
     @{ 'Name' = 'Office'; 'Icon' = '🏢'; 'Scripts' = @(
@@ -2064,7 +2066,30 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
     Write-StyledMessage -Type 'Info' -Text '💎 WinToolkit avviato in modalità interattiva'
     Write-Host ""
 
-    while ($true) {
+    function Confirm-UserProfileDeletion {
+        Write-Host ''
+        Write-StyledMessage -Type 'Error' -Text 'ATTENZIONE: eseguendo questa opzione verranno cancellati tutti i profili utenti di Windows, escluso l''utente attuale.'
+        Write-StyledMessage -Type 'Error' -Text 'I dati contenuti nei profili eliminati saranno irrecuperabili.'
+        Write-Host ''
+        Write-Host '💎 [1] Sì, cancella i profili utenti' -ForegroundColor White
+        Write-Host '[INVIO] Torna al menu principale' -ForegroundColor Gray
+        $firstConfirm = Microsoft.PowerShell.Utility\Read-Host 'Selezione'
+
+        if ($firstConfirm -ne '1') {
+            return $false
+        }
+
+        Write-Host ''
+        Write-StyledMessage -Type 'Error' -Text 'Sei proprio sicuro?'
+        Write-Host ''
+        Write-Host '💎 [1] Sì, sono sicuro di ciò che sto facendo e me ne assumo la responsabilità in caso di cancellazione di file' -ForegroundColor White
+        Write-Host '[INVIO] Torna al menu principale' -ForegroundColor Gray
+        $secondConfirm = Microsoft.PowerShell.Utility\Read-Host 'Selezione'
+
+        return ($secondConfirm -eq '1')
+    }
+
+    :MainMenu while ($true) {
         Show-Header -SubTitle "Menu Principale"
 
         # ── Informazioni di sistema ───────────────────────────────────────────
@@ -2154,6 +2179,12 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
 
         foreach ($sel in $selections) {
             $scriptToRun = $allScripts[$sel - 1]
+            if ($scriptToRun.Name -eq 'WinDeleteUserProfiles' -and -not (Confirm-UserProfileDeletion)) {
+                Write-StyledMessage -Type 'Warning' -Text 'Operazione annullata. Ritorno al menu principale.'
+                Start-Sleep -Seconds 2
+                continue MainMenu
+            }
+
             Write-StyledMessage -Type 'Progress' -Text "▶️ Avvio: $($scriptToRun.Description)"
             Write-Host ''
             try {
