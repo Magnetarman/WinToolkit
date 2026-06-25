@@ -15,17 +15,17 @@
 
 $ProfileVersion = "2.5.4.5"
 
-$URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
+$URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/assets/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
 $URL_WINTOOLKIT_DEV = "https://magnetarman.com/WinToolkit-Dev"
 $URL_WINREG = "https://get.activated.win"
 $URL_RustDesk_Setup = "https://raw.githubusercontent.com/Magnetarman/WinStarter/refs/heads/main/Asset/RustDesk/SetRustDesk.ps1"
 $URL_OHMYPOSH_THEME = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-$URL_PROFILE_DEV = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
+$URL_PROFILE_DEV = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/assets/Microsoft.PowerShell_profile.ps1"
 $URL_IP_API = "https://am.i.mullvad.net/ip"
-$URL_WINTOOLKIT_ICO_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
-$URL_WINTOOLKIT_ICO_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/img/WinToolkit-Dev.ico"
-$URL_PROFILE_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/Microsoft.PowerShell_profile.ps1"
+$URL_WINTOOLKIT_ICO_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/images/WinToolkit.ico"
+$URL_WINTOOLKIT_ICO_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/images/WinToolkit-Dev.ico"
+$URL_PROFILE_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/assets/Microsoft.PowerShell_profile.ps1"
 $URL_PWSH_RELEASE_API = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
 
 # ============================================================================
@@ -146,14 +146,14 @@ function Speedtest {
     [CmdletBinding()]
     param()
 
-    $assetDir = Join-Path $env:LOCALAPPDATA "WinToolkit\asset"
+    $assetDir = Join-Path $env:LOCALAPPDATA "WinToolkit\assets"
     $speedtestExePath = Join-Path $assetDir "speedtest.exe"
     $desktopPath = [Environment]::GetFolderPath("Desktop")
     $timestamp = Get-Date -Format "dd_MM_yyyy_HH_mm_ss"
     $outputPath = Join-Path $desktopPath "Speedtest_$timestamp.txt"
 
     if (-not (Test-Path $assetDir)) {
-        Write-Host "📦 Creazione directory asset: $assetDir" -ForegroundColor Cyan
+        Write-Host "📦 Creazione directory assets: $assetDir" -ForegroundColor Cyan
         New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
     }
 

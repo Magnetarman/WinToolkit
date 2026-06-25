@@ -94,22 +94,22 @@ $ToolkitVersion = "2.5.4 (Build 47)"
 
 $AppConfig = @{
     URLs            = @{
-        GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
-        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/"
+        GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/"
+        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/assets/"
 
         # Office
-        OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
-        OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
+        OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/Setup.exe"
+        OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/Basic.xml"
         GetHelpInstaller      = "https://aka.ms/SaRA_EnterpriseVersionFiles"
 
         # Video Driver
         AMDInstaller          = "https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.5.2-minimalsetup-260513_web.exe"
-        NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/NVCleanstall_1.19.0.exe"
-        DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/DDU.zip"
-        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/DriverOverrides.json"
+        NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/NVCleanstall_1.19.0.exe"
+        DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/DDU.zip"
+        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/assets/DriverOverrides.json"
 
         # Gaming
-        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/dxwebsetup.exe"
+        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/dxwebsetup.exe"
         BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
 
         # 7-Zip
@@ -1852,7 +1852,7 @@ function VcardAnalizer {
         [string]$OverridesPath
     )
 
-    $assetCacheDir = Join-Path $AppConfig.Paths.Root 'asset'
+    $assetCacheDir = Join-Path $AppConfig.Paths.Root 'assets'
     if (-not (Test-Path $assetCacheDir)) {
         $null = New-Item -Path $assetCacheDir -ItemType Directory -Force
     }
@@ -1978,7 +1978,7 @@ function VcardAnalizer {
 
 # ==============================================================================
 # SEZIONE 12 · PLACEHOLDER COMPILATORE
-# Stub vuoti sostituiti dal compiler.ps1 con i contenuti di /tool/*.ps1.
+# Stub vuoti sostituiti dal compiler.ps1 con i contenuti di /tools/*.ps1.
 # Ordine: Windows → Office → Driver/Gaming → Supporto (segue $menuStructure).
 # ==============================================================================
 

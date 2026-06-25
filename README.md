@@ -1,5 +1,5 @@
 <p align="center">
-	<img src="img/WinToolkit-icon.png" alt="WinToolkit-banner" width="160">
+	<img src="images/WinToolkit-icon.png" alt="WinToolkit-banner" width="160">
 	<h1>WinToolkit: Il Tool Powershell definitivo per <em>sopravvivere</em> a Windows</h1>
 </p>
 <p>
@@ -11,7 +11,7 @@
 	<img src="https://img.shields.io/github/downloads/Magnetarman/WinToolkit/latest/WinToolkit.ps1?style=for-the-badge&logo=github&logoColor=white&color=0080ff&label=Downloads" alt="downloads-main">
 </p>
 
-<img src="img/Run.jpg" alt="Run-banner" width="800">
+<img src="images/Run.jpg" alt="Run-banner" width="800">
 
 WinToolkit è una suite di script PowerShell potente e compatta, progettata per offrire a professionisti IT, amministratori di sistema e utenti esperti un controllo granulare sulla manutenzione e sulla risoluzione dei problemi di Windows e della Suite Office. Questo toolkit intuitivo aggrega gli strumenti di riparazione di sistema più efficaci in un'unica interfaccia, automatizzando i processi complessi per ottimizzare le prestazioni e ripristinare la stabilità del sistema con pochi passaggi automatizzati. Questo progetto è traslitterato tramite un workflow AI.
 
@@ -127,7 +127,7 @@ irm https://magnetarman.com/Wintoolkit-gui | iex
 
 | Img Canale                                                            | Link                                                                                                                          |
 | :-------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-| <img src="/img/avatar/zakkos.jpg" alt="Zakkos-WinToolkit" width="80"> | <a href="https://www.youtube.com/watch?v=nUKLeYqe1ZI"> WINTOOLKIT 2.5: Dominare Windows 11 con PowerShell by MagnetarMan </a> |
+| <img src="/images/avatar/zakkos.jpg" alt="Zakkos-WinToolkit" width="80"> | <a href="https://www.youtube.com/watch?v=nUKLeYqe1ZI"> WINTOOLKIT 2.5: Dominare Windows 11 con PowerShell by MagnetarMan </a> |
 
 ---
 
@@ -137,7 +137,7 @@ irm https://magnetarman.com/Wintoolkit-gui | iex
 
 |                                                              |                                                                                   |
 | :----------------------------------------------------------: | :-------------------------------------------------------------------------------: |
-| <img src="img/Run-old.jpg" alt="Run-banner-Old" width="800"> | <img src="img/RepairToolkit-old.jpg" alt="Repair-Toolkit-banner-Old" width="800"> |
+| <img src="images/Run-old.jpg" alt="Run-banner-Old" width="800"> | <img src="images/RepairToolkit-old.jpg" alt="Repair-Toolkit-banner-Old" width="800"> |
 
 </div>
 

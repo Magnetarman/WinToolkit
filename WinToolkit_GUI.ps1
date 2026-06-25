@@ -92,8 +92,8 @@ $emojiMappings = @{
 # =============================================================================
 # EMOJI ICONS CONFIGURATION
 # =============================================================================
-$localIconBasePath = Join-Path $env:LOCALAPPDATA "WinToolkit\asset\png"
-$remoteIconBasePath = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/asset/png"
+$localIconBasePath = Join-Path $env:LOCALAPPDATA "WinToolkit\assets\png"
+$remoteIconBasePath = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/assets/png"
 
 # =============================================================================
 # GLOBAL VARIABLES
@@ -678,7 +678,7 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
 # in the Core Script (WinToolkit.ps1) and are loaded when the Core Script
 # is dot-sourced. The job now only needs to load the Core Script to access
 # all tool functions.
-# $Global:ToolScriptsPath = Join-Path $PSScriptRoot "tool"
+# $Global:ToolScriptsPath = Join-Path $PSScriptRoot "tools"
 
 # function Load-AllToolScripts { ... } # REMOVED - All functions are in Core Script
 
@@ -897,7 +897,7 @@ $xaml = @"
 
                 <!-- Colonna 0: Icona Tool -->
                 <Image Grid.Column="0" x:Name="ToolIconImage"
-                       Source="/img/WinToolkit-icon.png"
+                       Source="/images/WinToolkit-icon.png"
                        Width="48" Height="48"
                        VerticalAlignment="Center" Margin="0,0,16,0"/>
 
@@ -1231,11 +1231,11 @@ try {
 
     # Setup Window Icon (Favicon & Taskbar) - Remote Fallback
     try {
-        $localImgDir = Join-Path $env:LOCALAPPDATA "WinToolkit\img"
+        $localImgDir = Join-Path $env:LOCALAPPDATA "WinToolkit\images"
         if (-not (Test-Path $localImgDir)) { New-Item -Path $localImgDir -ItemType Directory -Force | Out-Null }
 
         $iconPath = Join-Path $localImgDir "WinToolkit.ico"
-        $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
+        $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/images/WinToolkit.ico"
 
         if (-not (Test-Path $iconPath)) {
             Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing -ErrorAction Stop
@@ -1328,13 +1328,13 @@ try {
     # Inizializza l'icona Tool (WinToolkit logo header) - Remote Fallback
     if ($ToolIconImage) {
         try {
-            $localImgDir = Join-Path $env:LOCALAPPDATA "WinToolkit\img"
+            $localImgDir = Join-Path $env:LOCALAPPDATA "WinToolkit\images"
             if (-not (Test-Path $localImgDir)) { New-Item -Path $localImgDir -ItemType Directory -Force | Out-Null }
 
             # Qui usiamo la stessa icona scaricata prima, o ne scarichiamo un'altra se serve.
             # In base alla richiesta utente carichiamo WinToolkit.ico
             $toolLogoPath = Join-Path $localImgDir "WinToolkit.ico"
-            $toolLogoUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
+            $toolLogoUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/images/WinToolkit.ico"
 
             if (-not (Test-Path $toolLogoPath)) {
                 Invoke-WebRequest -Uri $toolLogoUrl -OutFile $toolLogoPath -UseBasicParsing -ErrorAction Stop

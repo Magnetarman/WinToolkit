@@ -235,7 +235,7 @@ function Prepare-OfflineResources {
     }
 
     # --- Win Toolkit Icon ---
-    $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
+    $iconUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/images/WinToolkit.ico"
     $iconPath = Join-Path $OfflineResourcesDir "WinToolkit.ico"
     if (-not (Test-Path $iconPath)) {
         if (-not (Invoke-DownloadFile -Uri $iconUrl -OutputPath $iconPath)) {

@@ -54,13 +54,18 @@ Write-StyledMessage 'Info' "Avvio processo di build WinToolkit."
 # 2. INIZIALIZZAZIONE E VERIFICA PERCORSI
 # ============================================================================
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$toolFolder = Join-Path $scriptPath "tool"
+$toolFolder = Join-Path $scriptPath "tools"
 $sourceFile = Join-Path $scriptPath "WinToolkit-template.ps1"
 $outputFile = Join-Path $scriptPath "WinToolkit.ps1"
 
 try {
-    if (-not (Test-Path $sourceFile)) { throw "File template non trovato in: $sourceFile" }
-    if (-not (Test-Path $toolFolder)) { throw "Cartella tool non trovata in: $toolFolder" }
+    if (-not (Test-Path $sourceFile)) {
+        throw "File template non trovato in: $sourceFile"
+    }
+    
+    if (-not (Test-Path $toolFolder)) {
+        throw "Cartella tools non trovata in: $toolFolder"
+    }
 }
 catch {
     Write-StyledMessage 'Error' "Errore di inzializzazione: $($_.Exception.Message)."
