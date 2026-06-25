@@ -552,7 +552,7 @@ function Install-WingetCore {
                 Write-StyledMessage -Type Success -Text "Winget Core installato con successo."
             }
             else {
-                throw "Installazione Winget Core fallita."
+                throw "Winget Core installation failed."
             }
         }
         return $true
@@ -803,6 +803,55 @@ function Show-Header {
     Write-Host ''
 }
 
+function Convert-SourceTextToEnglish {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $Text }
+
+    $translated = $Text
+    $replacements = [ordered]@{
+        'Verifica funzionalità Winget.' = 'Checking Winget functionality.'
+        'Winget presente ma non risponde correttamente' = 'Winget is present but is not responding correctly'
+        'Errore durante test Winget' = 'Error while testing Winget'
+        'Avvio servizio' = 'Starting service'
+        'Avvio ripristino database Winget.' = 'Starting Winget database restore.'
+        'Pulizia cache Winget.' = 'Cleaning Winget cache.'
+        'completato' = 'completed'
+        'versione superiore già presente' = 'newer version already present'
+        'Modulo Riparazione fallito' = 'Repair module failed'
+        'Installazione' = 'Installation'
+        'fallita' = 'failed'
+        'fallito' = 'failed'
+        'riuscita' = 'succeeded'
+        'già installato' = 'already installed'
+        'già presente' = 'already present'
+        'Errore durante' = 'Error during'
+        'Errore installazione' = 'Installation error'
+        'Errore creazione scorciatoia' = 'Shortcut creation error'
+        'Avvio configurazione' = 'Starting configuration'
+        'Esecuzione controlli di integrità sistema' = 'Running system integrity checks'
+        'Riavvio con privilegi amministratore.' = 'Restarting with administrator privileges.'
+        'OBBLIGATORIO: Windows Defender è ATTIVO.' = 'REQUIRED: Windows Defender is ENABLED.'
+        'PowerShell 7 raccomandato per funzionalità avanzate.' = 'PowerShell 7 is recommended for advanced features.'
+        'Ripristino veloce fallito. Tentativo metodo avanzato' = 'Quick repair failed. Trying advanced method'
+        'Lo script proseguirà, ma l''installazione di pacchetti potrebbe fallire.' = 'The script will continue, but package installation may fail.'
+        'Winget è già operativo.' = 'Winget is already working.'
+        'Git è già operativo.' = 'Git is already working.'
+        'Attenzione: Git non è stato installato oppure potrebbe non funzionare correttamente.' = 'Warning: Git was not installed or may not work correctly.'
+        'WinToolkit è Pronto sul Desktop!' = 'WinToolkit is ready on the desktop!'
+        'Errore critico durante il setup' = 'Critical error during setup'
+        'Premi un tasto per uscire.' = 'Press any key to exit.'
+        'Verifica' = 'Checking'
+        'Avvio' = 'Starting'
+        'Pulizia' = 'Cleanup'
+        'Riparazione' = 'Repair'
+        'Riavvio' = 'Restart'
+    }
+    foreach ($entry in $replacements.GetEnumerator()) {
+        $translated = $translated.Replace($entry.Key, $entry.Value)
+    }
+    return $translated
+}
+
 function Write-StyledMessage {
     <#
     .SYNOPSIS
@@ -813,6 +862,7 @@ function Write-StyledMessage {
         [string]$Type,
         [string]$Text
     )
+    $Text = Convert-SourceTextToEnglish -Text $Text
     # FIX: Windows 11 Indentation Issue
     if ([Environment]::OSVersion.Version.Build -ge 22000) { $Text = "`r$Text" }
 
@@ -1271,7 +1321,7 @@ function Install-WindowsTerminalApp {
             Write-StyledMessage -Type Success -Text "Installazione Appx di Windows Terminal riuscita."
         }
         else {
-            throw "Installazione Appx di Windows Terminal fallita."
+            throw "Windows Terminal Appx installation failed."
         }
         $null = Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
         return $true
@@ -1681,7 +1731,7 @@ function Invoke-WinToolkitSetup {
         
         Write-StyledMessage -Type Error -Text "❌ Errore critico durante il setup: $($_.Exception.Message)."
         Write-ToolkitLog -Level 'ERROR' -Message "ECCEZIONE UNHANDLED: $($_.Exception.Message) `n $($_.ScriptStackTrace)"
-        Write-Host "Premi un tasto per uscire."
+        Write-Host "Press any key to exit."
         $null = [Console]::ReadKey($true)
         exit 1
     }

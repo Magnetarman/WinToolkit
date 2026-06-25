@@ -53,7 +53,7 @@ function WinBackupDriver {
                 -TimeoutSeconds $timeout -LogContextKey "Backup-DISM"
 
             if ($result.TimedOut)       { throw "Timeout raggiunto durante l'esportazione DISM" }
-            if ($result.ExitCode -ne 0) { throw "Esportazione DISM fallita con ExitCode: $($result.ExitCode)." }
+            if ($result.ExitCode -ne 0) { throw "DISM export failed with ExitCode: $($result.ExitCode)." }
 
             $exportedDrivers = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
             if (-not $exportedDrivers -or $exportedDrivers.Count -eq 0) {
@@ -179,7 +179,7 @@ function WinBackupDriver {
                 return $true
             }
 
-            throw "Copia archivio fallita."
+            throw "Archive copy failed."
         }
         catch {
             Write-StyledMessage -Type 'Error' -Text "Errore spostamento archivio: $_"

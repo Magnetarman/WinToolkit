@@ -14,6 +14,41 @@
 # Ensure script runs with PowerShell 5.1 or higher for basic compatibility
 # This script itself doesn't require PowerShell 7, but the main toolkit might.
 
+function Convert-SourceTextToEnglish {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $Text }
+
+    $translated = $Text
+    $replacements = [ordered]@{
+        'Connessione Internet: Non disponibile (modalità offline).' = 'Internet connection: Not available (offline mode).'
+        'Errore nel recupero informazioni sistema' = 'Error retrieving system information'
+        'Download di' = 'Download of'
+        'completato' = 'completed'
+        'fallito dopo' = 'failed after'
+        'tentativi' = 'attempts'
+        'Tentativo' = 'Attempt'
+        'fallito per' = 'failed for'
+        'già presente' = 'already present'
+        'Ricerca installer Windows Terminal più recente su GitHub.' = 'Searching for the latest Windows Terminal installer on GitHub.'
+        'Errore nel recupero release Windows Terminal da GitHub' = 'Error retrieving the Windows Terminal release from GitHub'
+        'Avvio preparazione ambiente offline.' = 'Starting offline environment preparation.'
+        'Verifica presenza script principale' = 'Checking for main script'
+        'Errore: Lo script' = 'Error: The script'
+        'modificato non è presente in' = 'is not present in'
+        'Premi Enter per uscire.' = 'Press Enter to exit.'
+        'Risorse pronte. Avvio dello script principale in modalità offline.' = 'Resources are ready. Starting the main script in offline mode.'
+        'La preparazione delle risorse offline è fallita. Impossibile procedere.' = 'Offline resource preparation failed. Cannot continue.'
+        'Sistema Operativo' = 'Operating system'
+        'Utente' = 'User'
+        'su' = 'on'
+        'Disco C' = 'Disk C'
+    }
+    foreach ($entry in $replacements.GetEnumerator()) {
+        $translated = $translated.Replace($entry.Key, $entry.Value)
+    }
+    return $translated
+}
+
 function Write-StyledMessage {
     param(
         [Parameter(Mandatory = $true)]
@@ -30,7 +65,7 @@ function Write-StyledMessage {
         'Success' = 'Green'
         'Debug'   = 'DarkGray'
     }
-    Write-Host $text -ForegroundColor $colors[$type]
+    Write-Host (Convert-SourceTextToEnglish -Text $text) -ForegroundColor $colors[$type]
 }
 
 function Show-Host {
@@ -270,7 +305,7 @@ if (Prepare-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
     if (-not (Test-Path $mainScriptPath)) {
         Write-StyledMessage -type 'Error' -text "Errore: Lo script 'start.ps1' modificato non è presente in '$OfflineResourcesDir'."
         Write-StyledMessage -type 'Error' -text "Assicurati di aver copiato lo script principale modificato (dopo Step 2) in questa directory."
-        Read-Host "Premi Enter per uscire."
+        Read-Host "Press Enter to exit."
         exit 1
     }
 
@@ -284,6 +319,6 @@ if (Prepare-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
 }
 else {
     Write-StyledMessage -type 'Error' -text "La preparazione delle risorse offline è fallita. Impossibile procedere."
-    Read-Host "Premi Enter per uscire."
+    Read-Host "Press Enter to exit."
     exit 1
 }

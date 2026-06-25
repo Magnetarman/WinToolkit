@@ -148,10 +148,324 @@ $Global:CoreScriptContent = $null
 $Global:CoreScriptVersion = "Unknown"
 $Global:CoreScriptLoaded = $false
 $Global:MenuStructure = @() # Sarà popolato dal Core
+$Global:ToolkitLanguage = 'en-US'
+$Global:ToolkitLanguageData = $null
+$Global:ToolkitDefaultLanguageData = $null
 
 # =============================================================================
 # LOGGING AND UTILITY FUNCTIONS
 # =============================================================================
+
+function Get-ToolkitLanguageDirectory {
+    $candidate = Join-Path $PSScriptRoot 'languages'
+    if (Test-Path $candidate) { return $candidate }
+
+    $repoCandidate = Join-Path (Get-Location) 'languages'
+    if (Test-Path $repoCandidate) { return $repoCandidate }
+
+    return $candidate
+}
+
+function Get-AvailableToolkitLanguages {
+    $languageDir = Get-ToolkitLanguageDirectory
+    if (-not (Test-Path $languageDir)) { return @() }
+
+    Get-ChildItem -Path $languageDir -Filter '*.json' -File -ErrorAction SilentlyContinue | ForEach-Object {
+        try {
+            $data = Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+            [pscustomobject]@{
+                Code       = $data.code
+                Name       = $data.name
+                NativeName = $data.nativeName
+                Path       = $_.FullName
+            }
+        }
+        catch {
+            Write-Verbose "Invalid language file '$($_.FullName)': $($_.Exception.Message)"
+        }
+    } | Sort-Object Code
+}
+
+function Import-ToolkitLanguageFile {
+    param([string]$LanguageCode)
+
+    $languageDir = Get-ToolkitLanguageDirectory
+    $languageFile = Join-Path $languageDir "$LanguageCode.json"
+    if (-not (Test-Path $languageFile)) { return $null }
+
+    return (Get-Content -LiteralPath $languageFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+}
+
+function Set-ToolkitLanguage {
+    param([string]$LanguageCode = 'en-US')
+
+    $defaultData = Import-ToolkitLanguageFile -LanguageCode 'en-US'
+    if ($defaultData) { $Global:ToolkitDefaultLanguageData = $defaultData }
+
+    $languageData = Import-ToolkitLanguageFile -LanguageCode $LanguageCode
+    if (-not $languageData) {
+        $LanguageCode = 'en-US'
+        $languageData = $defaultData
+    }
+
+    if ($languageData) {
+        $Global:ToolkitLanguage = $LanguageCode
+        $Global:ToolkitLanguageData = $languageData
+    }
+}
+
+function Get-Loc {
+    param(
+        [Parameter(Mandatory = $true)][string]$Key,
+        [object[]]$Args = @()
+    )
+
+    $value = $null
+    if ($Global:ToolkitLanguageData -and $Global:ToolkitLanguageData.strings.PSObject.Properties.Name -contains $Key) {
+        $value = [string]$Global:ToolkitLanguageData.strings.$Key
+    }
+    elseif ($Global:ToolkitDefaultLanguageData -and $Global:ToolkitDefaultLanguageData.strings.PSObject.Properties.Name -contains $Key) {
+        $value = [string]$Global:ToolkitDefaultLanguageData.strings.$Key
+    }
+    else {
+        $value = $Key
+    }
+
+    if ($Args -and $Args.Count -gt 0) { return [string]::Format($value, $Args) }
+    return $value
+}
+
+function Get-ToolkitMenuText {
+    param([object]$Item)
+
+    if ($Item -is [System.Collections.IDictionary]) {
+        if ($Item.Contains('DescriptionKey') -and $Item['DescriptionKey']) {
+            return (Get-Loc $Item['DescriptionKey'])
+        }
+        if ($Item.Contains('CategoryKey') -and $Item['CategoryKey']) {
+            return (Get-Loc $Item['CategoryKey'])
+        }
+        if ($Item.Contains('Description')) { return $Item['Description'] }
+        if ($Item.Contains('Name')) { return $Item['Name'] }
+    }
+
+    if ($Item.PSObject.Properties.Name -contains 'DescriptionKey' -and $Item.DescriptionKey) {
+        return (Get-Loc $Item.DescriptionKey)
+    }
+    if ($Item.PSObject.Properties.Name -contains 'CategoryKey' -and $Item.CategoryKey) {
+        return (Get-Loc $Item.CategoryKey)
+    }
+    if ($Item.PSObject.Properties.Name -contains 'Description') { return $Item.Description }
+    if ($Item.PSObject.Properties.Name -contains 'Name') { return $Item.Name }
+    return [string]$Item
+}
+
+Set-ToolkitLanguage -LanguageCode 'en-US'
+
+function Convert-GuiSourceText {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text) -or $Global:ToolkitLanguage -eq 'it-IT') { return $Text }
+
+    $translated = $Text
+    $replacements = [ordered]@{
+        'INIZIALIZZAZIONE RISORSE - Caricamento Core Script.' = 'RESOURCE INITIALIZATION - Loading Core Script.'
+        'Attendere prego, operazione in corso.' = 'Please wait, operation in progress.'
+        'Errore lettura versione cache locale' = 'Error reading local cache version'
+        'Fallito recupero versione remota' = 'Failed to retrieve remote version'
+        'Potrebbe essere necessario un download forzato o fallback.' = 'A forced download or fallback may be required.'
+        'Cache locale scaduta' = 'Local cache expired'
+        'età' = 'age'
+        'minuti' = 'minutes'
+        'Download per aggiornare.' = 'Downloading to update.'
+        'Core Script scaricato con successo.' = 'Core Script downloaded successfully.'
+        'Salvato in cache' = 'Saved to cache'
+        'Impossibile estrarre versione' = 'Unable to extract version'
+        'Download fallito' = 'Download failed'
+        'Utilizzo cache locale' = 'Using local cache'
+        'Core Script content è vuoto dopo i tentativi di caricamento.' = 'Core Script content is empty after loading attempts.'
+        'INIZIALIZZAZIONE COMPLETATA - GUI pronta all''uso.' = 'INITIALIZATION COMPLETED - GUI ready to use.'
+        'ERRORE CRITICO durante caricamento Core' = 'CRITICAL ERROR while loading Core'
+        'Suggerimento: Scarica manualmente WinToolkit.ps1 da:' = 'Tip: manually download WinToolkit.ps1 from:'
+        'e salvalo in' = 'and save it to'
+        'Preparazione log errori GUI per la segnalazione.' = 'Preparing GUI error logs for reporting.'
+        'Nessun file log della GUI o del Core trovato per la segnalazione.' = 'No GUI or Core log file found for reporting.'
+        'Pacchetto log supporto creato' = 'Support log package created'
+        'Browser aperto per la segnalazione su GitHub.' = 'Browser opened for reporting on GitHub.'
+        'Impossibile aprire il browser' = 'Unable to open the browser'
+        'Operazione completata!' = 'Operation completed!'
+        'Caricamento funzioni Core in memoria' = 'Loading Core functions into memory'
+        'Struttura del menu caricata' = 'Menu structure loaded'
+        'categorie' = 'categories'
+        'non trovato dopo il caricamento' = 'not found after loading'
+        'Funzione Get-SystemInfo disponibile.' = 'Get-SystemInfo function available.'
+        'Funzione Get-SystemInfo NON trovata!' = 'Get-SystemInfo function NOT found!'
+        'Errore durante dot-sourcing Core' = 'Error while dot-sourcing Core'
+        'Impossibile caricare o scaricare l''icona della finestra' = 'Unable to load or download the window icon'
+        'configurato con stile pill-shaped e icona Play.' = 'configured with pill-shaped style and Play icon.'
+        'Conferma utente bypassata' = 'User confirmation bypassed'
+        'Risposta predefinita' = 'Default response'
+        'Input interattivo rilevato' = 'Interactive input detected'
+        'Non supportato in modalità GUI.' = 'Not supported in GUI mode.'
+        'Avvio esecuzione' = 'Starting execution'
+        'Avvio ' = 'Starting '
+        'Avvio:' = 'Startup:'
+        'Attesa avvio' = 'Waiting for startup'
+        'Caricamento moduli' = 'Loading modules'
+        'Installazione' = 'Installation'
+        'Installato' = 'Installed'
+        'Disinstallazione' = 'Uninstallation'
+        'Riparazione' = 'Repair'
+        'Rimozione' = 'Removal'
+        'Pulizia' = 'Cleanup'
+        'Eliminazione' = 'Deleting'
+        'Verifica' = 'Checking'
+        'Validazione' = 'Validation'
+        'Rilevamento' = 'Detecting'
+        'Configurazione' = 'Configuration'
+        'Abilitazione' = 'Enabling'
+        'Riabilitazione' = 'Re-enabling'
+        'Aggiornamento' = 'Updating'
+        'Ripristino' = 'Restoring'
+        'Reinstallazione' = 'Reinstallation'
+        'Preparazione' = 'Preparing'
+        'Estrazione' = 'Extracting'
+        'Ricerca' = 'Searching'
+        'Arresto' = 'Stopping'
+        'Riavvio automatico' = 'Automatic restart'
+        'Riavvio del sistema' = 'System restart'
+        'Riavvio individuale soppresso' = 'Individual restart suppressed'
+        'Verrà gestito un riavvio finale' = 'A final restart will be handled'
+        'Riavvio non necessario' = 'Restart not required'
+        'Riavvio necessario' = 'Restart required'
+        'Riavvio sistema' = 'System restart'
+        'Riavvio in' = 'Restart in'
+        ' tra ' = ' in '
+        'Premi un tasto per continuare' = 'Press any key to continue'
+        'Premere un tasto per uscire' = 'Press any key to exit'
+        'Premi un tasto qualsiasi per annullare' = 'Press any key to cancel'
+        'Completato' = 'Completed'
+        'completata' = 'completed'
+        'completati' = 'completed'
+        'terminato' = 'finished'
+        'Errore durante' = 'Error during'
+        'Errore critico' = 'Critical error'
+        'Errore imprevisto' = 'Unexpected error'
+        'Errore avvio job' = 'Error starting job'
+        'Errore sconosciuto' = 'Unknown error'
+        'fallito' = 'failed'
+        'fallita' = 'failed'
+        'falliti' = 'failed'
+        'annullata' = 'cancelled'
+        'annullato' = 'cancelled'
+        'già presente' = 'already present'
+        'non presente' = 'not present'
+        'non trovato' = 'not found'
+        'non trovata' = 'not found'
+        'Nessuna riparazione necessaria' = 'No repair required'
+        'non disponibile' = 'not available'
+        'non accessibili' = 'not accessible'
+        'Impossibile' = 'Unable to'
+        'Avviso' = 'Warning'
+        'Attenzione' = 'Warning'
+        'Suggerimento' = 'Tip'
+        'Nota' = 'Note'
+        'Trovati' = 'Found'
+        'Rimosso' = 'Removed'
+        'Rimossi' = 'Removed'
+        'rimosse' = 'removed'
+        'eliminata' = 'deleted'
+        'eliminati' = 'deleted'
+        'eliminato' = 'deleted'
+        'rilevata' = 'detected'
+        'rilevato' = 'detected'
+        'scaricato' = 'downloaded'
+        'scaricata' = 'downloaded'
+        'scaricare' = 'download'
+        'scarica' = 'download'
+        'creato' = 'created'
+        'creata' = 'created'
+        'attivato' = 'enabled'
+        'attiva' = 'enabled'
+        'abilitato' = 'enabled'
+        'abilitati' = 'enabled'
+        'configurato' = 'configured'
+        'configurata' = 'configured'
+        'ripristinate' = 'restored'
+        'ripristinato' = 'restored'
+        'reimpostato' = 'reset'
+        'avviato' = 'started'
+        'arrestato' = 'stopped'
+        'in uso' = 'in use'
+        'in corso' = 'in progress'
+        'può richiedere alcuni minuti' = 'may take a few minutes'
+        'può impiegare 1-2 minuti' = 'may take 1-2 minutes'
+        'cartella' = 'folder'
+        'cartelle' = 'folders'
+        'chiavi registro' = 'registry keys'
+        'chiave di registro' = 'registry key'
+        'registro' = 'registry'
+        'collegamenti' = 'shortcuts'
+        'attività' = 'tasks'
+        'attività pianificate' = 'scheduled tasks'
+        'criteri di gruppo' = 'group policies'
+        'criteri locali' = 'local policies'
+        'Criteri' = 'Policies'
+        'sorgenti' = 'sources'
+        'pacchetto' = 'package'
+        'pacchetti' = 'packages'
+        'Versione' = 'Version'
+        'configurazione GPU' = 'GPU configuration'
+        'GPU rilevata' = 'Detected GPU'
+        'GPU non rilevata' = 'GPU not detected'
+        'driver non disponibile per l''installazione automatica' = 'driver not available for automatic installation'
+        'modalità provvisoria' = 'Safe Mode'
+        'modalità normale' = 'normal mode'
+        'prossimo avvio' = 'next boot'
+        'sistema' = 'system'
+        'servizio' = 'service'
+        'servizi' = 'services'
+        'Stato' = 'Status'
+        'codice' = 'code'
+        'Codice uscita' = 'Exit code'
+        'Eccezione' = 'Exception'
+        'Tentativo' = 'Attempt'
+        'Riepilogo' = 'Summary'
+        'operazione' = 'operation'
+        'modifiche' = 'changes'
+        'valori predefiniti' = 'default values'
+        'driver video' = 'video driver'
+        'operazioni pendenti' = 'pending operations'
+        'operazioni in sospeso' = 'pending operations'
+        'Questo non è un errore critico' = 'This is not a critical error'
+        'Proseguo comunque' = 'Continuing anyway'
+        'Annullamento' = 'Cancelling'
+        'metodo alternativo' = 'alternative method'
+        'finestra esterna' = 'external window'
+        'Attesa completamento' = 'Waiting for completion'
+        'metodo forzato' = 'forced method'
+        'file ignorati perché in uso o non accessibili' = 'files skipped because they are in use or not accessible'
+        'Rilevate operazioni pendenti che richiedono riavvio' = 'Pending operations requiring a restart detected'
+        'DISM potrebbe fallire' = 'DISM may fail'
+        'Sistema in salute' = 'System is healthy'
+        'Riparazione profonda non necessaria' = 'Deep repair not required'
+        'riparazione profonda' = 'deep repair'
+        'controllo schedulato al prossimo riavvio' = 'check scheduled at next restart'
+        'interrotto' = 'stopped'
+        'Preparazione prossimo script.' = 'Preparing next script.'
+        'checkbox totali.' = 'total checkboxes.'
+        'Script selezionato' = 'Selected script'
+        'Errore lettura checkbox' = 'Error reading checkbox'
+        'Errore invio log' = 'Error sending logs'
+        'Errore durante inizializzazione Loaded' = 'Error during Loaded initialization'
+        'Finestra GUI chiusa. Tentativo di fermare il job in corso.' = 'GUI window closed. Trying to stop the running job.'
+        'Job in corso fermato e rimosso.' = 'Running job stopped and removed.'
+        'Errore durante l''interruzione del job' = 'Error while stopping the job'
+    }
+    foreach ($entry in $replacements.GetEnumerator()) {
+        $translated = [regex]::Replace($translated, [regex]::Escape([string]$entry.Key), [string]$entry.Value, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    }
+    return $translated
+}
 
 function Write-UnifiedLog {
     param(
@@ -168,6 +482,7 @@ function Write-UnifiedLog {
         Progress = 'Magenta'
     }
 
+    $Message = Convert-GuiSourceText -Text $Message
     $currentDateTime = Get-Date -Format 'HH:mm:ss'
     $logPrefix = "[$currentDateTime] [$Type]"
     $formattedMessage = "$logPrefix $Message"
@@ -399,7 +714,7 @@ function Initialize-CoreScript {
         }
 
         if (-not $coreContent) {
-            throw "Core Script content è vuoto dopo i tentativi di caricamento."
+            throw "Core Script content is empty after loading attempts."
         }
 
         # NOTE: Loading moved to main scope to fix variable visibility
@@ -792,6 +1107,87 @@ catch {
 }
 
 # =============================================================================
+# GUI LOCALIZATION OVERRIDES
+# Re-apply after core dot-sourcing so cached/remote cores cannot overwrite them.
+# =============================================================================
+
+function Get-GuiMenuLocalizationKey {
+    param([object]$Item)
+
+    $name = $null
+    if ($Item -is [System.Collections.IDictionary]) {
+        if ($Item.Contains('CategoryKey') -and $Item['CategoryKey']) { return $Item['CategoryKey'] }
+        if ($Item.Contains('DescriptionKey') -and $Item['DescriptionKey']) { return $Item['DescriptionKey'] }
+        if ($Item.Contains('Name')) { $name = [string]$Item['Name'] }
+    }
+    else {
+        if ($Item.PSObject.Properties.Name -contains 'CategoryKey' -and $Item.CategoryKey) { return $Item.CategoryKey }
+        if ($Item.PSObject.Properties.Name -contains 'DescriptionKey' -and $Item.DescriptionKey) { return $Item.DescriptionKey }
+        if ($Item.PSObject.Properties.Name -contains 'Name') { $name = [string]$Item.Name }
+    }
+
+    switch -Regex ($name) {
+        '^Windows$' { return 'category.windows' }
+        '^Office$' { return 'category.office' }
+        '^Driver & Gaming$' { return 'category.driverGaming' }
+        '^(Supporto|Support)$' { return 'category.support' }
+        default {
+            if (-not [string]::IsNullOrWhiteSpace($name)) { return "script.$name" }
+        }
+    }
+
+    return $null
+}
+
+function Get-ToolkitMenuText {
+    param([object]$Item)
+
+    $key = Get-GuiMenuLocalizationKey -Item $Item
+    if ($key) {
+        $localized = Get-Loc $key
+        if ($localized -ne $key) { return $localized }
+    }
+
+    if ($Item -is [System.Collections.IDictionary]) {
+        if ($Item.Contains('Description')) { return $Item['Description'] }
+        if ($Item.Contains('Name')) { return $Item['Name'] }
+    }
+    else {
+        if ($Item.PSObject.Properties.Name -contains 'Description') { return $Item.Description }
+        if ($Item.PSObject.Properties.Name -contains 'Name') { return $Item.Name }
+    }
+
+    return [string]$Item
+}
+
+function Convert-GuiBitlockerStatusToKey {
+    param([string]$StatusText)
+
+    if ([string]::IsNullOrWhiteSpace($StatusText)) { return 'bitlocker.status.notConfigured' }
+
+    $normalized = $StatusText.Trim().ToLowerInvariant()
+    if ($normalized -match 'decritt|decrypt') { return 'bitlocker.status.decrypting' }
+    if ($normalized -match 'crittografia in corso|encrypt') { return 'bitlocker.status.encrypting' }
+    if ($normalized -match 'sospes|suspend') { return 'bitlocker.status.suspended' }
+    if ($normalized -match 'non configur|not configured') { return 'bitlocker.status.notConfigured' }
+    if ($normalized -match 'disattiv|protection off|off|disabled') { return 'bitlocker.status.off' }
+    if ($normalized -match 'attiv|protection on|on|enabled') { return 'bitlocker.status.on' }
+
+    return 'bitlocker.status.unknown'
+}
+
+function Get-GuiBitlockerStatusKey {
+    $command = Get-Command 'Get-BitlockerStatus' -ErrorAction SilentlyContinue
+    if ($command -and $command.Parameters.ContainsKey('Key')) {
+        $statusKey = Get-BitlockerStatus -Key
+        if ($statusKey -match '^bitlocker\.status\.') { return $statusKey }
+    }
+
+    $statusText = if ($command) { Get-BitlockerStatus } else { $null }
+    return (Convert-GuiBitlockerStatusToKey -StatusText $statusText)
+}
+
+# =============================================================================
 # WPF GUI DEFINITION
 # =============================================================================
 
@@ -915,19 +1311,36 @@ $xaml = @"
                                TextAlignment="Center" Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <!-- Colonna 2: Pulsante Invia Log Errori (Rosso) - DIMENSIONI RIDOTTE (0.5x) -->
-                <Button Grid.Column="2" x:Name="SendErrorLogsButton"
-                        VerticalAlignment="Center" HorizontalAlignment="Right"
-                        Background="{StaticResource ErrorButtonColor}"
-                        Foreground="{StaticResource TextColor}"
-                        Padding="20,12" BorderThickness="0" Cursor="Hand"
-                        Margin="16,0,0,0" Style="{StaticResource SmallButtonStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <Image x:Name="SendErrorLogsImage" Width="28" Height="28" Margin="0,0,8,0"/>
-                        <TextBlock Text="Invia log errori" VerticalAlignment="Center"
-                                   FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="$($FontSize.Small)"/>
+                <!-- Colonna 2: Lingua + Pulsante Invia Log Errori -->
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+                        <TextBlock x:Name="LanguageLabelText" Text="Language"
+                                   Foreground="{StaticResource LabelBlue}"
+                                   FontFamily="{StaticResource PrimaryFont}"
+                                   FontWeight="SemiBold"
+                                   FontSize="$($FontSize.Small)"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"/>
+                        <ComboBox x:Name="LanguageComboBox"
+                                  Width="150"
+                                  Height="30"
+                                  SelectedValuePath="Tag"
+                                  FontFamily="{StaticResource PrimaryFont}"
+                                  FontSize="$($FontSize.Small)"/>
                     </StackPanel>
-                </Button>
+                    <Button x:Name="SendErrorLogsButton"
+                            VerticalAlignment="Center" HorizontalAlignment="Right"
+                            Background="{StaticResource ErrorButtonColor}"
+                            Foreground="{StaticResource TextColor}"
+                            Padding="20,12" BorderThickness="0" Cursor="Hand"
+                            Style="{StaticResource SmallButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image x:Name="SendErrorLogsImage" Width="28" Height="28" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="SendErrorLogsText" Text="Send error logs" VerticalAlignment="Center"
+                                       FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="$($FontSize.Small)"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -945,7 +1358,7 @@ $xaml = @"
 
                 <!-- Blocco 1: Windows Info (Label azzurre a sinistra, valori bianchi a destra) -->
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
-                    <TextBlock Text="▬▬ Informazioni di sistema ▬▬"
+                    <TextBlock x:Name="SysInfoTitleText" Text="▬▬ System information ▬▬"
                                Foreground="{StaticResource LabelBlue}"
                                FontSize="$($FontSize.Medium)" FontWeight="Bold"
                                FontFamily="{StaticResource PrimaryFont}"
@@ -959,10 +1372,10 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoEditionImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="Edizione Windows: " Foreground="{StaticResource LabelBlue}"
+                            <TextBlock x:Name="SysInfoEditionLabel" Text="Windows edition: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento."
+                        <TextBlock Grid.Column="1" x:Name="SysInfoEdition" Text="Loading."
                                    Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)"
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                    VerticalAlignment="Center" TextAlignment="Right"/>
@@ -976,10 +1389,10 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoVersionImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="Versione: " Foreground="{StaticResource LabelBlue}"
+                            <TextBlock x:Name="SysInfoVersionLabel" Text="Version: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento."
+                        <TextBlock Grid.Column="1" x:Name="SysInfoVersion" Text="Loading."
                                    Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)"
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                    VerticalAlignment="Center" TextAlignment="Right"/>
@@ -993,10 +1406,10 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoArchitectureImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="Architettura: " Foreground="{StaticResource LabelBlue}"
+                            <TextBlock x:Name="SysInfoArchitectureLabel" Text="Architecture: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock Grid.Column="1" x:Name="SysInfoArchitecture" Text="Caricamento."
+                        <TextBlock Grid.Column="1" x:Name="SysInfoArchitecture" Text="Loading."
                                    Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)"
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                    VerticalAlignment="Center" TextAlignment="Right"/>
@@ -1020,12 +1433,12 @@ $xaml = @"
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                             <Image x:Name="SysInfoScriptCompatibilityImage" Width="14" Height="14" Margin="0,0,5,0"
                                    VerticalAlignment="Center"/>
-                            <TextBlock Text="Funzionalità script: "
+                            <TextBlock x:Name="SysInfoScriptCompatibilityLabel" Text="Script features: "
                                        Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontWeight="Bold"
                                        FontFamily="{StaticResource PrimaryFont}"
                                        VerticalAlignment="Center"/>
-                            <TextBlock x:Name="SysInfoScriptCompatibility" Text="Verifica."
+                            <TextBlock x:Name="SysInfoScriptCompatibility" Text="Checking."
                                        Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)"
                                        FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                        VerticalAlignment="Center" Margin="8,0,0,0"/>
@@ -1041,12 +1454,12 @@ $xaml = @"
                         <Image x:Name="BitlockerImage" Width="14" Height="14" Margin="0,0,5,0"
                                VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Stato Bitlocker: "
+                            <TextBlock x:Name="SysInfoBitlockerLabel" Text="BitLocker status: "
                                        Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontWeight="Bold"
                                        FontFamily="{StaticResource PrimaryFont}"
                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock x:Name="SysInfoBitlocker" Text="Verifica."
+                            <TextBlock x:Name="SysInfoBitlocker" Text="Checking."
                                        Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)"
                                        FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                        VerticalAlignment="Center"/>
@@ -1074,10 +1487,10 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoComputerNameImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="Nome PC: " Foreground="{StaticResource LabelBlue}"
+                            <TextBlock x:Name="SysInfoComputerNameLabel" Text="PC name: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento."
+                        <TextBlock Grid.Column="1" x:Name="SysInfoComputerName" Text="Loading."
                                    Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)"
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                    VerticalAlignment="Center" TextAlignment="Right"/>
@@ -1091,10 +1504,10 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoRAMImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="RAM: " Foreground="{StaticResource LabelBlue}"
+                            <TextBlock x:Name="SysInfoRAMLabel" Text="RAM: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento."
+                        <TextBlock Grid.Column="1" x:Name="SysInfoRAM" Text="Loading."
                                    Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)"
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                    VerticalAlignment="Center" TextAlignment="Right"/>
@@ -1108,10 +1521,10 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoDiskImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="Disco: " Foreground="{StaticResource LabelBlue}"
+                            <TextBlock x:Name="SysInfoDiskLabel" Text="Disk: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento."
+                        <TextBlock Grid.Column="1" x:Name="SysInfoDisk" Text="Loading."
                                    Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)"
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                    VerticalAlignment="Center" TextAlignment="Right"/>
@@ -1140,7 +1553,7 @@ $xaml = @"
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                         <Image x:Name="CategorySystemImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
-                        <TextBlock Text="Funzioni disponibili"
+                        <TextBlock x:Name="AvailableFunctionsText" Text="Available functions"
                                    Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Large)"
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                    VerticalAlignment="Center"/>
@@ -1165,7 +1578,7 @@ $xaml = @"
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                         <Image x:Name="OutputLogImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
-                        <TextBlock Text="Output e log"
+                        <TextBlock x:Name="OutputLogsText" Text="Output and logs"
                                    Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Large)"
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                    VerticalAlignment="Center"/>
@@ -1215,7 +1628,7 @@ $xaml = @"
                         Style="{StaticResource PillButtonStyle}">
                     <StackPanel Orientation="Horizontal">
                         <Image x:Name="ExecuteButtonImage" Width="20" Height="20" Margin="0,0,8,0"/>
-                        <TextBlock Text="Esegui script" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ExecuteButtonText" Text="Run scripts" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </StackPanel>
@@ -1277,12 +1690,94 @@ $SysInfoComputerNameImage = $window.FindName("SysInfoComputerNameImage")
 $SysInfoRAMImage = $window.FindName("SysInfoRAMImage")
 $SysInfoDiskImage = $window.FindName("SysInfoDiskImage")
 $SendErrorLogsButton = $window.FindName("SendErrorLogsButton")
+$SendErrorLogsText = $window.FindName("SendErrorLogsText")
+$LanguageLabelText = $window.FindName("LanguageLabelText")
+$LanguageComboBox = $window.FindName("LanguageComboBox")
+$SysInfoTitleText = $window.FindName("SysInfoTitleText")
+$SysInfoEditionLabel = $window.FindName("SysInfoEditionLabel")
+$SysInfoVersionLabel = $window.FindName("SysInfoVersionLabel")
+$SysInfoArchitectureLabel = $window.FindName("SysInfoArchitectureLabel")
+$SysInfoScriptCompatibilityLabel = $window.FindName("SysInfoScriptCompatibilityLabel")
+$SysInfoBitlockerLabel = $window.FindName("SysInfoBitlockerLabel")
+$SysInfoComputerNameLabel = $window.FindName("SysInfoComputerNameLabel")
+$SysInfoRAMLabel = $window.FindName("SysInfoRAMLabel")
+$SysInfoDiskLabel = $window.FindName("SysInfoDiskLabel")
+$AvailableFunctionsText = $window.FindName("AvailableFunctionsText")
+$OutputLogsText = $window.FindName("OutputLogsText")
+$ExecuteButtonText = $window.FindName("ExecuteButtonText")
 $SendErrorLogsImage = $window.FindName("SendErrorLogsImage")
 $ToolIconImage = $window.FindName("ToolIconImage")
 $ExecuteButtonImage = $window.FindName("ExecuteButtonImage")
 $CategorySystemImage = $window.FindName("CategorySystemImage")
 $OutputLogImage = $window.FindName("OutputLogImage")
 $progressBar = $window.FindName("MainProgressBar")
+
+function Set-TextBlockText {
+    param([object]$Control, [string]$Text)
+    if ($Control) { $Control.Text = $Text }
+}
+
+function Initialize-LanguageComboBox {
+    if (-not $LanguageComboBox) { return }
+
+    $LanguageComboBox.Items.Clear()
+    foreach ($language in @(Get-AvailableToolkitLanguages)) {
+        $item = New-Object System.Windows.Controls.ComboBoxItem
+        $item.Content = $language.NativeName
+        $item.Tag = $language.Code
+        $LanguageComboBox.Items.Add($item) | Out-Null
+        if ($language.Code -eq $Global:ToolkitLanguage) {
+            $LanguageComboBox.SelectedItem = $item
+        }
+    }
+
+    if (-not $LanguageComboBox.SelectedItem -and $LanguageComboBox.Items.Count -gt 0) {
+        $LanguageComboBox.SelectedIndex = 0
+    }
+}
+
+function Apply-GuiLocalization {
+    Set-TextBlockText $LanguageLabelText (Get-Loc 'gui.languageLabel')
+    Set-TextBlockText $SendErrorLogsText (Get-Loc 'gui.sendErrorLogs')
+    Set-TextBlockText $SysInfoTitleText "▬▬ $(Get-Loc 'gui.systemInfo') ▬▬"
+    Set-TextBlockText $SysInfoEditionLabel (Get-Loc 'gui.windowsEdition')
+    Set-TextBlockText $SysInfoVersionLabel (Get-Loc 'gui.version')
+    Set-TextBlockText $SysInfoArchitectureLabel (Get-Loc 'gui.architecture')
+    Set-TextBlockText $SysInfoScriptCompatibilityLabel (Get-Loc 'gui.scriptFeatures')
+    Set-TextBlockText $SysInfoBitlockerLabel (Get-Loc 'gui.bitlockerStatus')
+    Set-TextBlockText $SysInfoComputerNameLabel (Get-Loc 'gui.pcName')
+    Set-TextBlockText $SysInfoRAMLabel (Get-Loc 'gui.ram')
+    Set-TextBlockText $SysInfoDiskLabel (Get-Loc 'gui.disk')
+    Set-TextBlockText $AvailableFunctionsText (Get-Loc 'gui.availableFunctions')
+    Set-TextBlockText $OutputLogsText (Get-Loc 'gui.outputLogs')
+    Set-TextBlockText $ExecuteButtonText (Get-Loc 'gui.executeScripts')
+
+    if ($SysInfoScriptCompatibility -and $SysInfoScriptCompatibility.Text -match '^(Complete|Completa)$') {
+        $SysInfoScriptCompatibility.Text = Get-Loc 'gui.complete'
+    }
+    elseif ($SysInfoScriptCompatibility -and $SysInfoScriptCompatibility.Text -match '^(Limited|Limitata)$') {
+        $SysInfoScriptCompatibility.Text = Get-Loc 'gui.limited'
+    }
+    elseif ($SysInfoScriptCompatibility -and $SysInfoScriptCompatibility.Text -match '^(Unsupported|Non supportata)$') {
+        $SysInfoScriptCompatibility.Text = Get-Loc 'gui.unsupported'
+    }
+}
+
+Initialize-LanguageComboBox
+Apply-GuiLocalization
+
+if ($LanguageComboBox) {
+    $LanguageComboBox.Add_SelectionChanged({
+            if (-not $LanguageComboBox.SelectedItem) { return }
+            $selectedLanguage = [string]$LanguageComboBox.SelectedItem.Tag
+            if ([string]::IsNullOrWhiteSpace($selectedLanguage) -or $selectedLanguage -eq $Global:ToolkitLanguage) { return }
+
+            Set-ToolkitLanguage -LanguageCode $selectedLanguage
+            Apply-GuiLocalization
+            Update-SystemInformationPanel
+            Update-ActionsPanel
+        })
+}
 
 # Setup ExecuteButton con nuovo stile e inizializza icone
 try {
@@ -1383,7 +1878,7 @@ function Update-SystemInformationPanel {
                 $SysInfoArchitecture.Text = $sysInfo.Architecture
                 $SysInfoComputerName.Text = $sysInfo.ComputerName
                 $SysInfoRAM.Text = "$($sysInfo.TotalRAM) GB"
-                $SysInfoDisk.Text = "$($sysInfo.FreePercentage)% libero ($($sysInfo.FreeDisk) GB / $($sysInfo.TotalDisk) GB)"
+                $SysInfoDisk.Text = Get-Loc 'gui.diskFreeFormat' -Args @($sysInfo.FreePercentage, $sysInfo.FreeDisk, $sysInfo.TotalDisk)
 
                 # Set image sources
                 try {
@@ -1407,22 +1902,22 @@ function Update-SystemInformationPanel {
                 $statusIconKey = "LEDStatusRed"
 
                 if ($sysInfo.BuildNumber -ge 22000) {
-                    $statusText = "Completa"
+                    $statusText = Get-Loc 'gui.complete'
                     $statusIconKey = "LEDStatusGreen"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                 }
                 elseif ($sysInfo.BuildNumber -ge 17763) {
-                    $statusText = "Completa"
+                    $statusText = Get-Loc 'gui.complete'
                     $statusIconKey = "LEDStatusGreen"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                 }
                 elseif ($sysInfo.BuildNumber -ge 10240) {
-                    $statusText = "Limitata"
+                    $statusText = Get-Loc 'gui.limited'
                     $statusIconKey = "LEDStatusYellow"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
                 }
                 else {
-                    $statusText = "Non supportata"
+                    $statusText = Get-Loc 'gui.unsupported'
                     $statusIconKey = "LEDStatusRed"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                 }
@@ -1437,14 +1932,15 @@ function Update-SystemInformationPanel {
 
                 # Aggiorna stato Bitlocker
                 try {
-                    $blStatus = Get-BitlockerStatus
+                    $blStatusKey = Get-GuiBitlockerStatusKey
+                    $blStatus = Get-Loc $blStatusKey
                     $SysInfoBitlocker.Text = $blStatus
 
-                    # Colorazione status Bitlocker (verde/giallo/rosso) basato sulla stringa returned
-                    if ($blStatus -match '(?i)(attiv|protezione|crittograf|completa)') {
+                    # Colorazione status Bitlocker basata su chiave stabile e non sul testo localizzato.
+                    if ($blStatusKey -eq 'bitlocker.status.on' -or $blStatusKey -eq 'bitlocker.status.encrypting') {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                     }
-                    elseif ($blStatus -match '(?i)(sospesa|parzial|in corso)') {
+                    elseif ($blStatusKey -eq 'bitlocker.status.suspended' -or $blStatusKey -eq 'bitlocker.status.decrypting') {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
                     }
                     else {
@@ -1527,7 +2023,7 @@ function Update-ActionsPanel {
 
                     # Category Name (Bold, Cyan)
                     $categoryHeader = New-Object System.Windows.Controls.TextBlock
-                    $categoryHeader.Text = $category.Name
+                    $categoryHeader.Text = Get-ToolkitMenuText $category
                     $categoryHeader.FontSize = $FontSize.Small
                     $categoryHeader.FontWeight = 'Bold'
                     $categoryHeader.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Cyan)
@@ -1572,7 +2068,7 @@ function Update-ActionsPanel {
 
                         # Bold Script Name (White)
                         $titleRun = New-Object System.Windows.Documents.Run
-                        $titleRun.Text = $script.Description
+                        $titleRun.Text = Get-ToolkitMenuText $script
                         $titleRun.FontWeight = [System.Windows.FontWeights]::Bold
                         $titleRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::White)
 
@@ -1948,7 +2444,7 @@ function Start-NextScriptJob {
                         return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
                     }
 
-                    Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: Completato | Percent: 100%."
+                    Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: Completed | Percent: 100%."
                     return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
                 }
                 elseif ($Job -and $result -and $result.GetType().Name -eq 'Job') {
@@ -2005,7 +2501,7 @@ function Start-NextScriptJob {
                 [switch]$Completed
             )
             if ($Completed) {
-                Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: Completato | Percent: 100%."
+                Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: Completed | Percent: 100%."
             }
             elseif ($PercentComplete -ge 0) {
                 Write-Warning "[WINTOOLKIT_PROGRESS_TAG] Activity: $Activity | Status: $Status | Percent: $($PercentComplete)%."
@@ -2183,11 +2679,11 @@ function Invoke-JobCompletion {
                     $Global:JobMonitorTimer = $null
                 }
                 $executeButton.IsEnabled = $true
-                Write-UnifiedLog -Type 'Success' -Message "🎉 Tutti gli script sono stati eseguiti." -GuiColor "#00FF00"
+                Write-UnifiedLog -Type 'Success' -Message "🎉 $(Get-Loc 'gui.allExecuted')" -GuiColor "#00FF00"
                 if ($progressBar) { $progressBar.Value = 100 }
 
                 if ($Global:RebootRequired) {
-                    $result = [System.Windows.MessageBox]::Show("Il sistema richiede un riavvio per completare le operazioni. Riavviare ora?", "Riavvio Richiesto", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+                    $result = [System.Windows.MessageBox]::Show((Get-Loc 'gui.rebootPrompt'), (Get-Loc 'gui.rebootTitle'), [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
                     if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
                         Restart-Computer -Force
                     }
@@ -2259,7 +2755,7 @@ $executeButton.Add_Click({
         }
 
         if ($selectedScripts.Count -eq 0) {
-            Write-UnifiedLog -Type 'Warning' -Message "⚠️ Nessuno script selezionato." -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Warning' -Message "⚠️ $(Get-Loc 'gui.noneSelected')" -GuiColor "#FFA500"
             $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $true })
             return
         }
@@ -2344,9 +2840,9 @@ $window.Add_Loaded({
             Update-ActionsPanel
 
             # Show initial log message
-            Write-UnifiedLog -Type 'Success' -Message "🎉 WinToolkit GUI v2.0 inizializzato correttamente." -GuiColor "#00FF00"
+            Write-UnifiedLog -Type 'Success' -Message "🎉 $(Get-Loc 'gui.initialized')" -GuiColor "#00FF00"
             Write-UnifiedLog -Type 'Info' -Message "📌 Core Version: $Global:CoreScriptVersion." -GuiColor "#00CED1"
-            Write-UnifiedLog -Type 'Info' -Message "💡 Seleziona uno o più script e premi 'Esegui'." -GuiColor "#00CED1"
+            Write-UnifiedLog -Type 'Info' -Message "💡 $(Get-Loc 'gui.instructions')" -GuiColor "#00CED1"
 
             # Minimize console - DISABLED to prevent handle exhaustion crash (Win32Exception 1816)
             # Set-ConsoleWindowMinimized

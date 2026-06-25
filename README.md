@@ -1,85 +1,85 @@
 <p align="center">
 	<img src="images/WinToolkit-icon.png" alt="WinToolkit-banner" width="160">
-	<h1>WinToolkit: Il Tool Powershell definitivo per <em>sopravvivere</em> a Windows</h1>
+	<h1>WinToolkit: the ultimate PowerShell tool to <em>survive</em> Windows</h1>
 </p>
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
-	<img src="https://img.shields.io/github/v/release/Magnetarman/WinToolkit?style=for-the-badge&label=versione&color=brightgreen" alt="versione">
+	<img src="https://img.shields.io/github/v/release/Magnetarman/WinToolkit?style=for-the-badge&label=version&color=brightgreen" alt="version">
 	<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
-	<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Compiler%20Ramo%20Dev" alt="Update WinToolkit">
+	<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI_UpdateWinToolkit_Dev.yml?branch=Dev&style=for-the-badge&label=Dev%20Branch%20Compiler" alt="Update WinToolkit">
 	<img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main">
 	<img src="https://img.shields.io/github/downloads/Magnetarman/WinToolkit/latest/WinToolkit.ps1?style=for-the-badge&logo=github&logoColor=white&color=0080ff&label=Downloads" alt="downloads-main">
 </p>
 
 <img src="images/Run.jpg" alt="Run-banner" width="800">
 
-WinToolkit è una suite di script PowerShell potente e compatta, progettata per offrire a professionisti IT, amministratori di sistema e utenti esperti un controllo granulare sulla manutenzione e sulla risoluzione dei problemi di Windows e della Suite Office. Questo toolkit intuitivo aggrega gli strumenti di riparazione di sistema più efficaci in un'unica interfaccia, automatizzando i processi complessi per ottimizzare le prestazioni e ripristinare la stabilità del sistema con pochi passaggi automatizzati. Questo progetto è traslitterato tramite un workflow AI.
+WinToolkit is a powerful, compact PowerShell script suite built to give IT professionals, system administrators, and advanced users granular control over Windows and Office suite maintenance and troubleshooting. This intuitive toolkit brings the most effective system repair tools into a single interface, automating complex processes to optimize performance and restore system stability in just a few automated steps. This project is transliterated through an AI workflow.
 
 ---
 
-## ⚙️ Requisiti minimi
+## ⚙️ Minimum Requirements
 
 > [!IMPORTANT]
-> Prima di avviare il toolkit, assicurati di soddisfare i seguenti requisiti:
+> Before starting the toolkit, make sure you meet these requirements:
 >
-> - **connessione ad Internet**;
-> - **spazio libero su disco**: >= 50 GB [(vedere la sezione F.A.Q.)](#-faq---domande-frequenti);
+> - **Internet connection**;
+> - **free disk space**: >= 50 GB [(see the FAQ section)](#-faq---frequently-asked-questions);
 > - **Windows >= 8.1**.
 
-| Versioni di Windows   | Supportato      |
-| :-------------------- | :-------------- |
-| Windows 11 >= 22H2    | 🟢 Sì           |
-| Windows 10 >= 1809    | 🟢 Sì           |
-| Windows 11 <= 21H2    | 🟡 Parzialmente |
-| Windows 10 <= 1809    | 🟡 Parzialmente |
-| Windows 8.1           | 🟡 Parzialmente |
-| Windows 8 e inferiori | 🔴 No           |
+| Windows Versions      | Supported           |
+| :-------------------- | :------------------ |
+| Windows 11 >= 22H2    | 🟢 Yes              |
+| Windows 10 >= 1809    | 🟢 Yes              |
+| Windows 11 <= 21H2    | 🟡 Partially        |
+| Windows 10 <= 1809    | 🟡 Partially        |
+| Windows 8.1           | 🟡 Partially        |
+| Windows 8 and earlier | 🔴 No               |
 
-## 🚀 Come eseguire WinToolkit
+## 🚀 How To Run WinToolkit
 
-Installa l'eseguibile di WinToolkit sul desktop seguendo queste istruzioni:
+Install the WinToolkit executable on your desktop by following these steps:
 
-1. Premi il tasto `Windows` sulla tastiera oppure clicca sulla ricerca di Windows.
-2. Digita `Powershell` nel campo della ricerca.
-3. Clicca col tasto destro del mouse sulla voce `Powershell`.
-4. Clicca sulla voce `Esegui come amministratore` dal menù a tendina.
-5. Copia e incolla nella finestra di Powershell il comando seguente:
+1. Press the `Windows` key on your keyboard or open Windows Search.
+2. Type `PowerShell` in the search field.
+3. Right-click `PowerShell`.
+4. Click `Run as administrator` from the drop-down menu.
+5. Copy and paste the following command into the PowerShell window:
 
 ```powershell
 irm https://magnetarman.com/winstart | iex
 ```
 
-6. Al riavvio del tuo PC troverai la scorciatoia `Win Toolkit` sul desktop da cui avviare comodamente lo script in modalità amministratore con un semplice doppio click sull'icona.
+6. After your PC restarts, you will find the `Win Toolkit` shortcut on the desktop. Use it to start the script as administrator with a simple double-click.
 
-### ⚙️ Per utenti esperti
+### ⚙️ For Advanced Users
 
 > [!WARNING]
-> Se stai avviando WinToolkit da versioni parzialmente supportate è consigliabile utilizzare PowerShell 7 o versioni successive. Questa versione moderna è necessaria per garantire la massima compatibilità, eseguire correttamente le operazioni del tool e prevenire errori di runtime o l'errata applicazione delle modifiche.
+> If you are starting WinToolkit from a partially supported Windows version, PowerShell 7 or later is recommended. This modern version is required for maximum compatibility, correct tool execution, and to prevent runtime errors or incorrect application of changes.
 
-1. Installa Powershell 7 (o versioni successive) da [Microsoft Store](https://www.microsoft.com/store/apps/9MZ1SNWT0N5D) oppure da [GitHub](https://learn.microsoft.com/it-it/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.5#msi).
-2. Premi il tasto `Windows` sulla tastiera oppure clicca sulla ricerca di Windows.
-3. Digita `Powershell` nel campo della ricerca.
-4. Clicca col tasto destro del mouse sulla voce `Powershell`.
-5. Clicca sulla voce `Esegui come amministratore` dal menù a tendina.
-6. Copia e incolla nella finestra di Powershell il comando seguente:
+1. Install PowerShell 7 or later from the [Microsoft Store](https://www.microsoft.com/store/apps/9MZ1SNWT0N5D) or from [GitHub](https://learn.microsoft.com/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.5#msi).
+2. Press the `Windows` key on your keyboard or open Windows Search.
+3. Type `PowerShell` in the search field.
+4. Right-click `PowerShell`.
+5. Click `Run as administrator` from the drop-down menu.
+6. Copy and paste the following command into the PowerShell window:
 
 ```powershell
 irm https://magnetarman.com/WinToolkit | iex
 ```
 
-### 👨‍💻 Per i beta-tester
+### 👨‍💻 For Beta Testers
 
 > [!CAUTION]
-> Avviare le versioni in fase di sviluppo è **rischioso e potrebbe causare danni al tuo sistema.** Sono presenti funzionalità in corso di sviluppo e/o in fase di test. Se non sei sicuro o non sai cosa stai facendo, vai alla sezione "Esecuzione consigliata".
+> Running development versions is **risky and may damage your system.** These builds include features that are still under development and/or testing. If you are unsure or do not know what you are doing, use the recommended execution path.
 
 ```powershell
 irm https://magnetarman.com/winstart-dev | iex
 ```
 
-## 🪟 GUI - Interfaccia grafica
+## 🪟 GUI - Graphical Interface
 
 > [!CAUTION]
-> La Versione GUI è disponibile in versione ALPHA, pertanto potrà subire modifiche anche significative. Il funzionamento di questa versione è fortemente instabile, utilizzare a proprio rischio e pericolo.
+> The GUI version is available as an ALPHA build, so it may change significantly. This version is highly unstable; use it at your own risk.
 
 ```powershell
 irm https://magnetarman.com/Wintoolkit-gui | iex
@@ -87,51 +87,51 @@ irm https://magnetarman.com/Wintoolkit-gui | iex
 
 ---
 
-## 👾 Componenti
+## 👾 Components
 
-- **Sezione Windows**:
-    - **Windows Repair Toolkit**: Avvia una sequenza automatizzata di comandi standard di Windows, come: sfc, chkdsk e DISM per individuare e correggere la corruzione dei file di sistema e i problemi del disco.
-    - **Windows Update Reset**: Risolve in modo efficiente i problemi comuni di Windows Update resettando i componenti chiave e ripristinando le impostazioni dei servizi.
-- **Sezione Office**:
-    - **Install Office**: Consente di installare una versione "Basic" di Microsoft Office in modo semi-automatico.
-    - **Repair Office**: Ripara le installazioni esistenti offrendo la modalità rapida offline o completa online.
-    - **Uninstall Office**: Rimuove completamente la suite dal sistema utilizzando l'efficace strumento ufficiale "GetHelpCMD" (EX saRA).
-- **Windows Store Repair**: Esegue una reinstallazione di componenti critici come: Microsoft Store, WinGet, e UniGet UI (Utile per aggiornare e gestire le app in modo grafico utilizzando WinGet).
-- **Win Backup Driver**: Semplifica il processo di backup dei driver, che automatizza l'esportazione di tutti i driver di terze parti installati utilizzando il comando DISM per garantire un'operazione completa e affidabile.
-- **Cleaner Toolkit**: Libera spazio su disco e ottimizzare le prestazioni eseguendo una pulizia profonda.
-- **Video Driver Install**: Semplifica l'installazione, l'aggiornamento, la reinstallazione e la configurazione ottimale dei driver video (GPU) per sistemi NVIDIA e AMD, gestendo anche la pulizia precedente e bloccando gli aggiornamenti automatici dei driver da Windows Update, spesso fonte di instabilità.
+- **Windows section**:
+    - **Windows Repair Toolkit**: Runs an automated sequence of standard Windows commands, such as SFC, CHKDSK, and DISM, to detect and repair system file corruption and disk issues.
+    - **Windows Update Reset**: Efficiently fixes common Windows Update issues by resetting key components and restoring service settings.
+- **Office section**:
+    - **Install Office**: Lets you install a "Basic" Microsoft Office version semi-automatically.
+    - **Repair Office**: Repairs existing installations with either quick offline mode or full online mode.
+    - **Uninstall Office**: Fully removes the suite from the system by using the official "GetHelpCMD" tool (formerly SaRA).
+- **Windows Store Repair**: Reinstalls critical components such as Microsoft Store, WinGet, and UniGet UI, which is useful for updating and managing apps graphically through WinGet.
+- **Win Backup Driver**: Simplifies driver backup by automating the export of all installed third-party drivers through DISM for a complete and reliable operation.
+- **Cleaner Toolkit**: Frees disk space and optimizes performance through deep cleanup.
+- **Video Driver Install**: Simplifies installation, updates, reinstallation, and optimal configuration of GPU drivers for NVIDIA and AMD systems. It also handles previous-driver cleanup and blocks automatic driver updates from Windows Update, which are often a source of instability.
 
-> [!Note]
+> [!NOTE]
 >
-> Esegui lo script. Al riavvio del computer, il sistema entrerà automaticamente in **Modalità Provvisoria**.
+> Run the script. After the computer restarts, the system will automatically enter **Safe Mode**.
 >
-> Una volta terminate le tue operazioni, come la pulizia dei driver obsoleti tramite DDU, troverai un file chiamato "Switch To Normal Mode.bat" sul tuo Desktop. Per tornare alla modalità di avvio standard di Windows, fai doppio click su questo file e poi riavvia normalmente il computer.
+> Once you have finished your work, such as removing obsolete drivers with DDU, you will find a file named "Switch To Normal Mode.bat" on your desktop. To return to the standard Windows boot mode, double-click this file and restart the computer normally.
 
-- **Gaming Toolkit**: Progettato per ottimizzare rapidamente il tuo PC Windows per le massime prestazioni di gioco. Si occupa di installare tutti i componenti essenziali (come DirectX, .NET e Visual C++ redistributables), installa i client di gioco più comuni (Steam, Epic, GOG, ecc.), attiva il profilo energetico 'Performance Massime' e disattiva le interruzioni con la modalità "Non disturbare". Essenzialmente, prepara il tuo sistema per giocare senza distrazioni e con la massima potenza.
+- **Gaming Toolkit**: Designed to quickly optimize your Windows PC for maximum gaming performance. It installs essential components such as DirectX, .NET, and Visual C++ Redistributables; installs the most common game clients such as Steam, Epic, and GOG; enables the "Ultimate Performance" power plan; and disables interruptions with "Do not disturb" mode. In short, it prepares your system for distraction-free gaming at full power.
 
-> [!Note]
+> [!NOTE]
 >
-> In Windows 11 22H2 o inferiori, WinToolkit consiglierà di effettuare prima la funzione di riparazione di WinGet.
+> On Windows 11 22H2 or earlier, WinToolkit will recommend running the WinGet repair function first.
 
-- **BitLocker Toolkit**: Avvia un processo automatizzato per disattivare la crittografia BitLocker sul drive di sistema (C:). Lo strumento verifica lo stato attuale e, se attivo, esegue il comando per avviare la decrittografia del volume in modo controllato. Infine aggiunge al registro di sistema una voce per cercare di contrastare future e possibili ri-attivazione occulte da parte di Microsoft.
+- **BitLocker Toolkit**: Starts an automated process to disable BitLocker encryption on the system drive (C:). The tool checks the current state and, if BitLocker is active, runs the command to start controlled volume decryption. It also adds a registry entry to help counter possible hidden future reactivation attempts by Microsoft.
 
 ---
 
 ## 📌 Changelog
 
-- 📄 **[Changelog.md - Leggi le modifiche introdotte.](/CHANGELOG.md)**
+- 📄 **[Changelog.md - Read the introduced changes.](/CHANGELOG.md)**
 
 ---
 
-## 📽️ Parlano di WinToolkit
+## 📽️ WinToolkit In The Media
 
-| Img Canale                                                            | Link                                                                                                                          |
-| :-------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
+| Channel Image                                                            | Link                                                                                                                          |
+| :----------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
 | <img src="/images/avatar/zakkos.jpg" alt="Zakkos-WinToolkit" width="80"> | <a href="https://www.youtube.com/watch?v=nUKLeYqe1ZI"> WINTOOLKIT 2.5: Dominare Windows 11 con PowerShell by MagnetarMan </a> |
 
 ---
 
-## 💀 Dove tutto è iniziato (ver. 1.0)
+## 💀 Where It All Started (ver. 1.0)
 
 <div align="center">
 
@@ -143,96 +143,96 @@ irm https://magnetarman.com/Wintoolkit-gui | iex
 
 ---
 
-## 🤔 F.A.Q. - Domande Frequenti
+## 🤔 F.A.Q. - Frequently Asked Questions
 
-### Perché avviare WinToolkit?
+### Why Run WinToolkit?
 
-Sia che tu stia gestendo un parco macchine aziendale o che tu voglia semplicemente mantenere il tuo PC personale in perfette condizioni, WinToolkit ti permette di:
+Whether you manage a company fleet or simply want to keep your personal PC in perfect shape, WinToolkit lets you:
 
-- **risparmiare tempo**: automatizza ore di lavoro manuale di diagnostica e riparazione.
-- **prevenire malfunzionamenti**: esegui manutenzioni preventive per evitare problemi futuri.
-- **agire da esperto**: sfrutta la potenza degli strumenti ufficiali Microsoft di sistema con un'interfaccia semplice e sicura.
+- **save time**: automates hours of manual diagnostic and repair work.
+- **prevent malfunctions**: performs preventive maintenance to avoid future issues.
+- **act like an expert**: uses the power of official Microsoft system tools through a simple and safe interface.
 
-### Perché servono almeno 50 GB di spazio libero sul disco?
+### Why Is At Least 50 GB Of Free Disk Space Required?
 
-I 50 GB non servono allo strumento che pesa pochi KB, né ai download, ma solo a Windows per mantenere stabilità e funzionare correttamente durante le riparazioni.
+The 50 GB is not required by the tool itself, which is only a few KB, nor by its downloads. It is required by Windows to remain stable and work correctly during repairs.
 
-Quando il sistema operativo lavora su componenti critici, ha bisogno di spazio vitale per gestire diversi processi in background:
+When the operating system works on critical components, it needs breathing room to handle several background processes:
 
-- File temporanei e backup interni: Windows crea e gestisce file temporanei, copie di backup interne e cache durante la manutenzione.
-- Gestione del file di paging (memoria virtuale): Lo spazio è cruciale per il file di paging, che Windows utilizza come "sostituto" temporaneo della RAM quando la memoria fisica si esaurisce. Se questo spazio è insufficiente, si possono verificare gravi errori di sistema.
-- Prevenzione di malfunzionamenti: Operare con poco spazio libero (tipicamente meno del 10–15% dello spazio totale) è una causa comune di rallentamenti e malfunzionamenti generici in Windows. Avere un margine così ampio previene questi problemi e assicura che il sistema non diventi instabile.
+- Temporary files and internal backups: Windows creates and manages temporary files, internal backup copies, and caches during maintenance.
+- Page file management (virtual memory): disk space is crucial for the page file, which Windows uses as a temporary RAM substitute when physical memory runs out. If this space is insufficient, severe system errors may occur.
+- Malfunction prevention: operating with little free space, typically less than 10-15% of total capacity, is a common cause of slowdowns and generic Windows malfunctions. Keeping this large margin helps prevent those problems and ensures the system does not become unstable.
 
-In sintesi, i 50 GB sono una misura cautelativa per fornire a Windows l'ambiente di lavoro ideale e completare le operazioni senza interruzioni o errori dovuti alla gestione inefficiente dello spazio su disco.
+In short, 50 GB is a precautionary measure that gives Windows the ideal working environment and lets operations complete without interruptions or errors caused by inefficient disk space management.
 
-### Dov'è la cartella di lavoro di WinToolkit?
+### Where Is The WinToolkit Working Folder?
 
-Il percorso della cartella di lavoro di WinToolkit è:
+The WinToolkit working folder is:
 
 `%localappdata%\WinToolkit`
 
-### Dove sono i file di log?
+### Where Are The Log Files?
 
-Il percorso dove si trovano i file di log di WinToolkit è:
+The WinToolkit log files are located at:
 
 `%localappdata%\WinToolkit\logs`
 
 ---
 
-## 💖 Supporta il progetto WinToolkit!
+## 💖 Support The WinToolkit Project!
 
-Se WinToolkit ti è stato utile, considera di supportare attivamente il progetto attraverso una [donazione](#-fai-una-donazione), oppure puoi [contribuire](#-contribuisci).
+If WinToolkit has helped you, consider actively supporting the project through a [donation](#-make-a-donation), or you can [contribute](#-contribute).
 
-### 👛 Fai una donazione
+### 👛 Make A Donation
 
-La tua donazione non è solo un ringraziamento, ma un investimento diretto nel futuro e nello sviluppo di questo strumento.
+Your donation is not only a thank-you, but a direct investment in the future and development of this tool.
 
-Per effettuare una donazione, scopri come cliccand sul pulsante Sponsor in alto a destra.
+To make a donation, click the Sponsor button in the top-right corner to learn how.
 
-🚀 Sviluppo continuo: le donazioni mi permettono di dedicare più tempo e risorse per mantenere la versione attuale aggiornata e compatibile, e per implementare nuove e potenti funzionalità.
+🚀 Continuous development: donations allow me to dedicate more time and resources to keeping the current version updated and compatible, and to implementing powerful new features.
 
-🏆 Entra nella Hall of Fame: ogni donatore verrà incluso in una nuova sezione dedicata all'interno della lista dei contributori come ringraziamento per il tuo prezioso supporto.
+🏆 Join the Hall of Fame: every donor will be included in a new dedicated section inside the contributors list as thanks for your valuable support.
 
 ---
 
-## 🏗️ Architettura e sviluppo
+## 🏗️ Architecture And Development
 
 > [!NOTE]
-> Questa sezione è rivolta a **contributor e utenti avanzati** che vogliono capire come funziona WinToolkit internamente, come modificarlo o come testare le proprie modifiche prima di aprire una PR.
+> This section is for **contributors and advanced users** who want to understand how WinToolkit works internally, how to modify it, or how to test changes before opening a PR.
 
-WinToolkit usa un sistema di build personalizzato: i sorgenti risiedono nel branch **`Dev`** e vengono compilati automaticamente dalla pipeline CI in un unico file distribuibile su **`main`**. Gli utenti finali clonano `main` e ottengono il toolkit pronto all'uso; i contributor lavorano su `Dev`.
+WinToolkit uses a custom build system: sources live on the **`Dev`** branch and are automatically compiled by the CI pipeline into a single distributable file on **`main`**. End users clone `main` and get the toolkit ready to use; contributors work on `Dev`.
 
-Per orientarsi nell'architettura del progetto — flusso `Dev` → `main`, compilatore, struttura dei moduli, pipeline CI/CD e istruzioni per testare localmente — leggi:
+To understand the project architecture, including the `Dev` → `main` flow, compiler, module structure, CI/CD pipeline, and local testing instructions, read:
 
 📄 **[ARCHITECTURE.md](.github/Docs/ARCHITECTURE.md)**
 
 ---
 
-### 🔰 Contribuisci
+### 🔰 Contribute
 
-Se non puoi donare, puoi comunque aiutarmi a migliorare WinToolkit attraverso queste azioni:
+If you cannot donate, you can still help me improve WinToolkit through these actions:
 
-⭐ **Metti una stella**: mettendo una stella al progetto lo farai diventare più popolare su GitHub.
+⭐ **Star the project**: starring the project helps it become more visible on GitHub.
 
 > [!WARNING]
-> Prima di effettuare Pull Request o aprire issue [PER FAVORE LEGGI ATTENTAMENTE LA GUIDA](https://github.com/Magnetarman/WinToolkit/blob/Dev/.github/Docs/PR_And_PullRequest.md).
+> Before opening pull requests or issues, [PLEASE READ THE GUIDE CAREFULLY](https://github.com/Magnetarman/WinToolkit/blob/Dev/.github/Docs/PR_And_PullRequest.md).
 
-🐛 **[Segnala un problema](https://github.com/Magnetarman/WinToolkit/issues)**: segnala un bug che hai trovato o richiedi nuove funzionalità.
+🐛 **[Report an issue](https://github.com/Magnetarman/WinToolkit/issues)**: report a bug you found or request new features.
 
-💡 **[Invia Pull Request](https://github.com/Magnetarman/WinToolkit/pulls)**: invia la tua risoluzione di un bug o la tua aggiunta di una nuova funzionalità.
+💡 **[Submit a pull request](https://github.com/Magnetarman/WinToolkit/pulls)**: submit your bug fix or your new feature.
 
-💬 **[Partecipa alle Discussioni](https://t.me/GlitchTalkGroup)**: condividi le tue idee, fornisci feedback o fai domande.
+💬 **[Join the Discussions](https://t.me/GlitchTalkGroup)**: share your ideas, provide feedback, or ask questions.
 
-Grazie di cuore per il tuo supporto!
+Thank you from the heart for your support!
 
 ---
 
-## 🎉 Traguardi
+## 🎉 Milestones
 
 [![RepoStars](https://repostars.dev/api/embed?repo=Magnetarman%2FWinToolkit&theme=dark)](https://repostars.dev/?repos=Magnetarman%2FWinToolkit&theme=dark)
 
 ---
 
-## 🎗 Autore
+## 🎗 Author
 
-Creato con ❤️ da [Magnetarman](https://magnetarman.com/).
+Created with ❤️ by [Magnetarman](https://magnetarman.com/).
