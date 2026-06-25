@@ -12,6 +12,51 @@ $ScriptStartTime = [System.Diagnostics.Stopwatch]::StartNew()
 # ============================================================================
 # 1. SISTEMA DI LOGGING ENTERPRISE
 # ============================================================================
+function Convert-SourceTextToEnglish {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $Text }
+
+    $translated = $Text
+    $replacements = [ordered]@{
+        'Avvio processo di build WinToolkit.' = 'Starting WinToolkit build process.'
+        'Errore di inzializzazione' = 'Initialization error'
+        'Errore I/O durante la lettura dei file sorgente' = 'I/O error while reading source files'
+        'Errore I/O aggregando il modulo' = 'I/O error while aggregating module'
+        'Avvio minificazione sicura via tokenizer PowerShell.' = 'Starting safe minification through the PowerShell tokenizer.'
+        'Il sorgente contiene' = 'The source contains'
+        'errore/i di parse pre-esistenti. Minificazione applicata comunque.' = 'pre-existing parse error(s). Minification applied anyway.'
+        'Rilevati' = 'Detected'
+        'errore/i sintassi post-minificazione - rollback al sorgente originale.' = 'post-minification syntax error(s) - rolling back to original source.'
+        'Minificazione completata' = 'Minification completed'
+        'nessun errore di sintassi rilevato' = 'no syntax errors detected'
+        'Errore imprevisto durante la minificazione' = 'Unexpected error during minification'
+        'Salvataggio eseguibile stand-alone' = 'Saving standalone executable'
+        'Lettura template originario' = 'Reading source template'
+        'Inizio aggregazione' = 'Starting aggregation'
+        ' di ' = ' of '
+        ' moduli' = ' modules'
+        'Rilevata funzione interna in' = 'Detected internal function in'
+        'Applicazione de-incapsulamento.' = 'Applying unwrapping.'
+        'Modulo processato' = 'Module processed'
+        'BUILD DASHBOARD RIEPILOGATIVA' = 'SUMMARY BUILD DASHBOARD'
+        'STATISTICHE MODULI' = 'MODULE STATISTICS'
+        'STORAGE E COMPRESSIONE' = 'STORAGE AND COMPRESSION'
+        'Sorgenti' = 'Sources'
+        'File Finale' = 'Final file'
+        'Riduzione' = 'Reduction'
+        'Flag -Minify non rilevato' = 'Flag -Minify not detected'
+        'Esecuzione' = 'Execution'
+        'Pipeline compiler.ps1 eseguita con codice' = 'compiler.ps1 pipeline executed with code'
+        'Saltati' = 'Skipped'
+        'Errori' = 'Errors'
+        'Processati' = 'Processed'
+    }
+    foreach ($entry in $replacements.GetEnumerator()) {
+        $translated = $translated.Replace($entry.Key, $entry.Value)
+    }
+    return $translated
+}
+
 function Write-StyledMessage {
     param(
         [Parameter(Mandatory = $true)]
@@ -23,6 +68,7 @@ function Write-StyledMessage {
     )
     
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $Message = Convert-SourceTextToEnglish -Text $Message
     
     switch ($Type) {
         'Success' { 
@@ -54,13 +100,18 @@ Write-StyledMessage 'Info' "Avvio processo di build WinToolkit."
 # 2. INIZIALIZZAZIONE E VERIFICA PERCORSI
 # ============================================================================
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$toolFolder = Join-Path $scriptPath "tool"
+$toolFolder = Join-Path $scriptPath "tools"
 $sourceFile = Join-Path $scriptPath "WinToolkit-template.ps1"
 $outputFile = Join-Path $scriptPath "WinToolkit.ps1"
 
 try {
-    if (-not (Test-Path $sourceFile)) { throw "File template non trovato in: $sourceFile" }
-    if (-not (Test-Path $toolFolder)) { throw "Cartella tool non trovata in: $toolFolder" }
+    if (-not (Test-Path $sourceFile)) {
+        throw "File template non trovato in: $sourceFile"
+    }
+    
+    if (-not (Test-Path $toolFolder)) {
+        throw "Cartella tools non trovata in: $toolFolder"
+    }
 }
 catch {
     Write-StyledMessage 'Error' "Errore di inzializzazione: $($_.Exception.Message)."
@@ -287,7 +338,7 @@ if ($Minify) {
         if ($verifyErrors.Count -gt 0) {
             Write-StyledMessage 'Warning' "Rilevati $($verifyErrors.Count) errore/i sintassi post-minificazione - rollback al sorgente originale."
             foreach ($e in $verifyErrors) {
-                Write-StyledMessage 'Warning' "  Riga $($e.Extent.StartLineNumber): $($e.Message)."
+            Write-StyledMessage 'Warning' "  Line $($e.Extent.StartLineNumber): $($e.Message)."
             }
             $templateLines = $backupLines
         }
@@ -298,7 +349,7 @@ if ($Minify) {
     }
     catch {
         Write-StyledMessage 'Error' "Errore imprevisto durante la minificazione: $($_.Exception.Message)."
-        Write-StyledMessage 'Warning' "Continuazione build senza minificazione."
+        Write-StyledMessage 'Warning' "Continuing build without minification."
     }
     Write-Host ""
 }
@@ -317,7 +368,7 @@ try {
     
 }
 catch {
-    Write-StyledMessage 'Error' "Fallimento irreversibile nella scrittura finale su disco: $($_.Exception.Message)."
+    Write-StyledMessage 'Error' "Irreversible failure while writing final file to disk: $($_.Exception.Message)."
     exit 1
 }
 
@@ -340,30 +391,30 @@ $linesReduction = $stats.TotalSourceLines - $finalLinesCount
 
 Write-Host ""
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host "                  BUILD DASHBOARD RIEPILOGATIVA                       " -ForegroundColor Cyan
+Write-Host "                       SUMMARY BUILD DASHBOARD                         " -ForegroundColor Cyan
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host "📊 STATISTICHE MODULI                                                 " -ForegroundColor Yellow
-Write-Host "    ✅ Processati : $($stats.Processed)" -ForegroundColor Green
-Write-Host "    ⚠️ Saltati     : $($stats.Skipped)" -ForegroundColor Yellow
+Write-Host "📊 MODULE STATISTICS                                                  " -ForegroundColor Yellow
+Write-Host "    ✅ Processed : $($stats.Processed)" -ForegroundColor Green
+Write-Host "    ⚠️ Skipped   : $($stats.Skipped)" -ForegroundColor Yellow
 if ($stats.Errors -gt 0) {
-    Write-Host "❌ Errori     : $($stats.Errors)" -ForegroundColor Red
+    Write-Host "❌ Errors    : $($stats.Errors)" -ForegroundColor Red
 }
 else {
-    Write-Host "❌ Errori     : 0" -ForegroundColor DarkGray
+    Write-Host "❌ Errors    : 0" -ForegroundColor DarkGray
 }
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host "💾 STORAGE E COMPRESSIONE                                                 " -ForegroundColor Yellow
-Write-Host "    📦 Sorgenti    : $sourceMB KB ($($stats.TotalSourceLines) righe)" -ForegroundColor White
-Write-Host "    📄 File Finale : $finalMB KB ($finalLinesCount righe)" -ForegroundColor Cyan
+Write-Host "💾 STORAGE AND COMPRESSION                                             " -ForegroundColor Yellow
+Write-Host "    📦 Sources    : $sourceMB KB ($($stats.TotalSourceLines) lines)" -ForegroundColor White
+Write-Host "    📄 Final file : $finalMB KB ($finalLinesCount lines)" -ForegroundColor Cyan
 if ($Minify) {
-    Write-Host " 📉 Riduzione  : $compressionPercent % ($linesReduction righe eliminate)" -ForegroundColor Green
+    Write-Host " 📉 Reduction  : $compressionPercent % ($linesReduction lines removed)" -ForegroundColor Green
 }
 else {
-    Write-Host " 📉 Riduzione  : OFF (Flag -Minify non rilevato)" -ForegroundColor DarkGray
+    Write-Host " 📉 Reduction  : OFF (Flag -Minify not detected)" -ForegroundColor DarkGray
 }
 Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host "    ⏱️ TIMEDIFF MEASURE                                                       " -ForegroundColor Yellow
-Write-Host "    ⏳ Esecuzione : $buildTimeSec sec" -ForegroundColor White
+Write-Host "    ⏳ Execution : $buildTimeSec sec" -ForegroundColor White
 Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host ""
 

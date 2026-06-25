@@ -20,7 +20,7 @@ param(
     [string]$ScriptPath = "WinToolkit.ps1",
 
     [Parameter(Mandatory = $false)]
-    [string]$ToolPath = "tool",
+    [string]$ToolPath = "tools",
 
     [Parameter(Mandatory = $false)]
     [string]$TemplatePath = "WinToolkit-template.ps1"
@@ -104,7 +104,7 @@ try {
     # ========================================
     Write-TestLog -Message "`n🔍 Test 2: Verifica funzioni..." -Type Info
 
-    # Rilevamento automatico delle funzioni dalla cartella tool/
+    # Rilevamento automatico delle funzioni dalla cartella tools/
     $toolFiles = Get-ChildItem -Path $ToolPath -Filter "*.ps1" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*start-*" }
     $expectedFunctions = $toolFiles | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) }
 
@@ -174,7 +174,7 @@ try {
     else {
         $script:TestResults += "❌ Funzioni: $($presentFunctions.Count)/$($expectedFunctions.Count) presenti"
         $script:TotalErrors++
-        $errorMsg = "MODULI MANCANTI NEL TEMPLATE: I seguenti script in /tool non hanno un placeholder (nemmeno commentato) in WinToolkit-template.ps1: $($missingFunctions -join ', ')"
+        $errorMsg = "MODULI MANCANTI NEL TEMPLATE: I seguenti script in /tools non hanno un placeholder (nemmeno commentato) in WinToolkit-template.ps1: $($missingFunctions -join ', ')"
         $script:CriticalErrors += $errorMsg
     }
 

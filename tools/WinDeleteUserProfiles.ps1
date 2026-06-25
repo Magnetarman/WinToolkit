@@ -637,7 +637,7 @@ function WinDeleteUserProfiles {
 
             Write-Host ''
             Write-Host '====================================================' -ForegroundColor Green
-            Write-Host ' COMPLETATO'
+            Write-Host ' COMPLETED'
             Write-Host '====================================================' -ForegroundColor Green
             Write-Host ''
             Write-StyledMessage -Type 'Success' -Text ("✅ Profili registrati rimossi: {0}" -f $profileSuccessCount)

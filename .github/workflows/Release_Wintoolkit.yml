@@ -127,8 +127,8 @@ jobs:
             "README.md",
             "CHANGELOG.md",
             "LICENSE",
-            "img/",
-            "asset/",
+            "images/",
+            "assets/",
             ".github/ISSUE_TEMPLATE/bug_report.yml",
             ".github/ISSUE_TEMPLATE/feature_request.yml",
             ".github/workflows/Release_Wintoolkit.yml",
@@ -143,10 +143,10 @@ jobs:
             exit 1
           }
 
-          # Esclusione specifica della cartella png in asset
-          if (Test-Path -Path 'asset/png') {
-            Write-Host "🗑️ Rimoziene cartella asset/png esclusa dal rilascio..."
-            Remove-Item -Recurse -Force 'asset/png'
+          # Esclusione specifica della cartella png in assets
+          if (Test-Path -Path 'assets/png') {
+            Write-Host "🗑️ Rimoziene cartella assets/png esclusa dal rilascio..."
+            Remove-Item -Recurse -Force 'assets/png'
           }
 
       - name: Commit delle Modifiche
@@ -158,8 +158,8 @@ jobs:
             "README.md",
             "CHANGELOG.md",
             "LICENSE",
-            "img/",
-            "asset/",
+            "images/",
+            "assets/",
             ".github/ISSUE_TEMPLATE/bug_report.yml",
             ".github/ISSUE_TEMPLATE/feature_request.yml",
             ".github/workflows/Release_Wintoolkit.yml",
