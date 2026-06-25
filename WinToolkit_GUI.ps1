@@ -23,12 +23,12 @@ $Global:GuiVersion = "3.0.0 (Build 7)"  # Format: CoreVersion.GuiBuildNumber
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
 # =============================================================================
-$ScriptTitle = "WinToolkit GUI Edition By MagnetarMan"
+$ScriptTitle = "WinToolkit GUI Edition by MagnetarMan"
 $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
 $WindowWidth = 1280     # HD ready resolution in 16:9.
 $WindowHeight = 720     # HD ready resolution in 16:9.
 $FontFamily = "JetBrains Mono Nerd Font, Cascadia Code, Consolas, Courier New"
-$FontSize = @{Small = 14; Medium = 16; Large = 18; Title = 20; Header = 28; ButtonSmall = 11 }
+$FontSize = @{Small = 14; Medium = 16; Large = 18; Title = 20; Header = 28}
 
 # Emoji mappings for GUI elements
 $emojiMappings = @{
@@ -110,6 +110,7 @@ $SysInfoComputerName = $null
 $SysInfoRAM = $null
 $SysInfoDisk = $null
 $SysInfoScriptCompatibility = $null
+$SysInfoScriptCompatibilityImage = $null
 $SysInfoBitlocker = $null
 $progressBar = $null
 $actionsPanel = $null
@@ -923,8 +924,8 @@ $xaml = @"
                         Margin="16,0,0,0" Style="{StaticResource SmallButtonStyle}">
                     <StackPanel Orientation="Horizontal">
                         <Image x:Name="SendErrorLogsImage" Width="28" Height="28" Margin="0,0,8,0"/>
-                        <TextBlock Text="Invia Log Errori" VerticalAlignment="Center"
-                                   FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="$($FontSize.ButtonSmall)"/>
+                        <TextBlock Text="Invia log errori" VerticalAlignment="Center"
+                                   FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="$($FontSize.Small)"/>
                     </StackPanel>
                 </Button>
             </Grid>
@@ -944,9 +945,9 @@ $xaml = @"
 
                 <!-- Blocco 1: Windows Info (Label azzurre a sinistra, valori bianchi a destra) -->
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
-                    <TextBlock Text="▬▬ INFORMAZIONI SISTEMA ▬▬"
+                    <TextBlock Text="▬▬ Informazioni di sistema ▬▬"
                                Foreground="{StaticResource LabelBlue}"
-                               FontSize="$($FontSize.Small)" FontWeight="Bold"
+                               FontSize="$($FontSize.Medium)" FontWeight="Bold"
                                FontFamily="{StaticResource PrimaryFont}"
                                Margin="0,0,0,12" TextAlignment="Left"/>
 
@@ -958,7 +959,7 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoEditionImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="Edizione Windows:" Foreground="{StaticResource LabelBlue}"
+                            <TextBlock Text="Edizione Windows: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoEdition" Text="Caricamento."
@@ -975,7 +976,7 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoVersionImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="Versione:" Foreground="{StaticResource LabelBlue}"
+                            <TextBlock Text="Versione: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoVersion" Text="Caricamento."
@@ -992,7 +993,7 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoArchitectureImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="Architettura:" Foreground="{StaticResource LabelBlue}"
+                            <TextBlock Text="Architettura: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoArchitecture" Text="Caricamento."
@@ -1017,7 +1018,9 @@ $xaml = @"
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Funzionalità Script"
+                            <Image x:Name="SysInfoScriptCompatibilityImage" Width="14" Height="14" Margin="0,0,5,0"
+                                   VerticalAlignment="Center"/>
+                            <TextBlock Text="Funzionalità script: "
                                        Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontWeight="Bold"
                                        FontFamily="{StaticResource PrimaryFont}"
@@ -1038,14 +1041,14 @@ $xaml = @"
                         <Image x:Name="BitlockerImage" Width="14" Height="14" Margin="0,0,5,0"
                                VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Stato Bitlocker"
+                            <TextBlock Text="Stato Bitlocker: "
                                        Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontWeight="Bold"
                                        FontFamily="{StaticResource PrimaryFont}"
                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock x:Name="SysInfoBitlocker" Text="Verifica."
                                        Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Small)"
-                                       FontFamily="{StaticResource PrimaryFont}"
+                                       FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                     </Grid>
@@ -1057,9 +1060,9 @@ $xaml = @"
 
                 <!-- Blocco 3: Hardware Info (Allineamento speculare al blocco 1) -->
                 <StackPanel Grid.Column="4" Margin="20,0,0,0">
-                    <TextBlock Text="▬▬ HARDWARE ▬▬"
+                    <TextBlock Text="▬▬ Hardware ▬▬"
                                Foreground="{StaticResource LabelBlue}"
-                               FontSize="$($FontSize.Small)" FontWeight="Bold"
+                               FontSize="$($FontSize.Medium)" FontWeight="Bold"
                                FontFamily="{StaticResource PrimaryFont}"
                                Margin="0,0,0,12" TextAlignment="Right"/>
 
@@ -1071,7 +1074,7 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoComputerNameImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="Nome PC:" Foreground="{StaticResource LabelBlue}"
+                            <TextBlock Text="Nome PC: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoComputerName" Text="Caricamento."
@@ -1088,7 +1091,7 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoRAMImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="RAM:" Foreground="{StaticResource LabelBlue}"
+                            <TextBlock Text="RAM: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoRAM" Text="Caricamento."
@@ -1105,7 +1108,7 @@ $xaml = @"
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Image x:Name="SysInfoDiskImage" Width="16" Height="16" Margin="0,0,5,0"/>
-                            <TextBlock Text="Disco:" Foreground="{StaticResource LabelBlue}"
+                            <TextBlock Text="Disco: " Foreground="{StaticResource LabelBlue}"
                                        FontSize="$($FontSize.Small)" FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" x:Name="SysInfoDisk" Text="Caricamento."
@@ -1137,7 +1140,7 @@ $xaml = @"
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                         <Image x:Name="CategorySystemImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
-                        <TextBlock Text="Funzioni Disponibili"
+                        <TextBlock Text="Funzioni disponibili"
                                    Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Large)"
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                    VerticalAlignment="Center"/>
@@ -1162,7 +1165,7 @@ $xaml = @"
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                         <Image x:Name="OutputLogImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
-                        <TextBlock Text="Output e Log"
+                        <TextBlock Text="Output e log"
                                    Foreground="{StaticResource TextColor}" FontSize="$($FontSize.Large)"
                                    FontWeight="Bold" FontFamily="{StaticResource PrimaryFont}"
                                    VerticalAlignment="Center"/>
@@ -1212,7 +1215,7 @@ $xaml = @"
                         Style="{StaticResource PillButtonStyle}">
                     <StackPanel Orientation="Horizontal">
                         <Image x:Name="ExecuteButtonImage" Width="20" Height="20" Margin="0,0,8,0"/>
-                        <TextBlock Text="Esegui Script" VerticalAlignment="Center"/>
+                        <TextBlock Text="Esegui script" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </StackPanel>
@@ -1264,6 +1267,7 @@ $SysInfoComputerName = $window.FindName("SysInfoComputerName")
 $SysInfoRAM = $window.FindName("SysInfoRAM")
 $SysInfoDisk = $window.FindName("SysInfoDisk")
 $SysInfoScriptCompatibility = $window.FindName("SysInfoScriptCompatibility")
+$SysInfoScriptCompatibilityImage = $window.FindName("SysInfoScriptCompatibilityImage")
 $SysInfoBitlocker = $window.FindName("SysInfoBitlocker")
 $BitlockerImage = $window.FindName("BitlockerImage")
 $SysInfoEditionImage = $window.FindName("SysInfoEditionImage")
@@ -1379,7 +1383,7 @@ function Update-SystemInformationPanel {
                 $SysInfoArchitecture.Text = $sysInfo.Architecture
                 $SysInfoComputerName.Text = $sysInfo.ComputerName
                 $SysInfoRAM.Text = "$($sysInfo.TotalRAM) GB"
-                $SysInfoDisk.Text = "$($sysInfo.FreePercentage)% Libero ($($sysInfo.FreeDisk) GB / $($sysInfo.TotalDisk) GB)"
+                $SysInfoDisk.Text = "$($sysInfo.FreePercentage)% libero ($($sysInfo.FreeDisk) GB / $($sysInfo.TotalDisk) GB)"
 
                 # Set image sources
                 try {
@@ -1400,25 +1404,36 @@ function Update-SystemInformationPanel {
 
                 # Task 2: Compatibility indicator con status text colorato
                 $statusText = ""
+                $statusIconKey = "LEDStatusRed"
 
                 if ($sysInfo.BuildNumber -ge 22000) {
                     $statusText = "Completa"
+                    $statusIconKey = "LEDStatusGreen"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                 }
                 elseif ($sysInfo.BuildNumber -ge 17763) {
                     $statusText = "Completa"
+                    $statusIconKey = "LEDStatusGreen"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                 }
                 elseif ($sysInfo.BuildNumber -ge 10240) {
                     $statusText = "Limitata"
+                    $statusIconKey = "LEDStatusYellow"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
                 }
                 else {
                     $statusText = "Non supportata"
+                    $statusIconKey = "LEDStatusRed"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                 }
 
                 $SysInfoScriptCompatibility.Text = $statusText
+                if ($SysInfoScriptCompatibilityImage) {
+                    $statusIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings[$statusIconKey]
+                    if ($statusIconPath -and (Test-Path $statusIconPath)) {
+                        $SysInfoScriptCompatibilityImage.Source = New-Object System.Windows.Media.Imaging.BitmapImage([uri]$statusIconPath)
+                    }
+                }
 
                 # Aggiorna stato Bitlocker
                 try {
