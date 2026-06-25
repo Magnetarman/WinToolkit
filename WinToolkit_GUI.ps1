@@ -170,7 +170,9 @@ function Get-AvailableToolkitLanguages {
     $languageDir = Get-ToolkitLanguageDirectory
     if (-not (Test-Path $languageDir)) { return @() }
 
-    Get-ChildItem -Path $languageDir -Filter '*.json' -File -ErrorAction SilentlyContinue | ForEach-Object {
+    Get-ChildItem -Path $languageDir -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Extension -eq '.json' } |
+    ForEach-Object {
         try {
             $data = Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
             [pscustomobject]@{
@@ -190,8 +192,10 @@ function Import-ToolkitLanguageFile {
     param([string]$LanguageCode)
 
     $languageDir = Get-ToolkitLanguageDirectory
-    $languageFile = Join-Path $languageDir "$LanguageCode.json"
-    if (-not (Test-Path $languageFile)) { return $null }
+    $languageFile = @(
+        (Join-Path $languageDir "$LanguageCode.json")
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $languageFile) { return $null }
 
     return (Get-Content -LiteralPath $languageFile -Raw -Encoding UTF8 | ConvertFrom-Json)
 }

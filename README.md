@@ -85,6 +85,10 @@ irm https://magnetarman.com/winstart-dev | iex
 irm https://magnetarman.com/Wintoolkit-gui | iex
 ```
 
+## 🌐 Languages
+
+WinToolkit loads every JSON language file found in the `languages` folder. To add a new language, copy the schema from `en-US.json` or `it-IT.json`, translate the `strings` values, and save it as `xx-XX.json`. The `code` value inside the file must match the file name, for example `fr-FR.json` with `"code": "fr-FR"`.
+
 ---
 
 ## 👾 Components
