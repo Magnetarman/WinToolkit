@@ -87,7 +87,7 @@ irm https://magnetarman.com/Wintoolkit-gui | iex
 
 ## 🌐 Languages
 
-WinToolkit loads every JSON language file found in the `languages` folder. To add a new language, copy the schema from `en-US.json` or `it-IT.json`, translate the `strings` values, and save it as `xx-XX.json`. The `code` value inside the file must match the file name, for example `fr-FR.json` with `"code": "fr-FR"`.
+WinToolkit uses the PowerShell 7 script internationalization layout. To add a new language, create a culture folder under `languages`, for example `languages\fr-FR`, then add `WinToolkit.psd1` inside it. Copy the schema from `languages\en-US\WinToolkit.psd1` or `languages\it-IT\WinToolkit.psd1`, translate the values, and keep `language.code` aligned with the folder name.
 
 ---
 

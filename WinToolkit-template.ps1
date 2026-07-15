@@ -193,15 +193,15 @@ function Get-AvailableToolkitLanguages {
     $languageDir = Get-ToolkitLanguageDirectory
     if (-not (Test-Path $languageDir)) { return @() }
 
-    Get-ChildItem -Path $languageDir -File -ErrorAction SilentlyContinue |
-    Where-Object { $_.Extension -eq '.json' } |
+    Get-ChildItem -Path $languageDir -Directory -ErrorAction SilentlyContinue |
+    Where-Object { Test-Path (Join-Path $_.FullName 'WinToolkit.psd1') } |
     ForEach-Object {
         try {
-            $data = Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+            $data = Import-ToolkitLanguageFile -LanguageCode $_.Name
             [pscustomobject]@{
-                Code       = $data.code
-                Name       = $data.name
-                NativeName = $data.nativeName
+                Code       = if ($data.ContainsKey('language.code')) { $data['language.code'] } else { $_.Name }
+                Name       = if ($data.ContainsKey('language.name')) { $data['language.name'] } else { $_.Name }
+                NativeName = if ($data.ContainsKey('language.nativeName')) { $data['language.nativeName'] } else { $_.Name }
                 Path       = $_.FullName
             }
         }
@@ -215,12 +215,14 @@ function Import-ToolkitLanguageFile {
     param([string]$LanguageCode)
 
     $languageDir = Get-ToolkitLanguageDirectory
-    $languageFile = @(
-        (Join-Path $languageDir "$LanguageCode.json")
-    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if (-not $languageFile) { return $null }
-
-    return (Get-Content -LiteralPath $languageFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+    try {
+        $localizedData = $null
+        Import-LocalizedData -BindingVariable localizedData -BaseDirectory $languageDir -FileName 'WinToolkit.psd1' -UICulture $LanguageCode -ErrorAction Stop
+        return $localizedData
+    }
+    catch {
+        return $null
+    }
 }
 
 function Set-ToolkitLanguage {
@@ -248,11 +250,11 @@ function Get-Loc {
     )
 
     $value = $null
-    if ($Global:ToolkitLanguageData -and $Global:ToolkitLanguageData.strings.PSObject.Properties.Name -contains $Key) {
-        $value = [string]$Global:ToolkitLanguageData.strings.$Key
+    if ($Global:ToolkitLanguageData -and $Global:ToolkitLanguageData.ContainsKey($Key)) {
+        $value = [string]$Global:ToolkitLanguageData[$Key]
     }
-    elseif ($Global:ToolkitDefaultLanguageData -and $Global:ToolkitDefaultLanguageData.strings.PSObject.Properties.Name -contains $Key) {
-        $value = [string]$Global:ToolkitDefaultLanguageData.strings.$Key
+    elseif ($Global:ToolkitDefaultLanguageData -and $Global:ToolkitDefaultLanguageData.ContainsKey($Key)) {
+        $value = [string]$Global:ToolkitDefaultLanguageData[$Key]
     }
     else {
         $value = $Key
