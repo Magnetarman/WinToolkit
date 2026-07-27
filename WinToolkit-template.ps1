@@ -8,7 +8,7 @@
     Autore: MagnetarMan
 #>
 
-param([int]$CountdownSeconds = 30, [switch]$ImportOnly)
+param([int]$CountdownSeconds = 30, [switch]$ImportOnly, [string]$Language = 'en-US')
 
 # ==============================================================================
 # SEZIONE 1 · BOOTSTRAP
@@ -94,22 +94,22 @@ $ToolkitVersion = "2.5.4 (Build 47)"
 
 $AppConfig = @{
     URLs            = @{
-        GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/"
-        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/"
+        GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/"
+        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/assets/"
 
         # Office
-        OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Setup.exe"
-        OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/Basic.xml"
+        OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/Setup.exe"
+        OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/Basic.xml"
         GetHelpInstaller      = "https://aka.ms/SaRA_EnterpriseVersionFiles"
 
         # Video Driver
         AMDInstaller          = "https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.5.2-minimalsetup-260513_web.exe"
-        NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/NVCleanstall_1.19.0.exe"
-        DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/DDU.zip"
-        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/asset/DriverOverrides.json"
+        NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/NVCleanstall_1.19.0.exe"
+        DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/DDU.zip"
+        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/assets/DriverOverrides.json"
 
         # Gaming
-        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/asset/dxwebsetup.exe"
+        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/dxwebsetup.exe"
         BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
 
         # 7-Zip
@@ -175,6 +175,284 @@ $Global:MsgStyles = @{
 }
 $Global:ExecutionLog = @()
 $Global:NeedsFinalReboot = $false
+$Global:ToolkitLanguage = 'en-US'
+$Global:ToolkitLanguageData = $null
+$Global:ToolkitDefaultLanguageData = $null
+
+function Get-ToolkitLanguageDirectory {
+    $candidate = Join-Path $PSScriptRoot 'languages'
+    if (Test-Path $candidate) { return $candidate }
+
+    $repoCandidate = Join-Path (Get-Location) 'languages'
+    if (Test-Path $repoCandidate) { return $repoCandidate }
+
+    return $candidate
+}
+
+function Get-AvailableToolkitLanguages {
+    $languageDir = Get-ToolkitLanguageDirectory
+    if (-not (Test-Path $languageDir)) { return @() }
+
+    Get-ChildItem -Path $languageDir -Directory -ErrorAction SilentlyContinue |
+    Where-Object { Test-Path (Join-Path $_.FullName 'WinToolkit.psd1') } |
+    ForEach-Object {
+        try {
+            $data = Import-ToolkitLanguageFile -LanguageCode $_.Name
+            [pscustomobject]@{
+                Code       = if ($data.ContainsKey('language.code')) { $data['language.code'] } else { $_.Name }
+                Name       = if ($data.ContainsKey('language.name')) { $data['language.name'] } else { $_.Name }
+                NativeName = if ($data.ContainsKey('language.nativeName')) { $data['language.nativeName'] } else { $_.Name }
+                Path       = $_.FullName
+            }
+        }
+        catch {
+            Write-Verbose "Invalid language file '$($_.FullName)': $($_.Exception.Message)"
+        }
+    } | Sort-Object Code
+}
+
+function Import-ToolkitLanguageFile {
+    param([string]$LanguageCode)
+
+    $languageDir = Get-ToolkitLanguageDirectory
+    try {
+        $localizedData = $null
+        Import-LocalizedData -BindingVariable localizedData -BaseDirectory $languageDir -FileName 'WinToolkit.psd1' -UICulture $LanguageCode -ErrorAction Stop
+        return $localizedData
+    }
+    catch {
+        return $null
+    }
+}
+
+function Set-ToolkitLanguage {
+    param([string]$LanguageCode = 'en-US')
+
+    $defaultData = Import-ToolkitLanguageFile -LanguageCode 'en-US'
+    if ($defaultData) { $Global:ToolkitDefaultLanguageData = $defaultData }
+
+    $languageData = Import-ToolkitLanguageFile -LanguageCode $LanguageCode
+    if (-not $languageData) {
+        $LanguageCode = 'en-US'
+        $languageData = $defaultData
+    }
+
+    if ($languageData) {
+        $Global:ToolkitLanguage = $LanguageCode
+        $Global:ToolkitLanguageData = $languageData
+    }
+}
+
+function Get-Loc {
+    param(
+        [Parameter(Mandatory = $true)][string]$Key,
+        [object[]]$Args = @()
+    )
+
+    $value = $null
+    if ($Global:ToolkitLanguageData -and $Global:ToolkitLanguageData.ContainsKey($Key)) {
+        $value = [string]$Global:ToolkitLanguageData[$Key]
+    }
+    elseif ($Global:ToolkitDefaultLanguageData -and $Global:ToolkitDefaultLanguageData.ContainsKey($Key)) {
+        $value = [string]$Global:ToolkitDefaultLanguageData[$Key]
+    }
+    else {
+        $value = $Key
+    }
+
+    if ($Args -and $Args.Count -gt 0) { return [string]::Format($value, $Args) }
+    return $value
+}
+
+function Convert-ToolkitSourceText {
+    param([string]$Text)
+
+    if ([string]::IsNullOrWhiteSpace($Text) -or $Global:ToolkitLanguage -eq 'it-IT') { return $Text }
+
+    $translated = $Text
+    $replacements = [ordered]@{
+        'Errore durante' = 'Error during'
+        'Errore critico' = 'Critical error'
+        'Errore imprevisto' = 'Unexpected error'
+        'Errore sconosciuto' = 'Unknown error'
+        'Avvio installazione' = 'Starting installation'
+        'Avvio riparazione' = 'Starting repair'
+        'Avvio rimozione' = 'Starting removal'
+        'Avvio processo' = 'Starting process'
+        'Avvio servizio' = 'Starting service'
+        'Avvio ' = 'Starting '
+        'Attesa avvio' = 'Waiting for startup'
+        'Caricamento moduli' = 'Loading modules'
+        'Installazione' = 'Installation'
+        'Installato' = 'Installed'
+        'Disinstallazione' = 'Uninstallation'
+        'Riparazione' = 'Repair'
+        'Rimozione' = 'Removal'
+        'Pulizia' = 'Cleanup'
+        'Eliminazione' = 'Deleting'
+        'Verifica' = 'Checking'
+        'Validazione' = 'Validation'
+        'Rilevamento' = 'Detecting'
+        'Configurazione' = 'Configuration'
+        'Abilitazione' = 'Enabling'
+        'Riabilitazione' = 'Re-enabling'
+        'Aggiornamento' = 'Updating'
+        'Ripristino' = 'Restoring'
+        'Reinstallazione' = 'Reinstallation'
+        'Preparazione' = 'Preparing'
+        'Estrazione' = 'Extracting'
+        'Ricerca' = 'Searching'
+        'Arresto' = 'Stopping'
+        'Riavvio del sistema' = 'System restart'
+        'Riavvio individuale soppresso' = 'Individual restart suppressed'
+        'Verrà gestito un riavvio finale' = 'A final restart will be handled'
+        'Riavvio non necessario' = 'Restart not required'
+        'Riavvio necessario' = 'Restart required'
+        'Riavvio sistema' = 'System restart'
+        'Riavvio in' = 'Restart in'
+        ' tra ' = ' in '
+        'Premi un tasto per continuare' = 'Press any key to continue'
+        'Premere un tasto per uscire' = 'Press any key to exit'
+        'Premi un tasto qualsiasi per annullare' = 'Press any key to cancel'
+        'Completato' = 'Completed'
+        'completata' = 'completed'
+        'completati' = 'completed'
+        'terminato' = 'finished'
+        'fallito' = 'failed'
+        'fallita' = 'failed'
+        'falliti' = 'failed'
+        'annullata' = 'cancelled'
+        'annullato' = 'cancelled'
+        'già presente' = 'already present'
+        'non presente' = 'not present'
+        'non trovato' = 'not found'
+        'non trovata' = 'not found'
+        'Nessuna riparazione necessaria' = 'No repair required'
+        'non disponibile' = 'not available'
+        'non accessibili' = 'not accessible'
+        'Impossibile' = 'Unable to'
+        'Avviso' = 'Warning'
+        'Attenzione' = 'Warning'
+        'Suggerimento' = 'Tip'
+        'Nota' = 'Note'
+        'Trovati' = 'Found'
+        'Rimosso' = 'Removed'
+        'Rimossi' = 'Removed'
+        'rimosse' = 'removed'
+        'eliminata' = 'deleted'
+        'eliminati' = 'deleted'
+        'eliminato' = 'deleted'
+        'rilevata' = 'detected'
+        'rilevato' = 'detected'
+        'scaricato' = 'downloaded'
+        'scaricata' = 'downloaded'
+        'scaricare' = 'download'
+        'scarica' = 'download'
+        'creato' = 'created'
+        'creata' = 'created'
+        'attivato' = 'enabled'
+        'attiva' = 'enabled'
+        'abilitato' = 'enabled'
+        'abilitati' = 'enabled'
+        'configurato' = 'configured'
+        'configurata' = 'configured'
+        'ripristinate' = 'restored'
+        'ripristinato' = 'restored'
+        'reimpostato' = 'reset'
+        'avviato' = 'started'
+        'arrestato' = 'stopped'
+        'in uso' = 'in use'
+        'in corso' = 'in progress'
+        'può richiedere alcuni minuti' = 'may take a few minutes'
+        'può impiegare 1-2 minuti' = 'may take 1-2 minutes'
+        'cartella' = 'folder'
+        'cartelle' = 'folders'
+        'Directory' = 'Directory'
+        'chiavi registro' = 'registry keys'
+        'chiave di registro' = 'registry key'
+        'registro' = 'registry'
+        'collegamenti' = 'shortcuts'
+        'attività' = 'tasks'
+        'attività pianificate' = 'scheduled tasks'
+        'criteri di gruppo' = 'group policies'
+        'criteri locali' = 'local policies'
+        'Criteri' = 'Policies'
+        'sorgenti' = 'sources'
+        'pacchetto' = 'package'
+        'pacchetti' = 'packages'
+        'Versione' = 'Version'
+        'configurazione GPU' = 'GPU configuration'
+        'GPU rilevata' = 'Detected GPU'
+        'GPU non rilevata' = 'GPU not detected'
+        'driver non disponibile per l''installazione automatica' = 'driver not available for automatic installation'
+        'modalità provvisoria' = 'Safe Mode'
+        'modalità normale' = 'normal mode'
+        'prossimo avvio' = 'next boot'
+        'sistema' = 'system'
+        'servizio' = 'service'
+        'servizi' = 'services'
+        'Stato' = 'Status'
+        'Avvio:' = 'Startup:'
+        'codice' = 'code'
+        'Codice uscita' = 'Exit code'
+        'Eccezione' = 'Exception'
+        'Tentativo' = 'Attempt'
+        'Riepilogo' = 'Summary'
+        'operazione' = 'operation'
+        'modifiche' = 'changes'
+        'valori predefiniti' = 'default values'
+        'driver video' = 'video driver'
+        'operazioni pendenti' = 'pending operations'
+        'operazioni in sospeso' = 'pending operations'
+        'Questo non è un errore critico' = 'This is not a critical error'
+        'Proseguo comunque' = 'Continuing anyway'
+        'Annullamento' = 'Cancelling'
+        'metodo alternativo' = 'alternative method'
+        'finestra esterna' = 'external window'
+        'Attesa completamento' = 'Waiting for completion'
+        'metodo forzato' = 'forced method'
+        'file ignorati perché in uso o non accessibili' = 'files skipped because they are in use or not accessible'
+        'Rilevate operazioni pendenti che richiedono riavvio' = 'Pending operations requiring a restart detected'
+        'DISM potrebbe fallire' = 'DISM may fail'
+        'Sistema in salute' = 'System is healthy'
+        'Riparazione profonda non necessaria' = 'Deep repair not required'
+        'riparazione profonda' = 'deep repair'
+        'controllo schedulato al prossimo riavvio' = 'check scheduled at next restart'
+    }
+
+    foreach ($entry in $replacements.GetEnumerator()) {
+        $translated = [regex]::Replace($translated, [regex]::Escape([string]$entry.Key), [string]$entry.Value, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    }
+
+    return $translated
+}
+
+function Get-ToolkitMenuText {
+    param([object]$Item)
+
+    if ($Item -is [System.Collections.IDictionary]) {
+        if ($Item.Contains('DescriptionKey') -and $Item['DescriptionKey']) {
+            return (Get-Loc $Item['DescriptionKey'])
+        }
+        if ($Item.Contains('CategoryKey') -and $Item['CategoryKey']) {
+            return (Get-Loc $Item['CategoryKey'])
+        }
+        if ($Item.Contains('Description')) { return $Item['Description'] }
+        if ($Item.Contains('Name')) { return $Item['Name'] }
+    }
+
+    if ($Item.PSObject.Properties.Name -contains 'DescriptionKey' -and $Item.DescriptionKey) {
+        return (Get-Loc $Item.DescriptionKey)
+    }
+    if ($Item.PSObject.Properties.Name -contains 'CategoryKey' -and $Item.CategoryKey) {
+        return (Get-Loc $Item.CategoryKey)
+    }
+    if ($Item.PSObject.Properties.Name -contains 'Description') { return $Item.Description }
+    if ($Item.PSObject.Properties.Name -contains 'Name') { return $Item.Name }
+    return [string]$Item
+}
+
+Set-ToolkitLanguage -LanguageCode $Language
 
 
 # ==============================================================================
@@ -211,12 +489,13 @@ function Write-StyledMessage {
     )
     $style = $Global:MsgStyles[$Type]
     $timestamp = Get-Date -Format "HH:mm:ss"
-    Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color -NoNewline:$NoNewline
+    $displayText = Convert-ToolkitSourceText -Text $Text
+    Write-Host "[$timestamp] $($style.Icon) $displayText" -ForegroundColor $style.Color -NoNewline:$NoNewline
 
     $logLevel = switch ($Type) {
         'Success' { 'SUCCESS' } 'Warning' { 'WARNING' } 'Error' { 'ERROR' } default { 'INFO' }
     }
-    Write-ToolkitLog -Level $logLevel -Message $Text
+    Write-ToolkitLog -Level $logLevel -Message $displayText
 }
 
 function Show-ProgressBar {
@@ -229,8 +508,10 @@ function Show-ProgressBar {
     $filled = '█' * [math]::Floor($safePercent * 30 / 100)
     $empty = '░' * (30 - $filled.Length)
     $bar = "[$filled$empty] {0,3}%" -f $safePercent
+    $displayActivity = Convert-ToolkitSourceText -Text $Activity
+    $displayStatus = Convert-ToolkitSourceText -Text $Status
     if (-not $Global:GuiSessionActive) {
-        Write-Host "`r$Spinner $Icon $Activity $bar $Status" -NoNewline -ForegroundColor $Color
+        Write-Host "`r$Spinner $Icon $displayActivity $bar $displayStatus" -NoNewline -ForegroundColor $Color
         if ($Percent -ge 100) { Write-Host '' }
     }
 }
@@ -496,13 +777,40 @@ function Get-SystemInfo {
     catch { return $null }
 }
 
+function Convert-BitlockerStatusToKey {
+    param([string]$StatusText)
+
+    if ([string]::IsNullOrWhiteSpace($StatusText)) { return 'bitlocker.status.notConfigured' }
+
+    $normalized = $StatusText.Trim().ToLowerInvariant()
+    if ($normalized -match 'decritt|decrypt') { return 'bitlocker.status.decrypting' }
+    if ($normalized -match 'crittografia in corso|encrypt') { return 'bitlocker.status.encrypting' }
+    if ($normalized -match 'sospes|suspend') { return 'bitlocker.status.suspended' }
+    if ($normalized -match 'non configur|not configured') { return 'bitlocker.status.notConfigured' }
+    if ($normalized -match 'disattiv|protection off|off|disabled') { return 'bitlocker.status.off' }
+    if ($normalized -match 'attiv|protection on|on|enabled') { return 'bitlocker.status.on' }
+
+    return 'bitlocker.status.unknown'
+}
+
 function Get-BitlockerStatus {
+    param([switch]$Key)
+
     try {
         $out = & manage-bde -status C: 2>&1
-        if ($out -match "Stato protezione:\s*(.*)") { return $matches[1].Trim() }
-        return "Non configurato"
+        $statusText = $null
+        if ($out -match "(?im)^\s*(Stato protezione|Protection Status):\s*(.*)$") {
+            $statusText = $matches[2].Trim()
+        }
+
+        $statusKey = Convert-BitlockerStatusToKey -StatusText $statusText
+        if ($Key) { return $statusKey }
+        return (Get-Loc $statusKey)
     }
-    catch { return "Disattivato" }
+    catch {
+        if ($Key) { return 'bitlocker.status.off' }
+        return (Get-Loc 'bitlocker.status.off')
+    }
 }
 
 
@@ -1748,11 +2056,11 @@ function Test-WindowsUpdateStatus {
             Write-Host (Center-Text "⚠️  AVVISO IMPORTANTE ⚠️") -ForegroundColor Yellow
             Write-Host ""
             Write-Host " Sono stati rilevati aggiornamenti di sistema pendenti:" -ForegroundColor Yellow
-            if ($pendingReboot) { Write-Host "  ✓ Riavvio del sistema richiesto per completare aggiornamenti" -ForegroundColor Yellow }
-            if ($installerRunning) { Write-Host "  ✓ Servizio installazione aggiornamenti Windows in corso" -ForegroundColor Yellow }
+            if ($pendingReboot) { Write-Host "  ✓ System restart required to complete updates" -ForegroundColor Yellow }
+            if ($installerRunning) { Write-Host "  ✓ Windows update installation service is running" -ForegroundColor Yellow }
             Write-Host ""
             Write-Host " Questo potrebbe causare malfunzionamenti, errori o comportamenti" -ForegroundColor Yellow
-            Write-Host " imprevisti in alcune o tutte le funzionalità di WinToolkit." -ForegroundColor Yellow
+            Write-Host " unexpected behavior in some or all WinToolkit features." -ForegroundColor Yellow
             Write-Host ""
             Write-Host (Center-Text "⚠️  PROCEDERE CON CAUTELA ⚠️") -ForegroundColor Red
             Write-Host ""
@@ -1852,7 +2160,7 @@ function VcardAnalizer {
         [string]$OverridesPath
     )
 
-    $assetCacheDir = Join-Path $AppConfig.Paths.Root 'asset'
+    $assetCacheDir = Join-Path $AppConfig.Paths.Root 'assets'
     if (-not (Test-Path $assetCacheDir)) {
         $null = New-Item -Path $assetCacheDir -ItemType Directory -Force
     }
@@ -1978,7 +2286,7 @@ function VcardAnalizer {
 
 # ==============================================================================
 # SEZIONE 12 · PLACEHOLDER COMPILATORE
-# Stub vuoti sostituiti dal compiler.ps1 con i contenuti di /tool/*.ps1.
+# Stub vuoti sostituiti dal compiler.ps1 con i contenuti di /tools/*.ps1.
 # Ordine: Windows → Office → Driver/Gaming → Supporto (segue $menuStructure).
 # ==============================================================================
 
@@ -1991,6 +2299,7 @@ function WinDriverInstall {}
 function WinDebloat {}
 function WinCleaner {}
 function DisableBitlocker {}
+function WinDeleteUserProfiles {}
 
 # Office
 function Install-Office {}
@@ -2012,29 +2321,30 @@ function WinExportLog {}
 # ==============================================================================
 
 $menuStructure = @(
-    @{ 'Name' = 'Windows'; 'Icon' = '🔧'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'WinRepairToolkit'; Description = 'Riparazione Windows'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; Action = 'RunFunction' }
+    @{ 'Name' = 'Windows'; 'CategoryKey' = 'category.windows'; 'Icon' = '🔧'; 'Scripts' = @(
+            [pscustomobject]@{Name = 'WinRepairToolkit'; Description = 'Riparazione Windows'; DescriptionKey = 'script.WinRepairToolkit'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinUpdateReset'; Description = 'Reset Windows Update'; DescriptionKey = 'script.WinUpdateReset'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinReinstallStore'; Description = 'Winget/WinStore Reset'; DescriptionKey = 'script.WinReinstallStore'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinBackupDriver'; Description = 'Backup Driver PC'; DescriptionKey = 'script.WinBackupDriver'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinCleaner'; Description = 'Pulizia File Temporanei'; DescriptionKey = 'script.WinCleaner'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'DisableBitlocker'; Description = 'Disabilita Bitlocker'; DescriptionKey = 'script.DisableBitlocker'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'WinDeleteUserProfiles'; Description = 'Cancella profili utenti di Windows'; DescriptionKey = 'script.WinDeleteUserProfiles'; Action = 'RunFunction' }
         )
     },
-    @{ 'Name' = 'Office'; 'Icon' = '🏢'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'Install-Office'; Description = 'Installa Office Basic'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'Repair-Office'; Description = 'Ripara Office'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'Uninstall-Office'; Description = 'Rimuovi Office'; Action = 'RunFunction' }
+    @{ 'Name' = 'Office'; 'CategoryKey' = 'category.office'; 'Icon' = '🏢'; 'Scripts' = @(
+            [pscustomobject]@{Name = 'Install-Office'; Description = 'Installa Office Basic'; DescriptionKey = 'script.Install-Office'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'Repair-Office'; Description = 'Ripara Office'; DescriptionKey = 'script.Repair-Office'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'Uninstall-Office'; Description = 'Rimuovi Office'; DescriptionKey = 'script.Uninstall-Office'; Action = 'RunFunction' }
         )
     },
-    @{ 'Name' = 'Driver & Gaming'; 'Icon' = '🎮'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'AutoVideoDriverInstall'; Description = 'Auto Install Driver Video [Nvidia-AMD]'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'VideoDriverReinstall'; Description = 'Reinstalla Driver Video'; Action = 'RunFunction' },
-            [pscustomobject]@{Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; Action = 'RunFunction' }
+    @{ 'Name' = 'Driver & Gaming'; 'CategoryKey' = 'category.driverGaming'; 'Icon' = '🎮'; 'Scripts' = @(
+            [pscustomobject]@{Name = 'AutoVideoDriverInstall'; Description = 'Auto Install Driver Video [Nvidia-AMD]'; DescriptionKey = 'script.AutoVideoDriverInstall'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'VideoDriverReinstall'; Description = 'Reinstalla Driver Video'; DescriptionKey = 'script.VideoDriverReinstall'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'GamingToolkit'; Description = 'Gaming Toolkit'; DescriptionKey = 'script.GamingToolkit'; Action = 'RunFunction' }
         )
     },
-    @{ 'Name' = 'Supporto'; 'Icon' = '🕹️'; 'Scripts' = @(
-            [pscustomobject]@{Name = 'WinExportLog'; Description = 'Esporta Log WinToolkit'; Action = 'RunFunction' }
+    @{ 'Name' = 'Supporto'; 'CategoryKey' = 'category.support'; 'Icon' = '🕹️'; 'Scripts' = @(
+            [pscustomobject]@{Name = 'WinExportLog'; Description = 'Esporta Log WinToolkit'; DescriptionKey = 'script.WinExportLog'; Action = 'RunFunction' }
         )
     }
 )
@@ -2061,61 +2371,128 @@ if (-not $ImportOnly) {
 if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
 
     Write-Host ""
-    Write-StyledMessage -Type 'Info' -Text '💎 WinToolkit avviato in modalità interattiva'
+    Write-StyledMessage -Type 'Info' -Text (Get-Loc 'menu.startedInteractive')
     Write-Host ""
 
-    while ($true) {
-        Show-Header -SubTitle "Menu Principale"
+    function Confirm-UserProfileDeletion {
+        Write-Host ''
+        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'confirm.profile.warn1')
+        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'confirm.profile.warn2')
+        Write-Host ''
+        Write-Host "💎 [1] $(Get-Loc 'confirm.profile.yes')" -ForegroundColor White
+        Write-Host "[INVIO] $(Get-Loc 'menu.back')" -ForegroundColor Gray
+        $firstConfirm = Microsoft.PowerShell.Utility\Read-Host (Get-Loc 'menu.choice')
+
+        if ($firstConfirm -ne '1') {
+            return $false
+        }
+
+        Write-Host ''
+        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'confirm.profile.sure')
+        Write-Host ''
+        Write-Host "💎 [1] $(Get-Loc 'confirm.profile.accept')" -ForegroundColor White
+        Write-Host "[INVIO] $(Get-Loc 'menu.back')" -ForegroundColor Gray
+        $secondConfirm = Microsoft.PowerShell.Utility\Read-Host (Get-Loc 'menu.choice')
+
+        return ($secondConfirm -eq '1')
+    }
+
+    function Show-LanguageMenu {
+        while ($true) {
+            Show-Header -SubTitle (Get-Loc 'menu.language')
+            Write-Host ''
+            Write-Host "==== 🌐 $(Get-Loc 'menu.chooseLanguage') 🌐 ====" -ForegroundColor Cyan
+            Write-Host ''
+
+            $languages = @(Get-AvailableToolkitLanguages)
+            if ($languages.Count -eq 0) {
+                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'menu.noLanguages')
+                Start-Sleep -Seconds 2
+                return
+            }
+
+            for ($i = 0; $i -lt $languages.Count; $i++) {
+                $marker = if ($languages[$i].Code -eq $Global:ToolkitLanguage) { '*' } else { ' ' }
+                Write-Host "💎 [$($i + 1)] $marker $($languages[$i].NativeName) ($($languages[$i].Code))" -ForegroundColor White
+            }
+
+            Write-Host ''
+            Write-Host "↩️ [0] $(Get-Loc 'menu.back')" -ForegroundColor Gray
+            Write-Host ''
+
+            $choice = Microsoft.PowerShell.Utility\Read-Host (Get-Loc 'menu.choice')
+            if ([string]::IsNullOrWhiteSpace($choice) -or $choice -eq '0') { return }
+
+            $parsed = 0
+            if ([int]::TryParse($choice, [ref]$parsed) -and $parsed -ge 1 -and $parsed -le $languages.Count) {
+                $selectedLanguage = $languages[$parsed - 1]
+                Set-ToolkitLanguage -LanguageCode $selectedLanguage.Code
+                Write-StyledMessage -Type 'Success' -Text (Get-Loc 'menu.languageChanged' -Args @($selectedLanguage.NativeName))
+                Start-Sleep -Seconds 1
+                return
+            }
+
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'menu.invalidSelection')
+            Start-Sleep -Seconds 1
+        }
+    }
+
+    :MainMenu while ($true) {
+        Show-Header -SubTitle (Get-Loc 'menu.main')
 
         # ── Informazioni di sistema ───────────────────────────────────────────
         $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
         Write-Host ''
-        Write-Host "==== 💻 INFORMAZIONI DI SISTEMA 💻 ====" -ForegroundColor Cyan
+        Write-Host "==== 💻 $(Get-Loc 'system.infoTitle') 💻 ====" -ForegroundColor Cyan
         Write-Host ''
         $si = Get-SystemInfo
         if ($si) {
             $editionIcon = if ($si.ProductName -match "Pro") { "🔧" } else { "💻" }
-            Write-Host "💻 Edizione: $editionIcon $($si.ProductName)" -ForegroundColor White
-            Write-Host "🆔 Versione: " -NoNewline -ForegroundColor White
+            Write-Host "💻 $(Get-Loc 'system.edition'): $editionIcon $($si.ProductName)" -ForegroundColor White
+            Write-Host "🆔 $(Get-Loc 'system.version'): " -NoNewline -ForegroundColor White
             Write-Host "Ver. $($si.DisplayVersion) (Build $($si.BuildNumber))" -ForegroundColor Green
-            Write-Host "🔑 Architettura: $($si.Architecture)"  -ForegroundColor White
-            Write-Host "🔧 Nome PC: $($si.ComputerName)"       -ForegroundColor White
+            Write-Host "🔑 $(Get-Loc 'system.architecture'): $($si.Architecture)"  -ForegroundColor White
+            Write-Host "🔧 $(Get-Loc 'system.computerName'): $($si.ComputerName)"       -ForegroundColor White
             Write-Host "🧠 RAM: $($si.TotalRAM) GB"            -ForegroundColor White
-            Write-Host "💾 Disco: " -NoNewline -ForegroundColor White
+            Write-Host "💾 $(Get-Loc 'system.disk'): " -NoNewline -ForegroundColor White
 
             $diskFreeGB = $si.FreeDisk
-            $displayString = "$($si.FreePercentage)% Libero ($($diskFreeGB) GB)"
+            $displayString = "$($si.FreePercentage)% $(Get-Loc 'system.free') ($($diskFreeGB) GB)"
             $diskColor = if ($diskFreeGB -lt 50) { "Red" } elseif ($diskFreeGB -le 80) { "Yellow" } else { "Green" }
             Write-Host $displayString -ForegroundColor $diskColor -NoNewline
             Write-Host ""
 
-            $blStatus = Get-BitlockerStatus
-            $blColor = if ($blStatus -match 'Disattivato|Non configurato|Off') { 'Green' } else { 'Red' }
-            Write-Host "🔒 Stato Bitlocker: " -NoNewline -ForegroundColor White
+            $blStatusKey = Get-BitlockerStatus -Key
+            $blStatus = Get-Loc $blStatusKey
+            $blColor = if ($blStatusKey -in @('bitlocker.status.off', 'bitlocker.status.notConfigured')) { 'Green' } elseif ($blStatusKey -in @('bitlocker.status.suspended', 'bitlocker.status.decrypting')) { 'Yellow' } else { 'Red' }
+            Write-Host "🔒 $(Get-Loc 'system.bitlockerStatus'): " -NoNewline -ForegroundColor White
             Write-Host "$blStatus" -ForegroundColor $blColor
         }
         Write-Host ('*' * 50) -ForegroundColor Red
         Write-Host ""
 
         # ── Voci di menu ─────────────────────────────────────────────────────
-        $allScripts = @(); $idx = 1
+        Write-Host "🌐 [1] $(Get-Loc 'menu.changeLanguage')" -ForegroundColor White
+        Write-Host ''
+
+        $allScripts = @(); $idx = 2
         foreach ($cat in $menuStructure) {
-            Write-Host "==== $($cat.Icon) $($cat.Name) $($cat.Icon) ====" -ForegroundColor Cyan
+            Write-Host "==== $($cat.Icon) $(Get-ToolkitMenuText $cat) $($cat.Icon) ====" -ForegroundColor Cyan
             Write-Host ""
             foreach ($s in $cat.Scripts) {
                 $allScripts += $s
-                Write-Host "💎 [$idx] $($s.Description)" -ForegroundColor White
+                Write-Host "💎 [$idx] $(Get-ToolkitMenuText $s)" -ForegroundColor White
                 $idx++
             }
             Write-Host ""
         }
-        Write-Host "==== Uscita ====" -ForegroundColor Red
+        Write-Host "==== $(Get-Loc 'menu.exitSection') ====" -ForegroundColor Red
         Write-Host ""
-        Write-Host "❌ [0] Esci dal Toolkit" -ForegroundColor Red
+        Write-Host "❌ [0] $(Get-Loc 'menu.exitToolkit')" -ForegroundColor Red
         Write-Host ""
 
         # ── Input utente ──────────────────────────────────────────────────────
-        $rawInput = Microsoft.PowerShell.Utility\Read-Host 'Inserisci uno o più numeri (es: 1 2 3 oppure 1,2,3) per eseguire le operazioni in sequenza'
+        $rawInput = Microsoft.PowerShell.Utility\Read-Host (Get-Loc 'menu.multiPrompt')
 
         # Secret check
         if ($rawInput -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
@@ -2123,20 +2500,26 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             continue
         }
 
-        $rawSelections = Read-ValidatedChoice -Prompt 'Inserisci uno o più numeri' -Min 0 -Max $allScripts.Count -AllowZero -RawInput $rawInput
+        $maxMenuOption = $allScripts.Count + 1
+        $rawSelections = Read-ValidatedChoice -Prompt (Get-Loc 'menu.multiPromptShort') -Min 0 -Max $maxMenuOption -AllowZero -RawInput $rawInput
         $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
 
         if ($c -eq 0 -or $c -eq '0') {
-            Write-StyledMessage -type 'Warning' -text 'Per supporto: Github.com/Magnetarman'
-            Write-StyledMessage -type 'Success' -text 'Chiusura in corso...'
+            Write-StyledMessage -type 'Warning' -text (Get-Loc 'menu.support')
+            Write-StyledMessage -type 'Success' -text (Get-Loc 'menu.closing')
             Write-ToolkitLog -Level INFO -Message "Sessione WinToolkit terminata dall'utente."
             Start-Sleep -Seconds 3
             break
         }
 
-        $selections = @($rawSelections | Where-Object { $_ -ge 1 -and $_ -le $allScripts.Count })
+        if ($rawSelections -contains 1) {
+            Show-LanguageMenu
+            continue
+        }
+
+        $selections = @($rawSelections | Where-Object { $_ -ge 2 -and $_ -le $maxMenuOption })
         if ($selections.Count -eq 0) {
-            Write-StyledMessage -Type 'Warning' -Text '⚠️ Nessuna selezione valida. Riprova.'
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'menu.invalidSelection')
             Start-Sleep -Seconds 2
             continue
         }
@@ -2148,22 +2531,29 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
 
         Write-Host ''
         if ($isMultiScript) {
-            Write-StyledMessage -Type 'Info' -Text "🚀 Esecuzione sequenziale di $($selections.Count) operazioni..."
+            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'run.sequence' -Args @($selections.Count))
             Write-Host ''
         }
 
         foreach ($sel in $selections) {
-            $scriptToRun = $allScripts[$sel - 1]
-            Write-StyledMessage -Type 'Progress' -Text "▶️ Avvio: $($scriptToRun.Description)"
+            $scriptToRun = $allScripts[$sel - 2]
+            $scriptDescription = Get-ToolkitMenuText $scriptToRun
+            if ($scriptToRun.Name -eq 'WinDeleteUserProfiles' -and -not (Confirm-UserProfileDeletion)) {
+                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'run.cancelled')
+                Start-Sleep -Seconds 2
+                continue MainMenu
+            }
+
+            Write-StyledMessage -Type 'Progress' -Text (Get-Loc 'run.start' -Args @($scriptDescription))
             Write-Host ''
             try {
                 if ($isMultiScript) { & ([scriptblock]::Create("$($scriptToRun.Name) -SuppressIndividualReboot")) }
                 else { & $ExecutionContext.InvokeCommand.GetCommand($scriptToRun.Name, 'Function') }
-                $Global:ExecutionLog += @{ Name = $scriptToRun.Description; Success = $true }
+                $Global:ExecutionLog += @{ Name = $scriptDescription; Success = $true }
             }
             catch {
-                Write-StyledMessage -Type 'Error' -Text "❌ Errore durante $($scriptToRun.Description): $($_.Exception.Message)"
-                $Global:ExecutionLog += @{ Name = $scriptToRun.Description; Success = $false; Error = $_.Exception.Message }
+                Write-StyledMessage -Type 'Error' -Text (Get-Loc 'run.error' -Args @($scriptDescription, $_.Exception.Message))
+                $Global:ExecutionLog += @{ Name = $scriptDescription; Success = $false; Error = $_.Exception.Message }
             }
             Write-Host ''
         }
@@ -2172,29 +2562,29 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         if ($isMultiScript) {
             Write-Host ''
             $tableRows = $Global:ExecutionLog | ForEach-Object {
-                @{ Operazione = $_.Name; Stato = if ($_.Success) { '✅ Completato' } else { '❌ Errore' }; Dettaglio = if ($_.Error) { $_.Error } else { '' } }
+                @{ Operation = $_.Name; Status = if ($_.Success) { "✅ $(Get-Loc 'summary.completed')" } else { "❌ $(Get-Loc 'summary.error')" }; Detail = if ($_.Error) { $_.Error } else { '' } }
             }
             Show-ConsoleTable -Rows $tableRows -Columns @(
-                @{ Header = 'Operazione'; Key = 'Operazione' },
-                @{ Header = 'Stato'; Key = 'Stato' },
-                @{ Header = 'Dettaglio'; Key = 'Dettaglio' }
-            ) -Title '📊 Riepilogo Esecuzione'
+                @{ Header = (Get-Loc 'summary.operation'); Key = 'Operation' },
+                @{ Header = (Get-Loc 'summary.status'); Key = 'Status' },
+                @{ Header = (Get-Loc 'summary.detail'); Key = 'Detail' }
+            ) -Title "📊 $(Get-Loc 'summary.title')"
             Write-Host ''
         }
 
         # ── Riavvio finale ────────────────────────────────────────────────────
         if ($Global:NeedsFinalReboot) {
-            Write-StyledMessage -Type 'Warning' -Text '🔄 È necessario un riavvio per completare le operazioni.'
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message 'Riavvio sistema in') {
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'reboot.required')
+            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message (Get-Loc 'reboot.countdown')) {
                 Restart-Computer -Force
             }
             else {
                 Write-Host ''
-                Write-StyledMessage -Type 'Info' -Text '💡 Ricorda di riavviare il sistema manualmente per completare le operazioni.'
+                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'reboot.reminder')
             }
         }
 
-        Write-Host "`nPremi INVIO per tornare al menu..." -ForegroundColor Gray
+        Write-Host "`n$(Get-Loc 'menu.pressEnter')" -ForegroundColor Gray
         $null = Read-Host
     }
 }

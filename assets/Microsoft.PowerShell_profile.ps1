@@ -15,17 +15,17 @@
 
 $ProfileVersion = "2.5.4.5"
 
-$URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/speedtest.exe"
+$URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/assets/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
 $URL_WINTOOLKIT_DEV = "https://magnetarman.com/WinToolkit-Dev"
 $URL_WINREG = "https://get.activated.win"
 $URL_RustDesk_Setup = "https://raw.githubusercontent.com/Magnetarman/WinStarter/refs/heads/main/Asset/RustDesk/SetRustDesk.ps1"
 $URL_OHMYPOSH_THEME = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-$URL_PROFILE_DEV = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/asset/Microsoft.PowerShell_profile.ps1"
+$URL_PROFILE_DEV = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/assets/Microsoft.PowerShell_profile.ps1"
 $URL_IP_API = "https://am.i.mullvad.net/ip"
-$URL_WINTOOLKIT_ICO_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/img/WinToolkit.ico"
-$URL_WINTOOLKIT_ICO_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/img/WinToolkit-Dev.ico"
-$URL_PROFILE_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/asset/Microsoft.PowerShell_profile.ps1"
+$URL_WINTOOLKIT_ICO_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/images/WinToolkit.ico"
+$URL_WINTOOLKIT_ICO_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/images/WinToolkit-Dev.ico"
+$URL_PROFILE_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/assets/Microsoft.PowerShell_profile.ps1"
 $URL_PWSH_RELEASE_API = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
 
 # ============================================================================
@@ -82,7 +82,7 @@ function Expand-ZipFile {
         Write-Host "✅ Estrazione completata" -ForegroundColor Green
     }
     catch {
-        Write-Host "❌ Errore durante l'estrazione: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Error during extraction: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
@@ -146,14 +146,14 @@ function Speedtest {
     [CmdletBinding()]
     param()
 
-    $assetDir = Join-Path $env:LOCALAPPDATA "WinToolkit\asset"
+    $assetDir = Join-Path $env:LOCALAPPDATA "WinToolkit\assets"
     $speedtestExePath = Join-Path $assetDir "speedtest.exe"
     $desktopPath = [Environment]::GetFolderPath("Desktop")
     $timestamp = Get-Date -Format "dd_MM_yyyy_HH_mm_ss"
     $outputPath = Join-Path $desktopPath "Speedtest_$timestamp.txt"
 
     if (-not (Test-Path $assetDir)) {
-        Write-Host "📦 Creazione directory asset: $assetDir" -ForegroundColor Cyan
+        Write-Host "📦 Creazione directory assets: $assetDir" -ForegroundColor Cyan
         New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
     }
 
@@ -171,20 +171,20 @@ function Speedtest {
             Write-Host "✅ speedtest.exe scaricato con successo." -ForegroundColor Green
         }
         catch {
-            Write-Host "❌ Errore durante il download di speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "❌ Error downloading speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
             return
         }
     }
 
-    Write-Host "🚀 Avvio Speedtest..." -ForegroundColor Yellow
+    Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
     Write-Host "📝 I risultati (inclusi i progressi) verranno salvati in '$outputPath'." -ForegroundColor Yellow
 
     try {
         & $speedtestExePath --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
-        Write-Host "✅ Speedtest completato e risultati salvati." -ForegroundColor Green
+        Write-Host "✅ Speedtest completed and results saved." -ForegroundColor Green
     }
     catch {
-        Write-Host "❌ Errore durante l'esecuzione di speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Error running speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
     }
 
 }
@@ -200,7 +200,7 @@ function Reset-Network {
         return
     }
 
-    Write-Host "⚠️ Attenzione: Questa operazione ripristinerà tutte le impostazioni di rete" -ForegroundColor Yellow
+    Write-Host "⚠️ Warning: This operation will reset all network settings" -ForegroundColor Yellow
     Write-Host "ℹ️ Questo include catalogo Winsock, proxy WinHTTP e configurazioni IP" -ForegroundColor Cyan
     Write-Host "⚠️ La connessione di rete potrebbe essere interrotta" -ForegroundColor Yellow
 
@@ -210,7 +210,7 @@ function Reset-Network {
         return
     }
 
-    Write-Host "`n🚀 Avvio ripristino impostazioni di rete..." -ForegroundColor Cyan
+    Write-Host "`n🚀 Starting network settings reset..." -ForegroundColor Cyan
 
     # Ripristina lo stato pulito del catalogo WinSock
     try {
@@ -220,7 +220,7 @@ function Reset-Network {
         Write-Host "✅ Catalogo Winsock ripristinato" -ForegroundColor Green
     }
     catch {
-        Write-Host "❌ Errore ripristino Winsock: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Winsock reset error: $($_.Exception.Message)" -ForegroundColor Red
     }
 
     # Reimposta le impostazioni proxy WinHTTP su DIRECT
@@ -231,7 +231,7 @@ function Reset-Network {
         Write-Host "✅ Impostazioni proxy WinHTTP ripristinate" -ForegroundColor Green
     }
     catch {
-        Write-Host "❌ Errore ripristino proxy WinHTTP: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ WinHTTP proxy reset error: $($_.Exception.Message)" -ForegroundColor Red
     }
 
     # Rimuove tutte le configurazioni IP definite dall'utente
@@ -250,10 +250,10 @@ function Reset-Network {
         }
     }
     catch {
-        Write-Host "❌ Errore ripristino configurazioni IP: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ IP configuration reset error: $($_.Exception.Message)" -ForegroundColor Red
     }
 
-    Write-Host "`n✅ Ripristino rete completato" -ForegroundColor Green
+    Write-Host "`n✅ Network reset completed" -ForegroundColor Green
     Write-Host "⚠️ Riavvia il computer per applicare le modifiche" -ForegroundColor Yellow
 }
 
@@ -268,7 +268,7 @@ function PSProfileUpdate {
     $localProfilePath = $PROFILE
     $remoteProfileUrl = $URL_PROFILE_MAIN
 
-    Write-Host "🔍 Verifica aggiornamenti per il profilo PowerShell..." -ForegroundColor Cyan
+    Write-Host "🔍 Checking PowerShell profile updates..." -ForegroundColor Cyan
 
     try {
         # Controlla la versione locale dalla variabile caricata in sessione
@@ -290,12 +290,12 @@ function PSProfileUpdate {
         $remoteVersion = [version]$match.Groups[1].Value
 
         if ($localVersion -ge $remoteVersion) {
-            Write-Host "✅ Il profilo è aggiornato all'ultima versione: $localVersion" -ForegroundColor Green
+            Write-Host "✅ The profile is updated to the latest version: $localVersion" -ForegroundColor Green
             return
         }
 
-        Write-Host "⚠️ È disponibile una versione aggiornata! (Locale: $localVersion -> Remota: $remoteVersion)" -ForegroundColor Yellow
-        Write-Host "🔄 Aggiornamento in corso..." -ForegroundColor Cyan
+        Write-Host "⚠️ An updated version is available! (Local: $localVersion -> Remote: $remoteVersion)" -ForegroundColor Yellow
+        Write-Host "🔄 Aggiornamento in progress..." -ForegroundColor Cyan
 
         Invoke-WebRequest -Uri $remoteProfileUrl -OutFile $localProfilePath -UseBasicParsing -ErrorAction Stop
         Write-Host "✅ Profilo scaricato e sostituito con successo. Riavvia la sessione per applicare le modifiche." -ForegroundColor Green
@@ -310,7 +310,7 @@ function PSProfileUpdate {
             Write-Host "✅ Profilo forzatamente ripristinato dalla versione remota. Riavvia PowerShell." -ForegroundColor Green
         }
         catch {
-            Write-Host "❌ Errore critico: Impossibile scaricare il profilo dal link remoto. Controlla la rete." -ForegroundColor Red
+            Write-Host "❌ Critical error: Unable to download the profile from the remote link. Check the network." -ForegroundColor Red
         }
     }
 }
@@ -329,7 +329,7 @@ function SetRustDesk {
 
     Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_RustDesk_Setup | iex`"" -Verb RunAs
 
-    Write-Host "🔍 Avvio configurazione RustDesk..." -ForegroundColor Cyan
+    Write-Host "🔍 Starting RustDesk configuration..." -ForegroundColor Cyan
 
 }
 
@@ -352,7 +352,7 @@ function SetBranch-Dev {
     [CmdletBinding()]
     param()
 
-    Write-Host "`n🔄 Avvio procedura di switch di WinToolkit al ramo Dev..." -ForegroundColor Cyan
+    Write-Host "`n🔄 Starting WinToolkit switch procedure to the Dev branch..." -ForegroundColor Cyan
 
     # 1. Ricreazione Scorciatoia Desktop
     try {
@@ -386,7 +386,7 @@ function SetBranch-Dev {
         Write-Host "✅ Scorciatoia desktop aggiornata al ramo dev." -ForegroundColor Green
     }
     catch {
-        Write-Host "❌ Errore creazione scorciatoia: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Shortcut creation error: $($_.Exception.Message)" -ForegroundColor Red
     }
 
     # 2. Sostituzione Profilo PowerShell
@@ -398,14 +398,14 @@ function SetBranch-Dev {
         Write-Host "✅ Profilo PowerShell sovrascritto con la versione dev." -ForegroundColor Green
     }
     catch {
-        Write-Host "❌ Errore aggiornamento profilo: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Profile update error: $($_.Exception.Message)" -ForegroundColor Red
     }
 
     # 3. Avviso all'utente
-    Write-Host "`n🎉 Switch al ramo Dev completato con successo! Modifiche effettuate:" -ForegroundColor Green
+    Write-Host "`n🎉 Switch to Dev branch completed successfully! Changes applied:" -ForegroundColor Green
     Write-Host "  - Icona desktop 'Win Toolkit' rigenerata e puntata al ramo dev." -ForegroundColor Yellow
     Write-Host "  - Profilo PowerShell sostituito con la versione del ramo dev." -ForegroundColor Yellow
-    Write-Host "`n⚠️  ATTENZIONE: Riavvia il terminale per applicare le modifiche del nuovo profilo." -ForegroundColor Magenta
+    Write-Host "`n⚠️  WARNING: Restart the terminal to apply the new profile changes." -ForegroundColor Magenta
 }
 
 function doReboot {
@@ -424,7 +424,7 @@ function SetBranch-Main {
     [CmdletBinding()]
     param()
 
-    Write-Host "`n🔄 Avvio procedura di switch di WinToolkit al ramo Main..." -ForegroundColor Cyan
+    Write-Host "`n🔄 Starting WinToolkit switch procedure to the Main branch..." -ForegroundColor Cyan
 
     # 1. Ricreazione Scorciatoia Desktop
     try {
@@ -458,7 +458,7 @@ function SetBranch-Main {
         Write-Host "✅ Scorciatoia desktop aggiornata al ramo main." -ForegroundColor Green
     }
     catch {
-        Write-Host "❌ Errore creazione scorciatoia: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Shortcut creation error: $($_.Exception.Message)" -ForegroundColor Red
     }
 
     # 2. Sostituzione Profilo PowerShell
@@ -470,14 +470,14 @@ function SetBranch-Main {
         Write-Host "✅ Profilo PowerShell sovrascritto con la versione main." -ForegroundColor Green
     }
     catch {
-        Write-Host "❌ Errore aggiornamento profilo: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Profile update error: $($_.Exception.Message)" -ForegroundColor Red
     }
 
     # 3. Avviso all'utente
-    Write-Host "`n🎉 Switch al ramo Main completato con successo! Modifiche effettuate:" -ForegroundColor Green
+    Write-Host "`n🎉 Switch to Main branch completed successfully! Changes applied:" -ForegroundColor Green
     Write-Host "  - Icona desktop 'Win Toolkit' rigenerata e puntata al ramo main." -ForegroundColor Yellow
     Write-Host "  - Profilo PowerShell sostituito con la versione del ramo main." -ForegroundColor Yellow
-    Write-Host "`n⚠️  ATTENZIONE: Riavvia il terminale per applicare le modifiche del nuovo profilo." -ForegroundColor Magenta
+    Write-Host "`n⚠️  WARNING: Restart the terminal to apply the new profile changes." -ForegroundColor Magenta
 }
 
 function PS-Reset {
@@ -491,11 +491,11 @@ function PS-Reset {
         return
     }
 
-    Write-Host "⚠️ ATTENZIONE: Questa operazione eseguirà un ROLLBACK COMPLETO:" -ForegroundColor Yellow
-    Write-Host "  - Disinstallerà OhMyPosh, Zoxide, Btop, Fastfetch e i font Nerd." -ForegroundColor DarkYellow
-    Write-Host "  - Eliminerà le cartelle WinToolkit, i log e i file temporanei." -ForegroundColor DarkYellow
-    Write-Host "  - Resetterà Windows Terminal e il profilo PowerShell alle impostazioni di fabbrica." -ForegroundColor DarkYellow
-    Write-Host "  - RIAVVIERÀ automaticamente il sistema al termine." -ForegroundColor Red
+    Write-Host "⚠️ WARNING: This operation will perform a FULL ROLLBACK:" -ForegroundColor Yellow
+    Write-Host "  - It will uninstall OhMyPosh, Zoxide, Btop, Fastfetch, and Nerd Fonts." -ForegroundColor DarkYellow
+    Write-Host "  - It will delete WinToolkit folders, logs, and temporary files." -ForegroundColor DarkYellow
+    Write-Host "  - It will reset Windows Terminal and the PowerShell profile to factory settings." -ForegroundColor DarkYellow
+    Write-Host "  - It will automatically RESTART the system when finished." -ForegroundColor Red
 
     $confirmation = Read-Host "`n❓ Vuoi procedere in modo irreversibile? (S/N)"
 
@@ -504,10 +504,10 @@ function PS-Reset {
         return
     }
 
-    Write-Host "`n🔄 Avvio procedura di reset profondo..." -ForegroundColor Cyan
+    Write-Host "`n🔄 Starting deep reset procedure..." -ForegroundColor Cyan
 
     # 2. Rimozione Scorciatoia Desktop
-    Write-Host "`n🗑️ Rimozione scorciatoia Desktop..." -ForegroundColor Cyan
+    Write-Host "`n🗑️ Removing desktop shortcut..." -ForegroundColor Cyan
     $desktopPath = [Environment]::GetFolderPath('Desktop')
     $shortcut = Join-Path $desktopPath "Win Toolkit.lnk"
     if (Test-Path $shortcut) {
@@ -516,7 +516,7 @@ function PS-Reset {
     }
 
     # 3. Pulizia cartelle di sistema e temporanee
-    Write-Host "`n🧹 Pulizia file temporanei e directory WinToolkit..." -ForegroundColor Cyan
+    Write-Host "`n🧹 Cleaning temporary files and WinToolkit directories..." -ForegroundColor Cyan
     $directoriesToRemove = @(
         (Join-Path $env:LOCALAPPDATA "WinToolkit"),
         (Join-Path $env:TEMP "WinToolkitSetup"),
@@ -529,7 +529,7 @@ function PS-Reset {
             Write-Host "   -> Rimossa directory: $dir" -ForegroundColor DarkGray
         }
     }
-    Write-Host "✅ Pulizia cartelle completata." -ForegroundColor Green
+    Write-Host "✅ Folder cleanup completed." -ForegroundColor Green
 
     # 4. Reset Windows Terminal
     Write-Host "`n🔄 Reset impostazioni Windows Terminal..." -ForegroundColor Cyan
@@ -560,24 +560,24 @@ function PS-Reset {
 
     Write-Host "`n📦 Disinstallazione tool da riga di comando via Winget..." -ForegroundColor Cyan
     foreach ($pkg in $wingetPackages) {
-        Write-Host "   -> Rimozione di $pkg..." -ForegroundColor DarkGray
+        Write-Host "   -> Removing $pkg..." -ForegroundColor DarkGray
         # Utilizzo di Start-Process per attendere la fine dell'operazione silenziosa
         Start-Process -FilePath "winget" -ArgumentList "uninstall --id $pkg --silent --accept-source-agreements" -Wait -NoNewWindow
     }
     Write-Host "✅ Disinstallazioni Winget completate." -ForegroundColor Green
 
     # 7. Conclusione e Riavvio temporizzato
-    Write-Host "`n🎉 RESET COMPLETATO CON SUCCESSO!" -ForegroundColor Green
-    Write-Host "L'ambiente è stato riportato alle impostazioni di fabbrica." -ForegroundColor Magenta
-    Write-Host "Il sistema verrà riavviato per pulire i processi in sospeso e finalizzare le modifiche.`n" -ForegroundColor Yellow
+    Write-Host "`n🎉 RESET COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+    Write-Host "The environment has been restored to factory settings." -ForegroundColor Magenta
+    Write-Host "The system will restart to clear pending processes and finalize the changes.`n" -ForegroundColor Yellow
 
-    # Countdown di 10 secondi
+    # Countdown di 10 seconds
     for ($i = 10; $i -gt 0; $i--) {
-        Write-Host "`r⏳ Riavvio automatico tra $i secondi... " -NoNewline -ForegroundColor Red
+        Write-Host "`r⏳ Automatic restart in $i seconds... " -NoNewline -ForegroundColor Red
         Start-Sleep -Seconds 1
     }
 
-    Write-Host "`n`n🚀 Avvio riavvio del sistema in corso..." -ForegroundColor Cyan
+    Write-Host "`n`n🚀 Starting system restart..." -ForegroundColor Cyan
     shutdown /r /f /t 0
 }
 
@@ -585,7 +585,7 @@ function ReadyToGo {
     [CmdletBinding()]
     param()
 
-    Write-Host "`n🚀 Avvio esecuzione ReadyToGo..." -ForegroundColor Cyan
+    Write-Host "`n🚀 Starting ReadyToGo execution..." -ForegroundColor Cyan
 
     # 1. Elimina i log di PSReadLine
     try {
@@ -595,7 +595,7 @@ function ReadyToGo {
         Write-Host "✅ Cronologia PSReadLine eliminata." -ForegroundColor Green
     }
     catch {
-        Write-Host "❌ Errore durante l'eliminazione della cronologia PSReadLine: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Error deleting PSReadLine history: $($_.Exception.Message)" -ForegroundColor Red
     }
 
     # 2. Reset Microsoft Edge
@@ -615,18 +615,18 @@ function ReadyToGo {
         }
     }
     catch {
-        Write-Host "❌ Errore durante il reset di Microsoft Edge: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Error resetting Microsoft Edge: $($_.Exception.Message)" -ForegroundColor Red
     }
 
     # 3. Disinstallazione di Revo Uninstaller Pro (se presente)
     try {
-        Write-Host "📦 Verifica e disinstallazione di Revo Uninstaller Pro..." -ForegroundColor Cyan
+        Write-Host "📦 Checking and uninstalling Revo Uninstaller Pro..." -ForegroundColor Cyan
         # Esegui disinstallazione silenziosa ignorando gli errori e accettando gli accordi
         Start-Process -FilePath "winget" -ArgumentList "uninstall --id RevoUninstaller.RevoUninstallerPro --silent --accept-source-agreements" -Wait -NoNewWindow
-        Write-Host "✅ Verifica Revo Uninstaller Pro completata." -ForegroundColor Green
+        Write-Host "✅ Revo Uninstaller Pro check completed." -ForegroundColor Green
     }
     catch {
-        Write-Host "ℹ️ Revo Uninstaller Pro non trovato o errore durante la disinstallazione." -ForegroundColor Yellow
+        Write-Host "ℹ️ Revo Uninstaller Pro not found or error during uninstall." -ForegroundColor Yellow
     }
 
     Write-Host "🎉 Operazione ReadyToGo completata con successo!" -ForegroundColor Green
@@ -713,7 +713,7 @@ function EditPSProfile {
         }
     }
     catch {
-        Write-Host "⚠️ Errore nell'apertura con $($EDITOR_INFO.Name): $_" -ForegroundColor Yellow
+        Write-Host "⚠️ Error opening with $($EDITOR_INFO.Name): $_" -ForegroundColor Yellow
         Write-Host "📝 Apertura con Notepad come fallback..." -ForegroundColor Cyan
         Start-Process notepad $PROFILE
     }
@@ -728,15 +728,15 @@ function Show-Help {
 $($PSStyle.Foreground.Cyan)Guida al Profilo PowerShell$($PSStyle.Reset) $($PSStyle.Foreground.Red)========================================================$($PSStyle.Reset)
 
 $($PSStyle.Foreground.Green)Verde (Safe):$($PSStyle.Reset) L'utilizzo non comporta rischi o problemi.
-$($PSStyle.Foreground.Yellow)Giallo (Warning):$($PSStyle.Reset) Attenzione! Leggere la descrizione perché questi comandi comportano variazioni rischiose al sistema.
+$($PSStyle.Foreground.Yellow)Yellow (Warning):$($PSStyle.Reset) Warning! Read the description because these commands can make risky system changes.
 $($PSStyle.Foreground.Red)Rosso (ALERT!):$($PSStyle.Reset) STOP! Queste funzioni sono state designare per effettuare modifiche profonde e distruttive. Attento!
 
 $($PSStyle.Foreground.Green)====================================================================================$($PSStyle.Reset)
 
-$($PSStyle.Foreground.Cyan)Informazioni Sistema e Hardware$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Cyan)System and hardware information$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Get-SystemInfo$($PSStyle.Reset)            - Visualizza informazioni di sistema dettagliate.
-$($PSStyle.Foreground.Green)Get-MainboardInfo$($PSStyle.Reset)         - Informazioni sulla scheda madre.
-$($PSStyle.Foreground.Green)Get-RAMInfo$($PSStyle.Reset)               - Informazioni sui moduli RAM installati.
+$($PSStyle.Foreground.Green)Get-MainboardInfo$($PSStyle.Reset)         - Motherboard information.
+$($PSStyle.Foreground.Green)Get-RAMInfo$($PSStyle.Reset)               - Information about installed RAM modules.
 $($PSStyle.Foreground.Green)Get-PublicIP$($PSStyle.Reset)              - Recupera l'indirizzo IP pubblico.
 
 $($PSStyle.Foreground.Cyan)Gestione File e Directory$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------------$($PSStyle.Reset)
@@ -746,7 +746,7 @@ $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Cerca f
 $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Estrae un file ZIP nella directory corrente.
 
 $($PSStyle.Foreground.Cyan)Diagnostica e Strumenti di Rete$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Esegue un test della velocità di rete.
+$($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Runs a network speed test.
 $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)                  - Svuota la cache DNS.
 $($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Ripristina le impostazioni di rete a quelle predefinite.
 
@@ -812,7 +812,7 @@ function Update-Pwsh {
         return
     }
 
-    Write-Host "🔍 Verifica degli aggiornamenti di PowerShell..." -ForegroundColor Cyan
+    Write-Host "🔍 Checking PowerShell updates..." -ForegroundColor Cyan
 
     try {
         [version]$currentPSVersion = $PSVersionTable.PSVersion
@@ -823,7 +823,7 @@ function Update-Pwsh {
         Write-Host "   Ultima versione   : v$latestPSVersion" -ForegroundColor Gray
 
         if ($currentPSVersion -ge $latestPSVersion) {
-            Write-Host "✅ PowerShell è già aggiornato (v$currentPSVersion)" -ForegroundColor Green
+            Write-Host "✅ PowerShell is already up to date (v$currentPSVersion)" -ForegroundColor Green
             return
         }
 
@@ -837,38 +837,38 @@ function Update-Pwsh {
         Write-Host "🔄 Aggiornamento di PowerShell in corso (v$currentPSVersion → v$latestPSVersion)..." -ForegroundColor Yellow
         winget upgrade --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Aggiornamento completato. Chiudi e riapri il terminale per usare PowerShell v$latestPSVersion." -ForegroundColor Green
+            Write-Host "✅ Update completed. Close and reopen the terminal to use PowerShell v$latestPSVersion." -ForegroundColor Green
         }
         elseif ($LASTEXITCODE -eq -1978335189) {
             Write-Host "" -ForegroundColor Yellow
-            Write-Host "⚠️ Rilevata incompatibilità tecnologia installazione (codice: $LASTEXITCODE)." -ForegroundColor Yellow
+            Write-Host "⚠️ Detected installation technology incompatibility (code: $LASTEXITCODE)." -ForegroundColor Yellow
             Write-Host "   Il pacchetto installato utilizza un metodo diverso da quello atteso da winget." -ForegroundColor DarkYellow
-            Write-Host "🔄 Avvio procedura di reinstallazione automatica..." -ForegroundColor Cyan
+            Write-Host "🔄 Starting automatic reinstall procedure..." -ForegroundColor Cyan
 
             # Step 1: Disinstallazione
-            Write-Host "   1/2 - Disinstallazione di Microsoft.PowerShell in corso..." -ForegroundColor Cyan
+            Write-Host "   1/2 - Disinstallazione di Microsoft.PowerShell in progress..." -ForegroundColor Cyan
             winget uninstall --id Microsoft.PowerShell --accept-source-agreements --silent --all-versions
             if ($LASTEXITCODE -ne 0) {
-                Write-Host "❌ Disinstallazione fallita (codice: $LASTEXITCODE). Operazione interrotta." -ForegroundColor Red
-                Write-Host "   Prova a disinstallare PowerShell manualmente e poi esegui nuovamente Update-Pwsh." -ForegroundColor DarkYellow
+                Write-Host "❌ Uninstall failed (code: $LASTEXITCODE). Operation interrupted." -ForegroundColor Red
+                Write-Host "   Try uninstalling PowerShell manually, then run Update-Pwsh again." -ForegroundColor DarkYellow
                 return
             }
             Write-Host "   ✅ Disinstallazione completata." -ForegroundColor Green
 
             # Step 2: Reinstallazione
-            Write-Host "   2/2 - Installazione di PowerShell v$latestPSVersion in corso..." -ForegroundColor Cyan
+            Write-Host "   2/2 - Installing PowerShell v$latestPSVersion in progress..." -ForegroundColor Cyan
             winget install --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "✅ Reinstallazione completata con successo." -ForegroundColor Green
                 Write-Host "⚠️ IMPORTANTE: Devi aprire una nuova sessione del terminale per usare PowerShell v$latestPSVersion." -ForegroundColor Yellow
             }
             else {
-                Write-Host "❌ Reinstallazione fallita (codice: $LASTEXITCODE)." -ForegroundColor Red
-                Write-Host "   Consulta l'output di winget qui sopra per dettagli sull'errore." -ForegroundColor DarkYellow
+                Write-Host "❌ Reinstall failed (code: $LASTEXITCODE)." -ForegroundColor Red
+                Write-Host "   Check the winget output above for error details." -ForegroundColor DarkYellow
             }
         }
         else {
-            Write-Host "⚠️ winget ha restituito il codice di uscita $LASTEXITCODE. Verifica l'output qui sopra." -ForegroundColor Yellow
+            Write-Host "⚠️ winget returned exit code $LASTEXITCODE. Check the output above." -ForegroundColor Yellow
         }
     }
     catch {
