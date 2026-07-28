@@ -1,4 +1,4 @@
-function WinCleaner {
+﻿function WinCleaner {
     <#
     .SYNOPSIS
         Script automatico per la pulizia completa del sistema Windows.
@@ -86,7 +86,9 @@ function WinCleaner {
             }
 
             $isSuccess = ($result.ExitCode -eq 0)
-            Add-CleanerLog -Type ($isSuccess ? 'Info' : 'Warning') -Text ($isSuccess ? "Comando completato." : "Comando completato con codice $($result.ExitCode)")
+            $messageType = if ($isSuccess) { 'Info' } else { 'Warning' }
+            $messageText = if ($isSuccess) { "Comando completato." } else { "Comando completato con codice $($result.ExitCode)" }
+            Add-CleanerLog -Type $messageType -Text $messageText
             return $true
         }
         catch {

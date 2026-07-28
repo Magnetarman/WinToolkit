@@ -1,4 +1,4 @@
-function Repair-Office {
+﻿function Repair-Office {
     <#
     .SYNOPSIS
         Ripara Microsoft Office tramite Click-to-Run (riparazione rapida + fallback online).
@@ -42,9 +42,9 @@ function Repair-Office {
         }
         if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text "$cleanedCount cache eliminate." }
 
-        $officeClient = (Test-Path "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") ?
-            "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe" :
-            "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+        $officeClient64 = "${env:ProgramFiles}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+        $officeClient32 = "${env:ProgramFiles(x86)}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe"
+        $officeClient = if (Test-Path $officeClient64) { $officeClient64 } else { $officeClient32 }
 
         if (-not (Test-Path $officeClient)) {
             Write-StyledMessage -Type 'Error' -Text "OfficeClickToRun.exe non trovato. Office potrebbe non essere installato."

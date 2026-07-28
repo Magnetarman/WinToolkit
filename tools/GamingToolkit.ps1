@@ -1,4 +1,4 @@
-function GamingToolkit {
+﻿function GamingToolkit {
     <#
     .SYNOPSIS
         Gaming Toolkit - Strumenti di ottimizzazione per il gaming su Windows.
@@ -171,7 +171,9 @@ function GamingToolkit {
         else {
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
             $successCodes = @(0, 3010, 5100, -9, 9, -1442840576)
-            Write-StyledMessage -Type ($exitCode -in $successCodes ? 'Success' : 'Error') -Text ($exitCode -in $successCodes ? "DirectX installato (codice: $exitCode)." : "DirectX errore: $exitCode")
+            $messageType = if ($exitCode -in $successCodes) { 'Success' } else { 'Error' }
+            $messageText = if ($exitCode -in $successCodes) { "DirectX installato (codice: $exitCode)." } else { "DirectX errore: $exitCode" }
+            Write-StyledMessage -Type $messageType -Text $messageText
         }
     }
     catch {
@@ -258,7 +260,9 @@ function GamingToolkit {
         }
         else {
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
-            Write-StyledMessage -Type ($exitCode -in @(0, 3010) ? 'Success' : 'Warning') -Text ($exitCode -in @(0, 3010) ? "Battle.net installato." : "Battle.net: codice $exitCode")
+            $messageType = if ($exitCode -in @(0, 3010)) { 'Success' } else { 'Warning' }
+            $messageText = if ($exitCode -in @(0, 3010)) { "Battle.net installato." } else { "Battle.net: codice $exitCode" }
+            Write-StyledMessage -Type $messageType -Text $messageText
         }
 
         Write-StyledMessage -Type 'Info' -Text 'Premi un tasto per continuare.'

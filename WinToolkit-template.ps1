@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     WinToolkit - Sopravvivi a Windows
 .DESCRIPTION
@@ -55,7 +55,8 @@ function Read-Host {
                     foreach ($char in $inputString.ToCharArray()) { $secure.AppendChar($char) }
                     return $secure
                 }
-                return $inputString ?? ""
+                if ($null -eq $inputString) { return "" }
+                return $inputString
             }
             if ($keyInfo.Key -eq "Backspace") {
                 if ($inputString.Length -gt 0) {
@@ -611,7 +612,8 @@ function Show-ConsoleTable {
             $line += ' ' + $val.PadRight($widths[$col.Key]) + ' |'
         }
         $rowColor = 'White'
-        $statusKey = ($Columns | Where-Object { $_.Key -eq 'Status' -or $_.Key -eq 'Stato' } | Select-Object -First 1)?.Key
+        $statusColumn = $Columns | Where-Object { $_.Key -eq 'Status' -or $_.Key -eq 'Stato' } | Select-Object -First 1
+        $statusKey = if ($statusColumn) { $statusColumn.Key } else { $null }
         if ($statusKey) {
             $statusVal = if ($row -is [hashtable]) { "$($row[$statusKey])" } else { "$($row.$statusKey)" }
             if ($statusVal -match '✅|OK|Successo|Completato') { $rowColor = 'Green' }
@@ -1403,7 +1405,7 @@ function Get-WingetExecutable {
     $aliasPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
     if (Test-Path $aliasPath) { return $aliasPath }
 
-    $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
+    $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
     $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" `
         -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue |
     Sort-Object Name -Descending | Select-Object -First 1
@@ -1427,7 +1429,7 @@ function Start-AppxSilentProcess {
         [string[]]$DependencyPaths = @()
     )
 
-    $pathParam = ($Flags -match '-Register') ? "" : "-Path '$($AppxPath -replace "'", "''")'"
+    $pathParam = if ($Flags -match '-Register') { "" } else { "-Path '$($AppxPath -replace "'", "''")'" }
     $depString = ""
     if ($DependencyPaths.Count -gt 0) {
         $depString = "-DependencyPackagePath " + (($DependencyPaths | ForEach-Object { "'$($_ -replace "'", "''")'" }) -join ", ")
@@ -1551,7 +1553,8 @@ function Reset-Winget {
         try {
             $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing -ErrorAction Stop
             $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
-            return $asset ? $asset.browser_download_url : $null
+            if ($asset) { return $asset.browser_download_url }
+            return $null
         }
         catch { return $null }
     }
@@ -1631,7 +1634,7 @@ function Reset-Winget {
     function _Set-WingetPathPermissions {
         $wingetFolderPath = $null
         try {
-            $arch = [Environment]::Is64BitOperatingSystem ? 'x64' : 'x86'
+            $arch = if ([Environment]::Is64BitOperatingSystem) { 'x64' } else { 'x86' }
             $wingetDir = Get-ChildItem "$env:ProgramFiles\WindowsApps" `
                 -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue |
             Sort-Object Name -Descending | Select-Object -First 1
@@ -1816,7 +1819,7 @@ function Reset-Winget {
 
         if (-not (_Test-VCRedistInstalled) -or $Force) {
             Write-StyledMessage -Type Info -Text "Installazione Visual C++ Redistributable..."
-            $arch = [Environment]::Is64BitOperatingSystem ? "x64" : "x86"
+            $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
             $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
             $vcFile = Join-Path $AppConfig.Paths.Temp "vc_redist.exe"
             if (-not (Test-Path $AppConfig.Paths.Temp)) { $null = New-Item $AppConfig.Paths.Temp -ItemType Directory -Force }
@@ -1832,7 +1835,7 @@ function Reset-Winget {
             $depDir = Join-Path $AppConfig.Paths.Temp "deps"
             Invoke-WebRequest -Uri $depUrl -OutFile $depZip -UseBasicParsing
             Expand-Archive -Path $depZip -DestinationPath $depDir -Force
-            $archPattern = [Environment]::Is64BitOperatingSystem ? "x64|ne" : "x86|ne"
+            $archPattern = if ([Environment]::Is64BitOperatingSystem) { "x64|ne" } else { "x86|ne" }
             $script:WingetDependencies = @()
             Get-ChildItem $depDir -Recurse -Filter "*.appx" |
             Where-Object { $_.Name -match $archPattern } |

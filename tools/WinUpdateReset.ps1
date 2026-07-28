@@ -1,4 +1,4 @@
-function WinUpdateReset {
+﻿function WinUpdateReset {
     <#
     .SYNOPSIS
         Ripara i componenti di Windows Update, reimposta servizi, registro e criteri di default.
@@ -90,8 +90,8 @@ function WinUpdateReset {
                     }
                 }
                 'Check' {
-                    $status = ($service.Status -eq 'Running') ? '🟢 Attivo' : '🔴 Inattivo'
-                    $serviceIcon = $config.Icon ?? '⚙️'
+                    $status = if ($service.Status -eq 'Running') { '🟢 Attivo' } else { '🔴 Inattivo' }
+                    $serviceIcon = if ($null -ne $config.Icon) { $config.Icon } else { '⚙️' }
                     Write-StyledMessage -Type 'Info' -Text "$serviceIcon $serviceName - Stato: $status"
                 }
             }
@@ -486,7 +486,7 @@ function WinUpdateReset {
         foreach ($service in $verificationServices) {
             $svc = Get-Service -Name $service -ErrorAction SilentlyContinue
             if ($svc) {
-                $status = ($svc.Status -eq 'Running') ? '🟢 ATTIVO' : '🔴 INATTIVO'
+                $status = if ($svc.Status -eq 'Running') { '🟢 ATTIVO' } else { '🔴 INATTIVO' }
                 $startup = $svc.StartType
                 Write-StyledMessage -Type 'Info' -Text "📊 $service - Stato: $status | Avvio: $startup."
             }

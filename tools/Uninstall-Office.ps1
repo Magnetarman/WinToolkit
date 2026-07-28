@@ -1,4 +1,4 @@
-function Uninstall-Office {
+﻿function Uninstall-Office {
     <#
     .SYNOPSIS
         Rimuove completamente Microsoft Office. Usa Get Help su Win11 23H2+, rimozione diretta su versioni precedenti.
@@ -22,7 +22,9 @@ function Uninstall-Office {
     function Get-WindowsVersion {
         try {
             $buildNumber = [int](Get-CimInstance -ClassName Win32_OperatingSystem).BuildNumber
-            return $buildNumber -ge 22631 ? "Windows11_23H2_Plus" : ($buildNumber -ge 22000 ? "Windows11_22H2_Or_Older" : "Windows10_Or_Older")
+            if ($buildNumber -ge 22631) { return "Windows11_23H2_Plus" }
+            if ($buildNumber -ge 22000) { return "Windows11_22H2_Or_Older" }
+            return "Windows10_Or_Older"
         }
         catch {
             Write-StyledMessage -Type 'Warning' -Text "Impossibile rilevare versione Windows: $_"

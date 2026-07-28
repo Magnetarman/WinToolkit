@@ -1,4 +1,4 @@
-function WinRepairToolkit {
+﻿function WinRepairToolkit {
     <#
     .SYNOPSIS
         Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk) e salva i log di Scannow nella cartella del Toolkit debug addizionale.
@@ -57,7 +57,8 @@ function WinRepairToolkit {
             $commandToRun = $Config.Tool
             $argsToRun = $Config.Args
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r')) {
-                $drive = ($Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1) ?? $env:SystemDrive
+                $drive = $Config.Args | Where-Object { $_ -match '^[A-Za-z]:$' } | Select-Object -First 1
+                if ($null -eq $drive) { $drive = $env:SystemDrive }
                 $filteredArgs = $Config.Args | Where-Object { $_ -notmatch '^[A-Za-z]:$' }
                 $commandToRun = 'cmd.exe'
                 $argsToRun = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
