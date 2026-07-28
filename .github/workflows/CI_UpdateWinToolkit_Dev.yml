@@ -53,7 +53,7 @@ on:
       - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]/**"
       - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]-*"
     paths:
-      - "tool/*.ps1"
+      - "tools/*.ps1"
       - "WinToolkit-template.ps1"
       - "compiler.ps1"
       - "start-offline.ps1"
@@ -79,10 +79,10 @@ jobs:
   # JOB 0: PR SECURITY GUARD — Politica a tre livelli
   #
   # Livello 1 — Consentiti (silenzioso)
-  #   tool/*
+  #   tools/*
   #
   # Livello 2 — Consentiti con Warning (revisione manuale richiesta)
-  #   start.ps1 | WinToolkit_GUI.ps1 | WinToolkit-template.ps1 | asset/*
+  #   start.ps1 | WinToolkit_GUI.ps1 | WinToolkit-template.ps1 | assets/*
   #   → Commento di avviso, PR rimane aperta, job non fallisce.
   #
   # Livello 3 — Protetti (blocco totale)
@@ -121,8 +121,8 @@ jobs:
 
             // ── CLASSIFICAZIONE DEI FILE ──────────────────────────────────
             //
-            // Livello 1: tool/* → sempre consentiti, nessuna azione.
-            // Livello 2: file sensibili noti + asset/* → accettati, warning.
+            // Livello 1: tools/* → sempre consentiti, nessuna azione.
+            // Livello 2: file sensibili noti + assets/* → accettati, warning.
             // Livello 3: tutto il resto → blocco totale (salvo maintainer).
 
             const SENSITIVE_FILES = new Set([
@@ -132,9 +132,9 @@ jobs:
             ]);
 
             function classifyFile(filename) {
-              if (filename.startsWith('tool/'))        return 1; // consentito
+              if (filename.startsWith('tools/'))       return 1; // consentito
               if (SENSITIVE_FILES.has(filename))       return 2; // sensibile
-              if (filename.startsWith('asset/'))       return 2; // sensibile
+              if (filename.startsWith('assets/'))      return 2; // sensibile
               return 3;                                           // protetto
             }
 
@@ -174,13 +174,13 @@ jobs:
                 ``,
                 `### Regola di contribuzione`,
                 ``,
-                `I collaboratori esterni possono proporre modifiche **esclusivamente** ai moduli all'interno della cartella \`tool/\`.`,
+                `I collaboratori esterni possono proporre modifiche **esclusivamente** ai moduli all'interno della cartella \`tools/\`.`,
                 `I file core (compiler, workflow CI/CD, script di build, configurazioni) sono gestiti direttamente dal maintainer per garantire la stabilità del progetto.`,
                 ``,
                 `### Come procedere`,
                 ``,
                 `1. **Ripristina** i file protetti al loro stato originale nel tuo fork.`,
-                `2. **Limita** le tue modifiche ai file dentro \`tool/\`.`,
+                `2. **Limita** le tue modifiche ai file dentro \`tools/\`.`,
                 `3. **Apri una nuova PR** con solo le modifiche ai moduli.`,
                 ``,
                 `Se ritieni che una modifica ai file core sia necessaria, apri invece una **Issue** descrivendo la proposta: sarà valutata dal maintainer.`,
@@ -202,7 +202,7 @@ jobs:
                 state: 'closed',
               });
               core.setFailed(
-                `PR #${prNumber} chiusa: contiene modifiche a ${level3Files.length} file protetti fuori da /tool.`
+                `PR #${prNumber} chiusa: contiene modifiche a ${level3Files.length} file protetti fuori da /tools.`
               );
               return;
             }
@@ -229,7 +229,7 @@ jobs:
                 ``,
                 `- Alterare il comportamento dell'interfaccia (\`WinToolkit_GUI.ps1\`, \`start.ps1\`)`,
                 `- Impattare la compilazione o le funzioni core del framework (\`WinToolkit-template.ps1\`)`,
-                `- Introdurre risorse non verificate nella distribuzione (\`asset/\`)`,
+                `- Introdurre risorse non verificate nella distribuzione (\`assets/\`)`,
                 ``,
                 `### Prossimi passi`,
                 ``,
@@ -253,7 +253,7 @@ jobs:
               );
             }
 
-            // ── LIVELLO 1: solo tool/ — nessuna azione necessaria ─────────
+            // ── LIVELLO 1: solo tools/ — nessuna azione necessaria ─────────
 
   # ===========================================================================
   # JOB DETECT_CHANGES — Rileva modifiche a file sorgente PS1
@@ -287,7 +287,7 @@ jobs:
           fi
           echo "File modificati:"
           echo "$CHANGED"
-          if echo "$CHANGED" | grep -qE '^(tool/[^/]+\.ps1|WinToolkit-template\.ps1|start\.ps1|start-offline\.ps1|WinToolkit-GUI\.ps1|compiler\.ps1|\.github/(tests|scripts)/[^/]+\.ps1)$'; then
+          if echo "$CHANGED" | grep -qE '^(tools/[^/]+\.ps1|WinToolkit-template\.ps1|start\.ps1|start-offline\.ps1|WinToolkit-GUI\.ps1|compiler\.ps1|\.github/(tests|scripts)/[^/]+\.ps1)$'; then
             echo "run_checks=true" >> "$GITHUB_OUTPUT"
             echo "Modifiche a file sorgente PS1 rilevate — pipeline completa."
           else
@@ -326,15 +326,15 @@ jobs:
             Write-Host "PSScriptAnalyzer gia installato" -ForegroundColor Green
           }
 
-      - name: Lint /tool files
+      - name: Lint /tools files
         id: lint_tool
         shell: pwsh
         continue-on-error: true
         run: |
-          Write-Host "::group::PSScriptAnalyzer — /tool"
+          Write-Host "::group::PSScriptAnalyzer — /tools"
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $hasErrors = $false
-          foreach ($file in (Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue)) {
+          foreach ($file in (Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)) {
             Write-Host "`nAnalyzing: $($file.Name)" -ForegroundColor Yellow
             $analysis = Invoke-ScriptAnalyzer -Path $file.FullName -Settings $settingsPath -Severity Error,Warning
             if ($analysis) {
@@ -347,10 +347,10 @@ jobs:
           }
           Write-Host "::endgroup::"
           if ($hasErrors) {
-            Write-Host "::error::Errori di linting rilevati nei file /tool."
+            Write-Host "::error::Errori di linting rilevati nei file /tools."
             exit 1
           }
-          Write-Host "Linting /tool superato." -ForegroundColor Green
+          Write-Host "Linting /tools superato." -ForegroundColor Green
 
       - name: Lint WinToolkit-template.ps1
         id: lint_template
@@ -436,7 +436,7 @@ jobs:
             -Severity Warning,Error `
             -Settings $settingsPath)
           $analyzerResults += @(Invoke-ScriptAnalyzer `
-            -Path 'tool\*.ps1' `
+            -Path 'tools\*.ps1' `
             -Severity Warning,Error `
             -Settings $settingsPath)
           # Filter out start-offline.ps1 from results
@@ -465,7 +465,7 @@ jobs:
           # ── FIX: Conditional code coverage with error handling ──────────────
           $config.CodeCoverage.Enabled               = $true
           $config.CodeCoverage.CoveragePercentTarget = 60
-          $config.CodeCoverage.Path                  = @('WinToolkit-template.ps1', 'tool/*.ps1')
+          $config.CodeCoverage.Path                  = @('WinToolkit-template.ps1', 'tools/*.ps1')
           $config.CodeCoverage.OutputPath            = 'coverage.xml'
           $config.CodeCoverage.UseBreakpoints        = $false
           $config.Filter.ExcludeTag                  = @('Slow')
@@ -588,7 +588,7 @@ jobs:
         run: |
           Write-Host "::group::Validazione Sintattica Pre-Build"
           $hasErrors    = $false
-          $filesToCheck = @(Get-ChildItem -Path "tool" -Filter "*.ps1") + @(Get-Item "WinToolkit-template.ps1")
+          $filesToCheck = @(Get-ChildItem -Path "tools" -Filter "*.ps1") + @(Get-Item "WinToolkit-template.ps1")
 
           foreach ($file in $filesToCheck) {
             Write-Host "Controllo: $($file.Name)" -ForegroundColor Yellow
