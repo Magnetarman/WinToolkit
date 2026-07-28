@@ -1,4 +1,4 @@
-function Install-Office {
+﻿function Install-Office {
     <#
     .SYNOPSIS
         Installa Microsoft Office Basic tramite ODT (Office Deployment Tool).

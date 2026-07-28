@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     WinToolkit GUI v3.0
 .DESCRIPTION

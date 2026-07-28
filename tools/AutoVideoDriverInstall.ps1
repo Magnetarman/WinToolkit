@@ -1,4 +1,4 @@
-function AutoVideoDriverInstall {
+﻿function AutoVideoDriverInstall {
     <#
     .SYNOPSIS
         Installazione automatica driver video con rilevamento GPU (AMD/NVIDIA/Intel).

@@ -1,4 +1,4 @@
-function WinBackupDriver {
+﻿function WinBackupDriver {
     <#
     .SYNOPSIS
         Backup completo dei driver di sistema Windows.

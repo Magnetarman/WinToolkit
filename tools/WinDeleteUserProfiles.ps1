@@ -1,4 +1,4 @@
-function WinDeleteUserProfiles {
+﻿function WinDeleteUserProfiles {
     <#
     .SYNOPSIS
         Rimuove in modo sicuro i profili utente locali non caricati e le cartelle residue in C:\Users.

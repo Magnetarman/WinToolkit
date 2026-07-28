@@ -1,4 +1,4 @@
-function VideoDriverReinstall {
+﻿function VideoDriverReinstall {
     <#
     .SYNOPSIS
         Reinstallazione/riparazione driver video tramite DDU in modalità provvisoria.

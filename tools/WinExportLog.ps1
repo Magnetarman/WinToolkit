@@ -1,4 +1,4 @@
-function WinExportLog {
+﻿function WinExportLog {
     <#
     .SYNOPSIS
         Comprime i log di WinToolkit e li salva sul desktop per l'invio diagnostico.
