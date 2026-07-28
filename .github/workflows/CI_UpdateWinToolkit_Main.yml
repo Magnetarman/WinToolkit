@@ -217,10 +217,10 @@ jobs:
             Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
           }
 
-      - name: Lint /tool files
+      - name: Lint /tools files
         shell: pwsh
         run: |
-          Write-Host "::group::PSScriptAnalyzer — /tool"
+          Write-Host "::group::PSScriptAnalyzer — /tools"
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $hasErrors = $false
           foreach ($file in (Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)) {
