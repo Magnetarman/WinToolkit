@@ -253,7 +253,7 @@ jobs:
               );
             }
 
-            // ── LIVELLO 1: solo tool/ — nessuna azione necessaria ─────────
+            // ── LIVELLO 1: solo tools/ — nessuna azione necessaria ─────────
 
   # ===========================================================================
   # JOB DETECT_CHANGES — Rileva modifiche a file sorgente PS1
