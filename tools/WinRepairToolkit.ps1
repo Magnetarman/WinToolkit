@@ -1,7 +1,7 @@
 ﻿function WinRepairToolkit {
     <#
     .SYNOPSIS
-        Esegue riparazioni standard di Windows (SFC, DISM, Chkdsk) e salva i log di Scannow nella cartella del Toolkit debug addizionale.
+        Runs standard Windows repairs (SFC, DISM, and Chkdsk) and saves Scannow logs in the toolkit folder for additional debugging.
     #>
     [CmdletBinding()]
     param(
@@ -10,25 +10,26 @@
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitSession -ToolName "WinRepairToolkit" -SubTitle "Repair Toolkit"
+    Start-ToolkitSession -ToolName "WinRepairToolkit" -SubTitle (Get-Loc 'script.WinRepairToolkit')
 
     $script:CurrentAttempt = 0
 
     $sysInfo = Get-SystemInfo
 
     $RepairTools = @(
-        @{ Tool = 'chkdsk'; Args = @('/scan', '/perf'); Name = 'Controllo disco'; Icon = '💽' }
-        @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (1)'; Icon = '🗂️' }
-        @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/RestoreHealth'); Name = 'Ripristino immagine Windows'; Icon = '🛠️' }
-        @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/StartComponentCleanup', '/ResetBase'); Name = 'Pulizia Residui Aggiornamenti'; Icon = '🕸️' }
-        @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'Controllo file di sistema (2)'; Icon = '🗂️' }
-        @{ Tool = 'chkdsk'; Args = @('/f', '/r', '/x'); Name = 'Controllo disco approfondito'; Icon = '💽'; IsCritical = $false }
+        @{ Tool = 'chkdsk'; Args = @('/scan', '/perf'); Name = 'Disk check'; NameKey = 'toolText.extra.diskCheck'; Icon = '💽' }
+        @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'System File Checker (1)'; NameKey = 'toolText.extra.systemFileChecker1'; Icon = '🗂️' }
+        @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/RestoreHealth'); Name = 'Windows Image Recovery'; NameKey = 'toolText.extra.windowsImageRecovery'; Icon = '🛠️' }
+        @{ Tool = 'DISM'; Args = @('/Online', '/Cleanup-Image', '/StartComponentCleanup', '/ResetBase'); Name = 'Remnant Cleanup Updates'; NameKey = 'toolText.extra.remnantCleanupUpdates'; Icon = '🕸️' }
+        @{ Tool = 'sfc'; Args = @('/scannow'); Name = 'System File Checker (2)'; NameKey = 'toolText.extra.systemFileChecker2'; Icon = '🗂️' }
+        @{ Tool = 'chkdsk'; Args = @('/f', '/r', '/x'); Name = 'Thorough disk check'; NameKey = 'toolText.extra.thoroughDiskCheck'; Icon = '💽'; IsCritical = $false }
     )
 
     function Invoke-RepairCommand {
         param([hashtable]$Config, [int]$Step, [int]$Total)
 
-        Write-StyledMessage -Type 'Info' -Text "[$Step/$Total] Avvio $($Config.Name)."
+        $displayName = Get-Loc $Config.NameKey
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.01Starting2' -Args @($Step, $Total, $displayName))
         $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
@@ -37,17 +38,17 @@
             $processTimeoutSeconds = 600
 
             switch ($Config.Name) {
-                'Ripristino immagine Windows'   { $processTimeoutSeconds = 10800 }
-                'Controllo file di sistema (1)' { $processTimeoutSeconds = 3600 }
-                'Controllo file di sistema (2)' { $processTimeoutSeconds = 10800 }
-                'Pulizia Residui Aggiornamenti' { $processTimeoutSeconds = 3600 }
-                'Controllo disco' { $processTimeoutSeconds = 900 }
-                'Controllo disco approfondito'  { $processTimeoutSeconds = 3600 }
+                'Windows Image Recovery'   { $processTimeoutSeconds = 10800 }
+                'System File Checker (1)' { $processTimeoutSeconds = 3600 }
+                'System File Checker (2)' { $processTimeoutSeconds = 10800 }
+                'Remnant Cleanup Updates' { $processTimeoutSeconds = 3600 }
+                'Disk check' { $processTimeoutSeconds = 900 }
+                'Thorough disk check'  { $processTimeoutSeconds = 3600 }
             }
-            $spinnerUpdateInterval = if ($Config.Name -eq 'Ripristino immagine Windows') { 900 } else { 600 }
+            $spinnerUpdateInterval = if ($Config.Name -eq 'Windows Image Recovery') { 900 } else { 600 }
 
             if ($Config.Tool -ieq 'DISM' -and $Config.Args -contains '/StartComponentCleanup') {
-                Write-StyledMessage -Type 'Info' -Text "🔧 Pulizia stato Windows Update prima di avviare Cleanup..."
+                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.cleaningWindowsUpdateStatusBeforeStartingCleanup')
                 Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
                 Start-Sleep 1
                 Remove-ItemSafely -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\SessionsPending' -Recurse
@@ -64,7 +65,7 @@
                 $argsToRun = @('/c', "echo Y| chkdsk $drive $($filteredArgs -join ' ')")
             }
 
-            $spinnerResult = Invoke-WithSpinner -Activity $Config.Name `
+            $spinnerResult = Invoke-WithSpinner -Activity $displayName `
                 -Command $commandToRun `
                 -Arguments $argsToRun `
                 -TimeoutSeconds $processTimeoutSeconds `
@@ -75,20 +76,20 @@
             $results = ($spinnerResult.StdOut + "`n" + $spinnerResult.StdErr) -split "`n"
 
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
-                Write-StyledMessage -Type 'Info' -Text "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
+                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.0CheckScheduledAtNextReboot' -Args @($displayName))
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
             $isTimeout = ($spinnerResult.TimedOut -eq $true) -or ($null -eq $exitCode) -or ($exitCode -eq -1)
 
             if ($isChkdsk -and $exitCode -eq 3) {
-                Write-StyledMessage -Type 'Info' -Text "🔧 $($Config.Name): controllo schedulato al prossimo riavvio."
+                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.0CheckScheduledAtNextReboot' -Args @($displayName))
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
             if (($Config.Tool -ieq 'DISM') -and ($results -match '0x800f0806')) {
-                Write-StyledMessage -Type 'Warning' -Text "⚠️ $($Config.Name): Errore 0x800f0806 (operazioni pendenti). Questo non è un errore critico."
-                Write-StyledMessage -Type 'Info' -Text "💡 Riavviare il sistema per completare le operazioni in sospeso."
+                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.0Error0x800f0806PendingOperationsThisIsNotACriticalError' -Args @($displayName))
+                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.rebootTheSystemToCompletePendingOperations')
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
@@ -106,7 +107,7 @@
             $errors = $warnings = @()
             if (-not $isSuccess) {
                 if ($isTimeout) {
-                    $errors += "Timeout: L'operazione ha superato il tempo limite ed è stata terminata."
+                    $errors += Get-Loc 'uiText.repairOperationTimedOut'
                 }
 
                 foreach ($line in ($results | Where-Object { $_ -and ![string]::IsNullOrWhiteSpace($_.Trim()) })) {
@@ -129,17 +130,22 @@
                 }
 
                 if ($errors.Count -eq 0 -and -not $isTimeout) {
-                    $errors += "Errore generico o terminazione anomala (ExitCode: $exitCode)."
+                    $errors += "Generic error or abend (ExitCode: $exitCode)."
                 }
             }
 
             $success = $isSuccess -and ($errors.Count -eq 0)
 
             if ($isTimeout) {
-                $message = "$($Config.Name) NON completato (interrotto per Timeout)."
+                $message = Get-Loc 'toolText.extra.0NotCompletedAbortedDueToTimeout' -Args @($displayName)
             }
             else {
-                $message = "$($Config.Name) completato " + $(if ($success) { 'con successo' } else { "con $($errors.Count) errori" })
+                $message = if ($success) {
+                    Get-Loc 'toolText.extra3.0CompletedSuccessfully' -Args @($displayName)
+                }
+                else {
+                    Get-Loc 'toolText.extra3.0CompletedWith1Errors' -Args @($displayName, $errors.Count)
+                }
             }
             Write-StyledMessage -Type 'Success' -Text $message
 
@@ -153,11 +159,11 @@
                         $destLogPath = Join-Path $AppConfig.Paths.Logs $destLogName
                         Copy-Item -Path $cbsLogPath -Destination $destLogPath -Force -ErrorAction SilentlyContinue
                         if (Test-Path $destLogPath) {
-                            Write-StyledMessage -Type 'Info' -Text "📄 Log SFC salvato in: $destLogName"
+                            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.sfcLogSavedIn0' -Args @($destLogName))
                         }
                     }
                     catch {
-                        Write-StyledMessage -Type 'Warning' -Text "⚠️ Impossibile esportare il log CBS di SFC (file in uso)."
+                        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.failedToExportSfcCbsLogFileInUse')
                     }
                 }
             }
@@ -165,7 +171,7 @@
             return @{ Success = $success; ErrorCount = $errors.Count }
         }
         catch {
-            Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit" -Message "Errore in Invoke-RepairCommand [$($Config.Tool)]"
+            Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit" -Message (Get-Loc 'toolText.extra.errorInInvokeRepaircommand0' -Args @($($Config.Tool)))
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -174,7 +180,7 @@
         param([int]$Attempt = 1)
 
         $script:CurrentAttempt = $Attempt
-        Write-StyledMessage -Type 'Info' -Text "🔄 Tentativo $Attempt/$MaxRetryAttempts - Riparazione sistema."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.attempting01SystemRepair' -Args @($Attempt, $MaxRetryAttempts))
 
         $totalErrors = $successCount = 0
         for ($toolIndex = 0; $toolIndex -lt $RepairTools.Count; $toolIndex++) {
@@ -187,7 +193,7 @@
         }
 
         if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
-            Write-StyledMessage -Type 'Warning' -Text "🔄 $totalErrors errori rilevati. Nuovo tentativo."
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.0ErrorsDetectedNewAttempt' -Args @($totalErrors))
             Start-Sleep 3
             return Start-RepairCycle -Attempt ($Attempt + 1)
         }
@@ -195,25 +201,25 @@
     }
 
     function Start-DeepDiskRepair {
-        Write-StyledMessage -Type 'Info' -Text '🔧 Avvio riparazione profonda del disco C: al prossimo riavvio.'
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.startDeepRepairOfDiskCOnNextReboot')
         try {
             $fsutilResult = Invoke-ExternalCommandWithLog -Command 'fsutil.exe' -Arguments @('dirty', 'set', 'C:') -TimeoutSeconds 300 -LogContextKey 'DeepDiskRepair-Fsutil'
             if (-not $fsutilResult.Success) {
-                Write-StyledMessage -Type 'Error' -Text "❌ Impossibile marcare il disco come dirty (fsutil)."
+                Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.unableToMarkDiskDirtyFsutil')
                 return $false
             }
 
             $chkdskResult = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -TimeoutSeconds 7200 -LogContextKey 'DeepDiskRepair-Chkdsk'
             if (-not $chkdskResult.Success) {
-                Write-StyledMessage -Type 'Error' -Text "❌ Errore durante la schedulazione di chkdsk per la riparazione profonda."
+                Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.errorSchedulingChkdskForDeepRepair')
                 return $false
             }
 
-            Write-StyledMessage -Type 'Info' -Text 'Comando chkdsk inviato. Riavvia per eseguire la riparazione profonda del disco.'
+            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.chkdskCommandSentRebootToPerformDeepDiskRepair')
             return $true
         }
         catch {
-            Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit" -Message "Eccezione in Start-DeepDiskRepair"
+            Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit" -Message (Get-Loc 'uiText.exceptionInStartDeepdiskrepair')
             return $false
         }
     }
@@ -237,12 +243,12 @@
     }
 
     if (Test-PendingOperations) {
-        Write-ToolkitLog -Level WARNING -Message "Rilevate operazioni pendenti che richiedono riavvio. DISM potrebbe fallire." -Context @{
+        Write-ToolkitLog -Level WARNING -Message (Get-Loc 'toolText.pendingOperationsRequiringRebootDetectedDismCouldFail') -Context @{
             Tool = 'WinRepairToolkit'
             Step = 'PreExecutionCheck'
         }
-        Write-StyledMessage -Type 'Warning' -Text "⚠️ Rilevate operazioni pendenti che richiedono riavvio. DISM potrebbe fallire."
-        Write-StyledMessage -Type 'Info' -Text "💡 Consigliato riavviare prima di eseguire le riparazioni."
+        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.pendingOperationsRequiringRebootDetectedDismCouldFail2')
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.restartRecommendedBeforePerformingRepairs')
     }
 
     try {
@@ -250,31 +256,31 @@
 
         $deepRepairScheduled = $false
         if ($repairResult.TotalErrors -gt 0) {
-            Write-ToolkitLog -Level WARNING -Message "Rilevati errori persistenti. Avvio riparazione profonda." -Context @{
+            Write-ToolkitLog -Level WARNING -Message (Get-Loc 'toolText.persistentErrorsDetectedStartDeepRepair') -Context @{
                 Tool = 'WinRepairToolkit'
                 Step = 'RepairCycle'
                 TotalErrors = $repairResult.TotalErrors
             }
-            Write-StyledMessage -Type 'Warning' -Text "Rilevati errori persistenti. Avvio riparazione profonda."
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.persistentErrorsDetectedStartDeepRepair')
             $deepRepairScheduled = Start-DeepDiskRepair
         }
         else {
-            Write-StyledMessage -Type 'Success' -Text "Sistema in salute. Riparazione profonda non necessaria."
+            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.systemHealthyDeepRepairNotNecessary')
         }
 
-        Write-StyledMessage -Type 'Info' -Text "⚙️ Impostazione scadenza password illimitata."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.unlimitedPasswordExpirationSetting')
         $null = Invoke-ExternalCommandWithLog -Command 'net' -Arguments @('accounts', '/maxpwage:unlimited') -TimeoutSeconds 30 -LogContextKey 'Repair-NetAccounts'
 
-        if ($deepRepairScheduled) { Write-StyledMessage -Type 'Warning' -Text 'Riavvio necessario per riparazione profonda.' }
+        if ($deepRepairScheduled) { Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.rebootRequiredForDeepRepair') }
 
         if ($SuppressIndividualReboot) {
             if ($deepRepairScheduled) {
                 $Global:NeedsFinalReboot = $true
-                Write-StyledMessage -Type 'Info' -Text "🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale."
+                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.individualRestartSuppressedAFinalRebootWillBeHandled')
             }
         }
         else {
-            if (Start-InterruptibleCountdown $CountdownSeconds 'Riavvio automatico') {
+            if (Start-InterruptibleCountdown $CountdownSeconds 'Automatic restart') {
                 Restart-Computer -Force
             }
         }

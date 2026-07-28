@@ -3,7 +3,8 @@
 
 [CmdletBinding()]
 param(
-    [switch]$Minify
+    [switch]$Minify,
+    [string]$Language = 'en-US'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,50 +13,67 @@ $ScriptStartTime = [System.Diagnostics.Stopwatch]::StartNew()
 # ============================================================================
 # 1. SISTEMA DI LOGGING ENTERPRISE
 # ============================================================================
-function Convert-SourceTextToEnglish {
-    param([string]$Text)
-    if ([string]::IsNullOrWhiteSpace($Text)) { return $Text }
+$script:SourceTextLanguageData = $null
+$script:SourceTextDefaultLanguageData = $null
 
-    $translated = $Text
-    $replacements = [ordered]@{
-        'Avvio processo di build WinToolkit.' = 'Starting WinToolkit build process.'
-        'Errore di inzializzazione' = 'Initialization error'
-        'Errore I/O durante la lettura dei file sorgente' = 'I/O error while reading source files'
-        'Errore I/O aggregando il modulo' = 'I/O error while aggregating module'
-        'Avvio minificazione sicura via tokenizer PowerShell.' = 'Starting safe minification through the PowerShell tokenizer.'
-        'Il sorgente contiene' = 'The source contains'
-        'errore/i di parse pre-esistenti. Minificazione applicata comunque.' = 'pre-existing parse error(s). Minification applied anyway.'
-        'Rilevati' = 'Detected'
-        'errore/i sintassi post-minificazione - rollback al sorgente originale.' = 'post-minification syntax error(s) - rolling back to original source.'
-        'Minificazione completata' = 'Minification completed'
-        'nessun errore di sintassi rilevato' = 'no syntax errors detected'
-        'Errore imprevisto durante la minificazione' = 'Unexpected error during minification'
-        'Salvataggio eseguibile stand-alone' = 'Saving standalone executable'
-        'Lettura template originario' = 'Reading source template'
-        'Inizio aggregazione' = 'Starting aggregation'
-        ' di ' = ' of '
-        ' moduli' = ' modules'
-        'Rilevata funzione interna in' = 'Detected internal function in'
-        'Applicazione de-incapsulamento.' = 'Applying unwrapping.'
-        'Modulo processato' = 'Module processed'
-        'BUILD DASHBOARD RIEPILOGATIVA' = 'SUMMARY BUILD DASHBOARD'
-        'STATISTICHE MODULI' = 'MODULE STATISTICS'
-        'STORAGE E COMPRESSIONE' = 'STORAGE AND COMPRESSION'
-        'Sorgenti' = 'Sources'
-        'File Finale' = 'Final file'
-        'Riduzione' = 'Reduction'
-        'Flag -Minify non rilevato' = 'Flag -Minify not detected'
-        'Esecuzione' = 'Execution'
-        'Pipeline compiler.ps1 eseguita con codice' = 'compiler.ps1 pipeline executed with code'
-        'Saltati' = 'Skipped'
-        'Errori' = 'Errors'
-        'Processati' = 'Processed'
+function Get-SourceTextLanguageDirectory {
+    $candidates = @(
+        (Join-Path $PSScriptRoot 'languages'),
+        (Join-Path (Split-Path $PSScriptRoot -Parent) 'languages'),
+        (Join-Path (Get-Location) 'languages')
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) { return $candidate }
     }
-    foreach ($entry in $replacements.GetEnumerator()) {
-        $translated = $translated.Replace($entry.Key, $entry.Value)
-    }
-    return $translated
+    return $candidates[0]
 }
+
+function Import-SourceTextLanguageFile {
+    param([string]$LanguageCode)
+
+    $languageDirectory = Get-SourceTextLanguageDirectory
+    if (-not (Test-Path $languageDirectory)) { return $null }
+    try {
+        $localizedData = $null
+        Import-LocalizedData -BindingVariable localizedData -BaseDirectory $languageDirectory -FileName 'WinToolkit.psd1' -UICulture $LanguageCode -ErrorAction Stop
+        return $localizedData
+    }
+    catch {
+        return $null
+    }
+}
+
+function Initialize-SourceTextLocalization {
+    param([string]$LanguageCode)
+
+    $script:SourceTextDefaultLanguageData = Import-SourceTextLanguageFile -LanguageCode 'en-US'
+    $script:SourceTextLanguageData = Import-SourceTextLanguageFile -LanguageCode $LanguageCode
+    if (-not $script:SourceTextLanguageData) {
+        $script:SourceTextLanguageData = $script:SourceTextDefaultLanguageData
+    }
+}
+
+function Get-SourceTextLoc {
+    param(
+        [Parameter(Mandatory = $true)][string]$Key,
+        [object[]]$Args = @()
+    )
+
+    $value = $null
+    if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($Key)) {
+        $value = [string]$script:SourceTextLanguageData[$Key]
+    }
+    elseif ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($Key)) {
+        $value = [string]$script:SourceTextDefaultLanguageData[$Key]
+    }
+    else {
+        $value = $Key
+    }
+    if ($Args.Count -gt 0) { return [string]::Format($value, $Args) }
+    return $value
+}
+
+Initialize-SourceTextLocalization -LanguageCode $Language
 
 function Write-StyledMessage {
     param(
@@ -68,33 +86,31 @@ function Write-StyledMessage {
     )
     
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $Message = Convert-SourceTextToEnglish -Text $Message
-    
     switch ($Type) {
         'Success' { 
             Write-Host "[$timestamp] " -ForegroundColor DarkGray -NoNewline
-            Write-Host "[SUCCESS] " -ForegroundColor Green -NoNewline
+            Write-Host ((Get-SourceTextLoc 'uiText.success') + " ") -ForegroundColor Green -NoNewline
             Write-Host $Message -ForegroundColor White
         }
         'Warning' { 
             Write-Host "[$timestamp] " -ForegroundColor DarkGray -NoNewline
-            Write-Host "[WARN]    " -ForegroundColor Yellow -NoNewline
+            Write-Host ((Get-SourceTextLoc 'uiText.warn') + "    ") -ForegroundColor Yellow -NoNewline
             Write-Host $Message -ForegroundColor White
         }
         'Error' { 
             Write-Host "[$timestamp] " -ForegroundColor DarkGray -NoNewline
-            Write-Host "[ERROR]   " -ForegroundColor Red -NoNewline
+            Write-Host ((Get-SourceTextLoc 'uiText.error') + "   ") -ForegroundColor Red -NoNewline
             Write-Host $Message -ForegroundColor White
         }
         'Info' { 
             Write-Host "[$timestamp] " -ForegroundColor DarkGray -NoNewline
-            Write-Host "[INFO]    " -ForegroundColor Cyan -NoNewline
+            Write-Host ((Get-SourceTextLoc 'uiText.info') + "    ") -ForegroundColor Cyan -NoNewline
             Write-Host $Message -ForegroundColor White
         }
     }
 }
 
-Write-StyledMessage 'Info' "Avvio processo di build WinToolkit."
+Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingWintoolkitBuildProcess')
 
 # ============================================================================
 # 2. INIZIALIZZAZIONE E VERIFICA PERCORSI
@@ -106,15 +122,15 @@ $outputFile = Join-Path $scriptPath "WinToolkit.ps1"
 
 try {
     if (-not (Test-Path $sourceFile)) {
-        throw "File template non trovato in: $sourceFile"
+        throw (Get-SourceTextLoc 'uiText.templateFileNotFoundIn0' -Args @($sourceFile))
     }
     
     if (-not (Test-Path $toolFolder)) {
-        throw "Cartella tools non trovata in: $toolFolder"
+        throw (Get-SourceTextLoc 'uiText.toolsFolderNotFoundIn0' -Args @($toolFolder))
     }
 }
 catch {
-    Write-StyledMessage 'Error' "Errore di inzializzazione: $($_.Exception.Message)."
+    Write-StyledMessage 'Error' ((Get-SourceTextLoc 'sourceText.initializationError') + ": $($_.Exception.Message).")
     exit 1
 }
 
@@ -122,17 +138,17 @@ catch {
 # 3. LETTURA SORGENTI E PREPARAZIONE
 # ============================================================================
 try {
-    Write-StyledMessage 'Info' "Lettura template originario: WinToolkit-template.ps1."
+    Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.readingSourceTemplate') + ': WinToolkit-template.ps1.')
     $templateLines = Get-Content $sourceFile -Encoding UTF8 -ErrorAction Stop
     $toolFiles = Get-ChildItem -Path $toolFolder -Filter "*.ps1" -File -ErrorAction Stop
 }
 catch {
-    Write-StyledMessage 'Error' "Errore I/O durante la lettura dei file sorgente: $($_.Exception.Message)."
+    Write-StyledMessage 'Error' ((Get-SourceTextLoc 'sourceText.iOErrorWhileReadingSourceFiles') + ": $($_.Exception.Message).")
     exit 1
 }
 
 if ($toolFiles.Count -eq 0) {
-    Write-StyledMessage 'Warning' "Nessun modulo .ps1 trovato in $toolFolder. Operazione annullata."
+    Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.noPs1ModulesFound0OperationCanceled' -Args @($toolFolder))
     exit 0
 }
 
@@ -146,7 +162,7 @@ $stats = @{
     TotalSourceLines = $templateLines.Count
 }
 
-Write-StyledMessage 'Info' "Inizio aggregazione di $($toolFiles.Count) moduli."
+Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.startingAggregation') + " $($toolFiles.Count) " + (Get-SourceTextLoc 'sourceText.modules') + '.')
 Write-Host ""
 
 # ============================================================================
@@ -162,8 +178,8 @@ foreach ($file in $toolFiles) {
         
         # Gestione moduli vuoti o con solo spazi
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
-            Write-StyledMessage 'Warning' "Modulo pre-compilato vuoto: '$functionName'. Inserimento stub di svilluppo."
-            $fileLines = @("    Write-StyledMessage 'Warning' `"Sviluppo funzione in corso.`"")
+            Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.emptyPrecompiledModule0InsertingDevelopmentStub' -Args @($functionName))
+            $fileLines = @("    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.functionDevelopmentInProgress')")
             $stats.Warnings++
         }
         else {
@@ -227,7 +243,7 @@ foreach ($file in $toolFiles) {
                     $firstLine = $fileLines[$firstNonEmpty].Trim()
                     # Rilevamento Case-Insensitive della funzione corretta
                     if ($firstLine -match ("(?i)^function\s+" + [regex]::Escape($functionName) + "\s*\{")) {
-                        Write-StyledMessage 'Info' "Rilevata funzione interna in '$functionName'. Applicazione de-incapsulamento."
+                        Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.detectedInternalFunctionIn') + " '$functionName'. " + (Get-SourceTextLoc 'sourceText.applyingUnwrapping'))
                         
                         # Rimuoviamo la riga della dichiarazione
                         if ($firstNonEmpty -eq 0) {
@@ -260,7 +276,7 @@ foreach ($file in $toolFiles) {
             $newLines += "function $functionName {"
             if (-not $hasLogging) { 
                 $newLines += "    Start-ToolkitLog -ToolName `"$functionName`"" 
-                Write-StyledMessage 'Info' "Policy: Iniezione automatica Start-ToolkitLog per $functionName."
+                Write-StyledMessage 'Info' (Get-SourceTextLoc 'uiText.automaticStartToolkitLogInjectionPolicy0' -Args @($functionName))
             }
             $newLines += $processedFileLines
             $newLines += "}"
@@ -269,16 +285,16 @@ foreach ($file in $toolFiles) {
             
             # Aggiorna il buffer master con la sostituzione
             $templateLines = $newLines
-            Write-StyledMessage 'Success' "Modulo processato: $functionName."
+            Write-StyledMessage 'Success' ((Get-SourceTextLoc 'sourceText.moduleProcessed') + ": $functionName.")
             $stats.Processed++
         }
         else {
-            Write-StyledMessage 'Warning' "Nessun endpoint trovato nel template. Skip di: $functionName."
+            Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.noEndpointFoundInTemplateSkipping0' -Args @($functionName))
             $stats.Skipped++
         }
     }
     catch {
-        Write-StyledMessage 'Error' "Errore I/O aggregando il modulo $functionName`: $($_.Exception.Message)."
+        Write-StyledMessage 'Error' ((Get-SourceTextLoc 'sourceText.iOErrorWhileAggregatingModule') + " $functionName`: $($_.Exception.Message).")
         $stats.Errors++
     }
 }
@@ -289,7 +305,7 @@ Write-Host ""
 # 5. MOTORE DI MINIFICAZIONE SICURA (-Minify)
 # ============================================================================
 if ($Minify) {
-    Write-StyledMessage 'Info' "Avvio minificazione sicura via tokenizer PowerShell."
+    Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingSafeMinificationThroughThePowershellTokenizer')
     try {
         $backupLines = $templateLines
         $rawContent = $templateLines -join "`n"
@@ -303,7 +319,7 @@ if ($Minify) {
         ) | Out-Null
 
         if ($parseErrors.Count -gt 0) {
-            Write-StyledMessage 'Warning' "Il sorgente contiene $($parseErrors.Count) errore/i di parse pre-esistenti. Minificazione applicata comunque."
+            Write-StyledMessage 'Warning' ((Get-SourceTextLoc 'sourceText.theSourceContains') + " $($parseErrors.Count) " + (Get-SourceTextLoc 'sourceText.preExistingParseErrorSMinificationAppliedAnyway'))
         }
 
         $commentTokens = $tokens |
@@ -316,7 +332,7 @@ if ($Minify) {
             $rawContent = $rawContent.Remove($start, $length)
         }
 
-        Write-StyledMessage 'Info' "  Rimossi $($commentTokens.Count) token commento."
+        Write-StyledMessage 'Info' (Get-SourceTextLoc 'uiText.removed0CommentTokens' -Args @($commentTokens.Count))
 
         $cleanedLines = ($rawContent -split "`n") | ForEach-Object {
             $_.TrimEnd()
@@ -336,20 +352,20 @@ if ($Minify) {
         ) | Out-Null
 
         if ($verifyErrors.Count -gt 0) {
-            Write-StyledMessage 'Warning' "Rilevati $($verifyErrors.Count) errore/i sintassi post-minificazione - rollback al sorgente originale."
+            Write-StyledMessage 'Warning' ((Get-SourceTextLoc 'sourceText.detected3') + " $($verifyErrors.Count) " + (Get-SourceTextLoc 'sourceText.postMinificationSyntaxErrorSRollingBackToOriginalSource'))
             foreach ($e in $verifyErrors) {
-            Write-StyledMessage 'Warning' "  Line $($e.Extent.StartLineNumber): $($e.Message)."
+            Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.line01' -Args @($e.Extent.StartLineNumber, $e.Message))
             }
             $templateLines = $backupLines
         }
         else {
             $linesAfter = $templateLines.Count
-            Write-StyledMessage 'Success' "Minificazione completata: $linesAfter righe - nessun errore di sintassi rilevato."
+            Write-StyledMessage 'Success' ((Get-SourceTextLoc 'sourceText.minificationCompleted') + ": $linesAfter " + (Get-SourceTextLoc 'sourceText.lines') + ' - ' + (Get-SourceTextLoc 'sourceText.noSyntaxErrorsDetected') + '.')
         }
     }
     catch {
-        Write-StyledMessage 'Error' "Errore imprevisto durante la minificazione: $($_.Exception.Message)."
-        Write-StyledMessage 'Warning' "Continuing build without minification."
+        Write-StyledMessage 'Error' ((Get-SourceTextLoc 'sourceText.unexpectedErrorDuringMinification') + ": $($_.Exception.Message).")
+        Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.continuingBuildWithoutMinification')
     }
     Write-Host ""
 }
@@ -359,7 +375,7 @@ if ($Minify) {
 # 6. SCRITTURA COMPILAZIONE FINALE SUL DISCO
 # ============================================================================
 try {
-    Write-StyledMessage 'Info' "Salvataggio eseguibile stand-alone: WinToolkit.ps1."
+    Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.savingStandaloneExecutable') + ': WinToolkit.ps1.')
     
     if (Test-Path $outputFile) { Remove-Item $outputFile -Force -ErrorAction Stop }
     
@@ -368,7 +384,7 @@ try {
     
 }
 catch {
-    Write-StyledMessage 'Error' "Irreversible failure while writing final file to disk: $($_.Exception.Message)."
+    Write-StyledMessage 'Error' (Get-SourceTextLoc 'uiText.irreversibleFailureWritingFinalFile0' -Args @($_.Exception.Message))
     exit 1
 }
 
@@ -391,38 +407,38 @@ $linesReduction = $stats.TotalSourceLines - $finalLinesCount
 
 Write-Host ""
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host "                       SUMMARY BUILD DASHBOARD                         " -ForegroundColor Cyan
+Write-Host ("                       " + (Get-SourceTextLoc 'sourceText.summaryBuildDashboard') + "                         ") -ForegroundColor Cyan
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host "📊 MODULE STATISTICS                                                  " -ForegroundColor Yellow
-Write-Host "    ✅ Processed : $($stats.Processed)" -ForegroundColor Green
-Write-Host "    ⚠️ Skipped   : $($stats.Skipped)" -ForegroundColor Yellow
+Write-Host ((Get-SourceTextLoc 'uiText.moduleStatistics') + "                                                  ") -ForegroundColor Yellow
+Write-Host ("    " + (Get-SourceTextLoc 'uiText.processed0' -Args @($($stats.Processed)))) -ForegroundColor Green
+Write-Host ("    " + (Get-SourceTextLoc 'uiText.skipped0' -Args @($($stats.Skipped)))) -ForegroundColor Yellow
 if ($stats.Errors -gt 0) {
-    Write-Host "❌ Errors    : $($stats.Errors)" -ForegroundColor Red
+    Write-Host (Get-SourceTextLoc 'uiText.errors0' -Args @($($stats.Errors))) -ForegroundColor Red
 }
 else {
-    Write-Host "❌ Errors    : 0" -ForegroundColor DarkGray
+    Write-Host (Get-SourceTextLoc 'uiText.errors02') -ForegroundColor DarkGray
 }
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host "💾 STORAGE AND COMPRESSION                                             " -ForegroundColor Yellow
-Write-Host "    📦 Sources    : $sourceMB KB ($($stats.TotalSourceLines) lines)" -ForegroundColor White
-Write-Host "    📄 Final file : $finalMB KB ($finalLinesCount lines)" -ForegroundColor Cyan
+Write-Host ((Get-SourceTextLoc 'uiText.storageAndCompression') + "                                             ") -ForegroundColor Yellow
+Write-Host ("    " + (Get-SourceTextLoc 'uiText.sources0Kb1Lines' -Args @($sourceMB, $($stats.TotalSourceLines)))) -ForegroundColor White
+Write-Host ("    " + (Get-SourceTextLoc 'uiText.finalFile0Kb1Lines' -Args @($finalMB, $finalLinesCount))) -ForegroundColor Cyan
 if ($Minify) {
-    Write-Host " 📉 Reduction  : $compressionPercent % ($linesReduction lines removed)" -ForegroundColor Green
+    Write-Host (" " + (Get-SourceTextLoc 'uiText.reduction01LinesRemoved' -Args @($compressionPercent, $linesReduction))) -ForegroundColor Green
 }
 else {
-    Write-Host " 📉 Reduction  : OFF (Flag -Minify not detected)" -ForegroundColor DarkGray
+    Write-Host (" " + (Get-SourceTextLoc 'uiText.reductionOffFlagMinifyNotDetected')) -ForegroundColor DarkGray
 }
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host "    ⏱️ TIMEDIFF MEASURE                                                       " -ForegroundColor Yellow
-Write-Host "    ⏳ Execution : $buildTimeSec sec" -ForegroundColor White
+Write-Host ("    " + (Get-SourceTextLoc 'uiText.timediffMeasure') + "                                                       ") -ForegroundColor Yellow
+Write-Host ("    " + (Get-SourceTextLoc 'uiText.execution0Sec' -Args @($buildTimeSec))) -ForegroundColor White
 Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host ""
 
 if ($stats.Errors -gt 0) {
-    Write-StyledMessage 'Warning' "La build e stata completata ma ha riscontrato anomalie minori o moduli saltati."
+    Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.buildCompletedWithMinorAnomaliesOrSkippedModules')
     exit 1
 }
 else {
-    Write-StyledMessage 'Success' "Pipeline compiler.ps1 eseguita con codice 0."
+    Write-StyledMessage 'Success' ((Get-SourceTextLoc 'sourceText.compilerPs1PipelineExecutedWithCode') + ' 0.')
     exit 0
 }

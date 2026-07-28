@@ -1,7 +1,7 @@
 ﻿function WinExportLog {
     <#
     .SYNOPSIS
-        Comprime i log di WinToolkit e li salva sul desktop per l'invio diagnostico.
+        Compresses WinToolkit logs and saves them to the Desktop for diagnostic submission.
     #>
     [CmdletBinding()]
     param(
@@ -9,7 +9,7 @@
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitSession -ToolName "WinExportLog" -SubTitle "Esporta Log Diagnostici"
+    Start-ToolkitSession -ToolName "WinExportLog" -SubTitle (Get-Loc 'script.WinExportLog')
 
     $logSourcePath = $AppConfig.Paths.Logs
     $desktopPath   = $AppConfig.Paths.Desktop
@@ -19,14 +19,14 @@
     $tempFolder    = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
 
     try {
-        Write-StyledMessage -Type 'Info' -Text "📂 Verifica presenza cartella log."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.checkPresenceOfLogFolder')
 
         if (-not (Test-Path $logSourcePath -PathType Container)) {
-            Write-StyledMessage -Type 'Warning' -Text "La cartella dei log '$logSourcePath' non è stata trovata. Impossibile esportare."
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.theLogsFolder0WasNotFoundUnableToExport' -Args @($logSourcePath))
             return
         }
 
-        Write-StyledMessage -Type 'Info' -Text "🗜️ Compressione dei log in corso. Potrebbe essere ignorato qualche file in uso."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.compressingLogsSomeFilesInUseMayBeIgnored')
 
         Remove-ItemSafely -Path $tempFolder -Recurse
         New-Item -ItemType Directory -Path $tempFolder -Force *>$null
@@ -42,37 +42,37 @@
                 }
                 catch {
                     $filesSkipped++
-                    Write-Debug "File ignorato: $($_.Name) - $($_.Exception.Message)"
+            Write-Debug (Get-Loc 'uiText.fileIgnored01' -Args @($_.Name, $_.Exception.Message))
                 }
             }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Errore durante la copia dei file: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.errorCopyingFiles0' -Args @($($_.Exception.Message)))
         }
 
         if ($filesCopied -gt 0) {
             Compress-Archive -Path "$tempFolder\*" -DestinationPath $zipFilePath -Force -ErrorAction Stop
 
             if (Test-Path $zipFilePath) {
-                Write-StyledMessage -Type 'Success' -Text "Log compressi con successo! File salvato: '$zipFileName' sul Desktop."
+                Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.logsCompressedSuccessfullySavedFile0OnDesktop' -Args @($zipFileName))
                 if ($filesSkipped -gt 0) {
-                    Write-StyledMessage -Type 'Info' -Text "⚠️ $filesSkipped file ignorati perché in uso o non accessibili."
+                    Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.0FilesIgnoredBecauseTheyAreInUseOrNotAccessible' -Args @($filesSkipped))
                 }
-                Write-StyledMessage -Type 'Info' -Text "📩 Invia '$zipFileName' (Desktop) via Telegram [https://t.me/MagnetarMan] o email [me@magnetarman.com] per la diagnostica."
+                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.send0DesktopViaTelegramHttpsTMeMagnetarmanOrEmailMeMagnetarmanComForDiagnostics' -Args @($zipFileName))
             }
             else {
-                Write-StyledMessage -Type 'Error' -Text "Errore sconosciuto: il file ZIP non è stato creato."
+                Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.unknownErrorZipFileWasNotCreated')
             }
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text "Nessun file log copiato. Verifica i permessi e che i file esistano."
+            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.noLogFilesCopiedCheckPermissionsAndThatTheFilesExist')
         }
     }
     catch {
-        Write-ToolkitError -Record $_ -ToolName "WinExportLog" -Message "Errore durante la compressione dei log"
+        Write-ToolkitError -Record $_ -ToolName "WinExportLog" -Message (Get-Loc 'toolText.extra.errorCompressingLogs')
     }
     finally {
         Remove-ItemSafely -Path $tempFolder -Recurse
-        Write-ToolkitLog -Level INFO -Message "WinExportLog sessione terminata."
+        Write-ToolkitLog -Level INFO -Message (Get-Loc 'toolText.winexportlogSessionEnded')
     }
 }
