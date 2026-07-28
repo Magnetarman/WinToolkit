@@ -122,13 +122,13 @@ jobs:
                 ``,
                 `- Il ramo \`main\` è **rigidamente protetto** ed è riservato esclusivamente ai rilasci ufficiali e stabili del progetto gestiti dal maintainer.`,
                 `- Tutti i contributi esterni, le nuove funzionalità e le correzioni di bug devono essere proposti tramite Pull Request verso il ramo di sviluppo \`Dev\`.`,
-                `- Ricorda che i collaboratori esterni possono proporre modifiche **esclusivamente** ai moduli all'interno della cartella \`tool/\`.`,
+                `- Ricorda che i collaboratori esterni possono proporre modifiche **esclusivamente** ai moduli all'interno della cartella \`tools/\`.`,
                 ``,
                 `### Come procedere`,
                 ``,
                 `1. **Chiudi** questa PR se non è già chiusa.`,
                 `2. **Apri una nuova Pull Request** selezionando il ramo \`Dev\` come base (Target Branch).`,
-                `3. Assicurati che le modifiche siano limitate esclusivamente ai file sotto la cartella \`tool/\`.`,
+                `3. Assicurati che le modifiche siano limitate esclusivamente ai file sotto la cartella \`tools/\`.`,
                 ``,
                 `Grazie per la collaborazione!`,
                 ``,
@@ -184,7 +184,7 @@ jobs:
           CHANGED=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
           echo "File modificati nella PR:"
           echo "$CHANGED"
-          if echo "$CHANGED" | grep -qE '^(tool/[^/]+\.ps1|WinToolkit-template\.ps1|start\.ps1|start-offline\.ps1|WinToolkit-GUI\.ps1|compiler\.ps1|\.github/(tests|scripts)/[^/]+\.ps1)$'; then
+          if echo "$CHANGED" | grep -qE '^(tools/[^/]+\.ps1|WinToolkit-template\.ps1|start\.ps1|start-offline\.ps1|WinToolkit-GUI\.ps1|compiler\.ps1|\.github/(tests|scripts)/[^/]+\.ps1)$'; then
             echo "run_checks=true" >> "$GITHUB_OUTPUT"
             echo "Modifiche a file sorgente PS1 rilevate."
           else
@@ -223,7 +223,7 @@ jobs:
           Write-Host "::group::PSScriptAnalyzer — /tool"
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $hasErrors = $false
-          foreach ($file in (Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue)) {
+          foreach ($file in (Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)) {
             $analysis = Invoke-ScriptAnalyzer -Path $file.FullName -Settings $settingsPath -Severity Error,Warning
             if ($analysis) {
               foreach ($issue in $analysis) {
@@ -235,7 +235,7 @@ jobs:
           }
           Write-Host "::endgroup::"
           if ($hasErrors) {
-            Write-Host "::error::Errori di linting rilevati nei file /tool."
+            Write-Host "::error::Errori di linting rilevati nei file /tools."
             exit 1
           }
 
@@ -299,7 +299,7 @@ jobs:
           $config.TestResult.OutputFormat = 'NUnitXml'
           $config.CodeCoverage.Enabled               = $true
           $config.CodeCoverage.CoveragePercentTarget = 70
-          $config.CodeCoverage.Path                  = @('WinToolkit-template.ps1', 'tool/*.ps1')
+          $config.CodeCoverage.Path                  = @('WinToolkit-template.ps1', 'tools/*.ps1')
           $config.CodeCoverage.OutputPath            = 'coverage.xml'
           $config.Filter.ExcludeTag                  = @('Slow')
           $result = Invoke-Pester -Configuration $config
@@ -433,9 +433,9 @@ jobs:
           # Conta righe totali del compilato
           $totalLines = (Get-Content "WinToolkit.ps1").Count
 
-          # Stima righe sorgente sommando tool/*.ps1 + template
+          # Stima righe sorgente sommando tools/*.ps1 + template
           $sourceLines = 0
-          Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
+          Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
             $sourceLines += (Get-Content $_.FullName).Count
           }
           if (Test-Path "WinToolkit-template.ps1") {
@@ -445,7 +445,7 @@ jobs:
 
           # Stima KB sorgente
           $sourceBytes = 0
-          Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
+          Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
             $sourceBytes += $_.Length
           }
           if (Test-Path "WinToolkit-template.ps1") {
