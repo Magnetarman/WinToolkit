@@ -4,13 +4,13 @@
     Unit test per il modulo GamingToolkit.
 .NOTES
     Strategia: dot-source del template (-ImportOnly) per il framework,
-    dot-source di tool/GamingToolkit.ps1 per la funzione sotto test.
+    dot-source di tools/GamingToolkit.ps1 per la funzione sotto test.
     winget e tutti i comandi di sistema vengono mockati.
 #>
 
 BeforeAll {
     $script:TemplatePath = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\WinToolkit-template.ps1')
-    $script:ToolPath     = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\tool\GamingToolkit.ps1')
+    $script:ToolPath     = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\tools\GamingToolkit.ps1')
 
     . $script:TemplatePath -ImportOnly
     . $script:ToolPath
