@@ -67,7 +67,7 @@ WinToolkit uses a well-defined modular structure:
 ### Correct Workflow
 
 ```
-/tools/                   → Modify individual scripts
+/tools/                  → Modify individual scripts
 WinToolkit-template.ps1  → Modify global variables
 WinToolkit.ps1           → NEVER TOUCH (auto-generated)
 ```
