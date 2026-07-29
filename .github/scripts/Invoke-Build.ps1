@@ -1,17 +1,17 @@
 ﻿<#
 .SYNOPSIS
-    Compila WinToolkit.ps1 da WinToolkit-template.ps1 e i file in /tool.
+    Compiles WinToolkit.ps1 from WinToolkit-template.ps1 and files in /tools.
 
 .DESCRIPTION
-    Questo script esegue la compilazione del toolkit, calcola le statistiche
-    di compressione e gestisce il logging.
+    This script performs the toolkit build, calculates compression
+    statistics, and handles logging.
 
 .EXAMPLE
     .\Invoke-Build.ps1 -Version "2.5.2 (Build 13)"
 
 .NOTES
-    Autore: MagnetarMan
-    Version: 1.0.4
+    Author: MagnetarMan
+    Version: 1.0.5
 #>
 
 [CmdletBinding()]
@@ -29,11 +29,11 @@ param(
     [switch]$Minify = $true
 )
 
-# --- Best Practices PowerShell ---
+# --- PowerShell Best Practices ---
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# --- Variabili per statistiche ---
+# --- Variables for statistics ---
 $script:SourceTotalBytes = 0
 $script:SourceTotalLines = 0
 $script:OutputTotalBytes = 0
@@ -79,55 +79,55 @@ function Get-FileStats {
 
 try {
     Write-BuildLog -Message "========================================" -Type Header
-    Write-BuildLog -Message "  COMPILAZIONE WINTOOLKIT.PS1" -Type Header
-    Write-BuildLog -Message "  Versione: $Version" -Type Header
+    Write-BuildLog -Message "  COMPILING WinToolkit.ps1" -Type Header
+    Write-BuildLog -Message "  Version: $Version" -Type Header
     Write-BuildLog -Message "========================================" -Type Header
 
-    # Verifica prerequisiti
-    Write-BuildLog -Message "`n📋 Verifica prerequisiti..." -Type Info
+    # Prerequisite check
+    Write-BuildLog -Message "`n📋 Checking prerequisites..." -Type Info
 
     if (-not (Test-Path "compiler.ps1")) {
-        Write-BuildLog -Message "❌ File compiler.ps1 non trovato" -Type Error
+        Write-BuildLog -Message "❌ compiler.ps1 not found" -Type Error
         exit 1
     }
-    Write-BuildLog -Message "  ✅ compiler.ps1 presente" -Type Success
+    Write-BuildLog -Message "  ✅ compiler.ps1 present" -Type Success
 
     if (-not (Test-Path $TemplatePath)) {
-        Write-BuildLog -Message "❌ File $TemplatePath non trovato" -Type Error
+        Write-BuildLog -Message "❌ File $TemplatePath not found" -Type Error
         exit 1
     }
-    Write-BuildLog -Message "  ✅ $TemplatePath presente" -Type Success
+    Write-BuildLog -Message "  ✅ $TemplatePath present" -Type Success
 
-    # Verifica file nella cartella tools
+    # Check files in the tools folder
     $toolFiles = Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue
     if ($toolFiles.Count -eq 0) {
-        Write-BuildLog -Message "❌ Nessun file .ps1 trovato nella cartella tools" -Type Error
+        Write-BuildLog -Message "❌ No .ps1 files found in the tools folder" -Type Error
         exit 1
     }
-    Write-BuildLog -Message "  ✅ $($toolFiles.Count) file trovati in /tools" -Type Success
+    Write-BuildLog -Message "  ✅ $($toolFiles.Count) files found in /tools" -Type Success
 
-    # Calcola statistiche sorgente PRIMA della compilazione
-    Write-BuildLog -Message "`n📊 Calcolo statistiche sorgente..." -Type Info
+    # Calculate source statistics BEFORE compilation
+    Write-BuildLog -Message "`n📊 Calculating source statistics..." -Type Info
 
     foreach ($file in $toolFiles) {
         $stats = Get-FileStats -Path $file.FullName
         $script:SourceTotalBytes += $stats.Bytes
         $script:SourceTotalLines += $stats.Lines
         $script:FilesProcessed++
-        Write-BuildLog -Message "  📄 $($file.Name): $($stats.Bytes) bytes, $($stats.Lines) righe" -Type Info
+        Write-BuildLog -Message "  📄 $($file.Name): $($stats.Bytes) bytes, $($stats.Lines) lines" -Type Info
     }
 
-    # Aggiungi anche il template
+    # Include the template as well
     $templateStats = Get-FileStats -Path $TemplatePath
     $script:SourceTotalBytes += $templateStats.Bytes
     $script:SourceTotalLines += $templateStats.Lines
-    Write-BuildLog -Message "  📄 ${TemplatePath}: $($templateStats.Bytes) bytes, $($templateStats.Lines) righe" -Type Info
+    Write-BuildLog -Message "  📄 ${TemplatePath}: $($templateStats.Bytes) bytes, $($templateStats.Lines) lines" -Type Info
 
-    Write-BuildLog -Message "`n📈 Totale sorgente: $([math]::Round($script:SourceTotalBytes/1KB, 2)) KB, $($script:SourceTotalLines) righe" -Type Header
+    Write-BuildLog -Message "`n📈 Total source: $([math]::Round($script:SourceTotalBytes/1KB, 2)) KB, $($script:SourceTotalLines) lines" -Type Header
 
-    # Esegui compilazione (con o senza minificazione sicura via tokenizer)
-    $minifyLabel = if ($Minify) { "CON minificazione (tokenizer-safe)" } else { "SENZA minificazione" }
-    Write-BuildLog -Message "`n🔨 Avvio compilazione $minifyLabel..." -Type Info
+    # Run compilation (with or without safe minification via tokenizer)
+    $minifyLabel = if ($Minify) { "WITH minification (tokenizer-safe)" } else { "WITHOUT minification" }
+    Write-BuildLog -Message "`n🔨 Starting compilation $minifyLabel..." -Type Info
 
     try {
         if ($Minify) {
@@ -137,56 +137,56 @@ try {
             $output = & ".\compiler.ps1" 2>&1 | Out-String
         }
 
-        Write-BuildLog -Message "Output compilatore:`n$output" -Type Info
+        Write-BuildLog -Message "Compiler output:`n$output" -Type Info
 
         if ($LASTEXITCODE -ne 0) {
-            Write-BuildLog -Message "❌ Compilazione fallita con exit code: $LASTEXITCODE" -Type Error
+            Write-BuildLog -Message "❌ Compilation failed with exit code: $LASTEXITCODE" -Type Error
             exit 1
         }
     }
     catch {
-        Write-BuildLog -Message "❌ Errore durante compilazione: $($_.Exception.Message)" -Type Error
+        Write-BuildLog -Message "❌ Error during compilation: $($_.Exception.Message)" -Type Error
         exit 1
     }
 
-    # Verifica output
+    # Verify output
     if (-not (Test-Path $OutputPath)) {
-        Write-BuildLog -Message "❌ File $OutputPath non creato" -Type Error
+        Write-BuildLog -Message "❌ File $OutputPath not created" -Type Error
         exit 1
     }
 
-    Write-BuildLog -Message "✅ File compilato creato: $OutputPath" -Type Success
+    Write-BuildLog -Message "✅ Compiled file created: $OutputPath" -Type Success
 
-    # Calcola statistiche output DOPO la compilazione
-    Write-BuildLog -Message "`n📊 Calcolo statistiche output..." -Type Info
+    # Calculate output statistics AFTER compilation
+    Write-BuildLog -Message "`n📊 Calculating output statistics..." -Type Info
 
     $outputStats = Get-FileStats -Path $OutputPath
     $script:OutputTotalBytes = $outputStats.Bytes
     $script:OutputTotalLines = $outputStats.Lines
 
-    Write-BuildLog -Message "  📄 ${OutputPath}: $($outputStats.Bytes) bytes, $($outputStats.Lines) righe" -Type Info
+    Write-BuildLog -Message "  📄 ${OutputPath}: $($outputStats.Bytes) bytes, $($outputStats.Lines) lines" -Type Info
 
-    # Calcola statistiche compressione
+    # Calculate compression statistics
     $reductionBytes = $script:SourceTotalBytes - $script:OutputTotalBytes
     $reductionPercent = [math]::Round(($reductionBytes / $script:SourceTotalBytes) * 100, 2)
     $linesRemoved = $script:SourceTotalLines - $script:OutputTotalLines
 
     Write-BuildLog -Message "`n========================================" -Type Header
-    Write-BuildLog -Message "  STATISTICHE COMPRESSIONE" -Type Header
+    Write-BuildLog -Message "  COMPRESSION STATISTICS" -Type Header
     Write-BuildLog -Message "========================================" -Type Header
-    Write-BuildLog -Message "📦 Peso sorgente: $([math]::Round($script:SourceTotalBytes/1KB, 2)) KB" -Type Info
-    Write-BuildLog -Message "📦 Peso finale:    $([math]::Round($script:OutputTotalBytes/1KB, 2)) KB" -Type Info
-    Write-BuildLog -Message "📉 Riduzione:     $([math]::Round($reductionBytes/1KB, 2)) KB ($reductionPercent%)" -Type Success
-    Write-BuildLog -Message "📝 Righe sorgente:  $($script:SourceTotalLines)" -Type Info
-    Write-BuildLog -Message "📝 Righe finali:   $($script:OutputTotalLines)" -Type Info
-    Write-BuildLog -Message "📝 Righe eliminate: $linesRemoved" -Type Success
+    Write-BuildLog -Message "📦 Source size: $([math]::Round($script:SourceTotalBytes/1KB, 2)) KB" -Type Info
+    Write-BuildLog -Message "📦 Final size:    $([math]::Round($script:OutputTotalBytes/1KB, 2)) KB" -Type Info
+    Write-BuildLog -Message "📉 Reduction:     $([math]::Round($reductionBytes/1KB, 2)) KB ($reductionPercent%)" -Type Success
+    Write-BuildLog -Message "📝 Source lines:  $($script:SourceTotalLines)" -Type Info
+    Write-BuildLog -Message "📝 Final lines:   $($script:OutputTotalLines)" -Type Info
+    Write-BuildLog -Message "📝 Lines removed: $linesRemoved" -Type Success
 
 
     Write-BuildLog -Message "`n========================================" -Type Header
-    Write-BuildLog -Message "  COMPILAZIONE COMPLETATA" -Type Header
+    Write-BuildLog -Message "  COMPILATION COMPLETE" -Type Header
     Write-BuildLog -Message "========================================" -Type Header
 
-    # Output per GitHub Actions
+    # Output for GitHub Actions
     Write-Output "source_bytes=$script:SourceTotalBytes" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "source_kb=$([math]::Round($script:SourceTotalBytes/1KB, 2))" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "source_lines=$script:SourceTotalLines" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -201,7 +201,7 @@ try {
     exit 0
 }
 catch {
-    Write-BuildLog -Message "❌ ERRORE: $($_.Exception.Message)" -Type Error
+    Write-BuildLog -Message "❌ ERROR: $($_.Exception.Message)" -Type Error
     Write-BuildLog -Message "Stack Trace: $($_.ScriptStackTrace)" -Type Error
 
     try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
