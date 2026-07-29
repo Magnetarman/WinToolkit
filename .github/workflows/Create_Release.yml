@@ -184,7 +184,7 @@ jobs:
         run: |
           Write-Host "::group::Validazione Sintattica Pre-Build"
           $hasErrors    = $false
-          $filesToCheck = @(Get-ChildItem -Path "tool" -Filter "*.ps1") + @(Get-Item "WinToolkit-template.ps1")
+          $filesToCheck = @(Get-ChildItem -Path "tools" -Filter "*.ps1") + @(Get-Item "WinToolkit-template.ps1")
 
           foreach ($file in $filesToCheck) {
             Write-Host "Controllo: $($file.Name)" -ForegroundColor Yellow

@@ -13,7 +13,7 @@ BeforeAll {
     $script:RepoRoot       = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
     $script:CompilerPath   = Join-Path $script:RepoRoot 'compiler.ps1'
     $script:TemplatePath   = Join-Path $script:RepoRoot 'WinToolkit-template.ps1'
-    $script:ToolFolder     = Join-Path $script:RepoRoot 'tool'
+    $script:ToolFolder     = Join-Path $script:RepoRoot 'tools'
     $script:TestScriptPath = Join-Path $script:RepoRoot '.github\scripts\Test-CompiledScript.ps1'
 }
 
@@ -43,8 +43,8 @@ Describe 'Build Pipeline — Sintassi Sorgenti' {
         $errors.Count | Should -Be 0
     }
 
-    It 'Tutti i file tool/*.ps1 devono avere sintassi PowerShell valida' -ForEach (
-        Get-ChildItem -Path (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')) 'tool') -Filter '*.ps1' |
+    It 'Tutti i file tools/*.ps1 devono avere sintassi PowerShell valida' -ForEach (
+        Get-ChildItem -Path (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')) 'tools') -Filter '*.ps1' |
         ForEach-Object { @{ File = $_ } }
     ) {
         $code   = Get-Content -Raw -Path $File.FullName
@@ -59,7 +59,7 @@ Describe 'Build Pipeline — Sintassi Sorgenti' {
 # =============================================================================
 Describe 'Build Pipeline — Coerenza Sorgenti' {
 
-    It 'Ogni file tool/*.ps1 deve dichiarare una funzione con il suo stesso nome' {
+    It 'Ogni file tools/*.ps1 deve dichiarare una funzione con il suo stesso nome' {
         $files = Get-ChildItem -Path $script:ToolFolder -Filter '*.ps1'
         $files.Count | Should -BeGreaterThan 0
 
@@ -71,7 +71,7 @@ Describe 'Build Pipeline — Coerenza Sorgenti' {
         }
     }
 
-    It 'Il template deve contenere un placeholder per ogni file tool/*.ps1' {
+    It 'Il template deve contenere un placeholder per ogni file tools/*.ps1' {
         $templateContent = Get-Content -Raw -Path $script:TemplatePath
         $files = Get-ChildItem -Path $script:ToolFolder -Filter '*.ps1'
 

@@ -4,13 +4,13 @@
     Unit test per il modulo WinCleaner.
 .NOTES
     Strategia: dot-source del template (-ImportOnly) per il framework,
-    dot-source di tool/WinCleaner.ps1 per la funzione sotto test.
+    dot-source di tools/WinCleaner.ps1 per la funzione sotto test.
     Tutte le operazioni di sistema vengono mockate.
 #>
 
 BeforeAll {
     $script:TemplatePath = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\WinToolkit-template.ps1')
-    $script:ToolPath     = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\tool\WinCleaner.ps1')
+    $script:ToolPath     = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\tools\WinCleaner.ps1')
 
     . $script:TemplatePath -ImportOnly
     . $script:ToolPath

@@ -98,13 +98,13 @@ try {
     }
     Write-BuildLog -Message "  ✅ $TemplatePath presente" -Type Success
 
-    # Verifica file nella cartella tool
-    $toolFiles = Get-ChildItem -Path "tool" -Filter "*.ps1" -ErrorAction SilentlyContinue
+    # Verifica file nella cartella tools
+    $toolFiles = Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue
     if ($toolFiles.Count -eq 0) {
-        Write-BuildLog -Message "❌ Nessun file .ps1 trovato nella cartella tool" -Type Error
+        Write-BuildLog -Message "❌ Nessun file .ps1 trovato nella cartella tools" -Type Error
         exit 1
     }
-    Write-BuildLog -Message "  ✅ $($toolFiles.Count) file trovati in /tool" -Type Success
+    Write-BuildLog -Message "  ✅ $($toolFiles.Count) file trovati in /tools" -Type Success
 
     # Calcola statistiche sorgente PRIMA della compilazione
     Write-BuildLog -Message "`n📊 Calcolo statistiche sorgente..." -Type Info
