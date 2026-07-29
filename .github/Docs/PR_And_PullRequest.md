@@ -189,24 +189,24 @@ WinToolkit/
 >
 > The compiler injects each module automatically into the main template during the build phase.
 
-| File                        | Description                             |
-| --------------------------- | --------------------------------------- |
+| File                         | Description                                  |
+| ---------------------------- | -------------------------------------------- |
 | `AutoVideoDriverInstall.ps1` | Automatic video driver detection and install |
-| `DisableBitlocker.ps1`      | BitLocker management and disable        |
-| `GamingToolkit.ps1`         | Gaming-specific optimizations           |
-| `Install-Office.ps1`        | Office installation and configuration   |
-| `Repair-Office.ps1`         | Office installation repair              |
-| `Uninstall-Office.ps1`      | Office uninstallation and removal       |
-| `VideoDriverInstall.ps1`    | Advanced video driver installation      |
-| `VideoDriverReinstall.ps1`  | Video driver reinstallation             |
-| `WinBackupDriver.ps1`       | System driver backup and restore        |
-| `WinCleaner.ps1`            | Temporary files and cache cleanup       |
-| `WinDebloat.ps1`            | Windows bloatware removal               |
-| `WinDeleteUserProfiles.ps1` | Delete Windows user profiles            |
-| `WinExportLog.ps1`          | Diagnostic log export for debugging     |
-| `WinReinstallStore.ps1`     | Microsoft Store & WinGet reinstallation |
-| `WinRepairToolkit.ps1`      | System repair tools (SFC/DISM)          |
-| `WinUpdateReset.ps1`        | Full Windows Update reset               |
+| `DisableBitlocker.ps1`       | BitLocker management and disable             |
+| `GamingToolkit.ps1`          | Gaming-specific optimizations                |
+| `Install-Office.ps1`         | Office installation and configuration        |
+| `Repair-Office.ps1`          | Office installation repair                   |
+| `Uninstall-Office.ps1`       | Office uninstallation and removal            |
+| `VideoDriverInstall.ps1`     | Advanced video driver installation           |
+| `VideoDriverReinstall.ps1`   | Video driver reinstallation                  |
+| `WinBackupDriver.ps1`        | System driver backup and restore             |
+| `WinCleaner.ps1`             | Temporary files and cache cleanup            |
+| `WinDebloat.ps1`             | Windows bloatware removal                    |
+| `WinDeleteUserProfiles.ps1`  | Delete Windows user profiles                 |
+| `WinExportLog.ps1`           | Diagnostic log export for debugging          |
+| `WinReinstallStore.ps1`      | Microsoft Store & WinGet reinstallation      |
+| `WinRepairToolkit.ps1`       | System repair tools (SFC/DISM)               |
+| `WinUpdateReset.ps1`         | Full Windows Update reset                    |
 
 #### `/assets/` Folder - External Resources
 
@@ -276,7 +276,7 @@ This mode uses the same official build pipeline directly in your fork, ensuring 
 The pipeline triggers automatically on:
 
 - **Push to Dev** → Full pipeline: lint → test → build
-- **Push to BUG/_, ENHANCEMENT/_, FEATURE/_, GUI/_, Changes/\*** → Lightweight pipeline: lint → test → build → commit
+- **Push to BUG/**, ENHANCEMENT/**, FEATURE/** → Lightweight pipeline: lint → test → build → commit
 - **PR to Dev** → Quality gate: lint → test (no build, no deploy)
 
 Triggers are limited to files:
@@ -311,7 +311,7 @@ Every PR to Dev is automatically analyzed by a three-level security system:
 - ⛔ PR closed automatically with access denied comment
 
 > [!WARNING]
-> **Rule for external contributors**: You can propose changes **exclusively** to modules in the `tool/` folder. For changes to core files (compiler, CI/CD workflows, build scripts), open an **Issue** describing the proposal.
+> **Rule for external contributors**: You can propose changes **exclusively** to modules in the `tools/` folder. For changes to core files (compiler, CI/CD workflows, build scripts), open an **Issue** describing the proposal.
 
 #### 📋 Setup Steps
 
