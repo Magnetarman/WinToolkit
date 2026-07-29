@@ -1092,10 +1092,10 @@ $xaml = @"
                 <!-- Colonna 0: Icona Tool -->
                 <Image Grid.Column="0" x:Name="ToolIconImage"
                        Source="/images/WinToolkit-icon.png"
-                       Width="48" Height="48"
+                       Width="96" Height="96"
                        VerticalAlignment="Center" Margin="0,0,16,0"/>
 
-                <!-- Colonna 1: Titolo e Sottotitolo centrati -->
+                <!-- Colonna 1: Titolo, Sottotitolo e Selezione Lingua centrati -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="$($ScriptTitle)"
                                FontSize="$($FontSize.Header)" FontWeight="Bold"
@@ -1107,12 +1107,8 @@ $xaml = @"
                                Foreground="{StaticResource LabelBlue}"
                                FontFamily="{StaticResource PrimaryFont}"
                                TextAlignment="Center" Margin="0,4,0,0"/>
-                </StackPanel>
-
-                <!-- Colonna 2: Lingua -->
-                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock x:Name="LanguageLabelText" Text="Language"
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
+                        <TextBlock x:Name="LanguageLabelText" Text="Lingua GUI (Italiano):"
                                    Foreground="{StaticResource LabelBlue}"
                                    FontFamily="{StaticResource PrimaryFont}"
                                    FontWeight="SemiBold"
@@ -1126,6 +1122,25 @@ $xaml = @"
                                   FontFamily="{StaticResource PrimaryFont}"
                                   FontSize="$($FontSize.Small)"/>
                     </StackPanel>
+                </StackPanel>
+
+                <!-- Colonna 2: Pulsante Invia Log Errori (rosso, in alto a dx) -->
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0">
+                    <Button x:Name="SendErrorLogsButton"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            Background="{StaticResource ErrorButtonColor}"
+                            Foreground="{StaticResource TextColor}"
+                            Padding="20,12"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Style="{StaticResource SmallButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image x:Name="SendErrorLogsImage" Width="28" Height="28" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="SendErrorLogsText" Text="Send error logs" VerticalAlignment="Center"
+                                       FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="$($FontSize.Small)"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -1429,25 +1444,6 @@ $xaml = @"
                     <StackPanel Orientation="Horizontal">
                         <Image x:Name="ExecuteButtonImage" Width="20" Height="20" Margin="0,0,8,0"/>
                         <TextBlock x:Name="ExecuteButtonText" Text="Run scripts" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- Pulsante Invia Log Errori in basso a destra -->
-                <Button x:Name="SendErrorLogsButton"
-                        Grid.Row="1"
-                        Grid.Column="2"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Right"
-                        Background="{StaticResource ErrorButtonColor}"
-                        Foreground="{StaticResource TextColor}"
-                        Padding="20,12"
-                        BorderThickness="0"
-                        Cursor="Hand"
-                        Style="{StaticResource SmallButtonStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <Image x:Name="SendErrorLogsImage" Width="28" Height="28" Margin="0,0,8,0"/>
-                        <TextBlock x:Name="SendErrorLogsText" Text="Send error logs" VerticalAlignment="Center"
-                                   FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="$($FontSize.Small)"/>
                     </StackPanel>
                 </Button>
             </Grid>
