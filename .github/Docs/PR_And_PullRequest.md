@@ -146,18 +146,18 @@ WinToolkit/
 │   ├── WinRepairToolkit.ps1              # System repair tools (SFC/DISM)
 │   └── WinUpdateReset.ps1                # Windows Update reset
 │
-├── version.json                          | Single source of truth for version
-├── .gitignore                            | Files ignored by Git
-├── CHANGELOG.md                          | Change history
-├── compiler.ps1                          | Modular build system
-├── LICENSE                               | MIT License
-├── README.md                             | Main documentation
-├── start-offline.ps1                     | Offline mode startup
-├── start.ps1                             | Official startup script
-├── TODO.md                               | Tasks and future development
-├── WinToolkit_GUI.ps1                    | WPF graphical interface version
-├── WinToolkit-template.ps1               | Base template with core functions
-└── WinToolkit.ps1                        | Final compiled file (DO NOT MODIFY)
+├── version.json                          # Single source of truth for version
+├── .gitignore                            # Files ignored by Git
+├── CHANGELOG.md                          # Change history
+├── compiler.ps1                          # Modular build system
+├── LICENSE                               # MIT License
+├── README.md                             # Main documentation
+├── start-offline.ps1                     # Offline mode startup
+├── start.ps1                             # Official startup script
+├── TODO.md                               # Tasks and future development
+├── WinToolkit_GUI.ps1                    # WPF graphical interface version
+├── WinToolkit-template.ps1               # Base template with core functions
+└── WinToolkit.ps1                        # Final compiled file (DO NOT MODIFY)
 ```
 
 ### Detailed Component Descriptions
@@ -255,7 +255,7 @@ This mode uses the same official build pipeline directly in your fork, ensuring 
 The pipeline triggers automatically on:
 
 - **Push to Dev** → Full pipeline: lint → test → build
-- **Push to BUG/*, ENHANCEMENT/*, FEATURE/*, GUI/*, Changes/*** → Lightweight pipeline: lint → test → build → commit
+- **Push to BUG/_, ENHANCEMENT/_, FEATURE/_, GUI/_, Changes/\*** → Lightweight pipeline: lint → test → build → commit
 - **PR to Dev** → Quality gate: lint → test (no build, no deploy)
 
 Triggers are limited to files:
