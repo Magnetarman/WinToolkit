@@ -138,7 +138,7 @@ $Global:LastLogParagraphRef = $null
 $Global:CoreConfig = @{
     RemoteUrl         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
     LocalCachePath    = "$env:LOCALAPPDATA\WinToolkit\cache\WinToolkit_Core.ps1"
-    CacheMaxAge       = 3600 # secondi (1 ora)
+    CacheMaxAge       = 3600 # seconds (1 hour)
     FallbackToCache   = $true
     RequiredFunctions = @('Get-SystemInfo', 'Write-StyledMessage', 'Show-Header', 'Initialize-ToolLogging')
 }
@@ -147,7 +147,7 @@ $Global:CoreConfig = @{
 $Global:CoreScriptContent = $null
 $Global:CoreScriptVersion = "Unknown"
 $Global:CoreScriptLoaded = $false
-$Global:MenuStructure = @() # Sarà popolato dal Core
+$Global:MenuStructure = @() # Will be populated by the Core
 $Global:ToolkitLanguage = 'en-US'
 $Global:ToolkitLanguageData = $null
 $Global:ToolkitDefaultLanguageData = $null
@@ -381,11 +381,11 @@ $localCoreFullVersion = "Unknown" # Full version string for display
         # 1. Retrieve the local Core Script version (if cache exists)
         if (Test-Path $Global:CoreConfig.LocalCachePath) {
             try {
-                # Leggi tutto il contenuto per maggiore robustezza
+                # Read the entire content for greater robustness
                 $localCacheRawContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
                 if ($localCacheRawContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                     $localCoreFullVersion = $matches[1]
-                    # Estrai la parte numerica per il confronto (es. "2.5.1" da "2.5.1 (Build 6)")
+                    # Extract the numeric part for comparison (e.g. "2.5.1" from "2.5.1 (Build 6)")
                     if ($localCoreFullVersion -match '(\d+(?:\.\d+){0,3})') {
                         $localCoreNumericVersion = [version]$matches[1]
                         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.localCoreVersionFound0Numeric1' -Args @($localCoreFullVersion, $localCoreNumericVersion)) -GuiColor "#00CED1"
@@ -403,12 +403,12 @@ $localCoreFullVersion = "Unknown" # Full version string for display
             }
         }
 
-        # 2. Recupera la versione del Core Script remoto
+        # 2. Retrieve the remote Core Script version
         $remoteCoreNumericVersion = [version]"0.0.0"
         $remoteCoreFullVersion = "Unknown"
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.remoteCoreScriptVersionRecovery') -GuiColor "#00CED1"
         try {
-            # Usa Invoke-RestMethod per ottenere il contenuto completo per un parsing robusto
+            # Use Invoke-RestMethod to retrieve the complete content for robust parsing
             $remoteRawContent = Invoke-RestMethod -Uri $Global:CoreConfig.RemoteUrl -UseBasicParsing -ErrorAction Stop
             if ($remoteRawContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                 $remoteCoreFullVersion = $matches[1]
@@ -428,7 +428,7 @@ $localCoreFullVersion = "Unknown" # Full version string for display
             Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.failedToGetRemoteVersion0AForcedDownloadOrFallbackMayBeRequired' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
         }
 
-        # 3. Determina se è necessario scaricare il Core Script
+        # 3. Determine whether the Core Script needs to be downloaded
         $shouldDownload = $false
         $cacheExists = Test-Path $Global:CoreConfig.LocalCachePath
         $cacheExpired = $false
@@ -474,7 +474,7 @@ $localCoreFullVersion = "Unknown" # Full version string for display
                 Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.coreScriptDownloadedSuccessfully') -GuiColor "#00FF00"
                 Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.cached0' -Args @($($Global:CoreConfig.LocalCachePath))) -GuiColor "#00CED1"
 
-                # Estrai versione dal Core appena scaricato (stringa completa per display)
+                # Extract the version from the newly downloaded Core (full string for display)
                 if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                     $Global:CoreScriptVersion = $matches[1]
                     Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.coreVersionDownloaded0' -Args @($Global:CoreScriptVersion)) -GuiColor "#00FF00"
@@ -492,7 +492,7 @@ $localCoreFullVersion = "Unknown" # Full version string for display
                     Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.usingLocalCacheExpiredOrOlderButAvailableAsAFallback') -GuiColor "#FFA500"
                     $coreContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
                     $usedCache = $true
-                    # Ri-estrai la versione dalla cache come fallback
+                    # Re-extract the version from the cache as a fallback
                     if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                         $Global:CoreScriptVersion = $matches[1]
                         Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.coreVersionFromFallbackCache0' -Args @($Global:CoreScriptVersion)) -GuiColor "#00FF00"
@@ -504,7 +504,7 @@ $localCoreFullVersion = "Unknown" # Full version string for display
             }
         }
 
-        # Se è stata usata la cache senza download, assicurati che $Global:CoreScriptVersion sia impostato correttamente
+        # If the cache was used without a download, ensure that $Global:CoreScriptVersion is set correctly
         if ($usedCache -and ([string]::IsNullOrEmpty($Global:CoreScriptVersion) -or $Global:CoreScriptVersion -eq "Unknown")) {
             if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                 $Global:CoreScriptVersion = $matches[1]
@@ -570,7 +570,7 @@ function Get-IconWithFallback {
 
     $iconPath = Get-EmojiIconPath -EmojiCharacter $EmojiCharacter
 
-    # Se il file esiste localmente, restituisci il percorso
+    # If the file exists locally, return the path
     if ($iconPath -and (Test-Path $iconPath)) {
         return $iconPath
     }
@@ -639,7 +639,7 @@ function Test-EmojiIcons {
 function Get-AllCheckBoxes {
     <#
     .SYNOPSIS
-        Funzione helper per trovare ricorsivamente tutti i CheckBox in un contenitore.
+        Helper function to recursively find all CheckBoxes in a container.
     #>
     param([System.Windows.Controls.Panel]$Container)
 
@@ -650,7 +650,7 @@ function Get-AllCheckBoxes {
             $checkBoxes += $child
         }
         elseif ($child -is [System.Windows.Controls.Panel]) {
-            # Ricerca ricorsiva in contenitori StackPanel
+            # Recursively search StackPanel containers
             $checkBoxes += Get-AllCheckBoxes -Container $child
         }
     }
@@ -661,31 +661,31 @@ function Get-AllCheckBoxes {
 function Send-ErrorLogs {
     <#
     .SYNOPSIS
-        Genera e invia i log degli errori SPECIFICI DELLA GUI e eventuali log recenti del Core
-        per facilitare la segnalazione di bug della GUI.
+        Generates and sends GUI-SPECIFIC error logs and any recent Core logs
+        to facilitate GUI bug reporting.
     #>
     try {
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.preparingGuiErrorLogForReporting') -GuiColor "#00CED1"
 
-        # Includi il log principale della GUI e i transcript più recenti del Core
-        $recentLogFiles = @($mainLog) # Il log della GUI stessa
+        # Include the main GUI log and the most recent Core transcripts
+        $recentLogFiles = @($mainLog) # The GUI log itself
 
         # Cerca i log più recenti dal Core nella directory AppData
         $coreLogDir = "$env:LOCALAPPDATA\WinToolkit\logs"
         if (Test-Path $coreLogDir) {
-            # Seleziona gli ultimi 3 log del Core (escludendo quello della GUI se presente due volte)
+            # Select the 3 most recent Core logs (excluding the GUI log if it appears twice)
             $coreTranscripts = Get-ChildItem -Path $coreLogDir -Filter "*.log" -ErrorAction SilentlyContinue |
             Sort-Object -Property LastWriteTime -Descending | Select-Object -First 3
             $recentLogFiles += $coreTranscripts.FullName | Where-Object { $_ -ne $mainLog }
         }
-        $recentLogFiles = $recentLogFiles | Select-Object -Unique # Rimuovi duplicati
+        $recentLogFiles = $recentLogFiles | Select-Object -Unique # Remove duplicates
 
         if (-not $recentLogFiles) {
             Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.noGuiOrCoreLogFilesFoundForReporting') -GuiColor "#FFA500"
             return
         }
 
-        # Crea il contenuto del file di metadati JSON
+        # Create the JSON metadata file contents
         $metadata = @{
             Timestamp     = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
             GuiVersion    = $Global:GuiVersion
@@ -698,7 +698,7 @@ function Send-ErrorLogs {
         $metadataPath = Join-Path $env:TEMP "metadata.json"
         $metadata | ConvertTo-Json | Out-File -FilePath $metadataPath -Encoding UTF8 -Force
 
-        # Crea README per il pacchetto log
+        # Create a README for the log package
         $readmeContent = @"
 WinToolkit Support Log Package
 ============================
@@ -721,7 +721,7 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
         $readmePath = Join-Path $env:TEMP "README.txt"
         $readmeContent | Out-File -FilePath $readmePath -Encoding UTF8 -Force
 
-        # Crea il contenuto combinato dei log
+        # Create the combined log contents
         $logContent = "=" * 60 + "`n"
         $logContent += "WinToolkit GUI Error Report`n"
         $logContent += (Get-Loc 'uiText.reportDate0' -Args @($metadata.Timestamp)) + "`n"
@@ -736,11 +736,11 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
             $logContent += "`n`n"
         }
 
-        # Salva il report temporaneo
+        # Save the temporary report
         $tempReportPath = Join-Path $env:TEMP "WinToolkit_GUI_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
         $logContent | Out-File -FilePath $tempReportPath -Encoding UTF8 -Force
 
-        # Comprimi il report e i metadati in ZIP sul Desktop
+        # Compress the report and metadata into a ZIP file on the Desktop
         $zipPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "WinToolkit_SupportLog_$(Get-Date -Format 'yyyyMMdd_HHmmss').zip"
         if (Get-Command 'Compress-Archive' -ErrorAction SilentlyContinue) {
             Compress-Archive -Path $tempReportPath, $metadataPath, $readmePath -DestinationPath $zipPath -Force
@@ -748,15 +748,15 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
         }
         else {
             Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.compressArchiveNotAvailableGuiReportSavedIn0' -Args @($tempReportPath)) -GuiColor "#FFA500"
-            $zipPath = $tempReportPath # Se non si può zippare, usa il percorso del .txt per il messaggio finale
+            $zipPath = $tempReportPath # If it cannot be zipped, use the .txt path for the final message
         }
 
-        # Elimina il report temporaneo se è stato zippato con successo
+        # Delete the temporary report if it was successfully zipped
         if (Test-Path $tempReportPath -PathType Leaf) {
             Remove-Item $tempReportPath -ErrorAction SilentlyContinue
         }
 
-        # Apri il browser predefinito alla pagina GitHub Issues
+        # Open the default browser to the GitHub Issues page
         try {
             Start-Process -FilePath "https://github.com/Magnetarman/WinToolkit/issues/new?template=bug_report.yml"
             Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.browserOpenForReportingOnGithub') -GuiColor "#00CED1"
