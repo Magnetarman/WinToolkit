@@ -367,7 +367,7 @@ function Initialize-CoreScript {
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.resourceInitializationCoreScriptLoading') -GuiColor "#00CED1"
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.pleaseWaitOperationInProgress') -GuiColor "#FFA500"
 
-        # Crea directory cache se non esiste
+        # Create cache directory if it doesn't exist
         $cacheDir = Split-Path $Global:CoreConfig.LocalCachePath -Parent
         if (-not (Test-Path $cacheDir)) {
             New-Item -Path $cacheDir -ItemType Directory -Force | Out-Null
@@ -375,10 +375,10 @@ function Initialize-CoreScript {
 
         $coreContent = $null
         $usedCache = $false
-        $localCoreNumericVersion = [version]"0.0.0" # Versione numerica per il confronto
-        $localCoreFullVersion = "Unknown" # Stringa di versione completa per la visualizzazione
+$localCoreNumericVersion = [version]"0.0.0" # Numeric version for comparison
+$localCoreFullVersion = "Unknown" # Full version string for display
 
-        # 1. Recupera la versione del Core Script locale (se esiste la cache)
+        # 1. Retrieve the local Core Script version (if cache exists)
         if (Test-Path $Global:CoreConfig.LocalCachePath) {
             try {
                 # Leggi tutto il contenuto per maggiore robustezza
