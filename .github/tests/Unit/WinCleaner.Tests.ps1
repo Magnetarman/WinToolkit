@@ -1,11 +1,11 @@
 ﻿#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 <#
 .SYNOPSIS
-    Unit test per il modulo WinCleaner.
+    Unit test for the WinCleaner module.
 .NOTES
-    Strategia: dot-source del template (-ImportOnly) per il framework,
-    dot-source di tools/WinCleaner.ps1 per la funzione sotto test.
-    Tutte le operazioni di sistema vengono mockate.
+    Strategy: dot-source the template (-ImportOnly) for the framework,
+    dot-source tools/WinCleaner.ps1 for the function under test.
+    All system operations are mocked.
 #>
 
 BeforeAll {
@@ -15,33 +15,33 @@ BeforeAll {
     . $script:TemplatePath -ImportOnly
     . $script:ToolPath
 
-    # Inibisce tutta l'interazione con il sistema e la console
+    # Prevent all system and console interaction
     Mock Start-ToolkitSession { }
     Mock Start-ToolkitLog     { }
     Mock Write-StyledMessage  { }
     Mock Clear-ProgressLine   { }
     Mock Read-ValidatedChoice { return 0 }
-    Mock Read-Host            { throw "Read-Host non ammesso in CI" }
+    Mock Read-Host            { throw "Read-Host not allowed in CI" }
 }
 
 # =============================================================================
-# Firma della funzione
+# Function signature
 # =============================================================================
-Describe 'WinCleaner — Firma' {
+Describe 'WinCleaner — Signature' {
 
-    It 'La funzione WinCleaner deve essere disponibile' {
+    It 'The WinCleaner function must be available' {
         Get-Command WinCleaner -ErrorAction SilentlyContinue | Should -Not -BeNull
     }
 
-    It 'Deve esporre il parametro -CountdownSeconds' {
+    It 'Must expose the -CountdownSeconds parameter' {
         (Get-Command WinCleaner).Parameters.ContainsKey('CountdownSeconds') | Should -Be $true
     }
 
-    It 'Deve esporre il parametro -SuppressIndividualReboot' {
+    It 'Must expose the -SuppressIndividualReboot parameter' {
         (Get-Command WinCleaner).Parameters.ContainsKey('SuppressIndividualReboot') | Should -Be $true
     }
 
-    It '-CountdownSeconds deve avere ValidateRange [0, 300]' {
+    It '-CountdownSeconds must have ValidateRange [0, 300]' {
         $attr = (Get-Command WinCleaner).Parameters['CountdownSeconds'].Attributes |
             Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
         $attr            | Should -Not -BeNull
@@ -49,19 +49,19 @@ Describe 'WinCleaner — Firma' {
         $attr.MaxRange   | Should -Be 300
     }
 
-    It '-SuppressIndividualReboot deve essere un parametro switch' {
+    It '-SuppressIndividualReboot must be a switch parameter' {
         $param = (Get-Command WinCleaner).Parameters['SuppressIndividualReboot']
         $param.ParameterType | Should -Be ([System.Management.Automation.SwitchParameter])
     }
 }
 
 # =============================================================================
-# VitalExclusions — protezione percorsi critici
+# VitalExclusions — critical path protection
 # =============================================================================
 Describe 'WinCleaner — VitalExclusions' {
 
-    It 'Il percorso WinToolkit LocalAppData deve essere in VitalExclusions' {
-        # Verifica che il sorgente includa il percorso di auto-protezione
+    It 'The WinToolkit LocalAppData path must be in VitalExclusions' {
+        # Verify the source includes the self-protection path
         $source = Get-Content -Path $script:ToolPath -Raw
         $source | Should -Match 'LocalAppData.*WinToolkit'
     }
