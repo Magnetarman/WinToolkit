@@ -1,6 +1,6 @@
 <p align="center">
 	<img src="images/WinToolkit-icon.png" alt="WinToolkit-banner" width="160">
-	<h1>WinToolkit: the ultimate PowerShell tool to <em>survive</em> Windows</h1>
+	<h1>WinToolkit: Master Windows with <em>Ease</em></h1>
 </p>
 <p>
 	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
@@ -26,14 +26,14 @@ WinToolkit is a powerful, compact PowerShell script suite built to give IT profe
 > - **free disk space**: >= 50 GB [(see the FAQ section)](#-faq---frequently-asked-questions);
 > - **Windows >= 8.1**.
 
-| Windows Versions      | Supported           |
-| :-------------------- | :------------------ |
-| Windows 11 >= 22H2    | 🟢 Yes              |
-| Windows 10 >= 1809    | 🟢 Yes              |
-| Windows 11 <= 21H2    | 🟡 Partially        |
-| Windows 10 <= 1809    | 🟡 Partially        |
-| Windows 8.1           | 🟡 Partially        |
-| Windows 8 and earlier | 🔴 No               |
+| Windows Versions      | Supported    |
+| :-------------------- | :----------- |
+| Windows 11 >= 22H2    | 🟢 Yes       |
+| Windows 10 >= 1809    | 🟢 Yes       |
+| Windows 11 <= 21H2    | 🟡 Partially |
+| Windows 10 <= 1809    | 🟡 Partially |
+| Windows 8.1           | 🔴 No        |
+| Windows 8 and earlier | 🔴 No        |
 
 ## 🚀 How To Run WinToolkit
 
@@ -49,7 +49,7 @@ Install the WinToolkit executable on your desktop by following these steps:
 irm https://magnetarman.com/winstart | iex
 ```
 
-6. After your PC restarts, you will find the `Win Toolkit` shortcut on the desktop. Use it to start the script as administrator with a simple double-click.
+6. After terminal window finish the jobs and auto-close itself, you will find the `Win Toolkit` shortcut on the desktop. Use it to start the script as administrator with a simple double-click.
 
 ### ⚙️ For Advanced Users
 
@@ -107,7 +107,7 @@ WinToolkit uses the PowerShell 7 script internationalization layout. To add a ne
 
 > [!NOTE]
 >
-> Run the script. After the computer restarts, the system will automatically enter **Safe Mode**.
+> Run the script. After the computer restarts, the system will automatically enter in **Safe Mode**.
 >
 > Once you have finished your work, such as removing obsolete drivers with DDU, you will find a file named "Switch To Normal Mode.bat" on your desktop. To return to the standard Windows boot mode, double-click this file and restart the computer normally.
 
@@ -115,7 +115,7 @@ WinToolkit uses the PowerShell 7 script internationalization layout. To add a ne
 
 > [!NOTE]
 >
-> On Windows 11 22H2 or earlier, WinToolkit will recommend running the WinGet repair function first.
+> On Windows 11 22H2 or earlier versions, WinToolkit will recommend running the WinGet repair function first. This step is necessary because versions of Windows 11 prior to build 22H2 often have incomplete or non-functional versions of winget.
 
 - **BitLocker Toolkit**: Starts an automated process to disable BitLocker encryption on the system drive (C:). The tool checks the current state and, if BitLocker is active, runs the command to start controlled volume decryption. It also adds a registry entry to help counter possible hidden future reactivation attempts by Microsoft.
 
@@ -127,7 +127,7 @@ WinToolkit uses the PowerShell 7 script internationalization layout. To add a ne
 
 ---
 
-## 📽️ WinToolkit In The Media
+## 📽️ Talks About WinToolkit
 
 | Channel Image                                                            | Link                                                                                                                          |
 | :----------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
@@ -135,12 +135,12 @@ WinToolkit uses the PowerShell 7 script internationalization layout. To add a ne
 
 ---
 
-## 💀 Where It All Started (ver. 1.0)
+## Wintoolkit Genesis
 
 <div align="center">
 
-|                                                              |                                                                                   |
-| :----------------------------------------------------------: | :-------------------------------------------------------------------------------: |
+|                                                                 |                                                                                      |
+| :-------------------------------------------------------------: | :----------------------------------------------------------------------------------: |
 | <img src="images/Run-old.jpg" alt="Run-banner-Old" width="800"> | <img src="images/RepairToolkit-old.jpg" alt="Repair-Toolkit-banner-Old" width="800"> |
 
 </div>
@@ -183,7 +183,7 @@ The WinToolkit log files are located at:
 
 ---
 
-## 💖 Support The WinToolkit Project!
+## 💖 Support The Project!
 
 If WinToolkit has helped you, consider actively supporting the project through a [donation](#-make-a-donation), or you can [contribute](#-contribute).
 
@@ -204,7 +204,7 @@ To make a donation, click the Sponsor button in the top-right corner to learn ho
 > [!NOTE]
 > This section is for **contributors and advanced users** who want to understand how WinToolkit works internally, how to modify it, or how to test changes before opening a PR.
 
-WinToolkit uses a custom build system: sources live on the **`Dev`** branch and are automatically compiled by the CI pipeline into a single distributable file on **`main`**. End users clone `main` and get the toolkit ready to use; contributors work on `Dev`.
+WinToolkit uses a custom build system: sources live on the **`Dev`** branch and are automatically compiled by the CI pipeline into a single distributable file on **`main`**. End users clone `main` and get the toolkit ready to use for stable versions; contributors work on `Dev` with an unstable version of the script.
 
 To understand the project architecture, including the `Dev` → `main` flow, compiler, module structure, CI/CD pipeline, and local testing instructions, read:
 
@@ -225,7 +225,7 @@ If you cannot donate, you can still help me improve WinToolkit through these act
 
 💡 **[Submit a pull request](https://github.com/Magnetarman/WinToolkit/pulls)**: submit your bug fix or your new feature.
 
-💬 **[Join the Discussions](https://t.me/GlitchTalkGroup)**: share your ideas, provide feedback, or ask questions.
+💬 **[Join the Discussions](https://t.me/GlitchTalkGroup)**: share your ideas, provide feedback, or ask questions. **[IT Language Only, for now.]**
 
 Thank you from the heart for your support!
 
