@@ -47,7 +47,7 @@ WinToolkit uses a well-defined modular structure:
 
 | Modification Type            | File Path                 | Description                         |
 | ---------------------------- | ------------------------- | ----------------------------------- |
-| **Functions/Scripts**        | `/tool/*.ps1`             | Individual toolkit modules          |
+| **Functions/Scripts**        | `/tools/*.ps1`            | Individual toolkit modules          |
 | **Global Variables/Aspects** | `WinToolkit-template.ps1` | Main template with global variables |
 
 ### ⚠️ ABSOLUTE PROHIBITION: Never Modify `WinToolkit.ps1`
@@ -67,7 +67,7 @@ WinToolkit uses a well-defined modular structure:
 ### Correct Workflow
 
 ```
-/tool/                   → Modify individual scripts
+/tools/                   → Modify individual scripts
 WinToolkit-template.ps1  → Modify global variables
 WinToolkit.ps1           → NEVER TOUCH (auto-generated)
 ```
@@ -147,15 +147,18 @@ WinToolkit/
 │   └── zh-CN/
 │
 ├── tools/                                # Toolkit functional modules
+│   ├── AutoVideoDriverInstall.ps1        # Automatic video driver detection and install
 │   ├── DisableBitlocker.ps1              # BitLocker management
 │   ├── GamingToolkit.ps1                 # Gaming optimizations
 │   ├── Install-Office.ps1                # Microsoft Office installation
 │   ├── Repair-Office.ps1                 # Microsoft Office repair
 │   ├── Uninstall-Office.ps1              # Microsoft Office uninstallation
 │   ├── VideoDriverInstall.ps1            # Video driver installation
+│   ├── VideoDriverReinstall.ps1          # Video driver reinstallation
 │   ├── WinBackupDriver.ps1               # System driver backup
 │   ├── WinCleaner.ps1                    # Temporary file cleanup
 │   ├── WinDebloat.ps1                    # Bloatware removal
+│   ├── WinDeleteUserProfiles.ps1         # Delete user profiles
 │   ├── WinExportLog.ps1                  # Diagnostic log export
 │   ├── WinReinstallStore.ps1             # Microsoft Store reinstallation
 │   ├── WinRepairToolkit.ps1              # System repair tools (SFC/DISM)
@@ -177,14 +180,14 @@ WinToolkit/
 
 ### Detailed Component Descriptions
 
-#### `/tool/` Folder - Functional Modules
+#### `/tools/` Folder - Functional Modules
 
 > [!Note]
 > **NOTE: Main Development Area**
 >
-> The `/tool/` folder contains all functional modules of the toolkit. Each PowerShell file represents a specific feature that can be **developed and tested independently**.
+> The `/tools/` folder contains all functional modules of the toolkit. Each PowerShell file represents a specific feature that can be **developed and tested independently**.
 >
-> The compiler automatically injects each module into the main template during the build phase.
+> The compiler injects each module automatically into the main template during the build phase.
 
 | File                     | Description                             |
 | ------------------------ | --------------------------------------- |
