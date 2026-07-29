@@ -670,7 +670,7 @@ function Send-ErrorLogs {
         # Include the main GUI log and the most recent Core transcripts
         $recentLogFiles = @($mainLog) # The GUI log itself
 
-        # Cerca i log più recenti dal Core nella directory AppData
+        # Find the most recent Core logs in the AppData directory
         $coreLogDir = "$env:LOCALAPPDATA\WinToolkit\logs"
         if (Test-Path $coreLogDir) {
             # Select the 3 most recent Core logs (excluding the GUI log if it appears twice)
@@ -765,7 +765,7 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
             Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.unableToOpenBrowser0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
         }
 
-        # Scrivi messaggio finale nel box Output
+        # Write the final message to the Output box
         $window.Dispatcher.Invoke([Action] {
                 $paragraph = New-Object System.Windows.Documents.Paragraph
                 $run = New-Object System.Windows.Documents.Run
@@ -878,11 +878,11 @@ if (-not $coreLoaded) {
 try {
     Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.loadingCoreFunctionsIntoMemoryGlobalScope') -GuiColor "#00CED1"
 
-    # Dot-sourcing nel scope corrente (Script/Global)
-    # Usa il path locale assicurato da Initialize-CoreScript
+    # Dot-sourcing in the current scope (Script/Global)
+    # Use the local path ensured by Initialize-CoreScript
     . $Global:CoreConfig.LocalCachePath
 
-    # Recupera $menuStructure dopo il caricamento
+    # Retrieve $menuStructure after loading
     if ($menuStructure) {
         $Global:MenuStructure = $menuStructure
         Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.menuStructureLoadedCategories0' -Args @($($Global:MenuStructure.Count))) -GuiColor "#00FF00"
@@ -1016,7 +1016,7 @@ $xaml = @"
         <SolidColorBrush x:Key="LEDGreenColor" Color="#FF4CAF50"/>
         <FontFamily x:Key="PrimaryFont">$FontFamily</FontFamily>
 
-        <!-- Button Styles per CornerRadius (workaround per PowerShell XAML parsing) -->
+        <!-- Button Styles for CornerRadius (workaround for PowerShell XAML parsing) -->
         <Style x:Key="PillButtonStyle" TargetType="Button">
             <Setter Property="Template">
                 <Setter.Value>
@@ -1049,7 +1049,7 @@ $xaml = @"
             </Setter>
         </Style>
 
-        <!-- Style per una ProgressBar arrotondata (Pill) -->
+        <!-- Style for a rounded ProgressBar (Pill) -->
         <Style x:Key="PillProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Template">
                 <Setter.Value>
@@ -1079,7 +1079,7 @@ $xaml = @"
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Task 1: Header con 3 colonne e CornerRadius -->
+        <!-- Task 1: Header with 3 columns and CornerRadius -->
         <Border Grid.Row="0" Background="{StaticResource HeaderBackgroundColor}"
                 Padding="16" Margin="16,16,16,8" CornerRadius="12">
             <Grid>
@@ -1089,13 +1089,13 @@ $xaml = @"
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Colonna 0: Icona Tool -->
+                <!-- Column 0: Tool icon -->
                 <Image Grid.Column="0" x:Name="ToolIconImage"
                        Source="/images/WinToolkit-icon.png"
                        Width="96" Height="96"
                        VerticalAlignment="Center" Margin="0,0,16,0"/>
 
-                <!-- Colonna 1: Titolo, Sottotitolo e Selezione Lingua centrati -->
+                <!-- Column 1: Centered title, subtitle, and language selection -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="$($ScriptTitle)"
                                FontSize="$($FontSize.Header)" FontWeight="Bold"
@@ -1124,7 +1124,7 @@ $xaml = @"
                     </StackPanel>
                 </StackPanel>
 
-                <!-- Colonna 2: Pulsante Invia Log Errori (rosso, in alto a dx) -->
+                <!-- Column 2: Send Error Log button (red, top right) -->
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0">
                     <Button x:Name="SendErrorLogsButton"
                             VerticalAlignment="Center"
@@ -1145,7 +1145,7 @@ $xaml = @"
             </Grid>
         </Border>
 
-        <!-- Task 2: Pannello Informazioni Sistema a 3 blocchi (Layout Refactored con Separatori) -->
+        <!-- Task 2: System Information panel with 3 blocks (refactored layout with separators) -->
         <Border Grid.Row="1" Background="{StaticResource OutputBackgroundColor}"
                 CornerRadius="8" Padding="16" Margin="16,0,16,8">
             <Grid>
@@ -1157,7 +1157,7 @@ $xaml = @"
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Blocco 1: Windows Info (Label azzurre a sinistra, valori bianchi a destra) -->
+                <!-- Block 1: Windows info (blue labels on the left, white values on the right) -->
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
                     <TextBlock x:Name="SysInfoTitleText" Text="▬▬ System information ▬▬"
                                Foreground="{StaticResource LabelBlue}"
@@ -1217,15 +1217,15 @@ $xaml = @"
                     </Grid>
                 </StackPanel>
 
-                <!-- Separatore Verde Verticale 1: Tra Informazioni Sistema e Funzionalità Script -->
+                <!-- Green vertical separator 1: Between System Information and Script Features -->
                 <Border Grid.Column="1" Width="3" Background="{StaticResource SeparatorGreen}"
                         VerticalAlignment="Stretch" Margin="15,5"/>
 
-                <!-- Blocco 2: Script Status (Widget centrale) - Layout semplificato senza LED -->
+                <!-- Block 2: Script status (center widget) - Simplified layout without LED -->
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Center"
                             Margin="20,0" MinWidth="200">
 
-                    <!-- Riga 1: Funzionalità Script con status colorato -->
+                    <!-- Row 1: Script features with colored status -->
                     <Grid HorizontalAlignment="Center" Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -1246,7 +1246,7 @@ $xaml = @"
                         </StackPanel>
                     </Grid>
 
-                    <!-- Riga 2: Stato Bitlocker con status colorato - Stessa dimensione della Riga 1 -->
+                    <!-- Row 2: BitLocker status with colored status - Same size as Row 1 -->
                     <Grid HorizontalAlignment="Center" Margin="0,4,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -1268,11 +1268,11 @@ $xaml = @"
                     </Grid>
                 </StackPanel>
 
-                <!-- Separatore Verde Verticale 2: Tra Funzionalità Script e Hardware -->
+                <!-- Green vertical separator 2: Between Script Features and Hardware -->
                 <Border Grid.Column="3" Width="3" Background="{StaticResource SeparatorGreen}"
                         VerticalAlignment="Stretch" Margin="15,5"/>
 
-                <!-- Blocco 3: Hardware Info (Allineamento speculare al blocco 1) -->
+                <!-- Block 3: Hardware info (mirrored alignment with block 1) -->
                 <StackPanel Grid.Column="4" Margin="20,0,0,0">
                     <TextBlock x:Name="HardwareTitleText" Text="▬▬ Hardware ▬▬"
                                Foreground="{StaticResource LabelBlue}"
@@ -1334,14 +1334,14 @@ $xaml = @"
             </Grid>
         </Border>
 
-        <!-- Main Content - Left Panel con separatori verdi spessi -->
+        <!-- Main content - Left panel with thick green separators -->
         <Grid Grid.Row="2" Margin="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="500"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left Panel - Actions con separatori verdi spessi -->
+            <!-- Left panel - Actions with thick green separators -->
             <Border Grid.Column="0" Background="{StaticResource PanelBackgroundColor}"
                     CornerRadius="8" Margin="0,0,8,0" Padding="16">
                 <Grid>
@@ -1350,7 +1350,7 @@ $xaml = @"
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Header con Icona Gear (CategorySystem) -->
+                    <!-- Header with Gear icon (CategorySystem) -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                         <Image x:Name="CategorySystemImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
@@ -1375,7 +1375,7 @@ $xaml = @"
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Header con Icona Taccuino (OutputLog) -->
+                    <!-- Header with Notebook icon (OutputLog) -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                         <Image x:Name="OutputLogImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
@@ -1398,7 +1398,7 @@ $xaml = @"
             </Border>
         </Grid>
 
-        <!-- Task 5: Footer con pulsante Esegui pill-shaped (CornerRadius 20+) -->
+        <!-- Task 5: Footer with Execute pill-shaped button (CornerRadius 20+) -->
         <Border Grid.Row="3" Background="{StaticResource HeaderBackgroundColor}"
                 Padding="16" Margin="16,8,16,16" CornerRadius="12">
             <Grid>
@@ -1412,7 +1412,7 @@ $xaml = @"
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- ProgressBar visibile con altezza 20 e colore azzurro vivido, resa pill-shaped via Style -->
+                <!-- Visible ProgressBar with height 20 and vivid blue color, made pill-shaped via Style -->
                 <ProgressBar x:Name="MainProgressBar"
                              Grid.Row="0"
                              Grid.ColumnSpan="3"
@@ -1427,7 +1427,7 @@ $xaml = @"
                              Value="0"
                              Style="{StaticResource PillProgressBarStyle}"/>
 
-                <!-- Pulsante Esegui centrato, pill-shaped (CornerRadius 25), azzurro -->
+                <!-- Centered Execute button, pill-shaped (CornerRadius 25), blue -->
                 <Button x:Name="ExecuteButton"
                         Grid.Row="1"
                         Grid.Column="1"
@@ -1598,9 +1598,9 @@ if ($LanguageComboBox) {
         })
 }
 
-# Setup ExecuteButton con nuovo stile e inizializza icone
+# Set up ExecuteButton with the new style and initialize icons
 try {
-    # Inizializza l'icona del pulsante Esegui
+    # Initialize the Execute button icon
     if ($ExecuteButtonImage) {
         try {
             $playIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.ExecuteButtonImage
@@ -1613,7 +1613,7 @@ try {
         }
     }
 
-    # Inizializza l'icona CategorySystem (Gear) per "Funzioni Disponibili"
+    # Initialize the CategorySystem (Gear) icon for "Available Functions"
     if ($CategorySystemImage) {
         try {
             $gearIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.CategorySystem
@@ -1626,7 +1626,7 @@ try {
         }
     }
 
-    # Inizializza l'icona OutputLog (Taccuino)
+    # Initialize the OutputLog (Notebook) icon
     if ($OutputLogImage) {
         try {
             $logIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.OutputLogImage
@@ -1639,14 +1639,14 @@ try {
         }
     }
 
-    # Inizializza l'icona Tool (WinToolkit logo header) - Remote Fallback
+    # Initialize the Tool icon (WinToolkit logo header) - Remote fallback
     if ($ToolIconImage) {
         try {
             $localImgDir = Join-Path $env:LOCALAPPDATA "WinToolkit\images"
             if (-not (Test-Path $localImgDir)) { New-Item -Path $localImgDir -ItemType Directory -Force | Out-Null }
 
-            # Qui usiamo la stessa icona scaricata prima, o ne scarichiamo un'altra se serve.
-            # In base alla richiesta utente carichiamo WinToolkit.ico
+            # Use the same icon downloaded earlier, or download another one if needed.
+            # Load WinToolkit.ico as requested by the user
             $toolLogoPath = Join-Path $localImgDir "WinToolkit.ico"
             $toolLogoUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/images/WinToolkit.ico"
 
@@ -1655,7 +1655,7 @@ try {
             }
 
             if (Test-Path $toolLogoPath) {
-                # Usa IconBitmapDecoder per leggere l'ico all'interno delle Image WPF
+                # Use IconBitmapDecoder to read the ICO into the WPF images
                 $decoder = New-Object System.Windows.Media.Imaging.IconBitmapDecoder(
                     [uri]$toolLogoPath,
                     [System.Windows.Media.Imaging.BitmapCreateOptions]::None,
@@ -1691,7 +1691,7 @@ function Update-SystemInformationPanel {
 
         # Update GUI on UI thread
         $window.Dispatcher.Invoke([Action] {
-                # Task 2: Update text per il nuovo layout a 3 blocchi
+                # Task 2: Update text for the new 3-block layout
                 $SysInfoEdition.Text = $sysInfo.ProductName
                 $SysInfoVersion.Text = "$($sysInfo.DisplayVersion) (Build $($sysInfo.BuildNumber))"
                 $SysInfoArchitecture.Text = $sysInfo.Architecture
@@ -1716,7 +1716,7 @@ function Update-SystemInformationPanel {
                     Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.couldNotLoadSomeIcons0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
                 }
 
-                # Task 2: Compatibility indicator con status text colorato
+                # Task 2: Compatibility indicator with colored status text
                 $statusText = ""
                 $statusIconKey = "LEDStatusRed"
 
@@ -1749,13 +1749,13 @@ function Update-SystemInformationPanel {
                     }
                 }
 
-                # Aggiorna stato Bitlocker
+                # Update BitLocker status
                 try {
                     $blStatusKey = Get-GuiBitlockerStatusKey
                     $blStatus = Get-Loc $blStatusKey
                     $SysInfoBitlocker.Text = $blStatus
 
-                    # Colorazione status Bitlocker basata su chiave stabile e non sul testo localizzato.
+                    # Color the BitLocker status based on a stable key rather than localized text.
                     if ($blStatusKey -eq 'bitlocker.status.on' -or $blStatusKey -eq 'bitlocker.status.encrypting') {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                     }
@@ -1763,11 +1763,11 @@ function Update-SystemInformationPanel {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
                     }
                     else {
-                        # Stati disattivo/non configurato = rosso
+                        # Disabled/not configured states = red
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                     }
 
-                    # Carica icona Bitlocker
+                    # Load the BitLocker icon
                     if ($BitlockerImage) {
                         $blIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.BitlockerImage
                         if ($blIconPath -and (Test-Path $blIconPath)) {
@@ -1805,22 +1805,22 @@ function Update-ActionsPanel {
 
                 foreach ($category in $Global:MenuStructure) {
                     # ========================================
-                    # A. CATEGORY HEADER (con Linea Verde + Emoji)
+                    # A. CATEGORY HEADER (with Green Line + Emoji)
                     # ========================================
 
-                    # Aggiungi linea verde spessa (3px) PRIMA del titolo
+                    # Add a thick green line (3px) BEFORE the title
                     $greenLine = New-Object System.Windows.Controls.Border
                     $greenLine.Height = 3
                     $greenLine.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#2E7D32"))
                     $greenLine.Margin = New-Object System.Windows.Thickness(0, 5, 0, 10)
                     $actionsPanel.Children.Add($greenLine) | Out-Null
 
-                    # Category container con Emoji + Nome
+                    # Category container with Emoji + Name
                     $categoryContainer = New-Object System.Windows.Controls.StackPanel
                     $categoryContainer.Orientation = [System.Windows.Controls.Orientation]::Horizontal
                     $categoryContainer.Margin = '0,0,0,6'
 
-                    # Emoji (SOLO nell'header della categoria)
+                    # Emoji (ONLY in the category header)
                     $iconPath = Get-IconWithFallback -EmojiCharacter $category.Icon
                     if ($iconPath) {
                         $categoryEmoji = New-Object System.Windows.Controls.Image
@@ -1857,7 +1857,7 @@ function Update-ActionsPanel {
                     # ========================================
 
                     foreach ($script in $category.Scripts) {
-                        # Container orizzontale per CheckBox + Text
+                        # Horizontal container for CheckBox + Text
                         $scriptRow = New-Object System.Windows.Controls.StackPanel
                         $scriptRow.Orientation = [System.Windows.Controls.Orientation]::Horizontal
                         $scriptRow.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Transparent)
@@ -1878,7 +1878,7 @@ function Update-ActionsPanel {
                         $checkBox.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
                         $scriptRow.Children.Add($checkBox) | Out-Null
 
-                        # TextBlock unico: <Bold>Nome Script</Bold> - Descrizione
+                        # Single TextBlock: <Bold>Script Name</Bold> - Description
                         $textBlock = New-Object System.Windows.Controls.TextBlock
                         $textBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
                         $textBlock.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
@@ -1906,7 +1906,7 @@ function Update-ActionsPanel {
     }
 }
 
-# Task 6: Funzione helper per determinare l'emoji in base al nome dello script
+# Task 6: Helper function to determine the emoji based on the script name
 function Get-ScriptEmoji {
     param([string]$ScriptName)
 
@@ -1935,7 +1935,7 @@ function Format-JobOutput {
         [string]$Line
     )
 
-    # Filtra messaggi vuoti o non significativi
+    # Filter empty or insignificant messages
     if (-not $Line.Trim()) { return $false }
 
     # Handle WINTOOLKIT_STYLED_MESSAGE_TAG
@@ -2053,7 +2053,7 @@ function Format-JobOutput {
         return $true
     }
 
-    # Pattern per banner ASCII e linee decorative (consolidato e migliorato)
+    # Patterns for ASCII banners and decorative lines (consolidated and improved)
     $bannerPatterns = @(
         '^\s*═+\s*$', '^\s*─+\s*$', '^\s*—+\s*$', '^\s*━+\s*$',
         '__        __  _  _   _',
@@ -2079,7 +2079,7 @@ function Format-JobOutput {
     }
 
     # Check for interactive input prompts
-    if ($Line -match '\[INPUT\]|\[CHOICE\]|\[CONFIRM\]|\?|\[Y/N\]|premi un tasto per continuare|vuoi rischiare') {
+    if ($Line -match '\[INPUT\]|\[CHOICE\]|\[CONFIRM\]|\?|\[Y/N\]|press any key to continue|do you want to take the risk|premi un tasto per continuare|vuoi rischiare') {
         $Global:IsInputWaiting = $true
         Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.interactiveInputDetected0NotSupportedInGuiMode' -Args @($Line)) -GuiColor "#FFA500"
         return $true
@@ -2100,11 +2100,11 @@ function Format-JobOutput {
 # SCRIPT EXECUTION - ASYNCHRONOUS IMPLEMENTATION (Using DispatcherTimer)
 # =============================================================================
 
-# Funzione per avviare il job per lo script corrente
+    # Function to start the job for the current script
 function Start-NextScriptJob {
     param($scriptName)
 
-    # Disabilita il pulsante di esecuzione e resetta la barra di progresso (se è il primo script)
+    # Disable the Execute button and reset the progress bar (if this is the first script)
     $window.Dispatcher.Invoke([Action] {
             $executeButton.IsEnabled = $false
         })
@@ -2173,7 +2173,7 @@ function Start-NextScriptJob {
         function Read-Host {
             param([string]$Prompt)
             Write-Debug "[GUI_SHIM] Interactive prompt bypassed for: '$Prompt'. Returning 'Y'."
-            Write-Output (Get-Loc 'uiText.wintoolkitInputBypassTagPrompt0' -Args @($Prompt)) # Tag per la GUI
+            Write-Output (Get-Loc 'uiText.wintoolkitInputBypassTagPrompt0' -Args @($Prompt)) # Tag for the GUI
             return 'Y' # Default to 'Yes' for most confirmations/choices in GUI mode.
         }
 
@@ -2186,7 +2186,7 @@ function Start-NextScriptJob {
             )
             if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-Loc 'sourceText.automaticRestart' }
             Write-Debug "[GUI_SHIM] Countdown bypassed for '$Message' (duration: $Seconds seconds)."
-            Write-Output (Get-Loc 'uiText.wintoolkitCountdownBypassTagMessage0Seconds1' -Args @($Message, $Seconds)) # Tag per la GUI
+            Write-Output (Get-Loc 'uiText.wintoolkitCountdownBypassTagMessage0Seconds1' -Args @($Message, $Seconds)) # Tag for the GUI
             return $true
         }
 
@@ -2194,7 +2194,7 @@ function Start-NextScriptJob {
         function Get-UserConfirmation {
             param([string]$Message, [string]$DefaultChoice = 'N')
             Write-Debug "[GUI_SHIM] User confirmation bypassed for: '$Message'. Returning 'Yes'."
-            Write-Output (Get-Loc 'uiText.wintoolkitConfirmationBypassTagMessage0' -Args @($Message)) # Tag per la GUI
+            Write-Output (Get-Loc 'uiText.wintoolkitConfirmationBypassTagMessage0' -Args @($Message)) # Tag for the GUI
             return $true # Assume 'Yes' for all user confirmations in GUI mode.
         }
 
@@ -2203,7 +2203,7 @@ function Start-NextScriptJob {
             param([string]$SubTitle)
             if ([string]::IsNullOrWhiteSpace($SubTitle)) { $SubTitle = Get-Loc 'menu.main' }
             Write-Debug "[GUI_SHIM] Header: WinToolkit - $SubTitle (bypassed direct console output)."
-            Write-Output (Get-Loc 'uiText.wintoolkitStyledMessageTagInfoHeader0' -Args @($SubTitle)) # Invia come messaggio stilizzato per la GUI
+            Write-Output (Get-Loc 'uiText.wintoolkitStyledMessageTagInfoHeader0' -Args @($SubTitle)) # Send as a styled message for the GUI
         }
 
         # Shim Invoke-WithSpinner - GUI version adapts progress reporting for scripts using Invoke-WithSpinner
@@ -2249,7 +2249,7 @@ function Start-NextScriptJob {
                             $percent = & $PercentUpdate
                         }
                         else {
-                            # Permetti alla percentuale casuale di raggiungere fino a 99% per una progressione più naturale
+                            # Allow the random percentage to reach 99% for more natural progress
                             $percent = [math]::Min(99, $percent + (Get-Random -Minimum 1 -Maximum 3))
                         }
 
@@ -2407,7 +2407,7 @@ function Start-NextScriptJob {
         $Global:LastJobOutputCount = 0 # Reset output counter for new job
         Write-UnifiedLog -Type 'Info' -Message ("   " + (Get-Loc 'uiText.powershellJob0StartedId1' -Args @($scriptName, $($Global:ScriptJob.Id)))) -GuiColor "#00CED1"
 
-        # *** FIX: Riavvia JobMonitorTimer per processare output del nuovo job ***
+        # *** FIX: Restart JobMonitorTimer to process output from the new job ***
         if ($Global:JobMonitorTimer) {
             if (-not $Global:JobMonitorTimer.IsEnabled) {
                 $Global:JobMonitorTimer.Start()
@@ -2422,7 +2422,7 @@ function Start-NextScriptJob {
     }
 }
 
-# Funzione per processare il completamento del job
+# Function to process job completion
 function Invoke-JobCompletion {
     param(
         [string]$JobStatus,
@@ -2485,7 +2485,7 @@ function Invoke-JobCompletion {
             }
         })
 
-    # Parte 2: Avvia prossimo job (FUORI da Dispatcher per non bloccare UI)
+    # Part 2: Start the next job (OUTSIDE the Dispatcher to avoid blocking the UI)
     if ($Global:CurrentScriptIndex -lt $Global:SelectedScriptsQueue.Count) {
         $window.Dispatcher.Invoke([Action] {
                 Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.preparingTheNextScript') -GuiColor "#FFA500"
@@ -2516,13 +2516,13 @@ function Invoke-JobCompletion {
     # *** END FIX ***
 }
 
-# Gestore del Tick del timer per monitorare il job
+# Timer Tick handler to monitor the job
 function Tick_JobMonitor {
     if ($Global:ScriptJob -and ($Global:ScriptJob.State -eq 'Running' -or $Global:ScriptJob.State -eq 'NotStarted')) {
-        # Ricevi l'output disponibile in blocchi per aggiornamenti in tempo reale
+        # Receive available output in chunks for real-time updates
         $currentJobOutput = Receive-Job -Job $Global:ScriptJob -Keep -ErrorAction SilentlyContinue *>&1
 
-        # Processa solo le nuove linee di output
+        # Process only new output lines
         $newOutputLines = $currentJobOutput | Select-Object -Skip $Global:LastJobOutputCount
         if ($newOutputLines.Count -gt 0) {
             # Safely invoke on Dispatcher (prevent crash if window is closing)
@@ -2591,7 +2591,7 @@ $executeButton.Add_Click({
         # Reset progress debouncer for new run
         $Global:LastLoggedProgress = @{ Percent = -1; Status = "" }
 
-        # Inizializza e avvia il timer se non già attivo
+        # Initialize and start the timer if it is not already active
         if (-not $Global:JobMonitorTimer) {
             $Global:JobMonitorTimer = New-Object System.Windows.Threading.DispatcherTimer
             $Global:JobMonitorTimer.Interval = New-Object System.TimeSpan (0, 0, 0, 0, 500) # 500ms
@@ -2599,7 +2599,7 @@ $executeButton.Add_Click({
         }
         $Global:JobMonitorTimer.Start()
 
-        # Avvia il primo script
+        # Start the first script
         Start-NextScriptJob -scriptName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
     })
 
@@ -2620,7 +2620,7 @@ $SendErrorLogsButton.Add_Click({
 function Set-ConsoleWindowMinimized {
     <#
     .SYNOPSIS
-        Minimizza la finestra della console PowerShell.
+        Minimizes the PowerShell console window.
     #>
     try {
         Add-Type -TypeDefinition @"
