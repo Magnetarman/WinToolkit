@@ -32,10 +32,10 @@ To contribute to the WinToolkit project, you need:
 > [!WARNING]
 > **Branching Restriction Rule**
 >
-> - Changes can be made on `Dev` branch or dedicated branches (`feature/*`, `fix/*`, `feat/*`, `hotfix/*`)
+> - Changes can be made on `Dev` branch or dedicated branches (`bug/*`, `feature/*`, `enhancement/*`, `gui/*`, `changes/*`)
 > - Pull Requests to the `main` branch will be **closed immediately** without notice
 > - The `Dev` branch is the only accepted target for PRs
-> - Branches `feature/*`, `fix/*`, `feat/*`, `hotfix/*` automatically trigger the lightweight CI pipeline
+> - Branches `feature/*`, `fix/*`, `feat/*`, `hotfix/*`, `changes/*` automatically trigger the lightweight CI pipeline
 
 ---
 
@@ -53,7 +53,7 @@ WinToolkit uses a well-defined modular structure:
 ### ⚠️ ABSOLUTE PROHIBITION: Never Modify `WinToolkit.ps1`
 
 > [!WARNING]
-> **Automatically Generated File**
+> **Auto Generated File**
 >
 > The file `WinToolkit.ps1` **must never be modified manually**. This file is the result of an automated **GitHub Actions pipeline** that:
 >
@@ -409,13 +409,13 @@ To test the generated file:
 
 ### Supported Tags
 
-| Tag                | Category                     | Description                                                                                                       |
-| ------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `BUG`              | Bug Fixes                    | Fix for an error or faulty behavior already present in the code. The PR must reference an existing issue.         |
-| `ENHANCEMENT`      | Feature Improvement          | Modification or improvement of an existing function that increases its quality, speed, or robustness.             |
-| `FEATURE`          | New Feature Addition         | Implementation of a new feature previously requested and not yet available in the toolkit.                        |
-| `GUI`              | GUI Modification             | Any change to the graphical interface (`WinToolkit_GUI.ps1`) or visual components of the toolkit.                 |
-| `External Changes` | External Contributor Changes | Change proposed by an external collaborator not part of the direct development team. Reserved for the maintainer. |
+| Tag           | Category                     | Description                                                                                                       |
+| ------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `BUG`         | Bug Fixes                    | Fix for an error or faulty behavior already present in the code. The PR must reference an existing issue.         |
+| `ENHANCEMENT` | Feature Improvement          | Modification or improvement of an existing function that increases its quality, speed, or robustness.             |
+| `FEATURE`     | New Feature Addition         | Implementation of a new feature previously requested and not yet available in the toolkit.                        |
+| `GUI`         | GUI Modification             | Any change to the graphical interface (`WinToolkit_GUI.ps1`) or visual components of the toolkit.                 |
+| `Changes`     | External Contributor Changes | Change proposed by an external collaborator not part of the direct development team. Reserved for the maintainer. |
 
 ### How to Use Tags
 
@@ -426,6 +426,7 @@ BUG/fixed crash in WinCleaner during Temp folder cleanup
 ENHANCEMENT/optimized sorting algorithm in GamingToolkit
 FEATURE/added automatic backup option in WinBackupDriver
 GUI/adjusted main window layout of WinToolkit_GUI
+CHANGES/external contributor added new utility script
 ```
 
 > [!TIP]
@@ -525,7 +526,7 @@ git remote add upstream https://github.com/MagnetarMan/WinToolkit.git
 ```bash
 git checkout Dev
 git pull upstream Dev
-git checkout -b fix/name-of-fix
+git checkout -b BUG/name-of-fix
 ```
 
 > [!TIP]
@@ -534,7 +535,7 @@ git checkout -b fix/name-of-fix
 > - `fix/*` or `bugfix/*` → Lightweight pipeline (lint + test + build)
 > - `feature/*` or `feat/*` → Lightweight pipeline (lint + test + build)
 > - `hotfix/*` → Lightweight pipeline (lint + test + build)
-> - `BUG/*`, `ENHANCEMENT/*`, `FEATURE/*` → Lightweight pipeline (lint + test + build)
+> - `BUG/*`, `ENHANCEMENT/*`, `FEATURE/*`, `GUI/*`, `CHANGES/*` → Lightweight pipeline (lint + test + build)
 > - `Dev` → Full pipeline (lint + test + build)
 >
 > Branch names must follow these patterns to automatically trigger CI.
@@ -559,7 +560,7 @@ git commit -m "- Clear description of the change
 ### Step 7: Push and Pull Request
 
 ```bash
-git push origin fix/name-of-fix
+git push origin BUG/name-of-fix
 ```
 
 1. Go to GitHub in **your** forked repository.
