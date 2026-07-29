@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    WinToolkit GUI v3.0
+    WinToolkit GUI v3.1.0
 .DESCRIPTION
     Refactored WinToolkit GUI that dynamically loads Core Script (WinToolkit.ps1)
     Features: Remote Core loading, dynamic menu generation, output bridging, version sync
@@ -18,7 +18,7 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "3.0.0 (Build 7)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "3.1.0 (Build 5)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
@@ -28,7 +28,7 @@ $LogDirectory = "$env:LOCALAPPDATA\WinToolkit\logs"
 $WindowWidth = 1280     # HD ready resolution in 16:9.
 $WindowHeight = 720     # HD ready resolution in 16:9.
 $FontFamily = "JetBrains Mono Nerd Font, Cascadia Code, Consolas, Courier New"
-$FontSize = @{Small = 14; Medium = 16; Large = 18; Title = 20; Header = 28}
+$FontSize = @{Small = 14; Medium = 16; Large = 18; Title = 20; Header = 28 }
 
 # Emoji mappings for GUI elements
 $emojiMappings = @{
@@ -687,13 +687,13 @@ function Send-ErrorLogs {
 
         # Crea il contenuto del file di metadati JSON
         $metadata = @{
-            Timestamp      = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-            GuiVersion     = $Global:GuiVersion
-            CoreVersion    = $Global:CoreScriptVersion
-            CorrelationId  = if ($Global:CurrentCorrelationId) { $Global:CurrentCorrelationId } else { "N/A" }
-            OS             = (Get-CimInstance Win32_OperatingSystem).Caption
-            OSVersion      = (Get-CimInstance Win32_OperatingSystem).Version
-            MachineName    = $env:COMPUTERNAME
+            Timestamp     = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+            GuiVersion    = $Global:GuiVersion
+            CoreVersion   = $Global:CoreScriptVersion
+            CorrelationId = if ($Global:CurrentCorrelationId) { $Global:CurrentCorrelationId } else { "N/A" }
+            OS            = (Get-CimInstance Win32_OperatingSystem).Caption
+            OSVersion     = (Get-CimInstance Win32_OperatingSystem).Version
+            MachineName   = $env:COMPUTERNAME
         }
         $metadataPath = Join-Path $env:TEMP "metadata.json"
         $metadata | ConvertTo-Json | Out-File -FilePath $metadataPath -Encoding UTF8 -Force
