@@ -32,10 +32,10 @@ To contribute to the WinToolkit project, you need:
 > [!WARNING]
 > **Branching Restriction Rule**
 >
-> - Changes can be made on `Dev` branch or dedicated branches (`bug/*`, `feature/*`, `enhancement/*`, `gui/*`, `changes/*`)
+> - Changes can be made on `Dev` branch or dedicated branches (`BUG/*`, `ENHANCEMENT/*`, `FEATURE/*`, `GUI/*`, `Changes/*`)
 > - Pull Requests to the `main` branch will be **closed immediately** without notice
 > - The `Dev` branch is the only accepted target for PRs
-> - Branches `feature/*`, `fix/*`, `feat/*`, `hotfix/*`, `changes/*` automatically trigger the lightweight CI pipeline
+> - Branches `BUG/*`, `ENHANCEMENT/*`, `FEATURE/*`, `GUI/*`, `Changes/*` automatically trigger the lightweight CI pipeline
 
 ---
 
@@ -254,7 +254,7 @@ This mode uses the same official build pipeline directly in your fork, ensuring 
 The pipeline triggers automatically on:
 
 - **Push to Dev** → Full pipeline: lint → test → build
-- **Push to feature/fix/feat/hotfix/\*** → Lightweight pipeline: lint → test → build → commit
+- **Push to BUG/*, ENHANCEMENT/*, FEATURE/*, GUI/*, Changes/*** → Lightweight pipeline: lint → test → build → commit
 - **PR to Dev** → Quality gate: lint → test (no build, no deploy)
 
 Triggers are limited to files:
@@ -426,11 +426,11 @@ BUG/fixed crash in WinCleaner during Temp folder cleanup
 ENHANCEMENT/optimized sorting algorithm in GamingToolkit
 FEATURE/added automatic backup option in WinBackupDriver
 GUI/adjusted main window layout of WinToolkit_GUI
-CHANGES/external contributor added new utility script
+Changes/external contributor added new utility script
 ```
 
 > [!TIP]
-> You can combine the tag with the branch prefix (e.g., `fix/BUG/name`) but it is **not required**.
+> The tag also serves as the branch prefix (e.g., `BUG/fix-name`). You can add a sub-prefix after the tag if needed (e.g., `BUG/fix/fix-name`) but it is **not required**.
 > The CI pipeline recognizes both formats and processes the PR correctly.
 
 ---
@@ -532,10 +532,11 @@ git checkout -b BUG/name-of-fix
 > [!TIP]
 > **Branch patterns supported by the pipeline**:
 >
-> - `fix/*` or `bugfix/*` → Lightweight pipeline (lint + test + build)
-> - `feature/*` or `feat/*` → Lightweight pipeline (lint + test + build)
-> - `hotfix/*` → Lightweight pipeline (lint + test + build)
-> - `BUG/*`, `ENHANCEMENT/*`, `FEATURE/*`, `GUI/*`, `CHANGES/*` → Lightweight pipeline (lint + test + build)
+> - `BUG/*` → Lightweight pipeline (lint + test + build)
+> - `ENHANCEMENT/*` → Lightweight pipeline (lint + test + build)
+> - `FEATURE/*` → Lightweight pipeline (lint + test + build)
+> - `GUI/*` → Lightweight pipeline (lint + test + build)
+> - `Changes/*` → Lightweight pipeline (lint + test + build)
 > - `Dev` → Full pipeline (lint + test + build)
 >
 > Branch names must follow these patterns to automatically trigger CI.
