@@ -1,87 +1,87 @@
-# Architettura di WinToolkit
+# WinToolkit Architecture
 
-Questa guida descrive il sistema di build, la struttura dei branch, l'organizzazione dei moduli e come testare localmente le modifiche.
+This guide describes the build system, branch structure, module organization, and how to test local changes.
 
 ---
 
-## Struttura dei Branch
+## Branch Structure
 
-WinToolkit usa una separazione deliberata tra branch di sviluppo e branch di distribuzione:
+WinToolkit uses a deliberate separation between development and distribution branches:
 
 ```
-Dev (sorgenti)                  main (distribuzione)
-├── WinToolkit-template.ps1     ├── WinToolkit.ps1   ← compilato da Dev
-├── tool/*.ps1  (13 moduli)     ├── start.ps1
+Dev (sources)                  main (distribution)
+├── WinToolkit-template.ps1     ├── WinToolkit.ps1   ← compiled from Dev
+├── tool/*.ps1  (13 modules)    ├── start.ps1
 ├── compiler.ps1                ├── asset/
 ├── .github/scripts/            ├── README.md
 ├── .github/workflows/          ├── CHANGELOG.md
 └── .github/tests/              └── LICENSE
 ```
 
-- **`Dev`** — branch di lavoro per i contributor. Contiene tutti i sorgenti, il compilatore e i workflow CI.
-- **`main`** — branch di distribuzione. Gli utenti che clonano il repository ottengono solo il toolkit compilato e funzionante, senza il codice sorgente intermedio.
+- **`Dev`** — the working branch for contributors. Contains all sources, the compiler, and CI workflows.
+- **`main`** — the distribution branch. Users who clone the repository get only the compiled, working toolkit, without the intermediate source code.
 
-Il flusso è: modifichi i sorgenti su `Dev` → la pipeline CI compila → l'output `WinToolkit.ps1` viene committato su `main`.
+The flow is: modify sources on `Dev` → CI pipeline compiles → output `WinToolkit.ps1` is committed to `main`.
 
 ---
 
-## Sistema di Build
+## Build System
 
-### `compiler.ps1` — Il compilatore
+### `compiler.ps1` — The Compiler
 
-`compiler.ps1` è il cuore del sistema. Aggrega `WinToolkit-template.ps1` e i 13 moduli `tool/*.ps1` in un unico file distribuibile `WinToolkit.ps1`.
+`compiler.ps1` is the heart of the system. It aggregates `WinToolkit-template.ps1` and all the `tool/*.ps1` modules into a single distributable `WinToolkit.ps1`.
 
-**Flusso di compilazione in 7 fasi:**
+**Compilation flow in 7 phases:**
 
 ```
 WinToolkit-template.ps1  +  tool/*.ps1
-             │
-             ▼
-       compiler.ps1
-  ┌────────────────────────────────────────┐
-  │ Fase 1: Logging enterprise             │
-  │ Fase 2: Validazione prerequisiti       │
-  │ Fase 3: Lettura sorgenti               │
-  │ Fase 4: Iniezione codice               │
-  │   ↳ Trova placeholder nel template     │
-  │   ↳ De-incapsula il modulo tool        │
-  │   ↳ Inietta corpo della funzione       │
-  │   ↳ Aggiunge logging se assente        │
-  │ Fase 5: Minificazione opzionale (AST)  │
-  │ Fase 6: Scrittura UTF-8 senza BOM      │
-  │ Fase 7: Dashboard metriche             │
-  └────────────────────────────────────────┘
-             │
-             ▼
-       WinToolkit.ps1 (output)
+              │
+              ▼
+        compiler.ps1
+   ┌────────────────────────────────────────┐
+   │ Phase 1: Enterprise logging            │
+   │ Phase 2: Prerequisite validation       │
+   │ Phase 3: Source reading                │
+   │ Phase 4: Code injection                │
+   │   ↳ Find placeholder in template      │
+   │   ↳ De-encapsulate the tool module    │
+   │   ↳ Inject function body              │
+   │   ↳ Add logging if absent             │
+   │ Phase 5: Optional minification (AST)  │
+   │ Phase 6: Write UTF-8 without BOM      │
+   │ Phase 7: Metrics dashboard             │
+   └────────────────────────────────────────┘
+              │
+              ▼
+        WinToolkit.ps1 (output)
 ```
 
-**Come funziona l'iniezione:** il template contiene placeholder del tipo `# [INJECT:NomeFunzione]`. Il compiler trova il placeholder, legge il modulo `tool/NomeFunzione.ps1`, de-incapsula il corpo della funzione (rimuove il wrapper `function NomeFunzione { ... }` esterno) e inietta il codice nel template.
+**How injection works:** the template contains placeholders of the form `# [INJECT:FunctionName]`. The compiler finds the placeholder, reads the module `tool/FunctionName.ps1`, de-encapsulates the function body (removes the outer `function FunctionName { ... }` wrapper) and injects the code into the template.
 
-### `.github/scripts/` — Script CI
+### `.github/scripts/` — CI Scripts
 
-| Script | Responsabilità |
+| Script | Responsibility |
 |--------|---------------|
-| `Update-Version.ps1` | Legge `version.json`, incrementa il build number, aggiorna `WinToolkit-template.ps1` e `start.ps1`, pubblica gli output per i job successivi |
-| `Invoke-Build.ps1` | Orchestratore CI: valida i prerequisiti, invoca `compiler.ps1`, verifica l'output, pubblica le metriche |
-| `Test-CompiledScript.ps1` | Suite di validazione post-build: sintassi AST, disponibilità funzioni, struttura menu, dimensione file, encoding UTF-8 |
+| `Update-Version.ps1` | Reads `version.json`, increments the build number, updates `WinToolkit-template.ps1` and `start.ps1`, publishes outputs for downstream jobs |
+| `Invoke-Build.ps1` | CI orchestrator: validates prerequisites, invokes `compiler.ps1`, verifies output, publishes metrics |
+| `Test-CompiledScript.ps1` | Post-build validation suite: AST syntax, function availability, menu structure, file size, UTF-8 encoding |
 
-### `version.json` — Fonte unica di verità per la versione
+### `version.json` — Single Source of Truth for Versioning
 
 ```json
 {
-  "version": "2.5.4",
-  "build": 46
+  "version": "2.5.5",
+  "build": 1
 }
 ```
 
-`Update-Version.ps1` legge e scrive questo file come fonte primaria. Gli altri file (`WinToolkit-template.ps1`, `start.ps1`) vengono aggiornati come step derivati.
+`Update-Version.ps1` reads and writes this file as the primary source. Other files (`WinToolkit-template.ps1`, `start.ps1`) are updated as derived steps.
 
 ---
 
-## Struttura dei Moduli Tool
+## Tool Module Structure
 
-Ogni file in `tool/` è un modulo indipendente che esporta esattamente **una funzione pubblica** con lo stesso nome del file (senza estensione):
+Each file in `tool/` is an independent module that exports exactly **one public function** with the same name as the file (without extension):
 
 ```
 tool/
@@ -98,100 +98,101 @@ tool/
 ├── WinReinstallStore.ps1     → function WinReinstallStore { ... }
 ├── WinRepairToolkit.ps1      → function WinRepairToolkit { ... }
 └── WinUpdateReset.ps1        → function WinUpdateReset { ... }
+Etc...
 ```
 
-I moduli possono definire funzioni helper interne (`function Get-GpuManufacturer`, ecc.) che vengono anch'esse incluse nell'output compilato.
+Modules may define internal helper functions (`function Get-GpuManufacturer`, etc.) that are also included in the compiled output.
 
-Le funzioni del framework (UI, logging, configurazione) sono definite in `WinToolkit-template.ps1` e disponibili a tutti i moduli a runtime.
+Framework functions (UI, logging, configuration) are defined in `WinToolkit-template.ps1` and are available to all modules at runtime.
 
 ---
 
-## Pipeline CI/CD
+## CI/CD Pipeline
 
-### `CI_UpdateWinToolkit_Dev.yml` — Pipeline Dev
+### `CI_UpdateWinToolkit_Dev.yml` — Dev Pipeline
 
-Attivata su push e PR verso `Dev/*`.
+Triggered on push and PR to `Dev/*`.
 
 ```
 push/PR → Dev
       │
       ▼
-[pr_security_guard]  ← controllo accessi a 3 livelli sui file modificati
+[pr_security_guard]  ← 3-level access check on modified files
       │
       ├─────────────────┐
       ▼                 ▼
- [linting]         [testing]     ← paralleli
+ [linting]         [testing]     ← parallel
       │                 │
       └─────┬───────────┘
             ▼
-         [build]                 ← compila e committa WinToolkit.ps1
+         [build]                 ← compiles and commits WinToolkit.ps1
 ```
 
-Il job `pr_security_guard` applica un controllo a 3 livelli:
-- `tool/*` — sempre consentito a tutti i contributor
-- File sensibili (`.github/scripts/`, workflow) — genera warning, richiede revisione maintainer
-- File core (`WinToolkit-template.ps1`, `compiler.ps1`) — bloccati per i non-maintainer
+The `pr_security_guard` job applies a 3-level check:
+- `tool/*` — always allowed for all contributors
+- Sensitive files (`.github/scripts/`, workflows) — generates warnings, requires maintainer review
+- Core files (`WinToolkit-template.ps1`, `compiler.ps1`) — blocked for non-maintainers
 
-### `Create_Release.yml` — Creazione release
+### `Create_Release.yml` — Release Creation
 
-Genera le release notes dal CHANGELOG e prepara gli asset per la distribuzione.
+Generates release notes from the CHANGELOG and prepares assets for distribution.
 
-### `Release_Wintoolkit.yml` — Pubblicazione su `main`
+### `Release_Wintoolkit.yml` — Publishing to `main`
 
-Crea il branch `release/vX.Y.Z`, applica le modifiche compilate e prepara la PR verso `main` (creazione PR manuale per scelta architetturale intenzionale).
+Creates the `release/vX.Y.Z` branch, applies compiled changes, and prepares a PR to `main` (PR creation is manual by intentional architectural choice).
 
 ---
 
-## Come testare localmente
+## How to Test Locally
 
-### Prerequisiti
+### Prerequisites
 
 - PowerShell 7+ (`winget install Microsoft.PowerShell`)
-- Modulo Pester 5 (`Install-Module Pester -MinimumVersion 5.0.0 -Scope CurrentUser`)
+- Pester 5 module (`Install-Module Pester -MinimumVersion 5.0.0 -Scope CurrentUser`)
 - PSScriptAnalyzer (`Install-Module PSScriptAnalyzer -Scope CurrentUser`)
 
-### Compilare il toolkit
+### Building the Toolkit
 
 ```powershell
-# Dalla root del repository (branch Dev)
+# From the repository root (branch Dev)
 .\compiler.ps1
 
-# Con minificazione
+# With minification
 .\compiler.ps1 -Minify
 ```
 
-L'output viene scritto in `WinToolkit.ps1`.
+Output is written to `WinToolkit.ps1`.
 
-### Eseguire i test
+### Running Tests
 
 ```powershell
-# Test suite principale
+# Main test suite
 Invoke-Pester .github/tests/WinToolkit.Tests.ps1 -Output Detailed
 
-# Test unitari dei moduli
+# Module unit tests
 Invoke-Pester .github/tests/Unit/ -Output Detailed
 
-# Validazione post-build
+# Post-build validation
 .github/scripts/Test-CompiledScript.ps1 -ScriptPath WinToolkit.ps1
 ```
 
-### Eseguire il linter
+### Running the Linter
 
 ```powershell
 Invoke-ScriptAnalyzer -Path . -Recurse -Settings .github/linters/PSScriptAnalyzer-settings.psd1
 ```
 
-### Aggiungere un nuovo modulo
+### Adding a New Module
 
-1. Creare `tool/NuovoModulo.ps1` con una funzione pubblica `function NuovoModulo { ... }`
-2. Aggiungere il placeholder `# [INJECT:NuovoModulo]` nel punto corretto di `WinToolkit-template.ps1`
-3. Aggiungere la voce nel menu principale del template
-4. Compilare con `compiler.ps1` e verificare l'output
-5. Aggiungere un file di test in `.github/tests/Unit/NuovoModulo.Tests.ps1`
+1. Create `tool/NewModule.ps1` with a public function `function NewModule { ... }`
+2. Add the placeholder `# [INJECT:NewModule]` at the correct point in `WinToolkit-template.ps1`
+3. Add the entry in the template's main menu
+4. Build with `compiler.ps1` and verify the output
+5. Add a test file in `.github/tests/Unit/NewModule.Tests.ps1`
 
 ---
 
-## Struttura dei File di Test
+## Test File Structure
 
 ```
 .github/tests/
@@ -199,13 +200,13 @@ Invoke-ScriptAnalyzer -Path . -Recurse -Settings .github/linters/PSScriptAnalyze
 │   ├── VideoDriver.Tests.ps1
 │   ├── GamingToolkit.Tests.ps1
 │   └── Build.Tests.ps1
-├── WinToolkit.Tests.ps1     ← test core del framework
-└── TestHelpers.ps1          ← mock condivisi (pianificato)
+├── WinToolkit.Tests.ps1     ← core framework tests
+└── TestHelpers.ps1          ← shared mocks (planned)
 ```
 
-I test usano il pattern dot-source con `-ImportOnly` per caricare il framework senza eseguire il toolkit:
+Tests use a dot-source pattern with `-ImportOnly` to load the framework without executing the toolkit:
 
 ```powershell
-. $TemplatePath -ImportOnly   # carica le funzioni del framework
-. $ToolPath                   # carica la funzione sotto test
+. $TemplatePath -ImportOnly   # loads framework functions
+. $ToolPath                   # loads the function under test
 ```
