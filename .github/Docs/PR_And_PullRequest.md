@@ -189,23 +189,26 @@ WinToolkit/
 >
 > The compiler injects each module automatically into the main template during the build phase.
 
-| File                     | Description                             |
-| ------------------------ | --------------------------------------- |
-| `DisableBitlocker.ps1`   | BitLocker management and disable        |
-| `GamingToolkit.ps1`      | Gaming-specific optimizations           |
-| `Install-Office.ps1`     | Office installation and configuration   |
-| `Repair-Office.ps1`      | Office installation repair              |
-| `Uninstall-Office.ps1`   | Office uninstallation and removal       |
-| `VideoDriverInstall.ps1` | Advanced video driver installation      |
-| `WinBackupDriver.ps1`    | System driver backup and restore        |
-| `WinCleaner.ps1`         | Temporary files and cache cleanup       |
-| `WinDebloat.ps1`         | Windows bloatware removal               |
-| `WinExportLog.ps1`       | Diagnostic log export for debugging     |
-| `WinReinstallStore.ps1`  | Microsoft Store & WinGet reinstallation |
-| `WinRepairToolkit.ps1`   | System repair tools (SFC/DISM)          |
-| `WinUpdateReset.ps1`     | Full Windows Update reset               |
+| File                        | Description                             |
+| --------------------------- | --------------------------------------- |
+| `AutoVideoDriverInstall.ps1` | Automatic video driver detection and install |
+| `DisableBitlocker.ps1`      | BitLocker management and disable        |
+| `GamingToolkit.ps1`         | Gaming-specific optimizations           |
+| `Install-Office.ps1`        | Office installation and configuration   |
+| `Repair-Office.ps1`         | Office installation repair              |
+| `Uninstall-Office.ps1`      | Office uninstallation and removal       |
+| `VideoDriverInstall.ps1`    | Advanced video driver installation      |
+| `VideoDriverReinstall.ps1`  | Video driver reinstallation             |
+| `WinBackupDriver.ps1`       | System driver backup and restore        |
+| `WinCleaner.ps1`            | Temporary files and cache cleanup       |
+| `WinDebloat.ps1`            | Windows bloatware removal               |
+| `WinDeleteUserProfiles.ps1` | Delete Windows user profiles            |
+| `WinExportLog.ps1`          | Diagnostic log export for debugging     |
+| `WinReinstallStore.ps1`     | Microsoft Store & WinGet reinstallation |
+| `WinRepairToolkit.ps1`      | System repair tools (SFC/DISM)          |
+| `WinUpdateReset.ps1`        | Full Windows Update reset               |
 
-#### `/asset/` Folder - External Resources
+#### `/assets/` Folder - External Resources
 
 Contains third-party executables and tools used by the toolkit. These files are invoked by various modules as needed.
 
@@ -293,13 +296,13 @@ Every PR to Dev is automatically analyzed by a three-level security system:
 
 **Level 1 — Allowed (silent)**
 
-- Files in `tool/*`
+- Files in `tools/*`
 - `WinToolkit.ps1` (maintainers only)
 - ✅ PR proceeds normally without intervention
 
 **Level 2 — Allowed with Warning (manual review)**
 
-- `start.ps1`, `WinToolkit_GUI.ps1`, `WinToolkit-template.ps1`, `asset/*`
+- `start.ps1`, `WinToolkit_GUI.ps1`, `WinToolkit-template.ps1`, `assets/*`
 - ⚠️ PR remains open, a warning comment is added for the maintainer
 
 **Level 3 — Protected (full block)**
