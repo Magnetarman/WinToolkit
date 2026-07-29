@@ -348,22 +348,22 @@ function Write-UnifiedLog {
 function Initialize-CoreScript {
     <#
     .SYNOPSIS
-        Carica il Core Script (WinToolkit.ps1) da fonte remota o cache locale.
+        Loads the Core Script (WinToolkit.ps1) from remote source or local cache.
 
     .DESCRIPTION
-        Gestisce il download del Core Script da GitHub, caching locale, estrazione
-        versione, e dot-sourcing delle funzioni nel scope corrente.
-        Implementa confronto versione remoto vs locale per ottimizzare i download.
+        Manages downloading the Core Script from GitHub, local caching, version extraction,
+        and dot-sourcing functions into the current scope.
+        Implements remote vs local version comparison to optimize downloads.
 
     .OUTPUTS
-        Boolean - True se Core caricato con successo, False altrimenti
+        Boolean - True if Core loaded successfully, False otherwise
     #>
 
     [CmdletBinding()]
     param()
 
     try {
-        # Mostra loading screen
+        # Show loading screen
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.resourceInitializationCoreScriptLoading') -GuiColor "#00CED1"
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.pleaseWaitOperationInProgress') -GuiColor "#FFA500"
 
