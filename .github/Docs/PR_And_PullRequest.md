@@ -103,23 +103,24 @@ WinToolkit/
 │   ├── FUNDING.yml                       # Funding configuration
 │   └── pull_request_template.md          # Pull Request template
 │
-├── asset/                                # Static assets and external tools
+├── assets/                               # Static assets and external tools
 │   ├── 7zr.exe                           # 7-Zip archive extraction (CLI)
-│   ├── AMD-Autodetect.exe                # AMD driver detection tool
 │   ├── Basic.xml                         # Office configuration
 │   ├── DDU.zip                           # Display Driver Uninstaller
+│   ├── DriverOverrides.json              # Driver Manifest for better match GPU/Driver Version
 │   ├── dxwebsetup.exe                    # DirectX Web Setup
 │   ├── Microsoft.PowerShell_profile.ps1  # Custom PowerShell profile
 │   ├── NVCleanstall_1.19.0.exe           # NVIDIA Driver Cleaner
 │   ├── OOSU10.exe                        # O&O ShutUp10 (Windows Debloat)
 │   ├── OOSU10.cfg                        # O&O ShutUp10 configuration
+│   ├── settings.json                     # Setting File of cutom Windows Terminal
 │   ├── Setup.exe                         # Office 365 Setup
-│   └── speedtest.exe                     | Network speed test
+│   └── speedtest.exe                     # Network speed test
 │
 ├── Docs/                                 # Technical documentation
 │   └── Windows Updates and the Shared Servicing Model V1.2.pdf
 │
-├── img/                                  # Images and graphical assets
+├── imges/                                # Images and graphical assets
 │   ├── avatar/                           # Contributor avatars
 │   │   └── zakkos.jpg
 │   ├── Gui.jpg                           # GUI Version screenshot
@@ -130,20 +131,20 @@ WinToolkit/
 │   ├── WinToolkit-icon.png               # Readme favicon
 │   └── WinToolkit.ico                    # WinToolkit icon
 │
-├── tool/                                 # Toolkit functional modules
-│   ├── DisableBitlocker.ps1              | BitLocker management
-│   ├── GamingToolkit.ps1                 | Gaming optimizations
-│   ├── Install-Office.ps1                | Microsoft Office installation
-│   ├── Repair-Office.ps1                 | Microsoft Office repair
-│   ├── Uninstall-Office.ps1              | Microsoft Office uninstallation
-│   ├── VideoDriverInstall.ps1            | Video driver installation
-│   ├── WinBackupDriver.ps1               | System driver backup
-│   ├── WinCleaner.ps1                    | Temporary file cleanup
-│   ├── WinDebloat.ps1                    | Bloatware removal
-│   ├── WinExportLog.ps1                  | Diagnostic log export
-│   ├── WinReinstallStore.ps1             | Microsoft Store reinstallation
-│   ├── WinRepairToolkit.ps1              | System repair tools (SFC/DISM)
-│   └── WinUpdateReset.ps1                | Windows Update reset
+├── tools/                                # Toolkit functional modules
+│   ├── DisableBitlocker.ps1              # BitLocker management
+│   ├── GamingToolkit.ps1                 # Gaming optimizations
+│   ├── Install-Office.ps1                # Microsoft Office installation
+│   ├── Repair-Office.ps1                 # Microsoft Office repair
+│   ├── Uninstall-Office.ps1              # Microsoft Office uninstallation
+│   ├── VideoDriverInstall.ps1            # Video driver installation
+│   ├── WinBackupDriver.ps1               # System driver backup
+│   ├── WinCleaner.ps1                    # Temporary file cleanup
+│   ├── WinDebloat.ps1                    # Bloatware removal
+│   ├── WinExportLog.ps1                  # Diagnostic log export
+│   ├── WinReinstallStore.ps1             # Microsoft Store reinstallation
+│   ├── WinRepairToolkit.ps1              # System repair tools (SFC/DISM)
+│   └── WinUpdateReset.ps1                # Windows Update reset
 │
 ├── version.json                          | Single source of truth for version
 ├── .gitignore                            | Files ignored by Git
