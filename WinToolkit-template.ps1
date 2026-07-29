@@ -91,7 +91,7 @@ try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
 # Versione, URL, percorsi, chiavi di registro e variabili UI/esecuzione.
 # ==============================================================================
 
-$ToolkitVersion = "2.5.4 (Build 47)"
+$ToolkitVersion = "2.5.5 (Build 4)"
 
 $AppConfig = @{
     URLs            = @{
