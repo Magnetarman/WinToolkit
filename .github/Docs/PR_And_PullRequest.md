@@ -278,7 +278,7 @@ The pipeline triggers automatically on:
 
 Triggers are limited to files:
 
-- `tool/*.ps1`
+- `tools/*.ps1`
 - `WinToolkit-template.ps1`
 - `compiler.ps1`
 - `start-offline.ps1`
@@ -324,7 +324,7 @@ Every PR to Dev is automatically analyzed by a three-level security system:
 # 1. Make sure you are on the Dev branch
 git checkout Dev
 
-# 2. Make your changes to modules in /tool/ or the template
+# 2. Make your changes to modules in /tools/ or the template
 
 # 3. Commit and push directly to the Dev branch of your fork
 git add .
@@ -390,7 +390,7 @@ cd C:\Path\To\WinToolkit
 The compiler will automatically perform these operations:
 
 1. Prerequisite and folder structure validation
-2. Template loading and all modules from `/tool/`
+2. Template loading and all modules from `/tools/`
 3. Automatic injection of each function into the template
 4. Safe minification via official PowerShell parser
 5. Final file syntax verification
@@ -565,7 +565,7 @@ git checkout -b BUG/name-of-fix
 > [!Note]
 > **NOTE: Remember the Development Logic**
 >
-> - Modify scripts in `/tool/*.ps1` for features.
+> - Modify scripts in `/tools/*.ps1` for features.
 > - Modify `WinToolkit-template.ps1` for global variables.
 > - **NEVER touch `WinToolkit.ps1`**.
 
