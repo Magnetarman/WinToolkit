@@ -12,7 +12,7 @@
 
 #Requires -Version 7.0
 
-# 1. Flag per dire al Core di NON mostrare il menu (CRITICO)
+# 1. Flag to tell the Core to NOT show the menu (CRITICAL)
 $Global:GuiSessionActive = $true
 
 # =============================================================================
@@ -134,7 +134,7 @@ $Global:LastLogParagraphRef = $null
 # CORE INTEGRATION CONFIGURATION
 # =============================================================================
 
-# Configurazione per il caricamento dinamico del Core Script
+# Configuration for dynamic Core Script loading
 $Global:CoreConfig = @{
     RemoteUrl         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
     LocalCachePath    = "$env:LOCALAPPDATA\WinToolkit\cache\WinToolkit_Core.ps1"
@@ -143,7 +143,7 @@ $Global:CoreConfig = @{
     RequiredFunctions = @('Get-SystemInfo', 'Write-StyledMessage', 'Show-Header', 'Initialize-ToolLogging')
 }
 
-# Variabili per il Core Script caricato
+# Variables for the loaded Core Script
 $Global:CoreScriptContent = $null
 $Global:CoreScriptVersion = "Unknown"
 $Global:CoreScriptLoaded = $false
@@ -561,7 +561,7 @@ function Get-EmojiIconPath {
     }
 }
 
-# Funzione helper per caricare icona con fallback a emoji
+# Helper function to load icon with emoji fallback
 function Get-IconWithFallback {
     param(
         [string]$EmojiCharacter,
@@ -575,7 +575,7 @@ function Get-IconWithFallback {
         return $iconPath
     }
 
-    # Altrimenti restituisci null per indicare di usare l'emoji come fallback
+    # Otherwise return null to indicate using the emoji as fallback
     return $null
 }
 
