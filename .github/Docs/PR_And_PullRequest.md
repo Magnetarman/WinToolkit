@@ -123,7 +123,7 @@ WinToolkit/
 │   ├── avatar/                           # Avatar contributori
 │   │   └── zakkos.jpg
 │   ├── Gui.jpg                           # Screenshot GUI Version
-│   ├── RepairToolkit-old.jpg           # Screenshot versione vecchia UI
+│   ├── RepairToolkit-old.jpg             # Screenshot versione vecchia UI
 │   ├── Run-old.jpg                       # Screenshot ver. 1.0
 │   ├── Run.jpg                           # Screenshot principale Readme
 │   ├── WinToolkit-Dev.ico                # Icona Dev
