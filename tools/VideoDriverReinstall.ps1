@@ -1,10 +1,10 @@
-function VideoDriverReinstall {
+﻿function VideoDriverReinstall {
     <#
     .SYNOPSIS
-        Reinstallazione/riparazione driver video tramite DDU in modalità provvisoria.
-        Scarica DDU e l'installer del driver rilevato sul Desktop, poi riavvia in Safe Mode.
+        Reinstalls or repairs video drivers with DDU in Safe Mode.
+        Downloads DDU and the detected driver installer to the Desktop, then restarts in Safe Mode.
     .PARAMETER CountdownSeconds
-        Secondi per il countdown prima del riavvio.
+        Number of seconds in the countdown before restarting.
     #>
     [CmdletBinding()]
     param(
@@ -12,60 +12,60 @@ function VideoDriverReinstall {
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitSession -ToolName "VideoDriverReinstall" -SubTitle "Video Driver Reinstall"
+    Start-ToolkitSession -ToolName "VideoDriverReinstall" -SubTitle (Get-Loc 'script.VideoDriverReinstall')
 
     $driverToolsPath = $AppConfig.Paths.Drivers
     $desktopPath     = $AppConfig.Paths.Desktop
 
     function Set-BlockWindowsUpdateDrivers {
-        Write-StyledMessage -Type 'Info' -Text "Blocco driver automatici da Windows Update."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.blockingAutomaticDriversFromWindowsUpdate')
         try {
             Set-RegistryValue -Path $AppConfig.Registry.WindowsUpdatePolicies -Name "ExcludeWUDriversInQualityUpdate" -Value 1
-            Write-StyledMessage -Type 'Success' -Text "Blocco WU driver impostato."
-            $gpupdateResult = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo (può impiegare 1-2 minuti)" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate" -TimeoutSeconds 180
+            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.driverWuLockSet')
+            $gpupdateResult = Invoke-WithSpinner -Activity (Get-Loc 'toolText.extra.groupPolicyUpdateMayTake12Minutes') -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate" -TimeoutSeconds 180
             if ($gpupdateResult -and $gpupdateResult.ExitCode -eq 0) {
-                Write-StyledMessage -Type 'Success' -Text "✅ Criteri di gruppo aggiornati."
+                Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.updatedGroupPolicy')
             }
             elseif ($gpupdateResult) {
-                Write-StyledMessage -Type 'Warning' -Text "⚠️  gpupdate completato con codice: $($gpupdateResult.ExitCode). Proseguo comunque."
+                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.gpupdateCompletedWithCode0IContinueAnyway' -Args @($($gpupdateResult.ExitCode)))
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text "⚠️  gpupdate non ha risposto. Proseguo comunque."
+                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.gpupdateDidNotRespondIContinueAnyway')
             }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "⚠️  Errore blocco WU driver: $($_.Exception.Message). Proseguo comunque."
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.driverWuBlockError0IContinueAnyway' -Args @($($_.Exception.Message)))
         }
     }
 
     $needsReboot = $false
 
     try {
-        Write-StyledMessage -Type 'Warning' -Text "🔧 Avvio procedura reinstallazione/riparazione driver video."
+        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.startingVideoDriverReinstallationRepairProcedure')
         Set-BlockWindowsUpdateDrivers
         
-        Write-StyledMessage -Type 'Info' -Text "📥 Preparazione download strumenti necessari..."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.preparingToDownloadTheNecessaryTools')
         # Download e estrazione DDU
         $dduZipPath = Join-Path $driverToolsPath "DDU.zip"
-        if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.DDUZip -OutputPath $dduZipPath -Description "DDU (Display Driver Uninstaller)")) {
-            Write-StyledMessage -Type 'Error' -Text "Impossibile scaricare DDU. Annullamento."
+        if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.DDUZip -OutputPath $dduZipPath -Description 'DDU (Display Driver Uninstaller)')) {
+            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.unableToDownloadDduAnnulment')
             return
         }
 
-        Write-StyledMessage -Type 'Info' -Text "Estrazione DDU sul Desktop."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.extractingDduToDesktop')
         try {
             Expand-Archive -Path $dduZipPath -DestinationPath $desktopPath -Force
-            Write-StyledMessage -Type 'Success' -Text "DDU estratto sul Desktop."
+            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.dduExtractedToDesktop')
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore estrazione DDU: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.dduExtractionError0' -Args @($($_.Exception.Message)))
             return
         }
 
         # Download installer driver rilevato (sul Desktop per uso in Safe Mode)
         $gpuAnalysis = VcardAnalizer
         $gpuManufacturer = $gpuAnalysis.PrimaryManufacturer
-        Write-StyledMessage -Type 'Info' -Text "GPU rilevata: $gpuManufacturer."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.gpuDetected0' -Args @($gpuManufacturer))
 
         $stableDownloadDone = $false
         if ($gpuAnalysis.Matches.Count -gt 0) {
@@ -76,34 +76,34 @@ function VideoDriverReinstall {
                 $displayName = if (-not [string]::IsNullOrWhiteSpace($match.DisplayName)) { $match.DisplayName } else { $match.Key }
 
                 if (Invoke-ToolkitDownload -Uri $match.DownloadUrl -OutputPath $targetPath -Description $displayName) {
-                    Write-StyledMessage -Type 'Success' -Text "Driver stabile scaricato sul desktop: $displayName"
+                    Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.stableDriverDownloadedToDesktop0' -Args @($displayName))
                     $stableDownloadDone = $true
                 }
             }
         }
 
         if (-not $stableDownloadDone) {
-            Write-StyledMessage -Type 'Warning' -Text "Nessun driver stabile conosciuto trovato. Uso fallback autodetect."
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.noKnownStableDriversFoundIUseAutodetectFallback')
             switch ($gpuManufacturer) {
                 'AMD' {
                     $amdPath = Join-Path $desktopPath "AMD-Autodetect.exe"
                     if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool")) {
-                        Write-StyledMessage -Type 'Error' -Text "❌ Impossibile scaricare installer AMD. Annullamento."
+                        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.unableToDownloadAmdInstallerAnnulment')
                         return
                     }
                 }
                 'NVIDIA' {
                     $nvidiaPath = Join-Path $desktopPath "NVCleanstall_1.19.0.exe"
                     if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall")) {
-                        Write-StyledMessage -Type 'Error' -Text "❌ Impossibile scaricare NVCleanstall. Annullamento."
+                        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.unableToDownloadNvcleanstallAnnulment')
                         return
                     }
                 }
                 'Intel' {
-                    Write-StyledMessage -Type 'Info' -Text "GPU Intel: scarica driver manualmente da Intel se necessario."
+                    Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.intelGpuDownloadDriversManuallyFromIntelIfNecessary')
                 }
                 default {
-                    Write-StyledMessage -Type 'Warning' -Text "GPU non rilevata: solo DDU verrà posizionato sul Desktop."
+                    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.gpuNotDetectedOnlyDduWillBePlacedOnTheDesktop')
                 }
             }
         }
@@ -112,40 +112,40 @@ function VideoDriverReinstall {
         $batchPath = Join-Path $desktopPath "Switch to Normal Mode.bat"
         try {
             Set-Content -Path $batchPath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
-            Write-StyledMessage -Type 'Info' -Text "Batch 'Switch to Normal Mode.bat' creato sul Desktop."
+            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.batchSwitchToNormalModeBatCreatedOnDesktop')
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "Impossibile creare batch Safe Mode: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.failedToCreateSafeModeBatch0' -Args @($($_.Exception.Message)))
         }
 
-        Write-StyledMessage -Type 'Error' -Text "ATTENZIONE: Il sistema si riavvierà in modalità provvisoria."
-        Write-StyledMessage -Type 'Info' -Text "In Safe Mode: esegui DDU per pulire i driver, poi reinstalla con l'installer sul Desktop. Infine usa il batch per tornare alla modalità normale."
+        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.warningTheSystemWillRebootIntoSafeMode')
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.inSafeModeRunDduToCleanTheDriversThenReinstallWithTheDesktopInstallerFinallyUseBatchToRetu')
 
         # Configura Safe Mode per il prossimo avvio
         try {
-            $null = Invoke-WithSpinner -Activity "Configurazione Safe Mode (bcdedit)" -Command 'bcdedit.exe' `
+            $null = Invoke-WithSpinner -Activity (Get-Loc 'toolText.extra.safeModeConfigurationBcdedit') -Command 'bcdedit.exe' `
                 -Arguments '/set {current} safeboot minimal' -LogContextKey "Video-BCDEdit"
-            Write-StyledMessage -Type 'Success' -Text "Modalità provvisoria configurata per il prossimo avvio."
+            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.safeModeConfiguredForNextBoot')
             $needsReboot = $true
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text "Errore configurazione Safe Mode: $($_.Exception.Message)."
+            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.safeModeConfigurationError0' -Args @($($_.Exception.Message)))
         }
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore critico durante reinstallazione driver: $($_.Exception.Message)"
-        Write-ToolkitLog -Level ERROR -Message "Errore in VideoDriverReinstall" -Context @{
+        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.criticalErrorDuringDriverReinstallation0' -Args @($($_.Exception.Message)))
+        Write-ToolkitLog -Level ERROR -Message (Get-Loc 'toolText.errorInVideodriverreinstall') -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName
             Stack     = $_.ScriptStackTrace
         }
     }
     finally {
-        Write-StyledMessage -Type 'Success' -Text "🎯 Video Driver Reinstall terminato."
-        Write-ToolkitLog -Level INFO -Message "VideoDriverReinstall sessione terminata."
+        Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.videoDriverReinstallFinished')
+        Write-ToolkitLog -Level INFO -Message (Get-Loc 'toolText.videodriverreinstallSessionEnded')
     }
 
     if ($needsReboot) {
-        Invoke-ToolkitReboot -Message "Riavvio in Safe Mode per DDU" -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
+        Invoke-ToolkitReboot -Message (Get-Loc 'toolText.extra.restartInSafeModeForDdu') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
     }
 }

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Script di Start per Win Toolkit in modalità Offline.
 .DESCRIPTION
@@ -11,43 +11,73 @@
   Versione 2.4.1 Build 3
 #>
 
+[CmdletBinding()]
+param([string]$Language = 'en-US')
+
 # Ensure script runs with PowerShell 5.1 or higher for basic compatibility
 # This script itself doesn't require PowerShell 7, but the main toolkit might.
 
-function Convert-SourceTextToEnglish {
-    param([string]$Text)
-    if ([string]::IsNullOrWhiteSpace($Text)) { return $Text }
+$script:SourceTextLanguageData = $null
+$script:SourceTextDefaultLanguageData = $null
 
-    $translated = $Text
-    $replacements = [ordered]@{
-        'Connessione Internet: Non disponibile (modalità offline).' = 'Internet connection: Not available (offline mode).'
-        'Errore nel recupero informazioni sistema' = 'Error retrieving system information'
-        'Download di' = 'Download of'
-        'completato' = 'completed'
-        'fallito dopo' = 'failed after'
-        'tentativi' = 'attempts'
-        'Tentativo' = 'Attempt'
-        'fallito per' = 'failed for'
-        'già presente' = 'already present'
-        'Ricerca installer Windows Terminal più recente su GitHub.' = 'Searching for the latest Windows Terminal installer on GitHub.'
-        'Errore nel recupero release Windows Terminal da GitHub' = 'Error retrieving the Windows Terminal release from GitHub'
-        'Avvio preparazione ambiente offline.' = 'Starting offline environment preparation.'
-        'Verifica presenza script principale' = 'Checking for main script'
-        'Errore: Lo script' = 'Error: The script'
-        'modificato non è presente in' = 'is not present in'
-        'Premi Enter per uscire.' = 'Press Enter to exit.'
-        'Risorse pronte. Avvio dello script principale in modalità offline.' = 'Resources are ready. Starting the main script in offline mode.'
-        'La preparazione delle risorse offline è fallita. Impossibile procedere.' = 'Offline resource preparation failed. Cannot continue.'
-        'Sistema Operativo' = 'Operating system'
-        'Utente' = 'User'
-        'su' = 'on'
-        'Disco C' = 'Disk C'
+function Get-SourceTextLanguageDirectory {
+    $candidates = @(
+        (Join-Path $PSScriptRoot 'languages'),
+        (Join-Path (Split-Path $PSScriptRoot -Parent) 'languages'),
+        (Join-Path (Get-Location) 'languages')
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) { return $candidate }
     }
-    foreach ($entry in $replacements.GetEnumerator()) {
-        $translated = $translated.Replace($entry.Key, $entry.Value)
-    }
-    return $translated
+    return $candidates[0]
 }
+
+function Import-SourceTextLanguageFile {
+    param([string]$LanguageCode)
+
+    $languageDirectory = Get-SourceTextLanguageDirectory
+    if (-not (Test-Path $languageDirectory)) { return $null }
+    try {
+        $localizedData = $null
+        Import-LocalizedData -BindingVariable localizedData -BaseDirectory $languageDirectory -FileName 'WinToolkit.psd1' -UICulture $LanguageCode -ErrorAction Stop
+        return $localizedData
+    }
+    catch {
+        return $null
+    }
+}
+
+function Initialize-SourceTextLocalization {
+    param([string]$LanguageCode)
+
+    $script:SourceTextDefaultLanguageData = Import-SourceTextLanguageFile -LanguageCode 'en-US'
+    $script:SourceTextLanguageData = Import-SourceTextLanguageFile -LanguageCode $LanguageCode
+    if (-not $script:SourceTextLanguageData) {
+        $script:SourceTextLanguageData = $script:SourceTextDefaultLanguageData
+    }
+}
+
+function Get-SourceTextLoc {
+    param(
+        [Parameter(Mandatory = $true)][string]$Key,
+        [object[]]$Args = @()
+    )
+
+    $value = $null
+    if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($Key)) {
+        $value = [string]$script:SourceTextLanguageData[$Key]
+    }
+    elseif ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($Key)) {
+        $value = [string]$script:SourceTextDefaultLanguageData[$Key]
+    }
+    else {
+        $value = $Key
+    }
+    if ($Args.Count -gt 0) { return [string]::Format($value, $Args) }
+    return $value
+}
+
+Initialize-SourceTextLocalization -LanguageCode $Language
 
 function Write-StyledMessage {
     param(
@@ -65,7 +95,7 @@ function Write-StyledMessage {
         'Success' = 'Green'
         'Debug'   = 'DarkGray'
     }
-    Write-Host (Convert-SourceTextToEnglish -Text $text) -ForegroundColor $colors[$type]
+    Write-Host $text -ForegroundColor $colors[$type]
 }
 
 function Show-Host {
@@ -107,13 +137,13 @@ function Show-Host {
         $memoryInfo = Get-WmiObject -Class Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum
         $diskInfo = Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='C:'"
 
-        Write-StyledMessage -type 'Info' -text "🖥️  Sistema Operativo: $($osInfo.OsName)"
-        Write-StyledMessage -type 'Info' -text "🏗️  Build: $($osInfo.OsBuildNumber) ($($osInfo.OsArchitecture))"
-        Write-StyledMessage -type 'Info' -text "👤 Utente: $($env:USERNAME) su $($env:COMPUTERNAME)"
-        Write-StyledMessage -type 'Info' -text "🔧 PowerShell: $($PSVersionTable.PSVersion.ToString())"
-        Write-StyledMessage -type 'Info' -text "⚡ CPU: $($cpuInfo.Name.Trim())"
-        Write-StyledMessage -type 'Info' -text "💾 RAM: $([math]::Round($memoryInfo.Sum / 1GB, 2)) GB"
-        Write-StyledMessage -type 'Info' -text "🗄️  Disco C: $([math]::Round($diskInfo.Size / 1GB, 2)) GB totale, $([math]::Round($diskInfo.FreeSpace / 1GB, 2)) GB liberi"
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.operatingSystem0' -Args @($($osInfo.OsName)))
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.build01' -Args @($($osInfo.OsBuildNumber), $($osInfo.OsArchitecture)))
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.user0On1' -Args @($($env:USERNAME), $($env:COMPUTERNAME)))
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.powershell02' -Args @($($PSVersionTable.PSVersion.ToString())))
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.cpu0' -Args @($($cpuInfo.Name.Trim())))
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.ram0Gb' -Args @($([math]::Round($memoryInfo.Sum / 1GB, 2))))
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.diskC0TotalGb1FreeGb' -Args @($([math]::Round($diskInfo.Size / 1GB, 2)), $([math]::Round($diskInfo.FreeSpace / 1GB, 2))))
 
         # Verifica Winget
         $wingetVersion = $null
@@ -125,25 +155,25 @@ function Show-Host {
         } catch {}
 
         if ($wingetVersion) {
-            Write-StyledMessage -type 'Success' -text "📦 Winget: $wingetVersion"
+            Write-StyledMessage -type 'Success' -text (Get-SourceTextLoc 'uiText.winget0' -Args @($wingetVersion))
         } else {
-            Write-StyledMessage -type 'Warning' -text "📦 Winget: Non disponibile."
+            Write-StyledMessage -type 'Warning' -text (Get-SourceTextLoc 'uiText.wingetNotAvailable')
         }
 
         # Verifica connessione internet
         $internetConnected = Test-Connection -ComputerName 8.8.8.8 -Count 1 -Quiet
         if ($internetConnected) {
-            Write-StyledMessage -type 'Success' -text "🌐 Connessione Internet: Disponibile."
+            Write-StyledMessage -type 'Success' -text (Get-SourceTextLoc 'uiText.internetConnectionAvailable')
         } else {
-            Write-StyledMessage -type 'Warning' -text "🌐 Connessione Internet: Non disponibile (modalità offline)."
+            Write-StyledMessage -type 'Warning' -text (Get-SourceTextLoc 'uiText.internetConnectionNotAvailableOfflineMode')
         }
 
         Write-Host ""
-        Write-StyledMessage -type 'Info' -text "Script Start-Offline Versione 2.4.1 Build 3."
-        Write-StyledMessage -type 'Info' -text "By MagnetarMan - Win Toolkit Project."
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.scriptStartOfflineVersione241Build3')
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.byMagnetarmanWinToolkitProject')
     }
     catch {
-        Write-StyledMessage -type 'Error' -text "Errore nel recupero informazioni sistema: $($_.Exception.Message)."
+        Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.errorRetrievingSystemInformation0' -Args @($($_.Exception.Message)))
     }
 
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
@@ -161,22 +191,22 @@ function Invoke-DownloadFile {
     )
 
     $FileName = Split-Path $OutputPath -Leaf
-    Write-StyledMessage -type 'Info' -text "Download '$FileName' da '$Uri'."
+    Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.download0From1' -Args @($FileName, $Uri))
 
     for ($i = 1; $i -le $MaxRetries; $i++) {
         try {
             Invoke-WebRequest -Uri $Uri -OutFile $OutputPath -UseBasicParsing -TimeoutSec $TimeoutSeconds
-            Write-StyledMessage -type 'Success' -text "Download di '$FileName' completato."
+            Write-StyledMessage -type 'Success' -text (Get-SourceTextLoc 'uiText.0DownloadComplete' -Args @($FileName))
             return $true
         }
         catch {
-            Write-StyledMessage -type 'Warning' -text "Tentativo $i di $MaxRetries fallito per '$FileName': $($_.Exception.Message)."
+            Write-StyledMessage -type 'Warning' -text (Get-SourceTextLoc 'uiText.0AttemptBy1FailedFor23' -Args @($i, $MaxRetries, $FileName, $($_.Exception.Message)))
             if ($i -lt $MaxRetries) {
                 Start-Sleep -Seconds 5
             }
         }
     }
-    Write-StyledMessage -type 'Error' -text "Download di '$FileName' fallito dopo $MaxRetries tentativi."
+    Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.downloadOf0FailedAfter1Attempts' -Args @($FileName, $MaxRetries))
     return $false
 }
 
@@ -188,16 +218,16 @@ function Prepare-OfflineResources {
 
     Write-Host ""
     Write-StyledMessage -type 'Info' -text "=========================================================="
-    Write-StyledMessage -type 'Info' -text " Preparazione Risorse Offline per Win Toolkit Starter "
+    Write-StyledMessage -type 'Info' -text (" " + (Get-SourceTextLoc 'uiText.preparingOfflineResourcesForWinToolkitStarter') + " ")
     Write-StyledMessage -type 'Info' -text "=========================================================="
     Write-Host ""
 
     if (-not (Test-Path $OfflineResourcesDir)) {
         New-Item -Path $OfflineResourcesDir -ItemType Directory -Force | Out-Null
-        Write-StyledMessage -type 'Info' -text "Creata directory risorse offline: $OfflineResourcesDir."
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.createdOfflineResourceDirectory0' -Args @($OfflineResourcesDir))
     }
     else {
-        Write-StyledMessage -type 'Info' -text "Directory risorse offline esistente: $OfflineResourcesDir."
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.existingOfflineResourceDirectory0' -Args @($OfflineResourcesDir))
     }
     Write-Host ""
 
@@ -211,7 +241,7 @@ function Prepare-OfflineResources {
             $allDownloadsSuccessful = $false
         }
     } else {
-        Write-StyledMessage -type 'Info' -text "WingetInstaller.msixbundle già presente."
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.wingetinstallerMsixbundleAlreadyPresent')
     }
 
     # --- Git Installer ---
@@ -222,7 +252,7 @@ function Prepare-OfflineResources {
             $allDownloadsSuccessful = $false
         }
     } else {
-        Write-StyledMessage -type 'Info' -text "Git-2.51.0-64-bit.exe già presente."
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.git251064BitExeAlreadyExists')
     }
 
     # --- PowerShell 7 Installer ---
@@ -233,7 +263,7 @@ function Prepare-OfflineResources {
             $allDownloadsSuccessful = $false
         }
     } else {
-        Write-StyledMessage -type 'Info' -text "PowerShell-7.5.2-win-x64.msi già presente."
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.powershell752WinX64MsiAlreadyPresent')
     }
 
     # --- Windows Terminal Installer (latest MSIX bundle from GitHub) ---
@@ -242,7 +272,7 @@ function Prepare-OfflineResources {
     $localWtInstaller = Get-ChildItem -Path $OfflineResourcesDir -Filter $wtFileNamePattern -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
 
     if (-not $localWtInstaller) {
-        Write-StyledMessage -type 'Info' -text "Ricerca installer Windows Terminal più recente su GitHub."
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.searchForLatestWindowsTerminalInstallerOnGithub')
         try {
             $release = Invoke-RestMethod -Uri $wtApiPath -UseBasicParsing -TimeoutSec 30
             $asset = $release.assets | Where-Object { $_.name -like "*Win10*msixbundle" } | Select-Object -First 1
@@ -255,18 +285,18 @@ function Prepare-OfflineResources {
                         $allDownloadsSuccessful = $false
                     }
                 } else {
-                    Write-StyledMessage -type 'Info' -text "$($asset.name) già presente."
+                    Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.0AlreadyPresent' -Args @($($asset.name)))
                 }
             } else {
-                Write-StyledMessage -type 'Error' -text "Nessun asset MSIX bundle trovato per Windows Terminal."
+                Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.noMsixBundleAssetsFoundForWindowsTerminal')
                 $allDownloadsSuccessful = $false
             }
         } catch {
-            Write-StyledMessage -type 'Error' -text "Errore nel recupero release Windows Terminal da GitHub: $($_.Exception.Message)."
+            Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.errorGettingWindowsTerminalReleaseFromGithub0' -Args @($($_.Exception.Message)))
             $allDownloadsSuccessful = $false
         }
     } else {
-        Write-StyledMessage -type 'Info' -text "Windows Terminal installer ($($localWtInstaller | Split-Path -Leaf)) già presente."
+        Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.windowsTerminalInstaller0AlreadyPresent' -Args @($($localWtInstaller | Split-Path -Leaf)))
     }
 
     # --- Win Toolkit Icon ---
@@ -276,13 +306,13 @@ function Prepare-OfflineResources {
         if (-not (Invoke-DownloadFile -Uri $iconUrl -OutputPath $iconPath)) {
             $allDownloadsSuccessful = $false
         }
-    } else { Write-StyledMessage -type 'Info' -text "WinToolkit.ico già presente." }
+    } else { Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.wintoolkitIcoAlreadyPresent') }
 
     Write-Host ""
     if ($allDownloadsSuccessful) {
-        Write-StyledMessage -type 'Success' -text "Tutte le risorse offline sono state preparate con successo."
+        Write-StyledMessage -type 'Success' -text (Get-SourceTextLoc 'uiText.allOfflineResourcesHaveBeenSuccessfullyPrepared')
     } else {
-        Write-StyledMessage -type 'Error' -text "Alcune risorse offline non sono state scaricate. Verificare la connessione e riprovare."
+        Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.someOfflineResourcesWereNotDownloadedCheckTheConnectionAndTryAgain')
     }
     Write-Host ""
 
@@ -298,27 +328,27 @@ $Host.UI.RawUI.WindowTitle = "Toolkit Starter Offline by MagnetarMan"
 
 Clear-Host
 Show-Host
-Write-StyledMessage -type 'Info' -text "Avvio preparazione ambiente offline."
+Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.startingOfflineEnvironmentPreparation')
 
 if (Prepare-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
-    Write-StyledMessage -type 'Info' -text "Verifica presenza script principale 'start.ps1' in $OfflineResourcesDir."
+    Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.checkForMainScriptStartPs1In0' -Args @($OfflineResourcesDir))
     if (-not (Test-Path $mainScriptPath)) {
-        Write-StyledMessage -type 'Error' -text "Errore: Lo script 'start.ps1' modificato non è presente in '$OfflineResourcesDir'."
-        Write-StyledMessage -type 'Error' -text "Assicurati di aver copiato lo script principale modificato (dopo Step 2) in questa directory."
-        Read-Host "Press Enter to exit."
+        Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.errorModifiedScriptStartPs1IsMissingFrom0' -Args @($OfflineResourcesDir))
+        Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.makeSureYouHaveCopiedTheModifiedMainScriptAfterStep2IntoThisDirectory')
+        Read-Host (Get-SourceTextLoc 'sourceText.pressEnterToExit')
         exit 1
     }
 
-    Write-StyledMessage -type 'Success' -text "Risorse pronte. Avvio dello script principale in modalità offline."
+    Write-StyledMessage -type 'Success' -text (Get-SourceTextLoc 'uiText.resourcesReadyStartingTheMainScriptInOfflineMode')
     Write-Host ""
 
     # Execute the modified main script, passing the offline directory
     # Use Invoke-Expression (iex) to ensure the script runs in the current session context if preferred,
     # or '&' for a new context. Using '&' is safer for external scripts.
-    & $mainScriptPath -OfflineModeDir $OfflineResourcesDir
+    & $mainScriptPath -OfflineModeDir $OfflineResourcesDir -Language $Language
 }
 else {
-    Write-StyledMessage -type 'Error' -text "La preparazione delle risorse offline è fallita. Impossibile procedere."
-    Read-Host "Press Enter to exit."
+    Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.offlineResourcePreparationFailedUnableToProceed')
+    Read-Host (Get-SourceTextLoc 'sourceText.pressEnterToExit')
     exit 1
 }

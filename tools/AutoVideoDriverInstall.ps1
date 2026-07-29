@@ -1,9 +1,9 @@
-function AutoVideoDriverInstall {
+﻿function AutoVideoDriverInstall {
     <#
     .SYNOPSIS
-        Installazione automatica driver video con rilevamento GPU (AMD/NVIDIA/Intel).
+        Automatically installs video drivers after detecting the GPU vendor (AMD/NVIDIA/Intel).
     .PARAMETER CountdownSeconds
-        Secondi per il countdown prima del riavvio.
+        Number of seconds in the countdown before restarting.
     #>
     [CmdletBinding()]
     param(
@@ -11,39 +11,39 @@ function AutoVideoDriverInstall {
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitSession -ToolName "AutoVideoDriverInstall" -SubTitle "Auto Video Driver Install"
+    Start-ToolkitSession -ToolName "AutoVideoDriverInstall" -SubTitle (Get-Loc 'script.AutoVideoDriverInstall')
 
     $desktopPath = $AppConfig.Paths.Desktop
 
     function Set-BlockWindowsUpdateDrivers {
-        Write-StyledMessage -Type 'Info' -Text "Blocco driver automatici da Windows Update."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.blockingAutomaticDriversFromWindowsUpdate')
         try {
             Set-RegistryValue -Path $AppConfig.Registry.WindowsUpdatePolicies -Name "ExcludeWUDriversInQualityUpdate" -Value 1
-            Write-StyledMessage -Type 'Success' -Text "Blocco WU driver impostato."
-            $gpupdateResult = Invoke-WithSpinner -Activity "Aggiornamento criteri di gruppo (può impiegare 1-2 minuti)" -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate" -TimeoutSeconds 180
+            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.driverWuLockSet')
+            $gpupdateResult = Invoke-WithSpinner -Activity (Get-Loc 'toolText.extra.groupPolicyUpdateMayTake12Minutes') -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate" -TimeoutSeconds 180
             if ($gpupdateResult -and $gpupdateResult.ExitCode -eq 0) {
-                Write-StyledMessage -Type 'Success' -Text "✅ Criteri di gruppo aggiornati."
+                Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.updatedGroupPolicy')
             }
             elseif ($gpupdateResult) {
-                Write-StyledMessage -Type 'Warning' -Text "⚠️  gpupdate completato con codice: $($gpupdateResult.ExitCode). Proseguo comunque."
+                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.gpupdateCompletedWithCode0IContinueAnyway' -Args @($($gpupdateResult.ExitCode)))
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text "⚠️  gpupdate non ha risposto. Proseguo comunque."
+                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.gpupdateDidNotRespondIContinueAnyway')
             }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text "⚠️  Errore blocco WU driver: $($_.Exception.Message). Proseguo comunque."
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.driverWuBlockError0IContinueAnyway' -Args @($($_.Exception.Message)))
         }
     }
 
     try {
-        Write-StyledMessage -Type 'Info' -Text "🚀 Avvio installazione automatica driver video."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.startingAutomaticVideoDriverInstallation')
         Set-BlockWindowsUpdateDrivers
         
-        Write-StyledMessage -Type 'Info' -Text "🔍 Rilevamento configurazione GPU in corso..."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.detectingGpuConfiguration')
         $gpuAnalysis = VcardAnalizer
         $gpuManufacturer = $gpuAnalysis.PrimaryManufacturer
-        Write-StyledMessage -Type 'Info' -Text "GPU rilevata: $gpuManufacturer."
+        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.gpuDetected0' -Args @($gpuManufacturer))
 
         $stableDownloadDone = $false
         if ($gpuAnalysis.Matches.Count -gt 0) {
@@ -54,48 +54,48 @@ function AutoVideoDriverInstall {
                 $displayName = if (-not [string]::IsNullOrWhiteSpace($match.DisplayName)) { $match.DisplayName } else { $match.Key }
 
                 if (Invoke-ToolkitDownload -Uri $match.DownloadUrl -OutputPath $targetPath -Description $displayName) {
-                    Write-StyledMessage -Type 'Success' -Text "Driver stabile scaricato sul desktop: $displayName"
+                    Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.stableDriverDownloadedToDesktop0' -Args @($displayName))
                     $stableDownloadDone = $true
                 }
             }
         }
 
         if (-not $stableDownloadDone) {
-            Write-StyledMessage -Type 'Warning' -Text "Nessun driver stabile conosciuto trovato. Uso fallback autodetect."
+            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.noKnownStableDriversFoundIUseAutodetectFallback')
             switch ($gpuManufacturer) {
                 'AMD' {
                     $amdPath = Join-Path $desktopPath "AMD-Autodetect.exe"
                     if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool")) {
-                        Write-StyledMessage -Type 'Error' -Text "❌ Impossibile scaricare installer AMD. Annullamento."
+                        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.unableToDownloadAmdInstallerAnnulment')
                         return
                     }
                 }
                 'NVIDIA' {
                     $nvidiaPath = Join-Path $desktopPath "NVCleanstall_1.19.0.exe"
                     if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall")) {
-                        Write-StyledMessage -Type 'Error' -Text "❌ Impossibile scaricare NVCleanstall. Annullamento."
+                        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.unableToDownloadNvcleanstallAnnulment')
                         return
                     }
                 }
                 'Intel' {
-                    Write-StyledMessage -Type 'Info' -Text "GPU Intel: scarica driver manualmente da Intel se necessario."
+                    Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.intelGpuDownloadDriversManuallyFromIntelIfNecessary')
                 }
                 default {
-                    Write-StyledMessage -Type 'Warning' -Text "GPU non rilevata: driver non disponibile per l'installazione automatica."
+                    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.gpuNotDetectedDriverNotAvailableForAutomaticInstallation')
                 }
             }
         }
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text "Errore durante installazione driver: $($_.Exception.Message)"
-        Write-ToolkitLog -Level ERROR -Message "Errore in AutoVideoDriverInstall" -Context @{
+        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.errorDuringDriverInstallation0' -Args @($($_.Exception.Message)))
+        Write-ToolkitLog -Level ERROR -Message (Get-Loc 'toolText.errorInAutovideodriverinstall') -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName
             Stack     = $_.ScriptStackTrace
         }
     }
     finally {
-        Write-StyledMessage -Type 'Success' -Text "🎯 Auto Video Driver Install terminato."
-        Write-ToolkitLog -Level INFO -Message "AutoVideoDriverInstall sessione terminata."
+        Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.autoVideoDriverInstallFinished')
+        Write-ToolkitLog -Level INFO -Message (Get-Loc 'toolText.autovideodriverinstallSessionEnded')
     }
 }
