@@ -112,15 +112,16 @@ WinToolkit/
 │   ├── Microsoft.PowerShell_profile.ps1  # Custom PowerShell profile
 │   ├── NVCleanstall_1.19.0.exe           # NVIDIA Driver Cleaner
 │   ├── OOSU10.exe                        # O&O ShutUp10 (Windows Debloat)
-│   ├── OOSU10.cfg                        # O&O ShutUp10 configuration
-│   ├── settings.json                     # Setting File of cutom Windows Terminal
+│   ├── ooshutup10.cfg                    # O&O ShutUp10 configuration
+│   ├── png/                              # PNG image assets (excluded from release)
+│   ├── settings.json                     # Windows Terminal settings file
 │   ├── Setup.exe                         # Office 365 Setup
 │   └── speedtest.exe                     # Network speed test
 │
 ├── Docs/                                 # Technical documentation
 │   └── Windows Updates and the Shared Servicing Model V1.2.pdf
 │
-├── imges/                                # Images and graphical assets
+├── images/                               # Images and graphical assets
 │   ├── avatar/                           # Contributor avatars
 │   │   └── zakkos.jpg
 │   ├── Gui.jpg                           # GUI Version screenshot
@@ -130,6 +131,20 @@ WinToolkit/
 │   ├── WinToolkit-Dev.ico                # Dev icon
 │   ├── WinToolkit-icon.png               # Readme favicon
 │   └── WinToolkit.ico                    # WinToolkit icon
+│
+├── languages/                            # Localization files
+│   ├── ar-SA/
+│   ├── bn-BD/
+│   ├── en-US/
+│   ├── es-ES/
+│   ├── fr-FR/
+│   ├── hi-IN/
+│   ├── id-ID/
+│   ├── it-IT/
+│   ├── pt-BR/
+│   ├── ru-RU/
+│   ├── ur-PK/
+│   └── zh-CN/
 │
 ├── tools/                                # Toolkit functional modules
 │   ├── DisableBitlocker.ps1              # BitLocker management
