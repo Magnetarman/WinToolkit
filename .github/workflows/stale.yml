@@ -19,7 +19,7 @@ jobs:
       #           stale e chiuse dopo 7 giorni di inattività come di consueto.
       # -----------------------------------------------------------------------
       - name: Stale standard (escluse issue Backlog)
-        uses: actions/stale@1e223db275d687790206a7acac4d1a11bd6fe629 # v10.4.0
+        uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
         with:
           days-before-stale: 60
           days-before-close: 7
@@ -48,7 +48,7 @@ jobs:
       #           Le PR non sono coinvolte in questo step.
       # -----------------------------------------------------------------------
       - name: Stale Backlog issues (solo tag, mai chiuse)
-        uses: actions/stale@1e223db275d687790206a7acac4d1a11bd6fe629 # v10.4.0
+        uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
         with:
           days-before-stale: 60
           days-before-close: -1
