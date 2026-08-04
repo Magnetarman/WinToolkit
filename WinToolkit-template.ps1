@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     WinToolkit - Sopravvivi a Windows
 .DESCRIPTION
