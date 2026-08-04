@@ -1,4 +1,4 @@
-﻿function DisableBitlocker {
+function DisableBitlocker {
     <#
     .SYNOPSIS
         Disattiva BitLocker sul drive C: e previene la crittografia futura.
