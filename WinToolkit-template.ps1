@@ -180,7 +180,8 @@ $Global:ToolkitLanguage = 'en-US'
 $Global:ToolkitLanguageData = $null
 $Global:ToolkitDefaultLanguageData = $null
 function Get-ToolkitLanguageDirectory {
-    $candidate = Join-Path $PSScriptRoot 'languages'
+    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+    $candidate = Join-Path $root 'languages'
     if (Test-Path $candidate) { return $candidate }
 
     $repoCandidate = Join-Path (Get-Location) 'languages'
