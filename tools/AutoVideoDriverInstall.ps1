@@ -1,4 +1,4 @@
-﻿function AutoVideoDriverInstall {
+function AutoVideoDriverInstall {
     <#
     .SYNOPSIS
         Automatically installs video drivers after detecting the GPU vendor (AMD/NVIDIA/Intel).

@@ -1,14 +1,14 @@
-﻿<#
+<#
 .SYNOPSIS
-    Script di Start per Win Toolkit in modalità Offline.
+    Start Script for Win Toolkit in Offline mode.
 .DESCRIPTION
-    Questo script prepara l'ambiente Win Toolkit scaricando tutte le dipendenze
-    necessarie (installatori, icone, ecc.) in una cartella 'start' locale.
-    Successivamente, avvia lo script principale 'start.ps1' (che deve essere
-    precedentemente posizionato nella cartella 'start') in modalità offline,
-    consentendo l'esecuzione del toolkit anche senza connessione internet.
+    This script prepares the Win Toolkit environment by downloading all dependencies
+    needed (installers, icons, etc.) into a local 'start' folder.
+    Subsequently, it launches the main 'start.ps1' script (which must be
+    previously placed in the 'start' folder) in offline mode,
+    allowing the toolkit to run even without internet connection.
 .NOTES
-  Versione 2.4.1 Build 3
+  Version 2.4.1 Build 3
 #>
 
 [CmdletBinding()]
@@ -21,15 +21,92 @@ $script:SourceTextLanguageData = $null
 $script:SourceTextDefaultLanguageData = $null
 
 function Get-SourceTextLanguageDirectory {
+    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
     $candidates = @(
-        (Join-Path $PSScriptRoot 'languages'),
-        (Join-Path (Split-Path $PSScriptRoot -Parent) 'languages'),
-        (Join-Path (Get-Location) 'languages')
+        (Join-Path $root 'languages'),
+        (Join-Path (Split-Path $root -Parent) 'languages'),
+        (Join-Path (Get-Location) 'languages'),
+        (Join-Path $env:LOCALAPPDATA 'WinToolkit\languages')
     )
     foreach ($candidate in $candidates) {
         if (Test-Path $candidate) { return $candidate }
     }
-    return $candidates[0]
+    return $candidates[-1]
+}
+
+function Get-RemoteAvailableCultures {
+    param([string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev')
+    try {
+        $response = Invoke-RestMethod -Uri $GitHubApiUrl -UseBasicParsing -ErrorAction Stop
+        return @($response | Where-Object { $_.type -eq 'dir' } | ForEach-Object { $_.name })
+    }
+    catch {
+        return @()
+    }
+}
+
+function Invoke-SourceTextLanguagePreparation {
+    [CmdletBinding()]
+    param(
+        [string]$ScriptRoot,
+        [string]$RemoteBaseUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/languages',
+        [string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev',
+        [int]$CacheMaxAgeDays = 7
+    )
+    $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
+    $remoteCultures = Get-RemoteAvailableCultures -GitHubApiUrl $GitHubApiUrl
+    $needDownload = $false
+    if (-not (Test-Path $localDir)) {
+        $needDownload = $true
+    }
+    else {
+        $oldestFile = Get-ChildItem -Path $localDir -Recurse -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -First 1
+        if ($oldestFile) {
+            $age = (Get-Date) - $oldestFile.LastWriteTime
+            if ($age.TotalDays -ge $CacheMaxAgeDays) { $needDownload = $true }
+        }
+        else { $needDownload = $true }
+        if (-not $needDownload) {
+            foreach ($culture in $remoteCultures) {
+                $localFile = Join-Path $localDir $culture 'WinToolkit.psd1'
+                if (-not (Test-Path $localFile)) { $needDownload = $true; break }
+            }
+        }
+    }
+    if ($needDownload -and $remoteCultures.Count -gt 0) {
+        if (-not (Test-Path $localDir)) { New-Item -Path $localDir -ItemType Directory -Force | Out-Null }
+        foreach ($culture in $remoteCultures) {
+            $cultureDir = Join-Path $localDir $culture
+            $localFile = Join-Path $cultureDir 'WinToolkit.psd1'
+            if (-not (Test-Path $cultureDir)) { New-Item -Path $cultureDir -ItemType Directory -Force | Out-Null }
+            try {
+                $remoteUrl = "$RemoteBaseUrl/$culture/WinToolkit.psd1"
+                Invoke-WebRequest -Uri $remoteUrl -OutFile $localFile -UseBasicParsing -ErrorAction Stop | Out-Null
+            }
+            catch {
+                if (-not (Test-Path $localFile)) {
+                    try {
+                        $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
+                        if (Test-Path $localFileFallback) { Copy-Item -Path $localFileFallback -Destination $localFile -Force }
+                    }
+                    catch {}
+                }
+            }
+        }
+    }
+    return $localDir
+}
+
+function Get-SourceTextAutoDetectedLanguage {
+    param([string]$AvailableCultures = 'en-US', [string]$SystemUICulture = ($PSUICulture.ToString()))
+    $normalizedSystem = $SystemUICulture.ToLowerInvariant()
+    $availableList = @($AvailableCultures -split '[\s,]+' | Where-Object { $_ })
+    if ($availableList -contains $normalizedSystem) { return $normalizedSystem }
+    $neutralSystem = $normalizedSystem.Split('-')[0]
+    foreach ($culture in $availableList) {
+        if ($culture.Split('-')[0] -eq $neutralSystem) { return $culture }
+    }
+    return 'en-US'
 }
 
 function Import-SourceTextLanguageFile {
@@ -60,7 +137,7 @@ function Initialize-SourceTextLocalization {
 function Get-SourceTextLoc {
     param(
         [Parameter(Mandatory = $true)][string]$Key,
-        [object[]]$Args = @()
+        [Alias('Args')][object[]]$Arguments = @()
     )
 
     $value = $null
@@ -73,10 +150,18 @@ function Get-SourceTextLoc {
     else {
         $value = $Key
     }
-    if ($Args.Count -gt 0) { return [string]::Format($value, $Args) }
+    if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
 
+$preparedDir = Invoke-SourceTextLanguagePreparation -ScriptRoot $PSScriptRoot
+if ($Language -eq 'en-US') {
+    $availableCultures = @()
+    if ($preparedDir -and (Test-Path $preparedDir)) {
+        $availableCultures = @(Get-ChildItem -Path $preparedDir -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'WinToolkit.psd1') } | ForEach-Object { $_.Name })
+    }
+    $Language = Get-SourceTextAutoDetectedLanguage -AvailableCultures ($availableCultures -join ',')
+}
 Initialize-SourceTextLocalization -LanguageCode $Language
 
 function Write-StyledMessage {
@@ -101,9 +186,10 @@ function Write-StyledMessage {
 function Show-Host {
     <#
     .SYNOPSIS
-        Mostra informazioni sul sistema host.
+        Displays host system information.
+
     .DESCRIPTION
-        Visualizza informazioni dettagliate sul sistema operativo, hardware e configurazione corrente.
+        Shows detailed information about the operating system, hardware and current configuration.
     #>
 
     Clear-Host
@@ -145,7 +231,7 @@ function Show-Host {
         Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.ram0Gb' -Args @($([math]::Round($memoryInfo.Sum / 1GB, 2))))
         Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.diskC0TotalGb1FreeGb' -Args @($([math]::Round($diskInfo.Size / 1GB, 2)), $([math]::Round($diskInfo.FreeSpace / 1GB, 2))))
 
-        # Verifica Winget
+        # Verify Winget
         $wingetVersion = $null
         try {
             $wingetOutput = winget --version 2>$null
@@ -160,7 +246,7 @@ function Show-Host {
             Write-StyledMessage -type 'Warning' -text (Get-SourceTextLoc 'uiText.wingetNotAvailable')
         }
 
-        # Verifica connessione internet
+        # Verify internet connection
         $internetConnected = Test-Connection -ComputerName 8.8.8.8 -Count 1 -Quiet
         if ($internetConnected) {
             Write-StyledMessage -type 'Success' -text (Get-SourceTextLoc 'uiText.internetConnectionAvailable')
@@ -210,7 +296,7 @@ function Invoke-DownloadFile {
     return $false
 }
 
-function Prepare-OfflineResources {
+function Initialize-OfflineResources {
     param(
         [Parameter(Mandatory = $true)]
         [string]$OfflineResourcesDir
@@ -320,7 +406,7 @@ function Prepare-OfflineResources {
 }
 
 # --- Main execution for Start-Offline.ps1 ---
-$PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$PSScriptRoot = if ($MyInvocation.MyCommand.Definition) { Split-Path -Parent $MyInvocation.MyCommand.Definition } else { (Get-Location).Path }
 $OfflineResourcesDir = Join-Path $PSScriptRoot "start"
 $mainScriptPath = Join-Path $OfflineResourcesDir "start.ps1"
 
@@ -330,7 +416,7 @@ Clear-Host
 Show-Host
 Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.startingOfflineEnvironmentPreparation')
 
-if (Prepare-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
+if (Initialize-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
     Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.checkForMainScriptStartPs1In0' -Args @($OfflineResourcesDir))
     if (-not (Test-Path $mainScriptPath)) {
         Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.errorModifiedScriptStartPs1IsMissingFrom0' -Args @($OfflineResourcesDir))

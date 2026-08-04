@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Validates the compiled WinToolkit.ps1 file.
 

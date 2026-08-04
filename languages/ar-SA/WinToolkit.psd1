@@ -1,4 +1,4 @@
-﻿# culture="ar-SA"
+# culture="ar-SA"
 ConvertFrom-StringData -StringData @'
 language.code = ar-SA
 language.name = Arabic

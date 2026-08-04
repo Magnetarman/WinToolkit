@@ -1,4 +1,4 @@
-﻿function WinCleaner {
+function WinCleaner {
     <#
     .SYNOPSIS
         Automatically performs a complete Windows system cleanup.
@@ -343,7 +343,7 @@
                 Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue | ForEach-Object {
                     $logName = $_.LogName
                     # I log Analytical/Debug devono essere disabilitati prima di essere cancellati;
-                    # wevtutil cl fallisce con "Accesso negato" finché sono attivi.
+                    # wevtutil cl fails with "Access denied" while they are active.
                     if ($_.LogType -in 'Analytical', 'Debug') {
                         Wevtutil.exe sl $logName /e:false *>$null
                     }

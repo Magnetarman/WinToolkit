@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Compiles WinToolkit.ps1 from WinToolkit-template.ps1 and files in /tools.
 
