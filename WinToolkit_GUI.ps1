@@ -18,7 +18,7 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "3.1.0 (Build 9)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "3.1.0 (Build 10)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
@@ -156,8 +156,11 @@ $Global:ToolkitDefaultLanguageData = $null
 # =============================================================================
 
 function Get-ToolkitLanguageDirectory {
-    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
-    $candidate = Join-Path $scriptDir 'languages'
+    if ($Global:ToolkitPreparedLanguagesDir -and (Test-Path $Global:ToolkitPreparedLanguagesDir)) {
+        return $Global:ToolkitPreparedLanguagesDir
+    }
+    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+    $candidate = Join-Path $root 'languages'
     if (Test-Path $candidate) { return $candidate }
 
     $repoCandidate = Join-Path (Get-Location) 'languages'
@@ -266,11 +269,62 @@ function Get-ToolkitMenuText {
     return [string]$Item
 }
 
-# Detect the operating system UI culture on every script load.
-$detectedLanguage = [System.Globalization.CultureInfo]::InstalledUICulture.Name
-if ([string]::IsNullOrWhiteSpace($detectedLanguage)) {
-    $detectedLanguage = 'en-US'
+function Get-RemoteAvailableCultures {
+    param([string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev')
+    try {
+        $response = Invoke-RestMethod -Uri $GitHubApiUrl -UseBasicParsing -ErrorAction Stop
+        return @($response | Where-Object { $_.type -eq 'dir' } | ForEach-Object { $_.name })
+    }
+    catch {
+        return @()
+    }
 }
+
+function Invoke-ToolkitLanguagePreparation {
+    [CmdletBinding()]
+    param(
+        [string]$ScriptRoot,
+        [string]$RemoteBaseUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/languages',
+        [string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev'
+    )
+    $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
+    $remoteCultures = Get-RemoteAvailableCultures -GitHubApiUrl $GitHubApiUrl
+    if ($remoteCultures.Count -gt 0) {
+        if (-not (Test-Path $localDir)) { New-Item -Path $localDir -ItemType Directory -Force | Out-Null }
+        foreach ($culture in $remoteCultures) {
+            $cultureDir = Join-Path $localDir $culture
+            $localFile = Join-Path $cultureDir 'WinToolkit.psd1'
+            if (-not (Test-Path $cultureDir)) { New-Item -Path $cultureDir -ItemType Directory -Force | Out-Null }
+            try {
+                $remoteUrl = "$RemoteBaseUrl/$culture/WinToolkit.psd1"
+                Invoke-WebRequest -Uri $remoteUrl -OutFile $localFile -UseBasicParsing -ErrorAction Stop | Out-Null
+            }
+            catch {
+                Write-UnifiedLog -Type 'Warning' -Message ("Failed to download language file for '$culture': $($_.Exception.Message)") -GuiColor "#FFA500"
+            }
+        }
+    }
+    $Global:ToolkitPreparedLanguagesDir = $localDir
+    return $localDir
+}
+
+function Get-ToolkitAutoDetectedLanguage {
+    param([string]$AvailableCultures = 'en-US', [string]$SystemUICulture = ($PSUICulture.ToString()))
+    $normalizedSystem = $SystemUICulture.ToLowerInvariant()
+    $availableList = @($AvailableCultures -split '[\s,]+' | Where-Object { $_ })
+    if ($availableList -contains $normalizedSystem) { return $normalizedSystem }
+    $neutralSystem = $normalizedSystem.Split('-')[0]
+    foreach ($culture in $availableList) {
+        if ($culture.Split('-')[0] -eq $neutralSystem) { return $culture }
+    }
+    return 'en-US'
+}
+
+# Detect the operating system UI culture on every script load.
+Invoke-ToolkitLanguagePreparation -ScriptRoot $(if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path })
+$availableCultures = (Get-AvailableToolkitLanguages).Code -join ','
+if ([string]::IsNullOrWhiteSpace($availableCultures)) { $availableCultures = 'en-US' }
+$detectedLanguage = Get-ToolkitAutoDetectedLanguage -AvailableCultures $availableCultures
 Set-ToolkitLanguage -LanguageCode $detectedLanguage
 $Global:ToolkitLanguageDirectory = Get-ToolkitLanguageDirectory
 
@@ -382,8 +436,8 @@ function Initialize-CoreScript {
 
         $coreContent = $null
         $usedCache = $false
-$localCoreNumericVersion = [version]"0.0.0" # Numeric version for comparison
-$localCoreFullVersion = "Unknown" # Full version string for display
+        $localCoreNumericVersion = [version]"0.0.0" # Numeric version for comparison
+        $localCoreFullVersion = "Unknown" # Full version string for display
 
         # 1. Retrieve the local Core Script version (if cache exists)
         if (Test-Path $Global:CoreConfig.LocalCachePath) {
@@ -2107,7 +2161,7 @@ function Format-JobOutput {
 # SCRIPT EXECUTION - ASYNCHRONOUS IMPLEMENTATION (Using DispatcherTimer)
 # =============================================================================
 
-    # Function to start the job for the current script
+# Function to start the job for the current script
 function Start-NextScriptJob {
     param($scriptName)
 
