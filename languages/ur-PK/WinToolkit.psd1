@@ -1,4 +1,4 @@
-﻿# culture="ur-PK"
+# culture="ur-PK"
 ConvertFrom-StringData -StringData @'
 language.code = ur-PK
 language.name = Urdu
