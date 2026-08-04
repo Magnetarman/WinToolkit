@@ -60,7 +60,7 @@ function Initialize-SourceTextLocalization {
 function Get-SourceTextLoc {
     param(
         [Parameter(Mandatory = $true)][string]$Key,
-        [object[]]$Args = @()
+        [object[]]$Arguments = @()
     )
 
     $value = $null
@@ -73,7 +73,7 @@ function Get-SourceTextLoc {
     else {
         $value = $Key
     }
-    if ($Args.Count -gt 0) { return [string]::Format($value, $Args) }
+    if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
 
@@ -211,7 +211,7 @@ function Invoke-DownloadFile {
     return $false
 }
 
-function Prepare-OfflineResources {
+function Initialize-OfflineResources {
     param(
         [Parameter(Mandatory = $true)]
         [string]$OfflineResourcesDir
@@ -322,6 +322,7 @@ function Prepare-OfflineResources {
 
 # --- Main execution for Start-Offline.ps1 ---
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$scriptRoot = $PSScriptRoot
 $OfflineResourcesDir = Join-Path $PSScriptRoot "start"
 $mainScriptPath = Join-Path $OfflineResourcesDir "start.ps1"
 
