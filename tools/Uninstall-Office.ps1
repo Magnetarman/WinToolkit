@@ -11,7 +11,7 @@ function Uninstall-Office {
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitSession -ToolName "OfficeUninstall" -SubTitle (Get-Loc 'script.Uninstall-Office')
+    Start-ToolkitSession -ToolName "OfficeUninstall" -SubTitle (Get-SourceTextLoc 'script.Uninstall-Office')
 
     $tempDir = $AppConfig.Paths.OfficeTemp
 
@@ -27,7 +27,7 @@ function Uninstall-Office {
             return "Windows10_Or_Older"
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.unableToDetectWindowsVersion0' -Args @($_))
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.unableToDetectWindowsVersion0' -Args @($_))
             return "Unknown"
         }
     }
@@ -50,25 +50,25 @@ function Uninstall-Office {
     # ============================================================================
 
     function Remove-OfficeDirectly {
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.startingOfficeDirectRemoval')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.startingOfficeDirectRemoval')
 
         try {
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.searchForOfficeInstallations')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.searchForOfficeInstallations')
             $officePackages = Get-Package -ErrorAction SilentlyContinue |
                 Where-Object { $_.Name -like "*Microsoft Office*" -or $_.Name -like "*Microsoft 365*" -or $_.Name -like "*Office*" }
 
             if ($officePackages) {
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.found0OfficePackages' -Args @($($officePackages.Count)))
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.found0OfficePackages' -Args @($($officePackages.Count)))
                 foreach ($package in $officePackages) {
                     try {
                         $null = Uninstall-Package -Name $package.Name -Force -ErrorAction Stop
-                        Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.removed02' -Args @($($package.Name)))
+                        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.removed02' -Args @($($package.Name)))
                     }
                     catch {}
                 }
             }
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.searchTheRegistry')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.searchTheRegistry')
             foreach ($keyPath in @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
@@ -80,7 +80,7 @@ function Uninstall-Office {
                     foreach ($item in $items) {
                         if ($item.UninstallString -and $item.UninstallString -match "msiexec") {
                             try {
-                                $null = Invoke-WithSpinner -Activity (Get-Loc 'toolText.extra.removal0' -Args @($($item.DisplayName))) -Command 'msiexec.exe' `
+                                $null = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.removal0' -Args @($($item.DisplayName))) -Command 'msiexec.exe' `
                                     -Arguments @('/x', $item.PSChildName, '/qn', '/norestart') -TimeoutSeconds 1800 `
                                     -LogContextKey "Office-Uninstall-MSI-$($item.PSChildName)"
                             }
@@ -91,7 +91,7 @@ function Uninstall-Office {
                 catch {}
             }
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.stoppingOfficeServices')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.stoppingOfficeServices')
             $stoppedServices = 0
             foreach ($serviceName in @('ClickToRunSvc', 'OfficeSvc', 'OSE')) {
                 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -99,14 +99,14 @@ function Uninstall-Office {
                     try {
                         Stop-Service  -Name $serviceName -Force -ErrorAction Stop
                         Set-Service   -Name $serviceName -StartupType Disabled -ErrorAction Stop
-                        Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.serviceStopped0' -Args @($serviceName))
+                        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.serviceStopped0' -Args @($serviceName))
                         $stoppedServices++
                     }
                     catch {}
                 }
             }
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.officeFolderCleaning')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.officeFolderCleaning')
             $folderResult = Remove-ItemsSilently -Paths @(
                 "$env:ProgramFiles\Microsoft Office",
                 "${env:ProgramFiles(x86)}\Microsoft Office",
@@ -119,10 +119,10 @@ function Uninstall-Office {
                 "$env:ProgramFiles\Common Files\Microsoft Shared\ClickToRun",
                 "${env:ProgramFiles(x86)}\Common Files\Microsoft Shared\ClickToRun"
             ) -ItemType "folder"
-            if ($folderResult.Count -gt 0)        { Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.0OfficeFoldersRemoved' -Args @($($folderResult.Count))) }
-            if ($folderResult.Failed.Count -gt 0)  { Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.unableToRemove0FoldersMayBeInUse' -Args @($($folderResult.Failed.Count))) }
+            if ($folderResult.Count -gt 0)        { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.0OfficeFoldersRemoved' -Args @($($folderResult.Count))) }
+            if ($folderResult.Failed.Count -gt 0)  { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.unableToRemove0FoldersMayBeInUse' -Args @($($folderResult.Failed.Count))) }
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.officeRegistryCleaner')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.officeRegistryCleaner')
             $regResult = Remove-ItemsSilently -Paths @(
                 "HKCU:\Software\Microsoft\Office",
                 "HKLM:\SOFTWARE\Microsoft\Office",
@@ -132,9 +132,9 @@ function Uninstall-Office {
                 "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun"
             ) -ItemType "registry key"
-            if ($regResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.0OfficeRegistryKeysRemoved' -Args @($($regResult.Count))) }
+            if ($regResult.Count -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.0OfficeRegistryKeysRemoved' -Args @($($regResult.Count))) }
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.cleaningScheduledTasks')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.cleaningScheduledTasks')
             $tasksRemoved = 0
             try {
                 $officeTasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -like "*Office*" }
@@ -142,11 +142,11 @@ function Uninstall-Office {
                     try { Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false -ErrorAction Stop; $tasksRemoved++ }
                     catch {}
                 }
-                if ($tasksRemoved -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.0OfficeTasksRemoved' -Args @($tasksRemoved)) }
+                if ($tasksRemoved -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.0OfficeTasksRemoved' -Args @($tasksRemoved)) }
             }
             catch {}
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.removingOfficeLinks')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.removingOfficeLinks')
             $shortcutsRemoved = 0
             foreach ($desktopPath in @(
                 $AppConfig.Paths.Desktop,
@@ -166,9 +166,9 @@ function Uninstall-Office {
                     }
                 }
             }
-            if ($shortcutsRemoved -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.0OfficeLinksRemoved' -Args @($shortcutsRemoved)) }
+            if ($shortcutsRemoved -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.0OfficeLinksRemoved' -Args @($shortcutsRemoved)) }
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.officeResidueCleaning')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.officeResidueCleaning')
             $null = Remove-ItemsSilently -Paths @(
                 "$env:LOCALAPPDATA\Microsoft\OneDrive",
                 "$env:APPDATA\Microsoft\OneDrive",
@@ -176,12 +176,12 @@ function Uninstall-Office {
                 "$env:TEMP\MSO*"
             ) -ItemType "residuo"
 
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.directRemovalCompleted')
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.summary0Folders1RegistryKeys2Links3TasksRemoved' -Args @($($folderResult.Count), $($regResult.Count), $shortcutsRemoved, $tasksRemoved))
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.directRemovalCompleted')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.summary0Folders1RegistryKeys2Links3TasksRemoved' -Args @($($folderResult.Count), $($regResult.Count), $shortcutsRemoved, $tasksRemoved))
             return $true
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.errorWhileDirectlyRemovingOffice0' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorWhileDirectlyRemovingOffice0' -Args @($($_.Exception.Message)))
             return $false
         }
     }
@@ -195,27 +195,27 @@ function Uninstall-Office {
                 return $false
             }
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.extractionGetHelp')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.extractionGetHelp')
             try {
                 Expand-Archive -Path $getHelpZipPath -DestinationPath $tempDir -Force
-                Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.extractionCompleted')
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.extractionCompleted')
             }
             catch {
-                Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.errorExtractingArchiveGetHelp0' -Args @($($_.Exception.Message)))
+                Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorExtractingArchiveGetHelp0' -Args @($($_.Exception.Message)))
                 return $false
             }
 
             $getHelpExe = Get-ChildItem -Path $tempDir -Filter "GetHelpCmd.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $getHelpExe) {
-                Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.gethelpcmdExeNotFound')
+                Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.gethelpcmdExeNotFound')
                 return $false
             }
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.removalViaGetHelp')
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.thisOperationMayTakeAFewMinutes')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.removalViaGetHelp')
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.thisOperationMayTakeAFewMinutes')
 
             try {
-                $result = Invoke-WithSpinner -Activity (Get-Loc 'toolText.extra.removingOfficeUsingGetHelp') -Command $getHelpExe.FullName `
+                $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.removingOfficeUsingGetHelp') -Command $getHelpExe.FullName `
                     -Arguments '-S OfficeScrubScenario -AcceptEula' `
                     -TimeoutSeconds 86400 -LogContextKey "Office-Uninstall-GetHelp"
 
@@ -228,33 +228,33 @@ function Uninstall-Office {
                     Start-Sleep -Seconds 12
 
                     if (Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) {
-                        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.getHelpStartedTheRemovalInAnExternalWindowWaitingForCompletion')
+                        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.getHelpStartedTheRemovalInAnExternalWindowWaitingForCompletion')
                         $spinnerIndex = 0
                         while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalSeconds -lt 2700) {
                             $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
                             $spinner = if ($Global:Spinners) { $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length] } else { '' }
-                            Write-ProgressUpdate -Activity (Get-Loc 'toolText.removingOffice') -Status (Get-Loc 'toolText.inProgress0Seconds' -Args @($elapsed)) -Percent 90 -Icon '⏳' -Spinner $spinner
+                            Write-ProgressUpdate -Activity (Get-SourceTextLoc 'toolText.removingOffice') -Status (Get-SourceTextLoc 'toolText.inProgress0Seconds' -Args @($elapsed)) -Percent 90 -Icon '⏳' -Spinner $spinner
                             Start-Sleep -Milliseconds 500
                         }
                         Clear-ProgressLine
                     }
 
-                    Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.getHelpCompletedSuccessfully')
+                    Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.getHelpCompletedSuccessfully')
                     return $true
                 }
                 else {
                     $reason = if ($isInvalidArgs) { 'Parameters not supported by the tool version' } else { "Exit code: $($result.ExitCode)" }
-                    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.getHelpFailed0AttemptedAlternativeMethod' -Args @($reason))
+                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.getHelpFailed0AttemptedAlternativeMethod' -Args @($reason))
                     return Remove-OfficeDirectly
                 }
             }
             catch {
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.errorRunningGetHelp0SwitchingToAlternativeMethod' -Args @($($_.Exception.Message)))
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.errorRunningGetHelp0SwitchingToAlternativeMethod' -Args @($($_.Exception.Message)))
                 return Remove-OfficeDirectly
             }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.errorDuringGetHelpProcess0' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.errorDuringGetHelpProcess0' -Args @($($_.Exception.Message)))
             return $false
         }
         finally {
@@ -269,54 +269,54 @@ function Uninstall-Office {
     $needsReboot = $false
 
     try {
-        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.startingCompleteMicrosoftOfficeRemoval')
+        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.startingCompleteMicrosoftOfficeRemoval')
         Stop-ToolkitProcesses -ProcessNames @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
 
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.windowsVersionDetection')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.windowsVersionDetection')
         $windowsVersion = Get-WindowsVersion
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.versionDetected0' -Args @($windowsVersion))
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.versionDetected0' -Args @($windowsVersion))
 
         $success = switch ($windowsVersion) {
             'Windows11_23H2_Plus' {
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.usingGetHelpMethodForWindows1123h2')
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.usingGetHelpMethodForWindows1123h2')
                 Start-OfficeUninstallWithGetHelp
             }
             default {
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.usingDirectRemovalForWindows1122h2OrEarlier')
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.usingDirectRemovalForWindows1122h2OrEarlier')
                 Remove-OfficeDirectly
             }
         }
 
-        $removalProgressText = Get-Loc 'sourceText.removal'
+        $removalProgressText = Get-SourceTextLoc 'sourceText.removal'
         Write-Progress -Activity $removalProgressText -Completed -ErrorAction SilentlyContinue
         Write-Host ""
         Write-Host ""
 
         if ($success) {
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.officeRemovalComplete')
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.officeRemovalComplete')
             $needsReboot = $true
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.removalNotCompleted')
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.youCanTryAnAlternativeMethodOrManualRemoval')
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.removalNotCompleted')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.youCanTryAnAlternativeMethodOrManualRemoval')
         }
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.criticalErrorWhileRemovingOffice0' -Args @($($_.Exception.Message)))
-        Write-ToolkitLog -Level ERROR -Message (Get-Loc 'toolText.criticalErrorInUninstallOffice') -Context @{
+        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.criticalErrorWhileRemovingOffice0' -Args @($($_.Exception.Message)))
+        Write-ToolkitLog -Level ERROR -Message (Get-SourceTextLoc 'toolText.criticalErrorInUninstallOffice') -Context @{
             Line      = $_.InvocationInfo.ScriptLineNumber
             Exception = $_.Exception.GetType().FullName
             Stack     = $_.ScriptStackTrace
         }
     }
     finally {
-        Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.finalCleaning')
+        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.finalCleaning')
         Remove-ItemSafely -Path $tempDir -Recurse
-        Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.officeUninstallFinished')
-        Write-ToolkitLog -Level INFO -Message (Get-Loc 'toolText.uninstallOfficeSessionEnded')
+        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.officeUninstallFinished')
+        Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.uninstallOfficeSessionEnded')
     }
 
     if ($needsReboot) {
-        Invoke-ToolkitReboot -Message (Get-Loc 'toolText.extra.removalCompleted') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
+        Invoke-ToolkitReboot -Message (Get-SourceTextLoc 'toolText.extra.removalCompleted') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
     }
 }

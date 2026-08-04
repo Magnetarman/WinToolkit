@@ -12,7 +12,7 @@ function WinDebloat {
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitSession -ToolName "WinDebloat" -SubTitle (Get-Loc 'uiText.windebloatToolkit')
+    Start-ToolkitSession -ToolName "WinDebloat" -SubTitle (Get-SourceTextLoc 'uiText.windebloatToolkit')
 
     # Struttura: @{ Name = 'NomeServizio'; Description = 'Cosa fa'; Action = 'Stop/Disable' }
     $DebloatServices = @(
@@ -27,33 +27,33 @@ function WinDebloat {
         # When enabled, it will stop and disable the services in $DebloatServices
         # (telemetry, non-critical diagnostics, optional consumer components) in a
         # controlled and documented way.
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.serviceOptimization01' -Args @($($ServiceConfig.Name), $($ServiceConfig.Description)))
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.serviceOptimization01' -Args @($($ServiceConfig.Name), $($ServiceConfig.Description)))
         try {
             # PLACEHOLDER: Stop-Service ...; Set-Service -StartupType Disabled ...
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.service0OptimizedSuccessfully' -Args @($($ServiceConfig.Name)))
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.service0OptimizedSuccessfully' -Args @($($ServiceConfig.Name)))
             return $true
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.errorOptimizing01' -Args @($($ServiceConfig.Name), $($_.Exception.Message)))
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorOptimizing01' -Args @($($ServiceConfig.Name), $($_.Exception.Message)))
             return $false
         }
     }
 
     try {
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.startingServiceDebloatProcess')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.startingServiceDebloatProcess')
         foreach ($service in $DebloatServices) { Invoke-ServiceOptimization -ServiceConfig $service }
         # PLACEHOLDER: Altre operazioni (Registro, Task schedulati, ecc.)
-        Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.debloatOperationsCompleted')
+        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.debloatOperationsCompleted')
 
         if ($rebootRequired) {
-            Invoke-ToolkitReboot -Message (Get-Loc 'toolText.extra.rebootToApplyChanges') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
+            Invoke-ToolkitReboot -Message (Get-SourceTextLoc 'toolText.extra.rebootToApplyChanges') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
         }
     }
     catch {
         Write-ToolkitError -Record $_ -ToolName "WinDebloat"
     }
     finally {
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.resourceCleanupAndWindebloatSessionShutdown')
-        Write-ToolkitLog -Level INFO -Message (Get-Loc 'toolText.windebloatSessionEnded')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.resourceCleanupAndWindebloatSessionShutdown')
+        Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.windebloatSessionEnded')
     }
 }

@@ -2221,15 +2221,6 @@ function Start-NextScriptJob {
             Set-SourceTextLanguage -LanguageCode $LanguageCode
         }
 
-        # *** FIX: Create alias Get-Loc -> Get-SourceTextLoc for Core compatibility ***
-        # The Core Script uses Get-Loc as an abbreviated name for Get-SourceTextLoc.
-        # Define it here (and in Global scope) so all dot-sourced Core functions work.
-        if (Get-Command Get-SourceTextLoc -ErrorAction SilentlyContinue) {
-            if (-not (Get-Alias Get-Loc -ErrorAction SilentlyContinue)) {
-                Set-Alias -Name Get-Loc -Value Get-SourceTextLoc -Scope Global
-            }
-        }
-
         # --- FIX: Suppress Verbose and Debug output streams within the job ---
         $VerbosePreference = 'SilentlyContinue'
         $DebugPreference = 'SilentlyContinue'

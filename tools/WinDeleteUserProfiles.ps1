@@ -148,7 +148,7 @@ function WinDeleteUserProfiles {
             )
 
             $script:RebootRecommended = $true
-            Add-ProfileCleanupLog -Level 'WARNING' -Text (Get-Loc 'toolText.recommendedReboot0' -Args @($Reason))
+            Add-ProfileCleanupLog -Level 'WARNING' -Text (Get-SourceTextLoc 'toolText.recommendedReboot0' -Args @($Reason))
         }
 
 
@@ -158,24 +158,24 @@ function WinDeleteUserProfiles {
             }
 
             if (Get-Command -Name Invoke-ToolkitReboot -ErrorAction SilentlyContinue) {
-                Invoke-ToolkitReboot -Message (Get-Loc 'toolText.extra.restartRecommendedAfterProfileCleanup') -Seconds $script:CountdownSeconds -SuppressIndividualReboot:$script:SuppressIndividualReboot
+                Invoke-ToolkitReboot -Message (Get-SourceTextLoc 'toolText.extra.restartRecommendedAfterProfileCleanup') -Seconds $script:CountdownSeconds -SuppressIndividualReboot:$script:SuppressIndividualReboot
                 return
             }
 
             if ($script:SuppressIndividualReboot) {
                 $Global:NeedsFinalReboot = $true
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.individualRestartSuppressedAFinalRebootWillBeHandled')
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.individualRestartSuppressedAFinalRebootWillBeHandled')
                 return
             }
 
             if (Get-Command -Name Start-InterruptibleCountdown -ErrorAction SilentlyContinue) {
-                if (Start-InterruptibleCountdown -Seconds $script:CountdownSeconds -Message (Get-Loc 'toolText.extra.restartRecommendedAfterProfileCleanup')) {
+                if (Start-InterruptibleCountdown -Seconds $script:CountdownSeconds -Message (Get-SourceTextLoc 'toolText.extra.restartRecommendedAfterProfileCleanup')) {
                     Restart-Computer -Force
                 }
                 return
             }
 
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.restartRecommendedToCompleteCleanupOfUnremovedProfiles')
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.restartRecommendedToCompleteCleanupOfUnremovedProfiles')
         }
 
 
@@ -190,21 +190,21 @@ function WinDeleteUserProfiles {
             [System.IO.Directory]::CreateDirectory($script:LogFolder) | Out-Null
 
             if (-not (Test-IsAdministrator)) {
-                throw (Get-Loc 'toolText.extra2.theScriptMustBeRunFromAPowershellConsoleStartedAsAdministrator')
+                throw (Get-SourceTextLoc 'toolText.extra2.theScriptMustBeRunFromAPowershellConsoleStartedAsAdministrator')
             }
 
             if (-not (Test-Path -LiteralPath $script:UsersRoot -PathType Container)) {
-                throw (Get-Loc 'toolText.extra.profilePathDoesNotExist0' -Args @($script:UsersRoot))
+                throw (Get-SourceTextLoc 'toolText.extra.profilePathDoesNotExist0' -Args @($script:UsersRoot))
             }
 
             $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
             if ($os -and $os.Caption -notmatch 'Windows 11') {
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.systemDetected0TheScriptIsDesignedForWindows11' -Args @($($os.Caption)))
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.systemDetected0TheScriptIsDesignedForWindows11' -Args @($($os.Caption)))
             }
 
             if (-not $SuppressToolkitSession -and (Get-Command -Name Start-ToolkitSession -ErrorAction SilentlyContinue)) {
-                $profileCleanupTitle = if (Get-Command -Name Get-Loc -ErrorAction SilentlyContinue) {
-                    Get-Loc 'script.WinDeleteUserProfiles'
+                $profileCleanupTitle = if (Get-Command -Name Get-SourceTextLoc -ErrorAction SilentlyContinue) {
+                    Get-SourceTextLoc 'script.WinDeleteUserProfiles'
                 }
                 else {
                     'Delete Windows user profiles'
@@ -214,22 +214,22 @@ function WinDeleteUserProfiles {
             else {
                 Write-Host ''
                 Write-Host '====================================================' -ForegroundColor Cyan
-                Write-Host (Get-Loc 'toolText.0V1' -Args @($script:ToolName, $script:ToolVersion))
+                Write-Host (Get-SourceTextLoc 'toolText.0V1' -Args @($script:ToolName, $script:ToolVersion))
                 Write-Host '====================================================' -ForegroundColor Cyan
                 Write-Host ''
             }
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.computer0' -Args @($script:ComputerName))
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.currentUserProtected0' -Args @($script:CurrentUser))
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.profilePath0' -Args @($script:UsersRoot))
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.threadsConfigured0' -Args @($MaxThreads))
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.nonInteractiveModeNoConfirmationWillBeRequestedBeforeCancellations')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.computer0' -Args @($script:ComputerName))
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.currentUserProtected0' -Args @($script:CurrentUser))
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.profilePath0' -Args @($script:UsersRoot))
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.threadsConfigured0' -Args @($MaxThreads))
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.nonInteractiveModeNoConfirmationWillBeRequestedBeforeCancellations')
 
             if ($script:MinimumLastUseDate) {
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.lastActivityThresholdProfilesNotUsedForAtLeast0Days' -Args @($MinimumProfileAgeDays))
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.lastActivityThresholdProfilesNotUsedForAtLeast0Days' -Args @($MinimumProfileAgeDays))
             }
 
-            Add-ProfileCleanupLog -Text (Get-Loc 'toolText.sessionStartedOn0' -Args @($script:ComputerName))
+            Add-ProfileCleanupLog -Text (Get-SourceTextLoc 'toolText.sessionStartedOn0' -Args @($script:ComputerName))
         }
 
 
@@ -253,7 +253,7 @@ function WinDeleteUserProfiles {
                         [void]$pathSet.Add([System.IO.Path]::GetFullPath($_.LocalPath).TrimEnd('\'))
                     }
                     catch {
-                        Add-ProfileCleanupLog -Level 'WARNING' -Text (Get-Loc 'toolText.failedToNormalizeRegisteredProfileLocalpath0' -Args @($($_.LocalPath)))
+                        Add-ProfileCleanupLog -Level 'WARNING' -Text (Get-SourceTextLoc 'toolText.failedToNormalizeRegisteredProfileLocalpath0' -Args @($($_.LocalPath)))
                     }
                 }
 
@@ -264,7 +264,7 @@ function WinDeleteUserProfiles {
         function Get-RemovableUserProfiles {
             $excluded = New-ProtectedNameSet
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.scanningRegisteredLocalProfiles')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.scanningRegisteredLocalProfiles')
 
             $profiles = Get-CimInstance -ClassName Win32_UserProfile | Where-Object {
                 -not $_.Special -and
@@ -277,14 +277,14 @@ function WinDeleteUserProfiles {
                 $profileName = [System.IO.Path]::GetFileName($profile.LocalPath)
 
                 if ($excluded.Contains($profileName)) {
-                    Add-ProfileCleanupLog -Text (Get-Loc 'toolText.excludedProfile01' -Args @($profileName, $($profile.LocalPath)))
+                    Add-ProfileCleanupLog -Text (Get-SourceTextLoc 'toolText.excludedProfile01' -Args @($profileName, $($profile.LocalPath)))
                     continue
                 }
 
                 if ($script:MinimumLastUseDate -and $profile.LastUseTime) {
                     $lastUse = $profile.LastUseTime
                     if ($lastUse -gt $script:MinimumLastUseDate) {
-                        Add-ProfileCleanupLog -Text (Get-Loc 'toolText.profileExcludedDueToTimeThreshold0LastUse1' -Args @($profileName, $lastUse))
+                        Add-ProfileCleanupLog -Text (Get-SourceTextLoc 'toolText.profileExcludedDueToTimeThreshold0LastUse1' -Args @($profileName, $lastUse))
                         continue
                     }
                 }
@@ -301,7 +301,7 @@ function WinDeleteUserProfiles {
             )
 
             Write-Host ''
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.registeredProfilesSelectedForAutomaticRemoval')
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.registeredProfilesSelectedForAutomaticRemoval')
             Write-Host ''
 
             $Profiles |
@@ -428,20 +428,20 @@ function WinDeleteUserProfiles {
 
                     if ($percent -ne $lastPercent) {
                         $lastPercent = $percent
-                        Write-Progress -Activity (Get-Loc 'toolText.extra.removingRegisteredProfiles') -Status (Get-Loc 'toolText.extra.01Completed' -Args @($completed, $total)) -PercentComplete $percent
+                        Write-Progress -Activity (Get-SourceTextLoc 'toolText.extra.removingRegisteredProfiles') -Status (Get-SourceTextLoc 'toolText.extra.01Completed' -Args @($completed, $total)) -PercentComplete $percent
                     }
 
                     Start-Sleep -Milliseconds 500
                 } while ($completed -lt $total)
 
-                Write-Progress -Activity (Get-Loc 'toolText.extra.removingRegisteredProfiles') -Completed
+                Write-Progress -Activity (Get-SourceTextLoc 'toolText.extra.removingRegisteredProfiles') -Completed
 
                 $results = foreach ($job in $jobs) {
                     try {
                         $job.PowerShell.EndInvoke($job.Handle)
                     }
                     catch {
-                        Add-ProfileCleanupLog -Level 'ERROR' -Text (Get-Loc 'toolText.runspaceError0' -Args @($($_.Exception.Message)))
+                        Add-ProfileCleanupLog -Level 'ERROR' -Text (Get-SourceTextLoc 'toolText.runspaceError0' -Args @($($_.Exception.Message)))
                     }
                     finally {
                         $job.PowerShell.Commands.Clear()
@@ -464,7 +464,7 @@ function WinDeleteUserProfiles {
             $excluded = New-ProtectedNameSet
             $registeredProfilePaths = Get-RegisteredProfilePathSet
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.checkResidualFoldersInTheUsersDirectory')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.checkResidualFoldersInTheUsersDirectory')
 
             $folders = Get-ChildItem -Path $UsersRoot -Directory -Force |
                 Where-Object {
@@ -476,17 +476,17 @@ function WinDeleteUserProfiles {
                 $folderPath = [System.IO.Path]::GetFullPath($folder.FullName).TrimEnd('\')
 
                 if ($excluded.Contains($folderName)) {
-                    Add-ProfileCleanupLog -Text (Get-Loc 'toolText.residualFolderExcludedForProtectedName01' -Args @($folderName, $folderPath))
+                    Add-ProfileCleanupLog -Text (Get-SourceTextLoc 'toolText.residualFolderExcludedForProtectedName01' -Args @($folderName, $folderPath))
                     continue
                 }
 
                 if ($registeredProfilePaths.Contains($folderPath)) {
-                    Add-ProfileCleanupLog -Text (Get-Loc 'toolText.residualFolderExcludedBecauseItIsStillAssociatedWithWin32Userprofile01' -Args @($folderName, $folderPath))
+                    Add-ProfileCleanupLog -Text (Get-SourceTextLoc 'toolText.residualFolderExcludedBecauseItIsStillAssociatedWithWin32Userprofile01' -Args @($folderName, $folderPath))
                     continue
                 }
 
                 if ($folder.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
-                    Add-ProfileCleanupLog -Level 'WARNING' -Text (Get-Loc 'toolText.residualFolderExcludedBecauseReparsePointSymlink01' -Args @($folderName, $folderPath))
+                    Add-ProfileCleanupLog -Level 'WARNING' -Text (Get-SourceTextLoc 'toolText.residualFolderExcludedBecauseReparsePointSymlink01' -Args @($folderName, $folderPath))
                     continue
                 }
 
@@ -513,14 +513,14 @@ function WinDeleteUserProfiles {
                 $percent = if ($total -gt 0) { [math]::Floor(($index / $total) * 100) } else { 100 }
 
                 Write-Progress `
-                    -Activity (Get-Loc 'toolText.extra.removingResidualFoldersInCUsers') `
+                    -Activity (Get-SourceTextLoc 'toolText.extra.removingResidualFoldersInCUsers') `
                     -Status ("{0} / {1} - {2}" -f $index, $total, $folder.Name) `
                     -PercentComplete $percent
 
                 $start = Get-Date
                 $success = $false
 
-                Add-ProfileCleanupLog -Text (Get-Loc 'toolText.startResidualFolder01' -Args @($($folder.Name), $($folder.Path)))
+                Add-ProfileCleanupLog -Text (Get-SourceTextLoc 'toolText.startResidualFolder01' -Args @($($folder.Name), $($folder.Path)))
 
                 $folderPath = $folder.Path
 
@@ -529,7 +529,7 @@ function WinDeleteUserProfiles {
                     $success = -not [System.IO.Directory]::Exists($folderPath)
                 }
                 catch {
-                    Add-ProfileCleanupLog -Level 'WARNING' -Text (Get-Loc 'toolText.standardResidualFolderRemovalFailed01' -Args @($folderPath, $($_.Exception.Message)))
+                    Add-ProfileCleanupLog -Level 'WARNING' -Text (Get-SourceTextLoc 'toolText.standardResidualFolderRemovalFailed01' -Args @($folderPath, $($_.Exception.Message)))
 
                     try {
                         & takeown.exe /F $folderPath /R /D Y | Out-Null
@@ -538,7 +538,7 @@ function WinDeleteUserProfiles {
                         $success = -not [System.IO.Directory]::Exists($folderPath)
                     }
                     catch {
-                        Add-ProfileCleanupLog -Level 'ERROR' -Text (Get-Loc 'toolText.remnantFolderRemovalFailed01' -Args @($folderPath, $($_.Exception.Message)))
+                        Add-ProfileCleanupLog -Level 'ERROR' -Text (Get-SourceTextLoc 'toolText.remnantFolderRemovalFailed01' -Args @($folderPath, $($_.Exception.Message)))
                         $success = $false
                     }
                 }
@@ -546,10 +546,10 @@ function WinDeleteUserProfiles {
                 $duration = New-TimeSpan -Start $start -End (Get-Date)
 
                 if ($success) {
-                    Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-Loc 'toolText.completedResidualFolder01' -Args @($($folder.Name), $($duration.ToString())))
+                    Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-SourceTextLoc 'toolText.completedResidualFolder01' -Args @($($folder.Name), $($duration.ToString())))
                 }
                 else {
-                    Add-ProfileCleanupLog -Level 'ERROR' -Text (Get-Loc 'toolText.failedResidualFolder0' -Args @($($folder.Name)))
+                    Add-ProfileCleanupLog -Level 'ERROR' -Text (Get-SourceTextLoc 'toolText.failedResidualFolder0' -Args @($($folder.Name)))
                 }
 
                 $results.Add([PSCustomObject]@{
@@ -561,7 +561,7 @@ function WinDeleteUserProfiles {
                 }) | Out-Null
             }
 
-            Write-Progress -Activity (Get-Loc 'toolText.extra.removingResidualFoldersInCUsers') -Completed
+            Write-Progress -Activity (Get-SourceTextLoc 'toolText.extra.removingResidualFoldersInCUsers') -Completed
 
             return $results
         }
@@ -590,15 +590,15 @@ function WinDeleteUserProfiles {
                 Show-ProfileCleanupPreview -Profiles $targets
 
                 Write-Host ''
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.startAutomaticRemovalOf0RegisteredProfiles' -Args @($targets.Count))
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.startAutomaticRemovalOf0RegisteredProfiles' -Args @($targets.Count))
                 Write-Host ''
 
                 $profileResults = @(Invoke-ProfileRemovalBatch -Profiles $targets)
             }
             else {
                 Write-Host ''
-                Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.noRemovableRegisteredProfilesFound')
-                Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-Loc 'toolText.noRemovableRegisteredProfilesFound2')
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound')
+                Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound2')
             }
 
             if (-not $SkipResidualFolderCleanup) {
@@ -606,23 +606,23 @@ function WinDeleteUserProfiles {
 
                 if ($residualFolders -and $residualFolders.Count -gt 0) {
                     Write-Host ''
-                    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.residualFoldersSelectedForAutomaticRemoval0' -Args @($residualFolders.Count))
+                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.residualFoldersSelectedForAutomaticRemoval0' -Args @($residualFolders.Count))
                     $residualFolders | Select-Object Name, Path | Format-Table -AutoSize
 
                     Write-Host ''
-                    Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.startingRemovalOfResidualFolders')
+                    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.startingRemovalOfResidualFolders')
                     Write-Host ''
 
                     $residualResults = @(Remove-ResidualUserFolders -Folders $residualFolders)
                 }
                 else {
-                    Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.noRemovableResidualFolderFoundInCUsers')
-                    Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-Loc 'toolText.noRemovableResidualFoldersFound')
+                    Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.noRemovableResidualFolderFoundInCUsers')
+                    Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-SourceTextLoc 'toolText.noRemovableResidualFoldersFound')
                 }
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.residualFolderCleanupSkippedForSkipresidualfoldercleanupParameter')
-                Add-ProfileCleanupLog -Level 'WARNING' -Text (Get-Loc 'toolText.remainingFolderCleanupSkipped')
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.residualFolderCleanupSkippedForSkipresidualfoldercleanupParameter')
+                Add-ProfileCleanupLog -Level 'WARNING' -Text (Get-SourceTextLoc 'toolText.remainingFolderCleanupSkipped')
             }
 
             $allResults = @($profileResults) + @($residualResults)
@@ -632,35 +632,35 @@ function WinDeleteUserProfiles {
             $residualSuccessCount = @($residualResults | Where-Object { $_.Success }).Count
 
             if ($failedCount -gt 0) {
-                Set-ProfileCleanupRebootRecommended -Reason (Get-Loc 'toolText.0ItemsNotRemovedMayBeBlockedByOpenSessionsOrHandles' -Args @($failedCount))
+                Set-ProfileCleanupRebootRecommended -Reason (Get-SourceTextLoc 'toolText.0ItemsNotRemovedMayBeBlockedByOpenSessionsOrHandles' -Args @($failedCount))
             }
 
             $script:SessionEnd = Get-Date
             $totalDuration = New-TimeSpan -Start $script:SessionStart -End $script:SessionEnd
 
-            Add-ProfileCleanupLog -Level 'INFO' -Text (Get-Loc 'toolText.sessionCompletedProfilesRemoved0ResidualFoldersRemoved1Errors2Duration3' -Args @($profileSuccessCount, $residualSuccessCount, $failedCount, $totalDuration))
+            Add-ProfileCleanupLog -Level 'INFO' -Text (Get-SourceTextLoc 'toolText.sessionCompletedProfilesRemoved0ResidualFoldersRemoved1Errors2Duration3' -Args @($profileSuccessCount, $residualSuccessCount, $failedCount, $totalDuration))
             Save-ProfileCleanupLog
 
             Write-Host ''
             Write-Host '====================================================' -ForegroundColor Green
-            $completionText = (Get-Loc 'sourceText.completed').ToUpperInvariant()
+            $completionText = (Get-SourceTextLoc 'sourceText.completed').ToUpperInvariant()
             Write-Host $completionText
             Write-Host '====================================================' -ForegroundColor Green
             Write-Host ''
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.registeredProfilesRemoved0' -Args @($profileSuccessCount))
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.residualFoldersRemoved0' -Args @($residualSuccessCount))
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.registeredProfilesRemoved0' -Args @($profileSuccessCount))
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.residualFoldersRemoved0' -Args @($residualSuccessCount))
             if ($failedCount -gt 0) {
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.itemsNotRemoved0' -Args @($failedCount))
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.itemsNotRemoved0' -Args @($failedCount))
             }
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'uiText.duration0' -Args @($totalDuration))
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.log0' -Args @($script:LogFile))
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.duration0' -Args @($totalDuration))
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.log0' -Args @($script:LogFile))
 
             Invoke-ProfileCleanupReboot
         }
         catch {
             Add-ProfileCleanupLog -Level 'ERROR' -Text $_.Exception.Message
             try { Save-ProfileCleanupLog } catch { }
-            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.error0' -Args @($_.Exception.Message))
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error0' -Args @($_.Exception.Message))
             throw
         }
         finally {
