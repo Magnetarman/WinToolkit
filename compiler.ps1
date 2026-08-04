@@ -376,6 +376,12 @@ if ($Minify) {
 # ============================================================================
 try {
     Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.savingStandaloneExecutable') + ': WinToolkit.ps1.')
+
+    # Keep the generated artifact lint-clean without altering the source files.
+    $templateLines = @($templateLines | ForEach-Object { $_.TrimEnd() })
+    while ($templateLines.Count -gt 0 -and [string]::IsNullOrWhiteSpace($templateLines[-1])) {
+        $templateLines = $templateLines[0..($templateLines.Count - 2)]
+    }
     
     if (Test-Path $outputFile) { Remove-Item $outputFile -Force -ErrorAction Stop }
     
