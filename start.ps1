@@ -141,7 +141,7 @@ function Get-WinGetExecutable {
     .SYNOPSIS
     Gets the valid path of winget.exe, with direct fallback.
     #>
-    # Prova prima il percorso standard alias
+    # Try the standard alias path first
     $aliasPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
     if (Test-Path $aliasPath) {
         return $aliasPath
@@ -726,7 +726,7 @@ function Install-GitPackage {
         }
     }
 
-    # 2. Fallback: download diretto da GitHub
+    # 2. Fallback: direct download from GitHub
     try {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadGitDaGithub')
         $release = Invoke-RestMethod -Uri $script:AppConfig.URLs.GitRelease -UseBasicParsing
@@ -1139,7 +1139,7 @@ function Invoke-WingetCommand {
 function Test-PathInEnvironment {
     <#
     .SYNOPSIS
-    Verifica se un percorso è presente nella variabile PATH dell'ambiente specificato.
+    Checks if a path is present in the PATH variable of the specified environment.
     #>
     param (
         [string]$PathToCheck,
@@ -1466,7 +1466,7 @@ function Install-PspEnvironment {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.profileConfigurationError0' -Args @($($_.Exception.Message)))
     }
 
-    # 5. Configurazione Settings Windows Terminal (stable e preview)
+    # 5. Windows Terminal Settings Configuration (stable and preview)
     try {
         $wtPackages = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory `
             -Filter 'Microsoft.WindowsTerminal*' -ErrorAction SilentlyContinue
