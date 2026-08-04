@@ -57,7 +57,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.5.5 (Build 4)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/"
@@ -157,6 +157,7 @@ function Get-AvailableSourceTextLanguages {
                 Code       = if ($data.ContainsKey('language.code')) { $data['language.code'] } else { $_.Name }
                 Name       = if ($data.ContainsKey('language.name')) { $data['language.name'] } else { $_.Name }
                 NativeName = if ($data.ContainsKey('language.nativeName')) { $data['language.nativeName'] } else { $_.Name }
+                AiTranslated = if ($data.ContainsKey('language.aiTranslated')) { $data['language.aiTranslated'] } else { $false }
                 Path       = $_.FullName
             }
         }
@@ -5319,7 +5320,8 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             }
             for ($i = 0; $i -lt $languages.Count; $i++) {
                 $marker = if ($languages[$i].Code -eq $Global:SourceTextLanguage) { '*' } else { ' ' }
-                Write-Host "💎 [$($i + 1)] $marker $($languages[$i].NativeName) ($($languages[$i].Code))" -ForegroundColor White
+                $aiTag = if ($languages[$i].AiTranslated) { ' (AI TRAD.)' } else { '' }
+                Write-Host "💎 [$($i + 1)] $marker $($languages[$i].NativeName) ($($languages[$i].Code))$aiTag" -ForegroundColor White
             }
             Write-Host ''
             Write-Host "↩️ [0] $(Get-SourceTextLoc 'menu.back')" -ForegroundColor Gray
@@ -5367,15 +5369,19 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         }
         Write-Host ('*' * 50) -ForegroundColor Red
         Write-Host ""
-        Write-Host "🌐 [1] $(Get-SourceTextLoc 'menu.changeLanguage')" -ForegroundColor White
-        Write-Host ''
-        $allScripts = @(); $idx = 2
+        $allScripts = @(); $idx = 1
+        $languageMenuIndex = $null
         foreach ($cat in $menuStructure) {
             Write-Host "==== $($cat.Icon) $(Get-SourceTextMenuText $cat) $($cat.Icon) ====" -ForegroundColor Cyan
             Write-Host ""
             foreach ($s in $cat.Scripts) {
                 $allScripts += $s
                 Write-Host "💎 [$idx] $(Get-SourceTextMenuText $s)" -ForegroundColor White
+                $idx++
+            }
+            if ($cat.Name -eq 'Support' -and -not $Global:GuiSessionActive) {
+                $languageMenuIndex = $idx
+                Write-Host "`e[1m🌐 [$idx] $(Get-SourceTextLoc 'menu.changeLanguage')`e[0m" -ForegroundColor Yellow
                 $idx++
             }
             Write-Host ""
@@ -5389,7 +5395,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Start-Process ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('aHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj15QVZVT2tlNGtvYw==')))
             continue
         }
-        $maxMenuOption = $allScripts.Count + 1
+        $maxMenuOption = $allScripts.Count + $(if ($null -ne $languageMenuIndex) { 1 } else { 0 })
         $rawSelections = Read-ValidatedChoice -Prompt (Get-SourceTextLoc 'menu.multiPromptShort') -Min 0 -Max $maxMenuOption -AllowZero -RawInput $rawInput
         $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
         if ($c -eq 0 -or $c -eq '0') {
@@ -5399,11 +5405,11 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Start-Sleep -Seconds 3
             break
         }
-        if ($rawSelections -contains 1) {
+        if ($null -ne $languageMenuIndex -and $rawSelections -contains $languageMenuIndex) {
             Show-LanguageMenu
             continue
         }
-        $selections = @($rawSelections | Where-Object { $_ -ge 2 -and $_ -le $maxMenuOption })
+        $selections = @($rawSelections | Where-Object { $_ -ge 1 -and $_ -le $maxMenuOption })
         if ($selections.Count -eq 0) {
             Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'menu.invalidSelection')
             Start-Sleep -Seconds 2
@@ -5418,7 +5424,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Write-Host ''
         }
         foreach ($sel in $selections) {
-            $scriptToRun = $allScripts[$sel - 2]
+            $scriptToRun = $allScripts[$sel - 1]
             $scriptDescription = Get-SourceTextMenuText $scriptToRun
             if ($scriptToRun.Name -eq 'WinDeleteUserProfiles' -and -not (Confirm-UserProfileDeletion)) {
                 Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'run.cancelled')
