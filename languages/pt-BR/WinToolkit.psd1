@@ -1,4 +1,4 @@
-﻿# culture="pt-BR"
+# culture="pt-BR"
 ConvertFrom-StringData -StringData @'
 language.code = pt-BR
 language.name = Portuguese

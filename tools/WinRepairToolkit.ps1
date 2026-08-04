@@ -1,4 +1,4 @@
-﻿function WinRepairToolkit {
+function WinRepairToolkit {
     <#
     .SYNOPSIS
         Runs standard Windows repairs (SFC, DISM, and Chkdsk) and saves Scannow logs in the toolkit folder for additional debugging.

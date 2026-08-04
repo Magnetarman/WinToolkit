@@ -1,4 +1,4 @@
-﻿# culture="it-IT"
+# culture="it-IT"
 ConvertFrom-StringData -StringData @'
 language.code = it-IT
 language.name = Italian

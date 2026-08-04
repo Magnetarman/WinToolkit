@@ -1,4 +1,4 @@
-﻿# culture="bn-BD"
+# culture="bn-BD"
 ConvertFrom-StringData -StringData @'
 language.code = bn-BD
 language.name = Bengali

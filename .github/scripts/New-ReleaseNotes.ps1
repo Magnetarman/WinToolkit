@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Genera le release notes aggregando PR e Issue chiuse dall'ultima release stabile.
 

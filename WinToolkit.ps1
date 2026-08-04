@@ -1,4 +1,4 @@
-﻿param([int]$CountdownSeconds = 30, [switch]$ImportOnly, [string]$Language = 'en-US')
+param([int]$CountdownSeconds = 30, [switch]$ImportOnly, [string]$Language = 'en-US')
 function Read-Host {
     [CmdletBinding()]
     param(
@@ -57,7 +57,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.5.5 (Build 4)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/"
@@ -134,7 +134,8 @@ $Global:ToolkitLanguage = 'en-US'
 $Global:ToolkitLanguageData = $null
 $Global:ToolkitDefaultLanguageData = $null
 function Get-ToolkitLanguageDirectory {
-    $candidate = Join-Path $PSScriptRoot 'languages'
+    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+    $candidate = Join-Path $root 'languages'
     if (Test-Path $candidate) { return $candidate }
     $repoCandidate = Join-Path (Get-Location) 'languages'
     if (Test-Path $repoCandidate) { return $repoCandidate }

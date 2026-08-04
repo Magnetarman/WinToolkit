@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Compila WinToolkit.ps1 da WinToolkit-template.ps1 e i file in /tool.
 
