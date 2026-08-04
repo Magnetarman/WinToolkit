@@ -122,11 +122,11 @@ $outputFile = Join-Path $scriptPath "WinToolkit.ps1"
 
 try {
     if (-not (Test-Path $sourceFile)) {
-        throw (Get-SourceTextLoc 'uiText.templateFileNotFoundIn0' -Args @($sourceFile))
+        throw (Get-SourceTextLoc 'uiText.templateFileNotFoundIn0' -Arguments @($sourceFile))
     }
     
     if (-not (Test-Path $toolFolder)) {
-        throw (Get-SourceTextLoc 'uiText.toolsFolderNotFoundIn0' -Args @($toolFolder))
+        throw (Get-SourceTextLoc 'uiText.toolsFolderNotFoundIn0' -Arguments @($toolFolder))
     }
 }
 catch {
