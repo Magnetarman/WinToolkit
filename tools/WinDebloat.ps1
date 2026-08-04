@@ -1,4 +1,4 @@
-﻿function WinDebloat {
+function WinDebloat {
     <#
     .SYNOPSIS
         Optimizes the system by disabling unnecessary services.

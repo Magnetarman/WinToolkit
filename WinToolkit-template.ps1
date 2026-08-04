@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     WinToolkit: Master Windows with Ease
 .DESCRIPTION
