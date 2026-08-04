@@ -1876,7 +1876,7 @@ function Read-ValidatedChoice {
             Microsoft.PowerShell.Utility\Read-Host
         }
 
-        if ([string]::IsNullOrWhiteSpace($input)) {
+        if ([string]::IsNullOrWhiteSpace($userInput)) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.emptyInputTryAgain')
             continue
         }
