@@ -222,7 +222,7 @@ function Set-ToolkitLanguage {
 function Get-Loc {
     param(
         [Parameter(Mandatory = $true)][string]$Key,
-        [object[]]$Args = @()
+        [object[]]$Arguments = @()
     )
 
     $value = $null
@@ -236,7 +236,7 @@ function Get-Loc {
         $value = $Key
     }
 
-    if ($Args -and $Args.Count -gt 0) { return [string]::Format($value, $Args) }
+    if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
 
@@ -1557,7 +1557,7 @@ function Initialize-LanguageComboBox {
     }
 }
 
-function Apply-GuiLocalization {
+function Set-GuiLocalization {
     Set-TextBlockText $LanguageLabelText (Get-Loc 'gui.languageLabel')
     Set-TextBlockText $GuiEditionVersionsText (Get-Loc 'gui.editionVersionsFormat' -Args @($Global:GuiVersion, $Global:CoreScriptVersion))
     Set-TextBlockText $SendErrorLogsText (Get-Loc 'gui.sendErrorLogs')
