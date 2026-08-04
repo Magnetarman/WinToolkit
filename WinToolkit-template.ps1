@@ -2340,7 +2340,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
 
             for ($i = 0; $i -lt $languages.Count; $i++) {
                 $marker = if ($languages[$i].Code -eq $Global:SourceTextLanguage) { '*' } else { ' ' }
-                $aiTag = if ($languages[$i].AiTranslated) { ' (AI TRAD.)' } else { '' }
+                $aiTag = if ($languages[$i].AiTranslated) { ' [AI Trad.]' } else { '' }
                 Write-Host "💎 [$($i + 1)] $marker $($languages[$i].NativeName) ($($languages[$i].Code))$aiTag" -ForegroundColor White
             }
 
