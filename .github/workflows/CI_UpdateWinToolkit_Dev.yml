@@ -454,7 +454,7 @@ jobs:
           $config = New-PesterConfiguration
           $config.Run.Path                = @(
             '.github/tests/WinToolkit.Tests.ps1',
-            '.github/tests/Unit'
+            '.github/tests/Unit',
             '.github/tests/Integration'
           )
           $config.Run.PassThru            = $true
