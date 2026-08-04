@@ -1,19 +1,18 @@
 ﻿<#
 .SYNOPSIS
-    WinToolkit - Sopravvivi a Windows
+    WinToolkit: Master Windows with Ease
 .DESCRIPTION
-    Framework modulare unificato.
-    Contiene le funzioni core (UI, Log, Info) e il menu principale.
+    Unified modular framework.
+    Contains the core functions (UI, Log, Info) and the main menu.
 .NOTES
-    Autore: MagnetarMan
+    Author: MagnetarMan
 #>
 
 param([int]$CountdownSeconds = 30, [switch]$ImportOnly, [string]$Language = 'en-US')
 
 # ==============================================================================
-# SEZIONE 1 · BOOTSTRAP
-# Wrapper Read-Host + impostazioni processo iniziali.
-# Caricato per primo: tutto il resto dipende da questi fondamentali.
+# SECTION 1 · BOOTSTRAP
+# Read-Host wrapper + initial process settings.
 # ==============================================================================
 
 function Read-Host {
@@ -86,9 +85,8 @@ $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
 
 
-# ==============================================================================
-# SEZIONE 2 · CONFIGURAZIONE GLOBALE
-# Versione, URL, percorsi, chiavi di registro e variabili UI/esecuzione.
+# SECTION 2 · GLOBAL CONFIGURATION
+# Version, URLs, paths, registry keys and UI/execution variables.
 # ==============================================================================
 
 $ToolkitVersion = "2.5.5 (Build 4)"
@@ -472,7 +470,7 @@ function Show-ConsoleTable {
 function Start-ToolkitLog {
     <#
     .SYNOPSIS
-        Inizializza il file di log strutturato per un tool specifico.
+        Initializes the structured log file for a specific tool.
     #>
     param([string]$ToolName)
 
@@ -672,7 +670,7 @@ function Get-LocalUserProfiles {
 function Initialize-ToolkitPaths {
     <#
     .SYNOPSIS
-        Assicura la creazione di tutte le directory necessarie al primo avvio.
+        Ensures creation of all required directories on first run.
     #>
     foreach ($path in $AppConfig.Paths.Values) {
         if (-not (Test-Path $path -PathType Leaf) -and $path -notmatch "\.exe$|\.zip$|\.msixbundle$") {
@@ -731,9 +729,9 @@ function Stop-ToolkitProcesses {
 function Invoke-ExternalCommandWithLog {
     <#
     .SYNOPSIS
-        Esegue un comando esterno con logging strutturato e cattura completa di STDOUT/STDERR.
+        Executes an external command with structured logging and full STDOUT/STDERR capture.
     .DESCRIPTION
-        Wrapper standardizzato per processi esterni.
+        Standardized wrapper for external processes.
         Logga comando, argomenti, exit code, durata ed eventuali errori.
         Restituisce un oggetto con Success, ExitCode, StdOut, StdErr, Elapsed.
         Non scrive mai direttamente su console.
@@ -978,8 +976,8 @@ function Start-ToolkitSession {
 function Invoke-ToolkitReboot {
     <#
     .SYNOPSIS
-        Gestione centralizzata del riavvio: soppresso (multi-script) o countdown interrompibile.
-        Sostituisce il blocco if/else da 9 righe presente in 11 tool.
+        Centralized reboot management: suppressed (multi-script) or interruptible countdown.
+        Replaces the 9-line if/else block present in 11 tools.
     #>
     param(
         [string]$Message,
@@ -1044,7 +1042,7 @@ function Invoke-ToolkitDownload {
                 New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
             }
             
-            # Creare HttpClient con timeout di 5 minuti
+            # Create HttpClient with 5 minute timeout
             $handler = New-Object System.Net.Http.HttpClientHandler
             $handler.AllowAutoRedirect = $true
             $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
@@ -1052,13 +1050,13 @@ function Invoke-ToolkitDownload {
             $httpClient = New-Object System.Net.Http.HttpClient($handler)
             $httpClient.Timeout = [TimeSpan]::FromSeconds(300)
             
-            # Aggiungere headers personalizzati
+            # Add custom headers
             $httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
             if ($Uri -match 'drivers\.amd\.com|amd-software') {
                 $httpClient.DefaultRequestHeaders.Add("Referer", "https://www.amd.com")
             }
             
-            # Effettuare la richiesta HEAD per ottenere le dimensioni
+            # Perform HEAD request to get the size
             $totalBytes = 0
             try {
                 $headRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Head, $Uri)
@@ -1068,9 +1066,9 @@ function Invoke-ToolkitDownload {
                 }
                 $headResponse.Dispose()
             }
-            catch {}  # Continua anche se HEAD fallisce
+            catch {}  # Continue even if HEAD fails
             
-            # Effettuare il download GET
+            # Perform the GET download
             $getRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $Uri)
             $getResponse = $httpClient.SendAsync($getRequest, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
             
@@ -1078,24 +1076,24 @@ function Invoke-ToolkitDownload {
                 throw (Get-Loc 'uiText.httpError01' -Args @($($getResponse.StatusCode), $($getResponse.ReasonPhrase)))
             }
             
-            # Prova a ottenere la dimensione dal response GET se HEAD ha fallito
+            # Try to get the size from the GET response if HEAD failed
             if ($totalBytes -eq 0 -and $getResponse.Content.Headers.ContentLength -gt 0) {
                 $totalBytes = $getResponse.Content.Headers.ContentLength
             }
 
-            # === NUOVA LOGICA: Barra fake scollegata dal download ===
+            # === NEW LOGIC: Fake progress bar disconnected from download ===
             $isUnknownSize = ($totalBytes -eq 0)
             $fakeProgressStart = $null
             if ($isUnknownSize -and -not $Global:GuiSessionActive) {
                 $fakeProgressStart = Get-Date
-                # Mostra subito la barra fake (prima di iniziare a leggere i dati)
+                # Show fake bar immediately (before starting to read data)
                 Write-ProgressUpdate -Activity (Get-Loc 'uiText.download02' -Args @($Description)) `
                     -Status (Get-Loc 'uiText.startingDownload') `
                     -Percent 8 -Icon '📥' -Color 'Cyan'
-                Start-Sleep -Milliseconds 120   # piccolo delay visivo per far apparire la barra
+                Start-Sleep -Milliseconds 120   # small visual delay to make the bar appear
             }
             
-            # Leggere il flusso e scrivere con tracking di progresso
+            # Read the stream and write with progress tracking
             $contentStream = $getResponse.Content.ReadAsStreamAsync().Result
             $fileStream = [System.IO.File]::Create($OutputPath)
             $buffer = New-Object byte[] 8192
@@ -1111,7 +1109,7 @@ function Invoke-ToolkitDownload {
                     $fileStream.Write($buffer, 0, $read)
                     $totalRead += $read
                     
-                    # Calcolo stato progresso (DRY: logica qui, rendering delegato)
+                    # Progress state calculation (DRY: logic here, rendering delegated)
                     if (-not $Global:GuiSessionActive) {
                         $currentDisplay = if ($totalRead -gt 1048576) {
                             "$([Math]::Round($totalRead / 1048576, 1)) MB"
@@ -1134,11 +1132,11 @@ function Invoke-ToolkitDownload {
                         }
                         else {
                             # === Barra COMPLETAMENTE SCOLLEGATA dal download ===
-                            # Usa solo il tempo trascorso da quando è apparsa la barra fake
+                            # Use only elapsed time since the fake bar appeared
                             if ($fakeProgressStart) {
                                 $elapsed = ((Get-Date) - $fakeProgressStart).TotalSeconds
                                 # Rampa uniforme e prevedibile - max 95% durante il download
-                                # (il 100% viene forzato solo quando il file è scritto su disco)
+                                # (100% is forced only when the file is written to disk)
                                 $percent = [math]::Min(95, [math]::Floor(8 + ($elapsed * 1.52)))
                             }
                             else {
@@ -1311,7 +1309,7 @@ exit 0
 function Wait-WingetReady {
     <#
     .SYNOPSIS
-        Polling fino a 5 minuti per verificare che Winget sia pronto e il database sbloccato.
+        Polls for up to 5 minutes to verify that Winget is ready and the database is unlocked.
     #>
     param([int]$MaxWaitSeconds = 300, [int]$PollIntervalSeconds = 5)
 
@@ -1343,18 +1341,18 @@ function Wait-WingetReady {
 function Reset-Winget {
     <#
     .SYNOPSIS
-        Verifica, ripristina e testa l'installazione di Winget.
+        Verifies, restores and tests the Winget installation.
     .DESCRIPTION
-        Procedura integrata a due fasi per la riparazione completa di Winget.
+        Integrated two-phase procedure for complete Winget repair.
 
-        Fase 1 — Ripristino Core (veloce):
-          VC++ Redistributable, dipendenze AppX dal repo ufficiale, MSIXBundle principale.
+        Phase 1 — Core Restore (fast):
+          VC++ Redistributable, AppX dependencies from official repo, main MSIXBundle.
 
-        Fase 2 — Ripristino Avanzato (se Fase 1 insufficiente):
-          Microsoft.WinGet.Client, Repair-WinGetPackageManager, ripristino database,
-          reset permessi e PATH.
+        Phase 2 — Advanced Restore (if Phase 1 is insufficient):
+          Microsoft.WinGet.Client, Repair-WinGetPackageManager, database restore,
+          permissions and PATH reset.
 
-        Include validazione profonda post-installazione con rilevamento ACCESS_VIOLATION.
+        Includes deep post-installation validation with ACCESS_VIOLATION detection.
     #>
     param([switch]$Force)
 
@@ -1743,7 +1741,7 @@ function Reset-Winget {
 function Get-UserConfirmation {
     <#
     .SYNOPSIS
-        Richiede conferma all'utente (Sì/No) in modo standardizzato.
+        Requests user confirmation (Yes/No) in a standardized way.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Prompt,
@@ -1820,9 +1818,8 @@ function Read-ValidatedChoice {
 }
 
 
-# ==============================================================================
-# SEZIONE 10 · VERIFICA E COMPATIBILITÀ SISTEMA
-# Controlli pre-esecuzione: OS, aggiornamenti pendenti.
+# SECTION 10 · SYSTEM VERIFICATION AND COMPATIBILITY
+# Pre-execution checks: OS, pending updates.
 # ==============================================================================
 
 function WinOSCheck {
@@ -1848,10 +1845,10 @@ function WinOSCheck {
 function Test-WindowsUpdateStatus {
     <#
     .SYNOPSIS
-        Controlla lo stato degli aggiornamenti Windows e avvisa in caso di operazioni pendenti.
+        Checks Windows Update status and warns about pending operations.
     .DESCRIPTION
-        Verifica riavvio pendente e stato servizio TrustedInstaller.
-        Usa PSWindowsUpdate se disponibile, altrimenti fallback su registro e servizi nativi.
+        Checks pending reboot and TrustedInstaller service status.
+        Uses PSWindowsUpdate if available, otherwise falls back to registry and native services.
     #>
     try {
         if ($Global:GuiSessionActive) { return }
@@ -1993,11 +1990,11 @@ function Set-OfficePostConfig {
 function VcardAnalizer {
     <#
     .SYNOPSIS
-        Analizza le GPU presenti e prova ad associare driver stabili da DriverOverrides.json.
+        Analyzes present GPUs and tries to associate stable drivers from DriverOverrides.json.
     .DESCRIPTION
-        Rileva schede anche senza driver completi usando Win32_VideoController (Name/Caption/PNPDeviceID),
-        confronta i dati con un file JSON di override e salva il risultato in
-        $Global:VcardAnalysisResult per riuso nei tool.
+        Detects cards even without complete drivers using Win32_VideoController (Name/Caption/PNPDeviceID),
+        compares data with an override JSON file and saves the result in
+        $Global:VcardAnalysisResult for reuse in tools.
     #>
     [CmdletBinding()]
     param(
@@ -2160,8 +2157,8 @@ function WinExportLog {}
 
 
 # ==============================================================================
-# SEZIONE 13 · STRUTTURA MENU
-# Definizione categorie e voci del menu interattivo TUI.
+# SECTION 13 · MENU STRUCTURE
+# Category and interactive TUI menu item definitions.
 # ==============================================================================
 
 $menuStructure = @(
@@ -2195,9 +2192,9 @@ $menuStructure = @(
 
 
 # ==============================================================================
-# SEZIONE 14 · INIZIALIZZAZIONE
-# Blocco unico di avvio: percorsi, controllo OS, aggiornamenti.
-# Eseguito solo in modalità interattiva (non -ImportOnly, non GUI).
+# SECTION 14 · INITIALIZATION
+# Single startup block: paths, OS check, updates.
+# Executed only in interactive mode (not -ImportOnly, not GUI).
 # ==============================================================================
 
 if (-not $ImportOnly) {
@@ -2207,9 +2204,8 @@ if (-not $ImportOnly) {
 }
 
 
-# ==============================================================================
-# SEZIONE 15 · MENU PRINCIPALE
-# Loop interattivo TUI. Soppresso in modalità libreria (-ImportOnly) e GUI.
+# SECTION 15 · MAIN MENU
+# Interactive TUI loop. Suppressed in library mode (-ImportOnly) and GUI.
 # ==============================================================================
 
 if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
@@ -2416,7 +2412,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Write-Host ''
         }
 
-        # ── Riavvio finale ────────────────────────────────────────────────────
+        # ── Final reboot ────────────────────────────────────────────────────
         if ($Global:NeedsFinalReboot) {
             Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'reboot.required')
             if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message (Get-Loc 'reboot.countdown')) {
@@ -2433,7 +2429,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
     }
 }
 else {
-    # Modalità libreria/import — funzioni caricate, menu TUI soppresso
+    # Library/import mode — functions loaded, TUI menu suppressed
     Write-Verbose "═══════════════════════════════════════════════════════════"
     Write-Verbose ("  " + (Get-Loc 'uiText.wintoolkitLoadedInLibraryMode'))
     Write-Verbose ("  " + (Get-Loc 'uiText.functionsAvailableTuiMenuSuppressed'))
