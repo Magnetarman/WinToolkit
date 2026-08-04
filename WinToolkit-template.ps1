@@ -183,11 +183,11 @@ function Get-SourceTextLanguageDirectory {
     if ($Global:SourceTextPreparedLanguagesDir -and (Test-Path $Global:SourceTextPreparedLanguagesDir)) {
         return $Global:SourceTextPreparedLanguagesDir
     }
-    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-SourceTextLocation).Path }
+    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
     $candidate = Join-Path $root 'languages'
     if (Test-Path $candidate) { return $candidate }
 
-    $repoCandidate = Join-Path (Get-SourceTextLocation) 'languages'
+    $repoCandidate = Join-Path (Get-Location) 'languages'
     if (Test-Path $repoCandidate) { return $repoCandidate }
 
     return $candidate
@@ -267,6 +267,7 @@ function Get-SourceTextLoc {
     if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
+Set-Alias -Name Get-Loc -Value Get-SourceTextLoc -Scope Global
 
 function Get-SourceTextMenuText {
     param([object]$Item)
