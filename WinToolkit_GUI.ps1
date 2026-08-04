@@ -2477,7 +2477,21 @@ function Invoke-JobCompletion {
                 }
             }
             elseif ($JobStatus -eq 'Failed' -or $JobStatus -eq 'ErrorStarting') {
-                $errorMsg = if ($Global:ScriptJob.JobStateInfo.Reason) { $Global:ScriptJob.JobStateInfo.Reason.Message } else { Get-Loc 'sourceText.unknownError' }
+                $errorMsg = $null
+                if ($Global:ScriptJob.JobStateInfo.Reason) {
+                    $errorMsg = $Global:ScriptJob.JobStateInfo.Reason.Message
+                }
+                if ([string]::IsNullOrWhiteSpace($errorMsg) -and $Global:ScriptJob.ChildJobs) {
+                    $errorMsg = ($Global:ScriptJob.ChildJobs |
+                        Select-Object -ExpandProperty Error -ErrorAction SilentlyContinue |
+                        Select-Object -ExpandProperty Exception -ErrorAction SilentlyContinue |
+                        Select-Object -ExpandProperty Message -ErrorAction SilentlyContinue |
+                        Select-Object -First 1)
+                }
+                if ([string]::IsNullOrWhiteSpace($errorMsg) -and $jobResultObject -and $jobResultObject.ContainsKey('Error')) {
+                    $errorMsg = [string]$jobResultObject.Error
+                }
+                if ([string]::IsNullOrWhiteSpace($errorMsg)) { $errorMsg = Get-Loc 'sourceText.unknownError' }
                 Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.0Failed1' -Args @($JobName, $errorMsg)) -GuiColor "#FF0000"
             }
             elseif ($JobStatus -eq 'Stopped') {
