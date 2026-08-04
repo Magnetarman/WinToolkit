@@ -1796,7 +1796,7 @@ function Read-ValidatedChoice {
             continue
         }
 
-        $choices = $input -split '[\s,]+' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
+        $choices = $userInput -split '[\s,]+' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
 
         if ($choices.Count -gt 0) {
             $isValid = $true
