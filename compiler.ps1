@@ -176,7 +176,7 @@ foreach ($file in $toolFiles) {
         $fileLines = Get-Content $file.FullName -Encoding UTF8 -ErrorAction Stop
         $stats.TotalSourceLines += $fileLines.Count
         
-        # Gestione moduli vuoti o con solo spazi
+        # Handle empty or whitespace-only modules
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
             Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.emptyPrecompiledModule0InsertingDevelopmentStub' -Args @($functionName))
             $fileLines = @("    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.functionDevelopmentInProgress')")
