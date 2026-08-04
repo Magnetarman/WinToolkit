@@ -1,4 +1,4 @@
-﻿function WinCleaner {
+function WinCleaner {
     <#
     .SYNOPSIS
         Automatically performs a complete Windows system cleanup.
