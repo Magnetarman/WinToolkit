@@ -1,4 +1,4 @@
-﻿param([int]$CountdownSeconds = 30, [switch]$ImportOnly, [string]$Language = 'en-US')
+param([int]$CountdownSeconds = 30, [switch]$ImportOnly, [string]$Language = 'en-US')
 function Read-Host {
     [CmdletBinding()]
     param(
