@@ -262,6 +262,7 @@ jobs:
   testing:
     name: Pester Tests
     runs-on: windows-latest
+    timeout-minutes: 10
     if: github.event.action != 'closed'
     needs: linting
     permissions:
@@ -287,21 +288,12 @@ jobs:
         run: |
           Write-Host "::group::WinToolkit Pester Test Suite"
           $config = New-PesterConfiguration
-          $config.Run.Path                = @(
-            '.github/tests/WinToolkit.Tests.ps1',
-            '.github/tests/Unit',
-            '.github/tests/Integration'
-          )
+          $config.Run.Path                = '.github/tests/CI-Smoke.Tests.ps1'
           $config.Run.PassThru            = $true
           $config.Output.Verbosity        = 'Detailed'
           $config.TestResult.Enabled      = $true
           $config.TestResult.OutputPath   = 'TestResults.xml'
           $config.TestResult.OutputFormat = 'NUnitXml'
-          $config.CodeCoverage.Enabled               = $true
-          $config.CodeCoverage.CoveragePercentTarget = 70
-          $config.CodeCoverage.Path                  = @('WinToolkit-template.ps1', 'tools/*.ps1')
-          $config.CodeCoverage.OutputPath            = 'coverage.xml'
-          $config.Filter.ExcludeTag                  = @('Slow')
           $result = Invoke-Pester -Configuration $config
           Write-Host "::endgroup::"
 

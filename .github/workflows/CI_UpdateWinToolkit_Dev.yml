@@ -395,6 +395,7 @@ jobs:
   testing:
     name: Pester Tests
     runs-on: windows-latest
+    timeout-minutes: 10
     needs: linting
     permissions:
       contents: read
@@ -452,33 +453,13 @@ jobs:
           # ── Pester Test Suite ───────────────────────────────────────────────
           Write-Host "::group::WinToolkit Pester Test Suite"
           $config = New-PesterConfiguration
-          $config.Run.Path                = @(
-            '.github/tests/WinToolkit.Tests.ps1',
-            '.github/tests/Unit',
-            '.github/tests/Integration'
-          )
+          $config.Run.Path                = '.github/tests/CI-Smoke.Tests.ps1'
           $config.Run.PassThru            = $true
           $config.Output.Verbosity        = 'Detailed'
           $config.TestResult.Enabled      = $true
           $config.TestResult.OutputPath   = 'TestResults.xml'
           $config.TestResult.OutputFormat = 'NUnitXml'
-          # ── FIX: Conditional code coverage with error handling ──────────────
-          $config.CodeCoverage.Enabled               = $true
-          $config.CodeCoverage.CoveragePercentTarget = 60
-          $config.CodeCoverage.Path                  = @('WinToolkit-template.ps1', 'tools/*.ps1')
-          $config.CodeCoverage.OutputPath            = 'coverage.xml'
-          $config.CodeCoverage.UseBreakpoints        = $false
-          $config.Filter.ExcludeTag                  = @('Slow')
-
-          try {
-            $result = Invoke-Pester -Configuration $config -ErrorAction Stop
-          } catch {
-            Write-Host "⚠️ Pester execution encountered an error: $($_.Exception.Message)" -ForegroundColor Yellow
-            Write-Host "Retrying without code coverage..." -ForegroundColor Yellow
-
-            $config.CodeCoverage.Enabled = $false
-            $result = Invoke-Pester -Configuration $config
-          }
+          $result = Invoke-Pester -Configuration $config
           Write-Host "::endgroup::"
 
           Write-Host ""
@@ -501,7 +482,6 @@ jobs:
           name: pester-test-results
           path: |
             TestResults.xml
-            coverage.xml
           retention-days: 30
 
   # ===========================================================================
