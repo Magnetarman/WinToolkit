@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Incrementa il numero di build nel template WinToolkit.
 
