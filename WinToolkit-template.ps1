@@ -2410,7 +2410,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             }
             if ($cat.Name -eq 'Support' -and -not $Global:GuiSessionActive) {
                 $languageMenuIndex = $idx
-                Write-Host "🌐 [$idx] $(Get-SourceTextLoc 'menu.changeLanguage')" -ForegroundColor White
+                Write-Host "`e[1m🌐 [$idx] $(Get-SourceTextLoc 'menu.changeLanguage')`e[0m" -ForegroundColor Yellow
                 $idx++
             }
             Write-Host ""
