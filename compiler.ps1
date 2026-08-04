@@ -253,7 +253,7 @@ foreach ($file in $toolFiles) {
                             $processedFileLines = $fileLines[0..($firstNonEmpty - 1)] + $fileLines[($firstNonEmpty + 1)..($fileLines.Count - 1)]
                         }
                         
-                        # Rimuoviamo eventuale parentesi di chiusura finale '}' (ultima riga non vuota)
+                        # We remove any final closing brace '}' (last non-empty line)
                         $lastNonEmpty = -1
                         for ($j = $processedFileLines.Count - 1; $j -ge 0; $j--) {
                             if (-not [string]::IsNullOrWhiteSpace($processedFileLines[$j])) { $lastNonEmpty = $j; break }
@@ -270,7 +270,7 @@ foreach ($file in $toolFiles) {
                 }
             }
             
-            # --- GESTIONE LOGGING E RE-INSERIMENTO ---
+            # --- LOGGING AND RE-INSERTION ---
             $hasLogging = $processedFileLines | Select-String -Pattern "Start-ToolkitLog|Start-ToolkitSession" -Quiet
             
             $newLines += "function $functionName {"
@@ -283,7 +283,7 @@ foreach ($file in $toolFiles) {
             
             if ($endIndex + 1 -lt $templateLines.Count) { $newLines += $templateLines[($endIndex + 1)..($templateLines.Count - 1)] }
             
-            # Aggiorna il buffer master con la sostituzione
+            # Update the master buffer with the replacement
             $templateLines = $newLines
             Write-StyledMessage 'Success' ((Get-SourceTextLoc 'sourceText.moduleProcessed') + ": $functionName.")
             $stats.Processed++
@@ -302,7 +302,7 @@ Write-Host ""
 
 
 # ============================================================================
-# 5. MOTORE DI MINIFICAZIONE SICURA (-Minify)
+# 5. SAFE MINIFICATION ENGINE (-Minify)
 # ============================================================================
 if ($Minify) {
     Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingSafeMinificationThroughThePowershellTokenizer')
