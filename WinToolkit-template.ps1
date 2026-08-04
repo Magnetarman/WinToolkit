@@ -18,7 +18,7 @@ param([int]$CountdownSeconds = 30, [switch]$ImportOnly, [string]$Language = 'en-
 function Read-Host {
     <#
     .SYNOPSIS
-        Wrapper sicuro per Read-Host che gestisce le interruzioni CTRL+C senza crash.
+        Safe wrapper for Read-Host that handles CTRL+C interruptions without crashing.
     #>
     [CmdletBinding()]
     param(
