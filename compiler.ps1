@@ -1,5 +1,5 @@
-﻿# Script di compilazione per WinToolkit (Enterprise-Grade)
-# Gestisce aggregazione moduli, logging strutturato e minificazione del codice.
+﻿# Compilation script for WinToolkit (Enterprise-Grade)
+# Handles module aggregation, structured logging and code minification.
 
 [CmdletBinding()]
 param(
@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 $ScriptStartTime = [System.Diagnostics.Stopwatch]::StartNew()
 
 # ============================================================================
-# 1. SISTEMA DI LOGGING ENTERPRISE
+# 1. ENTERPRISE LOGGING SYSTEM
 # ============================================================================
 $script:SourceTextLanguageData = $null
 $script:SourceTextDefaultLanguageData = $null
@@ -183,18 +183,18 @@ foreach ($file in $toolFiles) {
             $stats.Warnings++
         }
         else {
-            # Trim self-call (chiamata alla funzione in coda al file)
+            # Trim self-call (function call at end of file)
             $lastNonEmptyIndex = -1
             for ($i = $fileLines.Count - 1; $i -ge 0; $i--) {
                 if (-not [string]::IsNullOrWhiteSpace($fileLines[$i])) { $lastNonEmptyIndex = $i; break }
             }
             if ($lastNonEmptyIndex -ge 0 -and $fileLines[$lastNonEmptyIndex].Trim() -eq $functionName) {
-                # Sostituiamo rimozione con slice fino a -1
+                # Replace removal with slice up to -1
                 if ($lastNonEmptyIndex -eq 0) { $fileLines = @() } else { $fileLines = $fileLines[0..($lastNonEmptyIndex - 1)] }
             }
         }
         
-        # Ricerca del segnaposto function nel template
+        # Search for function placeholder in template
         $functionFound = $false
         $startIndex = -1
         $endIndex = -1
@@ -228,8 +228,8 @@ foreach ($file in $toolFiles) {
             if ($startIndex -gt 0) { $newLines += $templateLines[0..($startIndex - 1)] }
             
             # --- LOGICA DI DE-INCAPSULAMENTO (UNWRAP) ---
-            # Se il file tool include già la dichiarazione 'function <name> { ... }', la rimuoviamo
-            # per evitare la doppia nidificazione (catastrofica).
+            # If the tool file already includes the declaration 'function <name> { ... }', we remove it
+            # to avoid double nesting (catastrophic).
             $processedFileLines = $fileLines
             
             if ($fileLines.Count -gt 0) {
@@ -241,11 +241,11 @@ foreach ($file in $toolFiles) {
 
                 if ($firstNonEmpty -ge 0) {
                     $firstLine = $fileLines[$firstNonEmpty].Trim()
-                    # Rilevamento Case-Insensitive della funzione corretta
+                    # Case-Insensitive detection of the correct function
                     if ($firstLine -match ("(?i)^function\s+" + [regex]::Escape($functionName) + "\s*\{")) {
                         Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.detectedInternalFunctionIn') + " '$functionName'. " + (Get-SourceTextLoc 'sourceText.applyingUnwrapping'))
                         
-                        # Rimuoviamo la riga della dichiarazione
+                        # We remove the declaration line
                         if ($firstNonEmpty -eq 0) {
                             if ($fileLines.Count -gt 1) { $processedFileLines = $fileLines[1..($fileLines.Count - 1)] } else { $processedFileLines = @() }
                         }
