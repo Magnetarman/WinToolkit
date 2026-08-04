@@ -1,14 +1,14 @@
 ﻿<#
 .SYNOPSIS
-    Script di Start per Win Toolkit in modalità Offline.
+    Start Script for Win Toolkit in Offline mode.
 .DESCRIPTION
-    Questo script prepara l'ambiente Win Toolkit scaricando tutte le dipendenze
-    necessarie (installatori, icone, ecc.) in una cartella 'start' locale.
-    Successivamente, avvia lo script principale 'start.ps1' (che deve essere
-    precedentemente posizionato nella cartella 'start') in modalità offline,
-    consentendo l'esecuzione del toolkit anche senza connessione internet.
+    This script prepares the Win Toolkit environment by downloading all dependencies
+    needed (installers, icons, etc.) into a local 'start' folder.
+    Subsequently, it launches the main 'start.ps1' script (which must be
+    previously placed in the 'start' folder) in offline mode,
+    allowing the toolkit to run even without internet connection.
 .NOTES
-  Versione 2.4.1 Build 3
+  Version 2.4.1 Build 3
 #>
 
 [CmdletBinding()]
@@ -145,7 +145,7 @@ function Show-Host {
         Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.ram0Gb' -Args @($([math]::Round($memoryInfo.Sum / 1GB, 2))))
         Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.diskC0TotalGb1FreeGb' -Args @($([math]::Round($diskInfo.Size / 1GB, 2)), $([math]::Round($diskInfo.FreeSpace / 1GB, 2))))
 
-        # Verifica Winget
+        # Verify Winget
         $wingetVersion = $null
         try {
             $wingetOutput = winget --version 2>$null
@@ -160,7 +160,7 @@ function Show-Host {
             Write-StyledMessage -type 'Warning' -text (Get-SourceTextLoc 'uiText.wingetNotAvailable')
         }
 
-        # Verifica connessione internet
+        # Verify internet connection
         $internetConnected = Test-Connection -ComputerName 8.8.8.8 -Count 1 -Quiet
         if ($internetConnected) {
             Write-StyledMessage -type 'Success' -text (Get-SourceTextLoc 'uiText.internetConnectionAvailable')
