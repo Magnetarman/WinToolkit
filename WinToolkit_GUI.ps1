@@ -36,7 +36,7 @@ $emojiMappings = @{
     "ToolIcon"                 = "🛠️"
     "SendErrorLogsImage"       = "📡"
 
-    # Funzioni Disponibili - Categorie
+    # Available Functions - Categories
     "CategorySystem"           = "⚙️"
     "CategoryMaintenance"      = "🔧"
     "CategoryOptimization"     = "🚀"
@@ -44,7 +44,7 @@ $emojiMappings = @{
     "CategoryBackup"           = "💾"
     "CategoryTweaks"           = "⚡"
 
-    # Script Icons specifici
+    # Script-specific Icons
     "ScriptPowerShell"         = "💻"
     "ScriptWinget"             = "📦"
     "ScriptCleaner"            = "🧹"
@@ -76,7 +76,7 @@ $emojiMappings = @{
     # Play Icon for Execute Button
     "ExecutePlayImage"         = "▶️"
 
-    # Output e Log
+    # Output and Log
     "OutputLogImage"           = "📋"
 
     # Execute Button
@@ -891,7 +891,7 @@ try {
         Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.0NotFoundAfterLoading' -Args @($menuStructure)) -GuiColor "#FFA500"
     }
 
-    # Verifica funzioni critiche
+    # Verify critical functions
     if (Get-Command 'Get-SystemInfo' -ErrorAction SilentlyContinue) {
         Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.getSysteminfoFunctionAvailable') -GuiColor "#00FF00"
     }
@@ -999,7 +999,7 @@ $xaml = @"
     WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
-        <!-- Nuovo Palette Colori da Gui.jpg -->
+        <!-- New Color Palette from Gui.jpg -->
         <SolidColorBrush x:Key="BackgroundDark" Color="#FF1E1E1E"/>
         <SolidColorBrush x:Key="BackgroundColor" Color="#FF2D2D2D"/>
         <SolidColorBrush x:Key="HeaderBackgroundColor" Color="#FF1A1A1A"/>
@@ -1979,14 +1979,14 @@ function Format-JobOutput {
         return $true
     }
 
-    # Handle WINTOOLKIT_INPUT_BYPASS_TAG (Nuovo)
+    # Handle WINTOOLKIT_INPUT_BYPASS_TAG (New)
     if ($Line -match '\[WINTOOLKIT_INPUT_BYPASS_TAG\] Prompt:\s*(?<Prompt>.*)') {
         $promptText = $matches.Prompt
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.iInteractiveInputBypassedFor0DefaultChoiceY' -Args @($promptText)) -GuiColor "#00CED1"
         return $true
     }
 
-    # Handle WINTOOLKIT_COUNTDOWN_BYPASS_TAG (Nuovo)
+    # Handle WINTOOLKIT_COUNTDOWN_BYPASS_TAG (New)
     if ($Line -match '\[WINTOOLKIT_COUNTDOWN_BYPASS_TAG\] Message:\s*(?<Message>.*)\s*\|\s*Seconds:\s*(?<Seconds>\d+)') {
         $countdownMessage = $matches.Message
         $countdownSeconds = $matches.Seconds
@@ -1994,7 +1994,7 @@ function Format-JobOutput {
         return $true
     }
 
-    # Handle WINTOOLKIT_CONFIRMATION_BYPASS_TAG (Nuovo)
+    # Handle WINTOOLKIT_CONFIRMATION_BYPASS_TAG (New)
     if ($Line -match '\[WINTOOLKIT_CONFIRMATION_BYPASS_TAG\] Message:\s*(?<Message>.*)') {
         $confirmationMessage = $matches.Message
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.bypassedUserConfirmationFor0DefaultResponseYes' -Args @($confirmationMessage)) -GuiColor "#00CED1"
@@ -2429,7 +2429,7 @@ function Invoke-JobCompletion {
         [string]$JobName
     )
 
-    # *** FIX: Separa logica UI (sincrona) da logica job launching (asincrona) ***
+    # *** FIX: Separate synchronous UI logic from asynchronous job launching ***
     $window.Dispatcher.Invoke([Action] {
             if ($Global:ScriptJob) {
                 $rawOutput = Receive-Job -Job $Global:ScriptJob -ErrorAction SilentlyContinue *>&1
