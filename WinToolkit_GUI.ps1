@@ -12,13 +12,13 @@
 
 #Requires -Version 7.0
 
-# 1. Flag to tell the Core NOT to show the menu (CRITICAL)
+# 1. Flag to tell the Core to NOT show the menu (CRITICAL)
 $Global:GuiSessionActive = $true
 
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "3.1.0 (Build 8)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "3.1.0 (Build 9)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
@@ -138,7 +138,7 @@ $Global:LastLogParagraphRef = $null
 $Global:CoreConfig = @{
     RemoteUrl         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
     LocalCachePath    = "$env:LOCALAPPDATA\WinToolkit\cache\WinToolkit_Core.ps1"
-    CacheMaxAge       = 3600 # secondi (1 ora)
+    CacheMaxAge       = 3600 # seconds (1 hour)
     FallbackToCache   = $true
     RequiredFunctions = @('Get-SystemInfo', 'Write-StyledMessage', 'Show-Header', 'Initialize-ToolLogging')
 }
@@ -159,97 +159,21 @@ function Get-ToolkitLanguageDirectory {
     $candidate = Join-Path $PSScriptRoot 'languages'
     if (Test-Path $candidate) { return $candidate }
 
-    $repoCandidate = Join-Path (Get-SourceTextLocation) 'languages'
+    $repoCandidate = Join-Path (Get-Location) 'languages'
     if (Test-Path $repoCandidate) { return $repoCandidate }
 
     return $candidate
 }
 
-function Get-RemoteAvailableCultures {
-    param([string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev')
-    try {
-        $response = Invoke-RestMethod -Uri $GitHubApiUrl -UseBasicParsing -ErrorAction Stop
-        return @($response | Where-Object { $_.type -eq 'dir' } | ForEach-Object { $_.name })
-    }
-    catch {
-        return @()
-    }
-}
-
-function Invoke-SourceTextLanguagePreparation {
-    [CmdletBinding()]
-    param(
-        [string]$ScriptRoot,
-        [string]$RemoteBaseUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/languages',
-        [string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev',
-        [int]$CacheMaxAgeDays = 7
-    )
-    $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
-    $remoteCultures = Get-RemoteAvailableCultures -GitHubApiUrl $GitHubApiUrl
-    $needDownload = $false
-    if (-not (Test-Path $localDir)) {
-        $needDownload = $true
-    }
-    else {
-        $oldestFile = Get-ChildItem -Path $localDir -Recurse -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -First 1
-        if ($oldestFile) {
-            $age = (Get-Date) - $oldestFile.LastWriteTime
-            if ($age.TotalDays -ge $CacheMaxAgeDays) { $needDownload = $true }
-        }
-        else { $needDownload = $true }
-        if (-not $needDownload) {
-            foreach ($culture in $remoteCultures) {
-                $localFile = Join-Path $localDir $culture 'WinToolkit.psd1'
-                if (-not (Test-Path $localFile)) { $needDownload = $true; break }
-            }
-        }
-    }
-    if ($needDownload -and $remoteCultures.Count -gt 0) {
-        if (-not (Test-Path $localDir)) { New-Item -Path $localDir -ItemType Directory -Force | Out-Null }
-        foreach ($culture in $remoteCultures) {
-            $cultureDir = Join-Path $localDir $culture
-            $localFile = Join-Path $cultureDir 'WinToolkit.psd1'
-            if (-not (Test-Path $cultureDir)) { New-Item -Path $cultureDir -ItemType Directory -Force | Out-Null }
-            try {
-                $remoteUrl = "$RemoteBaseUrl/$culture/WinToolkit.psd1"
-                Invoke-WebRequest -Uri $remoteUrl -OutFile $localFile -UseBasicParsing -ErrorAction Stop | Out-Null
-            }
-            catch {
-                if (-not (Test-Path $localFile)) {
-                    try {
-                        $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
-                        if (Test-Path $localFileFallback) { Copy-Item -Path $localFileFallback -Destination $localFile -Force }
-                    }
-                    catch {}
-                }
-            }
-        }
-    }
-    $Global:SourceTextPreparedLanguagesDir = $localDir
-    return $localDir
-}
-
-function Get-SourceTextAutoDetectedLanguage {
-    param([string]$AvailableCultures = 'en-US', [string]$SystemUICulture = ($PSUICulture.ToString()))
-    $normalizedSystem = $SystemUICulture.ToLowerInvariant()
-    $availableList = @($AvailableCultures -split '[\s,]+' | Where-Object { $_ })
-    if ($availableList -contains $normalizedSystem) { return $normalizedSystem }
-    $neutralSystem = $normalizedSystem.Split('-')[0]
-    foreach ($culture in $availableList) {
-        if ($culture.Split('-')[0] -eq $neutralSystem) { return $culture }
-    }
-    return 'en-US'
-}
-
-function Get-AvailableSourceTextLanguages {
-    $languageDir = Get-SourceTextLanguageDirectory
+function Get-AvailableToolkitLanguages {
+    $languageDir = Get-ToolkitLanguageDirectory
     if (-not (Test-Path $languageDir)) { return @() }
 
     Get-ChildItem -Path $languageDir -Directory -ErrorAction SilentlyContinue |
     Where-Object { Test-Path (Join-Path $_.FullName 'WinToolkit.psd1') } |
     ForEach-Object {
         try {
-            $data = Import-SourceTextLanguageFile -LanguageCode $_.Name
+            $data = Import-ToolkitLanguageFile -LanguageCode $_.Name
             [pscustomobject]@{
                 Code       = if ($data.ContainsKey('language.code')) { $data['language.code'] } else { $_.Name }
                 Name       = if ($data.ContainsKey('language.name')) { $data['language.name'] } else { $_.Name }
@@ -263,10 +187,10 @@ function Get-AvailableSourceTextLanguages {
     } | Sort-Object Code
 }
 
-function Import-SourceTextLanguageFile {
+function Import-ToolkitLanguageFile {
     param([string]$LanguageCode)
 
-    $languageDir = Get-SourceTextLanguageDirectory
+    $languageDir = Get-ToolkitLanguageDirectory
     try {
         $localizedData = $null
         Import-LocalizedData -BindingVariable localizedData -BaseDirectory $languageDir -FileName 'WinToolkit.psd1' -UICulture $LanguageCode -ErrorAction Stop
@@ -277,77 +201,76 @@ function Import-SourceTextLanguageFile {
     }
 }
 
-function Set-SourceTextLanguage {
+function Set-ToolkitLanguage {
     param([string]$LanguageCode = 'en-US')
 
-    $defaultData = Import-SourceTextLanguageFile -LanguageCode 'en-US'
-    if ($defaultData) { $Global:SourceTextDefaultLanguageData = $defaultData }
+    $defaultData = Import-ToolkitLanguageFile -LanguageCode 'en-US'
+    if ($defaultData) { $Global:ToolkitDefaultLanguageData = $defaultData }
 
-    $languageData = Import-SourceTextLanguageFile -LanguageCode $LanguageCode
+    $languageData = Import-ToolkitLanguageFile -LanguageCode $LanguageCode
     if (-not $languageData) {
         $LanguageCode = 'en-US'
         $languageData = $defaultData
     }
 
     if ($languageData) {
-        $Global:SourceTextLanguage = $LanguageCode
-        $Global:SourceTextLanguageData = $languageData
+        $Global:ToolkitLanguage = $LanguageCode
+        $Global:ToolkitLanguageData = $languageData
     }
 }
 
-function Get-SourceTextLoc {
+function Get-Loc {
     param(
         [Parameter(Mandatory = $true)][string]$Key,
-        [Alias('Args')][object[]]$Arguments = @()
+        [object[]]$Args = @()
     )
 
     $value = $null
-    if ($Global:SourceTextLanguageData -and $Global:SourceTextLanguageData.ContainsKey($Key)) {
-        $value = [string]$Global:SourceTextLanguageData[$Key]
+    if ($Global:ToolkitLanguageData -and $Global:ToolkitLanguageData.ContainsKey($Key)) {
+        $value = [string]$Global:ToolkitLanguageData[$Key]
     }
-    elseif ($Global:SourceTextDefaultLanguageData -and $Global:SourceTextDefaultLanguageData.ContainsKey($Key)) {
-        $value = [string]$Global:SourceTextDefaultLanguageData[$Key]
+    elseif ($Global:ToolkitDefaultLanguageData -and $Global:ToolkitDefaultLanguageData.ContainsKey($Key)) {
+        $value = [string]$Global:ToolkitDefaultLanguageData[$Key]
     }
     else {
         $value = $Key
     }
 
-    if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
+    if ($Args -and $Args.Count -gt 0) { return [string]::Format($value, $Args) }
     return $value
 }
 
-function Get-SourceTextMenuText {
+function Get-ToolkitMenuText {
     param([object]$Item)
 
     if ($Item -is [System.Collections.IDictionary]) {
         if ($Item.Contains('DescriptionKey') -and $Item['DescriptionKey']) {
-            return (Get-SourceTextLoc $Item['DescriptionKey'])
+            return (Get-Loc $Item['DescriptionKey'])
         }
         if ($Item.Contains('CategoryKey') -and $Item['CategoryKey']) {
-            return (Get-SourceTextLoc $Item['CategoryKey'])
+            return (Get-Loc $Item['CategoryKey'])
         }
         if ($Item.Contains('Description')) { return $Item['Description'] }
         if ($Item.Contains('Name')) { return $Item['Name'] }
     }
 
     if ($Item.PSObject.Properties.Name -contains 'DescriptionKey' -and $Item.DescriptionKey) {
-        return (Get-SourceTextLoc $Item.DescriptionKey)
+        return (Get-Loc $Item.DescriptionKey)
     }
     if ($Item.PSObject.Properties.Name -contains 'CategoryKey' -and $Item.CategoryKey) {
-        return (Get-SourceTextLoc $Item.CategoryKey)
+        return (Get-Loc $Item.CategoryKey)
     }
     if ($Item.PSObject.Properties.Name -contains 'Description') { return $Item.Description }
     if ($Item.PSObject.Properties.Name -contains 'Name') { return $Item.Name }
     return [string]$Item
 }
 
-$Global:SourceTextPreparedLanguagesDir = Invoke-SourceTextLanguagePreparation -ScriptRoot $PSScriptRoot
-$availableCultures = @()
-if ($Global:SourceTextPreparedLanguagesDir -and (Test-Path $Global:SourceTextPreparedLanguagesDir)) {
-    $availableCultures = @(Get-ChildItem -Path $Global:SourceTextPreparedLanguagesDir -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'WinToolkit.psd1') } | ForEach-Object { $_.Name })
+# Detect the operating system UI culture on every script load.
+$detectedLanguage = [System.Globalization.CultureInfo]::InstalledUICulture.Name
+if ([string]::IsNullOrWhiteSpace($detectedLanguage)) {
+    $detectedLanguage = 'en-US'
 }
-$detectedLanguage = Get-SourceTextAutoDetectedLanguage -AvailableCultures ($availableCultures -join ',')
-Set-SourceTextLanguage -LanguageCode $detectedLanguage
+Set-ToolkitLanguage -LanguageCode $detectedLanguage
 
 function Write-UnifiedLog {
     param(
@@ -433,8 +356,8 @@ function Initialize-CoreScript {
         Loads the Core Script (WinToolkit.ps1) from remote source or local cache.
 
     .DESCRIPTION
-        Handles Core Script download from GitHub, local caching, extraction,
-        version detection, and dot-sourcing functions into the current scope.
+        Manages downloading the Core Script from GitHub, local caching, version extraction,
+        and dot-sourcing functions into the current scope.
         Implements remote vs local version comparison to optimize downloads.
 
     .OUTPUTS
@@ -457,60 +380,60 @@ function Initialize-CoreScript {
 
         $coreContent = $null
         $usedCache = $false
-        $localCoreNumericVersion = [version]"0.0.0" # Numeric version for comparison
-        $localCoreFullVersion = "Unknown" # Full version string for display
+$localCoreNumericVersion = [version]"0.0.0" # Numeric version for comparison
+$localCoreFullVersion = "Unknown" # Full version string for display
 
-        # 1. Retrieve local Core Script version (if cache exists)
+        # 1. Retrieve the local Core Script version (if cache exists)
         if (Test-Path $Global:CoreConfig.LocalCachePath) {
             try {
-                # Read all content for greater robustness
+                # Read the entire content for greater robustness
                 $localCacheRawContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
                 if ($localCacheRawContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                     $localCoreFullVersion = $matches[1]
                     # Extract the numeric part for comparison (e.g. "2.5.1" from "2.5.1 (Build 6)")
                     if ($localCoreFullVersion -match '(\d+(?:\.\d+){0,3})') {
                         $localCoreNumericVersion = [version]$matches[1]
-                        Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.localCoreVersionFound0Numeric1' -Args @($localCoreFullVersion, $localCoreNumericVersion)) -GuiColor "#00CED1"
+                        Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.localCoreVersionFound0Numeric1' -Args @($localCoreFullVersion, $localCoreNumericVersion)) -GuiColor "#00CED1"
                     }
                     else {
-                        Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.unableToExtractNumericPartFromLocale0IAssume000ForComparison' -Args @($localCoreFullVersion)) -GuiColor "#FFA500"
+                        Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.unableToExtractNumericPartFromLocale0IAssume000ForComparison' -Args @($localCoreFullVersion)) -GuiColor "#FFA500"
                     }
                 }
                 else {
-                    Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.unableToExtractVersionFromLocalCacheIAssume000ForComparison') -GuiColor "#FFA500"
+                    Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.unableToExtractVersionFromLocalCacheIAssume000ForComparison') -GuiColor "#FFA500"
                 }
             }
             catch {
-                Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.errorReadingLocalCacheVersion0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
+                Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.errorReadingLocalCacheVersion0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
             }
         }
 
         # 2. Retrieve the remote Core Script version
         $remoteCoreNumericVersion = [version]"0.0.0"
         $remoteCoreFullVersion = "Unknown"
-        Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.remoteCoreScriptVersionRecovery') -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.remoteCoreScriptVersionRecovery') -GuiColor "#00CED1"
         try {
-            # Use Invoke-RestMethod to get the full content for robust parsing
+            # Use Invoke-RestMethod to retrieve the complete content for robust parsing
             $remoteRawContent = Invoke-RestMethod -Uri $Global:CoreConfig.RemoteUrl -UseBasicParsing -ErrorAction Stop
             if ($remoteRawContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                 $remoteCoreFullVersion = $matches[1]
                 if ($remoteCoreFullVersion -match '(\d+(?:\.\d+){0,3})') {
                     $remoteCoreNumericVersion = [version]$matches[1]
-                    Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.remoteCoreVersionDetected0Numeric1' -Args @($remoteCoreFullVersion, $remoteCoreNumericVersion)) -GuiColor "#00CED1"
+                    Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.remoteCoreVersionDetected0Numeric1' -Args @($remoteCoreFullVersion, $remoteCoreNumericVersion)) -GuiColor "#00CED1"
                 }
                 else {
-                    Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.unableToExtractNumericPartFromRemoteVersion0IAssume000ForComparison' -Args @($remoteCoreFullVersion)) -GuiColor "#FFA500"
+                    Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.unableToExtractNumericPartFromRemoteVersion0IAssume000ForComparison' -Args @($remoteCoreFullVersion)) -GuiColor "#FFA500"
                 }
             }
             else {
-                Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.unableToExtractRemoteVersionFromCoreScriptIAssume000ForComparison') -GuiColor "#FFA500"
+                Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.unableToExtractRemoteVersionFromCoreScriptIAssume000ForComparison') -GuiColor "#FFA500"
             }
         }
         catch {
-            Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.failedToGetRemoteVersion0AForcedDownloadOrFallbackMayBeRequired' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.failedToGetRemoteVersion0AForcedDownloadOrFallbackMayBeRequired' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
         }
 
-        # 3. Determine if the Core Script needs to be downloaded
+        # 3. Determine whether the Core Script needs to be downloaded
         $shouldDownload = $false
         $cacheExists = Test-Path $Global:CoreConfig.LocalCachePath
         $cacheExpired = $false
@@ -521,27 +444,27 @@ function Initialize-CoreScript {
         }
 
         if (-not $cacheExists) {
-            Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.noLocalCacheFoundForcedDownload') -GuiColor "#00CED1"
+            Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.noLocalCacheFoundForcedDownload') -GuiColor "#00CED1"
             $shouldDownload = $true
         }
         elseif ($remoteCoreNumericVersion -gt $localCoreNumericVersion) {
-            Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.newCoreVersion0AvailableCurrent1DownloadInProgress' -Args @($remoteCoreFullVersion, $localCoreFullVersion)) -GuiColor "#00CED1"
+            Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.newCoreVersion0AvailableCurrent1DownloadInProgress' -Args @($remoteCoreFullVersion, $localCoreFullVersion)) -GuiColor "#00CED1"
             $shouldDownload = $true
         }
         elseif ($cacheExpired) {
-            Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.localCacheExpiredAge0MinutesDownloadToUpdate' -Args @($([Math]::Round($cacheAge.TotalMinutes, 1)))) -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.localCacheExpiredAge0MinutesDownloadToUpdate' -Args @($([Math]::Round($cacheAge.TotalMinutes, 1)))) -GuiColor "#FFA500"
             $shouldDownload = $true
         }
         else {
-            Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.validAndUpdatedLocalCacheV0CacheUsage' -Args @($localCoreFullVersion)) -GuiColor "#00FF00"
+            Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.validAndUpdatedLocalCacheV0CacheUsage' -Args @($localCoreFullVersion)) -GuiColor "#00FF00"
             $coreContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
             $usedCache = $true
             $Global:CoreScriptVersion = $localCoreFullVersion
         }
 
         if ($shouldDownload) {
-            Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.downloadCoreScriptDaGithub') -GuiColor "#00CED1"
-            Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.url0' -Args @($($Global:CoreConfig.RemoteUrl))) -GuiColor "#808080"
+            Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.downloadCoreScriptDaGithub') -GuiColor "#00CED1"
+            Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.url0' -Args @($($Global:CoreConfig.RemoteUrl))) -GuiColor "#808080"
 
             try {
                 $downloadParams = @{
@@ -553,40 +476,40 @@ function Initialize-CoreScript {
 
                 Invoke-WebRequest @downloadParams
                 $coreContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
-                Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.coreScriptDownloadedSuccessfully') -GuiColor "#00FF00"
-                Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.cached0' -Args @($($Global:CoreConfig.LocalCachePath))) -GuiColor "#00CED1"
+                Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.coreScriptDownloadedSuccessfully') -GuiColor "#00FF00"
+                Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.cached0' -Args @($($Global:CoreConfig.LocalCachePath))) -GuiColor "#00CED1"
 
-                # Extract version from the just-downloaded Core (full string for display)
+                # Extract the version from the newly downloaded Core (full string for display)
                 if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                     $Global:CoreScriptVersion = $matches[1]
-                    Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.coreVersionDownloaded0' -Args @($Global:CoreScriptVersion)) -GuiColor "#00FF00"
+                    Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.coreVersionDownloaded0' -Args @($Global:CoreScriptVersion)) -GuiColor "#00FF00"
                 }
                 else {
-                    Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.unableToExtractVersionFromNewlyDownloadedCore') -GuiColor "#FFA500"
+                    Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.unableToExtractVersionFromNewlyDownloadedCore') -GuiColor "#FFA500"
                     $Global:CoreScriptVersion = "Unknown"
                 }
 
             }
             catch {
-                Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.downloadFailed0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
+                Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.downloadFailed0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
 
                 if ($cacheExists -and $Global:CoreConfig.FallbackToCache) {
-                    Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.usingLocalCacheExpiredOrOlderButAvailableAsAFallback') -GuiColor "#FFA500"
+                    Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.usingLocalCacheExpiredOrOlderButAvailableAsAFallback') -GuiColor "#FFA500"
                     $coreContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
                     $usedCache = $true
-                    # Ri-estrai la versione dalla cache come fallback
+                    # Re-extract the version from the cache as a fallback
                     if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                         $Global:CoreScriptVersion = $matches[1]
-                        Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.coreVersionFromFallbackCache0' -Args @($Global:CoreScriptVersion)) -GuiColor "#00FF00"
+                        Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.coreVersionFromFallbackCache0' -Args @($Global:CoreScriptVersion)) -GuiColor "#00FF00"
                     }
                 }
                 else {
-                    throw (Get-SourceTextLoc 'uiText.unableToDownloadCoreScriptAndNoCacheAvailableConfiguredForFallback')
+                    throw (Get-Loc 'uiText.unableToDownloadCoreScriptAndNoCacheAvailableConfiguredForFallback')
                 }
             }
         }
 
-        # If cache was used without download, make sure $Global:CoreScriptVersion is set correctly
+        # If the cache was used without a download, ensure that $Global:CoreScriptVersion is set correctly
         if ($usedCache -and ([string]::IsNullOrEmpty($Global:CoreScriptVersion) -or $Global:CoreScriptVersion -eq "Unknown")) {
             if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                 $Global:CoreScriptVersion = $matches[1]
@@ -594,23 +517,23 @@ function Initialize-CoreScript {
         }
 
         if (-not $coreContent) {
-            throw (Get-SourceTextLoc 'sourceText.coreScriptContentIsEmptyAfterLoadingAttempts')
+            throw (Get-Loc 'sourceText.coreScriptContentIsEmptyAfterLoadingAttempts')
         }
 
         # NOTE: Loading moved to main scope to fix variable visibility
         $Global:CoreScriptContent = $coreContent
         $Global:CoreScriptLoaded = $true
 
-        Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.initializationCompleteGuiReadyToUse') -GuiColor "#00FF00"
+        Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.initializationCompleteGuiReadyToUse') -GuiColor "#00FF00"
         Write-Host ""
 
         return $true
     }
     catch {
-        Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.criticalErrorWhileLoadingCore0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
-        Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.tipManuallyDownloadWintoolkitPs1From') -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.criticalErrorWhileLoadingCore0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
+        Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.tipManuallyDownloadWintoolkitPs1From') -GuiColor "#00CED1"
         Write-UnifiedLog -Type 'Info' -Message "   $($Global:CoreConfig.RemoteUrl)" -GuiColor "#808080"
-        Write-UnifiedLog -Type 'Info' -Message ("   " + (Get-SourceTextLoc 'uiText.andSaveItIn0' -Args @($($Global:CoreConfig.LocalCachePath)))) -GuiColor "#808080"
+        Write-UnifiedLog -Type 'Info' -Message ("   " + (Get-Loc 'uiText.andSaveItIn0' -Args @($($Global:CoreConfig.LocalCachePath)))) -GuiColor "#808080"
 
         $Global:CoreScriptLoaded = $false
         return $false
@@ -686,14 +609,14 @@ function Test-EmojiIcons {
         [Parameter(Mandatory = $true)][string]$LocalPath,
         [Parameter(Mandatory = $true)][string]$RemotePath
     )
-    Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.ensuringAllRequiredIconsAreAvailableLocally') -GuiColor "#00CED1"
+    Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.ensuringAllRequiredIconsAreAvailableLocally') -GuiColor "#00CED1"
     try {
         foreach ($key in $EmojiMap.Keys) {
             $emojiChar = $EmojiMap[$key]
             $localIconFile = Get-EmojiIconPath -EmojiCharacter $emojiChar
 
             if ([string]::IsNullOrEmpty($localIconFile)) {
-                Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.couldNotGetLocalPathForEmoji0Skipping' -Args @($emojiChar)) -GuiColor "#FFA500"
+                Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.couldNotGetLocalPathForEmoji0Skipping' -Args @($emojiChar)) -GuiColor "#FFA500"
                 continue
             }
 
@@ -701,20 +624,20 @@ function Test-EmojiIcons {
                 $fileName = Split-Path $localIconFile -Leaf
                 $remoteIconUri = "$RemotePath/$fileName"
 
-                Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.downloadingIconFor0From1' -Args @($emojiChar, $remoteIconUri)) -GuiColor "#00CED1"
+                Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.downloadingIconFor0From1' -Args @($emojiChar, $remoteIconUri)) -GuiColor "#00CED1"
                 try {
                     Invoke-WebRequest -Uri $remoteIconUri -OutFile $localIconFile -UseBasicParsing -ErrorAction Stop | Out-Null
-                    Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.downloaded0' -Args @($fileName)) -GuiColor "#00FF00"
+                    Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.downloaded0' -Args @($fileName)) -GuiColor "#00FF00"
                 }
                 catch {
-                    Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.failedToDownloadIcon01' -Args @($fileName, $($_.Exception.Message))) -GuiColor "#FF0000"
+                    Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.failedToDownloadIcon01' -Args @($fileName, $($_.Exception.Message))) -GuiColor "#FF0000"
                 }
             }
         }
-        Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.iconAvailabilityCheckCompleted') -GuiColor "#00FF00"
+        Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.iconAvailabilityCheckCompleted') -GuiColor "#00FF00"
     }
     catch {
-        Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.errorDuringIconSynchronization0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
+        Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.errorDuringIconSynchronization0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
     }
 }
 
@@ -732,7 +655,7 @@ function Get-AllCheckBoxes {
             $checkBoxes += $child
         }
         elseif ($child -is [System.Windows.Controls.Panel]) {
-            # Ricerca ricorsiva in contenitori StackPanel
+            # Recursively search StackPanel containers
             $checkBoxes += Get-AllCheckBoxes -Container $child
         }
     }
@@ -743,19 +666,19 @@ function Get-AllCheckBoxes {
 function Send-ErrorLogs {
     <#
     .SYNOPSIS
-        Generates and sends GUI-specific error logs and any recent Core logs
+        Generates and sends GUI-SPECIFIC error logs and any recent Core logs
         to facilitate GUI bug reporting.
     #>
     try {
-        Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.preparingGuiErrorLogForReporting') -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.preparingGuiErrorLogForReporting') -GuiColor "#00CED1"
 
         # Include the main GUI log and the most recent Core transcripts
-        $recentLogFiles = @($mainLog) # Il log della GUI stessa
+        $recentLogFiles = @($mainLog) # The GUI log itself
 
-        # Search for the most recent Core logs in the AppData directory
+        # Find the most recent Core logs in the AppData directory
         $coreLogDir = "$env:LOCALAPPDATA\WinToolkit\logs"
         if (Test-Path $coreLogDir) {
-            # Select the latest 3 Core logs (excluding the GUI one if present twice)
+            # Select the 3 most recent Core logs (excluding the GUI log if it appears twice)
             $coreTranscripts = Get-ChildItem -Path $coreLogDir -Filter "*.log" -ErrorAction SilentlyContinue |
             Sort-Object -Property LastWriteTime -Descending | Select-Object -First 3
             $recentLogFiles += $coreTranscripts.FullName | Where-Object { $_ -ne $mainLog }
@@ -763,11 +686,11 @@ function Send-ErrorLogs {
         $recentLogFiles = $recentLogFiles | Select-Object -Unique # Remove duplicates
 
         if (-not $recentLogFiles) {
-            Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.noGuiOrCoreLogFilesFoundForReporting') -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.noGuiOrCoreLogFilesFoundForReporting') -GuiColor "#FFA500"
             return
         }
 
-        # Crea il contenuto del file di metadati JSON
+        # Create the JSON metadata file contents
         $metadata = @{
             Timestamp     = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
             GuiVersion    = $Global:GuiVersion
@@ -780,7 +703,7 @@ function Send-ErrorLogs {
         $metadataPath = Join-Path $env:TEMP "metadata.json"
         $metadata | ConvertTo-Json | Out-File -FilePath $metadataPath -Encoding UTF8 -Force
 
-        # Crea README per il pacchetto log
+        # Create a README for the log package
         $readmeContent = @"
 WinToolkit Support Log Package
 ============================
@@ -803,13 +726,13 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
         $readmePath = Join-Path $env:TEMP "README.txt"
         $readmeContent | Out-File -FilePath $readmePath -Encoding UTF8 -Force
 
-        # Crea il contenuto combinato dei log
+        # Create the combined log contents
         $logContent = "=" * 60 + "`n"
         $logContent += "WinToolkit GUI Error Report`n"
-        $logContent += (Get-SourceTextLoc 'uiText.reportDate0' -Args @($metadata.Timestamp)) + "`n"
+        $logContent += (Get-Loc 'uiText.reportDate0' -Args @($metadata.Timestamp)) + "`n"
         $logContent += "CorrelationId: $($metadata.CorrelationId)`n"
-        $logContent += (Get-SourceTextLoc 'uiText.guiVersion0' -Args @($metadata.GuiVersion)) + "`n"
-        $logContent += (Get-SourceTextLoc 'uiText.reportCoreVersion0' -Args @($metadata.CoreVersion)) + "`n"
+        $logContent += (Get-Loc 'uiText.guiVersion0' -Args @($metadata.GuiVersion)) + "`n"
+        $logContent += (Get-Loc 'uiText.reportCoreVersion0' -Args @($metadata.CoreVersion)) + "`n"
         $logContent += "=" * 60 + "`n`n"
 
         foreach ($logFile in $recentLogFiles) {
@@ -818,40 +741,40 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
             $logContent += "`n`n"
         }
 
-        # Salva il report temporaneo
+        # Save the temporary report
         $tempReportPath = Join-Path $env:TEMP "WinToolkit_GUI_ErrorReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
         $logContent | Out-File -FilePath $tempReportPath -Encoding UTF8 -Force
 
-        # Comprimi il report e i metadati in ZIP sul Desktop
+        # Compress the report and metadata into a ZIP file on the Desktop
         $zipPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "WinToolkit_SupportLog_$(Get-Date -Format 'yyyyMMdd_HHmmss').zip"
         if (Get-Command 'Compress-Archive' -ErrorAction SilentlyContinue) {
             Compress-Archive -Path $tempReportPath, $metadataPath, $readmePath -DestinationPath $zipPath -Force
-            Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.supportLogPackageCreated0' -Args @($zipPath)) -GuiColor "#00FF00"
+            Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.supportLogPackageCreated0' -Args @($zipPath)) -GuiColor "#00FF00"
         }
         else {
-            Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.compressArchiveNotAvailableGuiReportSavedIn0' -Args @($tempReportPath)) -GuiColor "#FFA500"
-            $zipPath = $tempReportPath # Se non si può zippare, usa il percorso del .txt per il messaggio finale
+            Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.compressArchiveNotAvailableGuiReportSavedIn0' -Args @($tempReportPath)) -GuiColor "#FFA500"
+            $zipPath = $tempReportPath # If it cannot be zipped, use the .txt path for the final message
         }
 
-        # Elimina il report temporaneo se è stato zippato con successo
+        # Delete the temporary report if it was successfully zipped
         if (Test-Path $tempReportPath -PathType Leaf) {
             Remove-Item $tempReportPath -ErrorAction SilentlyContinue
         }
 
-        # Open default browser to the GitHub Issues page
+        # Open the default browser to the GitHub Issues page
         try {
             Start-Process -FilePath "https://github.com/Magnetarman/WinToolkit/issues/new?template=bug_report.yml"
-            Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.browserOpenForReportingOnGithub') -GuiColor "#00CED1"
+            Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.browserOpenForReportingOnGithub') -GuiColor "#00CED1"
         }
         catch {
-            Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.unableToOpenBrowser0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.unableToOpenBrowser0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
         }
 
-        # Write final message in the Output box
+        # Write the final message to the Output box
         $window.Dispatcher.Invoke([Action] {
                 $paragraph = New-Object System.Windows.Documents.Paragraph
                 $run = New-Object System.Windows.Documents.Run
-                $run.Text = Get-SourceTextLoc 'uiText.sendSupportArchive0' -Args @($zipPath)
+                $run.Text = Get-Loc 'uiText.sendSupportArchive0' -Args @($zipPath)
                 $run.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#00FF00"))
                 $run.FontWeight = [System.Windows.FontWeights]::Bold
                 $paragraph.Inlines.Add($run)
@@ -859,10 +782,10 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
                 $outputTextBox.ScrollToEnd()
             })
 
-        Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.operationCompleted') -GuiColor "#00FF00"
+        Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.operationCompleted') -GuiColor "#00FF00"
     }
     catch {
-        Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.errorPreparingGuiLogs0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
+        Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.errorPreparingGuiLogs0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
     }
 }
 
@@ -889,10 +812,10 @@ try {
     [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null
     try { Stop-Transcript -ErrorAction SilentlyContinue | Out-Null } catch {}
     Start-Transcript -Path $mainLog -Append -Force | Out-Null
-    Write-Host (Get-SourceTextLoc 'uiText.infoLoggingInitializedTo0' -Args @($mainLog)) -ForegroundColor Cyan
+    Write-Host (Get-Loc 'uiText.infoLoggingInitializedTo0' -Args @($mainLog)) -ForegroundColor Cyan
 }
 catch {
-    Write-Host (Get-SourceTextLoc 'uiText.errorFailedToInitializeLogging0' -Args @($($_.Exception.Message))) -ForegroundColor Red
+    Write-Host (Get-Loc 'uiText.errorFailedToInitializeLogging0' -Args @($($_.Exception.Message))) -ForegroundColor Red
 }
 
 # Create icon cache directory
@@ -902,7 +825,7 @@ try {
     }
 }
 catch {
-    Write-Host (Get-SourceTextLoc 'uiText.errorFailedToCreateIconDirectory0' -Args @($($_.Exception.Message))) -ForegroundColor Red
+    Write-Host (Get-Loc 'uiText.errorFailedToCreateIconDirectory0' -Args @($($_.Exception.Message))) -ForegroundColor Red
 }
 
 # Download and cache all required icons
@@ -912,21 +835,21 @@ Test-EmojiIcons -EmojiMap $emojiMappings -LocalPath $localIconBasePath -RemotePa
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host (Get-SourceTextLoc 'uiText.errorAdministratorPrivilegesRequired') -ForegroundColor Red
+    Write-Host (Get-Loc 'uiText.errorAdministratorPrivilegesRequired') -ForegroundColor Red
     exit
 }
 
-Write-Host (Get-SourceTextLoc 'uiText.infoAdministratorPrivilegesConfirmed') -ForegroundColor Green
+Write-Host (Get-Loc 'uiText.infoAdministratorPrivilegesConfirmed') -ForegroundColor Green
 
 # Load WPF assemblies
 $assemblies = @("PresentationFramework", "PresentationCore", "WindowsBase", "System.Windows.Forms")
 foreach ($assembly in $assemblies) {
     try {
         Add-Type -AssemblyName $assembly -ErrorAction Stop
-        Write-Host (Get-SourceTextLoc 'uiText.successLoaded0' -Args @($assembly)) -ForegroundColor Green
+        Write-Host (Get-Loc 'uiText.successLoaded0' -Args @($assembly)) -ForegroundColor Green
     }
     catch {
-        Write-Host (Get-SourceTextLoc 'uiText.errorFailedToLoad01' -Args @($assembly, $($_.Exception.Message))) -ForegroundColor Red
+        Write-Host (Get-Loc 'uiText.errorFailedToLoad01' -Args @($assembly, $($_.Exception.Message))) -ForegroundColor Red
     }
 }
 
@@ -936,8 +859,8 @@ foreach ($assembly in $assemblies) {
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Green
-Write-Host ("  " + (Get-SourceTextLoc 'uiText.wintoolkitGuiV30GuiEdition')) -ForegroundColor White
-Write-Host ("  " + (Get-SourceTextLoc 'uiText.loadingCoreScript')) -ForegroundColor Cyan
+Write-Host ("  " + (Get-Loc 'uiText.wintoolkitGuiV30GuiEdition')) -ForegroundColor White
+Write-Host ("  " + (Get-Loc 'uiText.loadingCoreScript')) -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Green
 Write-Host ""
 
@@ -946,11 +869,11 @@ $coreLoaded = Initialize-CoreScript
 if (-not $coreLoaded) {
     Write-Host ""
     Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Red
-    Write-Host ("  " + (Get-SourceTextLoc 'uiText.fatalErrorCoreScriptLoadingFailed')) -ForegroundColor Red
-    Write-Host ("  " + (Get-SourceTextLoc 'uiText.theGuiCannotContinueWithoutTheCoreScript')) -ForegroundColor Yellow
+    Write-Host ("  " + (Get-Loc 'uiText.fatalErrorCoreScriptLoadingFailed')) -ForegroundColor Red
+    Write-Host ("  " + (Get-Loc 'uiText.theGuiCannotContinueWithoutTheCoreScript')) -ForegroundColor Yellow
     Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Red
     Write-Host ""
-    Read-Host (Get-SourceTextLoc 'uiText.pressEnterToExit')
+    Read-Host (Get-Loc 'uiText.pressEnterToExit')
     exit
 }
 
@@ -958,32 +881,32 @@ if (-not $coreLoaded) {
 # EXECUTE CORE SCRIPT (SCOPE FIX)
 # ==========================================
 try {
-    Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.loadingCoreFunctionsIntoMemoryGlobalScope') -GuiColor "#00CED1"
+    Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.loadingCoreFunctionsIntoMemoryGlobalScope') -GuiColor "#00CED1"
 
     # Dot-sourcing in the current scope (Script/Global)
-    # Uses the local path ensured by Initialize-CoreScript
+    # Use the local path ensured by Initialize-CoreScript
     . $Global:CoreConfig.LocalCachePath
 
-    # Recupera $menuStructure dopo il caricamento
+    # Retrieve $menuStructure after loading
     if ($menuStructure) {
         $Global:MenuStructure = $menuStructure
-        Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.menuStructureLoadedCategories0' -Args @($($Global:MenuStructure.Count))) -GuiColor "#00FF00"
+        Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.menuStructureLoadedCategories0' -Args @($($Global:MenuStructure.Count))) -GuiColor "#00FF00"
     }
     else {
-        Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.0NotFoundAfterLoading' -Args @($menuStructure)) -GuiColor "#FFA500"
+        Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.0NotFoundAfterLoading' -Args @($menuStructure)) -GuiColor "#FFA500"
     }
 
-    # Check critical functions
+    # Verify critical functions
     if (Get-Command 'Get-SystemInfo' -ErrorAction SilentlyContinue) {
-        Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.getSysteminfoFunctionAvailable') -GuiColor "#00FF00"
+        Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.getSysteminfoFunctionAvailable') -GuiColor "#00FF00"
     }
     else {
-        Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.getSysteminfoFunctionNotFound') -GuiColor "#FF0000"
+        Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.getSysteminfoFunctionNotFound') -GuiColor "#FF0000"
     }
 
 }
 catch {
-    Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.errorDuringDotSourcingCore0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
+    Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.errorDuringDotSourcingCore0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
 }
 
 # =============================================================================
@@ -1019,12 +942,12 @@ function Get-GuiMenuLocalizationKey {
     return $null
 }
 
-function Get-SourceTextMenuText {
+function Get-ToolkitMenuText {
     param([object]$Item)
 
     $key = Get-GuiMenuLocalizationKey -Item $Item
     if ($key) {
-        $localized = Get-SourceTextLoc $key
+        $localized = Get-Loc $key
         if ($localized -ne $key) { return $localized }
     }
 
@@ -1081,7 +1004,7 @@ $xaml = @"
     WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
-        <!-- Nuovo Palette Colori da Gui.jpg -->
+        <!-- New Color Palette from Gui.jpg -->
         <SolidColorBrush x:Key="BackgroundDark" Color="#FF1E1E1E"/>
         <SolidColorBrush x:Key="BackgroundColor" Color="#FF2D2D2D"/>
         <SolidColorBrush x:Key="HeaderBackgroundColor" Color="#FF1A1A1A"/>
@@ -1098,7 +1021,7 @@ $xaml = @"
         <SolidColorBrush x:Key="LEDGreenColor" Color="#FF4CAF50"/>
         <FontFamily x:Key="PrimaryFont">$FontFamily</FontFamily>
 
-        <!-- Button Styles per CornerRadius (workaround per PowerShell XAML parsing) -->
+        <!-- Button Styles for CornerRadius (workaround for PowerShell XAML parsing) -->
         <Style x:Key="PillButtonStyle" TargetType="Button">
             <Setter Property="Template">
                 <Setter.Value>
@@ -1131,7 +1054,7 @@ $xaml = @"
             </Setter>
         </Style>
 
-        <!-- Style per una ProgressBar arrotondata (Pill) -->
+        <!-- Style for a rounded ProgressBar (Pill) -->
         <Style x:Key="PillProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Template">
                 <Setter.Value>
@@ -1161,7 +1084,7 @@ $xaml = @"
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Task 1: Header con 3 colonne e CornerRadius -->
+        <!-- Task 1: Header with 3 columns and CornerRadius -->
         <Border Grid.Row="0" Background="{StaticResource HeaderBackgroundColor}"
                 Padding="16" Margin="16,16,16,8" CornerRadius="12">
             <Grid>
@@ -1171,13 +1094,13 @@ $xaml = @"
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Colonna 0: Icona Tool -->
+                <!-- Column 0: Tool icon -->
                 <Image Grid.Column="0" x:Name="ToolIconImage"
                        Source="/images/WinToolkit-icon.png"
-                       Width="48" Height="48"
+                       Width="96" Height="96"
                        VerticalAlignment="Center" Margin="0,0,16,0"/>
 
-                <!-- Colonna 1: Titolo e Sottotitolo centrati -->
+                <!-- Column 1: Centered title, subtitle, and language selection -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="$($ScriptTitle)"
                                FontSize="$($FontSize.Header)" FontWeight="Bold"
@@ -1189,12 +1112,8 @@ $xaml = @"
                                Foreground="{StaticResource LabelBlue}"
                                FontFamily="{StaticResource PrimaryFont}"
                                TextAlignment="Center" Margin="0,4,0,0"/>
-                </StackPanel>
-
-                <!-- Colonna 2: Lingua -->
-                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock x:Name="LanguageLabelText" Text="Language"
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
+                        <TextBlock x:Name="LanguageLabelText" Text="Lingua GUI (Italiano):"
                                    Foreground="{StaticResource LabelBlue}"
                                    FontFamily="{StaticResource PrimaryFont}"
                                    FontWeight="SemiBold"
@@ -1209,10 +1128,29 @@ $xaml = @"
                                   FontSize="$($FontSize.Small)"/>
                     </StackPanel>
                 </StackPanel>
+
+                <!-- Column 2: Send Error Log button (red, top right) -->
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0">
+                    <Button x:Name="SendErrorLogsButton"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            Background="{StaticResource ErrorButtonColor}"
+                            Foreground="{StaticResource TextColor}"
+                            Padding="20,12"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Style="{StaticResource SmallButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image x:Name="SendErrorLogsImage" Width="28" Height="28" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="SendErrorLogsText" Text="Send error logs" VerticalAlignment="Center"
+                                       FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="$($FontSize.Small)"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
 
-        <!-- Task 2: Pannello Informazioni Sistema a 3 blocchi (Layout Refactored con Separatori) -->
+        <!-- Task 2: System Information panel with 3 blocks (refactored layout with separators) -->
         <Border Grid.Row="1" Background="{StaticResource OutputBackgroundColor}"
                 CornerRadius="8" Padding="16" Margin="16,0,16,8">
             <Grid>
@@ -1224,7 +1162,7 @@ $xaml = @"
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Blocco 1: Windows Info (Label azzurre a sinistra, valori bianchi a destra) -->
+                <!-- Block 1: Windows info (blue labels on the left, white values on the right) -->
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
                     <TextBlock x:Name="SysInfoTitleText" Text="▬▬ System information ▬▬"
                                Foreground="{StaticResource LabelBlue}"
@@ -1284,15 +1222,15 @@ $xaml = @"
                     </Grid>
                 </StackPanel>
 
-                <!-- Vertical Green Separator 1: Between System Info and Script Features -->
+                <!-- Green vertical separator 1: Between System Information and Script Features -->
                 <Border Grid.Column="1" Width="3" Background="{StaticResource SeparatorGreen}"
                         VerticalAlignment="Stretch" Margin="15,5"/>
 
-                <!-- Block 2: Script Status (central widget) - Simplified layout without LEDs -->
+                <!-- Block 2: Script status (center widget) - Simplified layout without LED -->
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Center"
                             Margin="20,0" MinWidth="200">
 
-                    <!-- Row 1: Script Features with colored status -->
+                    <!-- Row 1: Script features with colored status -->
                     <Grid HorizontalAlignment="Center" Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -1313,7 +1251,7 @@ $xaml = @"
                         </StackPanel>
                     </Grid>
 
-                    <!-- Riga 2: Stato Bitlocker con status colorato - Stessa dimensione della Riga 1 -->
+                    <!-- Row 2: BitLocker status with colored status - Same size as Row 1 -->
                     <Grid HorizontalAlignment="Center" Margin="0,4,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -1335,11 +1273,11 @@ $xaml = @"
                     </Grid>
                 </StackPanel>
 
-                <!-- Vertical Green Separator 2: Between Script Features and Hardware -->
+                <!-- Green vertical separator 2: Between Script Features and Hardware -->
                 <Border Grid.Column="3" Width="3" Background="{StaticResource SeparatorGreen}"
                         VerticalAlignment="Stretch" Margin="15,5"/>
 
-                <!-- Blocco 3: Hardware Info (Allineamento speculare al blocco 1) -->
+                <!-- Block 3: Hardware info (mirrored alignment with block 1) -->
                 <StackPanel Grid.Column="4" Margin="20,0,0,0">
                     <TextBlock x:Name="HardwareTitleText" Text="▬▬ Hardware ▬▬"
                                Foreground="{StaticResource LabelBlue}"
@@ -1401,14 +1339,14 @@ $xaml = @"
             </Grid>
         </Border>
 
-        <!-- Main Content - Left Panel con separatori verdi spessi -->
+        <!-- Main content - Left panel with thick green separators -->
         <Grid Grid.Row="2" Margin="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="500"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left Panel - Actions con separatori verdi spessi -->
+            <!-- Left panel - Actions with thick green separators -->
             <Border Grid.Column="0" Background="{StaticResource PanelBackgroundColor}"
                     CornerRadius="8" Margin="0,0,8,0" Padding="16">
                 <Grid>
@@ -1417,7 +1355,7 @@ $xaml = @"
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Header con Icona Gear (CategorySystem) -->
+                    <!-- Header with Gear icon (CategorySystem) -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                         <Image x:Name="CategorySystemImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
@@ -1442,7 +1380,7 @@ $xaml = @"
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Header con Icona Taccuino (OutputLog) -->
+                    <!-- Header with Notebook icon (OutputLog) -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                         <Image x:Name="OutputLogImage" Width="24" Height="24" Margin="0,0,8,0"
                                VerticalAlignment="Center"/>
@@ -1465,7 +1403,7 @@ $xaml = @"
             </Border>
         </Grid>
 
-        <!-- Task 5: Footer con pulsante Esegui pill-shaped (CornerRadius 20+) -->
+        <!-- Task 5: Footer with Execute pill-shaped button (CornerRadius 20+) -->
         <Border Grid.Row="3" Background="{StaticResource HeaderBackgroundColor}"
                 Padding="16" Margin="16,8,16,16" CornerRadius="12">
             <Grid>
@@ -1479,7 +1417,7 @@ $xaml = @"
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- ProgressBar visibile con altezza 20 e colore azzurro vivido, resa pill-shaped via Style -->
+                <!-- Visible ProgressBar with height 20 and vivid blue color, made pill-shaped via Style -->
                 <ProgressBar x:Name="MainProgressBar"
                              Grid.Row="0"
                              Grid.ColumnSpan="3"
@@ -1494,7 +1432,7 @@ $xaml = @"
                              Value="0"
                              Style="{StaticResource PillProgressBarStyle}"/>
 
-                <!-- Pulsante Esegui centrato, pill-shaped (CornerRadius 25), azzurro -->
+                <!-- Centered Execute button, pill-shaped (CornerRadius 25), blue -->
                 <Button x:Name="ExecuteButton"
                         Grid.Row="1"
                         Grid.Column="1"
@@ -1513,25 +1451,6 @@ $xaml = @"
                         <TextBlock x:Name="ExecuteButtonText" Text="Run scripts" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-
-                <!-- Pulsante Invia Log Errori in basso a destra -->
-                <Button x:Name="SendErrorLogsButton"
-                        Grid.Row="1"
-                        Grid.Column="2"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Right"
-                        Background="{StaticResource ErrorButtonColor}"
-                        Foreground="{StaticResource TextColor}"
-                        Padding="20,12"
-                        BorderThickness="0"
-                        Cursor="Hand"
-                        Style="{StaticResource SmallButtonStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <Image x:Name="SendErrorLogsImage" Width="28" Height="28" Margin="0,0,8,0"/>
-                        <TextBlock x:Name="SendErrorLogsText" Text="Send error logs" VerticalAlignment="Center"
-                                   FontFamily="{StaticResource PrimaryFont}" FontWeight="SemiBold" FontSize="$($FontSize.Small)"/>
-                    </StackPanel>
-                </Button>
             </Grid>
         </Border>
     </Grid>
@@ -1540,7 +1459,7 @@ $xaml = @"
 
 # Create window
 try {
-    Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.creatingWpfWindow') -GuiColor "#00CED1"
+    Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.creatingWpfWindow') -GuiColor "#00CED1"
     $window = [Windows.Markup.XamlReader]::Parse($xaml)
 
     # Setup Window Icon (Favicon & Taskbar) - Remote Fallback
@@ -1559,14 +1478,14 @@ try {
         }
     }
     catch {
-        Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.failedToLoadOrDownloadWindowIcon0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
+        Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.failedToLoadOrDownloadWindowIcon0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
     }
 
-    Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.windowCreatedSuccessfully') -GuiColor "#00FF00"
+    Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.windowCreatedSuccessfully') -GuiColor "#00FF00"
 }
 catch {
-    Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.failedToCreateWindow0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
-    Read-Host (Get-SourceTextLoc 'uiText.pressEnterToExit')
+    Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.failedToCreateWindow0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
+    Read-Host (Get-Loc 'uiText.pressEnterToExit')
     exit
 }
 
@@ -1624,12 +1543,12 @@ function Initialize-LanguageComboBox {
     if (-not $LanguageComboBox) { return }
 
     $LanguageComboBox.Items.Clear()
-    foreach ($language in @(Get-AvailableSourceTextLanguages)) {
+    foreach ($language in @(Get-AvailableToolkitLanguages)) {
         $item = New-Object System.Windows.Controls.ComboBoxItem
         $item.Content = $language.NativeName
         $item.Tag = $language.Code
         $LanguageComboBox.Items.Add($item) | Out-Null
-        if ($language.Code -eq $Global:SourceTextLanguage) {
+        if ($language.Code -eq $Global:ToolkitLanguage) {
             $LanguageComboBox.SelectedItem = $item
         }
     }
@@ -1640,51 +1559,51 @@ function Initialize-LanguageComboBox {
 }
 
 function Apply-GuiLocalization {
-    Set-TextBlockText $LanguageLabelText (Get-SourceTextLoc 'gui.languageLabel')
-    Set-TextBlockText $GuiEditionVersionsText (Get-SourceTextLoc 'gui.editionVersionsFormat' -Args @($Global:GuiVersion, $Global:CoreScriptVersion))
-    Set-TextBlockText $SendErrorLogsText (Get-SourceTextLoc 'gui.sendErrorLogs')
-    Set-TextBlockText $SysInfoTitleText "▬▬ $(Get-SourceTextLoc 'gui.systemInfo') ▬▬"
-    Set-TextBlockText $HardwareTitleText "▬▬ $(Get-SourceTextLoc 'gui.hardware') ▬▬"
-    Set-TextBlockText $SysInfoEditionLabel (Get-SourceTextLoc 'gui.windowsEdition')
-    Set-TextBlockText $SysInfoVersionLabel (Get-SourceTextLoc 'gui.version')
-    Set-TextBlockText $SysInfoArchitectureLabel (Get-SourceTextLoc 'gui.architecture')
-    Set-TextBlockText $SysInfoScriptCompatibilityLabel (Get-SourceTextLoc 'gui.scriptFeatures')
-    Set-TextBlockText $SysInfoBitlockerLabel (Get-SourceTextLoc 'gui.bitlockerStatus')
-    Set-TextBlockText $SysInfoComputerNameLabel (Get-SourceTextLoc 'gui.pcName')
-    Set-TextBlockText $SysInfoRAMLabel (Get-SourceTextLoc 'gui.ram')
-    Set-TextBlockText $SysInfoDiskLabel (Get-SourceTextLoc 'gui.disk')
-    Set-TextBlockText $AvailableFunctionsText (Get-SourceTextLoc 'gui.availableFunctions')
-    Set-TextBlockText $OutputLogsText (Get-SourceTextLoc 'gui.outputLogs')
-    Set-TextBlockText $ExecuteButtonText (Get-SourceTextLoc 'gui.executeScripts')
+    Set-TextBlockText $LanguageLabelText (Get-Loc 'gui.languageLabel')
+    Set-TextBlockText $GuiEditionVersionsText (Get-Loc 'gui.editionVersionsFormat' -Args @($Global:GuiVersion, $Global:CoreScriptVersion))
+    Set-TextBlockText $SendErrorLogsText (Get-Loc 'gui.sendErrorLogs')
+    Set-TextBlockText $SysInfoTitleText "▬▬ $(Get-Loc 'gui.systemInfo') ▬▬"
+    Set-TextBlockText $HardwareTitleText "▬▬ $(Get-Loc 'gui.hardware') ▬▬"
+    Set-TextBlockText $SysInfoEditionLabel (Get-Loc 'gui.windowsEdition')
+    Set-TextBlockText $SysInfoVersionLabel (Get-Loc 'gui.version')
+    Set-TextBlockText $SysInfoArchitectureLabel (Get-Loc 'gui.architecture')
+    Set-TextBlockText $SysInfoScriptCompatibilityLabel (Get-Loc 'gui.scriptFeatures')
+    Set-TextBlockText $SysInfoBitlockerLabel (Get-Loc 'gui.bitlockerStatus')
+    Set-TextBlockText $SysInfoComputerNameLabel (Get-Loc 'gui.pcName')
+    Set-TextBlockText $SysInfoRAMLabel (Get-Loc 'gui.ram')
+    Set-TextBlockText $SysInfoDiskLabel (Get-Loc 'gui.disk')
+    Set-TextBlockText $AvailableFunctionsText (Get-Loc 'gui.availableFunctions')
+    Set-TextBlockText $OutputLogsText (Get-Loc 'gui.outputLogs')
+    Set-TextBlockText $ExecuteButtonText (Get-Loc 'gui.executeScripts')
 
     if ($SysInfoScriptCompatibility -and $SysInfoScriptCompatibility.Text -match '^(Complete|Completa)$') {
-        $SysInfoScriptCompatibility.Text = Get-SourceTextLoc 'gui.complete'
+        $SysInfoScriptCompatibility.Text = Get-Loc 'gui.complete'
     }
     elseif ($SysInfoScriptCompatibility -and $SysInfoScriptCompatibility.Text -match '^(Limited|Limitata)$') {
-        $SysInfoScriptCompatibility.Text = Get-SourceTextLoc 'gui.limited'
+        $SysInfoScriptCompatibility.Text = Get-Loc 'gui.limited'
     }
     elseif ($SysInfoScriptCompatibility -and $SysInfoScriptCompatibility.Text -match '^(Unsupported|Non supportata)$') {
-        $SysInfoScriptCompatibility.Text = Get-SourceTextLoc 'gui.unsupported'
+        $SysInfoScriptCompatibility.Text = Get-Loc 'gui.unsupported'
     }
 }
 
 Initialize-LanguageComboBox
-Set-GuiLocalization
+Apply-GuiLocalization
 
 if ($LanguageComboBox) {
     $LanguageComboBox.Add_SelectionChanged({
             if (-not $LanguageComboBox.SelectedItem) { return }
             $selectedLanguage = [string]$LanguageComboBox.SelectedItem.Tag
-            if ([string]::IsNullOrWhiteSpace($selectedLanguage) -or $selectedLanguage -eq $Global:SourceTextLanguage) { return }
+            if ([string]::IsNullOrWhiteSpace($selectedLanguage) -or $selectedLanguage -eq $Global:ToolkitLanguage) { return }
 
-            Set-SourceTextLanguage -LanguageCode $selectedLanguage
+            Set-ToolkitLanguage -LanguageCode $selectedLanguage
             Apply-GuiLocalization
             Update-SystemInformationPanel
             Update-ActionsPanel
         })
 }
 
-# Setup ExecuteButton with new style and initialize icons
+# Set up ExecuteButton with the new style and initialize icons
 try {
     # Initialize the Execute button icon
     if ($ExecuteButtonImage) {
@@ -1695,11 +1614,11 @@ try {
             }
         }
         catch {
-            Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.couldNotLoadExecutebuttonIcon') -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.couldNotLoadExecutebuttonIcon') -GuiColor "#FFA500"
         }
     }
 
-    # Initialize CategorySystem icon (Gear) for "Available Functions"
+    # Initialize the CategorySystem (Gear) icon for "Available Functions"
     if ($CategorySystemImage) {
         try {
             $gearIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.CategorySystem
@@ -1708,11 +1627,11 @@ try {
             }
         }
         catch {
-            Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.couldNotLoadCategorysystemIcon') -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.couldNotLoadCategorysystemIcon') -GuiColor "#FFA500"
         }
     }
 
-    # Initialize OutputLog icon (Notebook)
+    # Initialize the OutputLog (Notebook) icon
     if ($OutputLogImage) {
         try {
             $logIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.OutputLogImage
@@ -1721,18 +1640,18 @@ try {
             }
         }
         catch {
-            Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.couldNotLoadOutputlogIcon') -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.couldNotLoadOutputlogIcon') -GuiColor "#FFA500"
         }
     }
 
-    # Initialize Tool icon (WinToolkit logo header) - Remote Fallback
+    # Initialize the Tool icon (WinToolkit logo header) - Remote fallback
     if ($ToolIconImage) {
         try {
             $localImgDir = Join-Path $env:LOCALAPPDATA "WinToolkit\images"
             if (-not (Test-Path $localImgDir)) { New-Item -Path $localImgDir -ItemType Directory -Force | Out-Null }
 
-            # Here we use the same icon downloaded earlier, or download another one if needed.
-            # Based on user request we load WinToolkit.ico
+            # Use the same icon downloaded earlier, or download another one if needed.
+            # Load WinToolkit.ico as requested by the user
             $toolLogoPath = Join-Path $localImgDir "WinToolkit.ico"
             $toolLogoUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/images/WinToolkit.ico"
 
@@ -1741,7 +1660,7 @@ try {
             }
 
             if (Test-Path $toolLogoPath) {
-                # Usa IconBitmapDecoder per leggere l'ico all'interno delle Image WPF
+                # Use IconBitmapDecoder to read the ICO into the WPF images
                 $decoder = New-Object System.Windows.Media.Imaging.IconBitmapDecoder(
                     [uri]$toolLogoPath,
                     [System.Windows.Media.Imaging.BitmapCreateOptions]::None,
@@ -1751,14 +1670,14 @@ try {
             }
         }
         catch {
-            Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.couldNotLoadTooliconimage0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.couldNotLoadTooliconimage0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
         }
     }
 
-    Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.executebuttonConfiguredWithPillShapedStyleAndPlayIcon') -GuiColor "#00FF00"
+    Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.executebuttonConfiguredWithPillShapedStyleAndPlayIcon') -GuiColor "#00FF00"
 }
 catch {
-    Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.couldNotConfigureExecutebutton') -GuiColor "#FFA500"
+    Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.couldNotConfigureExecutebutton') -GuiColor "#FFA500"
 }
 
 # =============================================================================
@@ -1771,19 +1690,19 @@ function Update-SystemInformationPanel {
         $sysInfo = Get-SystemInfo
 
         if (-not $sysInfo) {
-            Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.failedToRetrieveSystemInformationFromCore') -GuiColor "#FF0000"
+            Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.failedToRetrieveSystemInformationFromCore') -GuiColor "#FF0000"
             return
         }
 
         # Update GUI on UI thread
         $window.Dispatcher.Invoke([Action] {
-                # Task 2: Update text per il nuovo layout a 3 blocchi
+                # Task 2: Update text for the new 3-block layout
                 $SysInfoEdition.Text = $sysInfo.ProductName
                 $SysInfoVersion.Text = "$($sysInfo.DisplayVersion) (Build $($sysInfo.BuildNumber))"
                 $SysInfoArchitecture.Text = $sysInfo.Architecture
                 $SysInfoComputerName.Text = $sysInfo.ComputerName
                 $SysInfoRAM.Text = "$($sysInfo.TotalRAM) GB"
-                $SysInfoDisk.Text = Get-SourceTextLoc 'gui.diskFreeFormat' -Args @($sysInfo.FreePercentage, $sysInfo.FreeDisk, $sysInfo.TotalDisk)
+                $SysInfoDisk.Text = Get-Loc 'gui.diskFreeFormat' -Args @($sysInfo.FreePercentage, $sysInfo.FreeDisk, $sysInfo.TotalDisk)
 
                 # Set image sources
                 try {
@@ -1799,30 +1718,30 @@ function Update-SystemInformationPanel {
                     }
                 }
                 catch {
-                    Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.couldNotLoadSomeIcons0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
+                    Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.couldNotLoadSomeIcons0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
                 }
 
-                # Task 2: Compatibility indicator con status text colorato
+                # Task 2: Compatibility indicator with colored status text
                 $statusText = ""
                 $statusIconKey = "LEDStatusRed"
 
                 if ($sysInfo.BuildNumber -ge 22000) {
-                    $statusText = Get-SourceTextLoc 'gui.complete'
+                    $statusText = Get-Loc 'gui.complete'
                     $statusIconKey = "LEDStatusGreen"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                 }
                 elseif ($sysInfo.BuildNumber -ge 17763) {
-                    $statusText = Get-SourceTextLoc 'gui.complete'
+                    $statusText = Get-Loc 'gui.complete'
                     $statusIconKey = "LEDStatusGreen"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                 }
                 elseif ($sysInfo.BuildNumber -ge 10240) {
-                    $statusText = Get-SourceTextLoc 'gui.limited'
+                    $statusText = Get-Loc 'gui.limited'
                     $statusIconKey = "LEDStatusYellow"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
                 }
                 else {
-                    $statusText = Get-SourceTextLoc 'gui.unsupported'
+                    $statusText = Get-Loc 'gui.unsupported'
                     $statusIconKey = "LEDStatusRed"
                     $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                 }
@@ -1835,13 +1754,13 @@ function Update-SystemInformationPanel {
                     }
                 }
 
-                # Update Bitlocker status
+                # Update BitLocker status
                 try {
                     $blStatusKey = Get-GuiBitlockerStatusKey
-                    $blStatus = Get-SourceTextLoc $blStatusKey
+                    $blStatus = Get-Loc $blStatusKey
                     $SysInfoBitlocker.Text = $blStatus
 
-                    # Bitlocker status coloring based on stable key, not localized text.
+                    # Color the BitLocker status based on a stable key rather than localized text.
                     if ($blStatusKey -eq 'bitlocker.status.on' -or $blStatusKey -eq 'bitlocker.status.encrypting') {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                     }
@@ -1849,11 +1768,11 @@ function Update-SystemInformationPanel {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
                     }
                     else {
-                        # Off/unconfigured states = red
+                        # Disabled/not configured states = red
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                     }
 
-                    # Load Bitlocker icon
+                    # Load the BitLocker icon
                     if ($BitlockerImage) {
                         $blIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.BitlockerImage
                         if ($blIconPath -and (Test-Path $blIconPath)) {
@@ -1862,14 +1781,14 @@ function Update-SystemInformationPanel {
                     }
                 }
                 catch {
-                    Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.couldNotCheckBitlockerStatus0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
+                    Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.couldNotCheckBitlockerStatus0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
                 }
             })
 
-        Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.systemInformationPanelUpdated3BlockLayout') -GuiColor "#00FF00"
+        Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.systemInformationPanelUpdated3BlockLayout') -GuiColor "#00FF00"
     }
     catch {
-        Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.errorUpdatingSystemInformation0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
+        Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.errorUpdatingSystemInformation0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
     }
 }
 
@@ -1879,34 +1798,34 @@ function Update-SystemInformationPanel {
 
 function Update-ActionsPanel {
     try {
-        Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.generatingDynamicMenuFromCore0' -Args @($menuStructure)) -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.generatingDynamicMenuFromCore0' -Args @($menuStructure)) -GuiColor "#00CED1"
 
         $window.Dispatcher.Invoke([Action] {
                 $actionsPanel.Children.Clear()
 
                 if ($Global:MenuStructure.Count -eq 0) {
-                    Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.0IsEmptyUsingFallbackStaticMenu' -Args @($menuStructure)) -GuiColor "#FFA500"
+                    Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.0IsEmptyUsingFallbackStaticMenu' -Args @($menuStructure)) -GuiColor "#FFA500"
                     return
                 }
 
                 foreach ($category in $Global:MenuStructure) {
                     # ========================================
-                    # A. CATEGORY HEADER (con Linea Verde + Emoji)
+                    # A. CATEGORY HEADER (with Green Line + Emoji)
                     # ========================================
 
-                    # Aggiungi linea verde spessa (3px) PRIMA del titolo
+                    # Add a thick green line (3px) BEFORE the title
                     $greenLine = New-Object System.Windows.Controls.Border
                     $greenLine.Height = 3
                     $greenLine.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString("#2E7D32"))
                     $greenLine.Margin = New-Object System.Windows.Thickness(0, 5, 0, 10)
                     $actionsPanel.Children.Add($greenLine) | Out-Null
 
-                    # Category container con Emoji + Nome
+                    # Category container with Emoji + Name
                     $categoryContainer = New-Object System.Windows.Controls.StackPanel
                     $categoryContainer.Orientation = [System.Windows.Controls.Orientation]::Horizontal
                     $categoryContainer.Margin = '0,0,0,6'
 
-                    # Emoji (SOLO nell'header della categoria)
+                    # Emoji (ONLY in the category header)
                     $iconPath = Get-IconWithFallback -EmojiCharacter $category.Icon
                     if ($iconPath) {
                         $categoryEmoji = New-Object System.Windows.Controls.Image
@@ -1928,7 +1847,7 @@ function Update-ActionsPanel {
 
                     # Category Name (Bold, Cyan)
                     $categoryHeader = New-Object System.Windows.Controls.TextBlock
-                    $categoryHeader.Text = Get-SourceTextMenuText $category
+                    $categoryHeader.Text = Get-ToolkitMenuText $category
                     $categoryHeader.FontSize = $FontSize.Small
                     $categoryHeader.FontWeight = 'Bold'
                     $categoryHeader.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Cyan)
@@ -1943,7 +1862,7 @@ function Update-ActionsPanel {
                     # ========================================
 
                     foreach ($script in $category.Scripts) {
-                        # Container orizzontale per CheckBox + Text
+                        # Horizontal container for CheckBox + Text
                         $scriptRow = New-Object System.Windows.Controls.StackPanel
                         $scriptRow.Orientation = [System.Windows.Controls.Orientation]::Horizontal
                         $scriptRow.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Transparent)
@@ -1964,7 +1883,7 @@ function Update-ActionsPanel {
                         $checkBox.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
                         $scriptRow.Children.Add($checkBox) | Out-Null
 
-                        # TextBlock unico: <Bold>Nome Script</Bold> - Descrizione
+                        # Single TextBlock: <Bold>Script Name</Bold> - Description
                         $textBlock = New-Object System.Windows.Controls.TextBlock
                         $textBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
                         $textBlock.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
@@ -1973,7 +1892,7 @@ function Update-ActionsPanel {
 
                         # Bold Script Name (White)
                         $titleRun = New-Object System.Windows.Documents.Run
-                        $titleRun.Text = Get-SourceTextMenuText $script
+                        $titleRun.Text = Get-ToolkitMenuText $script
                         $titleRun.FontWeight = [System.Windows.FontWeights]::Bold
                         $titleRun.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::White)
 
@@ -1984,15 +1903,15 @@ function Update-ActionsPanel {
                     }
                 }
 
-                Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.dynamicMenuGenerated0Categories' -Args @($($Global:MenuStructure.Count))) -GuiColor "#00FF00"
+                Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.dynamicMenuGenerated0Categories' -Args @($($Global:MenuStructure.Count))) -GuiColor "#00FF00"
             })
     }
     catch {
-        Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.errorGeneratingDynamicMenu0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
+        Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.errorGeneratingDynamicMenu0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
     }
 }
 
-# Task 6: Funzione helper per determinare l'emoji in base al nome dello script
+# Task 6: Helper function to determine the emoji based on the script name
 function Get-ScriptEmoji {
     param([string]$ScriptName)
 
@@ -2021,7 +1940,7 @@ function Format-JobOutput {
         [string]$Line
     )
 
-    # Filtra messaggi vuoti o non significativi
+    # Filter empty or insignificant messages
     if (-not $Line.Trim()) { return $false }
 
     # Handle WINTOOLKIT_STYLED_MESSAGE_TAG
@@ -2065,25 +1984,25 @@ function Format-JobOutput {
         return $true
     }
 
-    # Handle WINTOOLKIT_INPUT_BYPASS_TAG (Nuovo)
+    # Handle WINTOOLKIT_INPUT_BYPASS_TAG (New)
     if ($Line -match '\[WINTOOLKIT_INPUT_BYPASS_TAG\] Prompt:\s*(?<Prompt>.*)') {
         $promptText = $matches.Prompt
-        Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.iInteractiveInputBypassedFor0DefaultChoiceY' -Args @($promptText)) -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.iInteractiveInputBypassedFor0DefaultChoiceY' -Args @($promptText)) -GuiColor "#00CED1"
         return $true
     }
 
-    # Handle WINTOOLKIT_COUNTDOWN_BYPASS_TAG (Nuovo)
+    # Handle WINTOOLKIT_COUNTDOWN_BYPASS_TAG (New)
     if ($Line -match '\[WINTOOLKIT_COUNTDOWN_BYPASS_TAG\] Message:\s*(?<Message>.*)\s*\|\s*Seconds:\s*(?<Seconds>\d+)') {
         $countdownMessage = $matches.Message
         $countdownSeconds = $matches.Seconds
-        Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.countdownBypassed01Seconds' -Args @($countdownMessage, $countdownSeconds)) -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.countdownBypassed01Seconds' -Args @($countdownMessage, $countdownSeconds)) -GuiColor "#00CED1"
         return $true
     }
 
-    # Handle WINTOOLKIT_CONFIRMATION_BYPASS_TAG (Nuovo)
+    # Handle WINTOOLKIT_CONFIRMATION_BYPASS_TAG (New)
     if ($Line -match '\[WINTOOLKIT_CONFIRMATION_BYPASS_TAG\] Message:\s*(?<Message>.*)') {
         $confirmationMessage = $matches.Message
-        Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.bypassedUserConfirmationFor0DefaultResponseYes' -Args @($confirmationMessage)) -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.bypassedUserConfirmationFor0DefaultResponseYes' -Args @($confirmationMessage)) -GuiColor "#00CED1"
         return $true
     }
 
@@ -2129,7 +2048,7 @@ function Format-JobOutput {
             else {
                 # Raw output handling with Trace Mode toggle
                 if ($Global:GuiBridgeTraceMode) {
-                    Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.trace0' -Args @($messageText)) -GuiColor "#808080"
+                    Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.trace0' -Args @($messageText)) -GuiColor "#808080"
                 }
                 else {
                     Write-UnifiedLog -Type 'Info' -Message "$messageText" -GuiColor "#B0B0B0"
@@ -2139,7 +2058,7 @@ function Format-JobOutput {
         return $true
     }
 
-    # Pattern per banner ASCII e linee decorative (consolidato e migliorato)
+    # Patterns for ASCII banners and decorative lines (consolidated and improved)
     $bannerPatterns = @(
         '^\s*═+\s*$', '^\s*─+\s*$', '^\s*—+\s*$', '^\s*━+\s*$',
         '__        __  _  _   _',
@@ -2165,9 +2084,9 @@ function Format-JobOutput {
     }
 
     # Check for interactive input prompts
-    if ($Line -match '\[INPUT\]|\[CHOICE\]|\[CONFIRM\]|\?|\[Y/N\]|premi un tasto per continuare|vuoi rischiare') {
+    if ($Line -match '\[INPUT\]|\[CHOICE\]|\[CONFIRM\]|\?|\[Y/N\]|press any key to continue|do you want to take the risk|premi un tasto per continuare|vuoi rischiare') {
         $Global:IsInputWaiting = $true
-        Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.interactiveInputDetected0NotSupportedInGuiMode' -Args @($Line)) -GuiColor "#FFA500"
+        Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.interactiveInputDetected0NotSupportedInGuiMode' -Args @($Line)) -GuiColor "#FFA500"
         return $true
     }
 
@@ -2186,22 +2105,22 @@ function Format-JobOutput {
 # SCRIPT EXECUTION - ASYNCHRONOUS IMPLEMENTATION (Using DispatcherTimer)
 # =============================================================================
 
-# Function to start the job for the current script
+    # Function to start the job for the current script
 function Start-NextScriptJob {
     param($scriptName)
 
-    # Disable the run button and reset the progress bar (if it's the first script)
+    # Disable the Execute button and reset the progress bar (if this is the first script)
     $window.Dispatcher.Invoke([Action] {
             $executeButton.IsEnabled = $false
         })
 
-    Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.startExecution0' -Args @($scriptName)) -GuiColor "#00CED1"
+    Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.startExecution0' -Args @($scriptName)) -GuiColor "#00CED1"
 
     # Define paths needed by the job
     $coreScriptPath = $Global:CoreConfig.LocalCachePath
     $mainLogDirectory = $LogDirectory
 
-    Write-UnifiedLog -Type 'Info' -Message ("   " + (Get-SourceTextLoc 'uiText.coreForJob0' -Args @($coreScriptPath))) -GuiColor "#808080"
+    Write-UnifiedLog -Type 'Info' -Message ("   " + (Get-Loc 'uiText.coreForJob0' -Args @($coreScriptPath))) -GuiColor "#808080"
 
     # Define the script block to be executed within the job's isolated runspace
     $jobScriptBlock = {
@@ -2229,13 +2148,13 @@ function Start-NextScriptJob {
                 . $CorePath
             }
             else {
-                Write-Error (Get-SourceTextLoc 'uiText.coreScriptNotFoundAt0WithinJob' -Args @($CorePath))
+                Write-Error (Get-Loc 'uiText.coreScriptNotFoundAt0WithinJob' -Args @($CorePath))
                 $Global:NeedsFinalReboot = $false
                 return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = "Core script not found." }
             }
         }
         catch {
-            Write-Error (Get-SourceTextLoc 'uiText.failedToDotSourceCoreScriptWithinJob0' -Args @($($_.Exception.Message)))
+            Write-Error (Get-Loc 'uiText.failedToDotSourceCoreScriptWithinJob0' -Args @($($_.Exception.Message)))
             $Global:NeedsFinalReboot = $false
             return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = $_.Exception.Message }
         }
@@ -2259,7 +2178,7 @@ function Start-NextScriptJob {
         function Read-Host {
             param([string]$Prompt)
             Write-Debug "[GUI_SHIM] Interactive prompt bypassed for: '$Prompt'. Returning 'Y'."
-            Write-Output (Get-SourceTextLoc 'uiText.wintoolkitInputBypassTagPrompt0' -Args @($Prompt)) # Tag per la GUI
+            Write-Output (Get-Loc 'uiText.wintoolkitInputBypassTagPrompt0' -Args @($Prompt)) # Tag for the GUI
             return 'Y' # Default to 'Yes' for most confirmations/choices in GUI mode.
         }
 
@@ -2270,9 +2189,9 @@ function Start-NextScriptJob {
                 [string]$Message,
                 [switch]$Suppress
             )
-            if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-SourceTextLoc 'sourceText.automaticRestart' }
+            if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-Loc 'sourceText.automaticRestart' }
             Write-Debug "[GUI_SHIM] Countdown bypassed for '$Message' (duration: $Seconds seconds)."
-            Write-Output (Get-SourceTextLoc 'uiText.wintoolkitCountdownBypassTagMessage0Seconds1' -Args @($Message, $Seconds)) # Tag per la GUI
+            Write-Output (Get-Loc 'uiText.wintoolkitCountdownBypassTagMessage0Seconds1' -Args @($Message, $Seconds)) # Tag for the GUI
             return $true
         }
 
@@ -2280,16 +2199,16 @@ function Start-NextScriptJob {
         function Get-UserConfirmation {
             param([string]$Message, [string]$DefaultChoice = 'N')
             Write-Debug "[GUI_SHIM] User confirmation bypassed for: '$Message'. Returning 'Yes'."
-            Write-Output (Get-SourceTextLoc 'uiText.wintoolkitConfirmationBypassTagMessage0' -Args @($Message)) # Tag per la GUI
+            Write-Output (Get-Loc 'uiText.wintoolkitConfirmationBypassTagMessage0' -Args @($Message)) # Tag for the GUI
             return $true # Assume 'Yes' for all user confirmations in GUI mode.
         }
 
         # Shim Show-Header to prevent raw console output (ASCII art, direct window size checks).
         function Show-Header {
             param([string]$SubTitle)
-            if ([string]::IsNullOrWhiteSpace($SubTitle)) { $SubTitle = Get-SourceTextLoc 'menu.main' }
+            if ([string]::IsNullOrWhiteSpace($SubTitle)) { $SubTitle = Get-Loc 'menu.main' }
             Write-Debug "[GUI_SHIM] Header: WinToolkit - $SubTitle (bypassed direct console output)."
-            Write-Output (Get-SourceTextLoc 'uiText.wintoolkitStyledMessageTagInfoHeader0' -Args @($SubTitle)) # Invia come messaggio stilizzato per la GUI
+            Write-Output (Get-Loc 'uiText.wintoolkitStyledMessageTagInfoHeader0' -Args @($SubTitle)) # Send as a styled message for the GUI
         }
 
         # Shim Invoke-WithSpinner - GUI version adapts progress reporting for scripts using Invoke-WithSpinner
@@ -2322,7 +2241,7 @@ function Start-NextScriptJob {
                             $percent = [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100)
                         }
                         # Output via Warning stream to avoid pipeline pollution
-                        Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0Status1SecondiPercent2' -Args @($Activity, $i, $percent))
+                        Write-Warning (Get-Loc 'uiText.wintoolkitProgressTagActivity0Status1SecondiPercent2' -Args @($Activity, $i, $percent))
                         Start-Sleep -Seconds 1
                     }
                     return $true
@@ -2335,28 +2254,28 @@ function Start-NextScriptJob {
                             $percent = & $PercentUpdate
                         }
                         else {
-                            # Allow the random percentage to reach up to 99% for a more natural progression
+                            # Allow the random percentage to reach 99% for more natural progress
                             $percent = [math]::Min(99, $percent + (Get-Random -Minimum 1 -Maximum 3))
                         }
 
-                        Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0StatusRunning1SecondsPercent2' -Args @($Activity, $elapsed, $percent))
+                        Write-Warning (Get-Loc 'uiText.wintoolkitProgressTagActivity0StatusRunning1SecondsPercent2' -Args @($Activity, $elapsed, $percent))
                         Start-Sleep -Milliseconds $UpdateInterval
                         $result.Refresh()
                     }
 
                     if (-not $result.HasExited) {
-                        Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitStyledMessageTagWarningTimeoutReachedAfter0SecondsTerminatingProcess' -Args @($TimeoutSeconds))
+                        Write-Warning (Get-Loc 'uiText.wintoolkitStyledMessageTagWarningTimeoutReachedAfter0SecondsTerminatingProcess' -Args @($TimeoutSeconds))
                         $result.Kill()
                         Start-Sleep -Seconds 2
                         return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
                     }
 
-                    Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0StatusCompletedPercent100' -Args @($Activity))
+                    Write-Warning (Get-Loc 'uiText.wintoolkitProgressTagActivity0StatusCompletedPercent100' -Args @($Activity))
                     return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
                 }
                 elseif ($Job -and $result -and $result.GetType().Name -eq 'Job') {
                     while ($result.State -eq 'Running') {
-                        Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0StatusInEsecuzionePercent1' -Args @($Activity, $percent))
+                        Write-Warning (Get-Loc 'uiText.wintoolkitProgressTagActivity0StatusInEsecuzionePercent1' -Args @($Activity, $percent))
                         Start-Sleep -Milliseconds $UpdateInterval
                         # Allow progress up to 99% for Jobs too
                         if ($percent -lt 99) { $percent += 5 }
@@ -2369,7 +2288,7 @@ function Start-NextScriptJob {
                 }
             }
             catch {
-                Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitStyledMessageTagErrorErroreDurante01' -Args @(${Activity}, $($_.Exception.Message)))
+                Write-Warning (Get-Loc 'uiText.wintoolkitStyledMessageTagErrorErroreDurante01' -Args @(${Activity}, $($_.Exception.Message)))
                 return @{ Success = $false; Error = $_.Exception.Message }
             }
         }
@@ -2381,7 +2300,7 @@ function Start-NextScriptJob {
                 [string]$Text
             )
             # Use Write-Warning to bypass Success Pipeline (prevent variable pollution)
-            Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitStyledMessageTag01' -Args @($Type, $Text))
+            Write-Warning (Get-Loc 'uiText.wintoolkitStyledMessageTag01' -Args @($Type, $Text))
         }
 
         # Shim Show-ProgressBar to prevent raw console output for progress bars.
@@ -2396,7 +2315,7 @@ function Start-NextScriptJob {
             )
             # Ensure Percent is an integer
             $intPercent = [int]$Percent
-            Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0Status1Percent2Icon3Spinner4' -Args @($Activity, $Status, $($intPercent), $Icon, $Spinner))
+            Write-Warning (Get-Loc 'uiText.wintoolkitProgressTagActivity0Status1Percent2Icon3Spinner4' -Args @($Activity, $Status, $($intPercent), $Icon, $Spinner))
         }
 
         # Shim Write-Progress to redirect standard PowerShell progress to the GUI
@@ -2410,11 +2329,11 @@ function Start-NextScriptJob {
             $displayActivity = $Activity
             $displayStatus = $Status
             if ($Completed) {
-                $displayCompleted = Get-SourceTextLoc 'sourceText.completed'
-                Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0Status1Percent100' -Args @($displayActivity, $displayCompleted))
+                $displayCompleted = Get-Loc 'sourceText.completed'
+                Write-Warning (Get-Loc 'uiText.wintoolkitProgressTagActivity0Status1Percent100' -Args @($displayActivity, $displayCompleted))
             }
             elseif ($PercentComplete -ge 0) {
-                Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0Status1Percent2' -Args @($displayActivity, $displayStatus, $($PercentComplete)))
+                Write-Warning (Get-Loc 'uiText.wintoolkitProgressTagActivity0Status1Percent2' -Args @($displayActivity, $displayStatus, $($PercentComplete)))
             }
         }
 
@@ -2438,7 +2357,7 @@ function Start-NextScriptJob {
                         Write-Warning $output
                     }
                     else {
-                        Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitRawHostOutputTag0' -Args @($output))
+                        Write-Warning (Get-Loc 'uiText.wintoolkitRawHostOutputTag0' -Args @($output))
                     }
                 }
             }
@@ -2460,7 +2379,7 @@ function Start-NextScriptJob {
             }
         }
         catch {
-            Write-Error (Get-SourceTextLoc 'uiText.cannotGetParametersForFunction01' -Args @($CmdName, $($_.Exception.Message)))
+            Write-Error (Get-Loc 'uiText.cannotGetParametersForFunction01' -Args @($CmdName, $($_.Exception.Message)))
             $Global:NeedsFinalReboot = $false
             return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = $_.Exception.Message }
         }
@@ -2473,13 +2392,13 @@ function Start-NextScriptJob {
                 & $scriptBlock
             }
             else {
-                Write-Error (Get-SourceTextLoc 'uiText.function0NotFoundAfterDotSourcingWithinJob' -Args @($CmdName))
+                Write-Error (Get-Loc 'uiText.function0NotFoundAfterDotSourcingWithinJob' -Args @($CmdName))
                 $Global:NeedsFinalReboot = $false
                 return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = "Function not found." }
             }
         }
         catch {
-            Write-Error (Get-SourceTextLoc 'uiText.errorExecutingFunction0WithinJob1' -Args @($CmdName, $($_.Exception.Message)))
+            Write-Error (Get-Loc 'uiText.errorExecutingFunction0WithinJob1' -Args @($CmdName, $($_.Exception.Message)))
             $Global:NeedsFinalReboot = $false
             return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = $_.Exception.Message }
         }
@@ -2491,31 +2410,31 @@ function Start-NextScriptJob {
     try {
         $Global:ScriptJob = Start-Job -ScriptBlock $jobScriptBlock -ArgumentList $coreScriptPath, $scriptName, $mainLogDirectory -Name "WinToolkit_ScriptJob_$scriptName" -ErrorAction Stop
         $Global:LastJobOutputCount = 0 # Reset output counter for new job
-        Write-UnifiedLog -Type 'Info' -Message ("   " + (Get-SourceTextLoc 'uiText.powershellJob0StartedId1' -Args @($scriptName, $($Global:ScriptJob.Id)))) -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message ("   " + (Get-Loc 'uiText.powershellJob0StartedId1' -Args @($scriptName, $($Global:ScriptJob.Id)))) -GuiColor "#00CED1"
 
-        # *** FIX: Riavvia JobMonitorTimer per processare output del nuovo job ***
+        # *** FIX: Restart JobMonitorTimer to process output from the new job ***
         if ($Global:JobMonitorTimer) {
             if (-not $Global:JobMonitorTimer.IsEnabled) {
                 $Global:JobMonitorTimer.Start()
-                Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.monitoringTimerRestarted') -GuiColor "#808080"
+                Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.monitoringTimerRestarted') -GuiColor "#808080"
             }
         }
         # *** END FIX ***
     }
     catch {
-        Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.errorStartingJob01' -Args @($scriptName, $($_.Exception.Message))) -GuiColor "#FF0000"
+        Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.errorStartingJob01' -Args @($scriptName, $($_.Exception.Message))) -GuiColor "#FF0000"
         Invoke-JobCompletion -JobStatus 'ErrorStarting' -JobName $scriptName
     }
 }
 
-# Funzione per processare il completamento del job
+# Function to process job completion
 function Invoke-JobCompletion {
     param(
         [string]$JobStatus,
         [string]$JobName
     )
 
-    # *** FIX: Separate UI logic (synchronous) from job launching logic (asynchronous) ***
+    # *** FIX: Separate synchronous UI logic from asynchronous job launching ***
     $window.Dispatcher.Invoke([Action] {
             if ($Global:ScriptJob) {
                 $rawOutput = Receive-Job -Job $Global:ScriptJob -ErrorAction SilentlyContinue *>&1
@@ -2540,20 +2459,20 @@ function Invoke-JobCompletion {
                     $errorMessages = ($errorRecords | Select-Object -ExpandProperty Exception | Select-Object -ExpandProperty Message) -join "
 "
                     if ([string]::IsNullOrEmpty($errorMessages)) {
-                        $errorMessages = Get-SourceTextLoc 'uiText.unknownErrorsOccurred'
+                        $errorMessages = Get-Loc 'uiText.unknownErrorsOccurred'
                     }
-                    Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.0CompletedWithErrors1' -Args @($JobName, $errorMessages)) -GuiColor "#FF0000"
+                    Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.0CompletedWithErrors1' -Args @($JobName, $errorMessages)) -GuiColor "#FF0000"
                 }
                 else {
-                    Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.completed0' -Args @($JobName)) -GuiColor "#00FF00"
+                    Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.completed0' -Args @($JobName)) -GuiColor "#00FF00"
                 }
             }
             elseif ($JobStatus -eq 'Failed' -or $JobStatus -eq 'ErrorStarting') {
-                $errorMsg = if ($Global:ScriptJob.JobStateInfo.Reason) { $Global:ScriptJob.JobStateInfo.Reason.Message } else { Get-SourceTextLoc 'sourceText.unknownError' }
-                Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.0Failed1' -Args @($JobName, $errorMsg)) -GuiColor "#FF0000"
+                $errorMsg = if ($Global:ScriptJob.JobStateInfo.Reason) { $Global:ScriptJob.JobStateInfo.Reason.Message } else { Get-Loc 'sourceText.unknownError' }
+                Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.0Failed1' -Args @($JobName, $errorMsg)) -GuiColor "#FF0000"
             }
             elseif ($JobStatus -eq 'Stopped') {
-                Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.0Discontinued' -Args @($JobName)) -GuiColor "#FFA500"
+                Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.0Discontinued' -Args @($JobName)) -GuiColor "#FFA500"
             }
 
             if ($Global:ScriptJob) {
@@ -2571,10 +2490,10 @@ function Invoke-JobCompletion {
             }
         })
 
-    # Parte 2: Avvia prossimo job (FUORI da Dispatcher per non bloccare UI)
+    # Part 2: Start the next job (OUTSIDE the Dispatcher to avoid blocking the UI)
     if ($Global:CurrentScriptIndex -lt $Global:SelectedScriptsQueue.Count) {
         $window.Dispatcher.Invoke([Action] {
-                Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.preparingTheNextScript') -GuiColor "#FFA500"
+                Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.preparingTheNextScript') -GuiColor "#FFA500"
             })
 
         Start-Sleep -Milliseconds 200
@@ -2588,11 +2507,11 @@ function Invoke-JobCompletion {
                     $Global:JobMonitorTimer = $null
                 }
                 $executeButton.IsEnabled = $true
-                Write-UnifiedLog -Type 'Success' -Message "🎉 $(Get-SourceTextLoc 'gui.allExecuted')" -GuiColor "#00FF00"
+                Write-UnifiedLog -Type 'Success' -Message "🎉 $(Get-Loc 'gui.allExecuted')" -GuiColor "#00FF00"
                 if ($progressBar) { $progressBar.Value = 100 }
 
                 if ($Global:RebootRequired) {
-                    $result = [System.Windows.MessageBox]::Show((Get-SourceTextLoc 'gui.rebootPrompt'), (Get-SourceTextLoc 'gui.rebootTitle'), [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+                    $result = [System.Windows.MessageBox]::Show((Get-Loc 'gui.rebootPrompt'), (Get-Loc 'gui.rebootTitle'), [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
                     if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
                         Restart-Computer -Force
                     }
@@ -2608,7 +2527,7 @@ function Tick_JobMonitor {
         # Receive available output in chunks for real-time updates
         $currentJobOutput = Receive-Job -Job $Global:ScriptJob -Keep -ErrorAction SilentlyContinue *>&1
 
-        # Processa solo le nuove linee di output
+        # Process only new output lines
         $newOutputLines = $currentJobOutput | Select-Object -Skip $Global:LastJobOutputCount
         if ($newOutputLines.Count -gt 0) {
             # Safely invoke on Dispatcher (prevent crash if window is closing)
@@ -2646,7 +2565,7 @@ $executeButton.Add_Click({
         $selectedScripts = @()
         $allCheckBoxes = Get-AllCheckBoxes -Container $actionsPanel
 
-        Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.total0CheckboxesFound' -Args @($($allCheckBoxes.Count))) -GuiColor "#00CED1"
+        Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.total0CheckboxesFound' -Args @($($allCheckBoxes.Count))) -GuiColor "#00CED1"
 
         foreach ($checkBox in $allCheckBoxes) {
             try {
@@ -2654,17 +2573,17 @@ $executeButton.Add_Click({
                     $scriptName = $checkBox.Tag
                     if ($scriptName) {
                         $selectedScripts += $scriptName
-                        Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.selectedScript0' -Args @($scriptName)) -GuiColor "#00FF00"
+                        Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.selectedScript0' -Args @($scriptName)) -GuiColor "#00FF00"
                     }
                 }
             }
             catch {
-                Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.checkboxReadingError0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
+                Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.checkboxReadingError0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
             }
         }
 
         if ($selectedScripts.Count -eq 0) {
-            Write-UnifiedLog -Type 'Warning' -Message "⚠️ $(Get-SourceTextLoc 'gui.noneSelected')" -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Warning' -Message "⚠️ $(Get-Loc 'gui.noneSelected')" -GuiColor "#FFA500"
             $window.Dispatcher.Invoke([Action] { $executeButton.IsEnabled = $true })
             return
         }
@@ -2677,7 +2596,7 @@ $executeButton.Add_Click({
         # Reset progress debouncer for new run
         $Global:LastLoggedProgress = @{ Percent = -1; Status = "" }
 
-        # Initialize and start the timer if not already active
+        # Initialize and start the timer if it is not already active
         if (-not $Global:JobMonitorTimer) {
             $Global:JobMonitorTimer = New-Object System.Windows.Threading.DispatcherTimer
             $Global:JobMonitorTimer.Interval = New-Object System.TimeSpan (0, 0, 0, 0, 500) # 500ms
@@ -2695,7 +2614,7 @@ $SendErrorLogsButton.Add_Click({
             Send-ErrorLogs
         }
         catch {
-            Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.errorSendingLog0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
+            Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.errorSendingLog0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
         }
     })
 
@@ -2706,7 +2625,7 @@ $SendErrorLogsButton.Add_Click({
 function Set-ConsoleWindowMinimized {
     <#
     .SYNOPSIS
-        Minimizza la finestra della console PowerShell.
+        Minimizes the PowerShell console window.
     #>
     try {
         Add-Type -TypeDefinition @"
@@ -2728,10 +2647,10 @@ public class WindowHelper {
 "@ -ReferencedAssemblies System.Windows.Forms
 
         [WindowHelper]::Minimize()
-        Write-Host (Get-SourceTextLoc 'uiText.consoleMinimized') -ForegroundColor Cyan
+        Write-Host (Get-Loc 'uiText.consoleMinimized') -ForegroundColor Cyan
     }
     catch {
-        Write-Host (Get-SourceTextLoc 'uiText.couldNotMinimizeConsoleNonCritical') -ForegroundColor Yellow
+        Write-Host (Get-Loc 'uiText.couldNotMinimizeConsoleNonCritical') -ForegroundColor Yellow
     }
 }
 
@@ -2749,30 +2668,30 @@ $window.Add_Loaded({
             Update-ActionsPanel
 
             # Show initial log message
-            Write-UnifiedLog -Type 'Success' -Message "🎉 $(Get-SourceTextLoc 'gui.initialized')" -GuiColor "#00FF00"
-            Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.coreVersion0' -Args @($Global:CoreScriptVersion)) -GuiColor "#00CED1"
-            Write-UnifiedLog -Type 'Info' -Message "💡 $(Get-SourceTextLoc 'gui.instructions')" -GuiColor "#00CED1"
+            Write-UnifiedLog -Type 'Success' -Message "🎉 $(Get-Loc 'gui.initialized')" -GuiColor "#00FF00"
+            Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.coreVersion0' -Args @($Global:CoreScriptVersion)) -GuiColor "#00CED1"
+            Write-UnifiedLog -Type 'Info' -Message "💡 $(Get-Loc 'gui.instructions')" -GuiColor "#00CED1"
 
             # Minimize console - DISABLED to prevent handle exhaustion crash (Win32Exception 1816)
             # Set-ConsoleWindowMinimized
         }
         catch {
-            Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.errorDuringInitializationLoaded0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
+            Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.errorDuringInitializationLoaded0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
         }
     })
 
 # Cleanup handler for Window Closing to kill running jobs
 $window.Add_Closing({
         if ($Global:ScriptJob) {
-            Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.guiWindowClosedAttemptToStopTheJobInProgress') -GuiColor "#FFA500"
+            Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.guiWindowClosedAttemptToStopTheJobInProgress') -GuiColor "#FFA500"
             try {
                 Stop-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
                 Remove-Job -Job $Global:ScriptJob -Force -ErrorAction SilentlyContinue | Out-Null
                 $Global:ScriptJob = $null
-                Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.jobInProgressStoppedAndRemoved') -GuiColor "#00FF00"
+                Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.jobInProgressStoppedAndRemoved') -GuiColor "#00FF00"
             }
             catch {
-                Write-UnifiedLog -Type 'Error' -Message (Get-SourceTextLoc 'uiText.errorInterruptingJob0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
+                Write-UnifiedLog -Type 'Error' -Message (Get-Loc 'uiText.errorInterruptingJob0' -Args @($($_.Exception.Message))) -GuiColor "#FF0000"
             }
         }
         if ($Global:JobMonitorTimer) {
