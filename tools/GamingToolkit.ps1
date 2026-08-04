@@ -1,4 +1,4 @@
-﻿function GamingToolkit {
+function GamingToolkit {
     <#
     .SYNOPSIS
         Gaming Toolkit - Windows gaming optimization tools.

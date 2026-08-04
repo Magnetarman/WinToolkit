@@ -1,4 +1,4 @@
-﻿function WinUpdateReset {
+function WinUpdateReset {
     <#
     .SYNOPSIS
         Repairs Windows Update components and resets services, registry settings, and policies to their defaults.

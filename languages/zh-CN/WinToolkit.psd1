@@ -1,4 +1,4 @@
-﻿# culture="zh-CN"
+# culture="zh-CN"
 ConvertFrom-StringData -StringData @'
 language.code = zh-CN
 language.name = Chinese Simplified

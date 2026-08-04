@@ -1,4 +1,4 @@
-﻿function Uninstall-Office {
+function Uninstall-Office {
     <#
     .SYNOPSIS
         Completely removes Microsoft Office. Uses Get Help on Windows 11 23H2+ and direct removal on earlier versions.
