@@ -1,39 +1,39 @@
-## Descrizione
+## Description
 
-<!-- Spiega cosa cambia e perché. Sii conciso ma completo. -->
+<!-- Explain what changed and why. Be concise but complete. -->
 
-Fixes # <!-- Rimuovi se non c'è un'issue collegata -->
+Fixes # <!-- Remove if no linked issue -->
 
 ---
 
-## Tipo di Modifica
+## Type of Change
 
-<!-- Seleziona tutti i tipi applicabili -->
+<!-- Select all applicable types -->
 - [ ] 🐛 Bug fix
-- [ ] ✨ Nuova feature
-- [ ] ♻️ Refactoring (nessun cambio funzionale)
-- [ ] 🧹 Pulizia / Manutenzione
-- [ ] 📖 Documentazione
+- [ ] ✨ New feature
+- [ ] ♻️ Refactoring (no functional change)
+- [ ] 🧹 Cleanup / Maintenance
+- [ ] 📖 Documentation
 
 ---
 
-## File Modificati
+## Files Modified
 
-<!-- Elenca ogni file con una riga di descrizione -->
-- `tool/NomeFile.ps1` — descrizione della modifica
+<!-- List every file with a one-line description -->
+- `tools/NomeFile.ps1` — description of the change
 
 ---
 
-## Test & Verifica
+## Tests & Verification
 
-- [ ] Verificato localmente tramite `compiler.ps1`
-- [ ] Log di esecuzione allegati (snippet o screenshot)
+- [ ] Verified locally via `compiler.ps1`
+- [ ] Execution logs attached (snippet or screenshot)
 
 <details>
 <summary>Log / Screenshot</summary>
 
 ```
-Incolla qui i log rilevanti
+Paste relevant logs here
 ```
 
 </details>
@@ -42,11 +42,11 @@ Incolla qui i log rilevanti
 
 ## Checklist
 
-> L'assenza di una spunta o la violazione di una regola comporta il rifiuto automatico della PR.
+> Missing a checkbox or violating a rule will result in automatic PR rejection.
 
-- [ ] PR indirizzata a `DEV` — le PR verso `main` vengono chiuse immediatamente
-- [ ] Modifica atomica: un solo problema o una sola feature per PR
-- [ ] `WinToolkit.ps1` **non** modificato manualmente (gestito dall'automazione CI)
-- [ ] Modificati solo file in `/tool/*.ps1` o `WinToolkit-template.ps1`
-- [ ] Stile di codice esistente rispettato, nessun debug code lasciato
-- [ ] Commit chiari in italiano, max 72 caratteri per riga
+- [ ] PR targets `DEV` — PRs to `main` are closed immediately
+- [ ] Atomic change: one issue or one feature per PR
+- [ ] `WinToolkit.ps1` **not** modified manually (handled by CI automation)
+- [ ] Only files in `/tools/*.ps1` or `WinToolkit-template.ps1` modified
+- [ ] Existing code style respected, no debug code left behind
+- [ ] Clear commits in Italian, max 72 characters per line

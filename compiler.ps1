@@ -1,5 +1,5 @@
-# Script di compilazione per WinToolkit (Enterprise-Grade)
-# Gestisce aggregazione moduli, logging strutturato e minificazione del codice.
+# Compilation script for WinToolkit (Enterprise-Grade)
+# Handles module aggregation, structured logging and code minification.
 
 [CmdletBinding()]
 param(
@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 $ScriptStartTime = [System.Diagnostics.Stopwatch]::StartNew()
 
 # ============================================================================
-# 1. SISTEMA DI LOGGING ENTERPRISE
+# 1. ENTERPRISE LOGGING SYSTEM
 # ============================================================================
 $script:SourceTextLanguageData = $null
 $script:SourceTextDefaultLanguageData = $null
@@ -113,7 +113,7 @@ function Write-StyledMessage {
 Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingWintoolkitBuildProcess')
 
 # ============================================================================
-# 2. INIZIALIZZAZIONE E VERIFICA PERCORSI
+# 2. PATH INITIALIZATION AND VERIFICATION
 # ============================================================================
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $toolFolder = Join-Path $scriptPath "tools"
@@ -135,7 +135,7 @@ catch {
 }
 
 # ============================================================================
-# 3. LETTURA SORGENTI E PREPARAZIONE
+# 3. SOURCE READING AND PREPARATION
 # ============================================================================
 try {
     Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.readingSourceTemplate') + ': WinToolkit-template.ps1.')
@@ -152,7 +152,7 @@ if ($toolFiles.Count -eq 0) {
     exit 0
 }
 
-# Statistiche per la dashboard
+# Statistics for the dashboard
 $stats = @{
     Processed        = 0
     Skipped          = 0
@@ -166,7 +166,7 @@ Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.startingAggregation')
 Write-Host ""
 
 # ============================================================================
-# 4. MOTORE DI AGGREGAZIONE (INIEZIONE CODICE)
+# 4. AGGREGATION ENGINE (CODE INJECTION)
 # ============================================================================
 foreach ($file in $toolFiles) {
     $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
@@ -176,25 +176,25 @@ foreach ($file in $toolFiles) {
         $fileLines = Get-Content $file.FullName -Encoding UTF8 -ErrorAction Stop
         $stats.TotalSourceLines += $fileLines.Count
         
-        # Gestione moduli vuoti o con solo spazi
+        # Handle empty or whitespace-only modules
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
             Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.emptyPrecompiledModule0InsertingDevelopmentStub' -Args @($functionName))
             $fileLines = @("    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.functionDevelopmentInProgress')")
             $stats.Warnings++
         }
         else {
-            # Trim self-call (chiamata alla funzione in coda al file)
+            # Trim self-call (function call at end of file)
             $lastNonEmptyIndex = -1
             for ($i = $fileLines.Count - 1; $i -ge 0; $i--) {
                 if (-not [string]::IsNullOrWhiteSpace($fileLines[$i])) { $lastNonEmptyIndex = $i; break }
             }
             if ($lastNonEmptyIndex -ge 0 -and $fileLines[$lastNonEmptyIndex].Trim() -eq $functionName) {
-                # Sostituiamo rimozione con slice fino a -1
+                # Replace removal with slice up to -1
                 if ($lastNonEmptyIndex -eq 0) { $fileLines = @() } else { $fileLines = $fileLines[0..($lastNonEmptyIndex - 1)] }
             }
         }
         
-        # Ricerca del segnaposto function nel template
+        # Search for function placeholder in template
         $functionFound = $false
         $startIndex = -1
         $endIndex = -1
@@ -222,14 +222,14 @@ foreach ($file in $toolFiles) {
             }
         }
         
-        # Iniezione del codice processato
+        # Injection of processed code
         if ($functionFound -and $startIndex -ge 0 -and $endIndex -ge 0) {
             $newLines = @()
             if ($startIndex -gt 0) { $newLines += $templateLines[0..($startIndex - 1)] }
             
             # --- LOGICA DI DE-INCAPSULAMENTO (UNWRAP) ---
-            # Se il file tool include già la dichiarazione 'function <name> { ... }', la rimuoviamo
-            # per evitare la doppia nidificazione (catastrofica).
+            # If the tool file already includes the declaration 'function <name> { ... }', we remove it
+            # to avoid double nesting (catastrophic).
             $processedFileLines = $fileLines
             
             if ($fileLines.Count -gt 0) {
@@ -241,11 +241,11 @@ foreach ($file in $toolFiles) {
 
                 if ($firstNonEmpty -ge 0) {
                     $firstLine = $fileLines[$firstNonEmpty].Trim()
-                    # Rilevamento Case-Insensitive della funzione corretta
+                    # Case-Insensitive detection of the correct function
                     if ($firstLine -match ("(?i)^function\s+" + [regex]::Escape($functionName) + "\s*\{")) {
                         Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.detectedInternalFunctionIn') + " '$functionName'. " + (Get-SourceTextLoc 'sourceText.applyingUnwrapping'))
                         
-                        # Rimuoviamo la riga della dichiarazione
+                        # We remove the declaration line
                         if ($firstNonEmpty -eq 0) {
                             if ($fileLines.Count -gt 1) { $processedFileLines = $fileLines[1..($fileLines.Count - 1)] } else { $processedFileLines = @() }
                         }
@@ -253,7 +253,7 @@ foreach ($file in $toolFiles) {
                             $processedFileLines = $fileLines[0..($firstNonEmpty - 1)] + $fileLines[($firstNonEmpty + 1)..($fileLines.Count - 1)]
                         }
                         
-                        # Rimuoviamo eventuale parentesi di chiusura finale '}' (ultima riga non vuota)
+                        # We remove any final closing brace '}' (last non-empty line)
                         $lastNonEmpty = -1
                         for ($j = $processedFileLines.Count - 1; $j -ge 0; $j--) {
                             if (-not [string]::IsNullOrWhiteSpace($processedFileLines[$j])) { $lastNonEmpty = $j; break }
@@ -270,7 +270,7 @@ foreach ($file in $toolFiles) {
                 }
             }
             
-            # --- GESTIONE LOGGING E RE-INSERIMENTO ---
+            # --- LOGGING AND RE-INSERTION ---
             $hasLogging = $processedFileLines | Select-String -Pattern "Start-ToolkitLog|Start-ToolkitSession" -Quiet
             
             $newLines += "function $functionName {"
@@ -283,7 +283,7 @@ foreach ($file in $toolFiles) {
             
             if ($endIndex + 1 -lt $templateLines.Count) { $newLines += $templateLines[($endIndex + 1)..($templateLines.Count - 1)] }
             
-            # Aggiorna il buffer master con la sostituzione
+            # Update the master buffer with the replacement
             $templateLines = $newLines
             Write-StyledMessage 'Success' ((Get-SourceTextLoc 'sourceText.moduleProcessed') + ": $functionName.")
             $stats.Processed++
@@ -302,7 +302,7 @@ Write-Host ""
 
 
 # ============================================================================
-# 5. MOTORE DI MINIFICAZIONE SICURA (-Minify)
+# 5. SAFE MINIFICATION ENGINE (-Minify)
 # ============================================================================
 if ($Minify) {
     Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingSafeMinificationThroughThePowershellTokenizer')
@@ -372,7 +372,7 @@ if ($Minify) {
 
 
 # ============================================================================
-# 6. SCRITTURA COMPILAZIONE FINALE SUL DISCO
+# 6. FINAL COMPILATION WRITING TO DISK
 # ============================================================================
 try {
     Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.savingStandaloneExecutable') + ': WinToolkit.ps1.')
@@ -390,7 +390,7 @@ catch {
 
 
 # ============================================================================
-# 7. METRICHE E BUILD DASHBOARD RIEPILOGATIVA
+# 7. METRICS AND BUILD SUMMARY DASHBOARD
 # ============================================================================
 $ScriptStartTime.Stop()
 $buildTimeSec = [math]::Round($ScriptStartTime.Elapsed.TotalSeconds, 3)

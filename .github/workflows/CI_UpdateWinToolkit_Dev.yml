@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit Enterprise CI/CD Pipeline V 3.2.2
+# WinToolkit Enterprise CI/CD Pipeline V 3.3.1
 # =============================================================================
 # Pipeline adattiva per branch:
 #   • Dev           → Pipeline Completa: lint → test → build (versione letta, no bump)

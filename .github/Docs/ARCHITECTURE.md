@@ -43,12 +43,12 @@ WinToolkit-template.ps1  +  tool/*.ps1
    │ Phase 2: Prerequisite validation       │
    │ Phase 3: Source reading                │
    │ Phase 4: Code injection                │
-   │   ↳ Find placeholder in template      │
-   │   ↳ De-encapsulate the tool module    │
-   │   ↳ Inject function body              │
-   │   ↳ Add logging if absent             │
-   │ Phase 5: Optional minification (AST)  │
-   │ Phase 6: Write UTF-8 without BOM      │
+   │   ↳ Find placeholder in template       │
+   │   ↳ De-encapsulate the tool module     │
+   │   ↳ Inject function body               │
+   │   ↳ Add logging if absent              │
+   │ Phase 5: Optional minification (AST)   │
+   │ Phase 6: Write UTF-8 without BOM       │
    │ Phase 7: Metrics dashboard             │
    └────────────────────────────────────────┘
               │

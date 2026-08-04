@@ -23,10 +23,10 @@ function WinDebloat {
 
     function Invoke-ServiceOptimization {
         param([hashtable]$ServiceConfig)
-        # NOTA: la logica effettiva di stop/disable è intenzionalmente un placeholder.
-        # Quando abilitata, arresterà e disabiliterà i servizi in $DebloatServices
-        # (telemetria, diagnostica non critica, componenti consumer opzionali) in modo
-        # controllato e documentato.
+        # NOTE: the actual stop/disable logic is intentionally a placeholder.
+        # When enabled, it will stop and disable the services in $DebloatServices
+        # (telemetry, non-critical diagnostics, optional consumer components) in a
+        # controlled and documented way.
         Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.serviceOptimization01' -Args @($($ServiceConfig.Name), $($ServiceConfig.Description)))
         try {
             # PLACEHOLDER: Stop-Service ...; Set-Service -StartupType Disabled ...

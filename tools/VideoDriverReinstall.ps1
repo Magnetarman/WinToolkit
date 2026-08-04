@@ -108,7 +108,7 @@ function VideoDriverReinstall {
             }
         }
 
-        # Batch per tornare alla modalità normale dopo DDU
+        # Batch to return to normal mode after DDU
         $batchPath = Join-Path $desktopPath "Switch to Normal Mode.bat"
         try {
             Set-Content -Path $batchPath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
