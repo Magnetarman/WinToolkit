@@ -290,10 +290,9 @@ function Get-ToolkitMenuText {
 Set-ToolkitLanguage -LanguageCode $Language
 
 
-# ==============================================================================
-# SEZIONE 3 · UI — RENDERING E PRESENTAZIONE
-# Funzioni di output visuale: messaggi, barre, header, tabelle.
-# Dipendono solo da $Global:MsgStyles e Write-ToolkitLog (Sezione 4).
+# SECTION 3 · UI — RENDERING AND PRESENTATION
+# Visual output functions: messages, bars, headers, tables.
+# Depend only on $Global:MsgStyles and Write-ToolkitLog (Section 4).
 # ==============================================================================
 
 function Clear-ProgressLine {
@@ -850,10 +849,10 @@ function Invoke-ExternalCommandWithLog {
 function Invoke-WithSpinner {
     <#
     .SYNOPSIS
-        Esegue un'azione con animazione spinner automatica.
+        Executes an action with automatic spinner animation.
     .DESCRIPTION
-        Funzione di ordine superiore che gestisce automaticamente l'animazione
-        dello spinner per operazioni asincrone, processi, job o timer.
+        Higher-order function that automatically manages spinner
+        animation for async operations, processes, jobs or timers.
     #>
     [CmdletBinding()]
     param(
@@ -964,8 +963,8 @@ function Start-InterruptibleCountdown {
 function Start-ToolkitSession {
     <#
     .SYNOPSIS
-        Inizializzazione standard di ogni tool: log, header, titolo finestra.
-        Sostituisce il blocco di 3 righe identico presente in tutti i tool.
+        Standard initialization for every tool: log, header, window title.
+        Replaces the identical 3-line block present in all tools.
     #>
     param([string]$ToolName, [string]$SubTitle = $ToolName)
     Start-ToolkitLog -ToolName $ToolName
@@ -1922,10 +1921,9 @@ function Test-WindowsUpdateStatus {
 }
 
 
-# ==============================================================================
-# SEZIONE 11 · OFFICE — HELPER CONDIVISI
-# Funzioni condivise da Install-Office, Repair-Office e Uninstall-Office.
-# Definite a scope script per essere accessibili da tutti e tre i tool compilati.
+# SECTION 11 · OFFICE — SHARED HELPERS
+# Functions shared by Install-Office, Repair-Office and Uninstall-Office.
+# Defined at script scope to be accessible from all three compiled tools.
 # ==============================================================================
 
 function Invoke-OfficeSilentRemoval {
@@ -2398,7 +2396,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Write-Host ''
         }
 
-        # ── Riepilogo multi-script ────────────────────────────────────────────
+        # ── Multi-script summary ────────────────────────────────────────────
         if ($isMultiScript) {
             Write-Host ''
             $tableRows = $Global:ExecutionLog | ForEach-Object {
