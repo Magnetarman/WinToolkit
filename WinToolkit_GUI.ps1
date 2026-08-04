@@ -147,7 +147,7 @@ $Global:CoreConfig = @{
 $Global:CoreScriptContent = $null
 $Global:CoreScriptVersion = "Unknown"
 $Global:CoreScriptLoaded = $false
-$Global:MenuStructure = @() # Sarà popolato dal Core
+$Global:MenuStructure = @() # Will be populated by the Core
 $Global:ToolkitLanguage = 'en-US'
 $Global:ToolkitLanguageData = $null
 $Global:ToolkitDefaultLanguageData = $null
@@ -348,12 +348,12 @@ function Write-UnifiedLog {
 function Initialize-CoreScript {
     <#
     .SYNOPSIS
-        Carica il Core Script (WinToolkit.ps1) da fonte remota o cache locale.
+        Loads the Core Script (WinToolkit.ps1) from remote source or local cache.
 
     .DESCRIPTION
-        Gestisce il download del Core Script da GitHub, caching locale, estrazione
-        versione, e dot-sourcing delle funzioni nel scope corrente.
-        Implementa confronto versione remoto vs locale per ottimizzare i download.
+        Handles Core Script download from GitHub, local caching, extraction,
+        version detection, and dot-sourcing functions into the current scope.
+        Implements remote vs local version comparison to optimize downloads.
 
     .OUTPUTS
         Boolean - True se Core caricato con successo, False altrimenti
@@ -363,11 +363,11 @@ function Initialize-CoreScript {
     param()
 
     try {
-        # Mostra loading screen
+        # Show loading screen
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.resourceInitializationCoreScriptLoading') -GuiColor "#00CED1"
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.pleaseWaitOperationInProgress') -GuiColor "#FFA500"
 
-        # Crea directory cache se non esiste
+        # Create cache directory if it doesn't exist
         $cacheDir = Split-Path $Global:CoreConfig.LocalCachePath -Parent
         if (-not (Test-Path $cacheDir)) {
             New-Item -Path $cacheDir -ItemType Directory -Force | Out-Null
@@ -375,17 +375,17 @@ function Initialize-CoreScript {
 
         $coreContent = $null
         $usedCache = $false
-        $localCoreNumericVersion = [version]"0.0.0" # Versione numerica per il confronto
-        $localCoreFullVersion = "Unknown" # Stringa di versione completa per la visualizzazione
+        $localCoreNumericVersion = [version]"0.0.0" # Numeric version for comparison
+        $localCoreFullVersion = "Unknown" # Full version string for display
 
-        # 1. Recupera la versione del Core Script locale (se esiste la cache)
+        # 1. Retrieve local Core Script version (if cache exists)
         if (Test-Path $Global:CoreConfig.LocalCachePath) {
             try {
-                # Leggi tutto il contenuto per maggiore robustezza
+                # Read all content for greater robustness
                 $localCacheRawContent = Get-Content $Global:CoreConfig.LocalCachePath -Raw -Encoding UTF8
                 if ($localCacheRawContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                     $localCoreFullVersion = $matches[1]
-                    # Estrai la parte numerica per il confronto (es. "2.5.1" da "2.5.1 (Build 6)")
+                    # Extract the numeric part for comparison (e.g. "2.5.1" from "2.5.1 (Build 6)")
                     if ($localCoreFullVersion -match '(\d+(?:\.\d+){0,3})') {
                         $localCoreNumericVersion = [version]$matches[1]
                         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.localCoreVersionFound0Numeric1' -Args @($localCoreFullVersion, $localCoreNumericVersion)) -GuiColor "#00CED1"
@@ -504,7 +504,7 @@ function Initialize-CoreScript {
             }
         }
 
-        # Se è stata usata la cache senza download, assicurati che $Global:CoreScriptVersion sia impostato correttamente
+        # If cache was used without download, make sure $Global:CoreScriptVersion is set correctly
         if ($usedCache -and ([string]::IsNullOrEmpty($Global:CoreScriptVersion) -or $Global:CoreScriptVersion -eq "Unknown")) {
             if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                 $Global:CoreScriptVersion = $matches[1]
@@ -661,16 +661,16 @@ function Get-AllCheckBoxes {
 function Send-ErrorLogs {
     <#
     .SYNOPSIS
-        Genera e invia i log degli errori SPECIFICI DELLA GUI e eventuali log recenti del Core
-        per facilitare la segnalazione di bug della GUI.
+        Generates and sends GUI-specific error logs and any recent Core logs
+        to facilitate GUI bug reporting.
     #>
     try {
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.preparingGuiErrorLogForReporting') -GuiColor "#00CED1"
 
-        # Includi il log principale della GUI e i transcript più recenti del Core
+        # Include the main GUI log and the most recent Core transcripts
         $recentLogFiles = @($mainLog) # Il log della GUI stessa
 
-        # Cerca i log più recenti dal Core nella directory AppData
+        # Search for the most recent Core logs in the AppData directory
         $coreLogDir = "$env:LOCALAPPDATA\WinToolkit\logs"
         if (Test-Path $coreLogDir) {
             # Seleziona gli ultimi 3 log del Core (escludendo quello della GUI se presente due volte)
@@ -756,7 +756,7 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
             Remove-Item $tempReportPath -ErrorAction SilentlyContinue
         }
 
-        # Apri il browser predefinito alla pagina GitHub Issues
+        # Open default browser to the GitHub Issues page
         try {
             Start-Process -FilePath "https://github.com/Magnetarman/WinToolkit/issues/new?template=bug_report.yml"
             Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.browserOpenForReportingOnGithub') -GuiColor "#00CED1"
@@ -765,7 +765,7 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
             Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.unableToOpenBrowser0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
         }
 
-        # Scrivi messaggio finale nel box Output
+        # Write final message in the Output box
         $window.Dispatcher.Invoke([Action] {
                 $paragraph = New-Object System.Windows.Documents.Paragraph
                 $run = New-Object System.Windows.Documents.Run
@@ -891,7 +891,7 @@ try {
         Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.0NotFoundAfterLoading' -Args @($menuStructure)) -GuiColor "#FFA500"
     }
 
-    # Verifica funzioni critiche
+    # Check critical functions
     if (Get-Command 'Get-SystemInfo' -ErrorAction SilentlyContinue) {
         Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.getSysteminfoFunctionAvailable') -GuiColor "#00FF00"
     }
@@ -1202,7 +1202,7 @@ $xaml = @"
                     </Grid>
                 </StackPanel>
 
-                <!-- Separatore Verde Verticale 1: Tra Informazioni Sistema e Funzionalità Script -->
+                <!-- Vertical Green Separator 1: Between System Info and Script Features -->
                 <Border Grid.Column="1" Width="3" Background="{StaticResource SeparatorGreen}"
                         VerticalAlignment="Stretch" Margin="15,5"/>
 
@@ -1210,7 +1210,7 @@ $xaml = @"
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Center"
                             Margin="20,0" MinWidth="200">
 
-                    <!-- Riga 1: Funzionalità Script con status colorato -->
+                    <!-- Row 1: Script Features with colored status -->
                     <Grid HorizontalAlignment="Center" Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -1253,7 +1253,7 @@ $xaml = @"
                     </Grid>
                 </StackPanel>
 
-                <!-- Separatore Verde Verticale 2: Tra Funzionalità Script e Hardware -->
+                <!-- Vertical Green Separator 2: Between Script Features and Hardware -->
                 <Border Grid.Column="3" Width="3" Background="{StaticResource SeparatorGreen}"
                         VerticalAlignment="Stretch" Margin="15,5"/>
 
@@ -1602,9 +1602,9 @@ if ($LanguageComboBox) {
         })
 }
 
-# Setup ExecuteButton con nuovo stile e inizializza icone
+# Setup ExecuteButton with new style and initialize icons
 try {
-    # Inizializza l'icona del pulsante Esegui
+    # Initialize the Execute button icon
     if ($ExecuteButtonImage) {
         try {
             $playIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.ExecuteButtonImage
@@ -1617,7 +1617,7 @@ try {
         }
     }
 
-    # Inizializza l'icona CategorySystem (Gear) per "Funzioni Disponibili"
+    # Initialize CategorySystem icon (Gear) for "Available Functions"
     if ($CategorySystemImage) {
         try {
             $gearIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.CategorySystem
@@ -1630,7 +1630,7 @@ try {
         }
     }
 
-    # Inizializza l'icona OutputLog (Taccuino)
+    # Initialize OutputLog icon (Notebook)
     if ($OutputLogImage) {
         try {
             $logIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.OutputLogImage
@@ -1643,14 +1643,14 @@ try {
         }
     }
 
-    # Inizializza l'icona Tool (WinToolkit logo header) - Remote Fallback
+    # Initialize Tool icon (WinToolkit logo header) - Remote Fallback
     if ($ToolIconImage) {
         try {
             $localImgDir = Join-Path $env:LOCALAPPDATA "WinToolkit\images"
             if (-not (Test-Path $localImgDir)) { New-Item -Path $localImgDir -ItemType Directory -Force | Out-Null }
 
-            # Qui usiamo la stessa icona scaricata prima, o ne scarichiamo un'altra se serve.
-            # In base alla richiesta utente carichiamo WinToolkit.ico
+            # Here we use the same icon downloaded earlier, or download another one if needed.
+            # Based on user request we load WinToolkit.ico
             $toolLogoPath = Join-Path $localImgDir "WinToolkit.ico"
             $toolLogoUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/images/WinToolkit.ico"
 
@@ -1753,13 +1753,13 @@ function Update-SystemInformationPanel {
                     }
                 }
 
-                # Aggiorna stato Bitlocker
+                # Update Bitlocker status
                 try {
                     $blStatusKey = Get-GuiBitlockerStatusKey
                     $blStatus = Get-Loc $blStatusKey
                     $SysInfoBitlocker.Text = $blStatus
 
-                    # Colorazione status Bitlocker basata su chiave stabile e non sul testo localizzato.
+                    # Bitlocker status coloring based on stable key, not localized text.
                     if ($blStatusKey -eq 'bitlocker.status.on' -or $blStatusKey -eq 'bitlocker.status.encrypting') {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
                     }
@@ -1767,11 +1767,11 @@ function Update-SystemInformationPanel {
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
                     }
                     else {
-                        # Stati disattivo/non configurato = rosso
+                        # Off/unconfigured states = red
                         $SysInfoBitlocker.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
                     }
 
-                    # Carica icona Bitlocker
+                    # Load Bitlocker icon
                     if ($BitlockerImage) {
                         $blIconPath = Get-EmojiIconPath -EmojiCharacter $emojiMappings.BitlockerImage
                         if ($blIconPath -and (Test-Path $blIconPath)) {
@@ -2104,11 +2104,11 @@ function Format-JobOutput {
 # SCRIPT EXECUTION - ASYNCHRONOUS IMPLEMENTATION (Using DispatcherTimer)
 # =============================================================================
 
-# Funzione per avviare il job per lo script corrente
+# Function to start the job for the current script
 function Start-NextScriptJob {
     param($scriptName)
 
-    # Disabilita il pulsante di esecuzione e resetta la barra di progresso (se è il primo script)
+    # Disable the run button and reset the progress bar (if it's the first script)
     $window.Dispatcher.Invoke([Action] {
             $executeButton.IsEnabled = $false
         })
@@ -2253,7 +2253,7 @@ function Start-NextScriptJob {
                             $percent = & $PercentUpdate
                         }
                         else {
-                            # Permetti alla percentuale casuale di raggiungere fino a 99% per una progressione più naturale
+                            # Allow the random percentage to reach up to 99% for a more natural progression
                             $percent = [math]::Min(99, $percent + (Get-Random -Minimum 1 -Maximum 3))
                         }
 
@@ -2433,7 +2433,7 @@ function Invoke-JobCompletion {
         [string]$JobName
     )
 
-    # *** FIX: Separa logica UI (sincrona) da logica job launching (asincrona) ***
+    # *** FIX: Separate UI logic (synchronous) from job launching logic (asynchronous) ***
     $window.Dispatcher.Invoke([Action] {
             if ($Global:ScriptJob) {
                 $rawOutput = Receive-Job -Job $Global:ScriptJob -ErrorAction SilentlyContinue *>&1
@@ -2520,10 +2520,10 @@ function Invoke-JobCompletion {
     # *** END FIX ***
 }
 
-# Gestore del Tick del timer per monitorare il job
+# Timer Tick handler to monitor the job
 function Tick_JobMonitor {
     if ($Global:ScriptJob -and ($Global:ScriptJob.State -eq 'Running' -or $Global:ScriptJob.State -eq 'NotStarted')) {
-        # Ricevi l'output disponibile in blocchi per aggiornamenti in tempo reale
+        # Receive available output in chunks for real-time updates
         $currentJobOutput = Receive-Job -Job $Global:ScriptJob -Keep -ErrorAction SilentlyContinue *>&1
 
         # Processa solo le nuove linee di output
@@ -2595,7 +2595,7 @@ $executeButton.Add_Click({
         # Reset progress debouncer for new run
         $Global:LastLoggedProgress = @{ Percent = -1; Status = "" }
 
-        # Inizializza e avvia il timer se non già attivo
+        # Initialize and start the timer if not already active
         if (-not $Global:JobMonitorTimer) {
             $Global:JobMonitorTimer = New-Object System.Windows.Threading.DispatcherTimer
             $Global:JobMonitorTimer.Interval = New-Object System.TimeSpan (0, 0, 0, 0, 500) # 500ms
@@ -2603,7 +2603,7 @@ $executeButton.Add_Click({
         }
         $Global:JobMonitorTimer.Start()
 
-        # Avvia il primo script
+        # Start the first script
         Start-NextScriptJob -scriptName $Global:SelectedScriptsQueue[$Global:CurrentScriptIndex]
     })
 
