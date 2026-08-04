@@ -139,7 +139,7 @@ function Get-WinGetFolder {
 function Get-WinGetExecutable {
     <#
     .SYNOPSIS
-    Ottiene il percorso valido di winget.exe, con fallback diretto.
+    Gets the valid path of winget.exe, with direct fallback.
     #>
     # Prova prima il percorso standard alias
     $aliasPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
