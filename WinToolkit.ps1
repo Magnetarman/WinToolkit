@@ -57,7 +57,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.5.5 (Build 4)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/"
@@ -130,25 +130,29 @@ $Global:MsgStyles = @{
 }
 $Global:ExecutionLog = @()
 $Global:NeedsFinalReboot = $false
-$Global:ToolkitLanguage = 'en-US'
-$Global:ToolkitLanguageData = $null
-$Global:ToolkitDefaultLanguageData = $null
-function Get-ToolkitLanguageDirectory {
-    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+$Global:SourceTextLanguage = 'en-US'
+$Global:SourceTextLanguageData = $null
+$Global:SourceTextDefaultLanguageData = $null
+$Global:SourceTextPreparedLanguagesDir = $null
+function Get-SourceTextLanguageDirectory {
+    if ($Global:SourceTextPreparedLanguagesDir -and (Test-Path $Global:SourceTextPreparedLanguagesDir)) {
+        return $Global:SourceTextPreparedLanguagesDir
+    }
+    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-SourceTextLocation).Path }
     $candidate = Join-Path $root 'languages'
     if (Test-Path $candidate) { return $candidate }
-    $repoCandidate = Join-Path (Get-Location) 'languages'
+    $repoCandidate = Join-Path (Get-SourceTextLocation) 'languages'
     if (Test-Path $repoCandidate) { return $repoCandidate }
     return $candidate
 }
-function Get-AvailableToolkitLanguages {
-    $languageDir = Get-ToolkitLanguageDirectory
+function Get-AvailableSourceTextLanguages {
+    $languageDir = Get-SourceTextLanguageDirectory
     if (-not (Test-Path $languageDir)) { return @() }
     Get-ChildItem -Path $languageDir -Directory -ErrorAction SilentlyContinue |
     Where-Object { Test-Path (Join-Path $_.FullName 'WinToolkit.psd1') } |
     ForEach-Object {
         try {
-            $data = Import-ToolkitLanguageFile -LanguageCode $_.Name
+            $data = Import-SourceTextLanguageFile -LanguageCode $_.Name
             [pscustomobject]@{
                 Code       = if ($data.ContainsKey('language.code')) { $data['language.code'] } else { $_.Name }
                 Name       = if ($data.ContainsKey('language.name')) { $data['language.name'] } else { $_.Name }
@@ -161,9 +165,9 @@ function Get-AvailableToolkitLanguages {
         }
     } | Sort-Object Code
 }
-function Import-ToolkitLanguageFile {
+function Import-SourceTextLanguageFile {
     param([string]$LanguageCode)
-    $languageDir = Get-ToolkitLanguageDirectory
+    $languageDir = Get-SourceTextLanguageDirectory
     try {
         $localizedData = $null
         Import-LocalizedData -BindingVariable localizedData -BaseDirectory $languageDir -FileName 'WinToolkit.psd1' -UICulture $LanguageCode -ErrorAction Stop
@@ -173,31 +177,31 @@ function Import-ToolkitLanguageFile {
         return $null
     }
 }
-function Set-ToolkitLanguage {
+function Set-SourceTextLanguage {
     param([string]$LanguageCode = 'en-US')
-    $defaultData = Import-ToolkitLanguageFile -LanguageCode 'en-US'
-    if ($defaultData) { $Global:ToolkitDefaultLanguageData = $defaultData }
-    $languageData = Import-ToolkitLanguageFile -LanguageCode $LanguageCode
+    $defaultData = Import-SourceTextLanguageFile -LanguageCode 'en-US'
+    if ($defaultData) { $Global:SourceTextDefaultLanguageData = $defaultData }
+    $languageData = Import-SourceTextLanguageFile -LanguageCode $LanguageCode
     if (-not $languageData) {
         $LanguageCode = 'en-US'
         $languageData = $defaultData
     }
     if ($languageData) {
-        $Global:ToolkitLanguage = $LanguageCode
-        $Global:ToolkitLanguageData = $languageData
+        $Global:SourceTextLanguage = $LanguageCode
+        $Global:SourceTextLanguageData = $languageData
     }
 }
-function Get-Loc {
+function Get-SourceTextLoc {
     param(
         [Parameter(Mandatory = $true)][string]$Key,
         [object[]]$Args = @()
     )
     $value = $null
-    if ($Global:ToolkitLanguageData -and $Global:ToolkitLanguageData.ContainsKey($Key)) {
-        $value = [string]$Global:ToolkitLanguageData[$Key]
+    if ($Global:SourceTextLanguageData -and $Global:SourceTextLanguageData.ContainsKey($Key)) {
+        $value = [string]$Global:SourceTextLanguageData[$Key]
     }
-    elseif ($Global:ToolkitDefaultLanguageData -and $Global:ToolkitDefaultLanguageData.ContainsKey($Key)) {
-        $value = [string]$Global:ToolkitDefaultLanguageData[$Key]
+    elseif ($Global:SourceTextDefaultLanguageData -and $Global:SourceTextDefaultLanguageData.ContainsKey($Key)) {
+        $value = [string]$Global:SourceTextDefaultLanguageData[$Key]
     }
     else {
         $value = $Key
@@ -205,29 +209,109 @@ function Get-Loc {
     if ($Args -and $Args.Count -gt 0) { return [string]::Format($value, $Args) }
     return $value
 }
-function Get-ToolkitMenuText {
+function Get-SourceTextMenuText {
     param([object]$Item)
     if ($Item -is [System.Collections.IDictionary]) {
         if ($Item.Contains('DescriptionKey') -and $Item['DescriptionKey']) {
-            return (Get-Loc $Item['DescriptionKey'])
+            return (Get-SourceTextLoc $Item['DescriptionKey'])
         }
         if ($Item.Contains('CategoryKey') -and $Item['CategoryKey']) {
-            return (Get-Loc $Item['CategoryKey'])
+            return (Get-SourceTextLoc $Item['CategoryKey'])
         }
         if ($Item.Contains('Description')) { return $Item['Description'] }
         if ($Item.Contains('Name')) { return $Item['Name'] }
     }
     if ($Item.PSObject.Properties.Name -contains 'DescriptionKey' -and $Item.DescriptionKey) {
-        return (Get-Loc $Item.DescriptionKey)
+        return (Get-SourceTextLoc $Item.DescriptionKey)
     }
     if ($Item.PSObject.Properties.Name -contains 'CategoryKey' -and $Item.CategoryKey) {
-        return (Get-Loc $Item.CategoryKey)
+        return (Get-SourceTextLoc $Item.CategoryKey)
     }
     if ($Item.PSObject.Properties.Name -contains 'Description') { return $Item.Description }
     if ($Item.PSObject.Properties.Name -contains 'Name') { return $Item.Name }
     return [string]$Item
 }
-Set-ToolkitLanguage -LanguageCode $Language
+function Get-RemoteAvailableCultures {
+    param([string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev')
+    try {
+        $response = Invoke-RestMethod -Uri $GitHubApiUrl -UseBasicParsing -ErrorAction Stop
+        return @($response | Where-Object { $_.type -eq 'dir' } | ForEach-Object { $_.name })
+    }
+    catch {
+        return @()
+    }
+}
+function Invoke-SourceTextLanguagePreparation {
+    [CmdletBinding()]
+    param(
+        [string]$ScriptRoot,
+        [string]$RemoteBaseUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/languages',
+        [string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev',
+        [int]$CacheMaxAgeDays = 7
+    )
+    $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
+    $remoteCultures = Get-RemoteAvailableCultures -GitHubApiUrl $GitHubApiUrl
+    $needDownload = $false
+    if (-not (Test-Path $localDir)) {
+        $needDownload = $true
+    }
+    else {
+        $oldestFile = Get-ChildItem -Path $localDir -Recurse -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -First 1
+        if ($oldestFile) {
+            $age = (Get-Date) - $oldestFile.LastWriteTime
+            if ($age.TotalDays -ge $CacheMaxAgeDays) { $needDownload = $true }
+        }
+        else { $needDownload = $true }
+        if (-not $needDownload) {
+            foreach ($culture in $remoteCultures) {
+                $localFile = Join-Path $localDir $culture 'WinToolkit.psd1'
+                if (-not (Test-Path $localFile)) { $needDownload = $true; break }
+            }
+        }
+    }
+    if ($needDownload -and $remoteCultures.Count -gt 0) {
+        if (-not (Test-Path $localDir)) { New-Item -Path $localDir -ItemType Directory -Force | Out-Null }
+        foreach ($culture in $remoteCultures) {
+            $cultureDir = Join-Path $localDir $culture
+            $localFile = Join-Path $cultureDir 'WinToolkit.psd1'
+            if (-not (Test-Path $cultureDir)) { New-Item -Path $cultureDir -ItemType Directory -Force | Out-Null }
+            try {
+                $remoteUrl = "$RemoteBaseUrl/$culture/WinToolkit.psd1"
+                Invoke-WebRequest -Uri $remoteUrl -OutFile $localFile -UseBasicParsing -ErrorAction Stop | Out-Null
+            }
+            catch {
+                if (-not (Test-Path $localFile)) {
+                    try {
+                        $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
+                        if (Test-Path $localFileFallback) { Copy-Item -Path $localFileFallback -Destination $localFile -Force }
+                    }
+                    catch {}
+                }
+            }
+        }
+    }
+    return $localDir
+}
+function Get-SourceTextAutoDetectedLanguage {
+    param([string]$AvailableCultures = 'en-US', [string]$SystemUICulture = ($PSUICulture.ToString()))
+    $normalizedSystem = $SystemUICulture.ToLowerInvariant()
+    $availableList = @($AvailableCultures -split '[\s,]+' | Where-Object { $_ })
+    if ($availableList -contains $normalizedSystem) { return $normalizedSystem }
+    $neutralSystem = $normalizedSystem.Split('-')[0]
+    foreach ($culture in $availableList) {
+        if ($culture.Split('-')[0] -eq $neutralSystem) { return $culture }
+    }
+    return 'en-US'
+}
+$Global:SourceTextPreparedLanguagesDir = Invoke-SourceTextLanguagePreparation -ScriptRoot $PSScriptRoot
+if ($Language -eq 'en-US') {
+    $availableCultures = @()
+    if ($Global:SourceTextPreparedLanguagesDir -and (Test-Path $Global:SourceTextPreparedLanguagesDir)) {
+        $availableCultures = @(Get-ChildItem -Path $Global:SourceTextPreparedLanguagesDir -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'WinToolkit.psd1') } | ForEach-Object { $_.Name })
+    }
+    $Language = Get-SourceTextAutoDetectedLanguage -AvailableCultures ($availableCultures -join ',')
+}
+Set-SourceTextLanguage -LanguageCode $Language
 function Clear-ProgressLine {
     if ($Host.Name -eq 'ConsoleHost') {
         try {
@@ -290,7 +374,7 @@ function Write-ProgressUpdate {
 function Show-Header {
     param([string]$SubTitle)
     if ($Global:GuiSessionActive) { return }
-    if ([string]::IsNullOrWhiteSpace($SubTitle)) { $SubTitle = Get-Loc 'menu.main' }
+    if ([string]::IsNullOrWhiteSpace($SubTitle)) { $SubTitle = Get-SourceTextLoc 'menu.main' }
     try { Clear-Host } catch {}
     $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
     $asciiArt = @(
@@ -301,7 +385,7 @@ function Show-Header {
         '         \_/\_/    |_| |_| \_|',
         '',
         "       WinToolkit - $SubTitle",
-        ("       " + (Get-Loc 'sourceText.version') + " $ToolkitVersion")
+        ("       " + (Get-SourceTextLoc 'sourceText.version') + " $ToolkitVersion")
     )
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
     foreach ($line in $asciiArt) { Write-Host (Center-Text $line $width) -ForegroundColor White }
@@ -433,9 +517,9 @@ function Write-ToolkitError {
         [string]$ToolName,
         [string]$Message
     )
-    if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-Loc 'sourceText.criticalError' }
-    Write-StyledMessage -Type 'Error' -Text (Get-Loc 'uiText.0In12' -Args @($Message, ${ToolName}, $($Record.Exception.Message)))
-    Write-ToolkitLog -Level ERROR -Message (Get-Loc 'uiText.0In1' -Args @($Message, $ToolName)) -Context @{
+    if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-SourceTextLoc 'sourceText.criticalError' }
+    Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'uiText.0In12' -Args @($Message, ${ToolName}, $($Record.Exception.Message)))
+    Write-ToolkitLog -Level ERROR -Message (Get-SourceTextLoc 'uiText.0In1' -Args @($Message, $ToolName)) -Context @{
         Line      = $Record.InvocationInfo.ScriptLineNumber
         Exception = $Record.Exception.GetType().FullName
         Stack     = $Record.ScriptStackTrace
@@ -493,14 +577,14 @@ function Get-BitlockerStatus {
         }
         $statusKey = Convert-BitlockerStatusToKey -StatusText $statusText
         if ($Key) { return $statusKey }
-        return (Get-Loc $statusKey)
+        return (Get-SourceTextLoc $statusKey)
     }
     catch {
         if ($Key) { return 'bitlocker.status.off' }
-        return (Get-Loc 'bitlocker.status.off')
+        return (Get-SourceTextLoc 'bitlocker.status.off')
     }
 }
-function Get-LocalUserProfiles {
+function Get-SourceTextLocalUserProfiles {
     return Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -notmatch '^(Public|Default|Default User|All Users)$' }
 }
@@ -528,7 +612,7 @@ function Set-RegistryValue {
 }
 function Stop-ToolkitProcesses {
     param([string[]]$ProcessNames)
-    Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.closingInterferingProcesses2')
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.closingInterferingProcesses2')
     foreach ($procName in $ProcessNames) {
         Get-Process -Name $procName -ErrorAction SilentlyContinue |
         Where-Object { $_.Id -ne $PID } |
@@ -552,8 +636,8 @@ function Invoke-ExternalCommandWithLog {
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $startTime = Get-Date
     $argString = $Arguments -join ' '
-    Write-ToolkitLog -Level 'INFO' -Message (Get-Loc 'uiText.runningCommand01Timeout2S' -Args @($Command, $argString, ${TimeoutSeconds}))
-    Write-ToolkitLog -Level 'DEBUG' -Message (Get-Loc 'uiText.commandContext') -Context @{
+    Write-ToolkitLog -Level 'INFO' -Message (Get-SourceTextLoc 'uiText.runningCommand01Timeout2S' -Args @($Command, $argString, ${TimeoutSeconds}))
+    Write-ToolkitLog -Level 'DEBUG' -Message (Get-SourceTextLoc 'uiText.commandContext') -Context @{
         Tool = $Tool; Step = $Step; WorkingDir = $WorkingDirectory; ContextKey = $LogContextKey
     }
     $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -568,7 +652,7 @@ function Invoke-ExternalCommandWithLog {
     $proc.StartInfo = $psi
     $outText = ""; $errText = ""; $success = $false; $exitCode = $null; $timedOut = $false
     try {
-        if (-not $proc.Start()) { throw (Get-Loc 'uiText.unableToStartExternalProcess') }
+        if (-not $proc.Start()) { throw (Get-SourceTextLoc 'uiText.unableToStartExternalProcess') }
         $outTask = $proc.StandardOutput.ReadToEndAsync()
         $errTask = $proc.StandardError.ReadToEndAsync()
         if ($Activity) {
@@ -577,22 +661,22 @@ function Invoke-ExternalCommandWithLog {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
                 if ($percent -lt 90) { $percent += Get-Random -Minimum 1 -Maximum 3 }
-                Write-ProgressUpdate -Activity $Activity -Status (Get-Loc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
+                Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
                 Start-Sleep -Milliseconds $UpdateInterval
                 $proc.Refresh()
             }
             if (-not $proc.HasExited -and $TimeoutSeconds -gt 0) {
                 try { $proc.Kill() } catch {}
-                throw (Get-Loc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
+                throw (Get-SourceTextLoc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
             }
-            Write-ProgressUpdate -Activity $Activity -Status (Get-Loc 'uiText.completed') -Percent 100 -Icon '✅'
+            Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.completed') -Percent 100 -Icon '✅'
             if (-not $Global:GuiSessionActive) { Write-Host "" }
         }
         else {
             if ($TimeoutSeconds -gt 0) {
                 if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
                     try { $proc.Kill() } catch {}
-                    throw (Get-Loc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
+                    throw (Get-SourceTextLoc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
                 }
             }
             else { $proc.WaitForExit() }
@@ -606,7 +690,7 @@ function Invoke-ExternalCommandWithLog {
     catch {
         $exitCode = if ($exitCode -ne $null) { $exitCode } else { -1 }
         if ($_.Exception.Message -match 'Timeout') { $timedOut = $true }
-        Write-ToolkitLog -Level 'ERROR' -Message (Get-Loc 'uiText.exceptionWhileRunningExternalCommand') -Context @{
+        Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.exceptionWhileRunningExternalCommand') -Context @{
             Command = $Command; Arguments = $Arguments; WorkingDir = $WorkingDirectory
             TimeoutSec = $TimeoutSeconds; ContextKey = $LogContextKey
             Exception = $_.Exception.Message; Stack = $_.ScriptStackTrace
@@ -619,9 +703,9 @@ function Invoke-ExternalCommandWithLog {
         $maxLen = 8000
         $outLogged = if ($outText.Length -gt $maxLen) { $outText.Substring(0, $maxLen) + "`n[...output truncated...]" } else { $outText }
         $errLogged = if ($errText.Length -gt $maxLen) { $errText.Substring(0, $maxLen) + "`n[...stderr truncated...]" } else { $errText }
-        $statusMsg = if ($success) { Get-Loc 'sourceText.completedSuccessfully' } else { Get-Loc 'sourceText.completedWithErrors' }
-        Write-ToolkitLog -Level 'INFO'  -Message (Get-Loc 'uiText.command0ExitCode1Duration2' -Args @($statusMsg, $exitCode, $($stopwatch.Elapsed.ToString('hh\:mm\:ss'))))
-        Write-ToolkitLog -Level 'DEBUG' -Message (Get-Loc 'uiText.commandOutput0' -Args @($Command)) -Context @{
+        $statusMsg = if ($success) { Get-SourceTextLoc 'sourceText.completedSuccessfully' } else { Get-SourceTextLoc 'sourceText.completedWithErrors' }
+        Write-ToolkitLog -Level 'INFO'  -Message (Get-SourceTextLoc 'uiText.command0ExitCode1Duration2' -Args @($statusMsg, $exitCode, $($stopwatch.Elapsed.ToString('hh\:mm\:ss'))))
+        Write-ToolkitLog -Level 'DEBUG' -Message (Get-SourceTextLoc 'uiText.commandOutput0' -Args @($Command)) -Context @{
             ContextKey = $LogContextKey; StdOutSnippet = $outLogged; StdErrSnippet = $errLogged
         }
         if ($proc) { $proc.Dispose() }
@@ -664,7 +748,7 @@ function Invoke-WithSpinner {
             for ($i = $totalSeconds; $i -gt 0; $i--) {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $percent = if ($PercentUpdate) { & $PercentUpdate } else { [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100) }
-                Write-ProgressUpdate -Activity (Get-Loc 'uiText.01Seconds' -Args @($Activity, $i)) -Status '' -Percent $percent -Icon '⏳' -Spinner $spinner -Color 'Yellow'
+                Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.01Seconds' -Args @($Activity, $i)) -Status '' -Percent $percent -Icon '⏳' -Spinner $spinner -Color 'Yellow'
                 Start-Sleep -Seconds 1
             }
             if (-not $Global:GuiSessionActive) { Write-Host '' }
@@ -675,18 +759,18 @@ function Invoke-WithSpinner {
                 $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
                 $percent = if ($PercentUpdate) { & $PercentUpdate } elseif ($percent -lt 90) { $percent + (Get-Random -Minimum 1 -Maximum 3) } else { $percent }
-                Write-ProgressUpdate -Activity $Activity -Status (Get-Loc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
+                Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
                 Start-Sleep -Milliseconds $UpdateInterval
                 $result.Refresh()
             }
             if (-not $result.HasExited) {
                 Write-ProgressUpdate -Activity $Activity -Status '' -Percent 0
                 if (-not $Global:GuiSessionActive) { Write-Host "" }
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.timeoutReachedAfter0SecondsProcessTermination' -Args @($TimeoutSeconds))
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.timeoutReachedAfter0SecondsProcessTermination' -Args @($TimeoutSeconds))
                 $result.Kill(); Start-Sleep -Seconds 2
                 return @{ Success = $false; TimedOut = $true; ExitCode = -1 }
             }
-            Write-ProgressUpdate -Activity $Activity -Status (Get-Loc 'uiText.completed') -Percent 100 -Icon '✅'
+            Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.completed') -Percent 100 -Icon '✅'
             if (-not $Global:GuiSessionActive) { Write-Host "" }
             return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
         }
@@ -706,25 +790,25 @@ function Invoke-WithSpinner {
         }
     }
     catch {
-        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'uiText.errorDuring01' -Args @(${Activity}, $($_.Exception.Message)))
+        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'uiText.errorDuring01' -Args @(${Activity}, $($_.Exception.Message)))
         return @{ Success = $false; Error = $_.Exception.Message }
     }
 }
 function Start-InterruptibleCountdown {
     param([int]$Seconds = 30, [string]$Message, [switch]$Suppress)
     if ($Suppress) { return $true }
-    if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-Loc 'sourceText.automaticRestart' }
-    Write-StyledMessage -Type 'Info' -Text (Get-Loc 'uiText.pressAnyKeyToCancel')
+    if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-SourceTextLoc 'sourceText.automaticRestart' }
+    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.pressAnyKeyToCancel')
     Write-Host ''
     for ($i = $Seconds; $i -gt 0; $i--) {
         if ([Console]::KeyAvailable) {
             $null = [Console]::ReadKey($true)
             Write-Host "`n"
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.systemRebootCancelled')
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.systemRebootCancelled')
             return $false
         }
         $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
-        Write-ProgressUpdate -Activity (Get-Loc 'uiText.0In1Seconds' -Args @($Message, $i)) -Status '' -Percent $percent -Icon '⏰' -Color 'Red'
+        Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.0In1Seconds' -Args @($Message, $i)) -Status '' -Percent $percent -Icon '⏰' -Color 'Red'
         Start-Sleep 1
     }
     Write-Host "`n"
@@ -742,10 +826,10 @@ function Invoke-ToolkitReboot {
         [int]$Seconds = 30,
         [switch]$SuppressIndividualReboot
     )
-    if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-Loc 'sourceText.operationCompleted' }
+    if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-SourceTextLoc 'sourceText.operationCompleted' }
     if ($SuppressIndividualReboot) {
         $Global:NeedsFinalReboot = $true
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'uiText.individualRestartSuppressedAFinalRebootWillBeHandled')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.individualRestartSuppressedAFinalRebootWillBeHandled')
     }
     else {
         if (Start-InterruptibleCountdown -Seconds $Seconds -Message $Message) {
@@ -773,10 +857,10 @@ function Invoke-ToolkitDownload {
         [int]$MaxRetries = 3,
         [switch]$NoSpinner
     )
-    if ([string]::IsNullOrWhiteSpace($Description)) { $Description = Get-Loc 'sourceText.file' }
+    if ([string]::IsNullOrWhiteSpace($Description)) { $Description = Get-SourceTextLoc 'sourceText.file' }
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
         try {
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'uiText.download0' -Args @($Description))
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.download0' -Args @($Description))
             $parentDir = Split-Path -Parent $OutputPath
             if (-not (Test-Path $parentDir)) {
                 New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
@@ -803,7 +887,7 @@ function Invoke-ToolkitDownload {
             $getRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $Uri)
             $getResponse = $httpClient.SendAsync($getRequest, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
             if (-not $getResponse.IsSuccessStatusCode) {
-                throw (Get-Loc 'uiText.httpError01' -Args @($($getResponse.StatusCode), $($getResponse.ReasonPhrase)))
+                throw (Get-SourceTextLoc 'uiText.httpError01' -Args @($($getResponse.StatusCode), $($getResponse.ReasonPhrase)))
             }
             if ($totalBytes -eq 0 -and $getResponse.Content.Headers.ContentLength -gt 0) {
                 $totalBytes = $getResponse.Content.Headers.ContentLength
@@ -812,8 +896,8 @@ function Invoke-ToolkitDownload {
             $fakeProgressStart = $null
             if ($isUnknownSize -and -not $Global:GuiSessionActive) {
                 $fakeProgressStart = Get-Date
-                Write-ProgressUpdate -Activity (Get-Loc 'uiText.download02' -Args @($Description)) `
-                    -Status (Get-Loc 'uiText.startingDownload') `
+                Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.download02' -Args @($Description)) `
+                    -Status (Get-SourceTextLoc 'uiText.startingDownload') `
                     -Percent 8 -Icon '📥' -Color 'Cyan'
                 Start-Sleep -Milliseconds 120
             }
@@ -877,7 +961,7 @@ function Invoke-ToolkitDownload {
                             }
                         }
                         if ($shouldUpdate) {
-                            Write-ProgressUpdate -Activity (Get-Loc 'uiText.download02' -Args @($Description)) -Status $status -Percent $percent -Icon $icon -Color $col
+                            Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.download02' -Args @($Description)) -Status $status -Percent $percent -Icon $icon -Color $col
                             $lastPercent = $percent
                             $lastProgressTime = $now
                         }
@@ -892,13 +976,13 @@ function Invoke-ToolkitDownload {
             $handler.Dispose()
             if (Test-Path $OutputPath) {
                 if ($totalBytes -gt 0) {
-                    Write-ProgressUpdate -Activity (Get-Loc 'uiText.download02' -Args @($Description)) -Status (Get-Loc 'uiText.completed') -Percent 100 -Icon '✅' -Color 'Green'
+                    Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.download02' -Args @($Description)) -Status (Get-SourceTextLoc 'uiText.completed') -Percent 100 -Icon '✅' -Color 'Green'
                 }
                 else {
-                    Write-ProgressUpdate -Activity (Get-Loc 'uiText.download02' -Args @($Description)) -Status (Get-Loc 'uiText.completed') -Percent 100 -Icon '✅' -Color 'Green'
+                    Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.download02' -Args @($Description)) -Status (Get-SourceTextLoc 'uiText.completed') -Percent 100 -Icon '✅' -Color 'Green'
                     if (-not $Global:GuiSessionActive) { Write-Host "" }
                 }
-                Write-StyledMessage -Type 'Success' -Text (Get-Loc 'uiText.downloadCompleted0' -Args @($Description))
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.downloadCompleted0' -Args @($Description))
                 return $true
             }
         }
@@ -907,12 +991,12 @@ function Invoke-ToolkitDownload {
                 Remove-Item $OutputPath -Force -ErrorAction SilentlyContinue
             }
             if ($attempt -lt $MaxRetries) {
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.01AttemptFailed2ILlTryAgain' -Args @($attempt, $MaxRetries, $($_.Exception.Message)))
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.01AttemptFailed2ILlTryAgain' -Args @($attempt, $MaxRetries, $($_.Exception.Message)))
                 Start-Sleep -Seconds 2
             }
         }
     }
-    Write-StyledMessage -Type 'Error' -Text (Get-Loc 'uiText.downloadFailedAfter0Attempts1' -Args @($MaxRetries, $Description))
+    Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'uiText.downloadFailedAfter0Attempts1' -Args @($MaxRetries, $Description))
     return $false
 }
 function Restart-ServiceSafely {
@@ -921,11 +1005,11 @@ function Restart-ServiceSafely {
         Stop-Service -Name $Name -Force -ErrorAction Stop
         Start-Sleep -Seconds $WaitSeconds
         Start-Service -Name $Name -ErrorAction Stop
-        Write-StyledMessage -Type 'Success' -Text (Get-Loc 'uiText.serviceRestarted0' -Args @($Name))
+        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.serviceRestarted0' -Args @($Name))
         return $true
     }
     catch {
-        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.failedToRestart01' -Args @($Name, $($_.Exception.Message)))
+        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.failedToRestart01' -Args @($Name, $($_.Exception.Message)))
         return $false
     }
 }
@@ -986,7 +1070,7 @@ exit 0
 }
 function Wait-WingetReady {
     param([int]$MaxWaitSeconds = 300, [int]$PollIntervalSeconds = 5)
-    Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.wingetIntegrityValidationInProgressTimeout0S' -Args @($MaxWaitSeconds))
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.wingetIntegrityValidationInProgressTimeout0S' -Args @($MaxWaitSeconds))
     $wingetExe = Get-WingetExecutable
     $maxRetries = [Math]::Floor($MaxWaitSeconds / $PollIntervalSeconds)
     for ($i = 1; $i -le $maxRetries; $i++) {
@@ -997,16 +1081,16 @@ function Wait-WingetReady {
                 -ArgumentList 'list', 'NonExistentApp_WinToolkitCheck', '--accept-source-agreements' `
                 -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
             if ($versionProc.ExitCode -eq 0 -and $dbProc.ExitCode -eq 0) {
-                Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.wingetReadyAndDatabaseUnlockedAttempt01' -Args @($i, $maxRetries))
+                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetReadyAndDatabaseUnlockedAttempt01' -Args @($i, $maxRetries))
                 return $true
             }
         }
         catch {}
         $remaining = $MaxWaitSeconds - ($i * $PollIntervalSeconds)
-        Write-StyledMessage -Type Progress -Text (Get-Loc 'uiText.wingetNotYetReadyAttempt012SRemainWait' -Args @($i, $maxRetries, $remaining))
+        Write-StyledMessage -Type Progress -Text (Get-SourceTextLoc 'uiText.wingetNotYetReadyAttempt012SRemainWait' -Args @($i, $maxRetries, $remaining))
         Start-Sleep -Seconds $PollIntervalSeconds
     }
-    Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.wingetDidNotRespondWithin0SecondsIContinueAnyway' -Args @($MaxWaitSeconds))
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetDidNotRespondWithin0SecondsIContinueAnyway' -Args @($MaxWaitSeconds))
     return $false
 }
 function Reset-Winget {
@@ -1030,7 +1114,7 @@ function Reset-Winget {
             if ($manifest) {
                 $manifestXml = Join-Path $manifest 'AppxManifest.xml'
                 if (Test-Path $manifestXml) {
-                    Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.manifestReRegistrationAppxmanifestXmlPreventsLeaks')
+                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.manifestReRegistrationAppxmanifestXmlPreventsLeaks')
                     Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown' | Out-Null
                 }
             }
@@ -1050,7 +1134,7 @@ function Reset-Winget {
     function _Test-WingetCompatibility {
         $os = [Environment]::OSVersion.Version
         if ($os.Major -lt 10 -or ($os.Major -eq 10 -and $os.Build -lt 16299)) {
-            Write-StyledMessage -Type Error -Text (Get-Loc 'uiText.systemNotSupportedByWingetWindows101709Required')
+            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.systemNotSupportedByWingetWindows101709Required')
             return $false
         }
         return $true
@@ -1058,20 +1142,20 @@ function Reset-Winget {
     function _Test-WingetFunctionality {
         Update-EnvironmentPath
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-            Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.wingetNotFoundInPath')
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFoundInPath')
             return $false
         }
         try {
             $versionOutput = (& (Get-WingetExecutable) --version 2>$null) | Out-String
             if ($LASTEXITCODE -eq 0 -and $versionOutput -match 'v\d+\.\d+') {
-                Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.operationalWingetVersion02' -Args @($($versionOutput.Trim())))
+                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.operationalWingetVersion02' -Args @($($versionOutput.Trim())))
                 return $true
             }
-            Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.wingetPresentButNotRespondingCorrectlyExitcode0' -Args @($LASTEXITCODE))
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetPresentButNotRespondingCorrectlyExitcode0' -Args @($LASTEXITCODE))
             return $false
         }
         catch {
-            Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.errorDuringWingetTest0' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.errorDuringWingetTest0' -Args @($($_.Exception.Message)))
             return $false
         }
     }
@@ -1097,7 +1181,7 @@ function Reset-Winget {
             [Environment]::SetEnvironmentVariable('PATH', "$cur;$PathToAdd", 'User')
         }
         if (-not ($env:PATH -split ';').Contains($PathToAdd)) { $env:PATH += ";$PathToAdd" }
-        Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.updatedPath0' -Args @($PathToAdd))
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.updatedPath0' -Args @($PathToAdd))
     }
     function _Set-PathPermissions {
         param([string]$FolderPath)
@@ -1110,9 +1194,9 @@ function Reset-Winget {
                 $group, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
             $acl.SetAccessRule($rule)
             Set-Acl -Path $FolderPath -AclObject $acl -ErrorAction Stop
-            Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.updatedFolderPermissions0' -Args @($FolderPath))
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.updatedFolderPermissions0' -Args @($FolderPath))
         }
-        catch { Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.unableToSetPermissionsOn01' -Args @($FolderPath, $($_.Exception.Message))) }
+        catch { Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.unableToSetPermissionsOn01' -Args @($FolderPath, $($_.Exception.Message))) }
     }
     function _Set-WingetPathPermissions {
         $wingetFolderPath = $null
@@ -1128,16 +1212,16 @@ function Reset-Winget {
             _Set-PathPermissions -FolderPath $wingetFolderPath
             _Add-ToEnvironmentPath -PathToAdd $wingetFolderPath -Scope 'System'
             _Add-ToEnvironmentPath -PathToAdd '%LOCALAPPDATA%\Microsoft\WindowsApps' -Scope 'User'
-            Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.pathAndWingetPermissionsUpdated2')
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.pathAndWingetPermissionsUpdated2')
         }
     }
     function _Repair-WingetDatabase {
-        Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.ripristinoDatabaseWinget')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.ripristinoDatabaseWinget')
         try {
             Stop-ToolkitProcesses -ProcessNames $AppConfig.WingetProcesses
             $cachePath = "$env:LOCALAPPDATA\WinGet"
             if (Test-Path $cachePath) {
-                Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.puliziaCacheWinget')
+                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.puliziaCacheWinget')
                 Get-ChildItem -Path $cachePath -Recurse -Force -ErrorAction SilentlyContinue |
                 Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
                 ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {} }
@@ -1145,7 +1229,7 @@ function Reset-Winget {
             @("$env:LOCALAPPDATA\WinGet\Data\USERTEMPLATE.json",
                 "$env:LOCALAPPDATA\WinGet\Data\DEFAULTUSER.json") | ForEach-Object {
                 if (Test-Path $_ -PathType Leaf) {
-                    Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.resetStatusFile0' -Args @($_))
+                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetStatusFile0' -Args @($_))
                     Remove-Item $_ -Force -ErrorAction SilentlyContinue
                 }
             }
@@ -1158,7 +1242,7 @@ function Reset-Winget {
                 if ($manifest) {
                     $manifestXml = Join-Path $manifest 'AppxManifest.xml'
                     if (Test-Path $manifestXml) {
-                        Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.reRegisterManifestAppxmanifestXml')
+                        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.reRegisterManifestAppxmanifestXml')
                         Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown' | Out-Null
                     }
                 }
@@ -1166,59 +1250,59 @@ function Reset-Winget {
             catch {}
             try {
                 if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-                    Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.esecuzioneRepairWingetpackagemanager')
+                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.esecuzioneRepairWingetpackagemanager')
                     Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
                 }
             }
             catch {
                 if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
-                    Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.repairWingetpackagemanagerCompletedHigherVersionAlreadyPresent')
+                    Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerCompletedHigherVersionAlreadyPresent')
                 }
-                else { Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.repairWingetpackagemanagerFallito0' -Args @($($_.Exception.Message))) }
+                else { Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerFallito0' -Args @($($_.Exception.Message))) }
             }
             _Set-WingetPathPermissions
             Update-EnvironmentPath
             return $true
         }
         catch {
-            Write-StyledMessage -Type Error -Text (Get-Loc 'uiText.errorDuringDatabaseRestore0' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.errorDuringDatabaseRestore0' -Args @($($_.Exception.Message)))
             return $false
         }
     }
     function _Install-WingetAdvanced {
-        Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.advancedInstallationViaMicrosoftWingetClientModule')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.advancedInstallationViaMicrosoftWingetClientModule')
         try {
             if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
                 if ($PSVersionTable.PSVersion.Major -lt 7) {
                     try { Install-PackageProvider -Name 'NuGet' -Force -ForceBootstrap -ErrorAction SilentlyContinue *>$null }
-                    catch { Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.nugetProviderNotInstallable') }
+                    catch { Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.nugetProviderNotInstallable') }
                 }
             }
-            Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.installingMicrosoftWingetClientModule')
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingMicrosoftWingetClientModule')
             try {
                 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
                 Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
                 Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
-                Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.wingetClientModuleInstalled')
+                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetClientModuleInstalled')
             }
-            catch { Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.failedToInstallWingetClientModule0' -Args @($($_.Exception.Message))) }
+            catch { Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.failedToInstallWingetClientModule0' -Args @($($_.Exception.Message))) }
             if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-                Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.tentativoRepairWingetpackagemanager')
+                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.tentativoRepairWingetpackagemanager')
                 try {
                     Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
-                    Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.repairWingetpackagemanagerCompletato')
+                    Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerCompletato')
                 }
                 catch {
                     if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
-                        Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.repairWingetpackagemanagerIgnoredHigherVersionAlreadyPresent')
+                        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerIgnoredHigherVersionAlreadyPresent')
                     }
-                    else { Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.repairWingetpackagemanagerFallito0' -Args @($($_.Exception.Message))) }
+                    else { Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerFallito0' -Args @($($_.Exception.Message))) }
                 }
                 Start-Sleep 3
             }
             Update-EnvironmentPath
             if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-                Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.fallbackDownloadMsixbundleDirectFromMicrosoft')
+                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadMsixbundleDirectFromMicrosoft')
                 $tempDir = $AppConfig.Paths.Temp
                 if (-not (Test-Path $tempDir)) { $null = New-Item -Path $tempDir -ItemType Directory -Force }
                 $tempInstaller = Join-Path $tempDir "WingetInstaller.msixbundle"
@@ -1233,61 +1317,61 @@ function Reset-Winget {
             return $true
         }
         catch {
-            Write-StyledMessage -Type Error -Text (Get-Loc 'uiText.wingetAdvancedInstallationError0' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.wingetAdvancedInstallationError0' -Args @($($_.Exception.Message)))
             return $false
         }
     }
     function _Test-WingetDeepValidation {
-        Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.wingetDeepValidationConnectivityDatabaseIntegrity')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.wingetDeepValidationConnectivityDatabaseIntegrity')
         try {
             $wingetExe = Get-WingetExecutable
             $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
             $exitCode = $LASTEXITCODE
             if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
-                Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.crashAccessViolationExitcode0RipristinoDatabase' -Args @($exitCode))
+                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.crashAccessViolationExitcode0RipristinoDatabase' -Args @($exitCode))
                 $null = _Repair-WingetDatabase
                 Start-Sleep 3
                 $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
                 $exitCode = $LASTEXITCODE
                 if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
-                    Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.persistentCrashAfterDatabaseRestore')
+                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.persistentCrashAfterDatabaseRestore')
                     return $false
                 }
             }
             if ($exitCode -eq 0) {
-                Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.deepValidationPassedWingetCommunicatesWithRepositories')
+                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.deepValidationPassedWingetCommunicatesWithRepositories')
                 return $true
             }
             $details = ($searchResult | Out-String).Trim()
             if ($details.Length -gt 200) { $details = $details.Substring(0, 200) + "..." }
-            Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.deepValidationFailedExitcode0Details1' -Args @($exitCode, $details))
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.deepValidationFailedExitcode0Details1' -Args @($exitCode, $details))
             return $false
         }
         catch {
-            Write-StyledMessage -Type Error -Text (Get-Loc 'uiText.deepValidationError0' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.deepValidationError0' -Args @($($_.Exception.Message)))
             return $false
         }
     }
-    Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.startingWingetAdvancedRepair')
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingWingetAdvancedRepair')
     if (-not (_Test-WingetCompatibility)) { return $false }
     if (-not $Force -and (_Test-WingetFunctionality)) {
-        Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.wingetAlreadyOperationalNoRepairsNecessary')
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetAlreadyOperationalNoRepairsNecessary')
         return $true
     }
     Stop-ToolkitProcesses -ProcessNames $AppConfig.WingetProcesses
     try {
-        Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.phase1CoreRecoveryVcAppxDependenciesMsixbundle')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.phase1CoreRecoveryVcAppxDependenciesMsixbundle')
         if (-not (_Test-VCRedistInstalled) -or $Force) {
-            Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.installingVisualCRedistributable')
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingVisualCRedistributable')
             $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
             $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
             $vcFile = Join-Path $AppConfig.Paths.Temp "vc_redist.exe"
             if (-not (Test-Path $AppConfig.Paths.Temp)) { $null = New-Item $AppConfig.Paths.Temp -ItemType Directory -Force }
             Invoke-WebRequest -Uri $vcUrl -OutFile $vcFile -UseBasicParsing
             Start-Process -FilePath $vcFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
-            Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.vcRedistInstalled')
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.vcRedistInstalled')
         }
-        Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.downloadWingetDependenciesFromTheOfficialRepository2')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependenciesFromTheOfficialRepository2')
         $depUrl = _Get-LatestAssetUrl -Match 'DesktopAppInstaller_Dependencies.zip'
         if ($depUrl) {
             $depZip = Join-Path $AppConfig.Paths.Temp "dependencies.zip"
@@ -1298,25 +1382,25 @@ function Reset-Winget {
             $script:WingetDependencies = @()
             Get-ChildItem $depDir -Recurse -Filter "*.appx" |
             Where-Object { $_.Name -match $archPattern } |
-            ForEach-Object { Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.dependencyFound0' -Args @($($_.Name))); $script:WingetDependencies += $_.FullName }
-            Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.loadedDependencies')
+            ForEach-Object { Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.dependencyFound0' -Args @($($_.Name))); $script:WingetDependencies += $_.FullName }
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.loadedDependencies')
         }
-        Write-StyledMessage -Type Info -Text (Get-Loc 'uiText.installingWingetMsixbundleWithDependencies')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingWingetMsixbundleWithDependencies')
         $bundleUrl = _Get-LatestAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
         if ($bundleUrl) {
             $bundleFile = Join-Path $AppConfig.Paths.Temp "winget.msixbundle"
             Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing
             $deps = if ($script:WingetDependencies) { $script:WingetDependencies } else { @() }
             Start-AppxSilentProcess -AppxPath $bundleFile -DependencyPaths $deps -Flags '-ForceApplicationShutdown'
-            Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.wingetCoreInstalled')
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetCoreInstalled')
         }
         _Register-AppxManifest
         Update-EnvironmentPath
         if (_Test-WingetFunctionality) {
-            Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.phase1CompletedOperationalWinget')
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.phase1CompletedOperationalWinget')
         }
         else {
-            Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.phase1InsufficientStartingPhase2AdvancedRecovery')
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.phase1InsufficientStartingPhase2AdvancedRecovery')
             $null = _Install-WingetAdvanced
             $null = _Repair-WingetDatabase
             Update-EnvironmentPath
@@ -1329,16 +1413,16 @@ function Reset-Winget {
         catch {}
         $deepOk = _Test-WingetDeepValidation
         if ($deepOk) {
-            Write-StyledMessage -Type Success -Text (Get-Loc 'uiText.wingetSuccessfullyRestoredAndTested')
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetSuccessfullyRestoredAndTested')
             return $true
         }
         else {
-            Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.wingetInstalledDeepValidationWithAnomaliesPossibleNetworkOrDbProblems')
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstalledDeepValidationWithAnomaliesPossibleNetworkOrDbProblems')
             return $true
         }
     }
     catch {
-        Write-StyledMessage -Type Error -Text (Get-Loc 'uiText.criticalErrorInReset0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalErrorInReset0' -Args @($($_.Exception.Message)))
         return $false
     }
     finally {
@@ -1359,7 +1443,7 @@ function Get-UserConfirmation {
     }
     Write-StyledMessage -Type $Level -Text "${fullPrompt}: " -NoNewline
     $response = Read-Host
-    Write-ToolkitLog -Level 'INFO' -Message (Get-Loc 'uiText.userConfirmationPrompt0Response1' -Args @($Prompt, $response))
+    Write-ToolkitLog -Level 'INFO' -Message (Get-SourceTextLoc 'uiText.userConfirmationPrompt0Response1' -Args @($Prompt, $response))
     if ([string]::IsNullOrWhiteSpace($response)) { return $DefaultYes }
     return $response -match '^[sS]'
 }
@@ -1382,7 +1466,7 @@ function Read-ValidatedChoice {
             Microsoft.PowerShell.Utility\Read-Host
         }
         if ([string]::IsNullOrWhiteSpace($input)) {
-            Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.emptyInputTryAgain')
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.emptyInputTryAgain')
             continue
         }
         $choices = $input -split '[\s,]+' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
@@ -1397,27 +1481,27 @@ function Read-ValidatedChoice {
                 }
             }
             if ($isValid) {
-                Write-ToolkitLog -Level 'INFO' -Message (Get-Loc 'uiText.userChoices0' -Args @($($choices -join ',')))
+                Write-ToolkitLog -Level 'INFO' -Message (Get-SourceTextLoc 'uiText.userChoices0' -Args @($($choices -join ',')))
                 return $choices
             }
         }
         $rangeStr = if ($null -ne $ValidRange) { "$($ValidRange[0]) e $($ValidRange[-1])" } else { "$Min e $Max" }
-        Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.invalidChoiceEnterNumbersBetween0' -Args @($rangeStr))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.invalidChoiceEnterNumbersBetween0' -Args @($rangeStr))
     }
 }
 function WinOSCheck {
     if ($Global:GuiSessionActive) { return }
-    Show-Header -SubTitle (Get-Loc 'system.infoTitle')
+    Show-Header -SubTitle (Get-SourceTextLoc 'system.infoTitle')
     $si = Get-SystemInfo
-    if (-not $si) { Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.systemInfoNotAvailable'); return }
-    Write-StyledMessage -Type 'Info' -Text (Get-Loc 'uiText.system01' -Args @($($si.ProductName), $($si.DisplayVersion)))
-    if ($si.BuildNumber -ge 22000) { Write-StyledMessage -Type 'Success' -Text (Get-Loc 'uiText.compatibleSystemRecentWin1110') }
-    elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage -Type 'Success' -Text (Get-Loc 'uiText.compatibleSystemWin10') }
-    elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.windows81PartialCompatibility') }
+    if (-not $si) { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.systemInfoNotAvailable'); return }
+    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.system01' -Args @($($si.ProductName), $($si.DisplayVersion)))
+    if ($si.BuildNumber -ge 22000) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemRecentWin1110') }
+    elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemWin10') }
+    elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.windows81PartialCompatibility') }
     else {
-        Write-StyledMessage -Type 'Error' -Text "$(Center-Text ('🤣 ' + (Get-Loc 'sourceText.criticalError').ToUpperInvariant() + ' 🤣') 65)"
-        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'uiText.doYouReallyThinkThisScriptCanDoAnythingForThisVersion')
-        Write-Host ("  " + (Get-Loc 'uiText.doYouWantToTakeARiskYN')) -ForegroundColor Yellow
+        Write-StyledMessage -Type 'Error' -Text "$(Center-Text ('🤣 ' + (Get-SourceTextLoc 'sourceText.criticalError').ToUpperInvariant() + ' 🤣') 65)"
+        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'uiText.doYouReallyThinkThisScriptCanDoAnythingForThisVersion')
+        Write-Host ("  " + (Get-SourceTextLoc 'uiText.doYouWantToTakeARiskYN')) -ForegroundColor Yellow
         if ((Read-Host) -notmatch '^[Yy]$') { exit }
     }
     Start-Sleep -Seconds 2
@@ -1425,7 +1509,7 @@ function WinOSCheck {
 function Test-WindowsUpdateStatus {
     try {
         if ($Global:GuiSessionActive) { return }
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'uiText.windowsUpdateStatusCheck')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.windowsUpdateStatusCheck')
         $pendingReboot = $false
         $installerRunning = $false
         if (Get-Module -ListAvailable -Name PSWindowsUpdate -ErrorAction SilentlyContinue) {
@@ -1434,7 +1518,7 @@ function Test-WindowsUpdateStatus {
                 $rebootStatus = Get-WURebootStatus -ErrorAction SilentlyContinue
                 if ($rebootStatus -and $rebootStatus.RebootRequired) {
                     $pendingReboot = $true
-                    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.pendingRebootDetectedForWindowsUpdates')
+                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.pendingRebootDetectedForWindowsUpdates')
                 }
             }
             catch {}
@@ -1442,7 +1526,7 @@ function Test-WindowsUpdateStatus {
                 $installerStatus = Get-WUInstallerStatus -ErrorAction SilentlyContinue
                 if ($installerStatus -and $installerStatus.IsBusy) {
                     $installerRunning = $true
-                    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.windowsUpdateInstallationServiceCurrentlyRunning')
+                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.windowsUpdateInstallationServiceCurrentlyRunning')
                 }
             }
             catch {}
@@ -1464,30 +1548,30 @@ function Test-WindowsUpdateStatus {
             Write-Host ""
             Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
             Write-Host ""
-            Write-Host (Center-Text (Get-Loc 'uiText.importantWarning')) -ForegroundColor Yellow
+            Write-Host (Center-Text (Get-SourceTextLoc 'uiText.importantWarning')) -ForegroundColor Yellow
             Write-Host ""
-            Write-Host (" " + (Get-Loc 'uiText.pendingSystemUpdatesHaveBeenDetected')) -ForegroundColor Yellow
-            if ($pendingReboot) { Write-Host ("  " + (Get-Loc 'uiText.systemRestartRequiredToCompleteUpdates')) -ForegroundColor Yellow }
-            if ($installerRunning) { Write-Host ("  " + (Get-Loc 'uiText.windowsUpdateInstallationServiceIsRunning')) -ForegroundColor Yellow }
+            Write-Host (" " + (Get-SourceTextLoc 'uiText.pendingSystemUpdatesHaveBeenDetected')) -ForegroundColor Yellow
+            if ($pendingReboot) { Write-Host ("  " + (Get-SourceTextLoc 'uiText.systemRestartRequiredToCompleteUpdates')) -ForegroundColor Yellow }
+            if ($installerRunning) { Write-Host ("  " + (Get-SourceTextLoc 'uiText.windowsUpdateInstallationServiceIsRunning')) -ForegroundColor Yellow }
             Write-Host ""
-            Write-Host (" " + (Get-Loc 'uiText.thisMayCauseMalfunctionsErrorsOrBehavior')) -ForegroundColor Yellow
-            Write-Host (" " + (Get-Loc 'uiText.unexpectedBehaviorInSomeOrAllWintoolkitFeatures')) -ForegroundColor Yellow
+            Write-Host (" " + (Get-SourceTextLoc 'uiText.thisMayCauseMalfunctionsErrorsOrBehavior')) -ForegroundColor Yellow
+            Write-Host (" " + (Get-SourceTextLoc 'uiText.unexpectedBehaviorInSomeOrAllWintoolkitFeatures')) -ForegroundColor Yellow
             Write-Host ""
-            Write-Host (Center-Text (Get-Loc 'uiText.proceedWithCaution')) -ForegroundColor Red
+            Write-Host (Center-Text (Get-SourceTextLoc 'uiText.proceedWithCaution')) -ForegroundColor Red
             Write-Host ""
-            Write-Host (" " + (Get-Loc 'uiText.weStronglyRecommendThatYouCompleteAllOngoingUpdates')) -ForegroundColor Yellow
-            Write-Host (" " + (Get-Loc 'uiText.rebootYourSystemAndThenRestartWintoolkitBeforeContinuing')) -ForegroundColor Yellow
+            Write-Host (" " + (Get-SourceTextLoc 'uiText.weStronglyRecommendThatYouCompleteAllOngoingUpdates')) -ForegroundColor Yellow
+            Write-Host (" " + (Get-SourceTextLoc 'uiText.rebootYourSystemAndThenRestartWintoolkitBeforeContinuing')) -ForegroundColor Yellow
             Write-Host ""
             Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
             Write-Host ""
             Start-Sleep -Seconds 5
         }
         else {
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'uiText.noPendingUpdatesDetected')
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.noPendingUpdatesDetected')
         }
     }
     catch {
-        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.unableToCheckWindowsUpdateStatus0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.unableToCheckWindowsUpdateStatus0' -Args @($($_.Exception.Message)))
     }
 }
 function Invoke-OfficeSilentRemoval {
@@ -1497,21 +1581,21 @@ function Invoke-OfficeSilentRemoval {
 function Stop-OfficeProcesses {
     $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
     $closed = 0
-    Write-StyledMessage -Type 'Info' -Text (Get-Loc 'uiText.closingOfficeProcesses')
+    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.closingOfficeProcesses')
     foreach ($processName in $processes) {
         $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
         if ($running) {
             try { $running | Stop-Process -Force -ErrorAction Stop; $closed++ }
-            catch { Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.unableToClose0' -Args @($processName)) }
+            catch { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.unableToClose0' -Args @($processName)) }
         }
     }
-    if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-Loc 'uiText.0OfficeProcessesClosed' -Args @($closed)) }
+    if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.0OfficeProcessesClosed' -Args @($closed)) }
 }
 function Invoke-OfficeDownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
     return Invoke-ToolkitDownload -Uri $Url -OutputPath $OutputPath -Description $Description
 }
 function Set-OfficePostConfig {
-    Write-StyledMessage -Type 'Info' -Text (Get-Loc 'uiText.deepOptimizationOfMicrosoftOffice')
+    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.deepOptimizationOfMicrosoftOffice')
     $registrySettings = @(
         @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
         @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
@@ -1537,7 +1621,7 @@ function Set-OfficePostConfig {
     foreach ($tName in $tasksToDisable) {
         Get-ScheduledTask | Where-Object { $_.TaskName -eq $tName } | Disable-ScheduledTask -ErrorAction SilentlyContinue
     }
-    Write-StyledMessage -Type 'Success' -Text (Get-Loc 'uiText.officeOptimizedTelemetryPrivacyAndScheduledTasksRemoved')
+    Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.officeOptimizedTelemetryPrivacyAndScheduledTasksRemoved')
 }
 function VcardAnalizer {
     [CmdletBinding()]
@@ -1576,7 +1660,7 @@ function VcardAnalizer {
         }
     }
     catch {
-        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.gpuAnalysisErrorReadingWin32Videocontroller0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.gpuAnalysisErrorReadingWin32Videocontroller0' -Args @($($_.Exception.Message)))
     }
     if ($analysis.Cards.Count -gt 0) {
         $analysis.PrimaryManufacturer = ($analysis.Cards | Select-Object -First 1).Manufacturer
@@ -1593,7 +1677,7 @@ function VcardAnalizer {
         }
     }
     catch {
-        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.driveroverridesJsonDownloadFailedUseLocalCacheIfAvailable')
+        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.driveroverridesJsonDownloadFailedUseLocalCacheIfAvailable')
     }
     if (Test-Path $resolvedOverridesPath) {
         try {
@@ -1604,11 +1688,11 @@ function VcardAnalizer {
             $analysis.OverridesLoaded = $true
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.invalidDriveroverridesJson0' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.invalidDriveroverridesJson0' -Args @($($_.Exception.Message)))
         }
     }
     else {
-        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.driveroverridesJsonNotFoundIn0' -Args @($resolvedOverridesPath))
+        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.driveroverridesJsonNotFoundIn0' -Args @($resolvedOverridesPath))
     }
     foreach ($gpu in $analysis.Cards) {
         foreach ($ovr in $overrides) {
@@ -1644,10 +1728,10 @@ function VcardAnalizer {
     }
     if ($analysis.Matches.Count -gt 0) {
         $analysis.Matches = @($analysis.Matches | Group-Object Key | ForEach-Object { $_.Group | Select-Object -First 1 })
-        Write-StyledMessage -Type 'Success' -Text (Get-Loc 'uiText.detected0StableDriverMatchesFromDriveroverridesJson' -Args @($($analysis.Matches.Count)))
+        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.detected0StableDriverMatchesFromDriveroverridesJson' -Args @($($analysis.Matches.Count)))
     }
     else {
-        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.noKnownStableDriversFoundForTheDetectedGpus')
+        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.noKnownStableDriversFoundForTheDetectedGpus')
     }
     $Global:VcardAnalysisResult = $analysis
     return $analysis
@@ -5200,118 +5284,118 @@ if (-not $ImportOnly) {
 }
 if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
     Write-Host ""
-    Write-StyledMessage -Type 'Info' -Text (Get-Loc 'menu.startedInteractive')
+    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'menu.startedInteractive')
     Write-Host ""
     function Confirm-UserProfileDeletion {
         Write-Host ''
-        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'confirm.profile.warn1')
-        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'confirm.profile.warn2')
+        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'confirm.profile.warn1')
+        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'confirm.profile.warn2')
         Write-Host ''
-        Write-Host "💎 [1] $(Get-Loc 'confirm.profile.yes')" -ForegroundColor White
-        Write-Host "[INVIO] $(Get-Loc 'menu.back')" -ForegroundColor Gray
-        $firstConfirm = Microsoft.PowerShell.Utility\Read-Host (Get-Loc 'menu.choice')
+        Write-Host "💎 [1] $(Get-SourceTextLoc 'confirm.profile.yes')" -ForegroundColor White
+        Write-Host "[INVIO] $(Get-SourceTextLoc 'menu.back')" -ForegroundColor Gray
+        $firstConfirm = Microsoft.PowerShell.Utility\Read-Host (Get-SourceTextLoc 'menu.choice')
         if ($firstConfirm -ne '1') {
             return $false
         }
         Write-Host ''
-        Write-StyledMessage -Type 'Error' -Text (Get-Loc 'confirm.profile.sure')
+        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'confirm.profile.sure')
         Write-Host ''
-        Write-Host "💎 [1] $(Get-Loc 'confirm.profile.accept')" -ForegroundColor White
-        Write-Host "[INVIO] $(Get-Loc 'menu.back')" -ForegroundColor Gray
-        $secondConfirm = Microsoft.PowerShell.Utility\Read-Host (Get-Loc 'menu.choice')
+        Write-Host "💎 [1] $(Get-SourceTextLoc 'confirm.profile.accept')" -ForegroundColor White
+        Write-Host "[INVIO] $(Get-SourceTextLoc 'menu.back')" -ForegroundColor Gray
+        $secondConfirm = Microsoft.PowerShell.Utility\Read-Host (Get-SourceTextLoc 'menu.choice')
         return ($secondConfirm -eq '1')
     }
     function Show-LanguageMenu {
         while ($true) {
-            Show-Header -SubTitle (Get-Loc 'menu.language')
+            Show-Header -SubTitle (Get-SourceTextLoc 'menu.language')
             Write-Host ''
-            Write-Host "==== 🌐 $(Get-Loc 'menu.chooseLanguage') 🌐 ====" -ForegroundColor Cyan
+            Write-Host "==== 🌐 $(Get-SourceTextLoc 'menu.chooseLanguage') 🌐 ====" -ForegroundColor Cyan
             Write-Host ''
-            $languages = @(Get-AvailableToolkitLanguages)
+            $languages = @(Get-AvailableSourceTextLanguages)
             if ($languages.Count -eq 0) {
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'menu.noLanguages')
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'menu.noLanguages')
                 Start-Sleep -Seconds 2
                 return
             }
             for ($i = 0; $i -lt $languages.Count; $i++) {
-                $marker = if ($languages[$i].Code -eq $Global:ToolkitLanguage) { '*' } else { ' ' }
+                $marker = if ($languages[$i].Code -eq $Global:SourceTextLanguage) { '*' } else { ' ' }
                 Write-Host "💎 [$($i + 1)] $marker $($languages[$i].NativeName) ($($languages[$i].Code))" -ForegroundColor White
             }
             Write-Host ''
-            Write-Host "↩️ [0] $(Get-Loc 'menu.back')" -ForegroundColor Gray
+            Write-Host "↩️ [0] $(Get-SourceTextLoc 'menu.back')" -ForegroundColor Gray
             Write-Host ''
-            $choice = Microsoft.PowerShell.Utility\Read-Host (Get-Loc 'menu.choice')
+            $choice = Microsoft.PowerShell.Utility\Read-Host (Get-SourceTextLoc 'menu.choice')
             if ([string]::IsNullOrWhiteSpace($choice) -or $choice -eq '0') { return }
             $parsed = 0
             if ([int]::TryParse($choice, [ref]$parsed) -and $parsed -ge 1 -and $parsed -le $languages.Count) {
                 $selectedLanguage = $languages[$parsed - 1]
-                Set-ToolkitLanguage -LanguageCode $selectedLanguage.Code
-                Write-StyledMessage -Type 'Success' -Text (Get-Loc 'menu.languageChanged' -Args @($selectedLanguage.NativeName))
+                Set-SourceTextLanguage -LanguageCode $selectedLanguage.Code
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'menu.languageChanged' -Args @($selectedLanguage.NativeName))
                 Start-Sleep -Seconds 1
                 return
             }
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'menu.invalidSelection')
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'menu.invalidSelection')
             Start-Sleep -Seconds 1
         }
     }
     :MainMenu while ($true) {
-        Show-Header -SubTitle (Get-Loc 'menu.main')
+        Show-Header -SubTitle (Get-SourceTextLoc 'menu.main')
         $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
         Write-Host ''
-        Write-Host "==== 💻 $(Get-Loc 'system.infoTitle') 💻 ====" -ForegroundColor Cyan
+        Write-Host "==== 💻 $(Get-SourceTextLoc 'system.infoTitle') 💻 ====" -ForegroundColor Cyan
         Write-Host ''
         $si = Get-SystemInfo
         if ($si) {
             $editionIcon = if ($si.ProductName -match "Pro") { "🔧" } else { "💻" }
-            Write-Host "💻 $(Get-Loc 'system.edition'): $editionIcon $($si.ProductName)" -ForegroundColor White
-            Write-Host "🆔 $(Get-Loc 'system.version'): " -NoNewline -ForegroundColor White
-            Write-Host (Get-Loc 'uiText.ver0Build1' -Args @($($si.DisplayVersion), $($si.BuildNumber))) -ForegroundColor Green
-            Write-Host "🔑 $(Get-Loc 'system.architecture'): $($si.Architecture)"  -ForegroundColor White
-            Write-Host "🔧 $(Get-Loc 'system.computerName'): $($si.ComputerName)"       -ForegroundColor White
-            Write-Host (Get-Loc 'uiText.ram0Gb2' -Args @($($si.TotalRAM)))            -ForegroundColor White
-            Write-Host "💾 $(Get-Loc 'system.disk'): " -NoNewline -ForegroundColor White
+            Write-Host "💻 $(Get-SourceTextLoc 'system.edition'): $editionIcon $($si.ProductName)" -ForegroundColor White
+            Write-Host "🆔 $(Get-SourceTextLoc 'system.version'): " -NoNewline -ForegroundColor White
+            Write-Host (Get-SourceTextLoc 'uiText.ver0Build1' -Args @($($si.DisplayVersion), $($si.BuildNumber))) -ForegroundColor Green
+            Write-Host "🔑 $(Get-SourceTextLoc 'system.architecture'): $($si.Architecture)"  -ForegroundColor White
+            Write-Host "🔧 $(Get-SourceTextLoc 'system.computerName'): $($si.ComputerName)"       -ForegroundColor White
+            Write-Host (Get-SourceTextLoc 'uiText.ram0Gb2' -Args @($($si.TotalRAM)))            -ForegroundColor White
+            Write-Host "💾 $(Get-SourceTextLoc 'system.disk'): " -NoNewline -ForegroundColor White
             $diskFreeGB = $si.FreeDisk
-            $displayString = "$($si.FreePercentage)% $(Get-Loc 'system.free') ($($diskFreeGB) GB)"
+            $displayString = "$($si.FreePercentage)% $(Get-SourceTextLoc 'system.free') ($($diskFreeGB) GB)"
             $diskColor = if ($diskFreeGB -lt 50) { "Red" } elseif ($diskFreeGB -le 80) { "Yellow" } else { "Green" }
             Write-Host $displayString -ForegroundColor $diskColor -NoNewline
             Write-Host ""
             $blStatusKey = Get-BitlockerStatus -Key
-            $blStatus = Get-Loc $blStatusKey
+            $blStatus = Get-SourceTextLoc $blStatusKey
             $blColor = if ($blStatusKey -in @('bitlocker.status.off', 'bitlocker.status.notConfigured')) { 'Green' } elseif ($blStatusKey -in @('bitlocker.status.suspended', 'bitlocker.status.decrypting')) { 'Yellow' } else { 'Red' }
-            Write-Host "🔒 $(Get-Loc 'system.bitlockerStatus'): " -NoNewline -ForegroundColor White
+            Write-Host "🔒 $(Get-SourceTextLoc 'system.bitlockerStatus'): " -NoNewline -ForegroundColor White
             Write-Host "$blStatus" -ForegroundColor $blColor
         }
         Write-Host ('*' * 50) -ForegroundColor Red
         Write-Host ""
-        Write-Host "🌐 [1] $(Get-Loc 'menu.changeLanguage')" -ForegroundColor White
+        Write-Host "🌐 [1] $(Get-SourceTextLoc 'menu.changeLanguage')" -ForegroundColor White
         Write-Host ''
         $allScripts = @(); $idx = 2
         foreach ($cat in $menuStructure) {
-            Write-Host "==== $($cat.Icon) $(Get-ToolkitMenuText $cat) $($cat.Icon) ====" -ForegroundColor Cyan
+            Write-Host "==== $($cat.Icon) $(Get-SourceTextMenuText $cat) $($cat.Icon) ====" -ForegroundColor Cyan
             Write-Host ""
             foreach ($s in $cat.Scripts) {
                 $allScripts += $s
-                Write-Host "💎 [$idx] $(Get-ToolkitMenuText $s)" -ForegroundColor White
+                Write-Host "💎 [$idx] $(Get-SourceTextMenuText $s)" -ForegroundColor White
                 $idx++
             }
             Write-Host ""
         }
-        Write-Host "==== $(Get-Loc 'menu.exitSection') ====" -ForegroundColor Red
+        Write-Host "==== $(Get-SourceTextLoc 'menu.exitSection') ====" -ForegroundColor Red
         Write-Host ""
-        Write-Host "❌ [0] $(Get-Loc 'menu.exitToolkit')" -ForegroundColor Red
+        Write-Host "❌ [0] $(Get-SourceTextLoc 'menu.exitToolkit')" -ForegroundColor Red
         Write-Host ""
-        $rawInput = Microsoft.PowerShell.Utility\Read-Host (Get-Loc 'menu.multiPrompt')
+        $rawInput = Microsoft.PowerShell.Utility\Read-Host (Get-SourceTextLoc 'menu.multiPrompt')
         if ($rawInput -eq [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('V2luZG93cyDDqCB1bmEgbWVyZGE='))) {
             Start-Process ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('aHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj15QVZVT2tlNGtvYw==')))
             continue
         }
         $maxMenuOption = $allScripts.Count + 1
-        $rawSelections = Read-ValidatedChoice -Prompt (Get-Loc 'menu.multiPromptShort') -Min 0 -Max $maxMenuOption -AllowZero -RawInput $rawInput
+        $rawSelections = Read-ValidatedChoice -Prompt (Get-SourceTextLoc 'menu.multiPromptShort') -Min 0 -Max $maxMenuOption -AllowZero -RawInput $rawInput
         $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
         if ($c -eq 0 -or $c -eq '0') {
-            Write-StyledMessage -type 'Warning' -text (Get-Loc 'menu.support')
-            Write-StyledMessage -type 'Success' -text (Get-Loc 'menu.closing')
-            Write-ToolkitLog -Level INFO -Message (Get-Loc 'uiText.wintoolkitSessionTerminatedByUser')
+            Write-StyledMessage -type 'Warning' -text (Get-SourceTextLoc 'menu.support')
+            Write-StyledMessage -type 'Success' -text (Get-SourceTextLoc 'menu.closing')
+            Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'uiText.wintoolkitSessionTerminatedByUser')
             Start-Sleep -Seconds 3
             break
         }
@@ -5321,7 +5405,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         }
         $selections = @($rawSelections | Where-Object { $_ -ge 2 -and $_ -le $maxMenuOption })
         if ($selections.Count -eq 0) {
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'menu.invalidSelection')
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'menu.invalidSelection')
             Start-Sleep -Seconds 2
             continue
         }
@@ -5330,18 +5414,18 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         $isMultiScript = ($selections.Count -gt 1)
         Write-Host ''
         if ($isMultiScript) {
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'run.sequence' -Args @($selections.Count))
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'run.sequence' -Args @($selections.Count))
             Write-Host ''
         }
         foreach ($sel in $selections) {
             $scriptToRun = $allScripts[$sel - 2]
-            $scriptDescription = Get-ToolkitMenuText $scriptToRun
+            $scriptDescription = Get-SourceTextMenuText $scriptToRun
             if ($scriptToRun.Name -eq 'WinDeleteUserProfiles' -and -not (Confirm-UserProfileDeletion)) {
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'run.cancelled')
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'run.cancelled')
                 Start-Sleep -Seconds 2
                 continue MainMenu
             }
-            Write-StyledMessage -Type 'Progress' -Text (Get-Loc 'run.start' -Args @($scriptDescription))
+            Write-StyledMessage -Type 'Progress' -Text (Get-SourceTextLoc 'run.start' -Args @($scriptDescription))
             Write-Host ''
             try {
                 if ($isMultiScript) { & ([scriptblock]::Create("$($scriptToRun.Name) -SuppressIndividualReboot")) }
@@ -5349,7 +5433,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
                 $Global:ExecutionLog += @{ Name = $scriptDescription; Success = $true }
             }
             catch {
-                Write-StyledMessage -Type 'Error' -Text (Get-Loc 'run.error' -Args @($scriptDescription, $_.Exception.Message))
+                Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'run.error' -Args @($scriptDescription, $_.Exception.Message))
                 $Global:ExecutionLog += @{ Name = $scriptDescription; Success = $false; Error = $_.Exception.Message }
             }
             Write-Host ''
@@ -5357,34 +5441,34 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         if ($isMultiScript) {
             Write-Host ''
             $tableRows = $Global:ExecutionLog | ForEach-Object {
-                @{ Operation = $_.Name; Status = if ($_.Success) { "✅ $(Get-Loc 'summary.completed')" } else { "❌ $(Get-Loc 'summary.error')" }; Detail = if ($_.Error) { $_.Error } else { '' } }
+                @{ Operation = $_.Name; Status = if ($_.Success) { "✅ $(Get-SourceTextLoc 'summary.completed')" } else { "❌ $(Get-SourceTextLoc 'summary.error')" }; Detail = if ($_.Error) { $_.Error } else { '' } }
             }
             Show-ConsoleTable -Rows $tableRows -Columns @(
-                @{ Header = (Get-Loc 'summary.operation'); Key = 'Operation' },
-                @{ Header = (Get-Loc 'summary.status'); Key = 'Status' },
-                @{ Header = (Get-Loc 'summary.detail'); Key = 'Detail' }
-            ) -Title "📊 $(Get-Loc 'summary.title')"
+                @{ Header = (Get-SourceTextLoc 'summary.operation'); Key = 'Operation' },
+                @{ Header = (Get-SourceTextLoc 'summary.status'); Key = 'Status' },
+                @{ Header = (Get-SourceTextLoc 'summary.detail'); Key = 'Detail' }
+            ) -Title "📊 $(Get-SourceTextLoc 'summary.title')"
             Write-Host ''
         }
         if ($Global:NeedsFinalReboot) {
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'reboot.required')
-            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message (Get-Loc 'reboot.countdown')) {
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'reboot.required')
+            if (Start-InterruptibleCountdown -Seconds $CountdownSeconds -Message (Get-SourceTextLoc 'reboot.countdown')) {
                 Restart-Computer -Force
             }
             else {
                 Write-Host ''
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'reboot.reminder')
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'reboot.reminder')
             }
         }
-        Write-Host "`n$(Get-Loc 'menu.pressEnter')" -ForegroundColor Gray
+        Write-Host "`n$(Get-SourceTextLoc 'menu.pressEnter')" -ForegroundColor Gray
         $null = Read-Host
     }
 }
 else {
     Write-Verbose "═══════════════════════════════════════════════════════════"
-    Write-Verbose ("  " + (Get-Loc 'uiText.wintoolkitLoadedInLibraryMode'))
-    Write-Verbose ("  " + (Get-Loc 'uiText.functionsAvailableTuiMenuSuppressed'))
-    Write-Verbose ("  💎 " + (Get-Loc 'sourceText.version') + ": $ToolkitVersion")
+    Write-Verbose ("  " + (Get-SourceTextLoc 'uiText.wintoolkitLoadedInLibraryMode'))
+    Write-Verbose ("  " + (Get-SourceTextLoc 'uiText.functionsAvailableTuiMenuSuppressed'))
+    Write-Verbose ("  💎 " + (Get-SourceTextLoc 'sourceText.version') + ": $ToolkitVersion")
     Write-Verbose "═══════════════════════════════════════════════════════════"
     $Global:menuStructure = $menuStructure
 }
