@@ -267,7 +267,6 @@ function Get-SourceTextLoc {
     if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
-Set-Alias -Name Get-Loc -Value Get-SourceTextLoc -Scope Global
 
 function Get-SourceTextMenuText {
     param([object]$Item)
@@ -1175,8 +1174,8 @@ function Invoke-ToolkitDownload {
             if ($isUnknownSize -and -not $Global:GuiSessionActive) {
                 $fakeProgressStart = Get-Date
                 # Show fake bar immediately (before starting to read data)
-                Write-ProgressUpdate -Activity (Get-Loc 'uiText.download02' -Args @($Description)) `
-                    -Status (Get-Loc 'uiText.startingDownload') `
+                Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.download02' -Args @($Description)) `
+                    -Status (Get-SourceTextLoc 'uiText.startingDownload') `
                     -Percent 8 -Icon '📥' -Color 'Cyan'
                 Start-Sleep -Milliseconds 120   # small visual delay to make the bar appear
             }
