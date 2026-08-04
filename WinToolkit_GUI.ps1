@@ -300,7 +300,7 @@ function Invoke-ToolkitLanguagePreparation {
                 Invoke-WebRequest -Uri $remoteUrl -OutFile $localFile -UseBasicParsing -ErrorAction Stop | Out-Null
             }
             catch {
-                Write-UnifiedLog -Type 'Warning' -Message ("Failed to download language file for '$culture': $($_.Exception.Message)") -GuiColor "#FFA500"
+                Write-Host "WARNING: Failed to download language file for '$culture': $($_.Exception.Message)" -ForegroundColor Yellow
             }
         }
     }
