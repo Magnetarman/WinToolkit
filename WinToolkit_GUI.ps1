@@ -298,7 +298,7 @@ function Set-SourceTextLanguage {
 function Get-SourceTextLoc {
     param(
         [Parameter(Mandatory = $true)][string]$Key,
-        [object[]]$Args = @()
+        [object[]]$Arguments = @()
     )
 
     $value = $null
@@ -312,7 +312,7 @@ function Get-SourceTextLoc {
         $value = $Key
     }
 
-    if ($Args -and $Args.Count -gt 0) { return [string]::Format($value, $Args) }
+    if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
 
@@ -1669,7 +1669,7 @@ function Apply-GuiLocalization {
 }
 
 Initialize-LanguageComboBox
-Apply-GuiLocalization
+Set-GuiLocalization
 
 if ($LanguageComboBox) {
     $LanguageComboBox.Add_SelectionChanged({

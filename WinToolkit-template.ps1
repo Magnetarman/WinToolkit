@@ -250,7 +250,7 @@ function Set-SourceTextLanguage {
 function Get-SourceTextLoc {
     param(
         [Parameter(Mandatory = $true)][string]$Key,
-        [object[]]$Args = @()
+        [object[]]$Arguments = @()
     )
 
     $value = $null
@@ -264,7 +264,7 @@ function Get-SourceTextLoc {
         $value = $Key
     }
 
-    if ($Args -and $Args.Count -gt 0) { return [string]::Format($value, $Args) }
+    if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
 
@@ -397,7 +397,7 @@ function Clear-ProgressLine {
     }
 }
 
-function Center-Text {
+function Get-CenteredText {
     param([string]$Text, [int]$Width = 0)
     if ($Width -eq 0) { $Width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 } }
     $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
@@ -479,7 +479,7 @@ function Show-Header {
         ("       " + (Get-SourceTextLoc 'sourceText.version') + " $ToolkitVersion")
     )
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
-    foreach ($line in $asciiArt) { Write-Host (Center-Text $line $width) -ForegroundColor White }
+    foreach ($line in $asciiArt) { Write-Host (Get-CenteredText $line $width) -ForegroundColor White }
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
     Write-Host ''
 }
@@ -899,7 +899,7 @@ function Invoke-ExternalCommandWithLog {
         $success = ($exitCode -eq 0)
     }
     catch {
-        $exitCode = if ($exitCode -ne $null) { $exitCode } else { -1 }
+        $exitCode = if ($null -ne $exitCode) { $exitCode } else { -1 }
         if ($_.Exception.Message -match 'Timeout') { $timedOut = $true }
         Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.exceptionWhileRunningExternalCommand') -Context @{
             Command = $Command; Arguments = $Arguments; WorkingDir = $WorkingDirectory
@@ -1448,7 +1448,7 @@ function Reset-Winget {
 
     # ── Helper privati ────────────────────────────────────────────────────────
 
-    function _Test-VCRedistInstalled {
+    function Test-VCRedistInstalled {
         $64BitOS = [System.Environment]::Is64BitOperatingSystem
         $registryPath = [string]::Format(
             'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\{0}\Microsoft\VisualStudio\14.0\VC\Runtimes\X{1}',
@@ -1460,7 +1460,7 @@ function Reset-Winget {
         return (Test-Path $registryPath) -and ($major -ge 14) -and (Test-Path $dllPath)
     }
 
-    function _Register-AppxManifest {
+    function Register-AppxManifest {
         try {
             $manifest = (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue).InstallLocation
             if ($manifest) {
@@ -1474,7 +1474,7 @@ function Reset-Winget {
         catch {}
     }
 
-    function _Get-LatestAssetUrl {
+    function Get-LatestAssetUrl {
         param([string]$Match)
         try {
             $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing -ErrorAction Stop
@@ -1485,7 +1485,7 @@ function Reset-Winget {
         catch { return $null }
     }
 
-    function _Test-WingetCompatibility {
+    function Test-WingetCompatibility {
         $os = [Environment]::OSVersion.Version
         if ($os.Major -lt 10 -or ($os.Major -eq 10 -and $os.Build -lt 16299)) {
             Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.systemNotSupportedByWingetWindows101709Required')
@@ -1494,7 +1494,7 @@ function Reset-Winget {
         return $true
     }
 
-    function _Test-WingetFunctionality {
+    function Test-WingetFunctionality {
         Update-EnvironmentPath
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFoundInPath')
@@ -1515,7 +1515,7 @@ function Reset-Winget {
         }
     }
 
-    function _Test-PathInEnvironment {
+    function Test-PathInEnvironment {
         param([string]$PathToCheck, [string]$Scope = 'Both')
         $found = $false
         if ($Scope -in 'User', 'Both') { if (($env:PATH -split ';').Contains($PathToCheck)) { $found = $true } }
@@ -1526,9 +1526,9 @@ function Reset-Winget {
         return $found
     }
 
-    function _Add-ToEnvironmentPath {
+    function Add-ToEnvironmentPath {
         param([string]$PathToAdd, [ValidateSet('User', 'System')][string]$Scope)
-        if (_Test-PathInEnvironment -PathToCheck $PathToAdd -Scope $Scope) { return }
+        if (Test-PathInEnvironment -PathToCheck $PathToAdd -Scope $Scope) { return }
         if ($Scope -eq 'System') {
             $cur = [Environment]::GetEnvironmentVariable('PATH', 'Machine')
             [Environment]::SetEnvironmentVariable('PATH', "$cur;$PathToAdd", 'Machine')
@@ -1541,7 +1541,7 @@ function Reset-Winget {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.updatedPath0' -Args @($PathToAdd))
     }
 
-    function _Set-PathPermissions {
+    function Set-PathPermissions {
         param([string]$FolderPath)
         if (-not (Test-Path $FolderPath)) { return }
         try {
@@ -1557,7 +1557,7 @@ function Reset-Winget {
         catch { Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.unableToSetPermissionsOn01' -Args @($FolderPath, $($_.Exception.Message))) }
     }
 
-    function _Set-WingetPathPermissions {
+    function Set-WingetPathPermissions {
         $wingetFolderPath = $null
         try {
             $arch = if ([Environment]::Is64BitOperatingSystem) { 'x64' } else { 'x86' }
@@ -1627,7 +1627,7 @@ function Reset-Winget {
                 else { Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerFallito0' -Args @($($_.Exception.Message))) }
             }
 
-            _Set-WingetPathPermissions
+            Set-WingetPathPermissions
             Update-EnvironmentPath
             return $true
         }
@@ -1684,7 +1684,7 @@ function Reset-Winget {
             }
 
             try { Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null } catch {}
-            _Set-WingetPathPermissions
+            Set-WingetPathPermissions
             Update-EnvironmentPath
             return $true
         }
@@ -1779,7 +1779,7 @@ function Reset-Winget {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetCoreInstalled')
         }
 
-        _Register-AppxManifest
+        Register-AppxManifest
         Update-EnvironmentPath
 
         if (_Test-WingetFunctionality) {
@@ -1800,7 +1800,7 @@ function Reset-Winget {
         }
         catch {}
 
-        $deepOk = _Test-WingetDeepValidation
+        $deepOk = Test-WingetDeepValidation
         if ($deepOk) {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetSuccessfullyRestoredAndTested')
             return $true
@@ -1868,7 +1868,7 @@ function Read-ValidatedChoice {
 
     $currentInput = if ($PSBoundParameters.ContainsKey('RawInput')) { $RawInput } else { $null }
     while ($true) {
-        $input = if ($null -ne $currentInput) {
+        $userInput = if ($null -ne $currentInput) {
             $val = $currentInput; $currentInput = $null; $val
         }
         else {
@@ -1881,7 +1881,7 @@ function Read-ValidatedChoice {
             continue
         }
 
-        $choices = $input -split '[\s,]+' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
+        $choices = $userInput -split '[\s,]+' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
 
         if ($choices.Count -gt 0) {
             $isValid = $true

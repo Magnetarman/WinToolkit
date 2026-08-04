@@ -137,7 +137,7 @@ function Initialize-SourceTextLocalization {
 function Get-SourceTextLoc {
     param(
         [Parameter(Mandatory = $true)][string]$Key,
-        [object[]]$Args = @()
+        [object[]]$Arguments = @()
     )
 
     $value = $null
@@ -150,7 +150,7 @@ function Get-SourceTextLoc {
     else {
         $value = $Key
     }
-    if ($Args.Count -gt 0) { return [string]::Format($value, $Args) }
+    if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
 
@@ -296,7 +296,7 @@ function Invoke-DownloadFile {
     return $false
 }
 
-function Prepare-OfflineResources {
+function Initialize-OfflineResources {
     param(
         [Parameter(Mandatory = $true)]
         [string]$OfflineResourcesDir
@@ -416,7 +416,7 @@ Clear-Host
 Show-Host
 Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.startingOfflineEnvironmentPreparation')
 
-if (Prepare-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
+if (Initialize-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
     Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.checkForMainScriptStartPs1In0' -Args @($OfflineResourcesDir))
     if (-not (Test-Path $mainScriptPath)) {
         Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.errorModifiedScriptStartPs1IsMissingFrom0' -Args @($OfflineResourcesDir))
