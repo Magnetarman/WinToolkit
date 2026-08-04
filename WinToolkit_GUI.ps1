@@ -151,11 +151,11 @@ $Global:MenuStructure = @() # Sarà popolato dal Core
 $Global:ToolkitLanguage = 'en-US'
 $Global:ToolkitLanguageData = $null
 $Global:ToolkitDefaultLanguageData = $null
-# =============================================================================
-# LOGGING AND UTILITY FUNCTIONS
-# =============================================================================
-
+$Global:ToolkitPreparedLanguagesDir = $null
 function Get-ToolkitLanguageDirectory {
+    if ($Global:ToolkitPreparedLanguagesDir -and (Test-Path $Global:ToolkitPreparedLanguagesDir)) {
+        return $Global:ToolkitPreparedLanguagesDir
+    }
     $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
     $candidate = Join-Path $root 'languages'
     if (Test-Path $candidate) { return $candidate }
@@ -164,6 +164,82 @@ function Get-ToolkitLanguageDirectory {
     if (Test-Path $repoCandidate) { return $repoCandidate }
 
     return $candidate
+}
+
+function Get-RemoteAvailableCultures {
+    param([string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev')
+    try {
+        $response = Invoke-RestMethod -Uri $GitHubApiUrl -UseBasicParsing -ErrorAction Stop
+        return @($response | Where-Object { $_.type -eq 'dir' } | ForEach-Object { $_.name })
+    }
+    catch {
+        return @()
+    }
+}
+
+function Invoke-ToolkitLanguagePreparation {
+    [CmdletBinding()]
+    param(
+        [string]$ScriptRoot,
+        [string]$RemoteBaseUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/languages',
+        [string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev',
+        [int]$CacheMaxAgeDays = 7
+    )
+    $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
+    $remoteCultures = Get-RemoteAvailableCultures -GitHubApiUrl $GitHubApiUrl
+    $needDownload = $false
+    if (-not (Test-Path $localDir)) {
+        $needDownload = $true
+    }
+    else {
+        $oldestFile = Get-ChildItem -Path $localDir -Recurse -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -First 1
+        if ($oldestFile) {
+            $age = (Get-Date) - $oldestFile.LastWriteTime
+            if ($age.TotalDays -ge $CacheMaxAgeDays) { $needDownload = $true }
+        }
+        else { $needDownload = $true }
+        if (-not $needDownload) {
+            foreach ($culture in $remoteCultures) {
+                $localFile = Join-Path $localDir $culture 'WinToolkit.psd1'
+                if (-not (Test-Path $localFile)) { $needDownload = $true; break }
+            }
+        }
+    }
+    if ($needDownload -and $remoteCultures.Count -gt 0) {
+        if (-not (Test-Path $localDir)) { New-Item -Path $localDir -ItemType Directory -Force | Out-Null }
+        foreach ($culture in $remoteCultures) {
+            $cultureDir = Join-Path $localDir $culture
+            $localFile = Join-Path $cultureDir 'WinToolkit.psd1'
+            if (-not (Test-Path $cultureDir)) { New-Item -Path $cultureDir -ItemType Directory -Force | Out-Null }
+            try {
+                $remoteUrl = "$RemoteBaseUrl/$culture/WinToolkit.psd1"
+                Invoke-WebRequest -Uri $remoteUrl -OutFile $localFile -UseBasicParsing -ErrorAction Stop | Out-Null
+            }
+            catch {
+                if (-not (Test-Path $localFile)) {
+                    try {
+                        $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
+                        if (Test-Path $localFileFallback) { Copy-Item -Path $localFileFallback -Destination $localFile -Force }
+                    }
+                    catch {}
+                }
+            }
+        }
+    }
+    $Global:ToolkitPreparedLanguagesDir = $localDir
+    return $localDir
+}
+
+function Get-ToolkitAutoDetectedLanguage {
+    param([string]$AvailableCultures = 'en-US', [string]$SystemUICulture = ($PSUICulture.ToString()))
+    $normalizedSystem = $SystemUICulture.ToLowerInvariant()
+    $availableList = @($AvailableCultures -split '[\s,]+' | Where-Object { $_ })
+    if ($availableList -contains $normalizedSystem) { return $normalizedSystem }
+    $neutralSystem = $normalizedSystem.Split('-')[0]
+    foreach ($culture in $availableList) {
+        if ($culture.Split('-')[0] -eq $neutralSystem) { return $culture }
+    }
+    return 'en-US'
 }
 
 function Get-AvailableToolkitLanguages {
@@ -266,7 +342,13 @@ function Get-ToolkitMenuText {
     return [string]$Item
 }
 
-Set-ToolkitLanguage -LanguageCode 'en-US'
+$Global:ToolkitPreparedLanguagesDir = Invoke-ToolkitLanguagePreparation -ScriptRoot $PSScriptRoot
+$availableCultures = @()
+if ($Global:ToolkitPreparedLanguagesDir -and (Test-Path $Global:ToolkitPreparedLanguagesDir)) {
+    $availableCultures = @(Get-ChildItem -Path $Global:ToolkitPreparedLanguagesDir -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'WinToolkit.psd1') } | ForEach-Object { $_.Name })
+}
+$detectedLanguage = Get-ToolkitAutoDetectedLanguage -AvailableCultures ($availableCultures -join ',')
+Set-ToolkitLanguage -LanguageCode $detectedLanguage
 
 function Write-UnifiedLog {
     param(
