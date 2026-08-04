@@ -179,7 +179,7 @@ foreach ($file in $toolFiles) {
         # Handle empty or whitespace-only modules
         if ($fileLines.Count -eq 0 -or ($fileLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
             Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.emptyPrecompiledModule0InsertingDevelopmentStub' -Args @($functionName))
-            $fileLines = @("    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'uiText.functionDevelopmentInProgress')")
+            $fileLines = @("    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.functionDevelopmentInProgress')")
             $stats.Warnings++
         }
         else {
