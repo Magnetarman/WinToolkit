@@ -1,4 +1,4 @@
-﻿# culture="ru-RU"
+# culture="ru-RU"
 ConvertFrom-StringData -StringData @'
 language.code = ru-RU
 language.name = Russian
