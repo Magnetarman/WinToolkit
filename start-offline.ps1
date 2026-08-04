@@ -21,9 +21,10 @@ $script:SourceTextLanguageData = $null
 $script:SourceTextDefaultLanguageData = $null
 
 function Get-SourceTextLanguageDirectory {
+    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
     $candidates = @(
-        (Join-Path $PSScriptRoot 'languages'),
-        (Join-Path (Split-Path $PSScriptRoot -Parent) 'languages'),
+        (Join-Path $root 'languages'),
+        (Join-Path (Split-Path $root -Parent) 'languages'),
         (Join-Path (Get-Location) 'languages')
     )
     foreach ($candidate in $candidates) {
@@ -320,7 +321,7 @@ function Prepare-OfflineResources {
 }
 
 # --- Main execution for Start-Offline.ps1 ---
-$PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$PSScriptRoot = if ($MyInvocation.MyCommand.Definition) { Split-Path -Parent $MyInvocation.MyCommand.Definition } else { (Get-Location).Path }
 $OfflineResourcesDir = Join-Path $PSScriptRoot "start"
 $mainScriptPath = Join-Path $OfflineResourcesDir "start.ps1"
 
