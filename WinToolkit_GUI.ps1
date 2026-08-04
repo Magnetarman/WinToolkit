@@ -181,6 +181,7 @@ function Get-AvailableSourceTextLanguages {
                 Code       = if ($data.ContainsKey('language.code')) { $data['language.code'] } else { $_.Name }
                 Name       = if ($data.ContainsKey('language.name')) { $data['language.name'] } else { $_.Name }
                 NativeName = if ($data.ContainsKey('language.nativeName')) { $data['language.nativeName'] } else { $_.Name }
+                AiTranslated = if ($data.ContainsKey('language.aiTranslated')) { $data['language.aiTranslated'] } else { $false }
                 Path       = $_.FullName
             }
         }
@@ -1600,7 +1601,8 @@ function Initialize-LanguageComboBox {
     $LanguageComboBox.Items.Clear()
     foreach ($language in @(Get-AvailableSourceTextLanguages)) {
         $item = New-Object System.Windows.Controls.ComboBoxItem
-        $item.Content = $language.NativeName
+        $aiTag = if ($language.AiTranslated) { ' (AI TRAD.)' } else { '' }
+        $item.Content = "$($language.NativeName)$aiTag"
         $item.Tag = $language.Code
         $LanguageComboBox.Items.Add($item) | Out-Null
         if ($language.Code -eq $Global:SourceTextLanguage) {
