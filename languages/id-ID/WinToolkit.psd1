@@ -1,4 +1,4 @@
-﻿# culture="id-ID"
+# culture="id-ID"
 ConvertFrom-StringData -StringData @'
 language.code = id-ID
 language.name = Indonesian

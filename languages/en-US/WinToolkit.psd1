@@ -1,4 +1,4 @@
-﻿# culture="en-US"
+# culture="en-US"
 ConvertFrom-StringData -StringData @'
 language.code = en-US
 language.name = English

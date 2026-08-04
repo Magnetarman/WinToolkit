@@ -1,4 +1,4 @@
-﻿function VideoDriverReinstall {
+function VideoDriverReinstall {
     <#
     .SYNOPSIS
         Reinstalls or repairs video drivers with DDU in Safe Mode.

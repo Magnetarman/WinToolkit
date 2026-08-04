@@ -1,4 +1,4 @@
-﻿# Compilation script for WinToolkit (Enterprise-Grade)
+# Compilation script for WinToolkit (Enterprise-Grade)
 # Handles module aggregation, structured logging and code minification.
 
 [CmdletBinding()]
@@ -379,8 +379,8 @@ try {
     
     if (Test-Path $outputFile) { Remove-Item $outputFile -Force -ErrorAction Stop }
     
-    $utf8Bom = New-Object System.Text.UTF8Encoding $true
-    [System.IO.File]::WriteAllLines($outputFile, $templateLines, $utf8Bom)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllLines($outputFile, $templateLines, $utf8NoBom)
     
 }
 catch {
