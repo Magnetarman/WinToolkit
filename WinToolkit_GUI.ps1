@@ -1601,8 +1601,8 @@ function Initialize-LanguageComboBox {
     $LanguageComboBox.Items.Clear()
     foreach ($language in @(Get-AvailableSourceTextLanguages)) {
         $item = New-Object System.Windows.Controls.ComboBoxItem
-        $aiTag = if ($language.AiTranslated) { ' (AI TRAD.)' } else { '' }
-        $item.Content = "$($language.NativeName)$aiTag"
+        $aiTag = if ($language.AiTranslated) { ' [AI Trad.]' } else { '' }
+        $item.Content = "$($language.NativeName) ($($language.Code))$aiTag"
         $item.Tag = $language.Code
         $LanguageComboBox.Items.Add($item) | Out-Null
         if ($language.Code -eq $Global:SourceTextLanguage) {
