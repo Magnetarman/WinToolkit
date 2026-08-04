@@ -577,9 +577,8 @@ function Write-ToolkitError {
 }
 
 
-# ==============================================================================
-# SEZIONE 5 · SISTEMA — INFORMAZIONI E STATO
-# Raccolta dati sul sistema operativo, hardware e servizi di sicurezza.
+# SECTION 5 · SYSTEM — INFORMATION AND STATUS
+# Data collection on the operating system, hardware and security services.
 # ==============================================================================
 
 function Get-SystemInfo {
@@ -998,7 +997,7 @@ function Invoke-ToolkitReboot {
 function Remove-ItemSafely {
     <#
     .SYNOPSIS
-        Rimuove un path (file o directory) in modo silenzioso, senza eccezioni.
+        Silently removes a path (file or directory) without exceptions.
         Versione generalizzata di Invoke-OfficeSilentRemoval.
     #>
     param([Parameter(Mandatory = $true)][string]$Path, [switch]$Recurse)
@@ -1213,7 +1212,7 @@ function Invoke-ToolkitDownload {
 function Restart-ServiceSafely {
     <#
     .SYNOPSIS
-        Stop + Start di un servizio Windows con gestione errori standardizzata.
+        Stop + Start of a Windows service with standardized error handling.
     #>
     param([string]$Name, [int]$WaitSeconds = 1)
     try {
