@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Start Script for Win Toolkit in Offline mode.
 .DESCRIPTION
