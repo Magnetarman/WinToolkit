@@ -410,10 +410,10 @@ jobs:
       - name: Install Pester 5
         shell: pwsh
         run: |
-          $installed = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -ge '5.0.0' }
+          $installed = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -ge '5.0.0' -and $_.Version -lt '6.0.0' }
           if (-not $installed) {
             Write-Host "Installing Pester 5..." -ForegroundColor Yellow
-            Install-Module -Name Pester -MinimumVersion 5.0.0 -Scope CurrentUser -Force -SkipPublisherCheck
+            Install-Module -Name Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
           } else {
             Write-Host "Pester $($installed[0].Version) gia installato" -ForegroundColor Green
           }
@@ -454,7 +454,7 @@ jobs:
           $config = New-PesterConfiguration
           $config.Run.Path                = @(
             '.github/tests/WinToolkit.Tests.ps1',
-            '.github/tests/Unit'
+            '.github/tests/Unit',
             '.github/tests/Integration'
           )
           $config.Run.PassThru            = $true

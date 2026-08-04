@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Generates release notes by aggregating merged PRs and Issues since the last stable release.
 

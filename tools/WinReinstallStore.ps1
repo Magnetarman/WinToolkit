@@ -1,4 +1,4 @@
-﻿function WinReinstallStore {
+function WinReinstallStore {
     <#
     .SYNOPSIS
         Automatically reinstalls Microsoft Store on Windows 10/11 using Winget.

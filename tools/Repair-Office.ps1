@@ -1,4 +1,4 @@
-﻿function Repair-Office {
+function Repair-Office {
     <#
     .SYNOPSIS
         Repairs Microsoft Office through Click-to-Run (Quick Repair with Online Repair fallback).

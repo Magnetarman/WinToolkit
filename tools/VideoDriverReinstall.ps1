@@ -1,4 +1,4 @@
-﻿function VideoDriverReinstall {
+function VideoDriverReinstall {
     <#
     .SYNOPSIS
         Reinstalls or repairs video drivers with DDU in Safe Mode.
@@ -108,7 +108,7 @@
             }
         }
 
-        # Batch per tornare alla modalità normale dopo DDU
+        # Batch to return to normal mode after DDU
         $batchPath = Join-Path $desktopPath "Switch to Normal Mode.bat"
         try {
             Set-Content -Path $batchPath -Value 'bcdedit /deletevalue {current} safeboot' -Encoding ASCII
