@@ -914,7 +914,7 @@ foreach ($assembly in $assemblies) {
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Green
-Write-Host ("  " + (Get-SourceTextLoc 'uiText.wintoolkitGuiV30GuiEdition')) -ForegroundColor White
+Write-Host ("  WinToolkit GUI v$($Global:GuiVersion) - Edizione GUI") -ForegroundColor White
 Write-Host ("  " + (Get-SourceTextLoc 'uiText.loadingCoreScript')) -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Green
 Write-Host ""
