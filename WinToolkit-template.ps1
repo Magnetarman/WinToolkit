@@ -206,6 +206,7 @@ function Get-AvailableSourceTextLanguages {
                 Code       = if ($data.ContainsKey('language.code')) { $data['language.code'] } else { $_.Name }
                 Name       = if ($data.ContainsKey('language.name')) { $data['language.name'] } else { $_.Name }
                 NativeName = if ($data.ContainsKey('language.nativeName')) { $data['language.nativeName'] } else { $_.Name }
+                AiTranslated = if ($data.ContainsKey('language.aiTranslated')) { $data['language.aiTranslated'] } else { $false }
                 Path       = $_.FullName
             }
         }
@@ -2339,7 +2340,8 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
 
             for ($i = 0; $i -lt $languages.Count; $i++) {
                 $marker = if ($languages[$i].Code -eq $Global:SourceTextLanguage) { '*' } else { ' ' }
-                Write-Host "💎 [$($i + 1)] $marker $($languages[$i].NativeName) ($($languages[$i].Code))" -ForegroundColor White
+                $aiTag = if ($languages[$i].AiTranslated) { ' (AI TRAD.)' } else { '' }
+                Write-Host "💎 [$($i + 1)] $marker $($languages[$i].NativeName) ($($languages[$i].Code))$aiTag" -ForegroundColor White
             }
 
             Write-Host ''
