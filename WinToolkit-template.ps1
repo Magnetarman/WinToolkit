@@ -250,7 +250,7 @@ function Set-SourceTextLanguage {
 function Get-SourceTextLoc {
     param(
         [Parameter(Mandatory = $true)][string]$Key,
-        [object[]]$Arguments = @()
+        [Alias('Args')][object[]]$Arguments = @()
     )
 
     $value = $null
