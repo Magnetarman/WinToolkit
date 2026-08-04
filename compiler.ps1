@@ -113,7 +113,7 @@ function Write-StyledMessage {
 Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingWintoolkitBuildProcess')
 
 # ============================================================================
-# 2. INIZIALIZZAZIONE E VERIFICA PERCORSI
+# 2. PATH INITIALIZATION AND VERIFICATION
 # ============================================================================
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $toolFolder = Join-Path $scriptPath "tools"
@@ -135,7 +135,7 @@ catch {
 }
 
 # ============================================================================
-# 3. LETTURA SORGENTI E PREPARAZIONE
+# 3. SOURCE READING AND PREPARATION
 # ============================================================================
 try {
     Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.readingSourceTemplate') + ': WinToolkit-template.ps1.')
@@ -152,7 +152,7 @@ if ($toolFiles.Count -eq 0) {
     exit 0
 }
 
-# Statistiche per la dashboard
+# Statistics for the dashboard
 $stats = @{
     Processed        = 0
     Skipped          = 0
@@ -166,7 +166,7 @@ Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.startingAggregation')
 Write-Host ""
 
 # ============================================================================
-# 4. MOTORE DI AGGREGAZIONE (INIEZIONE CODICE)
+# 4. AGGREGATION ENGINE (CODE INJECTION)
 # ============================================================================
 foreach ($file in $toolFiles) {
     $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
