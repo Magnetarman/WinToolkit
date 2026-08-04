@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     WinToolkit GUI v3.1.0
 .DESCRIPTION
@@ -18,7 +18,7 @@ $Global:GuiSessionActive = $true
 # =============================================================================
 # GUI VERSION CONFIGURATION (Separate from Core Version)
 # =============================================================================
-$Global:GuiVersion = "3.1.0 (Build 5)"  # Format: CoreVersion.GuiBuildNumber
+$Global:GuiVersion = "3.1.0 (Build 9)"  # Format: CoreVersion.GuiBuildNumber
 
 # =============================================================================
 # CONFIGURATION AND CONSTANTS
@@ -2707,3 +2707,4 @@ try {
     Stop-Transcript -ErrorAction SilentlyContinue
 }
 catch {}
+
