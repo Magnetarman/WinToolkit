@@ -3,6 +3,7 @@ ConvertFrom-StringData -StringData @'
 language.code = id-ID
 language.name = Indonesian
 language.nativeName = Bahasa Indonesia
+language.aiTranslated = true
 menu.main = Menu utama
 menu.changeLanguage = Ubah bahasa
 menu.language = Bahasa

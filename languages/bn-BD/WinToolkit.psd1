@@ -3,6 +3,7 @@ ConvertFrom-StringData -StringData @'
 language.code = bn-BD
 language.name = Bengali
 language.nativeName = বাংলা
+language.aiTranslated = true
 menu.main = প্রধান মেনু
 menu.changeLanguage = ভাষা পরিবর্তন করুন
 menu.language = ভাষা

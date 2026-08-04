@@ -3,6 +3,7 @@ ConvertFrom-StringData -StringData @'
 language.code = it-IT
 language.name = Italian
 language.nativeName = Italiano
+language.aiTranslated = false
 menu.main = Menu Principale
 menu.changeLanguage = Cambia lingua
 menu.language = Lingua
