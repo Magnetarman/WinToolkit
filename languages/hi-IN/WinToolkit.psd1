@@ -1,4 +1,4 @@
-﻿# culture="hi-IN"
+# culture="hi-IN"
 ConvertFrom-StringData -StringData @'
 language.code = hi-IN
 language.name = Hindi
