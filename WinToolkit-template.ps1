@@ -1783,7 +1783,7 @@ function Read-ValidatedChoice {
 
     $currentInput = if ($PSBoundParameters.ContainsKey('RawInput')) { $RawInput } else { $null }
     while ($true) {
-        $input = if ($null -ne $currentInput) {
+        $userInput = if ($null -ne $currentInput) {
             $val = $currentInput; $currentInput = $null; $val
         }
         else {
@@ -1791,7 +1791,7 @@ function Read-ValidatedChoice {
             Microsoft.PowerShell.Utility\Read-Host
         }
 
-        if ([string]::IsNullOrWhiteSpace($input)) {
+        if ([string]::IsNullOrWhiteSpace($userInput)) {
             Write-StyledMessage -Type Warning -Text (Get-Loc 'uiText.emptyInputTryAgain')
             continue
         }
