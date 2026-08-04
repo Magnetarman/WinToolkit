@@ -12,7 +12,7 @@
 
 #Requires -Version 7.0
 
-# 1. Flag per dire al Core di NON mostrare il menu (CRITICO)
+# 1. Flag to tell the Core NOT to show the menu (CRITICAL)
 $Global:GuiSessionActive = $true
 
 # =============================================================================
@@ -36,7 +36,7 @@ $emojiMappings = @{
     "ToolIcon"                 = "🛠️"
     "SendErrorLogsImage"       = "📡"
 
-    # Funzioni Disponibili - Categorie
+    # Available Functions - Categories
     "CategorySystem"           = "⚙️"
     "CategoryMaintenance"      = "🔧"
     "CategoryOptimization"     = "🚀"
@@ -44,7 +44,7 @@ $emojiMappings = @{
     "CategoryBackup"           = "💾"
     "CategoryTweaks"           = "⚡"
 
-    # Script Icons specifici
+    # Script-specific Icons
     "ScriptPowerShell"         = "💻"
     "ScriptWinget"             = "📦"
     "ScriptCleaner"            = "🧹"
@@ -76,7 +76,7 @@ $emojiMappings = @{
     # Play Icon for Execute Button
     "ExecutePlayImage"         = "▶️"
 
-    # Output e Log
+    # Output and Log
     "OutputLogImage"           = "📋"
 
     # Execute Button
@@ -134,7 +134,7 @@ $Global:LastLogParagraphRef = $null
 # CORE INTEGRATION CONFIGURATION
 # =============================================================================
 
-# Configurazione per il caricamento dinamico del Core Script
+# Configuration for dynamic Core Script loading
 $Global:CoreConfig = @{
     RemoteUrl         = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
     LocalCachePath    = "$env:LOCALAPPDATA\WinToolkit\cache\WinToolkit_Core.ps1"
@@ -143,7 +143,7 @@ $Global:CoreConfig = @{
     RequiredFunctions = @('Get-SystemInfo', 'Write-StyledMessage', 'Show-Header', 'Initialize-ToolLogging')
 }
 
-# Variabili per il Core Script caricato
+# Variables for the loaded Core Script
 $Global:CoreScriptContent = $null
 $Global:CoreScriptVersion = "Unknown"
 $Global:CoreScriptLoaded = $false
@@ -356,7 +356,7 @@ function Initialize-CoreScript {
         Implements remote vs local version comparison to optimize downloads.
 
     .OUTPUTS
-        Boolean - True se Core caricato con successo, False altrimenti
+        Boolean - True if Core loaded successfully, False otherwise
     #>
 
     [CmdletBinding()]
@@ -403,12 +403,12 @@ function Initialize-CoreScript {
             }
         }
 
-        # 2. Recupera la versione del Core Script remoto
+        # 2. Retrieve the remote Core Script version
         $remoteCoreNumericVersion = [version]"0.0.0"
         $remoteCoreFullVersion = "Unknown"
         Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.remoteCoreScriptVersionRecovery') -GuiColor "#00CED1"
         try {
-            # Usa Invoke-RestMethod per ottenere il contenuto completo per un parsing robusto
+            # Use Invoke-RestMethod to get the full content for robust parsing
             $remoteRawContent = Invoke-RestMethod -Uri $Global:CoreConfig.RemoteUrl -UseBasicParsing -ErrorAction Stop
             if ($remoteRawContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                 $remoteCoreFullVersion = $matches[1]
@@ -428,7 +428,7 @@ function Initialize-CoreScript {
             Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.failedToGetRemoteVersion0AForcedDownloadOrFallbackMayBeRequired' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
         }
 
-        # 3. Determina se è necessario scaricare il Core Script
+        # 3. Determine if the Core Script needs to be downloaded
         $shouldDownload = $false
         $cacheExists = Test-Path $Global:CoreConfig.LocalCachePath
         $cacheExpired = $false
@@ -474,7 +474,7 @@ function Initialize-CoreScript {
                 Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.coreScriptDownloadedSuccessfully') -GuiColor "#00FF00"
                 Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.cached0' -Args @($($Global:CoreConfig.LocalCachePath))) -GuiColor "#00CED1"
 
-                # Estrai versione dal Core appena scaricato (stringa completa per display)
+                # Extract version from the just-downloaded Core (full string for display)
                 if ($coreContent -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
                     $Global:CoreScriptVersion = $matches[1]
                     Write-UnifiedLog -Type 'Success' -Message (Get-Loc 'uiText.coreVersionDownloaded0' -Args @($Global:CoreScriptVersion)) -GuiColor "#00FF00"
@@ -561,7 +561,7 @@ function Get-EmojiIconPath {
     }
 }
 
-# Funzione helper per caricare icona con fallback a emoji
+# Helper function to load icon with emoji fallback
 function Get-IconWithFallback {
     param(
         [string]$EmojiCharacter,
@@ -570,12 +570,12 @@ function Get-IconWithFallback {
 
     $iconPath = Get-EmojiIconPath -EmojiCharacter $EmojiCharacter
 
-    # Se il file esiste localmente, restituisci il percorso
+    # If the file exists locally, return the path
     if ($iconPath -and (Test-Path $iconPath)) {
         return $iconPath
     }
 
-    # Altrimenti restituisci null per indicare di usare l'emoji come fallback
+    # Otherwise return null to indicate using the emoji as fallback
     return $null
 }
 
@@ -639,7 +639,7 @@ function Test-EmojiIcons {
 function Get-AllCheckBoxes {
     <#
     .SYNOPSIS
-        Funzione helper per trovare ricorsivamente tutti i CheckBox in un contenitore.
+        Helper function to recursively find all CheckBoxes in a container.
     #>
     param([System.Windows.Controls.Panel]$Container)
 
@@ -673,12 +673,12 @@ function Send-ErrorLogs {
         # Search for the most recent Core logs in the AppData directory
         $coreLogDir = "$env:LOCALAPPDATA\WinToolkit\logs"
         if (Test-Path $coreLogDir) {
-            # Seleziona gli ultimi 3 log del Core (escludendo quello della GUI se presente due volte)
+            # Select the latest 3 Core logs (excluding the GUI one if present twice)
             $coreTranscripts = Get-ChildItem -Path $coreLogDir -Filter "*.log" -ErrorAction SilentlyContinue |
             Sort-Object -Property LastWriteTime -Descending | Select-Object -First 3
             $recentLogFiles += $coreTranscripts.FullName | Where-Object { $_ -ne $mainLog }
         }
-        $recentLogFiles = $recentLogFiles | Select-Object -Unique # Rimuovi duplicati
+        $recentLogFiles = $recentLogFiles | Select-Object -Unique # Remove duplicates
 
         if (-not $recentLogFiles) {
             Write-UnifiedLog -Type 'Warning' -Message (Get-Loc 'uiText.noGuiOrCoreLogFilesFoundForReporting') -GuiColor "#FFA500"
@@ -878,8 +878,8 @@ if (-not $coreLoaded) {
 try {
     Write-UnifiedLog -Type 'Info' -Message (Get-Loc 'uiText.loadingCoreFunctionsIntoMemoryGlobalScope') -GuiColor "#00CED1"
 
-    # Dot-sourcing nel scope corrente (Script/Global)
-    # Usa il path locale assicurato da Initialize-CoreScript
+    # Dot-sourcing in the current scope (Script/Global)
+    # Uses the local path ensured by Initialize-CoreScript
     . $Global:CoreConfig.LocalCachePath
 
     # Recupera $menuStructure dopo il caricamento
@@ -1206,7 +1206,7 @@ $xaml = @"
                 <Border Grid.Column="1" Width="3" Background="{StaticResource SeparatorGreen}"
                         VerticalAlignment="Stretch" Margin="15,5"/>
 
-                <!-- Blocco 2: Script Status (Widget centrale) - Layout semplificato senza LED -->
+                <!-- Block 2: Script Status (central widget) - Simplified layout without LEDs -->
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Center"
                             Margin="20,0" MinWidth="200">
 
