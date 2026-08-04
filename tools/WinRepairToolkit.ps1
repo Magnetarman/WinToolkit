@@ -10,7 +10,7 @@ function WinRepairToolkit {
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitSession -ToolName "WinRepairToolkit" -SubTitle (Get-Loc 'script.WinRepairToolkit')
+    Start-ToolkitSession -ToolName "WinRepairToolkit" -SubTitle (Get-SourceTextLoc 'script.WinRepairToolkit')
 
     $script:CurrentAttempt = 0
 
@@ -28,8 +28,8 @@ function WinRepairToolkit {
     function Invoke-RepairCommand {
         param([hashtable]$Config, [int]$Step, [int]$Total)
 
-        $displayName = Get-Loc $Config.NameKey
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.01Starting2' -Args @($Step, $Total, $displayName))
+        $displayName = Get-SourceTextLoc $Config.NameKey
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.01Starting2' -Args @($Step, $Total, $displayName))
         $isChkdsk = ($Config.Tool -ieq 'chkdsk')
         $outFile = [System.IO.Path]::GetTempFileName()
         $errFile = [System.IO.Path]::GetTempFileName()
@@ -48,7 +48,7 @@ function WinRepairToolkit {
             $spinnerUpdateInterval = if ($Config.Name -eq 'Windows Image Recovery') { 900 } else { 600 }
 
             if ($Config.Tool -ieq 'DISM' -and $Config.Args -contains '/StartComponentCleanup') {
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.cleaningWindowsUpdateStatusBeforeStartingCleanup')
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.cleaningWindowsUpdateStatusBeforeStartingCleanup')
                 Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
                 Start-Sleep 1
                 Remove-ItemSafely -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\SessionsPending' -Recurse
@@ -76,20 +76,20 @@ function WinRepairToolkit {
             $results = ($spinnerResult.StdOut + "`n" + $spinnerResult.StdErr) -split "`n"
 
             if ($isChkdsk -and ($Config.Args -contains '/f' -or $Config.Args -contains '/r') -and ($results -join ' ').ToLower() -match 'schedule|next time.*restart|volume.*in use') {
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.0CheckScheduledAtNextReboot' -Args @($displayName))
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.0CheckScheduledAtNextReboot' -Args @($displayName))
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
             $isTimeout = ($spinnerResult.TimedOut -eq $true) -or ($null -eq $exitCode) -or ($exitCode -eq -1)
 
             if ($isChkdsk -and $exitCode -eq 3) {
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.0CheckScheduledAtNextReboot' -Args @($displayName))
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.0CheckScheduledAtNextReboot' -Args @($displayName))
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
             if (($Config.Tool -ieq 'DISM') -and ($results -match '0x800f0806')) {
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.0Error0x800f0806PendingOperationsThisIsNotACriticalError' -Args @($displayName))
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.rebootTheSystemToCompletePendingOperations')
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.0Error0x800f0806PendingOperationsThisIsNotACriticalError' -Args @($displayName))
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.rebootTheSystemToCompletePendingOperations')
                 return @{ Success = $true; ErrorCount = 0 }
             }
 
@@ -107,7 +107,7 @@ function WinRepairToolkit {
             $errors = $warnings = @()
             if (-not $isSuccess) {
                 if ($isTimeout) {
-                    $errors += Get-Loc 'uiText.repairOperationTimedOut'
+                    $errors += Get-SourceTextLoc 'uiText.repairOperationTimedOut'
                 }
 
                 foreach ($line in ($results | Where-Object { $_ -and ![string]::IsNullOrWhiteSpace($_.Trim()) })) {
@@ -137,14 +137,14 @@ function WinRepairToolkit {
             $success = $isSuccess -and ($errors.Count -eq 0)
 
             if ($isTimeout) {
-                $message = Get-Loc 'toolText.extra.0NotCompletedAbortedDueToTimeout' -Args @($displayName)
+                $message = Get-SourceTextLoc 'toolText.extra.0NotCompletedAbortedDueToTimeout' -Args @($displayName)
             }
             else {
                 $message = if ($success) {
-                    Get-Loc 'toolText.extra3.0CompletedSuccessfully' -Args @($displayName)
+                    Get-SourceTextLoc 'toolText.extra3.0CompletedSuccessfully' -Args @($displayName)
                 }
                 else {
-                    Get-Loc 'toolText.extra3.0CompletedWith1Errors' -Args @($displayName, $errors.Count)
+                    Get-SourceTextLoc 'toolText.extra3.0CompletedWith1Errors' -Args @($displayName, $errors.Count)
                 }
             }
             Write-StyledMessage -Type 'Success' -Text $message
@@ -159,11 +159,11 @@ function WinRepairToolkit {
                         $destLogPath = Join-Path $AppConfig.Paths.Logs $destLogName
                         Copy-Item -Path $cbsLogPath -Destination $destLogPath -Force -ErrorAction SilentlyContinue
                         if (Test-Path $destLogPath) {
-                            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.sfcLogSavedIn0' -Args @($destLogName))
+                            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.sfcLogSavedIn0' -Args @($destLogName))
                         }
                     }
                     catch {
-                        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.failedToExportSfcCbsLogFileInUse')
+                        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.failedToExportSfcCbsLogFileInUse')
                     }
                 }
             }
@@ -171,7 +171,7 @@ function WinRepairToolkit {
             return @{ Success = $success; ErrorCount = $errors.Count }
         }
         catch {
-            Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit" -Message (Get-Loc 'toolText.extra.errorInInvokeRepaircommand0' -Args @($($Config.Tool)))
+            Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit" -Message (Get-SourceTextLoc 'toolText.extra.errorInInvokeRepaircommand0' -Args @($($Config.Tool)))
             return @{ Success = $false; ErrorCount = 1 }
         }
     }
@@ -180,7 +180,7 @@ function WinRepairToolkit {
         param([int]$Attempt = 1)
 
         $script:CurrentAttempt = $Attempt
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.attempting01SystemRepair' -Args @($Attempt, $MaxRetryAttempts))
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.attempting01SystemRepair' -Args @($Attempt, $MaxRetryAttempts))
 
         $totalErrors = $successCount = 0
         for ($toolIndex = 0; $toolIndex -lt $RepairTools.Count; $toolIndex++) {
@@ -193,7 +193,7 @@ function WinRepairToolkit {
         }
 
         if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.0ErrorsDetectedNewAttempt' -Args @($totalErrors))
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.0ErrorsDetectedNewAttempt' -Args @($totalErrors))
             Start-Sleep 3
             return Start-RepairCycle -Attempt ($Attempt + 1)
         }
@@ -201,25 +201,25 @@ function WinRepairToolkit {
     }
 
     function Start-DeepDiskRepair {
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.startDeepRepairOfDiskCOnNextReboot')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.startDeepRepairOfDiskCOnNextReboot')
         try {
             $fsutilResult = Invoke-ExternalCommandWithLog -Command 'fsutil.exe' -Arguments @('dirty', 'set', 'C:') -TimeoutSeconds 300 -LogContextKey 'DeepDiskRepair-Fsutil'
             if (-not $fsutilResult.Success) {
-                Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.unableToMarkDiskDirtyFsutil')
+                Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.unableToMarkDiskDirtyFsutil')
                 return $false
             }
 
             $chkdskResult = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -TimeoutSeconds 7200 -LogContextKey 'DeepDiskRepair-Chkdsk'
             if (-not $chkdskResult.Success) {
-                Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.errorSchedulingChkdskForDeepRepair')
+                Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorSchedulingChkdskForDeepRepair')
                 return $false
             }
 
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.chkdskCommandSentRebootToPerformDeepDiskRepair')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.chkdskCommandSentRebootToPerformDeepDiskRepair')
             return $true
         }
         catch {
-            Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit" -Message (Get-Loc 'uiText.exceptionInStartDeepdiskrepair')
+            Write-ToolkitError -Record $_ -ToolName "WinRepairToolkit" -Message (Get-SourceTextLoc 'uiText.exceptionInStartDeepdiskrepair')
             return $false
         }
     }
@@ -243,12 +243,12 @@ function WinRepairToolkit {
     }
 
     if (Test-PendingOperations) {
-        Write-ToolkitLog -Level WARNING -Message (Get-Loc 'toolText.pendingOperationsRequiringRebootDetectedDismCouldFail') -Context @{
+        Write-ToolkitLog -Level WARNING -Message (Get-SourceTextLoc 'toolText.pendingOperationsRequiringRebootDetectedDismCouldFail') -Context @{
             Tool = 'WinRepairToolkit'
             Step = 'PreExecutionCheck'
         }
-        Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.pendingOperationsRequiringRebootDetectedDismCouldFail2')
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.restartRecommendedBeforePerformingRepairs')
+        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.pendingOperationsRequiringRebootDetectedDismCouldFail2')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.restartRecommendedBeforePerformingRepairs')
     }
 
     try {
@@ -256,27 +256,27 @@ function WinRepairToolkit {
 
         $deepRepairScheduled = $false
         if ($repairResult.TotalErrors -gt 0) {
-            Write-ToolkitLog -Level WARNING -Message (Get-Loc 'toolText.persistentErrorsDetectedStartDeepRepair') -Context @{
+            Write-ToolkitLog -Level WARNING -Message (Get-SourceTextLoc 'toolText.persistentErrorsDetectedStartDeepRepair') -Context @{
                 Tool = 'WinRepairToolkit'
                 Step = 'RepairCycle'
                 TotalErrors = $repairResult.TotalErrors
             }
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.persistentErrorsDetectedStartDeepRepair')
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.persistentErrorsDetectedStartDeepRepair')
             $deepRepairScheduled = Start-DeepDiskRepair
         }
         else {
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.systemHealthyDeepRepairNotNecessary')
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.systemHealthyDeepRepairNotNecessary')
         }
 
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.unlimitedPasswordExpirationSetting')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.unlimitedPasswordExpirationSetting')
         $null = Invoke-ExternalCommandWithLog -Command 'net' -Arguments @('accounts', '/maxpwage:unlimited') -TimeoutSeconds 30 -LogContextKey 'Repair-NetAccounts'
 
-        if ($deepRepairScheduled) { Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.rebootRequiredForDeepRepair') }
+        if ($deepRepairScheduled) { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.rebootRequiredForDeepRepair') }
 
         if ($SuppressIndividualReboot) {
             if ($deepRepairScheduled) {
                 $Global:NeedsFinalReboot = $true
-                Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.individualRestartSuppressedAFinalRebootWillBeHandled')
+                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.individualRestartSuppressedAFinalRebootWillBeHandled')
             }
         }
         else {
