@@ -272,6 +272,7 @@ if ([string]::IsNullOrWhiteSpace($detectedLanguage)) {
     $detectedLanguage = 'en-US'
 }
 Set-ToolkitLanguage -LanguageCode $detectedLanguage
+$Global:ToolkitLanguageDirectory = Get-ToolkitLanguageDirectory
 
 function Write-UnifiedLog {
     param(
@@ -2125,7 +2126,7 @@ function Start-NextScriptJob {
 
     # Define the script block to be executed within the job's isolated runspace
     $jobScriptBlock = {
-        param($CorePath, $CmdName, $MainLogDir)
+        param($CorePath, $CmdName, $MainLogDir, $LanguageDir)
 
         # Set ErrorActionPreference for the job's runspace
         $ErrorActionPreference = 'Continue'
@@ -2158,6 +2159,13 @@ function Start-NextScriptJob {
             Write-Error (Get-Loc 'uiText.failedToDotSourceCoreScriptWithinJob0' -Args @($($_.Exception.Message)))
             $Global:NeedsFinalReboot = $false
             return @{ Success = $false; RebootRequired = $Global:NeedsFinalReboot; Error = $_.Exception.Message }
+        }
+
+        # Override Get-ToolkitLanguageDirectory so the core script can find language files
+        if ($LanguageDir -and (Test-Path $LanguageDir)) {
+            function Get-ToolkitLanguageDirectory {
+                return $LanguageDir
+            }
         }
 
         # --- FIX: Suppress Verbose and Debug output streams within the job ---
@@ -2409,7 +2417,7 @@ function Start-NextScriptJob {
     }
 
     try {
-        $Global:ScriptJob = Start-Job -ScriptBlock $jobScriptBlock -ArgumentList $coreScriptPath, $scriptName, $mainLogDirectory -Name "WinToolkit_ScriptJob_$scriptName" -ErrorAction Stop
+        $Global:ScriptJob = Start-Job -ScriptBlock $jobScriptBlock -ArgumentList $coreScriptPath, $scriptName, $mainLogDirectory, $Global:ToolkitLanguageDirectory -Name "WinToolkit_ScriptJob_$scriptName" -ErrorAction Stop
         $Global:LastJobOutputCount = 0 # Reset output counter for new job
         Write-UnifiedLog -Type 'Info' -Message ("   " + (Get-Loc 'uiText.powershellJob0StartedId1' -Args @($scriptName, $($Global:ScriptJob.Id)))) -GuiColor "#00CED1"
 
