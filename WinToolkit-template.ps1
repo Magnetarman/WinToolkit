@@ -1568,9 +1568,9 @@ function Reset-Winget {
         }
         catch {}
         if ($wingetFolderPath) {
-            _Set-PathPermissions -FolderPath $wingetFolderPath
-            _Add-ToEnvironmentPath -PathToAdd $wingetFolderPath -Scope 'System'
-            _Add-ToEnvironmentPath -PathToAdd '%LOCALAPPDATA%\Microsoft\WindowsApps' -Scope 'User'
+            Set-PathPermissions -FolderPath $wingetFolderPath
+            Add-ToEnvironmentPath -PathToAdd $wingetFolderPath -Scope 'System'
+            Add-ToEnvironmentPath -PathToAdd '%LOCALAPPDATA%\Microsoft\WindowsApps' -Scope 'User'
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.pathAndWingetPermissionsUpdated2')
         }
     }
@@ -1694,7 +1694,7 @@ function Reset-Winget {
         }
     }
 
-    function _Test-WingetDeepValidation {
+    function Test-WingetDeepValidation {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.wingetDeepValidationConnectivityDatabaseIntegrity')
         try {
             $wingetExe = Get-WingetExecutable
@@ -1731,8 +1731,8 @@ function Reset-Winget {
     # ── Orchestrazione principale ─────────────────────────────────────────────
 
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingWingetAdvancedRepair')
-    if (-not (_Test-WingetCompatibility)) { return $false }
-    if (-not $Force -and (_Test-WingetFunctionality)) {
+    if (-not (Test-WingetCompatibility)) { return $false }
+    if (-not $Force -and (Test-WingetFunctionality)) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetAlreadyOperationalNoRepairsNecessary')
         return $true
     }
@@ -1743,7 +1743,7 @@ function Reset-Winget {
         # Fase 1: Ripristino Core
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.phase1CoreRecoveryVcAppxDependenciesMsixbundle')
 
-        if (-not (_Test-VCRedistInstalled) -or $Force) {
+        if (-not (Test-VCRedistInstalled) -or $Force) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingVisualCRedistributable')
             $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
             $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
@@ -1755,7 +1755,7 @@ function Reset-Winget {
         }
 
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependenciesFromTheOfficialRepository2')
-        $depUrl = _Get-LatestAssetUrl -Match 'DesktopAppInstaller_Dependencies.zip'
+        $depUrl = Get-LatestAssetUrl -Match 'DesktopAppInstaller_Dependencies.zip'
         if ($depUrl) {
             $depZip = Join-Path $AppConfig.Paths.Temp "dependencies.zip"
             $depDir = Join-Path $AppConfig.Paths.Temp "deps"
@@ -1770,7 +1770,7 @@ function Reset-Winget {
         }
 
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingWingetMsixbundleWithDependencies')
-        $bundleUrl = _Get-LatestAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
+        $bundleUrl = Get-LatestAssetUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
         if ($bundleUrl) {
             $bundleFile = Join-Path $AppConfig.Paths.Temp "winget.msixbundle"
             Invoke-WebRequest -Uri $bundleUrl -OutFile $bundleFile -UseBasicParsing
@@ -1782,7 +1782,7 @@ function Reset-Winget {
         Register-AppxManifest
         Update-EnvironmentPath
 
-        if (_Test-WingetFunctionality) {
+        if (Test-WingetFunctionality) {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.phase1CompletedOperationalWinget')
         }
         else {
@@ -1921,7 +1921,7 @@ function WinOSCheck {
     elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemWin10') }
     elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.windows81PartialCompatibility') }
     else {
-        Write-StyledMessage -Type 'Error' -Text "$(Center-Text ('🤣 ' + (Get-SourceTextLoc 'sourceText.criticalError').ToUpperInvariant() + ' 🤣') 65)"
+        Write-StyledMessage -Type 'Error' -Text "$(Get-CenteredText ('🤣 ' + (Get-SourceTextLoc 'sourceText.criticalError').ToUpperInvariant() + ' 🤣') 65)"
         Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'uiText.doYouReallyThinkThisScriptCanDoAnythingForThisVersion')
         Write-Host ("  " + (Get-SourceTextLoc 'uiText.doYouWantToTakeARiskYN')) -ForegroundColor Yellow
         if ((Read-Host) -notmatch '^[Yy]$') { exit }
@@ -1981,7 +1981,7 @@ function Test-WindowsUpdateStatus {
             Write-Host ""
             Write-Host ('═' * ($width - 1)) -ForegroundColor Yellow
             Write-Host ""
-            Write-Host (Center-Text (Get-SourceTextLoc 'uiText.importantWarning')) -ForegroundColor Yellow
+            Write-Host (Get-CenteredText (Get-SourceTextLoc 'uiText.importantWarning')) -ForegroundColor Yellow
             Write-Host ""
             Write-Host (" " + (Get-SourceTextLoc 'uiText.pendingSystemUpdatesHaveBeenDetected')) -ForegroundColor Yellow
             if ($pendingReboot) { Write-Host ("  " + (Get-SourceTextLoc 'uiText.systemRestartRequiredToCompleteUpdates')) -ForegroundColor Yellow }
@@ -1990,7 +1990,7 @@ function Test-WindowsUpdateStatus {
             Write-Host (" " + (Get-SourceTextLoc 'uiText.thisMayCauseMalfunctionsErrorsOrBehavior')) -ForegroundColor Yellow
             Write-Host (" " + (Get-SourceTextLoc 'uiText.unexpectedBehaviorInSomeOrAllWintoolkitFeatures')) -ForegroundColor Yellow
             Write-Host ""
-            Write-Host (Center-Text (Get-SourceTextLoc 'uiText.proceedWithCaution')) -ForegroundColor Red
+            Write-Host (Get-CenteredText (Get-SourceTextLoc 'uiText.proceedWithCaution')) -ForegroundColor Red
             Write-Host ""
             Write-Host (" " + (Get-SourceTextLoc 'uiText.weStronglyRecommendThatYouCompleteAllOngoingUpdates')) -ForegroundColor Yellow
             Write-Host (" " + (Get-SourceTextLoc 'uiText.rebootYourSystemAndThenRestartWintoolkitBeforeContinuing')) -ForegroundColor Yellow
