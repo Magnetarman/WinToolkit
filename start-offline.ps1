@@ -321,9 +321,8 @@ function Initialize-OfflineResources {
 }
 
 # --- Main execution for Start-Offline.ps1 ---
-$PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$scriptRoot = $PSScriptRoot
-$OfflineResourcesDir = Join-Path $PSScriptRoot "start"
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$OfflineResourcesDir = Join-Path $scriptRoot "start"
 $mainScriptPath = Join-Path $OfflineResourcesDir "start.ps1"
 
 $Host.UI.RawUI.WindowTitle = "Toolkit Starter Offline by MagnetarMan"
@@ -332,7 +331,7 @@ Clear-Host
 Show-Host
 Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.startingOfflineEnvironmentPreparation')
 
-if (Prepare-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
+if (Initialize-OfflineResources -OfflineResourcesDir $OfflineResourcesDir) {
     Write-StyledMessage -type 'Info' -text (Get-SourceTextLoc 'uiText.checkForMainScriptStartPs1In0' -Args @($OfflineResourcesDir))
     if (-not (Test-Path $mainScriptPath)) {
         Write-StyledMessage -type 'Error' -text (Get-SourceTextLoc 'uiText.errorModifiedScriptStartPs1IsMissingFrom0' -Args @($OfflineResourcesDir))
