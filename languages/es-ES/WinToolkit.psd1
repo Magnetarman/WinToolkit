@@ -3,6 +3,7 @@ ConvertFrom-StringData -StringData @'
 language.code = es-ES
 language.name = Spanish
 language.nativeName = Español
+language.aiTranslated = true
 menu.main = Menú principal
 menu.changeLanguage = Cambiar idioma
 menu.language = Idioma

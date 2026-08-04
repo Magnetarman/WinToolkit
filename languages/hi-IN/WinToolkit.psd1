@@ -3,6 +3,7 @@ ConvertFrom-StringData -StringData @'
 language.code = hi-IN
 language.name = Hindi
 language.nativeName = हिन्दी
+language.aiTranslated = true
 menu.main = मुख्य मेनू
 menu.changeLanguage = भाषा बदलें
 menu.language = भाषा

@@ -3,6 +3,7 @@ ConvertFrom-StringData -StringData @'
 language.code = zh-CN
 language.name = Chinese Simplified
 language.nativeName = 简体中文
+language.aiTranslated = true
 menu.main = 主菜单
 menu.changeLanguage = 更改语言
 menu.language = 语言

@@ -3,6 +3,7 @@ ConvertFrom-StringData -StringData @'
 language.code = ru-RU
 language.name = Russian
 language.nativeName = Русский
+language.aiTranslated = true
 menu.main = Главное меню
 menu.changeLanguage = Изменить язык
 menu.language = Язык

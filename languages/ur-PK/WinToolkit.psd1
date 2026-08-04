@@ -3,6 +3,7 @@ ConvertFrom-StringData -StringData @'
 language.code = ur-PK
 language.name = Urdu
 language.nativeName = اردو
+language.aiTranslated = true
 menu.main = مرکزی مینو
 menu.changeLanguage = زبان تبدیل کریں
 menu.language = زبان

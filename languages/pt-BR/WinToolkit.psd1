@@ -3,6 +3,7 @@ ConvertFrom-StringData -StringData @'
 language.code = pt-BR
 language.name = Portuguese
 language.nativeName = Português
+language.aiTranslated = true
 menu.main = Menu principal
 menu.changeLanguage = Alterar idioma
 menu.language = Idioma

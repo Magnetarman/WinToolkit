@@ -3,6 +3,7 @@ ConvertFrom-StringData -StringData @'
 language.code = ar-SA
 language.name = Arabic
 language.nativeName = العربية
+language.aiTranslated = true
 menu.main = القائمة الرئيسية
 menu.changeLanguage = تغيير اللغة
 menu.language = اللغة
