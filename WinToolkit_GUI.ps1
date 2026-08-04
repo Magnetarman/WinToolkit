@@ -1587,7 +1587,7 @@ function Set-GuiLocalization {
 }
 
 Initialize-LanguageComboBox
-Apply-GuiLocalization
+Set-GuiLocalization
 
 if ($LanguageComboBox) {
     $LanguageComboBox.Add_SelectionChanged({
@@ -1595,8 +1595,8 @@ if ($LanguageComboBox) {
             $selectedLanguage = [string]$LanguageComboBox.SelectedItem.Tag
             if ([string]::IsNullOrWhiteSpace($selectedLanguage) -or $selectedLanguage -eq $Global:ToolkitLanguage) { return }
 
-            Set-ToolkitLanguage -LanguageCode $selectedLanguage
-            Apply-GuiLocalization
+Set-ToolkitLanguage -LanguageCode $selectedLanguage
+Set-GuiLocalization
             Update-SystemInformationPanel
             Update-ActionsPanel
         })
