@@ -1,4 +1,4 @@
-﻿# Compilation script for WinToolkit (Enterprise-Grade)
+# Compilation script for WinToolkit (Enterprise-Grade)
 # Handles module aggregation, structured logging and code minification.
 
 [CmdletBinding()]
