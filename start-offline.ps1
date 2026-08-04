@@ -101,9 +101,10 @@ function Write-StyledMessage {
 function Show-Host {
     <#
     .SYNOPSIS
-        Mostra informazioni sul sistema host.
+        Displays host system information.
+
     .DESCRIPTION
-        Visualizza informazioni dettagliate sul sistema operativo, hardware e configurazione corrente.
+        Shows detailed information about the operating system, hardware and current configuration.
     #>
 
     Clear-Host
