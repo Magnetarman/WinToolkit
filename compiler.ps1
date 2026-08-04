@@ -222,7 +222,7 @@ foreach ($file in $toolFiles) {
             }
         }
         
-        # Iniezione del codice processato
+        # Injection of processed code
         if ($functionFound -and $startIndex -ge 0 -and $endIndex -ge 0) {
             $newLines = @()
             if ($startIndex -gt 0) { $newLines += $templateLines[0..($startIndex - 1)] }
