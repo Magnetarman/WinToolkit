@@ -11,15 +11,15 @@ function WinReinstallStore {
         [switch]$SuppressIndividualReboot
     )
 
-    Start-ToolkitSession -ToolName "WinReinstallStore" -SubTitle (Get-Loc 'script.WinReinstallStore')
+    Start-ToolkitSession -ToolName "WinReinstallStore" -SubTitle (Get-SourceTextLoc 'script.WinReinstallStore')
 
     $savedProgressPref = $ProgressPreference
     $ProgressPreference = 'SilentlyContinue'
 
     function Install-MicrosoftStore {
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.reinstallingMicrosoftStore')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.reinstallingMicrosoftStore')
 
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.restartMicrosoftStoreServices')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.restartMicrosoftStoreServices')
         @('AppXSvc', 'ClipSVC', 'WSService') | ForEach-Object {
             try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch { }
         }
@@ -37,7 +37,7 @@ function WinReinstallStore {
                 Action = {
                     if (-not (Test-Path $wingetExe -ErrorAction SilentlyContinue)) { return @{ ExitCode = -1 } }
                     $processResult = Invoke-WithConsoleRedirection -Action {
-                        Invoke-WithSpinner -Activity (Get-Loc 'toolText.extra.storeInstallationViaWinget') -Command $wingetExe -Arguments @('install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity') -TimeoutSeconds 300 -LogContextKey "Store-Winget-Install"
+                        Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.storeInstallationViaWinget') -Command $wingetExe -Arguments @('install', '9WZDNCRFJBMP', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity') -TimeoutSeconds 300 -LogContextKey "Store-Winget-Install"
                     }
                     return @{ ExitCode = $processResult.ExitCode }
                 }
@@ -49,7 +49,7 @@ function WinReinstallStore {
                     $manifest = if ($store) { Join-Path $store.InstallLocation 'AppxManifest.xml' } else { $null }
                     if (-not $manifest -or -not (Test-Path $manifest)) { return @{ ExitCode = -1 } }
 
-                    $procResult = Invoke-WithSpinner -Activity (Get-Loc 'uiText.appxManifestStoreRegistration') -Process -Action {
+                    $procResult = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'uiText.appxManifestStoreRegistration') -Process -Action {
                         Start-AppxSilentProcess -AppxPath $manifest -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown'
                     } -TimeoutSeconds 120
 
@@ -60,7 +60,7 @@ function WinReinstallStore {
                 Name   = 'DISM Capability'
                 Action = {
                     $result = Invoke-WithConsoleRedirection -Action {
-                        Invoke-WithSpinner -Activity (Get-Loc 'uiText.addingStoreViaDism') -Command 'DISM' -Arguments @('/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0') -TimeoutSeconds 300 -LogContextKey "Store-DISM-Add"
+                        Invoke-WithSpinner -Activity (Get-SourceTextLoc 'uiText.addingStoreViaDism') -Command 'DISM' -Arguments @('/Online', '/Add-Capability', '/CapabilityName:Microsoft.WindowsStore~~~~0.0.1.0') -TimeoutSeconds 300 -LogContextKey "Store-DISM-Add"
                     }
                     return @{ ExitCode = $result.ExitCode }
                 }
@@ -69,39 +69,39 @@ function WinReinstallStore {
 
         $success = $false
         foreach ($method in $installMethods) {
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.attemptedVia0' -Args @($($method.Name)))
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.attemptedVia0' -Args @($($method.Name)))
             try {
                 $result = $method.Action.Invoke()
                 Clear-ProgressLine
                 [Console]::Out.Flush()
                 $isSuccess = $result -and ($result.ExitCode -in @(0, 3010, 1638, -1978335189))
                 if ($isSuccess) {
-                    Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.microsoftStoreReinstalledVia0' -Args @($($method.Name)))
+                    Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.microsoftStoreReinstalledVia0' -Args @($($method.Name)))
                     $success = $true
                     break
                 }
                 else {
-                    Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.method0FailedExitcode1' -Args @($($method.Name), $(if ($result.ExitCode) { $result.ExitCode } else { 'N/A' })))
+                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.method0FailedExitcode1' -Args @($($method.Name), $(if ($result.ExitCode) { $result.ExitCode } else { 'N/A' })))
                 }
             }
             catch {
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.method0Failed1' -Args @($($method.Name), $($_.Exception.Message)))
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.method0Failed1' -Args @($($method.Name), $($_.Exception.Message)))
             }
         }
 
         if ($success) {
             $null = Invoke-WithConsoleRedirection -Action {
-                Invoke-WithSpinner -Activity (Get-Loc 'uiText.resetCacheMicrosoftStoreWsreset') -Command 'wsreset.exe' -TimeoutSeconds 120 -LogContextKey "Store-WSReset"
+                Invoke-WithSpinner -Activity (Get-SourceTextLoc 'uiText.resetCacheMicrosoftStoreWsreset') -Command 'wsreset.exe' -TimeoutSeconds 120 -LogContextKey "Store-WSReset"
             }
             Clear-ProgressLine
             [Console]::Out.Flush()
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.storeCacheReset')
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.storeCacheReset')
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.unableToReinstallMicrosoftStoreViaAutomaticMethods')
-            Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.emergencyAttemptViaAppxmanifest')
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.unableToReinstallMicrosoftStoreViaAutomaticMethods')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.emergencyAttemptViaAppxmanifest')
             try {
-                $null = Invoke-WithSpinner -Activity (Get-Loc 'toolText.extra.disasterRecoveryStore') -Process -Action {
+                $null = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.disasterRecoveryStore') -Process -Action {
                     $ProgressPreference = 'SilentlyContinue'
                     Get-AppxPackage -AllUsers Microsoft.WindowsStore | ForEach-Object {
                         Start-AppxSilentProcess -AppxPath "$($_.InstallLocation)\AppXManifest.xml" -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown'
@@ -109,11 +109,11 @@ function WinReinstallStore {
                 } -TimeoutSeconds 300
                 Clear-ProgressLine
                 [Console]::Out.Flush()
-                Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.microsoftStoreRestoredViaEmergencyMethod')
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.microsoftStoreRestoredViaEmergencyMethod')
                 $success = $true
             }
             catch {
-                Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.disasterRecoveryFailed0' -Args @($($_.Exception.Message)))
+                Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.disasterRecoveryFailed0' -Args @($($_.Exception.Message)))
             }
         }
 
@@ -121,23 +121,23 @@ function WinReinstallStore {
     }
 
     function Install-UniGetUI {
-        Write-StyledMessage -Type 'Info' -Text (Get-Loc 'toolText.unigetUiInstallation')
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.unigetUiInstallation')
 
         $wingetExe = Get-WingetExecutable
         if (-not (Test-Path $wingetExe -ErrorAction SilentlyContinue)) {
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.wingetNotAvailableUnigetUiRequiresWinget')
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.wingetNotAvailableUnigetUiRequiresWinget')
             return $false
         }
 
         try {
             # Disinstalla versioni precedenti (entrambi i vecchi ID)
             foreach ($oldId in @('MartiCliment.UniGetUI', 'Devolutions.UniGetUI')) {
-                $null = Invoke-WithSpinner -Activity (Get-Loc 'toolText.extra.uninstallation0' -Args @($oldId)) -Command $wingetExe -Arguments @('uninstall', '--exact', '--id', $oldId, '--silent', '--disable-interactivity') -TimeoutSeconds 120 -LogContextKey "Store-UniGet-Uninstall"
+                $null = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.uninstallation0' -Args @($oldId)) -Command $wingetExe -Arguments @('uninstall', '--exact', '--id', $oldId, '--silent', '--disable-interactivity') -TimeoutSeconds 120 -LogContextKey "Store-UniGet-Uninstall"
                 Clear-ProgressLine
                 [Console]::Out.Flush()
             }
 
-            $processResult = Invoke-WithSpinner -Activity (Get-Loc 'toolText.extra.unigetUiInstallation') -Command $wingetExe -Arguments @('install', '--exact', '--id', 'Devolutions.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force') -TimeoutSeconds 600 -LogContextKey "Store-UniGet-Install"
+            $processResult = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.unigetUiInstallation') -Command $wingetExe -Arguments @('install', '--exact', '--id', 'Devolutions.UniGetUI', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity', '--force') -TimeoutSeconds 600 -LogContextKey "Store-UniGet-Install"
 
             Clear-ProgressLine
             [Console]::Out.Flush()
@@ -145,14 +145,14 @@ function WinReinstallStore {
             $isSuccess = $processResult.ExitCode -in @(0, 3010, 1638, -1978335189)
 
             if ($isSuccess) {
-                Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.unigetUiInstalledSuccessfully')
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.unigetUiInstalledSuccessfully')
                 try {
                     # Rimuove avvio automatico da registro (tutti i nomi noti: vecchio WingetUI e nuovo UniGetUI)
                     $regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
                     foreach ($runName in @('WingetUI', 'UniGetUI', 'UniGet UI')) {
                         if (Get-ItemProperty -Path $regPath -Name $runName -ErrorAction SilentlyContinue) {
                             Remove-ItemProperty -Path $regPath -Name $runName -ErrorAction SilentlyContinue *>$null
-                            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.autostart0RemovedFromRegistry' -Args @($runName))
+                            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.autostart0RemovedFromRegistry' -Args @($runName))
                         }
                     }
                     # Rimuove collegamento dalla cartella Startup
@@ -161,7 +161,7 @@ function WinReinstallStore {
                         $lnkPath = Join-Path $startupFolder $lnkName
                         if (Test-Path $lnkPath) {
                             Remove-Item $lnkPath -Force -ErrorAction SilentlyContinue *>$null
-                            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.autostartLink0Removed' -Args @($lnkName))
+                            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.autostartLink0Removed' -Args @($lnkName))
                         }
                     }
                 }
@@ -169,12 +169,12 @@ function WinReinstallStore {
                 return $true
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.unigetUiInstallationFinishedWithCode0' -Args @($($processResult.ExitCode)))
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.unigetUiInstallationFinishedWithCode0' -Args @($($processResult.ExitCode)))
                 return $false
             }
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.errorInstallingUnigetUi0' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorInstallingUnigetUi0' -Args @($($_.Exception.Message)))
             return $false
         }
     }
@@ -277,7 +277,7 @@ function WinReinstallStore {
     }
 
     try {
-        Write-StyledMessage -Type 'Progress' -Text (Get-Loc 'toolText.startingStoreWingetReinstallation')
+        Write-StyledMessage -Type 'Progress' -Text (Get-SourceTextLoc 'toolText.startingStoreWingetReinstallation')
 
         $wingetResult = $false
 
@@ -286,42 +286,42 @@ function WinReinstallStore {
             $wingetResult = Invoke-WithConsoleRedirection -Action { Reset-Winget -Force }
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.unexpectedErrorDuringResetWinget0' -Args @($($_.Exception.Message)))
-            Write-ToolkitLog -Level ERROR -Message (Get-Loc 'toolText.resetWingetUnhandledException0' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.unexpectedErrorDuringResetWinget0' -Args @($($_.Exception.Message)))
+            Write-ToolkitLog -Level ERROR -Message (Get-SourceTextLoc 'toolText.resetWingetUnhandledException0' -Args @($($_.Exception.Message)))
         }
         finally {
             $ProgressPreference = $savedProgressPref
         }
 
         if ($wingetResult) {
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.wingetRestoredAndOperational')
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.wingetRestoredAndOperational')
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.wingetRestoreFailed')
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.wingetRestoreFailed')
         }
 
         $storeResult = Install-MicrosoftStore
         $unigetResult = Install-UniGetUI
 
         if ($storeResult) {
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.microsoftStoreSuccessfullyRestored')
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.microsoftStoreSuccessfullyRestored')
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text (Get-Loc 'toolText.microsoftStoreNotRestored')
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.microsoftStoreNotRestored')
         }
 
         if ($unigetResult) {
-            Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.unigetUiInstalled')
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.unigetUiInstalled')
         }
         else {
-            Write-StyledMessage -Type 'Warning' -Text (Get-Loc 'toolText.unigetUiRequireManualVerification')
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.unigetUiRequireManualVerification')
         }
 
-        Write-StyledMessage -Type 'Success' -Text (Get-Loc 'toolText.operationCompleted')
+        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.operationCompleted')
     }
     finally {
         $ProgressPreference = $savedProgressPref
     }
 
-    Invoke-ToolkitReboot -Message (Get-Loc 'toolText.extra.rebootingIn') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
+    Invoke-ToolkitReboot -Message (Get-SourceTextLoc 'toolText.extra.rebootingIn') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
 }
