@@ -1,4 +1,4 @@
-﻿# culture="es-ES"
+# culture="es-ES"
 ConvertFrom-StringData -StringData @'
 language.code = es-ES
 language.name = Spanish
