@@ -896,8 +896,8 @@ function Invoke-ToolkitDownload {
             $fakeProgressStart = $null
             if ($isUnknownSize -and -not $Global:GuiSessionActive) {
                 $fakeProgressStart = Get-Date
-                Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.download02' -Args @($Description)) `
-                    -Status (Get-SourceTextLoc 'uiText.startingDownload') `
+                Write-ProgressUpdate -Activity (Get-Loc 'uiText.download02' -Args @($Description)) `
+                    -Status (Get-Loc 'uiText.startingDownload') `
                     -Percent 8 -Icon '📥' -Color 'Cyan'
                 Start-Sleep -Milliseconds 120
             }
