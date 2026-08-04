@@ -2398,16 +2398,19 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         Write-Host ""
 
         # ── Voci di menu ─────────────────────────────────────────────────────
-        Write-Host "🌐 [1] $(Get-SourceTextLoc 'menu.changeLanguage')" -ForegroundColor White
-        Write-Host ''
-
-        $allScripts = @(); $idx = 2
+        $allScripts = @(); $idx = 1
+        $languageMenuIndex = $null
         foreach ($cat in $menuStructure) {
             Write-Host "==== $($cat.Icon) $(Get-SourceTextMenuText $cat) $($cat.Icon) ====" -ForegroundColor Cyan
             Write-Host ""
             foreach ($s in $cat.Scripts) {
                 $allScripts += $s
                 Write-Host "💎 [$idx] $(Get-SourceTextMenuText $s)" -ForegroundColor White
+                $idx++
+            }
+            if ($cat.Name -eq 'Support' -and -not $Global:GuiSessionActive) {
+                $languageMenuIndex = $idx
+                Write-Host "🌐 [$idx] $(Get-SourceTextLoc 'menu.changeLanguage')" -ForegroundColor White
                 $idx++
             }
             Write-Host ""
@@ -2426,7 +2429,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             continue
         }
 
-        $maxMenuOption = $allScripts.Count + 1
+        $maxMenuOption = $allScripts.Count + $(if ($null -ne $languageMenuIndex) { 1 } else { 0 })
         $rawSelections = Read-ValidatedChoice -Prompt (Get-SourceTextLoc 'menu.multiPromptShort') -Min 0 -Max $maxMenuOption -AllowZero -RawInput $rawInput
         $c = if ($rawSelections.Count -gt 0) { $rawSelections[0] } else { '' }
 
@@ -2438,19 +2441,19 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             break
         }
 
-        if ($rawSelections -contains 1) {
+        if ($null -ne $languageMenuIndex -and $rawSelections -contains $languageMenuIndex) {
             Show-LanguageMenu
             continue
         }
 
-        $selections = @($rawSelections | Where-Object { $_ -ge 2 -and $_ -le $maxMenuOption })
+        $selections = @($rawSelections | Where-Object { $_ -ge 1 -and $_ -le $maxMenuOption })
         if ($selections.Count -eq 0) {
             Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'menu.invalidSelection')
             Start-Sleep -Seconds 2
             continue
         }
 
-        # ── Esecuzione ────────────────────────────────────────────────────────
+        # ── Esecuzione ────────────────────────────────────────────────
         $Global:ExecutionLog = @()
         $Global:NeedsFinalReboot = $false
         $isMultiScript = ($selections.Count -gt 1)
@@ -2462,7 +2465,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         }
 
         foreach ($sel in $selections) {
-            $scriptToRun = $allScripts[$sel - 2]
+            $scriptToRun = $allScripts[$sel - 1]
             $scriptDescription = Get-SourceTextMenuText $scriptToRun
             if ($scriptToRun.Name -eq 'WinDeleteUserProfiles' -and -not (Confirm-UserProfileDeletion)) {
                 Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'run.cancelled')
