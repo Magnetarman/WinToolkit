@@ -1514,10 +1514,10 @@ function New-ToolkitDesktopShortcut {
         $link.Arguments = 'pwsh -ExecutionPolicy Bypass -Command "irm ' + $script:AppConfig.URLs.WebInstaller + ' | iex"'
         $link.WorkingDirectory = $script:AppConfig.Paths.wtDir
         $link.IconLocation = $icon
-        $link.Description = "Win Toolkit - SOPRAVVIVI A Windows"
+        $link.Description = "Win Toolkit - Master Windows with Ease"
         $link.Save()
 
-        # Abilita esecuzione come amministratore
+        # Enable run as administrator
         $bytes = [IO.File]::ReadAllBytes($shortcut)
         $bytes[21] = $bytes[21] -bor 32
         [IO.File]::WriteAllBytes($shortcut, $bytes)
