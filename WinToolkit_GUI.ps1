@@ -158,11 +158,11 @@ function Get-SourceTextLanguageDirectory {
     if ($Global:SourceTextPreparedLanguagesDir -and (Test-Path $Global:SourceTextPreparedLanguagesDir)) {
         return $Global:SourceTextPreparedLanguagesDir
     }
-    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-SourceTextLocation).Path }
+    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
     $candidate = Join-Path $root 'languages'
     if (Test-Path $candidate) { return $candidate }
 
-    $repoCandidate = Join-Path (Get-SourceTextLocation) 'languages'
+    $repoCandidate = Join-Path (Get-Location) 'languages'
     if (Test-Path $repoCandidate) { return $repoCandidate }
 
     return $candidate
@@ -320,7 +320,7 @@ function Get-SourceTextAutoDetectedLanguage {
 }
 
 # Detect the operating system UI culture on every script load.
-Invoke-SourceTextLanguagePreparation -ScriptRoot $(if ($PSScriptRoot) { $PSScriptRoot } else { (Get-SourceTextLocation).Path })
+Invoke-SourceTextLanguagePreparation -ScriptRoot $(if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path })
 $availableCultures = (Get-AvailableSourceTextLanguages).Code -join ','
 if ([string]::IsNullOrWhiteSpace($availableCultures)) { $availableCultures = 'en-US' }
 $detectedLanguage = Get-SourceTextAutoDetectedLanguage -AvailableCultures $availableCultures
@@ -2219,6 +2219,15 @@ function Start-NextScriptJob {
         }
         if (-not [string]::IsNullOrWhiteSpace($LanguageCode) -and (Get-Command Set-SourceTextLanguage -ErrorAction SilentlyContinue)) {
             Set-SourceTextLanguage -LanguageCode $LanguageCode
+        }
+
+        # *** FIX: Create alias Get-Loc -> Get-SourceTextLoc for Core compatibility ***
+        # The Core Script uses Get-Loc as an abbreviated name for Get-SourceTextLoc.
+        # Define it here (and in Global scope) so all dot-sourced Core functions work.
+        if (Get-Command Get-SourceTextLoc -ErrorAction SilentlyContinue) {
+            if (-not (Get-Alias Get-Loc -ErrorAction SilentlyContinue)) {
+                Set-Alias -Name Get-Loc -Value Get-SourceTextLoc -Scope Global
+            }
         }
 
         # --- FIX: Suppress Verbose and Debug output streams within the job ---
