@@ -813,9 +813,10 @@ $script:SourceTextLanguageData = $null
 $script:SourceTextDefaultLanguageData = $null
 
 function Get-SourceTextLanguageDirectory {
+    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
     $candidates = @(
-        (Join-Path $PSScriptRoot 'languages'),
-        (Join-Path (Split-Path $PSScriptRoot -Parent) 'languages'),
+        (Join-Path $root 'languages'),
+        (Join-Path (Split-Path $root -Parent) 'languages'),
         (Join-Path (Get-Location) 'languages')
     )
     foreach ($candidate in $candidates) {
