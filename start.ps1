@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Script di inizio che installa e configura WinToolkit.
 .DESCRIPTION
