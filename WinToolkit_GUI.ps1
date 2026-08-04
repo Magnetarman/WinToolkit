@@ -265,7 +265,12 @@ function Get-ToolkitMenuText {
     return [string]$Item
 }
 
-Set-ToolkitLanguage -LanguageCode 'en-US'
+# Detect the operating system UI culture on every script load.
+$detectedLanguage = [System.Globalization.CultureInfo]::InstalledUICulture.Name
+if ([string]::IsNullOrWhiteSpace($detectedLanguage)) {
+    $detectedLanguage = 'en-US'
+}
+Set-ToolkitLanguage -LanguageCode $detectedLanguage
 
 function Write-UnifiedLog {
     param(
