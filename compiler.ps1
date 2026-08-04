@@ -372,7 +372,7 @@ if ($Minify) {
 
 
 # ============================================================================
-# 6. SCRITTURA COMPILAZIONE FINALE SUL DISCO
+# 6. FINAL COMPILATION WRITING TO DISK
 # ============================================================================
 try {
     Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.savingStandaloneExecutable') + ': WinToolkit.ps1.')
@@ -390,7 +390,7 @@ catch {
 
 
 # ============================================================================
-# 7. METRICHE E BUILD DASHBOARD RIEPILOGATIVA
+# 7. METRICS AND BUILD SUMMARY DASHBOARD
 # ============================================================================
 $ScriptStartTime.Stop()
 $buildTimeSec = [math]::Round($ScriptStartTime.Elapsed.TotalSeconds, 3)
