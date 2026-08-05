@@ -27,7 +27,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.5.5 (Build 4)"
+        Version = "Version 2.6.0 (Build 4)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
