@@ -142,6 +142,50 @@ function FlushDns {
     Write-Host "✅ Cache DNS svuotata" -ForegroundColor Green
 }
 
+function Reset-IP {
+    [CmdletBinding()]
+    param()
+
+    if (-not (Assert-Admin)) {
+        Write-Host "❌ Questa operazione richiede privilegi di Amministratore" -ForegroundColor Red
+        Write-Host "ℹ️ Riavvia PowerShell come Amministratore per eseguire Reset-IP" -ForegroundColor Cyan
+        return
+    }
+
+    Write-Host "⚠️ Warning: This operation will release and renew the IP configuration" -ForegroundColor Yellow
+    Write-Host "ℹ️ This includes release and renew of the current IP address" -ForegroundColor Cyan
+
+    $confirmation = Read-Host "❓ Vuoi procedere con l'operazione? (S/N)"
+    if ($confirmation -notmatch "^[Ss]$") {
+        Write-Host "ℹ️ Operazione annullata" -ForegroundColor Cyan
+        return
+    }
+
+    Write-Host "`n🚀 Starting IP reset..." -ForegroundColor Cyan
+
+    try {
+        Write-Host "🔄 Rilascio indirizzo IP in corso..." -ForegroundColor Cyan
+        $processInfo = Start-Process -FilePath "ipconfig" -ArgumentList "/release" -NoNewWindow -Wait -PassThru -ErrorAction Stop
+        if ($processInfo.ExitCode -ne 0) { throw "Exit code: $($processInfo.ExitCode)" }
+        Write-Host "✅ Indirizzo IP rilasciato" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "❌ IP release error: $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    try {
+        Write-Host "🔄 Rinnovo indirizzo IP in corso..." -ForegroundColor Cyan
+        $processInfo = Start-Process -FilePath "ipconfig" -ArgumentList "/renew" -NoNewWindow -Wait -PassThru -ErrorAction Stop
+        if ($processInfo.ExitCode -ne 0) { throw "Exit code: $($processInfo.ExitCode)" }
+        Write-Host "✅ Indirizzo IP rinnovato" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "❌ IP renew error: $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    Write-Host "`n✅ IP reset completed" -ForegroundColor Green
+}
+
 function Speedtest {
     [CmdletBinding()]
     param()
@@ -748,6 +792,7 @@ $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Estrae 
 $($PSStyle.Foreground.Cyan)Diagnostica e Strumenti di Rete$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Runs a network speed test.
 $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)                  - Svuota la cache DNS.
+$($PSStyle.Foreground.Yellow)Reset-IP$($PSStyle.Reset)                 - Rilascia e rinnova l'indirizzo IP della scheda di rete.
 $($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Ripristina le impostazioni di rete a quelle predefinite.
 
 $($PSStyle.Foreground.Cyan)Controllo sistema$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
