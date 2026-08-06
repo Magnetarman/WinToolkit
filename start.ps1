@@ -159,6 +159,22 @@ function Get-WinGetExecutable {
     return $null
 }
 
+function Reset-WingetSources {
+    <#
+    .SYNOPSIS
+    Resets Winget sources to force repository metadata refresh.
+    #>
+    try {
+        $wingetExe = Get-WinGetExecutable
+        if ($wingetExe) {
+            $null = & $wingetExe source reset --force 2>&1
+        }
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Winget source reset failed: $($_.Exception.Message)"
+    }
+}
+
 function Test-WingetCompatibility {
     <#
     .SYNOPSIS
@@ -406,9 +422,15 @@ function Test-WingetDeepValidation {
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.deepTestExecutionOfWingetSearchForPacketsOnTheNetwork')
 
     try {
+        $wingetExe = Get-WinGetExecutable
+        if (-not $wingetExe) {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFoundInSystem')
+            return $false
+        }
+
         # Tests connectivity to repositories, local DB integrity and Winget parser
         # Performs direct search to obtain correct ExitCode
-        $searchResult = & winget search "Git.Git" --accept-source-agreements 2>&1
+        $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
         $exitCode = $LASTEXITCODE
 
         # Check for access violation crash (0xC0000005 = -1073741819 or 3221225781)
@@ -420,7 +442,7 @@ function Test-WingetDeepValidation {
 
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.repeatTestAfterDatabaseRestore')
             Start-Sleep 3
-            $searchResult = & winget search "Git.Git" --accept-source-agreements 2>&1
+            $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
             $exitCode = $LASTEXITCODE
 
             # 2. If it still crashes, try complete reinstall
@@ -430,12 +452,19 @@ function Test-WingetDeepValidation {
 
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.finalTestAfterReinstallation')
                 Start-Sleep 3
-                $searchResult = & winget search "Git.Git" --accept-source-agreements 2>&1
+                $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
                 $exitCode = $LASTEXITCODE
             }
         }
 
         if ($exitCode -eq 0) {
+            # Controllo freschezza sorgenti
+            try {
+                $null = & $wingetExe source update --accept-source-agreements 2>&1
+            }
+            catch {
+                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'toolText.sourceUpdateError0' -Args @($($_.Exception.Message)))
+            }
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.deepTestPassedWingetCommunicatesCorrectlyWithRepositories')
             return $true
         }
@@ -713,7 +742,7 @@ function Install-GitPackage {
 
     # 1. Attempt via winget (Priority)
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        $result = Invoke-WingetCommand -Arguments "install Git.Git --accept-source-agreements --accept-package-agreements --silent"
+        $result = Invoke-WingetCommand -Arguments "install Git.Git --source winget --accept-source-agreements --accept-package-agreements --silent"
 
         if ($result.ExitCode -eq 0) {
             Start-Sleep 3
@@ -940,7 +969,7 @@ function Get-SourceTextLoc {
         $value = [string]$script:SourceTextDefaultLanguageData[$Key]
     }
     else {
-        $value = $Key
+        $value = "[MISSING TRANSLATION: $Key]"
     }
     if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
@@ -966,8 +995,6 @@ function Write-StyledMessage {
         [string]$Type,
         [string]$Text
     )
-    # FIX: Windows 11 Indentation Issue
-    if ([Environment]::OSVersion.Version.Build -ge 22000) { $Text = "`r$Text" }
 
     $style = $script:AppConfig.MsgStyles[$Type]
     $timestamp = Get-Date -Format "HH:mm:ss"
@@ -1756,6 +1783,7 @@ function Invoke-WinToolkitSetup {
 
             if ($coreSuccess -and (Test-WingetFunctionality)) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRestoredQuickly')
+                Reset-WingetSources
             }
             else {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptAdvancedSlowerMethod')
@@ -1765,6 +1793,9 @@ function Invoke-WinToolkitSetup {
                 if (-not (Test-WingetFunctionality)) {
                     Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts')
                     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.theScriptWillContinueButPackageInstallationMayFail')
+                }
+                else {
+                    Reset-WingetSources
                 }
             }
         }
