@@ -1418,7 +1418,7 @@ function Install-WindowsTerminalApp {
         if ($winget) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingToInstallWindowsTerminalViaWinget')
             $iwcParams = @{
-                Arguments = "install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent"
+                Arguments = "install --id 9N0DX20HK701 --source winget --accept-source-agreements --accept-package-agreements --silent"
             }
             $result = Invoke-WingetCommand @iwcParams
             Start-Sleep 3
@@ -1541,7 +1541,7 @@ function Install-PspEnvironment {
     foreach ($tool in $tools) {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.check0' -Args @($($tool.Name)))
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Invoke-WingetCommand -Arguments "install -e --id $($tool.Id) --accept-source-agreements --accept-package-agreements --silent" *>$null
+            Invoke-WingetCommand -Arguments "install -e --id $($tool.Id) --source winget --accept-source-agreements --accept-package-agreements --silent" *>$null
         }
     }
 
