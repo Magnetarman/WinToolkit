@@ -175,6 +175,30 @@ function Reset-WingetSources {
     }
 }
 
+function Repair-WingetMsStoreSource {
+    <#
+    .SYNOPSIS
+    Detects and fixes msstore certificate pinning failure (0x8a15005e).
+    #>
+    try {
+        $wingetExe = Get-WinGetExecutable
+        if (-not $wingetExe) { return }
+
+        $output = & $wingetExe source update --source msstore --accept-source-agreements 2>&1
+        $exitCode = $LASTEXITCODE
+
+        if ($exitCode -ne 0 -and $output -match '0x8a15005e') {
+            Write-StyledMessage -Type Warning -Text "Detected msstore certificate pinning failure (0x8a15005e). Resetting Winget sources to default..."
+            $null = & $wingetExe source reset --force 2>&1
+            Update-EnvironmentPath
+            Write-StyledMessage -Type Success -Text "Winget sources reset completed. Using 'winget' source only."
+        }
+    }
+    catch {
+        # Silently ignore - not critical
+    }
+}
+
 function Test-WingetCompatibility {
     <#
     .SYNOPSIS
@@ -1775,6 +1799,8 @@ function Invoke-WinToolkitSetup {
 
         # Update PATH before initial check to detect already installed winget
         Update-EnvironmentPath
+
+        Repair-WingetMsStoreSource
 
         if (-not (Test-WingetFunctionality)) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetDoesnTRespondFastRecoveryAttemptCore')
