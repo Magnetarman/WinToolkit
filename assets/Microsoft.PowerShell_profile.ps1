@@ -13,7 +13,7 @@
 # CONFIGURAZIONE CENTRALIZZATA (URL)
 # ============================================================================
 
-$ProfileVersion = "2.5.4.5"
+$ProfileVersion = "2.6.0.1"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/assets/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
