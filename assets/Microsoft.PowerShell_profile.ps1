@@ -39,6 +39,24 @@ function Assert-Admin {
     return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Require-Admin {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]$FeatureName,
+
+        [string]$ErrorMessage = "❌ Questa operazione richiede privilegi di Amministratore",
+        [string]$InfoMessage = "ℹ️ Riavvia PowerShell come Amministratore per eseguire $FeatureName"
+    )
+
+    if (-not (Assert-Admin)) {
+        Write-Host $ErrorMessage -ForegroundColor Red
+        Write-Host $InfoMessage -ForegroundColor Cyan
+        return $false
+    }
+    return $true
+}
+
 # ============================================================================
 # AMBIENTE E CONFIGURAZIONE BASE
 # ============================================================================
@@ -146,9 +164,7 @@ function Reset-IP {
     [CmdletBinding()]
     param()
 
-    if (-not (Assert-Admin)) {
-        Write-Host "❌ Questa operazione richiede privilegi di Amministratore" -ForegroundColor Red
-        Write-Host "ℹ️ Riavvia PowerShell come Amministratore per eseguire Reset-IP" -ForegroundColor Cyan
+    if (-not (Require-Admin -FeatureName "Reset-IP")) {
         return
     }
 
@@ -238,9 +254,7 @@ function Reset-Network {
     param()
 
     # Controllo Amministratore
-    if (-not (Assert-Admin)) {
-        Write-Host "❌ Questa operazione richiede privilegi di Amministratore" -ForegroundColor Red
-        Write-Host "ℹ️ Riavvia PowerShell come Amministratore per eseguire Reset-Network" -ForegroundColor Cyan
+    if (-not (Require-Admin -FeatureName "Reset-Network")) {
         return
     }
 
@@ -529,9 +543,7 @@ function PS-Reset {
     param()
 
     # 1. Controllo Amministratore (Necessario per disinstallazioni e riavvio)
-    if (-not (Assert-Admin)) {
-        Write-Host "❌ Questa operazione richiede privilegi di Amministratore." -ForegroundColor Red
-        Write-Host "ℹ️ Riavvia PowerShell come Amministratore per eseguire PS-Reset." -ForegroundColor Cyan
+    if (-not (Require-Admin -FeatureName "PS-Reset")) {
         return
     }
 
@@ -873,9 +885,7 @@ function Update-Pwsh {
         }
 
         # Aggiornamento necessario
-        if (-not (Assert-Admin)) {
-            Write-Host "⚠️ Per aggiornare PowerShell sono necessari i privilegi di Amministratore." -ForegroundColor Yellow
-            Write-Host "   Riesegui la funzione in una sessione 'pwsh' avviata come Amministratore." -ForegroundColor DarkYellow
+        if (-not (Require-Admin -FeatureName "Update-Pwsh" -ErrorMessage "⚠️ Per aggiornare PowerShell sono necessari i privilegi di Amministratore." -InfoMessage "   Riesegui la funzione in una sessione 'pwsh' avviata come Amministratore.")) {
             return
         }
 
