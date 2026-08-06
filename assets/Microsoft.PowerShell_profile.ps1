@@ -16,8 +16,8 @@
 $ProfileVersion = "2.6.0.1"
 
 $URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/assets/speedtest.exe"
-$URL_WINTOOLKIT_STABLE = "https://magnetarman.com/WinToolkit"
-$URL_WINTOOLKIT_DEV = "https://magnetarman.com/WinToolkit-Dev"
+$URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
+$URL_WINTOOLKIT_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
 $URL_WINREG = "https://get.activated.win"
 $URL_RustDesk_Setup = "https://raw.githubusercontent.com/Magnetarman/WinStarter/refs/heads/main/Asset/RustDesk/SetRustDesk.ps1"
 $URL_OHMYPOSH_THEME = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
