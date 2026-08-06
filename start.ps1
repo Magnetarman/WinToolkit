@@ -159,6 +159,159 @@ function Get-WinGetExecutable {
     return $null
 }
 
+function Reset-WingetSources {
+    <#
+    .SYNOPSIS
+    Resets Winget sources to force repository metadata refresh.
+    #>
+    try {
+        $wingetExe = Get-WinGetExecutable
+        if ($wingetExe) {
+            $null = & $wingetExe source reset --force 2>&1
+        }
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Winget source reset failed: $($_.Exception.Message)"
+    }
+}
+
+function Repair-WingetMsStoreSource {
+    <#
+    .SYNOPSIS
+    Detects and fixes msstore certificate pinning failure (0x8a15005e).
+    #>
+    try {
+        $wingetExe = Get-WinGetExecutable
+        if (-not $wingetExe) { return }
+
+        $output = & $wingetExe source update --source msstore --accept-source-agreements 2>&1
+        $exitCode = $LASTEXITCODE
+
+        if ($exitCode -ne 0 -and $output -match '0x8a15005e') {
+            Write-StyledMessage -Type Warning -Text "Detected msstore certificate pinning failure (0x8a15005e). Resetting Winget sources to default..."
+            $null = & $wingetExe source reset --force 2>&1
+            Update-EnvironmentPath
+            Write-StyledMessage -Type Success -Text "Winget sources reset completed. Using 'winget' source only."
+        }
+    }
+    catch {
+        # Silently ignore - not critical
+    }
+}
+
+function Repair-SystemClock {
+    try {
+        $w32Time = Get-Service w32time -ErrorAction SilentlyContinue
+        if ($w32Time -and $w32Time.Status -ne 'Running') {
+            Start-Service w32time -ErrorAction SilentlyContinue | Out-Null
+        }
+        w32tm /resync /force 2>&1 | Out-Null
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.systemClockResynced')
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "System clock resync failed: $($_.Exception.Message)"
+    }
+}
+
+function Reset-SchannelSettings {
+    try {
+        $schannelPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL'
+        if (-not (Test-Path $schannelPath)) { return }
+        
+        $tls12Path = Join-Path $schannelPath 'Protocols\TLS 1.2'
+        if (Test-Path $tls12Path) {
+            foreach ($mode in @('Client', 'Server')) {
+                $modePath = Join-Path $tls12Path $mode
+                if (Test-Path $modePath) {
+                    $enabled = (Get-ItemProperty -Path $modePath -Name 'Enabled' -ErrorAction SilentlyContinue).Enabled
+                    if ($enabled -eq 0) {
+                        Set-ItemProperty -Path $modePath -Name 'Enabled' -Value 1 -Type DWord -Force
+                        Write-ToolkitLog -Level 'INFO' -Message "Re-enabled TLS 1.2 $mode"
+                    }
+                }
+            }
+        }
+        
+        $cipherPath = Join-Path $schannelPath 'Ciphers'
+        if (Test-Path $cipherPath) {
+            Get-ChildItem $cipherPath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+                $prop = Get-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
+                if ($prop -and $prop.Enabled -eq 0) {
+                    Remove-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
+                    Write-ToolkitLog -Level 'INFO' -Message "Removed disabled cipher: $($_.PSChildName)"
+                }
+            }
+        }
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "SCHANNEL reset failed: $($_.Exception.Message)"
+    }
+}
+
+function Reset-HostsFile {
+    try {
+        $hostsPath = 'C:\Windows\System32\drivers\etc\hosts'
+        if (-not (Test-Path $hostsPath)) { return }
+        
+        $lines = Get-Content $hostsPath -ErrorAction SilentlyContinue
+        if (-not $lines) { return }
+        
+        $hasOverrides = $false
+        $newLines = @()
+        foreach ($line in $lines) {
+            if ($line -match '(?i)microsoft\.com|storeedgefd|winget\.azureedge\.net') {
+                $hasOverrides = $true
+                continue
+            }
+            $newLines += $line
+        }
+        
+        if ($hasOverrides) {
+            $hostsHeader = @(
+                '# Copyright (c) 1993-2009 Microsoft Corp.',
+                '# This is a sample HOSTS file used by Microsoft TCP/IP for Windows.',
+                '#',
+                '# This file contains the mappings of IP addresses to host names. Each',
+                '# entry should be kept on an individual line. The IP address should',
+                '# be placed in the first column followed by the corresponding host name.',
+                '# The IP address and the host name should be separated by at least one',
+                '# space.',
+                '#',
+                '# Additionally, comments (such as these) may be inserted on individual',
+                '# lines or following the machine name denoted by a ''#'' symbol.',
+                '#',
+                '# For example:',
+                '#      102.54.94.97     rhino.acme.com          # source server',
+                '#       38.25.63.10     x.acme.com              # x client host'
+            )
+            $finalContent = $hostsHeader + ($newLines | Where-Object { $_.Trim() -ne '' })
+            Set-Content -Path $hostsPath -Value $finalContent -Encoding ASCII -Force
+            Write-ToolkitLog -Level 'INFO' -Message "Hosts file reset: removed Microsoft/Store/Winget overrides"
+        }
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Hosts file reset failed: $($_.Exception.Message)"
+    }
+}
+
+function Repair-AppInstaller {
+    try {
+        $pkg = Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue
+        if ($pkg) {
+            $pkg | Reset-AppxPackage 2>$null | Out-Null
+        }
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            $tempFile = Join-Path $env:TEMP 'WingetInstaller.msixbundle'
+            Invoke-WebRequest -Uri 'https://aka.ms/getwinget' -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
+            Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown'
+            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "App Installer repair failed: $($_.Exception.Message)"
+    }
+}
+
 function Test-WingetCompatibility {
     <#
     .SYNOPSIS
@@ -406,9 +559,15 @@ function Test-WingetDeepValidation {
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.deepTestExecutionOfWingetSearchForPacketsOnTheNetwork')
 
     try {
+        $wingetExe = Get-WinGetExecutable
+        if (-not $wingetExe) {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFoundInSystem')
+            return $false
+        }
+
         # Tests connectivity to repositories, local DB integrity and Winget parser
         # Performs direct search to obtain correct ExitCode
-        $searchResult = & winget search "Git.Git" --accept-source-agreements 2>&1
+        $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
         $exitCode = $LASTEXITCODE
 
         # Check for access violation crash (0xC0000005 = -1073741819 or 3221225781)
@@ -420,7 +579,7 @@ function Test-WingetDeepValidation {
 
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.repeatTestAfterDatabaseRestore')
             Start-Sleep 3
-            $searchResult = & winget search "Git.Git" --accept-source-agreements 2>&1
+            $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
             $exitCode = $LASTEXITCODE
 
             # 2. If it still crashes, try complete reinstall
@@ -430,12 +589,19 @@ function Test-WingetDeepValidation {
 
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.finalTestAfterReinstallation')
                 Start-Sleep 3
-                $searchResult = & winget search "Git.Git" --accept-source-agreements 2>&1
+                $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
                 $exitCode = $LASTEXITCODE
             }
         }
 
         if ($exitCode -eq 0) {
+            # Controllo freschezza sorgenti
+            try {
+                $null = & $wingetExe source update --accept-source-agreements 2>&1
+            }
+            catch {
+                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'toolText.sourceUpdateError0' -Args @($($_.Exception.Message)))
+            }
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.deepTestPassedWingetCommunicatesCorrectlyWithRepositories')
             return $true
         }
@@ -713,7 +879,7 @@ function Install-GitPackage {
 
     # 1. Attempt via winget (Priority)
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        $result = Invoke-WingetCommand -Arguments "install Git.Git --accept-source-agreements --accept-package-agreements --silent"
+        $result = Invoke-WingetCommand -Arguments "install Git.Git --source winget --accept-source-agreements --accept-package-agreements --silent"
 
         if ($result.ExitCode -eq 0) {
             Start-Sleep 3
@@ -940,7 +1106,7 @@ function Get-SourceTextLoc {
         $value = [string]$script:SourceTextDefaultLanguageData[$Key]
     }
     else {
-        $value = $Key
+        $value = "[MISSING TRANSLATION: $Key]"
     }
     if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
@@ -966,8 +1132,6 @@ function Write-StyledMessage {
         [string]$Type,
         [string]$Text
     )
-    # FIX: Windows 11 Indentation Issue
-    if ([Environment]::OSVersion.Version.Build -ge 22000) { $Text = "`r$Text" }
 
     $style = $script:AppConfig.MsgStyles[$Type]
     $timestamp = Get-Date -Format "HH:mm:ss"
@@ -1391,7 +1555,7 @@ function Install-WindowsTerminalApp {
         if ($winget) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingToInstallWindowsTerminalViaWinget')
             $iwcParams = @{
-                Arguments = "install --id 9N0DX20HK701 --source msstore --accept-source-agreements --accept-package-agreements --silent"
+                Arguments = "install --id 9N0DX20HK701 --source winget --accept-source-agreements --accept-package-agreements --silent"
             }
             $result = Invoke-WingetCommand @iwcParams
             Start-Sleep 3
@@ -1514,7 +1678,7 @@ function Install-PspEnvironment {
     foreach ($tool in $tools) {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.check0' -Args @($($tool.Name)))
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Invoke-WingetCommand -Arguments "install -e --id $($tool.Id) --accept-source-agreements --accept-package-agreements --silent" *>$null
+            Invoke-WingetCommand -Arguments "install -e --id $($tool.Id) --source winget --accept-source-agreements --accept-package-agreements --silent" *>$null
         }
     }
 
@@ -1703,6 +1867,11 @@ function Invoke-WinToolkitSetup {
             exit
         }
 
+        Repair-SystemClock
+        Reset-SchannelSettings
+        Reset-HostsFile
+        Repair-AppInstaller
+
         # --- PRE-FLIGHT CHECK ---
         while ($true) {
             Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
@@ -1749,6 +1918,8 @@ function Invoke-WinToolkitSetup {
         # Update PATH before initial check to detect already installed winget
         Update-EnvironmentPath
 
+        Repair-WingetMsStoreSource
+
         if (-not (Test-WingetFunctionality)) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetDoesnTRespondFastRecoveryAttemptCore')
             $coreSuccess = Install-WingetCore
@@ -1756,6 +1927,7 @@ function Invoke-WinToolkitSetup {
 
             if ($coreSuccess -and (Test-WingetFunctionality)) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRestoredQuickly')
+                Reset-WingetSources
             }
             else {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptAdvancedSlowerMethod')
@@ -1765,6 +1937,9 @@ function Invoke-WinToolkitSetup {
                 if (-not (Test-WingetFunctionality)) {
                     Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts')
                     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.theScriptWillContinueButPackageInstallationMayFail')
+                }
+                else {
+                    Reset-WingetSources
                 }
             }
         }
