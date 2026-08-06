@@ -13,7 +13,7 @@
 
 <img src="images/Run.jpg" alt="Run-banner" width="800">
 
-WinToolkit is a powerful, compact PowerShell script suite built to give IT professionals, system administrators, and advanced users granular control over Windows and Office suite maintenance and troubleshooting. This intuitive toolkit brings the most effective system repair tools into a single interface, automating complex processes to optimize performance and restore system stability in just a few automated steps. This project is transliterated through an AI workflow.
+WinToolkit is a powerful and compact suite of PowerShell scripts, inspired by the outstanding work of @ChrisTitusTech [Wintutil](https://github.com/ChrisTitusTech/), designed to provide IT professionals, system administrators, and power users with granular yet automated control over the maintenance and troubleshooting of Windows and the Office suite. This intuitive toolkit brings together the most effective system repair tools in a single interface, automating complex processes to optimize performance and restore system stability in just a few automated steps. This project was translated using an AI-powered workflow.
 
 ---
 
