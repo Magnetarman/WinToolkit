@@ -199,6 +199,119 @@ function Repair-WingetMsStoreSource {
     }
 }
 
+function Repair-SystemClock {
+    try {
+        $w32Time = Get-Service w32time -ErrorAction SilentlyContinue
+        if ($w32Time -and $w32Time.Status -ne 'Running') {
+            Start-Service w32time -ErrorAction SilentlyContinue | Out-Null
+        }
+        w32tm /resync /force 2>&1 | Out-Null
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.systemClockResynced')
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "System clock resync failed: $($_.Exception.Message)"
+    }
+}
+
+function Reset-SchannelSettings {
+    try {
+        $schannelPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL'
+        if (-not (Test-Path $schannelPath)) { return }
+        
+        $tls12Path = Join-Path $schannelPath 'Protocols\TLS 1.2'
+        if (Test-Path $tls12Path) {
+            foreach ($mode in @('Client', 'Server')) {
+                $modePath = Join-Path $tls12Path $mode
+                if (Test-Path $modePath) {
+                    $enabled = (Get-ItemProperty -Path $modePath -Name 'Enabled' -ErrorAction SilentlyContinue).Enabled
+                    if ($enabled -eq 0) {
+                        Set-ItemProperty -Path $modePath -Name 'Enabled' -Value 1 -Type DWord -Force
+                        Write-ToolkitLog -Level 'INFO' -Message "Re-enabled TLS 1.2 $mode"
+                    }
+                }
+            }
+        }
+        
+        $cipherPath = Join-Path $schannelPath 'Ciphers'
+        if (Test-Path $cipherPath) {
+            Get-ChildItem $cipherPath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+                $prop = Get-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
+                if ($prop -and $prop.Enabled -eq 0) {
+                    Remove-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
+                    Write-ToolkitLog -Level 'INFO' -Message "Removed disabled cipher: $($_.PSChildName)"
+                }
+            }
+        }
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "SCHANNEL reset failed: $($_.Exception.Message)"
+    }
+}
+
+function Reset-HostsFile {
+    try {
+        $hostsPath = 'C:\Windows\System32\drivers\etc\hosts'
+        if (-not (Test-Path $hostsPath)) { return }
+        
+        $lines = Get-Content $hostsPath -ErrorAction SilentlyContinue
+        if (-not $lines) { return }
+        
+        $hasOverrides = $false
+        $newLines = @()
+        foreach ($line in $lines) {
+            if ($line -match '(?i)microsoft\.com|storeedgefd|winget\.azureedge\.net') {
+                $hasOverrides = $true
+                continue
+            }
+            $newLines += $line
+        }
+        
+        if ($hasOverrides) {
+            $hostsHeader = @(
+                '# Copyright (c) 1993-2009 Microsoft Corp.',
+                '# This is a sample HOSTS file used by Microsoft TCP/IP for Windows.',
+                '#',
+                '# This file contains the mappings of IP addresses to host names. Each',
+                '# entry should be kept on an individual line. The IP address should',
+                '# be placed in the first column followed by the corresponding host name.',
+                '# The IP address and the host name should be separated by at least one',
+                '# space.',
+                '#',
+                '# Additionally, comments (such as these) may be inserted on individual',
+                '# lines or following the machine name denoted by a ''#'' symbol.',
+                '#',
+                '# For example:',
+                '#      102.54.94.97     rhino.acme.com          # source server',
+                '#       38.25.63.10     x.acme.com              # x client host'
+            )
+            $finalContent = $hostsHeader + ($newLines | Where-Object { $_.Trim() -ne '' })
+            Set-Content -Path $hostsPath -Value $finalContent -Encoding ASCII -Force
+            Write-ToolkitLog -Level 'INFO' -Message "Hosts file reset: removed Microsoft/Store/Winget overrides"
+        }
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Hosts file reset failed: $($_.Exception.Message)"
+    }
+}
+
+function Repair-AppInstaller {
+    try {
+        $pkg = Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue
+        if ($pkg) {
+            $pkg | Reset-AppxPackage 2>$null | Out-Null
+        }
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            $tempFile = Join-Path $env:TEMP 'WingetInstaller.msixbundle'
+            Invoke-WebRequest -Uri 'https://aka.ms/getwinget' -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
+            Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown'
+            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "App Installer repair failed: $($_.Exception.Message)"
+    }
+}
+
 function Test-WingetCompatibility {
     <#
     .SYNOPSIS
@@ -1753,6 +1866,11 @@ function Invoke-WinToolkitSetup {
             Start-Process @procParams
             exit
         }
+
+        Repair-SystemClock
+        Reset-SchannelSettings
+        Reset-HostsFile
+        Repair-AppInstaller
 
         # --- PRE-FLIGHT CHECK ---
         while ($true) {
