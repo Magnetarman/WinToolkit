@@ -492,7 +492,7 @@ function SetBranch-Dev {
         $shell = New-Object -ComObject WScript.Shell
         $link = $shell.CreateShortcut($shortcut)
         $link.TargetPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\wt.exe"
-        $link.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm ' + 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/WinToolkit.ps1' + ' | iex"'
+        $link.Arguments = 'pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm ' + $URL_WINTOOLKIT_DEV + ' | iex"'
         $link.WorkingDirectory = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
         $link.IconLocation = $icon
         $link.Description = "Win Toolkit - SOPRAVVIVI A Windows"
