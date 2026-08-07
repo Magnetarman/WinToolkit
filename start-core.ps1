@@ -116,23 +116,19 @@ function Test-VCRedistInstalled {
     return $checksPassed -eq $requiredChecks
 }
 
-function Get-WinGetFolder {
+function Register-WingetAppExecutionAlias {
     <#
     .SYNOPSIS
-    Finds the latest official Winget installation folder.
+    Registers the stable App Installer execution alias without using a versioned path.
     #>
     try {
-        $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
-        $wingetDir = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Microsoft.DesktopAppInstaller_*_*${arch}__8wekyb3d8bbwe" -ErrorAction SilentlyContinue |
-        Sort-Object { [version]($_.Name -replace '^[^\d]+_((\d+\.)*\d+)_.*', '$1') } -Descending | Select-Object -First 1
-
-        if ($wingetDir) {
-            return $wingetDir.FullName
-        }
-        return $null
+        Add-AppxPackage -RegisterByFamilyName -MainPackage 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe' -ErrorAction Stop
+        Write-ToolkitLog -Level 'INFO' -Message 'App Installer execution alias registered by family name.'
+        return $true
     }
     catch {
-        return $null
+        Write-ToolkitLog -Level 'WARNING' -Message "Unable to register App Installer execution alias: $($_.Exception.Message)"
+        return $false
     }
 }
 
@@ -147,13 +143,10 @@ function Get-WinGetExecutable {
         return $aliasPath
     }
 
-    # Fallback: direct path in the installation folder
-    $wingetFolder = Get-WinGetFolder
-    if ($wingetFolder) {
-        $exePath = Join-Path $wingetFolder "winget.exe"
-        if (Test-Path $exePath) {
-            return $exePath
-        }
+    # Use the command resolver as a second stable-alias lookup.
+    $command = Get-Command winget.exe -ErrorAction SilentlyContinue
+    if ($command -and $command.Source -and (Test-Path -LiteralPath $command.Source)) {
+        return $command.Source
     }
 
     return $null
@@ -306,6 +299,7 @@ function Repair-AppInstaller {
             Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller'
             Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
         }
+        Register-WingetAppExecutionAlias | Out-Null
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "App Installer repair failed: $($_.Exception.Message)"
@@ -548,27 +542,12 @@ function Invoke-StartUpdateServices {
 function Set-WingetPathPermissions {
     <#
     .SYNOPSIS
-    Applies PATH permissions and adds winget folder to PATH.
-    Based on asheroto's Apply-PathPermissionsFixAndAddPath.
+    Registers the App Installer alias and adds only the stable user alias path.
     #>
 
-    $wingetFolderPath = $null
-
-    try {
-        $wingetFolderPath = Get-WinGetFolder
-    }
-    catch { }
-
-    if ($wingetFolderPath) {
-        # Fix permissions
-        Set-PathPermissions -FolderPath $wingetFolderPath
-
-        # Add to system PATH
-        Add-ToEnvironmentPath -PathToAdd $wingetFolderPath -Scope 'System'
-
-        # Add user PATH with literal %LOCALAPPDATA%
-        Add-ToEnvironmentPath -PathToAdd "%LOCALAPPDATA%\Microsoft\WindowsApps" -Scope 'User'
-
+    $aliasRegistered = Register-WingetAppExecutionAlias
+    Add-ToEnvironmentPath -PathToAdd "%LOCALAPPDATA%\Microsoft\WindowsApps" -Scope 'User'
+    if ($aliasRegistered) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.pathAndWingetPermissionsUpdated')
     }
 }
