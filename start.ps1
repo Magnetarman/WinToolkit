@@ -69,12 +69,13 @@ $env:WTOOLKIT_LANGUAGE = $Language
 
 if (-not (Test-IsAdministrator)) {
     $hostPath = if ($PSVersionTable.PSVersion.Major -ge 7) { Join-Path $PSHOME 'pwsh.exe' } else { Join-Path $PSHOME 'powershell.exe' }
+    $langArg = "-Language '$($Language.Replace("'", "''"))'"
     if ($PSCommandPath) {
         $escapedPath = $PSCommandPath.Replace("'", "''")
-        $elevatedCommand = "& '$escapedPath'"
+        $elevatedCommand = "& '$escapedPath' $langArg"
     }
     else {
-        $elevatedCommand = '$s = irm ''' + $StubScriptUrl + '''; & ([scriptblock]::Create($s))'
+        $elevatedCommand = '$s = irm ''' + $StubScriptUrl + '''; & ([scriptblock]::Create($s)) ' + $langArg
     }
     Start-Process -FilePath $hostPath -ArgumentList @(
         '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $elevatedCommand
