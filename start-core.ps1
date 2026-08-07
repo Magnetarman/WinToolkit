@@ -2589,7 +2589,7 @@ function Invoke-WinToolkitSetup {
         Install-PspEnvironment
         Add-SetupResult -Name 'PowerShell environment' -Success $true -Message 'PowerShell environment configured.'
 
-        $shortcutCreated = New-ToolkitDesktopShortcut
+        $shortcutCreated = New-ToolkitDesktopShortcut | Out-Null
         Add-SetupResult -Name 'Desktop shortcut' -Success ([bool]$shortcutCreated) -Message 'Desktop shortcut creation completed.'
 
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.configurationComplete')
