@@ -324,7 +324,7 @@ function Test-WingetCompatibility {
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.wingetNotSupportedOnWindows0' -Args @($($osInfo.Version.Major)))
         return $false
     }
-    if ($osInfo.Version.Major -eq 10 -and $build -lt 16299) {
+    if ($osInfo.Version.Major -eq 10 -and $build -lt 17763) {
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.windows10Build0NonSupportaWinget' -Args @($build))
         return $false
     }
@@ -382,20 +382,118 @@ function Invoke-ForceCloseWinget {
     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.interferingProcessesClosed')
 }
 
+function Get-UpdateServicesStatusPath {
+    return (Join-Path $script:AppConfig.Paths.WinToolkitDir 'update-services.status.txt')
+}
+
+function Write-UpdateServicesStatus {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Status
+    )
+
+    $statusPath = Get-UpdateServicesStatusPath
+    if (-not (Test-Path -LiteralPath $script:AppConfig.Paths.WinToolkitDir)) {
+        $null = New-Item -Path $script:AppConfig.Paths.WinToolkitDir -ItemType Directory -Force -ErrorAction Stop
+    }
+    $tempPath = "$statusPath.$([guid]::NewGuid()).tmp"
+    try {
+        $Status.LastUpdatedUtc = [DateTime]::UtcNow.ToString('o')
+        $Status | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $tempPath -Encoding UTF8 -ErrorAction Stop
+        Move-Item -LiteralPath $tempPath -Destination $statusPath -Force -ErrorAction Stop
+    }
+    finally {
+        if (Test-Path -LiteralPath $tempPath) {
+            Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Read-UpdateServicesStatus {
+    $statusPath = Get-UpdateServicesStatusPath
+    if (-not (Test-Path -LiteralPath $statusPath -PathType Leaf)) { return $null }
+    try {
+        return (Get-Content -LiteralPath $statusPath -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop)
+    }
+    catch {
+        Write-ToolkitLog -Level 'ERROR' -Message "Update services status file is unreadable: $($_.Exception.Message)"
+        return $null
+    }
+}
+
+function Initialize-UpdateServicesState {
+    $previous = Read-UpdateServicesStatus
+    if (-not $previous) { return }
+
+    if ($previous.State -in @('Suspending', 'Suspended', 'RestoreFailed')) {
+        $message = "Previous setup did not finish cleanly; saved Windows Update service state found (state: $($previous.State))."
+        if ($previous.LastError) { $message += " Previous error: $($previous.LastError)" }
+        Write-ToolkitLog -Level 'WARNING' -Message $message
+        Write-StyledMessage -Type Warning -Text 'Rilevata una precedente interruzione: ripristino dello stato dei servizi Windows Update.'
+        Invoke-StartUpdateServices
+    }
+}
+
+function Set-UpdateServicesError {
+    param([string]$Message)
+    $status = Read-UpdateServicesStatus
+    if ($status) {
+        $status.State = 'RestoreFailed'
+        $status.LastError = $Message
+        Write-UpdateServicesStatus -Status $status
+    }
+    Write-ToolkitLog -Level 'ERROR' -Message "Windows Update services recovery: $Message"
+}
+
 function Invoke-StopUpdateServices {
     <#
     .SYNOPSIS
     Temporarily suspends Windows Update and related services to avoid conflicts with Winget.
     #>
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.temporarilySuspendWindowsUpdateServicesToAvoidConflicts')
-    $services = $script:AppConfig.UpdateServices
-    foreach ($svc in $services) {
-        if (Get-Service -Name $svc -ErrorAction SilentlyContinue) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.serviceStop0' -Args @($svc))
-            Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
+    $savedServices = @()
+    foreach ($svc in $script:AppConfig.UpdateServices) {
+        $service = Get-Service -Name $svc -ErrorAction SilentlyContinue
+        if ($service) {
+            $cimService = Get-CimInstance -ClassName Win32_Service -Filter "Name='$svc'" -ErrorAction Stop
+            $savedServices += [pscustomobject]@{
+                Name      = $svc
+                Present   = $true
+                Status    = [string]$service.Status
+                StartType = [string]$cimService.StartMode
+            }
         }
     }
-    Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesSuccessfullySuspended')
+
+    $status = @{
+        Version       = 1
+        State         = 'Suspending'
+        LastError     = $null
+        Services      = $savedServices
+        CreatedUtc    = [DateTime]::UtcNow.ToString('o')
+    }
+    Write-UpdateServicesStatus -Status $status
+
+    try {
+        foreach ($saved in $savedServices) {
+            if ($saved.Status -ne 'Stopped') {
+                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.serviceStop0' -Args @($saved.Name))
+                Stop-Service -Name $saved.Name -Force -ErrorAction Stop
+                $current = Get-Service -Name $saved.Name -ErrorAction Stop
+                if ($current.Status -ne 'Stopped') { throw "Service $($saved.Name) did not stop." }
+            }
+        }
+        $status.State = 'Suspended'
+        Write-UpdateServicesStatus -Status $status
+        $script:UpdateServicesSuspended = $true
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesSuccessfullySuspended')
+    }
+    catch {
+        $status.State = 'RestoreFailed'
+        $status.LastError = $_.Exception.Message
+        Write-UpdateServicesStatus -Status $status
+        throw
+    }
 }
 
 function Invoke-StartUpdateServices {
@@ -403,23 +501,48 @@ function Invoke-StartUpdateServices {
     .SYNOPSIS
     Restores Windows Update and related services.
     #>
+    $status = Read-UpdateServicesStatus
+    if (-not $status -or $status.State -eq 'Restored') { return $true }
+
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resettingWindowsUpdateServices')
-    $services = $script:AppConfig.UpdateServices
-    foreach ($svc in $services) {
-        if (Get-Service -Name $svc -ErrorAction SilentlyContinue) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingService0' -Args @($svc))
-            try {
-                Start-Service -Name $svc -ErrorAction Stop
+    $restoreErrors = @()
+    foreach ($saved in @($status.Services)) {
+        try {
+            $service = Get-Service -Name $saved.Name -ErrorAction Stop
+            $startupType = switch ($saved.StartType) {
+                'Auto'     { 'Automatic' }
+                'Disabled' { 'Disabled' }
+                default    { 'Manual' }
             }
-            catch {
-                # Ignore startup-in-progress warnings and delayed services
-                if ($_.Exception.Message -notmatch 'in corso') {
-                    Write-ToolkitLog -Level 'Warning' -Message (Get-SourceTextLoc 'uiText.startingService01' -Args @(${svc}, $($_.Exception.Message)))
-                }
+            Set-Service -Name $saved.Name -StartupType $startupType -ErrorAction Stop
+
+            if ($saved.Status -eq 'Running' -and $service.Status -ne 'Running') {
+                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingService0' -Args @($saved.Name))
+                Start-Service -Name $saved.Name -ErrorAction Stop
+            }
+            elseif ($saved.Status -eq 'Stopped' -and $service.Status -ne 'Stopped') {
+                Stop-Service -Name $saved.Name -Force -ErrorAction Stop
             }
         }
+        catch {
+            $restoreErrors += "$($saved.Name): $($_.Exception.Message)"
+        }
     }
+
+    if ($restoreErrors.Count -gt 0) {
+        $status.State = 'RestoreFailed'
+        $status.LastError = $restoreErrors -join '; '
+        Write-UpdateServicesStatus -Status $status
+        Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
+        Write-StyledMessage -Type Error -Text "Ripristino servizi Windows Update incompleto: $($status.LastError)"
+        return $false
+    }
+
+    $status.State = 'Restored'
+    Write-UpdateServicesStatus -Status $status
+    $script:UpdateServicesSuspended = $false
     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesRestored')
+    return $true
 }
 
 function Set-WingetPathPermissions {
@@ -1956,6 +2079,7 @@ function Invoke-WinToolkitSetup {
 
         # Initialize Logging
         Start-ToolkitLog "WinToolkitStarter"
+        Initialize-UpdateServicesState
 
         # Build restart arguments
         $argList = ($PSBoundParameters.GetEnumerator() | ForEach-Object {
@@ -2103,9 +2227,6 @@ function Invoke-WinToolkitSetup {
 
         New-ToolkitDesktopShortcut
 
-        # Restore services on success
-        Invoke-StartUpdateServices
-
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.configurationComplete')
 
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wintoolkitIsReadyOnTheDesktop')
@@ -2113,9 +2234,7 @@ function Invoke-WinToolkitSetup {
         exit
     }
     catch {
-        # Restore services on error
-        Invoke-StartUpdateServices
-
+        Set-UpdateServicesError -Message $_.Exception.Message
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalErrorDuringSetup0' -Args @($($_.Exception.Message)))
         Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.unhandledException01' -Args @($($_.Exception.Message), $($_.ScriptStackTrace)))
         Write-Host (Get-SourceTextLoc 'sourceText.pressAnyKeyToExit2')
@@ -2123,6 +2242,7 @@ function Invoke-WinToolkitSetup {
         exit 1
     }
     finally {
+        Invoke-StartUpdateServices
         Remove-TemporaryDefenderExclusion
     }
 }
