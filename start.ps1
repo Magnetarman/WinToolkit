@@ -1,7 +1,7 @@
 # WinToolkit launcher. Keep this file ASCII-only and compatible with Windows PowerShell 5.1.
 [CmdletBinding()]
 param(
-    [string]$Language = 'en-US'
+    [string]$Language = 'Auto'
 )
 
 $CoreScriptUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start-core.ps1'
