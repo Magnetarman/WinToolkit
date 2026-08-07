@@ -1789,16 +1789,17 @@ function Test-SystemReadiness {
     #>
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.performingSystemIntegrityChecks')
 
-    # 1. Check Windows Defender
-    $defenderReady = $false
+    # 1. Check Windows Defender. A failed status query is not proof that
+    # Defender is disabled: fail safe and let the caller stop explicitly.
+    $defenderEnabled = $false
+    $defenderCheckSucceeded = $false
     try {
-        $status = Get-MpComputerStatus -ErrorAction SilentlyContinue
-        if ($null -eq $status -or $status.RealTimeProtectionEnabled -eq $false) {
-            $defenderReady = $true
-        }
+        $status = Get-MpComputerStatus -ErrorAction Stop
+        $defenderEnabled = [bool]$status.RealTimeProtectionEnabled
+        $defenderCheckSucceeded = $true
     }
     catch {
-        $defenderReady = $true # If it can't read the status, we assume it's off or removed
+        Write-ToolkitLog -Level 'ERROR' -Message "Unable to read Windows Defender status: $($_.Exception.Message)"
     }
 
     # 2. Check Windows Update (Pending updates)
@@ -1819,9 +1820,98 @@ function Test-SystemReadiness {
     }
 
     return @{
-        Defender = $defenderReady
-        Updates  = $updatesReady
-        Count    = if ($null -eq $result) { 0 } else { $result.Updates.Count }
+        Defender                = $defenderEnabled
+        DefenderCheckSucceeded  = $defenderCheckSucceeded
+        Updates                 = $updatesReady
+        Count                   = if ($null -eq $result) { 0 } else { $result.Updates.Count }
+    }
+}
+
+function Add-TemporaryDefenderExclusion {
+    <#
+    .SYNOPSIS
+    Adds a narrow, temporary Defender exclusion for WinToolkit's download area.
+
+    Existing exclusions are preserved and are never removed by the cleanup.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $path = [IO.Path]::GetFullPath($script:AppConfig.Paths.Temp)
+    if (-not (Test-Path -LiteralPath $path)) {
+        $null = New-Item -Path $path -ItemType Directory -Force -ErrorAction Stop
+    }
+
+    try {
+        $preference = Get-MpPreference -ErrorAction Stop
+        $existingPaths = @($preference.ExclusionPath | ForEach-Object {
+                if ($_){ [IO.Path]::GetFullPath($_).TrimEnd('\') }
+            })
+        $alreadyExcluded = $existingPaths | Where-Object {
+            $_ -and $_.Equals($path.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
+        }
+
+        if (-not $alreadyExcluded) {
+            Add-MpPreference -ExclusionPath $path -ErrorAction Stop
+            $script:TemporaryDefenderExclusionAdded = $true
+            Write-ToolkitLog -Level 'INFO' -Message "Temporary Defender exclusion added: $path"
+            Write-StyledMessage -Type Info -Text "Protezione Defender attiva: esclusione temporanea limitata a $path."
+        }
+        else {
+            $script:TemporaryDefenderExclusionAdded = $false
+            Write-ToolkitLog -Level 'INFO' -Message "Defender exclusion already existed: $path"
+        }
+
+        $verified = Get-MpPreference -ErrorAction Stop
+        $verifiedPaths = @($verified.ExclusionPath | ForEach-Object {
+                if ($_){ [IO.Path]::GetFullPath($_).TrimEnd('\') }
+            })
+        if (-not ($verifiedPaths | Where-Object {
+                    $_ -and $_.Equals($path.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
+                })) {
+            throw "Defender exclusion was not visible after adding it."
+        }
+
+        $script:TemporaryDefenderExclusionPath = $path
+    }
+    catch {
+        throw "Unable to establish a verified temporary Defender exclusion: $($_.Exception.Message)"
+    }
+}
+
+function Remove-TemporaryDefenderExclusion {
+    <#
+    .SYNOPSIS
+    Removes only the Defender exclusion created by this process and verifies it.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if (-not $script:TemporaryDefenderExclusionAdded -or
+        [string]::IsNullOrWhiteSpace($script:TemporaryDefenderExclusionPath)) {
+        return
+    }
+
+    $path = $script:TemporaryDefenderExclusionPath
+    try {
+        Remove-MpPreference -ExclusionPath $path -ErrorAction Stop
+        $preference = Get-MpPreference -ErrorAction Stop
+        $stillPresent = @($preference.ExclusionPath) | Where-Object {
+            $_ -and ([IO.Path]::GetFullPath($_).TrimEnd('\')).Equals(
+                $path.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
+        }
+        if ($stillPresent) {
+            throw "Defender exclusion is still present after removal."
+        }
+        Write-ToolkitLog -Level 'INFO' -Message "Temporary Defender exclusion removed and verified: $path"
+    }
+    catch {
+        Write-ToolkitLog -Level 'ERROR' -Message "Unable to verify Defender exclusion removal for '$path': $($_.Exception.Message)"
+        Write-StyledMessage -Type Error -Text "Impossibile verificare il ripristino dell'esclusione temporanea Defender: $($_.Exception.Message)"
+    }
+    finally {
+        $script:TemporaryDefenderExclusionAdded = $false
+        $script:TemporaryDefenderExclusionPath = $null
     }
 }
 
@@ -1877,11 +1967,12 @@ function Invoke-WinToolkitSetup {
             Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
             $check = Test-SystemReadiness
 
-            # Windows Defender SEMPRE obbligatorio
-            if (-not $check.Defender) {
+            # A status query failure is a hard stop; an active Defender is
+            # handled with a narrow temporary exclusion below.
+            if (-not $check.DefenderCheckSucceeded) {
                 Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
-                Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.requiredWindowsDefenderIsOn')
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.disableRealTimeProtectionToAvoidCrashes')
+                Write-StyledMessage -Type Error -Text "Impossibile verificare in sicurezza lo stato di Windows Defender."
+                Write-StyledMessage -Type Info -Text "Correggi l'accesso ai cmdlet Defender e riprova; la protezione non viene disattivata."
                 Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
 
                 Write-Host ("`n" + (Get-SourceTextLoc 'uiText.keyPressRetryTheChecks')) -ForegroundColor Cyan
@@ -1902,6 +1993,8 @@ function Invoke-WinToolkitSetup {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.environmentReadyForInstallation')
             break
         }
+
+        Add-TemporaryDefenderExclusion
 
         # Suspend Windows Update services to ensure Winget stability
         Invoke-StopUpdateServices
@@ -2012,6 +2105,9 @@ function Invoke-WinToolkitSetup {
         Write-Host (Get-SourceTextLoc 'sourceText.pressAnyKeyToExit2')
         $null = [Console]::ReadKey($true)
         exit 1
+    }
+    finally {
+        Remove-TemporaryDefenderExclusion
     }
 }
 
