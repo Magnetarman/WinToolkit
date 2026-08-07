@@ -1,8 +1,7 @@
 # WinToolkit launcher. Keep this file ASCII-only and compatible with Windows PowerShell 5.1.
 [CmdletBinding()]
 param(
-    [string]$Language = 'en-US',
-    [string]$OfflineModeDir
+    [string]$Language = 'en-US'
 )
 
 $CoreScriptUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start-core.ps1'
@@ -67,7 +66,6 @@ function Install-Pwsh {
 }
 
 $env:WTOOLKIT_LANGUAGE = $Language
-if ($OfflineModeDir) { $env:WTOOLKIT_OFFLINE_MODE_DIR = $OfflineModeDir }
 
 if (-not (Test-IsAdministrator)) {
     $hostPath = if ($PSVersionTable.PSVersion.Major -ge 7) { Join-Path $PSHOME 'pwsh.exe' } else { Join-Path $PSHOME 'powershell.exe' }
