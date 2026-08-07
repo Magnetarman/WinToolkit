@@ -12,7 +12,7 @@ param(
     [string]$Language = $(if ($env:WTOOLKIT_LANGUAGE) { $env:WTOOLKIT_LANGUAGE } else { 'Auto' })
 )
 
-Set-StrictMode -Version 2.0
+Set-StrictMode -Version Latest
 
 # Error policy:
 # 1) best-effort diagnostics/repairs log a Warning and continue;
@@ -262,6 +262,11 @@ function Repair-SystemClock {
 }
 
 function Reset-SchannelSettings {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    if (-not $PSCmdlet.ShouldProcess('SCHANNEL registry keys', 'Reset TLS/cipher settings')) { return }
+
     $changed = $false
     try {
         $schannelPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL'
@@ -304,6 +309,11 @@ function Reset-SchannelSettings {
 }
 
 function Reset-HostsFile {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    if (-not $PSCmdlet.ShouldProcess('C:\Windows\System32\drivers\etc\hosts', 'Reset hosts file')) { return }
+
     try {
         $hostsPath = 'C:\Windows\System32\drivers\etc\hosts'
         if (-not (Test-Path $hostsPath)) { return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'Hosts file not present.' } }
@@ -358,6 +368,11 @@ function Reset-HostsFile {
 }
 
 function Repair-AppInstaller {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    if (-not $PSCmdlet.ShouldProcess('Microsoft.DesktopAppInstaller', 'Repair App Installer')) { return }
+
     try {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'App Installer already exposes winget.' }
@@ -752,8 +767,8 @@ function Test-WingetDeepValidation {
         $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
         $exitCode = $LASTEXITCODE
 
-        # Check for access violation crash (0xC0000005 = -1073741819 or 3221225781)
-        if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
+        # Check for access violation crash (0xC0000005 = -1073741819 / 3221225477)
+        if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225477) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.crashDetectedExitcode0AccessViolationAdvancedRecoveryAttempt' -Args @($exitCode))
 
             # 1. Try DB restore + Appx reset first
@@ -765,7 +780,7 @@ function Test-WingetDeepValidation {
             $exitCode = $LASTEXITCODE
 
             # 2. If it still crashes, try complete reinstall
-            if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
+            if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225477) {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.persistentCrashStartingCompleteReinstallationOfWinget')
                 $null = Repair-Winget -Level FullReinstall
 
@@ -1365,8 +1380,11 @@ function Start-ToolkitLog {
     if (-not (Test-Path $logdir)) {
         New-Item -Path $logdir -ItemType Directory -Force | Out-Null
     }
-    $script:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
-    Start-Transcript -Path "$logdir\${ToolName}_$dateTime.transcript.log" -Append -Force | Out-Null
+    Get-ChildItem -Path $logdir -Filter '*.log' -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+    $script:CurrentLogFile = "$logdir\${ToolName}_${dateTime}_$PID.log"
+    Start-Transcript -Path "$logdir\${ToolName}_${dateTime}_$PID.transcript.log" -Append -Force | Out-Null
 
     # Raccolta metadati
     $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
@@ -1731,39 +1749,6 @@ function Test-PathInEnvironment {
     return $pathExists
 }
 
-function Set-PathPermissions {
-    <#
-    .SYNOPSIS
-    Grants full control permissions for the Administrators group on the specified directory path.
-    #>
-    param (
-        [string]$FolderPath
-    )
-
-    if (-not (Test-Path $FolderPath)) {
-        return
-    }
-
-    try {
-        $administratorsGroupSid = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")
-        $administratorsGroup = $administratorsGroupSid.Translate([System.Security.Principal.NTAccount])
-        $acl = Get-Acl -Path $FolderPath -ErrorAction Stop
-
-        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-            $administratorsGroup, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
-        )
-
-        $acl.SetAccessRule($accessRule)
-        Set-Acl -Path $FolderPath -AclObject $acl -ErrorAction Stop
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.updatedFolderPermissions0' -Args @($FolderPath))
-    }
-    catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.unableToSetPermissions0' -Args @($($_.Exception.Message)))
-    }
-}
-
-
-
 function Install-PowerShellCore {
     <#
     .SYNOPSIS
@@ -1977,17 +1962,6 @@ function Install-NerdFontsLocal {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.errorInstallingFont0' -Args @($($_.Exception.Message)))
         return $false
     }
-}
-
-function Get-ProfileDirLocal {
-    <#
-    .SYNOPSIS
-    Returns the correct PowerShell profile folder path for the current edition.
-    #>
-    if ($PSVersionTable.PSEdition -eq "Core") {
-        return [Environment]::GetFolderPath("MyDocuments") + "\PowerShell"
-    }
-    return [Environment]::GetFolderPath("MyDocuments") + "\WindowsPowerShell"
 }
 
 function Install-PspEnvironment {
@@ -2368,6 +2342,8 @@ function Invoke-WinToolkitSetup {
             throw 'start-core.ps1 must be started by the elevated start.ps1 stub.'
         }
 
+        Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
+
         foreach ($repair in @(
                 @{ Name = 'System clock'; Action = { Repair-SystemClock } },
                 @{ Name = 'SCHANNEL'; Action = { Reset-SchannelSettings } },
@@ -2380,7 +2356,6 @@ function Invoke-WinToolkitSetup {
 
         # --- PRE-FLIGHT CHECK ---
         while ($true) {
-            Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
             $check = Test-SystemReadiness
 
             # A status query failure is a hard stop; an active Defender is
