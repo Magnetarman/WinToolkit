@@ -70,16 +70,33 @@ $env:WTOOLKIT_LANGUAGE = $Language
 if (-not (Test-IsAdministrator)) {
     $hostPath = if ($PSVersionTable.PSVersion.Major -ge 7) { Join-Path $PSHOME 'pwsh.exe' } else { Join-Path $PSHOME 'powershell.exe' }
     $langArg = "-Language '$($Language.Replace("'", "''"))'"
+
+    # Wrap the elevated invocation so the admin window stays open on failure
+    # and surfaces the real error instead of closing instantly on Windows 11.
     if ($PSCommandPath) {
         $escapedPath = $PSCommandPath.Replace("'", "''")
-        $elevatedCommand = "& '$escapedPath' $langArg"
+        $inner = "& '$escapedPath' $langArg"
     }
     else {
-        $elevatedCommand = '$s = irm ''' + $StubScriptUrl + '''; & ([scriptblock]::Create($s)) ' + $langArg
+        $inner = '$s = irm ''' + $StubScriptUrl + '''; & ([scriptblock]::Create($s)) ' + $langArg
     }
-    Start-Process -FilePath $hostPath -ArgumentList @(
+    $elevatedCommand = @"
+try {
+    `$env:WTOOLKIT_LANGUAGE = '$($Language.Replace("'", "''"))'
+    $inner
+    exit `$LASTEXITCODE
+}
+catch {
+    Write-Error "`$_"
+    Read-Host -Prompt 'Elevazione fallita. Premi INVIO per chiudere'
+    exit 1
+}
+"@
+
+    $elevatedProcess = Start-Process -FilePath $hostPath -ArgumentList @(
         '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $elevatedCommand
-    ) -Verb RunAs | Out-Null
+    ) -Verb RunAs -PassThru
+    if ($elevatedProcess) { $elevatedProcess.WaitForExit() }
     exit 0
 }
 
