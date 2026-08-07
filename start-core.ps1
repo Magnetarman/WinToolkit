@@ -1037,7 +1037,7 @@ function Install-GitPackage {
         if ($result.ExitCode -eq 0) {
             Update-EnvironmentPath
 
-            if (Wait-Until -Condition { Test-CommandExists -Name git } -TimeoutSeconds 15 -IntervalSeconds 1) {
+            if (Wait-Until -Condition { Test-CommandExists -Name git } -TimeoutSeconds 15 -IntervalMs 1000) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitInstalledViaWinget')
                 return $true
             }
@@ -1540,13 +1540,13 @@ function Wait-Until {
     param(
         [Parameter(Mandatory = $true)][scriptblock]$Condition,
         [int]$TimeoutSeconds = 30,
-        [int]$IntervalSeconds = 1
+        [int]$IntervalMs = 1000
     )
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     do {
         if (& $Condition) { return $true }
         if ((Get-Date) -ge $deadline) { break }
-        Start-Sleep -Seconds $IntervalSeconds
+        Start-Sleep -Milliseconds $IntervalMs
     } while ($true)
     return $false
 }
@@ -1767,7 +1767,7 @@ function Install-WindowsTerminalApp {
                 Arguments = "install --id 9N0DX20HK701 --source winget --accept-source-agreements --accept-package-agreements --silent"
             }
             $result = Invoke-WingetCommand @iwcParams
-            if ($result.ExitCode -eq 0 -and (Wait-Until -Condition { Test-CommandExists -Name 'wt.exe' } -TimeoutSeconds 15 -IntervalSeconds 1)) {
+            if ($result.ExitCode -eq 0 -and (Wait-Until -Condition { Test-CommandExists -Name 'wt.exe' } -TimeoutSeconds 15 -IntervalMs 1000)) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalInstalledViaWinget')
                 return $true
             }
