@@ -1193,6 +1193,7 @@ uiText.timeoutReachedAfter0SecondsProcessTermination = Timeout raggiunto dopo {0
 uiText.errorDuring01 = Errore durante {0}: {1}
 uiText.pressAnyKeyToCancel = 💡 Premi un tasto qualsiasi per annullare...
 uiText.systemRebootCancelled = ⏸️ Riavvio del sistema annullato.
+uiText.systemClockResynced = 🕒 Orologio di sistema risincronizzato.
 uiText.0In1Seconds = {0} tra {1} secondi
 uiText.individualRestartSuppressedAFinalRebootWillBeHandled = 🚫 Riavvio individuale soppresso. Verrà gestito un riavvio finale.
 uiText.startingDownload = Avvio download in corso...
