@@ -1588,6 +1588,8 @@ function Invoke-DownloadFile {
     )
 
     try {
+        $previousProgress = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
         $iwrParams = @{
             Uri             = $Uri
             OutFile         = $OutFile
@@ -1596,6 +1598,9 @@ function Invoke-DownloadFile {
         }
         Invoke-WebRequest @iwrParams
         return $true
+    }
+    finally {
+        $ProgressPreference = $previousProgress
     }
     catch {
         if (-not $Silent) {
