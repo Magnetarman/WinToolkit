@@ -539,6 +539,11 @@ function Invoke-StopUpdateServices {
     .SYNOPSIS
     Temporarily suspends Windows Update and related services to avoid conflicts with Winget.
     #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    if (-not $PSCmdlet.ShouldProcess('Windows Update services', 'Suspend services')) { return }
+
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.temporarilySuspendWindowsUpdateServicesToAvoidConflicts')
     $savedServices = @()
     foreach ($svc in $script:AppConfig.UpdateServices) {
@@ -590,6 +595,11 @@ function Invoke-StartUpdateServices {
     .SYNOPSIS
     Restores Windows Update and related services.
     #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    if (-not $PSCmdlet.ShouldProcess('Windows Update services', 'Restore services')) { return }
+
     $status = Read-UpdateServicesStatus
     if (-not $status -or $status.State -eq 'Restored') { return $true }
 
@@ -2231,8 +2241,10 @@ function Add-TemporaryDefenderExclusion {
 
     Existing exclusions are preserved and are never removed by the cleanup.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess)]
     param()
+
+    if (-not $PSCmdlet.ShouldProcess('Defender exclusion path', 'Add temporary Defender exclusion')) { return }
 
     $path = [IO.Path]::GetFullPath($script:AppConfig.Paths.Temp)
     if (-not (Test-Path -LiteralPath $path)) {
@@ -2281,8 +2293,10 @@ function Remove-TemporaryDefenderExclusion {
     .SYNOPSIS
     Removes only the Defender exclusion created by this process and verifies it.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess)]
     param()
+
+    if (-not $PSCmdlet.ShouldProcess('Defender exclusion path', 'Remove temporary Defender exclusion')) { return }
 
     if (-not $script:TemporaryDefenderExclusionAdded -or
         [string]::IsNullOrWhiteSpace($script:TemporaryDefenderExclusionPath)) {
