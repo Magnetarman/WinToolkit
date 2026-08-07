@@ -2159,7 +2159,17 @@ function New-ToolkitDesktopShortcut {
 
         if (-not (Test-Path $icon)) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadIcona')
-            Invoke-DownloadFile -Uri $script:AppConfig.URLs.ToolkitIcon -OutFile $icon
+            $null = Invoke-DownloadFile -Uri $script:AppConfig.URLs.ToolkitIcon -OutFile $icon
+        }
+
+        # Re-download if the cached icon is missing, empty, or too small to be
+        # a valid .ico (guards against a partial/HTML-error file from a past run).
+        if (Test-Path $icon) {
+            $iconItem = Get-Item $icon -ErrorAction SilentlyContinue
+            if (-not $iconItem -or $iconItem.Length -lt 1024) {
+                Remove-Item $icon -Force -ErrorAction SilentlyContinue
+                $null = Invoke-DownloadFile -Uri $script:AppConfig.URLs.ToolkitIcon -OutFile $icon
+            }
         }
 
         $shell = New-Object -ComObject WScript.Shell
@@ -2167,7 +2177,9 @@ function New-ToolkitDesktopShortcut {
         $link.TargetPath = $script:AppConfig.Paths.wtExe
         $link.Arguments = 'pwsh -ExecutionPolicy Bypass -Command "irm ' + $script:AppConfig.URLs.WebInstaller + ' | iex"'
         $link.WorkingDirectory = $script:AppConfig.Paths.wtDir
-        $link.IconLocation = $icon
+        if (Test-Path $icon -and (Get-Item $icon).Length -ge 1024) {
+            $link.IconLocation = $icon
+        }
         $link.Description = "Win Toolkit - Master Windows with Ease"
         $link.Save()
 
