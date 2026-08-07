@@ -138,6 +138,15 @@ $script:AppConfig.URLs.PowerShellProfile = "https://raw.githubusercontent.com/Ma
 $script:AppConfig.URLs.WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/$($script:AppConfig.Branch)/assets/settings.json"
 $script:AppConfig.URLs.ToolkitIcon = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/$($script:AppConfig.Branch)/images/WinToolkit.ico"
 
+enum WingetRepairLevel {
+    SourceReset
+    MsStoreCert
+    AppxReset
+    CoreInstall
+    FullDatabase
+    FullReinstall
+}
+
 function Get-WinGetExecutable {
     <#
     .SYNOPSIS
@@ -719,7 +728,7 @@ function Test-WingetDeepValidation {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.crashDetectedExitcode0AccessViolationAdvancedRecoveryAttempt' -Args @($exitCode))
 
             # 1. Try DB restore + Appx reset first
-            $null = Repair-WingetDatabase
+            $null = Repair-Winget -Level FullDatabase
 
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.repeatTestAfterDatabaseRestore')
             Start-Sleep 3
@@ -729,7 +738,7 @@ function Test-WingetDeepValidation {
             # 2. If it still crashes, try complete reinstall
             if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.persistentCrashStartingCompleteReinstallationOfWinget')
-                $null = Install-WingetPackage -Force
+                $null = Repair-Winget -Level FullReinstall
 
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.finalTestAfterReinstallation')
                 Start-Sleep 3
@@ -1967,6 +1976,49 @@ function New-ToolkitDesktopShortcut {
 # MAIN FUNCTION
 # ============================================================================
 
+function Repair-Winget {
+    <#
+    .SYNOPSIS
+    Central entry point for WinGet recovery operations.
+
+    The level describes the observed failure, while implementation details
+    remain behind this dispatcher.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [WingetRepairLevel]$Level
+    )
+
+    Write-ToolkitLog -Level 'INFO' -Message "Starting WinGet repair level: $Level"
+    switch ($Level) {
+        'SourceReset' {
+            Reset-WingetSources
+            return $true
+        }
+        'MsStoreCert' {
+            Repair-WingetMsStoreSource
+            return $true
+        }
+        'AppxReset' {
+            $result = Repair-AppInstaller
+            return [bool]$result.Success
+        }
+        'CoreInstall' {
+            return [bool](Install-WingetCore)
+        }
+        'FullDatabase' {
+            return [bool](Repair-WingetDatabase)
+        }
+        'FullReinstall' {
+            return [bool](Install-WingetPackage -Force)
+        }
+        default {
+            throw "Unsupported WinGet repair level: $Level"
+        }
+    }
+}
+
 function Add-SetupResult {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -2159,7 +2211,7 @@ function Invoke-WinToolkitSetup {
                 @{ Name = 'System clock'; Action = { Repair-SystemClock } },
                 @{ Name = 'SCHANNEL'; Action = { Reset-SchannelSettings } },
                 @{ Name = 'Hosts file'; Action = { Reset-HostsFile } },
-                @{ Name = 'App Installer'; Action = { Repair-AppInstaller } }
+                @{ Name = 'App Installer'; Action = { [pscustomobject]@{ Success = (Repair-Winget -Level AppxReset); Changed = $true; Message = 'App Installer repair level completed.' } } }
             )) {
             $repairResult = & $repair.Action
             Add-SetupResult -Name $repair.Name -Success ([bool]$repairResult.Success) -Changed ([bool]$repairResult.Changed) -Message $repairResult.Message
@@ -2214,11 +2266,11 @@ function Invoke-WinToolkitSetup {
         # Update PATH before initial check to detect already installed winget
         Update-EnvironmentPath
 
-        Repair-WingetMsStoreSource
+        Repair-Winget -Level MsStoreCert
 
         if (-not (Test-WingetFunctionality)) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetDoesnTRespondFastRecoveryAttemptCore')
-            $coreSuccess = Install-WingetCore
+            $coreSuccess = Repair-Winget -Level CoreInstall
             Update-EnvironmentPath
 
             if ($coreSuccess -and (Test-WingetFunctionality)) {
@@ -2227,7 +2279,7 @@ function Invoke-WinToolkitSetup {
             }
             else {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptAdvancedSlowerMethod')
-                $null = Install-WingetPackage
+                $null = Repair-Winget -Level FullReinstall
                 Update-EnvironmentPath
 
                 if (-not (Test-WingetFunctionality)) {
