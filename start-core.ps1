@@ -193,23 +193,35 @@ function Repair-WingetMsStoreSource {
 }
 
 function Repair-SystemClock {
+    $changed = $false
     try {
+        $status = (w32tm /query /status 2>$null | Out-String)
+        $needsRepair = ($LASTEXITCODE -ne 0 -or $status -notmatch 'Last Successful Sync Time')
+        if (-not $needsRepair) {
+            return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'System clock already synchronized.' }
+        }
         $w32Time = Get-Service w32time -ErrorAction SilentlyContinue
         if ($w32Time -and $w32Time.Status -ne 'Running') {
-            Start-Service w32time -ErrorAction SilentlyContinue | Out-Null
+            Start-Service w32time -ErrorAction Stop | Out-Null
+            $changed = $true
         }
         w32tm /resync /force 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "w32tm resync failed with exit code $LASTEXITCODE." }
+        $changed = $true
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.systemClockResynced')
+        return [pscustomobject]@{ Success = $true; Changed = $changed; Message = 'System clock synchronized.' }
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "System clock resync failed: $($_.Exception.Message)"
+        return [pscustomobject]@{ Success = $false; Changed = $changed; Message = $_.Exception.Message }
     }
 }
 
 function Reset-SchannelSettings {
+    $changed = $false
     try {
         $schannelPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL'
-        if (-not (Test-Path $schannelPath)) { return }
+        if (-not (Test-Path $schannelPath)) { return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'SCHANNEL key not present.' } }
 
         $tls12Path = Join-Path $schannelPath 'Protocols\TLS 1.2'
         if (Test-Path $tls12Path) {
@@ -219,6 +231,8 @@ function Reset-SchannelSettings {
                     $enabled = (Get-ItemProperty -Path $modePath -Name 'Enabled' -ErrorAction SilentlyContinue).Enabled
                     if ($enabled -eq 0) {
                         Set-ItemProperty -Path $modePath -Name 'Enabled' -Value 1 -Type DWord -Force
+                        $changed = $true
+                        Write-StyledMessage -Type Info -Text "SCHANNEL TLS 1.2 $mode riattivato."
                         Write-ToolkitLog -Level 'INFO' -Message "Re-enabled TLS 1.2 $mode"
                     }
                 }
@@ -231,23 +245,27 @@ function Reset-SchannelSettings {
                 $prop = Get-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
                 if ($prop -and $prop.Enabled -eq 0) {
                     Remove-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
+                    $changed = $true
+                    Write-StyledMessage -Type Info -Text "SCHANNEL cipher $($_.PSChildName) riabilitato."
                     Write-ToolkitLog -Level 'INFO' -Message "Removed disabled cipher: $($_.PSChildName)"
                 }
             }
         }
+        return [pscustomobject]@{ Success = $true; Changed = $changed; Message = if ($changed) { 'SCHANNEL settings repaired.' } else { 'SCHANNEL settings already valid.' } }
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "SCHANNEL reset failed: $($_.Exception.Message)"
+        return [pscustomobject]@{ Success = $false; Changed = $changed; Message = $_.Exception.Message }
     }
 }
 
 function Reset-HostsFile {
     try {
         $hostsPath = 'C:\Windows\System32\drivers\etc\hosts'
-        if (-not (Test-Path $hostsPath)) { return }
+        if (-not (Test-Path $hostsPath)) { return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'Hosts file not present.' } }
 
         $lines = Get-Content $hostsPath -ErrorAction SilentlyContinue
-        if (-not $lines) { return }
+        if (-not $lines) { return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'Hosts file is empty.' } }
 
         $hasOverrides = $false
         $newLines = @()
@@ -260,6 +278,10 @@ function Reset-HostsFile {
         }
 
         if ($hasOverrides) {
+            $backupDir = $script:AppConfig.Paths.WinToolkitDir
+            if (-not (Test-Path $backupDir)) { $null = New-Item -Path $backupDir -ItemType Directory -Force -ErrorAction Stop }
+            $backupPath = Join-Path $backupDir ("hosts.backup.{0}.txt" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+            Copy-Item -LiteralPath $hostsPath -Destination $backupPath -Force -ErrorAction Stop
             $hostsHeader = @(
                 '# Copyright (c) 1993-2009 Microsoft Corp.',
                 '# This is a sample HOSTS file used by Microsoft TCP/IP for Windows.',
@@ -279,30 +301,44 @@ function Reset-HostsFile {
             )
             $finalContent = $hostsHeader + ($newLines | Where-Object { $_.Trim() -ne '' })
             Set-Content -Path $hostsPath -Value $finalContent -Encoding ASCII -Force
+            Write-StyledMessage -Type Info -Text "File hosts modificato; backup salvato in $backupPath."
             Write-ToolkitLog -Level 'INFO' -Message "Hosts file reset: removed Microsoft/Store/Winget overrides"
+            return [pscustomobject]@{ Success = $true; Changed = $true; Message = "Hosts reset; backup: $backupPath" }
         }
+        return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'No blocked hosts overrides found.' }
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "Hosts file reset failed: $($_.Exception.Message)"
+        return [pscustomobject]@{ Success = $false; Changed = $false; Message = $_.Exception.Message }
     }
 }
 
 function Repair-AppInstaller {
     try {
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'App Installer already exposes winget.' }
+        }
+        $changed = $false
         $pkg = Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue
         if ($pkg) {
             $pkg | Reset-AppxPackage 2>$null | Out-Null
+            $changed = $true
         }
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
             $tempFile = Join-Path $env:TEMP 'WingetInstaller.msixbundle'
             Invoke-WebRequest -Uri 'https://aka.ms/getwinget' -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
-            Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller'
+            if (-not (Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller')) {
+                throw 'App Installer package installation failed.'
+            }
             Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+            $changed = $true
         }
-        Register-WingetAppExecutionAlias | Out-Null
+        if (-not (Register-WingetAppExecutionAlias)) { throw 'App Installer execution alias registration failed.' }
+        return [pscustomobject]@{ Success = $true; Changed = $changed; Message = 'App Installer repaired and alias registered.' }
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "App Installer repair failed: $($_.Exception.Message)"
+        return [pscustomobject]@{ Success = $false; Changed = $false; Message = $_.Exception.Message }
     }
 }
 
@@ -1902,15 +1938,48 @@ function New-ToolkitDesktopShortcut {
         [IO.File]::WriteAllBytes($shortcut, $bytes)
 
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.shortcutCreatedSuccessfully')
+        return $true
     }
     catch {
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.shortcutCreationError0' -Args @($($_.Exception.Message)))
+        return $false
     }
 }
 
 # ============================================================================
 # MAIN FUNCTION
 # ============================================================================
+
+function Add-SetupResult {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][bool]$Success,
+        [bool]$Changed = $false,
+        [string]$Message = '',
+        [bool]$Blocking = $false
+    )
+    $status = if ($Success) { if ($Changed) { 'Changed' } else { 'Succeeded' } } else { 'Failed' }
+    $script:SetupResults += [pscustomobject]@{
+        Name = $Name; Status = $status; Message = $Message; Blocking = $Blocking
+    }
+}
+
+function Write-SetupSummary {
+    $counts = @{}
+    foreach ($status in @('Succeeded', 'Changed', 'Failed', 'Skipped')) {
+        $counts[$status] = @($script:SetupResults | Where-Object Status -eq $status).Count
+    }
+    Write-StyledMessage -Type Info -Text "Riepilogo: Successi=$($counts.Succeeded) Modificati=$($counts.Changed) Falliti=$($counts.Failed) Saltati=$($counts.Skipped)."
+    foreach ($result in $script:SetupResults | Where-Object Status -eq 'Failed') {
+        $level = if ($result.Blocking) { 'Error' } else { 'Warning' }
+        Write-StyledMessage -Type $level -Text "$($result.Name): $($result.Message)"
+    }
+    $hasBlockingFailure = @($script:SetupResults | Where-Object { $_.Status -eq 'Failed' -and $_.Blocking }).Count -gt 0
+    $hasFailure = @($script:SetupResults | Where-Object Status -eq 'Failed').Count -gt 0
+    if ($hasBlockingFailure) { return 1 }
+    if ($hasFailure) { return 2 }
+    return 0
+}
 
 function Test-SystemReadiness {
     <#
@@ -2053,6 +2122,8 @@ function Invoke-WinToolkitSetup {
     [CmdletBinding()]
     param()
 
+    $script:SetupResults = @()
+    $script:SetupExitCode = 1
     try {
         $Host.UI.RawUI.WindowTitle = "Toolkit Starter by MagnetarMan"
 
@@ -2076,10 +2147,15 @@ function Invoke-WinToolkitSetup {
             throw 'start-core.ps1 must be started by the elevated start.ps1 stub.'
         }
 
-        Repair-SystemClock
-        Reset-SchannelSettings
-        Reset-HostsFile
-        Repair-AppInstaller
+        foreach ($repair in @(
+                @{ Name = 'System clock'; Action = { Repair-SystemClock } },
+                @{ Name = 'SCHANNEL'; Action = { Reset-SchannelSettings } },
+                @{ Name = 'Hosts file'; Action = { Reset-HostsFile } },
+                @{ Name = 'App Installer'; Action = { Repair-AppInstaller } }
+            )) {
+            $repairResult = & $repair.Action
+            Add-SetupResult -Name $repair.Name -Success ([bool]$repairResult.Success) -Changed ([bool]$repairResult.Changed) -Message $repairResult.Message
+        }
 
         # --- PRE-FLIGHT CHECK ---
         while ($true) {
@@ -2148,7 +2224,8 @@ function Invoke-WinToolkitSetup {
 
                 if (-not (Test-WingetFunctionality)) {
                     Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts')
-                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.theScriptWillContinueButPackageInstallationMayFail')
+                    Add-SetupResult -Name 'WinGet' -Success $false -Message 'WinGet remains unavailable after recovery.' -Blocking $true
+                    throw 'WinGet is required for the installation flow and remains unavailable.'
                 }
                 else {
                     Reset-WingetSources
@@ -2159,13 +2236,17 @@ function Invoke-WinToolkitSetup {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetIsAlreadyOperational')
         }
 
+        Add-SetupResult -Name 'WinGet' -Success ([bool](Test-WingetFunctionality)) -Message 'WinGet operational.' -Blocking $true
+
         # Thoroughly verify that Winget works correctly.
         if (-not $(Test-WingetDeepValidation)) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.warningInstallingSubsequentPackagesViaWingetMayFail')
         }
 
         # Installa Git
-        if (Install-GitPackage) {
+        $gitSuccess = Install-GitPackage
+        Add-SetupResult -Name 'Git' -Success ([bool]$gitSuccess) -Message 'Git verification/installation completed.'
+        if ($gitSuccess) {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitIsAlreadyOperational')
         }
         else {
@@ -2183,6 +2264,7 @@ function Invoke-WinToolkitSetup {
 
         # Installazioni core Windows Terminal
         $wtInstalled = Install-WindowsTerminalApp
+        Add-SetupResult -Name 'Windows Terminal' -Success ([bool]$wtInstalled) -Message 'Windows Terminal verification/installation completed.'
 
         # Imposta Windows Terminal come terminale predefinito
         $isWtExecutable = [bool](Get-Command 'wt.exe' -ErrorAction SilentlyContinue)
@@ -2203,22 +2285,28 @@ function Invoke-WinToolkitSetup {
 
         # ALWAYS executed: PSP environment and profile installation
         Install-PspEnvironment
+        Add-SetupResult -Name 'PowerShell environment' -Success $true -Message 'PowerShell environment configured.'
 
-        New-ToolkitDesktopShortcut
+        $shortcutCreated = New-ToolkitDesktopShortcut
+        Add-SetupResult -Name 'Desktop shortcut' -Success ([bool]$shortcutCreated) -Message 'Desktop shortcut creation completed.'
 
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.configurationComplete')
 
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wintoolkitIsReadyOnTheDesktop')
         Start-Sleep 3
-        exit
+        $script:SetupExitCode = Write-SetupSummary
+        return
     }
     catch {
         Set-UpdateServicesError -Message $_.Exception.Message
+        Add-SetupResult -Name 'Setup flow' -Success $false -Message $_.Exception.Message -Blocking $true
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalErrorDuringSetup0' -Args @($($_.Exception.Message)))
         Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.unhandledException01' -Args @($($_.Exception.Message), $($_.ScriptStackTrace)))
         Write-Host (Get-SourceTextLoc 'sourceText.pressAnyKeyToExit2')
         $null = [Console]::ReadKey($true)
-        exit 1
+        $script:SetupExitCode = 1
+        Write-SetupSummary | Out-Null
+        return
     }
     finally {
         Invoke-StartUpdateServices
@@ -2227,3 +2315,4 @@ function Invoke-WinToolkitSetup {
 }
 
 Invoke-WinToolkitSetup
+exit $script:SetupExitCode
