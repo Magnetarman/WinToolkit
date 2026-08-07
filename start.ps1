@@ -303,7 +303,7 @@ function Repair-AppInstaller {
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
             $tempFile = Join-Path $env:TEMP 'WingetInstaller.msixbundle'
             Invoke-WebRequest -Uri 'https://aka.ms/getwinget' -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
-            Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown'
+            Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller'
             Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
         }
     }
@@ -720,7 +720,7 @@ function Install-WingetCore {
             Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetFile -UseBasicParsing
 
             $deps = if ($dependencies) { $dependencies } else { @() }
-            if (Start-AppxSilentProcess -AppxPath $wingetFile -DependencyPaths $deps -Flags '-ForceApplicationShutdown') {
+            if (Start-AppxSilentProcess -AppxPath $wingetFile -DependencyPaths $deps -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetCoreSuccessfullyInstalled')
             }
             else {
@@ -823,7 +823,7 @@ function Install-WingetPackage {
                 ErrorAction     = 'Stop'
             }
             Invoke-WebRequest @iwrParams
-            if (Start-AppxSilentProcess -AppxPath $tempInstaller -Flags '-ForceApplicationShutdown') {
+            if (Start-AppxSilentProcess -AppxPath $tempInstaller -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationSuccessful')
             }
             else {
@@ -1210,20 +1210,25 @@ function Start-AppxSilentProcess {
     param(
         [string]$AppxPath,
         [string]$Flags = '-ForceApplicationShutdown',
-        [string[]]$DependencyPaths = @()
+        [string[]]$DependencyPaths = @(),
+        [string]$ExpectedPackageName,
+        [int]$TimeoutSeconds = 120
     )
 
     $errFile = Join-Path $env:TEMP "AppxError_$([guid]::NewGuid()).txt"
-    $depString = ""
+    $dependencyPathString = ""
+    $dependencyPackagePathString = ""
     if ($DependencyPaths.Count -gt 0) {
-        $depString = "-DependencyPackagePath " + (($DependencyPaths | ForEach-Object { "'$($_ -replace "'", "''")'" }) -join ", ")
+        $quotedDependencies = (($DependencyPaths | ForEach-Object { "'$($_ -replace "'", "''")'" }) -join ", ")
+        $dependencyPathString = "-DependencyPath $quotedDependencies"
+        $dependencyPackagePathString = "-DependencyPackagePath $quotedDependencies"
     }
 
     $cmd = @"
 `$ProgressPreference = 'SilentlyContinue';
 `$ErrorActionPreference = 'SilentlyContinue';
 try {
-    Add-AppxPackage -Path '$($AppxPath -replace "'", "''")' $depString $Flags -ErrorAction Stop | Out-Null
+    Add-AppxPackage -Path '$($AppxPath -replace "'", "''")' $dependencyPathString $Flags -ErrorAction Stop | Out-Null
 }
 catch {
     if (`$_.Exception.Message -match '0x80073D06' -or `$_.Exception.Message -match 'versione successiva') {
@@ -1231,7 +1236,7 @@ catch {
     }
     if (`$_.Exception.Message -match '0x80073CF9' -or ([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem)) {
         try {
-            Add-AppxProvisionedPackage -Online -PackagePath '$($AppxPath -replace "'", "''")' $depString -SkipLicense -ErrorAction Stop | Out-Null
+            Add-AppxProvisionedPackage -Online -PackagePath '$($AppxPath -replace "'", "''")' $dependencyPackagePathString -SkipLicense -ErrorAction Stop | Out-Null
             exit 0
         }
         catch {
@@ -1251,17 +1256,35 @@ exit 0
     $psi.UseShellExecute = $false
 
     $proc = [System.Diagnostics.Process]::Start($psi)
-    $proc.WaitForExit()
+    try {
+        if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+            $proc.Kill()
+            $proc.WaitForExit()
+            Write-ToolkitLog -Level 'ERROR' -Message "AppX installation timeout after $TimeoutSeconds seconds: $AppxPath"
+            return $false
+        }
 
-    if ($proc.ExitCode -ne 0) {
+        if ($proc.ExitCode -ne 0) {
+            if (Test-Path $errFile) {
+                $errMsg = Get-Content $errFile -Raw
+                Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.appxInstallFailed01' -Args @($AppxPath, $errMsg))
+            }
+            return $false
+        }
+
+        if ($ExpectedPackageName -and
+            -not (Get-AppxPackage -Name $ExpectedPackageName -ErrorAction SilentlyContinue)) {
+            Write-ToolkitLog -Level 'ERROR' -Message "AppX command succeeded but package verification failed: $ExpectedPackageName"
+            return $false
+        }
+        return $true
+    }
+    finally {
+        $proc.Dispose()
         if (Test-Path $errFile) {
-            $errMsg = Get-Content $errFile -Raw
-            Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.appxInstallFailed01' -Args @($AppxPath, $errMsg))
             Remove-Item $errFile -Force -ErrorAction SilentlyContinue
         }
-        return $false
     }
-    return $true
 }
 
 
@@ -1372,12 +1395,17 @@ function Invoke-WingetCommand {
         $procParams = @{
             FilePath     = $wingetExe
             ArgumentList = $finalArgs -split ' '
-            Wait         = $true
             PassThru     = $true
             NoNewWindow  = $true
         }
         $process = Start-Process @procParams
-        return @{ ExitCode = $process.ExitCode }
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            $process.Kill()
+            $process.WaitForExit()
+            Write-ToolkitLog -Level 'ERROR' -Message "Winget timeout after $TimeoutSeconds seconds: $Arguments"
+            return @{ ExitCode = -2; TimedOut = $true }
+        }
+        return @{ ExitCode = $process.ExitCode; TimedOut = $false }
     }
     catch {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetCommandError0' -Args @($($_.Exception.Message)))
@@ -1584,7 +1612,7 @@ function Install-WindowsTerminalApp {
         $tempFile = Join-Path $env:TEMP "WinTerminal.msixbundle"
         Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -UseBasicParsing
 
-        if (Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown') {
+        if (Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.WindowsTerminal') {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalAppxInstallationSuccessful')
         }
         else {
