@@ -1857,50 +1857,30 @@ function Install-WindowsTerminalApp {
     return $false
 }
 
-function Merge-JsonDefaults {
-    param(
-        [Parameter(Mandatory = $true)][object]$Target,
-        [Parameter(Mandatory = $true)][object]$Defaults
-    )
-    foreach ($property in $Defaults.PSObject.Properties) {
-        $current = $Target.PSObject.Properties[$property.Name]
-        if (-not $current) {
-            $Target | Add-Member -MemberType NoteProperty -Name $property.Name -Value $property.Value
-        }
-        elseif ($current.Value -is [pscustomobject] -and $property.Value -is [pscustomobject]) {
-            Merge-JsonDefaults -Target $current.Value -Defaults $property.Value
-        }
-    }
-    return $Target
-}
-
 function Update-WindowsTerminalSettings {
     param([Parameter(Mandatory = $true)][string]$SettingsPath)
 
     $remotePath = Join-Path $script:AppConfig.Paths.Temp "wt-settings-$([guid]::NewGuid()).json"
     try {
-        if (-not (Test-Path -LiteralPath $SettingsPath)) {
-            return [bool](Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $SettingsPath)
-        }
-
         if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $remotePath)) {
             return $false
         }
-        $localSettings = Get-Content -LiteralPath $SettingsPath -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
-        $defaultSettings = Get-Content -LiteralPath $remotePath -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
-        $mergedSettings = Merge-JsonDefaults -Target $localSettings -Defaults $defaultSettings
 
         $backupPath = "$SettingsPath.bak.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-        Copy-Item -LiteralPath $SettingsPath -Destination $backupPath -Force -ErrorAction Stop
+        if (Test-Path -LiteralPath $SettingsPath) {
+            Copy-Item -LiteralPath $SettingsPath -Destination $backupPath -Force -ErrorAction Stop
+        }
+
         $tempPath = "$SettingsPath.$([guid]::NewGuid()).tmp"
         try {
-            $mergedSettings | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $tempPath -Encoding UTF8 -ErrorAction Stop
+            Copy-Item -LiteralPath $remotePath -Destination $tempPath -Force -ErrorAction Stop
             Move-Item -LiteralPath $tempPath -Destination $SettingsPath -Force -ErrorAction Stop
         }
         finally {
             if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
         }
-        Write-StyledMessage -Type Info -Text "Windows Terminal settings aggiornati preservando le impostazioni esistenti; backup: $backupPath."
+
+        Write-StyledMessage -Type Info -Text "Windows Terminal settings sovrascritti con la versione distribuita; backup: $backupPath."
         return $true
     }
     catch {
