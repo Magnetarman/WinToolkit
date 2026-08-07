@@ -290,15 +290,17 @@ function Reset-SchannelSettings {
 
         $cipherPath = Join-Path $schannelPath 'Ciphers'
         if (Test-Path $cipherPath) {
-            Get-ChildItem $cipherPath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-                $prop = Get-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
-                if ($prop -and $prop.Enabled -eq 0) {
-                    Remove-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
-                    $changed = $true
-                    Write-StyledMessage -Type Info -Text "SCHANNEL cipher $($_.PSChildName) riabilitato."
-                    Write-ToolkitLog -Level 'INFO' -Message "Removed disabled cipher: $($_.PSChildName)"
+            Get-ChildItem $cipherPath -ErrorAction SilentlyContinue |
+                Where-Object { $_.PSIsContainer } |
+                ForEach-Object {
+                    $prop = Get-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
+                    if ($prop -and $prop.Enabled -eq 0) {
+                        Remove-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
+                        $changed = $true
+                        Write-StyledMessage -Type Info -Text "SCHANNEL cipher $($_.PSChildName) riabilitato."
+                        Write-ToolkitLog -Level 'INFO' -Message "Removed disabled cipher: $($_.PSChildName)"
+                    }
                 }
-            }
         }
         return [pscustomobject]@{ Success = $true; Changed = $changed; Message = if ($changed) { 'SCHANNEL settings repaired.' } else { 'SCHANNEL settings already valid.' } }
     }
