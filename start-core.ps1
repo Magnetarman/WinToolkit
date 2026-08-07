@@ -9,8 +9,17 @@
 
 [CmdletBinding()]
 param(
-    [string]$Language = $(if ($env:WTOOLKIT_LANGUAGE) { $env:WTOOLKIT_LANGUAGE } else { 'en-US' })
+    [string]$Language = $(if ($env:WTOOLKIT_LANGUAGE) { $env:WTOOLKIT_LANGUAGE } else { 'Auto' })
 )
+
+Set-StrictMode -Version 2.0
+
+# Error policy:
+# 1) best-effort diagnostics/repairs log a Warning and continue;
+# 2) operations with a fallback log a Warning before trying the fallback;
+# 3) blocking operations throw, log an Error, and are converted to exit code 1
+#    by the main orchestrator. Every operation must return a meaningful result
+#    when the caller can continue with a partial outcome.
 
 # --- GLOBAL CONFIGURATION ---
 
@@ -139,6 +148,10 @@ $script:AppConfig.URLs.StartScript = "https://raw.githubusercontent.com/Magnetar
 $script:AppConfig.URLs.PowerShellProfile = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/$($script:AppConfig.Branch)/assets/Microsoft.PowerShell_profile.ps1"
 $script:AppConfig.URLs.WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/$($script:AppConfig.Branch)/assets/settings.json"
 $script:AppConfig.URLs.ToolkitIcon = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/$($script:AppConfig.Branch)/images/WinToolkit.ico"
+$script:TemporaryDefenderExclusionAdded = $false
+$script:TemporaryDefenderExclusionPath = $null
+$script:UpdateServicesSuspended = $false
+$script:CurrentLogFile = $null
 
 enum WingetRepairLevel {
     SourceReset
@@ -1131,6 +1144,20 @@ function Show-Header {
 
 $script:SourceTextLanguageData = $null
 $script:SourceTextDefaultLanguageData = $null
+$script:EmbeddedEnglishText = @{
+    'uiText.environmentReadyForInstallation' = 'Environment ready for installation.'
+    'uiText.configurationComplete' = 'Configuration complete.'
+    'uiText.wingetNotFoundInSystem' = 'WinGet was not found on this system.'
+    'uiText.powershell7AlreadyInstalled' = 'PowerShell 7 is already installed.'
+    'uiText.windowsTerminalIsAlreadyInstalled' = 'Windows Terminal is already installed.'
+}
+$script:SourceTextKeyAliases = @{
+    'uiText.environmentReady' = 'uiText.environmentReadyForInstallation'
+    'uiText.setupComplete' = 'uiText.configurationComplete'
+    'uiText.winget.missing' = 'uiText.wingetNotFoundInSystem'
+    'uiText.powershell.alreadyInstalled' = 'uiText.powershell7AlreadyInstalled'
+    'uiText.terminal.alreadyInstalled' = 'uiText.windowsTerminalIsAlreadyInstalled'
+}
 
 function Get-SourceTextLanguageDirectory {
     $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
@@ -1187,19 +1214,30 @@ function Invoke-SourceTextLanguagePreparation {
     }
     if ($needDownload -and $remoteCultures.Count -gt 0) {
         if (-not (Test-Path $localDir)) { New-Item -Path $localDir -ItemType Directory -Force | Out-Null }
-        foreach ($culture in $remoteCultures) {
+        foreach ($culture in (@('en-US') + $remoteCultures | Select-Object -Unique)) {
             $cultureDir = Join-Path $localDir $culture
             $localFile = Join-Path $cultureDir 'WinToolkit.psd1'
             if (-not (Test-Path $cultureDir)) { New-Item -Path $cultureDir -ItemType Directory -Force | Out-Null }
             try {
                 $remoteUrl = "$RemoteBaseUrl/$culture/WinToolkit.psd1"
-                Invoke-WebRequest -Uri $remoteUrl -OutFile $localFile -UseBasicParsing -ErrorAction Stop | Out-Null
+                $temporaryFile = "$localFile.$([guid]::NewGuid()).tmp"
+                try {
+                    Invoke-WebRequest -Uri $remoteUrl -OutFile $temporaryFile -UseBasicParsing -ErrorAction Stop | Out-Null
+                    Move-Item -LiteralPath $temporaryFile -Destination $localFile -Force -ErrorAction Stop
+                }
+                finally {
+                    if (Test-Path -LiteralPath $temporaryFile) { Remove-Item -LiteralPath $temporaryFile -Force -ErrorAction SilentlyContinue }
+                }
             }
             catch {
                 if (-not (Test-Path $localFile)) {
                     try {
                         $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
-                        if (Test-Path $localFileFallback) { Copy-Item -Path $localFileFallback -Destination $localFile -Force }
+                        if (Test-Path $localFileFallback) {
+                            $temporaryFallback = "$localFile.$([guid]::NewGuid()).tmp"
+                            Copy-Item -LiteralPath $localFileFallback -Destination $temporaryFallback -Force
+                            Move-Item -LiteralPath $temporaryFallback -Destination $localFile -Force
+                        }
                     }
                     catch {}
                 }
@@ -1240,6 +1278,9 @@ function Initialize-SourceTextLocalization {
     param([string]$LanguageCode)
 
     $script:SourceTextDefaultLanguageData = Import-SourceTextLanguageFile -LanguageCode 'en-US'
+    if (-not $script:SourceTextDefaultLanguageData) {
+        $script:SourceTextDefaultLanguageData = $script:EmbeddedEnglishText
+    }
     $script:SourceTextLanguageData = Import-SourceTextLanguageFile -LanguageCode $LanguageCode
     if (-not $script:SourceTextLanguageData) {
         $script:SourceTextLanguageData = $script:SourceTextDefaultLanguageData
@@ -1253,6 +1294,9 @@ function Get-SourceTextLoc {
     )
 
     $value = $null
+    if ($script:SourceTextKeyAliases.ContainsKey($Key)) {
+        $Key = $script:SourceTextKeyAliases[$Key]
+    }
     if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($Key)) {
         $value = [string]$script:SourceTextLanguageData[$Key]
     }
@@ -1260,14 +1304,19 @@ function Get-SourceTextLoc {
         $value = [string]$script:SourceTextDefaultLanguageData[$Key]
     }
     else {
-        $value = "[MISSING TRANSLATION: $Key]"
+        if ($script:EmbeddedEnglishText.ContainsKey($Key)) {
+            $value = [string]$script:EmbeddedEnglishText[$Key]
+        }
+        else {
+            $value = "[MISSING TRANSLATION: $Key]"
+        }
     }
     if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
 
 $preparedDir = Invoke-SourceTextLanguagePreparation -ScriptRoot $PSScriptRoot
-if ($Language -eq 'en-US') {
+if ($Language -eq 'Auto') {
     $availableCultures = @()
     if ($preparedDir -and (Test-Path $preparedDir)) {
         $availableCultures = @(Get-ChildItem -Path $preparedDir -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'WinToolkit.psd1') } | ForEach-Object { $_.Name })
@@ -1989,15 +2038,26 @@ function Install-PspEnvironment {
     }
     $targetProfile = Join-Path $ps7ProfileDir 'Microsoft.PowerShell_profile.ps1'
     try {
-        if (Test-Path $targetProfile) {
-            Move-Item -Path $targetProfile -Destination "$targetProfile.bak" -Force -ErrorAction SilentlyContinue
-        }
-        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $targetProfile) {
+        $temporaryProfile = "$targetProfile.$([guid]::NewGuid()).tmp"
+        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $temporaryProfile) {
+            if (Test-Path -LiteralPath $targetProfile) {
+                $profileBackup = "$targetProfile.bak.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+                [System.IO.File]::Replace($temporaryProfile, $targetProfile, $profileBackup, $true)
+                Write-StyledMessage -Type Info -Text "Profilo esistente salvato in $profileBackup."
+            }
+            else {
+                Move-Item -LiteralPath $temporaryProfile -Destination $targetProfile -Force -ErrorAction Stop
+            }
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7ProfileConfigured')
         }
     }
     catch {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.profileConfigurationError0' -Args @($($_.Exception.Message)))
+    }
+    finally {
+        if ($temporaryProfile -and (Test-Path -LiteralPath $temporaryProfile)) {
+            Remove-Item -LiteralPath $temporaryProfile -Force -ErrorAction SilentlyContinue
+        }
     }
 
     # 5. Windows Terminal Settings Configuration (stable and preview)
@@ -2150,6 +2210,8 @@ function Test-SystemReadiness {
     #>
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.performingSystemIntegrityChecks')
 
+    $result = $null
+
     # 1. Check Windows Defender. A failed status query is not proof that
     # Defender is disabled: fail safe and let the caller stop explicitly.
     $defenderEnabled = $false
@@ -2281,12 +2343,18 @@ function Invoke-WinToolkitSetup {
     .SYNOPSIS
     Main function that orchestrates the entire WinToolkit installation and configuration process.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param()
 
     $script:SetupResults = @()
     $script:SetupExitCode = 1
+    $previousErrorActionPreference = $ErrorActionPreference
     try {
+        if (-not $PSCmdlet.ShouldProcess('Windows system', 'Run WinToolkit setup')) {
+            $script:SetupExitCode = 0
+            return
+        }
+        $ErrorActionPreference = 'Stop'
         $Host.UI.RawUI.WindowTitle = "Toolkit Starter by MagnetarMan"
 
         # Initialize Logging
@@ -2464,6 +2532,8 @@ function Invoke-WinToolkitSetup {
     finally {
         Invoke-StartUpdateServices
         Remove-TemporaryDefenderExclusion
+        try { Stop-Transcript -ErrorAction SilentlyContinue } catch { }
+        $ErrorActionPreference = $previousErrorActionPreference
     }
 }
 
