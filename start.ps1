@@ -27,7 +27,7 @@ $script:AppConfig = @{
     # ============================================================================
     Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.6.0 (Build 4)"
+        Version = "Version 2.6.0 (Build 5)"
     }
     URLs            = @{
         StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
@@ -86,12 +86,12 @@ function Test-VCRedistInstalled {
 
     $64BitOS = [System.Environment]::Is64BitOperatingSystem
     $checksPassed = 0
-    
+
     # Always check the 32-bit version (exists on all systems)
     $registryPath32 = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x86'
     $dllPath32 = "$env:windir\syswow64\concrt140.dll"
-    
-    if ((Test-Path -Path $registryPath32) -and 
+
+    if ((Test-Path -Path $registryPath32) -and
         ((Get-ItemProperty -Path $registryPath32 -Name 'Major' -ErrorAction SilentlyContinue).Major -eq 14) -and
         [System.IO.File]::Exists($dllPath32)) {
         $checksPassed++
@@ -102,7 +102,7 @@ function Test-VCRedistInstalled {
         $registryPath64 = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64'
         $dllPath64 = "$env:windir\system32\concrt140.dll"
 
-        if ((Test-Path -Path $registryPath64) -and 
+        if ((Test-Path -Path $registryPath64) -and
             ((Get-ItemProperty -Path $registryPath64 -Name 'Major' -ErrorAction SilentlyContinue).Major -eq 14) -and
             [System.IO.File]::Exists($dllPath64)) {
             $checksPassed++
@@ -112,7 +112,7 @@ function Test-VCRedistInstalled {
     # On 32-bit systems: 32-bit version is enough
     # On 64-bit systems: BOTH 32 + 64 bit versions must be present
     $requiredChecks = if ($64BitOS) { 2 } else { 1 }
-    
+
     return $checksPassed -eq $requiredChecks
 }
 
@@ -217,7 +217,7 @@ function Reset-SchannelSettings {
     try {
         $schannelPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL'
         if (-not (Test-Path $schannelPath)) { return }
-        
+
         $tls12Path = Join-Path $schannelPath 'Protocols\TLS 1.2'
         if (Test-Path $tls12Path) {
             foreach ($mode in @('Client', 'Server')) {
@@ -231,7 +231,7 @@ function Reset-SchannelSettings {
                 }
             }
         }
-        
+
         $cipherPath = Join-Path $schannelPath 'Ciphers'
         if (Test-Path $cipherPath) {
             Get-ChildItem $cipherPath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
@@ -252,10 +252,10 @@ function Reset-HostsFile {
     try {
         $hostsPath = 'C:\Windows\System32\drivers\etc\hosts'
         if (-not (Test-Path $hostsPath)) { return }
-        
+
         $lines = Get-Content $hostsPath -ErrorAction SilentlyContinue
         if (-not $lines) { return }
-        
+
         $hasOverrides = $false
         $newLines = @()
         foreach ($line in $lines) {
@@ -265,7 +265,7 @@ function Reset-HostsFile {
             }
             $newLines += $line
         }
-        
+
         if ($hasOverrides) {
             $hostsHeader = @(
                 '# Copyright (c) 1993-2009 Microsoft Corp.',
@@ -1292,7 +1292,7 @@ function Invoke-DownloadFile {
         [string]$OutFile,
         [switch]$Silent
     )
-    
+
     try {
         $iwrParams = @{
             Uri             = $Uri
@@ -1991,7 +1991,7 @@ function Invoke-WinToolkitSetup {
 
         # ALWAYS executed: PSP environment and profile installation
         Install-PspEnvironment
-        
+
         New-ToolkitDesktopShortcut
 
         # Restore services on success
@@ -2006,7 +2006,7 @@ function Invoke-WinToolkitSetup {
     catch {
         # Restore services on error
         Invoke-StartUpdateServices
-        
+
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalErrorDuringSetup0' -Args @($($_.Exception.Message)))
         Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.unhandledException01' -Args @($($_.Exception.Message), $($_.ScriptStackTrace)))
         Write-Host (Get-SourceTextLoc 'sourceText.pressAnyKeyToExit2')
