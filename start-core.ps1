@@ -1190,6 +1190,7 @@ $script:EmbeddedEnglishText = @{
     'uiText.wingetNotFoundInSystem' = 'WinGet was not found on this system.'
     'uiText.powershell7AlreadyInstalled' = 'PowerShell 7 is already installed.'
     'uiText.windowsTerminalIsAlreadyInstalled' = 'Windows Terminal is already installed.'
+    'uiText.systemClockResynced' = 'System clock resynchronized.'
 }
 $script:SourceTextKeyAliases = @{
     'uiText.environmentReady' = 'uiText.environmentReadyForInstallation'
