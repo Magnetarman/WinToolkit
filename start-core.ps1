@@ -9,13 +9,13 @@
 
 [CmdletBinding()]
 param(
-    [string]$Language = $(if ($env:WTOOLKIT_LANGUAGE) { $env:WTOOLKIT_LANGUAGE } else { 'en-US' }),
-    [string]$OfflineModeDir = $env:WTOOLKIT_OFFLINE_MODE_DIR
+    [string]$Language = $(if ($env:WTOOLKIT_LANGUAGE) { $env:WTOOLKIT_LANGUAGE } else { 'en-US' })
 )
 
 # --- GLOBAL CONFIGURATION ---
 
 $script:AppConfig = @{
+    Branch          = 'Dev'
     MsgStyles       = @{
         Success = @{ Icon = '✅'; Color = 'Green' }
         Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
@@ -30,14 +30,14 @@ $script:AppConfig = @{
         Version = "Version 2.6.0 (Build 5)"
     }
     URLs            = @{
-        StartScript             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/start.ps1"
+        StartScript             = $null
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
         OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-        PowerShellProfile       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/assets/Microsoft.PowerShell_profile.ps1"
-        WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/assets/settings.json"
-        ToolkitIcon             = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/images/WinToolkit.ico"
+        PowerShellProfile       = $null
+        WindowsTerminalSettings = $null
+        ToolkitIcon             = $null
         TerminalRelease         = "https://api.github.com/repos/microsoft/terminal/releases/latest"
         WebInstaller            = "https://magnetarman.com/WinToolkit-Dev"
     }
@@ -131,6 +131,12 @@ function Register-WingetAppExecutionAlias {
         return $false
     }
 }
+
+# Keep every repository-relative URL on the configured branch in one place.
+$script:AppConfig.URLs.StartScript = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/$($script:AppConfig.Branch)/start.ps1"
+$script:AppConfig.URLs.PowerShellProfile = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/$($script:AppConfig.Branch)/assets/Microsoft.PowerShell_profile.ps1"
+$script:AppConfig.URLs.WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/$($script:AppConfig.Branch)/assets/settings.json"
+$script:AppConfig.URLs.ToolkitIcon = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/$($script:AppConfig.Branch)/images/WinToolkit.ico"
 
 function Get-WinGetExecutable {
     <#
@@ -660,7 +666,7 @@ function Repair-WingetDatabase {
             }
         }
         catch {
-            if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
+            if ($_.Exception.Message -match '0x80073D06') {
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerCompletedHigherVersionAlreadyPresent')
             }
             else {
@@ -934,7 +940,7 @@ function Install-WingetPackage {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerEseguito')
             }
             catch {
-                if ($_.Exception.Message -match '0x80073D06' -or $_.Exception.Message -match 'versione successiva') {
+                if ($_.Exception.Message -match '0x80073D06') {
                     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerIgnoredHigherVersionAlreadyPresent')
                 }
                 else {
@@ -1131,7 +1137,7 @@ function Get-SourceTextLanguageDirectory {
 }
 
 function Get-RemoteAvailableCultures {
-    param([string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev')
+    param([string]$GitHubApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$($script:AppConfig.Branch)")
     try {
         $response = Invoke-RestMethod -Uri $GitHubApiUrl -UseBasicParsing -ErrorAction Stop
         return @($response | Where-Object { $_.type -eq 'dir' } | ForEach-Object { $_.name })
@@ -1145,8 +1151,8 @@ function Invoke-SourceTextLanguagePreparation {
     [CmdletBinding()]
     param(
         [string]$ScriptRoot,
-        [string]$RemoteBaseUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/languages',
-        [string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev',
+        [string]$RemoteBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/$($script:AppConfig.Branch)/languages",
+        [string]$GitHubApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$($script:AppConfig.Branch)",
         [int]$CacheMaxAgeDays = 7
     )
     $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
@@ -1300,7 +1306,7 @@ function Start-ToolkitLog {
     if (-not (Test-Path $logdir)) {
         New-Item -Path $logdir -ItemType Directory -Force | Out-Null
     }
-    $Global:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
+    $script:CurrentLogFile = "$logdir\${ToolName}_$dateTime.log"
     Start-Transcript -Path "$logdir\${ToolName}_$dateTime.transcript.log" -Append -Force | Out-Null
 
     # Raccolta metadati
@@ -1317,7 +1323,7 @@ ToolkitVersion : $($script:AppConfig.Header.Version)
 [END LOG HEADER]
 
 "@
-    try { Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    try { Add-Content -Path $script:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 }
 
 function Write-ToolkitLog {
@@ -1330,14 +1336,14 @@ function Write-ToolkitLog {
         [string]$Level = 'INFO',
         [string]$Message
     )
-    if (-not $Global:CurrentLogFile) { return }
+    if (-not $script:CurrentLogFile) { return }
 
     $ts = Get-Date -Format "HH:mm:ss"
     $clean = $Message -replace '^\s+', ''
     # Remove all ANSI/color characters before saving to file
     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
     $line = "[$ts] [$Level] $clean"
-    try { Add-Content -Path $Global:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    try { Add-Content -Path $script:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 }
 
 function Start-AppxSilentProcess {
@@ -1369,7 +1375,7 @@ try {
     Add-AppxPackage -Path '$($AppxPath -replace "'", "''")' $dependencyPathString $Flags -ErrorAction Stop | Out-Null
 }
 catch {
-    if (`$_.Exception.Message -match '0x80073D06' -or `$_.Exception.Message -match 'versione successiva') {
+    if (`$_.Exception.Message -match '0x80073D06') {
         exit 0
     }
     if (`$_.Exception.Message -match '0x80073CF9' -or ([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem)) {
@@ -1505,6 +1511,17 @@ function Add-ToEnvironmentPath {
     }
 }
 
+function ConvertTo-ProcessArgumentList {
+    param([Parameter(Mandatory = $true)][string]$Arguments)
+
+    $tokens = [regex]::Matches($Arguments, '"([^"]*)"|''([^'']*)''|(\S+)')
+    return @($tokens | ForEach-Object {
+            if ($_.Groups[1].Success) { $_.Groups[1].Value }
+            elseif ($_.Groups[2].Success) { $_.Groups[2].Value }
+            else { $_.Groups[3].Value }
+        })
+}
+
 function Invoke-WingetCommand {
     <#
     .SYNOPSIS
@@ -1532,7 +1549,7 @@ function Invoke-WingetCommand {
 
         $procParams = @{
             FilePath     = $wingetExe
-            ArgumentList = $finalArgs -split ' '
+            ArgumentList = ConvertTo-ProcessArgumentList -Arguments $finalArgs
             PassThru     = $true
             NoNewWindow  = $true
         }
@@ -2131,15 +2148,6 @@ function Invoke-WinToolkitSetup {
         Start-ToolkitLog "WinToolkitStarter"
         Initialize-UpdateServicesState
 
-        # Build restart arguments
-        $argList = ($PSBoundParameters.GetEnumerator() | ForEach-Object {
-                if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
-                elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
-                elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
-            } | Where-Object { $_ }) -join ' '
-
-        $startUrl = $script:AppConfig.URLs.StartScript
-
         if ($PSVersionTable.PSVersion.Major -lt 7) {
             throw 'start-core.ps1 requires PowerShell 7 or later. Run start.ps1 instead.'
         }
@@ -2315,4 +2323,5 @@ function Invoke-WinToolkitSetup {
 }
 
 Invoke-WinToolkitSetup
+# Process exit contract: 0 = full success, 2 = partial success, 1 = blocking error.
 exit $script:SetupExitCode
