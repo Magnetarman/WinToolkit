@@ -57,6 +57,7 @@ $script:AppConfig = @{
         DelegationTerminalClsid = "{E12F0936-0E6F-548E-A9F6-B20C69A27D17}"
         DelegationConsoleClsid  = "{B23D10C0-31E3-401A-97EF-4BB30B62E10B}"
     }
+    EnablePSRemoting = $false
     WingetProcesses = @(
         'WinStore.App',
         'wsappx',
@@ -84,7 +85,7 @@ function Test-VCRedistInstalled {
     Checks if Visual C++ Redistributable is installed and verifies the major version is 14.
     #>
 
-    $64BitOS = [System.Environment]::Is64BitOperatingSystem
+    $architecture = Get-SystemArchitecture
     $checksPassed = 0
 
     # Always check the 32-bit version (exists on all systems)
@@ -97,9 +98,10 @@ function Test-VCRedistInstalled {
         $checksPassed++
     }
 
-    # If the system is 64-bit we also check the 64-bit version
-    if ($64BitOS) {
-        $registryPath64 = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64'
+    # Verify the native runtime for x64 or ARM64 systems as well.
+    if ($architecture -ne 'X86') {
+        $nativeRuntime = if ($architecture -eq 'ARM64') { 'arm64' } else { 'x64' }
+        $registryPath64 = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\$nativeRuntime"
         $dllPath64 = "$env:windir\system32\concrt140.dll"
 
         if ((Test-Path -Path $registryPath64) -and
@@ -145,6 +147,20 @@ enum WingetRepairLevel {
     CoreInstall
     FullDatabase
     FullReinstall
+}
+
+function Get-SystemArchitecture {
+    try {
+        $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+    }
+    catch {
+        $architecture = $env:PROCESSOR_ARCHITECTURE
+    }
+    switch -Regex ($architecture) {
+        'Arm64|ARM64' { return 'ARM64' }
+        'X86|x86'     { return 'X86' }
+        default       { return 'X64' }
+    }
 }
 
 function Get-WinGetExecutable {
@@ -815,7 +831,11 @@ function Install-WingetCore {
         # 1. Visual C++ Redistributable (usando test avanzato)
         if (-not (Test-VCRedistInstalled)) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.visualCRedistributableInstallation')
-            $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
+            $arch = switch (Get-SystemArchitecture) {
+                'ARM64' { 'arm64' }
+                'X86'   { 'x86' }
+                default { 'x64' }
+            }
             $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
             $vcFile = Join-Path $tempDir "vc_redist.exe"
 
@@ -851,7 +871,11 @@ function Install-WingetCore {
                 $extractPath = Join-Path $tempDir "deps"
                 Expand-Archive -Path $depZip -DestinationPath $extractPath -Force
 
-                $archPattern = if ([Environment]::Is64BitOperatingSystem) { "x64|ne" } else { "x86|ne" }
+                $archPattern = switch (Get-SystemArchitecture) {
+                    'ARM64' { 'arm64|neutral|ne' }
+                    'X86'   { 'x86|neutral|ne' }
+                    default { 'x64|neutral|ne' }
+                }
                 $appxFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $archPattern }
 
                 $dependencies = @()
@@ -1700,6 +1724,7 @@ function Install-PowerShellCore {
 
     $ps7Path64 = "$env:SystemDrive\Program Files\PowerShell\7"
     $ps7Path32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7"
+    $architecture = Get-SystemArchitecture
 
     if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Get-Command pwsh -ErrorAction SilentlyContinue)) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7AlreadyInstalled')
@@ -1728,10 +1753,19 @@ function Install-PowerShellCore {
     try {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.recuperoUltimaReleasePowershell')
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingPowershell7InProgress')
+        $assetPattern = switch ($architecture) {
+            'ARM64' { 'win-arm64\.msi$' }
+            'X86'   { 'win-x86\.msi$' }
+            default { 'win-x64\.msi$' }
+        }
+        $installerArguments = @('/i', '{INSTALLER}', '/norestart', '/passive',
+            'ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1', 'REGISTER_MANIFEST=1')
+        if ($script:AppConfig.EnablePSRemoting) {
+            $installerArguments += 'ENABLE_PSREMOTING=1'
+        }
         $installResult = Install-FromGitHubRelease -ReleaseApiUrl $script:AppConfig.URLs.PowerShellRelease `
-            -AssetPattern 'win-x64\.msi$' -ExecutablePath 'msiexec.exe' `
-            -InstallerArguments @('/i', '{INSTALLER}', '/norestart', '/passive',
-                'ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1', 'ENABLE_PSREMOTING=1', 'REGISTER_MANIFEST=1')
+            -AssetPattern $assetPattern -ExecutablePath 'msiexec.exe' `
+            -InstallerArguments $installerArguments
 
         if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Test-CommandExists -Name pwsh) -or $installResult.ExitCode -eq 0) {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7InstalledSuccessfully')
@@ -1746,6 +1780,11 @@ function Install-PowerShellCore {
     }
 }
 
+function Test-WindowsTerminalInstalled {
+    $command = Get-Command 'wt.exe' -ErrorAction SilentlyContinue
+    return [bool]($command -and $command.Source -and (Test-Path -LiteralPath $command.Source))
+}
+
 function Install-WindowsTerminalApp {
     <#
     .SYNOPSIS
@@ -1753,7 +1792,7 @@ function Install-WindowsTerminalApp {
     #>
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalConfiguration')
 
-    if (Get-Command "wt.exe" -ErrorAction SilentlyContinue) {
+    if (Test-WindowsTerminalInstalled) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalIsAlreadyInstalled')
         return $true
     }
@@ -1799,13 +1838,16 @@ function Install-WindowsTerminalApp {
             throw (Get-SourceTextLoc 'uiText.windowsTerminalAppxInstallationFailed')
         }
         $null = Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+        if (-not (Wait-Until -Condition { Test-WindowsTerminalInstalled } -TimeoutSeconds 30 -IntervalMs 1000)) {
+            throw 'Windows Terminal package installed but wt.exe was not detected.'
+        }
         return $true
     }
     catch {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.standardWindowsTerminalInstallationFailed0FallbackToTheMicrosoftStore' -Args @($($_.Exception.Message)))
     }
 
-    if (-not (Get-Command "wt.exe" -ErrorAction SilentlyContinue)) {
+    if (-not (Test-WindowsTerminalInstalled)) {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackAperturaMicrosoftStorePerWindowsTerminal')
         Start-Process "ms-windows-store://pdp/?ProductId=9N0DX20HK701"
         Start-Sleep 5
@@ -1813,6 +1855,61 @@ function Install-WindowsTerminalApp {
     }
     Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.unableToInstallWindowsTerminalViaAnyAutomaticMethod')
     return $false
+}
+
+function Merge-JsonDefaults {
+    param(
+        [Parameter(Mandatory = $true)][object]$Target,
+        [Parameter(Mandatory = $true)][object]$Defaults
+    )
+    foreach ($property in $Defaults.PSObject.Properties) {
+        $current = $Target.PSObject.Properties[$property.Name]
+        if (-not $current) {
+            $Target | Add-Member -MemberType NoteProperty -Name $property.Name -Value $property.Value
+        }
+        elseif ($current.Value -is [pscustomobject] -and $property.Value -is [pscustomobject]) {
+            Merge-JsonDefaults -Target $current.Value -Defaults $property.Value
+        }
+    }
+    return $Target
+}
+
+function Update-WindowsTerminalSettings {
+    param([Parameter(Mandatory = $true)][string]$SettingsPath)
+
+    $remotePath = Join-Path $script:AppConfig.Paths.Temp "wt-settings-$([guid]::NewGuid()).json"
+    try {
+        if (-not (Test-Path -LiteralPath $SettingsPath)) {
+            return [bool](Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $SettingsPath)
+        }
+
+        if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $remotePath)) {
+            return $false
+        }
+        $localSettings = Get-Content -LiteralPath $SettingsPath -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+        $defaultSettings = Get-Content -LiteralPath $remotePath -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+        $mergedSettings = Merge-JsonDefaults -Target $localSettings -Defaults $defaultSettings
+
+        $backupPath = "$SettingsPath.bak.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        Copy-Item -LiteralPath $SettingsPath -Destination $backupPath -Force -ErrorAction Stop
+        $tempPath = "$SettingsPath.$([guid]::NewGuid()).tmp"
+        try {
+            $mergedSettings | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $tempPath -Encoding UTF8 -ErrorAction Stop
+            Move-Item -LiteralPath $tempPath -Destination $SettingsPath -Force -ErrorAction Stop
+        }
+        finally {
+            if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
+        }
+        Write-StyledMessage -Type Info -Text "Windows Terminal settings aggiornati preservando le impostazioni esistenti; backup: $backupPath."
+        return $true
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Windows Terminal settings update skipped: $($_.Exception.Message)"
+        return $false
+    }
+    finally {
+        if (Test-Path -LiteralPath $remotePath) { Remove-Item -LiteralPath $remotePath -Force -ErrorAction SilentlyContinue }
+    }
 }
 
 function Install-NerdFontsLocal {
@@ -1931,7 +2028,7 @@ function Install-PspEnvironment {
             $localStatePath = Join-Path $wtPkg.FullName 'LocalState'
             if (Test-Path $localStatePath) {
                 $settingsPath = Join-Path $localStatePath 'settings.json'
-                if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $settingsPath) {
+                if (Update-WindowsTerminalSettings -SettingsPath $settingsPath) {
                     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalSettingsUpdated0' -Args @($($wtPkg.Name)))
                 }
             }
