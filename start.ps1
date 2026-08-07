@@ -68,22 +68,27 @@ function Install-Pwsh {
 $env:WTOOLKIT_LANGUAGE = $Language
 
 if (-not (Test-IsAdministrator)) {
-    $hostPath = if ($PSVersionTable.PSVersion.Major -ge 7) { Join-Path $PSHOME 'pwsh.exe' } else { Join-Path $PSHOME 'powershell.exe' }
-    $langArg = "-Language '$($Language.Replace("'", "''"))'"
+    # Always relaunch the elevated process on PowerShell 7 (installing it first
+    # if needed). This avoids running the (UTF-8 + emoji) core under Windows
+    # PowerShell 5.1, which cannot parse the file reliably (see design notes).
+    $elevatedHost = Get-WorkingPwsh
+    if (-not $elevatedHost) { $elevatedHost = Install-Pwsh }
+    if (-not $elevatedHost) {
+        Write-Error "Impossibile trovare o installare PowerShell 7 richiesto per continuare."
+        Read-Host -Prompt 'Premi INVIO per chiudere'
+        exit 1
+    }
 
-    # Wrap the elevated invocation so the admin window stays open on failure
-    # and surfaces the real error instead of closing instantly on Windows 11.
-    if ($PSCommandPath) {
-        $escapedPath = $PSCommandPath.Replace("'", "''")
-        $inner = "& '$escapedPath' $langArg"
-    }
-    else {
-        $inner = '$s = irm ''' + $StubScriptUrl + '''; & ([scriptblock]::Create($s)) ' + $langArg
-    }
+    $langArg = "-Language '$($Language.Replace("'", "''"))'"
     $elevatedCommand = @"
 try {
     `$env:WTOOLKIT_LANGUAGE = '$($Language.Replace("'", "''"))'
-    $inner
+    if ('$PSCommandPath') {
+        & '$($PSCommandPath.Replace("'", "''"))' $langArg
+    }
+    else {
+        `$s = irm '$($StubScriptUrl.Replace("'", "''"))'; & ([scriptblock]::Create(`$s)) $langArg
+    }
     exit `$LASTEXITCODE
 }
 catch {
@@ -93,7 +98,7 @@ catch {
 }
 "@
 
-    $elevatedProcess = Start-Process -FilePath $hostPath -ArgumentList @(
+    $elevatedProcess = Start-Process -FilePath $elevatedHost -ArgumentList @(
         '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $elevatedCommand
     ) -Verb RunAs -PassThru
     if ($elevatedProcess) { $elevatedProcess.WaitForExit() }
