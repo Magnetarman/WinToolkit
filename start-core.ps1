@@ -382,7 +382,7 @@ function Repair-AppInstaller {
         $changed = $false
         $pkg = Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue
         if ($pkg) {
-            $pkg | Reset-AppxPackage 2>$null | Out-Null
+            $pkg | Reset-AppxPackageSilently
             $changed = $true
         }
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
@@ -720,7 +720,7 @@ function Repair-WingetDatabase {
         # 5. Full reset of the AppInstaller package (Crucial for ACCESS_VIOLATION)
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetPackageMicrosoftDesktopappinstaller')
         if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
-            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
+            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackageSilently
         }
 
         # 6. Re-register AppInstaller manifest
@@ -1066,7 +1066,7 @@ function Install-WingetPackage {
         # Reset App Installer
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetAppInstaller')
         try {
-            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
+            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackageSilently
         }
         catch {}
 
@@ -1536,6 +1536,30 @@ exit 0
 
 
 
+function Reset-AppxPackageSilently {
+    <#
+    .SYNOPSIS
+        Resets an AppX package without leaking the native "Deployment operation
+        progress" activity to the host console. Add-AppxPackage/Reset-AppxPackage
+        write that activity even when stderr is suppressed, which causes a stuck
+        progress line to bleed into the main output.
+    #>
+    param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [object]$Package
+    )
+    process {
+        $previousProgress = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
+        try {
+            $Package | Reset-AppxPackage -ErrorAction SilentlyContinue 2>$null | Out-Null
+        }
+        finally {
+            $ProgressPreference = $previousProgress
+        }
+    }
+}
+
 function Update-EnvironmentPath {
     <#
     .SYNOPSIS
@@ -1635,21 +1659,57 @@ function Invoke-ExternalCommand {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
         [string[]]$ArgumentList = @(),
-        [int]$TimeoutSeconds = 120
+        [int]$TimeoutSeconds = 120,
+        [switch]$CaptureOutput
     )
 
     try {
-        $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -PassThru -NoNewWindow
+        # Run detached from the host console: redirect stdout/stderr so native
+        # progress/activity lines (e.g. winget "Deployment operation progress")
+        # do not bleed into the main toolkit output. Output is consumed
+        # asynchronously to avoid pipe-buffer deadlocks on verbose tools.
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $FilePath
+        $psi.Arguments = $ArgumentList
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $psi
+
+        $stdOut = New-Object System.Text.StringBuilder
+        $stdErr = New-Object System.Text.StringBuilder
+
+        $process.add_OutputDataReceived({
+            if ($CaptureOutput) { $null = $stdOut.AppendLine($EventArgs.Data) }
+        })
+        $process.add_ErrorDataReceived({
+            if ($CaptureOutput) { $null = $stdErr.AppendLine($EventArgs.Data) }
+        })
+
+        $null = $process.Start()
+        $process.BeginOutputReadLine()
+        $process.BeginErrorReadLine()
+
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-            $process.Kill()
-            $process.WaitForExit()
-            return [pscustomobject]@{ ExitCode = -2; TimedOut = $true }
+            try { $process.Kill() } catch { }
+            $null = $process.WaitForExit()
+            return [pscustomobject]@{ ExitCode = -2; TimedOut = $true; StdOut = $stdOut.ToString(); StdErr = $stdErr.ToString() }
         }
-        return [pscustomobject]@{ ExitCode = $process.ExitCode; TimedOut = $false }
+
+        # Ensure async readers have flushed remaining buffered lines.
+        Start-Sleep -Milliseconds 300
+
+        return [pscustomobject]@{ ExitCode = $process.ExitCode; TimedOut = $false; StdOut = $stdOut.ToString(); StdErr = $stdErr.ToString() }
     }
     catch {
         Write-ToolkitLog -Level 'ERROR' -Message "External command failed ($FilePath): $($_.Exception.Message)"
-        return [pscustomobject]@{ ExitCode = -1; TimedOut = $false; Error = $_.Exception.Message }
+        return [pscustomobject]@{ ExitCode = -1; TimedOut = $false; Error = $_.Exception.Message; StdOut = ''; StdErr = '' }
+    }
+    finally {
+        if ($process) { $process.Dispose() }
     }
 }
 
