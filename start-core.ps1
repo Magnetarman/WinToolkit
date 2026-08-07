@@ -24,8 +24,8 @@ Set-StrictMode -Version Latest
 # --- GLOBAL CONFIGURATION ---
 
 $script:AppConfig = @{
-    Branch          = 'Dev'
-    MsgStyles       = @{
+    Branch           = 'Dev'
+    MsgStyles        = @{
         Success = @{ Icon = '✅'; Color = 'Green' }
         Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
         Error   = @{ Icon = '❌'; Color = 'Red' }
@@ -34,11 +34,11 @@ $script:AppConfig = @{
     # ============================================================================
     # HEADER CONFIGURATION - Modify here to update title and version
     # ============================================================================
-    Header          = @{
+    Header           = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.6.0 (Build 5)"
+        Version = "Version 2.6.0 (Build 6)"
     }
-    URLs            = @{
+    URLs             = @{
         StartScript             = $null
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
@@ -50,7 +50,7 @@ $script:AppConfig = @{
         TerminalRelease         = "https://api.github.com/repos/microsoft/terminal/releases/latest"
         WebInstaller            = "https://magnetarman.com/WinToolkit-Dev"
     }
-    Paths           = @{
+    Paths            = @{
         Logs          = "$env:LOCALAPPDATA\WinToolkit\logs"
         WinToolkitDir = "$env:LOCALAPPDATA\WinToolkit"
         Temp          = "$env:TEMP\WinToolkitSetup"
@@ -59,15 +59,15 @@ $script:AppConfig = @{
         wtExe         = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
         wtDir         = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
     }
-    Registry        = @{
+    Registry         = @{
         TerminalStartup = "HKCU:\Console\%%Startup"
     }
-    WindowsTerminal = @{
+    WindowsTerminal  = @{
         DelegationTerminalClsid = "{E12F0936-0E6F-548E-A9F6-B20C69A27D17}"
         DelegationConsoleClsid  = "{B23D10C0-31E3-401A-97EF-4BB30B62E10B}"
     }
     EnablePSRemoting = $false
-    WingetProcesses = @(
+    WingetProcesses  = @(
         'WinStore.App',
         'wsappx',
         'AppInstaller',
@@ -76,8 +76,8 @@ $script:AppConfig = @{
         'winget',
         'WindowsPackageManagerServer'
     )
-    UpdateServices  = @('wuauserv', 'bits', 'cryptsvc', 'dosvc')
-    Layout          = @{
+    UpdateServices   = @('wuauserv', 'bits', 'cryptsvc', 'dosvc')
+    Layout           = @{
         Width = 65
     }
 }
@@ -171,8 +171,8 @@ function Get-SystemArchitecture {
     }
     switch -Regex ($architecture) {
         'Arm64|ARM64' { return 'ARM64' }
-        'X86|x86'     { return 'X86' }
-        default       { return 'X64' }
+        'X86|x86' { return 'X86' }
+        default { return 'X64' }
     }
 }
 
@@ -291,16 +291,16 @@ function Reset-SchannelSettings {
         $cipherPath = Join-Path $schannelPath 'Ciphers'
         if (Test-Path $cipherPath) {
             Get-ChildItem $cipherPath -ErrorAction SilentlyContinue |
-                Where-Object { $_.PSIsContainer } |
-                ForEach-Object {
-                    $prop = Get-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
-                    if ($prop -and $prop.Enabled -eq 0) {
-                        Remove-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
-                        $changed = $true
-                        Write-StyledMessage -Type Info -Text "SCHANNEL cipher $($_.PSChildName) riabilitato."
-                        Write-ToolkitLog -Level 'INFO' -Message "Removed disabled cipher: $($_.PSChildName)"
-                    }
+            Where-Object { $_.PSIsContainer } |
+            ForEach-Object {
+                $prop = Get-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
+                if ($prop -and $prop.Enabled -eq 0) {
+                    Remove-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
+                    $changed = $true
+                    Write-StyledMessage -Type Info -Text "SCHANNEL cipher $($_.PSChildName) riabilitato."
+                    Write-ToolkitLog -Level 'INFO' -Message "Removed disabled cipher: $($_.PSChildName)"
                 }
+            }
         }
         return [pscustomobject]@{ Success = $true; Changed = $changed; Message = if ($changed) { 'SCHANNEL settings repaired.' } else { 'SCHANNEL settings already valid.' } }
     }
@@ -562,11 +562,11 @@ function Invoke-StopUpdateServices {
     }
 
     $status = @{
-        Version       = 1
-        State         = 'Suspending'
-        LastError     = $null
-        Services      = $savedServices
-        CreatedUtc    = [DateTime]::UtcNow.ToString('o')
+        Version    = 1
+        State      = 'Suspending'
+        LastError  = $null
+        Services   = $savedServices
+        CreatedUtc = [DateTime]::UtcNow.ToString('o')
     }
     Write-UpdateServicesStatus -Status $status
 
@@ -611,9 +611,9 @@ function Invoke-StartUpdateServices {
         try {
             $service = Get-Service -Name $saved.Name -ErrorAction Stop
             $startupType = switch ($saved.StartType) {
-                'Auto'     { 'Automatic' }
+                'Auto' { 'Automatic' }
                 'Disabled' { 'Disabled' }
-                default    { 'Manual' }
+                default { 'Manual' }
             }
             Set-Service -Name $saved.Name -StartupType $startupType -ErrorAction Stop
 
@@ -886,7 +886,7 @@ function Install-WingetCore {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.visualCRedistributableInstallation')
             $arch = switch (Get-SystemArchitecture) {
                 'ARM64' { 'arm64' }
-                'X86'   { 'x86' }
+                'X86' { 'x86' }
                 default { 'x64' }
             }
             $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
@@ -926,7 +926,7 @@ function Install-WingetCore {
 
                 $archPattern = switch (Get-SystemArchitecture) {
                     'ARM64' { 'arm64|neutral|ne' }
-                    'X86'   { 'x86|neutral|ne' }
+                    'X86' { 'x86|neutral|ne' }
                     default { 'x64|neutral|ne' }
                 }
                 $appxFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $archPattern }
@@ -1185,19 +1185,19 @@ function Show-Header {
 $script:SourceTextLanguageData = $null
 $script:SourceTextDefaultLanguageData = $null
 $script:EmbeddedEnglishText = @{
-    'uiText.environmentReadyForInstallation' = 'Environment ready for installation.'
-    'uiText.configurationComplete' = 'Configuration complete.'
-    'uiText.wingetNotFoundInSystem' = 'WinGet was not found on this system.'
-    'uiText.powershell7AlreadyInstalled' = 'PowerShell 7 is already installed.'
+    'uiText.environmentReadyForInstallation'   = 'Environment ready for installation.'
+    'uiText.configurationComplete'             = 'Configuration complete.'
+    'uiText.wingetNotFoundInSystem'            = 'WinGet was not found on this system.'
+    'uiText.powershell7AlreadyInstalled'       = 'PowerShell 7 is already installed.'
     'uiText.windowsTerminalIsAlreadyInstalled' = 'Windows Terminal is already installed.'
-    'uiText.systemClockResynced' = 'System clock resynchronized.'
+    'uiText.systemClockResynced'               = 'System clock resynchronized.'
 }
 $script:SourceTextKeyAliases = @{
-    'uiText.environmentReady' = 'uiText.environmentReadyForInstallation'
-    'uiText.setupComplete' = 'uiText.configurationComplete'
-    'uiText.winget.missing' = 'uiText.wingetNotFoundInSystem'
+    'uiText.environmentReady'            = 'uiText.environmentReadyForInstallation'
+    'uiText.setupComplete'               = 'uiText.configurationComplete'
+    'uiText.winget.missing'              = 'uiText.wingetNotFoundInSystem'
     'uiText.powershell.alreadyInstalled' = 'uiText.powershell7AlreadyInstalled'
-    'uiText.terminal.alreadyInstalled' = 'uiText.windowsTerminalIsAlreadyInstalled'
+    'uiText.terminal.alreadyInstalled'   = 'uiText.windowsTerminalIsAlreadyInstalled'
 }
 
 function Get-SourceTextLanguageDirectory {
@@ -1407,8 +1407,8 @@ function Start-ToolkitLog {
         New-Item -Path $logdir -ItemType Directory -Force | Out-Null
     }
     Get-ChildItem -Path $logdir -Filter '*.log' -ErrorAction SilentlyContinue |
-        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
-        Remove-Item -Force -ErrorAction SilentlyContinue
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
+    Remove-Item -Force -ErrorAction SilentlyContinue
     $script:CurrentLogFile = "$logdir\${ToolName}_${dateTime}_$PID.log"
     Start-Transcript -Path "$logdir\${ToolName}_${dateTime}_$PID.transcript.log" -Append -Force | Out-Null
 
@@ -1879,7 +1879,7 @@ function Install-PowerShellCore {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingPowershell7InProgress')
         $assetPattern = switch ($architecture) {
             'ARM64' { 'win-arm64\.msi$' }
-            'X86'   { 'win-x86\.msi$' }
+            'X86' { 'win-x86\.msi$' }
             default { 'win-x64\.msi$' }
         }
         $installerArguments = @('/i', '{INSTALLER}', '/norestart', '/passive',
@@ -2181,7 +2181,15 @@ function New-ToolkitDesktopShortcut {
         $link.TargetPath = $script:AppConfig.Paths.wtExe
         $link.Arguments = 'pwsh -ExecutionPolicy Bypass -Command "irm ' + $script:AppConfig.URLs.WebInstaller + ' | iex"'
         $link.WorkingDirectory = $script:AppConfig.Paths.wtDir
-        if (Test-Path $icon -and (Get-Item $icon).Length -ge 1024) {
+
+        $iconValid = $false
+        if (Test-Path -Path $icon) {
+            $iconFile = Get-Item -Path $icon -ErrorAction SilentlyContinue
+            if ($null -ne $iconFile -and $iconFile.Length -ge 1024) {
+                $iconValid = $true
+            }
+        }
+        if ($iconValid) {
             $link.IconLocation = $icon
         }
         $link.Description = "Win Toolkit - Master Windows with Ease"
@@ -2319,10 +2327,10 @@ function Test-SystemReadiness {
     }
 
     return @{
-        Defender                = $defenderEnabled
-        DefenderCheckSucceeded  = $defenderCheckSucceeded
-        Updates                 = $updatesReady
-        Count                   = if ($null -eq $result) { 0 } else { $result.Updates.Count }
+        Defender               = $defenderEnabled
+        DefenderCheckSucceeded = $defenderCheckSucceeded
+        Updates                = $updatesReady
+        Count                  = if ($null -eq $result) { 0 } else { $result.Updates.Count }
     }
 }
 
@@ -2346,7 +2354,7 @@ function Add-TemporaryDefenderExclusion {
     try {
         $preference = Get-MpPreference -ErrorAction Stop
         $existingPaths = @($preference.ExclusionPath | ForEach-Object {
-                if ($_){ [IO.Path]::GetFullPath($_).TrimEnd('\') }
+                if ($_) { [IO.Path]::GetFullPath($_).TrimEnd('\') }
             })
         $alreadyExcluded = $existingPaths | Where-Object {
             $_ -and $_.Equals($path.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
@@ -2365,7 +2373,7 @@ function Add-TemporaryDefenderExclusion {
 
         $verified = Get-MpPreference -ErrorAction Stop
         $verifiedPaths = @($verified.ExclusionPath | ForEach-Object {
-                if ($_){ [IO.Path]::GetFullPath($_).TrimEnd('\') }
+                if ($_) { [IO.Path]::GetFullPath($_).TrimEnd('\') }
             })
         if (-not ($verifiedPaths | Where-Object {
                     $_ -and $_.Equals($path.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
