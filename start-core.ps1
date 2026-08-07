@@ -631,12 +631,25 @@ function Invoke-StartUpdateServices {
     }
 
     if ($restoreErrors.Count -gt 0) {
-        $status.State = 'RestoreFailed'
-        $status.LastError = $restoreErrors -join '; '
-        Write-UpdateServicesStatus -Status $status
-        Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
-        Write-StyledMessage -Type Error -Text "Ripristino servizi Windows Update incompleto: $($status.LastError)"
-        return $false
+        $dosvcErrors = @($restoreErrors | Where-Object { $_ -match '^dosvc:' })
+        $otherErrors = @($restoreErrors | Where-Object { $_ -notmatch '^dosvc:' })
+
+        if ($otherErrors.Count -gt 0) {
+            $status.State = 'RestoreFailed'
+            $status.LastError = $otherErrors -join '; '
+            Write-UpdateServicesStatus -Status $status
+            Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
+            Write-StyledMessage -Type Error -Text "Ripristino servizi Windows Update incompleto: $($status.LastError)"
+            return $false
+        }
+
+        if ($dosvcErrors.Count -gt 0) {
+            $status.State = 'Restored'
+            $status.LastError = $null
+            Write-UpdateServicesStatus -Status $status
+            Write-ToolkitLog -Level 'WARNING' -Message "Windows Update service dosvc could not be restored (known Windows limitation): $($dosvcErrors -join '; ')"
+            Write-StyledMessage -Type Warning -Text "Servizio Windows Update dosvc (Ottimizzazione recapito) non è stato ripristinato: limite noto di Windows. Il setup prosegue."
+        }
     }
 
     $status.State = 'Restored'
