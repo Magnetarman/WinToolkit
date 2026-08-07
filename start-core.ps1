@@ -1668,53 +1668,52 @@ function Invoke-ExternalCommand {
         [switch]$CaptureOutput
     )
 
+    $outFile = $null
+    $errFile = $null
+    $proc = $null
     try {
-        # Run detached from the host console: redirect stdout/stderr so native
-        # progress/activity lines (e.g. winget "Deployment operation progress")
-        # do not bleed into the main toolkit output. Output is consumed
-        # asynchronously to avoid pipe-buffer deadlocks on verbose tools.
+        # Run detached from the host console. Redirect stdout/stderr to temp
+        # files (not pipes) so native progress/activity lines (e.g. winget
+        # "Deployment operation progress") never bleed into the main toolkit
+        # output, and there is no async pipe-reader that can deadlock or throw.
+        $outFile = Join-Path $env:TEMP "ext_$([guid]::NewGuid()).out"
+        $errFile = Join-Path $env:TEMP "ext_$([guid]::NewGuid()).err"
+
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = $FilePath
-        $psi.Arguments = $ArgumentList
+        # ProcessStartInfo.Arguments is a single string; join the token array.
+        $psi.Arguments = $ArgumentList -join ' '
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
         $psi.RedirectStandardOutput = $true
         $psi.RedirectStandardError = $true
 
-        $process = New-Object System.Diagnostics.Process
-        $process.StartInfo = $psi
+        $proc = New-Object System.Diagnostics.Process
+        $proc.StartInfo = $psi
 
-        $stdOut = New-Object System.Text.StringBuilder
-        $stdErr = New-Object System.Text.StringBuilder
+        $null = $proc.Start()
+        # Drain streams to temp files without blocking the host console.
+        $proc.StandardOutput.ReadToEnd() | Set-Content -Path $outFile -Encoding UTF8 -ErrorAction SilentlyContinue
+        $proc.StandardError.ReadToEnd() | Set-Content -Path $errFile -Encoding UTF8 -ErrorAction SilentlyContinue
 
-        $process.add_OutputDataReceived({
-            if ($CaptureOutput) { $null = $stdOut.AppendLine($EventArgs.Data) }
-        })
-        $process.add_ErrorDataReceived({
-            if ($CaptureOutput) { $null = $stdErr.AppendLine($EventArgs.Data) }
-        })
-
-        $null = $process.Start()
-        $process.BeginOutputReadLine()
-        $process.BeginErrorReadLine()
-
-        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-            try { $process.Kill() } catch { }
-            $null = $process.WaitForExit()
-            return [pscustomobject]@{ ExitCode = -2; TimedOut = $true; StdOut = $stdOut.ToString(); StdErr = $stdErr.ToString() }
+        if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+            try { $proc.Kill() } catch { }
+            $null = $proc.WaitForExit()
+            return [pscustomobject]@{ ExitCode = -2; TimedOut = $true; StdOut = ''; StdErr = '' }
         }
 
-        # Ensure async readers have flushed remaining buffered lines.
-        Start-Sleep -Milliseconds 300
-
-        return [pscustomobject]@{ ExitCode = $process.ExitCode; TimedOut = $false; StdOut = $stdOut.ToString(); StdErr = $stdErr.ToString() }
+        $stdOut = if ($CaptureOutput -and (Test-Path $outFile)) { Get-Content -Path $outFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue } else { '' }
+        $stdErr = if ($CaptureOutput -and (Test-Path $errFile)) { Get-Content -Path $errFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue } else { '' }
+        return [pscustomobject]@{ ExitCode = $proc.ExitCode; TimedOut = $false; StdOut = $stdOut; StdErr = $stdErr }
     }
     catch {
         Write-ToolkitLog -Level 'ERROR' -Message "External command failed ($FilePath): $($_.Exception.Message)"
         return [pscustomobject]@{ ExitCode = -1; TimedOut = $false; Error = $_.Exception.Message; StdOut = ''; StdErr = '' }
     }
     finally {
-        if ($process) { $process.Dispose() }
+        if ($proc) { $proc.Dispose() }
+        if ($outFile -and (Test-Path $outFile)) { Remove-Item $outFile -Force -ErrorAction SilentlyContinue }
+        if ($errFile -and (Test-Path $errFile)) { Remove-Item $errFile -Force -ErrorAction SilentlyContinue }
     }
 }
 
@@ -2509,7 +2508,7 @@ function Invoke-WinToolkitSetup {
         # Update PATH before initial check to detect already installed winget
         Update-EnvironmentPath
 
-        Repair-Winget -Level MsStoreCert
+        Repair-Winget -Level MsStoreCert | Out-Null
 
         if (-not (Test-WingetFunctionality)) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetDoesnTRespondFastRecoveryAttemptCore')
