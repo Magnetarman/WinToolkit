@@ -1035,10 +1035,9 @@ function Install-GitPackage {
         $result = Invoke-WingetCommand -Arguments "install Git.Git --source winget --accept-source-agreements --accept-package-agreements --silent"
 
         if ($result.ExitCode -eq 0) {
-            Start-Sleep 3
             Update-EnvironmentPath
 
-            if (Get-Command git -ErrorAction SilentlyContinue) {
+            if (Wait-Until -Condition { Test-CommandExists -Name git } -TimeoutSeconds 15 -IntervalSeconds 1) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitInstalledViaWinget')
                 return $true
             }
@@ -1048,39 +1047,17 @@ function Install-GitPackage {
     # 2. Fallback: direct download from GitHub
     try {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadGitDaGithub')
-        $release = Invoke-RestMethod -Uri $script:AppConfig.URLs.GitRelease -UseBasicParsing
-        $asset = $release.assets | Where-Object { $_.name -like "*64-bit.exe" } | Select-Object -First 1
-
-        if (-not $asset) {
-            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.64BitGitAssetNotFound')
-            return $false
-        }
-
-        $tempDir = $script:AppConfig.Paths.Temp
-        if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory -Force | Out-Null }
-        $installerPath = Join-Path $tempDir $asset.name
-
-        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -UseBasicParsing
-
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.runningGitInstaller')
-
-        $procParams = @{
-            FilePath     = $installerPath
-            ArgumentList = @("/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS")
-            Wait         = $true
-            PassThru     = $true
-        }
-        $process = Start-Process @procParams
-
-        Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
-
-        if ($process.ExitCode -eq 0) {
+        $installResult = Install-FromGitHubRelease -ReleaseApiUrl $script:AppConfig.URLs.GitRelease `
+            -AssetPattern '64-bit\.exe$' -ExecutablePath '{INSTALLER}' `
+            -InstallerArguments @('/SILENT', '/NORESTART', '/CLOSEAPPLICATIONS')
+        if ($installResult.Success) {
             Update-EnvironmentPath
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitInstalledSuccessfully')
             return $true
         }
 
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode0' -Args @($($process.ExitCode)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode0' -Args @($($installResult.ExitCode)))
         return $false
     }
     catch {
@@ -1531,6 +1508,92 @@ function ConvertTo-ProcessArgumentList {
         })
 }
 
+function Test-CommandExists {
+    param([Parameter(Mandatory = $true)][string]$Name)
+    return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Invoke-ExternalCommand {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$ArgumentList = @(),
+        [int]$TimeoutSeconds = 120
+    )
+
+    try {
+        $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -PassThru -NoNewWindow
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            $process.Kill()
+            $process.WaitForExit()
+            return [pscustomobject]@{ ExitCode = -2; TimedOut = $true }
+        }
+        return [pscustomobject]@{ ExitCode = $process.ExitCode; TimedOut = $false }
+    }
+    catch {
+        Write-ToolkitLog -Level 'ERROR' -Message "External command failed ($FilePath): $($_.Exception.Message)"
+        return [pscustomobject]@{ ExitCode = -1; TimedOut = $false; Error = $_.Exception.Message }
+    }
+}
+
+function Wait-Until {
+    param(
+        [Parameter(Mandatory = $true)][scriptblock]$Condition,
+        [int]$TimeoutSeconds = 30,
+        [int]$IntervalSeconds = 1
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    do {
+        if (& $Condition) { return $true }
+        if ((Get-Date) -ge $deadline) { break }
+        Start-Sleep -Seconds $IntervalSeconds
+    } while ($true)
+    return $false
+}
+
+function Install-FromGitHubRelease {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$ReleaseApiUrl,
+        [Parameter(Mandatory = $true)][string]$AssetPattern,
+        [Parameter(Mandatory = $true)][string]$ExecutablePath,
+        [string[]]$InstallerArguments = @(),
+        [int]$TimeoutSeconds = 300
+    )
+
+    $downloadPath = $null
+    try {
+        $release = Invoke-RestMethod -Uri $ReleaseApiUrl -UseBasicParsing -ErrorAction Stop
+        $asset = $release.assets | Where-Object { $_.name -match $AssetPattern } | Select-Object -First 1
+        if (-not $asset) { throw "No release asset matched '$AssetPattern'." }
+
+        $tempDir = $script:AppConfig.Paths.Temp
+        if (-not (Test-Path $tempDir)) { $null = New-Item -Path $tempDir -ItemType Directory -Force -ErrorAction Stop }
+        $downloadPath = Join-Path $tempDir $asset.name
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $downloadPath -UseBasicParsing -ErrorAction Stop
+
+        $args = @($InstallerArguments | ForEach-Object {
+                $_ -replace '\{INSTALLER\}', $downloadPath
+            })
+        if ($ExecutablePath -eq '{INSTALLER}') { $ExecutablePath = $downloadPath }
+        $result = Invoke-ExternalCommand -FilePath $ExecutablePath -ArgumentList $args -TimeoutSeconds $TimeoutSeconds
+        return [pscustomobject]@{
+            Success  = ($result.ExitCode -eq 0)
+            ExitCode = $result.ExitCode
+            Asset    = $asset.name
+            TimedOut = $result.TimedOut
+        }
+    }
+    catch {
+        return [pscustomobject]@{ Success = $false; ExitCode = -1; Error = $_.Exception.Message; TimedOut = $false }
+    }
+    finally {
+        if ($downloadPath -and (Test-Path $downloadPath)) {
+            Remove-Item -LiteralPath $downloadPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Invoke-WingetCommand {
     <#
     .SYNOPSIS
@@ -1556,20 +1619,11 @@ function Invoke-WingetCommand {
         # Add the flag only if supported (v1.4+)
         $finalArgs = if ($isModern) { "$Arguments --disable-interactivity" } else { $Arguments }
 
-        $procParams = @{
-            FilePath     = $wingetExe
-            ArgumentList = ConvertTo-ProcessArgumentList -Arguments $finalArgs
-            PassThru     = $true
-            NoNewWindow  = $true
-        }
-        $process = Start-Process @procParams
-        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-            $process.Kill()
-            $process.WaitForExit()
+        $result = Invoke-ExternalCommand -FilePath $wingetExe -ArgumentList (ConvertTo-ProcessArgumentList -Arguments $finalArgs) -TimeoutSeconds $TimeoutSeconds
+        if ($result.TimedOut) {
             Write-ToolkitLog -Level 'ERROR' -Message "Winget timeout after $TimeoutSeconds seconds: $Arguments"
-            return @{ ExitCode = -2; TimedOut = $true }
         }
-        return @{ ExitCode = $process.ExitCode; TimedOut = $false }
+        return $result
     }
     catch {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetCommandError0' -Args @($($_.Exception.Message)))
@@ -1673,54 +1727,17 @@ function Install-PowerShellCore {
     # 2. Fallback: direct MSI download from GitHub
     try {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.recuperoUltimaReleasePowershell')
-        $release = Invoke-RestMethod -Uri $script:AppConfig.URLs.PowerShellRelease -UseBasicParsing
-        $asset = $release.assets | Where-Object { $_.name -like "*win-x64.msi" } | Select-Object -First 1
-
-        if (-not $asset) {
-            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.powershell7AssetsWinX64MsiNotFound')
-            return $false
-        }
-
-        $tempDir = $script:AppConfig.Paths.Temp
-        if (-not (Test-Path $tempDir)) {
-            $niParams = @{
-                Path     = $tempDir
-                ItemType = 'Directory'
-                Force    = $true
-            }
-            $null = New-Item @niParams *>$null
-        }
-        $installerPath = Join-Path $tempDir $asset.name
-
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadInstaller')
-        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -UseBasicParsing
-
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingPowershell7InProgress')
+        $installResult = Install-FromGitHubRelease -ReleaseApiUrl $script:AppConfig.URLs.PowerShellRelease `
+            -AssetPattern 'win-x64\.msi$' -ExecutablePath 'msiexec.exe' `
+            -InstallerArguments @('/i', '{INSTALLER}', '/norestart', '/passive',
+                'ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1', 'ENABLE_PSREMOTING=1', 'REGISTER_MANIFEST=1')
 
-        $procParams = @{
-            FilePath     = "msiexec.exe"
-            ArgumentList = @(
-                "/i", "`"$installerPath`"",
-                "/norestart",
-                "/passive",
-                "ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1",
-                "ENABLE_PSREMOTING=1",
-                "REGISTER_MANIFEST=1"
-            )
-            Wait         = $true
-            PassThru     = $true
-        }
-
-        $process = Start-Process @procParams
-        $null = Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
-
-        Start-Sleep 3
-
-        if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Get-Command pwsh -ErrorAction SilentlyContinue) -or $process.ExitCode -eq 0) {
+        if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Test-CommandExists -Name pwsh) -or $installResult.ExitCode -eq 0) {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7InstalledSuccessfully')
             return $true
         }
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode02' -Args @($($process.ExitCode)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode02' -Args @($($installResult.ExitCode)))
         return $false
     }
     catch {
@@ -1750,8 +1767,7 @@ function Install-WindowsTerminalApp {
                 Arguments = "install --id 9N0DX20HK701 --source winget --accept-source-agreements --accept-package-agreements --silent"
             }
             $result = Invoke-WingetCommand @iwcParams
-            Start-Sleep 3
-            if ($result.ExitCode -eq 0 -and (Get-Command "wt.exe" -ErrorAction SilentlyContinue)) {
+            if ($result.ExitCode -eq 0 -and (Wait-Until -Condition { Test-CommandExists -Name 'wt.exe' } -TimeoutSeconds 15 -IntervalSeconds 1)) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalInstalledViaWinget')
                 return $true
             }
