@@ -28,36 +28,68 @@ Set-StrictMode -Version Latest
 #    by the main orchestrator. Every operation must return a meaningful result
 #    when the caller can continue with a partial outcome.
 
-# --- GLOBAL CONFIGURATION ---
+# ==============================================================================
+# SECTION 1 · BOOTSTRAP
+# Runtime options and top-level policy. This is the first fragment of the
+# concatenated start-core.ps1 artefact.
+# ==============================================================================
+
+# Branch selector: the ONLY value to change to ship from Dev to main.
+# Every repository-relative URL below is derived from this single switch.
+$script:Branch = 'Dev'
+
+# ==============================================================================
+# SECTION 2 · GLOBAL CONFIGURATION
+# Version, URLs, paths, registry keys and UI/execution variables.
+# Mirrors the structure of WinToolkit-template.ps1 so a single Branch switch
+# makes the whole script main-ready.
+# ==============================================================================
+
+# --- HEADER CONFIGURATION (modify here to update title and version) ---
+$ToolkitVersion = "2.6.0 (Build 6)"
+
+# Single source of truth for repository base URLs, keyed by branch.
+# Switching $script:Branch flips every derived asset/profile/icon/start URL.
+$GitHubRepoRawBase = @{
+    Dev  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev"
+    main = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main"
+}
+$GitHubRepoBase = @{
+    Dev  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev"
+    main = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main"
+}
+$script:RepoRawBase = $GitHubRepoRawBase[$script:Branch]
+$script:RepoBase = $GitHubRepoBase[$script:Branch]
 
 $script:AppConfig = @{
-    Branch           = 'Dev'
-    MsgStyles        = @{
+    Branch           = $script:Branch
+    ToolkitVersion  = $ToolkitVersion
+    MsgStyles       = @{
         Success = @{ Icon = '✅'; Color = 'Green' }
         Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
         Error   = @{ Icon = '❌'; Color = 'Red' }
         Info    = @{ Icon = '💎'; Color = 'Cyan' }
     }
-    # ============================================================================
-    # HEADER CONFIGURATION - Modify here to update title and version
-    # ============================================================================
-    Header           = @{
+    Header          = @{
         Title   = "Toolkit Starter By MagnetarMan"
-        Version = "Version 2.6.0 (Build 6)"
+        Version = "Version $ToolkitVersion"
     }
-    URLs             = @{
+    URLs            = @{
+        # --- Branch-dependent (derived from $script:Branch below) ---
         StartScript             = $null
+        PowerShellProfile       = $null
+        WindowsTerminalSettings = $null
+        ToolkitIcon             = $null
+
+        # --- Branch-independent (aka.ms / third-party release APIs) ---
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
         OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-        PowerShellProfile       = $null
-        WindowsTerminalSettings = $null
-        ToolkitIcon             = $null
         TerminalRelease         = "https://api.github.com/repos/microsoft/terminal/releases/latest"
-        WebInstaller            = "https://magnetarman.com/WinToolkit-Dev"
+        WebInstaller            = "https://magnetarman.com/WinToolkit-$script:Branch"
     }
-    Paths            = @{
+    Paths           = @{
         Logs          = "$env:LOCALAPPDATA\WinToolkit\logs"
         WinToolkitDir = "$env:LOCALAPPDATA\WinToolkit"
         Temp          = "$env:TEMP\WinToolkitSetup"
@@ -66,10 +98,10 @@ $script:AppConfig = @{
         wtExe         = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
         wtDir         = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
     }
-    Registry         = @{
+    Registry        = @{
         TerminalStartup = "HKCU:\Console\%%Startup"
     }
-    WindowsTerminal  = @{
+    WindowsTerminal = @{
         DelegationTerminalClsid = "{E12F0936-0E6F-548E-A9F6-B20C69A27D17}"
         DelegationConsoleClsid  = "{B23D10C0-31E3-401A-97EF-4BB30B62E10B}"
     }
@@ -90,10 +122,11 @@ $script:AppConfig = @{
 }
 
 # Keep every repository-relative URL on the configured branch in one place.
-$script:AppConfig.URLs.StartScript = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/$($script:AppConfig.Branch)/start.ps1"
-$script:AppConfig.URLs.PowerShellProfile = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/$($script:AppConfig.Branch)/assets/Microsoft.PowerShell_profile.ps1"
-$script:AppConfig.URLs.WindowsTerminalSettings = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/$($script:AppConfig.Branch)/assets/settings.json"
-$script:AppConfig.URLs.ToolkitIcon = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/$($script:AppConfig.Branch)/images/WinToolkit.ico"
+# Changing $script:Branch above retargets all of these automatically.
+$script:AppConfig.URLs.StartScript = "$($script:RepoRawBase)/start.ps1"
+$script:AppConfig.URLs.PowerShellProfile = "$($script:RepoBase)/assets/Microsoft.PowerShell_profile.ps1"
+$script:AppConfig.URLs.WindowsTerminalSettings = "$($script:RepoBase)/assets/settings.json"
+$script:AppConfig.URLs.ToolkitIcon = "$($script:RepoRawBase)/images/WinToolkit.ico"
 
 # --- NAMED CONSTANTS (no magic numbers in the modules) ---
 
