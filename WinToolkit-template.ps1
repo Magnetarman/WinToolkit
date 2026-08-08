@@ -385,12 +385,46 @@ Set-SourceTextLanguage -LanguageCode $Language
 function Clear-ProgressLine {
     if ($Host.Name -eq 'ConsoleHost') {
         try {
-            $width = $Host.UI.RawUI.WindowSize.Width - 1
-            Write-Host "`r$(' ' * $width)" -NoNewline
-            Write-Host "`r" -NoNewline
+            $rawUI = $Host.UI.RawUI
+
+            if ($Global:ProgressLineStart) {
+                $startRow = [math]::Max(0, [int]$Global:ProgressLineStart.Y)
+                $endRow = [math]::Min(
+                    $rawUI.BufferSize.Height - 1,
+                    $startRow + [math]::Max(1, [int]$Global:ProgressLineRows) - 1
+                )
+                $rectangle = [System.Management.Automation.Host.Rectangle]::new(
+                    0, $startRow, $rawUI.BufferSize.Width - 1, $endRow
+                )
+                $blankCell = [System.Management.Automation.Host.BufferCell]::new(
+                    ' ', $rawUI.ForegroundColor, $rawUI.BackgroundColor,
+                    [System.Management.Automation.Host.BufferCellType]::Complete
+                )
+
+                try {
+                    $rawUI.SetBufferContents($rectangle, $blankCell)
+                }
+                catch {
+                    $blankLine = ' ' * $rawUI.BufferSize.Width
+                    for ($row = $startRow; $row -le $endRow; $row++) {
+                        $rawUI.CursorPosition = [System.Management.Automation.Host.Coordinates]::new(0, $row)
+                        Write-Host $blankLine -NoNewline
+                    }
+                }
+
+                $rawUI.CursorPosition = $Global:ProgressLineStart
+                $Global:ProgressLineStart = $null
+                $Global:ProgressLineRows = 0
+                return
+            }
+
+            $width = $rawUI.WindowSize.Width - 1
+            Write-Host "`r$(' ' * $width)`r" -NoNewline
         }
         catch {
             Write-Host "`r                                                                                `r" -NoNewline
+            $Global:ProgressLineStart = $null
+            $Global:ProgressLineRows = 0
         }
     }
 }
@@ -426,37 +460,33 @@ function Show-ProgressBar {
     #>
     param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
     $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
-    $consoleWidth = try { [math]::Max(40, $Host.UI.RawUI.WindowSize.Width - 4) } catch { 116 }
-    $barWidth = [math]::Min(30, [math]::Max(10, [math]::Floor($consoleWidth * 0.2)))
-    $filled = '█' * [math]::Floor($safePercent * $barWidth / 100)
-    $empty = '░' * ($barWidth - $filled.Length)
+    $filled = '█' * [math]::Floor($safePercent * 30 / 100)
+    $empty = '░' * (30 - $filled.Length)
     $bar = "[$filled$empty] {0,3}%" -f $safePercent
-
-    # Mantiene ogni aggiornamento su una sola riga: un testo più lungo della
-    # finestra causerebbe il wrapping e impedirebbe a Clear-ProgressLine di
-    # sovrascrivere correttamente l'aggiornamento precedente.
-    $prefixLength = "$Spinner $Icon ".Length
-    $availableText = [math]::Max(1, $consoleWidth - $prefixLength - $bar.Length - 2)
-    $statusBudget = if ([string]::IsNullOrWhiteSpace($Status)) { 0 } else { [math]::Floor($availableText * 0.4) }
-    $separatorLength = if ($statusBudget -gt 0) { 1 } else { 0 }
-    $activityBudget = [math]::Max(1, $availableText - $statusBudget - $separatorLength)
-
-    $displayActivity = if ($Activity.Length -gt $activityBudget) {
-        $Activity.Substring(0, [math]::Max(0, $activityBudget - 1)) + '…'
-    }
-    else { $Activity }
-
-    $displayStatus = if ($statusBudget -le 0) { '' }
-    elseif ($Status.Length -gt $statusBudget) {
-        $Status.Substring(0, [math]::Max(0, $statusBudget - 1)) + '…'
-    }
-    else { $Status }
-
     if (-not $Global:GuiSessionActive) {
-        $progressLine = "$Spinner $Icon $displayActivity $bar"
-        if ($displayStatus) { $progressLine += " $displayStatus" }
+        $progressLine = "$Spinner $Icon $Activity $bar"
+        if ($Status) { $progressLine += " $Status" }
+
+        $startPosition = $null
+        if ($Host.Name -eq 'ConsoleHost') {
+            try {
+                $cursor = $Host.UI.RawUI.CursorPosition
+                $startPosition = [System.Management.Automation.Host.Coordinates]::new(0, $cursor.Y)
+            }
+            catch {}
+        }
+
         Write-Host "`r$progressLine" -NoNewline -ForegroundColor $Color
-        if ($Percent -ge 100) { Write-Host '' }
+        if ($Percent -ge 100) {
+            Write-Host ''
+            $Global:ProgressLineStart = $null
+            $Global:ProgressLineRows = 0
+        }
+        elseif ($startPosition) {
+            $endPosition = $Host.UI.RawUI.CursorPosition
+            $Global:ProgressLineStart = $startPosition
+            $Global:ProgressLineRows = [math]::Max(1, $endPosition.Y - $startPosition.Y + 1)
+        }
     }
 }
 
