@@ -40,7 +40,7 @@ function Get-SourceTextLanguageDirectory {
 }
 
 function Get-RemoteAvailableCultures {
-    param([string]$GitHubApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$($script:AppConfig.Branch)")
+    param([string]$GitHubApiUrl = $script:AppConfig.URLs.LanguagesApiUrl)
     try {
         $response = Invoke-RestMethod -Uri $GitHubApiUrl -UseBasicParsing -ErrorAction Stop
         return @($response | Where-Object { $_.type -eq 'dir' } | ForEach-Object { $_.name })
@@ -54,8 +54,8 @@ function Invoke-SourceTextLanguagePreparation {
     [CmdletBinding()]
     param(
         [string]$ScriptRoot,
-        [string]$RemoteBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/$($script:AppConfig.Branch)/languages",
-        [string]$GitHubApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$($script:AppConfig.Branch)",
+        [string]$RemoteBaseUrl = $script:AppConfig.URLs.LanguagesRawUrl,
+        [string]$GitHubApiUrl = $script:AppConfig.URLs.LanguagesApiUrl,
         [int]$CacheMaxAgeDays = 7
     )
     $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
