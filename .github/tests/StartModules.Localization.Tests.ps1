@@ -29,8 +29,10 @@ Describe 'Get-SourceTextLoc' {
         Get-SourceTextLoc 'uiText.configurationComplete' | Should -Be 'Configuration complete.'
     }
 
-    It 'interpola correttamente gli argomenti posizionali' {
-        Get-SourceTextLoc 'uiText.systemClockResynced' | Should -Be 'System clock resynchronized.'
+    It 'risolve una chiave embedded con testo descrittivo' {
+        $value = Get-SourceTextLoc 'uiText.systemClockResynced'
+        $value | Should -Not -Match '\[MISSING TRANSLATION'
+        $value | Should -Match 'System clock resynchronized\.'
     }
 
     It 'risolve una chiave alias alla sua chiave canonica' {
