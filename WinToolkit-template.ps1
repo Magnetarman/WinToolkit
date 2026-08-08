@@ -111,9 +111,6 @@ $AppConfig = @{
         DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/dxwebsetup.exe"
         BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
 
-        # 7-Zip
-        SevenZipOfficial      = "https://www.7-zip.org/a/7zr.exe"
-
         # Store
         WingetInstaller       = "https://aka.ms/getwinget"
         VCRedist86            = "https://aka.ms/vs/17/release/vc_redist.x86.exe"
@@ -429,13 +426,36 @@ function Show-ProgressBar {
     #>
     param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
     $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
-    $filled = '█' * [math]::Floor($safePercent * 30 / 100)
-    $empty = '░' * (30 - $filled.Length)
+    $consoleWidth = try { [math]::Max(40, $Host.UI.RawUI.WindowSize.Width - 4) } catch { 116 }
+    $barWidth = [math]::Min(30, [math]::Max(10, [math]::Floor($consoleWidth * 0.2)))
+    $filled = '█' * [math]::Floor($safePercent * $barWidth / 100)
+    $empty = '░' * ($barWidth - $filled.Length)
     $bar = "[$filled$empty] {0,3}%" -f $safePercent
-    $displayActivity = $Activity
-    $displayStatus = $Status
+
+    # Mantiene ogni aggiornamento su una sola riga: un testo più lungo della
+    # finestra causerebbe il wrapping e impedirebbe a Clear-ProgressLine di
+    # sovrascrivere correttamente l'aggiornamento precedente.
+    $prefixLength = "$Spinner $Icon ".Length
+    $availableText = [math]::Max(1, $consoleWidth - $prefixLength - $bar.Length - 2)
+    $statusBudget = if ([string]::IsNullOrWhiteSpace($Status)) { 0 } else { [math]::Floor($availableText * 0.4) }
+    $separatorLength = if ($statusBudget -gt 0) { 1 } else { 0 }
+    $activityBudget = [math]::Max(1, $availableText - $statusBudget - $separatorLength)
+
+    $displayActivity = if ($Activity.Length -gt $activityBudget) {
+        $Activity.Substring(0, [math]::Max(0, $activityBudget - 1)) + '…'
+    }
+    else { $Activity }
+
+    $displayStatus = if ($statusBudget -le 0) { '' }
+    elseif ($Status.Length -gt $statusBudget) {
+        $Status.Substring(0, [math]::Max(0, $statusBudget - 1)) + '…'
+    }
+    else { $Status }
+
     if (-not $Global:GuiSessionActive) {
-        Write-Host "`r$Spinner $Icon $displayActivity $bar $displayStatus" -NoNewline -ForegroundColor $Color
+        $progressLine = "$Spinner $Icon $displayActivity $bar"
+        if ($displayStatus) { $progressLine += " $displayStatus" }
+        Write-Host "`r$progressLine" -NoNewline -ForegroundColor $Color
         if ($Percent -ge 100) { Write-Host '' }
     }
 }
@@ -1001,15 +1021,35 @@ function Invoke-WithSpinner {
             if (-not $Global:GuiSessionActive) { Write-Host "" }
             return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
         }
-        elseif ($Job -and $result -and $result.GetType().Name -eq 'Job') {
-            while ($result.State -eq 'Running') {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
-                Start-Sleep -Milliseconds $UpdateInterval
+        elseif ($Job -and $result -is [System.Management.Automation.Job]) {
+            try {
+                while ($result.State -eq 'Running' -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
+                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                    $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
+                    $percent = if ($PercentUpdate) { & $PercentUpdate } elseif ($percent -lt 90) { $percent + (Get-Random -Minimum 1 -Maximum 3) } else { $percent }
+                    Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
+                    Start-Sleep -Milliseconds $UpdateInterval
+                }
+
+                if ($result.State -eq 'Running') {
+                    Stop-Job -Job $result -ErrorAction SilentlyContinue
+                    throw (Get-SourceTextLoc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
+                }
+
+                if ($result.State -eq 'Failed') {
+                    $failureReason = $result.ChildJobs[0].JobStateInfo.Reason
+                    if ($failureReason) { throw $failureReason }
+                    throw (Get-SourceTextLoc 'uiText.errorDuring01' -Args @($Activity, $result.State))
+                }
+
+                $jobResult = Receive-Job -Job $result -Wait -ErrorAction Stop
+                Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.completed') -Percent 100 -Icon '✅'
+                if (-not $Global:GuiSessionActive) { Write-Host '' }
+                return $jobResult
             }
-            $jobResult = Receive-Job $result -Wait
-            Write-Host ''
-            return $jobResult
+            finally {
+                Remove-Job -Job $result -Force -ErrorAction SilentlyContinue
+            }
         }
         else {
             Start-Sleep -Seconds $TimeoutSeconds
