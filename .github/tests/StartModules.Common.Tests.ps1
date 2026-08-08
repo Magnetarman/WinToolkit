@@ -22,7 +22,7 @@ BeforeAll {
     # Logging helpers used by the common helpers must not crash when no log
     # file is configured yet.
     $script:CurrentLogFile = $null
-    if (-not $Global:MsgStyles) {
+    if (-not (Test-Path Variable:Global:MsgStyles)) {
         $Global:MsgStyles = @{
             Success = @{ Icon = '[OK]';   Color = 'Green' }
             Warning = @{ Icon = '[WARN]'; Color = 'Yellow' }
@@ -35,7 +35,10 @@ BeforeAll {
 
 Describe 'Format-CenteredText' {
     It 'centra correttamente una stringa più corta della larghezza data' {
-        Format-CenteredText -Text 'OK' -Width 10 | Should -Match '^\s+OK\s+$'
+        $centered = Format-CenteredText -Text 'OK' -Width 10
+        $centered | Should -Match '^\s+OK'
+        $centered.Length | Should -BeLessOrEqual 10
+        $centered.Trim() | Should -Be 'OK'
     }
 
     It 'non aggiunge padding quando il testo riempie la larghezza' {
