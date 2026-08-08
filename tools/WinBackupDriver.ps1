@@ -33,7 +33,7 @@ function WinBackupDriver {
         try {
             if (Test-Path $script:BackupConfig.BackupDir) {
                 Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.removingPreviousBackups')
-                Remove-ItemSafely -Path $script:BackupConfig.BackupDir -Recurse
+                $null = Remove-ItemSafely -Path $script:BackupConfig.BackupDir -Recurse
             }
             New-Item -ItemType Directory -Path $script:BackupConfig.BackupDir -Force *>$null
             New-Item -ItemType Directory -Path $script:BackupConfig.LogsDir   -Force *>$null
@@ -131,7 +131,7 @@ function WinBackupDriver {
 
             if (Test-Path $script:FinalArchivePath) {
                 Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.removingOldArchive')
-                Remove-ItemSafely -Path $script:FinalArchivePath
+                $null = Remove-ItemSafely -Path $script:FinalArchivePath
             }
 
             Copy-Item -Path $ArchivePath -Destination $script:FinalArchivePath -Force -ErrorAction Stop
@@ -174,7 +174,7 @@ function WinBackupDriver {
     }
     finally {
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.temporaryEnvironmentCleaning')
-        Remove-ItemSafely -Path $script:BackupConfig.BackupDir -Recurse
+        $null = Remove-ItemSafely -Path $script:BackupConfig.BackupDir -Recurse
         Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.driverBackupToolkitFinished')
         Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.winbackupdriverSessionEnded')
     }
