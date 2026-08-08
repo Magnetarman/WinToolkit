@@ -18,6 +18,15 @@ BeforeAll {
         . $file.FullName
     }
 
+    if (-not (Test-Path Variable:Global:MsgStyles)) {
+        $Global:MsgStyles = @{
+            Success = @{ Icon = '[OK]';   Color = 'Green' }
+            Warning = @{ Icon = '[WARN]'; Color = 'Yellow' }
+            Error   = @{ Icon = '[ERR]';  Color = 'Red' }
+            Info    = @{ Icon = '[INFO]'; Color = 'Cyan' }
+        }
+    }
+
     # Language resolution normally runs network preparation; for unit tests we
     # initialise directly from the embedded English text (the offline fallback).
     Initialize-SourceTextLocalization -LanguageCode 'en-US'
