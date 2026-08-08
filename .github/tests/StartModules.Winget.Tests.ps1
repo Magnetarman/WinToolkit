@@ -20,7 +20,7 @@ BeforeAll {
     }
 
     $script:CurrentLogFile = $null
-    if (-not $Global:MsgStyles) {
+    if (-not (Test-Path Variable:Global:MsgStyles)) {
         $Global:MsgStyles = @{
             Success = @{ Icon = '[OK]';   Color = 'Green' }
             Warning = @{ Icon = '[WARN]'; Color = 'Yellow' }
