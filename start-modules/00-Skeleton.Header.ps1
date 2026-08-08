@@ -75,12 +75,7 @@ $script:AppConfig = @{
         Version = "Version $ToolkitVersion"
     }
     URLs            = @{
-        # --- Branch-dependent (derived from $script:Branch below) ---
-        StartScript             = $null
-        PowerShellProfile       = $null
-        WindowsTerminalSettings = $null
-        ToolkitIcon             = $null
-
+        # --- Branch-dependent URLs are assigned from $script:Branch below ---
         # --- Branch-independent (aka.ms / third-party release APIs) ---
         WingetMSIX              = "https://aka.ms/getwinget"
         GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
@@ -121,12 +116,23 @@ $script:AppConfig = @{
     }
 }
 
-# Keep every repository-relative URL on the configured branch in one place.
-# Changing $script:Branch above retargets all of these automatically.
+# ==============================================================================
+# BRANCH-DEPENDENT URL RESOLUTION (single source of truth)
+# ------------------------------------------------------------------------------
+# Every repository-relative URL is derived HERE from the single $script:Branch
+# selector. Nothing else in the script may build a branch URL by string
+# concatenation: modules must read $script:AppConfig.URLs.* instead. Flipping
+# $script:Branch above retargets the entire script with no other edits.
+# ==============================================================================
+
 $script:AppConfig.URLs.StartScript = "$($script:RepoRawBase)/start.ps1"
 $script:AppConfig.URLs.PowerShellProfile = "$($script:RepoBase)/assets/Microsoft.PowerShell_profile.ps1"
 $script:AppConfig.URLs.WindowsTerminalSettings = "$($script:RepoBase)/assets/settings.json"
 $script:AppConfig.URLs.ToolkitIcon = "$($script:RepoRawBase)/images/WinToolkit.ico"
+
+# Localization assets live under the same branch.
+$script:AppConfig.URLs.LanguagesRawUrl = "$($script:RepoBase)/languages"
+$script:AppConfig.URLs.LanguagesApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$($script:Branch)"
 
 # --- NAMED CONSTANTS (no magic numbers in the modules) ---
 
