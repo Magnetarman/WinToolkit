@@ -57,7 +57,7 @@ function Read-Host {
 }
 $ErrorActionPreference = 'Stop'
 try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
-$ToolkitVersion = "2.6.0 (Build 5)"
+$ToolkitVersion = "Sviluppo in Corso"
 $AppConfig = @{
     URLs            = @{
         GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/"
@@ -5084,11 +5084,14 @@ function GamingToolkit {
     }
     Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.xboxReinstalled')
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.installingBattleNet')
-    $bnPath = "$env:TEMP\Battle.net-Setup.exe"
+    $battleNetInstallRoot = 'C:\Program Files (x86)\'
     try {
-        Invoke-WebRequest -Uri $AppConfig.URLs.BattleNetInstaller -OutFile $bnPath -ErrorAction Stop
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.battleNetDownloaded')
-        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installingBattleNet') -Command $bnPath -Arguments '--quiet' -TimeoutSeconds $timeout -LogContextKey "Gaming-BattleNet"
+        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installingBattleNet') -Command 'winget' -Arguments @(
+            'install', '--id', 'Blizzard.BattleNet', '--exact', '--include-unknown',
+            '--location', $battleNetInstallRoot,
+            '--silent', '--disable-interactivity',
+            '--accept-package-agreements', '--accept-source-agreements'
+        ) -TimeoutSeconds $timeout -LogContextKey "Gaming-BattleNet"
         Clear-ProgressLine
         Clear-ProgressLine
         if ($null -eq $result) {
@@ -5099,8 +5102,9 @@ function GamingToolkit {
         }
         else {
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
-            $messageType = if ($exitCode -in @(0, 3010)) { 'Success' } else { 'Warning' }
-            $messageText = if ($exitCode -in @(0, 3010)) {
+            $successCodes = @(0, 1638, 3010, -1978335189)
+            $messageType = if ($exitCode -in $successCodes) { 'Success' } else { 'Warning' }
+            $messageText = if ($exitCode -in $successCodes) {
                 Get-SourceTextLoc 'uiText.battleNetInstalled'
             }
             else {
