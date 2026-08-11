@@ -182,8 +182,6 @@ $AppConfig = @{
 # with no other edits.
 # ==============================================================================
 
-$AppConfig.URLs.GitHubAssetBaseUrl    = "$RepoRawBase/assets/"
-$AppConfig.URLs.GitHubAssetDevBaseUrl = "$($GitHubRepoRawBase.Dev)/assets/"
 $AppConfig.URLs.OfficeSetup           = "$RepoRawBase/assets/Setup.exe"
 $AppConfig.URLs.OfficeBasicConfig     = "$RepoRawBase/assets/Basic.xml"
 $AppConfig.URLs.NVCleanstall          = "$RepoRawBase/assets/NVCleanstall_1.19.0.exe"
@@ -2238,9 +2236,6 @@ function VcardAnalizer {
 
     $overrides = @()
     $remoteUrl = $AppConfig.URLs.DriverOverridesJson
-    if ([string]::IsNullOrWhiteSpace($remoteUrl)) {
-        $remoteUrl = "$($AppConfig.URLs.GitHubAssetBaseUrl)DriverOverrides.json"
-    }
 
     try {
         if (Invoke-ToolkitDownload -Uri $remoteUrl -OutputPath $defaultLocalOverrides -Description 'Driver Overrides JSON') {
