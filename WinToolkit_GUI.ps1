@@ -804,7 +804,40 @@ Attach this zip file when reporting issues. The CorrelationId links logs across 
         # Compress the report and metadata into a ZIP file on the Desktop
         $zipPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "WinToolkit_SupportLog_$(Get-Date -Format 'yyyyMMdd_HHmmss').zip"
         if (Get-Command 'Compress-Archive' -ErrorAction SilentlyContinue) {
-            Compress-Archive -Path $tempReportPath, $metadataPath, $readmePath -DestinationPath $zipPath -Force
+            $compressionJob = Start-Job -ScriptBlock {
+                param(
+                    [string]$ReportPath,
+                    [string]$MetadataPath,
+                    [string]$ReadmePath,
+                    [string]$DestinationPath
+                )
+
+                $ErrorActionPreference = 'Stop'
+                Compress-Archive -Path $ReportPath, $MetadataPath, $ReadmePath -DestinationPath $DestinationPath `
+                    -CompressionLevel Optimal -Force -ErrorAction Stop
+                return $true
+            } -ArgumentList $tempReportPath, $metadataPath, $readmePath, $zipPath
+
+            try {
+                if ($progressBar) { $progressBar.IsIndeterminate = $true }
+                while ($compressionJob.State -eq 'Running') {
+                    $window.Dispatcher.Invoke([Action] {}, [System.Windows.Threading.DispatcherPriority]::Background)
+                    Start-Sleep -Milliseconds 100
+                }
+
+                $compressionSucceeded = Receive-Job -Job $compressionJob -Wait -ErrorAction Stop
+                if ($compressionSucceeded -ne $true -or -not (Test-Path $zipPath -PathType Leaf)) {
+                    throw (Get-SourceTextLoc 'toolText.unknownErrorZipFileWasNotCreated')
+                }
+            }
+            finally {
+                if ($progressBar) {
+                    $progressBar.IsIndeterminate = $false
+                    $progressBar.Value = if (Test-Path $zipPath -PathType Leaf) { 100 } else { 0 }
+                }
+                Remove-Job -Job $compressionJob -Force -ErrorAction SilentlyContinue
+            }
+
             Write-UnifiedLog -Type 'Success' -Message (Get-SourceTextLoc 'uiText.supportLogPackageCreated0' -Args @($zipPath)) -GuiColor "#00FF00"
         }
         else {
@@ -2337,15 +2370,32 @@ function Start-NextScriptJob {
                     Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0StatusCompletedPercent100' -Args @($Activity))
                     return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
                 }
-                elseif ($Job -and $result -and $result.GetType().Name -eq 'Job') {
-                    while ($result.State -eq 'Running') {
-                        Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0StatusInEsecuzionePercent1' -Args @($Activity, $percent))
-                        Start-Sleep -Milliseconds $UpdateInterval
-                        # Allow progress up to 99% for Jobs too
-                        if ($percent -lt 99) { $percent += 5 }
+                elseif ($Job -and $result -is [System.Management.Automation.Job]) {
+                    try {
+                        while ($result.State -eq 'Running' -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
+                            Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0StatusInEsecuzionePercent1' -Args @($Activity, $percent))
+                            Start-Sleep -Milliseconds $UpdateInterval
+                            if ($percent -lt 90) { $percent += Get-Random -Minimum 1 -Maximum 3 }
+                        }
+
+                        if ($result.State -eq 'Running') {
+                            Stop-Job -Job $result -ErrorAction SilentlyContinue
+                            throw (Get-SourceTextLoc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
+                        }
+
+                        if ($result.State -eq 'Failed') {
+                            $failureReason = $result.ChildJobs[0].JobStateInfo.Reason
+                            if ($failureReason) { throw $failureReason }
+                            throw (Get-SourceTextLoc 'uiText.errorDuring01' -Args @($Activity, $result.State))
+                        }
+
+                        $jobResult = Receive-Job -Job $result -Wait -ErrorAction Stop
+                        Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0StatusCompletedPercent100' -Args @($Activity))
+                        return $jobResult
                     }
-                    $jobResult = Receive-Job $result -Wait
-                    return $jobResult
+                    finally {
+                        Remove-Job -Job $result -Force -ErrorAction SilentlyContinue
+                    }
                 }
                 else {
                     return $result

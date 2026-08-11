@@ -111,9 +111,6 @@ $AppConfig = @{
         DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/dxwebsetup.exe"
         BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
 
-        # 7-Zip
-        SevenZipOfficial      = "https://www.7-zip.org/a/7zr.exe"
-
         # Store
         WingetInstaller       = "https://aka.ms/getwinget"
         VCRedist86            = "https://aka.ms/vs/17/release/vc_redist.x86.exe"
@@ -388,12 +385,46 @@ Set-SourceTextLanguage -LanguageCode $Language
 function Clear-ProgressLine {
     if ($Host.Name -eq 'ConsoleHost') {
         try {
-            $width = $Host.UI.RawUI.WindowSize.Width - 1
-            Write-Host "`r$(' ' * $width)" -NoNewline
-            Write-Host "`r" -NoNewline
+            $rawUI = $Host.UI.RawUI
+
+            if ($Global:ProgressLineStart) {
+                $startRow = [math]::Max(0, [int]$Global:ProgressLineStart.Y)
+                $endRow = [math]::Min(
+                    $rawUI.BufferSize.Height - 1,
+                    $startRow + [math]::Max(1, [int]$Global:ProgressLineRows) - 1
+                )
+                $rectangle = [System.Management.Automation.Host.Rectangle]::new(
+                    0, $startRow, $rawUI.BufferSize.Width - 1, $endRow
+                )
+                $blankCell = [System.Management.Automation.Host.BufferCell]::new(
+                    ' ', $rawUI.ForegroundColor, $rawUI.BackgroundColor,
+                    [System.Management.Automation.Host.BufferCellType]::Complete
+                )
+
+                try {
+                    $rawUI.SetBufferContents($rectangle, $blankCell)
+                }
+                catch {
+                    $blankLine = ' ' * $rawUI.BufferSize.Width
+                    for ($row = $startRow; $row -le $endRow; $row++) {
+                        $rawUI.CursorPosition = [System.Management.Automation.Host.Coordinates]::new(0, $row)
+                        Write-Host $blankLine -NoNewline
+                    }
+                }
+
+                $rawUI.CursorPosition = $Global:ProgressLineStart
+                $Global:ProgressLineStart = $null
+                $Global:ProgressLineRows = 0
+                return
+            }
+
+            $width = $rawUI.WindowSize.Width - 1
+            Write-Host "`r$(' ' * $width)`r" -NoNewline
         }
         catch {
             Write-Host "`r                                                                                `r" -NoNewline
+            $Global:ProgressLineStart = $null
+            $Global:ProgressLineRows = 0
         }
     }
 }
@@ -432,11 +463,30 @@ function Show-ProgressBar {
     $filled = '█' * [math]::Floor($safePercent * 30 / 100)
     $empty = '░' * (30 - $filled.Length)
     $bar = "[$filled$empty] {0,3}%" -f $safePercent
-    $displayActivity = $Activity
-    $displayStatus = $Status
     if (-not $Global:GuiSessionActive) {
-        Write-Host "`r$Spinner $Icon $displayActivity $bar $displayStatus" -NoNewline -ForegroundColor $Color
-        if ($Percent -ge 100) { Write-Host '' }
+        $progressLine = "$Spinner $Icon $Activity $bar"
+        if ($Status) { $progressLine += " $Status" }
+
+        $startPosition = $null
+        if ($Host.Name -eq 'ConsoleHost') {
+            try {
+                $cursor = $Host.UI.RawUI.CursorPosition
+                $startPosition = [System.Management.Automation.Host.Coordinates]::new(0, $cursor.Y)
+            }
+            catch {}
+        }
+
+        Write-Host "`r$progressLine" -NoNewline -ForegroundColor $Color
+        if ($Percent -ge 100) {
+            Write-Host ''
+            $Global:ProgressLineStart = $null
+            $Global:ProgressLineRows = 0
+        }
+        elseif ($startPosition) {
+            $endPosition = $Host.UI.RawUI.CursorPosition
+            $Global:ProgressLineStart = $startPosition
+            $Global:ProgressLineRows = [math]::Max(1, $endPosition.Y - $startPosition.Y + 1)
+        }
     }
 }
 
@@ -1001,15 +1051,35 @@ function Invoke-WithSpinner {
             if (-not $Global:GuiSessionActive) { Write-Host "" }
             return @{ Success = $true; TimedOut = $false; ExitCode = $result.ExitCode }
         }
-        elseif ($Job -and $result -and $result.GetType().Name -eq 'Job') {
-            while ($result.State -eq 'Running') {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
-                Write-Host "`r$spinner $Activity..." -NoNewline -ForegroundColor Yellow
-                Start-Sleep -Milliseconds $UpdateInterval
+        elseif ($Job -and $result -is [System.Management.Automation.Job]) {
+            try {
+                while ($result.State -eq 'Running' -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
+                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                    $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
+                    $percent = if ($PercentUpdate) { & $PercentUpdate } elseif ($percent -lt 90) { $percent + (Get-Random -Minimum 1 -Maximum 3) } else { $percent }
+                    Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
+                    Start-Sleep -Milliseconds $UpdateInterval
+                }
+
+                if ($result.State -eq 'Running') {
+                    Stop-Job -Job $result -ErrorAction SilentlyContinue
+                    throw (Get-SourceTextLoc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
+                }
+
+                if ($result.State -eq 'Failed') {
+                    $failureReason = $result.ChildJobs[0].JobStateInfo.Reason
+                    if ($failureReason) { throw $failureReason }
+                    throw (Get-SourceTextLoc 'uiText.errorDuring01' -Args @($Activity, $result.State))
+                }
+
+                $jobResult = Receive-Job -Job $result -Wait -ErrorAction Stop
+                Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.completed') -Percent 100 -Icon '✅'
+                if (-not $Global:GuiSessionActive) { Write-Host '' }
+                return $jobResult
             }
-            $jobResult = Receive-Job $result -Wait
-            Write-Host ''
-            return $jobResult
+            finally {
+                Remove-Job -Job $result -Force -ErrorAction SilentlyContinue
+            }
         }
         else {
             Start-Sleep -Seconds $TimeoutSeconds

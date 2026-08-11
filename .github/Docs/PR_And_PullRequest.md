@@ -104,7 +104,6 @@ WinToolkit/
 │   └── pull_request_template.md          # Pull Request template
 │
 ├── assets/                               # Static assets and external tools
-│   ├── 7zr.exe                           # 7-Zip archive extraction (CLI)
 │   ├── Basic.xml                         # Office configuration
 │   ├── DDU.zip                           # Display Driver Uninstaller
 │   ├── DriverOverrides.json              # Driver Manifest for better match GPU/Driver Version

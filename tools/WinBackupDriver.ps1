@@ -3,7 +3,7 @@ function WinBackupDriver {
     .SYNOPSIS
         Creates a complete backup of Windows system drivers.
     .DESCRIPTION
-        Exports all third-party drivers through DISM, compresses them in 7z format,
+        Exports all third-party drivers through DISM, compresses them in ZIP format,
         and saves the archive to the Desktop.
     #>
     [CmdletBinding()]
@@ -24,7 +24,7 @@ function WinBackupDriver {
         TempPath    = $AppConfig.Paths.TempFolder
         LogsDir     = $AppConfig.Paths.DriverBackupLogs
     }
-    $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
+    $script:FinalArchivePath = "$($script:BackupConfig.DesktopPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).zip"
 
     # ── Helper locali ─────────────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ function WinBackupDriver {
         try {
             if (Test-Path $script:BackupConfig.BackupDir) {
                 Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.removingPreviousBackups')
-                Remove-ItemSafely -Path $script:BackupConfig.BackupDir -Recurse
+                $null = Remove-ItemSafely -Path $script:BackupConfig.BackupDir -Recurse
             }
             New-Item -ItemType Directory -Path $script:BackupConfig.BackupDir -Force *>$null
             New-Item -ItemType Directory -Path $script:BackupConfig.LogsDir   -Force *>$null
@@ -72,55 +72,10 @@ function WinBackupDriver {
         }
     }
 
-    function Install-7ZipPortable {
-        $installDir     = Join-Path $AppConfig.Paths.LocalAppData "WinToolkit\7zip"
-        $executablePath = "$installDir\7zr.exe"
-
-        if (Test-Path $executablePath) {
-            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.7ZipPortableAlreadyPresent')
-            return $executablePath
-        }
-
-        New-Item -ItemType Directory -Path $installDir -Force *>$null
-
-        $downloadSources = @(
-            @{ Url = $AppConfig.URLs.GitHubAssetBaseUrl + "7zr.exe"; Name = "Repository MagnetarMan" },
-            @{ Url = $AppConfig.URLs.SevenZipOfficial;                Name = "Sito ufficiale 7-Zip" }
-        )
-
-        foreach ($source in $downloadSources) {
-            try {
-                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.download7ZipFrom0' -Args @($($source.Name)))
-                Invoke-WebRequest -Uri $source.Url -OutFile $executablePath -UseBasicParsing -ErrorAction Stop
-
-                if (Test-Path $executablePath) {
-                    $fileSize = (Get-Item $executablePath).Length
-                    if ($fileSize -gt 100KB -and $fileSize -lt 10MB) {
-                        $testResult = & $executablePath 2>&1
-                        if ($testResult -match "7-Zip" -or $testResult -match "Licensed") {
-                            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.7ZipPortableDownloadedAndVerified')
-                            return $executablePath
-                        }
-                    }
-                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.invalidDownloadedFileSize0Bytes' -Args @($fileSize))
-                    Remove-ItemSafely -Path $executablePath
-                }
-            }
-            catch {
-                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.downloadFailedFrom01' -Args @($($source.Name), $_))
-                Remove-ItemSafely -Path $executablePath
-            }
-        }
-
-        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.unableToDownload7ZipFromAllSources')
-        return $null
-    }
-
     function Compress-BackupArchive {
-        param([string]$SevenZipPath)
-
-        if (-not $SevenZipPath -or -not (Test-Path $SevenZipPath)) { throw (Get-SourceTextLoc 'toolText.extra.invalid7ZipPath0' -Args @($SevenZipPath)) }
-        if (-not (Test-Path $script:BackupConfig.BackupDir))        { throw (Get-SourceTextLoc 'toolText.extra.backupDirectoryNotFound0' -Args @($($script:BackupConfig.BackupDir))) }
+        if (-not (Test-Path $script:BackupConfig.BackupDir)) {
+            throw (Get-SourceTextLoc 'toolText.extra.backupDirectoryNotFound0' -Args @($($script:BackupConfig.BackupDir)))
+        }
 
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.preparingArchiveCompression')
 
@@ -133,23 +88,31 @@ function WinBackupDriver {
         $totalSizeMB = [Math]::Round(($backupFiles | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.totalSize0Mb' -Args @($totalSizeMB))
 
-        $archivePath    = "$($script:BackupConfig.TempPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).7z"
-        $compressionArgs = @('a', '-t7z', '-mx=6', '-mmt=on', "`"$archivePath`"", "`"$($script:BackupConfig.BackupDir)\*`"")
+        $archivePath = "$($script:BackupConfig.TempPath)\$($script:BackupConfig.ArchiveName)_$($script:BackupConfig.DateTime).zip"
+        $sourcePath  = Join-Path $script:BackupConfig.BackupDir '*'
 
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.compressionWith7Zip')
-        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.7ZipArchiveCompression') -Command $SevenZipPath `
-            -Arguments $compressionArgs -TimeoutSeconds 800 -LogContextKey "Backup-7Zip"
+        $compressionAction = {
+            Start-Job -ScriptBlock {
+                param([string]$SourcePath, [string]$DestinationPath)
 
-        if ($result.TimedOut) { throw (Get-SourceTextLoc 'toolText.extra.timeoutReachedDuringCompression') }
+                $ErrorActionPreference = 'Stop'
+                Compress-Archive -Path $SourcePath -DestinationPath $DestinationPath `
+                    -CompressionLevel Optimal -Force -ErrorAction Stop
+                return $true
+            } -ArgumentList $sourcePath, $archivePath
+        }.GetNewClosure()
 
-        if ($result.ExitCode -eq 0 -and (Test-Path $archivePath)) {
+        $compressionSucceeded = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.preparingArchiveCompression') `
+            -Job -TimeoutSeconds 800 -Action $compressionAction
+
+        if ($compressionSucceeded -eq $true -and (Test-Path $archivePath -PathType Leaf)) {
             $compressedSizeMB  = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
             $compressionRatio  = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
             Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.compressionCompleted0MbReduction1' -Args @($compressedSizeMB, $compressionRatio))
             return $archivePath
         }
 
-        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.compressionFailedWithExitcode0' -Args @($($result.ExitCode)))
+        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.unknownErrorZipFileWasNotCreated')
         return $null
     }
 
@@ -168,7 +131,7 @@ function WinBackupDriver {
 
             if (Test-Path $script:FinalArchivePath) {
                 Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.removingOldArchive')
-                Remove-ItemSafely -Path $script:FinalArchivePath
+                $null = Remove-ItemSafely -Path $script:FinalArchivePath
             }
 
             Copy-Item -Path $ArchivePath -Destination $script:FinalArchivePath -Force -ErrorAction Stop
@@ -196,10 +159,7 @@ function WinBackupDriver {
         if (-not (Initialize-BackupEnvironment)) { return }
         if (-not (Export-SystemDrivers))         { return }
 
-        $sevenZipPath = Install-7ZipPortable | Select-Object -Last 1
-        if (-not $sevenZipPath) { return }
-
-        $compressedArchive = Compress-BackupArchive -SevenZipPath $sevenZipPath
+        $compressedArchive = Compress-BackupArchive
         if (-not $compressedArchive) { return }
 
         if (Move-ArchiveToDesktop -ArchivePath $compressedArchive) {
@@ -214,7 +174,7 @@ function WinBackupDriver {
     }
     finally {
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.temporaryEnvironmentCleaning')
-        Remove-ItemSafely -Path $script:BackupConfig.BackupDir -Recurse
+        $null = Remove-ItemSafely -Path $script:BackupConfig.BackupDir -Recurse
         Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.driverBackupToolkitFinished')
         Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.winbackupdriverSessionEnded')
     }
