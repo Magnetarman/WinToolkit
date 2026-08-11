@@ -4974,8 +4974,14 @@ function GamingToolkit {
     }
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.enablingNetframework')
     try {
-        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop *>$null
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkEnabled')
+        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.enablingNetframework') -Command 'dism.exe' -Arguments @('/Online', '/Enable-Feature', '/FeatureName:NetFx3', '/FeatureName:NetFx4-AdvSrvs', '/All', '/NoRestart') -TimeoutSeconds $timeout -LogContextKey "Gaming-NetFramework"
+        $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
+        if ($exitCode -eq 0 -or $exitCode -eq 3010) {
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkEnabled')
+        }
+        else {
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorEnablingNetframework0' -Args @("DISM exit code $exitCode"))
+        }
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorEnablingNetframework0' -Args @($($_.Exception.Message)))
