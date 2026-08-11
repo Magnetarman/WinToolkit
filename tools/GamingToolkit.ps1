@@ -56,7 +56,7 @@ function GamingToolkit {
         try {
             $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installation0' -Args @($DisplayName)) -Command 'winget' -Arguments @('install', '--id', $PackageId, '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements') -TimeoutSeconds $timeout -LogContextKey "Gaming-Install-$PackageId"
 
-            $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
+            $exitCode = if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'ExitCode')) { $result.ExitCode } else { -1 }
             $successCodes = @(0, 1638, 3010, -1978335189)
 
             if ($exitCode -in $successCodes) {
@@ -112,12 +112,30 @@ function GamingToolkit {
 
     # Step 2: NetFramework
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.enablingNetframework')
-    try {
-        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop *>$null
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkEnabled')
+    $netFxFeatures = @('NetFx4-AdvSrvs', 'NetFx3')
+    $netFxFailed = $false
+    foreach ($feature in $netFxFeatures) {
+        try {
+            # Enable-WindowsOptionalFeature with multiple features + -All fails under
+            # PowerShell 7 ("Interfaccia non registrata"). DISM handles each feature
+            # reliably across editions without relying on the CBS COM interface.
+            $dismResult = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.enablingNetframeworkFeature0' -Args @($feature)) -Command 'dism.exe' -Arguments @('/Online', '/Enable-Feature', "/FeatureName:$feature", '/All', '/NoRestart') -TimeoutSeconds $timeout -LogContextKey "Gaming-NetFx-$feature"
+            $exitCode = if ($null -ne $dismResult -and ($dismResult.PSObject.Properties.Name -contains 'ExitCode')) { $dismResult.ExitCode } else { -1 }
+            if ($exitCode -in @(0, 3010)) {
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkFeatureEnabled0' -Args @($feature))
+            }
+            else {
+                $netFxFailed = $true
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.errorEnablingNetframeworkFeature0Code1' -Args @($feature, $exitCode))
+            }
+        }
+        catch {
+            $netFxFailed = $true
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.errorEnablingNetframeworkFeature0Code1' -Args @($feature, $($_.Exception.Message)))
+        }
     }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorEnablingNetframework0' -Args @($($_.Exception.Message)))
+    if (-not $netFxFailed) {
+        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkEnabled')
     }
 
     # Step 3: Runtime e VCRedist
