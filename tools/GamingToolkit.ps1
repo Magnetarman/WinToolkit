@@ -269,14 +269,19 @@ function GamingToolkit {
     $outFile = "$env:TEMP\winget_$battleNetPkg.log"
     $errFile = "$env:TEMP\winget_err_$battleNetPkg.log"
 
+    # Battle.net package REQUIRES an install location (winget returns
+    # "Install location is required by the package but it was not provided").
+    # The folder must exist and be writable; use a dedicated subfolder.
+    $battleNetInstallRoot = Join-Path ${env:ProgramFiles(x86)} "Battle.net"
+    if (-not (Test-Path $battleNetInstallRoot)) {
+        New-Item -Path $battleNetInstallRoot -ItemType Directory -Force *>$null
+    }
+
     try {
-        # Battle.net non supporta l'override della cartella di installazione tramite
-        # winget (--location causa un errore e il fallimento dell'installazione).
-        # Si usa lo stesso pattern Start-Process dei pacchetti Xbox, gia' collaudato.
         $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installingBattleNet') -Process -Action {
             $procParams = @{
                 FilePath               = 'winget'
-                ArgumentList           = @('install', '--id', $battleNetPkg, '--exact', '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements', '--force')
+                ArgumentList           = @('install', '--id', $battleNetPkg, '--exact', '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements', '--force', '--location', $battleNetInstallRoot)
                 PassThru               = $true
                 NoNewWindow            = $true
                 RedirectStandardOutput = $outFile
