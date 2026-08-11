@@ -69,7 +69,7 @@ $AppConfig = @{
         NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/NVCleanstall_1.19.0.exe"
         DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/DDU.zip"
         DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/assets/DriverOverrides.json"
-        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/dxwebsetup.exe"
+        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/assets/dxwebsetup.exe"
         BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
         SevenZipOfficial      = "https://www.7-zip.org/a/7zr.exe"
         WingetInstaller       = "https://aka.ms/getwinget"
@@ -5102,11 +5102,15 @@ function GamingToolkit {
     $battleNetPkg = "Blizzard.BattleNet"
     $outFile = "$env:TEMP\winget_$battleNetPkg.log"
     $errFile = "$env:TEMP\winget_err_$battleNetPkg.log"
+    $battleNetInstallRoot = Join-Path ${env:ProgramFiles(x86)} "Battle.net"
+    if (-not (Test-Path $battleNetInstallRoot)) {
+        New-Item -Path $battleNetInstallRoot -ItemType Directory -Force *>$null
+    }
     try {
         $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installingBattleNet') -Process -Action {
             $procParams = @{
                 FilePath               = 'winget'
-                ArgumentList           = @('install', '--id', $battleNetPkg, '--exact', '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements', '--force')
+                ArgumentList           = @('install', '--id', $battleNetPkg, '--exact', '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements', '--force', '--location', $battleNetInstallRoot)
                 PassThru               = $true
                 NoNewWindow            = $true
                 RedirectStandardOutput = $outFile
