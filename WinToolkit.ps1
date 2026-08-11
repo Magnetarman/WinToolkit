@@ -5084,14 +5084,21 @@ function GamingToolkit {
     }
     Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.xboxReinstalled')
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.installingBattleNet')
-    $battleNetInstallRoot = 'C:\Program Files (x86)\'
+    $battleNetPkg = "Blizzard.BattleNet"
+    $outFile = "$env:TEMP\winget_$battleNetPkg.log"
+    $errFile = "$env:TEMP\winget_err_$battleNetPkg.log"
     try {
-        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installingBattleNet') -Command 'winget' -Arguments @(
-            'install', '--id', 'Blizzard.BattleNet', '--exact', '--include-unknown',
-            '--location', $battleNetInstallRoot,
-            '--silent', '--disable-interactivity',
-            '--accept-package-agreements', '--accept-source-agreements'
-        ) -TimeoutSeconds $timeout -LogContextKey "Gaming-BattleNet"
+        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installingBattleNet') -Process -Action {
+            $procParams = @{
+                FilePath               = 'winget'
+                ArgumentList           = @('install', '--id', $battleNetPkg, '--exact', '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements', '--force')
+                PassThru               = $true
+                NoNewWindow            = $true
+                RedirectStandardOutput = $outFile
+                RedirectStandardError  = $errFile
+            }
+            Start-Process @procParams
+        } -TimeoutSeconds $timeout -UpdateInterval 700
         Clear-ProgressLine
         Clear-ProgressLine
         if ($null -eq $result) {
@@ -5103,25 +5110,34 @@ function GamingToolkit {
         else {
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
             $successCodes = @(0, 1638, 3010, -1978335189)
-            $messageType = if ($exitCode -in $successCodes) { 'Success' } else { 'Warning' }
-            $messageText = if ($exitCode -in $successCodes) {
-                Get-SourceTextLoc 'uiText.battleNetInstalled'
+            if ($exitCode -in $successCodes) {
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.battleNetInstalled')
             }
             else {
-                Get-SourceTextLoc 'toolText.extra.battleNetCode0' -Args @($exitCode)
+                $errDetail = ''
+                if (Test-Path $errFile) { $errDetail = (Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue) }
+                if ([string]::IsNullOrWhiteSpace($errDetail) -and (Test-Path $outFile)) { $errDetail = (Get-Content -Path $outFile -Raw -ErrorAction SilentlyContinue) }
+                if (-not [string]::IsNullOrWhiteSpace($errDetail)) {
+                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.extra.battleNetCode0' -Args @($exitCode))
+                    Write-StyledMessage -Type 'Warning' -Text ($errDetail.Trim() -split "`n" | Select-Object -First 5 | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() } | Join-String -Separator "`n")
+                }
+                else {
+                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.extra.battleNetCode0' -Args @($exitCode))
+                }
             }
-            Write-StyledMessage -Type $messageType -Text $messageText
         }
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.pressAnyKeyToContinue')
-        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     catch {
         Clear-ProgressLine
         Clear-ProgressLine
         Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorInstallingBattleNet0' -Args @($($_.Exception.Message)))
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.pressAnyKeyToContinue')
-        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
+    finally {
+        Remove-ItemSafely -Path $outFile
+        Remove-ItemSafely -Path $errFile
+    }
+    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.pressAnyKeyToContinue')
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.autostartCleaner')
     $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
     @('Steam', 'Battle.net', 'GOG Galaxy', 'GogGalaxy', 'GalaxyClient') | ForEach-Object {
