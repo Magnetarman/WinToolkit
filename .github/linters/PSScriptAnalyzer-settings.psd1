@@ -49,6 +49,9 @@
         # Exclude PSUseDeclaredVarsMoreThanAssignments - May produce false positives
         'PSUseDeclaredVarsMoreThanAssignments',
 
+        # Exclude PSUseUsingScopeModifierInNewRunspaces - false positive with param() + -ArgumentList in Start-Job
+        'PSUseUsingScopeModifierInNewRunspaces',
+
         # Exclude PSAvoidAssignmentToAutomaticVariable - Automatic variables are sometimes reassigned
         'PSAvoidAssignmentToAutomaticVariable'
     )
