@@ -1,0 +1,45 @@
+name: Setup PowerShell CI modules
+description: Install the PowerShell modules required by WinToolkit CI jobs.
+
+inputs:
+  pester-version:
+    description: Exact Pester version to install when Pester 5 is missing.
+    required: false
+    default: '5.7.1'
+  psscriptanalyzer-version:
+    description: Minimum PSScriptAnalyzer version to use.
+    required: false
+    default: '1.21.0'
+
+runs:
+  using: composite
+  steps:
+    - name: Install Pester 5
+      shell: pwsh
+      env:
+        PESTER_VERSION: ${{ inputs.pester-version }}
+      run: |
+        $installed = Get-Module -ListAvailable -Name Pester |
+          Where-Object { $_.Version -ge [version]'5.0.0' -and $_.Version -lt [version]'6.0.0' }
+
+        if (-not $installed) {
+          Write-Host "Installing Pester 5..." -ForegroundColor Yellow
+          Install-Module -Name Pester -RequiredVersion $env:PESTER_VERSION -Scope CurrentUser -Force -SkipPublisherCheck
+        } else {
+          Write-Host "Pester $($installed[0].Version) already installed" -ForegroundColor Green
+        }
+
+    - name: Install PSScriptAnalyzer
+      shell: pwsh
+      env:
+        PSSCRIPTANALYZER_VERSION: ${{ inputs.psscriptanalyzer-version }}
+      run: |
+        $installed = Get-Module -ListAvailable -Name PSScriptAnalyzer |
+          Where-Object { $_.Version -ge [version]$env:PSSCRIPTANALYZER_VERSION }
+
+        if (-not $installed) {
+          Write-Host "Installing PSScriptAnalyzer..." -ForegroundColor Yellow
+          Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+        } else {
+          Write-Host "PSScriptAnalyzer $($installed[0].Version) already installed" -ForegroundColor Green
+        }
