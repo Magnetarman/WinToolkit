@@ -63,28 +63,28 @@ $script:RepoBase = $GitHubRepoBase[$script:Branch]
 
 $script:AppConfig = @{
     Branch           = $script:Branch
-    ToolkitVersion  = $ToolkitVersion
-    MsgStyles       = @{
+    ToolkitVersion   = $ToolkitVersion
+    MsgStyles        = @{
         Success = @{ Icon = '✅'; Color = 'Green' }
         Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
         Error   = @{ Icon = '❌'; Color = 'Red' }
         Info    = @{ Icon = '💎'; Color = 'Cyan' }
     }
-    Header          = @{
+    Header           = @{
         Title   = "Toolkit Starter By MagnetarMan"
         Version = "Version $ToolkitVersion"
     }
-    URLs            = @{
+    URLs             = @{
         # --- Branch-dependent URLs are assigned from $script:Branch below ---
         # --- Branch-independent (aka.ms / third-party release APIs) ---
-        WingetMSIX              = "https://aka.ms/getwinget"
-        GitRelease              = "https://api.github.com/repos/git-for-windows/git/releases/latest"
-        PowerShellRelease       = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
-        OhMyPoshTheme           = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-        TerminalRelease         = "https://api.github.com/repos/microsoft/terminal/releases/latest"
-        WebInstaller            = "https://magnetarman.com/WinToolkit-$script:Branch"
+        WingetMSIX        = "https://aka.ms/getwinget"
+        GitRelease        = "https://api.github.com/repos/git-for-windows/git/releases/latest"
+        PowerShellRelease = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
+        OhMyPoshTheme     = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+        TerminalRelease   = "https://api.github.com/repos/microsoft/terminal/releases/latest"
+        WebInstaller      = "https://magnetarman.com/WinToolkit-Dev"
     }
-    Paths           = @{
+    Paths            = @{
         Logs          = "$env:LOCALAPPDATA\WinToolkit\logs"
         WinToolkitDir = "$env:LOCALAPPDATA\WinToolkit"
         Temp          = "$env:TEMP\WinToolkitSetup"
@@ -93,10 +93,10 @@ $script:AppConfig = @{
         wtExe         = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
         wtDir         = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
     }
-    Registry        = @{
+    Registry         = @{
         TerminalStartup = "HKCU:\Console\%%Startup"
     }
-    WindowsTerminal = @{
+    WindowsTerminal  = @{
         DelegationTerminalClsid = "{E12F0936-0E6F-548E-A9F6-B20C69A27D17}"
         DelegationConsoleClsid  = "{B23D10C0-31E3-401A-97EF-4BB30B62E10B}"
     }
