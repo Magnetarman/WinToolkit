@@ -217,8 +217,8 @@ Contains third-party executables and tools used by the toolkit. These files are 
     - `CI_UpdateWinToolkit_Dev.yml`: Adaptive Enterprise pipeline (full Dev, lightweight feature/fix, PR quality gate)
     - `CI_UpdateWinToolkit_Main.yml`: Pipeline for verifying the main branch
     - `Create_Release.yml`: Workflow for release creation and notes generation
-    - `Release_Wintoolkit.yml`: Pipeline for creating release branches and merging to main
-    - `security.yml`, `stale.yml`: Maintenance workflows
+    - `Release-Stable.yml`: Pipeline for creating release branches and merging to main
+    - `Security-Scan.yml`, `Maintenance-Stale.yml`: Maintenance workflows
 - **scripts/**: PowerShell scripts for build and test automation
     - `Update-Version.ps1`: Project version management
     - `Invoke-Build.ps1`: Official compiler wrapper with compression statistics
