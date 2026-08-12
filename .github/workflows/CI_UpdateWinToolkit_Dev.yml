@@ -296,167 +296,21 @@ jobs:
           fi
 
   # ===========================================================================
-  # JOB 1: LINTING
-  # Analisi statica con PSScriptAnalyzer + check sintattico AST su compiler.ps1.
-  # Gira su tutti gli eventi (push + PR).
+  # JOB 1: REUSABLE QUALITY GATE
+  # Linting e testing sono definiti in _reusable-lint-test.yml.
   # ===========================================================================
-  linting:
-    name: Linting
-    runs-on: windows-latest
+  quality:
+    name: Lint and test
     needs: detect_changes
-    if: needs.detect_changes.outputs.run_checks == 'true'
+    uses: ./.github/workflows/_reusable-lint-test.yml
+    with:
+      run-checks: ${{ needs.detect_changes.outputs.run_checks == 'true' }}
     permissions:
       contents: read
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Setup PowerShell CI modules
-        uses: ./.github/actions/setup-powershell-modules
-
-      - name: Lint /tools files
-        id: lint_tool
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          Write-Host "::group::PSScriptAnalyzer — /tools"
-          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
-          $hasErrors = $false
-          foreach ($file in (Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)) {
-            Write-Host "`nAnalyzing: $($file.Name)" -ForegroundColor Yellow
-            $analysis = Invoke-ScriptAnalyzer -Path $file.FullName -Settings $settingsPath -Severity Error,Warning
-            if ($analysis) {
-              foreach ($issue in $analysis) {
-                $col = if ($issue.Severity -eq 'Error') { 'Red' } else { 'Yellow' }
-                Write-Host "  [$($issue.Severity)] $($issue.RuleName): $($issue.Message)" -ForegroundColor $col
-                if ($issue.Severity -eq 'Error') { $hasErrors = $true }
-              }
-            } else { Write-Host "  OK" -ForegroundColor Green }
-          }
-          Write-Host "::endgroup::"
-          if ($hasErrors) {
-            Write-Host "::error::Errori di linting rilevati nei file /tools."
-            exit 1
-          }
-          Write-Host "Linting /tools superato." -ForegroundColor Green
-
-      - name: Lint WinToolkit-template.ps1
-        id: lint_template
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          Write-Host "::group::PSScriptAnalyzer — template"
-          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
-          $analysis = Invoke-ScriptAnalyzer -Path "WinToolkit-template.ps1" -Settings $settingsPath -Severity Error,Warning
-          if ($analysis) {
-            foreach ($issue in $analysis) {
-              $col = if ($issue.Severity -eq 'Error') { 'Red' } else { 'Yellow' }
-              Write-Host "  [$($issue.Severity)] $($issue.RuleName): $($issue.Message)" -ForegroundColor $col
-            }
-            if ($analysis | Where-Object { $_.Severity -eq 'Error' }) {
-              Write-Host "::endgroup::"
-              Write-Host "::error::Errori di linting nel template."
-              exit 1
-            }
-          } else { Write-Host "  OK" -ForegroundColor Green }
-          Write-Host "::endgroup::"
-
-      - name: Validate compiler syntax
-        uses: ./.github/actions/validate-syntax
-        with:
-          path: compiler.ps1
-          label: compiler.ps1
 
   # ===========================================================================
-  # JOB 2: TESTING — Suite Pester 5 (BLOCCANTE per tutti i job successivi)
-  # Gira su tutti gli eventi (push + PR).
-  # ===========================================================================
-  testing:
-    name: Pester Tests
-    runs-on: windows-latest
-    timeout-minutes: 10
-    needs: linting
-    permissions:
-      contents: read
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Setup PowerShell CI modules
-        uses: ./.github/actions/setup-powershell-modules
-
-      - name: Run Pester Tests
-        id: pester
-        shell: pwsh
-        run: |
-          # ── PSScriptAnalyzer Check ──────────────────────────────────────────
-          Write-Host "::group::PSScriptAnalyzer — Analisi statica sorgenti"
-          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
-          $analyzerResults = @(Invoke-ScriptAnalyzer `
-            -Path '*.ps1' `
-            -Severity Warning,Error `
-            -Settings $settingsPath)
-          $analyzerResults += @(Invoke-ScriptAnalyzer `
-            -Path 'tools\*.ps1' `
-            -Severity Warning,Error `
-            -Settings $settingsPath)
-          # Filter out start-offline.ps1 from results
-          $analyzerResults = $analyzerResults | Where-Object { $_.ScriptName -ne 'start-offline.ps1' }
-          Write-Host "::endgroup::"
-          if ($analyzerResults) {
-            $analyzerResults | Format-Table -AutoSize
-            Write-Host "::error::PSScriptAnalyzer ha rilevato $($analyzerResults.Count) violazione/i — pipeline bloccata."
-            exit 1
-          }
-          Write-Host "PSScriptAnalyzer: nessuna violazione rilevata." -ForegroundColor Green
-
-          # ── Pester Test Suite ───────────────────────────────────────────────
-          Write-Host "::group::WinToolkit Pester Test Suite"
-          $config = New-PesterConfiguration
-          $config.Run.Path                = '.github/tests/CI-Smoke.Tests.ps1'
-          $config.Run.PassThru            = $true
-          $config.Output.Verbosity        = 'Detailed'
-          $config.TestResult.Enabled      = $true
-          $config.TestResult.OutputPath   = 'TestResults.xml'
-          $config.TestResult.OutputFormat = 'NUnitXml'
-          $result = Invoke-Pester -Configuration $config
-          Write-Host "::endgroup::"
-
-          Write-Host ""
-          Write-Host "Risultati Test:" -ForegroundColor Cyan
-          Write-Host "  Superati : $($result.PassedCount)"  -ForegroundColor Green
-          Write-Host "  Falliti  : $($result.FailedCount)"  -ForegroundColor $(if ($result.FailedCount -gt 0) { 'Red' } else { 'Green' })
-          Write-Host "  Saltati  : $($result.SkippedCount)" -ForegroundColor Yellow
-          Write-Host "  Totale   : $($result.TotalCount)"   -ForegroundColor White
-
-          if ($result.FailedCount -gt 0) {
-            Write-Host "::error::$($result.FailedCount) test Pester falliti — pipeline bloccata."
-            exit 1
-          }
-          Write-Host "Tutti i test superati." -ForegroundColor Green
-
-      - name: Upload Test Results
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: pester-test-results
-          path: |
-            TestResults.xml
-          retention-days: 30
-
-  # ===========================================================================
-  # JOB 3: BUILD
-  # Gira solo su push. Dipende da testing.
+  # JOB 2: BUILD
+  # Gira solo su push. Dipende dal quality gate riutilizzabile.
   #
   # REGOLA D'ORO: elimina WinToolkit.ps1 pre-esistente prima di compilare,
   # garantendo che l'output non contenga mai residui di versioni precedenti
@@ -471,8 +325,8 @@ jobs:
   build:
     name: Build
     runs-on: windows-latest
-    if: github.event_name == 'push'
-    needs: [testing]
+    if: always() && github.event_name == 'push' && needs.quality.result == 'success'
+    needs: [quality]
     permissions:
       contents: write
       actions: read
