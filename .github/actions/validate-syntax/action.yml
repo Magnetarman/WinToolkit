@@ -1,0 +1,62 @@
+name: Validate PowerShell syntax
+description: Parse one or more PowerShell files with the PowerShell AST parser.
+
+inputs:
+  path:
+    description: Path or glob pattern to validate.
+    required: true
+  label:
+    description: Human-readable label for the validation log.
+    required: false
+    default: PowerShell files
+
+outputs:
+  has-errors:
+    description: Whether syntax errors were found.
+    value: ${{ steps.parse.outputs.has_errors }}
+
+runs:
+  using: composite
+  steps:
+    - name: Parse PowerShell files
+      id: parse
+      shell: pwsh
+      env:
+        VALIDATION_PATH: ${{ inputs.path }}
+        VALIDATION_LABEL: ${{ inputs.label }}
+      run: |
+        Write-Host "::group::Syntax validation — $env:VALIDATION_LABEL"
+        $files = @(Get-ChildItem -Path $env:VALIDATION_PATH -File -ErrorAction SilentlyContinue)
+
+        if (-not $files) {
+          Write-Host "No files found matching '$env:VALIDATION_PATH'." -ForegroundColor Yellow
+          'has_errors=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host '::endgroup::'
+          return
+        }
+
+        $hasErrors = $false
+        foreach ($file in $files) {
+          $errors = $null
+          $code = Get-Content -Raw -LiteralPath $file.FullName -Encoding UTF8
+          $null = [System.Management.Automation.Language.Parser]::ParseInput(
+            $code, [ref]$null, [ref]$errors)
+
+          if ($errors.Count -gt 0) {
+            foreach ($errorRecord in $errors) {
+              Write-Host "::error file=$($file.FullName),line=$($errorRecord.Extent.StartLineNumber),col=$($errorRecord.Extent.StartColumnNumber)::PowerShell syntax error: $($errorRecord.Message)"
+            }
+            $hasErrors = $true
+          } else {
+            Write-Host "OK — $($file.FullName)" -ForegroundColor Green
+          }
+        }
+
+        "has_errors=$($hasErrors.ToString().ToLowerInvariant())" |
+          Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        Write-Host '::endgroup::'
+
+        if ($hasErrors) {
+          Write-Host "::error::Syntax validation failed for $env:VALIDATION_LABEL."
+          exit 1
+        }
