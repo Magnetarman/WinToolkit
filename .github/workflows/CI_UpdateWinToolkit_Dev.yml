@@ -366,20 +366,11 @@ jobs:
           } else { Write-Host "  OK" -ForegroundColor Green }
           Write-Host "::endgroup::"
 
-      - name: Verifica sintassi compiler.ps1
-        id: lint_compiler
-        shell: pwsh
-        run: |
-          $content = Get-Content -Raw -Path "compiler.ps1" -ErrorAction Stop
-          $parseErrors = $null
-          $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
-          if ($parseErrors.Count -gt 0) {
-            foreach ($e in $parseErrors) {
-              Write-Host "::error file=compiler.ps1,line=$($e.Extent.StartLineNumber),col=$($e.Extent.StartColumnNumber)::ERRORE DI SINTASSI: $($e.Message)"
-            }
-            exit 1
-          }
-          Write-Host "compiler.ps1 sintassi OK" -ForegroundColor Green
+      - name: Validate compiler syntax
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: compiler.ps1
+          label: compiler.ps1
 
   # ===========================================================================
   # JOB 2: TESTING — Suite Pester 5 (BLOCCANTE per tutti i job successivi)
