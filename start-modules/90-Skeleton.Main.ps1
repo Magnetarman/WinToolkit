@@ -55,47 +55,13 @@ function Invoke-WinToolkitSetup {
             Add-SetupResult -Name $repair.Name -Success ([bool]$repairResult.Success) -Changed ([bool]$repairResult.Changed) -Message $repairResult.Message
         }
 
-        # --- PRE-FLIGHT CHECK ---
-        while ($true) {
-            $check = Test-SystemReadiness
-
-            # A status query failure is a hard stop; an active Defender is
-            # handled with a narrow temporary exclusion below.
-            if (-not $check.DefenderCheckSucceeded) {
-                Write-Host "`n" + ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
-                Write-StyledMessage -Type Error -Text "Impossibile verificare in sicurezza lo stato di Windows Defender."
-                Write-StyledMessage -Type Info -Text "Correggi l'accesso ai cmdlet Defender e riprova; la protezione non viene disattivata."
-                Write-Host ("!" * $script:AppConfig.Layout.Width) -ForegroundColor Red
-
-                Write-Host ("`n" + (Get-SourceTextLoc 'uiText.keyPressRetryTheChecks')) -ForegroundColor Cyan
-                Write-Host (Get-SourceTextLoc 'uiText.escExitTheScript') -ForegroundColor Red
-
-                $key = [Console]::ReadKey($true)
-                if ($key.Key -eq 'Escape') {
-                    Add-SetupResult -Name 'Pre-flight check' -Success $false -Message 'Interrupted by the user during the Defender status check.' -Blocking $true
-                    $script:SetupExitCode = 1
-                    Write-SetupSummary | Out-Null
-                    return
-                }
-                Clear-Host
-                continue
-            }
-
-            # If Defender is ok, check updates: warning only, proceeds automatically
-            if (-not $check.Updates) {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.thereAre0WindowsUpdatesPendingPossibleProblemsDuringInstallation' -Args @($($check.Count)))
-            }
-
-            # All checks passed
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.environmentReadyForInstallation')
-            break
-        }
-
-        Add-TemporaryDefenderExclusion
+        # Pre-flight checks (Windows Defender status and pending Windows Update
+        # scan) were removed: they are now handled upstream in start.ps1, which
+        # blocks dependency installation and start-core until Windows updates are
+        # fully completed.
 
         # Suspend Windows Update services to ensure Winget stability
         Invoke-StopUpdateServices
-        # --- END PRE-FLIGHT CHECK ---
 
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.powershell0' -Args @($($PSVersionTable.PSVersion)))
 
@@ -200,7 +166,6 @@ function Invoke-WinToolkitSetup {
     }
     finally {
         Invoke-StartUpdateServices
-        Remove-TemporaryDefenderExclusion
         try { Stop-Transcript -ErrorAction SilentlyContinue } catch { }
         $ErrorActionPreference = $previousErrorActionPreference
     }
