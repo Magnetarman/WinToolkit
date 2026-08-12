@@ -309,144 +309,15 @@ jobs:
       contents: read
 
   # ===========================================================================
-  # JOB 2: BUILD
-  # Gira solo su push. Dipende dal quality gate riutilizzabile.
-  #
-  # REGOLA D'ORO: elimina WinToolkit.ps1 pre-esistente prima di compilare,
-  # garantendo che l'output non contenga mai residui di versioni precedenti
-  # o conflitti di merge non risolti.
-  #
-  # LABELING DINAMICO: su rami non-Dev, sovrascrive $ToolkitVersion con
-  # "Sviluppo in Corso" nel workspace (mai committato). Su Dev, legge la
-  # versione corrente senza modificarla (il bump avviene solo in Create_Release).
-  #
-  # Il commit del file compilato usa il branch corrente (Dev o feature/*).
+  # JOB 2: BUILD — Reusable Workflow
+  # Il labeling dinamico e il commit branch-aware sono gestiti dal reusable.
   # ===========================================================================
   build:
     name: Build
-    runs-on: windows-latest
     if: always() && github.event_name == 'push' && needs.quality.result == 'success'
     needs: [quality]
-    permissions:
-      contents: write
-      actions: read
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
-    outputs:
-      source_kb: ${{ steps.build_script.outputs.source_kb }}
-      output_kb: ${{ steps.build_script.outputs.output_kb }}
-      reduction_percent: ${{ steps.build_script.outputs.reduction_percent }}
-      lines_removed: ${{ steps.build_script.outputs.lines_removed }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-          ref: ${{ github.ref_name }}
-
-      # ── REGOLA D'ORO ────────────────────────────────────────────────────
-      - name: Rimozione WinToolkit.ps1 Pre-Esistente (Integrità Build)
-        uses: ./.github/actions/pre-build-cleanup
-        with:
-          artifact-path: WinToolkit.ps1
-
-      # ── LABELING VERSIONE DINAMICO ──────────────────────────────────────
-      # Su rami non-Dev: imposta $ToolkitVersion = "Sviluppo in Corso" nel
-      # workspace (mai committato). Su Dev: legge la versione esistente.
-      - name: Labeling Versione Dinamico
-        id: version_label
-        shell: pwsh
-        run: |
-          $templatePath = "WinToolkit-template.ps1"
-          $content = Get-Content -Raw -Path $templatePath -Encoding UTF8
-          if ('${{ github.ref_name }}' -ne 'Dev') {
-            $content = $content -replace '\$ToolkitVersion\s*=\s*"[^"]+"', '$ToolkitVersion = "Sviluppo in Corso"'
-            Set-Content -Path $templatePath -Value $content -Encoding UTF8
-            Write-Host "Label di versione impostata su 'Sviluppo in Corso' per ramo ${{ github.ref_name }}." -ForegroundColor Yellow
-            "new_version=Sviluppo in Corso" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          } else {
-            if ($content -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
-              $currentVersion = $Matches[1]
-              Write-Host "Branch Dev: versione corrente: $currentVersion" -ForegroundColor Cyan
-              "new_version=$currentVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-            } else {
-              Write-Host "::error::Impossibile leggere ToolkitVersion dal template."
-              exit 1
-            }
-          }
-
-      # ── PRE-CHECK SINTATTICO ─────────────────────────────────────────────
-      - name: Validate tools syntax before build
-        id: syntax_tools
-        uses: ./.github/actions/validate-syntax
-        with:
-          path: tools/*.ps1
-          label: tools before build
-
-      - name: Validate template syntax before build
-        id: syntax_template
-        uses: ./.github/actions/validate-syntax
-        with:
-          path: WinToolkit-template.ps1
-          label: WinToolkit-template.ps1 before build
-
-      # ── COMPILAZIONE ────────────────────────────────────────────────────
-      - name: Compilazione WinToolkit.ps1
-        id: build_script
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version_label.outputs.new_version }}"
-          & .github/scripts/Invoke-Build.ps1 -Version $version -OutputPath "WinToolkit.ps1"
-
-      # ── VERIFICA FILE COMPILATO ──────────────────────────────────────────
-      - name: Test File Compilato
-        id: test_compiled
-        shell: pwsh
-        run: |
-          & .github/scripts/Test-CompiledScript.ps1 -ScriptPath "WinToolkit.ps1"
-
-      # ── COMMIT — branch-aware (Dev o feature/*) ─────────────────────────
-      - name: Commit WinToolkit.ps1
-        if: steps.test_compiled.outputs.tests_passed == 'true'
-        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
-        with:
-          commit_message: "✅ Compilato WinToolkit v${{ steps.version_label.outputs.new_version }}"
-          file_pattern: "WinToolkit.ps1"
-          branch: ${{ github.ref_name }}
-          push_options: "--force-with-lease"
-          skip_fetch: true
-
-      # ── SUMMARY (solo Dev) ───────────────────────────────────────────────
-      - name: Generate Build Summary
-        if: steps.test_compiled.outputs.tests_passed == 'true' && github.ref == 'refs/heads/Dev'
-        shell: pwsh
-        run: |
-          $version      = "${{ steps.version_label.outputs.new_version }}"
-          $sourceKB     = "${{ steps.build_script.outputs.source_kb }}"
-          $outputKB     = "${{ steps.build_script.outputs.output_kb }}"
-          $reduction    = "${{ steps.build_script.outputs.reduction_percent }}"
-          $linesRemoved = "${{ steps.build_script.outputs.lines_removed }}"
-
-          $summary = @"
-          ## Riepilogo Build - WinToolkit v$version
-
-          | Metrica          | Valore         |
-          |------------------|----------------|
-          | Peso Sorgente    | $sourceKB KB   |
-          | Peso Finale      | $outputKB KB   |
-          | Riduzione        | $reduction%    |
-          | Righe Eliminate  | $linesRemoved  |
-
-          **Branch**: ${{ github.ref_name }} | **Stato**: Build completata con successo
-          "@
-          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
-
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Green
-          Write-Host "║   BUILD COMPLETATA CON SUCCESSO          ║" -ForegroundColor Green
-          Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Green
-          Write-Host "  Versione : v$version"    -ForegroundColor White
-          Write-Host "  Riduzione: $reduction%"  -ForegroundColor White
+    uses: ./.github/workflows/_reusable-build-wintoolkit.yml
+    with:
+      branch: ${{ github.ref_name }}
+      commit-message: "✅ Compilato WinToolkit"
+    secrets: inherit
