@@ -137,7 +137,7 @@ The `pr_security_guard` job applies a 3-level check:
 
 Generates release notes from the CHANGELOG and prepares assets for distribution.
 
-### `Release_Wintoolkit.yml` — Publishing to `main`
+### `Release-Stable.yml` — Publishing to `main`
 
 Creates the `release/vX.Y.Z` branch, applies compiled changes, and prepares a PR to `main` (PR creation is manual by intentional architectural choice).
 
