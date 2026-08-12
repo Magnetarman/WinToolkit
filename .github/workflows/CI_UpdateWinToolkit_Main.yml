@@ -243,18 +243,11 @@ jobs:
       # and should never exist on Main. Linting of this file occurs only on PR toward Dev,
       # not on PR toward Main. This step has been removed to prevent unnecessary failures.
 
-      - name: Verifica sintassi compiler.ps1
-        shell: pwsh
-        run: |
-          $content = Get-Content -Raw -Path "compiler.ps1" -ErrorAction Stop
-          $parseErrors = $null
-          $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$parseErrors)
-          if ($parseErrors.Count -gt 0) {
-            foreach ($e in $parseErrors) {
-              Write-Host "::error file=compiler.ps1,line=$($e.Extent.StartLineNumber),col=$($e.Extent.StartColumnNumber)::ERRORE DI SINTASSI: $($e.Message)"
-            }
-            exit 1
-          }
+      - name: Validate compiler syntax
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: compiler.ps1
+          label: compiler.ps1
 
   # ===========================================================================
   # JOB 2: TESTING — Suite Pester 5
@@ -347,19 +340,11 @@ jobs:
         run: |
           & .github/scripts/Update-Version.ps1 -TemplatePath "WinToolkit-template.ps1"
 
-      - name: Verifica sintassi template (post-bump)
-        shell: pwsh
-        run: |
-          $content = Get-Content -Raw -Path "WinToolkit-template.ps1"
-          $errors = $null
-          $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$errors)
-          if ($errors.Count -gt 0) {
-            foreach ($e in $errors) {
-              Write-Host "::error file=WinToolkit-template.ps1,line=$($e.Extent.StartLineNumber),col=$($e.Extent.StartColumnNumber)::ERRORE DI SINTASSI: $($e.Message)"
-            }
-            exit 1
-          }
-          Write-Host "Template sintassi OK — v${{ steps.version.outputs.new_version }}" -ForegroundColor Green
+      - name: Validate template syntax after version bump
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: WinToolkit-template.ps1
+          label: WinToolkit-template.ps1 after version bump
 
       - name: Commit Version Bump su Dev
         uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
