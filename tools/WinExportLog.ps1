@@ -28,7 +28,7 @@ function WinExportLog {
 
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.compressingLogsSomeFilesInUseMayBeIgnored')
 
-        Remove-ItemSafely -Path $tempFolder -Recurse
+        $null = Remove-ItemSafely -Path $tempFolder -Recurse
         New-Item -ItemType Directory -Path $tempFolder -Force *>$null
 
         $filesCopied  = 0
@@ -42,7 +42,7 @@ function WinExportLog {
                 }
                 catch {
                     $filesSkipped++
-            Write-Debug (Get-SourceTextLoc 'uiText.fileIgnored01' -Args @($_.Name, $_.Exception.Message))
+                    Write-Debug (Get-SourceTextLoc 'uiText.fileIgnored01' -Args @($_.Name, $_.Exception.Message))
                 }
             }
         }
@@ -51,9 +51,22 @@ function WinExportLog {
         }
 
         if ($filesCopied -gt 0) {
-            Compress-Archive -Path "$tempFolder\*" -DestinationPath $zipFilePath -Force -ErrorAction Stop
+            $sourcePath = Join-Path $tempFolder '*'
+            $compressionAction = {
+                Start-Job -ScriptBlock {
+                    param([string]$SourcePath, [string]$DestinationPath)
 
-            if (Test-Path $zipFilePath) {
+                    $ErrorActionPreference = 'Stop'
+                    Compress-Archive -Path $SourcePath -DestinationPath $DestinationPath `
+                        -CompressionLevel Optimal -Force -ErrorAction Stop
+                    return $true
+                } -ArgumentList $sourcePath, $zipFilePath
+            }.GetNewClosure()
+
+            $compressionSucceeded = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.compressingLogsSomeFilesInUseMayBeIgnored') `
+                -Job -TimeoutSeconds 300 -Action $compressionAction
+
+            if ($compressionSucceeded -eq $true -and (Test-Path $zipFilePath -PathType Leaf)) {
                 Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.logsCompressedSuccessfullySavedFile0OnDesktop' -Args @($zipFileName))
                 if ($filesSkipped -gt 0) {
                     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.0FilesIgnoredBecauseTheyAreInUseOrNotAccessible' -Args @($filesSkipped))
@@ -72,7 +85,7 @@ function WinExportLog {
         Write-ToolkitError -Record $_ -ToolName "WinExportLog" -Message (Get-SourceTextLoc 'toolText.extra.errorCompressingLogs')
     }
     finally {
-        Remove-ItemSafely -Path $tempFolder -Recurse
+        $null = Remove-ItemSafely -Path $tempFolder -Recurse
         Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.winexportlogSessionEnded')
     }
 }
