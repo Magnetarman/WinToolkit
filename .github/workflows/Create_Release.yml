@@ -76,54 +76,14 @@ jobs:
   # ===========================================================================
   versioning:
     name: Versioning (Bump)
-    runs-on: windows-latest
     needs: validate
     if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
-    permissions:
-      contents: write
-      actions: read
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
-    outputs:
-      new_version: ${{ steps.version.outputs.new_version }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-          ref: Dev
-
-      - name: Bump Version
-        id: version
-        shell: pwsh
-        run: |
-          & .github/scripts/Update-Version.ps1 -TemplatePath "WinToolkit-template.ps1"
-
-      - name: Validate template syntax after version bump
-        uses: ./.github/actions/validate-syntax
-        with:
-          path: WinToolkit-template.ps1
-          label: WinToolkit-template.ps1 after version bump
-
-      - name: Sincronizzazione cartella .github
-        shell: pwsh
-        run: |
-          Write-Host "::group::Sincronizzazione Area Staging .github"
-          git add -A .github/
-          Write-Host "Cartella .github/ aggiunta all'area di staging." -ForegroundColor Green
-          Write-Host "::endgroup::"
-
-      - name: Commit Version Bump
-        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
-        with:
-          commit_message: "🆙 Bump versione v${{ steps.version.outputs.new_version }} e Sync .github"
-          file_pattern: "WinToolkit-template.ps1 .github/"
-          branch: Dev
-          push_options: "--force-with-lease"
-          skip_fetch: true
+    uses: ./.github/workflows/_reusable-versioning.yml
+    with:
+      target-branch: Dev
+      sync-github: true
+      commit-message: "🆙 Bump versione e Sync .github"
+    secrets: inherit
 
   # ===========================================================================
   # JOB 2: BUILD — Reusable Workflow
