@@ -316,15 +316,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install PSScriptAnalyzer
-        shell: pwsh
-        run: |
-          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-            Write-Host "Installing PSScriptAnalyzer..." -ForegroundColor Yellow
-            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
-          } else {
-            Write-Host "PSScriptAnalyzer gia installato" -ForegroundColor Green
-          }
+      - name: Setup PowerShell CI modules
+        uses: ./.github/actions/setup-powershell-modules
 
       - name: Lint /tools files
         id: lint_tool
@@ -408,22 +401,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Pester 5
-        shell: pwsh
-        run: |
-          $installed = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -ge '5.0.0' -and $_.Version -lt '6.0.0' }
-          if (-not $installed) {
-            Write-Host "Installing Pester 5..." -ForegroundColor Yellow
-            Install-Module -Name Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
-          } else {
-            Write-Host "Pester $($installed[0].Version) gia installato" -ForegroundColor Green
-          }
-          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-            Write-Host "Installing PSScriptAnalyzer..." -ForegroundColor Yellow
-            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
-          } else {
-            Write-Host "PSScriptAnalyzer gia installato" -ForegroundColor Green
-          }
+      - name: Setup PowerShell CI modules
+        uses: ./.github/actions/setup-powershell-modules
 
       - name: Run Pester Tests
         id: pester
