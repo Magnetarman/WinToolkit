@@ -113,8 +113,14 @@ function GamingToolkit {
     # Step 2: NetFramework
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.enablingNetframework')
     try {
-        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop *>$null
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkEnabled')
+        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.enablingNetframework') -Command 'dism.exe' -Arguments @('/Online', '/Enable-Feature', '/FeatureName:NetFx3', '/FeatureName:NetFx4-AdvSrvs', '/All', '/NoRestart') -TimeoutSeconds $timeout -LogContextKey "Gaming-NetFramework"
+        $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
+        if ($exitCode -eq 0 -or $exitCode -eq 3010) {
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkEnabled')
+        }
+        else {
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorEnablingNetframework0' -Args @("DISM exit code $exitCode"))
+        }
     }
     catch {
         Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorEnablingNetframework0' -Args @($($_.Exception.Message)))
@@ -246,13 +252,17 @@ function GamingToolkit {
 
     # Step 6: Battle.net
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.installingBattleNet')
-    $bnPath = "$env:TEMP\Battle.net-Setup.exe"
+    $battleNetInstallRoot = 'C:\Program Files (x86)\'
 
     try {
-        Invoke-WebRequest -Uri $AppConfig.URLs.BattleNetInstaller -OutFile $bnPath -ErrorAction Stop
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.battleNetDownloaded')
-
-        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installingBattleNet') -Command $bnPath -Arguments '--quiet' -TimeoutSeconds $timeout -LogContextKey "Gaming-BattleNet"
+        # Battle.net richiede una radice di installazione anche tramite WinGet.
+        # --location evita il prompt interattivo e mantiene il percorso predefinito dell'app.
+        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installingBattleNet') -Command 'winget' -Arguments @(
+            'install', '--id', 'Blizzard.BattleNet', '--exact', '--include-unknown',
+            '--location', $battleNetInstallRoot,
+            '--silent', '--disable-interactivity',
+            '--accept-package-agreements', '--accept-source-agreements'
+        ) -TimeoutSeconds $timeout -LogContextKey "Gaming-BattleNet"
 
         Clear-ProgressLine
         Clear-ProgressLine
@@ -265,8 +275,9 @@ function GamingToolkit {
         }
         else {
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
-            $messageType = if ($exitCode -in @(0, 3010)) { 'Success' } else { 'Warning' }
-            $messageText = if ($exitCode -in @(0, 3010)) {
+            $successCodes = @(0, 1638, 3010, -1978335189)
+            $messageType = if ($exitCode -in $successCodes) { 'Success' } else { 'Warning' }
+            $messageText = if ($exitCode -in $successCodes) {
                 Get-SourceTextLoc 'uiText.battleNetInstalled'
             }
             else {
