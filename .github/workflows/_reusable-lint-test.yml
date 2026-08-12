@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: true
+      validate-template:
+        description: Include WinToolkit-template.ps1 in lint and syntax checks.
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   linting:
@@ -28,10 +33,14 @@ jobs:
 
       - name: Lint PowerShell sources
         shell: pwsh
+        env:
+          VALIDATE_TEMPLATE: ${{ inputs.validate-template }}
         run: |
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $files = @(Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)
-          $files += @(Get-Item -LiteralPath "WinToolkit-template.ps1")
+          if ($env:VALIDATE_TEMPLATE -eq 'true') {
+            $files += @(Get-Item -LiteralPath "WinToolkit-template.ps1")
+          }
           $hasErrors = $false
 
           foreach ($file in $files) {
@@ -57,6 +66,7 @@ jobs:
           label: tools
 
       - name: Validate template syntax
+        if: inputs.validate-template
         uses: ./.github/actions/validate-syntax
         with:
           path: WinToolkit-template.ps1
