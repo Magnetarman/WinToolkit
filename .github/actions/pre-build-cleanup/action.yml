@@ -1,0 +1,24 @@
+name: Pre-build cleanup
+description: Remove a previously compiled artifact before a build.
+
+inputs:
+  artifact-path:
+    description: Path of the compiled artifact to remove.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Remove pre-existing artifact
+      shell: pwsh
+      env:
+        ARTIFACT_PATH: ${{ inputs.artifact-path }}
+      run: |
+        Write-Host "::group::Build integrity — pre-build cleanup"
+        if (Test-Path -LiteralPath $env:ARTIFACT_PATH) {
+          Remove-Item -LiteralPath $env:ARTIFACT_PATH -Force -ErrorAction Stop
+          Write-Host "$env:ARTIFACT_PATH removed — build starts from pure sources." -ForegroundColor Green
+        } else {
+          Write-Host "$env:ARTIFACT_PATH not present — no cleanup required." -ForegroundColor Cyan
+        }
+        Write-Host '::endgroup::'
