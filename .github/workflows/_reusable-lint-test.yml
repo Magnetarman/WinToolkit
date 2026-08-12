@@ -1,0 +1,124 @@
+name: Reusable lint and test
+
+on:
+  workflow_call:
+    inputs:
+      run-checks:
+        description: Run linting and tests when relevant source files changed.
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  linting:
+    name: Reusable linting
+    if: inputs.run-checks
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup PowerShell CI modules
+        uses: ./.github/actions/setup-powershell-modules
+
+      - name: Lint PowerShell sources
+        shell: pwsh
+        run: |
+          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
+          $files = @(Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)
+          $files += @(Get-Item -LiteralPath "WinToolkit-template.ps1")
+          $hasErrors = $false
+
+          foreach ($file in $files) {
+            Write-Host "Analyzing: $($file.FullName)" -ForegroundColor Yellow
+            $analysis = @(Invoke-ScriptAnalyzer -Path $file.FullName -Settings $settingsPath -Severity Error,Warning)
+            foreach ($issue in $analysis) {
+              $color = if ($issue.Severity -eq 'Error') { 'Red' } else { 'Yellow' }
+              Write-Host "  [$($issue.Severity)] $($issue.RuleName): $($issue.Message)" -ForegroundColor $color
+              if ($issue.Severity -eq 'Error') { $hasErrors = $true }
+            }
+            if (-not $analysis) { Write-Host "  OK" -ForegroundColor Green }
+          }
+
+          if ($hasErrors) {
+            Write-Host "::error::PSScriptAnalyzer found blocking errors." 
+            exit 1
+          }
+
+      - name: Validate tools syntax
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: tools/*.ps1
+          label: tools
+
+      - name: Validate template syntax
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: WinToolkit-template.ps1
+          label: WinToolkit-template.ps1
+
+      - name: Validate compiler syntax
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: compiler.ps1
+          label: compiler.ps1
+
+  testing:
+    name: Reusable Pester tests
+    if: inputs.run-checks
+    runs-on: windows-latest
+    needs: linting
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup PowerShell CI modules
+        uses: ./.github/actions/setup-powershell-modules
+
+      - name: Run PSScriptAnalyzer and Pester
+        shell: pwsh
+        run: |
+          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
+          $analyzerResults = @(Invoke-ScriptAnalyzer -Path '*.ps1' -Severity Warning,Error -Settings $settingsPath)
+          $analyzerResults += @(Invoke-ScriptAnalyzer -Path 'tools\*.ps1' -Severity Warning,Error -Settings $settingsPath)
+          $analyzerResults = @($analyzerResults | Where-Object { $_.ScriptName -ne 'start-offline.ps1' })
+
+          if ($analyzerResults) {
+            $analyzerResults | Format-Table -AutoSize
+            Write-Host "::error::PSScriptAnalyzer found $($analyzerResults.Count) issue(s)."
+            exit 1
+          }
+
+          $config = New-PesterConfiguration
+          $config.Run.Path                = '.github/tests/CI-Smoke.Tests.ps1'
+          $config.Run.PassThru            = $true
+          $config.Output.Verbosity        = 'Detailed'
+          $config.TestResult.Enabled      = $true
+          $config.TestResult.OutputPath   = 'TestResults.xml'
+          $config.TestResult.OutputFormat = 'NUnitXml'
+          $result = Invoke-Pester -Configuration $config
+
+          if ($result.FailedCount -gt 0) {
+            Write-Host "::error::$($result.FailedCount) Pester test(s) failed."
+            exit 1
+          }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reusable-pester-test-results
+          path: TestResults.xml
+          if-no-files-found: ignore
+          retention-days: 30
