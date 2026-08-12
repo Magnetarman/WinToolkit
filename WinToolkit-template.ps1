@@ -91,30 +91,40 @@ try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
 
 $ToolkitVersion = "2.6.0 (Build 5)"
 
-$AppConfig = @{
-    URLs            = @{
-        GitHubAssetBaseUrl    = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/"
-        GitHubAssetDevBaseUrl = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/assets/"
+# --- BRANCH SELECTOR ---
+# The ONLY value to change when shipping from Dev to main.
+# Every repository-relative URL below is derived from this single switch.
+$Branch = 'Dev'
 
-        # Office
-        OfficeSetup           = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/Setup.exe"
-        OfficeBasicConfig     = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/Basic.xml"
+# Single source of truth for repository base URLs, keyed by branch.
+# Switching $Branch flips every derived asset/profile/icon/start URL.
+$GitHubRepoRawBase = @{
+    Dev  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev"
+    main = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main"
+}
+$GitHubRepoBase = @{
+    Dev  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev"
+    main = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main"
+}
+$RepoRawBase = $GitHubRepoRawBase[$Branch]
+$RepoBase    = $GitHubRepoBase[$Branch]
+
+$AppConfig = @{
+    Branch          = $Branch
+    ToolkitVersion = $ToolkitVersion
+    URLs            = @{
+        # --- Branch-independent (aka.ms / third-party release APIs) ---
         GetHelpInstaller      = "https://aka.ms/SaRA_EnterpriseVersionFiles"
 
-        # Video Driver
+        # Video Driver (third-party CDN, always latest)
         AMDInstaller          = "https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.5.2-minimalsetup-260513_web.exe"
-        NVCleanstall          = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/NVCleanstall_1.19.0.exe"
-        DDUZip                = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/assets/DDU.zip"
-        DriverOverridesJson   = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/assets/DriverOverrides.json"
 
-        # Gaming
-        DirectXWebSetup       = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/assets/dxwebsetup.exe"
-        BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
-
-        # Store
+        # Store (Microsoft CDN, always latest)
         WingetInstaller       = "https://aka.ms/getwinget"
         VCRedist86            = "https://aka.ms/vs/17/release/vc_redist.x86.exe"
         VCRedist64            = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+
+        # --- Branch-dependent URLs are assigned from $Branch below ---
     }
     Paths           = @{
         Root                 = "$env:LOCALAPPDATA\WinToolkit"
@@ -160,7 +170,27 @@ $AppConfig = @{
     )
 }
 
-$Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
+# ==============================================================================
+# BRANCH-DEPENDENT URL RESOLUTION (single source of truth)
+# ------------------------------------------------------------------------------
+# Every repository-relative URL is derived HERE from the single $Branch selector.
+# Nothing else may build a branch URL by string concatenation: tools must read
+# $AppConfig.URLs.* instead. Flipping $Branch above retargets the entire script
+# with no other edits.
+# ==============================================================================
+
+$AppConfig.URLs.OfficeSetup           = "$RepoRawBase/assets/Setup.exe"
+$AppConfig.URLs.OfficeBasicConfig     = "$RepoRawBase/assets/Basic.xml"
+$AppConfig.URLs.NVCleanstall          = "$RepoRawBase/assets/NVCleanstall_1.19.0.exe"
+$AppConfig.URLs.DDUZip                = "$RepoRawBase/assets/DDU.zip"
+$AppConfig.URLs.DriverOverridesJson   = "$RepoRawBase/assets/DriverOverrides.json"
+$AppConfig.URLs.DirectXWebSetup       = "$RepoRawBase/assets/dxwebsetup.exe"
+
+# Localization assets live under the same branch.
+$AppConfig.URLs.LanguagesRawUrl = "$RepoBase/languages"
+$AppConfig.URLs.LanguagesApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$Branch"
+
+
 $Global:MsgStyles = @{
     Success  = @{ Icon = '✅'; Color = 'Green' }
     Warning  = @{ Icon = '⚠️'; Color = 'Yellow' }
@@ -292,7 +322,7 @@ function Get-SourceTextMenuText {
 }
 
 function Get-RemoteAvailableCultures {
-    param([string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev')
+    param([string]$GitHubApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$Branch")
     try {
         $response = Invoke-RestMethod -Uri $GitHubApiUrl -UseBasicParsing -ErrorAction Stop
         return @($response | Where-Object { $_.type -eq 'dir' } | ForEach-Object { $_.name })
@@ -306,8 +336,8 @@ function Invoke-SourceTextLanguagePreparation {
     [CmdletBinding()]
     param(
         [string]$ScriptRoot,
-        [string]$RemoteBaseUrl = 'https://raw.githubusercontent.com/Magnetarman/WinToolkit/Dev/languages',
-        [string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev',
+        [string]$RemoteBaseUrl = "$RepoBase/languages",
+        [string]$GitHubApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$Branch",
         [int]$CacheMaxAgeDays = 7
     )
     $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
@@ -2203,9 +2233,6 @@ function VcardAnalizer {
 
     $overrides = @()
     $remoteUrl = $AppConfig.URLs.DriverOverridesJson
-    if ([string]::IsNullOrWhiteSpace($remoteUrl)) {
-        $remoteUrl = "$($AppConfig.URLs.GitHubAssetBaseUrl)DriverOverrides.json"
-    }
 
     try {
         if (Invoke-ToolkitDownload -Uri $remoteUrl -OutputPath $defaultLocalOverrides -Description 'Driver Overrides JSON') {
