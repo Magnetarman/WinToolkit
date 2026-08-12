@@ -193,117 +193,23 @@ jobs:
           fi
 
   # ===========================================================================
-  # JOB 1: LINTING — Analisi statica
+  # JOB 1: REUSABLE QUALITY GATE — Linting e testing
   # ===========================================================================
-  linting:
-    name: Linting
-    runs-on: windows-latest
-    if: github.event.action != 'closed' && needs.detect_changes.outputs.run_checks == 'true'
-    needs: detect_changes
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Install PSScriptAnalyzer
-        shell: pwsh
-        run: |
-          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-            Write-Host "Installing PSScriptAnalyzer..." -ForegroundColor Yellow
-            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
-          }
-
-      - name: Lint /tools files
-        shell: pwsh
-        run: |
-          Write-Host "::group::PSScriptAnalyzer — /tools"
-          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
-          $hasErrors = $false
-          foreach ($file in (Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)) {
-            $analysis = Invoke-ScriptAnalyzer -Path $file.FullName -Settings $settingsPath -Severity Error,Warning
-            if ($analysis) {
-              foreach ($issue in $analysis) {
-                $col = if ($issue.Severity -eq 'Error') { 'Red' } else { 'Yellow' }
-                Write-Host "  [$($issue.Severity)] $($issue.RuleName): $($issue.Message)" -ForegroundColor $col
-                if ($issue.Severity -eq 'Error') { $hasErrors = $true }
-              }
-            }
-          }
-          Write-Host "::endgroup::"
-          if ($hasErrors) {
-            Write-Host "::error::Errori di linting rilevati nei file /tools."
-            exit 1
-          }
-
-      # NOTE: WinToolkit-template.ps1 is exclusive to the Dev branch
-      # and should never exist on Main. Linting of this file occurs only on PR toward Dev,
-      # not on PR toward Main. This step has been removed to prevent unnecessary failures.
-
-      - name: Validate compiler syntax
-        uses: ./.github/actions/validate-syntax
-        with:
-          path: compiler.ps1
-          label: compiler.ps1
-
-  # ===========================================================================
-  # JOB 2: TESTING — Suite Pester 5
-  # ===========================================================================
-  testing:
-    name: Pester Tests
-    runs-on: windows-latest
-    timeout-minutes: 10
+  quality:
+    name: Lint and test
     if: github.event.action != 'closed'
-    needs: linting
+    needs: detect_changes
+    uses: ./.github/workflows/_reusable-lint-test.yml
+    with:
+      run-checks: ${{ needs.detect_changes.outputs.run_checks == 'true' }}
+      validate-template: false
     permissions:
       contents: read
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Install Pester 5
-        shell: pwsh
-        run: |
-          $installed = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -ge '5.0.0' -and $_.Version -lt '6.0.0' }
-          if (-not $installed) {
-            Write-Host "Installing Pester 5..." -ForegroundColor Yellow
-            Install-Module -Name Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
-          }
-
-      - name: Run Pester Tests
-        shell: pwsh
-        run: |
-          Write-Host "::group::WinToolkit Pester Test Suite"
-          $config = New-PesterConfiguration
-          $config.Run.Path                = '.github/tests/CI-Smoke.Tests.ps1'
-          $config.Run.PassThru            = $true
-          $config.Output.Verbosity        = 'Detailed'
-          $config.TestResult.Enabled      = $true
-          $config.TestResult.OutputPath   = 'TestResults.xml'
-          $config.TestResult.OutputFormat = 'NUnitXml'
-          $result = Invoke-Pester -Configuration $config
-          Write-Host "::endgroup::"
-
-          Write-Host ""
-          Write-Host "Risultati Test:" -ForegroundColor Cyan
-          Write-Host "  Superati : $($result.PassedCount)"  -ForegroundColor Green
-          Write-Host "  Falliti  : $($result.FailedCount)"  -ForegroundColor $(if ($result.FailedCount -gt 0) { 'Red' } else { 'Green' })
-
-          if ($result.FailedCount -gt 0) {
-            Write-Host "::error::$($result.FailedCount) test Pester falliti — pipeline bloccata."
-            exit 1
-          }
-
   # ===========================================================================
-  # JOB 3: VERSIONING BUMP — Ad ogni commit/push su PR release/v* aperta
+  # JOB 2: VERSIONING BUMP — Ad ogni commit/push su PR release/v* aperta
   #
-  # Eseguito dopo testing (o dopo main_branch_guard se i check sono saltati).
+  # Eseguito dopo il quality gate (o dopo main_branch_guard se i check sono saltati).
   # Bumpa il build number su Dev tramite Update-Version.ps1, verifica sintassi
   # e committa WinToolkit-template.ps1 aggiornato su Dev.
   # NON agisce sul branch release/v*, modifica solo Dev.
@@ -313,13 +219,13 @@ jobs:
     runs-on: windows-latest
     # Gira solo su PR aperte (opened/synchronize), non al merge
     if: |
+      always() &&
       github.event.action != 'closed' &&
-      startsWith(github.head_ref, 'release/v')
-    # Dipende da testing se i check sono abilitati, altrimenti da detect_changes
-    needs: [detect_changes, testing]
-    # Il job è opzionale: se testing è saltato (run_checks=false) lo gestiamo
-    # tramite la condizione sul needs — testing ha `if` che lo salta, ma
-    # needs.testing non blocca se il job è stato saltato.
+      startsWith(github.head_ref, 'release/v') &&
+      (needs.quality.result == 'success' || needs.quality.result == 'skipped')
+    # Il quality gate è parametrizzato: può risultare skipped se non ci sono
+    # file sorgente modificati, senza impedire il versioning della release.
+    needs: [detect_changes, quality]
     permissions:
       contents: write
       actions: read
