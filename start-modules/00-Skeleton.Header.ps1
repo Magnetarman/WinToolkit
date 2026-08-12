@@ -148,8 +148,6 @@ $script:MIN_ICON_FILE_BYTES = 1024
 
 # --- MUTABLE SCRIPT STATE ---
 
-$script:TemporaryDefenderExclusionAdded = $false
-$script:TemporaryDefenderExclusionPath = $null
 $script:UpdateServicesSuspended = $false
 $script:CurrentLogFile = $null
 $script:SetupResults = @()
