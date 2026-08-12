@@ -5,5 +5,11 @@
 /.github/workflows/ @Magnetarman
 /.github/scripts/ @Magnetarman
 
-# Moduli tool
-/tool/ @Magnetarman
+# Moduli tools
+/tools/ @Magnetarman
+
+# Moduli condivisi dello script di avvio
+/start-modules/ @Magnetarman
+
+# Composite Actions CI
+/.github/actions/ @Magnetarman
