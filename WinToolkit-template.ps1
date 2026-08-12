@@ -119,9 +119,6 @@ $AppConfig = @{
         # Video Driver (third-party CDN, always latest)
         AMDInstaller          = "https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.5.2-minimalsetup-260513_web.exe"
 
-        # Gaming (vendor endpoint, not branch-dependent)
-        BattleNetInstaller    = "https://downloader.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP&version=Live"
-
         # Store (Microsoft CDN, always latest)
         WingetInstaller       = "https://aka.ms/getwinget"
         VCRedist86            = "https://aka.ms/vs/17/release/vc_redist.x86.exe"

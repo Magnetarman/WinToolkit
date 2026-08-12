@@ -56,7 +56,7 @@ function GamingToolkit {
         try {
             $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installation0' -Args @($DisplayName)) -Command 'winget' -Arguments @('install', '--id', $PackageId, '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements') -TimeoutSeconds $timeout -LogContextKey "Gaming-Install-$PackageId"
 
-            $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
+            $exitCode = if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'ExitCode')) { $result.ExitCode } else { -1 }
             $successCodes = @(0, 1638, 3010, -1978335189)
 
             if ($exitCode -in $successCodes) {
@@ -112,12 +112,30 @@ function GamingToolkit {
 
     # Step 2: NetFramework
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.enablingNetframework')
-    try {
-        Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs, NetFx3 -NoRestart -All -ErrorAction Stop *>$null
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkEnabled')
+    $netFxFeatures = @('NetFx4-AdvSrvs', 'NetFx3')
+    $netFxFailed = $false
+    foreach ($feature in $netFxFeatures) {
+        try {
+            # Enable-WindowsOptionalFeature with multiple features + -All fails under
+            # PowerShell 7 ("Interfaccia non registrata"). DISM handles each feature
+            # reliably across editions without relying on the CBS COM interface.
+            $dismResult = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.enablingNetframeworkFeature0' -Args @($feature)) -Command 'dism.exe' -Arguments @('/Online', '/Enable-Feature', "/FeatureName:$feature", '/All', '/NoRestart') -TimeoutSeconds $timeout -LogContextKey "Gaming-NetFx-$feature"
+            $exitCode = if ($null -ne $dismResult -and ($dismResult.PSObject.Properties.Name -contains 'ExitCode')) { $dismResult.ExitCode } else { -1 }
+            if ($exitCode -in @(0, 3010)) {
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkFeatureEnabled0' -Args @($feature))
+            }
+            else {
+                $netFxFailed = $true
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.errorEnablingNetframeworkFeature0Code1' -Args @($feature, $exitCode))
+            }
+        }
+        catch {
+            $netFxFailed = $true
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.errorEnablingNetframeworkFeature0Code1' -Args @($feature, $($_.Exception.Message)))
+        }
     }
-    catch {
-        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorEnablingNetframework0' -Args @($($_.Exception.Message)))
+    if (-not $netFxFailed) {
+        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkEnabled')
     }
 
     # Step 3: Runtime e VCRedist
@@ -246,13 +264,31 @@ function GamingToolkit {
 
     # Step 6: Battle.net
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.installingBattleNet')
-    $bnPath = "$env:TEMP\Battle.net-Setup.exe"
+
+    $battleNetPkg = "Blizzard.BattleNet"
+    $outFile = "$env:TEMP\winget_$battleNetPkg.log"
+    $errFile = "$env:TEMP\winget_err_$battleNetPkg.log"
+
+    # Battle.net package REQUIRES an install location (winget returns
+    # "Install location is required by the package but it was not provided").
+    # The folder must exist and be writable; use a dedicated subfolder.
+    $battleNetInstallRoot = Join-Path ${env:ProgramFiles(x86)} "Battle.net"
+    if (-not (Test-Path $battleNetInstallRoot)) {
+        New-Item -Path $battleNetInstallRoot -ItemType Directory -Force *>$null
+    }
 
     try {
-        Invoke-WebRequest -Uri $AppConfig.URLs.BattleNetInstaller -OutFile $bnPath -ErrorAction Stop
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.battleNetDownloaded')
-
-        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installingBattleNet') -Command $bnPath -Arguments '--quiet' -TimeoutSeconds $timeout -LogContextKey "Gaming-BattleNet"
+        $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.installingBattleNet') -Process -Action {
+            $procParams = @{
+                FilePath               = 'winget'
+                ArgumentList           = @('install', '--id', $battleNetPkg, '--exact', '--silent', '--disable-interactivity', '--accept-package-agreements', '--accept-source-agreements', '--force', '--location', $battleNetInstallRoot)
+                PassThru               = $true
+                NoNewWindow            = $true
+                RedirectStandardOutput = $outFile
+                RedirectStandardError  = $errFile
+            }
+            Start-Process @procParams
+        } -TimeoutSeconds $timeout -UpdateInterval 700
 
         Clear-ProgressLine
         Clear-ProgressLine
@@ -265,26 +301,36 @@ function GamingToolkit {
         }
         else {
             $exitCode = if ($result -is [hashtable] -and $result.Contains('ExitCode')) { $result.ExitCode } else { -1 }
-            $messageType = if ($exitCode -in @(0, 3010)) { 'Success' } else { 'Warning' }
-            $messageText = if ($exitCode -in @(0, 3010)) {
-                Get-SourceTextLoc 'uiText.battleNetInstalled'
+            $successCodes = @(0, 1638, 3010, -1978335189)
+            if ($exitCode -in $successCodes) {
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.battleNetInstalled')
             }
             else {
-                Get-SourceTextLoc 'toolText.extra.battleNetCode0' -Args @($exitCode)
+                $errDetail = ''
+                if (Test-Path $errFile) { $errDetail = (Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue) }
+                if ([string]::IsNullOrWhiteSpace($errDetail) -and (Test-Path $outFile)) { $errDetail = (Get-Content -Path $outFile -Raw -ErrorAction SilentlyContinue) }
+                if (-not [string]::IsNullOrWhiteSpace($errDetail)) {
+                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.extra.battleNetCode0' -Args @($exitCode))
+                    Write-StyledMessage -Type 'Warning' -Text ($errDetail.Trim() -split "`n" | Select-Object -First 5 | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() } | Join-String -Separator "`n")
+                }
+                else {
+                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.extra.battleNetCode0' -Args @($exitCode))
+                }
             }
-            Write-StyledMessage -Type $messageType -Text $messageText
         }
-
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.pressAnyKeyToContinue')
-        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
     catch {
         Clear-ProgressLine
         Clear-ProgressLine
         Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorInstallingBattleNet0' -Args @($($_.Exception.Message)))
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.pressAnyKeyToContinue')
-        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
+    finally {
+        Remove-ItemSafely -Path $outFile
+        Remove-ItemSafely -Path $errFile
+    }
+
+    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.pressAnyKeyToContinue')
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 
     # Step 7: Pulizia avvio automatico
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.autostartCleaner')
