@@ -102,19 +102,11 @@ jobs:
         run: |
           & .github/scripts/Update-Version.ps1 -TemplatePath "WinToolkit-template.ps1"
 
-      - name: Verifica sintassi template (post-bump)
-        shell: pwsh
-        run: |
-          $content = Get-Content -Raw -Path "WinToolkit-template.ps1"
-          $errors = $null
-          $null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$errors)
-          if ($errors.Count -gt 0) {
-            foreach ($e in $errors) {
-              Write-Host "::error file=WinToolkit-template.ps1,line=$($e.Extent.StartLineNumber),col=$($e.Extent.StartColumnNumber)::ERRORE DI SINTASSI: $($e.Message)"
-            }
-            exit 1
-          }
-          Write-Host "Template sintassi OK" -ForegroundColor Green
+      - name: Validate template syntax after version bump
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: WinToolkit-template.ps1
+          label: WinToolkit-template.ps1 after version bump
 
       - name: Sincronizzazione cartella .github
         shell: pwsh
@@ -178,38 +170,19 @@ jobs:
           Write-Host "::endgroup::"
 
       # ── PRE-CHECK SINTATTICO ─────────────────────────────────────────────
-      - name: Validazione Sintattica Pre-Build
-        id: syntax_check
-        shell: pwsh
-        run: |
-          Write-Host "::group::Validazione Sintattica Pre-Build"
-          $hasErrors    = $false
-          $filesToCheck = @(Get-ChildItem -Path "tools" -Filter "*.ps1") + @(Get-Item "WinToolkit-template.ps1")
+      - name: Validate tools syntax before release build
+        id: syntax_tools
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: tools/*.ps1
+          label: tools before release build
 
-          foreach ($file in $filesToCheck) {
-            Write-Host "Controllo: $($file.Name)" -ForegroundColor Yellow
-            $code   = Get-Content -Raw -Path $file.FullName -Encoding UTF8
-            $tokens = $null
-            $errors = $null
-            $null = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$tokens, [ref]$errors)
-
-            if ($errors.Count -gt 0) {
-              foreach ($e in $errors) {
-                Write-Host "::error file=$($file.Name),line=$($e.Extent.StartLineNumber),col=$($e.Extent.StartColumnNumber)::ERRORE DI SINTASSI: $($e.Message)"
-                Write-Host "  ERRORE $($file.Name) riga $($e.Extent.StartLineNumber): $($e.Message)" -ForegroundColor Red
-              }
-              $hasErrors = $true
-            } else {
-              Write-Host "  OK — $($file.Name)" -ForegroundColor Green
-            }
-          }
-          Write-Host "::endgroup::"
-
-          if ($hasErrors) {
-            Write-Host "::error::Validazione sintattica fallita — build interrotta per evitare output corrotto."
-            exit 1
-          }
-          Write-Host "Tutti i sorgenti superano la validazione sintattica." -ForegroundColor Green
+      - name: Validate template syntax before release build
+        id: syntax_template
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: WinToolkit-template.ps1
+          label: WinToolkit-template.ps1 before release build
 
       # ── COMPILAZIONE ────────────────────────────────────────────────────
       - name: Compilazione WinToolkit.ps1
