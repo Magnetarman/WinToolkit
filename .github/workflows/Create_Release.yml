@@ -158,16 +158,9 @@ jobs:
 
       # ── REGOLA D'ORO ────────────────────────────────────────────────────
       - name: Rimozione WinToolkit.ps1 Pre-Esistente (Integrità Build)
-        shell: pwsh
-        run: |
-          Write-Host "::group::Integrità Build — Pulizia pre-build"
-          if (Test-Path "WinToolkit.ps1") {
-            Remove-Item "WinToolkit.ps1" -Force
-            Write-Host "WinToolkit.ps1 eliminato — la compilazione parte dai sorgenti puri." -ForegroundColor Green
-          } else {
-            Write-Host "WinToolkit.ps1 non presente — nessuna pulizia necessaria." -ForegroundColor Cyan
-          }
-          Write-Host "::endgroup::"
+        uses: ./.github/actions/pre-build-cleanup
+        with:
+          artifact-path: WinToolkit.ps1
 
       # ── PRE-CHECK SINTATTICO ─────────────────────────────────────────────
       - name: Validate tools syntax before release build
