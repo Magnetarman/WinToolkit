@@ -126,107 +126,18 @@ jobs:
           skip_fetch: true
 
   # ===========================================================================
-  # JOB 2: BUILD — Compilazione dal template aggiornato
-  #
-  # REGOLA D'ORO: elimina WinToolkit.ps1 pre-esistente prima di compilare.
-  # Il commit del file compilato va su Dev.
+  # JOB 2: BUILD — Reusable Workflow
   # ===========================================================================
   build:
     name: Build
-    runs-on: windows-latest
     needs: versioning
     if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
-    permissions:
-      contents: write
-      actions: read
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
-    outputs:
-      source_kb: ${{ steps.build_script.outputs.source_kb }}
-      output_kb: ${{ steps.build_script.outputs.output_kb }}
-      reduction_percent: ${{ steps.build_script.outputs.reduction_percent }}
-      lines_removed: ${{ steps.build_script.outputs.lines_removed }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-          ref: Dev
-
-      # ── REGOLA D'ORO ────────────────────────────────────────────────────
-      - name: Rimozione WinToolkit.ps1 Pre-Esistente (Integrità Build)
-        uses: ./.github/actions/pre-build-cleanup
-        with:
-          artifact-path: WinToolkit.ps1
-
-      # ── PRE-CHECK SINTATTICO ─────────────────────────────────────────────
-      - name: Validate tools syntax before release build
-        id: syntax_tools
-        uses: ./.github/actions/validate-syntax
-        with:
-          path: tools/*.ps1
-          label: tools before release build
-
-      - name: Validate template syntax before release build
-        id: syntax_template
-        uses: ./.github/actions/validate-syntax
-        with:
-          path: WinToolkit-template.ps1
-          label: WinToolkit-template.ps1 before release build
-
-      # ── COMPILAZIONE ────────────────────────────────────────────────────
-      - name: Compilazione WinToolkit.ps1
-        id: build_script
-        shell: pwsh
-        run: |
-          $version = "${{ needs.versioning.outputs.new_version }}"
-          & .github/scripts/Invoke-Build.ps1 -Version $version -OutputPath "WinToolkit.ps1"
-
-      # ── VERIFICA FILE COMPILATO ──────────────────────────────────────────
-      - name: Test File Compilato
-        id: test_compiled
-        shell: pwsh
-        run: |
-          & .github/scripts/Test-CompiledScript.ps1 -ScriptPath "WinToolkit.ps1"
-
-      # ── COMMIT ──────────────────────────────────────────────────────────
-      - name: Commit WinToolkit.ps1
-        if: steps.test_compiled.outputs.tests_passed == 'true'
-        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
-        with:
-          commit_message: "✅ Compilato WinToolkit v${{ needs.versioning.outputs.new_version }}"
-          file_pattern: "WinToolkit.ps1"
-          branch: Dev
-          push_options: "--force-with-lease"
-          skip_fetch: true
-
-      # ── SUMMARY ─────────────────────────────────────────────────────────
-      - name: Generate Build Summary
-        if: steps.test_compiled.outputs.tests_passed == 'true'
-        shell: pwsh
-        run: |
-          $version      = "${{ needs.versioning.outputs.new_version }}"
-          $sourceKB     = "${{ steps.build_script.outputs.source_kb }}"
-          $outputKB     = "${{ steps.build_script.outputs.output_kb }}"
-          $reduction    = "${{ steps.build_script.outputs.reduction_percent }}"
-          $linesRemoved = "${{ steps.build_script.outputs.lines_removed }}"
-
-          $summary = @"
-          ## Riepilogo Build — WinToolkit v$version (Release)
-
-          | Metrica          | Valore         |
-          |------------------|----------------|
-          | Peso Sorgente    | $sourceKB KB   |
-          | Peso Finale      | $outputKB KB   |
-          | Riduzione        | $reduction%    |
-          | Righe Eliminate  | $linesRemoved  |
-
-          **Branch**: Dev | **Workflow**: Create_Release | **Stato**: Build completata con successo
-          "@
-          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+    uses: ./.github/workflows/_reusable-build-wintoolkit.yml
+    with:
+      branch: Dev
+      version: ${{ needs.versioning.outputs.new_version }}
+      commit-message: "✅ Compilato WinToolkit v${{ needs.versioning.outputs.new_version }}"
+    secrets: inherit
 
   # ===========================================================================
   # JOB 3: RELEASE — Note di rilascio e Pre-Release su GitHub
