@@ -1,36 +1,36 @@
 # =============================================================================
 # WinToolkit CI/CD Pipeline V 4.0
 # =============================================================================
-# Pipeline adattiva per branch:
-#   • Dev           → Pipeline Completa: lint → test → build (versione letta, no bump)
-#   • feature/fix/* → Pipeline Leggera:  lint → test → build (label: "Sviluppo in Corso")
-#   • PR verso Dev  → Gate di qualità:   lint → test  (no build, no deploy)
+# Branch-adaptive pipeline:
+#   - Dev            -> Full pipeline:    lint -> test -> build (version read, no bump)
+#   - feature/fix/*  -> Light pipeline:   lint -> test -> build (label: "Work In Progress")
+#   - PR toward Dev  -> Quality gate:     lint -> test  (no build, no deploy)
 #
-# VERSIONING E RELEASE: gestiti dal workflow Create_Release (workflow_dispatch).
+# VERSIONING AND RELEASE: handled by the Release-PreRelease workflow (workflow_dispatch).
 #
-# REGOLA D'ORO (Integrità):
-#   WinToolkit.ps1 è sempre rigenerato da zero dai sorgenti puri.
-#   Il file pre-esistente viene eliminato prima di ogni compilazione per evitare
-#   che residui di versioni precedenti o conflitti di merge producano output corrotto.
+# GOLDEN RULE (Integrity):
+#   WinToolkit.ps1 is always regenerated from scratch from the pure sources.
+#   The pre-existing file is removed before every compilation to prevent
+#   leftovers from previous versions or merge conflicts producing corrupt output.
 #
-# SINTASSI: Tutti i file .ps1 sono validati via AST prima della compilazione.
-#   Gli errori vengono emessi come annotazioni inline GitHub (::error file=...).
+# SYNTAX: All .ps1 files are validated via AST before compilation.
+#   Errors are emitted as inline GitHub annotations (::error file=...).
 #
-# RUNTIME: PowerShell 7+ (pwsh) — incluso in windows-latest, nessuna installazione aggiuntiva.
+# RUNTIME: PowerShell 7+ (pwsh) -- bundled with windows-latest, no extra install needed.
 # =============================================================================
 
 name: WinToolkit — CI Dev Pipeline V4.0
 
 env:
-  # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
+  # Force Node 24 in Actions to avoid GitHub warnings about deprecated versions
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 # ---------------------------------------------------------------------------
 # TRIGGER
-# • Dev             — Pipeline completa al push
-# • feature/**      — Pipeline leggera (test + build locale, no release)
-# • fix/** feat/**  — Idem
-# • PR verso Dev    — Gate di qualità (lint + test, no deploy)
+# - Dev             -- Full pipeline on push
+# - feature/**      -- Light pipeline (test + local build, no release)
+# - fix/** feat/**  -- Same
+# - PR toward Dev   -- Quality gate (lint + test, no deploy)
 # ---------------------------------------------------------------------------
 on:
   push:
@@ -67,7 +67,7 @@ on:
     branches: [Dev]
 
 # ---------------------------------------------------------------------------
-# CONCURRENCY — un solo run attivo per branch/PR
+# CONCURRENCY -- a single active run per branch/PR
 # ---------------------------------------------------------------------------
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -78,20 +78,20 @@ concurrency:
 # ---------------------------------------------------------------------------
 jobs:
   # ===========================================================================
-  # JOB 0: PR SECURITY GUARD — Politica a tre livelli
+  # JOB 0: PR SECURITY GUARD -- Three-level policy
   #
-  # Livello 1 — Consentiti (silenzioso)
+  # Level 1 -- Allowed (silent)
   #   tools/* | start-modules/*
   #
-  # Livello 2 — Consentiti con Warning (revisione manuale richiesta)
+  # Level 2 -- Allowed with warning (manual review required)
   #   start.ps1 | WinToolkit_GUI.ps1 | WinToolkit-template.ps1 | assets/*
-  #   → Commento di avviso, PR rimane aperta, job non fallisce.
+  #   -> Warning comment posted, PR stays open, job does not fail.
   #
-  # Livello 3 — Protetti (blocco totale)
-  #   Qualsiasi altro file (compiler.ps1, .github/**, artefatti compilati, ecc.)
-  #   → Commento accesso negato, PR chiusa automaticamente, job fallisce.
+  # Level 3 -- Protected (hard block)
+  #   Any other file (compiler.ps1, .github/**, build artifacts, etc.)
+  #   -> Access denied comment, PR closed automatically, job fails.
   #
-  # Gira solo su eventi pull_request verso Dev.
+  # Runs only on pull_request events toward Dev.
   # ===========================================================================
   pr_security_guard:
     name: PR Security Check
@@ -121,15 +121,15 @@ jobs:
             const prNumber     = context.issue.number;
             const isMaintainer = (author.toLowerCase() === 'magnetarman');
 
-            // ── CLASSIFICAZIONE DEI FILE ──────────────────────────────────
+            // -- FILE CLASSIFICATION -------------------------------------
             //
-            // Livello 1: tools/*, start-modules/* → consentiti, nessuna azione.
-            // Livello 2: file sensibili noti + assets/* → accettati, warning.
-            // Livello 3: tutto il resto → blocco totale (salvo maintainer).
+            // Level 1: tools/*, start-modules/* -> allowed, no action.
+            // Level 2: known sensitive files + assets/* -> accepted, warning.
+            // Level 3: everything else -> hard block (unless maintainer).
             //
-            // Gli artefatti compilati (WinToolkit.ps1, start-core.ps1) sono
-            // generati dalla CI: per il maintainer sono silenziosi (Livello 1),
-            // per gli altri restano protetti (Livello 3).
+            // Compiled artifacts (WinToolkit.ps1, start-core.ps1) are produced
+            // by CI itself: they are silent for the maintainer (Level 1) and
+            // stay protected (Level 3) for everyone else.
 
             const SENSITIVE_FILES = new Set([
               'start.ps1',
@@ -143,62 +143,62 @@ jobs:
             ]);
 
             function classifyFile(filename) {
-              if (filename.startsWith('tools/'))         return 1; // consentito
-              if (filename.startsWith('start-modules/')) return 1; // consentito
-              if (SENSITIVE_FILES.has(filename))         return 2; // sensibile
-              if (filename.startsWith('assets/'))        return 2; // sensibile
-              return 3;                                            // protetto
+              if (filename.startsWith('tools/'))         return 1; // allowed
+              if (filename.startsWith('start-modules/')) return 1; // allowed
+              if (SENSITIVE_FILES.has(filename))         return 2; // sensitive
+              if (filename.startsWith('assets/'))        return 2; // sensitive
+              return 3;                                            // protected
             }
 
             let level2Files = files.filter(f => classifyFile(f.filename) === 2);
             let level3Files = files.filter(f => classifyFile(f.filename) === 3);
 
-            // ── BYPASS MAINTENER ──────────────────────────────────────────
-            // Se l'autore è MagnetarMan, i file di Livello 3 vengono trattati
-            // come Livello 2 (Warning non bloccante).
+            // -- MAINTAINER BYPASS ---------------------------------------
+            // If the author is MagnetarMan, Level 3 files are downgraded to
+            // Level 2 (non-blocking warning).
             if (isMaintainer && level3Files.length > 0) {
               level2Files = [...level2Files, ...level3Files];
               level3Files = [];
             }
 
-            // ── ESCLUSIONE ARTEFATTI COMPILATI PER IL MAINTAINER ──────────
-            // WinToolkit.ps1 e start-core.ps1 sono output compilati dalla CI
-            // stessa: per MagnetarMan non richiedono revisione manuale e sono
-            // trattati come Livello 1 (silenzioso). Per tutti gli altri
-            // collaboratori il comportamento rimane invariato (Livello 3 → blocco).
+            // -- COMPILED ARTIFACT EXCLUSION FOR THE MAINTAINER ----------
+            // WinToolkit.ps1 and start-core.ps1 are outputs compiled by CI
+            // itself: for MagnetarMan they need no manual review and are
+            // treated as Level 1 (silent). For every other contributor the
+            // behaviour is unchanged (Level 3 -> block).
             if (isMaintainer) {
               level2Files = level2Files.filter(f => !BUILD_ARTIFACTS.has(f.filename));
             }
 
-            // ── LIVELLO 3: BLOCCO TOTALE ──────────────────────────────────
+            // -- LEVEL 3: HARD BLOCK -------------------------------------
             if (level3Files.length > 0) {
               const fileList = level3Files.map(f => `- \`${f.filename}\``).join('\n');
 
               const blockedMessage = [
-                `## ⛔ Accesso Negato — PR Chiusa Automaticamente`,
+                `## ⛔ Access Denied — Pull Request Closed Automatically`,
                 ``,
-                `Ciao @${author},`,
-                `grazie per il tuo interesse in WinToolkit! Purtroppo questa PR è stata **chiusa automaticamente** perché include modifiche a file protetti del core del progetto.`,
+                `Hi @${author},`,
+                `thanks for your interest in WinToolkit! Unfortunately this PR was **closed automatically** because it includes changes to protected core files.`,
                 ``,
-                `### File protetti rilevati`,
+                `### Protected files detected`,
                 ``,
                 fileList,
                 ``,
-                `### Regola di contribuzione`,
+                `### Contribution rule`,
                 ``,
-                `I collaboratori esterni possono proporre modifiche **esclusivamente** ai moduli all'interno delle cartelle \`tools/\` e \`start-modules/\`.`,
-                `I file core (compiler, workflow CI/CD, script di build, configurazioni) sono gestiti direttamente dal maintainer per garantire la stabilità del progetto.`,
+                `External contributors may propose changes **exclusively** to the modules inside the \`tools/\` and \`start-modules/\` directories.`,
+                `Core files (compiler, CI/CD workflows, build scripts, configuration) are managed directly by the maintainer to guarantee project stability.`,
                 ``,
-                `### Come procedere`,
+                `### How to proceed`,
                 ``,
-                `1. **Ripristina** i file protetti al loro stato originale nel tuo fork.`,
-                `2. **Limita** le tue modifiche ai file dentro \`tools/\` o \`start-modules/\`.`,
-                `3. **Apri una nuova PR** con solo le modifiche ai moduli.`,
+                `1. **Restore** the protected files to their original state in your fork.`,
+                `2. **Limit** your changes to files inside \`tools/\` or \`start-modules/\`.`,
+                `3. **Open a new PR** containing only the module changes.`,
                 ``,
-                `Se ritieni che una modifica ai file core sia necessaria, apri invece una **Issue** descrivendo la proposta: sarà valutata dal maintainer.`,
+                `If you believe a change to core files is necessary, please open an **Issue** describing your proposal instead: it will be reviewed by the maintainer.`,
                 ``,
                 `---`,
-                `*Messaggio automatico del sistema CI/CD di WinToolkit — PR #${prNumber}.*`,
+                `*Automated message from the WinToolkit CI/CD system — PR #${prNumber}.*`,
               ].join('\n');
 
               await github.rest.issues.createComment({
