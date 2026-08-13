@@ -1,4 +1,5 @@
-name: Reusable WinToolkit build
+# WinToolkit CI/CD Pipeline V 4.0 — Reusable WinToolkit build
+name: WinToolkit V4.0 — Reusable WinToolkit build
 
 on:
   workflow_call:
