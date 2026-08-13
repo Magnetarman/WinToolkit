@@ -146,7 +146,10 @@ jobs:
           }
 
           $config = New-PesterConfiguration
-          $config.Run.Path                = '.github/tests/CI-Smoke.Tests.ps1'
+          $config.Run.Path                = @(
+            '.github/tests/CI-Smoke.Tests.ps1',
+            '.github/tests/Unit/Tools.Contract.Tests.ps1'
+          )
           $config.Run.PassThru            = $true
           $config.Output.Verbosity        = 'Detailed'
           $config.TestResult.Enabled      = $true
