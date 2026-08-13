@@ -1,0 +1,166 @@
+# =============================================================================
+# WinToolkit — Create Pre-Release V 4.0
+# =============================================================================
+# Workflow manuale per la creazione di release ufficiali.
+#
+# Trigger: workflow_dispatch (solo manuale)
+#
+# Vincoli di sicurezza:
+#   • Eseguibile SOLO sul branch Dev (fallisce immediatamente altrove)
+#   • Eseguibile SOLO dall'utente MagnetarMan
+#
+# Flusso:
+#   Job 0 — validate:    Verifica branch e attore (ubuntu, veloce)
+#   Job 1 — versioning:  Bump build number nel template, commit su Dev
+#   Job 2 — build:       Compilazione WinToolkit.ps1 dal template aggiornato
+#   Job 3 — release:     Note di rilascio e Pre-Release su GitHub
+#
+# RUNTIME: PowerShell 7+ (pwsh) — windows-latest; ubuntu-latest per check rapidi.
+# =============================================================================
+
+name: WinToolkit — Create Pre-Release V4.0
+
+on:
+  workflow_dispatch:
+
+env:
+  # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: create-release
+  cancel-in-progress: false
+
+jobs:
+  # ===========================================================================
+  # JOB 0: VALIDATE — Controlli di sicurezza
+  # Fallisce immediatamente se repo != Magnetarman/WinToolkit, branch != Dev
+  # o actor != MagnetarMan.
+  # Gira su ubuntu-latest per velocità (nessuna dipendenza PS).
+  # ===========================================================================
+  validate:
+    name: Security Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verifica Branch
+        run: |
+          if [ "${{ github.ref_name }}" != "Dev" ]; then
+            echo "::error::Questo workflow può essere eseguito solo sul branch Dev. Branch corrente: ${{ github.ref_name }}"
+            exit 1
+          fi
+          echo "Branch: Dev ✓"
+
+      - name: Verifica Repository Ufficiale
+        run: |
+          if [ "${{ github.repository }}" != "Magnetarman/WinToolkit" ]; then
+            echo "::error::Azione non consentita: questo workflow manuale è supportato solo nella repository ufficiale https://github.com/Magnetarman/WinToolkit/. Repository corrente: ${{ github.repository }}"
+            exit 1
+          fi
+          echo "Repository ufficiale verificata ✓"
+
+      - name: Verifica Attore
+        run: |
+          if [ "${GITHUB_ACTOR,,}" != "magnetarman" ]; then
+            echo "::error::Azione non consentita: questo workflow manuale è supportato solo per il maintainer @Magnetarman nella repository ufficiale. Attore corrente: ${{ github.actor }}"
+            exit 1
+          fi
+          echo "Attore: MagnetarMan ✓"
+
+  # ===========================================================================
+  # JOB 1: VERSIONING — Bump build number e commit su Dev
+  # ===========================================================================
+  versioning:
+    name: Versioning (Bump)
+    needs: validate
+    if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
+    uses: ./.github/workflows/_reusable-versioning.yml
+    with:
+      target-branch: Dev
+      sync-github: true
+      commit-message: "🆙 Bump versione e Sync .github"
+    secrets: inherit
+
+  # ===========================================================================
+  # JOB 2: BUILD — Reusable Workflow
+  # ===========================================================================
+  build:
+    name: Build
+    needs: versioning
+    if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
+    uses: ./.github/workflows/_reusable-build-wintoolkit.yml
+    with:
+      branch: Dev
+      version: ${{ needs.versioning.outputs.new_version }}
+      commit-message: "✅ Compilato WinToolkit v${{ needs.versioning.outputs.new_version }}"
+    secrets: inherit
+
+  build-start:
+    name: Build start-core.ps1
+    needs: versioning
+    if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
+    uses: ./.github/workflows/_reusable-build-start.yml
+    with:
+      branch: Dev
+      version: ${{ needs.versioning.outputs.new_version }}
+      commit-message: "✅ Compilato start-core.ps1 v${{ needs.versioning.outputs.new_version }}"
+    secrets: inherit
+
+  # ===========================================================================
+  # JOB 3: RELEASE — Note di rilascio e Pre-Release su GitHub
+  # PR/Issue incluse (MagnetarMan NON escluso, solo bot automatici esclusi).
+  # Categorizza in: Features, Bug Fixes, Enhancement, Changes.
+  # ===========================================================================
+  release:
+    name: Release
+    runs-on: windows-latest
+    needs: [versioning, build, build-start]
+    if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: Dev
+
+      - name: Extract PRs and Generate Notes
+        id: notes
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          & .github/scripts/New-ReleaseNotes.ps1 `
+            -Version          "${{ needs.versioning.outputs.new_version }}" `
+            -SourceKB         "${{ needs.build.outputs.source_kb }}" `
+            -OutputKB         "${{ needs.build.outputs.output_kb }}" `
+            -ReductionPercent "${{ needs.build.outputs.reduction_percent }}" `
+            -LinesRemoved     "${{ needs.build.outputs.lines_removed }}"
+
+      - name: Create Pre-Release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ needs.versioning.outputs.new_version }}"
+          if (-not $version -or $version -eq '') {
+            Write-Host "::error::La versione della release è vuota. Verificare l'output del job versioning."
+            exit 1
+          }
+          $tag = "v$version" -replace ' \(', '-' -replace '\)', '' -replace ' ', ''
+          Write-Host "Creazione pre-release: '$version' -> tag '$tag'"
+          gh release create $tag "WinToolkit.ps1" "start-core.ps1" `
+            --title "WinToolkit $tag (Pre-Release)" `
+            --notes-file release_body.md `
+            --prerelease `
+            --target Dev
