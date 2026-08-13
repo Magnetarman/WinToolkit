@@ -242,8 +242,7 @@ Contains third-party executables and tools used by the toolkit. These files are 
 
 | File                      | Role                                                            |
 | ------------------------- | --------------------------------------------------------------- |
-| `WinToolkit-template.ps1`  | Base template and single source of truth for `$ToolkitVersion`   |
-| `WinToolkit-template.ps1` | Base template with core functions, logging, and UI (MODIFIABLE) |
+| `WinToolkit-template.ps1` | Base template with core functions, logging, and UI; single source of truth for `$ToolkitVersion` (MODIFIABLE) |
 | `WinToolkit.ps1`          | Final compiled distributable file (AUTO-GENERATED)              |
 | `compiler.ps1`            | Official build system with tokenizer and safe minification      |
 | `WinToolkit_GUI.ps1`      | WPF graphical interface version                                 |
