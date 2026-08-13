@@ -31,9 +31,9 @@ BeforeAll {
     Initialize-SourceTextLocalization -LanguageCode 'en-US'
 }
 
-Describe 'Repair-Winget — orchestratore livelli (§3.1)' {
+Describe 'Repair-Winget — level orchestrator (§3.1)' {
 
-    It 'SourceReset invoca solo Reset-WingetSources' {
+    It 'SourceReset invokes only Reset-WingetSources' {
         Mock Reset-WingetSources {}
         Mock Repair-WingetMsStoreSource {}
         Mock Repair-AppInstaller { return [pscustomobject]@{ Success = $true } }
@@ -48,7 +48,7 @@ Describe 'Repair-Winget — orchestratore livelli (§3.1)' {
         Should -Invoke Install-WingetPackage -Times 0
     }
 
-    It 'MsStoreCert invoca solo Repair-WingetMsStoreSource' {
+    It 'MsStoreCert invokes only Repair-WingetMsStoreSource' {
         Mock Reset-WingetSources {}
         Mock Repair-WingetMsStoreSource {}
         Mock Repair-AppInstaller { return [pscustomobject]@{ Success = $true } }
@@ -61,7 +61,7 @@ Describe 'Repair-Winget — orchestratore livelli (§3.1)' {
         Should -Invoke Reset-WingetSources -Times 0
     }
 
-    It 'AppxReset delega a Repair-AppInstaller' {
+    It 'AppxReset delegates to Repair-AppInstaller' {
         Mock Reset-WingetSources {}
         Mock Repair-WingetMsStoreSource {}
         Mock Repair-AppInstaller { return [pscustomobject]@{ Success = $true } }
@@ -73,20 +73,20 @@ Describe 'Repair-Winget — orchestratore livelli (§3.1)' {
         Should -Invoke Repair-AppInstaller -Times 1
     }
 
-    It 'solleva se il livello non è supportato' {
+    It 'throws when the level is not supported' {
         Mock Reset-WingetSources {}
         { Repair-Winget -Level 'UnsupportedLevelXYZ' } | Should -Throw
     }
 }
 
-Describe 'Test-WingetCompatibility — build minimo (§2.5)' {
+Describe 'Test-WingetCompatibility — minimum build (§2.5)' {
 
-    It 'applica la soglia minima 17763 (Windows 10 1809) nel sorgente' {
+    It 'enforces the minimum threshold 17763 (Windows 10 1809) in the source' {
         $source = Get-Content -Raw (Join-Path $moduleRoot '40-Module.Winget.ps1')
         $source | Should -Match '\$build -lt 17763'
     }
 
-    It 'ritorna $true sulla build corrente (>= 17763)' {
+    It 'returns $true on the current build (>= 17763)' {
         Mock Write-StyledMessage {}
         Test-WingetCompatibility | Should -BeTrue
     }
