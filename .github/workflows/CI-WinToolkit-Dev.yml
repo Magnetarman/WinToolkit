@@ -377,7 +377,7 @@ jobs:
     uses: ./.github/workflows/_reusable-build-wintoolkit.yml
     with:
       branch: ${{ github.ref_name }}
-      commit-message: "✅ Compilato WinToolkit"
+      commit-message: "✅ Build WinToolkit"
     secrets: inherit
 
   # ===========================================================================
@@ -394,5 +394,5 @@ jobs:
     uses: ./.github/workflows/_reusable-build-start.yml
     with:
       branch: ${{ github.ref_name }}
-      commit-message: "✅ Compilato start-core.ps1"
+      commit-message: "✅ Build start-core.ps1"
     secrets: inherit
