@@ -99,6 +99,17 @@ jobs:
       commit-message: "✅ Compilato WinToolkit v${{ needs.versioning.outputs.new_version }}"
     secrets: inherit
 
+  build-start:
+    name: Build start-core.ps1
+    needs: versioning
+    if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
+    uses: ./.github/workflows/_reusable-build-start.yml
+    with:
+      branch: Dev
+      version: ${{ needs.versioning.outputs.new_version }}
+      commit-message: "✅ Compilato start-core.ps1 v${{ needs.versioning.outputs.new_version }}"
+    secrets: inherit
+
   # ===========================================================================
   # JOB 3: RELEASE — Note di rilascio e Pre-Release su GitHub
   # PR/Issue incluse (MagnetarMan NON escluso, solo bot automatici esclusi).
@@ -107,7 +118,7 @@ jobs:
   release:
     name: Release
     runs-on: windows-latest
-    needs: [versioning, build]
+    needs: [versioning, build, build-start]
     if: github.actor == 'MagnetarMan' || github.actor == 'Magnetarman'
     permissions:
       contents: write
@@ -148,7 +159,7 @@ jobs:
           }
           $tag = "v$version" -replace ' \(', '-' -replace '\)', '' -replace ' ', ''
           Write-Host "Creazione pre-release: '$version' -> tag '$tag'"
-          gh release create $tag "WinToolkit.ps1" `
+          gh release create $tag "WinToolkit.ps1" "start-core.ps1" `
             --title "WinToolkit $tag (Pre-Release)" `
             --notes-file release_body.md `
             --prerelease `
