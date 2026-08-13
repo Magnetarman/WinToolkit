@@ -163,17 +163,16 @@ WinToolkit/
 │   ├── WinRepairToolkit.ps1              # System repair tools (SFC/DISM)
 │   └── WinUpdateReset.ps1                # Windows Update reset
 │
-├── version.json                          # Single source of truth for version
 ├── .gitignore                            # Files ignored by Git
 ├── CHANGELOG.md                          # Change history
 ├── compiler.ps1                          # Modular build system
 ├── LICENSE                               # MIT License
 ├── README.md                             # Main documentation
-├── start-offline.ps1                     # Offline mode startup
-├── start.ps1                             # Official startup script
+├── start.ps1                             # Official launcher stub (ASCII-only)
+├── start-core.ps1                        # Compiled launcher core (DO NOT MODIFY)
 ├── TODO.md                               # Tasks and future development
 ├── WinToolkit_GUI.ps1                    # WPF graphical interface version
-├── WinToolkit-template.ps1               # Base template with core functions
+├── WinToolkit-template.ps1               # Base template with core functions ($ToolkitVersion source of truth)
 └── WinToolkit.ps1                        # Final compiled file (DO NOT MODIFY)
 ```
 
@@ -249,7 +248,7 @@ Contains third-party executables and tools used by the toolkit. These files are 
 | `compiler.ps1`            | Official build system with tokenizer and safe minification      |
 | `WinToolkit_GUI.ps1`      | WPF graphical interface version                                 |
 | `start.ps1`               | Official entry point for one-liner distribution                 |
-| `start-offline.ps1`       | Startup mode without internet connection                        |
+| `start-core.ps1`          | Compiled launcher core from `start-modules/` (AUTO-GENERATED)    |
 | `TODO.md`                 | Tasks and future development                                    |
 
 ---
@@ -282,11 +281,13 @@ Triggers are limited to files:
 
 - `tools/*.ps1`
 - `WinToolkit-template.ps1`
+- `WinToolkit_GUI.ps1`
 - `compiler.ps1`
-- `start-offline.ps1`
 - `start.ps1`
+- `start-modules/*.ps1`
 - `.github/workflows/*.yml`
-- `.github/tests/*.ps1`
+- `.github/actions/**`
+- `.github/tests/**/*.ps1`
 - `.github/scripts/*.ps1`
 
 #### 🛡️ PR Security Guard — Three-Level Policy
@@ -295,8 +296,8 @@ Every PR to Dev is automatically analyzed by a three-level security system:
 
 **Level 1 — Allowed (silent)**
 
-- Files in `tools/*`
-- `WinToolkit.ps1` (maintainers only)
+- Files in `tools/*` and `start-modules/*`
+- `WinToolkit.ps1` and `start-core.ps1` (maintainers only)
 - ✅ PR proceeds normally without intervention
 
 **Level 2 — Allowed with Warning (manual review)**
@@ -306,11 +307,11 @@ Every PR to Dev is automatically analyzed by a three-level security system:
 
 **Level 3 — Protected (full block)**
 
-- All other files (`.github/**`, `compiler.ps1`, etc.)
+- All other files (`.github/**`, `compiler.ps1`, build artifacts, etc.)
 - ⛔ PR closed automatically with access denied comment
 
 > [!WARNING]
-> **Rule for external contributors**: You can propose changes **exclusively** to modules in the `tools/` folder. For changes to core files (compiler, CI/CD workflows, build scripts), open an **Issue** describing the proposal.
+> **Rule for external contributors**: You can propose changes **exclusively** to modules in the `tools/` and `start-modules/` folders. For changes to core files (compiler, CI/CD workflows, build scripts), open an **Issue** describing the proposal.
 
 #### 📋 Setup Steps
 
