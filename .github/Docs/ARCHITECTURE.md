@@ -109,7 +109,7 @@ Framework functions (UI, logging, configuration) are defined in `WinToolkit-temp
 
 ## CI/CD Pipeline
 
-### `CI_UpdateWinToolkit_Dev.yml` — Dev Pipeline
+### `CI-WinToolkit-Dev.yml` — Dev Pipeline
 
 Triggered on push and PR to `Dev/*`.
 
@@ -133,7 +133,7 @@ The `pr_security_guard` job applies a 3-level check:
 - Sensitive files (`.github/scripts/`, workflows) — generates warnings, requires maintainer review
 - Core files (`WinToolkit-template.ps1`, `compiler.ps1`) — blocked for non-maintainers
 
-### `Create_Release.yml` — Release Creation
+### `Release-PreRelease.yml` — Release Creation
 
 Generates release notes from the CHANGELOG and prepares assets for distribution.
 
