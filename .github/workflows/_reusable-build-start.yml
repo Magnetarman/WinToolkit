@@ -62,7 +62,7 @@ jobs:
           if (-not $version) {
             $header = Get-Content -Raw -LiteralPath 'start-modules/00-Skeleton.Header.ps1' -Encoding UTF8
             if ($env:BUILD_BRANCH -ne 'Dev') {
-              $version = 'Sviluppo in Corso'
+              $version = 'Work In Progress'
             } elseif ($header -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
               $version = $Matches[1]
             } else {
