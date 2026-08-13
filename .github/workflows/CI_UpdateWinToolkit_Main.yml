@@ -73,7 +73,7 @@ jobs:
       - name: Verify Official Repository and Maintainer
         run: |
           if [ "${{ github.repository }}" != "Magnetarman/WinToolkit" ]; then
-            echo "::error::Azione non consentita: CI_UpdateWinToolkit_Main è supportata solo nella repository ufficiale https://github.com/Magnetarman/WinToolkit/. Repository corrente: ${{ github[...]
+            echo "::error::Azione non consentita: CI_UpdateWinToolkit_Main è supportata solo nella repository ufficiale https://github.com/Magnetarman/WinToolkit/. Repository corrente: ${{ github.repository }}"
             exit 1
           fi
           if [ "${GITHUB_ACTOR,,}" != "magnetarman" ]; then
