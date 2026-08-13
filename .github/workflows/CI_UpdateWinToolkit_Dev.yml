@@ -81,14 +81,14 @@ jobs:
   # JOB 0: PR SECURITY GUARD — Politica a tre livelli
   #
   # Livello 1 — Consentiti (silenzioso)
-  #   tools/*
+  #   tools/* | start-modules/*
   #
   # Livello 2 — Consentiti con Warning (revisione manuale richiesta)
   #   start.ps1 | WinToolkit_GUI.ps1 | WinToolkit-template.ps1 | assets/*
   #   → Commento di avviso, PR rimane aperta, job non fallisce.
   #
   # Livello 3 — Protetti (blocco totale)
-  #   Qualsiasi altro file (compiler.ps1, .github/**, ecc.)
+  #   Qualsiasi altro file (compiler.ps1, .github/**, artefatti compilati, ecc.)
   #   → Commento accesso negato, PR chiusa automaticamente, job fallisce.
   #
   # Gira solo su eventi pull_request verso Dev.
@@ -123,9 +123,13 @@ jobs:
 
             // ── CLASSIFICAZIONE DEI FILE ──────────────────────────────────
             //
-            // Livello 1: tools/* → sempre consentiti, nessuna azione.
+            // Livello 1: tools/*, start-modules/* → consentiti, nessuna azione.
             // Livello 2: file sensibili noti + assets/* → accettati, warning.
             // Livello 3: tutto il resto → blocco totale (salvo maintainer).
+            //
+            // Gli artefatti compilati (WinToolkit.ps1, start-core.ps1) sono
+            // generati dalla CI: per il maintainer sono silenziosi (Livello 1),
+            // per gli altri restano protetti (Livello 3).
 
             const SENSITIVE_FILES = new Set([
               'start.ps1',
@@ -133,11 +137,17 @@ jobs:
               'WinToolkit-template.ps1',
             ]);
 
+            const BUILD_ARTIFACTS = new Set([
+              'WinToolkit.ps1',
+              'start-core.ps1',
+            ]);
+
             function classifyFile(filename) {
-              if (filename.startsWith('tools/'))       return 1; // consentito
-              if (SENSITIVE_FILES.has(filename))       return 2; // sensibile
-              if (filename.startsWith('assets/'))      return 2; // sensibile
-              return 3;                                           // protetto
+              if (filename.startsWith('tools/'))         return 1; // consentito
+              if (filename.startsWith('start-modules/')) return 1; // consentito
+              if (SENSITIVE_FILES.has(filename))         return 2; // sensibile
+              if (filename.startsWith('assets/'))        return 2; // sensibile
+              return 3;                                            // protetto
             }
 
             let level2Files = files.filter(f => classifyFile(f.filename) === 2);
@@ -151,13 +161,13 @@ jobs:
               level3Files = [];
             }
 
-            // ── ESCLUSIONE WinToolkit.ps1 PER IL MAINTAINER ───────────────
-            // WinToolkit.ps1 è l'output compilato dalla CI stessa: per
-            // MagnetarMan non richiede revisione manuale ed è trattato come
-            // Livello 1 (silenzioso). Per tutti gli altri collaboratori il
-            // comportamento rimane invariato (Livello 3 → blocco).
+            // ── ESCLUSIONE ARTEFATTI COMPILATI PER IL MAINTAINER ──────────
+            // WinToolkit.ps1 e start-core.ps1 sono output compilati dalla CI
+            // stessa: per MagnetarMan non richiedono revisione manuale e sono
+            // trattati come Livello 1 (silenzioso). Per tutti gli altri
+            // collaboratori il comportamento rimane invariato (Livello 3 → blocco).
             if (isMaintainer) {
-              level2Files = level2Files.filter(f => f.filename !== 'WinToolkit.ps1');
+              level2Files = level2Files.filter(f => !BUILD_ARTIFACTS.has(f.filename));
             }
 
             // ── LIVELLO 3: BLOCCO TOTALE ──────────────────────────────────
