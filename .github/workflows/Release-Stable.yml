@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit Enterprise CI/CD Pipeline — Release Automation V 3.3.1
+# WinToolkit CI/CD Pipeline — Stable Release Automation V 4.0
 # =============================================================================
 # Questa pipeline gestisce la preparazione e la generazione dei branch di rilascio.
 #
@@ -12,7 +12,7 @@
 # RUNTIME: PowerShell 7+ (pwsh) su windows-latest
 # =============================================================================
 
-name: WinToolkit — Create Stable Release
+name: WinToolkit — Create Stable Release V4.0
 
 on:
   workflow_dispatch:
