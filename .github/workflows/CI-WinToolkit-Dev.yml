@@ -214,41 +214,41 @@ jobs:
                 state: 'closed',
               });
               core.setFailed(
-                `PR #${prNumber} chiusa: contiene modifiche a ${level3Files.length} file protetti fuori da /tools e /start-modules.`
+                `PR #${prNumber} closed: it contains changes to ${level3Files.length} protected file(s) outside /tools and /start-modules.`
               );
               return;
             }
 
-            // ── LIVELLO 2: WARNING (PR rimane aperta) ─────────────────────
+            // -- LEVEL 2: WARNING (PR stays open) ------------------------
             if (level2Files.length > 0) {
               const fileList = level2Files.map(f => `- \`${f.filename}\``).join('\n');
 
               const warningMessage = [
-                `## 👀 Attenzione — Revisione Manuale Richiesta`,
+                `## 👀 Heads Up — Manual Review Required`,
                 ``,
-                `Ciao @${author},`,
-                `grazie per il tuo contributo! Questa PR è stata **accettata** e può procedere normalmente nel flusso di revisione.`,
+                `Hi @${author},`,
+                `thanks for your contribution! This PR was **accepted** and can proceed normally through the review flow.`,
                 ``,
-                `Tuttavia, il sistema di controllo automatico ha rilevato che sono stati modificati uno o più file **sensibili** di WinToolkit, che influenzano l'interfaccia utente, il template principale o le risorse statiche del progetto:`,
+                `However, the automated check detected that one or more **sensitive** WinToolkit files were modified, which affect the user interface, the main template or the project's static resources:`,
                 ``,
-                `### File sensibili modificati`,
+                `### Sensitive files modified`,
                 ``,
                 fileList,
                 ``,
-                `### Perché questo avviso?`,
+                `### Why this notice?`,
                 ``,
-                `Questi file non sono bloccati per i collaboratori, ma richiedono una **verifica supplementare** da parte del maintainer prima del merge, poiché modifiche non previste potrebbero:`,
+                `These files are not blocked for contributors, but they require **additional verification** by the maintainer before merging, because unexpected changes could:`,
                 ``,
-                `- Alterare il comportamento dell'interfaccia (\`WinToolkit_GUI.ps1\`, \`start.ps1\`)`,
-                `- Impattare la compilazione o le funzioni core del framework (\`WinToolkit-template.ps1\`)`,
-                `- Introdurre risorse non verificate nella distribuzione (\`assets/\`)`,
+                `- Alter the interface behaviour (\`WinToolkit_GUI.ps1\`, \`start.ps1\`)`,
+                `- Impact compilation or the framework core functions (\`WinToolkit-template.ps1\`)`,
+                `- Introduce unverified resources into the distribution (\`assets/\`)`,
                 ``,
-                `### Prossimi passi`,
+                `### Next steps`,
                 ``,
-                `Non è richiesta alcuna azione da parte tua. Il maintainer esaminerà le modifiche con maggiore attenzione prima di procedere al merge.`,
+                `No action is required from you. The maintainer will review the changes with extra care before merging.`,
                 ``,
                 `---`,
-                `*Notifica automatica del sistema CI/CD di WinToolkit — PR #${prNumber}.*`,
+                `*Automated notification from the WinToolkit CI/CD system — PR #${prNumber}.*`,
               ].join('\n');
 
               await github.rest.issues.createComment({
@@ -258,10 +258,10 @@ jobs:
                 body: warningMessage,
               });
 
-              // Avviso visibile nei log di Actions senza fallire il job
+              // Visible notice in the Actions log without failing the job
               core.notice(
-                `PR #${prNumber}: ${level2Files.length} file sensibili modificati ` +
-                `(${level2Files.map(f => f.filename).join(', ')}) — revisione manuale consigliata.`
+                `PR #${prNumber}: ${level2Files.length} sensitive file(s) modified ` +
+                `(${level2Files.map(f => f.filename).join(', ')}) — manual review recommended.`
               );
             }
 
