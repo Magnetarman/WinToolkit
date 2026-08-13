@@ -1,4 +1,5 @@
-name: Reusable versioning
+# WinToolkit CI/CD Pipeline V 4.0 — Reusable versioning
+name: WinToolkit V4.0 — Reusable versioning
 
 on:
   workflow_call:
