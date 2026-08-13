@@ -17,7 +17,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [string]$TemplatePath = "WinToolkit-template.ps1"
+    [string]$TemplatePath = "WinToolkit-template.ps1",
+
+    [Parameter(Mandatory = $false)]
+    [string]$StartHeaderPath = "start-modules/00-Skeleton.Header.ps1"
 )
 
 # --- PowerShell Best Practices ---
@@ -28,6 +31,7 @@ $ErrorActionPreference = 'Stop'
 $script:NewVersion = $null
 $script:BuildNumber = $null
 $script:OldVersion = $null
+$script:AlignedSources = @()
 
 function Write-StatusMessage {
     param(
@@ -91,6 +95,22 @@ try {
             $content | Set-Content -Path $tempPath -Encoding UTF8
             Move-Item $tempPath $TemplatePath -Force
 
+            if (Test-Path -LiteralPath $StartHeaderPath) {
+                $startContent = Get-Content -Raw -LiteralPath $StartHeaderPath
+                if ($startContent -match $versionPattern) {
+                    $startVersion = $matches[1]
+                    if ($startVersion -ne $script:NewVersion) {
+                        Write-StatusMessage -Message "⚠️ Aligning ${StartHeaderPath}: '$startVersion' → '$script:NewVersion'" -Type Warning
+                        $startLine = "`$ToolkitVersion = `"$script:NewVersion`""
+                        $startContent = $startContent -replace $versionPattern, $startLine
+                        $startTempPath = "$StartHeaderPath.tmp"
+                        $startContent | Set-Content -LiteralPath $startTempPath -Encoding UTF8
+                        Move-Item -LiteralPath $startTempPath -Destination $StartHeaderPath -Force
+                        $script:AlignedSources += $StartHeaderPath
+                    }
+                }
+            }
+
             Write-StatusMessage -Message "✅ Version incremented successfully" -Type Success
         }
         else {
@@ -107,6 +127,7 @@ try {
     Write-Output "new_version=$script:NewVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "build_number=$script:BuildNumber" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "old_version=$script:OldVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+    Write-Output "aligned_sources=$($script:AlignedSources -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
     Write-StatusMessage -Message "========================================" -Type Info
     Write-StatusMessage -Message "  COMPLETE" -Type Info

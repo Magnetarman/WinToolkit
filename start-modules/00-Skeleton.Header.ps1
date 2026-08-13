@@ -46,7 +46,7 @@ $script:Branch = 'Dev'
 # ==============================================================================
 
 # --- HEADER CONFIGURATION (modify here to update title and version) ---
-$ToolkitVersion = "2.6.0 (Build 6)"
+$ToolkitVersion = "2.6.0 (Build 5)"
 
 # Single source of truth for repository base URLs, keyed by branch.
 # Switching $script:Branch flips every derived asset/profile/icon/start URL.

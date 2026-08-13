@@ -1,86 +1,86 @@
-name: Miglioramento Funzionalità
-description: Suggerisci un miglioramento o modifica ad una funzionalità già esistente in WinToolkit
+name: Feature Enhancement
+description: Suggest an improvement to an existing WinToolkit feature
 title: "[ENHANCEMENT]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Grazie per voler suggerire un miglioramento! Questo template è dedicato alle modifiche e ottimizzazioni di funzionalità già presenti in WinToolkit.
-        *📝 Ricorda: 1 Issue = 1 Singolo Miglioramento.*
+        Thank you for suggesting an improvement. This template is for changes and optimizations to features already present in WinToolkit.
+        *Remember: 1 issue = 1 single improvement.*
 
   - type: checkboxes
     id: critical-checks
     attributes:
-      label: Controlli Preliminari
-      description: Assicurati di aver seguito questi passaggi prima di aprire l'issue.
+      label: Preliminary Checks
+      description: Confirm these checks before opening the issue.
       options:
-        - label: Ho controllato che non ci siano Issue già aperte per lo stesso miglioramento.
+        - label: I checked that no existing issue reports the same improvement.
           required: true
-        - label: Sto usando l'ultima versione disponibile di WinToolkit.
+        - label: I am using the latest available WinToolkit version.
           required: true
-        - label: Questa proposta è un miglioramento ad una funzionalità già esistente (non una nuova funzionalità).
+        - label: This proposal improves an existing feature rather than adding a new feature.
           required: true
 
   - type: textarea
     id: current-behavior
     attributes:
-      label: Comportamento Attuale
-      description: Descrivi come funziona attualmente la funzionalità che vorresti migliorare.
-      placeholder: Es. Attualmente la funzionalità di pulizia disco rimuove solo i file temporanei base.
+      label: Current Behavior
+      description: Describe how the feature currently works.
+      placeholder: For example, disk cleanup currently removes only basic temporary files.
     validations:
       required: true
 
   - type: textarea
     id: suggested-improvement
     attributes:
-      label: Miglioramento Proposto
-      description: Descrivi in modo chiaro cosa vorresti che venisse modificato o migliorato.
-      placeholder: Es. Vorrei che la pulizia disco includesse anche la cancellazione dei file di cache di Windows Update e dei log di sistema più vecchi di 7 giorni.
+      label: Proposed Improvement
+      description: Clearly describe what should be changed or improved.
+      placeholder: For example, include Windows Update cache files and system logs older than seven days.
     validations:
       required: true
 
   - type: textarea
     id: benefits
     attributes:
-      label: Benefici del Miglioramento
-      description: Spiega quali vantaggi porterebbe questa modifica per gli utenti di WinToolkit.
-      placeholder: Es. Questo permetterebbe di recuperare molto più spazio disco in automatico senza necessità di intervento manuale.
+      label: Benefits
+      description: Explain the benefits for WinToolkit users.
+      placeholder: This would recover more disk space automatically without manual intervention.
     validations:
       required: true
 
   - type: dropdown
     id: priority
     attributes:
-      label: Priorità
-      description: Quanto ritieni importante questo miglioramento?
+      label: Priority
+      description: How important is this improvement?
       options:
-        - Bassa (Piccola ottimizzazione, migliora l'usabilità)
-        - Media (Migliora significativamente una funzionalità esistente)
-        - Alta (Risolve una limitazione importante che impedisce l'uso completo della funzionalità)
+        - Low (small usability optimization)
+        - Medium (significantly improves an existing feature)
+        - High (removes an important limitation)
     validations:
       required: true
 
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternative Considerate
-      description: Hai pensato ad altri modi per ottenere lo stesso risultato?
+      label: Alternatives Considered
+      description: Did you consider other ways to achieve the same result?
     validations:
       required: false
 
   - type: textarea
     id: context
     attributes:
-      label: Contesto Aggiuntivo
-      description: Qualsiasi altra informazione utile (screenshot, esempi, link a risorse).
+      label: Additional Context
+      description: Add screenshots, examples or resource links.
     validations:
       required: false
 
   - type: checkboxes
     id: logic-check
     attributes:
-      label: Accordo di Contribuzione
+      label: Contribution Agreement
       options:
-        - label: Comprendo che questa proposta verrà valutata in base alla roadmap attuale del progetto.
+        - label: I understand that this proposal will be evaluated against the current project roadmap.
           required: true

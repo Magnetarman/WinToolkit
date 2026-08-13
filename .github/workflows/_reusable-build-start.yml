@@ -1,0 +1,111 @@
+# WinToolkit CI/CD Pipeline V 4.0 — Reusable start-core build
+name: WinToolkit V4.0 — Reusable start-core build
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Branch to checkout and commit start-core.ps1 to.
+        required: true
+        type: string
+      version:
+        description: Version label. Empty reads ToolkitVersion from the header on Dev.
+        required: false
+        type: string
+        default: ''
+      commit-message:
+        description: Commit message for start-core.ps1.
+        required: false
+        type: string
+        default: '✅ Build start-core.ps1'
+
+jobs:
+  build-start:
+    name: Reusable start-core build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ inputs.branch }}
+
+      - name: Remove pre-existing start-core artifact
+        uses: ./.github/actions/pre-build-cleanup
+        with:
+          artifact-path: start-core.ps1
+
+      - name: Validate start-modules syntax
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: start-modules/*.ps1
+          label: start-modules before build
+
+      - name: Validate launcher stub syntax
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: start.ps1
+          label: start.ps1 launcher stub
+
+      - name: Resolve start version
+        id: version
+        shell: pwsh
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          BUILD_BRANCH: ${{ inputs.branch }}
+        run: |
+          $version = $env:REQUESTED_VERSION
+          if (-not $version) {
+            $header = Get-Content -Raw -LiteralPath 'start-modules/00-Skeleton.Header.ps1' -Encoding UTF8
+            if ($env:BUILD_BRANCH -ne 'Dev') {
+              $version = 'Work In Progress'
+            } elseif ($header -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+              $version = $Matches[1]
+            } else {
+              Write-Host '::error::ToolkitVersion was not found in start-modules/00-Skeleton.Header.ps1.'
+              exit 1
+            }
+          }
+          "new_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build start-core.ps1
+        id: build_script
+        shell: pwsh
+        env:
+          BUILD_VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          & .github/scripts/Invoke-Build-Start.ps1 `
+            -Version $env:BUILD_VERSION `
+            -SourceDir 'start-modules' `
+            -OutputPath 'start-core.ps1'
+
+      - name: Test compiled start-core.ps1
+        id: test_compiled
+        shell: pwsh
+        run: |
+          & .github/scripts/Test-CompiledStartScript.ps1 `
+            -ScriptPath 'start-core.ps1' `
+            -SourceDir 'start-modules'
+
+      - name: Verify launcher consistency
+        shell: pwsh
+        run: |
+          $stub = Get-Content -Raw -LiteralPath 'start.ps1' -Encoding UTF8
+          if ($stub -notmatch [regex]::Escape('start-core.ps1')) {
+            Write-Host '::error file=start.ps1::Launcher does not reference start-core.ps1.'
+            exit 1
+          }
+
+      - name: Commit start-core.ps1
+        if: steps.test_compiled.outputs.tests_passed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
+        with:
+          commit_message: ${{ inputs.commit-message }}
+          file_pattern: start-core.ps1
+          branch: ${{ inputs.branch }}
+          push_options: --force-with-lease
+          skip_fetch: true

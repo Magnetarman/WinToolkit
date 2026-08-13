@@ -1,4 +1,5 @@
-name: Security Analysis (PSScriptAnalyzer)
+# WinToolkit CI/CD Pipeline — Security Scan V 4.0
+name: WinToolkit — Security Scan V4.0
 
 on:
   push:
@@ -6,12 +7,12 @@ on:
   pull_request:
     branches: [Dev]
   schedule:
-    # Ogni lunedì alle 00:00 UTC
+    # Every Monday at 00:00 UTC
     - cron: "0 0 * * 1"
 
 jobs:
   security-scan:
-    name: Analisi sicurezza PowerShell
+    name: PowerShell security analysis
     runs-on: windows-latest
 
     permissions:
@@ -22,12 +23,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Installa PSScriptAnalyzer
+      - name: Install PSScriptAnalyzer
         shell: pwsh
         run: |
           Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -MinimumVersion 1.21.0
 
-      - name: Esegui analisi sicurezza
+      - name: Run security analysis
         shell: pwsh
         run: |
           $results = Invoke-ScriptAnalyzer `
@@ -44,12 +45,12 @@ jobs:
 
           if ($results) {
             $results | Format-Table -AutoSize
-            Write-Output "::warning::Trovati $($results.Count) problemi di sicurezza."
+            Write-Output "::warning::Found $($results.Count) security issue(s)."
           } else {
-            Write-Output "Nessun problema di sicurezza rilevato."
+            Write-Output "No security issues detected."
           }
 
-      - name: Blocca su errori critici
+      - name: Fail on critical errors
         shell: pwsh
         run: |
           $errors = Invoke-ScriptAnalyzer `
@@ -63,5 +64,5 @@ jobs:
 
           if ($errors) {
             $errors | Format-Table -AutoSize
-            throw "Rilevati $($errors.Count) errori critici di sicurezza. Build bloccata."
+            throw "Detected $($errors.Count) critical security error(s). Build blocked."
           }

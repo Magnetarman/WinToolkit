@@ -1,0 +1,398 @@
+# =============================================================================
+# WinToolkit CI/CD Pipeline — Main Branch Protection V 4.0
+# =============================================================================
+# Pipeline for the 'main' branch -- stability protection and stable release management.
+#
+# FLOW:
+#   - PR opened/synchronize -> Guard + Lint/Test + Versioning Bump on Dev
+#   - PR closed (merged)    -> Stable Release on GitHub (tag + release notes)
+#
+# MAIN PROTECTION:
+#   - Hard block on external contributions -- maintainer only (@magnetarman)
+#   - Non-release/v* PRs are authorized but warned about
+#   - Linting + Testing are mandatory before merge
+#
+# STABLE RELEASE (on merge of a release/v* PR):
+#   - Reads version + metrics from the compiled WinToolkit.ps1
+#   - Generates release notes with categorized commits (New-ReleaseNotes.ps1)
+#   - Creates a GitHub Release on main with tag vX.Y.Z
+#
+# GOLDEN RULE (Integrity):
+#   WinToolkit.ps1 is always regenerated from scratch from the pure sources.
+#   The pre-existing file is removed before every compilation to prevent
+#   leftovers from previous versions or merge conflicts producing corrupt output.
+#
+# RUNTIME: GitHub Actions (ubuntu-latest & windows-latest)
+# =============================================================================
+
+name: WinToolkit — CI Main Protection V4.0
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+# ---------------------------------------------------------------------------
+# TRIGGER
+# Fires on Pull Requests targeting the 'main' branch.
+# Covered types:
+#   opened/synchronize -> guard + lint/test + versioning bump on Dev
+#   closed (merged)    -> stable release on main
+# ---------------------------------------------------------------------------
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - closed
+
+# ---------------------------------------------------------------------------
+# CONCURRENCY -- a single active run per PR
+# ---------------------------------------------------------------------------
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ---------------------------------------------------------------------------
+# JOBS
+# ---------------------------------------------------------------------------
+jobs:
+  # ===========================================================================
+  # JOB -1: OFFICIAL REPO GUARD
+  # Blocks the workflow when started outside the official repository or by
+  # users other than the maintainer.
+  # ===========================================================================
+  official_repo_guard:
+    name: Official Repository Guard
+    runs-on: ubuntu-latest
+    # Runs on every event type (opened, synchronize, closed/merged)
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    permissions:
+      contents: read
+    steps:
+      - name: Verify Official Repository and Maintainer
+        run: |
+          if [ "${{ github.repository }}" != "Magnetarman/WinToolkit" ]; then
+            echo "::error::Action not allowed: CI-WinToolkit-Main is supported only in the official repository https://github.com/Magnetarman/WinToolkit/. Current repository: ${{ github.repository }}"
+            exit 1
+          fi
+          if [ "${GITHUB_ACTOR,,}" != "magnetarman" ]; then
+            echo "::error::Action not allowed: the main branch can be synchronized only by the maintainer @Magnetarman in the official repository. Current actor: ${{ github.actor }}"
+            exit 1
+          fi
+          echo "Repository and maintainer verified ✓"
+
+  # ===========================================================================
+  # JOB 0: MAIN BRANCH GUARD -- Hard block on external contributions
+  #
+  # Automatically closes any PR toward 'main' that is not opened by the
+  # maintainer (magnetarman) or that does not come from a release/v* branch.
+  # ===========================================================================
+  main_branch_guard:
+    name: Main Branch Authorization Check
+    runs-on: ubuntu-latest
+    # Only on opened/synchronize, not on merge
+    if: github.event.action != 'closed'
+    permissions:
+      pull-requests: write
+      contents: read
+    needs: official_repo_guard
+
+    steps:
+      - name: Verify PR Author and Source Branch
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const author       = context.payload.pull_request.user.login;
+            const prNumber     = context.issue.number;
+            const headBranch   = context.payload.pull_request.head.ref;
+            const isMaintainer = (author.toLowerCase() === 'magnetarman');
+            const isReleaseBranch = headBranch.startsWith('release/v');
+
+            if (!isMaintainer) {
+              const blockedMessage = [
+                `## ⛔ Access Denied — Pull Request Closed Automatically`,
+                ``,
+                `Hi @${author},`,
+                `thanks for your interest in WinToolkit!`,
+                ``,
+                `Unfortunately this Pull Request was **closed automatically** because it targets the \`main\` branch directly.`,
+                ``,
+                `### Contribution Rules`,
+                ``,
+                `- The \`main\` branch is **strictly protected** and is reserved exclusively for the official, stable project releases managed by the maintainer.`,
+                `- All external contributions, new features and bug fixes must be proposed through a Pull Request toward the \`Dev\` development branch.`,
+                `- Remember that external contributors may propose changes **exclusively** to the modules inside the \`tools/\` and \`start-modules/\` directories.`,
+                ``,
+                `### How to proceed`,
+                ``,
+                `1. **Close** this PR if it is not already closed.`,
+                `2. **Open a new Pull Request** selecting the \`Dev\` branch as the base (Target Branch).`,
+                `3. Make sure your changes are limited exclusively to files under \`tools/\` or \`start-modules/\`.`,
+                ``,
+                `Thanks for your cooperation!`,
+                ``,
+                `---`,
+                `*Automated message from the WinToolkit protection system — PR #${prNumber}.*`,
+              ].join('\n');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: blockedMessage,
+              });
+
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                state: 'closed',
+              });
+
+              core.setFailed(
+                `PR #${prNumber} closed automatically: user @${author} is not authorized to open PRs directly against 'main'.`
+              );
+            } else if (!isReleaseBranch) {
+              core.warning(
+                `PR #${prNumber} authorized (maintainer), but source branch '${headBranch}' does not follow the release/v* convention. Proceeding anyway.`
+              );
+            } else {
+              core.info(`PR #${prNumber} authorized: maintainer (@${author}), release/v* branch compliant ✓`);
+            }
+
+  # ===========================================================================
+  # JOB DETECT_CHANGES -- Differential detection per source family
+  # Same logic as CI-WinToolkit-Dev.yml (single source of truth for the patterns).
+  # ===========================================================================
+  detect_changes:
+    name: Detect Source Changes
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    needs: main_branch_guard
+    outputs:
+      run_checks: ${{ steps.filter.outputs.run_checks }}
+      wintoolkit_changed: ${{ steps.filter.outputs.wintoolkit_changed }}
+      start_changed: ${{ steps.filter.outputs.start_changed }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes per source family
+        id: filter
+        run: |
+          CHANGED=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+          echo "Files changed in the PR:"
+          echo "$CHANGED"
+
+          # --- Per-family patterns --------------------------------------------
+          WT_PATTERN='^(tools/[^/]+\.ps1|WinToolkit-template\.ps1|WinToolkit_GUI\.ps1|compiler\.ps1)$'
+          ST_PATTERN='^(start\.ps1|start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1|\.github/scripts/(Invoke-Build-Start|Test-CompiledStartScript)\.ps1)$'
+          SHARED_PATTERN='^\.github/(tests/.*\.ps1|scripts/[^/]+\.ps1|actions/.+)$'
+
+          WT_CHANGED=false
+          ST_CHANGED=false
+
+          if echo "$CHANGED" | grep -qE "$WT_PATTERN"; then WT_CHANGED=true; fi
+          if echo "$CHANGED" | grep -qE "$ST_PATTERN"; then ST_CHANGED=true; fi
+
+          # Shared CI files activate both families of checks.
+          if echo "$CHANGED" | grep -qE "$SHARED_PATTERN"; then
+            WT_CHANGED=true
+            ST_CHANGED=true
+          fi
+
+          if [ "$WT_CHANGED" = "true" ] || [ "$ST_CHANGED" = "true" ]; then
+            RUN_CHECKS=true
+          else
+            RUN_CHECKS=false
+          fi
+
+          {
+            echo "run_checks=$RUN_CHECKS"
+            echo "wintoolkit_changed=$WT_CHANGED"
+            echo "start_changed=$ST_CHANGED"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "run_checks=$RUN_CHECKS wintoolkit_changed=$WT_CHANGED start_changed=$ST_CHANGED"
+
+  # ===========================================================================
+  # JOB 1: REUSABLE QUALITY GATE -- Linting and testing
+  # ===========================================================================
+  quality:
+    name: Lint and test
+    if: github.event.action != 'closed'
+    needs: detect_changes
+    uses: ./.github/workflows/_reusable-lint-test.yml
+    with:
+      run-checks: ${{ needs.detect_changes.outputs.run_checks == 'true' }}
+      validate-template: ${{ needs.detect_changes.outputs.wintoolkit_changed == 'true' }}
+      validate-start: ${{ needs.detect_changes.outputs.start_changed == 'true' }}
+      run-integration-tests: true
+    permissions:
+      contents: read
+
+  # ===========================================================================
+  # JOB 2: VERSIONING BUMP -- On every commit/push to an open release/v* PR
+  #
+  # Runs after the quality gate (or after main_branch_guard when checks are skipped).
+  # Bumps the build number on Dev through Update-Version.ps1, validates syntax
+  # and commits the updated WinToolkit-template.ps1 on Dev.
+  # It does NOT act on the release/v* branch, it only modifies Dev.
+  # ===========================================================================
+  versioning_bump:
+    name: Versioning Bump on Dev
+    # Runs only on open PRs (opened/synchronize), not on merge
+    if: |
+      always() &&
+      github.event.action != 'closed' &&
+      startsWith(github.head_ref, 'release/v') &&
+      (needs.quality.result == 'success' || needs.quality.result == 'skipped')
+    # The quality gate is parameterized: it can end up skipped when no source
+    # files changed, without blocking the release versioning.
+    needs: [detect_changes, quality]
+    uses: ./.github/workflows/_reusable-versioning.yml
+    with:
+      target-branch: Dev
+      commit-message: "🆙 [CI] Bump build number — PR ${{ github.event.pull_request.number }}"
+    secrets: inherit
+
+  # ===========================================================================
+  # JOB 4: STABLE RELEASE -- On merge of the release/v* PR into main
+  #
+  # Triggered by: pull_request closed + merged == true + release/v* branch
+  # Flow:
+  #   1. Checkout main (just updated by the merge)
+  #   2. Read metrics from the compiled WinToolkit.ps1
+  #   3. Call New-ReleaseNotes.ps1
+  #   4. Create a stable GitHub release with tag vX.Y.Z targeting main
+  #      (no extra branch -- only a tag on the merge commit)
+  # ===========================================================================
+  stable_release:
+    name: Stable Release on Merge
+    runs-on: windows-latest
+    if: |
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'release/v')
+    needs: official_repo_guard
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: main
+
+      - name: Extract Version and Metrics from WinToolkit.ps1
+        id: metrics
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "WinToolkit.ps1")) {
+            Write-Host "::error::WinToolkit.ps1 not found on main after the merge."
+            exit 1
+          }
+
+          # Extract version
+          $versionLine = Get-Content -Path 'WinToolkit.ps1' | Select-String -Pattern '\$ToolkitVersion\s*=\s*"(.*?)\s*\(Build'
+          if (-not $versionLine) {
+            Write-Host "::error::Unable to extract the version from WinToolkit.ps1."
+            exit 1
+          }
+          $version = $versionLine.Matches[0].Groups[1].Value.Trim()
+          Write-Host "Detected version: $version"
+
+          # Size metrics
+          $outputKB = [math]::Round((Get-Item "WinToolkit.ps1").Length / 1KB, 2)
+
+          # Count total lines in the compiled artifact
+          $totalLines = (Get-Content "WinToolkit.ps1").Count
+
+          # Estimate source lines by summing tools/*.ps1 + template
+          $sourceLines = 0
+          Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
+            $sourceLines += (Get-Content $_.FullName).Count
+          }
+          if (Test-Path "WinToolkit-template.ps1") {
+            $sourceLines += (Get-Content "WinToolkit-template.ps1").Count
+          }
+          $linesRemoved = [math]::Max(0, $sourceLines - $totalLines)
+
+          # Estimate source size in KB
+          $sourceBytes = 0
+          Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
+            $sourceBytes += $_.Length
+          }
+          if (Test-Path "WinToolkit-template.ps1") {
+            $sourceBytes += (Get-Item "WinToolkit-template.ps1").Length
+          }
+          $sourceKB = [math]::Round($sourceBytes / 1KB, 2)
+          $reduction = if ($sourceKB -gt 0) { [math]::Round((($sourceKB - $outputKB) / $sourceKB) * 100, 1) } else { 0 }
+
+          Write-Host "Metrics: sourceKB=$sourceKB, outputKB=$outputKB, reduction=$reduction%, linesRemoved=$linesRemoved"
+
+          echo "VERSION=$version"           >> $env:GITHUB_ENV
+          echo "SOURCE_KB=$sourceKB"        >> $env:GITHUB_ENV
+          echo "OUTPUT_KB=$outputKB"        >> $env:GITHUB_ENV
+          echo "REDUCTION=$reduction"       >> $env:GITHUB_ENV
+          echo "LINES_REMOVED=$linesRemoved" >> $env:GITHUB_ENV
+
+      - name: Generate Release Notes
+        id: notes
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          & .github/scripts/New-ReleaseNotes.ps1 `
+            -Version          "${{ env.VERSION }}" `
+            -SourceKB         "${{ env.SOURCE_KB }}" `
+            -OutputKB         "${{ env.OUTPUT_KB }}" `
+            -ReductionPercent "${{ env.REDUCTION }}" `
+            -LinesRemoved     "${{ env.LINES_REMOVED }}"
+
+      - name: Create Stable Release on GitHub
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ env.VERSION }}"
+          if (-not $version -or $version -eq '') {
+            Write-Host "::error::Empty version -- cannot create the release."
+            exit 1
+          }
+
+          # Normalize tag: "2.5.3" -> "v2.5.3"
+          $tag = "v$version" -replace ' \(', '-' -replace '\)', '' -replace ' ', ''
+          Write-Host "Creating stable release: '$version' -> tag '$tag' on main"
+
+           gh release create $tag "WinToolkit.ps1" `
+             --title "WinToolkit $tag" `
+             --notes-file release_body.md `
+             --target main
+           # Note: no --prerelease -> stable release
+           # Note: release_body.md contains categorized commits (Bug Fixes, Features, etc.) + compression statistics
+           # Note: no branch created -> gh release only creates the tag on the HEAD commit of main
+
+      - name: Generate Release Summary
+        shell: pwsh
+        run: |
+          $summary = @"
+          ## Stable Release — WinToolkit v${{ env.VERSION }}
+
+          | Metric           | Value                     |
+          |------------------|---------------------------|
+          | Source size      | ${{ env.SOURCE_KB }} KB   |
+          | Final size       | ${{ env.OUTPUT_KB }} KB   |
+          | Reduction        | ${{ env.REDUCTION }}%     |
+          | Lines removed    | ${{ env.LINES_REMOVED }}  |
+
+          **Branch**: main | **Workflow**: CI-WinToolkit-Main | **Status**: Stable release published ✅
+          "@
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8

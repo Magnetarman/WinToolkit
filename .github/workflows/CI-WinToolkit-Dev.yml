@@ -1,0 +1,398 @@
+# =============================================================================
+# WinToolkit CI/CD Pipeline V 4.0
+# =============================================================================
+# Branch-adaptive pipeline:
+#   - Dev            -> Full pipeline:    lint -> test -> build (version read, no bump)
+#   - feature/fix/*  -> Light pipeline:   lint -> test -> build (label: "Work In Progress")
+#   - PR toward Dev  -> Quality gate:     lint -> test  (no build, no deploy)
+#
+# VERSIONING AND RELEASE: handled by the Release-PreRelease workflow (workflow_dispatch).
+#
+# GOLDEN RULE (Integrity):
+#   WinToolkit.ps1 is always regenerated from scratch from the pure sources.
+#   The pre-existing file is removed before every compilation to prevent
+#   leftovers from previous versions or merge conflicts producing corrupt output.
+#
+# SYNTAX: All .ps1 files are validated via AST before compilation.
+#   Errors are emitted as inline GitHub annotations (::error file=...).
+#
+# RUNTIME: PowerShell 7+ (pwsh) -- bundled with windows-latest, no extra install needed.
+# =============================================================================
+
+name: WinToolkit — CI Dev Pipeline V4.0
+
+env:
+  # Force Node 24 in Actions to avoid GitHub warnings about deprecated versions
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+# ---------------------------------------------------------------------------
+# TRIGGER
+# - Dev             -- Full pipeline on push
+# - feature/**      -- Light pipeline (test + local build, no release)
+# - fix/** feat/**  -- Same
+# - PR toward Dev   -- Quality gate (lint + test, no deploy)
+# ---------------------------------------------------------------------------
+on:
+  push:
+    branches:
+      - Dev
+      - "[Ff]eature/**"
+      - "[Ff]eatures/**"
+      - "[Ff]eature-*"
+      - "[Ff]eatures-*"
+      - "[Ff]ix/**"
+      - "[Ff]ix-*"
+      - "[Ff]eat/**"
+      - "[Ff]eat-*"
+      - "[Hh]otfix/**"
+      - "[Hh]otfix-*"
+      - "[Bb][Uu][Gg]/**"
+      - "[Bb][Uu][Gg]-*"
+      - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]/**"
+      - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]-*"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]/**"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]-*"
+    paths:
+      - "tools/*.ps1"
+      - "WinToolkit-template.ps1"
+      - "WinToolkit_GUI.ps1"
+      - "compiler.ps1"
+      - "start.ps1"
+      - "start-modules/*.ps1"
+      - ".github/workflows/*.yml"
+      - ".github/actions/**"
+      - ".github/tests/**/*.ps1"
+      - ".github/scripts/*.ps1"
+  pull_request:
+    branches: [Dev]
+
+# ---------------------------------------------------------------------------
+# CONCURRENCY -- a single active run per branch/PR
+# ---------------------------------------------------------------------------
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ---------------------------------------------------------------------------
+# JOBS
+# ---------------------------------------------------------------------------
+jobs:
+  # ===========================================================================
+  # JOB 0: PR SECURITY GUARD -- Three-level policy
+  #
+  # Level 1 -- Allowed (silent)
+  #   tools/* | start-modules/*
+  #
+  # Level 2 -- Allowed with warning (manual review required)
+  #   start.ps1 | WinToolkit_GUI.ps1 | WinToolkit-template.ps1 | assets/*
+  #   -> Warning comment posted, PR stays open, job does not fail.
+  #
+  # Level 3 -- Protected (hard block)
+  #   Any other file (compiler.ps1, .github/**, build artifacts, etc.)
+  #   -> Access denied comment, PR closed automatically, job fails.
+  #
+  # Runs only on pull_request events toward Dev.
+  # ===========================================================================
+  pr_security_guard:
+    name: PR Security Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify Changed Files
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const author       = context.payload.pull_request.user.login;
+            const prNumber     = context.issue.number;
+            const isMaintainer = (author.toLowerCase() === 'magnetarman');
+
+            // -- FILE CLASSIFICATION -------------------------------------
+            //
+            // Level 1: tools/*, start-modules/* -> allowed, no action.
+            // Level 2: known sensitive files + assets/* -> accepted, warning.
+            // Level 3: everything else -> hard block (unless maintainer).
+            //
+            // Compiled artifacts (WinToolkit.ps1, start-core.ps1) are produced
+            // by CI itself: they are silent for the maintainer (Level 1) and
+            // stay protected (Level 3) for everyone else.
+
+            const SENSITIVE_FILES = new Set([
+              'start.ps1',
+              'WinToolkit_GUI.ps1',
+              'WinToolkit-template.ps1',
+            ]);
+
+            const BUILD_ARTIFACTS = new Set([
+              'WinToolkit.ps1',
+              'start-core.ps1',
+            ]);
+
+            function classifyFile(filename) {
+              if (filename.startsWith('tools/'))         return 1; // allowed
+              if (filename.startsWith('start-modules/')) return 1; // allowed
+              if (SENSITIVE_FILES.has(filename))         return 2; // sensitive
+              if (filename.startsWith('assets/'))        return 2; // sensitive
+              return 3;                                            // protected
+            }
+
+            let level2Files = files.filter(f => classifyFile(f.filename) === 2);
+            let level3Files = files.filter(f => classifyFile(f.filename) === 3);
+
+            // -- MAINTAINER BYPASS ---------------------------------------
+            // If the author is MagnetarMan, Level 3 files are downgraded to
+            // Level 2 (non-blocking warning).
+            if (isMaintainer && level3Files.length > 0) {
+              level2Files = [...level2Files, ...level3Files];
+              level3Files = [];
+            }
+
+            // -- COMPILED ARTIFACT EXCLUSION FOR THE MAINTAINER ----------
+            // WinToolkit.ps1 and start-core.ps1 are outputs compiled by CI
+            // itself: for MagnetarMan they need no manual review and are
+            // treated as Level 1 (silent). For every other contributor the
+            // behaviour is unchanged (Level 3 -> block).
+            if (isMaintainer) {
+              level2Files = level2Files.filter(f => !BUILD_ARTIFACTS.has(f.filename));
+            }
+
+            // -- LEVEL 3: HARD BLOCK -------------------------------------
+            if (level3Files.length > 0) {
+              const fileList = level3Files.map(f => `- \`${f.filename}\``).join('\n');
+
+              const blockedMessage = [
+                `## ⛔ Access Denied — Pull Request Closed Automatically`,
+                ``,
+                `Hi @${author},`,
+                `thanks for your interest in WinToolkit! Unfortunately this PR was **closed automatically** because it includes changes to protected core files.`,
+                ``,
+                `### Protected files detected`,
+                ``,
+                fileList,
+                ``,
+                `### Contribution rule`,
+                ``,
+                `External contributors may propose changes **exclusively** to the modules inside the \`tools/\` and \`start-modules/\` directories.`,
+                `Core files (compiler, CI/CD workflows, build scripts, configuration) are managed directly by the maintainer to guarantee project stability.`,
+                ``,
+                `### How to proceed`,
+                ``,
+                `1. **Restore** the protected files to their original state in your fork.`,
+                `2. **Limit** your changes to files inside \`tools/\` or \`start-modules/\`.`,
+                `3. **Open a new PR** containing only the module changes.`,
+                ``,
+                `If you believe a change to core files is necessary, please open an **Issue** describing your proposal instead: it will be reviewed by the maintainer.`,
+                ``,
+                `---`,
+                `*Automated message from the WinToolkit CI/CD system — PR #${prNumber}.*`,
+              ].join('\n');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: blockedMessage,
+              });
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                state: 'closed',
+              });
+              core.setFailed(
+                `PR #${prNumber} closed: it contains changes to ${level3Files.length} protected file(s) outside /tools and /start-modules.`
+              );
+              return;
+            }
+
+            // -- LEVEL 2: WARNING (PR stays open) ------------------------
+            if (level2Files.length > 0) {
+              const fileList = level2Files.map(f => `- \`${f.filename}\``).join('\n');
+
+              const warningMessage = [
+                `## 👀 Heads Up — Manual Review Required`,
+                ``,
+                `Hi @${author},`,
+                `thanks for your contribution! This PR was **accepted** and can proceed normally through the review flow.`,
+                ``,
+                `However, the automated check detected that one or more **sensitive** WinToolkit files were modified, which affect the user interface, the main template or the project's static resources:`,
+                ``,
+                `### Sensitive files modified`,
+                ``,
+                fileList,
+                ``,
+                `### Why this notice?`,
+                ``,
+                `These files are not blocked for contributors, but they require **additional verification** by the maintainer before merging, because unexpected changes could:`,
+                ``,
+                `- Alter the interface behaviour (\`WinToolkit_GUI.ps1\`, \`start.ps1\`)`,
+                `- Impact compilation or the framework core functions (\`WinToolkit-template.ps1\`)`,
+                `- Introduce unverified resources into the distribution (\`assets/\`)`,
+                ``,
+                `### Next steps`,
+                ``,
+                `No action is required from you. The maintainer will review the changes with extra care before merging.`,
+                ``,
+                `---`,
+                `*Automated notification from the WinToolkit CI/CD system — PR #${prNumber}.*`,
+              ].join('\n');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: warningMessage,
+              });
+
+              // Visible notice in the Actions log without failing the job
+              core.notice(
+                `PR #${prNumber}: ${level2Files.length} sensitive file(s) modified ` +
+                `(${level2Files.map(f => f.filename).join(', ')}) — manual review recommended.`
+              );
+            }
+
+            // -- LEVEL 1: tools/ and start-modules/ -- no action needed --
+
+  # ===========================================================================
+  # JOB DETECT_CHANGES -- Differential detection per source family
+  #
+  # Outputs:
+  #   run_checks          -> at least one source family (or shared CI file) changed
+  #   wintoolkit_changed  -> WinToolkit sources (tools/, template, GUI, compiler)
+  #   start_changed       -> Start sources (stub, start-modules/, Start build scripts)
+  #   start_build_changed -> start-modules/ only (requires a start-core.ps1 rebuild)
+  #
+  # Shared CI files (.github/tests, .github/scripts, .github/actions) activate
+  # both families, because they can influence any build.
+  # ===========================================================================
+  detect_changes:
+    name: Detect Source Changes
+    runs-on: ubuntu-latest
+    outputs:
+      run_checks: ${{ steps.filter.outputs.run_checks }}
+      wintoolkit_changed: ${{ steps.filter.outputs.wintoolkit_changed }}
+      start_changed: ${{ steps.filter.outputs.start_changed }}
+      start_build_changed: ${{ steps.filter.outputs.start_build_changed }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes per source family
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git show --name-only --format="" HEAD)
+            else
+              CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+            fi
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          # --- Per-family patterns --------------------------------------------
+          WT_PATTERN='^(tools/[^/]+\.ps1|WinToolkit-template\.ps1|WinToolkit_GUI\.ps1|compiler\.ps1)$'
+          ST_PATTERN='^(start\.ps1|start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1|\.github/scripts/(Invoke-Build-Start|Test-CompiledStartScript)\.ps1)$'
+          ST_BUILD_PATTERN='^start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1$'
+          SHARED_PATTERN='^\.github/(tests/.*\.ps1|scripts/[^/]+\.ps1|actions/.+)$'
+
+          WT_CHANGED=false
+          ST_CHANGED=false
+          ST_BUILD_CHANGED=false
+
+          if echo "$CHANGED" | grep -qE "$WT_PATTERN"; then WT_CHANGED=true; fi
+          if echo "$CHANGED" | grep -qE "$ST_PATTERN"; then ST_CHANGED=true; fi
+          if echo "$CHANGED" | grep -qE "$ST_BUILD_PATTERN"; then ST_BUILD_CHANGED=true; fi
+
+          # Shared CI files activate both families of checks.
+          if echo "$CHANGED" | grep -qE "$SHARED_PATTERN"; then
+            WT_CHANGED=true
+            ST_CHANGED=true
+          fi
+
+          if [ "$WT_CHANGED" = "true" ] || [ "$ST_CHANGED" = "true" ]; then
+            RUN_CHECKS=true
+          else
+            RUN_CHECKS=false
+          fi
+
+          {
+            echo "run_checks=$RUN_CHECKS"
+            echo "wintoolkit_changed=$WT_CHANGED"
+            echo "start_changed=$ST_CHANGED"
+            echo "start_build_changed=$ST_BUILD_CHANGED"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "run_checks=$RUN_CHECKS wintoolkit_changed=$WT_CHANGED start_changed=$ST_CHANGED start_build_changed=$ST_BUILD_CHANGED"
+
+  # ===========================================================================
+  # JOB 1: REUSABLE QUALITY GATE
+  # Linting and testing are defined in _reusable-lint-test.yml.
+  # WinToolkit and Start checks are enabled differentially.
+  # ===========================================================================
+  quality:
+    name: Lint and test
+    needs: detect_changes
+    uses: ./.github/workflows/_reusable-lint-test.yml
+    with:
+      run-checks: ${{ needs.detect_changes.outputs.run_checks == 'true' }}
+      validate-template: ${{ needs.detect_changes.outputs.wintoolkit_changed == 'true' }}
+      validate-start: ${{ needs.detect_changes.outputs.start_changed == 'true' }}
+    permissions:
+      contents: read
+
+  # ===========================================================================
+  # JOB 2: BUILD — Reusable Workflow
+  # Dynamic labeling and the branch-aware commit are handled by the reusable workflow.
+  # Runs only when WinToolkit sources changed and the quality gate passed.
+  # ===========================================================================
+  build:
+    name: Build
+    if: |
+      github.event_name == 'push' &&
+      needs.detect_changes.outputs.wintoolkit_changed == 'true' &&
+      needs.quality.result == 'success'
+    needs: [detect_changes, quality]
+    uses: ./.github/workflows/_reusable-build-wintoolkit.yml
+    with:
+      branch: ${{ github.ref_name }}
+      commit-message: "✅ Build WinToolkit"
+    secrets: inherit
+
+  # ===========================================================================
+  # JOB 3: BUILD START — Reusable Workflow
+  # Runs only when start-modules/ changed (start-core.ps1 must be regenerated).
+  # ===========================================================================
+  build-start:
+    name: Build start-core.ps1
+    if: |
+      github.event_name == 'push' &&
+      needs.detect_changes.outputs.start_build_changed == 'true' &&
+      needs.quality.result == 'success'
+    needs: [detect_changes, quality]
+    uses: ./.github/workflows/_reusable-build-start.yml
+    with:
+      branch: ${{ github.ref_name }}
+      commit-message: "✅ Build start-core.ps1"
+    secrets: inherit
