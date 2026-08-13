@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit Enterprise CI/CD Pipeline V 3.3.1
+# WinToolkit CI/CD Pipeline V 4.0
 # =============================================================================
 # Pipeline adattiva per branch:
 #   • Dev           → Pipeline Completa: lint → test → build (versione letta, no bump)
@@ -19,7 +19,7 @@
 # RUNTIME: PowerShell 7+ (pwsh) — incluso in windows-latest, nessuna installazione aggiuntiva.
 # =============================================================================
 
-name: CI_WinToolkit_Enterprise
+name: WinToolkit — CI Dev Pipeline V4.0
 
 env:
   # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
