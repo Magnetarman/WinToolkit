@@ -15,40 +15,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # -----------------------------------------------------------------------
-      # Step 1 — Gestione standard: tutte le issue/PR ESCLUSE quelle in
-      #           milestone "Backlog". Le issue non-Backlog vengono marcate
-      #           stale e chiuse dopo 7 giorni di inattività come di consueto.
+      # Step 1 -- Standard handling: all issues/PRs EXCEPT those in the
+      #           "Backlog" milestone. Non-Backlog issues are marked stale and
+      #           closed after 7 days of inactivity as usual.
       # -----------------------------------------------------------------------
-      - name: Stale standard (escluse issue Backlog)
+      - name: Stale standard (Backlog issues excluded)
         uses: actions/stale@eb5cf3af3ac0a1aa4c9c45633dd1ae542a27a899 # v10.3.0
         with:
           days-before-stale: 60
           days-before-close: 7
           stale-issue-message: >
-            Questa issue è stata marcata come inattiva per mancanza di aggiornamenti negli
-            ultimi 60 giorni. Verrà chiusa automaticamente nei prossimi 7 giorni se non
-            ci saranno aggiornamenti. Commenta qui per tenerla aperta.
+            This issue has been marked as inactive due to a lack of updates in the
+            last 60 days. It will be closed automatically within the next 7 days if
+            there are no further updates. Comment here to keep it open.
           stale-pr-message: >
-            Questa PR è stata marcata come inattiva per mancanza di aggiornamenti negli
-            ultimi 60 giorni. Verrà chiusa automaticamente nei prossimi 7 giorni se non
-            ci saranno aggiornamenti. Commenta qui per tenerla aperta.
-          close-issue-message: "Chiusa automaticamente per inattività. Riaprire se il problema persiste."
-          close-pr-message: "Chiusa automaticamente per inattività. Riaprire se la PR è ancora rilevante."
+            This PR has been marked as inactive due to a lack of updates in the
+            last 60 days. It will be closed automatically within the next 7 days if
+            there are no further updates. Comment here to keep it open.
+          close-issue-message: "Closed automatically due to inactivity. Reopen it if the problem persists."
+          close-pr-message: "Closed automatically due to inactivity. Reopen it if the PR is still relevant."
           stale-issue-label: "stale"
           stale-pr-label: "stale"
           exempt-issue-labels: "pinned,security,in-progress"
           exempt-pr-labels: "pinned,security"
-          # Le issue nella milestone "Backlog" (milestone/3) vengono gestite
-          # separatamente nello step successivo — qui vengono escluse.
+          # Issues in the "Backlog" milestone (milestone/3) are handled
+          # separately in the next step -- they are excluded here.
           exempt-issue-milestones: "Backlog"
 
       # -----------------------------------------------------------------------
-      # Step 2 — Issue nella milestone "Backlog" (milestone/3):
-      #           vengono marcate come stale dopo 60 giorni, ma NON vengono
-      #           MAI chiuse automaticamente (days-before-close: -1).
-      #           Le PR non sono coinvolte in questo step.
+      # Step 2 -- Issues in the "Backlog" milestone (milestone/3):
+      #           they are marked stale after 60 days, but they are NEVER
+      #           closed automatically (days-before-close: -1).
+      #           PRs are not involved in this step.
       # -----------------------------------------------------------------------
-      - name: Stale Backlog issues (solo tag, mai chiuse)
+      - name: Stale Backlog issues (label only, never closed)
         uses: actions/stale@eb5cf3af3ac0a1aa4c9c45633dd1ae542a27a899 # v10.3.0
         with:
           days-before-stale: 60
@@ -56,9 +56,9 @@ jobs:
           days-before-pr-stale: -1
           days-before-pr-close: -1
           stale-issue-message: >
-            Questa issue è nel Backlog ed è stata marcata come inattiva per mancanza di
-            aggiornamenti negli ultimi 60 giorni. Le issue nel Backlog non vengono chiuse
-            automaticamente — verrà mantenuta aperta fino a nuova decisione del team.
+            This issue is in the Backlog and has been marked as inactive due to a
+            lack of updates in the last 60 days. Backlog issues are not closed
+            automatically -- it will stay open until the team decides otherwise.
           stale-issue-label: "stale"
           exempt-issue-labels: "pinned,security,in-progress"
           only-issue-milestones: "Backlog"
