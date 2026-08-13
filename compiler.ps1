@@ -303,6 +303,11 @@ Write-Host ""
 
 # ============================================================================
 # 5. SAFE MINIFICATION ENGINE (-Minify)
+#    Tokenizer-safe: strips comment tokens, trims trailing whitespace and drops
+#    blank lines. The minified result is re-parsed and, on any post-minification
+#    syntax error, rolled back to the original lines so the emitted artifact is
+#    always syntactically safe. Kept inline (no external dependency) so a missing
+#    helper can never silently disable minification in CI.
 # ============================================================================
 if ($Minify) {
     Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingSafeMinificationThroughThePowershellTokenizer')
@@ -354,7 +359,7 @@ if ($Minify) {
         if ($verifyErrors.Count -gt 0) {
             Write-StyledMessage 'Warning' ((Get-SourceTextLoc 'sourceText.detected3') + " $($verifyErrors.Count) " + (Get-SourceTextLoc 'sourceText.postMinificationSyntaxErrorSRollingBackToOriginalSource'))
             foreach ($e in $verifyErrors) {
-            Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.line01' -Args @($e.Extent.StartLineNumber, $e.Message))
+                Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.line01' -Args @($e.Extent.StartLineNumber, $e.Message))
             }
             $templateLines = $backupLines
         }

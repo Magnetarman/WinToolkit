@@ -8,7 +8,9 @@ param(
     [string]$Version,
 
     [string]$SourceDir = 'start-modules',
-    [string]$OutputPath = 'start-core.ps1'
+    [string]$OutputPath = 'start-core.ps1',
+
+    [switch]$Minify = $true
 )
 
 Set-StrictMode -Version Latest
@@ -72,6 +74,22 @@ try {
     $versionPattern = '(?m)^\$ToolkitVersion\s*=\s*"[^"]*"'
     if ($content -notmatch $versionPattern) { throw 'ToolkitVersion placeholder was not found in start-modules.' }
     $content = [regex]::Replace($content, $versionPattern, ('$ToolkitVersion = "' + $escapedVersion + '"'), 1)
+
+    # Tokenizer-safe minification (shared logic in Minify-Source.ps1) strips
+    # comment tokens, trims trailing whitespace and drops blank lines, then
+    # verifies the result with the PowerShell parser and rolls back to the
+    # original content on any post-minification syntax error.
+    if ($Minify) {
+        Write-BuildLog -Message 'Applying tokenizer-safe minification...' -Type Info
+        try {
+            $content = & "$PSScriptRoot/Minify-Source.ps1" -Content $content -Verbose:$false
+            $contentLineCount = ($content -split "`n").Count
+            Write-BuildLog -Message "Minification completed: $contentLineCount lines, no syntax errors." -Type Success
+        }
+        catch {
+            Write-BuildLog -Message "Unexpected error during minification ($($_.Exception.Message)); keeping original source." -Type Warning
+        }
+    }
 
     $outputFullPath = [System.IO.Path]::GetFullPath($OutputPath)
     $outputDirectory = Split-Path -Parent $outputFullPath
