@@ -1,29 +1,29 @@
 # =============================================================================
 # WinToolkit CI/CD Pipeline — Stable Release Automation V 4.0
 # =============================================================================
-# Questa pipeline gestisce la preparazione e la generazione dei branch di rilascio.
+# This pipeline handles preparation and generation of the release branch.
 #
-# SCOPO:
-#   • Estrarre automaticamente l'ultima versione compilata da WinToolkit.ps1.
-#   • Creare un nuovo branch di rilascio (release/v*) partendo dallo stato di 'main'.
-#   • Prelevare dal branch 'Dev' solo i file destinati alla distribuzione ufficiale.
-#   • Eseguire il commit e il push del nuovo branch di rilascio per la PR verso 'main'.
+# PURPOSE:
+#   - Automatically extract the latest compiled version from WinToolkit.ps1.
+#   - Create a new release branch (release/v*) starting from the state of 'main'.
+#   - Pull from the 'Dev' branch only the files intended for official distribution.
+#   - Commit and push the new release branch, ready for the PR toward 'main'.
 #
-# RUNTIME: PowerShell 7+ (pwsh) su windows-latest
+# RUNTIME: PowerShell 7+ (pwsh) on windows-latest
 # =============================================================================
 
 name: WinToolkit — Create Stable Release V4.0
 
 on:
   workflow_dispatch:
-    # Nessun input richiesto, l'action è automatizzata sul branch Dev
+    # No input required, the action is automated on the Dev branch
 
 permissions:
   contents: write
   pull-requests: write
 
 env:
-  # Forza Node 24 nelle Actions per evitare warning GitHub su versioni deprecate
+  # Force Node 24 in Actions to avoid GitHub warnings about deprecated versions
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
@@ -36,18 +36,18 @@ jobs:
       - name: Verify Official Repository
         run: |
           if [ "${{ github.repository }}" != "Magnetarman/WinToolkit" ]; then
-            echo "::error::Azione non consentita: questo workflow manuale è supportato solo nella repository ufficiale https://github.com/Magnetarman/WinToolkit/. Repository corrente: ${{ github.repository }}"
+            echo "::error::Action not allowed: this manual workflow is supported only in the official repository https://github.com/Magnetarman/WinToolkit/. Current repository: ${{ github.repository }}"
             exit 1
           fi
-          echo "Repository ufficiale verificata ✓"
+          echo "Official repository verified ✓"
 
       - name: Verify Maintainer
         run: |
           if [ "${GITHUB_ACTOR,,}" != "magnetarman" ]; then
-            echo "::error::Azione non consentita: questo workflow manuale è supportato solo per il maintainer @Magnetarman nella repository ufficiale. Attore corrente: ${{ github.actor }}"
+            echo "::error::Action not allowed: this manual workflow is supported only for the maintainer @Magnetarman in the official repository. Current actor: ${{ github.actor }}"
             exit 1
           fi
-          echo "Maintainer verificato ✓"
+          echo "Maintainer verified ✓"
 
   create_release_branch:
     name: Generate Release Branch
@@ -59,34 +59,34 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: Dev
-          fetch-depth: 0 # Necessario per fare checkout tra branche
+          fetch-depth: 0 # Required to check out across branches
 
-      - name: Estrai Versione da WinToolkit.ps1
+      - name: Extract Version from WinToolkit.ps1
         id: extract_version
         shell: pwsh
         run: |
           If (-Not (Test-Path -Path 'WinToolkit.ps1')) {
-            Write-Error "❌ File WinToolkit.ps1 non trovato nel branch Dev."
+            Write-Error "❌ File WinToolkit.ps1 not found in the Dev branch."
             exit 1
           }
 
-          # Cerchiamo la riga esatta: $ToolkitVersion = "2.5.3 (Build 4)"
+          # Look for the exact line: $ToolkitVersion = "2.5.3 (Build 4)"
           $versionLine = Get-Content -Path 'WinToolkit.ps1' | Select-String -Pattern '\$ToolkitVersion\s*=\s*"(.*?)\s*\(Build'
 
           if ($versionLine) {
-            # Estrarrà solo '2.5.3' (il primo gruppo di cattura prima di '(Build')
+            # Extracts only '2.5.3' (the first capture group before '(Build')
             $versionStr = $versionLine.Matches[0].Groups[1].Value.Trim()
-            Write-Host "✅ Versione rilevata: $versionStr"
-            
-            # Formattiamo il nome del branch: v2.5.3 (spazi non ammessi in git)
+            Write-Host "✅ Detected version: $versionStr"
+
+            # Format the branch name: v2.5.3 (spaces are not allowed in git)
             $branchName = "release/v$versionStr"
-            Write-Host "🏷️ Nome Branch Futuro: $branchName"
-            
-            # Esportiamo variabili per step successivi
+            Write-Host "🏷️ Future branch name: $branchName"
+
+            # Export variables for the following steps
             echo "VERSION=$versionStr" >> $env:GITHUB_ENV
             echo "BRANCH_NAME=$branchName" >> $env:GITHUB_ENV
           } else {
-            Write-Error "❌ Non è stato possibile estrarre la versione dal file. Formato riga inatteso."
+            Write-Error "❌ Unable to extract the version from the file. Unexpected line format."
             exit 1
           }
 
@@ -95,34 +95,35 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          # Risolve il problema dei file "identici" visti come modificati (Line Endings CRLF vs LF)
+          # Fixes identical files being seen as modified (CRLF vs LF line endings)
           git config --global core.autocrlf true
           git config --global core.safecrlf false
 
-      - name: Prepara Branch Rilascio Partendo da Main
+      - name: Prepare Release Branch Starting From Main
         shell: pwsh
         run: |
-          # Checkout di main (e assicuriamoci sia aggiornato)
+          # Check out main (and make sure it is up to date)
           git checkout main
           git pull origin main
 
-          # Verifica preventiva: se il branch esiste già su remote, fallisce subito
+          # Upfront check: fail immediately if the branch already exists on the remote
           $branchExists = git ls-remote --heads origin $env:BRANCH_NAME
           if ($branchExists) {
-              Write-Error "❌ Il branch $($env:BRANCH_NAME) esiste già su origin. Eliminarlo prima di procedere."
+              Write-Error "❌ Branch $($env:BRANCH_NAME) already exists on origin. Delete it before proceeding."
               exit 1
           }
 
-          # Creiamo il nuovo branch derivato da main
-          Write-Host "Creazione branch $($env:BRANCH_NAME) basato su main..."
+          # Create the new branch derived from main
+          Write-Host "Creating branch $($env:BRANCH_NAME) based on main..."
           git checkout -b $env:BRANCH_NAME
 
-          # Copia (checkout) parziale dal branch Dev origin/Dev
-          Write-Host "Effettuando checkout parziale da origin/Dev..."
+          # Partial checkout from the origin/Dev branch
+          Write-Host "Performing partial checkout from origin/Dev..."
 
-          # I file specificati verranno sovrascritti nel nuovo branch prendendoli da Dev
+          # The listed files are overwritten in the new branch, taken from Dev
           $filesToInclude = @(
             "start.ps1",
+            "start-core.ps1",
             "WinToolkit.ps1",
             "README.md",
             "CHANGELOG.md",
@@ -133,21 +134,22 @@ jobs:
           )
           git checkout origin/Dev -- $filesToInclude
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "❌ Errore durante l'estrazione parziale dei file."
+            Write-Error "❌ Error during the partial file extraction."
             exit 1
           }
 
-          # Esclusione specifica della cartella png in assets
+          # Specific exclusion of the png folder inside assets
           if (Test-Path -Path 'assets/png') {
-            Write-Host "🗑️ Rimoziene cartella assets/png esclusa dal rilascio..."
+            Write-Host "🗑️ Removing the assets/png folder excluded from the release..."
             Remove-Item -Recurse -Force 'assets/png'
           }
 
-      - name: Commit delle Modifiche
+      - name: Commit Changes
         shell: pwsh
         run: |
           $filesToInclude = @(
             "start.ps1",
+            "start-core.ps1",
             "WinToolkit.ps1",
             "README.md",
             "CHANGELOG.md",
@@ -158,21 +160,21 @@ jobs:
           )
           git add $filesToInclude
 
-          # Verifica se ci sono modifiche prima di committare
+          # Check whether there are changes before committing
           git diff-index --quiet HEAD
           if ($LASTEXITCODE -ne 0) {
-            git commit -m "🚀 Preparazione Release v$($env:VERSION) dal branch Dev"
+            git commit -m "🚀 Prepare Release v$($env:VERSION) from the Dev branch"
           } else {
-            Write-Host "Nessuna modifica rilevata, salto il commit."
+            Write-Host "No changes detected, skipping the commit."
           }
 
-      - name: Push Branch su Origin
+      - name: Push Branch to Origin
         shell: pwsh
         run: |
           Write-Host "Pushing branch $($env:BRANCH_NAME) to origin..."
           git push origin $env:BRANCH_NAME
           if ($LASTEXITCODE -ne 0) {
-             Write-Error "❌ Errore durante il git push. Verifica che il branch non esista già con conflitti."
+             Write-Error "❌ Error during git push. Verify the branch does not already exist with conflicts."
              exit 1
           }
-          Write-Host "✅ Push completato! Ora puoi aprire la PR per il merge in main."
+          Write-Host "✅ Push complete! You can now open the PR to merge into main."
