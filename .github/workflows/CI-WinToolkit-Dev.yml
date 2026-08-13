@@ -377,6 +377,7 @@ jobs:
     uses: ./.github/workflows/_reusable-build-wintoolkit.yml
     with:
       branch: ${{ github.ref_name }}
+      minify: true
       commit-message: "✅ Build WinToolkit"
     secrets: inherit
 
