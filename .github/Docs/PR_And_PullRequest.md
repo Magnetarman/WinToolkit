@@ -242,7 +242,7 @@ Contains third-party executables and tools used by the toolkit. These files are 
 
 | File                      | Role                                                            |
 | ------------------------- | --------------------------------------------------------------- |
-| `version.json`            | Single source of truth for version and build number             |
+| `WinToolkit-template.ps1`  | Base template and single source of truth for `$ToolkitVersion`   |
 | `WinToolkit-template.ps1` | Base template with core functions, logging, and UI (MODIFIABLE) |
 | `WinToolkit.ps1`          | Final compiled distributable file (AUTO-GENERATED)              |
 | `compiler.ps1`            | Official build system with tokenizer and safe minification      |
