@@ -22,7 +22,7 @@ on:
         description: Commit message for the compiled artifact.
         required: false
         type: string
-        default: '✅ Compilato WinToolkit'
+        default: '✅ Build WinToolkit'
     outputs:
       source_kb:
         description: Source size reported by the build script.
@@ -86,15 +86,19 @@ jobs:
           REQUESTED_VERSION: ${{ inputs.version }}
           BUILD_BRANCH: ${{ inputs.branch }}
         run: |
+          # The version label is resolved in-memory and passed to the compiler.
+          # WinToolkit-template.ps1 is never modified here: the template is a
+          # source of truth owned by Update-Version.ps1, and any mutation made
+          # at build time would be discarded (the commit step only stages the
+          # compiled artifact) or would silently drift the tracked source.
           $templatePath = 'WinToolkit-template.ps1'
           $content = Get-Content -Raw -LiteralPath $templatePath -Encoding UTF8
           $version = $env:REQUESTED_VERSION
 
           if (-not $version) {
             if ($env:BUILD_BRANCH -ne 'Dev') {
-              $content = $content -replace '\$ToolkitVersion\s*=\s*"[^"]+"', '$ToolkitVersion = "Sviluppo in Corso"'
-              Set-Content -LiteralPath $templatePath -Value $content -Encoding UTF8
-              $version = 'Sviluppo in Corso'
+              # Feature/fix branches are labelled as work in progress.
+              $version = 'Work In Progress'
             } elseif ($content -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
               $version = $Matches[1]
             } else {
