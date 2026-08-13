@@ -129,21 +129,14 @@ jobs:
       - name: Setup PowerShell CI modules
         uses: ./.github/actions/setup-powershell-modules
 
-      - name: Run PSScriptAnalyzer and Pester
+      - name: Run Pester test suites
         shell: pwsh
         env:
           VALIDATE_START: ${{ inputs.validate-start }}
+          RUN_INTEGRATION_TESTS: ${{ inputs.run-integration-tests }}
         run: |
-          $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
-          $analyzerResults = @(Invoke-ScriptAnalyzer -Path '*.ps1' -Severity Warning,Error -Settings $settingsPath)
-          $analyzerResults += @(Invoke-ScriptAnalyzer -Path 'tools\*.ps1' -Severity Warning,Error -Settings $settingsPath)
-
-          if ($analyzerResults) {
-            $analyzerResults | Format-Table -AutoSize
-            Write-Host "::error::PSScriptAnalyzer found $($analyzerResults.Count) issue(s)."
-            exit 1
-          }
-
+          # PSScriptAnalyzer already ran in the 'linting' job with the shared
+          # settings file; re-running it here would duplicate work and diverge.
           $config = New-PesterConfiguration
           $config.Run.Path                = @(
             '.github/tests/CI-Smoke.Tests.ps1',
@@ -164,12 +157,12 @@ jobs:
           if ($env:VALIDATE_START -eq 'true') {
             $startConfig = New-PesterConfiguration
             $startPaths = @(
-              '.github/tests/StartModules.Syntax.Tests.ps1',
-              '.github/tests/StartModules.Common.Tests.ps1',
-              '.github/tests/StartModules.Localization.Tests.ps1',
-              '.github/tests/StartModules.Winget.Tests.ps1'
+              '.github/tests/StartModules/StartModules.Syntax.Tests.ps1',
+              '.github/tests/StartModules/StartModules.Common.Tests.ps1',
+              '.github/tests/StartModules/StartModules.Localization.Tests.ps1',
+              '.github/tests/StartModules/StartModules.Winget.Tests.ps1'
             )
-            if ('${{ inputs.run-integration-tests }}' -eq 'true') {
+            if ($env:RUN_INTEGRATION_TESTS -eq 'true') {
               $startPaths += '.github/tests/Integration/BuildStart.Tests.ps1'
             }
             $startConfig.Run.Path = $startPaths
