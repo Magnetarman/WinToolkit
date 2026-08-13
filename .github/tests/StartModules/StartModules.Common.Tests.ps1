@@ -34,60 +34,60 @@ BeforeAll {
 }
 
 Describe 'Format-CenteredText' {
-    It 'centra correttamente una stringa più corta della larghezza data' {
+    It 'centers a string shorter than the given width' {
         $centered = Format-CenteredText -Text 'OK' -Width 10
         $centered | Should -Match '^\s+OK'
         $centered.Length | Should -BeLessOrEqual 10
         $centered.Trim() | Should -Be 'OK'
     }
 
-    It 'non aggiunge padding quando il testo riempie la larghezza' {
+    It 'adds no padding when the text fills the width' {
         Format-CenteredText -Text '1234567890' -Width 10 | Should -Be '1234567890'
     }
 }
 
 Describe 'Test-CommandExists' {
-    It 'ritorna $true per un comando esistente (Get-Command stesso)' {
+    It 'returns $true for an existing command (Get-Command itself)' {
         Test-CommandExists -Name 'Get-Command' | Should -BeTrue
     }
 
-    It 'ritorna $false per un comando inesistente' {
+    It 'returns $false for a non-existing command' {
         Test-CommandExists -Name 'ComandoCheNonEsisteXYZ' | Should -BeFalse
     }
 }
 
 Describe 'Wait-Until' {
-    It 'esce subito se la condizione è già vera' {
+    It 'exits immediately when the condition is already true' {
         (Measure-Command { Wait-Until -Condition { $true } -TimeoutSeconds 5 }).TotalSeconds | Should -BeLessThan 1
     }
 
-    It 'ritorna $false allo scadere del timeout se la condizione resta falsa' {
+    It 'returns $false when the timeout expires and the condition stays false' {
         Wait-Until -Condition { $false } -TimeoutSeconds 1 -IntervalMs 200 | Should -BeFalse
     }
 }
 
 Describe 'Invoke-ExternalCommand — timeout (§2.3, §3.2)' {
-    It 'termina il processo e ritorna TimedOut=$true se supera il timeout dichiarato' {
+    It 'terminates the process and returns TimedOut=$true when it exceeds the declared timeout' {
         $result = Invoke-ExternalCommand -FilePath 'powershell' -ArgumentList @('-Command', 'Start-Sleep 10') -TimeoutSeconds 1
         $result.TimedOut | Should -BeTrue
         $result.ExitCode | Should -Be -2
     }
 
-    It 'ritorna Accepted=$true per un comando che termina con exit 0' {
+    It 'returns Accepted=$true for a command exiting with code 0' {
         $result = Invoke-ExternalCommand -FilePath 'cmd.exe' -ArgumentList @('/c', 'exit 0') -TimeoutSeconds 10
         $result.TimedOut   | Should -BeFalse
         $result.Accepted  | Should -BeTrue
         $result.ExitCode  | Should -Be 0
     }
 
-    It 'onora AcceptedExitCodes personalizzati (es. 3010)' {
+    It 'honours custom AcceptedExitCodes (e.g. 3010)' {
         $result = Invoke-ExternalCommand -FilePath 'cmd.exe' -ArgumentList @('/c', 'exit 3010') -TimeoutSeconds 10 -AcceptedExitCodes @(0, 3010)
         $result.Accepted | Should -BeTrue
     }
 }
 
 Describe 'Test-PathInEnvironment' {
-    It 'rileva un path già presente nel PATH utente (case-sensitive, match esatto)' {
+    It 'detects a path already present in the user PATH (case-sensitive, exact match)' {
         $userPath = [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::User)
         $probe = Join-Path $env:TEMP ('wtprobe_' + [guid]::NewGuid().ToString('N'))
         try {
@@ -99,7 +99,7 @@ Describe 'Test-PathInEnvironment' {
         }
     }
 
-    It 'ritorna $false per un path non presente' {
+    It 'returns $false for a path that is not present' {
         Test-PathInEnvironment -PathToCheck 'C:\PercorsoInesistenteXYZ' -Scope 'User' | Should -BeFalse
     }
 }
@@ -109,29 +109,29 @@ Describe 'Add-SetupResult / Write-SetupSummary (§2.8, §4.1)' {
         $script:SetupResults = @()
     }
 
-    It 'registra uno step riuscito senza modifiche come Succeeded' {
+    It 'records a successful step with no changes as Succeeded' {
         Add-SetupResult -Name 'StepA' -Success $true -Changed $false
         $script:SetupResults[0].Status | Should -Be 'Succeeded'
     }
 
-    It 'registra uno step riuscito con modifiche come Changed' {
+    It 'records a successful step with changes as Changed' {
         Add-SetupResult -Name 'StepB' -Success $true -Changed $true
         $script:SetupResults[0].Status | Should -Be 'Changed'
     }
 
-    It 'Write-SetupSummary ritorna 0 quando tutto ha successo' {
+    It 'Write-SetupSummary returns 0 when everything succeeds' {
         Add-SetupResult -Name 'StepA' -Success $true
         Add-SetupResult -Name 'StepB' -Success $true -Changed $true
         Write-SetupSummary | Should -Be 0
     }
 
-    It 'Write-SetupSummary ritorna 1 in presenza di un fallimento bloccante' {
+    It 'Write-SetupSummary returns 1 when a blocking failure occurred' {
         Add-SetupResult -Name 'StepA' -Success $true
         Add-SetupResult -Name 'StepFail' -Success $false -Blocking $true -Message 'boom'
         Write-SetupSummary | Should -Be 1
     }
 
-    It 'Write-SetupSummary ritorna 2 in presenza di un fallimento non bloccante' {
+    It 'Write-SetupSummary returns 2 when a non-blocking failure occurred' {
         Add-SetupResult -Name 'StepA' -Success $true
         Add-SetupResult -Name 'StepWarn' -Success $false -Blocking $false -Message 'warn'
         Write-SetupSummary | Should -Be 2
