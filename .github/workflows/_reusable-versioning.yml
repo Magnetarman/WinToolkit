@@ -63,7 +63,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
         with:
           commit_message: ${{ inputs.commit-message }}
-          file_pattern: ${{ inputs.sync-github && 'WinToolkit-template.ps1 .github/' || 'WinToolkit-template.ps1' }}
+          file_pattern: ${{ inputs.sync-github && 'WinToolkit-template.ps1 start-modules/00-Skeleton.Header.ps1 .github/' || 'WinToolkit-template.ps1' }}
           branch: ${{ inputs.target-branch }}
           push_options: --force-with-lease
           skip_fetch: true
