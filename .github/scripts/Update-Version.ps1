@@ -100,7 +100,7 @@ try {
                 if ($startContent -match $versionPattern) {
                     $startVersion = $matches[1]
                     if ($startVersion -ne $script:NewVersion) {
-                        Write-StatusMessage -Message "⚠️ Aligning $StartHeaderPath: '$startVersion' → '$script:NewVersion'" -Type Warning
+                        Write-StatusMessage -Message "⚠️ Aligning ${StartHeaderPath}: '$startVersion' → '$script:NewVersion'" -Type Warning
                         $startLine = "`$ToolkitVersion = `"$script:NewVersion`""
                         $startContent = $startContent -replace $versionPattern, $startLine
                         $startTempPath = "$StartHeaderPath.tmp"
