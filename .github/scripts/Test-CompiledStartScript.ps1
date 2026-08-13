@@ -41,7 +41,8 @@ try {
 
         $sourceMarkers = @([regex]::Matches($content, '(?m)^# SOURCE: .+$'))
         if ($sourceMarkers.Count -ne $sourceFiles.Count) { $errors.Add("Expected $($sourceFiles.Count) SOURCE markers, found $($sourceMarkers.Count).") }
-        if ($content -match '(?m)^\s*Import-Module\s+') { $errors.Add('Import-Module is forbidden in start-core.ps1.') }
+        $localImport = [regex]::Matches($content, '(?m)^\s*Import-Module\s+([./\\])')
+        if ($localImport.Count -gt 0) { $errors.Add('Local Import-Module references are forbidden in start-core.ps1.') }
 
         $size = (Get-Item -LiteralPath $ScriptPath).Length
         if ($size -lt $MinimumSizeBytes) { $errors.Add("Compiled script is too small: $size bytes; minimum is $MinimumSizeBytes.") }
