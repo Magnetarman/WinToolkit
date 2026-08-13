@@ -186,13 +186,13 @@ jobs:
                 ``,
                 `### Regola di contribuzione`,
                 ``,
-                `I collaboratori esterni possono proporre modifiche **esclusivamente** ai moduli all'interno della cartella \`tools/\`.`,
+                `I collaboratori esterni possono proporre modifiche **esclusivamente** ai moduli all'interno delle cartelle \`tools/\` e \`start-modules/\`.`,
                 `I file core (compiler, workflow CI/CD, script di build, configurazioni) sono gestiti direttamente dal maintainer per garantire la stabilità del progetto.`,
                 ``,
                 `### Come procedere`,
                 ``,
                 `1. **Ripristina** i file protetti al loro stato originale nel tuo fork.`,
-                `2. **Limita** le tue modifiche ai file dentro \`tools/\`.`,
+                `2. **Limita** le tue modifiche ai file dentro \`tools/\` o \`start-modules/\`.`,
                 `3. **Apri una nuova PR** con solo le modifiche ai moduli.`,
                 ``,
                 `Se ritieni che una modifica ai file core sia necessaria, apri invece una **Issue** descrivendo la proposta: sarà valutata dal maintainer.`,
@@ -214,7 +214,7 @@ jobs:
                 state: 'closed',
               });
               core.setFailed(
-                `PR #${prNumber} chiusa: contiene modifiche a ${level3Files.length} file protetti fuori da /tools.`
+                `PR #${prNumber} chiusa: contiene modifiche a ${level3Files.length} file protetti fuori da /tools e /start-modules.`
               );
               return;
             }
@@ -265,7 +265,7 @@ jobs:
               );
             }
 
-            // ── LIVELLO 1: solo tools/ — nessuna azione necessaria ─────────
+            // ── LIVELLO 1: tools/ e start-modules/ — nessuna azione ────────
 
   # ===========================================================================
   # JOB DETECT_CHANGES — Rilevazione differenziale per famiglia di sorgenti
