@@ -97,6 +97,7 @@ jobs:
     with:
       branch: Dev
       version: ${{ needs.versioning.outputs.new_version }}
+      minify: true
       commit-message: "✅ Build WinToolkit v${{ needs.versioning.outputs.new_version }}"
     secrets: inherit
 
