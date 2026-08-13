@@ -141,6 +141,24 @@ Generates release notes from the CHANGELOG and prepares assets for distribution.
 
 Creates the `release/vX.Y.Z` branch, applies compiled changes, and prepares a PR to `main` (PR creation is manual by intentional architectural choice).
 
+### V4.0 CI/CD modular architecture
+
+The V4.0 pipeline separates orchestration from reusable implementation:
+
+- `_reusable-lint-test.yml`: linting, AST validation and Pester quality gates.
+- `_reusable-build-wintoolkit.yml`: cleanup, compilation, artifact tests and commit of `WinToolkit.ps1`.
+- `_reusable-build-start.yml`: cleanup, compilation, validation and commit of `start-core.ps1`.
+- `_reusable-versioning.yml`: version bump, template validation and commit on the target branch.
+- `.github/actions/setup-powershell-modules/`: idempotent Pester/PSScriptAnalyzer setup.
+- `.github/actions/validate-syntax/`: shared PowerShell AST validation.
+- `.github/actions/pre-build-cleanup/`: shared generated-artifact cleanup.
+
+The Dev orchestrator calls the quality gate plus both reusable build workflows. Main calls the quality gate with template validation disabled and delegates versioning to the reusable versioning workflow. The pre-release workflow delegates versioning and both artifact builds.
+
+### `start.ps1` and `start-core.ps1`
+
+`start.ps1` is an ASCII-safe launcher. It locates/elevates PowerShell 7 and downloads or executes `start-core.ps1`. The core is generated from the ordered fragments in `start-modules/` by `.github/scripts/Invoke-Build-Start.ps1` and validated by `.github/scripts/Test-CompiledStartScript.ps1`.
+
 ---
 
 ## How to Test Locally
@@ -174,6 +192,14 @@ Invoke-Pester .github/tests/Unit/ -Output Detailed
 
 # Post-build validation
 .github/scripts/Test-CompiledScript.ps1 -ScriptPath WinToolkit.ps1
+
+# Build and validate start-core.ps1
+.github/scripts/Invoke-Build-Start.ps1 -Version '2.6.0 (Build 6)'
+.github/scripts/Test-CompiledStartScript.ps1 -ScriptPath start-core.ps1
+
+# Start-module tests
+Invoke-Pester .github/tests/StartModules/ -Output Detailed
+Invoke-Pester .github/tests/Integration/BuildStart.Tests.ps1 -Output Detailed
 ```
 
 ### Running the Linter
