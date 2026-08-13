@@ -311,49 +311,34 @@ Write-Host ""
 # ============================================================================
 if ($Minify) {
     Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingSafeMinificationThroughThePowershellTokenizer')
-    try {
-        $backupLines = $templateLines
-        $rawContent = $templateLines -join "`n"
 
+    function Invoke-MinifyContent {
+        param([string]$Source)
+        $backup = $Source
         $parseErrors = $null
         $tokens = $null
         [System.Management.Automation.Language.Parser]::ParseInput(
-            $rawContent,
-            [ref]$tokens,
-            [ref]$parseErrors
+            $Source, [ref]$tokens, [ref]$parseErrors
         ) | Out-Null
 
-        if ($parseErrors.Count -gt 0) {
-            Write-StyledMessage 'Warning' ((Get-SourceTextLoc 'sourceText.theSourceContains') + " $($parseErrors.Count) " + (Get-SourceTextLoc 'sourceText.preExistingParseErrorSMinificationAppliedAnyway'))
-        }
-
         $commentTokens = $tokens |
-        Where-Object { $_.Kind -eq 'Comment' } |
-        Sort-Object { $_.Extent.StartOffset } -Descending
+            Where-Object { $_.Kind -eq 'Comment' } |
+            Sort-Object { $_.Extent.StartOffset } -Descending
 
         foreach ($token in $commentTokens) {
             $start = $token.Extent.StartOffset
             $length = $token.Extent.EndOffset - $start
-            $rawContent = $rawContent.Remove($start, $length)
+            $Source = $Source.Remove($start, $length)
         }
 
-        Write-StyledMessage 'Info' (Get-SourceTextLoc 'uiText.removed0CommentTokens' -Args @($commentTokens.Count))
+        $minifiedLines = ($Source -split "`n") |
+            ForEach-Object { $_.TrimEnd() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
 
-        $cleanedLines = ($rawContent -split "`n") | ForEach-Object {
-            $_.TrimEnd()
-        } | Where-Object {
-            -not [string]::IsNullOrWhiteSpace($_)
-        }
-
-        $templateLines = $cleanedLines
-
-        $verifyContent = $templateLines -join "`n"
         $verifyErrors = $null
         $verifyTokens = $null
         [System.Management.Automation.Language.Parser]::ParseInput(
-            $verifyContent,
-            [ref]$verifyTokens,
-            [ref]$verifyErrors
+            ($minifiedLines -join "`n"), [ref]$verifyTokens, [ref]$verifyErrors
         ) | Out-Null
 
         if ($verifyErrors.Count -gt 0) {
@@ -364,9 +349,10 @@ if ($Minify) {
             $templateLines = $backupLines
         }
         else {
-            $linesAfter = $templateLines.Count
-            Write-StyledMessage 'Success' ((Get-SourceTextLoc 'sourceText.minificationCompleted') + ": $linesAfter " + (Get-SourceTextLoc 'sourceText.lines') + ' - ' + (Get-SourceTextLoc 'sourceText.noSyntaxErrorsDetected') + '.')
+            Write-StyledMessage 'Warning' 'Minify-Source.ps1 not found; using inline minifier.'
+            $minifiedContent = Invoke-MinifyContent -Source $templateContent
         }
+        $templateLines = $minifiedContent -split "`r?`n"
     }
     catch {
         Write-StyledMessage 'Error' ((Get-SourceTextLoc 'sourceText.unexpectedErrorDuringMinification') + ": $($_.Exception.Message).")
