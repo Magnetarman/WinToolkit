@@ -303,65 +303,62 @@ Write-Host ""
 
 # ============================================================================
 # 5. SAFE MINIFICATION ENGINE (-Minify)
+#    Uses the shared tokenizer-safe minifier (Minify-Source.ps1) when available.
+#    If the helper cannot be located, an inline copy of the same logic runs as a
+#    fallback so the build never silently emits a non-minified artifact.
 # ============================================================================
 if ($Minify) {
     Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingSafeMinificationThroughThePowershellTokenizer')
-    try {
-        $backupLines = $templateLines
-        $rawContent = $templateLines -join "`n"
 
+    function Invoke-MinifyContent {
+        param([string]$Source)
+        $backup = $Source
         $parseErrors = $null
         $tokens = $null
         [System.Management.Automation.Language.Parser]::ParseInput(
-            $rawContent,
-            [ref]$tokens,
-            [ref]$parseErrors
+            $Source, [ref]$tokens, [ref]$parseErrors
         ) | Out-Null
 
-        if ($parseErrors.Count -gt 0) {
-            Write-StyledMessage 'Warning' ((Get-SourceTextLoc 'sourceText.theSourceContains') + " $($parseErrors.Count) " + (Get-SourceTextLoc 'sourceText.preExistingParseErrorSMinificationAppliedAnyway'))
-        }
-
         $commentTokens = $tokens |
-        Where-Object { $_.Kind -eq 'Comment' } |
-        Sort-Object { $_.Extent.StartOffset } -Descending
+            Where-Object { $_.Kind -eq 'Comment' } |
+            Sort-Object { $_.Extent.StartOffset } -Descending
 
         foreach ($token in $commentTokens) {
             $start = $token.Extent.StartOffset
             $length = $token.Extent.EndOffset - $start
-            $rawContent = $rawContent.Remove($start, $length)
+            $Source = $Source.Remove($start, $length)
         }
 
-        Write-StyledMessage 'Info' (Get-SourceTextLoc 'uiText.removed0CommentTokens' -Args @($commentTokens.Count))
+        $minifiedLines = ($Source -split "`n") |
+            ForEach-Object { $_.TrimEnd() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
 
-        $cleanedLines = ($rawContent -split "`n") | ForEach-Object {
-            $_.TrimEnd()
-        } | Where-Object {
-            -not [string]::IsNullOrWhiteSpace($_)
-        }
-
-        $templateLines = $cleanedLines
-
-        $verifyContent = $templateLines -join "`n"
         $verifyErrors = $null
         $verifyTokens = $null
         [System.Management.Automation.Language.Parser]::ParseInput(
-            $verifyContent,
-            [ref]$verifyTokens,
-            [ref]$verifyErrors
+            ($minifiedLines -join "`n"), [ref]$verifyTokens, [ref]$verifyErrors
         ) | Out-Null
 
-        if ($verifyErrors.Count -gt 0) {
-            Write-StyledMessage 'Warning' ((Get-SourceTextLoc 'sourceText.detected3') + " $($verifyErrors.Count) " + (Get-SourceTextLoc 'sourceText.postMinificationSyntaxErrorSRollingBackToOriginalSource'))
-            foreach ($e in $verifyErrors) {
-            Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.line01' -Args @($e.Extent.StartLineNumber, $e.Message))
-            }
-            $templateLines = $backupLines
+        if ($verifyErrors.Count -gt 0) { return $backup }
+        return $minifiedLines -join "`r`n"
+    }
+
+    try {
+        # Resolve the shared helper relative to this script or the repository root.
+        $helperPath = Join-Path $PSScriptRoot '.github/scripts/Minify-Source.ps1'
+        if (-not (Test-Path -LiteralPath $helperPath)) {
+            $helperPath = Join-Path (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..') -ErrorAction SilentlyContinue) '.github/scripts/Minify-Source.ps1'
+        }
+
+        $templateContent = $templateLines -join "`n"
+        if (Test-Path -LiteralPath $helperPath) {
+            $minifiedContent = & $helperPath -Content $templateContent -Verbose:$false
         }
         else {
-            $linesAfter = $templateLines.Count
-            Write-StyledMessage 'Success' ((Get-SourceTextLoc 'sourceText.minificationCompleted') + ": $linesAfter " + (Get-SourceTextLoc 'sourceText.lines') + ' - ' + (Get-SourceTextLoc 'sourceText.noSyntaxErrorsDetected') + '.')
+            Write-StyledMessage 'Warning' 'Minify-Source.ps1 not found; using inline minifier.'
+            $minifiedContent = Invoke-MinifyContent -Source $templateContent
         }
+        $templateLines = $minifiedContent -split "`r?`n"
     }
     catch {
         Write-StyledMessage 'Error' ((Get-SourceTextLoc 'sourceText.unexpectedErrorDuringMinification') + ": $($_.Exception.Message).")

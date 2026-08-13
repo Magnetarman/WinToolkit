@@ -8,7 +8,9 @@ param(
     [string]$Version,
 
     [string]$SourceDir = 'start-modules',
-    [string]$OutputPath = 'start-core.ps1'
+    [string]$OutputPath = 'start-core.ps1',
+
+    [switch]$Minify = $true
 )
 
 Set-StrictMode -Version Latest
@@ -72,6 +74,65 @@ try {
     $versionPattern = '(?m)^\$ToolkitVersion\s*=\s*"[^"]*"'
     if ($content -notmatch $versionPattern) { throw 'ToolkitVersion placeholder was not found in start-modules.' }
     $content = [regex]::Replace($content, $versionPattern, ('$ToolkitVersion = "' + $escapedVersion + '"'), 1)
+
+    # Tokenizer-safe minification (shared logic in Minify-Source.ps1) strips
+    # comment tokens, trims trailing whitespace and drops blank lines, then
+    # verifies the result with the PowerShell parser and rolls back to the
+    # original content on any post-minification syntax error. An inline copy of
+    # the same logic runs if the shared helper cannot be located, so a compact
+    # start-core.ps1 is always produced.
+    if ($Minify) {
+        Write-BuildLog -Message 'Applying tokenizer-safe minification...' -Type Info
+        try {
+            function Invoke-MinifyContent {
+                param([string]$Source)
+                $backup = $Source
+                $parseErrors = $null
+                $tokens = $null
+                [System.Management.Automation.Language.Parser]::ParseInput(
+                    $Source, [ref]$tokens, [ref]$parseErrors
+                ) | Out-Null
+
+                $commentTokens = $tokens |
+                    Where-Object { $_.Kind -eq 'Comment' } |
+                    Sort-Object { $_.Extent.StartOffset } -Descending
+
+                foreach ($token in $commentTokens) {
+                    $start = $token.Extent.StartOffset
+                    $length = $token.Extent.EndOffset - $start
+                    $Source = $Source.Remove($start, $length)
+                }
+
+                $minifiedLines = ($Source -split "`n") |
+                    ForEach-Object { $_.TrimEnd() } |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+                $verifyErrors = $null
+                $verifyTokens = $null
+                [System.Management.Automation.Language.Parser]::ParseInput(
+                    ($minifiedLines -join "`n"), [ref]$verifyTokens, [ref]$verifyErrors
+                ) | Out-Null
+
+                if ($verifyErrors.Count -gt 0) { return $backup }
+                return $minifiedLines -join "`r`n"
+            }
+
+            $helperPath = Join-Path $PSScriptRoot 'Minify-Source.ps1'
+            if (Test-Path -LiteralPath $helperPath) {
+                $content = & $helperPath -Content $content -Verbose:$false
+            }
+            else {
+                Write-BuildLog -Message 'Minify-Source.ps1 not found; using inline minifier.' -Type Warning
+                $content = Invoke-MinifyContent -Source $content
+            }
+
+            $contentLineCount = ($content -split "`n").Count
+            Write-BuildLog -Message "Minification completed: $contentLineCount lines, no syntax errors." -Type Success
+        }
+        catch {
+            Write-BuildLog -Message "Unexpected error during minification ($($_.Exception.Message)); keeping original source." -Type Warning
+        }
+    }
 
     $outputFullPath = [System.IO.Path]::GetFullPath($OutputPath)
     $outputDirectory = Split-Path -Parent $outputFullPath

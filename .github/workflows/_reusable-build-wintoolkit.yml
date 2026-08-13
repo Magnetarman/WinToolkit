@@ -117,9 +117,20 @@ jobs:
           BUILD_VERSION: ${{ steps.version_label.outputs.new_version }}
           MINIFY: ${{ inputs.minify }}
         run: |
-          $arguments = @('-Version', $env:BUILD_VERSION, '-OutputPath', 'WinToolkit.ps1')
-          if ($env:MINIFY -eq 'true') { $arguments += '-Minify' }
-          & .github/scripts/Invoke-Build.ps1 @arguments
+          # Normalize the version coming from a workflow output: GitHub Actions
+          # serializes multiline/Windows CRLF values, so trim stray whitespace
+          # and carriage returns.
+          $buildVersion = ($env:BUILD_VERSION ?? '').Trim().Trim("`r").Trim("`n")
+
+          # Build a typed splatting hashtable. Passing -Minify as a bare string
+          # element in an array makes PowerShell bind it as a positional/value
+          # argument, which breaks argument parsing ("A positional parameter
+          # cannot be found that accepts argument 'WinToolkit.ps1'"). A hashtable
+          # lets the [switch] keep its boolean type.
+          $params = @{ OutputPath = 'WinToolkit.ps1' }
+          if ($buildVersion -ne '') { $params['Version'] = $buildVersion }
+          $params['Minify'] = ($env:MINIFY -eq 'true')
+          & .github/scripts/Invoke-Build.ps1 @params
 
       - name: Test compiled script
         id: test_compiled
