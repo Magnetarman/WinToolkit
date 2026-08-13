@@ -1,4 +1,5 @@
-name: Validate PowerShell syntax
+# WinToolkit CI/CD Pipeline V 4.0 — Composite Action
+name: WinToolkit V4.0 — Validate PowerShell syntax
 description: Parse one or more PowerShell files with the PowerShell AST parser.
 
 inputs:
