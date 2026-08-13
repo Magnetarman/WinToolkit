@@ -303,13 +303,61 @@ Write-Host ""
 
 # ============================================================================
 # 5. SAFE MINIFICATION ENGINE (-Minify)
-#    Delegates to the shared tokenizer-safe minifier (Minify-Source.ps1).
+#    Uses the shared tokenizer-safe minifier (Minify-Source.ps1) when available.
+#    If the helper cannot be located, an inline copy of the same logic runs as a
+#    fallback so the build never silently emits a non-minified artifact.
 # ============================================================================
 if ($Minify) {
     Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingSafeMinificationThroughThePowershellTokenizer')
+
+    function Invoke-MinifyContent {
+        param([string]$Source)
+        $backup = $Source
+        $parseErrors = $null
+        $tokens = $null
+        [System.Management.Automation.Language.Parser]::ParseInput(
+            $Source, [ref]$tokens, [ref]$parseErrors
+        ) | Out-Null
+
+        $commentTokens = $tokens |
+            Where-Object { $_.Kind -eq 'Comment' } |
+            Sort-Object { $_.Extent.StartOffset } -Descending
+
+        foreach ($token in $commentTokens) {
+            $start = $token.Extent.StartOffset
+            $length = $token.Extent.EndOffset - $start
+            $Source = $Source.Remove($start, $length)
+        }
+
+        $minifiedLines = ($Source -split "`n") |
+            ForEach-Object { $_.TrimEnd() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+        $verifyErrors = $null
+        $verifyTokens = $null
+        [System.Management.Automation.Language.Parser]::ParseInput(
+            ($minifiedLines -join "`n"), [ref]$verifyTokens, [ref]$verifyErrors
+        ) | Out-Null
+
+        if ($verifyErrors.Count -gt 0) { return $backup }
+        return $minifiedLines -join "`r`n"
+    }
+
     try {
+        # Resolve the shared helper relative to this script or the repository root.
+        $helperPath = Join-Path $PSScriptRoot '.github/scripts/Minify-Source.ps1'
+        if (-not (Test-Path -LiteralPath $helperPath)) {
+            $helperPath = Join-Path (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..') -ErrorAction SilentlyContinue) '.github/scripts/Minify-Source.ps1'
+        }
+
         $templateContent = $templateLines -join "`n"
-        $minifiedContent = & "$PSScriptRoot/.github/scripts/Minify-Source.ps1" -Content $templateContent -Verbose:$false
+        if (Test-Path -LiteralPath $helperPath) {
+            $minifiedContent = & $helperPath -Content $templateContent -Verbose:$false
+        }
+        else {
+            Write-StyledMessage 'Warning' 'Minify-Source.ps1 not found; using inline minifier.'
+            $minifiedContent = Invoke-MinifyContent -Source $templateContent
+        }
         $templateLines = $minifiedContent -split "`r?`n"
     }
     catch {
