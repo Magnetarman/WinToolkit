@@ -75,55 +75,16 @@ try {
     if ($content -notmatch $versionPattern) { throw 'ToolkitVersion placeholder was not found in start-modules.' }
     $content = [regex]::Replace($content, $versionPattern, ('$ToolkitVersion = "' + $escapedVersion + '"'), 1)
 
-    # Tokenizer-safe minification (mirrors compiler.ps1): strip comment tokens,
-    # trim trailing whitespace and drop blank lines. The result is verified with
-    # the PowerShell parser and rolled back to the original content on any
-    # post-minification syntax error, so a compact start-core.ps1 is always
-    # syntactically safe.
+    # Tokenizer-safe minification (shared logic in Minify-Source.ps1) strips
+    # comment tokens, trims trailing whitespace and drops blank lines, then
+    # verifies the result with the PowerShell parser and rolls back to the
+    # original content on any post-minification syntax error.
     if ($Minify) {
         Write-BuildLog -Message 'Applying tokenizer-safe minification...' -Type Info
         try {
-            $backupContent = $content
-            $parseErrors = $null
-            $tokens = $null
-            [System.Management.Automation.Language.Parser]::ParseInput(
-                $content, [ref]$tokens, [ref]$parseErrors
-            ) | Out-Null
-
-            if ($parseErrors.Count -gt 0) {
-                Write-BuildLog -Message "Source has $($parseErrors.Count) pre-existing parse error(s); minification applied anyway." -Type Warning
-            }
-
-            $commentTokens = $tokens |
-                Where-Object { $_.Kind -eq 'Comment' } |
-                Sort-Object { $_.Extent.StartOffset } -Descending
-
-            foreach ($token in $commentTokens) {
-                $start = $token.Extent.StartOffset
-                $length = $token.Extent.EndOffset - $start
-                $content = $content.Remove($start, $length)
-            }
-
-            Write-BuildLog -Message "Removed $($commentTokens.Count) comment tokens." -Type Info
-
-            $minifiedLines = ($content -split "`n") |
-                ForEach-Object { $_.TrimEnd() } |
-                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-
-            $verifyErrors = $null
-            $verifyTokens = $null
-            [System.Management.Automation.Language.Parser]::ParseInput(
-                ($minifiedLines -join "`n"), [ref]$verifyTokens, [ref]$verifyErrors
-            ) | Out-Null
-
-            if ($verifyErrors.Count -gt 0) {
-                Write-BuildLog -Message "Post-minification syntax error(s) detected; rolling back to original source." -Type Warning
-                $content = $backupContent
-            }
-            else {
-                $content = $minifiedLines -join "`r`n"
-                Write-BuildLog -Message "Minification completed: $($minifiedLines.Count) lines, no syntax errors." -Type Success
-            }
+            $content = & "$PSScriptRoot/Minify-Source.ps1" -Content $content -Verbose:$false
+            $contentLineCount = ($content -split "`n").Count
+            Write-BuildLog -Message "Minification completed: $contentLineCount lines, no syntax errors." -Type Success
         }
         catch {
             Write-BuildLog -Message "Unexpected error during minification ($($_.Exception.Message)); keeping original source." -Type Warning
