@@ -162,7 +162,8 @@ jobs:
             }
 
   # ===========================================================================
-  # JOB DETECT_CHANGES — Rileva modifiche a file sorgente PS1
+  # JOB DETECT_CHANGES — Rilevazione differenziale per famiglia di sorgenti
+  # Stessa logica di CI_UpdateWinToolkit_Dev.yml (fonte unica di verità dei pattern).
   # ===========================================================================
   detect_changes:
     name: Detect Source Changes
@@ -171,6 +172,8 @@ jobs:
     needs: main_branch_guard
     outputs:
       run_checks: ${{ steps.filter.outputs.run_checks }}
+      wintoolkit_changed: ${{ steps.filter.outputs.wintoolkit_changed }}
+      start_changed: ${{ steps.filter.outputs.start_changed }}
 
     steps:
       - name: Checkout repository
@@ -178,19 +181,43 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check for PS1 source changes
+      - name: Detect changes per source family
         id: filter
         run: |
           CHANGED=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
           echo "File modificati nella PR:"
           echo "$CHANGED"
-          if echo "$CHANGED" | grep -qE '^(tools/[^/]+\.ps1|WinToolkit-template\.ps1|start\.ps1|start-offline\.ps1|WinToolkit-GUI\.ps1|compiler\.ps1|\.github/(tests|scripts)/[^/]+\.ps1)$'; then
-            echo "run_checks=true" >> "$GITHUB_OUTPUT"
-            echo "Modifiche a file sorgente PS1 rilevate."
-          else
-            echo "run_checks=false" >> "$GITHUB_OUTPUT"
-            echo "Nessuna modifica a file sorgente PS1 rilevata."
+
+          # --- Pattern per famiglia -------------------------------------------
+          WT_PATTERN='^(tools/[^/]+\.ps1|WinToolkit-template\.ps1|WinToolkit_GUI\.ps1|compiler\.ps1)$'
+          ST_PATTERN='^(start\.ps1|start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1|\.github/scripts/(Invoke-Build-Start|Test-CompiledStartScript)\.ps1)$'
+          SHARED_PATTERN='^\.github/(tests/.*\.ps1|scripts/[^/]+\.ps1|actions/.+)$'
+
+          WT_CHANGED=false
+          ST_CHANGED=false
+
+          if echo "$CHANGED" | grep -qE "$WT_PATTERN"; then WT_CHANGED=true; fi
+          if echo "$CHANGED" | grep -qE "$ST_PATTERN"; then ST_CHANGED=true; fi
+
+          # I file CI condivisi attivano entrambe le famiglie di controlli.
+          if echo "$CHANGED" | grep -qE "$SHARED_PATTERN"; then
+            WT_CHANGED=true
+            ST_CHANGED=true
           fi
+
+          if [ "$WT_CHANGED" = "true" ] || [ "$ST_CHANGED" = "true" ]; then
+            RUN_CHECKS=true
+          else
+            RUN_CHECKS=false
+          fi
+
+          {
+            echo "run_checks=$RUN_CHECKS"
+            echo "wintoolkit_changed=$WT_CHANGED"
+            echo "start_changed=$ST_CHANGED"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "run_checks=$RUN_CHECKS wintoolkit_changed=$WT_CHANGED start_changed=$ST_CHANGED"
 
   # ===========================================================================
   # JOB 1: REUSABLE QUALITY GATE — Linting e testing
@@ -202,7 +229,9 @@ jobs:
     uses: ./.github/workflows/_reusable-lint-test.yml
     with:
       run-checks: ${{ needs.detect_changes.outputs.run_checks == 'true' }}
-      validate-template: false
+      validate-template: ${{ needs.detect_changes.outputs.wintoolkit_changed == 'true' }}
+      validate-start: ${{ needs.detect_changes.outputs.start_changed == 'true' }}
+      run-integration-tests: true
     permissions:
       contents: read
 
