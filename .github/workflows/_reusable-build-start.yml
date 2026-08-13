@@ -17,7 +17,7 @@ on:
         description: Commit message for start-core.ps1.
         required: false
         type: string
-        default: '✅ Compilato start-core.ps1'
+        default: '✅ Build start-core.ps1'
 
 jobs:
   build-start:
