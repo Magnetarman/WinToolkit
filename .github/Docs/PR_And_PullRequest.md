@@ -214,9 +214,9 @@ Contains third-party executables and tools used by the toolkit. These files are 
 #### `/.github/` Folder - CI/CD Infrastructure
 
 - **workflows/**: GitHub Actions pipelines for CI/CD and automatic distribution
-    - `CI_UpdateWinToolkit_Dev.yml`: Adaptive Enterprise pipeline (full Dev, lightweight feature/fix, PR quality gate)
-    - `CI_UpdateWinToolkit_Main.yml`: Pipeline for verifying the main branch
-    - `Create_Release.yml`: Workflow for release creation and notes generation
+    - `CI-WinToolkit-Dev.yml`: Adaptive Enterprise pipeline (full Dev, lightweight feature/fix, PR quality gate)
+    - `CI-WinToolkit-Main.yml`: Pipeline for verifying the main branch
+    - `Release-PreRelease.yml`: Workflow for release creation and notes generation
     - `Release-Stable.yml`: Pipeline for creating release branches and merging to main
     - `Security-Scan.yml`, `Maintenance-Stale.yml`: Maintenance workflows
 - **scripts/**: PowerShell scripts for build and test automation
@@ -338,7 +338,7 @@ git push origin Dev
 
 As soon as you push:
 
-1. The `CI_UpdateWinToolkit_Dev.yml` workflow will start automatically
+1. The `CI-WinToolkit-Dev.yml` workflow will start automatically
 2. The following will run **in your fork**:
     - ✅ Security check on changes (3-level PR Security Guard)
     - ✅ Full linting with PSScriptAnalyzer
@@ -346,7 +346,7 @@ As soon as you push:
     - ✅ AST syntax validation (compiler.ps1 and template)
 
 > [!IMPORTANT]
-> **Fundamental Note**: The push pipeline runs lint, test, and build. Official versioning happens exclusively through the `Create_Release.yml` workflow (manually triggered). In forks, the build jobs commit the generated `WinToolkit.ps1` file.
+> **Fundamental Note**: The push pipeline runs lint, test, and build. Official versioning happens exclusively through the `Release-PreRelease.yml` workflow (manually triggered). In forks, the build jobs commit the generated `WinToolkit.ps1` file.
 
 #### ✅ Verify Results
 
