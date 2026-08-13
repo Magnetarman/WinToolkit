@@ -14,6 +14,16 @@ on:
         required: false
         type: boolean
         default: true
+      validate-start:
+        description: Include start-modules and start.ps1 in quality checks.
+        required: false
+        type: boolean
+        default: false
+      run-integration-tests:
+        description: Run the slower start-core integration build test.
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   linting:
@@ -36,11 +46,16 @@ jobs:
         shell: pwsh
         env:
           VALIDATE_TEMPLATE: ${{ inputs.validate-template }}
+          VALIDATE_START: ${{ inputs.validate-start }}
         run: |
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $files = @(Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)
           if ($env:VALIDATE_TEMPLATE -eq 'true') {
             $files += @(Get-Item -LiteralPath "WinToolkit-template.ps1")
+          }
+          if ($env:VALIDATE_START -eq 'true') {
+            $files += @(Get-ChildItem -Path "start-modules" -Filter "*.ps1" -File)
+            $files += @(Get-Item -LiteralPath "start.ps1")
           }
           $hasErrors = $false
 
@@ -79,6 +94,23 @@ jobs:
           path: compiler.ps1
           label: compiler.ps1
 
+      - name: Validate start-modules syntax
+        if: inputs.validate-start
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: start-modules/*.ps1
+          label: start-modules
+
+      - name: Validate launcher stub ASCII purity
+        if: inputs.validate-start
+        shell: pwsh
+        run: |
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path 'start.ps1'))
+          if ($bytes | Where-Object { $_ -gt 127 }) {
+            Write-Host '::error file=start.ps1::Launcher stub must remain ASCII-only.'
+            exit 1
+          }
+
   testing:
     name: Reusable Pester tests
     if: inputs.run-checks
@@ -99,6 +131,8 @@ jobs:
 
       - name: Run PSScriptAnalyzer and Pester
         shell: pwsh
+        env:
+          VALIDATE_START: ${{ inputs.validate-start }}
         run: |
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $analyzerResults = @(Invoke-ScriptAnalyzer -Path '*.ps1' -Severity Warning,Error -Settings $settingsPath)
@@ -125,11 +159,37 @@ jobs:
             exit 1
           }
 
+          if ($env:VALIDATE_START -eq 'true') {
+            $startConfig = New-PesterConfiguration
+            $startPaths = @(
+              '.github/tests/StartModules.Syntax.Tests.ps1',
+              '.github/tests/StartModules.Common.Tests.ps1',
+              '.github/tests/StartModules.Localization.Tests.ps1',
+              '.github/tests/StartModules.Winget.Tests.ps1'
+            )
+            if ('${{ inputs.run-integration-tests }}' -eq 'true') {
+              $startPaths += '.github/tests/Integration/BuildStart.Tests.ps1'
+            }
+            $startConfig.Run.Path = $startPaths
+            $startConfig.Run.PassThru = $true
+            $startConfig.Output.Verbosity = 'Detailed'
+            $startConfig.TestResult.Enabled = $true
+            $startConfig.TestResult.OutputPath = 'TestResults-Start.xml'
+            $startConfig.TestResult.OutputFormat = 'NUnitXml'
+            $startResult = Invoke-Pester -Configuration $startConfig
+            if ($startResult.FailedCount -gt 0) {
+              Write-Host "::error::$($startResult.FailedCount) StartModules Pester test(s) failed."
+              exit 1
+            }
+          }
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: reusable-pester-test-results
-          path: TestResults.xml
+          path: |
+            TestResults.xml
+            TestResults-Start.xml
           if-no-files-found: ignore
           retention-days: 30
