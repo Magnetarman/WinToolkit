@@ -303,11 +303,9 @@ Write-Host ""
 
 # ============================================================================
 # 5. SAFE MINIFICATION ENGINE (-Minify)
-#    Tokenizer-safe: strips comment tokens, trims trailing whitespace and drops
-#    blank lines. The minified result is re-parsed and, on any post-minification
-#    syntax error, rolled back to the original lines so the emitted artifact is
-#    always syntactically safe. Kept inline (no external dependency) so a missing
-#    helper can never silently disable minification in CI.
+#    Uses the shared tokenizer-safe minifier (Minify-Source.ps1) when available.
+#    If the helper cannot be located, an inline copy of the same logic runs as a
+#    fallback so the build never silently emits a non-minified artifact.
 # ============================================================================
 if ($Minify) {
     Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingSafeMinificationThroughThePowershellTokenizer')
@@ -341,12 +339,17 @@ if ($Minify) {
             ($minifiedLines -join "`n"), [ref]$verifyTokens, [ref]$verifyErrors
         ) | Out-Null
 
-        if ($verifyErrors.Count -gt 0) {
-            Write-StyledMessage 'Warning' ((Get-SourceTextLoc 'sourceText.detected3') + " $($verifyErrors.Count) " + (Get-SourceTextLoc 'sourceText.postMinificationSyntaxErrorSRollingBackToOriginalSource'))
-            foreach ($e in $verifyErrors) {
-                Write-StyledMessage 'Warning' (Get-SourceTextLoc 'uiText.line01' -Args @($e.Extent.StartLineNumber, $e.Message))
-            }
-            $templateLines = $backupLines
+        if ($verifyErrors.Count -gt 0) { return $backup }
+        return $minifiedLines -join "`r`n"
+    }
+
+    try {
+        # Resolve the shared helper relative to the repository root.
+        $helperPath = Join-Path $scriptPath '.github/scripts/Minify-Source.ps1'
+        $templateContent = $templateLines -join "`n"
+
+        if (Test-Path -LiteralPath $helperPath) {
+            $minifiedContent = & $helperPath -Content $templateContent -Verbose:$false
         }
         else {
             Write-StyledMessage 'Warning' 'Minify-Source.ps1 not found; using inline minifier.'

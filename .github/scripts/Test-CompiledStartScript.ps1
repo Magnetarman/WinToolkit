@@ -40,7 +40,11 @@ try {
         if ($missing.Count -gt 0) { $errors.Add("Missing functions: $($missing -join ', ')") }
 
         $sourceMarkers = @([regex]::Matches($content, '(?m)^# SOURCE: .+$'))
-        if ($sourceMarkers.Count -ne $sourceFiles.Count) { $errors.Add("Expected $($sourceFiles.Count) SOURCE markers, found $($sourceMarkers.Count).") }
+        # Minified artifacts intentionally remove comments, including SOURCE
+        # markers. For non-minified output, retain the strict marker check.
+        if ($sourceMarkers.Count -ne 0 -and $sourceMarkers.Count -ne $sourceFiles.Count) {
+            $errors.Add("Expected either 0 SOURCE markers (minified) or $($sourceFiles.Count) SOURCE markers, found $($sourceMarkers.Count).")
+        }
         $localImport = [regex]::Matches($content, '(?m)^\s*Import-Module\s+([./\\])')
         if ($localImport.Count -gt 0) { $errors.Add('Local Import-Module references are forbidden in start-core.ps1.') }
 
