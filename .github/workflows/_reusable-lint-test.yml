@@ -137,7 +137,6 @@ jobs:
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $analyzerResults = @(Invoke-ScriptAnalyzer -Path '*.ps1' -Severity Warning,Error -Settings $settingsPath)
           $analyzerResults += @(Invoke-ScriptAnalyzer -Path 'tools\*.ps1' -Severity Warning,Error -Settings $settingsPath)
-          $analyzerResults = @($analyzerResults | Where-Object { $_.ScriptName -ne 'start-offline.ps1' })
 
           if ($analyzerResults) {
             $analyzerResults | Format-Table -AutoSize
