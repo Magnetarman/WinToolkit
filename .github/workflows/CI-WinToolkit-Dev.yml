@@ -265,19 +265,19 @@ jobs:
               );
             }
 
-            // ── LIVELLO 1: tools/ e start-modules/ — nessuna azione ────────
+            // -- LEVEL 1: tools/ and start-modules/ -- no action needed --
 
   # ===========================================================================
-  # JOB DETECT_CHANGES — Rilevazione differenziale per famiglia di sorgenti
+  # JOB DETECT_CHANGES -- Differential detection per source family
   #
-  # Output:
-  #   run_checks          → almeno una famiglia sorgente (o file CI condiviso) è cambiata
-  #   wintoolkit_changed  → sorgenti WinToolkit (tools/, template, GUI, compiler)
-  #   start_changed       → sorgenti Start (stub, start-modules/, script build Start)
-  #   start_build_changed → solo start-modules/ (richiede rebuild di start-core.ps1)
+  # Outputs:
+  #   run_checks          -> at least one source family (or shared CI file) changed
+  #   wintoolkit_changed  -> WinToolkit sources (tools/, template, GUI, compiler)
+  #   start_changed       -> Start sources (stub, start-modules/, Start build scripts)
+  #   start_build_changed -> start-modules/ only (requires a start-core.ps1 rebuild)
   #
-  # I file CI condivisi (.github/tests, .github/scripts, .github/actions) attivano
-  # entrambe le famiglie, perché possono influenzare qualunque build.
+  # Shared CI files (.github/tests, .github/scripts, .github/actions) activate
+  # both families, because they can influence any build.
   # ===========================================================================
   detect_changes:
     name: Detect Source Changes
@@ -308,10 +308,10 @@ jobs:
             fi
           fi
 
-          echo "File modificati:"
+          echo "Changed files:"
           echo "$CHANGED"
 
-          # --- Pattern per famiglia -------------------------------------------
+          # --- Per-family patterns --------------------------------------------
           WT_PATTERN='^(tools/[^/]+\.ps1|WinToolkit-template\.ps1|WinToolkit_GUI\.ps1|compiler\.ps1)$'
           ST_PATTERN='^(start\.ps1|start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1|\.github/scripts/(Invoke-Build-Start|Test-CompiledStartScript)\.ps1)$'
           ST_BUILD_PATTERN='^start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1$'
@@ -325,7 +325,7 @@ jobs:
           if echo "$CHANGED" | grep -qE "$ST_PATTERN"; then ST_CHANGED=true; fi
           if echo "$CHANGED" | grep -qE "$ST_BUILD_PATTERN"; then ST_BUILD_CHANGED=true; fi
 
-          # I file CI condivisi attivano entrambe le famiglie di controlli.
+          # Shared CI files activate both families of checks.
           if echo "$CHANGED" | grep -qE "$SHARED_PATTERN"; then
             WT_CHANGED=true
             ST_CHANGED=true
@@ -348,8 +348,8 @@ jobs:
 
   # ===========================================================================
   # JOB 1: REUSABLE QUALITY GATE
-  # Linting e testing sono definiti in _reusable-lint-test.yml.
-  # I controlli WinToolkit e Start sono attivati in modo differenziale.
+  # Linting and testing are defined in _reusable-lint-test.yml.
+  # WinToolkit and Start checks are enabled differentially.
   # ===========================================================================
   quality:
     name: Lint and test
@@ -364,8 +364,8 @@ jobs:
 
   # ===========================================================================
   # JOB 2: BUILD — Reusable Workflow
-  # Il labeling dinamico e il commit branch-aware sono gestiti dal reusable.
-  # Gira solo se i sorgenti WinToolkit sono cambiati e il quality gate è passato.
+  # Dynamic labeling and the branch-aware commit are handled by the reusable workflow.
+  # Runs only when WinToolkit sources changed and the quality gate passed.
   # ===========================================================================
   build:
     name: Build
@@ -382,7 +382,7 @@ jobs:
 
   # ===========================================================================
   # JOB 3: BUILD START — Reusable Workflow
-  # Gira solo se start-modules/ è cambiato (start-core.ps1 va rigenerato).
+  # Runs only when start-modules/ changed (start-core.ps1 must be regenerated).
   # ===========================================================================
   build-start:
     name: Build start-core.ps1
