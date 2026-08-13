@@ -62,20 +62,29 @@ WinToolkit-template.ps1  +  tool/*.ps1
 
 | Script | Responsibility |
 |--------|---------------|
-| `Update-Version.ps1` | Reads `version.json`, increments the build number, updates `WinToolkit-template.ps1` and `start.ps1`, publishes outputs for downstream jobs |
+| `Update-Version.ps1` | Reads `$ToolkitVersion` from `WinToolkit-template.ps1`, increments the build number, aligns `start-modules/00-Skeleton.Header.ps1`, publishes outputs for downstream jobs |
 | `Invoke-Build.ps1` | CI orchestrator: validates prerequisites, invokes `compiler.ps1`, verifies output, publishes metrics |
+| `Invoke-Build-Start.ps1` | Concatenates the ordered `start-modules/*.ps1` fragments into `start-core.ps1` and publishes size metrics |
 | `Test-CompiledScript.ps1` | Post-build validation suite: AST syntax, function availability, menu structure, file size, UTF-8 encoding |
+| `Test-CompiledStartScript.ps1` | Validates `start-core.ps1`: AST syntax, expected functions, no duplicate SOURCE markers, no `Import-Module`, minimum size |
 
-### `version.json` — Single Source of Truth for Versioning
+### `$ToolkitVersion` — Single Source of Truth for Versioning
 
-```json
-{
-  "version": "2.5.5",
-  "build": 1
-}
+The authoritative version lives in a single place: the `$ToolkitVersion` variable in
+`WinToolkit-template.ps1`.
+
+```powershell
+$ToolkitVersion = "2.6.0 (Build 5)"
 ```
 
-`Update-Version.ps1` reads and writes this file as the primary source. Other files (`WinToolkit-template.ps1`, `start.ps1`) are updated as derived steps.
+`Update-Version.ps1` reads that variable, bumps the build number, and writes it back.
+Any other file carrying a version string — currently
+`start-modules/00-Skeleton.Header.ps1` — is **aligned to** the template, never the
+other way around. Every forced alignment is reported through the `aligned_sources`
+output so it is traceable in CI.
+
+There is no `version.json`: the separate JSON source was removed in V4.0 precisely
+because two sources of truth could drift apart.
 
 ---
 
