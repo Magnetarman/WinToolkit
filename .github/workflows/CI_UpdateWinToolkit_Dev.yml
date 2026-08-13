@@ -305,6 +305,7 @@ jobs:
     uses: ./.github/workflows/_reusable-lint-test.yml
     with:
       run-checks: ${{ needs.detect_changes.outputs.run_checks == 'true' }}
+      validate-start: true
     permissions:
       contents: read
 
@@ -320,4 +321,14 @@ jobs:
     with:
       branch: ${{ github.ref_name }}
       commit-message: "✅ Compilato WinToolkit"
+    secrets: inherit
+
+  build-start:
+    name: Build start-core.ps1
+    if: always() && github.event_name == 'push' && needs.quality.result == 'success'
+    needs: [quality]
+    uses: ./.github/workflows/_reusable-build-start.yml
+    with:
+      branch: ${{ github.ref_name }}
+      commit-message: "✅ Compilato start-core.ps1"
     secrets: inherit
