@@ -316,6 +316,50 @@ function Test-WingetFunctionality {
     }
 }
 
+function Test-WingetAppInstaller {
+    <#
+    .SYNOPSIS
+    Ensures the Microsoft.AppInstaller package is present and up to date.
+
+    .DESCRIPTION
+    After Winget is confirmed functional, the Microsoft.AppInstaller package
+    must be present (and current) so that Winget stays fully functional and on
+    the latest release/support. When the package is missing it is installed,
+    and when already present it is force-updated to the latest release.
+    #>
+    $wingetExe = Get-WinGetExecutable
+    if (-not $wingetExe) {
+        return $false
+    }
+
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.checkingMicrosoftAppInstallerPackage')
+
+    $present = [bool](Get-AppxPackage -Name 'Microsoft.AppInstaller' -ErrorAction SilentlyContinue)
+
+    try {
+        if (-not $present) {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerNotFoundInstalling')
+            $null = & $wingetExe install --id Microsoft.AppInstaller --source winget --accept-package-agreements --accept-source-agreements --force 2>&1
+        }
+        else {
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerPresentForcingUpdate')
+            $null = & $wingetExe upgrade --id Microsoft.AppInstaller --source winget --accept-package-agreements --accept-source-agreements --force 2>&1
+        }
+    }
+    catch {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdateError0' -Args @($($_.Exception.Message)))
+    }
+
+    $ok = [bool](Get-AppxPackage -Name 'Microsoft.AppInstaller' -ErrorAction SilentlyContinue)
+    if ($ok) {
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdated')
+    }
+    else {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerInstallationFailed')
+    }
+    return $ok
+}
+
 function Invoke-ForceCloseWinget {
     <#
     .SYNOPSIS
