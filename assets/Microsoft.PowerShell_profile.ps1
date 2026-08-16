@@ -203,6 +203,105 @@ function Reset-IP {
     Write-Host "⚠️ Restart the system to apply changes" -ForegroundColor Yellow
 }
 
+function Show-SpeedtestResultDetails {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [uri]$ResultUrl,
+
+        [Parameter(Mandatory = $true)]
+        [psobject]$ResultData
+    )
+
+    if (
+        -not $ResultUrl.IsAbsoluteUri -or
+        $ResultUrl.Scheme -ne "https" -or
+        $ResultUrl.Host -notin @("speedtest.net", "www.speedtest.net") -or
+        $ResultUrl.AbsolutePath -notmatch "^/result/c/[0-9a-fA-F-]{36}/?$"
+    ) {
+        throw "The Speedtest result URL is not valid: '$ResultUrl'."
+    }
+
+    try {
+        $requestParameters = @{
+            Uri             = $ResultUrl.AbsoluteUri
+            UseBasicParsing = $true
+            TimeoutSec      = 30
+            ErrorAction     = "Stop"
+            Headers         = @{
+                Accept       = "text/html,application/xhtml+xml"
+                "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) WinToolkit-Speedtest"
+            }
+        }
+        $resultPage = Invoke-WebRequest @requestParameters
+
+        if ($resultPage.StatusCode -lt 200 -or $resultPage.StatusCode -ge 300) {
+            throw "HTTP status code $($resultPage.StatusCode)."
+        }
+
+        Write-Host "🌐 Speedtest result page downloaded successfully." -ForegroundColor Cyan
+    }
+    catch {
+        Write-Host "⚠️ The result page could not be downloaded: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "ℹ️ The measurements will still be read from the structured CLI result." -ForegroundColor Cyan
+    }
+
+    $measurements = [ordered]@{
+        Timestamp       = $ResultData.timestamp
+        Download        = $ResultData.download.bandwidth
+        Upload          = $ResultData.upload.bandwidth
+        Ping            = $ResultData.ping.latency
+        DownloadLatency = $ResultData.download.latency.iqm
+        UploadLatency   = $ResultData.upload.latency.iqm
+    }
+    $missingMeasurements = @(
+        $measurements.GetEnumerator() |
+            Where-Object { $null -eq $_.Value -or [string]::IsNullOrWhiteSpace([string]$_.Value) } |
+            ForEach-Object { $_.Key }
+    )
+
+    if ($missingMeasurements.Count -gt 0) {
+        throw "The Speedtest result does not contain these measurements: $($missingMeasurements -join ', ')."
+    }
+
+    $dateTime = [DateTimeOffset]::Parse(
+        [string]$ResultData.timestamp,
+        [Globalization.CultureInfo]::InvariantCulture
+    ).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+    $downloadSpeed = [Math]::Round(([double]$ResultData.download.bandwidth * 8 / 1000000), 2)
+    $uploadSpeed = [Math]::Round(([double]$ResultData.upload.bandwidth * 8 / 1000000), 2)
+    $ping = [Math]::Round([double]$ResultData.ping.latency, 0)
+
+    # Ookla derives the summary ping and idle latency from the same latency measurement.
+    $idleLatency = [Math]::Round([double]$ResultData.ping.latency, 2)
+    $downloadLatency = [Math]::Round([double]$ResultData.download.latency.iqm, 2)
+    $uploadLatency = [Math]::Round([double]$ResultData.upload.latency.iqm, 2)
+
+    $details = [pscustomobject][ordered]@{
+        DateTime          = $dateTime
+        DownloadMbps      = $downloadSpeed
+        UploadMbps        = $uploadSpeed
+        PingMs            = $ping
+        IdleLatencyMs     = $idleLatency
+        DownloadLatencyMs = $downloadLatency
+        UploadLatencyMs   = $uploadLatency
+        ResultUrl         = $ResultUrl.AbsoluteUri
+    }
+
+    Write-Host "`n📊 Speedtest result" -ForegroundColor Cyan
+    Write-Host "🕒 Date and time:     $dateTime"
+    Write-Host "⬇️ Download speed:   $downloadSpeed Mbps"
+    Write-Host "⬆️ Upload speed:     $uploadSpeed Mbps"
+    Write-Host "📡 Ping:             $ping ms"
+    Write-Host "💤 Idle latency:     $idleLatency ms"
+    Write-Host "⬇️ Download latency: $downloadLatency ms"
+    Write-Host "⬆️ Upload latency:   $uploadLatency ms"
+    Write-Host "🔗 Result URL:       $($ResultUrl.AbsoluteUri)"
+
+    return $details
+}
+
 function Speedtest {
     [CmdletBinding()]
     param()
@@ -307,13 +406,40 @@ function Speedtest {
     }
 
     Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
-    Write-Host "📝 Results (including progress) will be saved to '$outputPath'." -ForegroundColor Yellow
+    Write-Host "📝 Structured results will be saved to '$outputPath'." -ForegroundColor Yellow
 
     try {
-        & $speedtestExePath --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
-        if ($LASTEXITCODE -ne 0) {
-            throw "speedtest.exe exited with code $LASTEXITCODE."
+        $speedtestOutput = @(
+            & $speedtestExePath --accept-license --accept-gdpr --format=json --progress=no 2>&1
+        )
+        $speedtestExitCode = $LASTEXITCODE
+
+        if ($speedtestExitCode -ne 0) {
+            $errorDetails = ($speedtestOutput | ForEach-Object { $_.ToString().TrimEnd() } | Where-Object { $_ }) -join [Environment]::NewLine
+            throw "speedtest.exe exited with code $speedtestExitCode.$([Environment]::NewLine)$errorDetails"
         }
+
+        $jsonResult = ($speedtestOutput | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
+        $resultData = $jsonResult | ConvertFrom-Json -ErrorAction Stop
+
+        if ([string]::IsNullOrWhiteSpace([string]$resultData.result.url)) {
+            throw "speedtest.exe did not return a result URL."
+        }
+
+        $resultUrl = [uri][string]$resultData.result.url
+        $resultDetails = Show-SpeedtestResultDetails -ResultUrl $resultUrl -ResultData $resultData
+        @(
+            "Speedtest result"
+            "Date and time: $($resultDetails.DateTime)"
+            "Download speed: $($resultDetails.DownloadMbps) Mbps"
+            "Upload speed: $($resultDetails.UploadMbps) Mbps"
+            "Ping: $($resultDetails.PingMs) ms"
+            "Idle latency: $($resultDetails.IdleLatencyMs) ms"
+            "Download latency: $($resultDetails.DownloadLatencyMs) ms"
+            "Upload latency: $($resultDetails.UploadLatencyMs) ms"
+            "Result URL: $($resultDetails.ResultUrl)"
+        ) | Set-Content -LiteralPath $outputPath -Encoding UTF8 -ErrorAction Stop
+
         Write-Host "✅ Speedtest completed and results saved." -ForegroundColor Green
     }
     catch {
