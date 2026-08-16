@@ -114,8 +114,7 @@ WinToolkit/
 │   ├── ooshutup10.cfg                    # O&O ShutUp10 configuration
 │   ├── png/                              # PNG image assets (excluded from release)
 │   ├── settings.json                     # Windows Terminal settings file
-│   ├── Setup.exe                         # Office 365 Setup
-│   └── speedtest.exe                     # Network speed test
+│   └── Setup.exe                         # Office 365 Setup
 │
 ├── Docs/                                 # Technical documentation
 │   └── Windows Updates and the Shared Servicing Model V1.2.pdf
