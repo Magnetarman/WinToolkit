@@ -297,7 +297,7 @@ function Show-SpeedtestResultDetails {
     Write-Host "💤 Idle latency:     $idleLatency ms"
     Write-Host "⬇️ Download latency: $downloadLatency ms"
     Write-Host "⬆️ Upload latency:   $uploadLatency ms"
-    Write-Host "🔗 Result URL:       $($ResultUrl.AbsoluteUri)"
+    Write-Host "🔗 Result URL:       $($ResultUrl.AbsoluteUri)" -ForegroundColor White
 
     return $details
 }
