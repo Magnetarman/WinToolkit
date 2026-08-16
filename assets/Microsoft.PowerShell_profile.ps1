@@ -15,7 +15,6 @@
 
 $ProfileVersion = "2.6.0.1"
 
-$URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/assets/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
 $URL_WINTOOLKIT_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
 $URL_WINREG = "https://get.activated.win"
@@ -208,34 +207,103 @@ function Speedtest {
     [CmdletBinding()]
     param()
 
-    $assetDir = Join-Path $env:LOCALAPPDATA "WinToolkit\assets"
-    $speedtestExePath = Join-Path $assetDir "speedtest.exe"
+    $packageId = "Ookla.Speedtest.CLI"
     $desktopPath = [Environment]::GetFolderPath("Desktop")
     $timestamp = Get-Date -Format "dd_MM_yyyy_HH_mm_ss"
     $outputPath = Join-Path $desktopPath "Speedtest_$timestamp.txt"
 
-    if (-not (Test-Path $assetDir)) {
-        Write-Host "📦 Creating assets directory: $assetDir" -ForegroundColor Cyan
-        New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
+    $wingetCommand = Get-Command "winget.exe" -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $wingetCommand) {
+        Write-Host "❌ WinGet is not available. Install or update App Installer, then try again." -ForegroundColor Red
+        return
     }
 
-    if (-not (Test-Path $speedtestExePath)) {
-        Write-Host "🔍 speedtest.exe not found in '$assetDir'." -ForegroundColor Cyan
-        Write-Host "⬇️ Downloading speedtest.exe from GitHub..." -ForegroundColor Yellow
-        try {
-            $downloadParams = @{
-                Uri             = $URL_SPEEDTEST
-                OutFile         = $speedtestExePath
-                UseBasicParsing = $true
-                ErrorAction     = 'Stop'
-            }
-            Invoke-WebRequest @downloadParams
-            Write-Host "✅ speedtest.exe downloaded successfully." -ForegroundColor Green
-        }
-        catch {
-            Write-Host "❌ Error downloading speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
+    $wingetPath = $wingetCommand.Source
+    $listArguments = @(
+        "list", "--id", $packageId, "--exact", "--source", "winget",
+        "--accept-source-agreements", "--disable-interactivity"
+    )
+    $packageListOutput = @(& $wingetPath @listArguments 2>&1)
+    $packageListExitCode = $LASTEXITCODE
+    $packageInstalled = $packageListExitCode -eq 0 -and ($packageListOutput -join "`n") -match [regex]::Escape($packageId)
+    $installedNow = $false
+
+    if (-not $packageInstalled) {
+        if (-not (Assert-Admin)) {
+            Write-Host "❌ Installing $packageId for all users requires Administrator privileges." -ForegroundColor Red
+            Write-Host "ℹ️ Restart PowerShell as Administrator and run Speedtest again." -ForegroundColor Cyan
             return
         }
+
+        Write-Host "⬇️ $packageId is not installed. Installing with WinGet..." -ForegroundColor Yellow
+
+        $installArguments = @(
+            "install", "--id", $packageId, "--exact", "--source", "winget",
+            "--accept-source-agreements", "--disable-interactivity", "--silent",
+            "--accept-package-agreements", "--force", "--scope", "machine"
+        )
+
+        try {
+            $installOutput = @(& $wingetPath @installArguments 2>&1)
+            $installExitCode = $LASTEXITCODE
+            $completedAt = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+            if ($installExitCode -ne 0) {
+                Write-Host "❌ [$completedAt] $packageId installation failed. WinGet exit code: $installExitCode." -ForegroundColor Red
+                $installDetails = ($installOutput | ForEach-Object { $_.ToString().TrimEnd() } | Where-Object { $_ }) -join [Environment]::NewLine
+                if ($installDetails) {
+                    Write-Host $installDetails -ForegroundColor DarkRed
+                }
+                return
+            }
+
+            $packageListOutput = @(& $wingetPath @listArguments 2>&1)
+            $packageListExitCode = $LASTEXITCODE
+            $packageInstalled = $packageListExitCode -eq 0 -and ($packageListOutput -join "`n") -match [regex]::Escape($packageId)
+
+            if (-not $packageInstalled) {
+                Write-Host "❌ [$completedAt] WinGet returned success, but $packageId was not found after installation." -ForegroundColor Red
+                return
+            }
+
+            $installedNow = $true
+        }
+        catch {
+            $failedAt = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            Write-Host "❌ [$failedAt] Error installing ${packageId}: $($_.Exception.Message)" -ForegroundColor Red
+            return
+        }
+    }
+
+    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $env:Path = "$machinePath;$userPath;$env:Path"
+
+    $speedtestCommand = Get-Command "speedtest.exe" -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $speedtestCommand) {
+        Write-Host "❌ $packageId is installed, but speedtest.exe cannot be found in PATH." -ForegroundColor Red
+        return
+    }
+
+    $speedtestExePath = $speedtestCommand.Source
+    $versionOutput = @(& $speedtestExePath --version 2>&1)
+    $versionExitCode = $LASTEXITCODE
+
+    if ($versionExitCode -ne 0) {
+        Write-Host "❌ $packageId is installed, but speedtest.exe validation failed with exit code $versionExitCode." -ForegroundColor Red
+        $versionDetails = ($versionOutput | ForEach-Object { $_.ToString().TrimEnd() } | Where-Object { $_ }) -join [Environment]::NewLine
+        if ($versionDetails) {
+            Write-Host $versionDetails -ForegroundColor DarkRed
+        }
+        return
+    }
+
+    if ($installedNow) {
+        $completedAt = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        Write-Host "✅ [$completedAt] $packageId installation completed and validated successfully." -ForegroundColor Green
+    }
+    else {
+        Write-Host "✅ $packageId is already installed and working." -ForegroundColor Green
     }
 
     Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
@@ -243,6 +311,9 @@ function Speedtest {
 
     try {
         & $speedtestExePath --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
+        if ($LASTEXITCODE -ne 0) {
+            throw "speedtest.exe exited with code $LASTEXITCODE."
+        }
         Write-Host "✅ Speedtest completed and results saved." -ForegroundColor Green
     }
     catch {
