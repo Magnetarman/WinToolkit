@@ -203,31 +203,57 @@ function Reset-IP {
     Write-Host "⚠️ Restart the system to apply changes" -ForegroundColor Yellow
 }
 
-function Speedtest {
+function Invoke-Speedtest {
+    <#
+    .SYNOPSIS
+        Runs Ookla Speedtest CLI and saves a human-readable report.
+
+    .DESCRIPTION
+        Verifies or installs Ookla.Speedtest.CLI through WinGet, validates the
+        resolved executable, runs the test with JSON output, and displays and
+        saves the normalized measurements.
+
+    .PARAMETER PassThru
+        Returns the structured result object for automation. Without this
+        switch, the function produces only user-facing console output.
+
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject when PassThru is specified.
+    #>
     [CmdletBinding()]
-    param()
+    [OutputType([pscustomobject])]
+    param(
+        [switch]$PassThru
+    )
 
     $packageId = "Ookla.Speedtest.CLI"
-    $desktopPath = [Environment]::GetFolderPath("Desktop")
-    $timestamp = Get-Date -Format "dd_MM_yyyy_HH_mm_ss"
-    $outputPath = Join-Path $desktopPath "Speedtest_$timestamp.txt"
 
-    $wingetCommand = Get-Command "winget.exe" -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $wingetCommand) {
+    # Resolve WinGet before checking package state.
+    $wingetPath = (Get-Command "winget.exe" -CommandType Application -ErrorAction SilentlyContinue).Source
+    if (-not $wingetPath) {
         Write-Host "❌ WinGet is not available. Install or update App Installer, then try again." -ForegroundColor Red
         return
     }
 
-    $wingetPath = $wingetCommand.Source
     $listArguments = @(
         "list", "--id", $packageId, "--exact", "--source", "winget",
         "--accept-source-agreements", "--disable-interactivity"
     )
-    $packageListOutput = @(& $wingetPath @listArguments 2>&1)
-    $packageListExitCode = $LASTEXITCODE
-    $packageInstalled = $packageListExitCode -eq 0 -and ($packageListOutput -join "`n") -match [regex]::Escape($packageId)
+
+    try {
+        $packageListOutput = @(& $wingetPath @listArguments 2>&1)
+        $packageListExitCode = $LASTEXITCODE
+    }
+    catch {
+        Write-Host "❌ Error checking ${packageId}: $($_.Exception.Message)" -ForegroundColor Red
+        return
+    }
+
+    $packageInstalled = $packageListExitCode -eq 0 -and
+        ($packageListOutput -join [Environment]::NewLine) -match [regex]::Escape($packageId)
     $installedNow = $false
 
+    # Machine-scope installation requires an elevated PowerShell session.
     if (-not $packageInstalled) {
         if (-not (Assert-Admin)) {
             Write-Host "❌ Installing $packageId for all users requires Administrator privileges." -ForegroundColor Red
@@ -257,9 +283,11 @@ function Speedtest {
                 return
             }
 
+            # Re-query WinGet instead of trusting only the installer exit code.
             $packageListOutput = @(& $wingetPath @listArguments 2>&1)
             $packageListExitCode = $LASTEXITCODE
-            $packageInstalled = $packageListExitCode -eq 0 -and ($packageListOutput -join "`n") -match [regex]::Escape($packageId)
+            $packageInstalled = $packageListExitCode -eq 0 -and
+                ($packageListOutput -join [Environment]::NewLine) -match [regex]::Escape($packageId)
 
             if (-not $packageInstalled) {
                 Write-Host "❌ [$completedAt] WinGet returned success, but $packageId was not found after installation." -ForegroundColor Red
@@ -275,23 +303,55 @@ function Speedtest {
         }
     }
 
-    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
-    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    $env:Path = "$machinePath;$userPath;$env:Path"
+    # Refresh process PATH while preventing duplicate entries on repeated runs.
+    $seenPathSegments = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $pathSegments = foreach ($pathValue in @(
+            [Environment]::GetEnvironmentVariable("Path", "Machine"),
+            [Environment]::GetEnvironmentVariable("Path", "User"),
+            $env:Path
+        )) {
+        if ([string]::IsNullOrWhiteSpace($pathValue)) {
+            continue
+        }
 
-    $speedtestCommand = Get-Command "speedtest.exe" -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $speedtestCommand) {
+        foreach ($pathSegment in ($pathValue -split ";")) {
+            $trimmedPath = $pathSegment.Trim()
+            if ($trimmedPath -and $seenPathSegments.Add($trimmedPath)) {
+                $trimmedPath
+            }
+        }
+    }
+    $env:Path = $pathSegments -join ";"
+
+    # Resolve and validate identity to reject an unrelated speedtest.exe in PATH.
+    $speedtestExePath = (Get-Command "speedtest.exe" -CommandType Application -ErrorAction SilentlyContinue).Source
+    if (-not $speedtestExePath) {
         Write-Host "❌ $packageId is installed, but speedtest.exe cannot be found in PATH." -ForegroundColor Red
         return
     }
 
-    $speedtestExePath = $speedtestCommand.Source
-    $versionOutput = @(& $speedtestExePath --version 2>&1)
-    $versionExitCode = $LASTEXITCODE
+    try {
+        $versionOutput = @(& $speedtestExePath --version 2>&1)
+        $versionExitCode = $LASTEXITCODE
+    }
+    catch {
+        Write-Host "❌ Error validating ${packageId}: $($_.Exception.Message)" -ForegroundColor Red
+        return
+    }
+
+    $versionDetails = ($versionOutput | ForEach-Object { $_.ToString().TrimEnd() } | Where-Object { $_ }) -join [Environment]::NewLine
 
     if ($versionExitCode -ne 0) {
         Write-Host "❌ $packageId is installed, but speedtest.exe validation failed with exit code $versionExitCode." -ForegroundColor Red
-        $versionDetails = ($versionOutput | ForEach-Object { $_.ToString().TrimEnd() } | Where-Object { $_ }) -join [Environment]::NewLine
+        if ($versionDetails) {
+            Write-Host $versionDetails -ForegroundColor DarkRed
+        }
+        return
+    }
+
+    if ($versionDetails -notmatch "(?im)\bSpeedtest by Ookla\b") {
+        Write-Host "❌ The resolved speedtest.exe does not identify itself as Ookla Speedtest." -ForegroundColor Red
+        Write-Host "ℹ️ Resolved executable: $speedtestExePath" -ForegroundColor Cyan
         if ($versionDetails) {
             Write-Host $versionDetails -ForegroundColor DarkRed
         }
@@ -306,22 +366,58 @@ function Speedtest {
         Write-Host "✅ $packageId is already installed and working." -ForegroundColor Green
     }
 
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $outputPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "Speedtest_$timestamp.txt"
     Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
     Write-Host "📝 Structured results will be saved to '$outputPath'." -ForegroundColor Yellow
 
     try {
-        $speedtestOutput = @(
-            & $speedtestExePath --accept-license --accept-gdpr --format=json --progress=no 2>&1
-        )
-        $speedtestExitCode = $LASTEXITCODE
-
-        if ($speedtestExitCode -ne 0) {
-            $errorDetails = ($speedtestOutput | ForEach-Object { $_.ToString().TrimEnd() } | Where-Object { $_ }) -join [Environment]::NewLine
-            throw "speedtest.exe exited with code $speedtestExitCode.$([Environment]::NewLine)$errorDetails"
+        # Keep stderr separate so warnings cannot corrupt JSON written to stdout.
+        $standardErrorPath = [IO.Path]::GetTempFileName()
+        try {
+            $speedtestOutput = @(
+                & $speedtestExePath --accept-license --accept-gdpr --format=json --progress=no 2> $standardErrorPath
+            )
+            $speedtestExitCode = $LASTEXITCODE
+            $speedtestStandardError = [IO.File]::ReadAllText($standardErrorPath)
+        }
+        finally {
+            # Cleanup must run after success, native failure, or PowerShell exception.
+            Remove-Item -LiteralPath $standardErrorPath -Force -ErrorAction SilentlyContinue
         }
 
-        $jsonResult = ($speedtestOutput | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
-        $resultData = $jsonResult | ConvertFrom-Json -ErrorAction Stop
+        if ($speedtestExitCode -ne 0) {
+            $standardOutputDetails = ($speedtestOutput | ForEach-Object { $_.ToString().TrimEnd() } | Where-Object { $_ }) -join [Environment]::NewLine
+            $errorDetails = @($standardOutputDetails, $speedtestStandardError.TrimEnd()) |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+            throw "speedtest.exe exited with code $speedtestExitCode.$([Environment]::NewLine)$($errorDetails -join [Environment]::NewLine)"
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($speedtestStandardError)) {
+            Write-Host "⚠️ speedtest.exe reported a non-fatal warning:" -ForegroundColor Yellow
+            Write-Host $speedtestStandardError.TrimEnd() -ForegroundColor Yellow
+        }
+
+        $jsonResult = (($speedtestOutput | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine).Trim()
+        try {
+            $resultData = $jsonResult | ConvertFrom-Json -ErrorAction Stop
+        }
+        catch {
+            # Preserve malformed stdout for diagnostics before reporting parse failure.
+            $jsonParseError = $_.Exception.Message
+            $rawJsonPath = Join-Path `
+                ([IO.Path]::GetDirectoryName($outputPath)) `
+                "$([IO.Path]::GetFileNameWithoutExtension($outputPath))_raw.json"
+
+            try {
+                $jsonResult | Set-Content -LiteralPath $rawJsonPath -Encoding UTF8 -ErrorAction Stop
+            }
+            catch {
+                throw "speedtest.exe returned invalid JSON, and the raw output could not be saved: $($_.Exception.Message). Parse error: $jsonParseError"
+            }
+
+            throw "speedtest.exe returned invalid JSON. Raw output saved to '$rawJsonPath'. Parse error: $jsonParseError"
+        }
 
         if ([string]::IsNullOrWhiteSpace([string]$resultData.result.url)) {
             throw "speedtest.exe did not return a result URL."
@@ -329,6 +425,7 @@ function Speedtest {
 
         $resultUrl = [uri][string]$resultData.result.url
 
+        # Validate required fields before timestamps and numeric values are converted.
         $measurements = [ordered]@{
             Timestamp       = $resultData.timestamp
             Download        = $resultData.download.bandwidth
@@ -348,57 +445,64 @@ function Speedtest {
             throw "The Speedtest result does not contain these measurements: $($missingMeasurements -join ', ')."
         }
 
-        $dateTime = [DateTimeOffset]::Parse(
+        $parsedTimestamp = [DateTimeOffset]::MinValue
+        if (-not [DateTimeOffset]::TryParse(
             [string]$resultData.timestamp,
-            [Globalization.CultureInfo]::InvariantCulture
-        ).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-        $downloadSpeed = [Math]::Round(([double]$resultData.download.bandwidth * 8 / 1000000), 2)
-        $uploadSpeed = [Math]::Round(([double]$resultData.upload.bandwidth * 8 / 1000000), 2)
-        $ping = [Math]::Round([double]$resultData.ping.latency, 0)
-
-        # Ookla derives the summary ping and idle latency from the same latency measurement.
-        $idleLatency = [Math]::Round([double]$resultData.ping.latency, 2)
-        $downloadLatency = [Math]::Round([double]$resultData.download.latency.iqm, 2)
-        $uploadLatency = [Math]::Round([double]$resultData.upload.latency.iqm, 2)
-
-        $resultDetails = [pscustomobject][ordered]@{
-            DateTime          = $dateTime
-            DownloadMbps      = $downloadSpeed
-            UploadMbps        = $uploadSpeed
-            PingMs            = $ping
-            IdleLatencyMs     = $idleLatency
-            DownloadLatencyMs = $downloadLatency
-            UploadLatencyMs   = $uploadLatency
-            ResultUrl         = $ResultUrl.AbsoluteUri
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::AllowWhiteSpaces,
+            [ref]$parsedTimestamp
+        )) {
+            throw "The Speedtest timestamp is not valid: '$($resultData.timestamp)'."
         }
 
-        @(
-            "Speedtest result"
-            "Date and time: $($resultDetails.DateTime)"
-            "Download speed: $($resultDetails.DownloadMbps) Mbps"
-            "Upload speed: $($resultDetails.UploadMbps) Mbps"
-            "Ping: $($resultDetails.PingMs) ms"
-            "Idle latency: $($resultDetails.IdleLatencyMs) ms"
-            "Download latency: $($resultDetails.DownloadLatencyMs) ms"
-            "Upload latency: $($resultDetails.UploadLatencyMs) ms"
-            "Result URL: $($resultDetails.ResultUrl)"
-        ) | Set-Content -LiteralPath $outputPath -Encoding UTF8 -ErrorAction Stop
+        # Ookla uses the same sample for summary ping and detailed idle latency.
+        $pingAndIdleLatency = [double]$resultData.ping.latency
 
-        Write-Host "`n📊 Speedtest result" -ForegroundColor Cyan
-        Write-Host "🕒 Date and time:    $dateTime"
-        Write-Host "⬇️ Download speed:   $downloadSpeed Mbps"
-        Write-Host "⬆️ Upload speed:     $uploadSpeed Mbps"
-        Write-Host "📡 Ping:             $ping ms"
-        Write-Host "💤 Idle latency:     $idleLatency ms"
-        Write-Host "⬇️ Download latency: $downloadLatency ms"
-        Write-Host "⬆️ Upload latency:   $uploadLatency ms"
-        Write-Host "🔗 Result URL:       $($ResultUrl.AbsoluteUri)" -ForegroundColor White
+        $resultDetails = [pscustomobject][ordered]@{
+            DateTime          = $parsedTimestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+            DownloadMbps      = [Math]::Round(([double]$resultData.download.bandwidth * 8 / 1000000), 2)
+            UploadMbps        = [Math]::Round(([double]$resultData.upload.bandwidth * 8 / 1000000), 2)
+            PingMs            = [Math]::Round($pingAndIdleLatency, 0)
+            IdleLatencyMs     = [Math]::Round($pingAndIdleLatency, 2)
+            DownloadLatencyMs = [Math]::Round([double]$resultData.download.latency.iqm, 2)
+            UploadLatencyMs   = [Math]::Round([double]$resultData.upload.latency.iqm, 2)
+            ResultUrl         = $resultUrl.AbsoluteUri
+        }
+
+        # Build report once, then reuse identical content for file and console.
+        $resultReport = @(
+            "📊 Speedtest result"
+            "🕒 Date and time:    $($resultDetails.DateTime)"
+            "⬇️ Download speed:   $($resultDetails.DownloadMbps) Mbps"
+            "⬆️ Upload speed:     $($resultDetails.UploadMbps) Mbps"
+            "📡 Ping:             $($resultDetails.PingMs) ms"
+            "💤 Idle latency:     $($resultDetails.IdleLatencyMs) ms"
+            "⬇️ Download latency: $($resultDetails.DownloadLatencyMs) ms"
+            "⬆️ Upload latency:   $($resultDetails.UploadLatencyMs) ms"
+            "🔗 Result URL:       $($resultDetails.ResultUrl)"
+        )
+
+        $resultReport | Set-Content -LiteralPath $outputPath -Encoding UTF8 -ErrorAction Stop
+        Write-Host "`n$($resultReport[0])" -ForegroundColor Cyan
+        for ($index = 1; $index -lt $resultReport.Count; $index++) {
+            Write-Host ($resultReport[$index])
+        }
+
         Write-Host "✅ Speedtest completed and results saved." -ForegroundColor Green
+
+        # Avoid unexpected pipeline output during normal interactive use.
+        if ($PassThru) {
+            return $resultDetails
+        }
     }
     catch {
-        Write-Host "❌ Error running speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Speedtest execution or processing failed: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
+
+# Preserve original interactive command while exposing an approved PowerShell verb.
+Set-Alias -Name "Speedtest" -Value "Invoke-Speedtest" -Scope Global -Force
+
 
 function Reset-Network {
     [CmdletBinding()]
@@ -953,7 +1057,7 @@ $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Searche
 $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extracts a ZIP file into the current directory.
 
 $($PSStyle.Foreground.Cyan)Network Diagnostics and Tools$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Runs a network speed test.
+$($PSStyle.Foreground.Green)Invoke-Speedtest$($PSStyle.Reset)          - Runs a network speed test (alias: Speedtest).
 $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)                  - Flushes the DNS cache.
 $($PSStyle.Foreground.Yellow)Reset-IP$($PSStyle.Reset)                 - Releases and renews the network adapter IP address.
 $($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Restores network settings to default.
