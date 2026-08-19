@@ -117,11 +117,14 @@ try {
         Write-BuildLog -Message "  📄 $($file.Name): $($stats.Bytes) bytes, $($stats.Lines) lines" -Type Info
     }
 
-    # Include the template as well
-    $templateStats = Get-FileStats -Path $TemplatePath
-    $script:SourceTotalBytes += $templateStats.Bytes
-    $script:SourceTotalLines += $templateStats.Lines
-    Write-BuildLog -Message "  📄 ${TemplatePath}: $($templateStats.Bytes) bytes, $($templateStats.Lines) lines" -Type Info
+    # Include the modular core (wintoolkit-modules) and tools in the source stats
+    $moduleFiles = Get-ChildItem -Path $TemplatePath -Filter "*.ps1" -ErrorAction SilentlyContinue
+    foreach ($file in $moduleFiles) {
+        $stats = Get-FileStats -Path $file.FullName
+        $script:SourceTotalBytes += $stats.Bytes
+        $script:SourceTotalLines += $stats.Lines
+    }
+    Write-BuildLog -Message "  📄 ${TemplatePath} ($($moduleFiles.Count) files): included in source statistics" -Type Info
 
     Write-BuildLog -Message "`n📈 Total source: $([math]::Round($script:SourceTotalBytes/1KB, 2)) KB, $($script:SourceTotalLines) lines" -Type Header
 
