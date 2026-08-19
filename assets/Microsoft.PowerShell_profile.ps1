@@ -13,9 +13,8 @@
 # CENTRALIZED CONFIGURATION (URL)
 # ============================================================================
 
-$ProfileVersion = "2.6.0.1"
+$ProfileVersion = "2.6.0.2"
 
-$URL_SPEEDTEST = "https://github.com/Magnetarman/WinToolkit/raw/refs/heads/Dev/assets/speedtest.exe"
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
 $URL_WINTOOLKIT_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
 $URL_WINREG = "https://get.activated.win"
@@ -208,48 +207,70 @@ function Speedtest {
     [CmdletBinding()]
     param()
 
-    $assetDir = Join-Path $env:LOCALAPPDATA "WinToolkit\assets"
-    $speedtestExePath = Join-Path $assetDir "speedtest.exe"
-    $desktopPath = [Environment]::GetFolderPath("Desktop")
-    $timestamp = Get-Date -Format "dd_MM_yyyy_HH_mm_ss"
-    $outputPath = Join-Path $desktopPath "Speedtest_$timestamp.txt"
+    $packageId = "Ookla.Speedtest.CLI"
 
-    if (-not (Test-Path $assetDir)) {
-        Write-Host "📦 Creating assets directory: $assetDir" -ForegroundColor Cyan
-        New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
+    # Check via WinGet whether the package is already installed
+    $installed = $false
+    try {
+        $listOutput = & winget list --id $packageId --exact --source winget --accept-source-agreements 2>$null
+        $installed = $LASTEXITCODE -eq 0 -and ($listOutput -join "`n") -match [regex]::Escape($packageId)
     }
+    catch {}
 
-    if (-not (Test-Path $speedtestExePath)) {
-        Write-Host "🔍 speedtest.exe not found in '$assetDir'." -ForegroundColor Cyan
-        Write-Host "⬇️ Downloading speedtest.exe from GitHub..." -ForegroundColor Yellow
-        try {
-            $downloadParams = @{
-                Uri             = $URL_SPEEDTEST
-                OutFile         = $speedtestExePath
-                UseBasicParsing = $true
-                ErrorAction     = 'Stop'
-            }
-            Invoke-WebRequest @downloadParams
-            Write-Host "✅ speedtest.exe downloaded successfully." -ForegroundColor Green
-        }
-        catch {
-            Write-Host "❌ Error downloading speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
+    # If missing, install the package via WinGet (machine scope requires Administrator)
+    if (-not $installed) {
+        if (-not (Require-Admin -FeatureName 'Speedtest')) { return }
+        Write-Host "⬇️ $packageId is not installed. Installing via WinGet..." -ForegroundColor Yellow
+        winget install --id $packageId --source winget --accept-source-agreements --accept-package-agreements --silent --scope machine
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ $packageId installation failed (code $LASTEXITCODE)." -ForegroundColor Red
             return
         }
+        # Refresh PATH so the freshly installed executable is found in the current session
+        $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
     }
+
+    $speedtestExe = (Get-Command 'speedtest.exe' -CommandType Application -ErrorAction SilentlyContinue).Source
+    if (-not $speedtestExe) {
+        Write-Host "❌ speedtest.exe not found in PATH after installation." -ForegroundColor Red
+        return
+    }
+
+    $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
+    $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "Speedtest_$timestamp.txt"
 
     Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
-    Write-Host "📝 Results (including progress) will be saved to '$outputPath'." -ForegroundColor Yellow
+    Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
 
+    # Raw output with real-time values (as in the old profile) + save to file
+    & $speedtestExe --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
+
+    # Final summary table (structured data from a second run in JSON format)
     try {
-        & $speedtestExePath --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
-        Write-Host "✅ Speedtest completed and results saved." -ForegroundColor Green
+        $result = & $speedtestExe --accept-license --accept-gdpr --format=json --progress=no 2>$null | ConvertFrom-Json -ErrorAction Stop
+
+        $measurements = [ordered]@{
+            Timestamp       = $result.timestamp
+            Download        = $result.download.bandwidth
+            Upload          = $result.upload.bandwidth
+            Ping            = $result.ping.latency
+            DownloadLatency = $result.download.latency.iqm
+            UploadLatency   = $result.upload.latency.iqm
+        }
+
+        Write-Host "`n📋 Speedtest - Summary:" -ForegroundColor Cyan
+        foreach ($key in $measurements.Keys) {
+            Write-Host ("  {0,-16}: {1}" -f $key, $measurements[$key])
+        }
     }
     catch {
-        Write-Host "❌ Error running speedtest.exe: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "⚠️ Unable to generate the summary table: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 
+    Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
+    Read-Host "Press ENTER to finish"
 }
+
 
 function Reset-Network {
     [CmdletBinding()]
@@ -695,7 +716,7 @@ function ReadyToGo {
 # ============================================================================
 
 function Get-PreferredEditor {
-        # Try to find Zed in PATH first
+    # Try to find Zed in PATH first
     if (Test-CommandExists -Name "zed") {
         $zedCmd = Get-Command zed -ErrorAction SilentlyContinue
         if ($zedCmd) {
@@ -806,7 +827,7 @@ $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extract
 $($PSStyle.Foreground.Cyan)Network Diagnostics and Tools$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Runs a network speed test.
 $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)                  - Flushes the DNS cache.
-$($PSStyle.Foreground.Yellow)Reset-IP$($PSStyle.Reset)                 - Releases and renews the network adapter IP address.
+$($PSStyle.Foreground.Yellow)Reset-IP$($PSStyle.Reset)                  - Releases and renews the network adapter IP address.
 $($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Restores network settings to default.
 
 $($PSStyle.Foreground.Cyan)System Control$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
