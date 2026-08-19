@@ -183,7 +183,7 @@ try {
     else {
         $script:TestResults += "❌ Functions: $($presentFunctions.Count)/$($expectedFunctions.Count) present"
         $script:TotalErrors++
-        $errorMsg = "MODULES MISSING IN TEMPLATE: The following scripts in /tools do not have a placeholder (even commented out) in WinToolkit-template.ps1: $($missingFunctions -join ', ')"
+        $errorMsg = "MODULES MISSING IN CORE: The following scripts in /tools do not have a placeholder (even commented out) in the assembled wintoolkit-modules core: $($missingFunctions -join ', ')"
         $script:CriticalErrors += $errorMsg
     }
 
