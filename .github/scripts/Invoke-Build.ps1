@@ -93,7 +93,7 @@ try {
     Write-BuildLog -Message "  ✅ compiler.ps1 present" -Type Success
 
     if (-not (Test-Path $TemplatePath)) {
-        Write-BuildLog -Message "❌ File $TemplatePath not found" -Type Error
+        Write-BuildLog -Message "❌ Path $TemplatePath not found" -Type Error
         exit 1
     }
     Write-BuildLog -Message "  ✅ $TemplatePath present" -Type Success
