@@ -103,6 +103,11 @@ function Invoke-WinToolkitSetup {
 
         Add-SetupResult -Name 'WinGet' -Success ([bool](Test-WingetFunctionality)) -Message 'WinGet operational.' -Blocking $true
 
+        # Ensure Microsoft.AppInstaller is present and updated (required for a
+        # fully functional and up-to-date Winget before installing any package).
+        $null = Test-WingetAppInstaller
+        Update-EnvironmentPath
+
         # Thoroughly verify that Winget works correctly.
         if (-not $(Test-WingetDeepValidation)) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.warningInstallingSubsequentPackagesViaWingetMayFail')
