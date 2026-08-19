@@ -9,7 +9,7 @@
 #>
 
 BeforeAll {
-    $script:TemplatePath = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\WinToolkit-template.ps1')
+    $script:TemplatePath = & (Join-Path $PSScriptRoot '..\..\scripts\New-WinToolkitCoreScript.ps1')
     $script:ToolPath     = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\tools\WinCleaner.ps1')
 
     . $script:TemplatePath -ImportOnly
