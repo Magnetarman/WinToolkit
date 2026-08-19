@@ -10,7 +10,7 @@ WinToolkit uses a deliberate separation between development and distribution bra
 
 ```
 Dev (sources)                  main (distribution)
-├── WinToolkit-template.ps1     ├── WinToolkit.ps1   ← compiled from Dev
+├── wintoolkit-modules/     ├── WinToolkit.ps1   ← compiled from Dev
 ├── tool/*.ps1  (13 modules)    ├── start.ps1
 ├── compiler.ps1                ├── asset/
 ├── .github/scripts/            ├── README.md
@@ -29,12 +29,12 @@ The flow is: modify sources on `Dev` → CI pipeline compiles → output `WinToo
 
 ### `compiler.ps1` — The Compiler
 
-`compiler.ps1` is the heart of the system. It aggregates `WinToolkit-template.ps1` and all the `tool/*.ps1` modules into a single distributable `WinToolkit.ps1`.
+`compiler.ps1` is the heart of the system. It aggregates `wintoolkit-modules/` and all the `tool/*.ps1` modules into a single distributable `WinToolkit.ps1`.
 
 **Compilation flow in 7 phases:**
 
 ```
-WinToolkit-template.ps1  +  tool/*.ps1
+wintoolkit-modules/  +  tool/*.ps1
               │
               ▼
         compiler.ps1
@@ -62,7 +62,7 @@ WinToolkit-template.ps1  +  tool/*.ps1
 
 | Script | Responsibility |
 |--------|---------------|
-| `Update-Version.ps1` | Reads `$ToolkitVersion` from `WinToolkit-template.ps1`, increments the build number, aligns `start-modules/00-Skeleton.Header.ps1`, publishes outputs for downstream jobs |
+| `Update-Version.ps1` | Reads `$ToolkitVersion` from `wintoolkit-modules/`, increments the build number, aligns `start-modules/00-Skeleton.Header.ps1`, publishes outputs for downstream jobs |
 | `Invoke-Build.ps1` | CI orchestrator: validates prerequisites, invokes `compiler.ps1`, verifies output, publishes metrics |
 | `Invoke-Build-Start.ps1` | Concatenates the ordered `start-modules/*.ps1` fragments into `start-core.ps1` and publishes size metrics |
 | `Test-CompiledScript.ps1` | Post-build validation suite: AST syntax, function availability, menu structure, file size, UTF-8 encoding |
@@ -71,7 +71,7 @@ WinToolkit-template.ps1  +  tool/*.ps1
 ### `$ToolkitVersion` — Single Source of Truth for Versioning
 
 The authoritative version lives in a single place: the `$ToolkitVersion` variable in
-`WinToolkit-template.ps1`.
+`wintoolkit-modules/`.
 
 ```powershell
 $ToolkitVersion = "2.6.0 (Build 5)"
@@ -112,7 +112,7 @@ Etc...
 
 Modules may define internal helper functions (`function Get-GpuManufacturer`, etc.) that are also included in the compiled output.
 
-Framework functions (UI, logging, configuration) are defined in `WinToolkit-template.ps1` and are available to all modules at runtime.
+Framework functions (UI, logging, configuration) are defined in `wintoolkit-modules/` and are available to all modules at runtime.
 
 ---
 
@@ -140,7 +140,7 @@ push/PR → Dev
 The `pr_security_guard` job applies a 3-level check:
 - `tool/*` — always allowed for all contributors
 - Sensitive files (`.github/scripts/`, workflows) — generates warnings, requires maintainer review
-- Core files (`WinToolkit-template.ps1`, `compiler.ps1`) — blocked for non-maintainers
+- Core files (`wintoolkit-modules/`, `compiler.ps1`) — blocked for non-maintainers
 
 ### `Release-PreRelease.yml` — Release Creation
 
@@ -220,7 +220,7 @@ Invoke-ScriptAnalyzer -Path . -Recurse -Settings .github/linters/PSScriptAnalyze
 ### Adding a New Module
 
 1. Create `tool/NewModule.ps1` with a public function `function NewModule { ... }`
-2. Add the placeholder `# [INJECT:NewModule]` at the correct point in `WinToolkit-template.ps1`
+2. Add the placeholder `# [INJECT:NewModule]` at the correct point in `wintoolkit-modules/`
 3. Add the entry in the template's main menu
 4. Build with `compiler.ps1` and verify the output
 5. Add a test file in `.github/tests/Unit/NewModule.Tests.ps1`
