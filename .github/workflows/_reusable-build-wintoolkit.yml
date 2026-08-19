@@ -73,11 +73,11 @@ jobs:
           path: tools/*.ps1
           label: tools before WinToolkit build
 
-      - name: Validate template syntax
+      - name: Validate core module syntax
         uses: ./.github/actions/validate-syntax
         with:
-          path: WinToolkit-template.ps1
-          label: WinToolkit-template.ps1 before build
+          path: wintoolkit-modules/*.ps1
+          label: wintoolkit-modules before build
 
       - name: Resolve build version
         id: version_label
@@ -87,11 +87,11 @@ jobs:
           BUILD_BRANCH: ${{ inputs.branch }}
         run: |
           # The version label is resolved in-memory and passed to the compiler.
-          # WinToolkit-template.ps1 is never modified here: the template is a
-          # source of truth owned by Update-Version.ps1, and any mutation made
-          # at build time would be discarded (the commit step only stages the
-          # compiled artifact) or would silently drift the tracked source.
-          $templatePath = 'WinToolkit-template.ps1'
+          # The framework core is assembled at build time from wintoolkit-modules/*.ps1
+          # (the single source of truth for $ToolkitVersion lives in
+          # wintoolkit-modules/00-Skeleton.Header.ps1). The compiler reads those
+          # modules directly, so nothing here mutates a tracked template.
+          $templatePath = 'wintoolkit-modules/00-Skeleton.Header.ps1'
           $content = Get-Content -Raw -LiteralPath $templatePath -Encoding UTF8
           $version = $env:REQUESTED_VERSION
 
