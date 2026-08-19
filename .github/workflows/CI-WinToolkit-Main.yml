@@ -240,7 +240,7 @@ jobs:
   #
   # Runs after the quality gate (or after main_branch_guard when checks are skipped).
   # Bumps the build number on Dev through Update-Version.ps1, validates syntax
-  # and commits the updated WinToolkit-template.ps1 on Dev.
+  # and commits the updated wintoolkit-modules/00-Skeleton.Header.ps1 on Dev.
   # It does NOT act on the release/v* branch, it only modifies Dev.
   # ===========================================================================
   versioning_bump:
