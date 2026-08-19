@@ -17,7 +17,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [string]$TemplatePath = "WinToolkit-template.ps1",
+    [string]$TemplatePath = "wintoolkit-modules/00-Skeleton.Header.ps1",
 
     [Parameter(Mandatory = $false)]
     [string]$StartHeaderPath = "start-modules/00-Skeleton.Header.ps1"
