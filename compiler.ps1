@@ -3,7 +3,7 @@
 
 [CmdletBinding()]
 param(
-    [switch]$Minify,
+    [switch]$Minify = $true,
     [string]$Language = 'en-US'
 )
 
