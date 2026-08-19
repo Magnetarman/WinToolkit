@@ -12,7 +12,7 @@
 BeforeAll {
     $script:RepoRoot       = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
     $script:CompilerPath   = Join-Path $script:RepoRoot 'compiler.ps1'
-    $script:TemplatePath   = Join-Path $script:RepoRoot 'WinToolkit-template.ps1'
+    $script:TemplatePath   = & (Join-Path $PSScriptRoot '..\..\scripts\New-WinToolkitCoreScript.ps1')
     $script:ToolFolder     = Join-Path $script:RepoRoot 'tools'
     $script:TestScriptPath = Join-Path $script:RepoRoot '.github\scripts\Test-CompiledScript.ps1'
 }
@@ -29,7 +29,7 @@ Describe 'Build Pipeline — Source Syntax' {
         $errors.Count | Should -Be 0
     }
 
-    It 'WinToolkit-template.ps1 must have valid PowerShell syntax' {
+    It 'The assembled WinToolkit core must have valid PowerShell syntax' {
         $code   = Get-Content -Raw -Path $script:TemplatePath
         $errors = $null
         $null = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$errors)
@@ -71,7 +71,7 @@ Describe 'Build Pipeline — Source Consistency' {
         }
     }
 
-    It 'The template must contain a placeholder for every tools/*.ps1 file' {
+    It 'The assembled core must contain a placeholder for every tools/*.ps1 file' {
         $templateContent = Get-Content -Raw -Path $script:TemplatePath
         $files = Get-ChildItem -Path $script:ToolFolder -Filter '*.ps1'
 
