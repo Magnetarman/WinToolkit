@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Compiles WinToolkit.ps1 from WinToolkit-template.ps1 and files in /tools.
+    Compiles WinToolkit.ps1 from the wintool' modules in /wintoolkit-modules and files in /tools.
 
 .DESCRIPTION
     This script performs the toolkit build, calculates compression
