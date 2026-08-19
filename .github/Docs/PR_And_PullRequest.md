@@ -57,7 +57,7 @@ WinToolkit uses a well-defined modular structure:
 >
 > The file `WinToolkit.ps1` **must never be modified manually**. This file is the result of an automated **GitHub Actions pipeline** that:
 >
-> 1. Merges all scripts from the `/tool` folder into the template
+> 1. Assembles the core from `wintoolkit-modules/` and injects all scripts from the `/tools/` folder
 > 2. Performs a **Build Bump** (version increment)
 > 3. Runs **CI/CD tests**
 > 4. Generates **automatic release**
@@ -184,7 +184,7 @@ WinToolkit/
 >
 > The `/tools/` folder contains all functional modules of the toolkit. Each PowerShell file represents a specific feature that can be **developed and tested independently**.
 >
-> The compiler injects each module automatically into the main template during the build phase.
+> The compiler injects each module automatically into the assembled core (`wintoolkit-modules/`) during the build phase.
 
 | File                         | Description                                  |
 | ---------------------------- | -------------------------------------------- |
@@ -241,7 +241,7 @@ Contains third-party executables and tools used by the toolkit. These files are 
 
 | File                      | Role                                                            |
 | ------------------------- | --------------------------------------------------------------- |
-| `WinToolkit-template.ps1` | Base template with core functions, logging, and UI; single source of truth for `$ToolkitVersion` (MODIFIABLE) |
+| `wintoolkit-modules/` | Core framework fragments: global variables, logging, and UI; single source of truth for `$ToolkitVersion` (MODIFIABLE) |
 | `WinToolkit.ps1`          | Final compiled distributable file (AUTO-GENERATED)              |
 | `compiler.ps1`            | Official build system with tokenizer and safe minification      |
 | `WinToolkit_GUI.ps1`      | WPF graphical interface version                                 |
@@ -278,7 +278,7 @@ The pipeline triggers automatically on:
 Triggers are limited to files:
 
 - `tools/*.ps1`
-- `WinToolkit-template.ps1`
+- `wintoolkit-modules/*.ps1`
 - `WinToolkit_GUI.ps1`
 - `compiler.ps1`
 - `start.ps1`
@@ -300,7 +300,7 @@ Every PR to Dev is automatically analyzed by a three-level security system:
 
 **Level 2 — Allowed with Warning (manual review)**
 
-- `start.ps1`, `WinToolkit_GUI.ps1`, `WinToolkit-template.ps1`, `assets/*`
+- `start.ps1`, `WinToolkit_GUI.ps1`, `wintoolkit-modules/*`, `assets/*`
 - ⚠️ PR remains open, a warning comment is added for the maintainer
 
 **Level 3 — Protected (full block)**
@@ -567,7 +567,7 @@ git checkout -b BUG/name-of-fix
 > **NOTE: Remember the Development Logic**
 >
 > - Modify scripts in `/tools/*.ps1` for features.
-> - Modify `WinToolkit-template.ps1` for global variables.
+> - Modify `wintoolkit-modules/` for global variables (core framework).
 > - **NEVER touch `WinToolkit.ps1`**.
 
 ### Step 6: Commit the Changes
