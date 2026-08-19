@@ -117,14 +117,14 @@ Write-StyledMessage 'Info' (Get-SourceTextLoc 'sourceText.startingWintoolkitBuil
 # ============================================================================
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $toolFolder = Join-Path $scriptPath "tools"
-$sourceFile = Join-Path $scriptPath "WinToolkit-template.ps1"
+$moduleFolder = Join-Path $scriptPath "wintoolkit-modules"
 $outputFile = Join-Path $scriptPath "WinToolkit.ps1"
 
 try {
-    if (-not (Test-Path $sourceFile)) {
-        throw (Get-SourceTextLoc 'uiText.templateFileNotFoundIn0' -Arguments @($sourceFile))
+    if (-not (Test-Path $moduleFolder)) {
+        throw (Get-SourceTextLoc 'uiText.templateFileNotFoundIn0' -Arguments @($moduleFolder))
     }
-    
+
     if (-not (Test-Path $toolFolder)) {
         throw (Get-SourceTextLoc 'uiText.toolsFolderNotFoundIn0' -Arguments @($toolFolder))
     }
@@ -135,11 +135,20 @@ catch {
 }
 
 # ============================================================================
-# 3. SOURCE READING AND PREPARATION
+# 3. SOURCE ASSEMBLY AND PREPARATION
+#    The framework core is assembled in memory from wintoolkit-modules/*.ps1
+#    (ordered by file name). This replaces the old single WinToolkit-template.ps1:
+#    the core is now modular and the compiler builds it before injecting the
+#    tool implementations from /tools. The concatenation of the ordered modules
+#    equals the previous template, so the injection logic below is unchanged.
 # ============================================================================
 try {
-    Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.readingSourceTemplate') + ': WinToolkit-template.ps1.')
-    $templateLines = Get-Content $sourceFile -Encoding UTF8 -ErrorAction Stop
+    Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.readingSourceTemplate') + ': wintoolkit-modules/*.ps1.')
+    $moduleFiles = Get-ChildItem -Path $moduleFolder -Filter "*.ps1" -File -ErrorAction Stop | Sort-Object Name
+    $templateLines = @()
+    foreach ($mf in $moduleFiles) {
+        $templateLines += (Get-Content -LiteralPath $mf.FullName -Encoding UTF8 -ErrorAction Stop)
+    }
     $toolFiles = Get-ChildItem -Path $toolFolder -Filter "*.ps1" -File -ErrorAction Stop
 }
 catch {
@@ -158,8 +167,8 @@ $stats = @{
     Skipped          = 0
     Errors           = 0
     Warnings         = 0
-    TotalSourceSize  = (Get-Item $sourceFile).Length
-    TotalSourceLines = $templateLines.Count
+    TotalSourceSize  = (($moduleFiles + $toolFiles) | ForEach-Object { $_.Length } | Measure-Object -Sum).Sum
+    TotalSourceLines = (($moduleFiles + $toolFiles) | ForEach-Object { (Get-Content $_.FullName).Count } | Measure-Object -Sum).Sum
 }
 
 Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.startingAggregation') + " $($toolFiles.Count) " + (Get-SourceTextLoc 'sourceText.modules') + '.')
