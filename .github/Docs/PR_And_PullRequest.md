@@ -48,7 +48,7 @@ WinToolkit uses a well-defined modular structure:
 | Modification Type            | File Path                 | Description                         |
 | ---------------------------- | ------------------------- | ----------------------------------- |
 | **Functions/Scripts**        | `/tools/*.ps1`            | Individual toolkit modules          |
-| **Global Variables/Aspects** | `WinToolkit-template.ps1` | Main template with global variables |
+| **Global Variables/Aspects** | `wintoolkit-modules/` | Core framework modules (global variables, logging, UI, menu) |
 
 ### ⚠️ ABSOLUTE PROHIBITION: Never Modify `WinToolkit.ps1`
 
@@ -68,7 +68,7 @@ WinToolkit uses a well-defined modular structure:
 
 ```
 /tools/                  → Modify individual scripts
-WinToolkit-template.ps1  → Modify global variables
+wintoolkit-modules/      → Modify core framework (global variables, logging, UI, menu)
 WinToolkit.ps1           → NEVER TOUCH (auto-generated)
 ```
 
@@ -171,7 +171,7 @@ WinToolkit/
 ├── start-core.ps1                        # Compiled launcher core (DO NOT MODIFY)
 ├── TODO.md                               # Tasks and future development
 ├── WinToolkit_GUI.ps1                    # WPF graphical interface version
-├── WinToolkit-template.ps1               # Base template with core functions ($ToolkitVersion source of truth)
+├── wintoolkit-modules/                    # Core framework fragments (global variables, logging, UI; $ToolkitVersion source of truth)
 └── WinToolkit.ps1                        # Final compiled file (DO NOT MODIFY)
 ```
 
