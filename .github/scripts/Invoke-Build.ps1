@@ -23,7 +23,7 @@ param(
     [string]$OutputPath = "WinToolkit.ps1",
 
     [Parameter(Mandatory = $false)]
-    [string]$TemplatePath = "WinToolkit-template.ps1",
+    [string]$TemplatePath = "wintoolkit-modules",
 
     [Parameter(Mandatory = $false)]
     [switch]$Minify = $true
