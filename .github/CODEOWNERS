@@ -14,7 +14,7 @@
 # Shared modules of the launcher script
 /start-modules/ @Magnetarman
 
-# Core source files
-/WinToolkit-template.ps1 @Magnetarman
+# Framework core modules (replace the former single WinToolkit-template.ps1)
+/wintoolkit-modules/ @Magnetarman
 /start.ps1 @Magnetarman
 /compiler.ps1 @Magnetarman
