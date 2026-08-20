@@ -43,7 +43,7 @@ function WinDebloat {
         Write-StyledMessage -Type 'Info' -Text ("🚀 " + (Get-SourceTextLoc 'toolText.startingServiceDebloatProcess'))
         foreach ($service in $DebloatServices) { Invoke-ServiceOptimization -ServiceConfig $service }
         # PLACEHOLDER: Altre operazioni (Registro, Task schedulati, ecc.)
-        Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.debloatOperationsCompleted'))
+        Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.debloatOperationsCompleted'))
 
         if ($rebootRequired) {
             Invoke-ToolkitReboot -Message (Get-SourceTextLoc 'toolText.extra.rebootToApplyChanges') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
