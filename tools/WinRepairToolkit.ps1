@@ -88,7 +88,7 @@ function WinRepairToolkit {
             }
 
             if (($Config.Tool -ieq 'DISM') -and ($results -match '0x800f0806')) {
-                Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.0Error0x800f0806PendingOperationsThisIsNotACriticalError' -Args @($displayName)))
+                Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.0Error0x800f0806PendingOperationsThisIsNotACriticalError' -Args @($displayName)))
                 Write-StyledMessage -Type 'Info' -Text ("💡 " + (Get-SourceTextLoc 'toolText.rebootTheSystemToCompletePendingOperations'))
                 return @{ Success = $true; ErrorCount = 0 }
             }
@@ -163,7 +163,7 @@ function WinRepairToolkit {
                         }
                     }
                     catch {
-                        Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.failedToExportSfcCbsLogFileInUse'))
+                        Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.failedToExportSfcCbsLogFileInUse'))
                     }
                 }
             }
@@ -193,7 +193,7 @@ function WinRepairToolkit {
         }
 
         if ($totalErrors -gt 0 -and $Attempt -lt $MaxRetryAttempts) {
-            Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.0ErrorsDetectedNewAttempt' -Args @($totalErrors)))
+            Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.0ErrorsDetectedNewAttempt' -Args @($totalErrors)))
             Start-Sleep 3
             return Start-RepairCycle -Attempt ($Attempt + 1)
         }
@@ -205,13 +205,13 @@ function WinRepairToolkit {
         try {
             $fsutilResult = Invoke-ExternalCommandWithLog -Command 'fsutil.exe' -Arguments @('dirty', 'set', 'C:') -TimeoutSeconds 300 -LogContextKey 'DeepDiskRepair-Fsutil'
             if (-not $fsutilResult.Success) {
-                Write-StyledMessage -Type 'Error' -Text ("❌ " + (Get-SourceTextLoc 'toolText.unableToMarkDiskDirtyFsutil'))
+                Write-StyledMessage -Type 'Error' -Text ((Get-SourceTextLoc 'toolText.unableToMarkDiskDirtyFsutil'))
                 return $false
             }
 
             $chkdskResult = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'echo Y | chkdsk C: /f /r /v /x /b') -TimeoutSeconds 7200 -LogContextKey 'DeepDiskRepair-Chkdsk'
             if (-not $chkdskResult.Success) {
-                Write-StyledMessage -Type 'Error' -Text ("❌ " + (Get-SourceTextLoc 'toolText.errorSchedulingChkdskForDeepRepair'))
+                Write-StyledMessage -Type 'Error' -Text ((Get-SourceTextLoc 'toolText.errorSchedulingChkdskForDeepRepair'))
                 return $false
             }
 
