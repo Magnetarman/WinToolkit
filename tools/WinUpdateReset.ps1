@@ -241,10 +241,10 @@ function WinUpdateReset {
                 "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
             ) | Where-Object { Test-Path $_ } | ForEach-Object {
                 Remove-Item $_ -Recurse -Force -ErrorAction Stop *>$null
-                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.completed2')
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.completed')
             }
             if (-not @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update", "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate") | Where-Object { Test-Path $_ }) {
-                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.completed2')
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.completed')
                 Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.noRegistryKeysToRemove')
             }
         }
