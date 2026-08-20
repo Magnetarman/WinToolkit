@@ -460,6 +460,105 @@ sourceText.unexpectedErrorDuringMinification = Errore imprevisto durante la mini
 sourceText.unknownError = Errore sconosciuto
 # END sourceText translations
 
+# BEGIN verb translations
+# -- Affirmative — positive outcomes (success, completion, confirmations)
+verb.complete = Complete
+# -- Informational — status, progress, notes
+verb.active = Active
+verb.backup = Backup
+verb.block = Block
+verb.check = Check
+verb.clean = Clean
+verb.compress = Compress
+verb.configure = Configure
+verb.copy = Copy
+verb.create = Create
+verb.delete = Delete
+verb.detect = Detect
+verb.disable = Disable
+verb.download = Download
+verb.enable = Enable
+verb.export = Export
+verb.extract = Extract
+verb.found = Found
+verb.inactive = Inactive
+verb.inProgress = In progress
+verb.install = Install
+verb.move = Move
+verb.note = Note
+verb.notRequired = Not required
+verb.operational = Operational
+verb.prepare = Prepare
+verb.present = Present
+verb.reenable = Re-enable
+verb.reinstall = Reinstall
+verb.remove = Remove
+verb.repair = Repair
+verb.required = Required
+verb.reset = Reset
+verb.restart = Restart
+verb.restore = Restore
+verb.run = Run
+verb.search = Search
+verb.skip = Skip
+verb.start = Start
+verb.stop = Stop
+verb.tip = Tip
+verb.uninstall = Uninstall
+verb.update = Update
+verb.wait = Wait
+# -- Warning — warnings, cautions, recoverable issues
+verb.cancel = Cancel
+verb.notFound = Not found
+verb.notPresent = Not present
+verb.warning = Warning
+# -- Error — errors, failures, critical issues
+verb.fail = Fail
+# END verb translations
+
+# BEGIN noun translations
+# -- Informational — status, progress, notes
+noun.archive = Archive
+noun.attempt = Attempt
+noun.cache = Cache
+noun.change = Change
+noun.code = Code
+noun.component = Component
+noun.computer = Computer
+noun.directory = Directory
+noun.disk = Disk
+noun.driver = Driver
+noun.exitCode = Exit code
+noun.file = File
+noun.folder = Folder
+noun.font = Font
+noun.gpu = GPU
+noun.icon = Icon
+noun.log = Log
+noun.operation = Operation
+noun.package = Package
+noun.pendingOperation = Pending operation
+noun.policy = Policy
+noun.profile = Profile
+noun.registry = Registry
+noun.registryKey = Registry key
+noun.script = Script
+noun.service = Service
+noun.shortcut = Shortcut
+noun.status = Status
+noun.summary = Summary
+noun.system = System
+noun.task = Task
+noun.tool = Tool
+noun.update = Update
+noun.user = User
+noun.version = Version
+noun.videoDriver = Video driver
+noun.window = Window
+# -- Error — errors, failures, critical issues
+noun.exception = Exception
+# END noun translations
+
 # BEGIN toolText translations
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 # -- Affirmative — positive outcomes (success, completion, confirmations)
