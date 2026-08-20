@@ -57,7 +57,7 @@ function Read-ValidatedChoice {
         }
 
         if ([string]::IsNullOrWhiteSpace($userInput)) {
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.emptyInputTryAgain')
+            Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.emptyInputTryAgain'))
             continue
         }
 
@@ -80,7 +80,7 @@ function Read-ValidatedChoice {
         }
 
         $rangeStr = if ($null -ne $ValidRange) { "$($ValidRange[0]) e $($ValidRange[-1])" } else { "$Min e $Max" }
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.invalidChoiceEnterNumbersBetween0' -Args @($rangeStr))
+        Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.invalidChoiceEnterNumbersBetween0' -Args @($rangeStr)))
     }
 }
 
@@ -119,7 +119,7 @@ function Test-WindowsUpdateStatus {
     #>
     try {
         if ($Global:GuiSessionActive) { return }
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.windowsUpdateStatusCheck')
+        Write-StyledMessage -Type 'Info' -Text ("🔍 " + (Get-SourceTextLoc 'uiText.windowsUpdateStatusCheck'))
 
         $pendingReboot = $false
         $installerRunning = $false
@@ -130,7 +130,7 @@ function Test-WindowsUpdateStatus {
                 $rebootStatus = Get-WURebootStatus -ErrorAction SilentlyContinue
                 if ($rebootStatus -and $rebootStatus.RebootRequired) {
                     $pendingReboot = $true
-                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.pendingRebootDetectedForWindowsUpdates')
+                    Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.pendingRebootDetectedForWindowsUpdates'))
                 }
             }
             catch {}
@@ -138,7 +138,7 @@ function Test-WindowsUpdateStatus {
                 $installerStatus = Get-WUInstallerStatus -ErrorAction SilentlyContinue
                 if ($installerStatus -and $installerStatus.IsBusy) {
                     $installerRunning = $true
-                    Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.windowsUpdateInstallationServiceCurrentlyRunning')
+                    Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.windowsUpdateInstallationServiceCurrentlyRunning'))
                 }
             }
             catch {}
@@ -180,10 +180,10 @@ function Test-WindowsUpdateStatus {
             Start-Sleep -Seconds 5
         }
         else {
-            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.noPendingUpdatesDetected')
+            Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'uiText.noPendingUpdatesDetected'))
         }
     }
     catch {
-        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.unableToCheckWindowsUpdateStatus0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.unableToCheckWindowsUpdateStatus0' -Args @($($_.Exception.Message))))
     }
 }
