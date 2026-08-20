@@ -1,5 +1,5 @@
-# WinToolkit CI/CD Pipeline V 4.0 — Reusable lint and test
-name: WinToolkit V4.0 — Reusable lint and test
+# WinToolkit CI/CD Pipeline V 4.0.1 — Reusable lint and test
+name: WinToolkit V4.0.1 — Reusable lint and test
 
 on:
   workflow_call:
