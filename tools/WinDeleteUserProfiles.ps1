@@ -598,7 +598,7 @@ function WinDeleteUserProfiles {
             else {
                 Write-Host ''
                 Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound')
-                Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound2')
+                Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound')
             }
 
             if (-not $SkipResidualFolderCleanup) {
@@ -660,7 +660,7 @@ function WinDeleteUserProfiles {
         catch {
             Add-ProfileCleanupLog -Level 'ERROR' -Text $_.Exception.Message
             try { Save-ProfileCleanupLog } catch { }
-            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error0' -Args @($_.Exception.Message))
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error' -Args @($_.Exception.Message))
             throw
         }
         finally {
