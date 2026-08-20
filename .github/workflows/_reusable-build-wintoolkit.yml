@@ -145,8 +145,6 @@ jobs:
           commit_message: ${{ inputs.commit-message }}
           file_pattern: WinToolkit.ps1
           branch: ${{ inputs.branch }}
-          push_options: --force-with-lease
-          skip_fetch: true
 
       - name: Build summary
         if: steps.test_compiled.outputs.tests_passed == 'true'
