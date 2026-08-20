@@ -40,10 +40,10 @@ function WinDebloat {
     }
 
     try {
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.startingServiceDebloatProcess')
+        Write-StyledMessage -Type 'Info' -Text ("🚀 " + (Get-SourceTextLoc 'toolText.startingServiceDebloatProcess'))
         foreach ($service in $DebloatServices) { Invoke-ServiceOptimization -ServiceConfig $service }
         # PLACEHOLDER: Altre operazioni (Registro, Task schedulati, ecc.)
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.debloatOperationsCompleted')
+        Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.debloatOperationsCompleted'))
 
         if ($rebootRequired) {
             Invoke-ToolkitReboot -Message (Get-SourceTextLoc 'toolText.extra.rebootToApplyChanges') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
@@ -53,7 +53,7 @@ function WinDebloat {
         Write-ToolkitError -Record $_ -ToolName "WinDebloat"
     }
     finally {
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.resourceCleanupAndWindebloatSessionShutdown')
+        Write-StyledMessage -Type 'Info' -Text ("♻️ " + (Get-SourceTextLoc 'toolText.resourceCleanupAndWindebloatSessionShutdown'))
         Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.windebloatSessionEnded')
     }
 }
