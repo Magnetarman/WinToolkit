@@ -1300,7 +1300,6 @@ uiText.errorFailedToLoad01 = [ত্রুটি] লোড করতে ব্�
 uiText.errorGeneratingDynamicMenu0 = ❌ ডায়নামিক মেনু তৈরিতে ত্রুটি: {0}।
 uiText.errorUpdatingSystemInformation0 = সিস্টেম তথ্য আপডেট করার সময় ত্রুটি: {0}।
 uiText.errors0 = ❌ ত্রুটি: {0}
-uiText.errors02 = ❌ ত্রুটি: 0
 uiText.esecuzioneRepairWingetpackagemanager = Esecuzione মেরামত-WinGetPackageManager.
 uiText.execution0Sec = ⏳ সম্পাদন : {0} সেকেন্ড
 uiText.failedToCreateWindow0 = উইন্ডো তৈরি করতে ব্যর্থ হয়েছে: {0}।

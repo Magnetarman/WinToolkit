@@ -1300,7 +1300,6 @@ uiText.errorFailedToLoad01 = [ERRO] Falha ao carregar: {0} - {1}.
 uiText.errorGeneratingDynamicMenu0 = ❌ Erro ao gerar menu dinâmico: {0}.
 uiText.errorUpdatingSystemInformation0 = Erro ao atualizar as informações do sistema: {0}.
 uiText.errors0 = ❌ Erros: {0}
-uiText.errors02 = ❌ Erros: 0
 uiText.esecuzioneRepairWingetpackagemanager = Execução Repair-WinGetPackageManager.
 uiText.execution0Sec = ⏳ Execução: {0} seg
 uiText.failedToCreateWindow0 = Falha ao criar janela: {0}.

@@ -1300,7 +1300,6 @@ uiText.errorFailedToLoad01 = [خطأ] فشل التحميل: {0} - {1}.
 uiText.errorGeneratingDynamicMenu0 = ❌ خطأ أثناء إنشاء القائمة الديناميكية: {0}.
 uiText.errorUpdatingSystemInformation0 = خطأ في تحديث معلومات النظام: {0}.
 uiText.errors0 = ❌ الأخطاء : {0}
-uiText.errors02 = ❌ الأخطاء : 0
 uiText.esecuzioneRepairWingetpackagemanager = إصلاح WinGetPackageManager.
 uiText.execution0Sec = ⏳ التنفيذ: {0} ثانية
 uiText.failedToCreateWindow0 = فشل إنشاء النافذة: {0}.

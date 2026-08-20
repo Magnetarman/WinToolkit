@@ -1300,7 +1300,6 @@ uiText.errorFailedToLoad01 = [त्रुटि] लोड करने मे�
 uiText.errorGeneratingDynamicMenu0 = ❌ डायनामिक मेनू उत्पन्न करने में त्रुटि: {0}।
 uiText.errorUpdatingSystemInformation0 = सिस्टम जानकारी अपडेट करने में त्रुटि: {0}।
 uiText.errors0 = ❌ त्रुटियाँ : {0}
-uiText.errors02 = ❌ त्रुटियाँ : 0
 uiText.esecuzioneRepairWingetpackagemanager = एसेक्यूज़ियोन रिपेयर-विनगेटपैकेजमैनेजर।
 uiText.execution0Sec = ⏳ निष्पादन: {0} सेकंड
 uiText.failedToCreateWindow0 = विंडो बनाने में विफल: {0}।

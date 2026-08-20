@@ -1300,7 +1300,6 @@ uiText.errorFailedToLoad01 = [错误] 加载失败：{0} - {1}。
 uiText.errorGeneratingDynamicMenu0 = ❌生成动态菜单时出错：{0}。
 uiText.errorUpdatingSystemInformation0 = 更新系统信息时出错：{0}。
 uiText.errors0 = ❌错误：{0}
-uiText.errors02 = ❌ 错误：0
 uiText.esecuzioneRepairWingetpackagemanager = 紧急修复-WinGetPackageManager。
 uiText.execution0Sec = ⏳ 执行：{0}秒
 uiText.failedToCreateWindow0 = 无法创建窗口：{0}。

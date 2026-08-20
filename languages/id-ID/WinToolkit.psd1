@@ -1300,7 +1300,6 @@ uiText.errorFailedToLoad01 = [ERROR] Gagal memuat: {0} - {1}.
 uiText.errorGeneratingDynamicMenu0 = ❌ Kesalahan saat membuat menu dinamis: {0}.
 uiText.errorUpdatingSystemInformation0 = Kesalahan saat memperbarui informasi sistem: {0}.
 uiText.errors0 = ❌ Kesalahan : {0}
-uiText.errors02 = ❌ Kesalahan : 0
 uiText.esecuzioneRepairWingetpackagemanager = Menjalankan Perbaikan-WinGetPackageManager.
 uiText.execution0Sec = ⏳ Eksekusi : {0} detik
 uiText.failedToCreateWindow0 = Gagal membuat jendela: {0}.

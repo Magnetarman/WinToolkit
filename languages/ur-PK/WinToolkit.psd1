@@ -1300,7 +1300,6 @@ uiText.errorFailedToLoad01 = [ERROR] لوڈ کرنے میں ناکام: {0} - {1
 uiText.errorGeneratingDynamicMenu0 = ❌ ڈائنامک مینو بنانے میں خرابی: {0}۔
 uiText.errorUpdatingSystemInformation0 = سسٹم کی معلومات کو اپ ڈیٹ کرنے میں خرابی: {0}۔
 uiText.errors0 = ❌ خرابیاں : {0}
-uiText.errors02 = ❌ خرابیاں: 0
 uiText.esecuzioneRepairWingetpackagemanager = Esecuzione Repair-WinGetPackageManager۔
 uiText.execution0Sec = ⏳ عملدرآمد : {0} سیکنڈ
 uiText.failedToCreateWindow0 = ونڈو بنانے میں ناکام: {0}۔

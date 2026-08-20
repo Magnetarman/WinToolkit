@@ -1300,7 +1300,6 @@ uiText.errorFailedToLoad01 = [ОШИБКА] Не удалось загрузит
 uiText.errorGeneratingDynamicMenu0 = ❌ Ошибка создания динамического меню: {0}.
 uiText.errorUpdatingSystemInformation0 = Ошибка обновления системной информации: {0}.
 uiText.errors0 = ❌ Ошибки: {0}
-uiText.errors02 = ❌ Ошибки: 0
 uiText.esecuzioneRepairWingetpackagemanager = Esecuzione Repair-WinGetPackageManager.
 uiText.execution0Sec = ⏳ Выполнение: {0} сек.
 uiText.failedToCreateWindow0 = Не удалось создать окно: {0}.
