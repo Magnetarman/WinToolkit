@@ -72,7 +72,7 @@ function WinCleaner {
         param($Rule)
         $displayName = Get-SourceTextLoc $Rule.NameKey
         Clear-ProgressLine
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.commandExecution0' -Args @($displayName))
+        Write-StyledMessage -Type 'Info' -Text ("🚀 " + (Get-SourceTextLoc 'toolText.commandExecution0' -Args @($displayName)))
         try {
             $result = Invoke-WithSpinner -Activity $displayName -Command $Rule.Command -Arguments $Rule.Args -TimeoutSeconds $timeout -LogContextKey "Cleaner-$($Rule.Name)"
 
@@ -182,7 +182,7 @@ function WinCleaner {
                 Add-CleanerLog -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.extra.removalError01' -Args @($path, $_))
             }
         }
-        if ($count -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.cleaned0ItemsIn1' -Args @($count, $displayName)) }
+        if ($count -gt 0) { Write-StyledMessage -Type 'Success' -Text ("🗑️ " + (Get-SourceTextLoc 'toolText.cleaned0ItemsIn1' -Args @($count, $displayName))) }
         return $true
     }
 
