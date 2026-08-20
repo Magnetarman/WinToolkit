@@ -257,13 +257,13 @@ function Start-InterruptibleCountdown {
     if ($Suppress) { return $true }
     if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-SourceTextLoc 'sourceText.automaticRestart' }
 
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.pressAnyKeyToCancel')
+    Write-StyledMessage -Type 'Info' -Text ("💡 " + (Get-SourceTextLoc 'uiText.pressAnyKeyToCancel'))
     Write-Host ''
     for ($i = $Seconds; $i -gt 0; $i--) {
         if ([Console]::KeyAvailable) {
             $null = [Console]::ReadKey($true)
             Write-Host "`n"
-            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.systemRebootCancelled')
+            Write-StyledMessage -Type 'Warning' -Text ("⏸️ " + (Get-SourceTextLoc 'uiText.systemRebootCancelled'))
             return $false
         }
         $percent = [Math]::Round((($Seconds - $i) / $Seconds) * 100)
@@ -301,7 +301,7 @@ function Invoke-ToolkitReboot {
     if ([string]::IsNullOrWhiteSpace($Message)) { $Message = Get-SourceTextLoc 'sourceText.operationCompleted' }
     if ($SuppressIndividualReboot) {
         $Global:NeedsFinalReboot = $true
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.individualRestartSuppressedAFinalRebootWillBeHandled')
+        Write-StyledMessage -Type 'Info' -Text ("🚫 " + (Get-SourceTextLoc 'uiText.individualRestartSuppressedAFinalRebootWillBeHandled'))
     }
     else {
         if (Start-InterruptibleCountdown -Seconds $Seconds -Message $Message) {
@@ -348,7 +348,7 @@ function Invoke-ToolkitDownload {
     if ([string]::IsNullOrWhiteSpace($Description)) { $Description = Get-SourceTextLoc 'sourceText.file' }
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
         try {
-            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.download0' -Args @($Description))
+            Write-StyledMessage -Type 'Info' -Text ("📥 " + (Get-SourceTextLoc 'uiText.download0' -Args @($Description)))
             
             # Creare parent directory se non esiste
             $parentDir = Split-Path -Parent $OutputPath
@@ -516,12 +516,12 @@ function Invoke-ToolkitDownload {
             }
             
             if ($attempt -lt $MaxRetries) {
-                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.01AttemptFailed2ILlTryAgain' -Args @($attempt, $MaxRetries, $($_.Exception.Message)))
+                Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.01AttemptFailed2ILlTryAgain' -Args @($attempt, $MaxRetries, $($_.Exception.Message))))
                 Start-Sleep -Seconds 2
             }
         }
     }
-    Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'uiText.downloadFailedAfter0Attempts1' -Args @($MaxRetries, $Description))
+    Write-StyledMessage -Type 'Error' -Text ("❌ " + (Get-SourceTextLoc 'uiText.downloadFailedAfter0Attempts1' -Args @($MaxRetries, $Description)))
     return $false
 }
 
