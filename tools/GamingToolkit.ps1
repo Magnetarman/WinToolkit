@@ -89,17 +89,17 @@ function GamingToolkit {
     Write-StyledMessage -Type 'Info' -Text ("🔍 " + (Get-SourceTextLoc 'toolText.checkWingetAvailability'))
     Update-EnvironmentPath
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.wingetNotAvailableStartingAutomaticRecovery'))
+        Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.wingetNotAvailableStartingAutomaticRecovery'))
         $resetOk = Reset-Winget
         Update-EnvironmentPath
         if (-not $resetOk -or -not (Get-Command winget -ErrorAction SilentlyContinue)) {
-            Write-StyledMessage -Type 'Error' -Text ("❌ " + (Get-SourceTextLoc 'toolText.wingetRestoreFailedUnableToProceedWithGamingToolkit'))
+            Write-StyledMessage -Type 'Error' -Text ((Get-SourceTextLoc 'toolText.wingetRestoreFailedUnableToProceedWithGamingToolkit'))
             Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.pressAnyKeyToContinue')
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
             return
         }
     }
-    Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.wingetAvailable'))
+    Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.wingetAvailable'))
 
     Write-StyledMessage -Type 'Info' -Text ("🔄 " + (Get-SourceTextLoc 'toolText.wingetSourcesUpdate'))
     try {
