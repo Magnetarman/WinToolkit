@@ -30,7 +30,7 @@ function DisableBitlocker {
             -Arguments @('-off', 'C:') -TimeoutSeconds $timeout -LogContextKey "Bitlocker-Disable"
 
         if ($result.ExitCode -eq 0) {
-            Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.decryptionStartedCompletedSuccessfully'))
+            Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.decryptionStartedCompletedSuccessfully'))
             Start-Sleep -Seconds 2
             $status = Test-BitLockerStatus -DriveLetter "C:"
             if ($status -match "Decryption in progress" -or $status -match 'Decryption in progress.') {
@@ -38,7 +38,7 @@ function DisableBitlocker {
             }
         }
         else {
-            Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.manageBdeExitCode0BitlockerMayAlreadyBeDownOrInError' -Args @($($result.ExitCode))))
+            Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.manageBdeExitCode0BitlockerMayAlreadyBeDownOrInError' -Args @($($result.ExitCode))))
         }
 
         Write-StyledMessage -Type 'Info' -Text ("⚙️ " + (Get-SourceTextLoc 'toolText.disablingAutomaticEncryptionInTheRegistry'))
