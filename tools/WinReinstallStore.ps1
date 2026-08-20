@@ -169,7 +169,7 @@ function WinReinstallStore {
                 return $true
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.unigetUiInstallationFinishedWithCode0' -Args @($($processResult.ExitCode))))
+                Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.unigetUiInstallationFinishedWithCode0' -Args @($($processResult.ExitCode))))
                 return $false
             }
         }
@@ -297,7 +297,7 @@ function WinReinstallStore {
             Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.wingetRestoredAndOperational')
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text ("❌ " + (Get-SourceTextLoc 'toolText.wingetRestoreFailed'))
+            Write-StyledMessage -Type 'Error' -Text ((Get-SourceTextLoc 'toolText.wingetRestoreFailed'))
         }
 
         $storeResult = Install-MicrosoftStore
@@ -307,14 +307,14 @@ function WinReinstallStore {
             Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.microsoftStoreSuccessfullyRestored')
         }
         else {
-            Write-StyledMessage -Type 'Error' -Text ("❌ " + (Get-SourceTextLoc 'toolText.microsoftStoreNotRestored'))
+            Write-StyledMessage -Type 'Error' -Text ((Get-SourceTextLoc 'toolText.microsoftStoreNotRestored'))
         }
 
         if ($unigetResult) {
             Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.unigetUiInstalled')
         }
         else {
-            Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.unigetUiRequireManualVerification'))
+            Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.unigetUiRequireManualVerification'))
         }
 
         Write-StyledMessage -Type 'Success' -Text ("🎉 " + (Get-SourceTextLoc 'toolText.operationCompleted'))
