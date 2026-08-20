@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit — Create Pre-Release V 4.0
+# WinToolkit — Create Pre-Release V 4.0.1
 # =============================================================================
 # Manual workflow for creating official pre-releases.
 #
@@ -19,7 +19,7 @@
 # RUNTIME: PowerShell 7+ (pwsh) -- windows-latest; ubuntu-latest for fast checks.
 # =============================================================================
 
-name: WinToolkit — Create Pre-Release V4.0
+name: WinToolkit — Create Pre-Release V4.0.1
 
 on:
   workflow_dispatch:
