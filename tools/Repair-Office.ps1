@@ -14,7 +14,7 @@ function Repair-Office {
     Start-ToolkitSession -ToolName "OfficeRepair" -SubTitle (Get-SourceTextLoc 'script.Repair-Office')
 
     function Set-OfficePostConfig {
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.officePostRepairSetup')
+        Write-StyledMessage -Type 'Info' -Text ("⚙️ " + (Get-SourceTextLoc 'toolText.officePostRepairSetup'))
         foreach ($reg in @(
             @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 },
             @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";       Value = 1 },
@@ -23,16 +23,16 @@ function Repair-Office {
             @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";           Value = 0 }
         )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
         Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.telemetryAndPrivacyOfficeDisabled')
+        Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.telemetryAndPrivacyOfficeDisabled'))
     }
 
     $needsReboot = $false
 
     try {
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.startingOfficeRepair')
+        Write-StyledMessage -Type 'Info' -Text ("🔧 " + (Get-SourceTextLoc 'toolText.startingOfficeRepair'))
         Stop-ToolkitProcesses -ProcessNames @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
 
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.officeCacheCleaner')
+        Write-StyledMessage -Type 'Info' -Text ("🧹 " + (Get-SourceTextLoc 'toolText.officeCacheCleaner'))
         $cleanedCount = 0
         foreach ($cache in @(
             "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache",
@@ -52,25 +52,25 @@ function Repair-Office {
         }
 
         try {
-            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.launchQuickRepairOffline')
+            Write-StyledMessage -Type 'Info' -Text ("🔧 " + (Get-SourceTextLoc 'toolText.launchQuickRepairOffline'))
             $null = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'uiText.quickOfficeRepairOffline') -Command $officeClient `
                 -Arguments "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=QuickRepair DisplayLevel=True" `
                 -TimeoutSeconds 86400 -LogContextKey "Office-Repair-Quick"
 
             Set-OfficePostConfig
-            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.officeRepairComplete')
+            Write-StyledMessage -Type 'Success' -Text ("🎉 " + (Get-SourceTextLoc 'toolText.officeRepairComplete'))
             $needsReboot = $true
         }
         catch {
             Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.errorDuringQuickRepair0' -Args @($($_.Exception.Message)))
             try {
-                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.attemptingFullRepairOnlineAsAFallback')
+                Write-StyledMessage -Type 'Info' -Text ("🌐 " + (Get-SourceTextLoc 'toolText.attemptingFullRepairOnlineAsAFallback'))
                 $null = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'uiText.completeOfficeRepairOnline') -Command $officeClient `
                     -Arguments "scenario=Repair platform=x64 culture=it-it forceappshutdown=True RepairType=FullRepair DisplayLevel=True" `
                     -TimeoutSeconds 86400 -LogContextKey "Office-Repair-Full"
 
                 Set-OfficePostConfig
-                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.officeRepairComplete')
+                Write-StyledMessage -Type 'Success' -Text ("🎉 " + (Get-SourceTextLoc 'toolText.officeRepairComplete'))
                 $needsReboot = $true
             }
             catch {
@@ -87,7 +87,7 @@ function Repair-Office {
         }
     }
     finally {
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.officeRepairFinished')
+        Write-StyledMessage -Type 'Success' -Text ("🎯 " + (Get-SourceTextLoc 'toolText.officeRepairFinished'))
         Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.repairOfficeSessionEnded')
     }
 
