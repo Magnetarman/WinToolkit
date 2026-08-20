@@ -304,7 +304,7 @@ function Test-WingetFunctionality {
         # Usa --version: locale, immediato, non richiede connessione internet
         $versionOutput = (& winget --version 2>$null) | Out-String
         if ($LASTEXITCODE -eq 0 -and $versionOutput -match 'v\d+\.\d+') {
-            Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.operationalWingetVersion0' -Args @($($versionOutput.Trim()))))
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.operationalWingetVersion0' -Args @($($versionOutput.Trim()))))
             return $true
         }
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetPresentButNotRespondingCorrectlyExitcode0' -Args @($LASTEXITCODE))
@@ -352,10 +352,10 @@ function Test-WingetAppInstaller {
 
     $ok = [bool](Get-AppxPackage -Name 'Microsoft.AppInstaller' -ErrorAction SilentlyContinue)
     if ($ok) {
-        Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdated'))
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdated'))
     }
     else {
-        Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.microsoftAppInstallerInstallationFailed'))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerInstallationFailed'))
     }
     return $ok
 }
@@ -486,15 +486,15 @@ function Repair-WingetDatabase {
         Start-Sleep 2
         $testVersion = & winget --version 2>$null
         if ($LASTEXITCODE -ne 0) {
-            Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.restoreCompletedButWingetMayNotWork'))
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.restoreCompletedButWingetMayNotWork'))
         }
         else {
-            Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.wingetDatabaseRestoredVersion0' -Args @($testVersion)))
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetDatabaseRestoredVersion0' -Args @($testVersion)))
         }
         return $true
     }
     catch {
-        Write-StyledMessage -Type Error -Text ("❌ " + (Get-SourceTextLoc 'uiText.errorRestoringDatabase0' -Args @($($_.Exception.Message))))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.errorRestoringDatabase0' -Args @($($_.Exception.Message))))
         return $false
     }
 }
@@ -520,7 +520,7 @@ function Test-WingetDeepValidation {
 
         # Check for access violation crash (0xC0000005)
         if ($exitCode -eq $script:EXITCODE_ACCESS_VIOLATION_SIGNED -or $exitCode -eq $script:EXITCODE_ACCESS_VIOLATION) {
-            Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.crashDetectedExitcode0AccessViolationAdvancedRecoveryAttempt' -Args @($exitCode)))
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.crashDetectedExitcode0AccessViolationAdvancedRecoveryAttempt' -Args @($exitCode)))
 
             # 1. Try DB restore + Appx reset first
             $null = Repair-Winget -Level FullDatabase
@@ -532,7 +532,7 @@ function Test-WingetDeepValidation {
 
             # 2. If it still crashes, try complete reinstall
             if ($exitCode -eq $script:EXITCODE_ACCESS_VIOLATION_SIGNED -or $exitCode -eq $script:EXITCODE_ACCESS_VIOLATION) {
-                Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'))
+                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'))
                 $null = Repair-Winget -Level FullReinstall
 
                 Write-StyledMessage -Type Info -Text ("🔄 " + (Get-SourceTextLoc 'uiText.finalTestAfterReinstallation'))
@@ -550,7 +550,7 @@ function Test-WingetDeepValidation {
             catch {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'toolText.sourceUpdateError0' -Args @($($_.Exception.Message)))
             }
-            Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.deepTestPassedWingetCommunicatesCorrectlyWithRepositories'))
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.deepTestPassedWingetCommunicatesCorrectlyWithRepositories'))
             return $true
         }
         # Logga i dettagli per debug
@@ -558,11 +558,11 @@ function Test-WingetDeepValidation {
         if ($errorDetails.Length -gt 200) {
             $errorDetails = $errorDetails.Substring(0, 200) + "."
         }
-        Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.deepTestFailedExitcode0Details1' -Args @($exitCode, $errorDetails)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.deepTestFailedExitcode0Details1' -Args @($exitCode, $errorDetails)))
         return $false
     }
     catch {
-        Write-StyledMessage -Type Error -Text ("❌ " + (Get-SourceTextLoc 'uiText.errorDuringWingetDeepTest0' -Args @($($_.Exception.Message))))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.errorDuringWingetDeepTest0' -Args @($($_.Exception.Message))))
         return $false
     }
 }
@@ -806,10 +806,10 @@ function Install-WingetPackage {
         Update-EnvironmentPath
 
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.wingetInstalledAndWorking'))
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetInstalledAndWorking'))
             return $true
         }
-        Write-StyledMessage -Type Error -Text ("❌ " + (Get-SourceTextLoc 'uiText.unableToInstallWinget'))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.unableToInstallWinget'))
         return $false
     }
     catch {
