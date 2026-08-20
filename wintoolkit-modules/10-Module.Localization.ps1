@@ -14,6 +14,7 @@ $Global:SourceTextLanguage = 'en-US'
 $Global:SourceTextLanguageData = $null
 $Global:SourceTextDefaultLanguageData = $null
 $Global:SourceTextPreparedLanguagesDir = $null
+$Global:SourceTextKeyAliases = @{}
 
 function Get-SourceTextLanguageDirectory {
     if ($Global:SourceTextPreparedLanguagesDir -and (Test-Path $Global:SourceTextPreparedLanguagesDir)) {
@@ -90,19 +91,59 @@ function Get-SourceTextLoc {
         [Alias('Args')][object[]]$Arguments = @()
     )
 
-    $value = $null
-    if ($Global:SourceTextLanguageData -and $Global:SourceTextLanguageData.ContainsKey($Key)) {
-        $value = [string]$Global:SourceTextLanguageData[$Key]
+    $k = $Key
+    if ($Global:SourceTextKeyAliases -and $Global:SourceTextKeyAliases.ContainsKey($k)) {
+        $k = $Global:SourceTextKeyAliases[$k]
     }
-    elseif ($Global:SourceTextDefaultLanguageData -and $Global:SourceTextDefaultLanguageData.ContainsKey($Key)) {
-        $value = [string]$Global:SourceTextDefaultLanguageData[$Key]
+
+    $value = $null
+    if ($Global:SourceTextLanguageData -and $Global:SourceTextLanguageData.ContainsKey($k)) {
+        $value = [string]$Global:SourceTextLanguageData[$k]
+    }
+    elseif ($Global:SourceTextDefaultLanguageData -and $Global:SourceTextDefaultLanguageData.ContainsKey($k)) {
+        $value = [string]$Global:SourceTextDefaultLanguageData[$k]
     }
     else {
-        $value = $Key
+        # Strip trailing digits and retry: collapses numeric duplicate keys
+        # (e.g. sourceText.completed2 -> sourceText.completed) without breaking call sites.
+        if ($k -match '^(.*?)(\d+)$') {
+            $stem = $Matches[1]
+            if ($Global:SourceTextLanguageData -and $Global:SourceTextLanguageData.ContainsKey($stem)) {
+                $value = [string]$Global:SourceTextLanguageData[$stem]
+            }
+            elseif ($Global:SourceTextDefaultLanguageData -and $Global:SourceTextDefaultLanguageData.ContainsKey($stem)) {
+                $value = [string]$Global:SourceTextDefaultLanguageData[$stem]
+            }
+        }
     }
+    if ($null -eq $value) { $value = $Key }
 
     if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
+}
+
+function Format-SourceText {
+    <#
+    .SYNOPSIS
+    Composes a localized message from canonical verb/noun tokens to keep
+    translation files small and generalized (infinitive verb + singular noun).
+
+    .EXAMPLE
+    Format-SourceText -Verb 'remove' -Noun 'folder'   # -> "Remove folder"
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$Verb,
+        [string]$Noun,
+        [object[]]$Arguments = @()
+    )
+
+    $parts = @()
+    if ($Verb) { $parts += (Get-SourceTextLoc "verb.$Verb") }
+    if ($Noun) { $parts += (Get-SourceTextLoc "noun.$Noun") }
+    $text = ($parts -join ' ').Trim()
+    if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($text, $Arguments) }
+    return $text
 }
 
 function Get-SourceTextMenuText {
