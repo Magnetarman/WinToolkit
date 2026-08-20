@@ -5,7 +5,6 @@ ConvertFrom-StringData -StringData @'
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 language.aiTranslated = true
 
 language.code = en-US
@@ -19,7 +18,6 @@ language.nativeName = English
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 menu.back = Back to previous menu
 
 menu.changeLanguage = Change language
@@ -59,7 +57,6 @@ menu.support = Support: Github.com/Magnetarman
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 system.architecture = Architecture
 
 system.bitlockerStatus = BitLocker status
@@ -81,12 +78,10 @@ system.version = Version
 
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
-# -- Affirmative — positive outcomes (success, completion, confirmations)
 bitlocker.status.notConfigured = Not configured
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 bitlocker.status.decrypting = Decryption in progress
 
 bitlocker.status.encrypting = Encryption in progress
@@ -104,7 +99,6 @@ bitlocker.status.unknown = Unknown
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 confirm.profile.accept = Yes, I understand what I am doing and accept responsibility if files are deleted
 
 confirm.profile.sure = Are you absolutely sure?
@@ -113,7 +107,6 @@ confirm.profile.yes = Yes, delete user profiles
 
 # -- Warning — warnings, cautions, recoverable issues
 
-# -- Warning — warnings, cautions, recoverable issues
 confirm.profile.warn1 = WARNING: this option will delete all Windows user profiles except the current user.
 
 confirm.profile.warn2 = Data stored in deleted profiles cannot be recovered.
@@ -123,19 +116,16 @@ confirm.profile.warn2 = Data stored in deleted profiles cannot be recovered.
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 run.sequence = Running {0} operations in sequence...
 
 run.start = Starting: {0}
 
 # -- Warning — warnings, cautions, recoverable issues
 
-# -- Warning — warnings, cautions, recoverable issues
 run.cancelled = Operation cancelled. Returning to the main menu.
 
 # -- Error — errors, failures, critical issues
 
-# -- Error — errors, failures, critical issues
 run.error = Error while running {0}: {1}
 # END run translations
 
@@ -143,12 +133,10 @@ run.error = Error while running {0}: {1}
 
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
-# -- Affirmative — positive outcomes (success, completion, confirmations)
 summary.completed = Completed
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 summary.detail = Detail
 
 summary.operation = Operation
@@ -159,7 +147,6 @@ summary.title = Execution Summary
 
 # -- Error — errors, failures, critical issues
 
-# -- Error — errors, failures, critical issues
 summary.error = Error
 # END summary translations
 
@@ -167,7 +154,6 @@ summary.error = Error
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 reboot.countdown = System restart in
 
 reboot.reminder = Remember to restart the system manually to complete the operations.
@@ -179,12 +165,10 @@ reboot.required = A restart is required to complete the operations.
 
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
-# -- Affirmative — positive outcomes (success, completion, confirmations)
 gui.complete = Complete
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 gui.allExecuted = All scripts have been executed.
 
 gui.architecture = Architecture: 
@@ -231,7 +215,6 @@ gui.windowsEdition = Windows edition:
 
 # -- Error — errors, failures, critical issues
 
-# -- Error — errors, failures, critical issues
 gui.sendErrorLogs = Send error logs
 # END gui translations
 
@@ -239,7 +222,6 @@ gui.sendErrorLogs = Send error logs
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 category.driverGaming = Driver & Gaming
 
 category.office = Office
@@ -253,7 +235,6 @@ category.windows = Windows
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 script.AutoVideoDriverInstall = Auto install video driver [Nvidia-AMD]
 
 script.DisableBitlocker = Disable BitLocker
@@ -287,7 +268,6 @@ script.WinUpdateReset = Reset Windows Update
 
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
-# -- Affirmative — positive outcomes (success, completion, confirmations)
 sourceText.completed = Completed
 
 sourceText.configured = configured
@@ -308,7 +288,6 @@ sourceText.restored = restored
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 sourceText.applyingUnwrapping = Applying unwrapping.
 
 sourceText.automaticRestart = Automatic restart
@@ -365,7 +344,6 @@ sourceText.version = Version
 
 # -- Warning — warnings, cautions, recoverable issues
 
-# -- Warning — warnings, cautions, recoverable issues
 sourceText.cancelled = cancelled
 
 sourceText.criticalError = Critical error
@@ -376,7 +354,6 @@ sourceText.warning = Warning
 
 # -- Error — errors, failures, critical issues
 
-# -- Error — errors, failures, critical issues
 sourceText.failed = failed
 
 sourceText.initializationError = Initialization error
@@ -396,12 +373,10 @@ sourceText.unknownError = Unknown error
 
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
-# -- Affirmative — positive outcomes (success, completion, confirmations)
 verb.complete = Complete
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 verb.active = Active
 
 verb.backup = Backup
@@ -490,7 +465,6 @@ verb.wait = Wait
 
 # -- Warning — warnings, cautions, recoverable issues
 
-# -- Warning — warnings, cautions, recoverable issues
 verb.cancel = Cancel
 
 verb.notFound = Not found
@@ -501,7 +475,6 @@ verb.warning = Warning
 
 # -- Error — errors, failures, critical issues
 
-# -- Error — errors, failures, critical issues
 verb.fail = Fail
 # END verb translations
 
@@ -509,7 +482,6 @@ verb.fail = Fail
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 noun.archive = Archive
 
 noun.attempt = Attempt
@@ -586,7 +558,6 @@ noun.window = Window
 
 # -- Error — errors, failures, critical issues
 
-# -- Error — errors, failures, critical issues
 noun.exception = Exception
 # END noun translations
 
@@ -594,7 +565,6 @@ noun.exception = Exception
 
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
-# -- Affirmative — positive outcomes (success, completion, confirmations)
 toolText.0DeletedCaches = {0} deleted cache.
 
 toolText.0OfficeFoldersRemoved = {0} Office folder removed.
@@ -769,7 +739,6 @@ toolText.xboxReinstalled = Xbox reinstalled.
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 toolText.01Starting2 = [{0}/{1}] Starting {2}.
 
 toolText.01Status2 = {0} {1} - Status: {2}
@@ -962,7 +931,6 @@ toolText.winexportlogSessionEnded = WinExportLog session ended.
 
 # -- Warning — warnings, cautions, recoverable issues
 
-# -- Warning — warnings, cautions, recoverable issues
 toolText.0DllNotFoundAndNoBackupAvailable = ⚠️ {0}.dll not found and no backup available.
 
 toolText.0Error0x800f0806PendingOperationsThisIsNotACriticalError = ⚠️ {0}: Error 0x800f0806 (pending operations). This is not a critical error.
@@ -1087,7 +1055,6 @@ toolText.wingetNotAvailableUnigetUiRequiresWinget = Winget not available. UniGet
 
 # -- Error — errors, failures, critical issues
 
-# -- Error — errors, failures, critical issues
 toolText.01Installation2 = [{0}/{1}] 📦 Install: {2}
 
 toolText.0CheckScheduledAtNextReboot = 🔧 {0}: Check scheduled at next reboot.
@@ -1429,7 +1396,6 @@ toolText.youCanTryAnAlternativeMethodOrManualRemoval = 💡 You can try an alter
 
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
-# -- Affirmative — positive outcomes (success, completion, confirmations)
 toolText.extra.01Completed = {0} / {1} completed
 
 toolText.extra.chromiumBrowserCacheCleaner = 🌐 Chromium Browser Cache Cleaner.
@@ -1462,7 +1428,6 @@ toolText.extra.unableToCleanCompletely0 = Unable to clean completely {0}
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 toolText.extra.0ShadowCopiesDetectedRemovingOld1 = {0} shadow copies detected. Removing old {1}
 
 toolText.extra.attentionYouAreCleaningWithWindowsUpdateInProgressRefreshYourSystemAndTryAgainToPerformAFu = ATTENTION! - You are cleaning with Windows Update in progress. Refresh your system and try again to perform a full cleanup
@@ -1563,7 +1528,6 @@ toolText.extra.windowsImageRecovery = Windows Image Recovery
 
 # -- Warning — warnings, cautions, recoverable issues
 
-# -- Warning — warnings, cautions, recoverable issues
 toolText.extra.backupDirectoryNotFound0 = Backup directory not found: {0}
 
 toolText.extra.criticalErrorDuringBackup = Critical error during backup
@@ -1586,7 +1550,6 @@ toolText.extra.timeoutReachedDuringDismExport = Timeout reached during DISM expo
 
 # -- Error — errors, failures, critical issues
 
-# -- Error — errors, failures, critical issues
 toolText.extra.0NotCompletedAbortedDueToTimeout = {0} NOT completed (aborted due to Timeout).
 
 toolText.extra.analysisAndCleaningOfShadowCopiesKeepLatest = 🗑️ Analysis and cleaning of shadow copies (keep latest).
@@ -1650,7 +1613,6 @@ toolText.extra.windowsUpdateCacheCleaner = 🔄 Windows Update cache cleaner.
 
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
-# -- Affirmative — positive outcomes (success, completion, confirmations)
 toolText.extra2.oldShadowCopiesRemovedLastPreservedCopy = Old shadow copies removed. Last preserved copy.
 
 toolText.extra2.printQueueSpoolerCleanedAndRestartedSuccessfully = Print Queue Spooler cleaned and restarted successfully.
@@ -1661,14 +1623,12 @@ toolText.extra2.windowsOldSuccessfullyRemoved = ✅ Windows.old successfully rem
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 toolText.extra2.desktopDirectoryNotAccessible0 = Desktop directory not accessible: {0}
 
 toolText.extra2.theScriptMustBeRunFromAPowershellConsoleStartedAsAdministrator = The script must be run from a PowerShell console started as administrator.
 
 # -- Warning — warnings, cautions, recoverable issues
 
-# -- Warning — warnings, cautions, recoverable issues
 toolText.extra2.set01 = ⚙️ Set {0}\\{1}
 # END toolText.extra2 translations
 
@@ -1676,12 +1636,10 @@ toolText.extra2.set01 = ⚙️ Set {0}\\{1}
 
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
-# -- Affirmative — positive outcomes (success, completion, confirmations)
 toolText.extra3.0CompletedSuccessfully = {0} completed successfully.
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 toolText.extra3.configuring0 = Configuring {0}
 
 toolText.extra3.starting0 = Starting {0}
@@ -1690,7 +1648,6 @@ toolText.extra3.stopping0 = Stopping {0}
 
 # -- Error — errors, failures, critical issues
 
-# -- Error — errors, failures, critical issues
 toolText.extra3.0CompletedWith1Errors = {0} completed with {1} errors.
 # END toolText.extra3 translations
 
@@ -1698,7 +1655,6 @@ toolText.extra3.0CompletedWith1Errors = {0} completed with {1} errors.
 
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
-# -- Affirmative — positive outcomes (success, completion, confirmations)
 sourceText.completedSuccessfully = Completed successfully
 
 uiText.battleNetInstalled = Battle.net installed.
@@ -1871,7 +1827,6 @@ uiText.wintoolkitProgressTagActivity0StatusCompletedPercent100 = [WINTOOLKIT_PRO
 
 # -- Informational — status, progress, notes
 
-# -- Informational — status, progress, notes
 cleanerRule.adobeMediaBrowserKey = Adobe Media Browser Key
 
 cleanerRule.cacheHistoryCleanup = Cache/History Cleanup
@@ -2244,7 +2199,6 @@ uiText.wintoolkitStyledMessageTagInfoHeader0 = [WINTOOLKIT_STYLED_MESSAGE_TAG] I
 
 # -- Warning — warnings, cautions, recoverable issues
 
-# -- Warning — warnings, cautions, recoverable issues
 uiText.01AttemptFailed2ILlTryAgain = ⚠️ Attempt {0}/{1} failed: {2}. Try again...
 
 uiText.0Discontinued = ⚠️ {0} discontinued.
@@ -2423,7 +2377,6 @@ uiText.wintoolkitStyledMessageTagWarningTimeoutReachedAfter0SecondsTerminatingPr
 
 # -- Error — errors, failures, critical issues
 
-# -- Error — errors, failures, critical issues
 cleanerRule.errorReports = Error Reports
 
 sourceText.completedWithErrors = Completed with errors
