@@ -425,7 +425,7 @@ if ($stats.Errors -gt 0) {
     Write-Host (Get-SourceTextLoc 'uiText.errors0' -Args @($($stats.Errors))) -ForegroundColor Red
 }
 else {
-    Write-Host (Get-SourceTextLoc 'uiText.errors02') -ForegroundColor DarkGray
+    Write-Host (Get-SourceTextLoc 'uiText.errors0' -Args @(0)) -ForegroundColor DarkGray
 }
 Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host ((Get-SourceTextLoc 'uiText.storageAndCompression') + "                                             ") -ForegroundColor Yellow
