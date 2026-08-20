@@ -289,11 +289,11 @@ function Set-WindowsTerminalAsDefault {
 
         Set-ItemProperty -Path $registryPath -Name 'DelegationTerminal' -Value $script:AppConfig.WindowsTerminal.DelegationTerminalClsid -Force
         Set-ItemProperty -Path $registryPath -Name 'DelegationConsole' -Value $script:AppConfig.WindowsTerminal.DelegationConsoleClsid -Force
-        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalSetAsDefault'))
+        Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.windowsTerminalSetAsDefault'))
         return [pscustomobject]@{ Success = $true; Changed = $true; Message = 'Windows Terminal set as default.' }
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.failedToSetDefaultTerminal0' -Args @($($_.Exception.Message))))
+        Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.failedToSetDefaultTerminal0' -Args @($($_.Exception.Message))))
         return [pscustomobject]@{ Success = $false; Changed = $false; Message = $_.Exception.Message }
     }
 }
