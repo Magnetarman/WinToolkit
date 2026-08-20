@@ -86,22 +86,22 @@ function GamingToolkit {
     Show-Header -SubTitle (Get-SourceTextLoc 'script.GamingToolkit')
 
     # Step 1: Verifica e ripristino automatico Winget
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.checkWingetAvailability')
+    Write-StyledMessage -Type 'Info' -Text ("🔍 " + (Get-SourceTextLoc 'toolText.checkWingetAvailability'))
     Update-EnvironmentPath
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.wingetNotAvailableStartingAutomaticRecovery')
+        Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.wingetNotAvailableStartingAutomaticRecovery'))
         $resetOk = Reset-Winget
         Update-EnvironmentPath
         if (-not $resetOk -or -not (Get-Command winget -ErrorAction SilentlyContinue)) {
-            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.wingetRestoreFailedUnableToProceedWithGamingToolkit')
+            Write-StyledMessage -Type 'Error' -Text ("❌ " + (Get-SourceTextLoc 'toolText.wingetRestoreFailedUnableToProceedWithGamingToolkit'))
             Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.pressAnyKeyToContinue')
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
             return
         }
     }
-    Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.wingetAvailable')
+    Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.wingetAvailable'))
 
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.wingetSourcesUpdate')
+    Write-StyledMessage -Type 'Info' -Text ("🔄 " + (Get-SourceTextLoc 'toolText.wingetSourcesUpdate'))
     try {
         winget source update *>$null
         Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.updatedSources')
@@ -111,7 +111,7 @@ function GamingToolkit {
     }
 
     # Step 2: NetFramework
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.enablingNetframework')
+    Write-StyledMessage -Type 'Info' -Text ("🔧 " + (Get-SourceTextLoc 'toolText.enablingNetframework'))
     $netFxFeatures = @('NetFx4-AdvSrvs', 'NetFx3')
     $netFxFailed = $false
     foreach ($feature in $netFxFeatures) {
@@ -158,14 +158,14 @@ function GamingToolkit {
         "Microsoft.VCRedist.2015+.x86"
     )
 
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.installingNetRuntimeAndVcredist')
+    Write-StyledMessage -Type 'Info' -Text ("🔥 " + (Get-SourceTextLoc 'toolText.installingNetRuntimeAndVcredist'))
     for ($runtimeIndex = 0; $runtimeIndex -lt $runtimes.Count; $runtimeIndex++) {
         Invoke-WingetInstallWithProgress $runtimes[$runtimeIndex] $runtimes[$runtimeIndex] ($runtimeIndex + 1) $runtimes.Count *>$null
     }
     Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.runtimesCompleted')
 
     # Step 4: DirectX
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.directxInstallation')
+    Write-StyledMessage -Type 'Info' -Text ("🎮 " + (Get-SourceTextLoc 'toolText.directxInstallation'))
     $dxDir = Join-Path $AppConfig.Paths.LocalAppData "WinToolkit\Directx"
     $dxPath = "$dxDir\dxwebsetup.exe"
 
@@ -212,14 +212,14 @@ function GamingToolkit {
         "Ubisoft.Connect"
     )
 
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.gameClientInstallation')
+    Write-StyledMessage -Type 'Info' -Text ("🎮 " + (Get-SourceTextLoc 'toolText.gameClientInstallation'))
     for ($clientIndex = 0; $clientIndex -lt $gameClients.Count; $clientIndex++) {
         Invoke-WingetInstallWithProgress $gameClients[$clientIndex] $gameClients[$clientIndex] ($clientIndex + 1) $gameClients.Count *>$null
     }
     Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.clientsInstalled')
 
     # Step 5b: Xbox Game Bar & Xbox App
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.reinstallingXboxGameBarApp')
+    Write-StyledMessage -Type 'Info' -Text ("🎮 " + (Get-SourceTextLoc 'toolText.reinstallingXboxGameBarApp'))
 
     $xboxPackages = @("9NZKPSTSNW4P", "9MV0B5HZVK9Z")
 
@@ -263,7 +263,7 @@ function GamingToolkit {
     Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.xboxReinstalled')
 
     # Step 6: Battle.net
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.installingBattleNet')
+    Write-StyledMessage -Type 'Info' -Text ("🎮 " + (Get-SourceTextLoc 'toolText.installingBattleNet'))
 
     $battleNetPkg = "Blizzard.BattleNet"
     $outFile = "$env:TEMP\winget_$battleNetPkg.log"
@@ -333,7 +333,7 @@ function GamingToolkit {
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 
     # Step 7: Pulizia avvio automatico
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.autostartCleaner')
+    Write-StyledMessage -Type 'Info' -Text ("🧹 " + (Get-SourceTextLoc 'toolText.autostartCleaner'))
     $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
     @('Steam', 'Battle.net', 'GOG Galaxy', 'GogGalaxy', 'GalaxyClient') | ForEach-Object {
         if (Get-ItemProperty -Path $runKey -Name $_ -ErrorAction SilentlyContinue) {
@@ -353,7 +353,7 @@ function GamingToolkit {
     Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.cleaningCompleted')
 
     # Step 8: Profilo energetico
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.energyProfileConfiguration')
+    Write-StyledMessage -Type 'Info' -Text ("⚡ " + (Get-SourceTextLoc 'toolText.energyProfileConfiguration'))
     $ultimateGUID = "e9a42b02-d5df-448d-aa00-03f14749eb61"
     $planName = "WinToolkit Gaming Performance"
     $guid = $null
@@ -394,7 +394,7 @@ function GamingToolkit {
     }
 
     # Step 9: Focus Assist
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.doNotDisturbActivation')
+    Write-StyledMessage -Type 'Info' -Text ("🔕 " + (Get-SourceTextLoc 'toolText.doNotDisturbActivation'))
     try {
         Set-ItemProperty -Path $AppConfig.Registry.FocusAssist -Name "NOC_GLOBAL_SETTING_TOASTS_ENABLED" -Value 0 -Force
         Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.doNotDisturbActive')
