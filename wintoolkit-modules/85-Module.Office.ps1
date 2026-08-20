@@ -13,7 +13,7 @@ function Invoke-OfficeSilentRemoval {
 function Stop-OfficeProcesses {
     $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
     $closed = 0
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.closingOfficeProcesses')
+    Write-StyledMessage -Type 'Info' -Text ("📋 " + (Get-SourceTextLoc 'uiText.closingOfficeProcesses'))
     foreach ($processName in $processes) {
         $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
         if ($running) {
@@ -29,7 +29,7 @@ function Invoke-OfficeDownloadFile([string]$Url, [string]$OutputPath, [string]$D
 }
 
 function Set-OfficePostConfig {
-    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.deepOptimizationOfMicrosoftOffice')
+    Write-StyledMessage -Type 'Info' -Text ("⚙️ " + (Get-SourceTextLoc 'uiText.deepOptimizationOfMicrosoftOffice'))
 
     $registrySettings = @(
         # Privacy & Telemetria
@@ -61,7 +61,7 @@ function Set-OfficePostConfig {
         Get-ScheduledTask | Where-Object { $_.TaskName -eq $tName } | Disable-ScheduledTask -ErrorAction SilentlyContinue
     }
 
-    Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.officeOptimizedTelemetryPrivacyAndScheduledTasksRemoved')
+    Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'uiText.officeOptimizedTelemetryPrivacyAndScheduledTasksRemoved'))
 }
 
 function VcardAnalizer {
