@@ -25,7 +25,7 @@ function Install-Office {
             @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 }
         )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
         Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
-        Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.telemetryAndPrivacyOfficeDisabled'))
+        Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.telemetryAndPrivacyOfficeDisabled'))
     }
 
     try {
@@ -60,7 +60,7 @@ function Install-Office {
         }
 
         Set-OfficePostConfig
-        Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.installationCompleted'))
+        Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.installationCompleted'))
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.restartNotRequired')
     }
     catch {
