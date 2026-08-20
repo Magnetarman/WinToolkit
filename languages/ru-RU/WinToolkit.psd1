@@ -422,7 +422,6 @@ toolText.sourceUpdateError0 = Ошибка обновления источник
 toolText.enablingNetframework = 🔧 Включение NetFramework.
 toolText.netframeworkEnabled = NetFramework включен.
 toolText.errorEnablingNetframework0 = Ошибка включения NetFramework: {0}.
-toolText.enablingNetframeworkFeature0 = Включение компонента NetFramework: {0}.
 toolText.netframeworkFeatureEnabled0 = Компонент NetFramework включен: {0}.
 toolText.errorEnablingNetframeworkFeature0Code1 = Ошибка включения компонента NetFramework {0}: код {1}.
 toolText.installingNetRuntimeAndVcredist = 🔥 Установка среды выполнения .NET и VCRedist.

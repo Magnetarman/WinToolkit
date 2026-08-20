@@ -422,7 +422,6 @@ toolText.sourceUpdateError0 = ماخذ اپ ڈیٹ کی خرابی: {0}۔
 toolText.enablingNetframework = 🔧 نیٹ فریم ورک کو فعال کرنا۔
 toolText.netframeworkEnabled = نیٹ فریم ورک فعال ہے۔
 toolText.errorEnablingNetframework0 = نیٹ فریم ورک کو فعال کرنے میں خرابی: {0}۔
-toolText.enablingNetframeworkFeature0 = NetFramework فیچر فعال کر رہے ہیں: {0}.
 toolText.netframeworkFeatureEnabled0 = NetFramework فیچر فعال: {0}.
 toolText.errorEnablingNetframeworkFeature0Code1 = NetFramework فیچر {0} فعال کرنے میں خرابی: کوڈ {1}.
 toolText.installingNetRuntimeAndVcredist = 🔥 انسٹال کرنا .NET رن ٹائم اور VCRedist۔

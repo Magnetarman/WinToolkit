@@ -422,7 +422,6 @@ toolText.sourceUpdateError0 = خطأ في تحديث المصدر: {0}.
 toolText.enablingNetframework = 🔧 تفعيل NetFramework.
 toolText.netframeworkEnabled = تم تمكين NetFramework.
 toolText.errorEnablingNetframework0 = خطأ في تمكين NetFramework: {0}.
-toolText.enablingNetframeworkFeature0 = تمكين ميزة NetFramework: {0}.
 toolText.netframeworkFeatureEnabled0 = تم تمكين ميزة NetFramework: {0}.
 toolText.errorEnablingNetframeworkFeature0Code1 = خطأ في تمكين ميزة NetFramework {0}: الرمز {1}.
 toolText.installingNetRuntimeAndVcredist = 🔥 تثبيت .NET runtime وVCRedist.

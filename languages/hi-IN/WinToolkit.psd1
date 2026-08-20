@@ -422,7 +422,6 @@ toolText.sourceUpdateError0 = स्रोत अद्यतन त्रुट
 toolText.enablingNetframework = 🔧 नेटफ़्रेमवर्क सक्षम करना।
 toolText.netframeworkEnabled = नेटफ्रेमवर्क सक्षम।
 toolText.errorEnablingNetframework0 = नेटफ़्रेमवर्क सक्षम करने में त्रुटि: {0}।
-toolText.enablingNetframeworkFeature0 = NetFramework सुविधा सक्षम कर रहे हैं: {0}.
 toolText.netframeworkFeatureEnabled0 = NetFramework सुविधा सक्षम: {0}.
 toolText.errorEnablingNetframeworkFeature0Code1 = NetFramework सुविधा {0} सक्षम करने में त्रुटि: कोड {1}.
 toolText.installingNetRuntimeAndVcredist = 🔥 .NET रनटाइम और VCRedist इंस्टॉल करना।

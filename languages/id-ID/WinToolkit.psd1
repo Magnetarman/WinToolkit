@@ -422,7 +422,6 @@ toolText.sourceUpdateError0 = Kesalahan pembaruan sumber: {0}.
 toolText.enablingNetframework = 🔧 Mengaktifkan NetFramework.
 toolText.netframeworkEnabled = NetFramework diaktifkan.
 toolText.errorEnablingNetframework0 = Kesalahan saat mengaktifkan NetFramework: {0}.
-toolText.enablingNetframeworkFeature0 = Mengaktifkan fitur NetFramework: {0}.
 toolText.netframeworkFeatureEnabled0 = Fitur NetFramework diaktifkan: {0}.
 toolText.errorEnablingNetframeworkFeature0Code1 = Kesalahan mengaktifkan fitur NetFramework {0}: kode {1}.
 toolText.installingNetRuntimeAndVcredist = 🔥 Menginstal runtime .NET dan VCRedist.

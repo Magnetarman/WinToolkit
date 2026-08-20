@@ -422,7 +422,6 @@ toolText.sourceUpdateError0 = Error de actualización de fuente: {0}.
 toolText.enablingNetframework = 🔧 Habilitando NetFramework.
 toolText.netframeworkEnabled = NetFramework habilitado.
 toolText.errorEnablingNetframework0 = Error al habilitar NetFramework: {0}.
-toolText.enablingNetframeworkFeature0 = Habilitando la característica NetFramework: {0}.
 toolText.netframeworkFeatureEnabled0 = Característica NetFramework habilitada: {0}.
 toolText.errorEnablingNetframeworkFeature0Code1 = Error al habilitar la característica NetFramework {0}: código {1}.
 toolText.installingNetRuntimeAndVcredist = 🔥 Instalando .NET runtime y VCRedist.
