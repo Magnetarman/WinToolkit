@@ -150,9 +150,9 @@ Generates release notes from the CHANGELOG and prepares assets for distribution.
 
 Creates the `release/vX.Y.Z` branch, applies compiled changes, and prepares a PR to `main` (PR creation is manual by intentional architectural choice).
 
-### V4.0 CI/CD modular architecture
+### V4.0.1 CI/CD modular architecture
 
-The V4.0 pipeline separates orchestration from reusable implementation:
+The V4.0.1 pipeline separates orchestration from reusable implementation:
 
 - `_reusable-lint-test.yml`: linting, AST validation and Pester quality gates.
 - `_reusable-build-wintoolkit.yml`: cleanup, compilation, artifact tests and commit of `WinToolkit.ps1`.
