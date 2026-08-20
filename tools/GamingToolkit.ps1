@@ -253,7 +253,7 @@ function GamingToolkit {
             }
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error01' -Args @($pkg, $($_.Exception.Message)))
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error' -Args @($pkg, $($_.Exception.Message)))
         }
         finally {
             Remove-ItemSafely -Path $outFile
