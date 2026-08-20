@@ -11,7 +11,7 @@ function Stop-ToolkitProcesses {
         Chiude in modo forzato e silenzioso i processi specificati.
     #>
     param([string[]]$ProcessNames)
-    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.closingInterferingProcesses2')
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.closingInterferingProcesses')
     foreach ($procName in $ProcessNames) {
         Get-Process -Name $procName -ErrorAction SilentlyContinue |
         Where-Object { $_.Id -ne $PID } |
