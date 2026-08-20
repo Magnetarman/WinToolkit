@@ -93,7 +93,7 @@ function Wait-WingetReady {
                 -ArgumentList 'list', 'NonExistentApp_WinToolkitCheck', '--accept-source-agreements' `
                 -Wait -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
             if ($versionProc.ExitCode -eq 0 -and $dbProc.ExitCode -eq 0) {
-                Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.wingetReadyAndDatabaseUnlockedAttempt01' -Args @($i, $maxRetries)))
+                Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.wingetReadyAndDatabaseUnlockedAttempt01' -Args @($i, $maxRetries)))
                 return $true
             }
         }
@@ -102,7 +102,7 @@ function Wait-WingetReady {
         Write-StyledMessage -Type Progress -Text ("⏳ " + (Get-SourceTextLoc 'uiText.wingetNotYetReadyAttempt012SRemainWait' -Args @($i, $maxRetries, $remaining)))
         Start-Sleep -Seconds $PollIntervalSeconds
     }
-    Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.wingetDidNotRespondWithin0SecondsIContinueAnyway' -Args @($MaxWaitSeconds)))
+    Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.wingetDidNotRespondWithin0SecondsIContinueAnyway' -Args @($MaxWaitSeconds)))
     return $false
 }
 
@@ -184,7 +184,7 @@ function Reset-Winget {
         try {
             $versionOutput = (& (Get-WingetExecutable) --version 2>$null) | Out-String
             if ($LASTEXITCODE -eq 0 -and $versionOutput -match 'v\d+\.\d+') {
-                Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.operationalWingetVersion02' -Args @($($versionOutput.Trim()))))
+                Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.operationalWingetVersion02' -Args @($($versionOutput.Trim()))))
                 return $true
             }
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetPresentButNotRespondingCorrectlyExitcode0' -Args @($LASTEXITCODE))
@@ -383,24 +383,24 @@ function Reset-Winget {
             $exitCode = $LASTEXITCODE
 
             if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
-                Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.crashAccessViolationExitcode0RipristinoDatabase' -Args @($exitCode)))
+                Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.crashAccessViolationExitcode0RipristinoDatabase' -Args @($exitCode)))
                 $null = _Repair-WingetDatabase
                 Start-Sleep 3
                 $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
                 $exitCode = $LASTEXITCODE
                 if ($exitCode -eq -1073741819 -or $exitCode -eq 3221225781) {
-                    Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.persistentCrashAfterDatabaseRestore'))
+                    Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.persistentCrashAfterDatabaseRestore'))
                     return $false
                 }
             }
 
             if ($exitCode -eq 0) {
-                Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.deepValidationPassedWingetCommunicatesWithRepositories'))
+                Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.deepValidationPassedWingetCommunicatesWithRepositories'))
                 return $true
             }
             $details = ($searchResult | Out-String).Trim()
             if ($details.Length -gt 200) { $details = $details.Substring(0, 200) + "..." }
-            Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.deepValidationFailedExitcode0Details1' -Args @($exitCode, $details)))
+            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.deepValidationFailedExitcode0Details1' -Args @($exitCode, $details)))
             return $false
         }
         catch {
@@ -414,7 +414,7 @@ function Reset-Winget {
     Write-StyledMessage -Type Info -Text ("🚀 " + (Get-SourceTextLoc 'uiText.startingWingetAdvancedRepair'))
     if (-not (Test-WingetCompatibility)) { return $false }
     if (-not $Force -and (Test-WingetFunctionality)) {
-        Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.wingetAlreadyOperationalNoRepairsNecessary'))
+        Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.wingetAlreadyOperationalNoRepairsNecessary'))
         return $true
     }
 
@@ -464,11 +464,11 @@ function Reset-Winget {
         Update-EnvironmentPath
 
         if (Test-WingetFunctionality) {
-            Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.phase1CompletedOperationalWinget'))
+            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.phase1CompletedOperationalWinget'))
         }
         else {
             # Fase 2: Ripristino Avanzato
-            Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.phase1InsufficientStartingPhase2AdvancedRecovery'))
+            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.phase1InsufficientStartingPhase2AdvancedRecovery'))
             $null = _Install-WingetAdvanced
             $null = _Repair-WingetDatabase
             Update-EnvironmentPath
@@ -483,16 +483,16 @@ function Reset-Winget {
 
         $deepOk = Test-WingetDeepValidation
         if ($deepOk) {
-            Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.wingetSuccessfullyRestoredAndTested'))
+            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.wingetSuccessfullyRestoredAndTested'))
             return $true
         }
         else {
-            Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.wingetInstalledDeepValidationWithAnomaliesPossibleNetworkOrDbProblems'))
+            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.wingetInstalledDeepValidationWithAnomaliesPossibleNetworkOrDbProblems'))
             return $true
         }
     }
     catch {
-        Write-StyledMessage -Type Error -Text ("❌ " + (Get-SourceTextLoc 'uiText.criticalErrorInReset0' -Args @($($_.Exception.Message))))
+        Write-StyledMessage -Type Error -Text ((Get-SourceTextLoc 'uiText.criticalErrorInReset0' -Args @($($_.Exception.Message))))
         return $false
     }
     finally {
