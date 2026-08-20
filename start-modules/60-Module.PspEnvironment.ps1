@@ -56,7 +56,7 @@ function Install-NerdFontsLocal {
         Where-Object Name -like "*JetBrainsMono*"
 
         if ($installed) {
-            Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.jetbrainsmonoNerdFontAlreadyInstalled'))
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.jetbrainsmonoNerdFontAlreadyInstalled'))
             return $true
         }
 
@@ -66,10 +66,10 @@ function Install-NerdFontsLocal {
         $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
 
         if ($result.ExitCode -ne 0) {
-            Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.wingetReturnedCode0TheFontMayRequireATerminalRestart' -Args @($($result.ExitCode))))
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetReturnedCode0TheFontMayRequireATerminalRestart' -Args @($($result.ExitCode))))
             return $false
         }
-        Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.nerdFontsInstalledSuccessfully'))
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.nerdFontsInstalledSuccessfully'))
         Write-StyledMessage -Type Warning -Text ("💡 " + (Get-SourceTextLoc 'uiText.noteFontsViaWingetRequireRestartingTerminalOrExplorerToBeVisible'))
         return $true
     }
