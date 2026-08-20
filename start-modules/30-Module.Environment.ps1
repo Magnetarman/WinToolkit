@@ -116,7 +116,7 @@ function Repair-SystemClock {
         w32tm /resync /force 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "w32tm resync failed with exit code $LASTEXITCODE." }
         $changed = $true
-        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.systemClockResynced')
+        Write-StyledMessage -Type Success -Text ("🕒 " + (Get-SourceTextLoc 'uiText.systemClockResynced'))
         return [pscustomobject]@{ Success = $true; Changed = $changed; Message = 'System clock synchronized.' }
     }
     catch {
