@@ -1,5 +1,3 @@
-
-
 # ==============================================================================
 # SECTION 14 · INITIALIZATION
 # Single startup block: paths, OS check, updates.
