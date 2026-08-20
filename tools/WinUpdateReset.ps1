@@ -298,7 +298,7 @@ function WinUpdateReset {
             Write-StyledMessage -Type 'Success' -Text ("🔄 " + (Get-SourceTextLoc 'toolText.windowsUpdateClientResetSuccessfully'))
         }
         else {
-            Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.windowsUpdateClientResetNotCompletedPossibleTimeout'))
+            Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.windowsUpdateClientResetNotCompletedPossibleTimeout'))
         }
 
         Write-StyledMessage -Type 'Info' -Text ("🔧 " + (Get-SourceTextLoc 'toolText.enablingWindowsUpdateAndRelatedServices'))
@@ -381,7 +381,7 @@ function WinUpdateReset {
                 Write-StyledMessage -Type 'Info' -Text ("💭 " + (Get-SourceTextLoc 'toolText.0DllAlreadyPresentInTheOriginalLocation' -Args @($dll)))
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.0DllNotFoundAndNoBackupAvailable' -Args @($dll)))
+                Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.0DllNotFoundAndNoBackupAvailable' -Args @($dll)))
             }
         }
 
@@ -451,15 +451,15 @@ function WinUpdateReset {
         try {
             Write-StyledMessage -Type 'Info' -Text ("⏳حذف " + (Get-SourceTextLoc 'toolText.deletingLocalPolicies'))
             $null = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'RD', '/S', '/Q', "`"$(Join-Path $AppConfig.Paths.System32 "GroupPolicy")`"") -TimeoutSeconds 30 -LogContextKey 'GPReset-RD'
-            Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.criteriaRemoved'))
+            Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.criteriaRemoved'))
 
             Write-StyledMessage -Type 'Info' -Text ("⏳ " + (Get-SourceTextLoc 'toolText.policyUpdate'))
             $gpResult = Invoke-ExternalCommandWithLog -Command 'gpupdate.exe' -Arguments @('/force') -TimeoutSeconds 60 -LogContextKey 'GPReset-GPUpdate'
             if (-not $gpResult.Success) {
-                Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.gpupdateTerminatedWithErrorsOrTimedOut'))
+                Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.gpupdateTerminatedWithErrorsOrTimedOut'))
             }
             else {
-                Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.updatedCriteria'))
+                Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.updatedCriteria'))
             }
 
             Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue *>$null
