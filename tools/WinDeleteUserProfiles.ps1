@@ -199,7 +199,7 @@ function WinDeleteUserProfiles {
 
             $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
             if ($os -and $os.Caption -notmatch 'Windows 11') {
-                Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.systemDetected0TheScriptIsDesignedForWindows11' -Args @($($os.Caption))))
+                Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.systemDetected0TheScriptIsDesignedForWindows11' -Args @($($os.Caption))))
             }
 
             if (-not $SuppressToolkitSession -and (Get-Command -Name Start-ToolkitSession -ErrorAction SilentlyContinue)) {
@@ -223,7 +223,7 @@ function WinDeleteUserProfiles {
             Write-StyledMessage -Type 'Info' -Text ("👤 " + (Get-SourceTextLoc 'toolText.currentUserProtected0' -Args @($script:CurrentUser)))
             Write-StyledMessage -Type 'Info' -Text ("📁 " + (Get-SourceTextLoc 'toolText.profilePath0' -Args @($script:UsersRoot)))
             Write-StyledMessage -Type 'Info' -Text ("🧵 " + (Get-SourceTextLoc 'toolText.threadsConfigured0' -Args @($MaxThreads)))
-            Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.nonInteractiveModeNoConfirmationWillBeRequestedBeforeCancellations'))
+            Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.nonInteractiveModeNoConfirmationWillBeRequestedBeforeCancellations'))
 
             if ($script:MinimumLastUseDate) {
                 Write-StyledMessage -Type 'Info' -Text ("📅 " + (Get-SourceTextLoc 'toolText.lastActivityThresholdProfilesNotUsedForAtLeast0Days' -Args @($MinimumProfileAgeDays)))
@@ -597,7 +597,7 @@ function WinDeleteUserProfiles {
             }
             else {
                 Write-Host ''
-                Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound'))
+                Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound'))
                 Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound')
             }
 
@@ -616,7 +616,7 @@ function WinDeleteUserProfiles {
                     $residualResults = @(Remove-ResidualUserFolders -Folders $residualFolders)
                 }
                 else {
-                    Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.noRemovableResidualFolderFoundInCUsers'))
+                    Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.noRemovableResidualFolderFoundInCUsers'))
                     Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-SourceTextLoc 'toolText.noRemovableResidualFoldersFound')
                 }
             }
@@ -647,10 +647,10 @@ function WinDeleteUserProfiles {
             Write-Host $completionText
             Write-Host '====================================================' -ForegroundColor Green
             Write-Host ''
-            Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.registeredProfilesRemoved0' -Args @($profileSuccessCount)))
-            Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.residualFoldersRemoved0' -Args @($residualSuccessCount)))
+            Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.registeredProfilesRemoved0' -Args @($profileSuccessCount)))
+            Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.residualFoldersRemoved0' -Args @($residualSuccessCount)))
             if ($failedCount -gt 0) {
-                Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.itemsNotRemoved0' -Args @($failedCount)))
+                Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.itemsNotRemoved0' -Args @($failedCount)))
             }
             Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.duration0' -Args @($totalDuration))
             Write-StyledMessage -Type 'Info' -Text ("📄 " + (Get-SourceTextLoc 'toolText.log0' -Args @($script:LogFile)))
