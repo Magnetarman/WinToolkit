@@ -516,12 +516,12 @@ function Invoke-ToolkitDownload {
             }
             
             if ($attempt -lt $MaxRetries) {
-                Write-StyledMessage -Type 'Warning' -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.01AttemptFailed2ILlTryAgain' -Args @($attempt, $MaxRetries, $($_.Exception.Message))))
+                Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'uiText.01AttemptFailed2ILlTryAgain' -Args @($attempt, $MaxRetries, $($_.Exception.Message))))
                 Start-Sleep -Seconds 2
             }
         }
     }
-    Write-StyledMessage -Type 'Error' -Text ("❌ " + (Get-SourceTextLoc 'uiText.downloadFailedAfter0Attempts1' -Args @($MaxRetries, $Description)))
+    Write-StyledMessage -Type 'Error' -Text ((Get-SourceTextLoc 'uiText.downloadFailedAfter0Attempts1' -Args @($MaxRetries, $Description)))
     return $false
 }
 
