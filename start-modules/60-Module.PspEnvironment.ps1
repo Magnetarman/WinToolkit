@@ -47,7 +47,7 @@ function Install-NerdFontsLocal {
     Verifies and installs JetBrainsMono Nerd Font via Winget.
     #>
     try {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.checkForJetbrainsmonoNerdFont')
+        Write-StyledMessage -Type Info -Text ("🔍 " + (Get-SourceTextLoc 'uiText.checkForJetbrainsmonoNerdFont'))
 
         # Quick check if the font is already registered in the system
         $fontRegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
@@ -56,21 +56,21 @@ function Install-NerdFontsLocal {
         Where-Object Name -like "*JetBrainsMono*"
 
         if ($installed) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.jetbrainsmonoNerdFontAlreadyInstalled')
+            Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.jetbrainsmonoNerdFontAlreadyInstalled'))
             return $true
         }
 
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fontInstallationViaWingetQuickMethod')
+        Write-StyledMessage -Type Info -Text ("⬇️ " + (Get-SourceTextLoc 'uiText.fontInstallationViaWingetQuickMethod'))
 
         # Use existing helper function for logical consistency
         $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
 
         if ($result.ExitCode -ne 0) {
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetReturnedCode0TheFontMayRequireATerminalRestart' -Args @($($result.ExitCode)))
+            Write-StyledMessage -Type Warning -Text ("⚠️ " + (Get-SourceTextLoc 'uiText.wingetReturnedCode0TheFontMayRequireATerminalRestart' -Args @($($result.ExitCode))))
             return $false
         }
-        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.nerdFontsInstalledSuccessfully')
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.noteFontsViaWingetRequireRestartingTerminalOrExplorerToBeVisible')
+        Write-StyledMessage -Type Success -Text ("✅ " + (Get-SourceTextLoc 'uiText.nerdFontsInstalledSuccessfully'))
+        Write-StyledMessage -Type Warning -Text ("💡 " + (Get-SourceTextLoc 'uiText.noteFontsViaWingetRequireRestartingTerminalOrExplorerToBeVisible'))
         return $true
     }
     catch {
