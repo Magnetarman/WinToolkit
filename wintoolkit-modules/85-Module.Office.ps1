@@ -61,7 +61,7 @@ function Set-OfficePostConfig {
         Get-ScheduledTask | Where-Object { $_.TaskName -eq $tName } | Disable-ScheduledTask -ErrorAction SilentlyContinue
     }
 
-    Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'uiText.officeOptimizedTelemetryPrivacyAndScheduledTasksRemoved'))
+    Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'uiText.officeOptimizedTelemetryPrivacyAndScheduledTasksRemoved'))
 }
 
 function VcardAnalizer {
