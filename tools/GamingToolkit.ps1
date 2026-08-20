@@ -119,7 +119,7 @@ function GamingToolkit {
             # Enable-WindowsOptionalFeature with multiple features + -All fails under
             # PowerShell 7 ("Interfaccia non registrata"). DISM handles each feature
             # reliably across editions without relying on the CBS COM interface.
-            $dismResult = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.enablingNetframeworkFeature0' -Args @($feature)) -Command 'dism.exe' -Arguments @('/Online', '/Enable-Feature', "/FeatureName:$feature", '/All', '/NoRestart') -TimeoutSeconds $timeout -LogContextKey "Gaming-NetFx-$feature"
+            $dismResult = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.netframeworkFeatureEnabled0' -Args @($feature)) -Command 'dism.exe' -Arguments @('/Online', '/Enable-Feature', "/FeatureName:$feature", '/All', '/NoRestart') -TimeoutSeconds $timeout -LogContextKey "Gaming-NetFx-$feature"
             $exitCode = if ($null -ne $dismResult -and ($dismResult.PSObject.Properties.Name -contains 'ExitCode')) { $dismResult.ExitCode } else { -1 }
             if ($exitCode -in @(0, 3010)) {
                 Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkFeatureEnabled0' -Args @($feature))
