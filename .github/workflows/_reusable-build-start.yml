@@ -108,5 +108,3 @@ jobs:
           commit_message: ${{ inputs.commit-message }}
           file_pattern: start-core.ps1
           branch: ${{ inputs.branch }}
-          push_options: --force-with-lease
-          skip_fetch: true
