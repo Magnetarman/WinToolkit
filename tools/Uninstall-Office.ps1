@@ -176,7 +176,7 @@ function Uninstall-Office {
                 "$env:TEMP\MSO*"
             ) -ItemType "residuo"
 
-            Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.directRemovalCompleted'))
+            Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.directRemovalCompleted'))
             Write-StyledMessage -Type 'Info' -Text ("📊 " + (Get-SourceTextLoc 'toolText.summary0Folders1RegistryKeys2Links3TasksRemoved' -Args @($($folderResult.Count), $($regResult.Count), $shortcutsRemoved, $tasksRemoved)))
             return $true
         }
@@ -239,7 +239,7 @@ function Uninstall-Office {
                         Clear-ProgressLine
                     }
 
-                    Write-StyledMessage -Type 'Success' -Text ("✅ " + (Get-SourceTextLoc 'toolText.getHelpCompletedSuccessfully'))
+                    Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.getHelpCompletedSuccessfully'))
                     return $true
                 }
                 else {
