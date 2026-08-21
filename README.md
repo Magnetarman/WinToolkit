@@ -38,9 +38,7 @@ Install the WinToolkit executable on your desktop by following these steps:
 
 1. Press the `Windows` key on your keyboard or open Windows Search.
 2. Type `PowerShell` in the search field.
-3. Right-click `PowerShell`.
-4. Click `Run as administrator` from the drop-down menu.
-5. Copy and paste the following command into the PowerShell window:
+3. Copy and paste the following command into the PowerShell window:
 
 ```powershell
 irm https://magnetarman.com/winstart | iex
@@ -118,7 +116,7 @@ WinToolkit uses the PowerShell 7 script internationalization layout. To add a ne
 
 ## 💖 Support The Project!
 
-If WinToolkit has helped you, consider actively supporting the project through a [donation](#-make-a-donation), or you can [contribute](#-contribute).
+If WinToolkit has helped you, consider actively supporting the project through a donation, or you can [contribute](#-contribute).
 
 ### 👛 Make A Donation
 
@@ -137,9 +135,8 @@ To make a donation, click the Sponsor button in the top-right corner to learn ho
 > [!NOTE]
 > This section is for **contributors and advanced users** who want to understand how WinToolkit works internally, how to modify it, or how to test changes before opening a PR.
 
-WinToolkit uses a custom build system: sources live on the **`Dev`** branch and are automatically compiled by the CI pipeline into a single distributable file on **`main`**. End users clone `main` and get the toolkit ready to use for stable versions; contributors work on `Dev` with an unstable version of the script.
-
-To understand the project architecture, including the `Dev` → `main` flow, compiler, module structure, CI/CD pipeline, and local testing instructions, read:
+> [!WARNING]
+> WinToolkit uses a custom build system: sources live on the **`Dev`** branch and are automatically compiled by the CI pipeline into a single distributable file on **`main`**. End users clone `main` and get the toolkit ready to use for stable versions; contributors work on `Dev` with an unstable version of the script.
 
 ---
 
