@@ -13,9 +13,9 @@ Dev (sources)                  main (distribution)
 ├── wintoolkit-modules/        ├── WinToolkit.ps1   ← compiled from Dev
 ├── tools/*.ps1  (15 modules)  ├── start.ps1
 ├── compiler.ps1               ├── assets/
-├── .github/scripts/            ├── README.md
-├── .github/workflows/          ├── CHANGELOG.md
-└── .github/tests/              └── LICENSE
+├── .github/scripts/           ├── README.md
+├── .github/workflows/         ├── CHANGELOG.md
+└── .github/tests/             └── LICENSE
 ```
 
 - **`Dev`** — the working branch for contributors. Contains all sources, the compiler, and CI workflows.
