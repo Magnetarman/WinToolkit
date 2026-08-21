@@ -4,8 +4,8 @@
 
 | Version | Supported        |
 | ------- | ---------------- |
-| 2.5.x   | ✅ Yes           |
-| < 2.5   | ❌ No            |
+| 2.6.x   | ✅ Yes           |
+| < 2.6   | ❌ No            |
 
 ## Reporting Vulnerabilities
 
