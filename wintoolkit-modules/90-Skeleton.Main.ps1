@@ -88,7 +88,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Write-Host (Get-SourceTextLoc 'uiText.ver0Build1' -Args @($($si.DisplayVersion), $($si.BuildNumber))) -ForegroundColor Green
             Write-Host "🔑 $(Get-SourceTextLoc 'system.architecture'): $($si.Architecture)"  -ForegroundColor White
             Write-Host "🔧 $(Get-SourceTextLoc 'system.computerName'): $($si.ComputerName)"       -ForegroundColor White
-            Write-Host (Get-SourceTextLoc 'uiText.ram0Gb2' -Args @($($si.TotalRAM)))            -ForegroundColor White
+            Write-Host (Get-SourceTextLoc 'uiText.ram0Gb' -Args @($($si.TotalRAM)))            -ForegroundColor White
             Write-Host "💾 $(Get-SourceTextLoc 'system.disk'): " -NoNewline -ForegroundColor White
 
             $diskFreeGB = $si.FreeDisk

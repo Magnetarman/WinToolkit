@@ -163,7 +163,7 @@ function Invoke-WinToolkitSetup {
         Add-SetupResult -Name 'Setup flow' -Success $false -Message $_.Exception.Message -Blocking $true
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalErrorDuringSetup0' -Args @($($_.Exception.Message)))
         Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.unhandledException01' -Args @($($_.Exception.Message), $($_.ScriptStackTrace)))
-        Write-Host (Get-SourceTextLoc 'sourceText.pressAnyKeyToExit2')
+        Write-Host (Get-SourceTextLoc 'sourceText.pressAnyKeyToExit')
         $null = [Console]::ReadKey($true)
         $script:SetupExitCode = 1
         Write-SetupSummary | Out-Null

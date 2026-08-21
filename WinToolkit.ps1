@@ -144,6 +144,7 @@ $Global:SourceTextLanguage = 'en-US'
 $Global:SourceTextLanguageData = $null
 $Global:SourceTextDefaultLanguageData = $null
 $Global:SourceTextPreparedLanguagesDir = $null
+$Global:SourceTextKeyAliases = @{}
 function Get-SourceTextLanguageDirectory {
     if ($Global:SourceTextPreparedLanguagesDir -and (Test-Path $Global:SourceTextPreparedLanguagesDir)) {
         return $Global:SourceTextPreparedLanguagesDir
@@ -207,18 +208,45 @@ function Get-SourceTextLoc {
         [Parameter(Mandatory = $true)][string]$Key,
         [Alias('Args')][object[]]$Arguments = @()
     )
-    $value = $null
-    if ($Global:SourceTextLanguageData -and $Global:SourceTextLanguageData.ContainsKey($Key)) {
-        $value = [string]$Global:SourceTextLanguageData[$Key]
+    $k = $Key
+    if ($Global:SourceTextKeyAliases -and $Global:SourceTextKeyAliases.ContainsKey($k)) {
+        $k = $Global:SourceTextKeyAliases[$k]
     }
-    elseif ($Global:SourceTextDefaultLanguageData -and $Global:SourceTextDefaultLanguageData.ContainsKey($Key)) {
-        $value = [string]$Global:SourceTextDefaultLanguageData[$Key]
+    $value = $null
+    if ($Global:SourceTextLanguageData -and $Global:SourceTextLanguageData.ContainsKey($k)) {
+        $value = [string]$Global:SourceTextLanguageData[$k]
+    }
+    elseif ($Global:SourceTextDefaultLanguageData -and $Global:SourceTextDefaultLanguageData.ContainsKey($k)) {
+        $value = [string]$Global:SourceTextDefaultLanguageData[$k]
     }
     else {
-        $value = $Key
+        if ($k -match '^(.*?)(\d+)$') {
+            $stem = $Matches[1]
+            if ($Global:SourceTextLanguageData -and $Global:SourceTextLanguageData.ContainsKey($stem)) {
+                $value = [string]$Global:SourceTextLanguageData[$stem]
+            }
+            elseif ($Global:SourceTextDefaultLanguageData -and $Global:SourceTextDefaultLanguageData.ContainsKey($stem)) {
+                $value = [string]$Global:SourceTextDefaultLanguageData[$stem]
+            }
+        }
     }
+    if ($null -eq $value) { $value = $Key }
     if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
+}
+function Format-SourceText {
+    [CmdletBinding()]
+    param(
+        [string]$Verb,
+        [string]$Noun,
+        [object[]]$Arguments = @()
+    )
+    $parts = @()
+    if ($Verb) { $parts += (Get-SourceTextLoc "verb.$Verb") }
+    if ($Noun) { $parts += (Get-SourceTextLoc "noun.$Noun") }
+    $text = ($parts -join ' ').Trim()
+    if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($text, $Arguments) }
+    return $text
 }
 function Get-SourceTextMenuText {
     param([object]$Item)
@@ -670,7 +698,7 @@ function Set-RegistryValue {
 }
 function Stop-ToolkitProcesses {
     param([string[]]$ProcessNames)
-    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.closingInterferingProcesses2')
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.closingInterferingProcesses')
     foreach ($procName in $ProcessNames) {
         Get-Process -Name $procName -ErrorAction SilentlyContinue |
         Where-Object { $_.Id -ne $PID } |
@@ -1287,7 +1315,7 @@ function Reset-Winget {
             Set-PathPermissions -FolderPath $wingetFolderPath
             Add-ToEnvironmentPath -PathToAdd $wingetFolderPath -Scope 'System'
             Add-ToEnvironmentPath -PathToAdd '%LOCALAPPDATA%\Microsoft\WindowsApps' -Scope 'User'
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.pathAndWingetPermissionsUpdated2')
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.pathAndWingetPermissionsUpdated')
         }
     }
     function _Repair-WingetDatabase {
@@ -1446,7 +1474,7 @@ function Reset-Winget {
             Start-Process -FilePath $vcFile -ArgumentList "/install", "/quiet", "/norestart" -Wait
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.vcRedistInstalled')
         }
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependenciesFromTheOfficialRepository2')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependenciesFromTheOfficialRepository')
         $depUrl = Get-LatestAssetUrl -Match 'DesktopAppInstaller_Dependencies.zip'
         if ($depUrl) {
             $depZip = Join-Path $AppConfig.Paths.Temp "dependencies.zip"
@@ -2014,7 +2042,7 @@ function WinRepairToolkit {
             Tool = 'WinRepairToolkit'
             Step = 'PreExecutionCheck'
         }
-        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.pendingOperationsRequiringRebootDetectedDismCouldFail2')
+        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.pendingOperationsRequiringRebootDetectedDismCouldFail')
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.restartRecommendedBeforePerformingRepairs')
     }
     try {
@@ -2255,10 +2283,10 @@ function WinUpdateReset {
                 "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
             ) | Where-Object { Test-Path $_ } | ForEach-Object {
                 Remove-Item $_ -Recurse -Force -ErrorAction Stop *>$null
-                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.completed2')
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.completed')
             }
             if (-not @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update", "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate") | Where-Object { Test-Path $_ }) {
-                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.completed2')
+                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.completed')
                 Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.noRegistryKeysToRemove')
             }
         }
@@ -4241,7 +4269,7 @@ function WinDeleteUserProfiles {
             else {
                 Write-Host ''
                 Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound')
-                Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound2')
+                Add-ProfileCleanupLog -Level 'SUCCESS' -Text (Get-SourceTextLoc 'toolText.noRemovableRegisteredProfilesFound')
             }
             if (-not $SkipResidualFolderCleanup) {
                 $residualFolders = @(Get-ResidualUserFolders)
@@ -4293,7 +4321,7 @@ function WinDeleteUserProfiles {
         catch {
             Add-ProfileCleanupLog -Level 'ERROR' -Text $_.Exception.Message
             try { Save-ProfileCleanupLog } catch { }
-            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error0' -Args @($_.Exception.Message))
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error' -Args @($_.Exception.Message))
             throw
         }
         finally {
@@ -5016,7 +5044,7 @@ function GamingToolkit {
     $netFxFailed = $false
     foreach ($feature in $netFxFeatures) {
         try {
-            $dismResult = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.enablingNetframeworkFeature0' -Args @($feature)) -Command 'dism.exe' -Arguments @('/Online', '/Enable-Feature', "/FeatureName:$feature", '/All', '/NoRestart') -TimeoutSeconds $timeout -LogContextKey "Gaming-NetFx-$feature"
+            $dismResult = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.netframeworkFeatureEnabled0' -Args @($feature)) -Command 'dism.exe' -Arguments @('/Online', '/Enable-Feature', "/FeatureName:$feature", '/All', '/NoRestart') -TimeoutSeconds $timeout -LogContextKey "Gaming-NetFx-$feature"
             $exitCode = if ($null -ne $dismResult -and ($dismResult.PSObject.Properties.Name -contains 'ExitCode')) { $dismResult.ExitCode } else { -1 }
             if ($exitCode -in @(0, 3010)) {
                 Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.netframeworkFeatureEnabled0' -Args @($feature))
@@ -5129,7 +5157,7 @@ function GamingToolkit {
             }
         }
         catch {
-            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error01' -Args @($pkg, $($_.Exception.Message)))
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error' -Args @($pkg, $($_.Exception.Message)))
         }
         finally {
             Remove-ItemSafely -Path $outFile
@@ -5443,7 +5471,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             Write-Host (Get-SourceTextLoc 'uiText.ver0Build1' -Args @($($si.DisplayVersion), $($si.BuildNumber))) -ForegroundColor Green
             Write-Host "🔑 $(Get-SourceTextLoc 'system.architecture'): $($si.Architecture)"  -ForegroundColor White
             Write-Host "🔧 $(Get-SourceTextLoc 'system.computerName'): $($si.ComputerName)"       -ForegroundColor White
-            Write-Host (Get-SourceTextLoc 'uiText.ram0Gb2' -Args @($($si.TotalRAM)))            -ForegroundColor White
+            Write-Host (Get-SourceTextLoc 'uiText.ram0Gb' -Args @($($si.TotalRAM)))            -ForegroundColor White
             Write-Host "💾 $(Get-SourceTextLoc 'system.disk'): " -NoNewline -ForegroundColor White
             $diskFreeGB = $si.FreeDisk
             $displayString = "$($si.FreePercentage)% $(Get-SourceTextLoc 'system.free') ($($diskFreeGB) GB)"

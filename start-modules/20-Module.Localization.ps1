@@ -187,19 +187,34 @@ function Get-SourceTextLoc {
         [Alias('Args')][object[]]$Arguments = @()
     )
 
+    $k = $Key
+    if ($script:SourceTextKeyAliases.ContainsKey($k)) {
+        $k = $script:SourceTextKeyAliases[$k]
+    }
+
     $value = $null
-    if ($script:SourceTextKeyAliases.ContainsKey($Key)) {
-        $Key = $script:SourceTextKeyAliases[$Key]
+    if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($k)) {
+        $value = [string]$script:SourceTextLanguageData[$k]
     }
-    if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($Key)) {
-        $value = [string]$script:SourceTextLanguageData[$Key]
-    }
-    elseif ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($Key)) {
-        $value = [string]$script:SourceTextDefaultLanguageData[$Key]
+    elseif ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($k)) {
+        $value = [string]$script:SourceTextDefaultLanguageData[$k]
     }
     else {
-        if ($script:EmbeddedEnglishText.ContainsKey($Key)) {
-            $value = [string]$script:EmbeddedEnglishText[$Key]
+        # Strip trailing digits and retry: collapses numeric duplicate keys
+        # (e.g. sourceText.completed2 -> sourceText.completed) without breaking call sites.
+        if ($k -match '^(.*?)(\d+)$') {
+            $stem = $Matches[1]
+            if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($stem)) {
+                $value = [string]$script:SourceTextLanguageData[$stem]
+            }
+            elseif ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($stem)) {
+                $value = [string]$script:SourceTextDefaultLanguageData[$stem]
+            }
+        }
+    }
+    if ($null -eq $value) {
+        if ($script:EmbeddedEnglishText.ContainsKey($k)) {
+            $value = [string]$script:EmbeddedEnglishText[$k]
         }
         else {
             $value = "[MISSING TRANSLATION: $Key]"
@@ -207,4 +222,28 @@ function Get-SourceTextLoc {
     }
     if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
+}
+
+function Format-SourceText {
+    <#
+    .SYNOPSIS
+    Composes a localized message from canonical verb/noun tokens to keep
+    translation files small and generalized (infinitive verb + singular noun).
+
+    .EXAMPLE
+    Format-SourceText -Verb 'remove' -Noun 'folder'   # -> "Remove folder"
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$Verb,
+        [string]$Noun,
+        [object[]]$Arguments = @()
+    )
+
+    $parts = @()
+    if ($Verb) { $parts += (Get-SourceTextLoc "verb.$Verb") }
+    if ($Noun) { $parts += (Get-SourceTextLoc "noun.$Noun") }
+    $text = ($parts -join ' ').Trim()
+    if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($text, $Arguments) }
+    return $text
 }
