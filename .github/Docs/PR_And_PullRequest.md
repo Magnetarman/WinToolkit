@@ -88,6 +88,9 @@ WinToolkit/
 │   ├── Docs/                             # Project documentation
 │   │   ├── PR_And_PullRequest.md         # PR guide (this document)
 │   │   ├── ARCHITECTURE.md               # System architecture
+│   │   ├── CHANGELOG.md                  # Change history
+│   │   ├── COMPONENTS.md                 # Toolkit features overview
+│   │   ├── FAQ.md                        # Frequently asked questions
 │   │   └── SECURITY.md                   # Security policies
 │   ├── ISSUE_TEMPLATE/                   # GitHub issue templates
 │   ├── linters/                          # PowerShell linter configuration
@@ -151,7 +154,6 @@ WinToolkit/
 │   ├── Install-Office.ps1                # Microsoft Office installation
 │   ├── Repair-Office.ps1                 # Microsoft Office repair
 │   ├── Uninstall-Office.ps1              # Microsoft Office uninstallation
-│   ├── VideoDriverInstall.ps1            # Video driver installation
 │   ├── VideoDriverReinstall.ps1          # Video driver reinstallation
 │   ├── WinBackupDriver.ps1               # System driver backup
 │   ├── WinCleaner.ps1                    # Temporary file cleanup
@@ -162,14 +164,11 @@ WinToolkit/
 │   ├── WinRepairToolkit.ps1              # System repair tools (SFC/DISM)
 │   └── WinUpdateReset.ps1                # Windows Update reset
 │
-├── .gitignore                            # Files ignored by Git
-├── CHANGELOG.md                          # Change history
 ├── compiler.ps1                          # Modular build system
 ├── LICENSE                               # MIT License
 ├── README.md                             # Main documentation
 ├── start.ps1                             # Official launcher stub (ASCII-only)
 ├── start-core.ps1                        # Compiled launcher core (DO NOT MODIFY)
-├── TODO.md                               # Tasks and future development
 ├── WinToolkit_GUI.ps1                    # WPF graphical interface version
 ├── wintoolkit-modules/                    # Core framework fragments (global variables, logging, UI; $ToolkitVersion source of truth)
 └── WinToolkit.ps1                        # Final compiled file (DO NOT MODIFY)
@@ -194,7 +193,6 @@ WinToolkit/
 | `Install-Office.ps1`         | Office installation and configuration        |
 | `Repair-Office.ps1`          | Office installation repair                   |
 | `Uninstall-Office.ps1`       | Office uninstallation and removal            |
-| `VideoDriverInstall.ps1`     | Advanced video driver installation           |
 | `VideoDriverReinstall.ps1`   | Video driver reinstallation                  |
 | `WinBackupDriver.ps1`        | System driver backup and restore             |
 | `WinCleaner.ps1`             | Temporary files and cache cleanup            |
@@ -227,7 +225,7 @@ Contains third-party executables and tools used by the toolkit. These files are 
     - **Unit/**: Unit tests for individual modules (VideoDriver, GamingToolkit, WinCleaner)
     - **Integration/**: Integration tests (Build.Tests.ps1)
 - **linters/**: PSScriptAnalyzer configuration
-- **Docs/**: Official project documentation
+- **Docs/**: Official project documentation (architecture, changelog, components, FAQ, security, PR guide)
 - **ISSUE_TEMPLATE/**: GitHub issue templates
     - `bug_report.yml`: Bug report template
     - `enhancement.yml`: Enhancement template
@@ -247,7 +245,6 @@ Contains third-party executables and tools used by the toolkit. These files are 
 | `WinToolkit_GUI.ps1`      | WPF graphical interface version                                 |
 | `start.ps1`               | Official entry point for one-liner distribution                 |
 | `start-core.ps1`          | Compiled launcher core from `start-modules/` (AUTO-GENERATED)    |
-| `TODO.md`                 | Tasks and future development                                    |
 
 ---
 
@@ -356,7 +353,7 @@ As soon as you push:
 5. When you open the PR to the official repository, the entire pipeline will run automatically
 
 > [!Tip]
-> If the workflow fails, consult the detailed logs to identify the error. The security checks will automatically block PRs that modify files outside the `/tool` folder.
+> If the workflow fails, consult the detailed logs to identify the error. The security checks will automatically block PRs that modify files outside the `/tools` folder.
 
 ---
 
@@ -594,8 +591,8 @@ git push origin BUG/name-of-fix
 
 ## Additional Resources
 
-- **Official Documentation**: [README.md](/README.md).
-- **Changelog**: [CHANGELOG.md](/CHANGELOG.md).
+- **Official Documentation**: [README.md](../../README.md).
+- **Changelog**: [CHANGELOG.md](.github/Docs/CHANGELOG.md).
 - **Issue Tracker**: [Issues](https://github.com/MagnetarMan/WinToolkit/issues).
 
 ---
