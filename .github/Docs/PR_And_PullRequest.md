@@ -88,6 +88,9 @@ WinToolkit/
 │   ├── Docs/                             # Project documentation
 │   │   ├── PR_And_PullRequest.md         # PR guide (this document)
 │   │   ├── ARCHITECTURE.md               # System architecture
+│   │   ├── CHANGELOG.md                  # Change history
+│   │   ├── COMPONENTS.md                 # Toolkit features overview
+│   │   ├── FAQ.md                        # Frequently asked questions
 │   │   └── SECURITY.md                   # Security policies
 │   ├── ISSUE_TEMPLATE/                   # GitHub issue templates
 │   ├── linters/                          # PowerShell linter configuration
@@ -161,7 +164,6 @@ WinToolkit/
 │   ├── WinRepairToolkit.ps1              # System repair tools (SFC/DISM)
 │   └── WinUpdateReset.ps1                # Windows Update reset
 │
-├── CHANGELOG.md                          # Change history
 ├── compiler.ps1                          # Modular build system
 ├── LICENSE                               # MIT License
 ├── README.md                             # Main documentation
@@ -223,7 +225,7 @@ Contains third-party executables and tools used by the toolkit. These files are 
     - **Unit/**: Unit tests for individual modules (VideoDriver, GamingToolkit, WinCleaner)
     - **Integration/**: Integration tests (Build.Tests.ps1)
 - **linters/**: PSScriptAnalyzer configuration
-- **Docs/**: Official project documentation
+- **Docs/**: Official project documentation (architecture, changelog, components, FAQ, security, PR guide)
 - **ISSUE_TEMPLATE/**: GitHub issue templates
     - `bug_report.yml`: Bug report template
     - `enhancement.yml`: Enhancement template
@@ -589,8 +591,8 @@ git push origin BUG/name-of-fix
 
 ## Additional Resources
 
-- **Official Documentation**: [README.md](/README.md).
-- **Changelog**: [CHANGELOG.md](/CHANGELOG.md).
+- **Official Documentation**: [README.md](../../README.md).
+- **Changelog**: [CHANGELOG.md](.github/Docs/CHANGELOG.md).
 - **Issue Tracker**: [Issues](https://github.com/MagnetarMan/WinToolkit/issues).
 
 ---
