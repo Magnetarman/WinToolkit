@@ -14,7 +14,7 @@ Dev (sources)                  main (distribution)
 ├── tools/*.ps1  (15 modules)  ├── start.ps1
 ├── compiler.ps1               ├── assets/
 ├── .github/scripts/           ├── README.md
-├── .github/workflows/         ├── CHANGELOG.md
+├── .github/workflows/          ├── .github/Docs/CHANGELOG.md
 └── .github/tests/             └── LICENSE
 ```
 
