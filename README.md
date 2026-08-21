@@ -3,12 +3,9 @@
 	<h1>WinToolkit: Master Windows with <em>Ease</em></h1>
 </p>
 <p>
-	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
 	<img src="https://img.shields.io/github/v/release/Magnetarman/WinToolkit?style=for-the-badge&label=version&color=brightgreen" alt="version">
-	<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
-	<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI-WinToolkit-Dev.yml?branch=Dev&style=for-the-badge&label=Dev%20Branch%20Compiler" alt="Update WinToolkit">
-	<img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main">
 	<img src="https://img.shields.io/github/downloads/Magnetarman/WinToolkit/latest/WinToolkit.ps1?style=for-the-badge&logo=github&logoColor=white&color=0080ff&label=Downloads" alt="downloads-main">
+	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
 </p>
 
 <img src="images/Run.jpg" alt="Run-banner" width="800">
@@ -23,15 +20,15 @@ WinToolkit is a powerful and compact suite of PowerShell scripts, inspired by th
 > Before starting the toolkit, make sure you meet these requirements:
 >
 > - **Internet connection**;
-> - **free disk space**: >= 50 GB [(see the FAQ section)](#-faq---frequently-asked-questions);
-> - **Windows >= 8.1**.
+> - **free disk space**: >= 50 GB [(see the FAQ section)](.github/Docs/FAQ.md);
+> - **Windows >= 10 (1809)**.
 
 | Windows Versions      | Supported    |
 | :-------------------- | :----------- |
 | Windows 11 >= 22H2    | 🟢 Yes       |
 | Windows 10 >= 1809    | 🟢 Yes       |
 | Windows 11 <= 21H2    | 🟡 Partially |
-| Windows 10 <= 1809    | 🟡 Partially |
+| Windows 10 <= 1809    | 🔴 No        |
 | Windows 8.1           | 🔴 No        |
 | Windows 8 and earlier | 🔴 No        |
 
@@ -41,9 +38,7 @@ Install the WinToolkit executable on your desktop by following these steps:
 
 1. Press the `Windows` key on your keyboard or open Windows Search.
 2. Type `PowerShell` in the search field.
-3. Right-click `PowerShell`.
-4. Click `Run as administrator` from the drop-down menu.
-5. Copy and paste the following command into the PowerShell window:
+3. Copy and paste the following command into the PowerShell window:
 
 ```powershell
 irm https://magnetarman.com/winstart | iex
@@ -91,39 +86,11 @@ WinToolkit uses the PowerShell 7 script internationalization layout. To add a ne
 
 ---
 
-## 👾 Components
-
-- **Windows section**:
-    - **Windows Repair Toolkit**: Runs an automated sequence of standard Windows commands, such as SFC, CHKDSK, and DISM, to detect and repair system file corruption and disk issues.
-    - **Windows Update Reset**: Efficiently fixes common Windows Update issues by resetting key components and restoring service settings.
-- **Office section**:
-    - **Install Office**: Lets you install a "Basic" Microsoft Office version semi-automatically.
-    - **Repair Office**: Repairs existing installations with either quick offline mode or full online mode.
-    - **Uninstall Office**: Fully removes the suite from the system by using the official "GetHelpCMD" tool (formerly SaRA).
-- **Windows Store Repair**: Reinstalls critical components such as Microsoft Store, WinGet, and UniGet UI, which is useful for updating and managing apps graphically through WinGet.
-- **Win Backup Driver**: Simplifies driver backup by automating the export of all installed third-party drivers through DISM for a complete and reliable operation.
-- **Cleaner Toolkit**: Frees disk space and optimizes performance through deep cleanup.
-- **Video Driver Install**: Simplifies installation, updates, reinstallation, and optimal configuration of GPU drivers for NVIDIA and AMD systems. It also handles previous-driver cleanup and blocks automatic driver updates from Windows Update, which are often a source of instability.
-
-> [!NOTE]
->
-> Run the script. After the computer restarts, the system will automatically enter in **Safe Mode**.
->
-> Once you have finished your work, such as removing obsolete drivers with DDU, you will find a file named "Switch To Normal Mode.bat" on your desktop. To return to the standard Windows boot mode, double-click this file and restart the computer normally.
-
-- **Gaming Toolkit**: Designed to quickly optimize your Windows PC for maximum gaming performance. It installs essential components such as DirectX, .NET, and Visual C++ Redistributables; installs the most common game clients such as Steam, Epic, and GOG; enables the "Ultimate Performance" power plan; and disables interruptions with "Do not disturb" mode. In short, it prepares your system for distraction-free gaming at full power.
-
-> [!NOTE]
->
-> On Windows 11 22H2 or earlier versions, WinToolkit will recommend running the WinGet repair function first. This step is necessary because versions of Windows 11 prior to build 22H2 often have incomplete or non-functional versions of winget.
-
-- **BitLocker Toolkit**: Starts an automated process to disable BitLocker encryption on the system drive (C:). The tool checks the current state and, if BitLocker is active, runs the command to start controlled volume decryption. It also adds a registry entry to help counter possible hidden future reactivation attempts by Microsoft.
+## 👾 [Components](.github/Docs/COMPONENTS.md)
 
 ---
 
-## 📌 Changelog
-
-- 📄 **[Changelog.md - Read the introduced changes.](/CHANGELOG.md)**
+## 📌 [Changelog](.github/Docs/CHANGELOG.md)
 
 ---
 
@@ -147,45 +114,9 @@ WinToolkit uses the PowerShell 7 script internationalization layout. To add a ne
 
 ---
 
-## 🤔 F.A.Q. - Frequently Asked Questions
-
-### Why Run WinToolkit?
-
-Whether you manage a company fleet or simply want to keep your personal PC in perfect shape, WinToolkit lets you:
-
-- **save time**: automates hours of manual diagnostic and repair work.
-- **prevent malfunctions**: performs preventive maintenance to avoid future issues.
-- **act like an expert**: uses the power of official Microsoft system tools through a simple and safe interface.
-
-### Why Is At Least 50 GB Of Free Disk Space Required?
-
-The 50 GB is not required by the tool itself, which is only a few KB, nor by its downloads. It is required by Windows to remain stable and work correctly during repairs.
-
-When the operating system works on critical components, it needs breathing room to handle several background processes:
-
-- Temporary files and internal backups: Windows creates and manages temporary files, internal backup copies, and caches during maintenance.
-- Page file management (virtual memory): disk space is crucial for the page file, which Windows uses as a temporary RAM substitute when physical memory runs out. If this space is insufficient, severe system errors may occur.
-- Malfunction prevention: operating with little free space, typically less than 10-15% of total capacity, is a common cause of slowdowns and generic Windows malfunctions. Keeping this large margin helps prevent those problems and ensures the system does not become unstable.
-
-In short, 50 GB is a precautionary measure that gives Windows the ideal working environment and lets operations complete without interruptions or errors caused by inefficient disk space management.
-
-### Where Is The WinToolkit Working Folder?
-
-The WinToolkit working folder is:
-
-`%localappdata%\WinToolkit`
-
-### Where Are The Log Files?
-
-The WinToolkit log files are located at:
-
-`%localappdata%\WinToolkit\logs`
-
----
-
 ## 💖 Support The Project!
 
-If WinToolkit has helped you, consider actively supporting the project through a [donation](#-make-a-donation), or you can [contribute](#-contribute).
+If WinToolkit has helped you, consider actively supporting the project through a donation, or you can [contribute](#-contribute).
 
 ### 👛 Make A Donation
 
@@ -199,16 +130,13 @@ To make a donation, click the Sponsor button in the top-right corner to learn ho
 
 ---
 
-## 🏗️ Architecture And Development
+## 🏗️ [Architecture And Development](.github/Docs/ARCHITECTURE.md)
 
 > [!NOTE]
 > This section is for **contributors and advanced users** who want to understand how WinToolkit works internally, how to modify it, or how to test changes before opening a PR.
 
-WinToolkit uses a custom build system: sources live on the **`Dev`** branch and are automatically compiled by the CI pipeline into a single distributable file on **`main`**. End users clone `main` and get the toolkit ready to use for stable versions; contributors work on `Dev` with an unstable version of the script.
-
-To understand the project architecture, including the `Dev` → `main` flow, compiler, module structure, CI/CD pipeline, and local testing instructions, read:
-
-📄 **[ARCHITECTURE.md](.github/Docs/ARCHITECTURE.md)**
+> [!WARNING]
+> WinToolkit uses a custom build system: sources live on the **`Dev`** branch and are automatically compiled by the CI pipeline into a single distributable file on **`main`**. End users clone `main` and get the toolkit ready to use for stable versions; contributors work on `Dev` with an unstable version of the script.
 
 ---
 
@@ -219,7 +147,7 @@ If you cannot donate, you can still help me improve WinToolkit through these act
 ⭐ **Star the project**: starring the project helps it become more visible on GitHub.
 
 > [!WARNING]
-> Before opening pull requests or issues, [PLEASE READ THE GUIDE CAREFULLY](https://github.com/Magnetarman/WinToolkit/blob/Dev/.github/Docs/PR_And_PullRequest.md).
+> Before opening pull requests or issues, [PLEASE READ THE GUIDE CAREFULLY](.github/Docs/PR_And_PullRequest.md).
 
 🐛 **[Report an issue](https://github.com/Magnetarman/WinToolkit/issues)**: report a bug you found or request new features.
 
