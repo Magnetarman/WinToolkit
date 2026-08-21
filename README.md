@@ -3,12 +3,9 @@
 	<h1>WinToolkit: Master Windows with <em>Ease</em></h1>
 </p>
 <p>
-	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
 	<img src="https://img.shields.io/github/v/release/Magnetarman/WinToolkit?style=for-the-badge&label=version&color=brightgreen" alt="version">
-	<img src="https://img.shields.io/github/last-commit/Magnetarman/WinToolkit?style=for-the-badge&logo=git&logoColor=white&color=9370DB" alt="last-commit">
-	<img src="https://img.shields.io/github/actions/workflow/status/Magnetarman/WinToolkit/CI-WinToolkit-Dev.yml?branch=Dev&style=for-the-badge&label=Dev%20Branch%20Compiler" alt="Update WinToolkit">
-	<img src="https://img.shields.io/github/commit-activity/t/MagnetarMan/WinToolkit/main?style=for-the-badge&color=65c73e" alt="Commit Activity Main">
 	<img src="https://img.shields.io/github/downloads/Magnetarman/WinToolkit/latest/WinToolkit.ps1?style=for-the-badge&logo=github&logoColor=white&color=0080ff&label=Downloads" alt="downloads-main">
+	<img src="https://img.shields.io/github/license/Magnetarman/WinToolkit?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
 </p>
 
 <img src="images/Run.jpg" alt="Run-banner" width="800">
@@ -23,15 +20,15 @@ WinToolkit is a powerful and compact suite of PowerShell scripts, inspired by th
 > Before starting the toolkit, make sure you meet these requirements:
 >
 > - **Internet connection**;
-> - **free disk space**: >= 50 GB [(see the FAQ section)](#-faq---frequently-asked-questions);
-> - **Windows >= 8.1**.
+> - **free disk space**: >= 50 GB [(see the FAQ section)](.github/Docs/FAQ.md);
+> - **Windows >= 10 (1809)**.
 
 | Windows Versions      | Supported    |
 | :-------------------- | :----------- |
 | Windows 11 >= 22H2    | 🟢 Yes       |
 | Windows 10 >= 1809    | 🟢 Yes       |
 | Windows 11 <= 21H2    | 🟡 Partially |
-| Windows 10 <= 1809    | 🟡 Partially |
+| Windows 10 <= 1809    | 🔴 No        |
 | Windows 8.1           | 🔴 No        |
 | Windows 8 and earlier | 🔴 No        |
 
@@ -91,15 +88,11 @@ WinToolkit uses the PowerShell 7 script internationalization layout. To add a ne
 
 ---
 
-## 👾 Components
-
-WinToolkit is organized into several functional toolkits (Windows repair, Office, Store, drivers, cleaner, gaming, BitLocker and more). For the full description of every function, read 📄 **[Components.md](Docs/COMPONENTS.md)**.
+## 👾 [Components](.github/Docs/COMPONENTS.md)
 
 ---
 
-## 📌 Changelog
-
-- 📄 **[Changelog.md - Read the introduced changes.](/CHANGELOG.md)**
+## 📌 [Changelog](.github/Docs/CHANGELOG.md)
 
 ---
 
@@ -123,12 +116,6 @@ WinToolkit is organized into several functional toolkits (Windows repair, Office
 
 ---
 
-## 🤔 F.A.Q. - Frequently Asked Questions
-
-Find answers about disk space requirements, working folders, logs and more in 📄 **[FAQ.md](Docs/FAQ.md)**.
-
----
-
 ## 💖 Support The Project!
 
 If WinToolkit has helped you, consider actively supporting the project through a [donation](#-make-a-donation), or you can [contribute](#-contribute).
@@ -145,7 +132,7 @@ To make a donation, click the Sponsor button in the top-right corner to learn ho
 
 ---
 
-## 🏗️ Architecture And Development
+## 🏗️ [Architecture And Development](.github/Docs/ARCHITECTURE.md)
 
 > [!NOTE]
 > This section is for **contributors and advanced users** who want to understand how WinToolkit works internally, how to modify it, or how to test changes before opening a PR.
@@ -153,8 +140,6 @@ To make a donation, click the Sponsor button in the top-right corner to learn ho
 WinToolkit uses a custom build system: sources live on the **`Dev`** branch and are automatically compiled by the CI pipeline into a single distributable file on **`main`**. End users clone `main` and get the toolkit ready to use for stable versions; contributors work on `Dev` with an unstable version of the script.
 
 To understand the project architecture, including the `Dev` → `main` flow, compiler, module structure, CI/CD pipeline, and local testing instructions, read:
-
-📄 **[ARCHITECTURE.md](.github/Docs/ARCHITECTURE.md)**
 
 ---
 
@@ -165,7 +150,7 @@ If you cannot donate, you can still help me improve WinToolkit through these act
 ⭐ **Star the project**: starring the project helps it become more visible on GitHub.
 
 > [!WARNING]
-> Before opening pull requests or issues, [PLEASE READ THE GUIDE CAREFULLY](https://github.com/Magnetarman/WinToolkit/blob/Dev/.github/Docs/PR_And_PullRequest.md).
+> Before opening pull requests or issues, [PLEASE READ THE GUIDE CAREFULLY](.github/Docs/PR_And_PullRequest.md).
 
 🐛 **[Report an issue](https://github.com/Magnetarman/WinToolkit/issues)**: report a bug you found or request new features.
 
