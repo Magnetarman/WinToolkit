@@ -334,19 +334,31 @@ function Get-SourceTextLoc {
         [Parameter(Mandatory = $true)][string]$Key,
         [Alias('Args')][object[]]$Arguments = @()
     )
+    $k = $Key
+    if ($script:SourceTextKeyAliases.ContainsKey($k)) {
+        $k = $script:SourceTextKeyAliases[$k]
+    }
     $value = $null
-    if ($script:SourceTextKeyAliases.ContainsKey($Key)) {
-        $Key = $script:SourceTextKeyAliases[$Key]
+    if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($k)) {
+        $value = [string]$script:SourceTextLanguageData[$k]
     }
-    if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($Key)) {
-        $value = [string]$script:SourceTextLanguageData[$Key]
-    }
-    elseif ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($Key)) {
-        $value = [string]$script:SourceTextDefaultLanguageData[$Key]
+    elseif ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($k)) {
+        $value = [string]$script:SourceTextDefaultLanguageData[$k]
     }
     else {
-        if ($script:EmbeddedEnglishText.ContainsKey($Key)) {
-            $value = [string]$script:EmbeddedEnglishText[$Key]
+        if ($k -match '^(.*?)(\d+)$') {
+            $stem = $Matches[1]
+            if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($stem)) {
+                $value = [string]$script:SourceTextLanguageData[$stem]
+            }
+            elseif ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($stem)) {
+                $value = [string]$script:SourceTextDefaultLanguageData[$stem]
+            }
+        }
+    }
+    if ($null -eq $value) {
+        if ($script:EmbeddedEnglishText.ContainsKey($k)) {
+            $value = [string]$script:EmbeddedEnglishText[$k]
         }
         else {
             $value = "[MISSING TRANSLATION: $Key]"
@@ -354,6 +366,20 @@ function Get-SourceTextLoc {
     }
     if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
+}
+function Format-SourceText {
+    [CmdletBinding()]
+    param(
+        [string]$Verb,
+        [string]$Noun,
+        [object[]]$Arguments = @()
+    )
+    $parts = @()
+    if ($Verb) { $parts += (Get-SourceTextLoc "verb.$Verb") }
+    if ($Noun) { $parts += (Get-SourceTextLoc "noun.$Noun") }
+    $text = ($parts -join ' ').Trim()
+    if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($text, $Arguments) }
+    return $text
 }
 function Get-SystemArchitecture {
     try {
@@ -1481,7 +1507,7 @@ function Install-WindowsTerminalApp {
         }
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstallationForWindowsTerminalFailed0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstallationForWindowsTerminalFailed' -Args @($($_.Exception.Message)))
     }
     try {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.retrieveUrlLatestReleaseOfWindowsTerminal')
@@ -2030,7 +2056,7 @@ function Invoke-WinToolkitSetup {
         Add-SetupResult -Name 'Setup flow' -Success $false -Message $_.Exception.Message -Blocking $true
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalErrorDuringSetup0' -Args @($($_.Exception.Message)))
         Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.unhandledException01' -Args @($($_.Exception.Message), $($_.ScriptStackTrace)))
-        Write-Host (Get-SourceTextLoc 'sourceText.pressAnyKeyToExit2')
+        Write-Host (Get-SourceTextLoc 'sourceText.pressAnyKeyToExit')
         $null = [Console]::ReadKey($true)
         $script:SetupExitCode = 1
         Write-SetupSummary | Out-Null
