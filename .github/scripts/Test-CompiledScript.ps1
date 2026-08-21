@@ -23,7 +23,7 @@ param(
     [string]$ToolPath = "tools",
 
     [Parameter(Mandatory = $false)]
-    [string]$TemplatePath = "WinToolkit-template.ps1"
+    [string]$TemplatePath = "wintoolkit-modules"
 )
 
 # --- PowerShell Best Practices ---
@@ -132,7 +132,16 @@ try {
         }
         else {
             # If missing from compiled, check the template (because minification removes comments)
-            $templateContent = if (Test-Path $TemplatePath) { Get-Content -Raw $TemplatePath } else { "" }
+            $templateContent = ""
+            if (Test-Path $TemplatePath) {
+                if ((Get-Item $TemplatePath) -is [System.IO.DirectoryInfo]) {
+                    $templateContent = (Get-ChildItem $TemplatePath -Filter *.ps1 -File |
+                        Sort-Object Name | ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
+                }
+                else {
+                    $templateContent = Get-Content -Raw $TemplatePath
+                }
+            }
 
             if ($templateContent -match "(?m)^\s*#\s*(function\s+)?$funcName\s*\{") {
                 $devFunctions += $funcName
@@ -174,7 +183,7 @@ try {
     else {
         $script:TestResults += "❌ Functions: $($presentFunctions.Count)/$($expectedFunctions.Count) present"
         $script:TotalErrors++
-        $errorMsg = "MODULES MISSING IN TEMPLATE: The following scripts in /tools do not have a placeholder (even commented out) in WinToolkit-template.ps1: $($missingFunctions -join ', ')"
+        $errorMsg = "MODULES MISSING IN CORE: The following scripts in /tools do not have a placeholder (even commented out) in the assembled wintoolkit-modules core: $($missingFunctions -join ', ')"
         $script:CriticalErrors += $errorMsg
     }
 

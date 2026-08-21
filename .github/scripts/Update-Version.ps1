@@ -3,11 +3,12 @@
     Increments the build number in the WinToolkit template.
 
 .DESCRIPTION
-    This script reads the WinToolkit-template.ps1 file, extracts the current version,
-    increments the build number, and saves the updated file.
+    This script reads the wintoolkit-modules/00-Skeleton.Header.ps1 file (the framework
+    core source of truth), extracts the current version, increments the build number,
+    and saves the updated file.
 
 .EXAMPLE
-    .\Update-Version.ps1 -TemplatePath "WinToolkit-template.ps1"
+    .\Update-Version.ps1 -TemplatePath "wintoolkit-modules/00-Skeleton.Header.ps1"
 
 .NOTES
     Author: MagnetarMan
@@ -17,7 +18,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [string]$TemplatePath = "WinToolkit-template.ps1",
+    [string]$TemplatePath = "wintoolkit-modules/00-Skeleton.Header.ps1",
 
     [Parameter(Mandatory = $false)]
     [string]$StartHeaderPath = "start-modules/00-Skeleton.Header.ps1"

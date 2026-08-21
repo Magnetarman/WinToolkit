@@ -15,13 +15,13 @@
 # GLOBAL SETUP
 # =============================================================================
 BeforeAll {
-    $script:TemplatePath = Resolve-Path (Join-Path $PSScriptRoot '..\..\WinToolkit-template.ps1')
+    $script:TemplatePath = & (Join-Path $PSScriptRoot '..\scripts\New-WinToolkitCoreScript.ps1')
 
     try {
         . $script:TemplatePath -ImportOnly
     }
     catch {
-        throw "Unable to load WinToolkit-template.ps1: $_"
+        throw "Unable to load WinToolkit core (assembled from wintoolkit-modules): $_"
     }
 
     # Initialize globals in case the template skipped them

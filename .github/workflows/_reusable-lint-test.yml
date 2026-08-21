@@ -10,7 +10,7 @@ on:
         type: boolean
         default: true
       validate-template:
-        description: Include WinToolkit-template.ps1 in lint and syntax checks.
+        description: Include wintoolkit-modules in lint and syntax checks.
         required: false
         type: boolean
         default: true
@@ -51,7 +51,7 @@ jobs:
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $files = @(Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)
           if ($env:VALIDATE_TEMPLATE -eq 'true') {
-            $files += @(Get-Item -LiteralPath "WinToolkit-template.ps1")
+            $files += @(Get-ChildItem -Path "wintoolkit-modules" -Filter "*.ps1" -File)
           }
           if ($env:VALIDATE_START -eq 'true') {
             $files += @(Get-ChildItem -Path "start-modules" -Filter "*.ps1" -File)
@@ -81,12 +81,12 @@ jobs:
           path: tools/*.ps1
           label: tools
 
-      - name: Validate template syntax
+      - name: Validate core module syntax
         if: inputs.validate-template
         uses: ./.github/actions/validate-syntax
         with:
-          path: WinToolkit-template.ps1
-          label: WinToolkit-template.ps1
+          path: wintoolkit-modules/*.ps1
+          label: wintoolkit-modules
 
       - name: Validate compiler syntax
         uses: ./.github/actions/validate-syntax

@@ -8,7 +8,7 @@
 #>
 
 BeforeAll {
-    $templatePath = Resolve-Path (Join-Path $PSScriptRoot '..\..\WinToolkit-template.ps1')
+    $templatePath = & (Join-Path $PSScriptRoot '..\scripts\New-WinToolkitCoreScript.ps1')
     . $templatePath -ImportOnly
 
     if (-not $Global:MsgStyles) {

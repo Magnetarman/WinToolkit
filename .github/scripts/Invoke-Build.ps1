@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Compiles WinToolkit.ps1 from WinToolkit-template.ps1 and files in /tools.
+    Compiles WinToolkit.ps1 from the wintool' modules in /wintoolkit-modules and files in /tools.
 
 .DESCRIPTION
     This script performs the toolkit build, calculates compression
@@ -23,7 +23,7 @@ param(
     [string]$OutputPath = "WinToolkit.ps1",
 
     [Parameter(Mandatory = $false)]
-    [string]$TemplatePath = "WinToolkit-template.ps1",
+    [string]$TemplatePath = "wintoolkit-modules",
 
     [Parameter(Mandatory = $false)]
     [switch]$Minify = $true
@@ -93,7 +93,7 @@ try {
     Write-BuildLog -Message "  ✅ compiler.ps1 present" -Type Success
 
     if (-not (Test-Path $TemplatePath)) {
-        Write-BuildLog -Message "❌ File $TemplatePath not found" -Type Error
+        Write-BuildLog -Message "❌ Path $TemplatePath not found" -Type Error
         exit 1
     }
     Write-BuildLog -Message "  ✅ $TemplatePath present" -Type Success
@@ -117,11 +117,14 @@ try {
         Write-BuildLog -Message "  📄 $($file.Name): $($stats.Bytes) bytes, $($stats.Lines) lines" -Type Info
     }
 
-    # Include the template as well
-    $templateStats = Get-FileStats -Path $TemplatePath
-    $script:SourceTotalBytes += $templateStats.Bytes
-    $script:SourceTotalLines += $templateStats.Lines
-    Write-BuildLog -Message "  📄 ${TemplatePath}: $($templateStats.Bytes) bytes, $($templateStats.Lines) lines" -Type Info
+    # Include the modular core (wintoolkit-modules) and tools in the source stats
+    $moduleFiles = Get-ChildItem -Path $TemplatePath -Filter "*.ps1" -ErrorAction SilentlyContinue
+    foreach ($file in $moduleFiles) {
+        $stats = Get-FileStats -Path $file.FullName
+        $script:SourceTotalBytes += $stats.Bytes
+        $script:SourceTotalLines += $stats.Lines
+    }
+    Write-BuildLog -Message "  📄 ${TemplatePath} ($($moduleFiles.Count) files): included in source statistics" -Type Info
 
     Write-BuildLog -Message "`n📈 Total source: $([math]::Round($script:SourceTotalBytes/1KB, 2)) KB, $($script:SourceTotalLines) lines" -Type Header
 

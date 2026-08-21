@@ -189,7 +189,7 @@ jobs:
           echo "$CHANGED"
 
           # --- Per-family patterns --------------------------------------------
-          WT_PATTERN='^(tools/[^/]+\.ps1|WinToolkit-template\.ps1|WinToolkit_GUI\.ps1|compiler\.ps1)$'
+          WT_PATTERN='^(tools/[^/]+\.ps1|wintoolkit-modules/[^/]+\.ps1|WinToolkit_GUI\.ps1|compiler\.ps1)$'
           ST_PATTERN='^(start\.ps1|start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1|\.github/scripts/(Invoke-Build-Start|Test-CompiledStartScript)\.ps1)$'
           SHARED_PATTERN='^\.github/(tests/.*\.ps1|scripts/[^/]+\.ps1|actions/.+)$'
 
@@ -240,7 +240,7 @@ jobs:
   #
   # Runs after the quality gate (or after main_branch_guard when checks are skipped).
   # Bumps the build number on Dev through Update-Version.ps1, validates syntax
-  # and commits the updated WinToolkit-template.ps1 on Dev.
+  # and commits the updated wintoolkit-modules/00-Skeleton.Header.ps1 on Dev.
   # It does NOT act on the release/v* branch, it only modifies Dev.
   # ===========================================================================
   versioning_bump:
@@ -315,13 +315,15 @@ jobs:
           # Count total lines in the compiled artifact
           $totalLines = (Get-Content "WinToolkit.ps1").Count
 
-          # Estimate source lines by summing tools/*.ps1 + template
+          # Estimate source lines by summing tools/*.ps1 + wintoolkit-modules/*.ps1
           $sourceLines = 0
           Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
             $sourceLines += (Get-Content $_.FullName).Count
           }
-          if (Test-Path "WinToolkit-template.ps1") {
-            $sourceLines += (Get-Content "WinToolkit-template.ps1").Count
+          if (Test-Path "wintoolkit-modules") {
+            $sourceLines += (Get-ChildItem -Path "wintoolkit-modules" -Filter "*.ps1" -File | ForEach-Object {
+              (Get-Content $_.FullName).Count
+            } | Measure-Object -Sum).Sum
           }
           $linesRemoved = [math]::Max(0, $sourceLines - $totalLines)
 
@@ -330,8 +332,10 @@ jobs:
           Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
             $sourceBytes += $_.Length
           }
-          if (Test-Path "WinToolkit-template.ps1") {
-            $sourceBytes += (Get-Item "WinToolkit-template.ps1").Length
+          if (Test-Path "wintoolkit-modules") {
+            $sourceBytes += (Get-ChildItem -Path "wintoolkit-modules" -Filter "*.ps1" -File | ForEach-Object {
+              $_.Length
+            } | Measure-Object -Sum).Sum
           }
           $sourceKB = [math]::Round($sourceBytes / 1KB, 2)
           $reduction = if ($sourceKB -gt 0) { [math]::Round((($sourceKB - $outputKB) / $sourceKB) * 100, 1) } else { 0 }

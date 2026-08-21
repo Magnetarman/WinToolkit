@@ -48,7 +48,7 @@ WinToolkit uses a well-defined modular structure:
 | Modification Type            | File Path                 | Description                         |
 | ---------------------------- | ------------------------- | ----------------------------------- |
 | **Functions/Scripts**        | `/tools/*.ps1`            | Individual toolkit modules          |
-| **Global Variables/Aspects** | `WinToolkit-template.ps1` | Main template with global variables |
+| **Global Variables/Aspects** | `wintoolkit-modules/` | Core framework modules (global variables, logging, UI, menu) |
 
 ### ⚠️ ABSOLUTE PROHIBITION: Never Modify `WinToolkit.ps1`
 
@@ -57,7 +57,7 @@ WinToolkit uses a well-defined modular structure:
 >
 > The file `WinToolkit.ps1` **must never be modified manually**. This file is the result of an automated **GitHub Actions pipeline** that:
 >
-> 1. Merges all scripts from the `/tool` folder into the template
+> 1. Assembles the core from `wintoolkit-modules/` and injects all scripts from the `/tools/` folder
 > 2. Performs a **Build Bump** (version increment)
 > 3. Runs **CI/CD tests**
 > 4. Generates **automatic release**
@@ -68,7 +68,7 @@ WinToolkit uses a well-defined modular structure:
 
 ```
 /tools/                  → Modify individual scripts
-WinToolkit-template.ps1  → Modify global variables
+wintoolkit-modules/      → Modify core framework (global variables, logging, UI, menu)
 WinToolkit.ps1           → NEVER TOUCH (auto-generated)
 ```
 
@@ -88,6 +88,9 @@ WinToolkit/
 │   ├── Docs/                             # Project documentation
 │   │   ├── PR_And_PullRequest.md         # PR guide (this document)
 │   │   ├── ARCHITECTURE.md               # System architecture
+│   │   ├── CHANGELOG.md                  # Change history
+│   │   ├── COMPONENTS.md                 # Toolkit features overview
+│   │   ├── FAQ.md                        # Frequently asked questions
 │   │   └── SECURITY.md                   # Security policies
 │   ├── ISSUE_TEMPLATE/                   # GitHub issue templates
 │   ├── linters/                          # PowerShell linter configuration
@@ -151,7 +154,6 @@ WinToolkit/
 │   ├── Install-Office.ps1                # Microsoft Office installation
 │   ├── Repair-Office.ps1                 # Microsoft Office repair
 │   ├── Uninstall-Office.ps1              # Microsoft Office uninstallation
-│   ├── VideoDriverInstall.ps1            # Video driver installation
 │   ├── VideoDriverReinstall.ps1          # Video driver reinstallation
 │   ├── WinBackupDriver.ps1               # System driver backup
 │   ├── WinCleaner.ps1                    # Temporary file cleanup
@@ -162,16 +164,13 @@ WinToolkit/
 │   ├── WinRepairToolkit.ps1              # System repair tools (SFC/DISM)
 │   └── WinUpdateReset.ps1                # Windows Update reset
 │
-├── .gitignore                            # Files ignored by Git
-├── CHANGELOG.md                          # Change history
 ├── compiler.ps1                          # Modular build system
 ├── LICENSE                               # MIT License
 ├── README.md                             # Main documentation
 ├── start.ps1                             # Official launcher stub (ASCII-only)
 ├── start-core.ps1                        # Compiled launcher core (DO NOT MODIFY)
-├── TODO.md                               # Tasks and future development
 ├── WinToolkit_GUI.ps1                    # WPF graphical interface version
-├── WinToolkit-template.ps1               # Base template with core functions ($ToolkitVersion source of truth)
+├── wintoolkit-modules/                    # Core framework fragments (global variables, logging, UI; $ToolkitVersion source of truth)
 └── WinToolkit.ps1                        # Final compiled file (DO NOT MODIFY)
 ```
 
@@ -184,7 +183,7 @@ WinToolkit/
 >
 > The `/tools/` folder contains all functional modules of the toolkit. Each PowerShell file represents a specific feature that can be **developed and tested independently**.
 >
-> The compiler injects each module automatically into the main template during the build phase.
+> The compiler injects each module automatically into the assembled core (`wintoolkit-modules/`) during the build phase.
 
 | File                         | Description                                  |
 | ---------------------------- | -------------------------------------------- |
@@ -194,7 +193,6 @@ WinToolkit/
 | `Install-Office.ps1`         | Office installation and configuration        |
 | `Repair-Office.ps1`          | Office installation repair                   |
 | `Uninstall-Office.ps1`       | Office uninstallation and removal            |
-| `VideoDriverInstall.ps1`     | Advanced video driver installation           |
 | `VideoDriverReinstall.ps1`   | Video driver reinstallation                  |
 | `WinBackupDriver.ps1`        | System driver backup and restore             |
 | `WinCleaner.ps1`             | Temporary files and cache cleanup            |
@@ -227,7 +225,7 @@ Contains third-party executables and tools used by the toolkit. These files are 
     - **Unit/**: Unit tests for individual modules (VideoDriver, GamingToolkit, WinCleaner)
     - **Integration/**: Integration tests (Build.Tests.ps1)
 - **linters/**: PSScriptAnalyzer configuration
-- **Docs/**: Official project documentation
+- **Docs/**: Official project documentation (architecture, changelog, components, FAQ, security, PR guide)
 - **ISSUE_TEMPLATE/**: GitHub issue templates
     - `bug_report.yml`: Bug report template
     - `enhancement.yml`: Enhancement template
@@ -241,13 +239,12 @@ Contains third-party executables and tools used by the toolkit. These files are 
 
 | File                      | Role                                                            |
 | ------------------------- | --------------------------------------------------------------- |
-| `WinToolkit-template.ps1` | Base template with core functions, logging, and UI; single source of truth for `$ToolkitVersion` (MODIFIABLE) |
+| `wintoolkit-modules/` | Core framework fragments: global variables, logging, and UI; single source of truth for `$ToolkitVersion` (MODIFIABLE) |
 | `WinToolkit.ps1`          | Final compiled distributable file (AUTO-GENERATED)              |
 | `compiler.ps1`            | Official build system with tokenizer and safe minification      |
 | `WinToolkit_GUI.ps1`      | WPF graphical interface version                                 |
 | `start.ps1`               | Official entry point for one-liner distribution                 |
 | `start-core.ps1`          | Compiled launcher core from `start-modules/` (AUTO-GENERATED)    |
-| `TODO.md`                 | Tasks and future development                                    |
 
 ---
 
@@ -278,7 +275,7 @@ The pipeline triggers automatically on:
 Triggers are limited to files:
 
 - `tools/*.ps1`
-- `WinToolkit-template.ps1`
+- `wintoolkit-modules/*.ps1`
 - `WinToolkit_GUI.ps1`
 - `compiler.ps1`
 - `start.ps1`
@@ -300,7 +297,7 @@ Every PR to Dev is automatically analyzed by a three-level security system:
 
 **Level 2 — Allowed with Warning (manual review)**
 
-- `start.ps1`, `WinToolkit_GUI.ps1`, `WinToolkit-template.ps1`, `assets/*`
+- `start.ps1`, `WinToolkit_GUI.ps1`, `wintoolkit-modules/*`, `assets/*`
 - ⚠️ PR remains open, a warning comment is added for the maintainer
 
 **Level 3 — Protected (full block)**
@@ -356,7 +353,7 @@ As soon as you push:
 5. When you open the PR to the official repository, the entire pipeline will run automatically
 
 > [!Tip]
-> If the workflow fails, consult the detailed logs to identify the error. The security checks will automatically block PRs that modify files outside the `/tool` folder.
+> If the workflow fails, consult the detailed logs to identify the error. The security checks will automatically block PRs that modify files outside the `/tools` folder.
 
 ---
 
@@ -567,7 +564,7 @@ git checkout -b BUG/name-of-fix
 > **NOTE: Remember the Development Logic**
 >
 > - Modify scripts in `/tools/*.ps1` for features.
-> - Modify `WinToolkit-template.ps1` for global variables.
+> - Modify `wintoolkit-modules/` for global variables (core framework).
 > - **NEVER touch `WinToolkit.ps1`**.
 
 ### Step 6: Commit the Changes
@@ -594,8 +591,8 @@ git push origin BUG/name-of-fix
 
 ## Additional Resources
 
-- **Official Documentation**: [README.md](/README.md).
-- **Changelog**: [CHANGELOG.md](/CHANGELOG.md).
+- **Official Documentation**: [README.md](../../README.md).
+- **Changelog**: [CHANGELOG.md](.github/Docs/CHANGELOG.md).
 - **Issue Tracker**: [Issues](https://github.com/MagnetarMan/WinToolkit/issues).
 
 ---

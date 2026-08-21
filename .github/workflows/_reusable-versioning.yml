@@ -45,13 +45,13 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          & .github/scripts/Update-Version.ps1 -TemplatePath 'WinToolkit-template.ps1'
+          & .github/scripts/Update-Version.ps1 -TemplatePath 'wintoolkit-modules/00-Skeleton.Header.ps1'
 
-      - name: Validate template syntax after version bump
+      - name: Validate core module syntax after version bump
         uses: ./.github/actions/validate-syntax
         with:
-          path: WinToolkit-template.ps1
-          label: WinToolkit-template.ps1 after version bump
+          path: wintoolkit-modules/00-Skeleton.Header.ps1
+          label: wintoolkit-modules/00-Skeleton.Header.ps1 after version bump
 
       - name: Stage .github changes
         if: inputs.sync-github
@@ -63,7 +63,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
         with:
           commit_message: ${{ inputs.commit-message }}
-          file_pattern: ${{ inputs.sync-github && 'WinToolkit-template.ps1 start-modules/00-Skeleton.Header.ps1 .github/' || 'WinToolkit-template.ps1' }}
+          file_pattern: ${{ inputs.sync-github && 'wintoolkit-modules/00-Skeleton.Header.ps1 start-modules/00-Skeleton.Header.ps1 .github/' || 'wintoolkit-modules/00-Skeleton.Header.ps1' }}
           branch: ${{ inputs.target-branch }}
           push_options: --force-with-lease
           skip_fetch: true
