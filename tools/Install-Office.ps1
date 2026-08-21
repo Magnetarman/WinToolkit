@@ -16,7 +16,7 @@ function Install-Office {
     $tempDir = $AppConfig.Paths.OfficeTemp
 
     function Set-OfficePostConfig {
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.officePostInstallationConfiguration')
+        Write-StyledMessage -Type 'Info' -Text ("⚙️ " + (Get-SourceTextLoc 'toolText.officePostInstallationConfiguration'))
         foreach ($reg in @(
             @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 },
             @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy";  Name = "disconnectedstate";     Value = 1 },
@@ -25,11 +25,11 @@ function Install-Office {
             @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common";          Name = "sendtelemetry";         Value = 0 }
         )) { Set-RegistryValue -Path $reg.Path -Name $reg.Name -Value $reg.Value }
         Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\General" -Name "ShownOptIn" -Value 1
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.telemetryAndPrivacyOfficeDisabled')
+        Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.telemetryAndPrivacyOfficeDisabled'))
     }
 
     try {
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.startingOfficeBasicInstallation')
+        Write-StyledMessage -Type 'Info' -Text ("🏢 " + (Get-SourceTextLoc 'toolText.startingOfficeBasicInstallation'))
 
         if (-not (Test-Path $tempDir)) {
             $null = New-Item -ItemType Directory -Path $tempDir -Force
@@ -48,7 +48,7 @@ function Install-Office {
             }
         }
 
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.startingInstallationProcess')
+        Write-StyledMessage -Type 'Info' -Text ("🚀 " + (Get-SourceTextLoc 'toolText.startingInstallationProcess'))
         $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.officeBasicInstallation') -Command $setupPath `
             -Arguments "/configure `"$configPath`"" -TimeoutSeconds 86400 -LogContextKey "Office-Install"
 
@@ -60,7 +60,7 @@ function Install-Office {
         }
 
         Set-OfficePostConfig
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.installationCompleted')
+        Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.installationCompleted'))
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.restartNotRequired')
     }
     catch {
@@ -73,7 +73,7 @@ function Install-Office {
     }
     finally {
         Remove-ItemSafely -Path $tempDir -Recurse
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.officeInstallFinished')
+        Write-StyledMessage -Type 'Success' -Text ("🎯 " + (Get-SourceTextLoc 'toolText.officeInstallFinished'))
         Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.installOfficeSessionEnded')
     }
 }

@@ -19,14 +19,14 @@ function WinExportLog {
     $tempFolder    = Join-Path $AppConfig.Paths.TempFolder "WinToolkit_Logs_Temp_$timestamp"
 
     try {
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.checkPresenceOfLogFolder')
+        Write-StyledMessage -Type 'Info' -Text ("📂 " + (Get-SourceTextLoc 'toolText.checkPresenceOfLogFolder'))
 
         if (-not (Test-Path $logSourcePath -PathType Container)) {
             Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.theLogsFolder0WasNotFoundUnableToExport' -Args @($logSourcePath))
             return
         }
 
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.compressingLogsSomeFilesInUseMayBeIgnored')
+        Write-StyledMessage -Type 'Info' -Text ("🗜️ " + (Get-SourceTextLoc 'toolText.compressingLogsSomeFilesInUseMayBeIgnored'))
 
         $null = Remove-ItemSafely -Path $tempFolder -Recurse
         New-Item -ItemType Directory -Path $tempFolder -Force *>$null
@@ -69,9 +69,9 @@ function WinExportLog {
             if ($compressionSucceeded -eq $true -and (Test-Path $zipFilePath -PathType Leaf)) {
                 Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.logsCompressedSuccessfullySavedFile0OnDesktop' -Args @($zipFileName))
                 if ($filesSkipped -gt 0) {
-                    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.0FilesIgnoredBecauseTheyAreInUseOrNotAccessible' -Args @($filesSkipped))
+                    Write-StyledMessage -Type 'Info' -Text ("⚠️ " + (Get-SourceTextLoc 'toolText.0FilesIgnoredBecauseTheyAreInUseOrNotAccessible' -Args @($filesSkipped)))
                 }
-                Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.send0DesktopViaTelegramHttpsTMeMagnetarmanOrEmailMeMagnetarmanComForDiagnostics' -Args @($zipFileName))
+                Write-StyledMessage -Type 'Info' -Text ("📩 " + (Get-SourceTextLoc 'toolText.send0DesktopViaTelegramHttpsTMeMagnetarmanOrEmailMeMagnetarmanComForDiagnostics' -Args @($zipFileName)))
             }
             else {
                 Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.unknownErrorZipFileWasNotCreated')

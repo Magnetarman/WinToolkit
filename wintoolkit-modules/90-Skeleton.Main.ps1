@@ -1,3 +1,4 @@
+# ==============================================================================
 # SECTION 15 · MAIN MENU
 # Interactive TUI loop. Suppressed in library mode (-ImportOnly) and GUI.
 # ==============================================================================
@@ -235,6 +236,3 @@ else {
     Write-Verbose "═══════════════════════════════════════════════════════════"
     $Global:menuStructure = $menuStructure
 }
-
-
-

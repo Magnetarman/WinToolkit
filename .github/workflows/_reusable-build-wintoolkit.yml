@@ -1,5 +1,5 @@
-# WinToolkit CI/CD Pipeline V 4.0 — Reusable WinToolkit build
-name: WinToolkit V4.0 — Reusable WinToolkit build
+# WinToolkit CI/CD Pipeline V 4.0.1 — Reusable WinToolkit build
+name: WinToolkit V4.0.1 — Reusable WinToolkit build
 
 on:
   workflow_call:
@@ -145,8 +145,6 @@ jobs:
           commit_message: ${{ inputs.commit-message }}
           file_pattern: WinToolkit.ps1
           branch: ${{ inputs.branch }}
-          push_options: --force-with-lease
-          skip_fetch: true
 
       - name: Build summary
         if: steps.test_compiled.outputs.tests_passed == 'true'

@@ -1,5 +1,5 @@
-# WinToolkit CI/CD Pipeline V 4.0 — Reusable start-core build
-name: WinToolkit V4.0 — Reusable start-core build
+# WinToolkit CI/CD Pipeline V 4.0.1 — Reusable start-core build
+name: WinToolkit V4.0.1 — Reusable start-core build
 
 on:
   workflow_call:
@@ -108,5 +108,3 @@ jobs:
           commit_message: ${{ inputs.commit-message }}
           file_pattern: start-core.ps1
           branch: ${{ inputs.branch }}
-          push_options: --force-with-lease
-          skip_fetch: true

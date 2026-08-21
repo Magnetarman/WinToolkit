@@ -74,21 +74,21 @@ function Invoke-WinToolkitSetup {
         Repair-Winget -Level MsStoreCert | Out-Null
 
         if (-not (Test-WingetFunctionality)) {
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetDoesnTRespondFastRecoveryAttemptCore')
+            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.wingetDoesnTRespondFastRecoveryAttemptCore'))
             $coreSuccess = Repair-Winget -Level CoreInstall
             Update-EnvironmentPath
 
             if ($coreSuccess -and (Test-WingetFunctionality)) {
-                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRestoredQuickly')
+                Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.wingetRestoredQuickly'))
                 Reset-WingetSources
             }
             else {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptAdvancedSlowerMethod')
+                Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptAdvancedSlowerMethod'))
                 $null = Repair-Winget -Level FullReinstall
                 Update-EnvironmentPath
 
                 if (-not (Test-WingetFunctionality)) {
-                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts')
+                    Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts'))
                     Add-SetupResult -Name 'WinGet' -Success $false -Message 'WinGet remains unavailable after recovery.' -Blocking $true
                     throw 'WinGet is required for the installation flow and remains unavailable.'
                 }
@@ -98,7 +98,7 @@ function Invoke-WinToolkitSetup {
             }
         }
         else {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetIsAlreadyOperational')
+            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.wingetIsAlreadyOperational'))
         }
 
         Add-SetupResult -Name 'WinGet' -Success ([bool](Test-WingetFunctionality)) -Message 'WinGet operational.' -Blocking $true
@@ -110,17 +110,17 @@ function Invoke-WinToolkitSetup {
 
         # Thoroughly verify that Winget works correctly.
         if (-not $(Test-WingetDeepValidation)) {
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.warningInstallingSubsequentPackagesViaWingetMayFail')
+            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.warningInstallingSubsequentPackagesViaWingetMayFail'))
         }
 
         # Installa Git
         $gitSuccess = Install-GitPackage
         Add-SetupResult -Name 'Git' -Success ([bool]$gitSuccess) -Message 'Git verification/installation completed.'
         if ($gitSuccess) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitIsAlreadyOperational')
+            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.gitIsAlreadyOperational'))
         }
         else {
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.attentionGitHasNotBeenInstalledOrItMayNotWorkProperly')
+            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.attentionGitHasNotBeenInstalledOrItMayNotWorkProperly'))
         }
 
         # Check and install PowerShell 7 (application level, see 50-Module.Installers.ps1)
@@ -161,7 +161,7 @@ function Invoke-WinToolkitSetup {
     catch {
         Set-UpdateServicesError -Message $_.Exception.Message
         Add-SetupResult -Name 'Setup flow' -Success $false -Message $_.Exception.Message -Blocking $true
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalErrorDuringSetup0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Error -Text ((Get-SourceTextLoc 'uiText.criticalErrorDuringSetup0' -Args @($($_.Exception.Message))))
         Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.unhandledException01' -Args @($($_.Exception.Message), $($_.ScriptStackTrace)))
         Write-Host (Get-SourceTextLoc 'sourceText.pressAnyKeyToExit')
         $null = [Console]::ReadKey($true)

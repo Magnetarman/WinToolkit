@@ -1,5 +1,3 @@
-
-
 # ==============================================================================
 # SEZIONE 12 · PLACEHOLDER COMPILATORE
 # Stub vuoti sostituiti dal compiler.ps1 con i contenuti di /tools/*.ps1.

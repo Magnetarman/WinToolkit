@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit CI/CD Pipeline V 4.0
+# WinToolkit CI/CD Pipeline V 4.0.1
 # =============================================================================
 # Branch-adaptive pipeline:
 #   - Dev            -> Full pipeline:    lint -> test -> build (version read, no bump)
@@ -19,7 +19,7 @@
 # RUNTIME: PowerShell 7+ (pwsh) -- bundled with windows-latest, no extra install needed.
 # =============================================================================
 
-name: WinToolkit — CI Dev Pipeline V4.0
+name: WinToolkit — CI Dev Pipeline V4.0.1
 
 env:
   # Force Node 24 in Actions to avoid GitHub warnings about deprecated versions
@@ -392,7 +392,7 @@ jobs:
       github.event_name == 'push' &&
       needs.detect_changes.outputs.start_build_changed == 'true' &&
       needs.quality.result == 'success'
-    needs: [detect_changes, quality]
+    needs: [detect_changes, quality, build]
     uses: ./.github/workflows/_reusable-build-start.yml
     with:
       branch: ${{ github.ref_name }}

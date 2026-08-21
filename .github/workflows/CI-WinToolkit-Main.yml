@@ -1,5 +1,5 @@
 # =============================================================================
-# WinToolkit CI/CD Pipeline — Main Branch Protection V 4.0
+# WinToolkit CI/CD Pipeline — Main Branch Protection V 4.0.1
 # =============================================================================
 # Pipeline for the 'main' branch -- stability protection and stable release management.
 #
@@ -25,7 +25,7 @@
 # RUNTIME: GitHub Actions (ubuntu-latest & windows-latest)
 # =============================================================================
 
-name: WinToolkit — CI Main Protection V4.0
+name: WinToolkit — CI Main Protection V4.0.1
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"

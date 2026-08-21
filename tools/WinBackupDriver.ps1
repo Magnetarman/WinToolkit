@@ -29,7 +29,7 @@ function WinBackupDriver {
     # ── Helper locali ─────────────────────────────────────────────────────────
 
     function Initialize-BackupEnvironment {
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.initializingBackupEnvironment')
+        Write-StyledMessage -Type 'Info' -Text ("🗂️ " + (Get-SourceTextLoc 'toolText.initializingBackupEnvironment'))
         try {
             if (Test-Path $script:BackupConfig.BackupDir) {
                 Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.removingPreviousBackups')
@@ -58,7 +58,7 @@ function WinBackupDriver {
             $exportedDrivers = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
             if (-not $exportedDrivers -or $exportedDrivers.Count -eq 0) {
                 Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.noThirdPartyDriversFoundToExport')
-                Write-StyledMessage -Type 'Info'    -Text (Get-SourceTextLoc 'toolText.windowsBuiltInDriversAreNotExported')
+                Write-StyledMessage -Type 'Info'    -Text ("💡 " + (Get-SourceTextLoc 'toolText.windowsBuiltInDriversAreNotExported'))
                 return $true
             }
 
@@ -77,7 +77,7 @@ function WinBackupDriver {
             throw (Get-SourceTextLoc 'toolText.extra.backupDirectoryNotFound0' -Args @($($script:BackupConfig.BackupDir)))
         }
 
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.preparingArchiveCompression')
+        Write-StyledMessage -Type 'Info' -Text ("📦 " + (Get-SourceTextLoc 'toolText.preparingArchiveCompression'))
 
         $backupFiles = Get-ChildItem -Path $script:BackupConfig.BackupDir -Recurse -File -ErrorAction SilentlyContinue
         if (-not $backupFiles) {
@@ -123,7 +123,7 @@ function WinBackupDriver {
             throw (Get-SourceTextLoc 'toolText.extra.invalidArchivePath0' -Args @($ArchivePath))
         }
 
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.movingArchiveToDesktop')
+        Write-StyledMessage -Type 'Info' -Text ("📂 " + (Get-SourceTextLoc 'toolText.movingArchiveToDesktop'))
         try {
             if (-not (Test-Path $script:BackupConfig.DesktopPath)) {
                 throw (Get-SourceTextLoc 'toolText.extra2.desktopDirectoryNotAccessible0' -Args @($($script:BackupConfig.DesktopPath)))
@@ -153,7 +153,7 @@ function WinBackupDriver {
     # ── Logica principale ─────────────────────────────────────────────────────
 
     try {
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.systemInitialization')
+        Write-StyledMessage -Type 'Info' -Text ("🚀 " + (Get-SourceTextLoc 'toolText.systemInitialization'))
         Start-Sleep -Seconds 1
 
         if (-not (Initialize-BackupEnvironment)) { return }
@@ -163,19 +163,19 @@ function WinBackupDriver {
         if (-not $compressedArchive) { return }
 
         if (Move-ArchiveToDesktop -ArchivePath $compressedArchive) {
-            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.driverBackupCompletedSuccessfully')
-            Write-StyledMessage -Type 'Info'    -Text (Get-SourceTextLoc 'toolText.finalArchive0' -Args @($script:FinalArchivePath))
-            Write-StyledMessage -Type 'Info'    -Text (Get-SourceTextLoc 'toolText.canBeUsedToReinstallAllDriversWithoutRedownloadingThem')
+            Write-StyledMessage -Type 'Success' -Text ("🎉 " + (Get-SourceTextLoc 'toolText.driverBackupCompletedSuccessfully'))
+            Write-StyledMessage -Type 'Info'    -Text ("📁 " + (Get-SourceTextLoc 'toolText.finalArchive0' -Args @($script:FinalArchivePath)))
+            Write-StyledMessage -Type 'Info'    -Text ("💾 " + (Get-SourceTextLoc 'toolText.canBeUsedToReinstallAllDriversWithoutRedownloadingThem'))
         }
     }
     catch {
         Write-ToolkitError -Record $_ -ToolName "WinBackupDriver" -Message (Get-SourceTextLoc 'toolText.extra.criticalErrorDuringBackup')
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.checkTheLogsForTechnicalDetails')
+        Write-StyledMessage -Type 'Info' -Text ("💡 " + (Get-SourceTextLoc 'toolText.checkTheLogsForTechnicalDetails'))
     }
     finally {
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.temporaryEnvironmentCleaning')
+        Write-StyledMessage -Type 'Info' -Text ("🧹 " + (Get-SourceTextLoc 'toolText.temporaryEnvironmentCleaning'))
         $null = Remove-ItemSafely -Path $script:BackupConfig.BackupDir -Recurse
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.driverBackupToolkitFinished')
+        Write-StyledMessage -Type 'Success' -Text ("🎯 " + (Get-SourceTextLoc 'toolText.driverBackupToolkitFinished'))
         Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.winbackupdriverSessionEnded')
     }
 }

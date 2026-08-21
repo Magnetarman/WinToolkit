@@ -24,27 +24,27 @@ function VideoDriverReinstall {
             Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.driverWuLockSet')
             $gpupdateResult = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.groupPolicyUpdateMayTake12Minutes') -Command 'gpupdate.exe' -Arguments '/force' -LogContextKey "Video-GPUpdate" -TimeoutSeconds 180
             if ($gpupdateResult -and $gpupdateResult.ExitCode -eq 0) {
-                Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.updatedGroupPolicy')
+                Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.updatedGroupPolicy'))
             }
             elseif ($gpupdateResult) {
-                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.gpupdateCompletedWithCode0IContinueAnyway' -Args @($($gpupdateResult.ExitCode)))
+                Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.gpupdateCompletedWithCode0IContinueAnyway' -Args @($($gpupdateResult.ExitCode))))
             }
             else {
-                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.gpupdateDidNotRespondIContinueAnyway')
+                Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.gpupdateDidNotRespondIContinueAnyway'))
             }
         }
         catch {
-            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.driverWuBlockError0IContinueAnyway' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.driverWuBlockError0IContinueAnyway' -Args @($($_.Exception.Message))))
         }
     }
 
     $needsReboot = $false
 
     try {
-        Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.startingVideoDriverReinstallationRepairProcedure')
+        Write-StyledMessage -Type 'Warning' -Text ("🔧 " + (Get-SourceTextLoc 'toolText.startingVideoDriverReinstallationRepairProcedure'))
         Set-BlockWindowsUpdateDrivers
         
-        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.preparingToDownloadTheNecessaryTools')
+        Write-StyledMessage -Type 'Info' -Text ("📥 " + (Get-SourceTextLoc 'toolText.preparingToDownloadTheNecessaryTools'))
         # Download e estrazione DDU
         $dduZipPath = Join-Path $driverToolsPath "DDU.zip"
         if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.DDUZip -OutputPath $dduZipPath -Description 'DDU (Display Driver Uninstaller)')) {
@@ -88,14 +88,14 @@ function VideoDriverReinstall {
                 'AMD' {
                     $amdPath = Join-Path $desktopPath "AMD-Autodetect.exe"
                     if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.AMDInstaller -OutputPath $amdPath -Description "AMD Auto-Detect Tool")) {
-                        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.unableToDownloadAmdInstallerAnnulment')
+                        Write-StyledMessage -Type 'Error' -Text ((Get-SourceTextLoc 'toolText.unableToDownloadAmdInstallerAnnulment'))
                         return
                     }
                 }
                 'NVIDIA' {
                     $nvidiaPath = Join-Path $desktopPath "NVCleanstall_1.19.0.exe"
                     if (-not (Invoke-ToolkitDownload -Uri $AppConfig.URLs.NVCleanstall -OutputPath $nvidiaPath -Description "NVCleanstall")) {
-                        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.unableToDownloadNvcleanstallAnnulment')
+                        Write-StyledMessage -Type 'Error' -Text ((Get-SourceTextLoc 'toolText.unableToDownloadNvcleanstallAnnulment'))
                         return
                     }
                 }
@@ -141,7 +141,7 @@ function VideoDriverReinstall {
         }
     }
     finally {
-        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.videoDriverReinstallFinished')
+        Write-StyledMessage -Type 'Success' -Text ("🎯 " + (Get-SourceTextLoc 'toolText.videoDriverReinstallFinished'))
         Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.videodriverreinstallSessionEnded')
     }
 
