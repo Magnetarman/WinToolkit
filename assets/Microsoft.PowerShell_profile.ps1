@@ -13,7 +13,7 @@
 # CENTRALIZED CONFIGURATION (URL)
 # ============================================================================
 
-$ProfileVersion = "2.6.0.2"
+$ProfileVersion = "2.6.0.3"
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
 $URL_WINTOOLKIT_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
@@ -203,7 +203,7 @@ function Reset-IP {
     Write-Host "⚠️ Restart the system to apply changes" -ForegroundColor Yellow
 }
 
-function Speedtest {
+function Get-SpeedtestExecutable {
     [CmdletBinding()]
     param()
 
@@ -219,12 +219,12 @@ function Speedtest {
 
     # If missing, install the package via WinGet (machine scope requires Administrator)
     if (-not $installed) {
-        if (-not (Require-Admin -FeatureName 'Speedtest')) { return }
+        if (-not (Require-Admin -FeatureName 'Speedtest')) { return $null }
         Write-Host "⬇️ $packageId is not installed. Installing via WinGet..." -ForegroundColor Yellow
         winget install --id $packageId --source winget --accept-source-agreements --accept-package-agreements --silent --scope machine
         if ($LASTEXITCODE -ne 0) {
             Write-Host "❌ $packageId installation failed (code $LASTEXITCODE)." -ForegroundColor Red
-            return
+            return $null
         }
         # Refresh PATH so the freshly installed executable is found in the current session
         $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -233,8 +233,17 @@ function Speedtest {
     $speedtestExe = (Get-Command 'speedtest.exe' -CommandType Application -ErrorAction SilentlyContinue).Source
     if (-not $speedtestExe) {
         Write-Host "❌ speedtest.exe not found in PATH after installation." -ForegroundColor Red
-        return
+        return $null
     }
+    return $speedtestExe
+}
+
+function Speedtest {
+    [CmdletBinding()]
+    param()
+
+    $speedtestExe = Get-SpeedtestExecutable
+    if (-not $speedtestExe) { return }
 
     $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
     $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "Speedtest_$timestamp.txt"
@@ -242,30 +251,90 @@ function Speedtest {
     Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
     Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
 
-    # Raw output with real-time values (as in the old profile) + save to file
+    # Human-readable raw output on screen (as standard) + save to file
     & $speedtestExe --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
 
-    # Final summary table (structured data from a second run in JSON format)
+    # Summary built from the SAME single run's saved output (no second test => no extra latency / no falsified data)
+    $text = Get-Content -Path $outputPath -Raw
+
+    $downloadM = [regex]::Match($text, '(?m)^\s*Download:\s*([\d.]+)')
+    $uploadM = [regex]::Match($text, '(?m)^\s*Upload:\s*([\d.]+)')
+    $pingM = [regex]::Match($text, '(?m)^\s*Latency:\s*([\d.]+)')
+    $jitterM = [regex]::Match($text, 'jitter\):\s*([\d.]+)\s*ms')
+    $serverM = [regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$')
+
+    $download = if ($downloadM.Success) { $downloadM.Groups[1].Value } else { 'n/a' }
+    $upload = if ($uploadM.Success) { $uploadM.Groups[1].Value } else { 'n/a' }
+    $ping = if ($pingM.Success) { $pingM.Groups[1].Value } else { 'n/a' }
+    $jitter = if ($jitterM.Success) { $jitterM.Groups[1].Value } else { 'n/a' }
+    $server = if ($serverM.Success) { $serverM.Groups[1].Value.Trim() } else { '' }
+
+    Write-Host "`n📋 Speedtest - Summary:" -ForegroundColor Cyan
+    Write-Host ("  {0,-14}: {1} Mbps" -f "Download", $download) -ForegroundColor Green
+    Write-Host ("  {0,-14}: {1} Mbps" -f "Upload", $upload) -ForegroundColor Green
+    Write-Host ("  {0,-14}: {1} ms" -f "Ping", $ping) -ForegroundColor Yellow
+    Write-Host ("  {0,-14}: {1} ms" -f "Jitter", $jitter) -ForegroundColor DarkGray
+    if ($server) { Write-Host ("  {0,-14}: {1}" -f "Server", $server) -ForegroundColor DarkCyan }
+
+    Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
+    Read-Host "Press ENTER to finish"
+}
+
+function Speedtest-Advance {
+    [CmdletBinding()]
+    param()
+
+    $speedtestExe = Get-SpeedtestExecutable
+    if (-not $speedtestExe) { return }
+
+    $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
+    $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "Speedtest_$timestamp.txt"
+
+    Write-Host "🚀 Starting Speedtest (Advance)..." -ForegroundColor Yellow
+    Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
+    Write-Host "⏳ Test in progress, please wait..." -ForegroundColor Cyan
+
+    # JSON run: no raw output to terminal (saved to file only), full structured data from a single test
+    & $speedtestExe --accept-license --accept-gdpr --format=jsonl --progress=no *> $outputPath
+
+    # Extract the final "result" object from the saved output
+    $result = $null
     try {
-        $result = & $speedtestExe --accept-license --accept-gdpr --format=json --progress=no 2>$null | ConvertFrom-Json -ErrorAction Stop
-
-        $measurements = [ordered]@{
-            Timestamp       = $result.timestamp
-            Download        = $result.download.bandwidth
-            Upload          = $result.upload.bandwidth
-            Ping            = $result.ping.latency
-            DownloadLatency = $result.download.latency.iqm
-            UploadLatency   = $result.upload.latency.iqm
+        $lines = Get-Content -Path $outputPath
+        foreach ($line in $lines) {
+            $line = $line.Trim()
+            if (-not $line.StartsWith('{')) { continue }
+            try {
+                $obj = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($obj.type -eq 'result') { $result = $obj; break }
+            }
+            catch {}
         }
-
-        Write-Host "`n📋 Speedtest - Summary:" -ForegroundColor Cyan
-        foreach ($key in $measurements.Keys) {
-            Write-Host ("  {0,-16}: {1}" -f $key, $measurements[$key])
-        }
+        if (-not $result) { throw "Result object not found in the output." }
     }
     catch {
         Write-Host "⚠️ Unable to generate the summary table: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
+        Read-Host "Press ENTER to finish"
+        return
     }
+
+    $downloadMbps = [math]::Round($result.download.bandwidth * 8 / 1e6, 2)
+    $uploadMbps = [math]::Round($result.upload.bandwidth * 8 / 1e6, 2)
+    $pingMs = [math]::Round($result.ping.latency, 2)
+    $jitterMs = [math]::Round($result.ping.jitter, 2)
+    $dlLatencyMs = [math]::Round($result.download.latency.iqm, 2)
+    $ulLatencyMs = [math]::Round($result.upload.latency.iqm, 2)
+    $serverInfo = "$($result.server.name) - $($result.server.location)"
+
+    Write-Host "`n📋 Speedtest - Summary:" -ForegroundColor Cyan
+    Write-Host ("  {0,-18}: {1} Mbps" -f "Download", $downloadMbps) -ForegroundColor Green
+    Write-Host ("  {0,-18}: {1} Mbps" -f "Upload", $uploadMbps) -ForegroundColor Green
+    Write-Host ("  {0,-18}: {1} ms" -f "Ping (avg)", $pingMs) -ForegroundColor Yellow
+    Write-Host ("  {0,-18}: {1} ms" -f "Jitter", $jitterMs) -ForegroundColor DarkGray
+    Write-Host ("  {0,-18}: {1} ms" -f "Download Latency", $dlLatencyMs) -ForegroundColor Yellow
+    Write-Host ("  {0,-18}: {1} ms" -f "Upload Latency", $ulLatencyMs) -ForegroundColor Yellow
+    Write-Host ("  {0,-18}: {1}" -f "Server", $serverInfo) -ForegroundColor DarkCyan
 
     Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
     Read-Host "Press ENTER to finish"
@@ -825,7 +894,8 @@ $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Searche
 $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extracts a ZIP file into the current directory.
 
 $($PSStyle.Foreground.Cyan)Network Diagnostics and Tools$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Runs a network speed test.
+$($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Runs a network speed test (human-readable).
+$($PSStyle.Foreground.Yellow)Speedtest-Advance$($PSStyle.Reset)          - Advanced speed test (JSON) with full latency stats.
 $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)                  - Flushes the DNS cache.
 $($PSStyle.Foreground.Yellow)Reset-IP$($PSStyle.Reset)                  - Releases and renews the network adapter IP address.
 $($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Restores network settings to default.
