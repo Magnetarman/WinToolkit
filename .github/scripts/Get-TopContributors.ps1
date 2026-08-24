@@ -64,7 +64,7 @@ function Invoke-GitHubApi {
     
     for ($i = 1; $i -le $retries; $i++) {
         try {
-            $response = Invoke-RestMethod -Uri $url -Headers $Headers -Method Get -ErrorAction Stop
+            $response = Invoke-RestMethod -Uri $url -Headers $Headers -Method Get -TimeoutSec 30 -ErrorAction Stop
             break
         }
         catch {
@@ -292,7 +292,7 @@ function Get-ExistingPullRequest {
     $apiBase = "https://api.github.com"
     
     # Check existing PR with label
-    $existingPrs = Invoke-RestMethod -Uri "$apiBase/repos/$Repo/pulls?state=open&per_page=100" -Headers $Headers -Method Get
+    $existingPrs = Invoke-RestMethod -Uri "$apiBase/repos/$Repo/pulls?state=open&per_page=100" -Headers $Headers -Method Get -TimeoutSec 30
     $existingPr = $existingPrs | Where-Object { $_.labels.name -contains $PrLabel } | Select-Object -First 1
     
     if ($existingPr) {
@@ -322,10 +322,10 @@ function New-PullRequest {
         body  = $Body
     } | ConvertTo-Json -Depth 3
     
-    $pr = Invoke-RestMethod -Uri "$apiBase/repos/$Repo/pulls" -Headers $Headers -Method Post -Body $bodyObj -ContentType "application/json"
+    $pr = Invoke-RestMethod -Uri "$apiBase/repos/$Repo/pulls" -Headers $Headers -Method Post -Body $bodyObj -ContentType "application/json" -TimeoutSec 30
     
     # Add label
-    Invoke-RestMethod -Uri "$apiBase/repos/$Repo/issues/$($pr.number)/labels" -Headers $Headers -Method Post -Body (@{labels = @($PrLabel)} | ConvertTo-Json) -ContentType "application/json"
+    Invoke-RestMethod -Uri "$apiBase/repos/$Repo/issues/$($pr.number)/labels" -Headers $Headers -Method Post -Body (@{labels = @($PrLabel)} | ConvertTo-Json) -ContentType "application/json" -TimeoutSec 30
     
     Write-Host "PR #$($pr.number) created: $($pr.html_url)"
     return @{ Number = $pr.number; Branch = $BranchName; Exists = $false }
