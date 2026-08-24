@@ -13,10 +13,11 @@
 #   - Crea/aggiorna una PR verso main con le modifiche.
 #
 # BRANCH PROTECTION:
-#   Il branch main NON risulta protetto (verifica API: 404). Pertanto si usa
+#   Il branch main HA branch protection attiva. Il push diretto e' BLOCCATO,
+#   quindi la creazione di una Pull Request e' OBBLIGATORIA. Viene usato
 #   GITHUB_TOKEN con fallback a RELEASE_AUTOMATION_TOKEN (pattern coerente
-#   con le pipeline esistenti). Se in futuro venisse aggiunta protezione,
-#   aggiungere un PAT con permessi repo come secret.
+#   con le pipeline esistenti). Se la protezione viene modificata in futuro,
+#   la logica di PR rimane valida per tracciabilita' e review.
 #
 # SCHEDULING:
 #   Il workflow usa un controllo runtime per il fuso orario Europe/Rome.
@@ -306,11 +307,8 @@ function Update-ReadmeSection {
     return $true
 }
 
-function New-PullRequest {
+function Get-ExistingPullRequest {
     param(
-        [string]$BranchName,
-        [string]$Title,
-        [string]$Body,
         [string]$Repo,
         [hashtable]$Headers
     )
@@ -322,12 +320,25 @@ function New-PullRequest {
     $existingPr = $existingPrs | Where-Object { $_.labels.name -contains $PrLabel } | Select-Object -First 1
     
     if ($existingPr) {
-        Write-Host "PR esistente trovata: #$($existingPr.number) (branch: $($existingPr.head.ref)). Aggiorno il branch."
-        # Return the existing branch name so we can push to it
+        Write-Host "PR esistente trovata: #$($existingPr.number) (branch: $($existingPr.head.ref))."
         return @{ Number = $existingPr.number; Branch = $existingPr.head.ref; Exists = $true }
     }
     
-    # Create new PR
+    return @{ Exists = $false }
+}
+
+function New-PullRequest {
+    param(
+        [string]$BranchName,
+        [string]$Title,
+        [string]$Body,
+        [string]$Repo,
+        [hashtable]$Headers
+    )
+    
+    $apiBase = "https://api.github.com"
+    
+    # Create new PR (caller must ensure branch exists on remote)
     $bodyObj = @{
         title = $Title
         head  = $BranchName
