@@ -110,39 +110,17 @@ if (-not $pwsh) { $pwsh = Install-Pwsh }
 
 function Test-WindowsUpdateBlocked {
     # Returns $true ONLY while Windows updates are actually being installed.
-    # A pending reboot, downloaded-but-not-installed updates, or a simple
-    # download phase must NOT block the launcher: per design it proceeds in
-    # every case except a real installation currently in progress.
+    # A pending reboot, downloaded-but-not-installed updates, a mere download
+    # phase, or a stale Windows Update history entry must NOT block the
+    # launcher: per design it proceeds in every case except a real
+    # installation currently in progress.
 
-    # 1. A servicing/installation worker is actively running. The CBS worker
-    #    (TiWorker.exe) runs only while updates are really being installed,
-    #    so this is the reliable "installazione in corso" signal. A download
-    #    (or a pending/downloaded-but-not-installed update) does not start it.
+    # The CBS worker (TiWorker.exe) runs only while updates are really being
+    # installed/staged, so it is the reliable "installazione in corso" signal.
+    # A pure download phase (or any other state) does not start it, so the
+    # launcher proceeds in all those cases.
     if (Get-Process -Name 'TiWorker' -ErrorAction SilentlyContinue) {
         return $true
-    }
-
-    # 2. An installation operation still recorded as in progress in the
-    #    Windows Update history.
-    try {
-        $session  = New-Object -ComObject Microsoft.Update.Session
-        $searcher = $session.CreateUpdateSearcher()
-
-        $count = $searcher.GetTotalHistoryCount()
-        if ($count -gt 0) {
-            $history = $searcher.QueryHistory(0, $count)
-            foreach ($entry in $history) {
-                # Operation 1 = installation, ResultCode 1 = still in progress.
-                if ($entry.Operation -eq 1 -and $entry.ResultCode -eq 1) {
-                    return $true
-                }
-            }
-        }
-    }
-    catch {
-        # If the Windows Update API cannot be queried, do NOT block: only a
-        # genuine running installation should stop the launcher.
-        return $false
     }
 
     return $false
