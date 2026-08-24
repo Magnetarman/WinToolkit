@@ -624,11 +624,11 @@ function doReboot {
 }
 
 function Shutdownfast {
-    shutdown /s /f /t 0
+    shutdown /s /hybrid /f /t 0
 }
 
 function ShutdownComplete {
-    shutdown /s /full /f /t 0
+    shutdown /s /f /t 0
 }
 
 function PS-Reset {
@@ -903,7 +903,7 @@ $($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Restor
 
 $($PSStyle.Foreground.Cyan)System Control$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)                  - Reboots the system immediately.
-$($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Fast shutdown.
+$($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Hybrid shutdown (enables Fast Startup on next boot).
 $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Full shutdown (bypasses Fast Startup).
 
 $($PSStyle.Foreground.Cyan)Launch WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
