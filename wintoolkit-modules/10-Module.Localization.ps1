@@ -216,50 +216,41 @@ function Invoke-SourceTextLanguagePreparation {
     param(
         [string]$ScriptRoot,
         [string]$RemoteBaseUrl = "$RepoBase/languages",
-        [string]$GitHubApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$Branch",
-        [int]$CacheMaxAgeDays = 7
+        [string]$GitHubApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$Branch"
     )
     $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
     $remoteCultures = Get-RemoteAvailableCultures -GitHubApiUrl $GitHubApiUrl
-    if ($remoteCultures.Count -gt 0) {
-        Invoke-SourceTextLanguagePruning -LocalDir $localDir -AllowedCultures $remoteCultures
-    }
-    $needDownload = $false
-    if (-not (Test-Path $localDir)) {
-        $needDownload = $true
-    }
-    else {
-        $oldestFile = Get-ChildItem -Path $localDir -Recurse -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -First 1
-        if ($oldestFile) {
-            $age = (Get-Date) - $oldestFile.LastWriteTime
-            if ($age.TotalDays -ge $CacheMaxAgeDays) { $needDownload = $true }
-        }
-        else { $needDownload = $true }
-        if (-not $needDownload) {
-            foreach ($culture in $remoteCultures) {
-                $localFile = Join-Path $localDir $culture 'WinToolkit.psd1'
-                if (-not (Test-Path $localFile)) { $needDownload = $true; break }
-            }
-        }
-    }
-    if ($needDownload -and $remoteCultures.Count -gt 0) {
-        if (-not (Test-Path $localDir)) { New-Item -Path $localDir -ItemType Directory -Force | Out-Null }
-        foreach ($culture in $remoteCultures) {
-            $cultureDir = Join-Path $localDir $culture
-            $localFile = Join-Path $cultureDir 'WinToolkit.psd1'
-            if (-not (Test-Path $cultureDir)) { New-Item -Path $cultureDir -ItemType Directory -Force | Out-Null }
+    if ($remoteCultures.Count -le 0) { return $localDir }
+
+    if (-not (Test-Path $localDir)) { New-Item -Path $localDir -ItemType Directory -Force | Out-Null }
+
+    # Sync the language cache with the reference branch on every startup:
+    # remove cultures no longer present remotely, then download the latest
+    # WinToolkit.psd1 for each available culture (overwriting any cached copy).
+    Invoke-SourceTextLanguagePruning -LocalDir $localDir -AllowedCultures $remoteCultures
+
+    foreach ($culture in (@('en-US') + $remoteCultures | Select-Object -Unique)) {
+        $cultureDir = Join-Path $localDir $culture
+        $localFile = Join-Path $cultureDir 'WinToolkit.psd1'
+        if (-not (Test-Path $cultureDir)) { New-Item -Path $cultureDir -ItemType Directory -Force | Out-Null }
+        try {
+            $remoteUrl = "$RemoteBaseUrl/$culture/WinToolkit.psd1"
+            $temporaryFile = "$localFile.$([guid]::NewGuid()).tmp"
             try {
-                $remoteUrl = "$RemoteBaseUrl/$culture/WinToolkit.psd1"
-                Invoke-WebRequest -Uri $remoteUrl -OutFile $localFile -UseBasicParsing -ErrorAction Stop | Out-Null
+                Invoke-WebRequest -Uri $remoteUrl -OutFile $temporaryFile -UseBasicParsing -ErrorAction Stop | Out-Null
+                Move-Item -LiteralPath $temporaryFile -Destination $localFile -Force -ErrorAction Stop
             }
-            catch {
-                if (-not (Test-Path $localFile)) {
-                    try {
-                        $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
-                        if (Test-Path $localFileFallback) { Copy-Item -Path $localFileFallback -Destination $localFile -Force }
-                    }
-                    catch {}
+            finally {
+                if (Test-Path -LiteralPath $temporaryFile) { Remove-Item -LiteralPath $temporaryFile -Force -ErrorAction SilentlyContinue }
+            }
+        }
+        catch {
+            if (-not (Test-Path $localFile)) {
+                try {
+                    $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
+                    if (Test-Path $localFileFallback) { Copy-Item -LiteralPath $localFileFallback -Destination $localFile -Force }
                 }
+                catch {}
             }
         }
     }
