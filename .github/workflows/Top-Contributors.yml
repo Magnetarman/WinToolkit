@@ -22,7 +22,7 @@
 #   RELEASE_AUTOMATION_TOKEN, pattern coerente con le pipeline esistenti).
 #   Se la protezione viene modificata in futuro, la logica di PR rimane valida.
 #
-# RUNTIME: PowerShell 7+ (pwsh) su ubuntu-latest
+# RUNTIME: PowerShell 7+ (pwsh) preinstallato su ubuntu-latest
 # =============================================================================
 
 name: WinToolkit — Top Contributors V4.0.2
@@ -107,11 +107,6 @@ jobs:
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: main
-      
-      - name: Setup PowerShell
-        uses: microsoft/setup-powershell@e31293f4cee6021b017e0313c5fa104ce3042f96 # v2
-        with:
-          pwsh-version: "7.4"
       
       - name: Run Top Contributors Script
         shell: pwsh
