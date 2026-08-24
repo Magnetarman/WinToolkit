@@ -238,48 +238,6 @@ function Get-SpeedtestExecutable {
     return $speedtestExe
 }
 
-function Start-SpeedtestRun {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Title
-    )
-
-    $exe = Get-SpeedtestExecutable
-    if (-not $exe) { return $null }
-
-    $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
-    $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "Speedtest_$timestamp.txt"
-
-    Write-Host "🚀 Starting $Title..." -ForegroundColor Yellow
-    Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
-
-    return @{ Exe = $exe; OutputPath = $outputPath }
-}
-
-function Get-SpeedtestResult {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    try {
-        $lines = Get-Content -Path $Path
-        foreach ($line in $lines) {
-            $line = $line.Trim()
-            if (-not $line.StartsWith('{')) { continue }
-            try {
-                $obj = $line | ConvertFrom-Json -ErrorAction Stop
-                if ($obj.type -eq 'result') { return $obj }
-            }
-            catch {}
-        }
-    }
-    catch {}
-    return $null
-}
-
 function Show-SpeedtestSummary {
     [CmdletBinding()]
     param(
@@ -310,59 +268,67 @@ function Speedtest {
     [CmdletBinding()]
     param()
 
-    $run = Start-SpeedtestRun -Title 'Speedtest'
-    if (-not $run) { return }
+    $speedtestExe = Get-SpeedtestExecutable
+    if (-not $speedtestExe) { return }
 
-    # Human-readable raw output on screen (as standard) + save to file
-    & $run.Exe --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $run.OutputPath
+    $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "Speedtest_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').txt"
+    Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
+    Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
 
-    # Summary built from the SAME single run's saved output (no second test => no extra latency / no falsified data)
-    $text = Get-Content -Path $run.OutputPath -Raw
+    # Human-readable raw output on screen + save to file (single run, no extra latency)
+    & $speedtestExe --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
 
-    $downloadM = [regex]::Match($text, '(?m)^\s*Download:\s*([\d.]+)')
-    $uploadM   = [regex]::Match($text, '(?m)^\s*Upload:\s*([\d.]+)')
-    $pingM     = [regex]::Match($text, '(?m)^\s*Latency:\s*([\d.]+)')
-    $jitterM   = [regex]::Match($text, 'jitter\):\s*([\d.]+)\s*ms')
-    $serverM   = [regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$')
-
-    $download = if ($downloadM.Success) { $downloadM.Groups[1].Value } else { 'n/a' }
-    $upload   = if ($uploadM.Success) { $uploadM.Groups[1].Value } else { 'n/a' }
-    $ping     = if ($pingM.Success) { $pingM.Groups[1].Value } else { 'n/a' }
-    $jitter   = if ($jitterM.Success) { $jitterM.Groups[1].Value } else { 'n/a' }
-    $server   = if ($serverM.Success) { $serverM.Groups[1].Value.Trim() } else { '' }
-
-    Show-SpeedtestSummary -Download $download -Upload $upload -Ping $ping -Jitter $jitter -Server $server
+    $text = Get-Content -Path $outputPath -Raw
+    Show-SpeedtestSummary `
+        -Download ([regex]::Match($text, '(?m)^\s*Download:\s*([\d.]+)').Groups[1].Value) `
+        -Upload ([regex]::Match($text, '(?m)^\s*Upload:\s*([\d.]+)').Groups[1].Value) `
+        -Ping ([regex]::Match($text, '(?m)^\s*Latency:\s*([\d.]+)').Groups[1].Value) `
+        -Jitter ([regex]::Match($text, 'jitter\):\s*([\d.]+)\s*ms').Groups[1].Value) `
+        -Server ([regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$').Groups[1].Value.Trim())
 }
 
 function Speedtest-Advance {
     [CmdletBinding()]
     param()
 
-    $run = Start-SpeedtestRun -Title 'Speedtest (Advance)'
-    if (-not $run) { return }
+    $speedtestExe = Get-SpeedtestExecutable
+    if (-not $speedtestExe) { return }
 
+    $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "Speedtest_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').txt"
+    Write-Host "🚀 Starting Speedtest (Advance)..." -ForegroundColor Yellow
+    Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
     Write-Host "⏳ Test in progress, please wait..." -ForegroundColor Cyan
 
-    # JSON run: no raw output to terminal (saved to file only), full structured data from a single test
-    & $run.Exe --accept-license --accept-gdpr --format=jsonl --progress=no *> $run.OutputPath
+    # JSON run: no raw output to terminal, full structured data from a single test
+    & $speedtestExe --accept-license --accept-gdpr --format=jsonl --progress=no *> $outputPath
 
-    $result = Get-SpeedtestResult -Path $run.OutputPath
+    $result = $null
+    try {
+        foreach ($line in (Get-Content -Path $outputPath)) {
+            $line = $line.Trim()
+            if ($line.StartsWith('{')) {
+                $obj = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($obj.type -eq 'result') { $result = $obj; break }
+            }
+        }
+    }
+    catch {}
+
     if (-not $result) {
-        Write-Host "⚠️ Unable to generate the summary table: Result object not found in the output." -ForegroundColor Yellow
+        Write-Host "⚠️ Unable to generate the summary table: result object not found." -ForegroundColor Yellow
         Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
         Read-Host "Press ENTER to finish"
         return
     }
 
-    $downloadMbps = [math]::Round($result.download.bandwidth * 8 / 1e6, 2)
-    $uploadMbps   = [math]::Round($result.upload.bandwidth * 8 / 1e6, 2)
-    $pingMs       = [math]::Round($result.ping.latency, 2)
-    $jitterMs     = [math]::Round($result.ping.jitter, 2)
-    $dlLatencyMs  = [math]::Round($result.download.latency.iqm, 2)
-    $ulLatencyMs  = [math]::Round($result.upload.latency.iqm, 2)
-    $serverInfo   = "$($result.server.name) - $($result.server.location)"
-
-    Show-SpeedtestSummary -Download $downloadMbps -Upload $uploadMbps -Ping $pingMs -PingLabel 'Ping (avg)' -Jitter $jitterMs -DownloadLatency $dlLatencyMs -UploadLatency $ulLatencyMs -Server $serverInfo
+    Show-SpeedtestSummary `
+        -Download ([math]::Round($result.download.bandwidth * 8 / 1e6, 2)) `
+        -Upload ([math]::Round($result.upload.bandwidth * 8 / 1e6, 2)) `
+        -Ping ([math]::Round($result.ping.latency, 2)) -PingLabel 'Ping (avg)' `
+        -Jitter ([math]::Round($result.ping.jitter, 2)) `
+        -DownloadLatency ([math]::Round($result.download.latency.iqm, 2)) `
+        -UploadLatency ([math]::Round($result.upload.latency.iqm, 2)) `
+        -Server "$($result.server.name) - $($result.server.location)"
 }
 
 
