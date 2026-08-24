@@ -56,6 +56,33 @@ function Require-Admin {
     return $true
 }
 
+function Start-NonElevated {
+    <#
+    .SYNOPSIS
+    Runs a command in a separate non-elevated (filtered) context. There is no
+    built-in cmdlet to drop an admin token, so this uses a scheduled task with
+    RunLevel Limited (current user), which is the supported way to launch a
+    non-administrator process from an elevated session.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Command
+    )
+    $taskName = "WinToolkitNE_$(Get-Random)"
+    try {
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -Command `"$Command`""
+        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+        $null = Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -ErrorAction Stop
+        Start-ScheduledTask -TaskName $taskName -ErrorAction Stop
+        while ((Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue).State -in 'Running', 'Queued') {
+            Start-Sleep -Seconds 2
+        }
+    }
+    finally {
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+    }
+}
+
 # ============================================================================
 # ENVIRONMENT AND BASE CONFIGURATION
 # ============================================================================
@@ -699,8 +726,7 @@ function PS-Reset {
 
     # 6. Uninstall Winget packages (Done LAST as final resource).
     # Winget cannot reliably remove per-user packages from an elevated session,
-    # so this runs in a separate non-elevated context (scheduled task with
-    # RunLevel Limited), then closes and the code resumes.
+    # so this runs non-elevated via Start-NonElevated, then the code resumes.
     $wingetPackages = @(
         "JanDeDobbeleer.OhMyPosh",
         "ajeetdsouza.zoxide",
@@ -715,15 +741,7 @@ function PS-Reset {
 
     try {
         Write-Host "`n📦 Uninstalling command-line tools via Winget (non-elevated)..." -ForegroundColor Cyan
-        $taskName = "WinToolkitReset_$(Get-Random)"
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -Command `"$wingetCommand`""
-        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
-        $null = Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -ErrorAction Stop
-        Start-ScheduledTask -TaskName $taskName -ErrorAction Stop
-        while ((Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue).State -in 'Running', 'Queued') {
-            Start-Sleep -Seconds 2
-        }
-        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        Start-NonElevated -Command $wingetCommand
     }
     catch {
         Write-Host "⚠️ Non-elevated uninstall failed, falling back..." -ForegroundColor Yellow
