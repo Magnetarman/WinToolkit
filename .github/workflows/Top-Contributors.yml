@@ -123,4 +123,5 @@ jobs:
             -DevBranch "Dev" `
             -MainBranch "main" `
             -ReadmePath "README.md" `
-            -TopN 10
+            -TopN 10 `
+            -SectionTitle "👥 Top 10 Contributors"
