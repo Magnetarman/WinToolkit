@@ -279,12 +279,22 @@ function Speedtest {
     & $speedtestExe --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
 
     $text = Get-Content -Path $outputPath -Raw
-    Show-SpeedtestSummary `
-        -Download ([regex]::Match($text, '(?m)^\s*Download:\s*([\d.]+)').Groups[1].Value) `
-        -Upload ([regex]::Match($text, '(?m)^\s*Upload:\s*([\d.]+)').Groups[1].Value) `
-        -Ping ([regex]::Match($text, '(?m)^\s*Latency:\s*([\d.]+)').Groups[1].Value) `
-        -Jitter ([regex]::Match($text, 'jitter\):\s*([\d.]+)\s*ms').Groups[1].Value) `
-        -Server ([regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$').Groups[1].Value.Trim())
+
+    # Helper: extract first capture group or 'n/a' (guarantees a non-empty value)
+    function Get-Value([string]$Pattern, [string]$InputStr) {
+        $m = [regex]::Match($InputStr, $Pattern)
+        if ($m.Success) { return $m.Groups[1].Value }
+        return 'n/a'
+    }
+
+    $download = Get-Value '(?m)^\s*Download:\s*([\d.]+)' $text
+    $upload   = Get-Value '(?m)^\s*Upload:\s*([\d.]+)' $text
+    $ping     = Get-Value 'Latency:\s*([\d.]+)' $text
+    $jitter   = Get-Value 'jitter\):\s*([\d.]+)\s*ms' $text
+    $serverM  = [regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$')
+    $server   = if ($serverM.Success) { $serverM.Groups[1].Value.Trim() } else { '' }
+
+    Show-SpeedtestSummary -Download $download -Upload $upload -Ping $ping -Jitter $jitter -Server $server
 }
 
 function Speedtest-Advance {
