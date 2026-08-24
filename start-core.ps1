@@ -1788,6 +1788,12 @@ function Invoke-DownloadFile {
     $previousProgress = $ProgressPreference
     try {
         $ProgressPreference = 'SilentlyContinue'
+        if ($OutFile) {
+            $parentDir = Split-Path -Path $OutFile -Parent
+            if ($parentDir -and -not (Test-Path -LiteralPath $parentDir)) {
+                $null = New-Item -Path $parentDir -ItemType Directory -Force -ErrorAction Stop
+            }
+        }
         $iwrParams = @{
             Uri             = $Uri
             OutFile         = $OutFile
