@@ -109,20 +109,12 @@ $pwsh = Get-WorkingPwsh
 if (-not $pwsh) { $pwsh = Install-Pwsh }
 
 function Test-WindowsUpdateBlocked {
-    # Returns $true ONLY when Windows updates are actually being installed
-    # (or a reboot is still pending after an install). A pure download phase
-    # is NOT a blocker: the launcher must proceed in every other case.
+    # Returns $true ONLY while Windows updates are actually being installed.
+    # A pending reboot, downloaded-but-not-installed updates, or a simple
+    # download phase must NOT block the launcher: per design it proceeds in
+    # every case except a real installation currently in progress.
 
-    # 1. Reboot still required (CBS / Windows Update / pending file renames).
-    #    Proceeding could conflict with queued servicing, so keep blocking.
-    $rebootPending =
-        (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or
-        (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') -or
-        ((Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue).PendingFileRenameOperations)
-
-    if ($rebootPending) { return $true }
-
-    # 2. A servicing/installation worker is actively running. The CBS worker
+    # 1. A servicing/installation worker is actively running. The CBS worker
     #    (TiWorker.exe) runs only while updates are really being installed,
     #    so this is the reliable "installazione in corso" signal. A download
     #    (or a pending/downloaded-but-not-installed update) does not start it.
@@ -130,7 +122,7 @@ function Test-WindowsUpdateBlocked {
         return $true
     }
 
-    # 3. An installation operation still recorded as in progress in the
+    # 2. An installation operation still recorded as in progress in the
     #    Windows Update history.
     try {
         $session  = New-Object -ComObject Microsoft.Update.Session
@@ -148,8 +140,9 @@ function Test-WindowsUpdateBlocked {
         }
     }
     catch {
-        # If the Windows Update API cannot be queried, be conservative and block.
-        return $true
+        # If the Windows Update API cannot be queried, do NOT block: only a
+        # genuine running installation should stop the launcher.
+        return $false
     }
 
     return $false
@@ -157,12 +150,11 @@ function Test-WindowsUpdateBlocked {
 
 Write-Host ''
 Write-Host 'Checking Windows update installation...' -ForegroundColor Cyan
-Write-Host 'Startup is suspended ONLY while updates are actually installing' -ForegroundColor Yellow
-Write-Host '(or a reboot is pending). Downloading updates does not block.' -ForegroundColor Yellow
+Write-Host 'Startup is suspended ONLY while updates are actually installing.' -ForegroundColor Yellow
 
 while (Test-WindowsUpdateBlocked) {
     Write-Host ''
-    Write-Host "Windows updates are still installing or a reboot is required. Re-checking in 5 seconds..." -ForegroundColor Yellow
+    Write-Host "Windows updates are still installing. Re-checking in 5 seconds..." -ForegroundColor Yellow
     Start-Sleep -Seconds 5
 }
 
