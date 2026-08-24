@@ -13,7 +13,7 @@
 # CENTRALIZED CONFIGURATION (URL)
 # ============================================================================
 
-$ProfileVersion = "2.6.0.2"
+$ProfileVersion = "2.6.0.3"
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
 $URL_WINTOOLKIT_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
@@ -54,6 +54,33 @@ function Require-Admin {
         return $false
     }
     return $true
+}
+
+function Start-NonElevated {
+    <#
+    .SYNOPSIS
+    Runs a command in a separate non-elevated (filtered) context. There is no
+    built-in cmdlet to drop an admin token, so this uses a scheduled task with
+    RunLevel Limited (current user), which is the supported way to launch a
+    non-administrator process from an elevated session.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Command
+    )
+    $taskName = "WinToolkitNE_$(Get-Random)"
+    try {
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -Command `"$Command`""
+        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+        $null = Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -ErrorAction Stop
+        Start-ScheduledTask -TaskName $taskName -ErrorAction Stop
+        while ((Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue).State -in 'Running', 'Queued') {
+            Start-Sleep -Seconds 2
+        }
+    }
+    finally {
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+    }
 }
 
 # ============================================================================
@@ -203,7 +230,7 @@ function Reset-IP {
     Write-Host "⚠️ Restart the system to apply changes" -ForegroundColor Yellow
 }
 
-function Speedtest {
+function Get-SpeedtestExecutable {
     [CmdletBinding()]
     param()
 
@@ -219,12 +246,12 @@ function Speedtest {
 
     # If missing, install the package via WinGet (machine scope requires Administrator)
     if (-not $installed) {
-        if (-not (Require-Admin -FeatureName 'Speedtest')) { return }
+        if (-not (Require-Admin -FeatureName 'Speedtest')) { return $null }
         Write-Host "⬇️ $packageId is not installed. Installing via WinGet..." -ForegroundColor Yellow
         winget install --id $packageId --source winget --accept-source-agreements --accept-package-agreements --silent --scope machine
         if ($LASTEXITCODE -ne 0) {
             Write-Host "❌ $packageId installation failed (code $LASTEXITCODE)." -ForegroundColor Red
-            return
+            return $null
         }
         # Refresh PATH so the freshly installed executable is found in the current session
         $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -233,42 +260,112 @@ function Speedtest {
     $speedtestExe = (Get-Command 'speedtest.exe' -CommandType Application -ErrorAction SilentlyContinue).Source
     if (-not $speedtestExe) {
         Write-Host "❌ speedtest.exe not found in PATH after installation." -ForegroundColor Red
-        return
+        return $null
     }
+    return $speedtestExe
+}
 
-    $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
-    $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "Speedtest_$timestamp.txt"
+function Show-SpeedtestSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)] [string]$Download,
+        [Parameter(Mandatory = $true)] [string]$Upload,
+        [Parameter(Mandatory = $true)] [string]$Ping,
+        [string]$PingLabel = 'Ping',
+        [string]$Jitter,
+        [string]$DownloadLatency,
+        [string]$UploadLatency,
+        [string]$Server
+    )
 
-    Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
-    Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
-
-    # Raw output with real-time values (as in the old profile) + save to file
-    & $speedtestExe --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
-
-    # Final summary table (structured data from a second run in JSON format)
-    try {
-        $result = & $speedtestExe --accept-license --accept-gdpr --format=json --progress=no 2>$null | ConvertFrom-Json -ErrorAction Stop
-
-        $measurements = [ordered]@{
-            Timestamp       = $result.timestamp
-            Download        = $result.download.bandwidth
-            Upload          = $result.upload.bandwidth
-            Ping            = $result.ping.latency
-            DownloadLatency = $result.download.latency.iqm
-            UploadLatency   = $result.upload.latency.iqm
-        }
-
-        Write-Host "`n📋 Speedtest - Summary:" -ForegroundColor Cyan
-        foreach ($key in $measurements.Keys) {
-            Write-Host ("  {0,-16}: {1}" -f $key, $measurements[$key])
-        }
-    }
-    catch {
-        Write-Host "⚠️ Unable to generate the summary table: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
+    Write-Host "`n📋 Speedtest - Summary:" -ForegroundColor Cyan
+    Write-Host ("  {0,-18}: {1} Mbps" -f "Download", $Download) -ForegroundColor Green
+    Write-Host ("  {0,-18}: {1} Mbps" -f "Upload", $Upload) -ForegroundColor Green
+    Write-Host ("  {0,-18}: {1} ms" -f $PingLabel, $Ping) -ForegroundColor Yellow
+    if ($Jitter) { Write-Host ("  {0,-18}: {1} ms" -f "Jitter", $Jitter) -ForegroundColor Yellow }
+    if ($DownloadLatency) { Write-Host ("  {0,-18}: {1} ms" -f "Download Latency", $DownloadLatency) -ForegroundColor Yellow }
+    if ($UploadLatency) { Write-Host ("  {0,-18}: {1} ms" -f "Upload Latency", $UploadLatency) -ForegroundColor Yellow }
+    if ($Server) { Write-Host ("  {0,-18}: {1}" -f "Server", $Server) -ForegroundColor DarkCyan }
 
     Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
     Read-Host "Press ENTER to finish"
+}
+
+function Speedtest {
+    [CmdletBinding()]
+    param()
+
+    $speedtestExe = Get-SpeedtestExecutable
+    if (-not $speedtestExe) { return }
+
+    $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "Speedtest_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').txt"
+    Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
+    Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
+
+    # Human-readable raw output on screen + save to file (single run, no extra latency)
+    & $speedtestExe --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
+
+    $text = Get-Content -Path $outputPath -Raw
+
+    # Helper: extract first capture group or 'n/a' (guarantees a non-empty value)
+    function Get-Value([string]$Pattern, [string]$InputStr) {
+        $m = [regex]::Match($InputStr, $Pattern)
+        if ($m.Success) { return $m.Groups[1].Value }
+        return 'n/a'
+    }
+
+    $download = Get-Value '(?m)^\s*Download:\s*([\d.]+)' $text
+    $upload = Get-Value '(?m)^\s*Upload:\s*([\d.]+)' $text
+    $ping = Get-Value 'Latency:\s*([\d.]+)' $text
+    $jitter = Get-Value 'jitter\):\s*([\d.]+)\s*ms' $text
+    $serverM = [regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$')
+    $server = if ($serverM.Success) { $serverM.Groups[1].Value.Trim() } else { '' }
+
+    Show-SpeedtestSummary -Download $download -Upload $upload -Ping $ping -Jitter $jitter -Server $server
+}
+
+function Speedtest-Advance {
+    [CmdletBinding()]
+    param()
+
+    $speedtestExe = Get-SpeedtestExecutable
+    if (-not $speedtestExe) { return }
+
+    $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "Speedtest_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').txt"
+    Write-Host "🚀 Starting Speedtest (Advance)..." -ForegroundColor Yellow
+    Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
+    Write-Host "⏳ Test in progress, please wait..." -ForegroundColor Cyan
+
+    # JSON run: no raw output to terminal, full structured data from a single test
+    & $speedtestExe --accept-license --accept-gdpr --format=jsonl --progress=no *> $outputPath
+
+    $result = $null
+    try {
+        foreach ($line in (Get-Content -Path $outputPath)) {
+            $line = $line.Trim()
+            if ($line.StartsWith('{')) {
+                $obj = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($obj.type -eq 'result') { $result = $obj; break }
+            }
+        }
+    }
+    catch {}
+
+    if (-not $result) {
+        Write-Host "⚠️ Unable to generate the summary table: result object not found." -ForegroundColor Yellow
+        Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
+        Read-Host "Press ENTER to finish"
+        return
+    }
+
+    Show-SpeedtestSummary `
+        -Download ([math]::Round($result.download.bandwidth * 8 / 1e6, 2)) `
+        -Upload ([math]::Round($result.upload.bandwidth * 8 / 1e6, 2)) `
+        -Ping ([math]::Round($result.ping.latency, 2)) -PingLabel 'Ping (avg)' `
+        -Jitter ([math]::Round($result.ping.jitter, 2)) `
+        -DownloadLatency ([math]::Round($result.download.latency.iqm, 2)) `
+        -UploadLatency ([math]::Round($result.upload.latency.iqm, 2)) `
+        -Server "$($result.server.name) - $($result.server.location)"
 }
 
 
@@ -554,11 +651,11 @@ function doReboot {
 }
 
 function Shutdownfast {
-    shutdown /s /f /t 0
+    shutdown /s /hybrid /f /t 0
 }
 
 function ShutdownComplete {
-    shutdown /s /full /f /t 0
+    shutdown /s /f /t 0
 }
 
 function PS-Reset {
@@ -627,8 +724,9 @@ function PS-Reset {
         Write-Host "✅ PowerShell profile directory deleted." -ForegroundColor Green
     }
 
-    # 6. Uninstall Winget packages (Done LAST as final resource)
-    # Oh My Posh must be uninstalled last to avoid terminal crashes
+    # 6. Uninstall Winget packages (Done LAST as final resource).
+    # Winget cannot reliably remove per-user packages from an elevated session,
+    # so this runs non-elevated via Start-NonElevated, then the code resumes.
     $wingetPackages = @(
         "JanDeDobbeleer.OhMyPosh",
         "ajeetdsouza.zoxide",
@@ -637,12 +735,21 @@ function PS-Reset {
         "DEVCOM.JetBrainsMonoNerdFont"
     )
 
-    Write-Host "`n📦 Uninstalling command-line tools via Winget..." -ForegroundColor Cyan
-    foreach ($pkg in $wingetPackages) {
-        Write-Host "   -> Removing $pkg..." -ForegroundColor DarkGray
-        # Use Start-Process to wait for the end of the silent operation
-        Start-Process -FilePath "winget" -ArgumentList "uninstall --id $pkg --silent --accept-source-agreements" -Wait -NoNewWindow
+    $wingetCommand = ($wingetPackages | ForEach-Object {
+        "winget uninstall --id '$_' --silent --accept-source-agreements"
+    }) -join '; '
+
+    try {
+        Write-Host "`n📦 Uninstalling command-line tools via Winget (non-elevated)..." -ForegroundColor Cyan
+        Start-NonElevated -Command $wingetCommand
     }
+    catch {
+        Write-Host "⚠️ Non-elevated uninstall failed, falling back..." -ForegroundColor Yellow
+        foreach ($pkg in $wingetPackages) {
+            Start-Process winget -ArgumentList "uninstall --id $pkg --silent --accept-source-agreements" -Wait -NoNewWindow
+        }
+    }
+    Write-Host "✅ Winget uninstallations completed." -ForegroundColor Green
     Write-Host "✅ Winget uninstallations completed." -ForegroundColor Green
 
     # 7. Conclusion and Timed Restart
@@ -825,14 +932,15 @@ $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Searche
 $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extracts a ZIP file into the current directory.
 
 $($PSStyle.Foreground.Cyan)Network Diagnostics and Tools$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Runs a network speed test.
+$($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Runs a network speed test (human-readable).
+$($PSStyle.Foreground.Yellow)Speedtest-Advance$($PSStyle.Reset)         - Advanced speed test (JSON) with full latency stats.
 $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)                  - Flushes the DNS cache.
 $($PSStyle.Foreground.Yellow)Reset-IP$($PSStyle.Reset)                  - Releases and renews the network adapter IP address.
 $($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Restores network settings to default.
 
 $($PSStyle.Foreground.Cyan)System Control$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)                  - Reboots the system immediately.
-$($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Fast shutdown.
+$($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Hybrid shutdown (enables Fast Startup on next boot).
 $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Full shutdown (bypasses Fast Startup).
 
 $($PSStyle.Foreground.Cyan)Launch WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
