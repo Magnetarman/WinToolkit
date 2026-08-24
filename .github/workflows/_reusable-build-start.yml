@@ -1,5 +1,5 @@
-# WinToolkit CI/CD Pipeline V 4.0.1 — Reusable start-core build
-name: WinToolkit V4.0.1 — Reusable start-core build
+# WinToolkit CI/CD Pipeline V4.0.2 — Reusable start-core build
+name: WinToolkit V4.0.2 — Reusable start-core build
 
 on:
   workflow_call:
@@ -18,6 +18,14 @@ on:
         required: false
         type: string
         default: '✅ Build start-core.ps1'
+
+# Serialize every artifact build on the same branch. start-core.ps1 and
+# WinToolkit.ps1 are committed to the same branch by git-auto-commit-action;
+# without this guard, a push touching both source families would run the two
+# builds in parallel and the second push would fail as non-fast-forward.
+concurrency:
+  group: wintoolkit-ci-build-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   build-start:
