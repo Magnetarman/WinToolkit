@@ -216,6 +216,11 @@ function ConvertTo-ContributorStats {
             continue
         }
         
+        # Conta solo PR aperte o merged (esclude chiuse senza merge e draft)
+        if ($pr.state -ne 'open' -and $pr.merged -ne $true) {
+            continue
+        }
+        
         if (-not $stats.ContainsKey($login)) {
             $stats[$login] = @{
                 Login     = $login
@@ -235,7 +240,7 @@ function ConvertTo-ContributorStats {
 function New-ContributorsMarkdown {
     param(
         [array]$TopContributors,
-        [string]$SectionTitle = "Top 10 Contributors"
+        [string]$SectionTitle = "👥 Top 10 Contributors"
     )
     
     if ($TopContributors.Count -eq 0) {
