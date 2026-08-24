@@ -177,7 +177,7 @@ Trigger:
 - Schedule: ogni lunedì alle 06:00 ora italiana (controllo runtime CET/CEST)
 - Manuale: `workflow_dispatch` con verifica permessi admin/maintainer
 
-Lo script `.github/scripts/Get-TopContributors.ps1` interroga le API GitHub con paginazione, calcola la classifica e aggiorna il README. Poiché `main` non ha branch protection attiva, viene comunque usata una PR per tracciabilità.
+Lo script `.github/scripts/Get-TopContributors.ps1` interroga le API GitHub con paginazione, calcola la classifica e aggiorna il README. Poiché `main` ha branch protection attiva, il push diretto è bloccato e la PR è obbligatoria per consegnare le modifiche.
 
 ### V4.0 CI/CD modular architecture
 
