@@ -156,28 +156,28 @@ Creates the `release/vX.Y.Z` branch, applies compiled changes, and prepares a PR
 
 ### `Top-Contributors.yml` — Top Contributors Update
 
-Aggiorna automaticamente la sezione "Top 10 Contributors" nel README di `main`.
+Automatically updates the "Top 10 Contributors" section in the README on `main`.
 
 ```
 schedule/workflow_dispatch
        │
        ▼
-  [validate]  ← repo ufficiale + permessi admin/maintainer
+  [validate]  ← official repo + admin/maintainer permissions
        │
        ▼
-  [update-contributors]  ← query API GitHub (commit + PR su Dev)
+  [update-contributors]  ← GitHub API queries (commits + PRs on Dev)
        │
-       ├─ Calcola classifica (PRs primario, commits secondario)
-       ├─ Esclude bot (github-actions[bot], dependabot[bot])
-       ├─ Aggiorna README tra marker HTML
-       └─ Crea/aggiorna PR verso main
+       ├─ Calculates rankings (PRs primary, commits secondary)
+       ├─ Excludes bots (github-actions[bot], dependabot[bot])
+       ├─ Updates README between HTML markers
+       └─ Creates/updates PR toward main
 ```
 
 Trigger:
-- Schedule: ogni lunedì alle 06:00 ora italiana (controllo runtime CET/CEST)
-- Manuale: `workflow_dispatch` con verifica permessi admin/maintainer
+- Schedule: every Monday at 06:00 Italian time (runtime CET/CEST check)
+- Manual: `workflow_dispatch` with admin/maintainer permission check
 
-Lo script `.github/scripts/Get-TopContributors.ps1` interroga le API GitHub con paginazione, calcola la classifica e aggiorna il README. Poiché `main` ha branch protection attiva, il push diretto è bloccato e la PR è obbligatoria per consegnare le modifiche.
+The script `.github/scripts/Get-TopContributors.ps1` queries the GitHub APIs with pagination, calculates the ranking, and updates the README. Because `main` has active branch protection, direct push is blocked and a PR is mandatory to deliver changes.
 
 ### V4.0 CI/CD modular architecture
 

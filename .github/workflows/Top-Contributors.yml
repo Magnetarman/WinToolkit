@@ -1,39 +1,39 @@
 # =============================================================================
 # WinToolkit — Top Contributors V4.0.2
 # =============================================================================
-# Aggiorna automaticamente la sezione "Top 10 Contributors" nel README di main
-# analizzando commit e PR sul branch Dev.
+# Automatically updates the "Top 10 Contributors" section in the README on main
+# by analyzing commits and PRs on the Dev branch.
 #
 # TRIGGER:
-#   - schedule: Ogni lunedi' alle 04:00 UTC (06:00 CEST / 05:00 CET).
-#     Lo script verifica il fuso orario Europe/Rome a runtime e procede solo
-#     se ci si trova nella finestra 05:00-07:00 ora italiana, gestendo
-#     automaticamente il cambio CET/CEST.
-#   - workflow_dispatch: Esecuzione manuale, limitata a admin/maintainer.
+#   - schedule: Every Monday at 04:00 UTC (06:00 CEST / 05:00 CET).
+#     The script verifies the Europe/Rome timezone at runtime and proceeds only
+#     if the Italian time is within the 05:00-07:00 window, automatically
+#     handling the CET/CEST transition.
+#   - workflow_dispatch: Manual execution, limited to admin/maintainer.
 #
 # FLOW:
-#   Job 0 -- validate:    Verifica repo ufficiale e permessi admin
-#   Job 1 -- update:      Calcola classifiche, aggiorna README, crea/aggiorna PR
+#   Job 0 -- validate:    Verifies official repo and admin permissions
+#   Job 1 -- update:      Calculates rankings, updates README, creates/updates PR
 #
 # BRANCH PROTECTION:
-#   Il branch main HA branch protection attiva. Il push diretto e' BLOCCATO,
-#   quindi la creazione di una Pull Request e' OBBLIGATORIA, non un'opzione.
-#   Viene usato il token configurato nel repo (GITHUB_TOKEN con fallback a
-#   RELEASE_AUTOMATION_TOKEN, pattern coerente con le pipeline esistenti).
-#   Se la protezione viene modificata in futuro, la logica di PR rimane valida.
+#   The main branch HAS active branch protection. Direct push is BLOCKED,
+#   so creating a Pull Request is MANDATORY, not optional.
+#   The token configured in the repo is used (GITHUB_TOKEN with fallback to
+#   RELEASE_AUTOMATION_TOKEN, consistent with existing pipelines).
+#   If protection is changed in the future, the PR logic remains valid.
 #
-# RUNTIME: PowerShell 7+ (pwsh) preinstallato su ubuntu-latest
+# RUNTIME: PowerShell 7+ (pwsh) preinstalled on ubuntu-latest
 # =============================================================================
 
 name: WinToolkit — Top Contributors V4.0.2
 
 on:
   schedule:
-    # Ogni lunedi' alle 04:00 UTC.
-    # Corrisponde a 06:00 CEST (ora legale) e 05:00 CET (ora solare).
-    # Lo script effettua un controllo runtime su Europe/Rome per gestire
-    # automaticamente il cambio CET/CEST e procede solo se l'ora italiana
-    # e' compresa nella finestra 05:00-07:00.
+    # Every Monday at 04:00 UTC.
+    # Corresponds to 06:00 CEST (daylight saving) and 05:00 CET (standard).
+    # The script performs a runtime check on Europe/Rome to automatically
+    # handle the CET/CEST transition and proceeds only if Italian time
+    # is within the 05:00-07:00 window.
     - cron: "0 4 * * 1"
   workflow_dispatch:
 
@@ -51,7 +51,7 @@ concurrency:
 jobs:
   # ===========================================================================
   # JOB 0: VALIDATE
-  # Verifica repository ufficiale e permessi admin/maintainer.
+  # Verifies official repository and admin/maintainer permissions.
   # ===========================================================================
   validate:
     name: Validate Repository and Permissions
@@ -93,7 +93,7 @@ jobs:
 
   # ===========================================================================
   # JOB 1: UPDATE CONTRIBUTORS
-  # Esegue lo script PowerShell che calcola le classifiche e aggiorna il README.
+  # Runs the PowerShell script that calculates rankings and updates the README.
   # ===========================================================================
   update-contributors:
     name: Update Top Contributors

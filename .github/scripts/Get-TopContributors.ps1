@@ -1,30 +1,30 @@
 # =============================================================================
 # WinToolkit — Get-TopContributors.ps1
 # =============================================================================
-# Calcola la classifica dei Top 10 Contributors sul branch Dev e aggiorna
-# il README.md con una sezione tra marker HTML dedicati.
+# Calculates the Top 10 Contributors ranking on the Dev branch and updates
+# the README.md with a dedicated HTML-marked section.
 #
-# LOGICA:
-#   - Recupera commit e PR dal branch Dev tramite API GitHub (paginazione 100).
-#   - Esclude bot noti (github-actions[bot], dependabot[bot]).
-#   - Ordina per numero di PR (decrescente), poi per commit (decrescente).
-#   - Gestisce autori senza account GitHub collegato (commit.author nullo).
-#   - Aggiorna il README tra i marker <!-- TOP_CONTRIBUTORS_START/END -->.
-#   - Crea/aggiorna una PR verso main con le modifiche.
+# LOGIC:
+#   - Fetches commits and PRs from the Dev branch via GitHub API (pagination 100).
+#   - Excludes known bots (github-actions[bot], dependabot[bot]).
+#   - Sorts by number of PRs (descending), then by commits (descending).
+#   - Handles authors without a linked GitHub account (commit.author null).
+#   - Updates the README between <!-- TOP_CONTRIBUTORS_START/END --> markers.
+#   - Creates/updates a PR toward main with the changes.
 #
 # BRANCH PROTECTION:
-#   Il branch main HA branch protection attiva. Il push diretto e' BLOCCATO,
-#   quindi la creazione di una Pull Request e' OBBLIGATORIA. Viene usato
-#   GITHUB_TOKEN con fallback a RELEASE_AUTOMATION_TOKEN (pattern coerente
-#   con le pipeline esistenti). Se la protezione viene modificata in futuro,
-#   la logica di PR rimane valida per tracciabilita' e review.
+#   The main branch HAS active branch protection. Direct push is BLOCKED,
+#   so creating a Pull Request is MANDATORY. GITHUB_TOKEN with fallback to
+#   RELEASE_AUTOMATION_TOKEN is used (consistent with existing pipelines).
+#   If protection changes in the future, the PR logic remains valid for
+#   traceability and review.
 #
 # SCHEDULING:
-#   Il workflow usa un controllo runtime per il fuso orario Europe/Rome.
-#   Il cron GitHub Actions e' fisso su UTC (04:00 UTC ogni lunedi', che
-#   corrisponde a 06:00 CEST o 05:00 CET). Lo script verifica l'ora italiana
-#   e procede solo se ci si trova in una finestra accettabile (05:00-07:00),
-#   gestendo cosi' il cambio automatico CET/CEST.
+#   The workflow uses a runtime check for the Europe/Rome timezone.
+#   The GitHub Actions cron is fixed on UTC (04:00 UTC every Monday, which
+#   corresponds to 06:00 CEST or 05:00 CET). The script verifies Italian time
+#   and proceeds only if it falls within an acceptable window (05:00-07:00),
+#   automatically handling the CET/CEST transition.
 # =============================================================================
 
 [CmdletBinding()]
@@ -43,7 +43,7 @@ $ErrorActionPreference = "Stop"
 $InformationPreference = "Continue"
 
 # ---------------------------------------------------------------------------
-# CONFIGURAZIONE
+# CONFIGURATION
 # ---------------------------------------------------------------------------
 $ApiBase = "https://api.github.com"
 $Headers = @{
@@ -65,7 +65,7 @@ $PrLabel = "top-contributors"
 $BranchPrefix = "update/top-contributors"
 
 # ---------------------------------------------------------------------------
-# FUNZIONI DI SUPPORTO
+# SUPPORT FUNCTIONS
 # ---------------------------------------------------------------------------
 function Invoke-GitHubApi {
     param(
@@ -217,7 +217,7 @@ function ConvertTo-ContributorStats {
             continue
         }
         
-        # Conta solo PR aperte o merged (esclude chiuse senza merge e draft)
+        # Count only open or merged PRs (excludes closed without merge and drafts)
         if ($pr.state -ne 'open' -and $pr.merged -ne $true) {
             continue
         }
@@ -320,7 +320,7 @@ function Get-ExistingPullRequest {
     $existingPr = $existingPrs | Where-Object { $_.labels.name -contains $PrLabel } | Select-Object -First 1
     
     if ($existingPr) {
-        Write-Host "PR esistente trovata: #$($existingPr.number) (branch: $($existingPr.head.ref))."
+        Write-Host "Existing PR found: #$($existingPr.number) (branch: $($existingPr.head.ref))."
         return @{ Number = $existingPr.number; Branch = $existingPr.head.ref; Exists = $true }
     }
     
@@ -351,12 +351,12 @@ function New-PullRequest {
     # Add label
     Invoke-RestMethod -Uri "$apiBase/repos/$Repo/issues/$($pr.number)/labels" -Headers $Headers -Method Post -Body (@{labels = @($PrLabel)} | ConvertTo-Json) -ContentType "application/json"
     
-    Write-Host "PR #$($pr.number) creata: $($pr.html_url)"
+    Write-Host "PR #$($pr.number) created: $($pr.html_url)"
     return @{ Number = $pr.number; Branch = $BranchName; Exists = $false }
 }
 
 # ---------------------------------------------------------------------------
-# VALIDAZIONE FUSO ORARIO (Europe/Rome)
+# TIMEZONE VALIDATION (Europe/Rome)
 # ---------------------------------------------------------------------------
 function Test-ShouldProceed {
     $force = $env:FORCE_EXECUTION -eq "true"
@@ -366,26 +366,26 @@ function Test-ShouldProceed {
         $romeTime = [TimeZoneInfo]::ConvertTime([DateTime]::UtcNow, $tz)
     }
     catch {
-        Write-Warning "Impossibile trovare il fuso orario Europe/Rome: $_. Proseguo senza controllo orario."
+        Write-Warning "Cannot find Europe/Rome timezone: $_. Proceeding without time check."
         return $true
     }
     
     $hour = $romeTime.Hour
     
-    # Finestra accettabile: 05:00-07:00 ora italiana
-    # Questo copre 04:00 UTC (CEST) e 05:00 UTC (CET)
+    # Acceptable window: 05:00-07:00 Italian time
+    # This covers 04:00 UTC (CEST) and 05:00 UTC (CET)
     if ($hour -ge 5 -and $hour -lt 7) {
-        Write-Host "Controllo orario superato: ora italiana corrente $($romeTime.ToString('yyyy-MM-dd HH:mm'))"
+        Write-Host "Time check passed: current Italy time is $($romeTime.ToString('yyyy-MM-dd HH:mm'))"
         return $true
     }
     
-    # Se siamo nel giorno e nell'ora del workflow_dispatch, procedi comunque
+    # If this is a manual dispatch, proceed anyway
     if ($env:GITHUB_EVENT_NAME -eq "workflow_dispatch" -or $force) {
-        Write-Host "Esecuzione manuale o forzata, salto controllo finestra oraria."
+        Write-Host "Manual or forced execution, skipping time window check."
         return $true
     }
     
-    Write-Warning "Fuori finestra di esecuzione (ora italiana: $($romeTime.ToString('yyyy-MM-dd HH:mm')), ora=$hour). Attesa 05:00-07:00."
+    Write-Warning "Outside execution window (Italy time: $($romeTime.ToString('yyyy-MM-dd HH:mm')), hour=$hour). Expected 05:00-07:00."
     return $false
 }
 
@@ -483,10 +483,10 @@ if ($diff) {
     
     if (-not $existingPrResult.Exists) {
         $prNumber = New-PullRequest -BranchName $branchName -Title "docs: update Top 10 Contributors" -Body $prBody -Repo $Repo -Headers $Headers
-        Write-Host "PR #$($prNumber.Number) creata con successo."
+        Write-Host "PR #$($prNumber.Number) created successfully."
     } else {
-        Write-Host "Branch aggiornato. PR #$($existingPrResult.Number) aggiornata automaticamente."
+        Write-Host "Branch updated. PR #$($existingPrResult.Number) updated automatically."
     }
 } else {
-    Write-Host "Nessuna modifica al README. Salto creazione PR."
+    Write-Host "No changes to README. Skipping PR creation."
 }
