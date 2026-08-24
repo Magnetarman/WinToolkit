@@ -1,0 +1,126 @@
+# =============================================================================
+# WinToolkit — Top Contributors V4.0.2
+# =============================================================================
+# Aggiorna automaticamente la sezione "Top 10 Contributors" nel README di main
+# analizzando commit e PR sul branch Dev.
+#
+# TRIGGER:
+#   - schedule: Ogni lunedi' alle 04:00 UTC (06:00 CEST / 05:00 CET).
+#     Lo script verifica il fuso orario Europe/Rome a runtime e procede solo
+#     se ci si trova nella finestra 05:00-07:00 ora italiana, gestendo
+#     automaticamente il cambio CET/CEST.
+#   - workflow_dispatch: Esecuzione manuale, limitata a admin/maintainer.
+#
+# FLOW:
+#   Job 0 -- validate:    Verifica repo ufficiale e permessi admin
+#   Job 1 -- update:      Calcola classifiche, aggiorna README, crea/aggiorna PR
+#
+# BRANCH PROTECTION:
+#   Il branch main NON e' protetto (verifica API: 404). Viene comunque
+#   utilizzata una PR verso main per tracciabilita' e review.
+#   Token usato: GITHUB_TOKEN con fallback a RELEASE_AUTOMATION_TOKEN
+#   (pattern coerente con le pipeline esistenti).
+#
+# RUNTIME: PowerShell 7+ (pwsh) su ubuntu-latest
+# =============================================================================
+
+name: WinToolkit — Top Contributors V4.0.2
+
+on:
+  schedule:
+    # Ogni lunedi' alle 04:00 UTC.
+    # Corrisponde a 06:00 CEST (ora legale) e 05:00 CET (ora solare).
+    # Lo script effettua un controllo runtime su Europe/Rome per gestire
+    # automaticamente il cambio CET/CEST e procede solo se l'ora italiana
+    # e' compresa nella finestra 05:00-07:00.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: top-contributors
+  cancel-in-progress: false
+
+jobs:
+  # ===========================================================================
+  # JOB 0: VALIDATE
+  # Verifica repository ufficiale e permessi admin/maintainer.
+  # ===========================================================================
+  validate:
+    name: Validate Repository and Permissions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Verify Official Repository
+        run: |
+          if [ "${{ github.repository }}" != "Magnetarman/WinToolkit" ]; then
+            echo "::error::Action not allowed: supported only in the official repository https://github.com/Magnetarman/WinToolkit/. Current: ${{ github.repository }}"
+            exit 1
+          fi
+          echo "Official repository verified"
+      
+      - name: Verify Admin or Maintainer Permission
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const username = context.actor;
+            const permission = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: username
+            });
+            
+            const level = permission.data.permission;
+            if (level !== 'admin' && level !== 'maintain') {
+              core.setFailed(`User @${username} does not have admin/maintainer permissions (current: ${level}). This workflow can only be triggered by admins or maintainers.`);
+            } else {
+              core.info(`Permission verified: @${username} has '${level}' access`);
+            }
+      
+      - name: Skip Permission Check for Scheduled Runs
+        if: github.event_name == 'schedule'
+        run: echo "Scheduled run — permission check skipped"
+
+  # ===========================================================================
+  # JOB 1: UPDATE CONTRIBUTORS
+  # Esegue lo script PowerShell che calcola le classifiche e aggiorna il README.
+  # ===========================================================================
+  update-contributors:
+    name: Update Top Contributors
+    runs-on: ubuntu-latest
+    needs: validate
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: main
+      
+      - name: Setup PowerShell
+        uses: microsoft/setup-powershell@e31293f4cee6021b017e0313c5fa104ce3042f96 # v2
+        with:
+          pwsh-version: "7.4"
+      
+      - name: Run Top Contributors Script
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          & .github/scripts/Get-TopContributors.ps1 `
+            -GitHubToken "${{ env.GITHUB_TOKEN }}" `
+            -Repo "Magnetarman/WinToolkit" `
+            -DevBranch "Dev" `
+            -MainBranch "main" `
+            -ReadmePath "README.md" `
+            -TopN 10
