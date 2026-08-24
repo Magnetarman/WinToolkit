@@ -13,7 +13,8 @@ param(
     [ValidateSet("Dev", "main")]
     [string]$TargetBranch = "main",
     [string]$ReadmePath = "README.md",
-    [int]$TopN = 10
+    [int]$TopN = 10,
+    [string]$SectionTitle = "👥 Top 10 Contributors"
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,7 +64,7 @@ function Invoke-GitHubApi {
     
     for ($i = 1; $i -le $retries; $i++) {
         try {
-            $response = Invoke-RestMethod -Uri $url -Headers $Headers -Method Get -ErrorAction Stop
+            $response = Invoke-RestMethod -Uri $url -Headers $Headers -Method Get -TimeoutSec 30 -ErrorAction Stop
             break
         }
         catch {
@@ -216,7 +217,7 @@ function ConvertTo-ContributorStats {
 function New-ContributorsMarkdown {
     param(
         [array]$TopContributors,
-        [string]$SectionTitle = "👥 Top 10 Contributors"
+        [string]$SectionTitle
     )
     
     if ($TopContributors.Count -eq 0) {
@@ -291,7 +292,7 @@ function Get-ExistingPullRequest {
     $apiBase = "https://api.github.com"
     
     # Check existing PR with label
-    $existingPrs = Invoke-RestMethod -Uri "$apiBase/repos/$Repo/pulls?state=open&per_page=100" -Headers $Headers -Method Get
+    $existingPrs = Invoke-RestMethod -Uri "$apiBase/repos/$Repo/pulls?state=open&per_page=100" -Headers $Headers -Method Get -TimeoutSec 30
     $existingPr = $existingPrs | Where-Object { $_.labels.name -contains $PrLabel } | Select-Object -First 1
     
     if ($existingPr) {
@@ -321,10 +322,10 @@ function New-PullRequest {
         body  = $Body
     } | ConvertTo-Json -Depth 3
     
-    $pr = Invoke-RestMethod -Uri "$apiBase/repos/$Repo/pulls" -Headers $Headers -Method Post -Body $bodyObj -ContentType "application/json"
+    $pr = Invoke-RestMethod -Uri "$apiBase/repos/$Repo/pulls" -Headers $Headers -Method Post -Body $bodyObj -ContentType "application/json" -TimeoutSec 30
     
     # Add label
-    Invoke-RestMethod -Uri "$apiBase/repos/$Repo/issues/$($pr.number)/labels" -Headers $Headers -Method Post -Body (@{labels = @($PrLabel)} | ConvertTo-Json) -ContentType "application/json"
+    Invoke-RestMethod -Uri "$apiBase/repos/$Repo/issues/$($pr.number)/labels" -Headers $Headers -Method Post -Body (@{labels = @($PrLabel)} | ConvertTo-Json) -ContentType "application/json" -TimeoutSec 30
     
     Write-Host "PR #$($pr.number) created: $($pr.html_url)"
     return @{ Number = $pr.number; Branch = $BranchName; Exists = $false }
@@ -380,7 +381,7 @@ $prs = Get-PrsFromDev -Token $GitHubToken
 $topContributors = ConvertTo-ContributorStats -Commits $commits -Prs $prs
 Write-Host "Top contributors calculated: $($topContributors.Count)"
 
-$contributorsMarkdown = New-ContributorsMarkdown -TopContributors $topContributors -SectionTitle "Top 10 Contributors"
+$contributorsMarkdown = New-ContributorsMarkdown -TopContributors $topContributors -SectionTitle $SectionTitle
 Write-Host "Generated markdown section:"
 Write-Host $contributorsMarkdown
 

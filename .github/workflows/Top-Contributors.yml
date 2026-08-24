@@ -30,7 +30,7 @@ env:
 
 concurrency:
   group: top-contributors
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   # ===========================================================================
@@ -40,6 +40,7 @@ jobs:
   validate:
     name: Validate Repository and Permissions
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     
@@ -82,6 +83,7 @@ jobs:
   update-contributors:
     name: Update Top Contributors
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: validate
     env:
       TARGET_BRANCH: ${{ github.event_name == 'schedule' && 'Dev' || inputs.target_branch }}
