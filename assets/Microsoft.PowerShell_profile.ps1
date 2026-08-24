@@ -255,10 +255,10 @@ function Show-SpeedtestSummary {
     Write-Host ("  {0,-18}: {1} Mbps" -f "Download", $Download) -ForegroundColor Green
     Write-Host ("  {0,-18}: {1} Mbps" -f "Upload", $Upload) -ForegroundColor Green
     Write-Host ("  {0,-18}: {1} ms" -f $PingLabel, $Ping) -ForegroundColor Yellow
-    if ($Jitter)          { Write-Host ("  {0,-18}: {1} ms" -f "Jitter", $Jitter) -ForegroundColor DarkGray }
+    if ($Jitter) { Write-Host ("  {0,-18}: {1} ms" -f "Jitter", $Jitter) -ForegroundColor DarkGray }
     if ($DownloadLatency) { Write-Host ("  {0,-18}: {1} ms" -f "Download Latency", $DownloadLatency) -ForegroundColor DarkGray }
-    if ($UploadLatency)   { Write-Host ("  {0,-18}: {1} ms" -f "Upload Latency", $UploadLatency) -ForegroundColor DarkGray }
-    if ($Server)          { Write-Host ("  {0,-18}: {1}" -f "Server", $Server) -ForegroundColor DarkCyan }
+    if ($UploadLatency) { Write-Host ("  {0,-18}: {1} ms" -f "Upload Latency", $UploadLatency) -ForegroundColor DarkGray }
+    if ($Server) { Write-Host ("  {0,-18}: {1}" -f "Server", $Server) -ForegroundColor DarkCyan }
 
     Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
     Read-Host "Press ENTER to finish"
@@ -886,7 +886,7 @@ $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extract
 
 $($PSStyle.Foreground.Cyan)Network Diagnostics and Tools$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Runs a network speed test (human-readable).
-$($PSStyle.Foreground.Yellow)Speedtest-Advance$($PSStyle.Reset)          - Advanced speed test (JSON) with full latency stats.
+$($PSStyle.Foreground.Yellow)Speedtest-Advance$($PSStyle.Reset)         - Advanced speed test (JSON) with full latency stats.
 $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)                  - Flushes the DNS cache.
 $($PSStyle.Foreground.Yellow)Reset-IP$($PSStyle.Reset)                  - Releases and renews the network adapter IP address.
 $($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Restores network settings to default.
