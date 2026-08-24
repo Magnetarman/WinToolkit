@@ -56,6 +56,33 @@ function Require-Admin {
     return $true
 }
 
+function Start-NonElevated {
+    <#
+    .SYNOPSIS
+    Runs a command in a separate non-elevated (filtered) context. There is no
+    built-in cmdlet to drop an admin token, so this uses a scheduled task with
+    RunLevel Limited (current user), which is the supported way to launch a
+    non-administrator process from an elevated session.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Command
+    )
+    $taskName = "WinToolkitNE_$(Get-Random)"
+    try {
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -Command `"$Command`""
+        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+        $null = Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -ErrorAction Stop
+        Start-ScheduledTask -TaskName $taskName -ErrorAction Stop
+        while ((Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue).State -in 'Running', 'Queued') {
+            Start-Sleep -Seconds 2
+        }
+    }
+    finally {
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+    }
+}
+
 # ============================================================================
 # ENVIRONMENT AND BASE CONFIGURATION
 # ============================================================================
@@ -288,11 +315,11 @@ function Speedtest {
     }
 
     $download = Get-Value '(?m)^\s*Download:\s*([\d.]+)' $text
-    $upload   = Get-Value '(?m)^\s*Upload:\s*([\d.]+)' $text
-    $ping     = Get-Value 'Latency:\s*([\d.]+)' $text
-    $jitter   = Get-Value 'jitter\):\s*([\d.]+)\s*ms' $text
-    $serverM  = [regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$')
-    $server   = if ($serverM.Success) { $serverM.Groups[1].Value.Trim() } else { '' }
+    $upload = Get-Value '(?m)^\s*Upload:\s*([\d.]+)' $text
+    $ping = Get-Value 'Latency:\s*([\d.]+)' $text
+    $jitter = Get-Value 'jitter\):\s*([\d.]+)\s*ms' $text
+    $serverM = [regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$')
+    $server = if ($serverM.Success) { $serverM.Groups[1].Value.Trim() } else { '' }
 
     Show-SpeedtestSummary -Download $download -Upload $upload -Ping $ping -Jitter $jitter -Server $server
 }
@@ -624,11 +651,11 @@ function doReboot {
 }
 
 function Shutdownfast {
-    shutdown /s /f /t 0
+    shutdown /s /hybrid /f /t 0
 }
 
 function ShutdownComplete {
-    shutdown /s /full /f /t 0
+    shutdown /s /f /t 0
 }
 
 function PS-Reset {
@@ -697,8 +724,9 @@ function PS-Reset {
         Write-Host "✅ PowerShell profile directory deleted." -ForegroundColor Green
     }
 
-    # 6. Uninstall Winget packages (Done LAST as final resource)
-    # Oh My Posh must be uninstalled last to avoid terminal crashes
+    # 6. Uninstall Winget packages (Done LAST as final resource).
+    # Winget cannot reliably remove per-user packages from an elevated session,
+    # so this runs non-elevated via Start-NonElevated, then the code resumes.
     $wingetPackages = @(
         "JanDeDobbeleer.OhMyPosh",
         "ajeetdsouza.zoxide",
@@ -707,12 +735,21 @@ function PS-Reset {
         "DEVCOM.JetBrainsMonoNerdFont"
     )
 
-    Write-Host "`n📦 Uninstalling command-line tools via Winget..." -ForegroundColor Cyan
-    foreach ($pkg in $wingetPackages) {
-        Write-Host "   -> Removing $pkg..." -ForegroundColor DarkGray
-        # Use Start-Process to wait for the end of the silent operation
-        Start-Process -FilePath "winget" -ArgumentList "uninstall --id $pkg --silent --accept-source-agreements" -Wait -NoNewWindow
+    $wingetCommand = ($wingetPackages | ForEach-Object {
+            "winget uninstall --id '$_' --silent --accept-source-agreements"
+        }) -join '; '
+
+    try {
+        Write-Host "`n📦 Uninstalling command-line tools via Winget (non-elevated)..." -ForegroundColor Cyan
+        Start-NonElevated -Command $wingetCommand
     }
+    catch {
+        Write-Host "⚠️ Non-elevated uninstall failed, falling back..." -ForegroundColor Yellow
+        foreach ($pkg in $wingetPackages) {
+            Start-Process winget -ArgumentList "uninstall --id $pkg --silent --accept-source-agreements" -Wait -NoNewWindow
+        }
+    }
+    Write-Host "✅ Winget uninstallations completed." -ForegroundColor Green
     Write-Host "✅ Winget uninstallations completed." -ForegroundColor Green
 
     # 7. Conclusion and Timed Restart
@@ -903,7 +940,7 @@ $($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Restor
 
 $($PSStyle.Foreground.Cyan)System Control$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)                  - Reboots the system immediately.
-$($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Fast shutdown.
+$($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Hybrid shutdown (enables Fast Startup on next boot).
 $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Full shutdown (bypasses Fast Startup).
 
 $($PSStyle.Foreground.Cyan)Launch WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
