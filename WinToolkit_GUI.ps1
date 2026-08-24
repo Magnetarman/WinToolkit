@@ -280,6 +280,35 @@ function Get-RemoteAvailableCultures {
     }
 }
 
+function Invoke-SourceTextLanguagePruning {
+    <#
+    .SYNOPSIS
+    Removes cached language directories that are no longer present in the
+    authoritative source (the remote culture list), keeping the local cache
+    synchronized with the latest changes on every startup.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$LocalDir,
+        [string[]]$AllowedCultures
+    )
+    if (-not (Test-Path $LocalDir)) { return }
+    $allowed = @('en-US') + @($AllowedCultures | Where-Object { $_ -and $_.Trim() })
+    $allowed = @($allowed | Select-Object -Unique)
+    if ($allowed.Count -le 1) { return }
+    foreach ($dir in (Get-ChildItem -Path $LocalDir -Directory -ErrorAction SilentlyContinue)) {
+        if ($allowed -notcontains $dir.Name) {
+            try {
+                Remove-Item -LiteralPath $dir.FullName -Recurse -Force -ErrorAction Stop
+                Write-Verbose "Pruned obsolete language directory: $($dir.Name)"
+            }
+            catch {
+                Write-Verbose "Failed to prune language directory '$($dir.FullName)': $($_.Exception.Message)"
+            }
+        }
+    }
+}
+
 function Invoke-SourceTextLanguagePreparation {
     [CmdletBinding()]
     param(
@@ -289,6 +318,9 @@ function Invoke-SourceTextLanguagePreparation {
     )
     $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
     $remoteCultures = Get-RemoteAvailableCultures -GitHubApiUrl $GitHubApiUrl
+    if ($remoteCultures.Count -gt 0) {
+        Invoke-SourceTextLanguagePruning -LocalDir $localDir -AllowedCultures $remoteCultures
+    }
     if ($remoteCultures.Count -gt 0) {
         if (-not (Test-Path $localDir)) { New-Item -Path $localDir -ItemType Directory -Force | Out-Null }
         foreach ($culture in $remoteCultures) {
