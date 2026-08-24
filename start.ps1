@@ -74,7 +74,7 @@ if (-not (Test-IsAdministrator)) {
     $elevatedHost = Get-WorkingPwsh
     if (-not $elevatedHost) { $elevatedHost = Install-Pwsh }
     if (-not $elevatedHost) {
-        Write-Error "Impossibile trovare o installare PowerShell 7 richiesto per continuare."
+        Write-Error "Could not find or install the required PowerShell 7 to continue."
         Read-Host -Prompt 'Premi INVIO per chiudere'
         exit 1
     }
@@ -93,7 +93,7 @@ try {
 }
 catch {
     Write-Error "`$_"
-    Read-Host -Prompt 'Elevazione fallita. Premi INVIO per chiudere'
+    Read-Host -Prompt 'Elevation failed. Press ENTER to close'
     exit 1
 }
 "@
@@ -109,10 +109,12 @@ $pwsh = Get-WorkingPwsh
 if (-not $pwsh) { $pwsh = Install-Pwsh }
 
 function Test-WindowsUpdateBlocked {
-    # Returns $true when Windows updates are still in progress or a reboot is
-    # still pending, which means dependency/core installation must be blocked.
+    # Returns $true ONLY when Windows updates are actually being installed
+    # (or a reboot is still pending after an install). A pure download phase
+    # is NOT a blocker: the launcher must proceed in every other case.
 
     # 1. Reboot still required (CBS / Windows Update / pending file renames).
+    #    Proceeding could conflict with queued servicing, so keep blocking.
     $rebootPending =
         (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or
         (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') -or
@@ -120,7 +122,16 @@ function Test-WindowsUpdateBlocked {
 
     if ($rebootPending) { return $true }
 
-    # 2. Updates still being installed right now (operation in progress).
+    # 2. A servicing/installation worker is actively running. The CBS worker
+    #    (TiWorker.exe) runs only while updates are really being installed,
+    #    so this is the reliable "installazione in corso" signal. A download
+    #    (or a pending/downloaded-but-not-installed update) does not start it.
+    if (Get-Process -Name 'TiWorker' -ErrorAction SilentlyContinue) {
+        return $true
+    }
+
+    # 3. An installation operation still recorded as in progress in the
+    #    Windows Update history.
     try {
         $session  = New-Object -ComObject Microsoft.Update.Session
         $searcher = $session.CreateUpdateSearcher()
@@ -135,12 +146,6 @@ function Test-WindowsUpdateBlocked {
                 }
             }
         }
-
-        # 3. Pending software updates not yet installed.
-        $result = $searcher.Search("IsInstalled=0 and Type='Software'")
-        if ($result -and $result.Updates -and $result.Updates.Count -gt 0) {
-            return $true
-        }
     }
     catch {
         # If the Windows Update API cannot be queried, be conservative and block.
@@ -151,18 +156,18 @@ function Test-WindowsUpdateBlocked {
 }
 
 Write-Host ''
-Write-Host 'Controllo aggiornamenti di Windows in corso...' -ForegroundColor Cyan
-Write-Host 'Per evitare conflitti, l''installazione delle dipendenze e di start-core' -ForegroundColor Yellow
-Write-Host 'resta sospesa finche'' gli aggiornamenti di Windows non risultano completati.' -ForegroundColor Yellow
+Write-Host 'Checking Windows update installation...' -ForegroundColor Cyan
+Write-Host 'Startup is suspended ONLY while updates are actually installing' -ForegroundColor Yellow
+Write-Host '(or a reboot is pending). Downloading updates does not block.' -ForegroundColor Yellow
 
 while (Test-WindowsUpdateBlocked) {
     Write-Host ''
-    Write-Host "Aggiornamenti di Windows ancora in corso o riavvio necessario. Nuovo controllo tra 5 secondi..." -ForegroundColor Yellow
+    Write-Host "Windows updates are still installing or a reboot is required. Re-checking in 5 seconds..." -ForegroundColor Yellow
     Start-Sleep -Seconds 5
 }
 
 Write-Host ''
-Write-Host 'Aggiornamenti di Windows completati. Prosecuzione dell''installazione.' -ForegroundColor Green
+Write-Host 'No update installation in progress. Continuing.' -ForegroundColor Green
 
 $coreCommand = '$s = irm ''' + $CoreScriptUrl + '''; & ([scriptblock]::Create($s))'
 $coreProcess = Start-Process -FilePath $pwsh -ArgumentList @(
