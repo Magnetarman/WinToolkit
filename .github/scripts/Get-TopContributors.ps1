@@ -456,15 +456,21 @@ git config core.safecrlf false
 git checkout $MainBranch
 git pull origin $MainBranch
 
-# Check if an existing PR with our label exists
-$existingPrResult = New-PullRequest -BranchName $branchName -Title "docs: update Top 10 Contributors" -Body $prBody -Repo $Repo -Headers $Headers
+# Check if an existing PR with our label exists (read-only, before creating branch)
+$existingPrResult = Get-ExistingPullRequest -Repo $Repo -Headers $Headers
 
 if ($existingPrResult.Exists) {
-    # Use the existing branch
     $branchName = $existingPrResult.Branch
     Write-Host "Using existing branch: $branchName"
     git checkout $branchName
     git pull origin $branchName
+    
+    # Rebase/merge from main to avoid drift and conflicts
+    git merge origin/$MainBranch --no-edit
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Merge conflicts detected. Aborting merge and continuing with current branch state."
+        git merge --abort
+    }
 } else {
     git checkout -b $branchName
 }
@@ -477,7 +483,7 @@ if ($diff) {
     
     if (-not $existingPrResult.Exists) {
         $prNumber = New-PullRequest -BranchName $branchName -Title "docs: update Top 10 Contributors" -Body $prBody -Repo $Repo -Headers $Headers
-        Write-Host "PR #$($prNumber.Number) creata/aggiornata con successo."
+        Write-Host "PR #$($prNumber.Number) creata con successo."
     } else {
         Write-Host "Branch aggiornato. PR #$($existingPrResult.Number) aggiornata automaticamente."
     }
