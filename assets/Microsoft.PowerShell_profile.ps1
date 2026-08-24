@@ -315,11 +315,11 @@ function Speedtest {
     }
 
     $download = Get-Value '(?m)^\s*Download:\s*([\d.]+)' $text
-    $upload   = Get-Value '(?m)^\s*Upload:\s*([\d.]+)' $text
-    $ping     = Get-Value 'Latency:\s*([\d.]+)' $text
-    $jitter   = Get-Value 'jitter\):\s*([\d.]+)\s*ms' $text
-    $serverM  = [regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$')
-    $server   = if ($serverM.Success) { $serverM.Groups[1].Value.Trim() } else { '' }
+    $upload = Get-Value '(?m)^\s*Upload:\s*([\d.]+)' $text
+    $ping = Get-Value 'Latency:\s*([\d.]+)' $text
+    $jitter = Get-Value 'jitter\):\s*([\d.]+)\s*ms' $text
+    $serverM = [regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$')
+    $server = if ($serverM.Success) { $serverM.Groups[1].Value.Trim() } else { '' }
 
     Show-SpeedtestSummary -Download $download -Upload $upload -Ping $ping -Jitter $jitter -Server $server
 }
@@ -736,8 +736,8 @@ function PS-Reset {
     )
 
     $wingetCommand = ($wingetPackages | ForEach-Object {
-        "winget uninstall --id '$_' --silent --accept-source-agreements"
-    }) -join '; '
+            "winget uninstall --id '$_' --silent --accept-source-agreements"
+        }) -join '; '
 
     try {
         Write-Host "`n📦 Uninstalling command-line tools via Winget (non-elevated)..." -ForegroundColor Cyan
