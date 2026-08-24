@@ -1,11 +1,9 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 <#
-.SYNOPSIS
-    Unit test for the WinCleaner module.
-.NOTES
-    Strategy: dot-source the template (-ImportOnly) for the framework,
-    dot-source tools/WinCleaner.ps1 for the function under test.
-    All system operations are mocked.
+Unit test for the WinCleaner module.
+Strategy: dot-source template (-ImportOnly) for the framework,
+dot-source tools/WinCleaner.ps1 for the function under test.
+All system operations are mocked.
 #>
 
 BeforeAll {
@@ -15,7 +13,7 @@ BeforeAll {
     . $script:TemplatePath -ImportOnly
     . $script:ToolPath
 
-    # Prevent all system and console interaction
+    # Prevent system and console interaction
     Mock Start-ToolkitSession { }
     Mock Start-ToolkitLog     { }
     Mock Write-StyledMessage  { }
@@ -24,9 +22,6 @@ BeforeAll {
     Mock Read-Host            { throw "Read-Host not allowed in CI" }
 }
 
-# =============================================================================
-# Function signature
-# =============================================================================
 Describe 'WinCleaner — Signature' {
 
     It 'The WinCleaner function must be available' {
@@ -55,13 +50,9 @@ Describe 'WinCleaner — Signature' {
     }
 }
 
-# =============================================================================
-# VitalExclusions — critical path protection
-# =============================================================================
 Describe 'WinCleaner — VitalExclusions' {
 
     It 'The WinToolkit LocalAppData path must be in VitalExclusions' {
-        # Verify the source includes the self-protection path
         $source = Get-Content -Path $script:ToolPath -Raw
         $source | Should -Match 'LocalAppData.*WinToolkit'
     }

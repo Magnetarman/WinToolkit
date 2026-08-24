@@ -1,5 +1,5 @@
-# WinToolkit CI/CD Pipeline V 4.0.1 — Reusable WinToolkit build
-name: WinToolkit V4.0.1 — Reusable WinToolkit build
+# Reusable WinToolkit build
+name: WinToolkit V4.0.2 — Reusable WinToolkit build
 
 on:
   workflow_call:
@@ -40,6 +40,13 @@ on:
         description: Version label used by the build.
         value: ${{ jobs.build.outputs.version }}
 
+# Serialize builds per branch. Both artifacts are auto-committed to the
+# same branch; without this guard, parallel runs can cause non-fast-forward
+# failures.
+concurrency:
+  group: wintoolkit-ci-build-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Reusable WinToolkit build
@@ -56,7 +63,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -87,10 +94,8 @@ jobs:
           BUILD_BRANCH: ${{ inputs.branch }}
         run: |
           # The version label is resolved in-memory and passed to the compiler.
-          # The framework core is assembled at build time from wintoolkit-modules/*.ps1
-          # (the single source of truth for $ToolkitVersion lives in
-          # wintoolkit-modules/00-Skeleton.Header.ps1). The compiler reads those
-          # modules directly, so nothing here mutates a tracked template.
+          # $ToolkitVersion is read from wintoolkit-modules/00-Skeleton.Header.ps1;
+          # the compiler reads modules directly and nothing here mutates tracked files.
           $templatePath = 'wintoolkit-modules/00-Skeleton.Header.ps1'
           $content = Get-Content -Raw -LiteralPath $templatePath -Encoding UTF8
           $version = $env:REQUESTED_VERSION
@@ -117,16 +122,10 @@ jobs:
           BUILD_VERSION: ${{ steps.version_label.outputs.new_version }}
           MINIFY: ${{ inputs.minify }}
         run: |
-          # Normalize the version coming from a workflow output: GitHub Actions
-          # serializes multiline/Windows CRLF values, so trim stray whitespace
-          # and carriage returns.
+          # Normalize workflow output: trim whitespace and CRLF.
           $buildVersion = ($env:BUILD_VERSION ?? '').Trim().Trim("`r").Trim("`n")
 
-          # Build a typed splatting hashtable. Passing -Minify as a bare string
-          # element in an array makes PowerShell bind it as a positional/value
-          # argument, which breaks argument parsing ("A positional parameter
-          # cannot be found that accepts argument 'WinToolkit.ps1'"). A hashtable
-          # lets the [switch] keep its boolean type.
+          # Use a hashtable so the -Minify switch keeps its boolean type.
           $params = @{ OutputPath = 'WinToolkit.ps1' }
           if ($buildVersion -ne '') { $params['Version'] = $buildVersion }
           $params['Minify'] = ($env:MINIFY -eq 'true')
@@ -140,7 +139,7 @@ jobs:
 
       - name: Commit compiled artifact
         if: steps.test_compiled.outputs.tests_passed == 'true'
-        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
         with:
           commit_message: ${{ inputs.commit-message }}
           file_pattern: WinToolkit.ps1

@@ -1,18 +1,4 @@
-<#
-.SYNOPSIS
-    Compiles WinToolkit.ps1 from the wintool' modules in /wintoolkit-modules and files in /tools.
-
-.DESCRIPTION
-    This script performs the toolkit build, calculates compression
-    statistics, and handles logging.
-
-.EXAMPLE
-    .\Invoke-Build.ps1 -Version "2.5.2 (Build 13)"
-
-.NOTES
-    Author: MagnetarMan
-    Version: 1.0.5
-#>
+# Compiles WinToolkit.ps1 from wintoolkit-modules and /tools, with optional tokenizer-safe minification.
 
 [CmdletBinding()]
 param(
@@ -29,11 +15,10 @@ param(
     [switch]$Minify = $true
 )
 
-# --- PowerShell Best Practices ---
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# --- Variables for statistics ---
+# --- Statistics ---
 $script:SourceTotalBytes = 0
 $script:SourceTotalLines = 0
 $script:OutputTotalBytes = 0
@@ -83,7 +68,6 @@ try {
     Write-BuildLog -Message "  Version: $Version" -Type Header
     Write-BuildLog -Message "========================================" -Type Header
 
-    # Prerequisite check
     Write-BuildLog -Message "`n📋 Checking prerequisites..." -Type Info
 
     if (-not (Test-Path "compiler.ps1")) {
@@ -98,7 +82,6 @@ try {
     }
     Write-BuildLog -Message "  ✅ $TemplatePath present" -Type Success
 
-    # Check files in the tools folder
     $toolFiles = Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue
     if ($toolFiles.Count -eq 0) {
         Write-BuildLog -Message "❌ No .ps1 files found in the tools folder" -Type Error
@@ -106,7 +89,6 @@ try {
     }
     Write-BuildLog -Message "  ✅ $($toolFiles.Count) files found in /tools" -Type Success
 
-    # Calculate source statistics BEFORE compilation
     Write-BuildLog -Message "`n📊 Calculating source statistics..." -Type Info
 
     foreach ($file in $toolFiles) {
@@ -117,7 +99,6 @@ try {
         Write-BuildLog -Message "  📄 $($file.Name): $($stats.Bytes) bytes, $($stats.Lines) lines" -Type Info
     }
 
-    # Include the modular core (wintoolkit-modules) and tools in the source stats
     $moduleFiles = Get-ChildItem -Path $TemplatePath -Filter "*.ps1" -ErrorAction SilentlyContinue
     foreach ($file in $moduleFiles) {
         $stats = Get-FileStats -Path $file.FullName
@@ -128,7 +109,6 @@ try {
 
     Write-BuildLog -Message "`n📈 Total source: $([math]::Round($script:SourceTotalBytes/1KB, 2)) KB, $($script:SourceTotalLines) lines" -Type Header
 
-    # Run compilation (with or without safe minification via tokenizer)
     $minifyLabel = if ($Minify) { "WITH minification (tokenizer-safe)" } else { "WITHOUT minification" }
     Write-BuildLog -Message "`n🔨 Starting compilation $minifyLabel..." -Type Info
 
@@ -152,7 +132,6 @@ try {
         exit 1
     }
 
-    # Verify output
     if (-not (Test-Path $OutputPath)) {
         Write-BuildLog -Message "❌ File $OutputPath not created" -Type Error
         exit 1
@@ -160,7 +139,6 @@ try {
 
     Write-BuildLog -Message "✅ Compiled file created: $OutputPath" -Type Success
 
-    # Calculate output statistics AFTER compilation
     Write-BuildLog -Message "`n📊 Calculating output statistics..." -Type Info
 
     $outputStats = Get-FileStats -Path $OutputPath
@@ -169,7 +147,6 @@ try {
 
     Write-BuildLog -Message "  📄 ${OutputPath}: $($outputStats.Bytes) bytes, $($outputStats.Lines) lines" -Type Info
 
-    # Calculate compression statistics
     $reductionBytes = $script:SourceTotalBytes - $script:OutputTotalBytes
     $reductionPercent = [math]::Round(($reductionBytes / $script:SourceTotalBytes) * 100, 2)
     $linesRemoved = $script:SourceTotalLines - $script:OutputTotalLines
@@ -189,7 +166,6 @@ try {
     Write-BuildLog -Message "  COMPILATION COMPLETE" -Type Header
     Write-BuildLog -Message "========================================" -Type Header
 
-    # Output for GitHub Actions
     Write-Output "source_bytes=$script:SourceTotalBytes" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "source_kb=$([math]::Round($script:SourceTotalBytes/1KB, 2))" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "source_lines=$script:SourceTotalLines" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append

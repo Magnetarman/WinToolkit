@@ -1,0 +1,123 @@
+# Updates the "Top 10 Contributors" README section.
+# main (protected) -> Pull Request; Dev (unprotected, testing) -> direct commit.
+# Scheduled runs (Mon 04:00 UTC) target Dev only; manual dispatch can target Dev or main.
+# Runtime: PowerShell 7+.
+
+name: WinToolkit — Top Contributors V4.0.2
+
+on:
+  schedule:
+    # Every Monday 04:00 UTC. Always targets Dev (main excluded: must remain manual).
+    # Runtime check enforces Europe/Rome 05:00-07:00 window (CET/CEST auto-handled).
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: "Branch receiving the contributors update PR. Use 'Dev' to test functionality/feasibility; use 'main' for the manual contributors update on production."
+        required: true
+        default: Dev
+        type: choice
+        options:
+          - Dev
+          - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: top-contributors
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================================
+  # JOB 0: VALIDATE
+  # Verifies official repository and admin/maintainer permissions.
+  # ===========================================================================
+  validate:
+    name: Validate Repository and Permissions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Verify Official Repository
+        run: |
+          if [ "${{ github.repository }}" != "Magnetarman/WinToolkit" ]; then
+            echo "::error::Action not allowed: supported only in the official repository https://github.com/Magnetarman/WinToolkit/. Current: ${{ github.repository }}"
+            exit 1
+          fi
+          echo "Official repository verified"
+      
+      - name: Verify Admin or Maintainer Permission
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const username = context.actor;
+            const permission = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: username
+            });
+            
+            const level = permission.data.permission;
+            if (level !== 'admin' && level !== 'maintain') {
+              core.setFailed(`User @${username} does not have admin/maintainer permissions (current: ${level}). This workflow can only be triggered by admins or maintainers.`);
+            } else {
+              core.info(`Permission verified: @${username} has '${level}' access`);
+            }
+      
+      - name: Skip Permission Check for Scheduled Runs
+        if: github.event_name == 'schedule'
+        run: echo "Scheduled run — permission check skipped"
+
+  # ===========================================================================
+  # JOB 1: UPDATE CONTRIBUTORS
+  # Runs the PowerShell script that calculates rankings and updates the README.
+  # ===========================================================================
+  update-contributors:
+    name: Update Top Contributors
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate
+    env:
+      TARGET_BRANCH: ${{ github.event_name == 'schedule' && 'Dev' || inputs.target_branch }}
+    
+    steps:
+      - name: Guard — Scheduled runs may only target Dev
+        # Enforces: scheduled runs may only target Dev.
+        if: github.event_name == 'schedule'
+        shell: bash
+        run: |
+          if [ "${{ env.TARGET_BRANCH }}" != "Dev" ]; then
+            echo "::error::Scheduled run is only allowed to update the 'Dev' branch. Refusing to auto-update '${{ env.TARGET_BRANCH }}' (main must stay manual)."
+            exit 1
+          fi
+          echo "Scheduled run — target branch verified: '${{ env.TARGET_BRANCH }}' (Dev only, as required)."
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ env.TARGET_BRANCH }}
+      
+      - name: Run Top Contributors Script
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          & .github/scripts/Get-TopContributors.ps1 `
+            -GitHubToken "${{ env.GITHUB_TOKEN }}" `
+            -Repo "Magnetarman/WinToolkit" `
+            -DevBranch "Dev" `
+            -MainBranch "main" `
+            -TargetBranch "${{ env.TARGET_BRANCH }}" `
+            -ReadmePath "README.md" `
+            -TopN 10 `
+            -SectionTitle "👥 Top 10 Contributors"

@@ -1,26 +1,19 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 <#
-.SYNOPSIS
-    Unit tests for the shared helper functions defined in 80-Module.Common.ps1
-    and 10-Module.Logging.ps1.
-
-    The module fragments are dot-sourced in BeforeAll so the same function
-    objects the pipeline will concatenate are exercised here.
+Unit tests for shared helpers in 80-Module.Common.ps1 and 10-Module.Logging.ps1.
+Module fragments are dot-sourced in BeforeAll (same objects the pipeline concatenates).
 #>
 
 BeforeAll {
     $moduleRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\start-modules')
     foreach ($file in (Get-ChildItem -Path $moduleRoot -Filter '*.ps1' | Sort-Object Name)) {
-        # The Main skeleton auto-invokes Invoke-WinToolkitSetup at load time
-        # (it owns the script entry point), which requires an interactive
-        # console. Unit tests dot-source every fragment except Main.
+        # Skip interactive entry point
         if ($file.Name -eq '90-Skeleton.Main.ps1') { continue }
         . $file.FullName
     }
 
-    # Logging helpers used by the common helpers must not crash when no log
-    # file is configured yet.
+    # Allow no-op logging when no log file is configured
     $script:CurrentLogFile = $null
     if (-not (Test-Path Variable:Global:MsgStyles)) {
         $Global:MsgStyles = @{

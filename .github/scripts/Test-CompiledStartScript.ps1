@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Validates the compiled start-core.ps1 artefact.
+    Validates compiled start-core.ps1: syntax, functions, size, markers.
 #>
 [CmdletBinding()]
 param(

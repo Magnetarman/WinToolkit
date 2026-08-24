@@ -1,19 +1,18 @@
 name: Feature Enhancement
-description: Suggest an improvement to an existing WinToolkit feature
+description: Suggest an improvement to an existing feature.
 title: "[ENHANCEMENT]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for suggesting an improvement. This template is for changes and optimizations to features already present in WinToolkit.
-        *Remember: 1 issue = 1 single improvement.*
+        Suggest improvements here. One issue per improvement.
 
   - type: checkboxes
     id: critical-checks
     attributes:
       label: Preliminary Checks
-      description: Confirm these checks before opening the issue.
+      description: Confirm these checks before opening.
       options:
         - label: I checked that no existing issue reports the same improvement.
           required: true
@@ -26,7 +25,7 @@ body:
     id: current-behavior
     attributes:
       label: Current Behavior
-      description: Describe how the feature currently works.
+      description: Describe the current behavior.
       placeholder: For example, disk cleanup currently removes only basic temporary files.
     validations:
       required: true
@@ -35,7 +34,7 @@ body:
     id: suggested-improvement
     attributes:
       label: Proposed Improvement
-      description: Clearly describe what should be changed or improved.
+      description: Describe the proposed change.
       placeholder: For example, include Windows Update cache files and system logs older than seven days.
     validations:
       required: true
@@ -44,7 +43,7 @@ body:
     id: benefits
     attributes:
       label: Benefits
-      description: Explain the benefits for WinToolkit users.
+      description: Explain the user benefits.
       placeholder: This would recover more disk space automatically without manual intervention.
     validations:
       required: true
@@ -65,7 +64,7 @@ body:
     id: alternatives
     attributes:
       label: Alternatives Considered
-      description: Did you consider other ways to achieve the same result?
+      description: Did you consider other approaches?
     validations:
       required: false
 
@@ -73,7 +72,7 @@ body:
     id: context
     attributes:
       label: Additional Context
-      description: Add screenshots, examples or resource links.
+      description: Add screenshots or links.
     validations:
       required: false
 

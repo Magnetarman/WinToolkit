@@ -1,18 +1,6 @@
 <#
 .SYNOPSIS
-    Increments the build number in the WinToolkit template.
-
-.DESCRIPTION
-    This script reads the wintoolkit-modules/00-Skeleton.Header.ps1 file (the framework
-    core source of truth), extracts the current version, increments the build number,
-    and saves the updated file.
-
-.EXAMPLE
-    .\Update-Version.ps1 -TemplatePath "wintoolkit-modules/00-Skeleton.Header.ps1"
-
-.NOTES
-    Author: MagnetarMan
-    Version: 1.0.5
+    Increments the build number in WinToolkit header templates.
 #>
 
 [CmdletBinding()]
@@ -24,11 +12,9 @@ param(
     [string]$StartHeaderPath = "start-modules/00-Skeleton.Header.ps1"
 )
 
-# --- PowerShell Best Practices ---
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# --- Output variables ---
 $script:NewVersion = $null
 $script:BuildNumber = $null
 $script:OldVersion = $null
@@ -57,17 +43,13 @@ try {
     Write-StatusMessage -Message "  INCREMENTING BUILD NUMBER" -Type Info
     Write-StatusMessage -Message "========================================" -Type Info
 
-    # Verify the file exists
     if (-not (Test-Path $TemplatePath)) {
         Write-StatusMessage -Message "❌ File $TemplatePath not found" -Type Error
         exit 1
     }
 
-    # Read the file content
-    Write-StatusMessage -Message "📖 Reading file: $TemplatePath" -Type Info
     $content = Get-Content -Path $TemplatePath -Raw
 
-    # Find the version line and extract the build number
     $versionPattern = '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]'
 
     if ($content -match $versionPattern) {
@@ -81,17 +63,14 @@ try {
             $currentBuild = [int]$matches[1]
             $script:BuildNumber = $currentBuild + 1
 
-            # Build the new version maintaining the same format
             $script:NewVersion = $script:OldVersion -replace "Build\s+$currentBuild", "Build $script:BuildNumber"
 
             Write-StatusMessage -Message "🔄 Build increment: $currentBuild → $script:BuildNumber" -Type Warning
             Write-StatusMessage -Message "🆕 New version: $script:NewVersion" -Type Success
 
-            # Replace the version line
             $newLine = "`$ToolkitVersion = `"$script:NewVersion`""
             $content = $content -replace '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]', $newLine
 
-            # Write the updated file atomically (temp + rename)
             $tempPath = "$TemplatePath.tmp"
             $content | Set-Content -Path $tempPath -Encoding UTF8
             Move-Item $tempPath $TemplatePath -Force
@@ -124,7 +103,6 @@ try {
         exit 1
     }
 
-    # Output for GitHub Actions
     Write-Output "new_version=$script:NewVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "build_number=$script:BuildNumber" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "old_version=$script:OldVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append

@@ -1,11 +1,9 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 <#
-.SYNOPSIS
-    Unit test for the GamingToolkit module.
-.NOTES
-    Strategy: dot-source the template (-ImportOnly) for the framework,
-    dot-source tools/GamingToolkit.ps1 for the function under test.
-    winget and all system commands are mocked.
+Unit test for the GamingToolkit module.
+Strategy: dot-source template (-ImportOnly) for the framework,
+dot-source tools/GamingToolkit.ps1 for the function under test.
+winget and all system commands are mocked.
 #>
 
 BeforeAll {
@@ -22,9 +20,6 @@ BeforeAll {
     Mock Read-Host            { throw "Read-Host not allowed in CI" }
 }
 
-# =============================================================================
-# Function signature
-# =============================================================================
 Describe 'GamingToolkit — Signature' {
 
     It 'The GamingToolkit function must be available' {
@@ -40,15 +35,11 @@ Describe 'GamingToolkit — Signature' {
     }
 
     It '-CountdownSeconds must have a default value of 30' {
-        # Read the source to verify, since .DefaultValue doesn't work with simple definitions
         $source = Get-Content -Path $script:ToolPath -Raw
         $source | Should -Match '\[int\]\$CountdownSeconds\s*=\s*30'
     }
 }
 
-# =============================================================================
-# WinGet integration — source verification
-# =============================================================================
 Describe 'GamingToolkit — WinGet Integration' {
 
     It 'The module must use winget for installations' {

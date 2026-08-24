@@ -1,10 +1,8 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 <#
-.SYNOPSIS
-    Minimal deterministic smoke tests used by the GitHub Actions pipeline.
-
-    The complete suite remains in WinToolkit.Tests.ps1 for local validation.
+Minimal deterministic smoke tests for the GitHub Actions pipeline.
+Full suite: WinToolkit.Tests.ps1.
 #>
 
 BeforeAll {

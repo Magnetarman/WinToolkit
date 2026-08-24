@@ -1,5 +1,4 @@
-# WinToolkit CI/CD Pipeline V 4.0.1 — Composite Action
-name: WinToolkit V4.0.1 — Setup PowerShell CI modules
+name: WinToolkit V4.0.2 — Setup PowerShell CI modules
 description: Install the PowerShell modules required by WinToolkit CI jobs.
 
 inputs:

@@ -1,19 +1,18 @@
 name: Feature Request
-description: Propose a new idea, script or improvement for WinToolkit
+description: Propose a new feature or idea.
 title: "[FEATURE]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Do you have an idea to make WinToolkit better? Share it with us.
-        *Remember: 1 issue = 1 single feature.*
+        Share your feature ideas. One issue per feature.
 
   - type: textarea
     id: problem
     attributes:
       label: What problem would this solve?
-      description: Describe the problem or situation behind this request.
+      description: Describe the problem this solves.
       placeholder: For example, setting X currently requires too many manual steps.
     validations:
       required: true
@@ -22,7 +21,7 @@ body:
     id: solution
     attributes:
       label: Proposed Solution
-      description: How should this feature work?
+      description: Describe the proposed feature.
       placeholder: I would like a new button in menu Y that automates Z.
     validations:
       required: true
@@ -31,7 +30,7 @@ body:
     id: alternatives
     attributes:
       label: Alternatives Considered
-      description: Did you consider other ways to achieve the same result?
+      description: Did you consider other approaches?
     validations:
       required: false
 
@@ -39,7 +38,7 @@ body:
     id: context
     attributes:
       label: Additional Context
-      description: Add screenshots, code examples, mockups or links to similar tools.
+      description: Add screenshots or links.
     validations:
       required: false
 

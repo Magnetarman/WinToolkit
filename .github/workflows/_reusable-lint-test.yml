@@ -1,5 +1,5 @@
-# WinToolkit CI/CD Pipeline V 4.0.1 — Reusable lint and test
-name: WinToolkit V4.0.1 — Reusable lint and test
+# Reusable lint and test
+name: WinToolkit V4.0.2 — Reusable lint and test
 
 on:
   workflow_call:
@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           fetch-depth: 0
 
@@ -71,7 +71,7 @@ jobs:
           }
 
           if ($hasErrors) {
-            Write-Host "::error::PSScriptAnalyzer found blocking errors." 
+            Write-Host "::error::PSScriptAnalyzer found blocking errors."
             exit 1
           }
 
@@ -122,7 +122,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           fetch-depth: 0
 
@@ -135,8 +135,7 @@ jobs:
           VALIDATE_START: ${{ inputs.validate-start }}
           RUN_INTEGRATION_TESTS: ${{ inputs.run-integration-tests }}
         run: |
-          # PSScriptAnalyzer already ran in the 'linting' job with the shared
-          # settings file; re-running it here would duplicate work and diverge.
+          # PSScriptAnalyzer already ran in the 'linting' job; skip here.
           $config = New-PesterConfiguration
           $config.Run.Path                = @(
             '.github/tests/CI-Smoke.Tests.ps1',

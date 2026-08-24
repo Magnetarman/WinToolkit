@@ -1,19 +1,15 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 <#
-.SYNOPSIS
-    Unit tests for the localization helpers in 20-Module.Localization.ps1.
-
-    Verifies that a known key resolves, positional arguments interpolate, key
-    aliases redirect, and that the embedded English fallback prevents the raw
-    "[MISSING TRANSLATION: ...]" placeholder from ever reaching the user (§3.7).
+Unit tests for localization helpers in 20-Module.Localization.ps1.
+Verifies key resolution, positional interpolation, alias redirection, and the
+embedded English fallback (prevents raw "[MISSING TRANSLATION: ...]" reaching the user, §3.7).
 #>
 
 BeforeAll {
     $moduleRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\start-modules')
     foreach ($file in (Get-ChildItem -Path $moduleRoot -Filter '*.ps1' | Sort-Object Name)) {
-        # The Main skeleton auto-invokes Invoke-WinToolkitSetup at load time,
-        # which requires an interactive console; skip it in unit tests.
+        # 90-Skeleton.Main.ps1 auto-invokes the interactive entry point; skip it
         if ($file.Name -eq '90-Skeleton.Main.ps1') { continue }
         . $file.FullName
     }
@@ -27,8 +23,7 @@ BeforeAll {
         }
     }
 
-    # Language resolution normally runs network preparation; for unit tests we
-    # initialise directly from the embedded English text (the offline fallback).
+    # Init directly from embedded English (offline fallback)
     Initialize-SourceTextLocalization -LanguageCode 'en-US'
 }
 

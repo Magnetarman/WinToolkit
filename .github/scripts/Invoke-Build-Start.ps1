@@ -1,7 +1,4 @@
-<#
-.SYNOPSIS
-    Builds start-core.ps1 by concatenating the ordered start-modules fragments.
-#>
+# Build start-core.ps1 from ordered start-modules fragments.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
@@ -75,12 +72,8 @@ try {
     if ($content -notmatch $versionPattern) { throw 'ToolkitVersion placeholder was not found in start-modules.' }
     $content = [regex]::Replace($content, $versionPattern, ('$ToolkitVersion = "' + $escapedVersion + '"'), 1)
 
-    # Tokenizer-safe minification (shared logic in Minify-Source.ps1) strips
-    # comment tokens, trims trailing whitespace and drops blank lines, then
-    # verifies the result with the PowerShell parser and rolls back to the
-    # original content on any post-minification syntax error. The shared helper
-    # is required; if it is missing the build fails explicitly rather than
-    # emitting a non-minified artifact.
+    # Tokenizer-safe minification (Minify-Source.ps1) strips comments, trims whitespace, drops blank lines,
+    # verifies syntax, and rolls back on errors.
     if ($Minify) {
         Write-BuildLog -Message 'Applying tokenizer-safe minification...' -Type Info
         $helperPath = Join-Path $PSScriptRoot 'Minify-Source.ps1'

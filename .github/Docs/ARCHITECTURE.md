@@ -154,6 +154,31 @@ Generates release notes from the CHANGELOG and prepares assets for distribution.
 
 Creates the `release/vX.Y.Z` branch, applies compiled changes, and prepares a PR to `main` (PR creation is manual by intentional architectural choice).
 
+### `Top-Contributors.yml` — Top Contributors Update
+
+Automatically updates the "Top 10 Contributors" section in the README on `main`.
+
+```
+schedule/workflow_dispatch
+       │
+       ▼
+  [validate]  ← official repo + admin/maintainer permissions
+       │
+       ▼
+  [update-contributors]  ← GitHub API queries (commits + PRs on Dev)
+       │
+       ├─ Calculates rankings (PRs primary, commits secondary)
+       ├─ Excludes bots (github-actions[bot], dependabot[bot])
+       ├─ Updates README between HTML markers
+       └─ Creates/updates PR toward main
+```
+
+Trigger:
+- Schedule: every Monday at 06:00 Italian time (runtime CET/CEST check)
+- Manual: `workflow_dispatch` with admin/maintainer permission check
+
+The script `.github/scripts/Get-TopContributors.ps1` queries the GitHub APIs with pagination, calculates the ranking, and updates the README. Because `main` has active branch protection, direct push is blocked and a PR is mandatory to deliver changes.
+
 ### V4.0 CI/CD modular architecture
 
 The V4.0 pipeline separates orchestration from reusable implementation:
