@@ -165,6 +165,8 @@ Thank you from the heart for your support!
 
 ---
 
+## 👥 Top 10 Contributors
+
 <!-- TOP_CONTRIBUTORS_START -->
 <!-- Sezione aggiornata automaticamente da .github/workflows/Top-Contributors.yml -->
 <!-- TOP_CONTRIBUTORS_END -->
