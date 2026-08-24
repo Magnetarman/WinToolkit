@@ -140,9 +140,9 @@ function Invoke-ExternalCommand {
             $null = $proc.WaitForExit()
             Write-ToolkitLog -Level 'ERROR' -Message "External command timed out after $TimeoutSeconds s: $FilePath $($ArgumentList -join ' ')"
             return [pscustomobject]@{
-                ExitCode   = -2; TimedOut = $true; Accepted = $false
-                StdOut     = ''; StdErr = ''; DurationMs = $stopwatch.ElapsedMilliseconds
-                Command    = "$FilePath $($ArgumentList -join ' ')"
+                ExitCode = -2; TimedOut = $true; Accepted = $false
+                StdOut = ''; StdErr = ''; DurationMs = $stopwatch.ElapsedMilliseconds
+                Command = "$FilePath $($ArgumentList -join ' ')"
             }
         }
 
@@ -166,9 +166,9 @@ function Invoke-ExternalCommand {
     catch {
         Write-ToolkitLog -Level 'ERROR' -Message "External command failed ($FilePath): $($_.Exception.Message)"
         return [pscustomobject]@{
-            ExitCode   = -1; TimedOut = $false; Accepted = $false; Error = $_.Exception.Message
-            StdOut     = ''; StdErr = ''; DurationMs = $stopwatch.ElapsedMilliseconds
-            Command    = "$FilePath $($ArgumentList -join ' ')"
+            ExitCode = -1; TimedOut = $false; Accepted = $false; Error = $_.Exception.Message
+            StdOut = ''; StdErr = ''; DurationMs = $stopwatch.ElapsedMilliseconds
+            Command = "$FilePath $($ArgumentList -join ' ')"
         }
     }
     finally {

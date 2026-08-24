@@ -1,5 +1,5 @@
-# WinToolkit CI/CD Pipeline — Security Scan V 4.0.1
-name: WinToolkit — Security Scan V4.0.1
+# WinToolkit CI/CD Pipeline — Security Scan V4.0.2
+name: WinToolkit — Security Scan V4.0.2
 
 on:
   push:

@@ -1,5 +1,5 @@
-# WinToolkit CI/CD Pipeline V 4.0.1 — Reusable WinToolkit build
-name: WinToolkit V4.0.1 — Reusable WinToolkit build
+# WinToolkit CI/CD Pipeline V4.0.2 — Reusable WinToolkit build
+name: WinToolkit V4.0.2 — Reusable WinToolkit build
 
 on:
   workflow_call:
@@ -39,6 +39,14 @@ on:
       version:
         description: Version label used by the build.
         value: ${{ jobs.build.outputs.version }}
+
+# Serialize every artifact build on the same branch. WinToolkit.ps1 and
+# start-core.ps1 are committed to the same branch by git-auto-commit-action;
+# without this guard, a push touching both source families would run the two
+# builds in parallel and the second push would fail as non-fast-forward.
+concurrency:
+  group: wintoolkit-ci-build-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   build:
