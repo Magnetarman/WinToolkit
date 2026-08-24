@@ -165,6 +165,12 @@ Thank you from the heart for your support!
 
 ---
 
+<!-- TOP_CONTRIBUTORS_START -->
+<!-- Sezione aggiornata automaticamente da .github/workflows/Top-Contributors.yml -->
+<!-- TOP_CONTRIBUTORS_END -->
+
+---
+
 ## 🎗 Author
 
 Created with ❤️ by [Magnetarman](https://magnetarman.com/).
