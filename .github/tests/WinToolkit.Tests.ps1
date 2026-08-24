@@ -1,30 +1,22 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 <#
-.SYNOPSIS
-    Suite di test Pester 5 per le funzioni core di WinToolkit.
-.NOTES
-    Scope: Write-StyledMessage, Get-WingetExecutable, Invoke-ExternalCommandWithLog,
-           Read-ValidatedChoice, Write-ToolkitLog
-    Strategia: le funzioni vengono dot-sourced dal template con -ImportOnly
-    (il template controlla `if (-not $ImportOnly)` a riga ~1801 prima del menu).
-    Dove possibile si usa Mock Pester 5 per isolare il comportamento senza
-    effetti collaterali su console, filesystem o processi di sistema.
+Pester 5 test suite for WinToolkit core functions.
+Scope: Write-StyledMessage, Get-WingetExecutable, Invoke-ExternalCommandWithLog,
+       Read-ValidatedChoice, Write-ToolkitLog
+Strategy: dot-source template with -ImportOnly; isolate behavior with Pester 5 Mock.
 #>
 
-# =============================================================================
-# SETUP GLOBALE
-# =============================================================================
 BeforeAll {
-    $script:TemplatePath = Resolve-Path (Join-Path $PSScriptRoot '..\..\WinToolkit-template.ps1')
+    $script:TemplatePath = & (Join-Path $PSScriptRoot '..\scripts\New-WinToolkitCoreScript.ps1')
 
     try {
         . $script:TemplatePath -ImportOnly
     }
     catch {
-        throw "Impossibile caricare WinToolkit-template.ps1: $_"
+        throw "Unable to load WinToolkit core (assembled from wintoolkit-modules): $_"
     }
 
-    # Inizializza i globals nel caso il template li abbia saltati
+    # Initialize globals in case the template skipped them
     if (-not $Global:MsgStyles) {
         $Global:MsgStyles = @{
             Success  = @{ Icon = '[OK]';   Color = 'Green'   }
@@ -43,21 +35,18 @@ BeforeAll {
     $Global:CurrentToolName  = 'PesterTest'
     $Global:GuiSessionActive = $false
 
-    # Mock globale per evitare hang in CI se una funzione chiama Read-Host inaspettatamente
-    Mock Read-Host { throw "Input richiesto in ambiente CI (Headless)! Assicurati di passare RawInput o mockare la chiamata." }
+    # Prevent Read-Host hangs in CI
+    Mock Read-Host { throw "Input required in CI (Headless) environment! Make sure to pass RawInput or mock the call." }
 }
 
-# =============================================================================
-# Write-StyledMessage — comportamento + icone + colori
-# =============================================================================
 Describe 'Write-StyledMessage' {
 
     BeforeEach {
-        $Global:CurrentLogFile = $null   # Write-ToolkitLog diventa no-op
+        $Global:CurrentLogFile = $null   # Write-ToolkitLog becomes a no-op
     }
 
-    # ── Smoke tests: nessuna eccezione per tutti i tipi ─────────────────────
-    It 'Non deve lanciare eccezione per il tipo <Type>' -ForEach @(
+    # Smoke test: no exception for any type
+    It 'Must not throw an exception for type <Type>' -ForEach @(
         @{ Type = 'Success'  }
         @{ Type = 'Warning'  }
         @{ Type = 'Error'    }
@@ -68,14 +57,12 @@ Describe 'Write-StyledMessage' {
         { Write-StyledMessage -Type $Type -Text 'Smoke test' } | Should -Not -Throw
     }
 
-    It 'Non deve lanciare eccezione con -NoNewline' {
+    It 'Must not throw with -NoNewline' {
         { Write-StyledMessage -Type 'Question' -Text 'Prompt?' -NoNewline } | Should -Not -Throw
     }
 
-    # ── Verifica icona nell'output console ──────────────────────────────────
-    # Mock Write-Host per catturare il testo effettivamente scritto.
-    # L'output di Write-StyledMessage ha forma: "[HH:mm:ss] <Icon> <Text>"
-    It 'Deve includere l icona corretta per il tipo <Type>' -ForEach @(
+    # Icon format: "[HH:mm:ss] <Icon> <Text>"
+    It 'Must include the correct icon for type <Type>' -ForEach @(
         @{ Type = 'Success'  }
         @{ Type = 'Warning'  }
         @{ Type = 'Error'    }
@@ -92,8 +79,8 @@ Describe 'Write-StyledMessage' {
         $script:captured | Should -Match ([regex]::Escape($expectedIcon))
     }
 
-    # ── Verifica colore ForegroundColor ─────────────────────────────────────
-    It 'Deve usare il colore ForegroundColor corretto per il tipo <Type>' -ForEach @(
+    # ForegroundColor
+    It 'Must use the correct ForegroundColor for type <Type>' -ForEach @(
         @{ Type = 'Success'; ExpectedColor = 'Green'   }
         @{ Type = 'Warning'; ExpectedColor = 'Yellow'  }
         @{ Type = 'Error';   ExpectedColor = 'Red'     }
@@ -107,8 +94,8 @@ Describe 'Write-StyledMessage' {
         $script:capturedColor | Should -Be $ExpectedColor
     }
 
-    # ── Bridge log: verifica scrittura su file ───────────────────────────────
-    It 'Deve scrivere sul file di log quando CurrentLogFile e impostato' {
+    # File write
+    It 'Must write to the log file when CurrentLogFile is set' {
         $tmpLog = [System.IO.Path]::GetTempFileName()
         $Global:CurrentLogFile = $tmpLog
         try {
@@ -122,8 +109,8 @@ Describe 'Write-StyledMessage' {
         }
     }
 
-    # ── Mapping livelli: Success → SUCCESS, Warning → WARNING, Error → ERROR
-    It 'Deve mappare il tipo <Type> al livello log <ExpectedLevel>' -ForEach @(
+    # Level mapping: Success → SUCCESS, Warning → WARNING, Error → ERROR
+    It 'Must map type <Type> to log level <ExpectedLevel>' -ForEach @(
         @{ Type = 'Success';  ExpectedLevel = 'SUCCESS' }
         @{ Type = 'Warning';  ExpectedLevel = 'WARNING' }
         @{ Type = 'Error';    ExpectedLevel = 'ERROR'   }
@@ -144,20 +131,16 @@ Describe 'Write-StyledMessage' {
     }
 }
 
-# =============================================================================
-# Get-WingetExecutable — mocking Test-Path per isolare la logica di risoluzione
-# =============================================================================
 Describe 'Get-WingetExecutable' {
 
-    It 'Deve restituire un valore di tipo stringa non vuoto' {
+    It 'Must return a non-empty string value' {
         $result = Get-WingetExecutable
         $result | Should -BeOfType [string]
         $result | Should -Not -BeNullOrEmpty
     }
 
-    Context 'Quando l alias App Execution esiste' {
+    Context 'When the App Execution alias exists' {
         BeforeEach {
-            # Mock Test-Path in modo che restituisca $true SOLO per il percorso alias
             $script:AliasPath = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\winget.exe'
             Mock Test-Path {
                 param([Parameter(ValueFromPipeline)]$Path)
@@ -165,42 +148,42 @@ Describe 'Get-WingetExecutable' {
             }
         }
 
-        It 'Deve restituire il percorso alias' {
+        It 'Must return the alias path' {
             $result = Get-WingetExecutable
             $result | Should -Be $script:AliasPath
         }
 
-        It 'Non deve cercare in WindowsApps quando l alias e disponibile' {
-            Mock Get-ChildItem { }   # non deve essere chiamata
+        It 'Must not search WindowsApps when the alias is available' {
+            Mock Get-ChildItem { }
             $null = Get-WingetExecutable
             Should -Invoke Get-ChildItem -Times 0
         }
     }
 
-    Context 'Quando nessun percorso risolto esiste (fallback)' {
+    Context 'When no resolved path exists (fallback)' {
         BeforeEach {
             Mock Test-Path { $false }
             Mock Get-ChildItem { $null }
         }
 
-        It 'Deve restituire la stringa "winget" come fallback' {
+        It 'Must return the string "winget" as fallback' {
             $result = Get-WingetExecutable
             $result | Should -Be 'winget'
         }
     }
 
-    Context 'Comportamento reale sul runner (senza mock)' {
+    Context 'Real behavior on the runner (without mocks)' {
 
-        It 'Restituisce il percorso alias se esiste sul runner' {
+        It 'Returns the alias path if it exists on the runner' {
             $aliasPath = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\winget.exe'
             if (Test-Path $aliasPath) {
                 Get-WingetExecutable | Should -Be $aliasPath
             } else {
-                Set-ItResult -Skipped -Because 'Alias winget non presente su questo runner'
+                Set-ItResult -Skipped -Because 'winget alias not present on this runner'
             }
         }
 
-        It 'Restituisce "winget" se nessun percorso risolto esiste sul runner' {
+        It 'Returns "winget" if no resolved path exists on the runner' {
             $aliasPath = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\winget.exe'
             $hasDirs   = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" `
                 -Filter 'Microsoft.DesktopAppInstaller_*' -ErrorAction SilentlyContinue |
@@ -208,27 +191,24 @@ Describe 'Get-WingetExecutable' {
             if (-not (Test-Path $aliasPath) -and -not $hasDirs) {
                 Get-WingetExecutable | Should -Be 'winget'
             } else {
-                Set-ItResult -Skipped -Because 'Winget risolvibile — fallback non raggiungibile'
+                Set-ItResult -Skipped -Because 'Winget resolvable — fallback not reached'
             }
         }
     }
 }
 
-# =============================================================================
-# Write-ToolkitLog — scrittura, formattazione, Mutex e concorrenza
-# =============================================================================
 Describe 'Write-ToolkitLog' {
 
-    Context 'Quando CurrentLogFile e nullo (no-op)' {
+    Context 'When CurrentLogFile is null (no-op)' {
 
         BeforeEach { $Global:CurrentLogFile = $null }
 
-        It 'Non deve lanciare eccezione' {
+        It 'Must not throw an exception' {
             { Write-ToolkitLog -Level 'INFO' -Message 'No-op test' } | Should -Not -Throw
         }
     }
 
-    Context 'Scrittura corretta su file' {
+    Context 'Correct file writing' {
 
         BeforeEach {
             $script:tmpLog         = [System.IO.Path]::GetTempFileName()
@@ -239,33 +219,33 @@ Describe 'Write-ToolkitLog' {
             Remove-Item $script:tmpLog -ErrorAction SilentlyContinue
         }
 
-        It 'Deve scrivere livello e messaggio nel formato atteso' {
+        It 'Must write level and message in the expected format' {
             Write-ToolkitLog -Level 'INFO' -Message 'PesterLogEntry'
             $content = Get-Content -Path $script:tmpLog -Raw
             $content | Should -Match '\[INFO\]'
             $content | Should -Match 'PesterLogEntry'
         }
 
-        It 'La riga deve contenere un timestamp nel formato [HH:mm:ss]' {
+        It 'The line must contain a timestamp in [HH:mm:ss] format' {
             Write-ToolkitLog -Level 'INFO' -Message 'TimestampTest'
             (Get-Content -Path $script:tmpLog -Raw) | Should -Match '\[\d{2}:\d{2}:\d{2}\]'
         }
 
-        It 'Deve rimuovere i codici ANSI escape dal messaggio' {
+        It 'Must strip ANSI escape codes from the message' {
             Write-ToolkitLog -Level 'INFO' -Message "`e[32mColoredText`e[0m"
             $content = Get-Content -Path $script:tmpLog -Raw
             $content | Should -Match 'ColoredText'
             $content | Should -Not -Match '\x1B'
         }
 
-        It 'Deve appendere il contesto come JSON quando fornito' {
+        It 'Must append context as JSON when provided' {
             Write-ToolkitLog -Level 'DEBUG' -Message 'ContextTest' -Context @{ Tool = 'Pester'; Step = 'Unit' }
             $content = Get-Content -Path $script:tmpLog -Raw
             $content | Should -Match 'Context:'
             $content | Should -Match '"Tool"'
         }
 
-        It 'Deve supportare tutti i livelli validi senza errori' {
+        It 'Must support all valid levels without errors' {
             foreach ($level in @('DEBUG', 'INFO', 'WARNING', 'ERROR', 'SUCCESS')) {
                 { Write-ToolkitLog -Level $level -Message "Level-$level" } | Should -Not -Throw
             }
@@ -276,19 +256,19 @@ Describe 'Write-ToolkitLog' {
         }
     }
 
-    Context 'Protezione Mutex — scritture concorrenti' {
+    Context 'Mutex protection — concurrent writes' {
 
-        It 'Deve preservare tutte le entry sotto scrittura concorrente (5 runspace x 5 entry = 25)' {
+        It 'Must preserve all entries under concurrent write (5 runspaces x 5 entries = 25)' {
             $tmpLog = [System.IO.Path]::GetTempFileName()
 
-            # Cattura la definizione della funzione per passarla ai runspace
+            # Capture the function definition to pass to runspaces
             $writeToolkitLogDef = (Get-Command Write-ToolkitLog).Definition
-            $writeHostMockDef = "function Write-Host { }" 
+            $writeHostMockDef = "function Write-Host { }"
 
             $jobs = 1..5 | ForEach-Object {
                 $idx = $_
                 $rs  = [powershell]::Create()
-                # Passiamo solo lo stretto necessario al runspace
+                # Pass only the bare minimum to the runspace
                 $null = $rs.AddScript(@"
                     function Write-ToolkitLog { $writeToolkitLogDef }
                     $writeHostMockDef
@@ -307,7 +287,6 @@ Describe 'Write-ToolkitLog' {
 
             $lines = Get-Content -Path $tmpLog | Where-Object { $_ -match 'THREAD-\d+-ENTRY-\d+' }
 
-            # Senza mutex potrebbero esserci entry mancanti o corrotte
             $lines.Count | Should -Be 25
 
             Remove-Item $tmpLog -ErrorAction SilentlyContinue
@@ -315,9 +294,6 @@ Describe 'Write-ToolkitLog' {
     }
 }
 
-# =============================================================================
-# Invoke-ExternalCommandWithLog — struttura ritorno, exit codes, StdOut, timeout
-# =============================================================================
 Describe 'Invoke-ExternalCommandWithLog' {
 
     BeforeAll {
@@ -325,7 +301,7 @@ Describe 'Invoke-ExternalCommandWithLog' {
         $Global:CurrentToolName = 'PesterTest'
     }
 
-    It 'Deve restituire un PSCustomObject con tutte le proprieta attese' {
+    It 'Must return a PSCustomObject with all expected properties' {
         $result = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'echo probe')
         $result                                  | Should -Not -BeNull
         $result.PSObject.Properties.Name         | Should -Contain 'Success'
@@ -336,25 +312,25 @@ Describe 'Invoke-ExternalCommandWithLog' {
         $result.PSObject.Properties.Name         | Should -Contain 'TimedOut'
     }
 
-    It 'Deve restituire Success=true ed ExitCode=0 per exit 0' {
+    It 'Must return Success=true and ExitCode=0 for exit 0' {
         $result = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'exit 0')
         $result.Success  | Should -Be $true
         $result.ExitCode | Should -Be 0
     }
 
-    It 'Deve restituire Success=false per exit code non-zero (42)' {
+    It 'Must return Success=false for non-zero exit code (42)' {
         $result = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'exit 42')
         $result.Success  | Should -Be $false
         $result.ExitCode | Should -Be 42
     }
 
-    It 'Deve catturare lo StdOut del processo' {
+    It 'Must capture the process StdOut' {
         $result = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'echo PesterMarker')
         $result.StdOut | Should -Match 'PesterMarker'
     }
 
-    It 'Deve restituire TimedOut=true quando il processo supera il timeout' {
-        # ping -n 10 richiede ~9 secondi; timeout fissato a 1 secondo
+    It 'Must return TimedOut=true when the process exceeds the timeout' {
+        # ping -n 10 takes ~9s; timeout set to 1s
         $result = Invoke-ExternalCommandWithLog `
             -Command 'cmd.exe' `
             -Arguments @('/c', 'ping -n 10 127.0.0.1 > nul') `
@@ -362,76 +338,72 @@ Describe 'Invoke-ExternalCommandWithLog' {
         $result.TimedOut | Should -Be $true
     }
 
-    It 'Deve restituire TimedOut=false per un comando rapido con timeout generoso' {
+    It 'Must return TimedOut=false for a fast command with generous timeout' {
         $result = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'exit 0') -TimeoutSeconds 30
         $result.TimedOut | Should -Be $false
     }
 
-    It 'Il campo Elapsed deve essere un TimeSpan valido maggiore di zero' {
+    It 'The Elapsed field must be a valid TimeSpan greater than zero' {
         $result = Invoke-ExternalCommandWithLog -Command 'cmd.exe' -Arguments @('/c', 'exit 0')
         $result.Elapsed               | Should -BeOfType [System.TimeSpan]
         $result.Elapsed.TotalSeconds  | Should -BeGreaterThan 0
     }
 }
 
-# =============================================================================
-# Read-ValidatedChoice — validazione input via RawInput (no interazione console)
-# =============================================================================
 Describe 'Read-ValidatedChoice' {
 
     BeforeEach {
         $Global:CurrentLogFile = $null
-        # Mute Write-StyledMessage per evitare output console nei test
         Mock Write-StyledMessage { }
     }
 
-    Context 'Con parametro ValidRange' {
+    Context 'With ValidRange parameter' {
 
-        It 'Deve restituire la scelta valida da ValidRange' {
+        It 'Must return the valid choice from ValidRange' {
             Read-ValidatedChoice -ValidRange @(1, 2, 3) -RawInput '2' | Should -Be 2
         }
 
-        It 'Deve restituire scelte multiple separate da virgola' {
+        It 'Must return multiple choices separated by comma' {
             $result = Read-ValidatedChoice -ValidRange @(1, 2, 3) -RawInput '1,3'
             $result | Should -HaveCount 2
             $result | Should -Contain 1
             $result | Should -Contain 3
         }
 
-        It 'Deve restituire scelte multiple separate da spazio' {
+        It 'Must return multiple choices separated by space' {
             $result = Read-ValidatedChoice -ValidRange @(1, 2, 3) -RawInput '2 3'
             $result | Should -HaveCount 2
             $result | Should -Contain 2
             $result | Should -Contain 3
         }
 
-        It 'Deve accettare il valore minimo del range' {
+        It 'Must accept the minimum value of the range' {
             Read-ValidatedChoice -ValidRange @(1, 2, 3) -RawInput '1' | Should -Be 1
         }
 
-        It 'Deve accettare il valore massimo del range' {
+        It 'Must accept the maximum value of the range' {
             Read-ValidatedChoice -ValidRange @(1, 2, 3) -RawInput '3' | Should -Be 3
         }
     }
 
-    Context 'Con parametri Min e Max' {
+    Context 'With Min and Max parameters' {
 
-        It 'Deve restituire una scelta interna ai limiti' {
+        It 'Must return a choice within the limits' {
             Read-ValidatedChoice -Min 1 -Max 10 -RawInput '7' | Should -Be 7
         }
 
-        It 'Deve accettare il valore esatto di Min' {
+        It 'Must accept the exact Min value' {
             Read-ValidatedChoice -Min 1 -Max 5 -RawInput '1' | Should -Be 1
         }
 
-        It 'Deve accettare il valore esatto di Max' {
+        It 'Must accept the exact Max value' {
             Read-ValidatedChoice -Min 1 -Max 5 -RawInput '5' | Should -Be 5
         }
     }
 
-    Context 'Con AllowZero' {
+    Context 'With AllowZero' {
 
-        It 'Deve accettare 0 quando AllowZero e attivo' {
+        It 'Must accept 0 when AllowZero is enabled' {
             Read-ValidatedChoice -Min 0 -Max 5 -AllowZero -RawInput '0' | Should -Be 0
         }
     }

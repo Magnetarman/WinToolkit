@@ -1,59 +1,59 @@
 # Security Policy
 
-## Versioni Supportate
+## Supported Versions
 
-| Versione | Supportata         |
-| -------- | ------------------ |
-| 2.5.x    | ✅ Sì              |
-| < 2.5    | ❌ No              |
+| Version | Supported        |
+| ------- | ---------------- |
+| 2.6.x   | ✅ Yes           |
+| < 2.6   | ❌ No            |
 
-## Segnalazione di Vulnerabilità
+## Reporting Vulnerabilities
 
 > [!CAUTION]
-> **NON aprire issue pubbliche per vulnerabilità di sicurezza.**
-> Aprire un'issue pubblica espone gli utenti a rischi prima che una fix sia disponibile.
+> **Do NOT open public issues for security vulnerabilities.**
+> Opening a public issue exposes users to risks before a fix is available.
 
-### Come segnalare
+### How to Report
 
-Inviare una **segnalazione privata** tramite uno dei seguenti canali:
+Send a **private report** through one of the following channels:
 
-- **GitHub Security Advisories:** usa la funzione [Report a vulnerability](../../security/advisories/new) direttamente in questo repository.
-- **Email:** [me@magnetarman.com](mailto:me@magnetarman.com) — indicare nell'oggetto `[SECURITY] WinToolkit`.
+- **GitHub Security Advisories:** use the [Report a vulnerability](../../security/advisories/new) feature directly in this repository.
+- **Email:** [me@magnetarman.com](mailto:me@magnetarman.com) — include `[SECURITY] WinToolkit` in the subject line.
 
-### Cosa includere nella segnalazione
+### What to Include in the Report
 
-Per accelerare la verifica e la risoluzione, fornire:
+To speed up verification and resolution, include:
 
-1. Descrizione chiara della vulnerabilità
-2. Passi per riprodurla (step-by-step)
-3. Impatto potenziale stimato
-4. Versione di WinToolkit interessata
-5. Eventuale proof-of-concept (solo in privato)
+1. Clear description of the vulnerability
+2. Steps to reproduce (step-by-step)
+3. Estimated potential impact
+4. Version of WinToolkit affected
+5. Any proof-of-concept (privately, only)
 
-### Tempi di risposta
+### Response Times
 
-| Fase                          | Tempistica      |
-| ----------------------------- | --------------- |
-| Conferma ricezione            | Entro 72 ore    |
-| Valutazione iniziale          | Entro 7 giorni  |
-| Fix e rilascio patch          | Entro 30 giorni |
-| Divulgazione pubblica (CVE)   | Dopo il fix     |
+| Phase                          | Timeline       |
+| -------------------------------| --------------- |
+| Confirmation of receipt        | Within 72 hours |
+| Initial assessment             | Within 7 days   |
+| Fix and patch release          | Within 30 days  |
+| Public disclosure (CVE)        | After the fix   |
 
 ### Scope
 
-Sono considerati **in scope**:
+The following are considered **in scope**:
 
-- Esecuzione di codice arbitrario tramite il toolkit
-- Escalation di privilegi non intenzionale
-- Verifica checksum assente o bypassabile per i binari distribuiti
-- Vulnerabilità nei workflow CI/CD che permettono compromissione della supply chain
+- Arbitrary code execution via the toolkit
+- Unintended privilege escalation
+- Missing or bypassable checksum verification for distributed binaries
+- Vulnerabilities in CI/CD workflows that allow supply chain compromise
 
-Sono considerati **out of scope**:
+The following are considered **out of scope**:
 
-- Comportamenti attesi che richiedono già privilegi amministrativi
-- Problemi nelle versioni non supportate (< 2.5)
-- Vulnerabilità nelle dipendenze di terze parti non gestite da questo progetto
+- Expected behaviors that already require administrative privileges
+- Vulnerabilities in unsupported versions (< 2.5)
+- Vulnerabilities in third-party dependencies not managed by this project
 
 ---
 
-Grazie per contribuire alla sicurezza di WinToolkit.
+Thank you for contributing to the security of WinToolkit.

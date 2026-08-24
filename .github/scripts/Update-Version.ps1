@@ -1,33 +1,24 @@
 <#
 .SYNOPSIS
-    Incrementa il numero di build nel template WinToolkit.
-
-.DESCRIPTION
-    Questo script legge il file WinToolkit-template.ps1, estrae la versione corrente,
-    incrementa il numero di build e salva il file aggiornato.
-
-.EXAMPLE
-    .\Update-Version.ps1 -TemplatePath "WinToolkit-template.ps1"
-
-.NOTES
-    Autore: MagnetarMan
-    Version: 1.0.4
+    Increments the build number in WinToolkit header templates.
 #>
 
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [string]$TemplatePath = "WinToolkit-template.ps1"
+    [string]$TemplatePath = "wintoolkit-modules/00-Skeleton.Header.ps1",
+
+    [Parameter(Mandatory = $false)]
+    [string]$StartHeaderPath = "start-modules/00-Skeleton.Header.ps1"
 )
 
-# --- Best Practices PowerShell ---
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# --- Variabili per output ---
 $script:NewVersion = $null
 $script:BuildNumber = $null
 $script:OldVersion = $null
+$script:AlignedSources = @()
 
 function Write-StatusMessage {
     param(
@@ -49,73 +40,82 @@ function Write-StatusMessage {
 
 try {
     Write-StatusMessage -Message "========================================" -Type Info
-    Write-StatusMessage -Message "  INCREMENTO NUMERO BUILD" -Type Info
+    Write-StatusMessage -Message "  INCREMENTING BUILD NUMBER" -Type Info
     Write-StatusMessage -Message "========================================" -Type Info
 
-    # Verifica che il file esista
     if (-not (Test-Path $TemplatePath)) {
-        Write-StatusMessage -Message "❌ File $TemplatePath non trovato" -Type Error
+        Write-StatusMessage -Message "❌ File $TemplatePath not found" -Type Error
         exit 1
     }
 
-    # Leggi il contenuto del file
-    Write-StatusMessage -Message "📖 Lettura file: $TemplatePath" -Type Info
     $content = Get-Content -Path $TemplatePath -Raw
 
-    # Trova la riga con la versione e estrai il numero di build
     $versionPattern = '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]'
 
     if ($content -match $versionPattern) {
         $script:OldVersion = $matches[1]
-        Write-StatusMessage -Message "📋 Versione attuale: $script:OldVersion" -Type Success
+        Write-StatusMessage -Message "📋 Current version: $script:OldVersion" -Type Success
 
-        # Estrai il numero di build (numero tra parentesi)
+        # Extract the build number (number in parentheses)
         $buildPattern = 'Build\s+(\d+)'
 
         if ($script:OldVersion -match $buildPattern) {
             $currentBuild = [int]$matches[1]
             $script:BuildNumber = $currentBuild + 1
 
-            # Costruisci la nuova versione mantenendo lo stesso formato
             $script:NewVersion = $script:OldVersion -replace "Build\s+$currentBuild", "Build $script:BuildNumber"
 
-            Write-StatusMessage -Message "🔄 Incremento build: $currentBuild → $script:BuildNumber" -Type Warning
-            Write-StatusMessage -Message "🆕 Nuova versione: $script:NewVersion" -Type Success
+            Write-StatusMessage -Message "🔄 Build increment: $currentBuild → $script:BuildNumber" -Type Warning
+            Write-StatusMessage -Message "🆕 New version: $script:NewVersion" -Type Success
 
-            # Sostituisci la riga della versione
             $newLine = "`$ToolkitVersion = `"$script:NewVersion`""
             $content = $content -replace '\$ToolkitVersion\s*=\s*[''"](.+?)[''"]', $newLine
 
-            # Scrivi il file aggiornato in modo atomico (temp + rename)
             $tempPath = "$TemplatePath.tmp"
             $content | Set-Content -Path $tempPath -Encoding UTF8
             Move-Item $tempPath $TemplatePath -Force
 
-            Write-StatusMessage -Message "✅ Versione incrementata con successo" -Type Success
+            if (Test-Path -LiteralPath $StartHeaderPath) {
+                $startContent = Get-Content -Raw -LiteralPath $StartHeaderPath
+                if ($startContent -match $versionPattern) {
+                    $startVersion = $matches[1]
+                    if ($startVersion -ne $script:NewVersion) {
+                        Write-StatusMessage -Message "⚠️ Aligning ${StartHeaderPath}: '$startVersion' → '$script:NewVersion'" -Type Warning
+                        $startLine = "`$ToolkitVersion = `"$script:NewVersion`""
+                        $startContent = $startContent -replace $versionPattern, $startLine
+                        $startTempPath = "$StartHeaderPath.tmp"
+                        $startContent | Set-Content -LiteralPath $startTempPath -Encoding UTF8
+                        Move-Item -LiteralPath $startTempPath -Destination $StartHeaderPath -Force
+                        $script:AlignedSources += $StartHeaderPath
+                    }
+                }
+            }
+
+            Write-StatusMessage -Message "✅ Version incremented successfully" -Type Success
         }
         else {
-            Write-StatusMessage -Message "❌ Impossibile trovare il numero di build nella versione" -Type Error
+            Write-StatusMessage -Message "❌ Unable to find the build number in the version" -Type Error
             exit 1
         }
     }
     else {
-        Write-StatusMessage -Message "❌ Impossibile trovare la riga della versione nel template" -Type Error
+        Write-StatusMessage -Message "❌ Unable to find the version line in the template" -Type Error
         exit 1
     }
 
-    # Output per GitHub Actions
     Write-Output "new_version=$script:NewVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "build_number=$script:BuildNumber" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     Write-Output "old_version=$script:OldVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+    Write-Output "aligned_sources=$($script:AlignedSources -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
     Write-StatusMessage -Message "========================================" -Type Info
-    Write-StatusMessage -Message "  COMPLETATO" -Type Info
+    Write-StatusMessage -Message "  COMPLETE" -Type Info
     Write-StatusMessage -Message "========================================" -Type Info
 
     exit 0
 }
 catch {
-    Write-StatusMessage -Message "❌ ERRORE: $($_.Exception.Message)" -Type Error
+    Write-StatusMessage -Message "❌ ERROR: $($_.Exception.Message)" -Type Error
     Write-StatusMessage -Message "Stack Trace: $($_.ScriptStackTrace)" -Type Error
     exit 1
 }
