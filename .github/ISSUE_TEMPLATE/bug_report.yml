@@ -1,70 +1,69 @@
-name: Segnalazione Bug
-description: Segnala un malfunzionamento in WinToolkit (per utenti e sviluppatori)
+name: Bug Report
+description: Report a WinToolkit bug.
 title: "[BUG]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Grazie per voler segnalare un bug! Ti preghiamo di compilare i campi sottostanti per aiutarci a risolvere il problema il prima possibile.
-        *Ricorda la nostra filosofia: 1 Issue = 1 Singolo Problema.*
+        Report bugs here. One issue per bug.
 
   - type: checkboxes
     id: critical-checks
     attributes:
-      label: Controlli Preliminari
-      description: Assicurati di aver seguito questi passaggi prima di aprire l'issue.
+      label: Preliminary Checks
+      description: Confirm these checks before opening.
       options:
-        - label: Ho controllato che non ci siano Issue già aperte per lo stesso problema.
+        - label: I checked that no existing issue reports the same problem.
           required: true
-        - label: Sto usando l'ultima versione disponibile di WinToolkit.
+        - label: I am using the latest available WinToolkit version.
           required: true
 
   - type: textarea
     id: description
     attributes:
-      label: Descrizione del Bug
-      description: Fornisci una descrizione chiara e concisa del problema riscontrato.
-      placeholder: Cosa succede esattamente?
+      label: Bug Description
+      description: Describe the problem.
+      placeholder: What exactly happens?
     validations:
       required: true
 
   - type: textarea
     id: reproduction
     attributes:
-      label: Passaggi per riprodurre
-      description: Cosa dobbiamo fare per far presentare il comportamento anomalo?
+      label: Steps to Reproduce
+      description: Steps to reproduce.
       placeholder: |
-        1. Avvia WinToolkit
-        2. Seleziona l'opzione '...'
-        3. Esegui '...'
-        4. Riscontro del problema
+        1. Start WinToolkit
+        2. Select the '...' option
+        3. Run '...'
+        4. Observe the problem
     validations:
       required: true
 
   - type: textarea
     id: expected-output
     attributes:
-      label: Comportamento Atteso
-      description: Cosa dovrebbe succedere secondo te?
-      placeholder: Es. L'applicazione dovrebbe mostrare un messaggio di successo.
+      label: Expected Behavior
+      description: What should happen instead?
+      placeholder: For example, the application should display a success message.
     validations:
       required: true
 
   - type: textarea
     id: actual-output
     attributes:
-      label: Comportamento Effettivo
-      description: Cosa succede invece? (Incolla qui eventuali errori rossi della console)
-      placeholder: Es. La console mostra l'errore 'Accesso negato' in rosso.
+      label: Actual Behavior
+      description: What actually happens?
+      placeholder: For example, the console displays an 'Access denied' error.
     validations:
       required: true
 
   - type: dropdown
     id: os-version
     attributes:
-      label: Versione OS Windows
-      description: Su quale versione di Windows stai riscontrando il problema?
+      label: Windows OS Version
+      description: Which Windows version?
       options:
         - Windows 11 25H2
         - Windows 11 24H2
@@ -73,15 +72,15 @@ body:
         - Windows 10 22H2
         - Windows 10 21H2
         - Windows Server 2022
-        - Altro (specificare nel contesto)
+        - Other (describe in the context field)
     validations:
       required: true
 
   - type: dropdown
     id: ps-version
     attributes:
-      label: Versione PowerShell
-      description: Quale versione di PowerShell stai usando? (Scrivi $PSVersionTable nella console per scoprirlo)
+      label: PowerShell Version
+      description: Run $PSVersionTable to check.
       options:
         - PowerShell 7.4+ (Core)
         - PowerShell 7.2+ (LTS)
@@ -92,38 +91,32 @@ body:
   - type: input
     id: profile-version
     attributes:
-      label: Versione Profilo PowerShell
-      description: |
-        Indica la versione del profilo caricato.
-        Per conoscerla, avvia il terminale di windows e dove c'è la command line il rigo superiore dovrebbe fornire un testo simile: ✅ Profilo caricato - Versione: 2.5.2.10. Indicare la versione rilevata.
-      placeholder: Es. 2.5.2.10
+      label: PowerShell Profile Version
+      description: Provide the loaded profile version.
+      placeholder: For example, 2.5.2.10
     validations:
       required: true
 
   - type: checkboxes
     id: is-windows-bug
     attributes:
-      label: Tipo di Bug
+      label: Bug Type
       options:
-        - label: Questo è un "Windows Bug" (causato da una versione specifica di Windows che impedisce il funzionamento di una feature)
+        - label: This is a Windows bug caused by a specific Windows version.
 
   - type: checkboxes
     id: logs-check
     attributes:
-      label: Allegato Log (Fondamentale)
+      label: Log Attachment (Required)
       description: |
-        Senza i log è molto difficile diagnosticare il problema.
-        **Come generare i log:**
-        1. Avvia **WinToolkit**.
-        2. Seleziona **Esporta Log WinToolkit**.
-        3. Il file `.zip` verrà salvato sul tuo **Desktop**.
+        Attach the .zip log file generated via Export WinToolkit Log.
       options:
-        - label: Ho generato e allegato il file .zip dei log trascinandolo qui sotto.
+        - label: I generated and attached the `.zip` log file below.
           required: true
 
   - type: textarea
     id: context
     attributes:
-      label: Contesto Aggiuntivo
-      description: Qualsiasi altra informazione utile (screenshot, video, link).
-      placeholder: Ulteriori dettagli...
+      label: Additional Context
+      description: Add screenshots, videos, or links.
+      placeholder: Additional details...

@@ -1,9 +1,20 @@
-# Tutti i file del repository richiedono revisione di @Magnetarman
+# Every file in the repository requires a review from @Magnetarman
 * @Magnetarman
 
-# File core e workflow CI
+# Core files and CI workflows
 /.github/workflows/ @Magnetarman
 /.github/scripts/ @Magnetarman
 
-# Moduli tool
-/tool/ @Magnetarman
+# CI Composite Actions
+/.github/actions/ @Magnetarman
+
+# tools modules
+/tools/ @Magnetarman
+
+# Shared modules of the launcher script
+/start-modules/ @Magnetarman
+
+# Framework core modules (replace the former single WinToolkit-template.ps1)
+/wintoolkit-modules/ @Magnetarman
+/start.ps1 @Magnetarman
+/compiler.ps1 @Magnetarman

@@ -1,0 +1,167 @@
+# Reusable WinToolkit build
+name: WinToolkit V4.0.2 — Reusable WinToolkit build
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Branch to checkout and commit the compiled artifact to.
+        required: true
+        type: string
+      version:
+        description: Version label to pass to the compiler. Empty uses branch-aware labeling.
+        required: false
+        type: string
+        default: ''
+      minify:
+        description: Run the compiler with minification enabled.
+        required: false
+        type: boolean
+        default: false
+      commit-message:
+        description: Commit message for the compiled artifact.
+        required: false
+        type: string
+        default: '✅ Build WinToolkit'
+    outputs:
+      source_kb:
+        description: Source size reported by the build script.
+        value: ${{ jobs.build.outputs.source_kb }}
+      output_kb:
+        description: Compiled size reported by the build script.
+        value: ${{ jobs.build.outputs.output_kb }}
+      reduction_percent:
+        description: Size reduction reported by the build script.
+        value: ${{ jobs.build.outputs.reduction_percent }}
+      lines_removed:
+        description: Removed lines reported by the build script.
+        value: ${{ jobs.build.outputs.lines_removed }}
+      version:
+        description: Version label used by the build.
+        value: ${{ jobs.build.outputs.version }}
+
+# Serialize builds per branch. Both artifacts are auto-committed to the
+# same branch; without this guard, parallel runs can cause non-fast-forward
+# failures.
+concurrency:
+  group: wintoolkit-ci-build-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Reusable WinToolkit build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      source_kb: ${{ steps.build_script.outputs.source_kb }}
+      output_kb: ${{ steps.build_script.outputs.output_kb }}
+      reduction_percent: ${{ steps.build_script.outputs.reduction_percent }}
+      lines_removed: ${{ steps.build_script.outputs.lines_removed }}
+      version: ${{ steps.version_label.outputs.new_version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ inputs.branch }}
+
+      - name: Remove pre-existing artifact
+        uses: ./.github/actions/pre-build-cleanup
+        with:
+          artifact-path: WinToolkit.ps1
+
+      - name: Validate tools syntax
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: tools/*.ps1
+          label: tools before WinToolkit build
+
+      - name: Validate core module syntax
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: wintoolkit-modules/*.ps1
+          label: wintoolkit-modules before build
+
+      - name: Resolve build version
+        id: version_label
+        shell: pwsh
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          BUILD_BRANCH: ${{ inputs.branch }}
+        run: |
+          # The version label is resolved in-memory and passed to the compiler.
+          # $ToolkitVersion is read from wintoolkit-modules/00-Skeleton.Header.ps1;
+          # the compiler reads modules directly and nothing here mutates tracked files.
+          $templatePath = 'wintoolkit-modules/00-Skeleton.Header.ps1'
+          $content = Get-Content -Raw -LiteralPath $templatePath -Encoding UTF8
+          $version = $env:REQUESTED_VERSION
+
+          if (-not $version) {
+            if ($env:BUILD_BRANCH -ne 'Dev') {
+              # Feature/fix branches are labelled as work in progress.
+              $version = 'Work In Progress'
+            } elseif ($content -match '\$ToolkitVersion\s*=\s*"([^"]+)"') {
+              $version = $Matches[1]
+            } else {
+              Write-Host '::error::Unable to read ToolkitVersion from the template.'
+              exit 1
+            }
+          }
+
+          Write-Host "Build version: $version"
+          "new_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build WinToolkit.ps1
+        id: build_script
+        shell: pwsh
+        env:
+          BUILD_VERSION: ${{ steps.version_label.outputs.new_version }}
+          MINIFY: ${{ inputs.minify }}
+        run: |
+          # Normalize workflow output: trim whitespace and CRLF.
+          $buildVersion = ($env:BUILD_VERSION ?? '').Trim().Trim("`r").Trim("`n")
+
+          # Use a hashtable so the -Minify switch keeps its boolean type.
+          $params = @{ OutputPath = 'WinToolkit.ps1' }
+          if ($buildVersion -ne '') { $params['Version'] = $buildVersion }
+          $params['Minify'] = ($env:MINIFY -eq 'true')
+          & .github/scripts/Invoke-Build.ps1 @params
+
+      - name: Test compiled script
+        id: test_compiled
+        shell: pwsh
+        run: |
+          & .github/scripts/Test-CompiledScript.ps1 -ScriptPath 'WinToolkit.ps1'
+
+      - name: Commit compiled artifact
+        if: steps.test_compiled.outputs.tests_passed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
+        with:
+          commit_message: ${{ inputs.commit-message }}
+          file_pattern: WinToolkit.ps1
+          branch: ${{ inputs.branch }}
+
+      - name: Build summary
+        if: steps.test_compiled.outputs.tests_passed == 'true'
+        shell: pwsh
+        env:
+          BUILD_VERSION: ${{ steps.version_label.outputs.new_version }}
+          SOURCE_KB: ${{ steps.build_script.outputs.source_kb }}
+          OUTPUT_KB: ${{ steps.build_script.outputs.output_kb }}
+          REDUCTION: ${{ steps.build_script.outputs.reduction_percent }}
+          LINES_REMOVED: ${{ steps.build_script.outputs.lines_removed }}
+        run: |
+          @"
+          ## WinToolkit build — v$env:BUILD_VERSION
+
+          | Metric | Value |
+          |---|---|
+          | Source | $env:SOURCE_KB KB |
+          | Output | $env:OUTPUT_KB KB |
+          | Reduction | $env:REDUCTION% |
+          | Lines removed | $env:LINES_REMOVED |
+          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8

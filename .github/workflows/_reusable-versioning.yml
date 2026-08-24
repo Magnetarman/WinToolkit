@@ -1,0 +1,69 @@
+# Reusable versioning
+name: WinToolkit V4.0.2 — Reusable versioning
+
+on:
+  workflow_call:
+    inputs:
+      target-branch:
+        description: Branch containing the template to bump and receive the commit.
+        required: true
+        type: string
+      commit-message:
+        description: Commit message for the version bump.
+        required: false
+        type: string
+        default: '🆙 Bump WinToolkit version'
+      sync-github:
+        description: Include the .github directory in the version bump commit.
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      new_version:
+        description: Version emitted by Update-Version.ps1.
+        value: ${{ jobs.versioning.outputs.new_version }}
+
+jobs:
+  versioning:
+    name: Reusable versioning bump
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ inputs.target-branch }}
+
+      - name: Bump version
+        id: version
+        shell: pwsh
+        run: |
+          & .github/scripts/Update-Version.ps1 -TemplatePath 'wintoolkit-modules/00-Skeleton.Header.ps1'
+
+      - name: Validate core module syntax after version bump
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: wintoolkit-modules/00-Skeleton.Header.ps1
+          label: wintoolkit-modules/00-Skeleton.Header.ps1 after version bump
+
+      - name: Stage .github changes
+        if: inputs.sync-github
+        shell: pwsh
+        run: |
+          git add -A .github/
+
+      - name: Commit version bump
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
+        with:
+          commit_message: ${{ inputs.commit-message }}
+          file_pattern: ${{ inputs.sync-github && 'wintoolkit-modules/00-Skeleton.Header.ps1 start-modules/00-Skeleton.Header.ps1 .github/' || 'wintoolkit-modules/00-Skeleton.Header.ps1' }}
+          branch: ${{ inputs.target-branch }}
+          push_options: --force-with-lease
+          skip_fetch: true

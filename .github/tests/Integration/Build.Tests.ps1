@@ -1,65 +1,55 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 <#
-.SYNOPSIS
-    Integration test della pipeline di compilazione.
-.NOTES
-    Verifica che compiler.ps1, i sorgenti e Test-CompiledScript.ps1
-    siano sintatticamente validi e coerenti tra loro.
-    I test contrassegnati con -Tag 'Slow' eseguono la compilazione reale
-    e vengono saltati nei run di CI rapidi (eseguiti solo nella pipeline build).
+Integration test for the build pipeline.
+Verifies compiler.ps1, source files, and Test-CompiledScript.ps1 are syntactically valid and consistent.
+Tests tagged 'Slow' perform a real compilation and are skipped during fast CI runs.
 #>
 
 BeforeAll {
     $script:RepoRoot       = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
     $script:CompilerPath   = Join-Path $script:RepoRoot 'compiler.ps1'
-    $script:TemplatePath   = Join-Path $script:RepoRoot 'WinToolkit-template.ps1'
-    $script:ToolFolder     = Join-Path $script:RepoRoot 'tool'
+    $script:TemplatePath   = & (Join-Path $PSScriptRoot '..\..\scripts\New-WinToolkitCoreScript.ps1')
+    $script:ToolFolder     = Join-Path $script:RepoRoot 'tools'
     $script:TestScriptPath = Join-Path $script:RepoRoot '.github\scripts\Test-CompiledScript.ps1'
 }
 
-# =============================================================================
-# Sintassi sorgenti
-# =============================================================================
-Describe 'Build Pipeline — Sintassi Sorgenti' {
+Describe 'Build Pipeline — Source Syntax' {
 
-    It 'compiler.ps1 deve avere sintassi PowerShell valida' {
+    It 'compiler.ps1 must have valid PowerShell syntax' {
         $code   = Get-Content -Raw -Path $script:CompilerPath
         $errors = $null
         $null = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$errors)
         $errors.Count | Should -Be 0
     }
 
-    It 'WinToolkit-template.ps1 deve avere sintassi PowerShell valida' {
+    It 'The assembled WinToolkit core must have valid PowerShell syntax' {
         $code   = Get-Content -Raw -Path $script:TemplatePath
         $errors = $null
         $null = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$errors)
         $errors.Count | Should -Be 0
     }
 
-    It 'Test-CompiledScript.ps1 deve avere sintassi PowerShell valida' {
+    It 'Test-CompiledScript.ps1 must have valid PowerShell syntax' {
         $code   = Get-Content -Raw -Path $script:TestScriptPath
         $errors = $null
         $null = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$errors)
         $errors.Count | Should -Be 0
     }
 
-    It 'Tutti i file tool/*.ps1 devono avere sintassi PowerShell valida' -ForEach (
-        Get-ChildItem -Path (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')) 'tool') -Filter '*.ps1' |
+    It 'All tools/*.ps1 files must have valid PowerShell syntax' -ForEach (
+        Get-ChildItem -Path (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')) 'tools') -Filter '*.ps1' |
         ForEach-Object { @{ File = $_ } }
     ) {
         $code   = Get-Content -Raw -Path $File.FullName
         $errors = $null
         $null = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$errors)
-        $errors.Count | Should -Be 0 -Because "$($File.Name) deve essere sintatticamente valido"
+        $errors.Count | Should -Be 0 -Because "$($File.Name) must be syntactically valid"
     }
 }
 
-# =============================================================================
-# Coerenza sorgenti
-# =============================================================================
-Describe 'Build Pipeline — Coerenza Sorgenti' {
+Describe 'Build Pipeline — Source Consistency' {
 
-    It 'Ogni file tool/*.ps1 deve dichiarare una funzione con il suo stesso nome' {
+    It 'Every tools/*.ps1 file must declare a function with its own name' {
         $files = Get-ChildItem -Path $script:ToolFolder -Filter '*.ps1'
         $files.Count | Should -BeGreaterThan 0
 
@@ -67,33 +57,30 @@ Describe 'Build Pipeline — Coerenza Sorgenti' {
             $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
             $source       = Get-Content -Raw -Path $file.FullName
             $source | Should -Match "(?i)function\s+$([regex]::Escape($functionName))" `
-                -Because "$($file.Name) deve contenere la dichiarazione della funzione $functionName"
+                -Because "$($file.Name) must contain the function declaration $functionName"
         }
     }
 
-    It 'Il template deve contenere un placeholder per ogni file tool/*.ps1' {
+    It 'The assembled core must contain a placeholder for every tools/*.ps1 file' {
         $templateContent = Get-Content -Raw -Path $script:TemplatePath
         $files = Get-ChildItem -Path $script:ToolFolder -Filter '*.ps1'
 
         foreach ($file in $files) {
             $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
             $templateContent | Should -Match "function\s+$([regex]::Escape($functionName))\s*\{" `
-                -Because "Il template deve avere un placeholder per $functionName"
+                -Because "The template must have a placeholder for $functionName"
         }
     }
 
-    It 'compiler.ps1 deve dichiarare il parametro -Minify' {
+    It 'compiler.ps1 must declare the -Minify parameter' {
         $code = Get-Content -Raw -Path $script:CompilerPath
         $code | Should -Match '\[switch\]\$Minify'
     }
 }
 
-# =============================================================================
-# Compilazione End-to-End (Slow — richiede file sorgente completi)
-# =============================================================================
 Describe 'Build Pipeline — End-to-End' -Tag 'Slow' {
 
-    It 'compiler.ps1 produce un output WinToolkit.ps1 valido' {
+    It 'compiler.ps1 produces a valid WinToolkit.ps1 output' {
         $originalLocation = Get-Location
         Set-Location $script:RepoRoot
         try {
@@ -103,12 +90,12 @@ Describe 'Build Pipeline — End-to-End' -Tag 'Slow' {
             Test-Path $outputPath | Should -Be $true
 
             $outputSize = (Get-Item $outputPath).Length
-            $outputSize | Should -BeGreaterThan 10240 -Because 'L output deve essere almeno 10 KB'
+            $outputSize | Should -BeGreaterThan 10240 -Because 'output must be at least 10 KB'
 
             $code   = Get-Content -Raw -Path $outputPath
             $errors = $null
             $null = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$errors)
-            $errors.Count | Should -Be 0 -Because 'L output compilato deve essere sintatticamente valido'
+            $errors.Count | Should -Be 0 -Because 'compiled output must be syntactically valid'
         }
         finally {
             Set-Location $originalLocation
