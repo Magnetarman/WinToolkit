@@ -35,6 +35,8 @@ param(
     [string]$Repo = "Magnetarman/WinToolkit",
     [string]$DevBranch = "Dev",
     [string]$MainBranch = "main",
+    [ValidateSet("Dev", "main")]
+    [string]$TargetBranch = "main",
     [string]$ReadmePath = "README.md",
     [int]$TopN = 10
 )
@@ -342,7 +344,7 @@ function New-PullRequest {
     $bodyObj = @{
         title = $Title
         head  = $BranchName
-        base  = $MainBranch
+        base  = $TargetBranch
         body  = $Body
     } | ConvertTo-Json -Depth 3
     
@@ -453,8 +455,8 @@ git config user.email "github-actions[bot]@users.noreply.github.com"
 git config core.autocrlf true
 git config core.safecrlf false
 
-git checkout $MainBranch
-git pull origin $MainBranch
+git checkout $TargetBranch
+git pull origin $TargetBranch
 
 # Check if an existing PR with our label exists (read-only, before creating branch)
 $existingPrResult = Get-ExistingPullRequest -Repo $Repo -Headers $Headers
@@ -465,8 +467,8 @@ if ($existingPrResult.Exists) {
     git checkout $branchName
     git pull origin $branchName
     
-    # Rebase/merge from main to avoid drift and conflicts
-    git merge origin/$MainBranch --no-edit
+    # Rebase/merge from the target branch to avoid drift and conflicts
+    git merge origin/$TargetBranch --no-edit
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "Merge conflicts detected. Aborting merge and continuing with current branch state."
         git merge --abort
