@@ -13,7 +13,8 @@ param(
     [ValidateSet("Dev", "main")]
     [string]$TargetBranch = "main",
     [string]$ReadmePath = "README.md",
-    [int]$TopN = 10
+    [int]$TopN = 10,
+    [string]$SectionTitle = "👥 Top 10 Contributors"
 )
 
 $ErrorActionPreference = "Stop"
@@ -216,7 +217,7 @@ function ConvertTo-ContributorStats {
 function New-ContributorsMarkdown {
     param(
         [array]$TopContributors,
-        [string]$SectionTitle = "👥 Top 10 Contributors"
+        [string]$SectionTitle
     )
     
     if ($TopContributors.Count -eq 0) {
@@ -380,7 +381,7 @@ $prs = Get-PrsFromDev -Token $GitHubToken
 $topContributors = ConvertTo-ContributorStats -Commits $commits -Prs $prs
 Write-Host "Top contributors calculated: $($topContributors.Count)"
 
-$contributorsMarkdown = New-ContributorsMarkdown -TopContributors $topContributors -SectionTitle "Top 10 Contributors"
+$contributorsMarkdown = New-ContributorsMarkdown -TopContributors $topContributors -SectionTitle $SectionTitle
 Write-Host "Generated markdown section:"
 Write-Host $contributorsMarkdown
 
