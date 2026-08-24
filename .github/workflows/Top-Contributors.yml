@@ -16,10 +16,11 @@
 #   Job 1 -- update:      Calcola classifiche, aggiorna README, crea/aggiorna PR
 #
 # BRANCH PROTECTION:
-#   Il branch main NON e' protetto (verifica API: 404). Viene comunque
-#   utilizzata una PR verso main per tracciabilita' e review.
-#   Token usato: GITHUB_TOKEN con fallback a RELEASE_AUTOMATION_TOKEN
-#   (pattern coerente con le pipeline esistenti).
+#   Il branch main HA branch protection attiva. Il push diretto e' BLOCCATO,
+#   quindi la creazione di una Pull Request e' OBBLIGATORIA, non un'opzione.
+#   Viene usato il token configurato nel repo (GITHUB_TOKEN con fallback a
+#   RELEASE_AUTOMATION_TOKEN, pattern coerente con le pipeline esistenti).
+#   Se la protezione viene modificata in futuro, la logica di PR rimane valida.
 #
 # RUNTIME: PowerShell 7+ (pwsh) su ubuntu-latest
 # =============================================================================
