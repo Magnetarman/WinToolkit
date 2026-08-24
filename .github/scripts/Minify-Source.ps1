@@ -1,4 +1,4 @@
-# WinToolkit CI/CD Pipeline V 4.0.1 — Shared source minification
+# WinToolkit CI/CD Pipeline V4.0.2 — Shared source minification
 # =============================================================================
 # Tokenizer-safe PowerShell minification shared by every build entry point
 # (compiler.ps1 for WinToolkit.ps1, Invoke-Build-Start.ps1 for start-core.ps1).

@@ -1,5 +1,5 @@
-# WinToolkit CI/CD Pipeline V 4.0.1 — Reusable start-core build
-name: WinToolkit V4.0.1 — Reusable start-core build
+# WinToolkit CI/CD Pipeline V4.0.2 — Reusable start-core build
+name: WinToolkit V4.0.2 — Reusable start-core build
 
 on:
   workflow_call:
