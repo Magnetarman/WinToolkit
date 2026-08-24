@@ -108,37 +108,6 @@ catch {
 $pwsh = Get-WorkingPwsh
 if (-not $pwsh) { $pwsh = Install-Pwsh }
 
-function Test-WindowsUpdateBlocked {
-    # Returns $true ONLY while Windows updates are actually being installed.
-    # A pending reboot, downloaded-but-not-installed updates, a mere download
-    # phase, or a stale Windows Update history entry must NOT block the
-    # launcher: per design it proceeds in every case except a real
-    # installation currently in progress.
-
-    # The CBS worker (TiWorker.exe) runs only while updates are really being
-    # installed/staged, so it is the reliable "installazione in corso" signal.
-    # A pure download phase (or any other state) does not start it, so the
-    # launcher proceeds in all those cases.
-    if (Get-Process -Name 'TiWorker' -ErrorAction SilentlyContinue) {
-        return $true
-    }
-
-    return $false
-}
-
-Write-Host ''
-Write-Host 'Checking Windows update installation...' -ForegroundColor Cyan
-Write-Host 'Startup is suspended ONLY while updates are actually installing.' -ForegroundColor Yellow
-
-while (Test-WindowsUpdateBlocked) {
-    Write-Host ''
-    Write-Host "Windows updates are still installing. Re-checking in 5 seconds..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 5
-}
-
-Write-Host ''
-Write-Host 'No update installation in progress. Continuing.' -ForegroundColor Green
-
 $coreCommand = '$s = irm ''' + $CoreScriptUrl + '''; & ([scriptblock]::Create($s))'
 $coreProcess = Start-Process -FilePath $pwsh -ArgumentList @(
     '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $coreCommand
