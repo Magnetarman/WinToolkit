@@ -255,9 +255,9 @@ function Show-SpeedtestSummary {
     Write-Host ("  {0,-18}: {1} Mbps" -f "Download", $Download) -ForegroundColor Green
     Write-Host ("  {0,-18}: {1} Mbps" -f "Upload", $Upload) -ForegroundColor Green
     Write-Host ("  {0,-18}: {1} ms" -f $PingLabel, $Ping) -ForegroundColor Yellow
-    if ($Jitter) { Write-Host ("  {0,-18}: {1} ms" -f "Jitter", $Jitter) -ForegroundColor DarkGray }
-    if ($DownloadLatency) { Write-Host ("  {0,-18}: {1} ms" -f "Download Latency", $DownloadLatency) -ForegroundColor DarkGray }
-    if ($UploadLatency) { Write-Host ("  {0,-18}: {1} ms" -f "Upload Latency", $UploadLatency) -ForegroundColor DarkGray }
+    if ($Jitter) { Write-Host ("  {0,-18}: {1} ms" -f "Jitter", $Jitter) -ForegroundColor Yellow }
+    if ($DownloadLatency) { Write-Host ("  {0,-18}: {1} ms" -f "Download Latency", $DownloadLatency) -ForegroundColor Yellow }
+    if ($UploadLatency) { Write-Host ("  {0,-18}: {1} ms" -f "Upload Latency", $UploadLatency) -ForegroundColor Yellow }
     if ($Server) { Write-Host ("  {0,-18}: {1}" -f "Server", $Server) -ForegroundColor DarkCyan }
 
     Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
