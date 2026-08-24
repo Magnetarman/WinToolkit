@@ -36,6 +36,15 @@ on:
     # is within the 05:00-07:00 window.
     - cron: "0 4 * * 1"
   workflow_dispatch:
+    inputs:
+      target_branch:
+        description: "Branch receiving the contributors update PR"
+        required: true
+        default: Dev
+        type: choice
+        options:
+          - Dev
+          - main
 
 permissions:
   contents: write
@@ -99,6 +108,8 @@ jobs:
     name: Update Top Contributors
     runs-on: ubuntu-latest
     needs: validate
+    env:
+      TARGET_BRANCH: ${{ github.event_name == 'schedule' && 'Dev' || inputs.target_branch }}
     
     steps:
       - name: Checkout repository
@@ -106,7 +117,7 @@ jobs:
         with:
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-          ref: main
+          ref: ${{ env.TARGET_BRANCH }}
       
       - name: Run Top Contributors Script
         shell: pwsh
@@ -118,6 +129,7 @@ jobs:
             -Repo "Magnetarman/WinToolkit" `
             -DevBranch "Dev" `
             -MainBranch "main" `
+            -TargetBranch "${{ env.TARGET_BRANCH }}" `
             -ReadmePath "README.md" `
             -TopN 10 `
             -SectionTitle "👥 Top 10 Contributors"
