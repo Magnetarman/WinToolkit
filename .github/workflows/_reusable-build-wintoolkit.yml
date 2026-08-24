@@ -1,4 +1,4 @@
-# WinToolkit CI/CD Pipeline V4.0.2 — Reusable WinToolkit build
+# Reusable WinToolkit build
 name: WinToolkit V4.0.2 — Reusable WinToolkit build
 
 on:
@@ -40,10 +40,9 @@ on:
         description: Version label used by the build.
         value: ${{ jobs.build.outputs.version }}
 
-# Serialize every artifact build on the same branch. WinToolkit.ps1 and
-# start-core.ps1 are committed to the same branch by git-auto-commit-action;
-# without this guard, a push touching both source families would run the two
-# builds in parallel and the second push would fail as non-fast-forward.
+# Serialize builds per branch. Both artifacts are auto-committed to the
+# same branch; without this guard, parallel runs can cause non-fast-forward
+# failures.
 concurrency:
   group: wintoolkit-ci-build-${{ github.ref_name }}
   cancel-in-progress: false
@@ -95,10 +94,8 @@ jobs:
           BUILD_BRANCH: ${{ inputs.branch }}
         run: |
           # The version label is resolved in-memory and passed to the compiler.
-          # The framework core is assembled at build time from wintoolkit-modules/*.ps1
-          # (the single source of truth for $ToolkitVersion lives in
-          # wintoolkit-modules/00-Skeleton.Header.ps1). The compiler reads those
-          # modules directly, so nothing here mutates a tracked template.
+          # $ToolkitVersion is read from wintoolkit-modules/00-Skeleton.Header.ps1;
+          # the compiler reads modules directly and nothing here mutates tracked files.
           $templatePath = 'wintoolkit-modules/00-Skeleton.Header.ps1'
           $content = Get-Content -Raw -LiteralPath $templatePath -Encoding UTF8
           $version = $env:REQUESTED_VERSION
@@ -125,16 +122,10 @@ jobs:
           BUILD_VERSION: ${{ steps.version_label.outputs.new_version }}
           MINIFY: ${{ inputs.minify }}
         run: |
-          # Normalize the version coming from a workflow output: GitHub Actions
-          # serializes multiline/Windows CRLF values, so trim stray whitespace
-          # and carriage returns.
+          # Normalize workflow output: trim whitespace and CRLF.
           $buildVersion = ($env:BUILD_VERSION ?? '').Trim().Trim("`r").Trim("`n")
 
-          # Build a typed splatting hashtable. Passing -Minify as a bare string
-          # element in an array makes PowerShell bind it as a positional/value
-          # argument, which breaks argument parsing ("A positional parameter
-          # cannot be found that accepts argument 'WinToolkit.ps1'"). A hashtable
-          # lets the [switch] keep its boolean type.
+          # Use a hashtable so the -Minify switch keeps its boolean type.
           $params = @{ OutputPath = 'WinToolkit.ps1' }
           if ($buildVersion -ne '') { $params['Version'] = $buildVersion }
           $params['Minify'] = ($env:MINIFY -eq 'true')

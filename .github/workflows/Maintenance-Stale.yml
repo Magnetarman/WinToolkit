@@ -1,4 +1,4 @@
-# WinToolkit CI/CD Pipeline — Stale Maintenance V4.0.2
+# Close stale issues/PRs; Backlog milestone items are marked but never closed.
 name: WinToolkit — Stale Maintenance V4.0.2
 
 on:
@@ -14,11 +14,7 @@ jobs:
     name: Stale
     runs-on: ubuntu-latest
     steps:
-      # -----------------------------------------------------------------------
-      # Step 1 -- Standard handling: all issues/PRs EXCEPT those in the
-      #           "Backlog" milestone. Non-Backlog issues are marked stale and
-      #           closed after 7 days of inactivity as usual.
-      # -----------------------------------------------------------------------
+      # Step 1: Mark and close stale issues/PRs (Backlog excluded).
       - name: Stale standard (Backlog issues excluded)
         uses: actions/stale@eb5cf3af3ac0a1aa4c9c45633dd1ae542a27a899 # v10.3.0
         with:
@@ -38,16 +34,10 @@ jobs:
           stale-pr-label: "stale"
           exempt-issue-labels: "pinned,security,in-progress"
           exempt-pr-labels: "pinned,security"
-          # Issues in the "Backlog" milestone (milestone/3) are handled
-          # separately in the next step -- they are excluded here.
+          # Backlog milestone handled separately in next step.
           exempt-issue-milestones: "Backlog"
 
-      # -----------------------------------------------------------------------
-      # Step 2 -- Issues in the "Backlog" milestone (milestone/3):
-      #           they are marked stale after 60 days, but they are NEVER
-      #           closed automatically (days-before-close: -1).
-      #           PRs are not involved in this step.
-      # -----------------------------------------------------------------------
+      # Step 2: Backlog milestone issues marked stale after 60 days, never closed.
       - name: Stale Backlog issues (label only, never closed)
         uses: actions/stale@eb5cf3af3ac0a1aa4c9c45633dd1ae542a27a899 # v10.3.0
         with:

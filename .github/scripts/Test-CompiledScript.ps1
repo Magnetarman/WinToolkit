@@ -1,17 +1,6 @@
 <#
 .SYNOPSIS
-    Validates the compiled WinToolkit.ps1 file.
-
-.DESCRIPTION
-    Performs integrity tests on the compiled file: syntax, functions, encoding,
-    size, and menu structure.
-
-.EXAMPLE
-    .\Test-CompiledScript.ps1 -ScriptPath "WinToolkit.ps1"
-
-.NOTES
-    Author: MagnetarMan
-    Version: 1.0.7
+    Validates compiled WinToolkit.ps1: syntax, functions, size, encoding, menu structure.
 #>
 
 [CmdletBinding()]
@@ -26,11 +15,9 @@ param(
     [string]$TemplatePath = "wintoolkit-modules"
 )
 
-# --- PowerShell Best Practices ---
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# --- Result variables ---
 $script:TotalErrors = 0
 $script:TotalWarnings = 0
 $script:TestResults = @()
@@ -104,7 +91,7 @@ try {
     # ========================================
     Write-TestLog -Message "`n🔍 Test 2: Functions check..." -Type Info
 
-    # Auto-detect functions from the tools/ folder
+    # Auto-detect functions from tools/
     $toolFiles = Get-ChildItem -Path $ToolPath -Filter "*.ps1" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*start-*" }
     $expectedFunctions = $toolFiles | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) }
 
@@ -189,9 +176,6 @@ try {
 
     $script:TotalWarnings += $emptyFunctions.Count
 
-    # ========================================
-    # TEST 3: Menu structure
-    # ========================================
     Write-TestLog -Message "`n🔍 Test 3: Menu structure check..." -Type Info
 
     $menuTests = @(
@@ -211,9 +195,6 @@ try {
         }
     }
 
-    # ========================================
-    # TEST 4: File size
-    # ========================================
     Write-TestLog -Message "`n🔍 Test 4: File size check..." -Type Info
 
     $fileSize = (Get-Item $ScriptPath).Length
@@ -230,9 +211,6 @@ try {
         $script:TestResults += "✅ Size: $fileSizeKB KB"
     }
 
-    # ========================================
-    # TEST 5: UTF-8 with BOM encoding
-    # ========================================
     Write-TestLog -Message "`n🔍 Test 5: Encoding check..." -Type Info
 
     $encoding = [System.Text.Encoding]::GetEncoding('UTF-8')
@@ -249,9 +227,6 @@ try {
         $script:TestResults += "⚠️ Encoding: Without BOM"
     }
 
-    # ========================================
-    # Results summary
-    # ========================================
     Write-TestLog -Message "`n========================================" -Type Info
     Write-TestLog -Message "  TEST SUMMARY" -Type Info
     Write-TestLog -Message "========================================" -Type Info

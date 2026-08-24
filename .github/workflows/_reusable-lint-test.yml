@@ -1,4 +1,4 @@
-# WinToolkit CI/CD Pipeline V4.0.2 — Reusable lint and test
+# Reusable lint and test
 name: WinToolkit V4.0.2 — Reusable lint and test
 
 on:
@@ -135,8 +135,7 @@ jobs:
           VALIDATE_START: ${{ inputs.validate-start }}
           RUN_INTEGRATION_TESTS: ${{ inputs.run-integration-tests }}
         run: |
-          # PSScriptAnalyzer already ran in the 'linting' job with the shared
-          # settings file; re-running it here would duplicate work and diverge.
+          # PSScriptAnalyzer already ran in the 'linting' job; skip here.
           $config = New-PesterConfiguration
           $config.Run.Path                = @(
             '.github/tests/CI-Smoke.Tests.ps1',

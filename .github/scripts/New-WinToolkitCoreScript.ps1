@@ -1,7 +1,4 @@
-# Builds the WinToolkit framework core by concatenating the ordered
-# wintoolkit-modules/*.ps1 fragments into a single temporary script file.
-# Mirrors the in-memory assembly performed by compiler.ps1 so that tests and
-# the build produce the same source-of-truth core. Returns the temp file path.
+# Build WinToolkit framework core by concatenating ordered wintoolkit-modules/*.ps1 fragments.
 [CmdletBinding()]
 param(
     [string]$ModuleDir = 'wintoolkit-modules',

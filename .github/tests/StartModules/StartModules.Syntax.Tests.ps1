@@ -1,11 +1,9 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 <#
-.SYNOPSIS
-    Structural and syntax validation for the start-modules/ source fragments.
-
-    These tests run against the modular sources directly (never against the
-    compiled start-core.ps1), so a failure isolates the offending module.
+Structural and syntax validation for the start-modules/ source fragments.
+Runs against the modular sources directly (never the compiled start-core.ps1),
+so a failure isolates the offending module.
 #>
 
 BeforeAll {
@@ -51,8 +49,7 @@ Describe 'start-modules — structural validation' {
     }
 
     It 'no fragment imports another local fragment via Import-Module (irm|iex constraint, §5.1)' {
-        # Importing the external Microsoft.WinGet.Client Gallery module inside
-        # 40-Module.Winget.ps1 is legitimate and must NOT trip this guard.
+        # 40-Module.Winget.ps1 may legitimately import the external Microsoft.WinGet.Client module
         foreach ($f in $script:ModuleFiles) {
             $content = Get-Content $f.FullName -Raw
             $hasLocalImport = $content -match 'Import-Module\s+(?:\.\\)?[\w-]*Modules?[\w-]*' -or

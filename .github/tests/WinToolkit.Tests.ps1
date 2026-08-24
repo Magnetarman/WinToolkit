@@ -1,19 +1,11 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 <#
-.SYNOPSIS
-    Pester 5 test suite for WinToolkit core functions.
-.NOTES
-    Scope: Write-StyledMessage, Get-WingetExecutable, Invoke-ExternalCommandWithLog,
-           Read-ValidatedChoice, Write-ToolkitLog
-    Strategy: functions are dot-sourced from the template with -ImportOnly
-    (the template checks `if (-not $ImportOnly)` at line ~1801 before the menu).
-    Where possible, Pester 5 Mock is used to isolate behavior without
-    side effects on console, filesystem, or system processes.
+Pester 5 test suite for WinToolkit core functions.
+Scope: Write-StyledMessage, Get-WingetExecutable, Invoke-ExternalCommandWithLog,
+       Read-ValidatedChoice, Write-ToolkitLog
+Strategy: dot-source template with -ImportOnly; isolate behavior with Pester 5 Mock.
 #>
 
-# =============================================================================
-# GLOBAL SETUP
-# =============================================================================
 BeforeAll {
     $script:TemplatePath = & (Join-Path $PSScriptRoot '..\scripts\New-WinToolkitCoreScript.ps1')
 
@@ -43,20 +35,17 @@ BeforeAll {
     $Global:CurrentToolName  = 'PesterTest'
     $Global:GuiSessionActive = $false
 
-    # Global mock to prevent hangs in CI if a function unexpectedly calls Read-Host
+    # Prevent Read-Host hangs in CI
     Mock Read-Host { throw "Input required in CI (Headless) environment! Make sure to pass RawInput or mock the call." }
 }
 
-# =============================================================================
-# Write-StyledMessage — behavior + icons + colors
-# =============================================================================
 Describe 'Write-StyledMessage' {
 
     BeforeEach {
         $Global:CurrentLogFile = $null   # Write-ToolkitLog becomes a no-op
     }
 
-    # ── Smoke tests: no exception for any type ──────────────────────────
+    # Smoke test: no exception for any type
     It 'Must not throw an exception for type <Type>' -ForEach @(
         @{ Type = 'Success'  }
         @{ Type = 'Warning'  }
@@ -72,9 +61,7 @@ Describe 'Write-StyledMessage' {
         { Write-StyledMessage -Type 'Question' -Text 'Prompt?' -NoNewline } | Should -Not -Throw
     }
 
-    # ── Verify icon in console output ──────────────────────────────────
-    # Mock Write-Host to capture the actual text written.
-    # Write-StyledMessage output format: "[HH:mm:ss] <Icon> <Text>"
+    # Icon format: "[HH:mm:ss] <Icon> <Text>"
     It 'Must include the correct icon for type <Type>' -ForEach @(
         @{ Type = 'Success'  }
         @{ Type = 'Warning'  }
@@ -92,7 +79,7 @@ Describe 'Write-StyledMessage' {
         $script:captured | Should -Match ([regex]::Escape($expectedIcon))
     }
 
-    # ── Verify ForegroundColor ─────────────────────────────────────────
+    # ForegroundColor
     It 'Must use the correct ForegroundColor for type <Type>' -ForEach @(
         @{ Type = 'Success'; ExpectedColor = 'Green'   }
         @{ Type = 'Warning'; ExpectedColor = 'Yellow'  }
@@ -107,7 +94,7 @@ Describe 'Write-StyledMessage' {
         $script:capturedColor | Should -Be $ExpectedColor
     }
 
-    # ── Log bridge: verify file write ───────────────────────────────────────
+    # File write
     It 'Must write to the log file when CurrentLogFile is set' {
         $tmpLog = [System.IO.Path]::GetTempFileName()
         $Global:CurrentLogFile = $tmpLog
@@ -122,7 +109,7 @@ Describe 'Write-StyledMessage' {
         }
     }
 
-    # ── Level mapping: Success → SUCCESS, Warning → WARNING, Error → ERROR
+    # Level mapping: Success → SUCCESS, Warning → WARNING, Error → ERROR
     It 'Must map type <Type> to log level <ExpectedLevel>' -ForEach @(
         @{ Type = 'Success';  ExpectedLevel = 'SUCCESS' }
         @{ Type = 'Warning';  ExpectedLevel = 'WARNING' }
@@ -144,9 +131,6 @@ Describe 'Write-StyledMessage' {
     }
 }
 
-# =============================================================================
-# Get-WingetExecutable — mocking Test-Path to isolate resolution logic
-# =============================================================================
 Describe 'Get-WingetExecutable' {
 
     It 'Must return a non-empty string value' {
@@ -157,7 +141,6 @@ Describe 'Get-WingetExecutable' {
 
     Context 'When the App Execution alias exists' {
         BeforeEach {
-            # Mock Test-Path to return $true ONLY for the alias path
             $script:AliasPath = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\winget.exe'
             Mock Test-Path {
                 param([Parameter(ValueFromPipeline)]$Path)
@@ -171,7 +154,7 @@ Describe 'Get-WingetExecutable' {
         }
 
         It 'Must not search WindowsApps when the alias is available' {
-            Mock Get-ChildItem { }   # must not be called
+            Mock Get-ChildItem { }
             $null = Get-WingetExecutable
             Should -Invoke Get-ChildItem -Times 0
         }
@@ -214,9 +197,6 @@ Describe 'Get-WingetExecutable' {
     }
 }
 
-# =============================================================================
-# Write-ToolkitLog — writing, formatting, Mutex and concurrency
-# =============================================================================
 Describe 'Write-ToolkitLog' {
 
     Context 'When CurrentLogFile is null (no-op)' {
@@ -283,7 +263,7 @@ Describe 'Write-ToolkitLog' {
 
             # Capture the function definition to pass to runspaces
             $writeToolkitLogDef = (Get-Command Write-ToolkitLog).Definition
-            $writeHostMockDef = "function Write-Host { }" 
+            $writeHostMockDef = "function Write-Host { }"
 
             $jobs = 1..5 | ForEach-Object {
                 $idx = $_
@@ -307,7 +287,6 @@ Describe 'Write-ToolkitLog' {
 
             $lines = Get-Content -Path $tmpLog | Where-Object { $_ -match 'THREAD-\d+-ENTRY-\d+' }
 
-            # Without mutex there may be missing or corrupted entries
             $lines.Count | Should -Be 25
 
             Remove-Item $tmpLog -ErrorAction SilentlyContinue
@@ -315,9 +294,6 @@ Describe 'Write-ToolkitLog' {
     }
 }
 
-# =============================================================================
-# Invoke-ExternalCommandWithLog — return structure, exit codes, StdOut, timeout
-# =============================================================================
 Describe 'Invoke-ExternalCommandWithLog' {
 
     BeforeAll {
@@ -354,7 +330,7 @@ Describe 'Invoke-ExternalCommandWithLog' {
     }
 
     It 'Must return TimedOut=true when the process exceeds the timeout' {
-        # ping -n 10 takes ~9 seconds; timeout set to 1 second
+        # ping -n 10 takes ~9s; timeout set to 1s
         $result = Invoke-ExternalCommandWithLog `
             -Command 'cmd.exe' `
             -Arguments @('/c', 'ping -n 10 127.0.0.1 > nul') `
@@ -374,14 +350,10 @@ Describe 'Invoke-ExternalCommandWithLog' {
     }
 }
 
-# =============================================================================
-# Read-ValidatedChoice — input validation via RawInput (no console interaction)
-# =============================================================================
 Describe 'Read-ValidatedChoice' {
 
     BeforeEach {
         $Global:CurrentLogFile = $null
-        # Mute Write-StyledMessage to avoid console output in tests
         Mock Write-StyledMessage { }
     }
 

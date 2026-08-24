@@ -1,12 +1,8 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 <#
-.SYNOPSIS
-    Integration test for the build pipeline.
-.NOTES
-    Verifies that compiler.ps1, the source files, and Test-CompiledScript.ps1
-    are syntactically valid and consistent with each other.
-    Tests marked with -Tag 'Slow' perform a real compilation
-    and are skipped during fast CI runs (executed only in the build pipeline).
+Integration test for the build pipeline.
+Verifies compiler.ps1, source files, and Test-CompiledScript.ps1 are syntactically valid and consistent.
+Tests tagged 'Slow' perform a real compilation and are skipped during fast CI runs.
 #>
 
 BeforeAll {
@@ -17,9 +13,6 @@ BeforeAll {
     $script:TestScriptPath = Join-Path $script:RepoRoot '.github\scripts\Test-CompiledScript.ps1'
 }
 
-# =============================================================================
-# Source syntax
-# =============================================================================
 Describe 'Build Pipeline — Source Syntax' {
 
     It 'compiler.ps1 must have valid PowerShell syntax' {
@@ -54,9 +47,6 @@ Describe 'Build Pipeline — Source Syntax' {
     }
 }
 
-# =============================================================================
-# Source consistency
-# =============================================================================
 Describe 'Build Pipeline — Source Consistency' {
 
     It 'Every tools/*.ps1 file must declare a function with its own name' {
@@ -88,9 +78,6 @@ Describe 'Build Pipeline — Source Consistency' {
     }
 }
 
-# =============================================================================
-# End-to-End Compilation (Slow — requires complete source files)
-# =============================================================================
 Describe 'Build Pipeline — End-to-End' -Tag 'Slow' {
 
     It 'compiler.ps1 produces a valid WinToolkit.ps1 output' {

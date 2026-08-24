@@ -1,4 +1,4 @@
-# WinToolkit CI/CD Pipeline — Security Scan V4.0.2
+# PowerShell security analysis via PSScriptAnalyzer
 name: WinToolkit — Security Scan V4.0.2
 
 on:
@@ -6,9 +6,8 @@ on:
     branches: [Dev]
   pull_request:
     branches: [Dev]
-  schedule:
-    # Every Monday at 00:00 UTC
-    - cron: "0 0 * * 1"
+    schedule:
+      - cron: "0 0 * * 1"
 
 jobs:
   security-scan:

@@ -1,44 +1,19 @@
-# =============================================================================
-# WinToolkit — Top Contributors V4.0.2
-# =============================================================================
-# Automatically updates the "Top 10 Contributors" section in the README on main
-# by analyzing commits and PRs on the Dev branch.
-#
-# TRIGGER:
-#   - schedule: Every Monday at 04:00 UTC (06:00 CEST / 05:00 CET).
-#     The script verifies the Europe/Rome timezone at runtime and proceeds only
-#     if the Italian time is within the 05:00-07:00 window, automatically
-#     handling the CET/CEST transition.
-#   - workflow_dispatch: Manual execution, limited to admin/maintainer.
-#
-# FLOW:
-#   Job 0 -- validate:    Verifies official repo and admin permissions
-#   Job 1 -- update:      Calculates rankings, updates README, creates/updates PR
-#
-# BRANCH PROTECTION:
-#   The main branch HAS active branch protection. Direct push is BLOCKED,
-#   so creating a Pull Request is MANDATORY, not optional.
-#   The token configured in the repo is used (GITHUB_TOKEN with fallback to
-#   RELEASE_AUTOMATION_TOKEN, consistent with existing pipelines).
-#   If protection is changed in the future, the PR logic remains valid.
-#
-# RUNTIME: PowerShell 7+ (pwsh) preinstalled on ubuntu-latest
-# =============================================================================
+# Updates the "Top 10 Contributors" README section.
+# main (protected) -> Pull Request; Dev (unprotected, testing) -> direct commit.
+# Scheduled runs (Mon 04:00 UTC) target Dev only; manual dispatch can target Dev or main.
+# Runtime: PowerShell 7+.
 
 name: WinToolkit — Top Contributors V4.0.2
 
 on:
   schedule:
-    # Every Monday at 04:00 UTC.
-    # Corresponds to 06:00 CEST (daylight saving) and 05:00 CET (standard).
-    # The script performs a runtime check on Europe/Rome to automatically
-    # handle the CET/CEST transition and proceeds only if Italian time
-    # is within the 05:00-07:00 window.
+    # Every Monday 04:00 UTC. Always targets Dev (main excluded: must remain manual).
+    # Runtime check enforces Europe/Rome 05:00-07:00 window (CET/CEST auto-handled).
     - cron: "0 4 * * 1"
   workflow_dispatch:
     inputs:
       target_branch:
-        description: "Branch receiving the contributors update PR"
+        description: "Branch receiving the contributors update PR. Use 'Dev' to test functionality/feasibility; use 'main' for the manual contributors update on production."
         required: true
         default: Dev
         type: choice
@@ -112,6 +87,17 @@ jobs:
       TARGET_BRANCH: ${{ github.event_name == 'schedule' && 'Dev' || inputs.target_branch }}
     
     steps:
+      - name: Guard — Scheduled runs may only target Dev
+        # Enforces: scheduled runs may only target Dev.
+        if: github.event_name == 'schedule'
+        shell: bash
+        run: |
+          if [ "${{ env.TARGET_BRANCH }}" != "Dev" ]; then
+            echo "::error::Scheduled run is only allowed to update the 'Dev' branch. Refusing to auto-update '${{ env.TARGET_BRANCH }}' (main must stay manual)."
+            exit 1
+          fi
+          echo "Scheduled run — target branch verified: '${{ env.TARGET_BRANCH }}' (Dev only, as required)."
+
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:

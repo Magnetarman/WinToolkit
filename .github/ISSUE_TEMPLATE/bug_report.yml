@@ -1,19 +1,18 @@
 name: Bug Report
-description: Report a WinToolkit malfunction for users and developers
+description: Report a WinToolkit bug.
 title: "[BUG]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for reporting a bug. Please complete the fields below so we can investigate it quickly.
-        *Remember our rule: 1 issue = 1 single problem.*
+        Report bugs here. One issue per bug.
 
   - type: checkboxes
     id: critical-checks
     attributes:
       label: Preliminary Checks
-      description: Confirm these checks before opening the issue.
+      description: Confirm these checks before opening.
       options:
         - label: I checked that no existing issue reports the same problem.
           required: true
@@ -24,7 +23,7 @@ body:
     id: description
     attributes:
       label: Bug Description
-      description: Provide a clear and concise description of the problem.
+      description: Describe the problem.
       placeholder: What exactly happens?
     validations:
       required: true
@@ -33,7 +32,7 @@ body:
     id: reproduction
     attributes:
       label: Steps to Reproduce
-      description: What should we do to reproduce the unexpected behavior?
+      description: Steps to reproduce.
       placeholder: |
         1. Start WinToolkit
         2. Select the '...' option
@@ -55,7 +54,7 @@ body:
     id: actual-output
     attributes:
       label: Actual Behavior
-      description: What happens instead? Include any red console errors.
+      description: What actually happens?
       placeholder: For example, the console displays an 'Access denied' error.
     validations:
       required: true
@@ -64,7 +63,7 @@ body:
     id: os-version
     attributes:
       label: Windows OS Version
-      description: Which Windows version shows the problem?
+      description: Which Windows version?
       options:
         - Windows 11 25H2
         - Windows 11 24H2
@@ -81,7 +80,7 @@ body:
     id: ps-version
     attributes:
       label: PowerShell Version
-      description: Which PowerShell version are you using? Run $PSVersionTable to check.
+      description: Run $PSVersionTable to check.
       options:
         - PowerShell 7.4+ (Core)
         - PowerShell 7.2+ (LTS)
@@ -93,7 +92,7 @@ body:
     id: profile-version
     attributes:
       label: PowerShell Profile Version
-      description: Provide the loaded profile version, shown in the terminal startup message.
+      description: Provide the loaded profile version.
       placeholder: For example, 2.5.2.10
     validations:
       required: true
@@ -110,10 +109,7 @@ body:
     attributes:
       label: Log Attachment (Required)
       description: |
-        Logs are essential for diagnosing the problem.
-        1. Start WinToolkit.
-        2. Select **Export WinToolkit Log**.
-        3. Attach the `.zip` file saved on your Desktop.
+        Attach the .zip log file generated via Export WinToolkit Log.
       options:
         - label: I generated and attached the `.zip` log file below.
           required: true
@@ -122,5 +118,5 @@ body:
     id: context
     attributes:
       label: Additional Context
-      description: Add any useful information, such as screenshots, videos or links.
+      description: Add screenshots, videos, or links.
       placeholder: Additional details...

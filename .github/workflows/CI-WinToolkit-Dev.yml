@@ -1,23 +1,6 @@
-# =============================================================================
-# WinToolkit CI/CD Pipeline V4.0.2
-# =============================================================================
-# Branch-adaptive pipeline:
-#   - Dev            -> Full pipeline:    lint -> test -> build (version read, no bump)
-#   - feature/fix/*  -> Light pipeline:   lint -> test -> build (label: "Work In Progress")
-#   - PR toward Dev  -> Quality gate:     lint -> test  (no build, no deploy)
-#
-# VERSIONING AND RELEASE: handled by the Release-PreRelease workflow (workflow_dispatch).
-#
-# GOLDEN RULE (Integrity):
-#   WinToolkit.ps1 is always regenerated from scratch from the pure sources.
-#   The pre-existing file is removed before every compilation to prevent
-#   leftovers from previous versions or merge conflicts producing corrupt output.
-#
-# SYNTAX: All .ps1 files are validated via AST before compilation.
-#   Errors are emitted as inline GitHub annotations (::error file=...).
-#
-# RUNTIME: PowerShell 7+ (pwsh) -- bundled with windows-latest, no extra install needed.
-# =============================================================================
+# WinToolkit CI Dev Pipeline V4.0.2
+# Triggers: push to Dev/feature/fix/feat/hotfix/bug/enhancement/* -> lint+test+build; PR to Dev -> lint+test only.
+# Build regenerates WinToolkit.ps1 from pure sources (pre-existing file removed first). AST-validated before compile.
 
 name: WinToolkit — CI Dev Pipeline V4.0.2
 
@@ -25,13 +8,7 @@ env:
   # Force Node 24 in Actions to avoid GitHub warnings about deprecated versions
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
-# ---------------------------------------------------------------------------
-# TRIGGER
-# - Dev             -- Full pipeline on push
-# - feature/**      -- Light pipeline (test + local build, no release)
-# - fix/** feat/**  -- Same
-# - PR toward Dev   -- Quality gate (lint + test, no deploy)
-# ---------------------------------------------------------------------------
+# Triggers: Dev + feature/fix/feat/hotfix/bug/enhancement branches (push); PRs to Dev.
 on:
   push:
     branches:
@@ -66,35 +43,16 @@ on:
   pull_request:
     branches: [Dev]
 
-# ---------------------------------------------------------------------------
-# CONCURRENCY -- a single active run per branch/PR
-# ---------------------------------------------------------------------------
+# Single active run per branch/PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# ---------------------------------------------------------------------------
-# JOBS
-# ---------------------------------------------------------------------------
+
 jobs:
-  # ===========================================================================
-  # JOB 0: PR SECURITY GUARD -- Three-level policy
-  #
-  # Level 1 -- Allowed (silent)
-  #   tools/* | start-modules/*
-  #
-  # Level 2 -- Allowed with warning (manual review required)
-  #   start.ps1 | WinToolkit_GUI.ps1 | wintoolkit-modules/ | assets/*
-  #   -> Warning comment posted, PR stays open, job does not fail.
-  #
-  # Level 3 -- Protected (hard block)
-  #   Any other file (compiler.ps1, .github/**, build artifacts, etc.)
-  #   -> Access denied comment, PR closed automatically, job fails.
-  #
-  # Runs only on pull_request events toward Dev.
-  # ===========================================================================
+  # PR Security Guard (PRs to Dev only): L1 tools/start-modules (silent), L2 sensitive (warning), L3 protected (block+close).
   pr_security_guard:
-    name: PR Security Check
+    name: PR Security
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     permissions:
@@ -102,12 +60,12 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
-      - name: Verify Changed Files
+      - name: Verify changed files
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -121,15 +79,7 @@ jobs:
             const prNumber     = context.issue.number;
             const isMaintainer = (author.toLowerCase() === 'magnetarman');
 
-            // -- FILE CLASSIFICATION -------------------------------------
-            //
-            // Level 1: tools/*, start-modules/* -> allowed, no action.
-            // Level 2: known sensitive files + assets/* -> accepted, warning.
-            // Level 3: everything else -> hard block (unless maintainer).
-            //
-            // Compiled artifacts (WinToolkit.ps1, start-core.ps1) are produced
-            // by CI itself: they are silent for the maintainer (Level 1) and
-            // stay protected (Level 3) for everyone else.
+            // File classification: L1 tools/start-modules (silent), L2 sensitive+assets (warning), L3 else (block).
 
             const SENSITIVE_FILES = new Set([
               'start.ps1',
@@ -154,24 +104,18 @@ jobs:
             let level2Files = files.filter(f => classifyFile(f.filename) === 2);
             let level3Files = files.filter(f => classifyFile(f.filename) === 3);
 
-            // -- MAINTAINER BYPASS ---------------------------------------
-            // If the author is MagnetarMan, Level 3 files are downgraded to
-            // Level 2 (non-blocking warning).
+            // Maintainer bypass: L3 downgraded to L2.
             if (isMaintainer && level3Files.length > 0) {
               level2Files = [...level2Files, ...level3Files];
               level3Files = [];
             }
 
-            // -- COMPILED ARTIFACT EXCLUSION FOR THE MAINTAINER ----------
-            // WinToolkit.ps1 and start-core.ps1 are outputs compiled by CI
-            // itself: for MagnetarMan they need no manual review and are
-            // treated as Level 1 (silent). For every other contributor the
-            // behaviour is unchanged (Level 3 -> block).
+            // Compiled artifacts (WinToolkit.ps1, start-core.ps1) are silent for maintainer.
             if (isMaintainer) {
               level2Files = level2Files.filter(f => !BUILD_ARTIFACTS.has(f.filename));
             }
 
-            // -- LEVEL 3: HARD BLOCK -------------------------------------
+            // L3: hard block
             if (level3Files.length > 0) {
               const fileList = level3Files.map(f => `- \`${f.filename}\``).join('\n');
 
@@ -220,7 +164,7 @@ jobs:
               return;
             }
 
-            // -- LEVEL 2: WARNING (PR stays open) ------------------------
+            // L2: warning
             if (level2Files.length > 0) {
               const fileList = level2Files.map(f => `- \`${f.filename}\``).join('\n');
 
@@ -259,29 +203,16 @@ jobs:
                 body: warningMessage,
               });
 
-              // Visible notice in the Actions log without failing the job
+              // Notice in Actions log (non-failing)
               core.notice(
                 `PR #${prNumber}: ${level2Files.length} sensitive file(s) modified ` +
                 `(${level2Files.map(f => f.filename).join(', ')}) — manual review recommended.`
               );
             }
 
-            // -- LEVEL 1: tools/ and start-modules/ -- no action needed --
-
-  # ===========================================================================
-  # JOB DETECT_CHANGES -- Differential detection per source family
-  #
-  # Outputs:
-  #   run_checks          -> at least one source family (or shared CI file) changed
-  #   wintoolkit_changed  -> WinToolkit sources (tools/, template, GUI, compiler)
-  #   start_changed       -> Start sources (stub, start-modules/, Start build scripts)
-  #   start_build_changed -> start-modules/ only (requires a start-core.ps1 rebuild)
-  #
-  # Shared CI files (.github/tests, .github/scripts, .github/actions) activate
-  # both families, because they can influence any build.
-  # ===========================================================================
+  # Differential change detection per source family (WinToolkit / Start). Shared CI files activate both.
   detect_changes:
-    name: Detect Source Changes
+    name: Detect changes
     runs-on: ubuntu-latest
     outputs:
       run_checks: ${{ steps.filter.outputs.run_checks }}
@@ -290,12 +221,12 @@ jobs:
       start_build_changed: ${{ steps.filter.outputs.start_build_changed }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
-      - name: Detect changes per source family
+      - name: Detect changes
         id: filter
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -312,7 +243,7 @@ jobs:
           echo "Changed files:"
           echo "$CHANGED"
 
-          # --- Per-family patterns --------------------------------------------
+          # Per-family patterns
           WT_PATTERN='^(tools/[^/]+\.ps1|wintoolkit-modules/[^/]+\.ps1|WinToolkit_GUI\.ps1|compiler\.ps1)$'
           ST_PATTERN='^(start\.ps1|start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1|\.github/scripts/(Invoke-Build-Start|Test-CompiledStartScript)\.ps1)$'
           ST_BUILD_PATTERN='^start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1$'
@@ -326,7 +257,7 @@ jobs:
           if echo "$CHANGED" | grep -qE "$ST_PATTERN"; then ST_CHANGED=true; fi
           if echo "$CHANGED" | grep -qE "$ST_BUILD_PATTERN"; then ST_BUILD_CHANGED=true; fi
 
-          # Shared CI files activate both families of checks.
+          # Shared CI files activate both families
           if echo "$CHANGED" | grep -qE "$SHARED_PATTERN"; then
             WT_CHANGED=true
             ST_CHANGED=true
@@ -347,11 +278,7 @@ jobs:
 
           echo "run_checks=$RUN_CHECKS wintoolkit_changed=$WT_CHANGED start_changed=$ST_CHANGED start_build_changed=$ST_BUILD_CHANGED"
 
-  # ===========================================================================
-  # JOB 1: REUSABLE QUALITY GATE
-  # Linting and testing are defined in _reusable-lint-test.yml.
-  # WinToolkit and Start checks are enabled differentially.
-  # ===========================================================================
+  # Quality gate (lint+test) via reusable workflow; checks enabled per changed family.
   quality:
     name: Lint and test
     needs: detect_changes
@@ -363,11 +290,7 @@ jobs:
     permissions:
       contents: read
 
-  # ===========================================================================
-  # JOB 2: BUILD — Reusable Workflow
-  # Dynamic labeling and the branch-aware commit are handled by the reusable workflow.
-  # Runs only when WinToolkit sources changed and the quality gate passed.
-  # ===========================================================================
+  # Build WinToolkit.ps1 (reusable workflow) when sources changed and quality passed.
   build:
     name: Build
     if: |
@@ -382,12 +305,9 @@ jobs:
       commit-message: "✅ Build WinToolkit"
     secrets: inherit
 
-  # ===========================================================================
-  # JOB 3: BUILD START — Reusable Workflow
-  # Runs only when start-modules/ changed (start-core.ps1 must be regenerated).
-  # ===========================================================================
+  # Build start-core.ps1 when start-modules/ changed.
   build-start:
-    name: Build start-core.ps1
+    name: Build start-core
     if: |
       github.event_name == 'push' &&
       needs.detect_changes.outputs.start_build_changed == 'true' &&

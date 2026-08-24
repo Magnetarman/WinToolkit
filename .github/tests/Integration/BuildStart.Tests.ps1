@@ -39,7 +39,7 @@ Describe 'Test-CompiledStartScript.ps1 contract' {
 }
 
 Describe 'Update-Version.ps1 source alignment' {
-    It 'exposes aligned_sources and aligns the Start header' {
+    It 'exposes aligned_sources and aligns the Start header' {    
         $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "version-$([guid]::NewGuid())"
         New-Item -ItemType Directory -Path $testRoot | Out-Null
         $template = Join-Path $testRoot '00-Skeleton.Header.ps1'

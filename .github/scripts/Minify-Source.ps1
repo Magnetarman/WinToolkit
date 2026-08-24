@@ -1,15 +1,5 @@
-# WinToolkit CI/CD Pipeline V4.0.2 — Shared source minification
-# =============================================================================
-# Tokenizer-safe PowerShell minification shared by every build entry point
-# (compiler.ps1 for WinToolkit.ps1, Invoke-Build-Start.ps1 for start-core.ps1).
-#
-# Invoked with:  & Minify-Source.ps1 -Content <string>
-# It strips comment tokens via the PowerShell parser, trims trailing whitespace
-# and drops blank lines. The minified result is re-parsed and, on any
-# post-minification syntax error, the original content is returned unchanged so
-# the emitted artifact is always syntactically safe. The minified string is
-# written to stdout; callers capture it.
-# =============================================================================
+# Tokenizer-safe PowerShell minifier. Strips comment tokens, trims whitespace, drops blank lines.
+# Verifies syntax after minification and rolls back to original on error.
 
 [CmdletBinding()]
 param(

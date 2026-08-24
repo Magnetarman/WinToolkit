@@ -1,13 +1,9 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 <#
-.SYNOPSIS
-    Contract-level unit coverage for tool modules without dedicated suites.
-
-.DESCRIPTION
-    These tests deliberately inspect and parse each module without executing
-    destructive Windows operations. Runtime behavior remains covered by the
-    dedicated suites for GamingToolkit and WinCleaner.
+Contract-level unit coverage for tool modules without dedicated suites.
+Inspects and parses each module without executing destructive Windows operations.
+Runtime behavior remains covered by the dedicated GamingToolkit and WinCleaner suites.
 #>
 
 BeforeAll {

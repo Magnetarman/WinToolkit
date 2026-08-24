@@ -1,31 +1,6 @@
-# =============================================================================
-# WinToolkit — Get-TopContributors.ps1
-# =============================================================================
-# Calculates the Top 10 Contributors ranking on the Dev branch and updates
-# the README.md with a dedicated HTML-marked section.
-#
-# LOGIC:
-#   - Fetches commits and PRs from the Dev branch via GitHub API (pagination 100).
-#   - Excludes known bots (github-actions[bot], dependabot[bot]).
-#   - Sorts by number of PRs (descending), then by commits (descending).
-#   - Handles authors without a linked GitHub account (commit.author null).
-#   - Updates the README between <!-- TOP_CONTRIBUTORS_START/END --> markers.
-#   - Creates/updates a PR toward main with the changes.
-#
-# BRANCH PROTECTION:
-#   The main branch HAS active branch protection. Direct push is BLOCKED,
-#   so creating a Pull Request is MANDATORY. GITHUB_TOKEN with fallback to
-#   RELEASE_AUTOMATION_TOKEN is used (consistent with existing pipelines).
-#   If protection changes in the future, the PR logic remains valid for
-#   traceability and review.
-#
-# SCHEDULING:
-#   The workflow uses a runtime check for the Europe/Rome timezone.
-#   The GitHub Actions cron is fixed on UTC (04:00 UTC every Monday, which
-#   corresponds to 06:00 CEST or 05:00 CET). The script verifies Italian time
-#   and proceeds only if it falls within an acceptable window (05:00-07:00),
-#   automatically handling the CET/CEST transition.
-# =============================================================================
+# Calculates Top 10 Contributors from Dev branch and updates README.
+# Dev (unprotected) -> direct commit; main (protected) -> Pull Request.
+# Scheduled runs enforce Europe/Rome 05:00-07:00 window.
 
 [CmdletBinding()]
 param(
@@ -179,7 +154,6 @@ function ConvertTo-ContributorStats {
     
     $stats = @{}
     
-    # Process commits
     foreach ($commit in $Commits) {
         $author = $commit.author
         if ($null -eq $author) {
@@ -210,7 +184,6 @@ function ConvertTo-ContributorStats {
         $stats[$login].Commits++
     }
     
-    # Process PRs
     foreach ($pr in $Prs) {
         $login = $pr.user.login.ToLower()
         
@@ -219,7 +192,7 @@ function ConvertTo-ContributorStats {
             continue
         }
         
-        # Count only open or merged PRs (excludes closed without merge and drafts)
+    # Open/merged PRs only
         if ($pr.state -ne 'open' -and $pr.merged -ne $true) {
             continue
         }
@@ -317,7 +290,7 @@ function Get-ExistingPullRequest {
     
     $apiBase = "https://api.github.com"
     
-    # Check if PR already exists with our label
+    # Check existing PR with label
     $existingPrs = Invoke-RestMethod -Uri "$apiBase/repos/$Repo/pulls?state=open&per_page=100" -Headers $Headers -Method Get
     $existingPr = $existingPrs | Where-Object { $_.labels.name -contains $PrLabel } | Select-Object -First 1
     
@@ -340,7 +313,7 @@ function New-PullRequest {
     
     $apiBase = "https://api.github.com"
     
-    # Create new PR (caller must ensure branch exists on remote)
+    # Create new PR
     $bodyObj = @{
         title = $Title
         head  = $BranchName
@@ -358,7 +331,7 @@ function New-PullRequest {
 }
 
 # ---------------------------------------------------------------------------
-# TIMEZONE VALIDATION (Europe/Rome)
+# TIMEZONE CHECK (Europe/Rome)
 # ---------------------------------------------------------------------------
 function Test-ShouldProceed {
     $force = $env:FORCE_EXECUTION -eq "true"
@@ -381,7 +354,7 @@ function Test-ShouldProceed {
         return $true
     }
     
-    # If this is a manual dispatch, proceed anyway
+    # Allow manual/forced execution
     if ($env:GITHUB_EVENT_NAME -eq "workflow_dispatch" -or $force) {
         Write-Host "Manual or forced execution, skipping time window check."
         return $true
@@ -401,27 +374,22 @@ if (-not (Test-ShouldProceed)) {
 
 Write-Host "Starting Top Contributors update for repo: $Repo"
 
-# Fetch data
 $commits = Get-CommitsFromDev -Token $GitHubToken
 $prs = Get-PrsFromDev -Token $GitHubToken
 
-# Calculate stats
 $topContributors = ConvertTo-ContributorStats -Commits $commits -Prs $prs
 Write-Host "Top contributors calculated: $($topContributors.Count)"
 
-# Generate markdown
 $contributorsMarkdown = New-ContributorsMarkdown -TopContributors $topContributors -SectionTitle "Top 10 Contributors"
 Write-Host "Generated markdown section:"
 Write-Host $contributorsMarkdown
 
-# Update README
 $readmeUpdated = Update-ReadmeSection -Path $ReadmePath -NewContent $contributorsMarkdown
 if (-not $readmeUpdated) {
     Write-Error "Failed to update README."
     exit 1
 }
 
-# Prepare PR body
 $prBody = @"
 ## Top 10 Contributors — Automated Update
 
@@ -448,8 +416,6 @@ This PR updates the **Top 10 Contributors** section in the README.
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $branchName = "$BranchPrefix-$timestamp"
 
-Write-Host "Preparing git branch: $branchName"
-
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
 git config core.autocrlf true
@@ -457,6 +423,28 @@ git config core.safecrlf false
 
 git checkout $TargetBranch
 git pull origin $TargetBranch
+
+# ---------------------------------------------------------------------------
+# DELIVERY MODE: Dev -> direct commit; main -> PR.
+# ---------------------------------------------------------------------------
+if ($TargetBranch -eq $DevBranch) {
+    Write-Host "Target branch '$TargetBranch' is unprotected: committing README directly (no PR)."
+
+    git add $ReadmePath
+    $diff = git diff --cached --stat
+    if ($diff) {
+        git commit -m "docs: update Top 10 Contributors section"
+        git push origin $TargetBranch
+        Write-Host "README updated directly on '$TargetBranch'."
+    } else {
+        Write-Host "No changes to README. Nothing to push."
+    }
+    exit 0
+}
+
+# Protected branch: create/update PR.
+Write-Host "Target branch '$TargetBranch' is protected: creating/updating a PR."
+Write-Host "Preparing git branch: $branchName"
 
 # Check if an existing PR with our label exists (read-only, before creating branch)
 $existingPrResult = Get-ExistingPullRequest -Repo $Repo -Headers $Headers
@@ -467,7 +455,7 @@ if ($existingPrResult.Exists) {
     git checkout $branchName
     git pull origin $branchName
     
-    # Rebase/merge from the target branch to avoid drift and conflicts
+    # Merge target branch to avoid drift
     git merge origin/$TargetBranch --no-edit
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "Merge conflicts detected. Aborting merge and continuing with current branch state."

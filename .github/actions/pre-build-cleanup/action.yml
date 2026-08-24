@@ -1,4 +1,3 @@
-# WinToolkit CI/CD Pipeline V4.0.2 — Composite Action
 name: WinToolkit V4.0.2 — Pre-build cleanup
 description: Remove a previously compiled artifact before a build.
 

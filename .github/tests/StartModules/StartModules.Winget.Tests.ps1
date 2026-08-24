@@ -1,20 +1,16 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 <#
-.SYNOPSIS
-    Tests for the WinGet/AppX module (40-Module.Winget.ps1).
-
-    Repair-Winget is the consolidation entry point from §3.1: it must dispatch to
-    exactly the implementation that matches the requested level, with no
-    side-effecting calls to unrequested repair functions. Those implementations
-    touch the real system, so they are mocked here.
+Tests for the WinGet/AppX module (40-Module.Winget.ps1).
+Repair-Winget is the §3.1 entry point: it must dispatch to exactly the implementation
+matching the requested level, with no side-effecting calls to unrequested repair functions.
+Those implementations touch the real system, so they are mocked here.
 #>
 
 BeforeAll {
     $moduleRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..\start-modules')
     foreach ($file in (Get-ChildItem -Path $moduleRoot -Filter '*.ps1' | Sort-Object Name)) {
-        # The Main skeleton auto-invokes Invoke-WinToolkitSetup at load time,
-        # which requires an interactive console; skip it in unit tests.
+        # 90-Skeleton.Main.ps1 auto-invokes the interactive entry point; skip it
         if ($file.Name -eq '90-Skeleton.Main.ps1') { continue }
         . $file.FullName
     }

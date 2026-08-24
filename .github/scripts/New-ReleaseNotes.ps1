@@ -1,24 +1,6 @@
 <#
 .SYNOPSIS
-    Generates release notes by aggregating merged PRs and Issues since the last stable release.
-
-.PARAMETER Version
-    The current release version string.
-
-.PARAMETER SourceKB
-    Source size in KB (build metric).
-
-.PARAMETER OutputKB
-    Compiled output size in KB.
-
-.PARAMETER ReductionPercent
-    Post-minification reduction percentage.
-
-.PARAMETER LinesRemoved
-    Number of lines removed during the build.
-
-.OUTPUTS
-    Writes release_body.md in the current directory.
+    Generates release notes from merged PRs and closed issues since the last stable release.
 #>
 [CmdletBinding()]
 param(
@@ -33,7 +15,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# ─── PHASE 1: Identify reference release ────────────────────────────
+# PHASE 1: Find reference release
 Write-Host "::group::PHASE 1 — Finding reference release"
 $targetDate = $null
 
@@ -77,7 +59,7 @@ if (-not $targetDate) {
 }
 Write-Host "::endgroup::"
 
-# ─── PHASE 2: Fetch and filter PRs ──────────────────────────────────
+# PHASE 2: Fetch and filter PRs
 Write-Host "::group::PHASE 2 — Fetching and filtering PRs"
 Write-Host "Filtering PRs merged after: $targetDate (UTC)"
 
@@ -100,7 +82,7 @@ $validPrs = $prsObj | Where-Object {
 Write-Host "Valid PRs: $($validPrs.Count)"
 Write-Host "::endgroup::"
 
-# ─── PHASE 3: Categorization ──────────────────────────────────────────
+# PHASE 3: Categorize PRs/issues and generate notes
 Write-Host "::group::PHASE 3 — Generating release notes"
 
 function Get-PrCategory {
