@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout target branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -60,7 +60,7 @@ jobs:
           git add -A .github/
 
       - name: Commit version bump
-        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
         with:
           commit_message: ${{ inputs.commit-message }}
           file_pattern: ${{ inputs.sync-github && 'wintoolkit-modules/00-Skeleton.Header.ps1 start-modules/00-Skeleton.Header.ps1 .github/' || 'wintoolkit-modules/00-Skeleton.Header.ps1' }}
