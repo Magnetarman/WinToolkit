@@ -14,7 +14,9 @@ function Start-ToolkitLog {
     param([string]$ToolName)
 
     $Global:CurrentToolName = $ToolName
-    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
+    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
+        Write-Warning "wintoolkit-modules\30-Module.Logging.ps1, Start-ToolkitLog 1: $($_.Exception.Message)"
+    }
 
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = $AppConfig.Paths.Logs
@@ -55,7 +57,9 @@ WSManStackVersion       : $wsManVer
 [END LOG HEADER]
 
 "@
-    try { Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    try { Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {
+        Write-Warning "wintoolkit-modules\30-Module.Logging.ps1, Start-ToolkitLog 2: $($_.Exception.Message)"
+    }
 }
 
 function Write-ToolkitLog {
@@ -78,7 +82,9 @@ function Write-ToolkitLog {
     $clean = $clean -replace '[⌀-⏿☀-➿\uD800-\uDFFF]', ''
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
-        try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {}
+        try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {
+            Write-Warning "wintoolkit-modules\30-Module.Logging.ps1, Write-ToolkitLog 1: $($_.Exception.Message)"
+        }
     }
     try {
         $mutex = New-Object System.Threading.Mutex($false, "Global\WinToolkitLogMutex")
@@ -92,7 +98,9 @@ function Write-ToolkitLog {
             $mutex.Dispose()
         }
     }
-    catch {}
+    catch {
+        Write-Warning "wintoolkit-modules\30-Module.Logging.ps1, Write-ToolkitLog 2: $($_.Exception.Message)"
+    }
 }
 
 

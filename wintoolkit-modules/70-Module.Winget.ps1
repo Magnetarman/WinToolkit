@@ -97,7 +97,9 @@ function Wait-WingetReady {
                 return $true
             }
         }
-        catch {}
+        catch {
+            Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, Wait-WingetReady: $($_.Exception.Message)"
+        }
         $remaining = $MaxWaitSeconds - ($i * $PollIntervalSeconds)
         Write-StyledMessage -Type Progress -Text ("⏳ " + (Get-SourceTextLoc 'uiText.wingetNotYetReadyAttempt012SRemainWait' -Args @($i, $maxRetries, $remaining)))
         Start-Sleep -Seconds $PollIntervalSeconds
@@ -152,7 +154,9 @@ function Reset-Winget {
                 }
             }
         }
-        catch {}
+        catch {
+            Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, Register-AppxManifest: $($_.Exception.Message)"
+        }
     }
 
     function Get-LatestAssetUrl {
@@ -247,7 +251,9 @@ function Reset-Winget {
             Sort-Object Name -Descending | Select-Object -First 1
             if ($wingetDir) { $wingetFolderPath = $wingetDir.FullName }
         }
-        catch {}
+        catch {
+            Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, Set-WingetPathPermissions: $($_.Exception.Message)"
+        }
         if ($wingetFolderPath) {
             Set-PathPermissions -FolderPath $wingetFolderPath
             Add-ToEnvironmentPath -PathToAdd $wingetFolderPath -Scope 'System'
@@ -266,7 +272,9 @@ function Reset-Winget {
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.puliziaCacheWinget')
                 Get-ChildItem -Path $cachePath -Recurse -Force -ErrorAction SilentlyContinue |
                 Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
-                ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {} }
+                ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {
+                    Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, _Repair-WingetDatabase 1: $($_.Exception.Message)"
+                } }
             }
 
             @("$env:LOCALAPPDATA\WinGet\Data\USERTEMPLATE.json",
@@ -277,7 +285,9 @@ function Reset-Winget {
                 }
             }
 
-            try { $null = & (Get-WingetExecutable) source reset --force 2>&1 } catch {}
+            try { $null = & (Get-WingetExecutable) source reset --force 2>&1 } catch {
+                Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, _Repair-WingetDatabase 2: $($_.Exception.Message)"
+            }
 
             if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
                 Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
@@ -293,7 +303,9 @@ function Reset-Winget {
                     }
                 }
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, _Repair-WingetDatabase 3: $($_.Exception.Message)"
+            }
 
             try {
                 if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
@@ -364,7 +376,9 @@ function Reset-Winget {
                 Start-Sleep 3
             }
 
-            try { Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null } catch {}
+            try { Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null } catch {
+                Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, _Install-WingetAdvanced: $($_.Exception.Message)"
+            }
             Set-WingetPathPermissions
             Update-EnvironmentPath
             return $true
@@ -479,7 +493,9 @@ function Reset-Winget {
             Start-Process -FilePath (Get-WingetExecutable) -ArgumentList 'source', 'reset', '--force' `
                 -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
         }
-        catch {}
+        catch {
+            Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, Reset-Winget: $($_.Exception.Message)"
+        }
 
         $deepOk = Test-WingetDeepValidation
         if ($deepOk) {

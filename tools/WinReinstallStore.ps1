@@ -21,7 +21,9 @@ function WinReinstallStore {
 
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.restartMicrosoftStoreServices')
         @('AppXSvc', 'ClipSVC', 'WSService') | ForEach-Object {
-            try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch { }
+            try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch {
+                Write-Warning "tools\WinReinstallStore.ps1, Install-MicrosoftStore: $($_.Exception.Message)"
+            }
         }
 
         @(
@@ -165,7 +167,9 @@ function WinReinstallStore {
                         }
                     }
                 }
-                catch { }
+                catch {
+                    Write-Warning "tools\WinReinstallStore.ps1, Install-UniGetUI: $($_.Exception.Message)"
+                }
                 return $true
             }
             else {
@@ -265,13 +269,19 @@ function WinReinstallStore {
                     [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) *>$null
                     [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hOrigIn) *>$null
                 }
-                catch { }
+                catch {
+                    Write-Warning "tools\WinReinstallStore.ps1, Invoke-WithConsoleRedirection 1: $($_.Exception.Message)"
+                }
             }
             if ($hNullOut -and $hNullOut -ne $INVALID_HANDLE_VALUE -and $hNullOut -ne [IntPtr]::Zero) {
-                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullOut) *>$null } catch { }
+                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullOut) *>$null } catch {
+                    Write-Warning "tools\WinReinstallStore.ps1, Invoke-WithConsoleRedirection 2: $($_.Exception.Message)"
+                }
             }
             if ($hNullIn -and $hNullIn -ne $INVALID_HANDLE_VALUE -and $hNullIn -ne [IntPtr]::Zero) {
-                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullIn) *>$null } catch { }
+                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullIn) *>$null } catch {
+                    Write-Warning "tools\WinReinstallStore.ps1, Invoke-WithConsoleRedirection 3: $($_.Exception.Message)"
+                }
             }
         }
     }

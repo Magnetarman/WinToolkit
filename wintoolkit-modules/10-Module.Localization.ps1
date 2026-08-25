@@ -250,7 +250,9 @@ function Invoke-SourceTextLanguagePreparation {
                     $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
                     if (Test-Path $localFileFallback) { Copy-Item -LiteralPath $localFileFallback -Destination $localFile -Force }
                 }
-                catch {}
+                catch {
+                    Write-Warning "wintoolkit-modules\10-Module.Localization.ps1, Invoke-SourceTextLanguagePreparation: $($_.Exception.Message)"
+                }
             }
         }
     }

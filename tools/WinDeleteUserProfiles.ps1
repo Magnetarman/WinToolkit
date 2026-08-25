@@ -659,7 +659,9 @@ function WinDeleteUserProfiles {
         }
         catch {
             Add-ProfileCleanupLog -Level 'ERROR' -Text $_.Exception.Message
-            try { Save-ProfileCleanupLog } catch { }
+            try { Save-ProfileCleanupLog } catch {
+                Write-Warning "tools\WinDeleteUserProfiles.ps1, WinDeleteUserProfiles: $($_.Exception.Message)"
+            }
             Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error' -Args @($_.Exception.Message))
             throw
         }
