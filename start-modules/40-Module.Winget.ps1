@@ -419,7 +419,9 @@ function Repair-WingetDatabase {
                 try {
                     Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
                 }
-                catch {}
+                catch {
+                    Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase 1: $($_.Exception.Message)"
+                }
             }
         }
 
@@ -441,7 +443,9 @@ function Repair-WingetDatabase {
         try {
             $null = & winget.exe source reset --force 2>&1
         }
-        catch {}    # Ignore errors during reset
+        catch {
+            Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase 2: $($_.Exception.Message)"
+        }
 
         # 5. Full reset of the AppInstaller package (Crucial for ACCESS_VIOLATION)
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetPackageMicrosoftDesktopappinstaller')
@@ -460,7 +464,9 @@ function Repair-WingetDatabase {
                 }
             }
         }
-        catch { }
+        catch {
+            Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase 3: $($_.Exception.Message)"
+        }
 
         # 7. Retry with WinGet module if available
         try {
@@ -726,7 +732,9 @@ function Install-WingetPackage {
             try {
                 $null = & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
             }
-            catch {}
+            catch {
+                Write-Warning "start-modules\40-Module.Winget.ps1, Install-WingetPackage: $($_.Exception.Message)"
+            }
         }
 
         if (-not (Get-Module -ListAvailable Microsoft.WinGet.Client) -or $Force) {
@@ -798,7 +806,9 @@ function Install-WingetPackage {
         try {
             Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackageSilently
         }
-        catch {}
+        catch {
+            Write-Warning "start-modules\40-Module.Winget.ps1, Install-WingetPackage: $($_.Exception.Message)"
+        }
 
         # Applica permessi PATH e registrazione (basato su asheroto)
         Set-WingetPathPermissions

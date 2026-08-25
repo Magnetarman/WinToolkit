@@ -35,7 +35,9 @@ function Start-ToolkitLog {
     param([string]$ToolName)
 
     # Clean up leftover transcripts
-    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
+    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
+        Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+    }
 
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = $script:AppConfig.Paths.Logs
@@ -62,7 +64,9 @@ ToolkitVersion : $($script:AppConfig.Header.Version)
 [END LOG HEADER]
 
 "@
-    try { Add-Content -Path $script:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    try { Add-Content -Path $script:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {
+        Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+    }
 }
 
 function Write-ToolkitLog {
@@ -82,7 +86,9 @@ function Write-ToolkitLog {
     # Remove all ANSI/color characters before saving to file
     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
     $line = "[$ts] [$Level] $clean"
-    try { Add-Content -Path $script:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    try { Add-Content -Path $script:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {
+        Write-Warning "start-modules\10-Module.Logging.ps1, Write-ToolkitLog: $($_.Exception.Message)"
+    }
 }
 
 function Format-CenteredText {

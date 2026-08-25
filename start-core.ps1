@@ -109,7 +109,9 @@ function Write-StyledMessage {
 }
 function Start-ToolkitLog {
     param([string]$ToolName)
-    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
+    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
+        Write-Warning "start-core.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+    }
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = $script:AppConfig.Paths.Logs
     if (-not (Test-Path $logdir)) {
@@ -131,7 +133,9 @@ PSVersion      : $psVer
 ToolkitVersion : $($script:AppConfig.Header.Version)
 [END LOG HEADER]
 "@
-    try { Add-Content -Path $script:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    try { Add-Content -Path $script:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {
+        Write-Warning "start-core.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+    }
 }
 function Write-ToolkitLog {
     param(
@@ -144,7 +148,9 @@ function Write-ToolkitLog {
     $clean = $Message -replace '^\s+', ''
     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
     $line = "[$ts] [$Level] $clean"
-    try { Add-Content -Path $script:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    try { Add-Content -Path $script:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {
+        Write-Warning "start-core.ps1, Write-ToolkitLog: $($_.Exception.Message)"
+    }
 }
 function Format-CenteredText {
     param(
@@ -270,7 +276,9 @@ function Invoke-SourceTextLanguagePreparation {
                     $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
                     if (Test-Path $localFileFallback) { Copy-Item -LiteralPath $localFileFallback -Destination $localFile -Force }
                 }
-                catch {}
+                catch {
+                    Write-Warning "start-core.ps1, Invoke-SourceTextLanguagePreparation: $($_.Exception.Message)"
+                }
             }
         }
     }
@@ -1012,7 +1020,9 @@ function Repair-WingetDatabase {
                 try {
                     Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
                 }
-                catch {}
+                catch {
+                    Write-Warning "start-core.ps1, Repair-WingetDatabase 1: $($_.Exception.Message)"
+                }
             }
         }
         $stateFiles = @(
@@ -1029,7 +1039,9 @@ function Repair-WingetDatabase {
         try {
             $null = & winget.exe source reset --force 2>&1
         }
-        catch {}
+        catch {
+            Write-Warning "start-core.ps1, Repair-WingetDatabase 2: $($_.Exception.Message)"
+        }
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetPackageMicrosoftDesktopappinstaller')
         if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
             Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackageSilently
@@ -1044,7 +1056,9 @@ function Repair-WingetDatabase {
                 }
             }
         }
-        catch { }
+        catch {
+            Write-Warning "start-core.ps1, Repair-WingetDatabase 3: $($_.Exception.Message)"
+        }
         try {
             if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.esecuzioneRepairWingetpackagemanager')
@@ -1244,7 +1258,9 @@ function Install-WingetPackage {
             try {
                 $null = & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
             }
-            catch {}
+            catch {
+                Write-Warning "start-core.ps1, Install-WingetPackage 1: $($_.Exception.Message)"
+            }
         }
         if (-not (Get-Module -ListAvailable Microsoft.WinGet.Client) -or $Force) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingMicrosoftWingetClientModule')
@@ -1301,7 +1317,9 @@ function Install-WingetPackage {
         try {
             Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackageSilently
         }
-        catch {}
+        catch {
+            Write-Warning "start-core.ps1, Install-WingetPackage 2: $($_.Exception.Message)"
+        }
         Set-WingetPathPermissions
         Start-Sleep 2
         Update-EnvironmentPath
@@ -1844,7 +1862,9 @@ function Invoke-ExternalCommand {
         $outTask = $proc.StandardOutput.ReadToEndAsync()
         $errTask = $proc.StandardError.ReadToEndAsync()
         if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
-            try { $proc.Kill($true) } catch { try { $proc.Kill() } catch { } }
+            try { $proc.Kill($true) } catch { try { $proc.Kill() } catch {
+                Write-Warning "start-core.ps1, Invoke-ExternalCommand: $($_.Exception.Message)"
+            } }
             $null = $proc.WaitForExit()
             Write-ToolkitLog -Level 'ERROR' -Message "External command timed out after $TimeoutSeconds s: $FilePath $($ArgumentList -join ' ')"
             return [pscustomobject]@{
@@ -2069,7 +2089,9 @@ function Invoke-WinToolkitSetup {
     }
     finally {
         Invoke-StartUpdateServices
-        try { Stop-Transcript -ErrorAction SilentlyContinue } catch { }
+        try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
+            Write-Warning "start-core.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
+        }
         $ErrorActionPreference = $previousErrorActionPreference
     }
 }

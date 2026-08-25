@@ -142,7 +142,9 @@ function Invoke-ExternalCommand {
         $errTask = $proc.StandardError.ReadToEndAsync()
 
         if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
-            try { $proc.Kill($true) } catch { try { $proc.Kill() } catch { } }
+            try { $proc.Kill($true) } catch { try { $proc.Kill() } catch {
+                Write-Warning "start-modules\80-Module.Common.ps1, Invoke-ExternalCommand: $($_.Exception.Message)"
+            } }
             $null = $proc.WaitForExit()
             Write-ToolkitLog -Level 'ERROR' -Message "External command timed out after $TimeoutSeconds s: $FilePath $($ArgumentList -join ' ')"
             return [pscustomobject]@{

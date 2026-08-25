@@ -15,7 +15,9 @@ function Initialize-ToolkitPaths {
             try {
                 if (-not (Test-Path $path)) { $null = New-Item -Path $path -ItemType Directory -Force -ErrorAction SilentlyContinue }
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\50-Module.Environment.ps1, Initialize-ToolkitPaths: $($_.Exception.Message)"
+            }
         }
     }
 }

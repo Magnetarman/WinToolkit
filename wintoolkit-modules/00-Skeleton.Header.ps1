@@ -34,7 +34,9 @@ function Read-Host {
     }
 
     $oldTreatControlC = [console]::TreatControlCAsInput
-    try { [console]::TreatControlCAsInput = $true } catch {}
+    try { [console]::TreatControlCAsInput = $true } catch {
+        Write-Warning "wintoolkit-modules\00-Skeleton.Header.ps1, Read-Host 1: $($_.Exception.Message)"
+    }
 
     try {
         if ($Prompt) { Write-Host "${Prompt}: " -NoNewline -ForegroundColor Cyan }
@@ -77,12 +79,16 @@ function Read-Host {
         return Microsoft.PowerShell.Utility\Read-Host
     }
     finally {
-        try { [console]::TreatControlCAsInput = $oldTreatControlC } catch {}
+        try { [console]::TreatControlCAsInput = $oldTreatControlC } catch {
+            Write-Warning "wintoolkit-modules\00-Skeleton.Header.ps1, Read-Host 2: $($_.Exception.Message)"
+        }
     }
 }
 
 $ErrorActionPreference = 'Stop'
-try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
+try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {
+    Write-Warning "wintoolkit-modules\00-Skeleton.Header.ps1, script scope: $($_.Exception.Message)"
+}
 
 
 # SECTION 2 · GLOBAL CONFIGURATION

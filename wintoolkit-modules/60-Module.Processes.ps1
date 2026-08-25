@@ -82,7 +82,9 @@ function Invoke-ExternalCommandWithLog {
                 $proc.Refresh()
             }
             if (-not $proc.HasExited -and $TimeoutSeconds -gt 0) {
-                try { $proc.Kill() } catch {}
+                try { $proc.Kill() } catch {
+                    Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ExternalCommandWithLog 1: $($_.Exception.Message)"
+                }
                 throw (Get-SourceTextLoc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
             }
             Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.completed') -Percent 100 -Icon '✅'
@@ -91,14 +93,18 @@ function Invoke-ExternalCommandWithLog {
         else {
             if ($TimeoutSeconds -gt 0) {
                 if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
-                    try { $proc.Kill() } catch {}
+                    try { $proc.Kill() } catch {
+                        Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ExternalCommandWithLog 2: $($_.Exception.Message)"
+                    }
                     throw (Get-SourceTextLoc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
                 }
             }
             else { $proc.WaitForExit() }
         }
 
-        try { [System.Threading.Tasks.Task]::WaitAll($outTask, $errTask) } catch {}
+        try { [System.Threading.Tasks.Task]::WaitAll($outTask, $errTask) } catch {
+            Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ExternalCommandWithLog 3: $($_.Exception.Message)"
+        }
         if ($outTask.Status -eq 'RanToCompletion') { $outText = $outTask.Result }
         if ($errTask.Status -eq 'RanToCompletion') { $errText = $errTask.Result }
 
@@ -284,7 +290,9 @@ function Start-ToolkitSession {
     param([string]$ToolName, [string]$SubTitle = $ToolName)
     Start-ToolkitLog -ToolName $ToolName
     Show-Header -SubTitle $SubTitle
-    try { $Host.UI.RawUI.WindowTitle = "$SubTitle By MagnetarMan" } catch {}
+    try { $Host.UI.RawUI.WindowTitle = "$SubTitle By MagnetarMan" } catch {
+        Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Start-ToolkitSession: $($_.Exception.Message)"
+    }
 }
 
 function Invoke-ToolkitReboot {
@@ -380,7 +388,9 @@ function Invoke-ToolkitDownload {
                 }
                 $headResponse.Dispose()
             }
-            catch {}  # Continue even if HEAD fails
+            catch {
+                Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ToolkitDownload: $($_.Exception.Message)"
+            }
             
             # Perform the GET download
             $getRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $Uri)
