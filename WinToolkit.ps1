@@ -12,7 +12,9 @@ function Read-Host {
         return Microsoft.PowerShell.Utility\Read-Host
     }
     $oldTreatControlC = [console]::TreatControlCAsInput
-    try { [console]::TreatControlCAsInput = $true } catch {}
+    try { [console]::TreatControlCAsInput = $true } catch {
+        Write-Warning "wintoolkit-modules\00-Skeleton.Header.ps1, Read-Host 1: $($_.Exception.Message)"
+    }
     try {
         if ($Prompt) { Write-Host "${Prompt}: " -NoNewline -ForegroundColor Cyan }
         $inputString = ""
@@ -52,11 +54,15 @@ function Read-Host {
         return Microsoft.PowerShell.Utility\Read-Host
     }
     finally {
-        try { [console]::TreatControlCAsInput = $oldTreatControlC } catch {}
+        try { [console]::TreatControlCAsInput = $oldTreatControlC } catch {
+            Write-Warning "wintoolkit-modules\00-Skeleton.Header.ps1, Read-Host 2: $($_.Exception.Message)"
+        }
     }
 }
 $ErrorActionPreference = 'Stop'
-try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {}
+try { $Host.UI.RawUI.WindowTitle = "WinToolkit by MagnetarMan" } catch {
+    Write-Warning "wintoolkit-modules\00-Skeleton.Header.ps1, script scope: $($_.Exception.Message)"
+}
 $ToolkitVersion = "2.6.0 (Build 5)"
 $Branch = 'Dev'
 $GitHubRepoRawBase = @{
@@ -335,7 +341,9 @@ function Invoke-SourceTextLanguagePreparation {
                     $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
                     if (Test-Path $localFileFallback) { Copy-Item -LiteralPath $localFileFallback -Destination $localFile -Force }
                 }
-                catch {}
+                catch {
+                    Write-Warning "wintoolkit-modules\10-Module.Localization.ps1, Invoke-SourceTextLanguagePreparation: $($_.Exception.Message)"
+                }
             }
         }
     }
@@ -439,7 +447,9 @@ function Show-ProgressBar {
                 $cursor = $Host.UI.RawUI.CursorPosition
                 $startPosition = [System.Management.Automation.Host.Coordinates]::new(0, $cursor.Y)
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\20-Module.UI.ps1, Show-ProgressBar: $($_.Exception.Message)"
+            }
         }
         Write-Host "`r$progressLine" -NoNewline -ForegroundColor $Color
         if ($Percent -ge 100) {
@@ -471,7 +481,9 @@ function Show-Header {
     param([string]$SubTitle)
     if ($Global:GuiSessionActive) { return }
     if ([string]::IsNullOrWhiteSpace($SubTitle)) { $SubTitle = Get-SourceTextLoc 'menu.main' }
-    try { Clear-Host } catch {}
+    try { Clear-Host } catch {
+        Write-Warning "wintoolkit-modules\20-Module.UI.ps1, Show-Header: $($_.Exception.Message)"
+    }
     $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
     $asciiArt = @(
         '      __        __  _   _   _ ',
@@ -539,7 +551,9 @@ function Show-ConsoleTable {
 function Start-ToolkitLog {
     param([string]$ToolName)
     $Global:CurrentToolName = $ToolName
-    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {}
+    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
+        Write-Warning "wintoolkit-modules\30-Module.Logging.ps1, Start-ToolkitLog 1: $($_.Exception.Message)"
+    }
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = $AppConfig.Paths.Logs
     if (-not (Test-Path $logdir)) { New-Item -Path $logdir -ItemType Directory -Force | Out-Null }
@@ -575,7 +589,9 @@ SerializationVersion    : $serVer
 WSManStackVersion       : $wsManVer
 [END LOG HEADER]
 "@
-    try { Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    try { Add-Content -Path $Global:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {
+        Write-Warning "wintoolkit-modules\30-Module.Logging.ps1, Start-ToolkitLog 2: $($_.Exception.Message)"
+    }
 }
 function Write-ToolkitLog {
     param(
@@ -591,7 +607,9 @@ function Write-ToolkitLog {
     $clean = $clean -replace '[⌀-⏿☀-➿\uD800-\uDFFF]', ''
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
-        try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {}
+        try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {
+            Write-Warning "wintoolkit-modules\30-Module.Logging.ps1, Write-ToolkitLog 1: $($_.Exception.Message)"
+        }
     }
     try {
         $mutex = New-Object System.Threading.Mutex($false, "Global\WinToolkitLogMutex")
@@ -605,7 +623,9 @@ function Write-ToolkitLog {
             $mutex.Dispose()
         }
     }
-    catch {}
+    catch {
+        Write-Warning "wintoolkit-modules\30-Module.Logging.ps1, Write-ToolkitLog 2: $($_.Exception.Message)"
+    }
 }
 function Write-ToolkitError {
     param(
@@ -690,7 +710,9 @@ function Initialize-ToolkitPaths {
             try {
                 if (-not (Test-Path $path)) { $null = New-Item -Path $path -ItemType Directory -Force -ErrorAction SilentlyContinue }
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\50-Module.Environment.ps1, Initialize-ToolkitPaths: $($_.Exception.Message)"
+            }
         }
     }
 }
@@ -762,7 +784,9 @@ function Invoke-ExternalCommandWithLog {
                 $proc.Refresh()
             }
             if (-not $proc.HasExited -and $TimeoutSeconds -gt 0) {
-                try { $proc.Kill() } catch {}
+                try { $proc.Kill() } catch {
+                    Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ExternalCommandWithLog 1: $($_.Exception.Message)"
+                }
                 throw (Get-SourceTextLoc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
             }
             Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.completed') -Percent 100 -Icon '✅'
@@ -771,13 +795,17 @@ function Invoke-ExternalCommandWithLog {
         else {
             if ($TimeoutSeconds -gt 0) {
                 if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
-                    try { $proc.Kill() } catch {}
+                    try { $proc.Kill() } catch {
+                        Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ExternalCommandWithLog 2: $($_.Exception.Message)"
+                    }
                     throw (Get-SourceTextLoc 'uiText.timeoutAfter0Seconds' -Args @($TimeoutSeconds))
                 }
             }
             else { $proc.WaitForExit() }
         }
-        try { [System.Threading.Tasks.Task]::WaitAll($outTask, $errTask) } catch {}
+        try { [System.Threading.Tasks.Task]::WaitAll($outTask, $errTask) } catch {
+            Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ExternalCommandWithLog 3: $($_.Exception.Message)"
+        }
         if ($outTask.Status -eq 'RanToCompletion') { $outText = $outTask.Result }
         if ($errTask.Status -eq 'RanToCompletion') { $errText = $errTask.Result }
         $exitCode = $proc.ExitCode
@@ -931,7 +959,9 @@ function Start-ToolkitSession {
     param([string]$ToolName, [string]$SubTitle = $ToolName)
     Start-ToolkitLog -ToolName $ToolName
     Show-Header -SubTitle $SubTitle
-    try { $Host.UI.RawUI.WindowTitle = "$SubTitle By MagnetarMan" } catch {}
+    try { $Host.UI.RawUI.WindowTitle = "$SubTitle By MagnetarMan" } catch {
+        Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Start-ToolkitSession: $($_.Exception.Message)"
+    }
 }
 function Invoke-ToolkitReboot {
     param(
@@ -996,7 +1026,9 @@ function Invoke-ToolkitDownload {
                 }
                 $headResponse.Dispose()
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ToolkitDownload: $($_.Exception.Message)"
+            }
             $getRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $Uri)
             $getResponse = $httpClient.SendAsync($getRequest, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
             if (-not $getResponse.IsSuccessStatusCode) {
@@ -1198,7 +1230,9 @@ function Wait-WingetReady {
                 return $true
             }
         }
-        catch {}
+        catch {
+            Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, Wait-WingetReady: $($_.Exception.Message)"
+        }
         $remaining = $MaxWaitSeconds - ($i * $PollIntervalSeconds)
         Write-StyledMessage -Type Progress -Text ("⏳ " + (Get-SourceTextLoc 'uiText.wingetNotYetReadyAttempt012SRemainWait' -Args @($i, $maxRetries, $remaining)))
         Start-Sleep -Seconds $PollIntervalSeconds
@@ -1232,7 +1266,9 @@ function Reset-Winget {
                 }
             }
         }
-        catch {}
+        catch {
+            Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, Register-AppxManifest: $($_.Exception.Message)"
+        }
     }
     function Get-LatestAssetUrl {
         param([string]$Match)
@@ -1320,7 +1356,9 @@ function Reset-Winget {
             Sort-Object Name -Descending | Select-Object -First 1
             if ($wingetDir) { $wingetFolderPath = $wingetDir.FullName }
         }
-        catch {}
+        catch {
+            Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, Set-WingetPathPermissions: $($_.Exception.Message)"
+        }
         if ($wingetFolderPath) {
             Set-PathPermissions -FolderPath $wingetFolderPath
             Add-ToEnvironmentPath -PathToAdd $wingetFolderPath -Scope 'System'
@@ -1337,7 +1375,9 @@ function Reset-Winget {
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.puliziaCacheWinget')
                 Get-ChildItem -Path $cachePath -Recurse -Force -ErrorAction SilentlyContinue |
                 Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
-                ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {} }
+                ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {
+                    Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, _Repair-WingetDatabase 1: $($_.Exception.Message)"
+                } }
             }
             @("$env:LOCALAPPDATA\WinGet\Data\USERTEMPLATE.json",
                 "$env:LOCALAPPDATA\WinGet\Data\DEFAULTUSER.json") | ForEach-Object {
@@ -1346,7 +1386,9 @@ function Reset-Winget {
                     Remove-Item $_ -Force -ErrorAction SilentlyContinue
                 }
             }
-            try { $null = & (Get-WingetExecutable) source reset --force 2>&1 } catch {}
+            try { $null = & (Get-WingetExecutable) source reset --force 2>&1 } catch {
+                Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, _Repair-WingetDatabase 2: $($_.Exception.Message)"
+            }
             if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
                 Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null
             }
@@ -1360,7 +1402,9 @@ function Reset-Winget {
                     }
                 }
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, _Repair-WingetDatabase 3: $($_.Exception.Message)"
+            }
             try {
                 if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
                     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.esecuzioneRepairWingetpackagemanager')
@@ -1424,7 +1468,9 @@ function Reset-Winget {
                 Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue
                 Start-Sleep 3
             }
-            try { Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null } catch {}
+            try { Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackage 2>$null } catch {
+                Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, _Install-WingetAdvanced: $($_.Exception.Message)"
+            }
             Set-WingetPathPermissions
             Update-EnvironmentPath
             return $true
@@ -1523,7 +1569,9 @@ function Reset-Winget {
             Start-Process -FilePath (Get-WingetExecutable) -ArgumentList 'source', 'reset', '--force' `
                 -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
         }
-        catch {}
+        catch {
+            Write-Warning "wintoolkit-modules\70-Module.Winget.ps1, Reset-Winget: $($_.Exception.Message)"
+        }
         $deepOk = Test-WingetDeepValidation
         if ($deepOk) {
             Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.wingetSuccessfullyRestoredAndTested'))
@@ -1634,7 +1682,9 @@ function Test-WindowsUpdateStatus {
                     Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'uiText.pendingRebootDetectedForWindowsUpdates'))
                 }
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\80-Module.UserInteraction.ps1, Test-WindowsUpdateStatus 1: $($_.Exception.Message)"
+            }
             try {
                 $installerStatus = Get-WUInstallerStatus -ErrorAction SilentlyContinue
                 if ($installerStatus -and $installerStatus.IsBusy) {
@@ -1642,7 +1692,9 @@ function Test-WindowsUpdateStatus {
                     Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'uiText.windowsUpdateInstallationServiceCurrentlyRunning'))
                 }
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\80-Module.UserInteraction.ps1, Test-WindowsUpdateStatus 2: $($_.Exception.Message)"
+            }
         }
         else {
             $regPaths = @(
@@ -2541,7 +2593,9 @@ function WinReinstallStore {
         Write-StyledMessage -Type 'Info' -Text ("🔄 " + (Get-SourceTextLoc 'toolText.reinstallingMicrosoftStore'))
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.restartMicrosoftStoreServices')
         @('AppXSvc', 'ClipSVC', 'WSService') | ForEach-Object {
-            try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch { }
+            try { Restart-Service $_ -Force -ErrorAction SilentlyContinue *>$null } catch {
+                Write-Warning "tools\WinReinstallStore.ps1, Install-MicrosoftStore: $($_.Exception.Message)"
+            }
         }
         @(
             "$env:LOCALAPPDATA\Packages\Microsoft.WindowsStore_*\LocalCache",
@@ -2667,7 +2721,9 @@ function WinReinstallStore {
                         }
                     }
                 }
-                catch { }
+                catch {
+                    Write-Warning "tools\WinReinstallStore.ps1, Install-UniGetUI: $($_.Exception.Message)"
+                }
                 return $true
             }
             else {
@@ -2749,13 +2805,19 @@ function WinReinstallStore {
                     [WinReinstallStore.NativeConsole]::SetStdHandle($STD_ERROR, $hOrigErr) *>$null
                     [WinReinstallStore.NativeConsole]::SetStdHandle($STD_INPUT, $hOrigIn) *>$null
                 }
-                catch { }
+                catch {
+                    Write-Warning "tools\WinReinstallStore.ps1, Invoke-WithConsoleRedirection 1: $($_.Exception.Message)"
+                }
             }
             if ($hNullOut -and $hNullOut -ne $INVALID_HANDLE_VALUE -and $hNullOut -ne [IntPtr]::Zero) {
-                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullOut) *>$null } catch { }
+                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullOut) *>$null } catch {
+                    Write-Warning "tools\WinReinstallStore.ps1, Invoke-WithConsoleRedirection 2: $($_.Exception.Message)"
+                }
             }
             if ($hNullIn -and $hNullIn -ne $INVALID_HANDLE_VALUE -and $hNullIn -ne [IntPtr]::Zero) {
-                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullIn) *>$null } catch { }
+                try { [WinReinstallStore.NativeConsole]::CloseHandle($hNullIn) *>$null } catch {
+                    Write-Warning "tools\WinReinstallStore.ps1, Invoke-WithConsoleRedirection 3: $($_.Exception.Message)"
+                }
             }
         }
     }
@@ -4330,7 +4392,9 @@ function WinDeleteUserProfiles {
         }
         catch {
             Add-ProfileCleanupLog -Level 'ERROR' -Text $_.Exception.Message
-            try { Save-ProfileCleanupLog } catch { }
+            try { Save-ProfileCleanupLog } catch {
+                Write-Warning "tools\WinDeleteUserProfiles.ps1, WinDeleteUserProfiles: $($_.Exception.Message)"
+            }
             Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.error' -Args @($_.Exception.Message))
             throw
         }
@@ -4528,7 +4592,9 @@ function Uninstall-Office {
                         $null = Uninstall-Package -Name $package.Name -Force -ErrorAction Stop
                         Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.removed02' -Args @($($package.Name)))
                     }
-                    catch {}
+                    catch {
+                        Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 1: $($_.Exception.Message)"
+                    }
                 }
             }
             Write-StyledMessage -Type 'Info' -Text ("🔍 " + (Get-SourceTextLoc 'toolText.searchTheRegistry'))
@@ -4547,11 +4613,15 @@ function Uninstall-Office {
                                     -Arguments @('/x', $item.PSChildName, '/qn', '/norestart') -TimeoutSeconds 1800 `
                                     -LogContextKey "Office-Uninstall-MSI-$($item.PSChildName)"
                             }
-                            catch {}
+                            catch {
+                                Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 2: $($_.Exception.Message)"
+                            }
                         }
                     }
                 }
-                catch {}
+                catch {
+                    Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 3: $($_.Exception.Message)"
+                }
             }
             Write-StyledMessage -Type 'Info' -Text ("🛑 " + (Get-SourceTextLoc 'toolText.stoppingOfficeServices'))
             $stoppedServices = 0
@@ -4564,7 +4634,9 @@ function Uninstall-Office {
                         Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.serviceStopped0' -Args @($serviceName))
                         $stoppedServices++
                     }
-                    catch {}
+                    catch {
+                        Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 4: $($_.Exception.Message)"
+                    }
                 }
             }
             Write-StyledMessage -Type 'Info' -Text ("🧹 " + (Get-SourceTextLoc 'toolText.officeFolderCleaning'))
@@ -4599,11 +4671,15 @@ function Uninstall-Office {
                 $officeTasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -like "*Office*" }
                 foreach ($task in $officeTasks) {
                     try { Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false -ErrorAction Stop; $tasksRemoved++ }
-                    catch {}
+                    catch {
+                        Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 5: $($_.Exception.Message)"
+                    }
                 }
                 if ($tasksRemoved -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.0OfficeTasksRemoved' -Args @($tasksRemoved)) }
             }
-            catch {}
+            catch {
+                Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 6: $($_.Exception.Message)"
+            }
             Write-StyledMessage -Type 'Info' -Text ("🖥️ " + (Get-SourceTextLoc 'toolText.removingOfficeLinks'))
             $shortcutsRemoved = 0
             foreach ($desktopPath in @(
