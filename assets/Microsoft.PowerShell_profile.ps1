@@ -1227,7 +1227,7 @@ function wingetupgrade {
 
     Write-Host "`n🔄 Starting automatic reinstall procedure for incompatible packages..." -ForegroundColor Cyan
     foreach ($packageId in $failedPackages) {
-        Invoke-WingetReinstall -PackageId $packageId
+        $null = Invoke-WingetReinstall -PackageId $packageId
     }
 
     Write-Host "`n✅ WinGet upgrade procedure completed." -ForegroundColor Green
