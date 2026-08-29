@@ -364,9 +364,6 @@ function Set-LocationToDesktop {
 # ENVIRONMENT AND BASE CONFIGURATION
 # ============================================================================
 
-# Administrator Check
-$isAdmin = Assert-Admin
-
 function Test-CommandExists {
     [CmdletBinding()]
     param(
@@ -955,7 +952,6 @@ function PS-Reset {
         }
     }
     Write-Host "✅ Winget uninstallations completed." -ForegroundColor Green
-    Write-Host "✅ Winget uninstallations completed." -ForegroundColor Green
 
     # 7. Conclusion and Timed Restart
     Write-Host "`n🎉 RESET COMPLETED SUCCESSFULLY!" -ForegroundColor Green
@@ -1221,15 +1217,13 @@ $($PSStyle.Foreground.Red)WinReg$($PSStyle.Reset)                    - Activates
 $($PSStyle.Foreground.Red)SetRustDesk$($PSStyle.Reset)               - Configures RustDesk for remote control.
 $($PSStyle.Foreground.Yellow)PS-Reset$($PSStyle.Reset)                  - Resets Windows Terminal and removes this profile.
 $($PSStyle.Foreground.Red)ReadyToGo$($PSStyle.Reset)                 - Prepares the PC for final use (PC Delivery).
+$($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                      - System resource monitor for the terminal.
 
 $($PSStyle.Foreground.Cyan)Profile Update$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Updates the PowerShell profile to the latest version.
 
 $($PSStyle.Foreground.Cyan)Editor Configuration with Fallback$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Yellow)EditPSProfile$($PSStyle.Reset)             - Opens the PowerShell profile in the editor.
-
-$($PSStyle.Foreground.Cyan)Terminal Utilities$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                      - System resource monitor for the terminal.
 
 $($PSStyle.Foreground.Cyan)Configured Editor$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------------------------------------------------------$($PSStyle.Reset)
 Editor: $($PSStyle.Foreground.Magenta)$($EDITOR_INFO.Name)$($PSStyle.Reset)
