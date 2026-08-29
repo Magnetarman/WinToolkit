@@ -266,78 +266,6 @@ function Invoke-WingetReinstall {
     return $false
 }
 
-function Winget-Update {
-    <#
-    .SYNOPSIS
-        Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
-    .DESCRIPTION
-        Prompts for a list of package IDs (one per line), upgrades each, and automatically
-        uninstalls + reinstalls any that fail due to installation technology incompatibility.
-    #>
-    [CmdletBinding()]
-    param()
-
-    if (-not (Test-CommandExists -Name 'winget')) {
-        Write-Host "❌ winget not found. Make sure App Installer is installed." -ForegroundColor Red
-        return
-    }
-
-    Write-Host "📦 Paste the WinGet package IDs to upgrade, one per line." -ForegroundColor Cyan
-    Write-Host "ℹ️ Press ENTER on an empty line to start." -ForegroundColor Cyan
-
-    $packageIds = [System.Collections.Generic.List[string]]::new()
-    $knownIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-
-    while ($true) {
-        $packageId = (Read-Host).Trim()
-        if ([string]::IsNullOrWhiteSpace($packageId)) {
-            break
-        }
-
-        if ($knownIds.Add($packageId)) {
-            $packageIds.Add($packageId)
-        }
-        else {
-            Write-Host "⚠️ Duplicate package ID ignored: $packageId" -ForegroundColor Yellow
-        }
-    }
-
-    if ($packageIds.Count -eq 0) {
-        Write-Host "ℹ️ No package IDs provided. Operation cancelled." -ForegroundColor Cyan
-        return
-    }
-
-    $failedPackages = [System.Collections.Generic.List[string]]::new()
-
-    foreach ($packageId in $packageIds) {
-        Write-Host "`n🔄 Upgrading $packageId..." -ForegroundColor Cyan
-        $result = Invoke-WingetPackageAction -Arguments @('upgrade', '--id', $packageId, '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements')
-
-        if (Test-WingetReinstallRequired -Result $result) {
-            $failedPackages.Add($packageId)
-            Write-Host "⚠️ $packageId requires an automatic reinstall after the remaining upgrades." -ForegroundColor Yellow
-        }
-        elseif ($result.ExitCode -eq 0) {
-            Write-Host "✅ $packageId upgraded successfully." -ForegroundColor Green
-        }
-        else {
-            Write-Host "❌ $packageId upgrade failed (code $($result.ExitCode))." -ForegroundColor Red
-        }
-    }
-
-    if ($failedPackages.Count -eq 0) {
-        Write-Host "`n✅ WinGet upgrades completed." -ForegroundColor Green
-        return
-    }
-
-    Write-Host "`n🔄 Starting automatic reinstall procedure for incompatible packages..." -ForegroundColor Cyan
-    foreach ($packageId in $failedPackages) {
-        $null = Invoke-WingetReinstall -PackageId $packageId
-    }
-
-    Write-Host "`n✅ WinGet upgrade procedure completed." -ForegroundColor Green
-}
-
 function Get-ProfileDir {
     return Split-Path -Parent $PROFILE
 }
@@ -1016,7 +944,7 @@ function ReadyToGo {
 }
 
 # ============================================================================
-# PROFILE UPDATE
+# PROGRAMS UPDATE
 # ============================================================================
 
 function PSProfileUpdate {
@@ -1070,6 +998,155 @@ function PSProfileUpdate {
         catch {
             Write-Host "❌ Critical error: Unable to download the profile from the remote link. Check the network." -ForegroundColor Red
         }
+    }
+}
+
+function Winget-Update {
+    <#
+    .SYNOPSIS
+        Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
+    .DESCRIPTION
+        Prompts for a list of package IDs (one per line), upgrades each, and automatically
+        uninstalls + reinstalls any that fail due to installation technology incompatibility.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if (-not (Test-CommandExists -Name 'winget')) {
+        Write-Host "❌ winget not found. Make sure App Installer is installed." -ForegroundColor Red
+        return
+    }
+
+    Write-Host "📦 Paste the WinGet package IDs to upgrade, one per line." -ForegroundColor Cyan
+    Write-Host "ℹ️ Press ENTER on an empty line to start." -ForegroundColor Cyan
+
+    $packageIds = [System.Collections.Generic.List[string]]::new()
+    $knownIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    while ($true) {
+        $packageId = (Read-Host).Trim()
+        if ([string]::IsNullOrWhiteSpace($packageId)) {
+            break
+        }
+
+        if ($knownIds.Add($packageId)) {
+            $packageIds.Add($packageId)
+        }
+        else {
+            Write-Host "⚠️ Duplicate package ID ignored: $packageId" -ForegroundColor Yellow
+        }
+    }
+
+    if ($packageIds.Count -eq 0) {
+        Write-Host "ℹ️ No package IDs provided. Operation cancelled." -ForegroundColor Cyan
+        return
+    }
+
+    $failedPackages = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($packageId in $packageIds) {
+        Write-Host "`n🔄 Upgrading $packageId..." -ForegroundColor Cyan
+        $result = Invoke-WingetPackageAction -Arguments @('upgrade', '--id', $packageId, '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements')
+
+        if (Test-WingetReinstallRequired -Result $result) {
+            $failedPackages.Add($packageId)
+            Write-Host "⚠️ $packageId requires an automatic reinstall after the remaining upgrades." -ForegroundColor Yellow
+        }
+        elseif ($result.ExitCode -eq 0) {
+            Write-Host "✅ $packageId upgraded successfully." -ForegroundColor Green
+        }
+        else {
+            Write-Host "❌ $packageId upgrade failed (code $($result.ExitCode))." -ForegroundColor Red
+        }
+    }
+
+    if ($failedPackages.Count -eq 0) {
+        Write-Host "`n✅ WinGet upgrades completed." -ForegroundColor Green
+        return
+    }
+
+    Write-Host "`n🔄 Starting automatic reinstall procedure for incompatible packages..." -ForegroundColor Cyan
+    foreach ($packageId in $failedPackages) {
+        $null = Invoke-WingetReinstall -PackageId $packageId
+    }
+
+    Write-Host "`n✅ WinGet upgrade procedure completed." -ForegroundColor Green
+}
+
+function Pip-Update {
+    <#
+    .SYNOPSIS
+        Upgrades all outdated pip packages in the current Python environment.
+    .DESCRIPTION
+        Detects outdated packages via 'python -m pip list --outdated --format=json' and upgrades
+        each independently. Core packages (python, pip) are excluded to avoid breaking the
+        interpreter or its dependencies. Mirrors the DRY, per-package style of Winget-Update.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if (-not (Test-CommandExists -Name 'python')) {
+        Write-Host "❌ python not found. Make sure Python is installed and in PATH." -ForegroundColor Red
+        return
+    }
+
+    # Core/installer packages excluded from automatic upgrade to avoid breaking the interpreter.
+    $excluded = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    'python', 'pip' | ForEach-Object { $null = $excluded.Add($_) }
+
+    Write-Host "🐍 Detecting outdated pip packages..." -ForegroundColor Cyan
+
+    $jsonOutput = & python -m pip list --outdated --format=json 2>&1 | Out-String
+    if (-not $jsonOutput.Trim()) {
+        Write-Host "✅ No outdated packages detected." -ForegroundColor Green
+        return
+    }
+
+    try {
+        $outdated = $jsonOutput | ConvertFrom-Json
+    }
+    catch {
+        Write-Host "❌ Error parsing pip output: $($_.Exception.Message)" -ForegroundColor Red
+        return
+    }
+
+    if (-not $outdated -or $outdated.Count -eq 0) {
+        Write-Host "✅ No outdated packages detected." -ForegroundColor Green
+        return
+    }
+
+    $toUpdate = @($outdated | Where-Object { -not $excluded.Contains($_.name) })
+    $skipped  = @($outdated | Where-Object { $excluded.Contains($_.name) })
+
+    if ($skipped.Count -gt 0) {
+        Write-Host "⚠️ Excluded from automatic upgrade: $($skipped.name -join ', ')" -ForegroundColor Yellow
+    }
+
+    if ($toUpdate.Count -eq 0) {
+        Write-Host "✅ No upgradeable packages (all outdated packages are excluded)." -ForegroundColor Green
+        return
+    }
+
+    Write-Host "📦 Packages to upgrade: $($toUpdate.Count)" -ForegroundColor Yellow
+    $toUpdate | ForEach-Object { Write-Host " - $($_.name) ($($_.version) -> $($_.latest_version))" }
+
+    Write-Host "`n🚀 Starting pip upgrades..." -ForegroundColor Cyan
+    $failed = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($pkg in $toUpdate) {
+        Write-Host "`n🔄 Upgrading $($pkg.name)..." -ForegroundColor Gray
+        & python -m pip install --upgrade $pkg.name 2>&1 | ForEach-Object { Write-Host $_ }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "⚠️ Upgrade of $($pkg.name) finished with code $LASTEXITCODE" -ForegroundColor Yellow
+            $failed.Add($pkg.name)
+        }
+    }
+
+    if ($failed.Count -eq 0) {
+        Write-Host "`n✅ Pip upgrade completed." -ForegroundColor Green
+    }
+    else {
+        Write-Host "`n⚠️ Pip upgrade completed with $($failed.Count) error(s): $($failed -join ', ')" -ForegroundColor Yellow
     }
 }
 
@@ -1201,7 +1278,6 @@ $($PSStyle.Foreground.Cyan)System$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)
 $($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)                  - Reboots the system immediately.
 $($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Hybrid shutdown (enables Fast Startup on next boot).
 $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Full shutdown (bypasses Fast Startup).
-$($PSStyle.Foreground.Yellow)Winget-Update$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Launches WinToolkit (stable).
 $($PSStyle.Foreground.Yellow)WinToolkit-Dev$($PSStyle.Reset)            - Launches WinToolkit (Dev).
 $($PSStyle.Foreground.Magenta)WinToolkit-GUI$($PSStyle.Reset)            - Launches WinToolkit (GUI version).
@@ -1213,7 +1289,9 @@ $($PSStyle.Foreground.Yellow)PS-Reset$($PSStyle.Reset)                  - Resets
 $($PSStyle.Foreground.Red)ReadyToGo$($PSStyle.Reset)                 - Prepares the PC for final use (PC Delivery).
 $($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                      - System resource monitor for the terminal.
 
-$($PSStyle.Foreground.Cyan)Profile Update$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Cyan)Programs Update$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Yellow)Winget-Update$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
+$($PSStyle.Foreground.Yellow)Pip-Update$($PSStyle.Reset)                - Upgrades all outdated pip packages (excludes python/pip).
 $($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Updates the PowerShell profile to the latest version.
 
 $($PSStyle.Foreground.Cyan)Editor Configuration with Fallback$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------$($PSStyle.Reset)
