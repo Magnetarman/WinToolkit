@@ -198,9 +198,20 @@ function Test-WingetReinstallRequired {
         [PSCustomObject]$Result
     )
 
-    # WinGet uses this exit code when the installed package technology is incompatible
-    # with the available upgrade. Check it directly because WinGet output is localized.
-    return $Result.ExitCode -eq -1978335189 -or $Result.Output -match '(?i)installed in another way|requires uninstall first'
+    # WinGet returns the exit code -1978335189 for BOTH a genuine install-technology/scope
+    # conflict (which needs uninstall+reinstall) AND for the benign "no applicable update /
+    # newer version not applicable to this system" case (e.g. Zed). Relying on the bare exit
+    # code would force a destructive reinstall unnecessarily, so we require an explicit
+    # reinstall-triggering phrase (matched in multiple languages because WinGet is localized)
+    # and never reinstall when the output says there is simply nothing applicable.
+    $reinstallPhrases = '(?i)installed in another way|requires uninstall first|installato in un altro modo|richiede la disinstallazione'
+    $noUpdatePhrases = '(?i)no applicable update|nessun aggiornamento applicabile|non si applica|does not apply'
+
+    if ($Result.Output -match $noUpdatePhrases) {
+        return $false
+    }
+
+    return $Result.Output -match $reinstallPhrases
 }
 
 function Invoke-WingetReinstall {
