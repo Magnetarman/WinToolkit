@@ -13,7 +13,7 @@
 # CENTRALIZED CONFIGURATION (URL)
 # ============================================================================
 
-$ProfileVersion = "2.6.0.3"
+$ProfileVersion = "2.6.0.5"
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
 $URL_WINTOOLKIT_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
@@ -942,6 +942,7 @@ $($PSStyle.Foreground.Cyan)System Control$($PSStyle.Reset) $($PSStyle.Foreground
 $($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)                  - Reboots the system immediately.
 $($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Hybrid shutdown (enables Fast Startup on next boot).
 $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Full shutdown (bypasses Fast Startup).
+$($PSStyle.Foreground.Yellow)wingetupgrade$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
 
 $($PSStyle.Foreground.Cyan)Launch WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Launches WinToolkit (stable).
@@ -1063,6 +1064,173 @@ function Update-Pwsh {
             Write-Host "   Tip: 'winget' not found. Make sure App Installer is installed." -ForegroundColor DarkYellow
         }
     }
+}
+
+function Invoke-WingetPackageAction {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments
+    )
+
+    try {
+        $output = @(& winget @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+
+        foreach ($line in $output) {
+            Write-Host $line
+        }
+
+        return [PSCustomObject]@{
+            ExitCode = $exitCode
+            Output   = ($output -join [Environment]::NewLine)
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            ExitCode = $null
+            Output   = $_.Exception.Message
+        }
+    }
+}
+
+function Test-WingetReinstallRequired {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Result
+    )
+
+    # WinGet uses this exit code when the installed package technology is incompatible
+    # with the available upgrade. Check it directly because WinGet output is localized.
+    return $Result.ExitCode -eq -1978335189 -or $Result.Output -match '(?i)installed in another way|requires uninstall first'
+}
+
+function Invoke-WingetReinstall {
+    <#
+    .SYNOPSIS
+        Performs uninstall then reinstall of a WinGet package when upgrade fails due to technology incompatibility.
+    .DESCRIPTION
+        WinGet cannot remove a per-user package from an elevated session. If the uninstall is blocked
+        for that reason, the whole uninstall+reinstall sequence is delegated to a non-elevated context
+        via Start-NonElevated (scheduled task with RunLevel Limited).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageId
+    )
+
+    $uninstallArgs = @('uninstall', '--id', $PackageId, '-e', '--silent', '--accept-source-agreements')
+    $installArgs  = @('install', '--id', $PackageId, '-e', '--force', '--silent', '--accept-package-agreements', '--accept-source-agreements')
+
+    Write-Host "`n🗑️ Uninstalling $PackageId..." -ForegroundColor Cyan
+    $uninstallResult = Invoke-WingetPackageAction -Arguments $uninstallArgs
+
+    $scopeBlocked = $uninstallResult.ExitCode -eq -1978335107 -or $uninstallResult.Output -match '(?i)cannot be uninstalled when running with administrator'
+
+    if ($scopeBlocked) {
+        Write-Host "⚠️ $PackageId is user-scoped and cannot be removed from an elevated session." -ForegroundColor Yellow
+        Write-Host "🔄 Delegating the full uninstall+reinstall to a non-elevated context..." -ForegroundColor Cyan
+
+        $reinstallCmd = "winget $($uninstallArgs -join ' ') ; winget $($installArgs -join ' ')"
+        try {
+            Start-NonElevated -Command $reinstallCmd
+            Write-Host "✅ $PackageId reinstall sequence completed (non-elevated)." -ForegroundColor Green
+            return $true
+        }
+        catch {
+            Write-Host "❌ $PackageId non-elevated reinstall failed: $($_.Exception.Message)" -ForegroundColor Red
+            return $false
+        }
+    }
+
+    if ($uninstallResult.ExitCode -ne 0) {
+        Write-Host "❌ $PackageId uninstall failed (code $($uninstallResult.ExitCode)). Reinstall skipped." -ForegroundColor Red
+        return $false
+    }
+
+    Write-Host "⬇️ Reinstalling $PackageId..." -ForegroundColor Cyan
+    $installResult = Invoke-WingetPackageAction -Arguments $installArgs
+    if ($installResult.ExitCode -eq 0) {
+        Write-Host "✅ $PackageId reinstalled successfully." -ForegroundColor Green
+        return $true
+    }
+
+    Write-Host "❌ $PackageId reinstall failed (code $($installResult.ExitCode))." -ForegroundColor Red
+    return $false
+}
+
+function wingetupgrade {
+    <#
+    .SYNOPSIS
+        Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
+    .DESCRIPTION
+        Prompts for a list of package IDs (one per line), upgrades each, and automatically
+        uninstalls + reinstalls any that fail due to installation technology incompatibility.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if (-not (Test-CommandExists -Name 'winget')) {
+        Write-Host "❌ winget not found. Make sure App Installer is installed." -ForegroundColor Red
+        return
+    }
+
+    Write-Host "📦 Paste the WinGet package IDs to upgrade, one per line." -ForegroundColor Cyan
+    Write-Host "ℹ️ Press ENTER on an empty line to start." -ForegroundColor Cyan
+
+    $packageIds = [System.Collections.Generic.List[string]]::new()
+    $knownIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    while ($true) {
+        $packageId = (Read-Host).Trim()
+        if ([string]::IsNullOrWhiteSpace($packageId)) {
+            break
+        }
+
+        if ($knownIds.Add($packageId)) {
+            $packageIds.Add($packageId)
+        }
+        else {
+            Write-Host "⚠️ Duplicate package ID ignored: $packageId" -ForegroundColor Yellow
+        }
+    }
+
+    if ($packageIds.Count -eq 0) {
+        Write-Host "ℹ️ No package IDs provided. Operation cancelled." -ForegroundColor Cyan
+        return
+    }
+
+    $failedPackages = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($packageId in $packageIds) {
+        Write-Host "`n🔄 Upgrading $packageId..." -ForegroundColor Cyan
+        $result = Invoke-WingetPackageAction -Arguments @('upgrade', '--id', $packageId, '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements')
+
+        if (Test-WingetReinstallRequired -Result $result) {
+            $failedPackages.Add($packageId)
+            Write-Host "⚠️ $packageId requires an automatic reinstall after the remaining upgrades." -ForegroundColor Yellow
+        }
+        elseif ($result.ExitCode -eq 0) {
+            Write-Host "✅ $packageId upgraded successfully." -ForegroundColor Green
+        }
+        else {
+            Write-Host "❌ $packageId upgrade failed (code $($result.ExitCode))." -ForegroundColor Red
+        }
+    }
+
+    if ($failedPackages.Count -eq 0) {
+        Write-Host "`n✅ WinGet upgrades completed." -ForegroundColor Green
+        return
+    }
+
+    Write-Host "`n🔄 Starting automatic reinstall procedure for incompatible packages..." -ForegroundColor Cyan
+    foreach ($packageId in $failedPackages) {
+        Invoke-WingetReinstall -PackageId $packageId
+    }
+
+    Write-Host "`n✅ WinGet upgrade procedure completed." -ForegroundColor Green
 }
 
 # Oh My Posh
