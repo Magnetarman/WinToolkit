@@ -304,9 +304,9 @@ function Set-LocationWithHistory {
     }
 }
 
-Set-Alias -Name cd    -Value Set-LocationWithHistory -Force -Scope Global
-Set-Alias -Name sl    -Value Set-LocationWithHistory -Force -Scope Global
-Set-Alias -Name chdir -Value Set-LocationWithHistory -Force -Scope Global
+Set-Alias -Name cd    -Value Set-LocationWithHistory -Force -Option AllScope
+Set-Alias -Name sl    -Value Set-LocationWithHistory -Force -Option AllScope
+Set-Alias -Name chdir -Value Set-LocationWithHistory -Force -Option AllScope
 
 function back {
     <#
@@ -337,7 +337,7 @@ function back {
     }
 
     $targetIndex = $global:DirHistory.Count - $Steps
-    $targetPath  = $global:DirHistory[$targetIndex]
+    $targetPath = $global:DirHistory[$targetIndex]
 
     for ($i = 0; $i -lt $Steps; $i++) {
         $global:DirHistory.RemoveAt($global:DirHistory.Count - 1)
@@ -1118,7 +1118,7 @@ function Pip-Update {
     }
 
     $toUpdate = @($outdated | Where-Object { -not $excluded.Contains($_.name) })
-    $skipped  = @($outdated | Where-Object { $excluded.Contains($_.name) })
+    $skipped = @($outdated | Where-Object { $excluded.Contains($_.name) })
 
     if ($skipped.Count -gt 0) {
         Write-Host "⚠️ Excluded from automatic upgrade: $($skipped.name -join ', ')" -ForegroundColor Yellow
@@ -1334,6 +1334,8 @@ $($PSStyle.Foreground.Green)Update-Pwsh$($PSStyle.Reset)               - Updates
 $($PSStyle.Foreground.Yellow)Winget-Update$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
 $($PSStyle.Foreground.Yellow)Pip-Update$($PSStyle.Reset)                - Upgrades all outdated pip packages (excludes python/pip).
 $($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Updates the PowerShell profile to the latest version.
+
+$($PSStyle.Foreground.Cyan)Environment and Base Configuration$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)                  - Creates a directory and moves into it.
 $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Searches files recursively by partial name.
 $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extracts a ZIP file into the current directory.
@@ -1368,11 +1370,6 @@ $($PSStyle.Foreground.Red)SetRustDesk$($PSStyle.Reset)               - Configure
 $($PSStyle.Foreground.Yellow)PS-Reset$($PSStyle.Reset)                  - Resets Windows Terminal and removes this profile.
 $($PSStyle.Foreground.Red)ReadyToGo$($PSStyle.Reset)                 - Prepares the PC for final use (PC Delivery).
 $($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                      - System resource monitor for the terminal.
-
-$($PSStyle.Foreground.Cyan)Programs Update$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Yellow)Winget-Update$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
-$($PSStyle.Foreground.Yellow)Pip-Update$($PSStyle.Reset)                - Upgrades all outdated pip packages (excludes python/pip).
-$($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Updates the PowerShell profile to the latest version.
 
 $($PSStyle.Foreground.Cyan)Editor Configuration with Fallback$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Yellow)EditPSProfile$($PSStyle.Reset)             - Opens the PowerShell profile in the editor.
