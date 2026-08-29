@@ -353,14 +353,6 @@ Set-PSReadLineOption -Colors @{
 }
 
 # ============================================================================
-# QUICK NAVIGATION
-# ============================================================================
-
-function Set-LocationToDesktop {
-    Set-Location -Path (Join-Path $HOME "Desktop")
-}
-
-# ============================================================================
 # ENVIRONMENT AND BASE CONFIGURATION
 # ============================================================================
 
@@ -419,6 +411,10 @@ function New-Mkcd {
     )
     New-Item -ItemType Directory -Path $Directory -Force | Out-Null
     Set-Location -Path $Directory
+}
+
+function Set-LocationToDesktop {
+    Set-Location -Path (Join-Path $HOME "Desktop")
 }
 
 # ============================================================================
@@ -1181,14 +1177,12 @@ $($PSStyle.Foreground.Green)====================================================
 $($PSStyle.Foreground.Cyan)Installations and Initializations$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Update-Pwsh$($PSStyle.Reset)               - Updates PowerShell to the latest version.
 
-$($PSStyle.Foreground.Cyan)Quick Navigation$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Set-LocationToDesktop$($PSStyle.Reset)     - Navigates to the Desktop directory.
-
 $($PSStyle.Foreground.Cyan)Environment and Base Configuration$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)                  - Creates a directory and moves into it.
 $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Searches files recursively by partial name.
 $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extracts a ZIP file into the current directory.
 $($PSStyle.Foreground.Green)ReloadProfile$($PSStyle.Reset)             - Reloads the current PowerShell profile.
+$($PSStyle.Foreground.Green)Set-LocationToDesktop$($PSStyle.Reset)     - Navigates to the Desktop directory.
 
 $($PSStyle.Foreground.Cyan)System Information$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Get-SystemInfo$($PSStyle.Reset)            - Displays detailed system information.
