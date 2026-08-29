@@ -198,12 +198,9 @@ function Test-WingetReinstallRequired {
         [PSCustomObject]$Result
     )
 
-    # WinGet returns the exit code -1978335189 for BOTH a genuine install-technology/scope
-    # conflict (which needs uninstall+reinstall) AND for the benign "no applicable update /
-    # newer version not applicable to this system" case (e.g. Zed). Relying on the bare exit
-    # code would force a destructive reinstall unnecessarily, so we require an explicit
-    # reinstall-triggering phrase (matched in multiple languages because WinGet is localized)
-    # and never reinstall when the output says there is simply nothing applicable.
+    # WinGet returns -1978335189 for both a real install-tech/scope conflict (needs reinstall)
+    # and the benign "no applicable update" case (e.g. Zed). We match an explicit trigger phrase
+    # and skip reinstall whenever the output says no update applies.
     $reinstallPhrases = '(?i)installed in another way|requires uninstall first|installato in un altro modo|richiede la disinstallazione'
     $noUpdatePhrases = '(?i)no applicable update|nessun aggiornamento applicabile|non si applica|does not apply'
 
@@ -369,8 +366,6 @@ function Set-LocationToDesktop {
 
 # Administrator Check
 $isAdmin = Assert-Admin
-
-# Personalizzazione Prompt
 
 function Test-CommandExists {
     [CmdletBinding()]
@@ -928,8 +923,7 @@ function PS-Reset {
         Write-Host "✅ Windows Terminal settings removed." -ForegroundColor Green
     }
 
-    # 5. Delete PowerShell Profile Directory (Includes profiles, .bak, and Themes folder)
-    # Done before Oh My Posh uninstallation to avoid shell crashes
+    # 5. Delete PowerShell Profile Directory (profiles, .bak, Themes) before Oh My Posh uninstall to avoid shell crashes
     Write-Host "`n🗑️ Deleting PowerShell profile configurations..." -ForegroundColor Cyan
     $profileDir = Split-Path -Parent $PROFILE
     if (Test-Path $profileDir) {
@@ -937,9 +931,7 @@ function PS-Reset {
         Write-Host "✅ PowerShell profile directory deleted." -ForegroundColor Green
     }
 
-    # 6. Uninstall Winget packages (Done LAST as final resource).
-    # Winget cannot reliably remove per-user packages from an elevated session,
-    # so this runs non-elevated via Start-NonElevated, then the code resumes.
+    # 6. Uninstall Winget packages last, via Start-NonElevated (per-user packages can't be removed from an elevated session)
     $wingetPackages = @(
         "JanDeDobbeleer.OhMyPosh",
         "ajeetdsouza.zoxide",
