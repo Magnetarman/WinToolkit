@@ -1329,19 +1329,13 @@ $($PSStyle.Foreground.Red)Red (ALERT!):$($PSStyle.Reset) STOP! These functions a
 
 $($PSStyle.Foreground.Green)====================================================================================$($PSStyle.Reset)
 
-$($PSStyle.Foreground.Cyan)Programs Update$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Update-Pwsh$($PSStyle.Reset)               - Updates PowerShell to the latest version.
-$($PSStyle.Foreground.Yellow)Winget-Update$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
-$($PSStyle.Foreground.Yellow)Pip-Update$($PSStyle.Reset)                - Upgrades all outdated pip packages (excludes python/pip).
-$($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Updates the PowerShell profile to the latest version.
-
 $($PSStyle.Foreground.Cyan)Environment and Base Configuration$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)                  - Creates a directory and moves into it.
 $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Searches files recursively by partial name.
 $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extracts a ZIP file into the current directory.
 $($PSStyle.Foreground.Green)ReloadProfile$($PSStyle.Reset)             - Reloads the current PowerShell profile.
 $($PSStyle.Foreground.Green)Set-LocationToDesktop$($PSStyle.Reset)     - Navigates to the Desktop directory.
-$($PSStyle.Foreground.Green)back$($PSStyle.Reset)                        - Returns to a previous directory (cd history-aware).
+$($PSStyle.Foreground.Green)back$($PSStyle.Reset)                       - Returns to a previous directory (cd history-aware).
 
 $($PSStyle.Foreground.Cyan)System Information$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Get-SystemInfo$($PSStyle.Reset)            - Displays detailed system information.
@@ -1356,22 +1350,30 @@ $($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)                  - Flushes
 $($PSStyle.Foreground.Yellow)Reset-IP$($PSStyle.Reset)                  - Releases and renews the network adapter IP address.
 $($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Restores network settings to default.
 
+$($PSStyle.Foreground.Cyan)Programs Update$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Green)Update-Pwsh$($PSStyle.Reset)               - Updates PowerShell to the latest version.
+$($PSStyle.Foreground.Yellow)Winget-Update$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
+$($PSStyle.Foreground.Yellow)Pip-Update$($PSStyle.Reset)                - Upgrades all outdated pip packages (excludes python/pip).
+$($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Updates the PowerShell profile to the latest version.
+
 $($PSStyle.Foreground.Cyan)System$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)                  - Reboots the system immediately.
 $($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Hybrid shutdown (enables Fast Startup on next boot).
 $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Full shutdown (bypasses Fast Startup).
-$($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Launches WinToolkit (stable).
-$($PSStyle.Foreground.Yellow)WinToolkit-Dev$($PSStyle.Reset)            - Launches WinToolkit (Dev).
-$($PSStyle.Foreground.Magenta)WinToolkit-GUI$($PSStyle.Reset)            - Launches WinToolkit (GUI version).
-$($PSStyle.Foreground.Yellow)SetBranch-Main$($PSStyle.Reset)            - Switches the environment (Icon and Profile) to main branch.
-$($PSStyle.Foreground.Yellow)SetBranch-Dev$($PSStyle.Reset)             - Switches the environment (Icon and Profile) to dev branch.
 $($PSStyle.Foreground.Red)WinReg$($PSStyle.Reset)                    - Activates Windows/Office (MAS).
 $($PSStyle.Foreground.Red)SetRustDesk$($PSStyle.Reset)               - Configures RustDesk for remote control.
 $($PSStyle.Foreground.Yellow)PS-Reset$($PSStyle.Reset)                  - Resets Windows Terminal and removes this profile.
 $($PSStyle.Foreground.Red)ReadyToGo$($PSStyle.Reset)                 - Prepares the PC for final use (PC Delivery).
 $($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                      - System resource monitor for the terminal.
 
-$($PSStyle.Foreground.Cyan)Editor Configuration with Fallback$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Cyan)WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)---------------------------------------------------------------------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Launches WinToolkit (stable).
+$($PSStyle.Foreground.Yellow)WinToolkit-Dev$($PSStyle.Reset)            - Launches WinToolkit (Dev).
+$($PSStyle.Foreground.Magenta)WinToolkit-GUI$($PSStyle.Reset)            - Launches WinToolkit (GUI version).
+$($PSStyle.Foreground.Yellow)SetBranch-Main$($PSStyle.Reset)            - Switches the environment (Icon and Profile) to main branch.
+$($PSStyle.Foreground.Yellow)SetBranch-Dev$($PSStyle.Reset)             - Switches the environment (Icon and Profile) to dev branch.
+
+$($PSStyle.Foreground.Cyan)Editor Configuration$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Yellow)EditPSProfile$($PSStyle.Reset)             - Opens the PowerShell profile in the editor.
 
 $($PSStyle.Foreground.Cyan)Configured Editor$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------------------------------------------------------$($PSStyle.Reset)
