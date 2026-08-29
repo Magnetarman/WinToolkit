@@ -87,82 +87,6 @@ $URL_PWSH_RELEASE_API = "https://api.github.com/repos/PowerShell/PowerShell/rele
 # INSTALLATIONS AND INITIALIZATIONS
 # ============================================================================
 
-function Update-Pwsh {
-    [CmdletBinding()]
-    param()
-
-    # Warning if run from Windows PowerShell 5.x instead of PowerShell 7+
-    if ($PSVersionTable.PSEdition -ne 'Core') {
-        Write-Host "⚠️ You are using Windows PowerShell $($PSVersionTable.PSVersion)." -ForegroundColor DarkYellow
-        Write-Host "   This function updates PowerShell 7+. Open a 'pwsh' session to continue." -ForegroundColor DarkYellow
-        return
-    }
-
-    Write-Host "🔍 Checking PowerShell updates..." -ForegroundColor Cyan
-
-    try {
-        [version]$currentPSVersion = $PSVersionTable.PSVersion
-        $latestReleaseInfo = Invoke-RestMethod -Uri $URL_PWSH_RELEASE_API -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
-        [version]$latestPSVersion = $latestReleaseInfo.tag_name.TrimStart('v')
-
-        Write-Host "   Current version : v$currentPSVersion" -ForegroundColor Gray
-        Write-Host "   Latest version   : v$latestPSVersion" -ForegroundColor Gray
-
-        if ($currentPSVersion -ge $latestPSVersion) {
-            Write-Host "✅ PowerShell is already up to date (v$currentPSVersion)" -ForegroundColor Green
-            return
-        }
-
-        # Update required
-        if (-not (Require-Admin -FeatureName "Update-Pwsh" -ErrorMessage "⚠️ Administrator privileges are required to update PowerShell." -InfoMessage "   Rerun the function in an Administrator-started 'pwsh' session.")) {
-            return
-        }
-
-        Write-Host "🔄 Updating PowerShell in progress (v$currentPSVersion → v$latestPSVersion)..." -ForegroundColor Yellow
-        winget upgrade --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Update completed. Close and reopen the terminal to use PowerShell v$latestPSVersion." -ForegroundColor Green
-        }
-        elseif ($LASTEXITCODE -eq -1978335189) {
-            Write-Host "" -ForegroundColor Yellow
-            Write-Host "⚠️ Detected installation technology incompatibility (code: $LASTEXITCODE)." -ForegroundColor Yellow
-            Write-Host "   The installed package uses a different method than expected by winget." -ForegroundColor DarkYellow
-            Write-Host "🔄 Starting automatic reinstall procedure..." -ForegroundColor Cyan
-
-            # Step 1: Uninstall
-            Write-Host "   1/2 - Uninstalling Microsoft.PowerShell in progress..." -ForegroundColor Cyan
-            winget uninstall --id Microsoft.PowerShell --accept-source-agreements --silent --all-versions
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "❌ Uninstall failed (code: $LASTEXITCODE). Operation interrupted." -ForegroundColor Red
-                Write-Host "   Try uninstalling PowerShell manually, then run Update-Pwsh again." -ForegroundColor DarkYellow
-                return
-            }
-            Write-Host "   ✅ Uninstallation completed." -ForegroundColor Green
-
-            # Step 2: Reinstall
-            Write-Host "   2/2 - Installing PowerShell v$latestPSVersion in progress..." -ForegroundColor Cyan
-            winget install --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "✅ Reinstallation completed successfully." -ForegroundColor Green
-                Write-Host "⚠️ IMPORTANT: You must open a new terminal session to use PowerShell v$latestPSVersion." -ForegroundColor Yellow
-            }
-            else {
-                Write-Host "❌ Reinstall failed (code: $LASTEXITCODE)." -ForegroundColor Red
-                Write-Host "   Check the winget output above for error details." -ForegroundColor DarkYellow
-            }
-        }
-        else {
-            Write-Host "⚠️ winget returned exit code $LASTEXITCODE. Check the output above." -ForegroundColor Yellow
-        }
-    }
-    catch {
-        Write-Host "❌ Unable to check or update PowerShell: $($_.Exception.Message)" -ForegroundColor Red
-        if (-not (Test-CommandExists 'winget')) {
-            Write-Host "   Tip: 'winget' not found. Make sure App Installer is installed." -ForegroundColor DarkYellow
-        }
-    }
-}
-
 function Invoke-WingetPackageAction {
     [CmdletBinding()]
     param(
@@ -343,6 +267,84 @@ function New-Mkcd {
 
 function Set-LocationToDesktop {
     Set-Location -Path (Join-Path $HOME "Desktop")
+}
+
+# ---------------------------------------------------------------------------
+# Directory history + 'back' (cd-aware navigation)
+# ---------------------------------------------------------------------------
+
+# Global stack of visited directories (survives profile reloads within the session)
+if (-not $global:DirHistory) {
+    $global:DirHistory = [System.Collections.ArrayList]::new()
+}
+
+# Wrap Set-Location (cd/sl/chdir) so every real move is recorded in the stack.
+# The original cmdlet is cached to avoid infinite recursion through the alias.
+$script:OriginalSetLocation = Get-Command Set-Location -CommandType Cmdlet
+
+function Set-LocationWithHistory {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0)][string]$Path,
+        [switch]$PassThru
+    )
+
+    # Don't pollute the stack with the "-" / "--" toggle or no-op calls
+    if ($Path -and $Path -ne '-' -and $Path -ne '--') {
+        if ($global:DirHistory.Count -eq 0 -or $global:DirHistory[-1] -ne $PWD.Path) {
+            $null = $global:DirHistory.Add($PWD.Path)
+        }
+    }
+
+    if ($Path) {
+        & $script:OriginalSetLocation -Path $Path -PassThru:$PassThru -ErrorAction Stop
+    }
+    else {
+        & $script:OriginalSetLocation -PassThru:$PassThru -ErrorAction Stop
+    }
+}
+
+Set-Alias -Name cd    -Value Set-LocationWithHistory -Force -Scope Global
+Set-Alias -Name sl    -Value Set-LocationWithHistory -Force -Scope Global
+Set-Alias -Name chdir -Value Set-LocationWithHistory -Force -Scope Global
+
+function back {
+    <#
+    .SYNOPSIS
+        Returns to a previous directory using the cd history stack.
+    .DESCRIPTION
+        'back' with no argument goes back one directory; 'back N' goes back N directories.
+        Works thanks to the cd wrapper that records the directory history.
+    #>
+    [CmdletBinding()]
+    param(
+        [int]$Steps = 1
+    )
+
+    if ($Steps -le 0) {
+        Write-Host "⚠️ The number of steps must be greater than 0." -ForegroundColor Yellow
+        return
+    }
+
+    if ($global:DirHistory.Count -eq 0) {
+        Write-Host "ℹ️ No directory history available." -ForegroundColor Yellow
+        return
+    }
+
+    if ($Steps -gt $global:DirHistory.Count) {
+        Write-Host "⚠️ Requested $Steps steps, but only $($global:DirHistory.Count) directories are in history." -ForegroundColor Yellow
+        $Steps = $global:DirHistory.Count
+    }
+
+    $targetIndex = $global:DirHistory.Count - $Steps
+    $targetPath  = $global:DirHistory[$targetIndex]
+
+    for ($i = 0; $i -lt $Steps; $i++) {
+        $global:DirHistory.RemoveAt($global:DirHistory.Count - 1)
+    }
+
+    Write-Host "🔙 Returning to: $targetPath" -ForegroundColor Cyan
+    Set-Location -Path $targetPath
 }
 
 # ============================================================================
@@ -1150,6 +1152,82 @@ function Pip-Update {
     }
 }
 
+function Update-Pwsh {
+    [CmdletBinding()]
+    param()
+
+    # Warning if run from Windows PowerShell 5.x instead of PowerShell 7+
+    if ($PSVersionTable.PSEdition -ne 'Core') {
+        Write-Host "⚠️ You are using Windows PowerShell $($PSVersionTable.PSVersion)." -ForegroundColor DarkYellow
+        Write-Host "   This function updates PowerShell 7+. Open a 'pwsh' session to continue." -ForegroundColor DarkYellow
+        return
+    }
+
+    Write-Host "🔍 Checking PowerShell updates..." -ForegroundColor Cyan
+
+    try {
+        [version]$currentPSVersion = $PSVersionTable.PSVersion
+        $latestReleaseInfo = Invoke-RestMethod -Uri $URL_PWSH_RELEASE_API -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+        [version]$latestPSVersion = $latestReleaseInfo.tag_name.TrimStart('v')
+
+        Write-Host "   Current version : v$currentPSVersion" -ForegroundColor Gray
+        Write-Host "   Latest version   : v$latestPSVersion" -ForegroundColor Gray
+
+        if ($currentPSVersion -ge $latestPSVersion) {
+            Write-Host "✅ PowerShell is already up to date (v$currentPSVersion)" -ForegroundColor Green
+            return
+        }
+
+        # Update required
+        if (-not (Require-Admin -FeatureName "Update-Pwsh" -ErrorMessage "⚠️ Administrator privileges are required to update PowerShell." -InfoMessage "   Rerun the function in an Administrator-started 'pwsh' session.")) {
+            return
+        }
+
+        Write-Host "🔄 Updating PowerShell in progress (v$currentPSVersion → v$latestPSVersion)..." -ForegroundColor Yellow
+        winget upgrade --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Update completed. Close and reopen the terminal to use PowerShell v$latestPSVersion." -ForegroundColor Green
+        }
+        elseif ($LASTEXITCODE -eq -1978335189) {
+            Write-Host "" -ForegroundColor Yellow
+            Write-Host "⚠️ Detected installation technology incompatibility (code: $LASTEXITCODE)." -ForegroundColor Yellow
+            Write-Host "   The installed package uses a different method than expected by winget." -ForegroundColor DarkYellow
+            Write-Host "🔄 Starting automatic reinstall procedure..." -ForegroundColor Cyan
+
+            # Step 1: Uninstall
+            Write-Host "   1/2 - Uninstalling Microsoft.PowerShell in progress..." -ForegroundColor Cyan
+            winget uninstall --id Microsoft.PowerShell --accept-source-agreements --silent --all-versions
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "❌ Uninstall failed (code: $LASTEXITCODE). Operation interrupted." -ForegroundColor Red
+                Write-Host "   Try uninstalling PowerShell manually, then run Update-Pwsh again." -ForegroundColor DarkYellow
+                return
+            }
+            Write-Host "   ✅ Uninstallation completed." -ForegroundColor Green
+
+            # Step 2: Reinstall
+            Write-Host "   2/2 - Installing PowerShell v$latestPSVersion in progress..." -ForegroundColor Cyan
+            winget install --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✅ Reinstallation completed successfully." -ForegroundColor Green
+                Write-Host "⚠️ IMPORTANT: You must open a new terminal session to use PowerShell v$latestPSVersion." -ForegroundColor Yellow
+            }
+            else {
+                Write-Host "❌ Reinstall failed (code: $LASTEXITCODE)." -ForegroundColor Red
+                Write-Host "   Check the winget output above for error details." -ForegroundColor DarkYellow
+            }
+        }
+        else {
+            Write-Host "⚠️ winget returned exit code $LASTEXITCODE. Check the output above." -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "❌ Unable to check or update PowerShell: $($_.Exception.Message)" -ForegroundColor Red
+        if (-not (Test-CommandExists 'winget')) {
+            Write-Host "   Tip: 'winget' not found. Make sure App Installer is installed." -ForegroundColor DarkYellow
+        }
+    }
+}
+
 # ============================================================================
 # EDITOR CONFIGURATION WITH FALLBACK
 # ============================================================================
@@ -1251,15 +1329,17 @@ $($PSStyle.Foreground.Red)Red (ALERT!):$($PSStyle.Reset) STOP! These functions a
 
 $($PSStyle.Foreground.Green)====================================================================================$($PSStyle.Reset)
 
-$($PSStyle.Foreground.Cyan)Installations and Initializations$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Cyan)Programs Update$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Update-Pwsh$($PSStyle.Reset)               - Updates PowerShell to the latest version.
-
-$($PSStyle.Foreground.Cyan)Environment and Base Configuration$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------------------------------------$($PSStyle.Reset)
+$($PSStyle.Foreground.Yellow)Winget-Update$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
+$($PSStyle.Foreground.Yellow)Pip-Update$($PSStyle.Reset)                - Upgrades all outdated pip packages (excludes python/pip).
+$($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Updates the PowerShell profile to the latest version.
 $($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)                  - Creates a directory and moves into it.
 $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Searches files recursively by partial name.
 $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extracts a ZIP file into the current directory.
 $($PSStyle.Foreground.Green)ReloadProfile$($PSStyle.Reset)             - Reloads the current PowerShell profile.
 $($PSStyle.Foreground.Green)Set-LocationToDesktop$($PSStyle.Reset)     - Navigates to the Desktop directory.
+$($PSStyle.Foreground.Green)back$($PSStyle.Reset)                        - Returns to a previous directory (cd history-aware).
 
 $($PSStyle.Foreground.Cyan)System Information$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Get-SystemInfo$($PSStyle.Reset)            - Displays detailed system information.
