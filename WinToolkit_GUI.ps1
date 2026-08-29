@@ -348,7 +348,9 @@ function Invoke-SourceTextLanguagePreparation {
                     $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
                     if (Test-Path $localFileFallback) { Copy-Item -LiteralPath $localFileFallback -Destination $localFile -Force }
                 }
-                catch {}
+                catch {
+                    Write-Warning "WinToolkit_GUI.ps1, Invoke-SourceTextLanguagePreparation: $($_.Exception.Message)"
+                }
             }
         }
     }
@@ -399,7 +401,7 @@ function Write-UnifiedLog {
         Write-Host "$formattedMessage" -ForegroundColor $consoleColors[$Type]
     }
     catch {
-        # Silently fail console output
+        Write-Warning "WinToolkit_GUI.ps1, Write-UnifiedLog 1: $($_.Exception.Message)"
     }
 
     # Write to GUI OutputTextBox (if available)
@@ -445,7 +447,7 @@ function Write-UnifiedLog {
                 })
         }
         catch {
-            # Silently fail GUI logging if there are issues
+            Write-Warning "WinToolkit_GUI.ps1, Write-UnifiedLog 2: $($_.Exception.Message)"
         }
     }
 }
@@ -947,7 +949,9 @@ $Global:ToolScriptsLoadedCount = 0
 # Create log directory
 try {
     [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null
-    try { Stop-Transcript -ErrorAction SilentlyContinue | Out-Null } catch {}
+    try { Stop-Transcript -ErrorAction SilentlyContinue | Out-Null } catch {
+        Write-Warning "WinToolkit_GUI.ps1, script scope 1: $($_.Exception.Message)"
+    }
     Start-Transcript -Path $mainLog -Append -Force | Out-Null
     Write-Host (Get-SourceTextLoc 'uiText.infoLoggingInitializedTo0' -Args @($mainLog)) -ForegroundColor Cyan
 }
@@ -2272,7 +2276,9 @@ function Start-NextScriptJob {
                 [System.IO.Directory]::CreateDirectory($MainLogDir) | Out-Null
             }
         }
-        catch {}
+        catch {
+            Write-Warning "WinToolkit_GUI.ps1, Start-NextScriptJob: $($_.Exception.Message)"
+        }
 
         # Dot-source the Core script first, as all functions are defined there
         try {
@@ -2731,7 +2737,7 @@ function Tick_JobMonitor {
                 }
             }
             catch {
-                # Ignore dispatcher errors during shutdown
+                Write-Warning "WinToolkit_GUI.ps1, Tick_JobMonitor: $($_.Exception.Message)"
             }
             $Global:LastJobOutputCount = $currentJobOutput.Count
         }
@@ -2891,7 +2897,9 @@ $window.Add_Closing({
         try {
             Stop-Transcript -ErrorAction SilentlyContinue
         }
-        catch {}
+        catch {
+            Write-Warning "WinToolkit_GUI.ps1, script scope 2: $($_.Exception.Message)"
+        }
     })
 
 # Show window
@@ -2901,5 +2909,7 @@ $window.ShowDialog() | Out-Null
 try {
     Stop-Transcript -ErrorAction SilentlyContinue
 }
-catch {}
+catch {
+    Write-Warning "WinToolkit_GUI.ps1, script scope 3: $($_.Exception.Message)"
+}
 

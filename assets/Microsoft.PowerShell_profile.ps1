@@ -432,7 +432,9 @@ function Get-SpeedtestExecutable {
         $listOutput = & winget list --id $packageId --exact --source winget --accept-source-agreements 2>$null
         $installed = $LASTEXITCODE -eq 0 -and ($listOutput -join "`n") -match [regex]::Escape($packageId)
     }
-    catch {}
+    catch {
+        Write-Warning "assets\Microsoft.PowerShell_profile.ps1, Get-SpeedtestExecutable: $($_.Exception.Message)"
+    }
 
     # If missing, install the package via WinGet (machine scope requires Administrator)
     if (-not $installed) {
@@ -539,7 +541,9 @@ function Speedtest-Advance {
             }
         }
     }
-    catch {}
+    catch {
+        Write-Warning "assets\Microsoft.PowerShell_profile.ps1, Speedtest-Advance: $($_.Exception.Message)"
+    }
 
     if (-not $result) {
         Write-Host "⚠️ Unable to generate the summary table: result object not found." -ForegroundColor Yellow

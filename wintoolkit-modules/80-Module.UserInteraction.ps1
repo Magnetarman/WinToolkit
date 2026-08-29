@@ -133,7 +133,9 @@ function Test-WindowsUpdateStatus {
                     Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'uiText.pendingRebootDetectedForWindowsUpdates'))
                 }
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\80-Module.UserInteraction.ps1, Test-WindowsUpdateStatus 1: $($_.Exception.Message)"
+            }
             try {
                 $installerStatus = Get-WUInstallerStatus -ErrorAction SilentlyContinue
                 if ($installerStatus -and $installerStatus.IsBusy) {
@@ -141,7 +143,9 @@ function Test-WindowsUpdateStatus {
                     Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'uiText.windowsUpdateInstallationServiceCurrentlyRunning'))
                 }
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\80-Module.UserInteraction.ps1, Test-WindowsUpdateStatus 2: $($_.Exception.Message)"
+            }
         }
         else {
             $regPaths = @(

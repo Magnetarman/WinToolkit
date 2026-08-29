@@ -96,7 +96,9 @@ function Show-ProgressBar {
                 $cursor = $Host.UI.RawUI.CursorPosition
                 $startPosition = [System.Management.Automation.Host.Coordinates]::new(0, $cursor.Y)
             }
-            catch {}
+            catch {
+                Write-Warning "wintoolkit-modules\20-Module.UI.ps1, Show-ProgressBar: $($_.Exception.Message)"
+            }
         }
 
         Write-Host "`r$progressLine" -NoNewline -ForegroundColor $Color
@@ -140,7 +142,9 @@ function Show-Header {
     param([string]$SubTitle)
     if ($Global:GuiSessionActive) { return }
     if ([string]::IsNullOrWhiteSpace($SubTitle)) { $SubTitle = Get-SourceTextLoc 'menu.main' }
-    try { Clear-Host } catch {}
+    try { Clear-Host } catch {
+        Write-Warning "wintoolkit-modules\20-Module.UI.ps1, Show-Header: $($_.Exception.Message)"
+    }
     $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
     $asciiArt = @(
         '      __        __  _   _   _ ',

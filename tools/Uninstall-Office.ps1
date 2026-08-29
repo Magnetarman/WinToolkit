@@ -64,7 +64,9 @@ function Uninstall-Office {
                         $null = Uninstall-Package -Name $package.Name -Force -ErrorAction Stop
                         Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.removed02' -Args @($($package.Name)))
                     }
-                    catch {}
+                    catch {
+                        Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 1: $($_.Exception.Message)"
+                    }
                 }
             }
 
@@ -84,11 +86,15 @@ function Uninstall-Office {
                                     -Arguments @('/x', $item.PSChildName, '/qn', '/norestart') -TimeoutSeconds 1800 `
                                     -LogContextKey "Office-Uninstall-MSI-$($item.PSChildName)"
                             }
-                            catch {}
+                            catch {
+                                Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 2: $($_.Exception.Message)"
+                            }
                         }
                     }
                 }
-                catch {}
+                catch {
+                    Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 3: $($_.Exception.Message)"
+                }
             }
 
             Write-StyledMessage -Type 'Info' -Text ("🛑 " + (Get-SourceTextLoc 'toolText.stoppingOfficeServices'))
@@ -102,7 +108,9 @@ function Uninstall-Office {
                         Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.serviceStopped0' -Args @($serviceName))
                         $stoppedServices++
                     }
-                    catch {}
+                    catch {
+                        Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 4: $($_.Exception.Message)"
+                    }
                 }
             }
 
@@ -140,11 +148,15 @@ function Uninstall-Office {
                 $officeTasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -like "*Office*" }
                 foreach ($task in $officeTasks) {
                     try { Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false -ErrorAction Stop; $tasksRemoved++ }
-                    catch {}
+                    catch {
+                        Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 5: $($_.Exception.Message)"
+                    }
                 }
                 if ($tasksRemoved -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.0OfficeTasksRemoved' -Args @($tasksRemoved)) }
             }
-            catch {}
+            catch {
+                Write-Warning "tools\Uninstall-Office.ps1, Remove-OfficeDirectly 6: $($_.Exception.Message)"
+            }
 
             Write-StyledMessage -Type 'Info' -Text ("🖥️ " + (Get-SourceTextLoc 'toolText.removingOfficeLinks'))
             $shortcutsRemoved = 0

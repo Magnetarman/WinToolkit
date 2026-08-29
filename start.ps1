@@ -28,7 +28,9 @@ function Get-WorkingPwsh {
             $version = & $candidate -NoLogo -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.Major' 2>$null
             if ($LASTEXITCODE -eq 0 -and [int]$version -ge 7) { return $candidate }
         }
-        catch { }
+        catch {
+            Write-Warning "start.ps1, Get-WorkingPwsh: $($_.Exception.Message)"
+        }
     }
     return $null
 }
