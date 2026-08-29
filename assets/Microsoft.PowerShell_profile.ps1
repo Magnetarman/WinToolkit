@@ -1335,7 +1335,7 @@ $($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Searche
 $($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extracts a ZIP file into the current directory.
 $($PSStyle.Foreground.Green)ReloadProfile$($PSStyle.Reset)             - Reloads the current PowerShell profile.
 $($PSStyle.Foreground.Green)Set-LocationToDesktop$($PSStyle.Reset)     - Navigates to the Desktop directory.
-$($PSStyle.Foreground.Green)back$($PSStyle.Reset)                        - Returns to a previous directory (cd history-aware).
+$($PSStyle.Foreground.Green)back$($PSStyle.Reset)                      - Returns to a previous directory (cd history-aware).
 
 $($PSStyle.Foreground.Cyan)System Information$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)Get-SystemInfo$($PSStyle.Reset)            - Displays detailed system information.
