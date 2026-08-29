@@ -258,7 +258,7 @@ function Invoke-WingetReinstall {
     return $false
 }
 
-function wingetupgrade {
+function Winget-Update {
     <#
     .SYNOPSIS
         Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
@@ -1208,7 +1208,7 @@ $($PSStyle.Foreground.Cyan)System$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)
 $($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)                  - Reboots the system immediately.
 $($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Hybrid shutdown (enables Fast Startup on next boot).
 $($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Full shutdown (bypasses Fast Startup).
-$($PSStyle.Foreground.Yellow)wingetupgrade$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
+$($PSStyle.Foreground.Yellow)Winget-Update$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Launches WinToolkit (stable).
 $($PSStyle.Foreground.Yellow)WinToolkit-Dev$($PSStyle.Reset)            - Launches WinToolkit (Dev).
 $($PSStyle.Foreground.Magenta)WinToolkit-GUI$($PSStyle.Reset)            - Launches WinToolkit (GUI version).
