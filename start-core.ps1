@@ -110,7 +110,9 @@ function Write-StyledMessage {
 function Start-ToolkitLog {
     param([string]$ToolName)
     try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
-        Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+        if ($_.Exception.Message -notmatch 'not currently transcribing') {
+            Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+        }
     }
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = $script:AppConfig.Paths.Logs
@@ -1990,6 +1992,7 @@ function Invoke-WinToolkitSetup {
         $ErrorActionPreference = 'Stop'
         $Host.UI.RawUI.WindowTitle = "Toolkit Starter by MagnetarMan"
         Start-ToolkitLog "WinToolkitStarter"
+        $null = Resolve-SourceTextLanguage -RequestedLanguage $Language
         Initialize-UpdateServicesState
         if ($PSVersionTable.PSVersion.Major -lt 7) {
             throw 'start-core.ps1 requires PowerShell 7 or later. Run start.ps1 instead.'
@@ -1997,7 +2000,6 @@ function Invoke-WinToolkitSetup {
         if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
             throw 'start-core.ps1 must be started by the elevated start.ps1 stub.'
         }
-        $null = Resolve-SourceTextLanguage -RequestedLanguage $Language
         Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
         foreach ($repair in @(
                 @{ Name = 'System clock'; Action = { Repair-SystemClock } },
@@ -2090,7 +2092,9 @@ function Invoke-WinToolkitSetup {
     finally {
         Invoke-StartUpdateServices
         try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
-            Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
+            if ($_.Exception.Message -notmatch 'not currently transcribing') {
+                Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
+            }
         }
         $ErrorActionPreference = $previousErrorActionPreference
     }
