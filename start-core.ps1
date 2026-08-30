@@ -616,7 +616,9 @@ function Initialize-UpdateServicesState {
         if ($previous.LastError) { $message += " Previous error: $($previous.LastError)" }
         Write-ToolkitLog -Level 'WARNING' -Message $message
         Write-StyledMessage -Type Warning -Text 'Rilevata una precedente interruzione: ripristino dello stato dei servizi Windows Update.'
-        Invoke-StartUpdateServices
+        if (-not (Invoke-StartUpdateServices)) {
+            Write-Warning "Ripristino servizi Windows Update non riuscito."
+        }
     }
 }
 function Set-UpdateServicesError {
@@ -2088,9 +2090,13 @@ function Invoke-WinToolkitSetup {
         return
     }
     finally {
-        Invoke-StartUpdateServices
-        try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
-            Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
+        if (-not (Invoke-StartUpdateServices)) {
+            Write-Warning "Ripristino servizi Windows Update non riuscito."
+        }
+        try {
+            Stop-Transcript -ErrorAction SilentlyContinue
+        } catch {
+            Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup 2: $($_.Exception.Message)"
         }
         $ErrorActionPreference = $previousErrorActionPreference
     }
