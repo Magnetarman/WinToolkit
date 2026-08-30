@@ -177,7 +177,9 @@ function Invoke-WinToolkitSetup {
     finally {
         Invoke-StartUpdateServices
         try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
-            Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
+            if ($_.Exception.Message -notmatch 'not currently transcribing') {
+                Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
+            }
         }
         $ErrorActionPreference = $previousErrorActionPreference
     }
