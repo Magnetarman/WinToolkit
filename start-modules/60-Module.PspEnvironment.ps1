@@ -29,7 +29,7 @@ function Update-WindowsTerminalSettings {
             if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
         }
 
-        Write-StyledMessage -Type Info -Text "Windows Terminal settings sovrascritti con la versione distribuita; backup: $backupPath."
+                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalSettingsOverwrittenBackup0' -Args @($backupPath))
         return $true
     }
     catch {
@@ -137,7 +137,7 @@ function Install-PspEnvironment {
             if (Test-Path -LiteralPath $targetProfile) {
                 $profileBackup = "$targetProfile.bak.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
                 [System.IO.File]::Replace($temporaryProfile, $targetProfile, $profileBackup, $true)
-                Write-StyledMessage -Type Info -Text "Profilo esistente salvato in $profileBackup."
+                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.existingProfileSaved0' -Args @($profileBackup))
             }
             else {
                 Move-Item -LiteralPath $temporaryProfile -Destination $targetProfile -Force -ErrorAction Stop

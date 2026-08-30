@@ -149,7 +149,7 @@ function Reset-SchannelSettings {
                     if ($enabled -eq 0) {
                         Set-ItemProperty -Path $modePath -Name 'Enabled' -Value 1 -Type DWord -Force
                         $changed = $true
-                        Write-StyledMessage -Type Info -Text "SCHANNEL TLS 1.2 $mode riattivato."
+                        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.schannelTls12ModeReactivated0' -Args @($mode))
                         Write-ToolkitLog -Level 'INFO' -Message "Re-enabled TLS 1.2 $mode"
                     }
                 }
@@ -165,7 +165,7 @@ function Reset-SchannelSettings {
                 if ($prop -and $prop.Enabled -eq 0) {
                     Remove-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
                     $changed = $true
-                    Write-StyledMessage -Type Info -Text "SCHANNEL cipher $($_.PSChildName) riabilitato."
+                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.schannelCipherReenabled0' -Args @($_.PSChildName))
                     Write-ToolkitLog -Level 'INFO' -Message "Removed disabled cipher: $($_.PSChildName)"
                 }
             }
@@ -229,7 +229,7 @@ function Reset-HostsFile {
             )
             $finalContent = $hostsHeader + ($newLines | Where-Object { $_.Trim() -ne '' })
             Set-Content -Path $hostsPath -Value $finalContent -Encoding ASCII -Force
-            Write-StyledMessage -Type Info -Text "File hosts modificato; backup salvato in $backupPath."
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.hostsFileModifiedBackupSaved0' -Args @($backupPath))
             Write-ToolkitLog -Level 'INFO' -Message "Hosts file reset: removed Microsoft/Store/Winget overrides"
             return [pscustomobject]@{ Success = $true; Changed = $true; Message = "Hosts reset; backup: $backupPath" }
         }
@@ -290,7 +290,7 @@ function Initialize-UpdateServicesState {
         $message = "Previous setup did not finish cleanly; saved Windows Update service state found (state: $($previous.State))."
         if ($previous.LastError) { $message += " Previous error: $($previous.LastError)" }
         Write-ToolkitLog -Level 'WARNING' -Message $message
-        Write-StyledMessage -Type Warning -Text 'Rilevata una precedente interruzione: ripristino dello stato dei servizi Windows Update.'
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.previousInterruptionDetectedRestoringUpdateServices')
         Invoke-StartUpdateServices
     }
 }
@@ -409,7 +409,7 @@ function Invoke-StartUpdateServices {
             $status.LastError = $otherErrors -join '; '
             Write-UpdateServicesStatus -Status $status
             Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
-            Write-StyledMessage -Type Error -Text "Ripristino servizi Windows Update incompleto: $($status.LastError)"
+            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.updateServicesRestoreIncomplete0' -Args @($status.LastError))
             return $false
         }
 
@@ -418,7 +418,7 @@ function Invoke-StartUpdateServices {
             $status.LastError = $null
             Write-UpdateServicesStatus -Status $status
             Write-ToolkitLog -Level 'WARNING' -Message "Windows Update service dosvc could not be restored (known Windows limitation): $($dosvcErrors -join '; ')"
-            Write-StyledMessage -Type Warning -Text "Servizio Windows Update dosvc (Ottimizzazione recapito) non è stato ripristinato: limite noto di Windows. Il setup prosegue."
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.dosvcNotRestoredKnownLimitation')
         }
     }
 

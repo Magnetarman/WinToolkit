@@ -1461,6 +1461,14 @@ uiText.wingetMsixBundleInstallationFailed = Installazione Winget MSIX Bundle fal
 uiText.wintoolkitIsReadyOnTheDesktop = WinToolkit è Pronto sul Desktop!
 uiText.wintoolkitLoadedInLibraryMode = WinToolkit caricato in modalità LIBRERIA
 uiText.wintoolkitStyledMessageTagErrorErroreDurante01 = [WINTOOLKIT_STYLED_MESSAGE_TAG][Errore] Errore durante {0}: {1}.
+uiText.schannelTls12ModeReactivated0 = SCHANNEL TLS 1.2 {0} riattivato.
+uiText.schannelCipherReenabled0 = SCHANNEL cipher {0} riabilitato.
+uiText.hostsFileModifiedBackupSaved0 = File hosts modificato; backup salvato in {0}.
+uiText.previousInterruptionDetectedRestoringUpdateServices = Rilevata una precedente interruzione: ripristino dello stato dei servizi Windows Update.
+uiText.updateServicesRestoreIncomplete0 = Ripristino servizi Windows Update incompleto: {0}
+uiText.dosvcNotRestoredKnownLimitation = Servizio Windows Update dosvc (Ottimizzazione recapito) non è stato ripristinato: limite noto di Windows. Il setup prosegue.
+uiText.existingProfileSaved0 = Profilo esistente salvato in {0}.
+uiText.windowsTerminalSettingsOverwrittenBackup0 = Impostazioni Windows Terminal sovrascritte con la versione distribuita; backup: {0}.
 
 # END uiText translations
 

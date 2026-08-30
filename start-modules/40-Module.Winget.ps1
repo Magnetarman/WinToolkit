@@ -634,7 +634,7 @@ function Install-WingetCore {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.visualCRedistributableAlreadyPresent')
         }
 
-        # 2. Dipendenze (UI.Xaml, VCLibs) — Estrazione dal pacchetto ufficiale (Metodo Sicuro)
+        # 2. Dependencies (UI.Xaml, VCLibs) — Extraction from the official package (Safe method)
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependenciesFromTheOfficialRepository')
         $dependencies = @()
         $depUrl = Get-WingetDownloadUrl -Match 'DesktopAppInstaller_Dependencies.zip'
@@ -756,7 +756,7 @@ function Install-WingetPackage {
         # time and are never imported at runtime (irm|iex distribution).
         Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
 
-        # Riparazione via modulo
+        # Repair via module
         if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.tentativoRiparazioneWingetRepairWingetpackagemanager')
             try {
