@@ -35,7 +35,13 @@ function Start-ToolkitLog {
     param([string]$ToolName)
 
     # Clean up leftover transcripts
-    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
+    try {
+        Stop-Transcript -ErrorAction Stop | Out-Null
+    }
+    catch [System.Management.Automation.PSInvalidOperationException] {
+        # An error occurred stopping transcription: The host is not currently transcribing.
+    }
+    catch {
         Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
     }
 
