@@ -39,7 +39,7 @@ function Start-ToolkitLog {
         Stop-Transcript -ErrorAction Stop | Out-Null
     }
     catch [System.Management.Automation.PSInvalidOperationException] {
-        # An error occurred stopping transcription: The host is not currently transcribing.
+        # Issue #173: An error occurred stopping transcription: The host is not currently transcribing.
     }
     catch {
         Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
