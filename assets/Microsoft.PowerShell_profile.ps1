@@ -463,10 +463,11 @@ function Show-SpeedtestSummary {
         [Parameter(Mandatory = $true)] [string]$Download,
         [Parameter(Mandatory = $true)] [string]$Upload,
         [Parameter(Mandatory = $true)] [string]$Ping,
-        [string]$PingLabel = 'Ping',
+        [string]$PingLabel = 'Ping/Idle Latency',
         [string]$Jitter,
         [string]$DownloadLatency,
         [string]$UploadLatency,
+        [string]$ISP,
         [string]$Server
     )
 
@@ -477,6 +478,7 @@ function Show-SpeedtestSummary {
     if ($Jitter) { Write-Host ("  {0,-18}: {1} ms" -f "Jitter", $Jitter) -ForegroundColor Yellow }
     if ($DownloadLatency) { Write-Host ("  {0,-18}: {1} ms" -f "Download Latency", $DownloadLatency) -ForegroundColor Yellow }
     if ($UploadLatency) { Write-Host ("  {0,-18}: {1} ms" -f "Upload Latency", $UploadLatency) -ForegroundColor Yellow }
+    if ($ISP) { Write-Host ("  {0,-18}: {1}" -f "ISP", $ISP) -ForegroundColor DarkCyan }
     if ($Server) { Write-Host ("  {0,-18}: {1}" -f "Server", $Server) -ForegroundColor DarkCyan }
 
     Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
@@ -509,11 +511,16 @@ function Speedtest {
     $download = Get-Value '(?m)^\s*Download:\s*([\d.]+)' $text
     $upload = Get-Value '(?m)^\s*Upload:\s*([\d.]+)' $text
     $ping = Get-Value 'Latency:\s*([\d.]+)' $text
-    $jitter = Get-Value 'jitter\):\s*([\d.]+)\s*ms' $text
+    $jitter = Get-Value 'jitter:\s*([\d.]+)\s*ms' $text
+    $downloadLatency = Get-Value '(?m)^[^\S\r\n]*Download:\s*[\d.]+\s+Mbps\s+\(data used:[^)\r\n]+\)[^\S\r\n]*\r?\n[^\S\r\n]*([\d.]+)\s*ms' $text
+    $uploadLatency = Get-Value '(?m)^[^\S\r\n]*Upload:\s*[\d.]+\s+Mbps\s+\(data used:[^)\r\n]+\)[^\S\r\n]*\r?\n[^\S\r\n]*([\d.]+)\s*ms' $text
+    $isp = Get-Value '(?m)^\s*ISP:\s*(.+?)\r?$' $text
     $serverM = [regex]::Match($text, '(?m)^\s*Server:\s*(.+?)\r?$')
     $server = if ($serverM.Success) { $serverM.Groups[1].Value.Trim() } else { '' }
 
-    Show-SpeedtestSummary -Download $download -Upload $upload -Ping $ping -Jitter $jitter -Server $server
+    Show-SpeedtestSummary `
+        -Download $download -Upload $upload -Ping $ping -Jitter $jitter `
+        -DownloadLatency $downloadLatency -UploadLatency $uploadLatency -ISP $isp -Server $server
 }
 
 function Speedtest-Advance {
@@ -559,6 +566,7 @@ function Speedtest-Advance {
         -Jitter ([math]::Round($result.ping.jitter, 2)) `
         -DownloadLatency ([math]::Round($result.download.latency.iqm, 2)) `
         -UploadLatency ([math]::Round($result.upload.latency.iqm, 2)) `
+        -ISP $result.isp `
         -Server "$($result.server.name) - $($result.server.location)"
 }
 
