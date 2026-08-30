@@ -30,6 +30,15 @@ function Invoke-WinToolkitSetup {
 
         # Initialize Logging
         Start-ToolkitLog "WinToolkitStarter"
+
+        # Localization must be resolved before any path that emits translated
+        # messages. In particular, Initialize-UpdateServicesState can trigger an
+        # early Windows Update service restore (when a previous run left a
+        # RestoreFailed state) and that restore prints translation keys such as
+        # uiText.resettingWindowsUpdateServices. Resolving first prevents
+        # "[MISSING TRANSLATION]" warnings during that startup recovery.
+        $null = Resolve-SourceTextLanguage -RequestedLanguage $Language
+
         Initialize-UpdateServicesState
 
         if ($PSVersionTable.PSVersion.Major -lt 7) {
@@ -38,10 +47,6 @@ function Invoke-WinToolkitSetup {
         if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
             throw 'start-core.ps1 must be started by the elevated start.ps1 stub.'
         }
-
-        # Localization is prepared here, after logging exists and after the
-        # elevation check, so the GitHub API is never queried twice per run.
-        $null = Resolve-SourceTextLanguage -RequestedLanguage $Language
 
         Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
 
@@ -172,7 +177,9 @@ function Invoke-WinToolkitSetup {
     finally {
         Invoke-StartUpdateServices
         try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
-            Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
+            if ($_.Exception.Message -notmatch 'not currently transcribing') {
+                Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
+            }
         }
         $ErrorActionPreference = $previousErrorActionPreference
     }
