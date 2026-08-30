@@ -34,15 +34,13 @@ function Start-ToolkitLog {
     #>
     param([string]$ToolName)
 
-    # Clean up leftover transcripts
-    try {
-        Stop-Transcript -ErrorAction Stop | Out-Null
-    }
-    catch [System.Management.Automation.PSInvalidOperationException] {
-        # Issue #173: An error occurred stopping transcription: The host is not currently transcribing.
-    }
-    catch {
-        Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+    # Clean up leftover transcripts. Stop-Transcript throws when no transcript is
+    # active ("The host is not currently transcribing"), which is expected on a
+    # fresh run, so that benign case is silenced instead of surfaced as a warning.
+    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
+        if ($_.Exception.Message -notmatch 'not currently transcribing') {
+            Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+        }
     }
 
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
