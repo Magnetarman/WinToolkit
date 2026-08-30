@@ -170,9 +170,14 @@ function Invoke-WinToolkitSetup {
         return
     }
     finally {
-        Invoke-StartUpdateServices
-        try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
-            Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
+        if (-not (Invoke-StartUpdateServices)) {
+            Write-Warning "Ripristino servizi Windows Update non riuscito."
+        }
+        
+        try {
+            Stop-Transcript -ErrorAction SilentlyContinue
+        } catch {
+            Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup 2: $($_.Exception.Message)"
         }
         $ErrorActionPreference = $previousErrorActionPreference
     }

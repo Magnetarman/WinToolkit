@@ -282,6 +282,7 @@ function Read-UpdateServicesStatus {
     }
 }
 
+
 function Initialize-UpdateServicesState {
     $previous = Read-UpdateServicesStatus
     if (-not $previous) { return }
@@ -291,9 +292,13 @@ function Initialize-UpdateServicesState {
         if ($previous.LastError) { $message += " Previous error: $($previous.LastError)" }
         Write-ToolkitLog -Level 'WARNING' -Message $message
         Write-StyledMessage -Type Warning -Text 'Rilevata una precedente interruzione: ripristino dello stato dei servizi Windows Update.'
-        Invoke-StartUpdateServices
+        
+        if (-not (Invoke-StartUpdateServices)) {
+            Write-Warning "Ripristino servizi Windows Update non riuscito."
+        }
     }
 }
+
 
 function Set-UpdateServicesError {
     param([string]$Message)
