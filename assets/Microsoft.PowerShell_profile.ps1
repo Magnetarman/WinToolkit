@@ -69,7 +69,7 @@ function Start-NonElevated {
 # CENTRALIZED CONFIGURATION (URL)
 # ============================================================================
 
-$ProfileVersion = "2.6.0.5"
+$ProfileVersion = "2.6.0.6"
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
 $URL_WINTOOLKIT_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/WinToolkit.ps1"
@@ -82,6 +82,9 @@ $URL_WINTOOLKIT_ICO_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToo
 $URL_WINTOOLKIT_ICO_DEV = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev/images/WinToolkit-Dev.ico"
 $URL_PROFILE_MAIN = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/main/assets/Microsoft.PowerShell_profile.ps1"
 $URL_PWSH_RELEASE_API = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
+
+# Personal/private scripts directory (out of the public WinToolkit distribution).
+$PRIVATE_SCRIPTS_DIR = Join-Path $env:USERPROFILE 'Documents\Gitlab\WinToolkit-Docs\private'
 
 # ============================================================================
 # INSTALLATIONS AND INITIALIZATIONS
@@ -789,6 +792,45 @@ function SetBranch-Dev {
     Write-Host "`n⚠️  WARNING: Restart the terminal to apply the new profile changes." -ForegroundColor Magenta
 }
 
+function Nuke {
+    <#
+    .SYNOPSIS
+        Personal wrapper: dot-sources the user's own 'nuke.ps1' from the private scripts folder.
+    .DESCRIPTION
+        Personal helper that loads a private script kept out of the public
+        WinToolkit distribution. The script location is resolved through the
+        centralized $PRIVATE_SCRIPTS_DIR variable. If the file is missing, a
+        clear message tells the user where to place it.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $nukeScript = Join-Path $PRIVATE_SCRIPTS_DIR 'nuke.ps1'
+
+    if (-not (Test-Path $nukeScript)) {
+        Write-Host "❌ Nuke script not found: $nukeScript" -ForegroundColor Red
+        Write-Host "ℹ️ Place your personal 'nuke.ps1' in the private scripts folder to enable this command." -ForegroundColor Cyan
+        Write-Host "   Folder: $PRIVATE_SCRIPTS_DIR" -ForegroundColor DarkGray
+        return
+    }
+
+    try {
+        . $nukeScript
+    }
+    catch {
+        Write-Host "❌ Unable to load nuke.ps1: $($_.Exception.Message)" -ForegroundColor Red
+        return
+    }
+
+    if (-not (Get-Command -Name 'Nuke' -ErrorAction SilentlyContinue)) {
+        Write-Host "❌ The script was loaded but no 'Nuke' function was found inside it." -ForegroundColor Red
+        return
+    }
+
+    # Forward arguments (none expected, kept for future expansion)
+    Nuke @args
+}
+
 function doReboot {
     shutdown /r /f /t 0
 }
@@ -1377,6 +1419,7 @@ $($PSStyle.Foreground.Red)SetRustDesk$($PSStyle.Reset)               - Configure
 $($PSStyle.Foreground.Yellow)PS-Reset$($PSStyle.Reset)                  - Resets Windows Terminal and removes this profile.
 $($PSStyle.Foreground.Red)ReadyToGo$($PSStyle.Reset)                 - Prepares the PC for final use (PC Delivery).
 $($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                      - System resource monitor for the terminal.
+$($PSStyle.Foreground.Blue)Nuke$($PSStyle.Reset)                      - Pre-format full backup. (Personal: loads nuke.ps1 from Private Directory; will not work for other users.)
 
 $($PSStyle.Foreground.Cyan)WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)---------------------------------------------------------------------------$($PSStyle.Reset)
 $($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Launches WinToolkit (stable).
