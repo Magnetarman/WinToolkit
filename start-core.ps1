@@ -1127,7 +1127,7 @@ function Test-WingetAppInstaller {
         return $false
     }
     Write-StyledMessage -Type Info -Text ("🔍 " + (Get-SourceTextLoc 'uiText.checkingMicrosoftAppInstallerPackage'))
-    $present = [bool](Get-AppxPackage -Name 'Microsoft.AppInstaller' -ErrorAction SilentlyContinue)
+    $present = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
     try {
         if (-not $present) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerNotFoundInstalling')
@@ -1141,7 +1141,7 @@ function Test-WingetAppInstaller {
     catch {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdateError0' -Args @($($_.Exception.Message)))
     }
-    $ok = [bool](Get-AppxPackage -Name 'Microsoft.AppInstaller' -ErrorAction SilentlyContinue)
+    $ok = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
     if ($ok) {
         Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdated'))
     }

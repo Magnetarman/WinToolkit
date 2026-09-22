@@ -329,10 +329,10 @@ function Test-WingetFunctionality {
 function Test-WingetAppInstaller {
     <#
     .SYNOPSIS
-    Ensures the Microsoft.AppInstaller package is present and up to date.
+    Ensures App Installer is present and up to date.
 
     .DESCRIPTION
-    After Winget is confirmed functional, the Microsoft.AppInstaller package
+    After Winget is confirmed functional, the Microsoft.DesktopAppInstaller package
     must be present (and current) so that Winget stays fully functional and on
     the latest release/support. When the package is missing it is installed,
     and when already present it is force-updated to the latest release.
@@ -344,7 +344,8 @@ function Test-WingetAppInstaller {
 
     Write-StyledMessage -Type Info -Text ("🔍 " + (Get-SourceTextLoc 'uiText.checkingMicrosoftAppInstallerPackage'))
 
-    $present = [bool](Get-AppxPackage -Name 'Microsoft.AppInstaller' -ErrorAction SilentlyContinue)
+    # AppX uses the Windows package name; WinGet uses the Microsoft.AppInstaller catalog ID.
+    $present = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
 
     try {
         if (-not $present) {
@@ -360,7 +361,7 @@ function Test-WingetAppInstaller {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdateError0' -Args @($($_.Exception.Message)))
     }
 
-    $ok = [bool](Get-AppxPackage -Name 'Microsoft.AppInstaller' -ErrorAction SilentlyContinue)
+    $ok = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
     if ($ok) {
         Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdated'))
     }
