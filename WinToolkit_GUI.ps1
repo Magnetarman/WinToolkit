@@ -168,6 +168,7 @@ function Get-SourceTextLanguageDirectory {
     return $candidate
 }
 
+
 function Get-AvailableSourceTextLanguages {
     $languageDir = Get-SourceTextLanguageDirectory
     if (-not (Test-Path $languageDir)) { return @() }
@@ -191,6 +192,7 @@ function Get-AvailableSourceTextLanguages {
     } | Sort-Object Code
 }
 
+
 function Import-SourceTextLanguageFile {
     param([string]$LanguageCode)
 
@@ -204,6 +206,7 @@ function Import-SourceTextLanguageFile {
         return $null
     }
 }
+
 
 function Set-SourceTextLanguage {
     param([string]$LanguageCode = 'en-US')
@@ -222,6 +225,7 @@ function Set-SourceTextLanguage {
         $Global:SourceTextLanguageData = $languageData
     }
 }
+
 
 function Get-SourceTextLoc {
     param(
@@ -243,6 +247,7 @@ function Get-SourceTextLoc {
     if ($Args -and $Args.Count -gt 0) { return [string]::Format($value, $Args) }
     return $value
 }
+
 
 function Get-ToolkitMenuText {
     param([object]$Item)
@@ -269,6 +274,7 @@ function Get-ToolkitMenuText {
     return [string]$Item
 }
 
+
 function Get-RemoteAvailableCultures {
     param([string]$GitHubApiUrl = 'https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=Dev')
     try {
@@ -279,6 +285,7 @@ function Get-RemoteAvailableCultures {
         return @()
     }
 }
+
 
 function Invoke-SourceTextLanguagePruning {
     <#
@@ -308,6 +315,7 @@ function Invoke-SourceTextLanguagePruning {
         }
     }
 }
+
 
 function Invoke-SourceTextLanguagePreparation {
     [CmdletBinding()]
@@ -357,6 +365,7 @@ function Invoke-SourceTextLanguagePreparation {
     $Global:SourceTextPreparedLanguagesDir = $localDir
     return $localDir
 }
+
 
 function Get-SourceTextAutoDetectedLanguage {
     param([string]$AvailableCultures = 'en-US', [string]$SystemUICulture = ($PSUICulture.ToString()))
@@ -451,6 +460,7 @@ function Write-UnifiedLog {
         }
     }
 }
+
 
 # =============================================================================
 # CORE SCRIPT LOADER MODULE
@@ -646,6 +656,7 @@ function Initialize-CoreScript {
     }
 }
 
+
 # =============================================================================
 # EMOJI ICONS HELPER FUNCTIONS
 # =============================================================================
@@ -672,6 +683,7 @@ function Get-EmojiIconPath {
     }
 }
 
+
 # Helper function to load icon with emoji fallback
 function Get-IconWithFallback {
     param(
@@ -689,6 +701,7 @@ function Get-IconWithFallback {
     # Otherwise return null to indicate using the emoji as fallback
     return $null
 }
+
 
 function Split-EmojiAndText {
     param ([string]$InputString)
@@ -708,6 +721,7 @@ function Split-EmojiAndText {
         }
     }
 }
+
 
 function Test-EmojiIcons {
     param(
@@ -747,6 +761,7 @@ function Test-EmojiIcons {
     }
 }
 
+
 function Get-AllCheckBoxes {
     <#
     .SYNOPSIS
@@ -768,6 +783,7 @@ function Get-AllCheckBoxes {
 
     return $checkBoxes
 }
+
 
 function Send-ErrorLogs {
     <#
@@ -1083,6 +1099,7 @@ function Get-GuiMenuLocalizationKey {
     return $null
 }
 
+
 function Get-ToolkitMenuText {
     param([object]$Item)
 
@@ -1104,6 +1121,7 @@ function Get-ToolkitMenuText {
     return [string]$Item
 }
 
+
 function Convert-GuiBitlockerStatusToKey {
     param([string]$StatusText)
 
@@ -1119,6 +1137,7 @@ function Convert-GuiBitlockerStatusToKey {
 
     return 'bitlocker.status.unknown'
 }
+
 
 function Get-GuiBitlockerStatusKey {
     $command = Get-Command 'Get-BitlockerStatus' -ErrorAction SilentlyContinue
@@ -1680,6 +1699,7 @@ function Set-TextBlockText {
     if ($Control) { $Control.Text = $Text }
 }
 
+
 function Initialize-LanguageComboBox {
     if (-not $LanguageComboBox) { return }
 
@@ -1699,6 +1719,7 @@ function Initialize-LanguageComboBox {
         $LanguageComboBox.SelectedIndex = 0
     }
 }
+
 
 function Apply-GuiLocalization {
     Set-TextBlockText $LanguageLabelText (Get-SourceTextLoc 'gui.languageLabel')
@@ -1934,6 +1955,7 @@ function Update-SystemInformationPanel {
     }
 }
 
+
 # =============================================================================
 # DYNAMIC MENU GENERATION (From Core's $menuStructure)
 # =============================================================================
@@ -2053,6 +2075,7 @@ function Update-ActionsPanel {
     }
 }
 
+
 # Task 6: Helper function to determine the emoji based on the script name
 function Get-ScriptEmoji {
     param([string]$ScriptName)
@@ -2073,6 +2096,7 @@ function Get-ScriptEmoji {
     elseif ($nameLower -match 'debloat|appx|store') { return $emojiMappings.ScriptDebloat }
     else { return "📄" }
 }
+
 
 # =============================================================================
 # HELPER FUNCTION: Filter and format job output
@@ -2238,6 +2262,7 @@ function Format-JobOutput {
     return $true
 }
 
+
 # =============================================================================
 # SCRIPT EXECUTION - ASYNCHRONOUS IMPLEMENTATION (Using DispatcherTimer)
 # =============================================================================
@@ -2322,8 +2347,10 @@ function Start-NextScriptJob {
         # Shim Clear-Host to prevent clearing job output or causing errors in non-console host.
         function Clear-Host { Write-Debug "[GUI_SHIM] Clear-Host bypassed." }
 
+
         # Shim Clear-ProgressLine. The original has a ConsoleHost check, but this ensures no raw UI access.
         function Clear-ProgressLine { Write-Debug "[GUI_SHIM] Clear-ProgressLine bypassed." }
+
 
         # Shim Read-Host to provide default answers, preventing job blockage.
         function Read-Host {
@@ -2332,6 +2359,7 @@ function Start-NextScriptJob {
             Write-Output (Get-SourceTextLoc 'uiText.wintoolkitInputBypassTagPrompt0' -Args @($Prompt)) # Tag for the GUI
             return 'Y' # Default to 'Yes' for most confirmations/choices in GUI mode.
         }
+
 
         # Shim Start-InterruptibleCountdown to bypass user interaction and the console UI countdown.
         function Start-InterruptibleCountdown {
@@ -2346,6 +2374,7 @@ function Start-NextScriptJob {
             return $true
         }
 
+
         # Shim Get-UserConfirmation to always confirm actions, preventing user interaction.
         function Get-UserConfirmation {
             param([string]$Message, [string]$DefaultChoice = 'N')
@@ -2354,6 +2383,7 @@ function Start-NextScriptJob {
             return $true # Assume 'Yes' for all user confirmations in GUI mode.
         }
 
+
         # Shim Show-Header to prevent raw console output (ASCII art, direct window size checks).
         function Show-Header {
             param([string]$SubTitle)
@@ -2361,6 +2391,7 @@ function Start-NextScriptJob {
             Write-Debug "[GUI_SHIM] Header: WinToolkit - $SubTitle (bypassed direct console output)."
             Write-Output (Get-SourceTextLoc 'uiText.wintoolkitStyledMessageTagInfoHeader0' -Args @($SubTitle)) # Send as a styled message for the GUI
         }
+
 
         # Shim Invoke-WithSpinner - GUI version adapts progress reporting for scripts using Invoke-WithSpinner
         function Invoke-WithSpinner {
@@ -2461,6 +2492,7 @@ function Start-NextScriptJob {
             }
         }
 
+
         # Shim Write-StyledMessage to redirect styled messages from Core to Write-Warning with tags
         function Write-StyledMessage {
             param(
@@ -2470,6 +2502,7 @@ function Start-NextScriptJob {
             # Use Write-Warning to bypass Success Pipeline (prevent variable pollution)
             Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitStyledMessageTag01' -Args @($Type, $Text))
         }
+
 
         # Shim Show-ProgressBar to prevent raw console output for progress bars.
         function Show-ProgressBar {
@@ -2485,6 +2518,7 @@ function Start-NextScriptJob {
             $intPercent = [int]$Percent
             Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0Status1Percent2Icon3Spinner4' -Args @($Activity, $Status, $($intPercent), $Icon, $Spinner))
         }
+
 
         # Shim Write-Progress to redirect standard PowerShell progress to the GUI
         function Write-Progress {
@@ -2504,6 +2538,7 @@ function Start-NextScriptJob {
                 Write-Warning (Get-SourceTextLoc 'uiText.wintoolkitProgressTagActivity0Status1Percent2' -Args @($displayActivity, $displayStatus, $($PercentComplete)))
             }
         }
+
 
         # Shim Write-Host - uses Write-Warning to bypass Success Pipeline
         function Write-Host {
@@ -2594,6 +2629,7 @@ function Start-NextScriptJob {
         Invoke-JobCompletion -JobStatus 'ErrorStarting' -JobName $scriptName
     }
 }
+
 
 # Function to process job completion
 function Invoke-JobCompletion {
@@ -2716,6 +2752,7 @@ function Invoke-JobCompletion {
     }
     # *** END FIX ***
 }
+
 
 # Timer Tick handler to monitor the job
 function Tick_JobMonitor {

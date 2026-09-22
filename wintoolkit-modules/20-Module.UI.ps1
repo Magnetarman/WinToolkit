@@ -52,12 +52,14 @@ function Clear-ProgressLine {
     }
 }
 
+
 function Get-CenteredText {
     param([string]$Text, [int]$Width = 0)
     if ($Width -eq 0) { $Width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 } }
     $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
     return (' ' * $padding + $Text)
 }
+
 
 function Write-StyledMessage {
     param(
@@ -75,6 +77,7 @@ function Write-StyledMessage {
     }
     Write-ToolkitLog -Level $logLevel -Message $displayText
 }
+
 
 function Show-ProgressBar {
     <#
@@ -115,6 +118,7 @@ function Show-ProgressBar {
     }
 }
 
+
 function Write-ProgressUpdate {
     <#
     .SYNOPSIS
@@ -133,6 +137,7 @@ function Write-ProgressUpdate {
     Clear-ProgressLine
     Show-ProgressBar -Activity $Activity -Status $Status -Percent $Percent -Icon $Icon -Spinner $Spinner -Color $Color
 }
+
 
 function Show-Header {
     <#
@@ -161,6 +166,7 @@ function Show-Header {
     Write-Host ('═' * ($width - 1)) -ForegroundColor Green
     Write-Host ''
 }
+
 
 function Show-ConsoleTable {
     <#

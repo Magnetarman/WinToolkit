@@ -68,6 +68,7 @@ function WinCleaner {
         return $false
     }
 
+
     function Invoke-CommandAction {
         param($Rule)
         $displayName = Get-SourceTextLoc $Rule.NameKey
@@ -103,6 +104,7 @@ function WinCleaner {
         }
     }
 
+
     function Invoke-ServiceAction {
         param($Rule)
         $svcName = $Rule.ServiceName
@@ -127,6 +129,7 @@ function WinCleaner {
             return $false
         }
     }
+
 
     function Remove-FileItem {
         param($Rule)
@@ -186,6 +189,7 @@ function WinCleaner {
         return $true
     }
 
+
     function Remove-RegistryItem {
         param($Rule)
         $keys = $Rule.Keys
@@ -221,6 +225,7 @@ function WinCleaner {
         return $true
     }
 
+
     function Set-RegistryItem {
         param($Rule)
         $key = $Rule.Key -replace '^(HKCU|HKLM):', '$1:\'
@@ -231,6 +236,7 @@ function WinCleaner {
         }
         catch { return $false }
     }
+
 
     function Invoke-WinCleanerRule {
         param($Rule)
@@ -779,6 +785,7 @@ function WinCleaner {
                     return $path
                 }
 
+
                 function Get-UniqueStateFilePath($BaseName) {
                     $suffix = New-Guid
                     $path = Get-StateFilePath -BaseName $BaseName -Suffix $suffix
@@ -788,6 +795,7 @@ function WinCleaner {
                     }
                     return $path
                 }
+
 
                 function New-EmptyFile($Path) {
                     $parentDirectory = [System.IO.Path]::GetDirectoryName($Path)

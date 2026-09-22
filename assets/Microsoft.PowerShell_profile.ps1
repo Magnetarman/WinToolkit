@@ -20,6 +20,7 @@ function Assert-Admin {
     return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+
 function Require-Admin {
     [CmdletBinding()]
     param(
@@ -37,6 +38,7 @@ function Require-Admin {
     }
     return $true
 }
+
 
 function Start-NonElevated {
     <#
@@ -118,6 +120,7 @@ function Invoke-WingetPackageAction {
     }
 }
 
+
 function Test-WingetReinstallRequired {
     [CmdletBinding()]
     param(
@@ -137,6 +140,7 @@ function Test-WingetReinstallRequired {
 
     return $Result.Output -match $reinstallPhrases
 }
+
 
 function Invoke-WingetReinstall {
     <#
@@ -193,6 +197,7 @@ function Invoke-WingetReinstall {
     return $false
 }
 
+
 function Get-ProfileDir {
     return Split-Path -Parent $PROFILE
 }
@@ -220,9 +225,11 @@ function Test-CommandExists {
     $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+
 function ReloadProfile {
     & $PROFILE | Out-Null
 }
+
 
 function Expand-ZipFile {
     [CmdletBinding()]
@@ -249,6 +256,7 @@ function Expand-ZipFile {
     }
 }
 
+
 function Find-File {
     [CmdletBinding()]
     param(
@@ -257,6 +265,7 @@ function Find-File {
     )
     Get-ChildItem -Recurse -Filter "*${Name}*" -ErrorAction SilentlyContinue | Select-Object FullName
 }
+
 
 function New-Mkcd {
     [CmdletBinding()]
@@ -267,6 +276,7 @@ function New-Mkcd {
     New-Item -ItemType Directory -Path $Directory -Force | Out-Null
     Set-Location -Path $Directory
 }
+
 
 function Set-LocationToDesktop {
     Set-Location -Path (Join-Path $HOME "Desktop")
@@ -350,6 +360,7 @@ function back {
     Set-Location -Path $targetPath
 }
 
+
 # ============================================================================
 # SYSTEM INFORMATION
 # ============================================================================
@@ -358,17 +369,21 @@ function Get-SystemInfo {
     Get-ComputerInfo | Out-Host
 }
 
+
 function Get-PublicIP {
     (Invoke-WebRequest -Uri $URL_IP_API -UseBasicParsing).Content.Trim()
 }
+
 
 function Get-MainboardInfo {
     Get-CimInstance -ClassName Win32_baseboard | Select-Object Product, Manufacturer, Version, SerialNumber
 }
 
+
 function Get-RAMInfo {
     Get-CimInstance -ClassName Win32_PhysicalMemory | Select-Object PSComputerName, PartNumber, Capacity, Speed, ConfiguredVoltage, DeviceLocator, Tag, SerialNumber
 }
+
 
 # ============================================================================
 # NETWORK UTILITIES
@@ -379,6 +394,7 @@ function FlushDns {
     Write-Host "✅ DNS cache flushed" -ForegroundColor Green
     Write-Host "⚠️ Restart the system to apply changes" -ForegroundColor Yellow
 }
+
 
 function Reset-IP {
     [CmdletBinding()]
@@ -423,6 +439,7 @@ function Reset-IP {
     Write-Host "⚠️ Restart the system to apply changes" -ForegroundColor Yellow
 }
 
+
 function Get-SpeedtestExecutable {
     [CmdletBinding()]
     param()
@@ -460,6 +477,7 @@ function Get-SpeedtestExecutable {
     return $speedtestExe
 }
 
+
 function Show-SpeedtestSummary {
     [CmdletBinding()]
     param(
@@ -487,6 +505,7 @@ function Show-SpeedtestSummary {
     Write-Host "`n✅ Speedtest completed." -ForegroundColor Green
     Read-Host "Press ENTER to finish"
 }
+
 
 function Speedtest {
     [CmdletBinding()]
@@ -525,6 +544,7 @@ function Speedtest {
         -Download $download -Upload $upload -Ping $ping -Jitter $jitter `
         -DownloadLatency $downloadLatency -UploadLatency $uploadLatency -ISP $isp -Server $server
 }
+
 
 function Speedtest-Advance {
     [CmdletBinding()]
@@ -572,6 +592,7 @@ function Speedtest-Advance {
         -ISP $result.isp `
         -Server "$($result.server.name) - $($result.server.location)"
 }
+
 
 function Reset-Network {
     [CmdletBinding()]
@@ -639,6 +660,7 @@ function Reset-Network {
     Write-Host "⚠️ Restart your computer to apply changes" -ForegroundColor Yellow
 }
 
+
 # ============================================================================
 # SYSTEM
 # ============================================================================
@@ -646,6 +668,7 @@ function Reset-Network {
 function WinToolkit-Stable {
     Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoProfile -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_WINTOOLKIT_STABLE | iex`"" -Verb RunAs
 }
+
 
 function SetRustDesk {
     [CmdletBinding()]
@@ -657,6 +680,7 @@ function SetRustDesk {
 
 }
 
+
 function WinReg {
     [CmdletBinding()]
     param()
@@ -664,13 +688,16 @@ function WinReg {
     Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoProfile -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_WINREG | iex`"" -Verb RunAs
 }
 
+
 function WinToolkit-Dev {
     Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoProfile -NoExit -ExecutionPolicy Bypass -Command `"irm $URL_WINTOOLKIT_DEV | iex`"" -Verb RunAs
 }
 
+
 function WinToolkit-GUI {
     Start-Process -FilePath "wt.exe" -ArgumentList "new-tab -p `"PowerShell`" pwsh.exe -NoProfile -NoExit -ExecutionPolicy Bypass -Command `"irm https://magnetarman.com/Wintoolkit-gui | iex`"" -Verb RunAs
 }
+
 
 function SetBranch-Main {
     [CmdletBinding()]
@@ -732,6 +759,7 @@ function SetBranch-Main {
     Write-Host "`n⚠️  WARNING: Restart the terminal to apply the new profile changes." -ForegroundColor Magenta
 }
 
+
 function SetBranch-Dev {
     [CmdletBinding()]
     param()
@@ -792,6 +820,7 @@ function SetBranch-Dev {
     Write-Host "`n⚠️  WARNING: Restart the terminal to apply the new profile changes." -ForegroundColor Magenta
 }
 
+
 function Nuke {
     <#
     .SYNOPSIS
@@ -831,17 +860,21 @@ function Nuke {
     Nuke @args
 }
 
+
 function doReboot {
     shutdown /r /f /t 0
 }
+
 
 function Shutdownfast {
     shutdown /s /hybrid /f /t 0
 }
 
+
 function ShutdownComplete {
     shutdown /s /f /t 0
 }
+
 
 function PS-Reset {
     [CmdletBinding()]
@@ -948,6 +981,7 @@ function PS-Reset {
     shutdown /r /f /t 0
 }
 
+
 function ReadyToGo {
     [CmdletBinding()]
     param()
@@ -998,6 +1032,7 @@ function ReadyToGo {
 
     Write-Host "🎉 ReadyToGo operation completed successfully!" -ForegroundColor Green
 }
+
 
 # ============================================================================
 # PROGRAMS UPDATE
@@ -1056,6 +1091,7 @@ function PSProfileUpdate {
         }
     }
 }
+
 
 function Winget-Update {
     <#
@@ -1128,6 +1164,7 @@ function Winget-Update {
 
     Write-Host "`n✅ WinGet upgrade procedure completed." -ForegroundColor Green
 }
+
 
 function Pip-Update {
     <#
@@ -1206,6 +1243,7 @@ function Pip-Update {
     }
 }
 
+
 function Update-Pwsh {
     [CmdletBinding()]
     param()
@@ -1281,6 +1319,7 @@ function Update-Pwsh {
         }
     }
 }
+
 
 # ============================================================================
 # EDITOR CONFIGURATION WITH FALLBACK
@@ -1368,6 +1407,7 @@ function EditPSProfile {
         Start-Process notepad $PROFILE
     }
 }
+
 
 # ============================================================================
 # HELP E ALIAS PERSONALIZZATI

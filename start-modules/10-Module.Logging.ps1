@@ -27,6 +27,7 @@ function Write-StyledMessage {
     Write-ToolkitLog -Level $logLevel -Message $Text
 }
 
+
 function Start-ToolkitLog {
     <#
     .SYNOPSIS
@@ -73,6 +74,7 @@ ToolkitVersion : $($script:AppConfig.Header.Version)
     }
 }
 
+
 function Write-ToolkitLog {
     <#
     .SYNOPSIS
@@ -95,6 +97,7 @@ function Write-ToolkitLog {
     }
 }
 
+
 function Format-CenteredText {
     <#
     .SYNOPSIS
@@ -107,6 +110,7 @@ function Format-CenteredText {
     $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
     return (" " * $padding) + $Text
 }
+
 
 function Show-Header {
     <#

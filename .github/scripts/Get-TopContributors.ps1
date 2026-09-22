@@ -91,6 +91,7 @@ function Invoke-GitHubApi {
     return $response
 }
 
+
 function Get-CommitsFromDev {
     param([string]$Token)
     
@@ -118,6 +119,7 @@ function Get-CommitsFromDev {
     Write-Host "Total commits fetched: $($allCommits.Count)"
     return $allCommits
 }
+
 
 function Get-PrsFromDev {
     param([string]$Token)
@@ -150,6 +152,7 @@ function Get-PrsFromDev {
     Write-Host "Total merged PRs fetched: $($allPrs.Count)"
     return $allPrs
 }
+
 
 function ConvertTo-ContributorStats {
     param(
@@ -215,6 +218,7 @@ function ConvertTo-ContributorStats {
     return $stats.Values | Sort-Object { $_.Prs }, { $_.Commits } -Descending | Select-Object -First $TopN
 }
 
+
 function New-ContributorsMarkdown {
     param(
         [array]$TopContributors,
@@ -242,6 +246,7 @@ function New-ContributorsMarkdown {
     $lines += ""
     return $lines -join "`n"
 }
+
 
 function Update-ReadmeSection {
     param(
@@ -284,6 +289,7 @@ function Update-ReadmeSection {
     return $true
 }
 
+
 function Get-ExistingPullRequest {
     param(
         [string]$Repo,
@@ -303,6 +309,7 @@ function Get-ExistingPullRequest {
     
     return @{ Exists = $false }
 }
+
 
 function New-PullRequest {
     param(
@@ -331,6 +338,7 @@ function New-PullRequest {
     Write-Host "PR #$($pr.number) created: $($pr.html_url)"
     return @{ Number = $pr.number; Branch = $BranchName; Exists = $false }
 }
+
 
 # ---------------------------------------------------------------------------
 # TIMEZONE CHECK (Europe/Rome)

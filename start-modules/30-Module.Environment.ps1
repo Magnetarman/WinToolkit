@@ -20,6 +20,7 @@ function Get-SystemArchitecture {
     }
 }
 
+
 function Update-EnvironmentPath {
     <#
     .SYNOPSIS
@@ -35,6 +36,7 @@ function Update-EnvironmentPath {
     # Force process-level refresh for .NET components started later
     [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
 }
+
 
 function Test-PathInEnvironment {
     <#
@@ -62,6 +64,7 @@ function Test-PathInEnvironment {
     }
     return $pathExists
 }
+
 
 function Add-ToEnvironmentPath {
     <#
@@ -96,6 +99,7 @@ function Add-ToEnvironmentPath {
     }
 }
 
+
 function Repair-SystemClock {
     <#
     .SYNOPSIS
@@ -124,6 +128,7 @@ function Repair-SystemClock {
         return [pscustomobject]@{ Success = $false; Changed = $changed; Message = $_.Exception.Message }
     }
 }
+
 
 function Reset-SchannelSettings {
     <#
@@ -177,6 +182,7 @@ function Reset-SchannelSettings {
         return [pscustomobject]@{ Success = $false; Changed = $changed; Message = $_.Exception.Message }
     }
 }
+
 
 function Reset-HostsFile {
     <#
@@ -241,11 +247,13 @@ function Reset-HostsFile {
     }
 }
 
+
 # --- Windows Update services: persisted state, suspend and restore ---
 
 function Get-UpdateServicesStatusPath {
     return (Join-Path $script:AppConfig.Paths.WinToolkitDir 'update-services.status.txt')
 }
+
 
 function Write-UpdateServicesStatus {
     param(
@@ -270,6 +278,7 @@ function Write-UpdateServicesStatus {
     }
 }
 
+
 function Read-UpdateServicesStatus {
     $statusPath = Get-UpdateServicesStatusPath
     if (-not (Test-Path -LiteralPath $statusPath -PathType Leaf)) { return $null }
@@ -281,6 +290,7 @@ function Read-UpdateServicesStatus {
         return $null
     }
 }
+
 
 function Initialize-UpdateServicesState {
     $previous = Read-UpdateServicesStatus
@@ -295,6 +305,7 @@ function Initialize-UpdateServicesState {
     }
 }
 
+
 function Set-UpdateServicesError {
     param([string]$Message)
     $status = Read-UpdateServicesStatus
@@ -305,6 +316,7 @@ function Set-UpdateServicesError {
     }
     Write-ToolkitLog -Level 'ERROR' -Message "Windows Update services recovery: $Message"
 }
+
 
 function Invoke-StopUpdateServices {
     <#
@@ -361,6 +373,7 @@ function Invoke-StopUpdateServices {
         throw
     }
 }
+
 
 function Invoke-StartUpdateServices {
     <#

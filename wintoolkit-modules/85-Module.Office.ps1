@@ -10,6 +10,7 @@ function Invoke-OfficeSilentRemoval {
     return Remove-ItemSafely -Path $Path -Recurse:$Recurse
 }
 
+
 function Stop-OfficeProcesses {
     $processes = @('winword', 'excel', 'powerpnt', 'outlook', 'onenote', 'msaccess', 'visio', 'lync')
     $closed = 0
@@ -24,9 +25,11 @@ function Stop-OfficeProcesses {
     if ($closed -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.0OfficeProcessesClosed' -Args @($closed)) }
 }
 
+
 function Invoke-OfficeDownloadFile([string]$Url, [string]$OutputPath, [string]$Description) {
     return Invoke-ToolkitDownload -Uri $Url -OutputPath $OutputPath -Description $Description
 }
+
 
 function Set-OfficePostConfig {
     Write-StyledMessage -Type 'Info' -Text ("⚙️ " + (Get-SourceTextLoc 'uiText.deepOptimizationOfMicrosoftOffice'))
@@ -63,6 +66,7 @@ function Set-OfficePostConfig {
 
     Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'uiText.officeOptimizedTelemetryPrivacyAndScheduledTasksRemoved'))
 }
+
 
 function VcardAnalizer {
     <#

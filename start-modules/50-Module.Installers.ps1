@@ -41,6 +41,7 @@ function Test-VCRedistInstalled {
     return $checksPassed -eq $requiredChecks
 }
 
+
 function Install-GitPackage {
     <#
     .SYNOPSIS
@@ -97,6 +98,7 @@ function Install-GitPackage {
         return $false
     }
 }
+
 
 function Install-PowerShellCore {
     <#
@@ -170,10 +172,12 @@ function Install-PowerShellCore {
     }
 }
 
+
 function Test-WindowsTerminalInstalled {
     $command = Get-Command 'wt.exe' -ErrorAction SilentlyContinue
     return [bool]($command -and $command.Source -and (Test-Path -LiteralPath $command.Source))
 }
+
 
 function Test-WindowsTerminalDefaultSupported {
     <#
@@ -186,6 +190,7 @@ function Test-WindowsTerminalDefaultSupported {
     if ($version.Build -eq 19045 -and $version.Revision -ge 3031) { return $true }
     return $false
 }
+
 
 function Install-WindowsTerminalApp {
     <#
@@ -263,6 +268,7 @@ function Install-WindowsTerminalApp {
     Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.unableToInstallWindowsTerminalViaAnyAutomaticMethod')
     return $false
 }
+
 
 function Set-WindowsTerminalAsDefault {
     <#

@@ -62,6 +62,7 @@ WSManStackVersion       : $wsManVer
     }
 }
 
+
 function Write-ToolkitLog {
     <#
     .SYNOPSIS

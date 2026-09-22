@@ -22,6 +22,7 @@ function Get-WinGetExecutable {
     return $null
 }
 
+
 function Register-WingetAppExecutionAlias {
     <#
     .SYNOPSIS
@@ -37,6 +38,7 @@ function Register-WingetAppExecutionAlias {
         return $false
     }
 }
+
 
 function Start-AppxSilentProcess {
     <#
@@ -125,6 +127,7 @@ exit 0
     }
 }
 
+
 function Reset-AppxPackageSilently {
     <#
     .SYNOPSIS
@@ -148,6 +151,7 @@ function Reset-AppxPackageSilently {
         }
     }
 }
+
 
 function Invoke-WingetCommand {
     <#
@@ -186,6 +190,7 @@ function Invoke-WingetCommand {
     }
 }
 
+
 function Reset-WingetSources {
     <#
     .SYNOPSIS
@@ -201,6 +206,7 @@ function Reset-WingetSources {
         Write-ToolkitLog -Level 'WARNING' -Message "Winget source reset failed: $($_.Exception.Message)"
     }
 }
+
 
 function Repair-WingetMsStoreSource {
     <#
@@ -226,6 +232,7 @@ function Repair-WingetMsStoreSource {
         Write-ToolkitLog -Level 'DEBUG' -Message "msstore source repair skipped: $($_.Exception.Message)"
     }
 }
+
 
 function Repair-AppInstaller {
     <#
@@ -265,6 +272,7 @@ function Repair-AppInstaller {
     }
 }
 
+
 function Test-WingetCompatibility {
     <#
     .SYNOPSIS
@@ -284,6 +292,7 @@ function Test-WingetCompatibility {
     }
     return $true
 }
+
 
 function Test-WingetFunctionality {
     <#
@@ -315,6 +324,7 @@ function Test-WingetFunctionality {
         return $false
     }
 }
+
 
 function Test-WingetAppInstaller {
     <#
@@ -360,6 +370,7 @@ function Test-WingetAppInstaller {
     return $ok
 }
 
+
 function Invoke-ForceCloseWinget {
     <#
     .SYNOPSIS
@@ -380,6 +391,7 @@ function Invoke-ForceCloseWinget {
     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.interferingProcessesClosed')
 }
 
+
 function Set-WingetPathPermissions {
     <#
     .SYNOPSIS
@@ -397,6 +409,7 @@ function Set-WingetPathPermissions {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.pathAndWingetPermissionsUpdated')
     }
 }
+
 
 function Repair-WingetDatabase {
     <#
@@ -505,6 +518,7 @@ function Repair-WingetDatabase {
     }
 }
 
+
 function Test-WingetDeepValidation {
     <#
     .SYNOPSIS
@@ -573,6 +587,7 @@ function Test-WingetDeepValidation {
     }
 }
 
+
 function Get-WingetDownloadUrl {
     <#
     .SYNOPSIS
@@ -592,6 +607,7 @@ function Get-WingetDownloadUrl {
         return $null
     }
 }
+
 
 function Install-WingetCore {
     <#
@@ -700,6 +716,7 @@ function Install-WingetCore {
         $ProgressPreference = $oldProgress
     }
 }
+
 
 function Install-WingetPackage {
     <#
@@ -830,6 +847,7 @@ function Install-WingetPackage {
         $ProgressPreference = $oldProgress
     }
 }
+
 
 function Repair-Winget {
     <#

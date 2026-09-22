@@ -20,6 +20,7 @@ function Stop-ToolkitProcesses {
     Start-Sleep -Seconds 2
 }
 
+
 function Invoke-ExternalCommandWithLog {
     <#
     .SYNOPSIS
@@ -147,6 +148,7 @@ function Invoke-ExternalCommandWithLog {
     }
 }
 
+
 function Invoke-WithSpinner {
     <#
     .SYNOPSIS
@@ -254,6 +256,7 @@ function Invoke-WithSpinner {
     }
 }
 
+
 function Start-InterruptibleCountdown {
     <#
     .SYNOPSIS
@@ -295,6 +298,7 @@ function Start-ToolkitSession {
     }
 }
 
+
 function Invoke-ToolkitReboot {
     <#
     .SYNOPSIS
@@ -318,6 +322,7 @@ function Invoke-ToolkitReboot {
     }
 }
 
+
 function Remove-ItemSafely {
     <#
     .SYNOPSIS
@@ -335,6 +340,7 @@ function Remove-ItemSafely {
     }
     catch { return $false }
 }
+
 
 function Invoke-ToolkitDownload {
     <#
@@ -534,6 +540,7 @@ function Invoke-ToolkitDownload {
     Write-StyledMessage -Type 'Error' -Text ((Get-SourceTextLoc 'uiText.downloadFailedAfter0Attempts1' -Args @($MaxRetries, $Description)))
     return $false
 }
+
 
 function Restart-ServiceSafely {
     <#

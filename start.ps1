@@ -13,6 +13,7 @@ function Test-IsAdministrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+
 function Get-WorkingPwsh {
     $candidates = @()
     $command = Get-Command pwsh -ErrorAction SilentlyContinue
@@ -34,6 +35,7 @@ function Get-WorkingPwsh {
     }
     return $null
 }
+
 
 function Install-Pwsh {
     $winget = Get-Command winget.exe -ErrorAction SilentlyContinue

@@ -32,6 +32,7 @@ function Get-UserConfirmation {
     return $response -match '^[sS]'
 }
 
+
 function Read-ValidatedChoice {
     <#
     .SYNOPSIS
@@ -108,6 +109,7 @@ function WinOSCheck {
     }
     Start-Sleep -Seconds 2
 }
+
 
 function Test-WindowsUpdateStatus {
     <#

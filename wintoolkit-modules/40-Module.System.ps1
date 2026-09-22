@@ -36,6 +36,7 @@ function Get-SystemInfo {
     catch { return $null }
 }
 
+
 function Convert-BitlockerStatusToKey {
     param([string]$StatusText)
 
@@ -51,6 +52,7 @@ function Convert-BitlockerStatusToKey {
 
     return 'bitlocker.status.unknown'
 }
+
 
 function Get-BitlockerStatus {
     param([switch]$Key)

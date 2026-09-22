@@ -43,9 +43,11 @@ function WinUpdateReset {
         return $true
     }
 
+
     function Show-ServiceProgress([string]$Activity, [int]$Current, [int]$Total) {
         Invoke-WithSpinner -Activity $Activity -Timer -Action { Start-Sleep -Milliseconds 200 } -TimeoutSeconds 1 *>$null
     }
+
 
     function Manage-Service($serviceName, $action, $config, $currentStep, $totalSteps) {
         try {
@@ -108,6 +110,7 @@ function WinUpdateReset {
             Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.0Unable123' -Args @($serviceIcon, $actionText, $serviceName, $($_.Exception.Message)))
         }
     }
+
 
     function Remove-DirectorySafely([string]$path, [string]$displayName) {
         if (-not (Test-Path $path)) {
