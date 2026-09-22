@@ -109,9 +109,16 @@ function Write-StyledMessage {
 }
 function Start-ToolkitLog {
     param([string]$ToolName)
-    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
-        if ($_.Exception.Message -notmatch 'not currently transcribing') {
-            Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+    # Clean up leftover transcripts. Match the error ID and inner exception type
+    # rather than the localized message when no transcript is active. The error
+    # ID alone also covers other stop failures, which must remain visible.
+    try {
+        Stop-Transcript -ErrorAction SilentlyContinue
+    }
+    catch {
+        if ($_.Exception.Message -notmatch 'not currently transcribing' `
+                -or $_.FullyQualifiedErrorId -ne 'InvalidOperation,Microsoft.PowerShell.Commands.StopTranscriptCommand') {
+            Write-Warning "start-modules\30-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
         }
     }
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -1607,7 +1614,7 @@ function Update-WindowsTerminalSettings {
         finally {
             if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
         }
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalSettingsOverwrittenBackup0' -Args @($backupPath))
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalSettingsOverwrittenBackup0' -Args @($backupPath))
         return $true
     }
     catch {
@@ -1864,9 +1871,11 @@ function Invoke-ExternalCommand {
         $outTask = $proc.StandardOutput.ReadToEndAsync()
         $errTask = $proc.StandardError.ReadToEndAsync()
         if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
-            try { $proc.Kill($true) } catch { try { $proc.Kill() } catch {
-                Write-Warning "start-modules\80-Module.Common.ps1, Invoke-ExternalCommand: $($_.Exception.Message)"
-            } }
+            try { $proc.Kill($true) } catch {
+                try { $proc.Kill() } catch {
+                    Write-Warning "start-modules\80-Module.Common.ps1, Invoke-ExternalCommand: $($_.Exception.Message)"
+                } 
+            }
             $null = $proc.WaitForExit()
             Write-ToolkitLog -Level 'ERROR' -Message "External command timed out after $TimeoutSeconds s: $FilePath $($ArgumentList -join ' ')"
             return [pscustomobject]@{
