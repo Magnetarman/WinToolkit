@@ -144,7 +144,10 @@ PSVersion      : $psVer
 ToolkitVersion : $($script:AppConfig.Header.Version)
 [END LOG HEADER]
 "@
-    try { Add-Content -Path $script:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {
+    try {
+        Add-Content -Path $script:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue
+    }
+    catch {
         Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
     }
 }
@@ -161,7 +164,10 @@ function Write-ToolkitLog {
     $clean = $Message -replace '^\s+', ''
     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
     $line = "[$ts] [$Level] $clean"
-    try { Add-Content -Path $script:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {
+    try { 
+        Add-Content -Path $script:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue 
+    }
+    catch {
         Write-Warning "start-modules\10-Module.Logging.ps1, Write-ToolkitLog: $($_.Exception.Message)"
     }
 }
@@ -2097,16 +2103,25 @@ function Invoke-ExternalCommand {
     catch {
         Write-ToolkitLog -Level 'ERROR' -Message "External command failed ($FilePath): $($_.Exception.Message)"
         return [pscustomobject]@{
-            ExitCode = -1; TimedOut = $false; Accepted = $false; Error = $_.Exception.Message
-            StdOut = ''; StdErr = ''; DurationMs = $stopwatch.ElapsedMilliseconds
-            Command = "$FilePath $($ArgumentList -join ' ')"
+            ExitCode   = -1;
+            TimedOut   = $false;
+            Accepted   = $false;
+            Error      = $_.Exception.Message
+            StdOut     = '';
+            StdErr     = '';
+            DurationMs = $stopwatch.ElapsedMilliseconds
+            Command    = "$FilePath $($ArgumentList -join ' ')"
         }
     }
     finally {
         $stopwatch.Stop()
         if ($proc) { $proc.Dispose() }
-        if ($outFile -and (Test-Path $outFile)) { Remove-Item $outFile -Force -ErrorAction SilentlyContinue }
-        if ($errFile -and (Test-Path $errFile)) { Remove-Item $errFile -Force -ErrorAction SilentlyContinue }
+        if ($outFile -and (Test-Path $outFile)) {
+            Remove-Item $outFile -Force -ErrorAction SilentlyContinue 
+        }
+        if ($errFile -and (Test-Path $errFile)) {
+            Remove-Item $errFile -Force -ErrorAction SilentlyContinue 
+        }
     }
 }
 
@@ -2162,9 +2177,16 @@ function Add-SetupResult {
         [string]$Message = '',
         [bool]$Blocking = $false
     )
-    $status = if ($Success) { if ($Changed) { 'Changed' } else { 'Succeeded' } } else { 'Failed' }
+    $status = if ($Success) {
+        if ($Changed) { 'Changed' }
+        else { 'Succeeded' } 
+    } 
+    else { 'Failed' }
     $script:SetupResults += [pscustomobject]@{
-        Name = $Name; Status = $status; Message = $Message; Blocking = $Blocking
+        Name     = $Name
+        Status   = $status
+        Message  = $Message
+        Blocking = $Blocking
     }
 }
 
@@ -2302,7 +2324,10 @@ function Invoke-WinToolkitSetup {
     }
     finally {
         Invoke-StartUpdateServices
-        try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
+        try {
+            Stop-Transcript -ErrorAction SilentlyContinue 
+        }
+        catch {
             if ($_.Exception.Message -notmatch 'not currently transcribing') {
                 Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
             }
