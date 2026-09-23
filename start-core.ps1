@@ -2325,7 +2325,10 @@ function Invoke-WinToolkitSetup {
     finally {
         $null = Invoke-StartUpdateServices
         try {
-            Stop-Transcript -ErrorAction SilentlyContinue 
+            $transcriptMessage = Stop-Transcript -ErrorAction SilentlyContinue
+            if ($transcriptMessage) {
+                Write-StyledMessage -Type Info -Text $transcriptMessage
+            }
         }
         catch {
             if ($_.Exception.Message -notmatch 'not currently transcribing') {
