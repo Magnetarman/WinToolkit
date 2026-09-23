@@ -111,16 +111,16 @@ function Write-StyledMessage {
 
 function Start-ToolkitLog {
     param([string]$ToolName)
-    # Clean up leftover transcripts. Match the error ID and inner exception type
-    # rather than the localized message when no transcript is active. The error
-    # ID alone also covers other stop failures, which must remain visible.
+    # Stop-Transcript wraps failures with a common error ID. Check the inner
+    # exception as well to recognize an inactive transcript without relying on
+    # localized messages or hiding access and I/O failures.
     try {
-        Stop-Transcript -ErrorAction SilentlyContinue
+        Stop-Transcript -ErrorAction Stop
     }
     catch {
-        if ($_.Exception.Message -notmatch 'not currently transcribing' `
-                -or $_.FullyQualifiedErrorId -ne 'InvalidOperation,Microsoft.PowerShell.Commands.StopTranscriptCommand') {
-            Write-Warning "start-modules\30-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+        if ($_.FullyQualifiedErrorId -ne 'InvalidOperation,Microsoft.PowerShell.Commands.StopTranscriptCommand' -or
+            $_.Exception.InnerException -isnot [System.Management.Automation.PSInvalidOperationException]) {
+            Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
         }
     }
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -2323,7 +2323,7 @@ function Invoke-WinToolkitSetup {
         return
     }
     finally {
-        Invoke-StartUpdateServices
+        $null = Invoke-StartUpdateServices
         try {
             Stop-Transcript -ErrorAction SilentlyContinue 
         }
