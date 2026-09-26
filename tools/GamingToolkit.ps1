@@ -47,6 +47,7 @@ function GamingToolkit {
         }
     }
 
+
     function Invoke-WingetInstallWithProgress([string]$PackageId, [string]$DisplayName, [int]$Step, [int]$Total) {
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.01Installation2' -Args @($Step, $Total, $DisplayName))
 

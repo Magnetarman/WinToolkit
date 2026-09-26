@@ -32,6 +32,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         return ($secondConfirm -eq '1')
     }
 
+
     function Show-LanguageMenu {
         while ($true) {
             Show-Header -SubTitle (Get-SourceTextLoc 'menu.language')

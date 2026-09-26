@@ -22,6 +22,7 @@ function Initialize-ToolkitPaths {
     }
 }
 
+
 function Update-EnvironmentPath {
     <#
     .SYNOPSIS

@@ -27,6 +27,7 @@ function Write-StyledMessage {
     Write-ToolkitLog -Level $logLevel -Message $Text
 }
 
+
 function Start-ToolkitLog {
     <#
     .SYNOPSIS
@@ -34,13 +35,19 @@ function Start-ToolkitLog {
     #>
     param([string]$ToolName)
 
-    # Clean up leftover transcripts. Stop-Transcript throws when no transcript is
-    # active ("The host is not currently transcribing"), which is expected on a
-    # fresh run, so that benign case is silenced instead of surfaced as a warning.
-    try { Stop-Transcript -ErrorAction SilentlyContinue } catch {
-        if ($_.Exception.Message -notmatch 'not currently transcribing') {
-            Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
+    # Stop-Transcript wraps failures with a common error ID. Check the inner
+    # exception as well to recognize an inactive transcript without relying on
+    # localized messages or hiding access and I/O failures.
+    try {
+        Stop-Transcript -ErrorAction Stop
+    }
+    catch {
+        if ($_.FullyQualifiedErrorId -eq 'InvalidOperation,Microsoft.PowerShell.Commands.StopTranscriptCommand' -and
+            $_.Exception.InnerException -is [System.Management.Automation.PSInvalidOperationException]) {
+            return
         }
+
+        Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
     }
 
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -73,6 +80,7 @@ ToolkitVersion : $($script:AppConfig.Header.Version)
     }
 }
 
+
 function Write-ToolkitLog {
     <#
     .SYNOPSIS
@@ -95,6 +103,7 @@ function Write-ToolkitLog {
     }
 }
 
+
 function Format-CenteredText {
     <#
     .SYNOPSIS
@@ -107,6 +116,7 @@ function Format-CenteredText {
     $padding = [Math]::Max(0, [Math]::Floor(($Width - $Text.Length) / 2))
     return (" " * $padding) + $Text
 }
+
 
 function Show-Header {
     <#

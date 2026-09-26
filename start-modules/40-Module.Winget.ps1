@@ -22,6 +22,7 @@ function Get-WinGetExecutable {
     return $null
 }
 
+
 function Register-WingetAppExecutionAlias {
     <#
     .SYNOPSIS
@@ -37,6 +38,7 @@ function Register-WingetAppExecutionAlias {
         return $false
     }
 }
+
 
 function Start-AppxSilentProcess {
     <#
@@ -125,6 +127,7 @@ exit 0
     }
 }
 
+
 function Reset-AppxPackageSilently {
     <#
     .SYNOPSIS
@@ -148,6 +151,7 @@ function Reset-AppxPackageSilently {
         }
     }
 }
+
 
 function Invoke-WingetCommand {
     <#
@@ -186,6 +190,7 @@ function Invoke-WingetCommand {
     }
 }
 
+
 function Reset-WingetSources {
     <#
     .SYNOPSIS
@@ -201,6 +206,7 @@ function Reset-WingetSources {
         Write-ToolkitLog -Level 'WARNING' -Message "Winget source reset failed: $($_.Exception.Message)"
     }
 }
+
 
 function Repair-WingetMsStoreSource {
     <#
@@ -226,6 +232,7 @@ function Repair-WingetMsStoreSource {
         Write-ToolkitLog -Level 'DEBUG' -Message "msstore source repair skipped: $($_.Exception.Message)"
     }
 }
+
 
 function Repair-AppInstaller {
     <#
@@ -265,6 +272,7 @@ function Repair-AppInstaller {
     }
 }
 
+
 function Test-WingetCompatibility {
     <#
     .SYNOPSIS
@@ -284,6 +292,7 @@ function Test-WingetCompatibility {
     }
     return $true
 }
+
 
 function Test-WingetFunctionality {
     <#
@@ -316,13 +325,14 @@ function Test-WingetFunctionality {
     }
 }
 
+
 function Test-WingetAppInstaller {
     <#
     .SYNOPSIS
-    Ensures the Microsoft.AppInstaller package is present and up to date.
+    Ensures App Installer is present and up to date.
 
     .DESCRIPTION
-    After Winget is confirmed functional, the Microsoft.AppInstaller package
+    After Winget is confirmed functional, the Microsoft.DesktopAppInstaller package
     must be present (and current) so that Winget stays fully functional and on
     the latest release/support. When the package is missing it is installed,
     and when already present it is force-updated to the latest release.
@@ -334,7 +344,8 @@ function Test-WingetAppInstaller {
 
     Write-StyledMessage -Type Info -Text ("🔍 " + (Get-SourceTextLoc 'uiText.checkingMicrosoftAppInstallerPackage'))
 
-    $present = [bool](Get-AppxPackage -Name 'Microsoft.AppInstaller' -ErrorAction SilentlyContinue)
+    # AppX uses the Windows package name; WinGet uses the Microsoft.AppInstaller catalog ID.
+    $present = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
 
     try {
         if (-not $present) {
@@ -350,7 +361,7 @@ function Test-WingetAppInstaller {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdateError0' -Args @($($_.Exception.Message)))
     }
 
-    $ok = [bool](Get-AppxPackage -Name 'Microsoft.AppInstaller' -ErrorAction SilentlyContinue)
+    $ok = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
     if ($ok) {
         Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdated'))
     }
@@ -359,6 +370,7 @@ function Test-WingetAppInstaller {
     }
     return $ok
 }
+
 
 function Invoke-ForceCloseWinget {
     <#
@@ -380,6 +392,7 @@ function Invoke-ForceCloseWinget {
     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.interferingProcessesClosed')
 }
 
+
 function Set-WingetPathPermissions {
     <#
     .SYNOPSIS
@@ -397,6 +410,7 @@ function Set-WingetPathPermissions {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.pathAndWingetPermissionsUpdated')
     }
 }
+
 
 function Repair-WingetDatabase {
     <#
@@ -505,6 +519,7 @@ function Repair-WingetDatabase {
     }
 }
 
+
 function Test-WingetDeepValidation {
     <#
     .SYNOPSIS
@@ -573,6 +588,7 @@ function Test-WingetDeepValidation {
     }
 }
 
+
 function Get-WingetDownloadUrl {
     <#
     .SYNOPSIS
@@ -592,6 +608,7 @@ function Get-WingetDownloadUrl {
         return $null
     }
 }
+
 
 function Install-WingetCore {
     <#
@@ -700,6 +717,7 @@ function Install-WingetCore {
         $ProgressPreference = $oldProgress
     }
 }
+
 
 function Install-WingetPackage {
     <#
@@ -830,6 +848,7 @@ function Install-WingetPackage {
         $ProgressPreference = $oldProgress
     }
 }
+
 
 function Repair-Winget {
     <#

@@ -46,6 +46,7 @@ function WinBackupDriver {
         }
     }
 
+
     function Export-SystemDrivers {
         try {
             $result = Invoke-WithSpinner -Activity (Get-SourceTextLoc 'toolText.extra.dismDriverExport') -Command 'dism.exe' `
@@ -71,6 +72,7 @@ function WinBackupDriver {
             return $false
         }
     }
+
 
     function Compress-BackupArchive {
         if (-not (Test-Path $script:BackupConfig.BackupDir)) {
@@ -115,6 +117,7 @@ function WinBackupDriver {
         Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.unknownErrorZipFileWasNotCreated')
         return $null
     }
+
 
     function Move-ArchiveToDesktop {
         param([string]$ArchivePath)
