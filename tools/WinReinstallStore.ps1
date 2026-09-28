@@ -93,7 +93,7 @@ function WinReinstallStore {
 
         if ($success) {
             $null = Invoke-WithConsoleRedirection -Action {
-                Invoke-WithSpinner -Activity (Get-SourceTextLoc 'uiText.resetCacheMicrosoftStoreWsreset') -Command 'wsreset.exe' -TimeoutSeconds 120 -LogContextKey "Store-WSReset"
+                Invoke-WithSpinner -Activity (Get-SourceTextLoc 'uiText.resettingMicrosoftStoreCache') -Command 'wsreset.exe' -TimeoutSeconds 120 -LogContextKey "Store-WSReset"
             }
             Clear-ProgressLine
             [Console]::Out.Flush()
