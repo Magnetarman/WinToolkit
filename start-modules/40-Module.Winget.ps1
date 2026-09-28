@@ -497,37 +497,47 @@ function Test-WingetCompatibility {
 }
 
 
-function Test-WingetFunctionality {
+function Get-WingetHealth {
     <#
     .SYNOPSIS
-    Verifies that Winget is present in PATH and works correctly.
-    #>
-    Write-StyledMessage -Type Info -Text ("🔍 " + (Get-SourceTextLoc 'uiText.checkWingetFunctionality'))
+    Probes WinGet once and returns { Present; Runs; Version; Reachable }.
 
-    # Reload PATH first, so a WinGet installed moments ago is detected.
+    .DESCRIPTION
+    The previous flow had three separate health checks (Test-WingetFunctionality,
+    the inline --version probe, Test-WingetDeepValidation) and ran them more than
+    once per execution, each spawning its own process. `Runs` is local (it does
+    not touch the network) and `Reachable` is the remote `search`, so the two
+    failure modes stay distinguishable while the cost is paid once.
+    #>
     Update-EnvironmentPath
 
-    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    $health = [pscustomobject]@{
+        Present   = [bool](Get-WinGetExecutable)
+        Runs      = $false
+        Version   = $null
+        Reachable = $false
+    }
+    if (-not $health.Present) {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFoundInPath')
-        return $false
+        return $health
     }
 
-    try {
-        # --version is local and immediate: no network round trip, so it isolates
-        # "WinGet runs" from "the repositories are reachable".
-        $result = Invoke-WingetCommand -Arguments '--version' -CaptureOutput
-        $versionOutput = $result.StdOut.Trim()
-        if ($result.ExitCode -eq 0 -and $versionOutput -match 'v\d+\.\d+') {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.operationalWingetVersion0' -Args @($versionOutput))
-            return $true
-        }
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetPresentButNotRespondingCorrectlyExitcode0' -Args @($result.ExitCode))
-        return $false
+    $version = Invoke-WingetCommand -Arguments '--version'
+    if (($version.ExitCode -eq 0) -and ("$($version.StdOut)$($version.StdErr)" -match 'v(\d+\.\d+)')) {
+        $health.Runs = $true
+        $health.Version = $Matches[1]
     }
-    catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.errorDuringWingetTest0' -Args @($_.Exception.Message))
-        return $false
+    else {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetPresentButNotRespondingCorrectlyExitcode0' -Args @($version.ExitCode))
+        return $health
     }
+
+    $search = Invoke-WingetCommand -Arguments 'search --id Microsoft.PowerShell --source winget' -TimeoutSeconds $script:AppConfig.Timeouts.Winget
+    $health.Reachable = ($search.ExitCode -eq 0)
+    if (-not $health.Reachable) {
+        Write-ToolkitLog -Level 'WARNING' -Message "WinGet sources not reachable (search exit code $($search.ExitCode))."
+    }
+    return $health
 }
 
 
@@ -751,12 +761,13 @@ function Test-WingetAccessViolation {
     Returns $true when an exit code is the 0xC0000005 access violation WinGet crash.
 
     .DESCRIPTION
-    Typed as long because WinGet reports the crash both as the signed and as the
-    unsigned 32-bit value, and the unsigned one does not fit in an Int32.
+    Typed as [int] on purpose: Process.ExitCode is an Int32, so the unsigned
+    spelling of 0xC0000005 (3221225477) could never be compared and the extra
+    check was dead code. The signed value is the only one a real process reports.
     #>
-    param([Parameter(Mandatory = $true)][long]$ExitCode)
+    param([Parameter(Mandatory = $true)][int]$ExitCode)
 
-    return $ExitCode -eq $script:EXITCODE_ACCESS_VIOLATION_SIGNED -or $ExitCode -eq $script:EXITCODE_ACCESS_VIOLATION
+    return $ExitCode -eq $script:EXITCODE_ACCESS_VIOLATION_SIGNED
 }
 
 
@@ -778,16 +789,17 @@ function Test-WingetDeepValidation {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.crashDetectedExitcode0AccessViolationAdvancedRecoveryAttempt' -Args @($exitCode))
 
             # Escalating recovery: restore the database first, reinstall WinGet only
-            # if the crash survives the restore.
+            # if the crash survives the restore. The recovery level dispatcher is
+            # gone, so the concrete repairs are named directly.
             $recoverySteps = @(
-                @{ Level = 'FullDatabase'; WarningKey = $null; InfoKey = 'uiText.repeatTestAfterDatabaseRestore' },
-                @{ Level = 'FullReinstall'; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
+                @{ Repair = { Repair-WingetDatabase }; WarningKey = $null; InfoKey = 'uiText.repeatTestAfterDatabaseRestore' },
+                @{ Repair = { Install-WingetViaModule }; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
             )
             foreach ($step in $recoverySteps) {
                 if ($step.WarningKey) {
                     Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc $step.WarningKey)
                 }
-                $null = Repair-Winget -Level $step.Level
+                $null = & $step.Repair
 
                 Write-StyledMessage -Type Info -Text ("🔄 " + (Get-SourceTextLoc $step.InfoKey))
                 Start-Sleep 3
@@ -1053,45 +1065,23 @@ function Install-WingetPackage {
 }
 
 
-function Repair-Winget {
+function Install-WingetViaModule {
     <#
     .SYNOPSIS
-    Central entry point for WinGet recovery operations.
+    Last-resort WinGet repair through the Microsoft.WinGet.Client PowerShell module.
 
-    The level describes the observed failure, while implementation details
-    remain behind this dispatcher.
+    .DESCRIPTION
+    Replaces the old `Install-Winget -Force` repair level. The name says what it
+    actually installs: the PowerShell module, which carries its own WinGet build.
+    It is destructive to the user profile (Install-Module -Force -AllowClobber),
+    so it runs only after every lighter recovery has failed.
     #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [WingetRepairLevel]$Level
-    )
-
-    Write-ToolkitLog -Level 'INFO' -Message "Starting WinGet repair level: $Level"
-    switch ($Level) {
-        'SourceReset' {
-            Reset-WingetSources
-            return $true
-        }
-        'MsStoreCert' {
-            Repair-WingetMsStoreSource
-            return $true
-        }
-        'AppxReset' {
-            $result = Repair-AppInstaller
-            return [bool]$result.Success
-        }
-        'CoreInstall' {
-            return [bool](Install-WingetCore)
-        }
-        'FullDatabase' {
-            return [bool](Repair-WingetDatabase)
-        }
-        'FullReinstall' {
-            return [bool](Install-WingetPackage -Force)
-        }
-        default {
-            throw "Unsupported WinGet repair level: $Level"
-        }
+    try {
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startWingetInstallationVerificationProcedure')
+        return (Install-WingetPackage -Force)
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "WinGet module installation failed: $($_.Exception.Message)"
+        return $false
     }
 }
