@@ -50,9 +50,10 @@ jobs:
           # the pipeline adapts to it: drift is corrected here, never blocked on. The
           # alignment is byte-level, so the corrected files are already valid for every
           # downstream step of this same run.
-          & ./.github/scripts/Update-PipelineVersion.ps1
-          $changed = @(git status --porcelain -- .github |
-            ForEach-Object { $_.Substring(3).Trim() })
+          $list = Join-Path $env:RUNNER_TEMP 'pipeline-version-changed.txt'
+          & ./.github/scripts/Update-PipelineVersion.ps1 -ChangedFileListPath $list
+
+          $changed = @(if (Test-Path -LiteralPath $list) { Get-Content -LiteralPath $list } else { @() })
           "changed=$($changed.Count -gt 0)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
           if ($changed) {
