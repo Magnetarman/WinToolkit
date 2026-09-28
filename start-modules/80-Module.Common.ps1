@@ -415,6 +415,104 @@ function Invoke-DownloadFile {
 }
 
 
+function Test-DownloadedSignature {
+    <#
+    .SYNOPSIS
+    Verifies the Authenticode signature of a downloaded file against an allow-list.
+
+    .DESCRIPTION
+    Closes the gap where a download was trusted purely because the transfer
+    succeeded. Each executable declares the signer it expects
+    (AppConfig.DownloadSignatures) and the file is only accepted when
+    Get-AuthenticodeSignature reports a Valid status for one of those subjects.
+
+    Matching is by SUBSTRING on the certificate subject, because the exact string
+    differs between signer versions ("Microsoft Corporation" vs "Microsoft Windows
+    Publisher"), and a prefix match would break on a legitimate re-signing.
+
+    Revocation is deliberately NOT requested: the check would add a network round
+    trip per file and would fail on a machine that is offline, turning a valid
+    signature into a hard failure.
+
+    Intended for the -ContentValidator of Invoke-DownloadFile: it returns $false,
+    so the caller decides whether that is fatal (see New-SignatureValidator).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string[]]$ExpectedSigners
+    )
+
+    try {
+        $signature = Get-AuthenticodeSignature -LiteralPath $Path -ErrorAction Stop
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Signature could not be read for '$Path': $($_.Exception.Message)"
+        return $false
+    }
+
+    if ($signature.Status -ne 'Valid') {
+        Write-ToolkitLog -Level 'WARNING' -Message "Invalid or untrusted signature on '$Path': status=$($signature.Status)"
+        return $false
+    }
+
+    $subject = [string]$signature.SignerCertificate.Subject
+    foreach ($expected in $ExpectedSigners) {
+        if ($subject -like "*$expected*") {
+            Write-ToolkitLog -Level 'INFO' -Message "Signature verified on '$Path': $subject"
+            return $true
+        }
+    }
+
+    Write-ToolkitLog -Level 'WARNING' -Message "Unexpected signer on '$Path': '$subject' (expected one of: $($ExpectedSigners -join ', '))."
+    return $false
+}
+
+
+function New-SignatureValidator {
+    <#
+    .SYNOPSIS
+    Builds the -ContentValidator scriptblock for a signed download.
+
+    .DESCRIPTION
+    Returns a validator that checks the signature and, when -BlockOnInvalid is
+    set, treats a failure as fatal. The block/warn distinction is deliberate:
+      - vc_redist.exe and the Git installer are EXECUTED by the toolkit, so an
+        unverifiable file must not run;
+      - the .msixbundles are handed to Add-AppxPackage, which validates the
+        package signature itself and fails safely, so a bad signature there is
+        reported as a warning and the OS takes the decision.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$ProfileKey,
+        [switch]$BlockOnInvalid
+    )
+
+    # ContainsKey, not a truthiness test: @($null).Count is 1, so a missing key
+    # would look like a valid single-entry list and silently disable the check.
+    if (-not $script:AppConfig.DownloadSignatures.ContainsKey($ProfileKey)) {
+        throw "Unknown signature profile '$ProfileKey'. Known: $($script:AppConfig.DownloadSignatures.Keys -join ', ')"
+    }
+    $signers = @($script:AppConfig.DownloadSignatures[$ProfileKey])
+    $block = $BlockOnInvalid.IsPresent
+
+    # GetNewClosure is required, not cosmetic: a plain scriptblock does NOT carry
+    # the variables of the scope it was created in, so the validator would fail at
+    # run time with "cannot retrieve the variable $signers" the first time
+    # Invoke-DownloadFile invoked it from another scope.
+    $validator = {
+        param($candidatePath)
+        $ok = Test-DownloadedSignature -Path $candidatePath -ExpectedSigners $signers
+        if (-not $ok -and $block) {
+            throw "Signature verification failed for '$candidatePath': the file will not be installed."
+        }
+        return $ok
+    }
+    return $validator.GetNewClosure()
+}
+
+
 function Install-RemoteFile {
     <#
     .SYNOPSIS
@@ -624,8 +722,11 @@ function Install-FromGitHubRelease {
 
         # Invoke-DownloadFile also creates the temp folder, so no pre-flight here.
         $downloadPath = Join-Path $script:AppConfig.Paths.Temp $asset.name
-        if (-not (Invoke-DownloadFile -Uri $asset.browser_download_url -OutFile $downloadPath)) {
-            throw "Unable to download the release asset $($asset.name)."
+        # The installer is EXECUTED by this script, so an unverifiable signature
+        # is fatal: the file is deleted and the install never starts.
+        if (-not (Invoke-DownloadFile -Uri $asset.browser_download_url -OutFile $downloadPath `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'git' -BlockOnInvalid))) {
+            throw "Unable to download the release asset $($asset.name) or its signature is not trusted."
         }
 
         $installerArgs = @($InstallerArguments | ForEach-Object {
