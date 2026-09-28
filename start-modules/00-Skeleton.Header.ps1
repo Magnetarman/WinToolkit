@@ -151,6 +151,15 @@ $script:AppConfig = @{
         # 0x8A15002B (no applicable update) covers the upgrade path.
         AlreadyInstalledExitCodes = @(-1978335135, -1978335189)
     }
+    # Authenticode signers accepted for each downloaded executable, matched as
+    # substrings of the certificate subject. Data files (psd1, json, profile,
+    # theme, icon) are not listed: they are never executed.
+    DownloadSignatures = @{
+        vcRedist    = @('Microsoft Corporation', 'Microsoft Windows')
+        git         = @('Git for Windows')
+        wingetMsix  = @('Microsoft Corporation', 'Microsoft Windows')
+        terminalMsix = @('Microsoft Corporation', 'Microsoft Windows')
+    }
     WindowsAppsPackageName = 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe'
     # Non-blocking Defender check: how many times the user may confirm "continue
     # anyway" before the check is bypassed and the setup carries on regardless.
