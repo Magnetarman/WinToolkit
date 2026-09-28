@@ -1,0 +1,71 @@
+# Reusable pipeline version sync
+# Reads PIPELINE_VERSION from the canonical workflow and aligns the version token
+# in every workflow and composite action, then commits the result.
+name: WinToolkit V4.1.0 — Reusable pipeline version sync
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Branch to align and receive the commit.
+        required: true
+        type: string
+      version:
+        description: Explicit version; empty means "read PIPELINE_VERSION from the canonical workflow".
+        required: false
+        type: string
+        default: ''
+      canonical-workflow:
+        description: Workflow holding the canonical PIPELINE_VERSION value.
+        required: false
+        type: string
+        default: '.github/workflows/CI-WinToolkit-Dev.yml'
+      commit-message:
+        description: Commit message for the alignment.
+        required: false
+        type: string
+        default: '🆙 Sync pipeline version'
+
+jobs:
+  sync:
+    name: Reusable pipeline version sync
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@3d3b42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ inputs.branch }}
+
+      - name: Align pipeline version
+        id: align
+        shell: pwsh
+        run: |
+          $params = @{ CanonicalWorkflow = '${{ inputs.canonical-workflow }}' }
+          if ('${{ inputs.version }}') { $params['Version'] = '${{ inputs.version }}' }
+          & .github/scripts/Update-PipelineVersion.ps1 @params
+          $changed = @(git status --porcelain -- .github/workflows .github/actions)
+          "changed=$($changed.Count -gt 0)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          if ($changed) { $changed | ForEach-Object { Write-Host "  aligned: $_" } }
+
+      - name: Validate workflow and action syntax after alignment
+        if: steps.align.outputs.changed == 'true'
+        uses: ./.github/actions/validate-syntax
+        with:
+          path: .github/workflows/*.yml
+          label: workflows after pipeline version alignment
+
+      - name: Commit pipeline version alignment
+        if: steps.align.outputs.changed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
+        with:
+          commit_message: ${{ inputs.commit-message }}
+          file_pattern: '.github/workflows .github/actions'
+          branch: ${{ inputs.branch }}
+          push_options: --force-with-lease
+          skip_fetch: true
