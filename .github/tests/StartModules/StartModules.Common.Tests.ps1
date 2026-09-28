@@ -164,6 +164,55 @@ Describe 'Remove-ExpiredBackups — retention (S-6)' {
     }
 }
 
+Describe 'Sync-UserScopeWithInstalledTools — hybrid user scope (S-4)' {
+
+    BeforeEach {
+        $script:State.LogFile = $null
+        Mock Write-StyledMessage {}
+        $script:realContext = $script:State.UserContext
+    }
+    AfterEach { $script:State.UserContext = $script:realContext }
+
+    It 'is a no-op when elevation did not switch account' {
+        $script:State.UserContext = [pscustomobject]@{
+            CurrentUser = 'HOST\User'; OriginalUser = 'HOST\User'
+            AccountSwitched = $false; UserProfile = 'C:\Users\User'
+            Desktop = 'C:\Users\User\Desktop'; MyDocuments = 'C:\Users\User\Documents'
+        }
+        $result = Sync-UserScopeWithInstalledTools
+        $result.Success | Should -BeTrue
+        $result.Changed | Should -BeFalse
+    }
+
+    It 'degrades to a warning, without throwing, when the tool directory is missing' {
+        $script:State.UserContext = [pscustomobject]@{
+            CurrentUser = 'HOST\Admin'; OriginalUser = 'HOST\User'
+            AccountSwitched = $true; UserProfile = 'C:\Users\User'
+            Desktop = 'C:\Users\User\Desktop'; MyDocuments = 'C:\Users\User\Documents'
+        }
+        Mock Test-Path { return $false }
+        # Must not throw: an unblockable PATH write never fails the setup.
+        { Sync-UserScopeWithInstalledTools } | Should -Not -Throw
+    }
+
+    It 'degrades to a warning when the user hive cannot be loaded' {
+        $script:State.UserContext = [pscustomobject]@{
+            CurrentUser = 'HOST\Admin'; OriginalUser = 'HOST\User'
+            AccountSwitched = $true; UserProfile = 'C:\Users\User'
+            Desktop = 'C:\Users\User\Desktop'; MyDocuments = 'C:\Users\User\Documents'
+        }
+        Mock Test-Path { return $true }
+        # reg.exe is stubbed through a function so no real hive is ever mounted.
+        function script:reg { $global:LASTEXITCODE = 1; 'ERROR: Access is denied.' }
+        try {
+            $result = Sync-UserScopeWithInstalledTools
+            $result.Success | Should -BeFalse
+            $result.Message | Should -Not -BeNullOrEmpty
+        }
+        finally { Remove-Item Function:\reg -ErrorAction SilentlyContinue }
+    }
+}
+
 Describe 'Test-CommandExists' {
     It 'returns $true for an existing command (Get-Command itself)' {
         Test-CommandExists -Name 'Get-Command' | Should -BeTrue
