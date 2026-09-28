@@ -604,16 +604,20 @@ function Invoke-ForceCloseWinget {
 function Set-WingetPathPermissions {
     <#
     .SYNOPSIS
-    Registers the App Installer alias and adds only the stable user alias path.
+    Registers the App Installer execution alias and refreshes the session PATH.
 
     .DESCRIPTION
-    The versioned WindowsApps directory is intentionally never added to the
-    machine PATH: it changes on every App Installer update and would silently
-    go stale. The stable per-user alias directory is used instead.
+    The previous version also called Add-ToEnvironmentPath with the literal
+    "%LOCALAPPDATA%\Microsoft\WindowsApps". Two problems: the literal was stored
+    unexpanded, and [Environment]::SetEnvironmentVariable rewrites the user PATH
+    from REG_EXPAND_SZ to REG_SZ, which permanently breaks every other %VAR%
+    entry in it. That folder is already part of the default user PATH on a
+    current Windows, so the write is not only unnecessary, it is destructive.
     #>
 
     $aliasRegistered = Register-WingetAppExecutionAlias
-    Add-ToEnvironmentPath -PathToAdd "%LOCALAPPDATA%\Microsoft\WindowsApps" -Scope 'User'
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
     if ($aliasRegistered) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.pathAndWingetPermissionsUpdated')
     }
