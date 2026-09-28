@@ -12,6 +12,97 @@ function Test-CommandExists {
 }
 
 
+function Initialize-Directory {
+    <#
+    .SYNOPSIS
+    Creates a directory when it is missing and returns its path.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        $null = New-Item -Path $Path -ItemType Directory -Force
+    }
+    return $Path
+}
+
+
+function Test-FileHasMinimumSize {
+    <#
+    .SYNOPSIS
+    Returns $true only when the file exists and is at least MinimumBytes long.
+
+    .DESCRIPTION
+    Guards against partial downloads and HTML error pages saved as binary assets
+    (for example a cached .ico that is smaller than any valid icon).
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][int]$MinimumBytes
+    )
+
+    $file = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
+    return [bool]($file -and -not $file.PSIsContainer -and $file.Length -ge $MinimumBytes)
+}
+
+
+function Copy-FileAtomically {
+    <#
+    .SYNOPSIS
+    Replaces DestinationPath with SourcePath without ever leaving a half-written file.
+
+    .DESCRIPTION
+    The copy is staged next to the destination and swapped in with a single move,
+    so a reader always sees either the old file or the new one. Returns the backup
+    path when -Backup replaced an existing file, otherwise nothing.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$SourcePath,
+        [Parameter(Mandatory = $true)][string]$DestinationPath,
+        [switch]$Backup
+    )
+
+    $targetDir = Split-Path -Path $DestinationPath -Parent
+    $null = Initialize-Directory -Path $targetDir
+    $stagedPath = Join-Path $targetDir "$([IO.Path]::GetFileName($DestinationPath)).$([guid]::NewGuid()).tmp"
+    try {
+        Copy-Item -LiteralPath $SourcePath -Destination $stagedPath -Force -ErrorAction Stop
+        if ($Backup -and (Test-Path -LiteralPath $DestinationPath -PathType Leaf)) {
+            $backupPath = "$DestinationPath.bak.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            [System.IO.File]::Replace($stagedPath, $DestinationPath, $backupPath, $true)
+            return $backupPath
+        }
+        Move-Item -LiteralPath $stagedPath -Destination $DestinationPath -Force -ErrorAction Stop
+    }
+    finally {
+        if (Test-Path -LiteralPath $stagedPath) { Remove-Item -LiteralPath $stagedPath -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+
+function Get-ArchitectureSpecificValue {
+    <#
+    .SYNOPSIS
+    Picks the value matching the real OS architecture (see Get-SystemArchitecture).
+
+    .DESCRIPTION
+    Keeps architecture mappings in one place: each caller passes the three variants
+    of the string it needs (asset pattern, registry token, installer name), and X64
+    is also the fallback for anything that is neither X86 nor ARM64.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$X64,
+        [string]$X86 = $X64,
+        [string]$ARM64 = $X64
+    )
+
+    switch (Get-SystemArchitecture) {
+        'ARM64' { return $ARM64 }
+        'X86' { return $X86 }
+        default { return $X64 }
+    }
+}
+
+
 function Wait-Until {
     <#
     .SYNOPSIS
@@ -83,7 +174,7 @@ function Invoke-DownloadFile {
     }
     catch {
         if (-not $Silent) {
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.downloadError0' -Args @($($_.Exception.Message)))
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.downloadError0' -Args @($_.Exception.Message))
         }
         Write-ToolkitLog -Level 'WARNING' -Message "Download failed ($Uri): $($_.Exception.Message)"
         return $false
@@ -94,14 +185,51 @@ function Invoke-DownloadFile {
 }
 
 
+function New-ExternalCommandResult {
+    <#
+    .SYNOPSIS
+    Builds the result object returned by Invoke-ExternalCommand.
+
+    .DESCRIPTION
+    Success and failure paths must expose the same members, otherwise a caller
+    reading a property would fail under Set-StrictMode.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][int]$ExitCode,
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$ArgumentList = @(),
+        [int[]]$AcceptedExitCodes = @(0),
+        [bool]$TimedOut = $false,
+        [string]$StdOut = '',
+        [string]$StdErr = '',
+        [int]$DurationMs = 0,
+        [string]$Error = ''
+    )
+
+    return [pscustomobject]@{
+        ExitCode   = $ExitCode
+        TimedOut   = $TimedOut
+        Accepted   = (-not $TimedOut) -and ($AcceptedExitCodes -contains $ExitCode)
+        StdOut     = $StdOut
+        StdErr     = $StdErr
+        DurationMs = $DurationMs
+        Command    = "$FilePath $($ArgumentList -join ' ')"
+        Error      = $Error
+    }
+}
+
+
 function Invoke-ExternalCommand {
     <#
     .SYNOPSIS
-    Runs an external process with a real timeout and structured result.
+    Runs an external process with a real timeout and a structured result.
 
     .DESCRIPTION
-    Shared by every installer (WinGet, Git, PowerShell 7, Windows Terminal).
-    Returns ExitCode, TimedOut, Accepted, StdOut, StdErr and DurationMs.
+    Shared by every installer (WinGet, Git, PowerShell 7, Windows Terminal). The
+    process runs detached from the host console and both streams are drained
+    asynchronously, so native progress lines never bleed into the toolkit output
+    and the timeout stays reachable. Returns ExitCode, TimedOut, Accepted, StdOut,
+    StdErr, DurationMs, Command and Error.
     #>
     [CmdletBinding()]
     param(
@@ -112,26 +240,16 @@ function Invoke-ExternalCommand {
         [switch]$CaptureOutput
     )
 
-    $outFile = $null
-    $errFile = $null
     $proc = $null
     $outTask = $null
     $errTask = $null
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $commandLine = "$FilePath $($ArgumentList -join ' ')"
     try {
-        # Run detached from the host console. Redirect stdout/stderr to temp
-        # files (not the host) so native progress/activity lines (e.g. winget
-        # "Deployment operation progress") never bleed into the main toolkit
-        # output. The streams are drained asynchronously: a synchronous
-        # ReadToEnd() would block until the child exits, which would make the
-        # timeout below unreachable.
-        $outFile = Join-Path $env:TEMP "ext_$([guid]::NewGuid()).out"
-        $errFile = Join-Path $env:TEMP "ext_$([guid]::NewGuid()).err"
-
+        # ProcessStartInfo.ArgumentList keeps every token separate, so paths with
+        # spaces or quotes survive without manual escaping.
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = $FilePath
-        # ProcessStartInfo.ArgumentList keeps each token separate, so paths
-        # containing spaces or quotes survive without manual escaping.
         foreach ($argument in $ArgumentList) { $psi.ArgumentList.Add([string]$argument) }
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
@@ -142,6 +260,8 @@ function Invoke-ExternalCommand {
         $proc.StartInfo = $psi
 
         $null = $proc.Start()
+        # Read both pipes asynchronously: a synchronous ReadToEnd() would block
+        # until the child exits and make the timeout below unreachable.
         $outTask = $proc.StandardOutput.ReadToEndAsync()
         $errTask = $proc.StandardError.ReadToEndAsync()
 
@@ -150,44 +270,24 @@ function Invoke-ExternalCommand {
                 Write-Warning "start-modules\80-Module.Common.ps1, Invoke-ExternalCommand: $($_.Exception.Message)"
             } }
             $null = $proc.WaitForExit()
-            Write-ToolkitLog -Level 'ERROR' -Message "External command timed out after $TimeoutSeconds s: $FilePath $($ArgumentList -join ' ')"
-            return [pscustomobject]@{
-                ExitCode = -2; TimedOut = $true; Accepted = $false
-                StdOut = ''; StdErr = ''; DurationMs = $stopwatch.ElapsedMilliseconds
-                Command = "$FilePath $($ArgumentList -join ' ')"
-            }
+            Write-ToolkitLog -Level 'ERROR' -Message "External command timed out after $TimeoutSeconds s: $commandLine"
+            return New-ExternalCommandResult -ExitCode -2 -TimedOut $true -DurationMs $stopwatch.ElapsedMilliseconds -FilePath $FilePath -ArgumentList $ArgumentList -AcceptedExitCodes $AcceptedExitCodes
         }
 
         $capturedOut = try { $outTask.GetAwaiter().GetResult() } catch { '' }
         $capturedErr = try { $errTask.GetAwaiter().GetResult() } catch { '' }
-        Set-Content -Path $outFile -Value $capturedOut -Encoding UTF8 -ErrorAction SilentlyContinue
-        Set-Content -Path $errFile -Value $capturedErr -Encoding UTF8 -ErrorAction SilentlyContinue
 
         $stdOut = if ($CaptureOutput) { $capturedOut } else { '' }
         $stdErr = if ($CaptureOutput) { $capturedErr } else { '' }
-        return [pscustomobject]@{
-            ExitCode   = $proc.ExitCode
-            TimedOut   = $false
-            Accepted   = ($AcceptedExitCodes -contains $proc.ExitCode)
-            StdOut     = $stdOut
-            StdErr     = $stdErr
-            DurationMs = $stopwatch.ElapsedMilliseconds
-            Command    = "$FilePath $($ArgumentList -join ' ')"
-        }
+        return New-ExternalCommandResult -ExitCode $proc.ExitCode -FilePath $FilePath -ArgumentList $ArgumentList -AcceptedExitCodes $AcceptedExitCodes -StdOut $stdOut -StdErr $stdErr -DurationMs $stopwatch.ElapsedMilliseconds
     }
     catch {
         Write-ToolkitLog -Level 'ERROR' -Message "External command failed ($FilePath): $($_.Exception.Message)"
-        return [pscustomobject]@{
-            ExitCode = -1; TimedOut = $false; Accepted = $false; Error = $_.Exception.Message
-            StdOut = ''; StdErr = ''; DurationMs = $stopwatch.ElapsedMilliseconds
-            Command = "$FilePath $($ArgumentList -join ' ')"
-        }
+        return New-ExternalCommandResult -ExitCode -1 -FilePath $FilePath -ArgumentList $ArgumentList -AcceptedExitCodes $AcceptedExitCodes -DurationMs $stopwatch.ElapsedMilliseconds -Error $_.Exception.Message
     }
     finally {
         $stopwatch.Stop()
         if ($proc) { $proc.Dispose() }
-        if ($outFile -and (Test-Path $outFile)) { Remove-Item $outFile -Force -ErrorAction SilentlyContinue }
-        if ($errFile -and (Test-Path $errFile)) { Remove-Item $errFile -Force -ErrorAction SilentlyContinue }
     }
 }
 
@@ -217,10 +317,11 @@ function Install-FromGitHubRelease {
         $asset = $release.assets | Where-Object { $_.name -match $AssetPattern } | Select-Object -First 1
         if (-not $asset) { throw "No release asset matched '$AssetPattern'." }
 
-        $tempDir = $script:AppConfig.Paths.Temp
-        if (-not (Test-Path $tempDir)) { $null = New-Item -Path $tempDir -ItemType Directory -Force -ErrorAction Stop }
-        $downloadPath = Join-Path $tempDir $asset.name
-        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $downloadPath -UseBasicParsing -ErrorAction Stop
+        # Invoke-DownloadFile also creates the temp folder, so no pre-flight here.
+        $downloadPath = Join-Path $script:AppConfig.Paths.Temp $asset.name
+        if (-not (Invoke-DownloadFile -Uri $asset.browser_download_url -OutFile $downloadPath)) {
+            throw "Unable to download the release asset $($asset.name)."
+        }
 
         $installerArgs = @($InstallerArguments | ForEach-Object {
                 $_ -replace '\{INSTALLER\}', $downloadPath
@@ -275,7 +376,13 @@ function Write-SetupSummary {
     foreach ($status in @('Succeeded', 'Changed', 'Failed', 'Skipped')) {
         $counts[$status] = @($script:SetupResults | Where-Object Status -eq $status).Count
     }
-    Write-StyledMessage -Type Info -Text "Riepilogo: Successi=$($counts.Succeeded) Modificati=$($counts.Changed) Falliti=$($counts.Failed) Saltati=$($counts.Skipped)."
+
+    # Localized one-liner: "Execution Summary: Succeeded=N Changed=N Failed=N Skipped=N."
+    $counters = @('Succeeded', 'Changed', 'Failed', 'Skipped') | ForEach-Object {
+        '{0}={1}' -f (Get-SourceTextLoc "summary.$($_.ToLowerInvariant())"), $counts[$_]
+    }
+    $summaryText = '{0}: {1}.' -f (Get-SourceTextLoc 'summary.title'), ($counters -join ' ')
+    Write-StyledMessage -Type Info -Text $summaryText
     foreach ($result in $script:SetupResults | Where-Object Status -eq 'Failed') {
         $level = if ($result.Blocking) { 'Error' } else { 'Warning' }
         Write-StyledMessage -Type $level -Text "$($result.Name): $($result.Message)"

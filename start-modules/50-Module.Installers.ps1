@@ -2,42 +2,43 @@
 # INSTALLERS: Visual C++ Redistributable, Git, PowerShell 7, Windows Terminal
 # ============================================================================
 
+function Test-VCRedistRuntime {
+    <#
+    .SYNOPSIS
+    Returns $true when one VC++ runtime is registered with major version 14 and its DLL exists.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$RuntimeName,
+        [Parameter(Mandatory = $true)][string]$DllPath
+    )
+
+    $registryPath = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\$RuntimeName"
+    if (-not (Test-Path -Path $registryPath)) { return $false }
+
+    $major = (Get-ItemProperty -Path $registryPath -Name 'Major' -ErrorAction SilentlyContinue).Major
+    return [bool]($major -eq 14 -and [System.IO.File]::Exists($DllPath))
+}
+
+
 function Test-VCRedistInstalled {
     <#
     .SYNOPSIS
     Checks if Visual C++ Redistributable is installed and verifies the major version is 14.
-    #>
 
+    .DESCRIPTION
+    The 32-bit runtime is enough on 32-bit systems; on x64/ARM64 systems BOTH the
+    32-bit and the native runtime must be present.
+    #>
     $architecture = Get-SystemArchitecture
     $checksPassed = 0
 
-    # Always check the 32-bit version (exists on all systems)
-    $registryPath32 = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x86'
-    $dllPath32 = "$env:windir\syswow64\concrt140.dll"
-
-    if ((Test-Path -Path $registryPath32) -and
-        ((Get-ItemProperty -Path $registryPath32 -Name 'Major' -ErrorAction SilentlyContinue).Major -eq 14) -and
-        [System.IO.File]::Exists($dllPath32)) {
-        $checksPassed++
-    }
-
-    # Verify the native runtime for x64 or ARM64 systems as well.
+    if (Test-VCRedistRuntime -RuntimeName 'x86' -DllPath "$env:windir\syswow64\concrt140.dll") { $checksPassed++ }
     if ($architecture -ne 'X86') {
-        $nativeRuntime = if ($architecture -eq 'ARM64') { 'arm64' } else { 'x64' }
-        $registryPath64 = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\$nativeRuntime"
-        $dllPath64 = "$env:windir\system32\concrt140.dll"
-
-        if ((Test-Path -Path $registryPath64) -and
-            ((Get-ItemProperty -Path $registryPath64 -Name 'Major' -ErrorAction SilentlyContinue).Major -eq 14) -and
-            [System.IO.File]::Exists($dllPath64)) {
-            $checksPassed++
-        }
+        $nativeRuntime = Get-ArchitectureSpecificValue -X64 'x64' -ARM64 'arm64'
+        if (Test-VCRedistRuntime -RuntimeName $nativeRuntime -DllPath "$env:windir\system32\concrt140.dll") { $checksPassed++ }
     }
 
-    # On 32-bit systems: 32-bit runtime is enough.
-    # On x64/ARM64 systems: BOTH the 32-bit and the native runtime must exist.
     $requiredChecks = if ($architecture -eq 'X86') { 1 } else { 2 }
-
     return $checksPassed -eq $requiredChecks
 }
 
@@ -58,7 +59,7 @@ function Install-GitPackage {
 
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.gitInstallation')
 
-    # 1. Attempt via winget (Priority)
+    # 1. Preferred path: WinGet.
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         $result = Invoke-WingetCommand -Arguments "install Git.Git --source winget --accept-source-agreements --accept-package-agreements --silent"
 
@@ -76,11 +77,7 @@ function Install-GitPackage {
     try {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadGitDaGithub')
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.runningGitInstaller')
-        $assetPattern = switch (Get-SystemArchitecture) {
-            'ARM64' { 'arm64\.exe$' }
-            'X86' { '32-bit\.exe$' }
-            default { '64-bit\.exe$' }
-        }
+        $assetPattern = Get-ArchitectureSpecificValue -X64 '64-bit\.exe$' -X86 '32-bit\.exe$' -ARM64 'arm64\.exe$'
         $installResult = Install-FromGitHubRelease -ReleaseApiUrl $script:AppConfig.URLs.GitRelease `
             -AssetPattern $assetPattern -ExecutablePath '{INSTALLER}' `
             -InstallerArguments @('/SILENT', '/NORESTART', '/CLOSEAPPLICATIONS')
@@ -90,11 +87,11 @@ function Install-GitPackage {
             return $true
         }
 
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode0' -Args @($($installResult.ExitCode)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode0' -Args @($installResult.ExitCode))
         return $false
     }
     catch {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.gitInstallationError0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.gitInstallationError0' -Args @($_.Exception.Message))
         return $false
     }
 }
@@ -113,20 +110,16 @@ function Install-PowerShellCore {
 
     $ps7Path64 = "$env:SystemDrive\Program Files\PowerShell\7"
     $ps7Path32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7"
-    $architecture = Get-SystemArchitecture
 
     if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Get-Command pwsh -ErrorAction SilentlyContinue)) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7AlreadyInstalled')
         return $true
     }
 
-    # 1. Attempt via Winget (Priority)
+    # 1. Preferred path: WinGet.
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingToInstallPowershell7ViaWinget')
-        $iwcParams = @{
-            Arguments = "install --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements --silent"
-        }
-        $result = Invoke-WingetCommand @iwcParams
+        $result = Invoke-WingetCommand -Arguments "install --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements --silent"
 
         if ($result.ExitCode -eq 0) {
             if (Wait-Until -Condition {
@@ -136,18 +129,14 @@ function Install-PowerShellCore {
                 return $true
             }
         }
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstallationFailedOrFailedExitcode0FallbackToDirectDownload' -Args @($($result.ExitCode)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstallationFailedOrFailedExitcode0FallbackToDirectDownload' -Args @($result.ExitCode))
     }
 
     # 2. Fallback: direct MSI download from GitHub
     try {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.recuperoUltimaReleasePowershell')
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingPowershell7InProgress')
-        $assetPattern = switch ($architecture) {
-            'ARM64' { 'win-arm64\.msi$' }
-            'X86' { 'win-x86\.msi$' }
-            default { 'win-x64\.msi$' }
-        }
+        $assetPattern = Get-ArchitectureSpecificValue -X64 'win-x64\.msi$' -X86 'win-x86\.msi$' -ARM64 'win-arm64\.msi$'
         $installerArguments = @('/i', '{INSTALLER}', '/norestart', '/passive',
             'ADD_PATH=1', 'ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1', 'REGISTER_MANIFEST=1')
         # PSRemoting reconfigures WinRM/firewall: opt-in only.
@@ -163,11 +152,11 @@ function Install-PowerShellCore {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7InstalledSuccessfully')
             return $true
         }
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode02' -Args @($($installResult.ExitCode)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode02' -Args @($installResult.ExitCode))
         return $false
     }
     catch {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.powershellInstallationError0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.powershellInstallationError0' -Args @($_.Exception.Message))
         return $false
     }
 }
@@ -205,15 +194,12 @@ function Install-WindowsTerminalApp {
     }
 
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalInstallationInProgress')
+    $tempFile = $null
     try {
-        $winget = Get-Command winget -ErrorAction SilentlyContinue
-        if ($winget) {
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingToInstallWindowsTerminalViaWinget')
             # Use the unambiguous package identifier, not the Store product id.
-            $iwcParams = @{
-                Arguments = "install --id Microsoft.WindowsTerminal --source winget --accept-source-agreements --accept-package-agreements --silent"
-            }
-            $result = Invoke-WingetCommand @iwcParams
+            $result = Invoke-WingetCommand -Arguments "install --id Microsoft.WindowsTerminal --source winget --accept-source-agreements --accept-package-agreements --silent"
             if ($result.ExitCode -eq 0 -and (Wait-Until -Condition { Test-WindowsTerminalInstalled } -TimeoutSeconds 15 -IntervalMs 1000)) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalInstalledViaWinget')
                 return $true
@@ -222,7 +208,7 @@ function Install-WindowsTerminalApp {
         }
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstallationForWindowsTerminalFailed' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstallationForWindowsTerminalFailed' -Args @($_.Exception.Message))
     }
 
     try {
@@ -239,7 +225,9 @@ function Install-WindowsTerminalApp {
 
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.iTryNativeAppxInstallationFromDownloadedBundle')
         $tempFile = Join-Path $env:TEMP "WinTerminal.msixbundle"
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -UseBasicParsing
+        if (-not (Invoke-DownloadFile -Uri $downloadUrl -OutFile $tempFile)) {
+            throw (Get-SourceTextLoc 'uiText.windowsTerminalAppxInstallationFailed')
+        }
 
         if (Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.WindowsTerminal') {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalAppxInstallationSuccessful')
@@ -247,14 +235,18 @@ function Install-WindowsTerminalApp {
         else {
             throw (Get-SourceTextLoc 'uiText.windowsTerminalAppxInstallationFailed')
         }
-        $null = Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
         if (-not (Wait-Until -Condition { Test-WindowsTerminalInstalled } -TimeoutSeconds 30 -IntervalMs 1000)) {
             throw 'Windows Terminal package installed but wt.exe was not detected.'
         }
         return $true
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.standardWindowsTerminalInstallationFailed0FallbackToTheMicrosoftStore' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.standardWindowsTerminalInstallationFailed0FallbackToTheMicrosoftStore' -Args @($_.Exception.Message))
+    }
+    finally {
+        if ($tempFile -and (Test-Path -LiteralPath $tempFile)) {
+            Remove-Item -LiteralPath $tempFile -Force -ErrorAction SilentlyContinue
+        }
     }
 
     if (Test-WindowsTerminalInstalled) {
@@ -280,7 +272,7 @@ function Set-WindowsTerminalAsDefault {
     param()
 
     if (-not (Test-WindowsTerminalDefaultSupported)) {
-        Write-StyledMessage -Type Warning -Text "Questa build di Windows non supporta l'impostazione del terminale predefinito: passaggio saltato."
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.defaultTerminalNotSupportedOnThisBuild')
         return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'Default terminal not supported on this build.' }
     }
 
@@ -295,11 +287,11 @@ function Set-WindowsTerminalAsDefault {
 
         Set-ItemProperty -Path $registryPath -Name 'DelegationTerminal' -Value $script:AppConfig.WindowsTerminal.DelegationTerminalClsid -Force
         Set-ItemProperty -Path $registryPath -Name 'DelegationConsole' -Value $script:AppConfig.WindowsTerminal.DelegationConsoleClsid -Force
-        Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.windowsTerminalSetAsDefault'))
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalSetAsDefault')
         return [pscustomobject]@{ Success = $true; Changed = $true; Message = 'Windows Terminal set as default.' }
     }
     catch {
-        Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.failedToSetDefaultTerminal0' -Args @($($_.Exception.Message))))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.failedToSetDefaultTerminal0' -Args @($_.Exception.Message))
         return [pscustomobject]@{ Success = $false; Changed = $false; Message = $_.Exception.Message }
     }
 }

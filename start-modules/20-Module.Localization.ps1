@@ -16,6 +16,11 @@ $script:EmbeddedEnglishText = @{
     'uiText.powershell7AlreadyInstalled'       = 'PowerShell 7 is already installed.'
     'uiText.windowsTerminalIsAlreadyInstalled' = 'Windows Terminal is already installed.'
     'uiText.systemClockResynced'               = 'System clock resynchronized.'
+    'summary.title'                            = 'Execution Summary'
+    'summary.succeeded'                        = 'Succeeded'
+    'summary.changed'                          = 'Changed'
+    'summary.skipped'                          = 'Skipped'
+    'summary.failed'                           = 'Failed'
 }
 $script:SourceTextKeyAliases = @{
     'uiText.environmentReady'            = 'uiText.environmentReadyForInstallation'
@@ -26,12 +31,17 @@ $script:SourceTextKeyAliases = @{
 }
 
 function Get-SourceTextLanguageDirectory {
+    <#
+    .SYNOPSIS
+    Returns the first existing language directory, preferring the local sources.
+    #>
     $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+    # Last resort: the per-user cache filled by Invoke-SourceTextLanguagePreparation.
     $candidates = @(
         (Join-Path $root 'languages'),
         (Join-Path (Split-Path $root -Parent) 'languages'),
         (Join-Path (Get-Location) 'languages'),
-        (Join-Path $env:LOCALAPPDATA 'WinToolkit\languages')
+        $script:AppConfig.Paths.Languages
     )
     foreach ($candidate in $candidates) {
         if (Test-Path $candidate) { return $candidate }
@@ -89,11 +99,11 @@ function Invoke-SourceTextLanguagePreparation {
         [string]$RemoteBaseUrl = $script:AppConfig.URLs.LanguagesRawUrl,
         [string]$GitHubApiUrl = $script:AppConfig.URLs.LanguagesApiUrl
     )
-    $localDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\languages'
+    $localDir = $script:AppConfig.Paths.Languages
     $remoteCultures = Get-RemoteAvailableCultures -GitHubApiUrl $GitHubApiUrl
     if ($remoteCultures.Count -le 0) { return $localDir }
 
-    if (-not (Test-Path $localDir)) { New-Item -Path $localDir -ItemType Directory -Force | Out-Null }
+    $null = Initialize-Directory -Path $localDir
 
     # Sync the language cache with the reference branch on every startup:
     # remove cultures no longer present remotely, then download the latest
@@ -101,21 +111,20 @@ function Invoke-SourceTextLanguagePreparation {
     Invoke-SourceTextLanguagePruning -LocalDir $localDir -AllowedCultures $remoteCultures
 
     foreach ($culture in (@('en-US') + $remoteCultures | Select-Object -Unique)) {
-        $cultureDir = Join-Path $localDir $culture
+        $cultureDir = Initialize-Directory -Path (Join-Path $localDir $culture)
         $localFile = Join-Path $cultureDir 'WinToolkit.psd1'
-        if (-not (Test-Path $cultureDir)) { New-Item -Path $cultureDir -ItemType Directory -Force | Out-Null }
+        # Staged next to the target and swapped in: a half-written .psd1 must never
+        # be picked up by the next Get-SourceTextValueFromData call.
+        $stagedFile = Join-Path $cultureDir "WinToolkit.psd1.$([guid]::NewGuid()).tmp"
         try {
             $remoteUrl = "$RemoteBaseUrl/$culture/WinToolkit.psd1"
-            $temporaryFile = "$localFile.$([guid]::NewGuid()).tmp"
-            try {
-                Invoke-WebRequest -Uri $remoteUrl -OutFile $temporaryFile -UseBasicParsing -ErrorAction Stop | Out-Null
-                Move-Item -LiteralPath $temporaryFile -Destination $localFile -Force -ErrorAction Stop
+            if (-not (Invoke-DownloadFile -Uri $remoteUrl -OutFile $stagedFile -Silent)) {
+                throw "Unable to download the language file for '$culture'."
             }
-            finally {
-                if (Test-Path -LiteralPath $temporaryFile) { Remove-Item -LiteralPath $temporaryFile -Force -ErrorAction SilentlyContinue }
-            }
+            Move-Item -LiteralPath $stagedFile -Destination $localFile -Force -ErrorAction Stop
         }
         catch {
+            # Offline or unreachable branch: seed the cache from the local sources.
             if (-not (Test-Path $localFile)) {
                 try {
                     $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
@@ -125,6 +134,9 @@ function Invoke-SourceTextLanguagePreparation {
                     Write-Warning "start-modules\20-Module.Localization.ps1, Invoke-SourceTextLanguagePreparation: $($_.Exception.Message)"
                 }
             }
+        }
+        finally {
+            if (Test-Path -LiteralPath $stagedFile) { Remove-Item -LiteralPath $stagedFile -Force -ErrorAction SilentlyContinue }
         }
     }
     return $localDir
@@ -203,45 +215,54 @@ function Resolve-SourceTextLanguage {
 }
 
 
+function Get-SourceTextValueFromData {
+    <#
+    .SYNOPSIS
+    Looks a key up in the active language, then in the en-US fallback data.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Key)
+
+    if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($Key)) {
+        return [string]$script:SourceTextLanguageData[$Key]
+    }
+    if ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($Key)) {
+        return [string]$script:SourceTextDefaultLanguageData[$Key]
+    }
+    return $null
+}
+
+
 function Get-SourceTextLoc {
+    <#
+    .SYNOPSIS
+    Resolves a translation key, honouring aliases, numeric duplicates and the
+    embedded English fallback, then formats it with Arguments when present.
+    #>
     param(
         [Parameter(Mandatory = $true)][string]$Key,
         [Alias('Args')][object[]]$Arguments = @()
     )
 
-    $k = $Key
-    if ($script:SourceTextKeyAliases.ContainsKey($k)) {
-        $k = $script:SourceTextKeyAliases[$k]
+    $resolvedKey = $Key
+    if ($script:SourceTextKeyAliases.ContainsKey($resolvedKey)) {
+        $resolvedKey = $script:SourceTextKeyAliases[$resolvedKey]
     }
 
-    $value = $null
-    if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($k)) {
-        $value = [string]$script:SourceTextLanguageData[$k]
-    }
-    elseif ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($k)) {
-        $value = [string]$script:SourceTextDefaultLanguageData[$k]
-    }
-    else {
-        # Strip trailing digits and retry: collapses numeric duplicate keys
-        # (e.g. sourceText.completed2 -> sourceText.completed) without breaking call sites.
-        if ($k -match '^(.*?)(\d+)$') {
-            $stem = $Matches[1]
-            if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($stem)) {
-                $value = [string]$script:SourceTextLanguageData[$stem]
-            }
-            elseif ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($stem)) {
-                $value = [string]$script:SourceTextDefaultLanguageData[$stem]
-            }
-        }
+    $value = Get-SourceTextValueFromData -Key $resolvedKey
+    if ($null -eq $value -and $resolvedKey -match '^(.*?)(\d+)$') {
+        # Collapse numeric duplicate keys (sourceText.completed2 -> sourceText.completed)
+        # without touching the call sites.
+        $value = Get-SourceTextValueFromData -Key $Matches[1]
     }
     if ($null -eq $value) {
-        if ($script:EmbeddedEnglishText.ContainsKey($k)) {
-            $value = [string]$script:EmbeddedEnglishText[$k]
+        $value = if ($script:EmbeddedEnglishText.ContainsKey($resolvedKey)) {
+            [string]$script:EmbeddedEnglishText[$resolvedKey]
         }
         else {
-            $value = "[MISSING TRANSLATION: $Key]"
+            "[MISSING TRANSLATION: $Key]"
         }
     }
+
     if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }

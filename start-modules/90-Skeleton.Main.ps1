@@ -54,7 +54,7 @@ function Invoke-WinToolkitSetup {
                 @{ Name = 'System clock'; Action = { Repair-SystemClock } },
                 @{ Name = 'SCHANNEL'; Action = { Reset-SchannelSettings } },
                 @{ Name = 'Hosts file'; Action = { Reset-HostsFile } },
-                @{ Name = 'App Installer'; Action = { [pscustomobject]@{ Success = (Repair-Winget -Level AppxReset); Changed = $true; Message = 'App Installer repair level completed.' } } }
+                @{ Name = 'App Installer'; Action = { Repair-AppInstaller } }
             )) {
             $repairResult = & $repair.Action
             Add-SetupResult -Name $repair.Name -Success ([bool]$repairResult.Success) -Changed ([bool]$repairResult.Changed) -Message $repairResult.Message
@@ -68,76 +68,80 @@ function Invoke-WinToolkitSetup {
         # Suspend Windows Update services to ensure Winget stability
         Invoke-StopUpdateServices
 
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.powershell0' -Args @($($PSVersionTable.PSVersion)))
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.powershell0' -Args @($PSVersionTable.PSVersion))
 
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingWinToolkitConfiguration')
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.carryingOutBasicChecks')
 
-        # Update PATH before initial check to detect already installed winget
+        # Update PATH before the first check, so a WinGet installed moments ago is seen.
         Update-EnvironmentPath
 
         Repair-Winget -Level MsStoreCert | Out-Null
 
-        if (-not (Test-WingetFunctionality)) {
-            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.wingetDoesnTRespondFastRecoveryAttemptCore'))
+        # WinGet gates the whole flow: it is probed once, and the result of the
+        # last probe is the one recorded in the summary (no duplicate probe).
+        $wingetReady = Test-WingetFunctionality
+        if ($wingetReady) {
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetIsAlreadyOperational')
+        }
+        else {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetDoesnTRespondFastRecoveryAttemptCore')
             $coreSuccess = Repair-Winget -Level CoreInstall
             Update-EnvironmentPath
 
             if ($coreSuccess -and (Test-WingetFunctionality)) {
-                Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.wingetRestoredQuickly'))
+                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRestoredQuickly')
                 Reset-WingetSources
+                $wingetReady = $true
             }
             else {
-                Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptAdvancedSlowerMethod'))
+                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptAdvancedSlowerMethod')
                 $null = Repair-Winget -Level FullReinstall
                 Update-EnvironmentPath
 
-                if (-not (Test-WingetFunctionality)) {
-                    Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts'))
+                $wingetReady = Test-WingetFunctionality
+                if (-not $wingetReady) {
+                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts')
                     Add-SetupResult -Name 'WinGet' -Success $false -Message 'WinGet remains unavailable after recovery.' -Blocking $true
                     throw 'WinGet is required for the installation flow and remains unavailable.'
                 }
-                else {
-                    Reset-WingetSources
-                }
+                Reset-WingetSources
             }
         }
-        else {
-            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.wingetIsAlreadyOperational'))
-        }
 
-        Add-SetupResult -Name 'WinGet' -Success ([bool](Test-WingetFunctionality)) -Message 'WinGet operational.' -Blocking $true
+        Add-SetupResult -Name 'WinGet' -Success ([bool]$wingetReady) -Message 'WinGet operational.' -Blocking $true
 
-        # Ensure Microsoft.AppInstaller is present and updated (required for a
-        # fully functional and up-to-date Winget before installing any package).
+        # Ensure App Installer is present and updated (a fully functional WinGet
+        # requires a current App Installer package).
         $null = Test-WingetAppInstaller
         Update-EnvironmentPath
 
-        # Thoroughly verify that Winget works correctly.
-        if (-not $(Test-WingetDeepValidation)) {
-            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.warningInstallingSubsequentPackagesViaWingetMayFail'))
+        # Thoroughly verify that WinGet works correctly.
+        if (-not (Test-WingetDeepValidation)) {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.warningInstallingSubsequentPackagesViaWingetMayFail')
         }
 
-        # Installa Git
+        # Git is needed to clone private repositories and for some package installs.
         $gitSuccess = Install-GitPackage
         Add-SetupResult -Name 'Git' -Success ([bool]$gitSuccess) -Message 'Git verification/installation completed.'
         if ($gitSuccess) {
-            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.gitIsAlreadyOperational'))
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitIsAlreadyOperational')
         }
         else {
-            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.attentionGitHasNotBeenInstalledOrItMayNotWorkProperly'))
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.attentionGitHasNotBeenInstalledOrItMayNotWorkProperly')
         }
 
         # Check and install PowerShell 7 (application level, see 50-Module.Installers.ps1)
         $ps7Success = Install-PowerShellCore
         Add-SetupResult -Name 'PowerShell 7' -Success ([bool]$ps7Success) -Message 'PowerShell 7 verification/installation completed.'
 
-        # Installazioni core Windows Terminal
+        # Windows Terminal is a core requirement: the shortcut and the default
+        # terminal both depend on it.
         $wtInstalled = Install-WindowsTerminalApp
         Add-SetupResult -Name 'Windows Terminal' -Success ([bool]$wtInstalled) -Message 'Windows Terminal verification/installation completed.'
 
-        # Imposta Windows Terminal come terminale predefinito
-        if ($wtInstalled -and (Test-WindowsTerminalInstalled)) {
+        # Make Windows Terminal the default terminal application.
+        if ($wtInstalled) {
             $defaultTerminal = Set-WindowsTerminalAsDefault
             Add-SetupResult -Name 'Default terminal' -Success ([bool]$defaultTerminal.Success) -Changed ([bool]$defaultTerminal.Changed) -Message $defaultTerminal.Message
         }
@@ -166,8 +170,8 @@ function Invoke-WinToolkitSetup {
     catch {
         Set-UpdateServicesError -Message $_.Exception.Message
         Add-SetupResult -Name 'Setup flow' -Success $false -Message $_.Exception.Message -Blocking $true
-        Write-StyledMessage -Type Error -Text ((Get-SourceTextLoc 'uiText.criticalErrorDuringSetup0' -Args @($($_.Exception.Message))))
-        Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.unhandledException01' -Args @($($_.Exception.Message), $($_.ScriptStackTrace)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalErrorDuringSetup0' -Args @($_.Exception.Message))
+        Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.unhandledException01' -Args @($_.Exception.Message, $_.ScriptStackTrace))
         Write-Host (Get-SourceTextLoc 'sourceText.pressAnyKeyToExit')
         $null = [Console]::ReadKey($true)
         $script:SetupExitCode = 1
@@ -176,16 +180,9 @@ function Invoke-WinToolkitSetup {
     }
     finally {
         $null = Invoke-StartUpdateServices
-        try {
-            $transcriptMessage = Stop-Transcript -ErrorAction SilentlyContinue
-            if ($transcriptMessage) {
-                Write-StyledMessage -Type Info -Text $transcriptMessage
-            }
-        }
-        catch {
-            if ($_.Exception.Message -notmatch 'not currently transcribing') {
-                Write-Warning "start-modules\90-Skeleton.Main.ps1, Invoke-WinToolkitSetup: $($_.Exception.Message)"
-            }
+        $transcriptMessage = Stop-ToolkitTranscript
+        if ($transcriptMessage) {
+            Write-StyledMessage -Type Info -Text $transcriptMessage
         }
         $ErrorActionPreference = $previousErrorActionPreference
     }

@@ -6,30 +6,24 @@ function Update-WindowsTerminalSettings {
     <#
     .SYNOPSIS
     Replaces a Windows Terminal settings.json atomically, keeping a timestamped backup.
+
+    .DESCRIPTION
+    Terminal reads settings.json at startup, so the swap is staged and moved in
+    one step: an interrupted update must never leave an invalid configuration.
     #>
     param([Parameter(Mandatory = $true)][string]$SettingsPath)
 
-    $remotePath = Join-Path $script:AppConfig.Paths.Temp "wt-settings-$([guid]::NewGuid()).json"
+    $downloadedPath = Join-Path $script:AppConfig.Paths.Temp "wt-settings-$([guid]::NewGuid()).json"
     try {
-        if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $remotePath)) {
+        if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $downloadedPath -Silent)) {
             return $false
         }
 
-        $backupPath = "$SettingsPath.bak.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-        if (Test-Path -LiteralPath $SettingsPath) {
-            Copy-Item -LiteralPath $SettingsPath -Destination $backupPath -Force -ErrorAction Stop
+        # The backup path is only returned when a previous file was replaced.
+        $backupPath = Copy-FileAtomically -SourcePath $downloadedPath -DestinationPath $SettingsPath -Backup
+        if ($backupPath) {
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalSettingsOverwrittenBackup0' -Args @($backupPath))
         }
-
-        $tempPath = "$SettingsPath.$([guid]::NewGuid()).tmp"
-        try {
-            Copy-Item -LiteralPath $remotePath -Destination $tempPath -Force -ErrorAction Stop
-            Move-Item -LiteralPath $tempPath -Destination $SettingsPath -Force -ErrorAction Stop
-        }
-        finally {
-            if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
-        }
-
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalSettingsOverwrittenBackup0' -Args @($backupPath))
         return $true
     }
     catch {
@@ -37,7 +31,7 @@ function Update-WindowsTerminalSettings {
         return $false
     }
     finally {
-        if (Test-Path -LiteralPath $remotePath) { Remove-Item -LiteralPath $remotePath -Force -ErrorAction SilentlyContinue }
+        if (Test-Path -LiteralPath $downloadedPath) { Remove-Item -LiteralPath $downloadedPath -Force -ErrorAction SilentlyContinue }
     }
 }
 
@@ -57,7 +51,7 @@ function Install-NerdFontsLocal {
         Where-Object Name -like "*JetBrainsMono*"
 
         if ($installed) {
-            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.jetbrainsmonoNerdFontAlreadyInstalled'))
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.jetbrainsmonoNerdFontAlreadyInstalled')
             return $true
         }
 
@@ -67,15 +61,15 @@ function Install-NerdFontsLocal {
         $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
 
         if ($result.ExitCode -ne 0) {
-            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.wingetReturnedCode0TheFontMayRequireATerminalRestart' -Args @($($result.ExitCode))))
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetReturnedCode0TheFontMayRequireATerminalRestart' -Args @($result.ExitCode))
             return $false
         }
-        Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.nerdFontsInstalledSuccessfully'))
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.nerdFontsInstalledSuccessfully')
         Write-StyledMessage -Type Warning -Text ("💡 " + (Get-SourceTextLoc 'uiText.noteFontsViaWingetRequireRestartingTerminalOrExplorerToBeVisible'))
         return $true
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.errorInstallingFont0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.errorInstallingFont0' -Args @($_.Exception.Message))
         return $false
     }
 }
@@ -101,7 +95,7 @@ function Install-PspEnvironment {
     )
 
     foreach ($tool in $tools) {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.check0' -Args @($($tool.Name)))
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.check0' -Args @($tool.Name))
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             $toolResult = Invoke-WingetCommand -Arguments "install -e --id $($tool.Id) --source winget --accept-source-agreements --accept-package-agreements --silent"
             if ($toolResult.ExitCode -ne 0) {
@@ -110,13 +104,10 @@ function Install-PspEnvironment {
         }
     }
 
-    # 2. Oh My Posh Theme Installation
-    # Always in the PowerShell 7 folder (the profile is specific to PS7 and Windows Terminal)
+    # 2. Oh My Posh theme: always in the PowerShell 7 profile folder, because the
+    #    profile is specific to PS7 and Windows Terminal.
     $ps7ProfileDir = [Environment]::GetFolderPath('MyDocuments') + '\PowerShell'
-    $themesFolder = Join-Path $ps7ProfileDir 'Themes'
-    if (-not (Test-Path $themesFolder)) {
-        New-Item -Path $themesFolder -ItemType Directory -Force *>$null
-    }
+    $themesFolder = Initialize-Directory -Path (Join-Path $ps7ProfileDir 'Themes')
 
     $themePath = Join-Path $themesFolder 'atomic.omp.json'
     if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.OhMyPoshTheme -OutFile $themePath) {
@@ -126,33 +117,26 @@ function Install-PspEnvironment {
     # 3. Font Installation
     Install-NerdFontsLocal *>$null
 
-    # 4. Profile Configuration (always in the PowerShell 7 folder).
-    # Download first into a temporary file, then swap: the existing profile is
-    # never moved away before the replacement is known to be on disk.
-    if (-not (Test-Path $ps7ProfileDir)) {
-        New-Item -Path $ps7ProfileDir -ItemType Directory -Force *>$null
-    }
+    # 4. Profile configuration: the download is staged and swapped in, so the
+    #    current profile is never removed before its replacement is on disk.
+    $null = Initialize-Directory -Path $ps7ProfileDir
     $targetProfile = Join-Path $ps7ProfileDir 'Microsoft.PowerShell_profile.ps1'
-    $temporaryProfile = "$targetProfile.$([guid]::NewGuid()).tmp"
+    $stagedProfile = "$targetProfile.$([guid]::NewGuid()).tmp"
     try {
-        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $temporaryProfile) {
-            if (Test-Path -LiteralPath $targetProfile) {
-                $profileBackup = "$targetProfile.bak.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-                [System.IO.File]::Replace($temporaryProfile, $targetProfile, $profileBackup, $true)
+        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $stagedProfile) {
+            $profileBackup = Copy-FileAtomically -SourcePath $stagedProfile -DestinationPath $targetProfile -Backup
+            if ($profileBackup) {
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.existingProfileSaved0' -Args @($profileBackup))
-            }
-            else {
-                Move-Item -LiteralPath $temporaryProfile -Destination $targetProfile -Force -ErrorAction Stop
             }
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7ProfileConfigured')
         }
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.profileConfigurationError0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.profileConfigurationError0' -Args @($_.Exception.Message))
     }
     finally {
-        if ($temporaryProfile -and (Test-Path -LiteralPath $temporaryProfile)) {
-            Remove-Item -LiteralPath $temporaryProfile -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $stagedProfile) {
+            Remove-Item -LiteralPath $stagedProfile -Force -ErrorAction SilentlyContinue
         }
     }
 
@@ -165,12 +149,12 @@ function Install-PspEnvironment {
             if (Test-Path $localStatePath) {
                 $settingsPath = Join-Path $localStatePath 'settings.json'
                 if (Update-WindowsTerminalSettings -SettingsPath $settingsPath) {
-                    Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalSettingsUpdated0' -Args @($($wtPkg.Name)))
+                    Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalSettingsUpdated0' -Args @($wtPkg.Name))
                 }
             }
         }
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.terminalSettingsUpdateError0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.terminalSettingsUpdateError0' -Args @($_.Exception.Message))
     }
 }

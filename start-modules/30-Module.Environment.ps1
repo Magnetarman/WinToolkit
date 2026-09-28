@@ -48,21 +48,16 @@ function Test-PathInEnvironment {
         [string]$Scope = 'Both'
     )
 
-    $pathExists = $false
+    # One loop over the requested scopes instead of two duplicated blocks.
+    $targets = @()
+    if ($Scope -in @('User', 'Both')) { $targets += 'User' }
+    if ($Scope -in @('System', 'Both')) { $targets += 'Machine' }
 
-    if ($Scope -eq 'User' -or $Scope -eq 'Both') {
-        $userEnvPath = [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::User)
-        if (($userEnvPath -split ';').Contains($PathToCheck)) {
-            $pathExists = $true
-        }
+    foreach ($target in $targets) {
+        $value = [Environment]::GetEnvironmentVariable('PATH', $target)
+        if ($value -and ($value -split ';').Contains($PathToCheck)) { return $true }
     }
-    if ($Scope -eq 'System' -or $Scope -eq 'Both') {
-        $systemEnvPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine)
-        if (($systemEnvPath -split ';').Contains($PathToCheck)) {
-            $pathExists = $true
-        }
-    }
-    return $pathExists
+    return $false
 }
 
 
@@ -78,20 +73,14 @@ function Add-ToEnvironmentPath {
         [string]$Scope
     )
 
-    # Check if path already exists
+    # Written once: the scope only changes the target of the registry write.
     if (-not (Test-PathInEnvironment -PathToCheck $PathToAdd -Scope $Scope)) {
-        if ($Scope -eq 'System') {
-            $systemEnvPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine)
-            $systemEnvPath += ";$PathToAdd"
-            [System.Environment]::SetEnvironmentVariable('PATH', $systemEnvPath, [System.EnvironmentVariableTarget]::Machine)
-        }
-        elseif ($Scope -eq 'User') {
-            $userEnvPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::User)
-            $userEnvPath += ";$PathToAdd"
-            [System.Environment]::SetEnvironmentVariable('PATH', $userEnvPath, [System.EnvironmentVariableTarget]::User)
-        }
+        $target = if ($Scope -eq 'System') { 'Machine' } else { 'User' }
+        $currentPath = [Environment]::GetEnvironmentVariable('PATH', $target)
+        $newPath = (@($currentPath, $PathToAdd) | Where-Object { $_ }) -join ';'
+        [Environment]::SetEnvironmentVariable('PATH', $newPath, $target)
 
-        # Update current process
+        # Keep the current process in sync as well.
         if (-not ($env:PATH -split ';').Contains($PathToAdd)) {
             $env:PATH += ";$PathToAdd"
         }
@@ -201,19 +190,13 @@ function Reset-HostsFile {
         $lines = Get-Content $hostsPath -ErrorAction SilentlyContinue
         if (-not $lines) { return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'Hosts file is empty.' } }
 
-        $hasOverrides = $false
-        $newLines = @()
-        foreach ($line in $lines) {
-            if ($line -match '(?i)microsoft\.com|storeedgefd|winget\.azureedge\.net') {
-                $hasOverrides = $true
-                continue
-            }
-            $newLines += $line
-        }
+        # Drop only the entries that break WinGet and the Store; keep the rest.
+        $blockedPattern = '(?i)microsoft\.com|storeedgefd|winget\.azureedge\.net'
+        $newLines = @($lines | Where-Object { $_ -notmatch $blockedPattern })
+        $hasOverrides = $newLines.Count -ne $lines.Count
 
         if ($hasOverrides) {
-            $backupDir = $script:AppConfig.Paths.WinToolkitDir
-            if (-not (Test-Path $backupDir)) { $null = New-Item -Path $backupDir -ItemType Directory -Force -ErrorAction Stop }
+            $backupDir = Initialize-Directory -Path $script:AppConfig.Paths.WinToolkitDir
             $backupPath = Join-Path $backupDir ("hosts.backup.{0}.txt" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
             Copy-Item -LiteralPath $hostsPath -Destination $backupPath -Force -ErrorAction Stop
             $hostsHeader = @(
@@ -306,13 +289,32 @@ function Initialize-UpdateServicesState {
 }
 
 
+function Set-UpdateServicesState {
+    <#
+    .SYNOPSIS
+    Persists one state transition of the Windows Update service state file.
+
+    .DESCRIPTION
+    Every suspend/restore path goes through this helper, so the state, the last
+    error and the persisted file can never drift apart.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][object]$Status,
+        [Parameter(Mandatory = $true)][string]$State,
+        $LastError = $null
+    )
+
+    $Status.State = $State
+    $Status.LastError = $LastError
+    Write-UpdateServicesStatus -Status $Status
+}
+
+
 function Set-UpdateServicesError {
     param([string]$Message)
     $status = Read-UpdateServicesStatus
     if ($status) {
-        $status.State = 'RestoreFailed'
-        $status.LastError = $Message
-        Write-UpdateServicesStatus -Status $status
+        Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError $Message
     }
     Write-ToolkitLog -Level 'ERROR' -Message "Windows Update services recovery: $Message"
 }
@@ -361,15 +363,12 @@ function Invoke-StopUpdateServices {
                 if ($current.Status -ne 'Stopped') { throw "Service $($saved.Name) did not stop." }
             }
         }
-        $status.State = 'Suspended'
-        Write-UpdateServicesStatus -Status $status
+        Set-UpdateServicesState -Status $status -State 'Suspended'
         $script:UpdateServicesSuspended = $true
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesSuccessfullySuspended')
     }
     catch {
-        $status.State = 'RestoreFailed'
-        $status.LastError = $_.Exception.Message
-        Write-UpdateServicesStatus -Status $status
+        Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError $_.Exception.Message
         throw
     }
 }
@@ -418,25 +417,21 @@ function Invoke-StartUpdateServices {
         $otherErrors = @($restoreErrors | Where-Object { $_ -notmatch '^dosvc:' })
 
         if ($otherErrors.Count -gt 0) {
-            $status.State = 'RestoreFailed'
-            $status.LastError = $otherErrors -join '; '
-            Write-UpdateServicesStatus -Status $status
+            Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError ($otherErrors -join '; ')
             Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
             Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.updateServicesRestoreIncomplete0' -Args @($status.LastError))
             return $false
         }
 
         if ($dosvcErrors.Count -gt 0) {
-            $status.State = 'Restored'
-            $status.LastError = $null
-            Write-UpdateServicesStatus -Status $status
-            Write-ToolkitLog -Level 'WARNING' -Message "Windows Update service dosvc could not be restored (known Windows limitation): $($dosvcErrors -join '; ')"
+            # dosvc refuses to start on some Windows builds: a known limitation, not a failure.
+            Set-UpdateServicesState -Status $status -State 'Restored'
+            Write-ToolkitLog -Level 'WARNING' -Message "Windows Update service dosvc could not be restored (known Windows limitation): $dosvcErrors -join '; '"
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.dosvcNotRestoredKnownLimitation')
         }
     }
 
-    $status.State = 'Restored'
-    Write-UpdateServicesStatus -Status $status
+    Set-UpdateServicesState -Status $status -State 'Restored'
     $script:UpdateServicesSuspended = $false
     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesRestored')
     return $true

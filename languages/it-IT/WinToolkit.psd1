@@ -103,18 +103,22 @@ run.error = Errore durante {0}: {1}
 # BEGIN summary translations
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
+summary.changed = Modificato
 summary.completed = Completato
+summary.succeeded = Riuscito
 
 # -- Informational — status, progress, notes
 
 summary.detail = Dettaglio
 summary.operation = Operazione
+summary.skipped = Saltato
 summary.status = Stato
 summary.title = Riepilogo Esecuzione
 
 # -- Error — errors, failures, critical issues
 
 summary.error = Errore
+summary.failed = Fallito
 
 # END summary translations
 
@@ -991,6 +995,7 @@ uiText.completeOfficeRepairOnline = Riparazione Completa Office (Online)
 uiText.configurationComplete = Configurazione completata.
 uiText.coreScriptDownloadedSuccessfully = Core Script scaricato con successo.
 uiText.countdownBypassed01Seconds = Conto alla rovescia bypassato: '{0}' ({1} secondi).
+uiText.defaultTerminalNotSupportedOnThisBuild = Questa build di Windows non supporta l'impostazione del terminale predefinito: passaggio saltato.
 uiText.deepTestPassedWingetCommunicatesCorrectlyWithRepositories = Test profondo superato: Winget comunica correttamente con i repository.
 uiText.deepValidationPassedWingetCommunicatesWithRepositories = Validazione profonda superata: Winget comunica con i repository.
 uiText.downloadCompleted0 = Download completato: {0}.
