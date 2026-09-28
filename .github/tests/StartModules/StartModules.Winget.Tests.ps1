@@ -242,6 +242,7 @@ Describe 'Every translation key used by the fragments exists' {
             (Get-ChildItem (Join-Path $moduleRoot '*.ps1') | Get-Content -Raw) -join "`n",
             "Get-SourceTextLoc\s+(?:'([^']+)'|`"([^`"]+)`")") |
             ForEach-Object { if ($_.Groups[1].Success) { $_.Groups[1].Value } else { $_.Groups[2].Value } } |
+            Where-Object { $_ -and $_ -notmatch '\$' } |   # skip dynamic keys like "summary.$($_.ToLowerInvariant())"
             Sort-Object -Unique
 
         $keys.Count | Should -BeGreaterThan 50
