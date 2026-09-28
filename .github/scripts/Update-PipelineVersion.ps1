@@ -1,14 +1,16 @@
 # WinToolkit CI/CD V4.1.0
-# Aligns the pipeline version across every workflow and composite action.
+# Aligns the pipeline version across every workflow, composite action and
+# pipeline script.
 #
 # SINGLE SOURCE OF TRUTH: the PIPELINE_VERSION value in the canonical workflow
 # (CI-WinToolkit-Dev.yml by default). Edit that one value; this script rewrites
-# the "V<major>.<minor>.<patch>" token in every workflow/action name and header
-# comment, so the version can never drift between the 14 files.
+# the "V<major>.<minor>.<patch>" token in every workflow/action name, and both
+# rewrites and inserts the "# WinToolkit CI/CD V<version>" header in every
+# pipeline script, so the version can never drift.
 #
 # Usage:
 #   .\.github\scripts\Update-PipelineVersion.ps1                 # align (no-op if aligned)
-#   .\.github\scripts\Update-PipelineVersion.ps1 -Version 4.0.4  # set and align
+#   .\.github\scripts\Update-PipelineVersion.ps1 -Version 4.2.0  # set and align
 #   .\.github\scripts\Update-PipelineVersion.ps1 -Check          # fail if any drift
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -24,6 +26,26 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $versionPattern = 'V\d+\.\d+\.\d+'
+
+# Canonical header every pipeline script must carry as its first line.
+$headerPattern = '(?m)^[ \t]*#[ \t]*WinToolkit[ \t]+CI/CD[ \t]+V\d+\.\d+\.\d+[ \t]*\r?$'
+$bomText = "$([char]0xEF)$([char]0xBB)$([char]0xBF)"
+
+# Inserts the header as the very first line, preserving any BOM and the dominant
+# line ending. A leading comment is always syntactically neutral.
+function Add-PipelineHeader {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Version
+    )
+
+    $offset = 0
+    if ($Text.StartsWith($bomText)) { $offset = $bomText.Length }
+
+    $eol = if ($Text.Contains("`r`n")) { "`r`n" } else { "`n" }
+
+    return $Text.Substring(0, $offset) + "# WinToolkit CI/CD V$Version" + $eol + $Text.Substring($offset)
+}
 
 # Reads the canonical value; falls back to -Version when supplied.
 function Get-CanonicalVersion {
