@@ -117,12 +117,17 @@ mistake: the CI gate fails on it.
 
 **How it propagates:**
 
-1. **On every push to `Dev`**, the `sync-pipeline-version` job (in `CI-WinToolkit-Dev.yml`)
-   delegates to `_reusable-pipeline-version.yml`, which checks out `Dev`, runs
-   `Update-PipelineVersion.ps1`, validates the YAML and commits **only the files it changed**.
-2. **On every CI run, including pull requests**, the `Check pipeline version consistency`
-   step in `_reusable-lint-test.yml` runs the same script with `-Check` and **fails the job**
-   if any file drifted, naming the offending files.
+1. **On every CI run, including pull requests**, the `Align pipeline version` step in
+   `_reusable-lint-test.yml` runs the script in write mode: drift is **corrected in place and
+   the run continues**. The pipeline adapts to the single source of truth, it never blocks on
+   it, and the corrected files are already valid for the rest of that same run because the
+   rewrite is byte-level.
+2. **On every push to `Dev`**, the `sync-pipeline-version` job (in `CI-WinToolkit-Dev.yml`)
+   delegates to `_reusable-pipeline-version.yml`, which checks out `Dev`, runs the same
+   script, validates the YAML and commits **only the files it changed**. The commit message
+   carries `[skip ci]`, so a cosmetic alignment never starts a new run that would cancel the
+   one in progress, and the commit step is `continue-on-error`: a push refused by branch
+   protection leaves the run green and the next push re-aligns.
 3. **Locally**, the same script provides the manual path:
 
 ```powershell
@@ -135,13 +140,22 @@ mistake: the CI gate fails on it.
 # Bump and align in one step (the canonical value is updated too)
 .\.github\scripts\Update-PipelineVersion.ps1 -Version 4.2.0
 
-# Gate only: fails when something drifted
+# Diagnostic only: fails when something drifted (never used in CI)
 .\.github\scripts\Update-PipelineVersion.ps1 -Check
 ```
 
 The rewrite is byte-level: only the version token changes, while encoding, BOM and line
 endings are preserved exactly. The script is idempotent, so an aligned repository produces
 no commit and no noise in the run summary.
+
+A pipeline script without the header is treated the same way: it is **inserted**, not
+rejected. The header lands on the first line with BOM and line endings preserved, so a brand
+new `.ps1` can never stay unversioned and can never fail the pipeline because of it.
+
+> [!NOTE]
+> The only version-related failure the pipeline can still raise is a genuine tool bug: after
+> the alignment, every `.ps1` under `.github` is parsed and a syntax error fails the job. That
+> protects against the alignment itself corrupting a script.
 
 ---
 
