@@ -2,13 +2,11 @@
 # LOCALIZATION
 # ============================================================================
 #
-# Resolution order: locally cached language files -> %LOCALAPPDATA% cache ->
-# network refresh. Any network failure falls back to the English strings that
-# are embedded below, so the user never sees a raw "[MISSING TRANSLATION: ...]"
-# placeholder for the messages that matter most.
+# Resolution order: the per-user cache filled by
+# Invoke-SourceTextLanguagePreparation, then the English strings embedded below,
+# so the user never sees a raw "[MISSING TRANSLATION: ...]" placeholder for the
+# messages that matter most. The active and default tables live on $script:State.
 
-$script:SourceTextLanguageData = $null
-$script:SourceTextDefaultLanguageData = $null
 $script:EmbeddedEnglishText = @{
     'uiText.environmentReadyForInstallation'   = 'Environment ready for installation.'
     'uiText.configurationComplete'             = 'Configuration complete.'
