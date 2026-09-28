@@ -558,6 +558,13 @@ function Install-RemoteFile {
 
         $null = Initialize-Directory -Path (Split-Path -Path $Destination -Parent)
         $backupPath = Copy-FileAtomically -SourcePath $stagedPath -Destination $Destination -Backup
+
+        # Re-read the INSTALLED file rather than trusting the staged one: a
+        # truncated swap would otherwise be reported as a successful installation.
+        if (-not (Test-FileHasMinimumSize -Path $Destination -MinimumBytes $MinimumBytes)) {
+            Write-ToolkitLog -Level 'ERROR' -Message "Installed file is smaller than expected: $Destination"
+            return $false
+        }
         if ($backupPath) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.existingProfileSaved0' -Args @($backupPath))
             Remove-ExpiredBackups -Path "$Destination.bak.*" -Keep $BackupRetention
