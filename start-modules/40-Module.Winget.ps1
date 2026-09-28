@@ -589,6 +589,46 @@ function Test-WingetAppInstaller {
 }
 
 
+function Confirm-ToolkitInteractiveAction {
+    <#
+    .SYNOPSIS
+    Asks the user to confirm an action that permanently changes their environment.
+
+    .DESCRIPTION
+    Returns $true only on an explicit yes. Anything else is a no:
+      - a non-interactive session (piped input, scheduled run, CI) is never
+        prompted, because Read-Host would either return immediately or hang the
+        run forever;
+      - an empty answer, an unrecognized answer, or a closed stdin is a no.
+    Used for the few operations that modify the user's own PowerShell profile
+    (for example installing Microsoft.WinGet.Client with -AllowClobber).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Key
+    )
+
+    if ([Console]::IsInputRedirected) {
+        Write-ToolkitLog -Level 'INFO' -Message "Confirmation '$Key' not requested: non-interactive session."
+        return $false
+    }
+
+    try {
+        $answer = Read-Host (Get-SourceTextLoc $Key)
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Confirmation '$Key' failed: $($_.Exception.Message)"
+        return $false
+    }
+
+    $isYes = $answer.Trim() -match '^(s|si|yes|y|true|1)$'
+    if (-not $isYes) {
+        Write-ToolkitLog -Level 'INFO' -Message "Confirmation '$Key' declined or empty; treating as no."
+    }
+    return $isYes
+}
+
+
 function Invoke-ForceCloseWinget {
     <#
     .SYNOPSIS
@@ -961,19 +1001,15 @@ function Install-WingetCore {
 
 
 # ==============================================================================
-# NOTE ON THE WinGet.Client MODULE
+# FORCED REINSTALL OF THE TWO PACKAGES WinGet DEPENDS ON
 # ------------------------------------------------------------------------------
-# The previous last-resort step installed Microsoft.WinGet.Client with
-# `Install-Module -Force -AllowClobber`. That permanently rewrites the USER's
-# PowerShell environment (module plus NuGet provider), can clobber an existing
-# user module, and is not reversible by the toolkit. It has been removed.
+# WinGet is a thin front end: the real work is done by the
+# Microsoft.DesktopAppInstaller AppX package and, for the PowerShell client, by the
+# Microsoft.WinGet.Client module. Both break on real machines (interrupted update,
+# partially removed AppX, corrupt NuGet cache), and repairing them resolves most
+# installation failures - far more often than reinstalling the winget.exe alias.
 #
-# The crash-recovery ladder in Test-WingetDeepValidation now ends with
-# Install-WingetCore, which reinstalls the signed MSIX bundle and leaves the user
-# profile untouched.
-#
-# If a module install is ever reintroduced, it MUST be behind an explicit user
-# confirmation, for the reason above.
+# See Reinstall-WingetForced below for the policy that separates the two.
 # ==============================================================================
 function Reset-WingetSourcesOnce {
     <#
@@ -988,6 +1024,123 @@ function Reset-WingetSourcesOnce {
     if ($script:State.SourcesReset) { return }
     Reset-WingetSources
     $script:State.SourcesReset = $true
+}
+
+
+function Reinstall-WingetForced {
+    <#
+    .SYNOPSIS
+    Forcibly repairs the two packages WinGet depends on: the App Installer AppX
+    package and the Microsoft.WinGet.Client PowerShell module.
+
+    .DESCRIPTION
+    Returns a StepResult. The two halves are deliberately different in nature:
+
+      - Microsoft.DesktopAppInstaller: reset, then reinstall the signed MSIX
+        bundle from Microsoft when the package is missing (or always, with -Force),
+        then verify it is registered. A system package repair, performed
+        unconditionally: it has no lasting effect on the user environment.
+      - Microsoft.WinGet.Client: installs the NuGet provider and the module with
+        -Force -AllowClobber. This permanently rewrites the USER's PowerShell
+        environment and can replace a module the user installed themselves, so it
+        runs ONLY behind an explicit confirmation (-ConfirmModuleInstall) and is
+        skipped outright in a non-interactive session, rather than prompting into
+        a hang. That is the policy agreed for S-7.
+
+    -SkipModule avoids the module half entirely.
+    #>
+    [CmdletBinding()]
+    param(
+        [switch]$ConfirmModuleInstall,
+        [switch]$SkipModule,
+        [switch]$Force
+    )
+
+    $appInstallerRepaired = $false
+    $moduleInstalled = $false
+    $notes = [System.Collections.Generic.List[string]]::new()
+
+    if (-not (Test-WingetCompatibility)) {
+        return New-StepResult -Success $false -Message 'This Windows build is not supported by WinGet.'
+    }
+
+    Invoke-ForceCloseWinget
+
+    # --- 1. Microsoft.DesktopAppInstaller: unconditional system repair --------
+    try {
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.forcedReinstallAppInstaller0')
+        Reset-AppInstallerPackage
+
+        $present = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
+        if (-not ($Force -or -not $present)) {
+            # The reset alone was enough.
+            $appInstallerRepaired = $true
+        }
+        else {
+            $tempInstaller = Join-Path (Initialize-Directory -Path $script:AppConfig.Paths.Temp) 'WingetInstaller.msixbundle'
+            try {
+                if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -Silent `
+                        -ContentValidator (New-SignatureValidator -ProfileKey 'wingetMsix')) {
+                    if (Start-AppxSilentProcess -AppxPath $tempInstaller -Flags '-ForceApplicationShutdown' `
+                            -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
+                        $appInstallerRepaired = $true
+                        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationSuccessful')
+                    }
+                    else { $notes.Add('The App Installer bundle was rejected by Windows.') }
+                }
+                else { $notes.Add('The App Installer bundle could not be downloaded or its signature was not trusted.') }
+            }
+            finally { Remove-PathQuietly -Path $tempInstaller }
+        }
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Forced App Installer repair failed: $($_.Exception.Message)"
+        $notes.Add("App Installer repair failed: $($_.Exception.Message)")
+    }
+
+    # --- 2. Microsoft.WinGet.Client: gated, permanent user environment change --
+    if ($SkipModule) {
+        $notes.Add('Module install skipped as requested.')
+    }
+    elseif ([Console]::IsInputRedirected) {
+        $notes.Add('Module install skipped: no interactive session to confirm it.')
+        Write-ToolkitLog -Level 'INFO' -Message 'Skipped the WinGet.Client module install: non-interactive session.'
+    }
+    elseif (-not $ConfirmModuleInstall) {
+        $notes.Add('Module install skipped: not confirmed.')
+        Write-ToolkitLog -Level 'INFO' -Message 'Skipped the WinGet.Client module install: explicit confirmation not given.'
+    }
+    else {
+        try {
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingMicrosoftWingetClientModule')
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
+            Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetClientModuleInstalled')
+            # External installed module, NOT a start-modules fragment: those are
+            # concatenated at build time and never imported at runtime (irm|iex).
+            Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
+            $moduleInstalled = $true
+        }
+        catch {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.moduloWingetClient0' -Args @($_.Exception.Message))
+            Write-ToolkitLog -Level 'WARNING' -Message "WinGet.Client module install failed: $($_.Exception.Message)"
+            $notes.Add("Module install failed: $($_.Exception.Message)")
+        }
+    }
+
+    # --- 3. Refresh and verify -------------------------------------------------
+    Set-WingetPathPermissions
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
+
+    $health = Get-WingetHealth
+    $detail = ($notes -join ' ')
+    if ($health.Runs) {
+        Reset-WingetSourcesOnce
+        return New-StepResult -Success $true -Changed $true -Message "WinGet operational (v$($health.Version)). $detail".Trim()
+    }
+    $repaired = [bool]($appInstallerRepaired -or $moduleInstalled)
+    return New-StepResult -Success $repaired -Changed $repaired -Message "WinGet still unavailable. $detail".Trim()
 }
 
 
@@ -1027,6 +1180,24 @@ function Initialize-Winget {
     Update-EnvironmentPath
     Invalidate-WingetVersionCache
     $health = Get-WingetHealth
+    if ($health.Runs) {
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRestoredQuickly')
+        Reset-WingetSourcesOnce
+        return New-StepResult -Success $true -Changed $true -Message "WinGet restored (v$($health.Version))."
+    }
+
+    # Last resort: force-repair the two packages WinGet actually depends on, the
+    # App Installer AppX package and the WinGet.Client module. Most of the
+    # "winget is broken" reports on real machines come from those two, not from the
+    # winget.exe alias. The module half modifies the user PowerShell environment
+    # permanently, so it is only attempted with an explicit confirmation.
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptForcedPackageReinstall')
+    $confirmModule = Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0'
+    $null = Reinstall-WingetForced -ConfirmModuleInstall:$confirmModule
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
+    $health = Get-WingetHealth
+
     if (-not $health.Runs) {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts')
         return New-StepResult -Success $false -Message 'WinGet remains unavailable after recovery.'
