@@ -161,6 +161,18 @@ $script:AppConfig = @{
         AlreadyInstalledExitCodes = @(-1978335135, -1978335189)
     }
     WindowsAppsPackageName = 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe'
+    # Processes that lock the App Installer files during a repair or an install.
+    # 'wsappx' is deliberately NOT here: it hosts the AppX/Store service, and
+    # killing it is a system-wide side effect, not a WinGet cleanup. The list only
+    # covers the package manager front ends and their host.
+    WingetProcesses  = @(
+        'WinStore.App',
+        'AppInstaller',
+        'Microsoft.WindowsStore',
+        'Microsoft.DesktopAppInstaller',
+        'winget',
+        'WindowsPackageManagerServer'
+    )
     HostsFilePath     = "$env:SystemRoot\System32\drivers\etc\hosts"
     MinProfileBytes   = 256
     Layout           = @{
