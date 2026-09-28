@@ -75,12 +75,64 @@ function Install-NerdFontsLocal {
 }
 
 
+function Test-OhMyPoshThemeFile {
+    <#
+    .SYNOPSIS
+    Returns $true when the file is a plausible, parseable .omp.json theme.
+
+    .DESCRIPTION
+    A 404 page or a proxy/interstitial HTML response is a perfectly valid download
+    as far as Invoke-WebRequest is concerned, and oh-my-posh then fails at every
+    shell start. Parsing the JSON is what makes "Tema Oh My Posh scaricato"
+    trustworthy instead of optimistic.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    try {
+        if (-not (Test-FileHasMinimumSize -Path $Path -MinimumBytes $script:AppConfig.UserScope.MinThemeFileBytes)) {
+            return $false
+        }
+        $null = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+        return $true
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Oh My Posh theme is not valid JSON ($Path): $($_.Exception.Message)"
+        return $false
+    }
+}
+
+
+
 function Install-PspEnvironment {
     <#
     .SYNOPSIS
     Configures the PowerShell environment with tools, themes and custom profile.
+
+    .DESCRIPTION
+    Returns a result object instead of nothing, so the orchestrator can record the
+    real outcome. Every step is verified on disk: the profile folder is created
+    (even when Documents is empty or missing), the theme is validated as JSON, and
+    the installed profile is re-read from its final location before it is reported
+    as configured.
     #>
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingPowershellEnvironmentSetupPsp')
+
+    $result = [pscustomobject]@{
+        Success          = $true
+        Tools            = [pscustomobject]@{ Installed = @(); Failed = @() }
+        FontOk           = $null
+        ThemeOk          = $false
+        ProfileOk        = $false
+        ProfilePath      = $null
+        ThemePath        = $null
+        WingetRpcFailure = $false
+        Message          = 'PowerShell environment configured.'
+    }
+
+    $context = Get-ToolkitOriginalUserContext
+    if ($context.AccountSwitched) {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.elevationSwitchedAccount0' -Args @($context.OriginalUser, $context.CurrentUser))
+    }
 
     # ============================================================================
     # PSP SETUP EXECUTION
