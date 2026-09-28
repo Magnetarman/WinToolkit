@@ -42,6 +42,22 @@ jobs:
       - name: Setup PowerShell CI modules
         uses: ./.github/actions/setup-powershell-modules
 
+      - name: Normalize fragment spacing
+        shell: pwsh
+        run: |
+          # Source fragments only. The formatter itself refuses every other path,
+          # and the compiled artefacts (WinToolkit.ps1, start-core.ps1) are never
+          # touched: they are machine-only and must stay compact.
+          # On already compliant sources this is a no-op; when a file deviates it
+          # is normalized here and reported as a warning.
+          & ./.github/scripts/Format-FunctionSpacing.ps1 -Path 'start-modules','wintoolkit-modules' -Verbose
+
+          $changed = @(git status --porcelain -- start-modules wintoolkit-modules |
+            Where-Object { $_ -match '^\s*[MADRCU?]' })
+          foreach ($entry in $changed) {
+            Write-Host "::warning file=$($entry.Substring(3))::Fragment spacing normalized by Format-FunctionSpacing.ps1; run it locally and commit the result."
+          }
+
       - name: Lint PowerShell sources
         shell: pwsh
         env:
