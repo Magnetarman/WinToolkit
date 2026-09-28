@@ -210,13 +210,16 @@ Contains third-party executables and tools used by the toolkit. These files are 
 #### `/.github/` Folder - CI/CD Infrastructure
 
 - **workflows/**: GitHub Actions pipelines for CI/CD and automatic distribution
-    - `CI-WinToolkit-Dev.yml`: Adaptive Enterprise pipeline (full Dev, lightweight feature/fix, PR quality gate)
+    - `CI-WinToolkit-Dev.yml`: Adaptive Enterprise pipeline (full Dev, lightweight feature/fix, PR quality gate). Holds `PIPELINE_VERSION`, the single source of truth for the pipeline version
     - `CI-WinToolkit-Main.yml`: Pipeline for verifying the main branch
     - `Release-PreRelease.yml`: Workflow for release creation and notes generation
     - `Release-Stable.yml`: Pipeline for creating release branches and merging to main
     - `Security-Scan.yml`, `Maintenance-Stale.yml`: Maintenance workflows
+    - `_reusable-*.yml`: Reusable building blocks (lint and test, both artifact builds, versioning, pipeline version sync)
 - **scripts/**: PowerShell scripts for build and test automation
     - `Update-Version.ps1`: Project version management
+    - `Update-PipelineVersion.ps1`: Aligns the pipeline version across workflows, actions and pipeline scripts (use `-Check` to fail on drift)
+    - `Format-FunctionSpacing.ps1`: Blank-line normalizer for the source fragments; compiled artifacts are out of scope by design
     - `Invoke-Build.ps1`: Official compiler wrapper with compression statistics
     - `Test-CompiledScript.ps1`: Post-compilation validation (syntax, functions, menu, size, encoding)
     - `New-ReleaseNotes.ps1`: Release notes generation
@@ -233,6 +236,14 @@ Contains third-party executables and tools used by the toolkit. These files are 
 - **CODE_OF_CONDUCT.md**: Community code of conduct
 - **CONTRIBUTING.md**: Contribution guidelines
 - **pull_request_template.md**: Pull Request template
+> **Pipeline version:** never edit version numbers by hand in workflow files, composite
+> actions or pipeline scripts. Change the single `PIPELINE_VERSION` value in
+> `.github/workflows/CI-WinToolkit-Dev.yml` and let the CI sync job propagate it; the
+> `Check pipeline version consistency` gate fails any pull request that drifts.
+>
+> **Compiled artifacts:** `WinToolkit.ps1` and `start-core.ps1` are generated and executed
+> only, never reviewed. Do not reformat them and do not run formatting tools against them.
+
 - **CODEOWNERS**: Codebase owners
 
 #### Root Files
