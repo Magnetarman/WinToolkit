@@ -238,8 +238,8 @@ Contains third-party executables and tools used by the toolkit. These files are 
 - **pull_request_template.md**: Pull Request template
 > **Pipeline version:** never edit version numbers by hand in workflow files, composite
 > actions or pipeline scripts. Change the single `PIPELINE_VERSION` value in
-> `.github/workflows/CI-WinToolkit-Dev.yml` and let the CI sync job propagate it; the
-> `Check pipeline version consistency` gate fails any pull request that drifts.
+> `.github/workflows/CI-WinToolkit-Dev.yml`: CI adapts every file to it automatically and
+> never fails a run because of a version mismatch.
 >
 > **Compiled artifacts:** `WinToolkit.ps1` and `start-core.ps1` are generated and executed
 > only, never reviewed. Do not reformat them and do not run formatting tools against them.
