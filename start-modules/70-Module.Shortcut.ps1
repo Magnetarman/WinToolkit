@@ -49,7 +49,7 @@ function New-ToolkitDesktopShortcut {
         # Download the icon unless a previous run left a usable one: the size check
         # rejects partial downloads and HTML error pages saved as .ico.
         if (-not (Test-FileHasMinimumSize -Path $icon -MinimumBytes $script:MIN_ICON_FILE_BYTES)) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadIcona')
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadIcon')
             $null = Invoke-DownloadFile -Uri $script:AppConfig.URLs.ToolkitIcon -OutFile $icon -MinimumBytes $script:MIN_ICON_FILE_BYTES
         }
 
