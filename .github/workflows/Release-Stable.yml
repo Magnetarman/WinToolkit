@@ -1,7 +1,7 @@
 # Create a new release branch (release/v*) from main, pulling distribution
 # files from the Dev branch. Runtime: PowerShell 7+.
 
-name: WinToolkit — Create Stable Release V4.0.2
+name: WinToolkit — Create Stable Release V4.0.3
 
 on:
   workflow_dispatch:

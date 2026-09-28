@@ -1,8 +1,8 @@
-# WinToolkit CI Dev Pipeline V4.0.2
+# WinToolkit CI Dev Pipeline V4.0.3
 # Triggers: push to Dev/feature/fix/feat/hotfix/bug/enhancement/* -> lint+test+build; PR to Dev -> lint+test only.
 # Build regenerates WinToolkit.ps1 from pure sources (pre-existing file removed first). AST-validated before compile.
 
-name: WinToolkit — CI Dev Pipeline V4.0.2
+name: WinToolkit — CI Dev Pipeline V4.0.3
 
 env:
   # Force Node 24 in Actions to avoid GitHub warnings about deprecated versions

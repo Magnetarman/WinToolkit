@@ -1,5 +1,5 @@
 # Close stale issues/PRs; Backlog milestone items are marked but never closed.
-name: WinToolkit — Stale Maintenance V4.0.2
+name: WinToolkit — Stale Maintenance V4.0.3
 
 on:
   schedule:
