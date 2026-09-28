@@ -88,6 +88,14 @@ $script:AppConfig = @{
         GitRelease        = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
         OhMyPoshTheme     = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
+        # Same theme, alternate transports. Invoke-DownloadFile accepts a list of
+        # candidate URLs and only reports success once the payload is verified, so
+        # a 404 on one endpoint (or a transient GitHub hiccup) is not fatal.
+        OhMyPoshThemeFallback = @(
+            "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json",
+            "https://github.com/JanDeDobbeleer/oh-my-posh/raw/refs/heads/main/themes/atomic.omp.json",
+            "https://cdn.jsdelivr.net/gh/JanDeDobbeleer/oh-my-posh@main/themes/atomic.omp.json"
+        )
         TerminalRelease   = "https://api.github.com/repos/microsoft/terminal/releases/latest"
         WebInstaller      = "https://magnetarman.com/WinToolkit-Dev"
     }
@@ -97,9 +105,34 @@ $script:AppConfig = @{
         Languages     = "$env:LOCALAPPDATA\WinToolkit\languages"
         Temp          = "$env:TEMP\WinToolkitSetup"
         Packages      = "$env:LOCALAPPDATA\Packages"
-        Desktop       = [Environment]::GetFolderPath('Desktop')
+        # Desktop and MyDocuments are NOT resolved here on purpose: the header runs
+        # before the helper functions are defined, and [Environment]::GetFolderPath
+        # returns an empty string when a known folder is missing or unresolved (an
+        # empty or freshly reset Documents folder), which would silently redirect the
+        # profile to <drive>:\PowerShell. Both are resolved, created and verified at
+        # runtime by Get-ToolkitUserFolderPath (see 80-Module.Common.ps1).
+        Desktop       = $null
+        MyDocuments   = $null
         wtExe         = "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe"
         wtDir         = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
+    }
+    # Known-folder resolution policy, consumed by Get-ToolkitUserFolderPath.
+    UserScope       = @{
+        # Environment variables written by the start.ps1 stub BEFORE it elevates
+        # itself, so the user-scoped artifacts (profile, theme, desktop shortcut)
+        # always land in the interactive user's account even when UAC elevation
+        # switched to a different administrator account.
+        EnvUser           = 'WTOOLKIT_ORIGINAL_USER'
+        EnvUserProfile    = 'WTOOLKIT_ORIGINAL_USERPROFILE'
+        EnvDesktop        = 'WTOOLKIT_ORIGINAL_DESKTOP'
+        EnvMyDocuments    = 'WTOOLKIT_ORIGINAL_MYDOCUMENTS'
+        # Leaf folder created (and verified) under the Documents known folder.
+        PowerShellProfileFolder = 'PowerShell'
+        ThemesFolderName        = 'Themes'
+        ProfileFileName         = 'Microsoft.PowerShell_profile.ps1'
+        ThemeFileName           = 'atomic.omp.json'
+        # Smallest plausible size (bytes) of a valid .omp.json theme.
+        MinThemeFileBytes = 512
     }
     Registry         = @{
         TerminalStartup = "HKCU:\Console\%%Startup"
@@ -160,6 +193,9 @@ $script:UpdateServicesSuspended = $false
 $script:CurrentLogFile = $null
 $script:SetupResults = @()
 $script:SetupExitCode = 1
+# Cached interactive-user context, resolved on first use by
+# Get-ToolkitOriginalUserContext (see 80-Module.Common.ps1).
+$script:OriginalUserContext = $null
 
 enum WingetRepairLevel {
     SourceReset
