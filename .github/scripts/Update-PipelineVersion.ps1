@@ -96,7 +96,7 @@ foreach ($file in $files) {
 if ($Check) {
     if ($drift.Count -gt 0) {
         Write-Host "::error::Pipeline version drift against V$target in: $($drift -join ', ')"
-        throw 'Pipeline version is not aligned; run Update-PipelineVersion.ps1 locally and commit.'
+        throw "Pipeline version is not aligned with V$target. Run Update-PipelineVersion.ps1 locally and commit. Drifted files: $($drift -join ', ')"
     }
     Write-Host "Pipeline version aligned: V$target"
     return
