@@ -5,15 +5,19 @@
 function Get-WinGetExecutable {
     <#
     .SYNOPSIS
-    Gets the valid path of winget.exe, with direct fallback.
+    Returns the path of a usable winget.exe, or $null when WinGet is missing.
+
+    .DESCRIPTION
+    Only stable locations are considered: the per-user execution alias and the
+    command resolver. Versioned WindowsApps paths are never used, because they
+    change on every App Installer update.
     #>
-    # Try the standard alias path first
+    # Single place that knows the stable per-user execution alias.
     $aliasPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
     if (Test-Path $aliasPath) {
         return $aliasPath
     }
 
-    # Use the command resolver as a second stable-alias lookup.
     $command = Get-Command winget.exe -ErrorAction SilentlyContinue
     if ($command -and $command.Source -and (Test-Path -LiteralPath $command.Source)) {
         return $command.Source
@@ -43,7 +47,13 @@ function Register-WingetAppExecutionAlias {
 function Start-AppxSilentProcess {
     <#
     .SYNOPSIS
-        Installs AppX in the background suppressing native progress bars.
+        Installs an AppX/MSIX package through a hidden PowerShell child process.
+
+    .DESCRIPTION
+        Add-AppxPackage writes a native "Deployment operation progress" activity to
+        the host console, so the install runs in a child process to keep the toolkit
+        output clean. The child falls back to Add-AppxProvisionedPackage for the
+        error codes that require provisioning.
     #>
     param(
         [string]$AppxPath,
@@ -89,26 +99,19 @@ exit 0
 "@
     $encodedCmd = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cmd))
 
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = "powershell.exe"
-    $psi.Arguments = "-NoProfile -NonInteractive -EncodedCommand $encodedCmd"
-    $psi.CreateNoWindow = $true
-    $psi.UseShellExecute = $false
-
-    $proc = [System.Diagnostics.Process]::Start($psi)
+    # Invoke-ExternalCommand owns the process plumbing (detached console, drained
+    # streams, timeout and process-tree kill), so AppX installs get the same
+    # timeout handling as every other installer.
+    $result = Invoke-ExternalCommand -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-NonInteractive', '-EncodedCommand', $encodedCmd) -TimeoutSeconds $TimeoutSeconds
     try {
-        if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
-            $proc.Kill()
-            $proc.WaitForExit()
+        if ($result.TimedOut) {
             Write-ToolkitLog -Level 'ERROR' -Message "AppX installation timeout after $TimeoutSeconds seconds: $AppxPath"
             return $false
         }
 
-        if ($proc.ExitCode -ne 0) {
-            if (Test-Path $errFile) {
-                $errMsg = Get-Content $errFile -Raw
-                Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.appxInstallFailed01' -Args @($AppxPath, $errMsg))
-            }
+        if ($result.ExitCode -ne 0) {
+            $errMsg = if (Test-Path $errFile) { Get-Content $errFile -Raw } else { '' }
+            Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.appxInstallFailed01' -Args @($AppxPath, $errMsg))
             return $false
         }
 
@@ -120,7 +123,6 @@ exit 0
         return $true
     }
     finally {
-        $proc.Dispose()
         if (Test-Path $errFile) {
             Remove-Item $errFile -Force -ErrorAction SilentlyContinue
         }
@@ -153,40 +155,54 @@ function Reset-AppxPackageSilently {
 }
 
 
+function Reset-AppInstallerPackage {
+    <#
+    .SYNOPSIS
+    Resets the App Installer package that provides WinGet, when it is installed.
+    #>
+    Write-ToolkitLog -Level 'INFO' -Message 'Resetting Microsoft.DesktopAppInstaller package.'
+    Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue | Reset-AppxPackageSilently
+}
+
+
 function Invoke-WingetCommand {
     <#
     .SYNOPSIS
-    Executes a Winget command with cross-version compatibility handling.
+    Runs one WinGet command line and returns a structured result.
+
+    .DESCRIPTION
+    Single entry point for WinGet invocations: it resolves winget.exe once and
+    appends --disable-interactivity only on the versions that support it (1.4+),
+    so one call site works on every WinGet build. Failure paths return the same
+    shape as success paths, with ExitCode -1.
     #>
     param(
-        [string]$Arguments,
-        [int]$TimeoutSeconds = 120
+        [Parameter(Mandatory = $true)][string]$Arguments,
+        [int]$TimeoutSeconds = 120,
+        [switch]$CaptureOutput
     )
 
     try {
         $wingetExe = Get-WinGetExecutable
         if (-not $wingetExe) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFoundInSystem')
-            return @{ ExitCode = -1 }
+            return New-ExternalCommandResult -ExitCode -1 -FilePath 'winget.exe' -ArgumentList @($Arguments) -Error 'WinGet executable not found.'
         }
 
-        # Check winget version for backward compatibility
-        # --disable-interactivity is supported from version 1.4+
+        # --disable-interactivity is accepted from WinGet 1.4 onwards.
         $versionRaw = (& $wingetExe --version 2>$null) | Out-String
         $isModern = $versionRaw -match 'v1\.[4-9]' -or $versionRaw -match 'v[2-9]'
-
-        # Add the flag only if supported (v1.4+)
         $finalArgs = if ($isModern) { "$Arguments --disable-interactivity" } else { $Arguments }
 
-        $result = Invoke-ExternalCommand -FilePath $wingetExe -ArgumentList (ConvertTo-ProcessArgumentList -Arguments $finalArgs) -TimeoutSeconds $TimeoutSeconds
+        $result = Invoke-ExternalCommand -FilePath $wingetExe -ArgumentList (ConvertTo-ProcessArgumentList -Arguments $finalArgs) -TimeoutSeconds $TimeoutSeconds -CaptureOutput:$CaptureOutput
         if ($result.TimedOut) {
             Write-ToolkitLog -Level 'ERROR' -Message "Winget timeout after $TimeoutSeconds seconds: $Arguments"
         }
         return $result
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetCommandError0' -Args @($($_.Exception.Message)))
-        return @{ ExitCode = -1 }
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetCommandError0' -Args @($_.Exception.Message))
+        return New-ExternalCommandResult -ExitCode -1 -FilePath 'winget.exe' -ArgumentList @($Arguments) -Error $_.Exception.Message
     }
 }
 
@@ -194,16 +210,15 @@ function Invoke-WingetCommand {
 function Reset-WingetSources {
     <#
     .SYNOPSIS
-    Resets Winget sources to force repository metadata refresh.
+    Resets WinGet sources to force a repository metadata refresh.
+
+    .DESCRIPTION
+    Single place that performs the reset: the msstore repair, the database restore
+    and the reinstall path all call this one instead of invoking winget directly.
     #>
-    try {
-        $wingetExe = Get-WinGetExecutable
-        if ($wingetExe) {
-            $null = & $wingetExe source reset --force 2>&1
-        }
-    }
-    catch {
-        Write-ToolkitLog -Level 'WARNING' -Message "Winget source reset failed: $($_.Exception.Message)"
+    $result = Invoke-WingetCommand -Arguments 'source reset --force'
+    if ($result.ExitCode -ne 0) {
+        Write-ToolkitLog -Level 'WARNING' -Message "Winget source reset failed with exit code $($result.ExitCode)."
     }
 }
 
@@ -211,24 +226,26 @@ function Reset-WingetSources {
 function Repair-WingetMsStoreSource {
     <#
     .SYNOPSIS
-    Detects and fixes msstore certificate pinning failure (0x8a15005e).
+    Detects and fixes the msstore certificate pinning failure (0x8a15005e).
+
+    .DESCRIPTION
+    Best effort only: when the msstore source stays unusable the caller keeps
+    working with the remaining sources, so every failure here stays a log line.
     #>
     try {
         $wingetExe = Get-WinGetExecutable
         if (-not $wingetExe) { return }
 
-        $output = & $wingetExe source update --source msstore --accept-source-agreements 2>&1
-        $exitCode = $LASTEXITCODE
+        $result = Invoke-WingetCommand -Arguments 'source update --source msstore --accept-source-agreements' -CaptureOutput
+        $sourceOutput = "$($result.StdOut)$($result.StdErr)"
+        if ($result.ExitCode -eq 0 -or $sourceOutput -notmatch '0x8a15005e') { return }
 
-        if ($exitCode -ne 0 -and $output -match '0x8a15005e') {
-            Write-StyledMessage -Type Warning -Text "Detected msstore certificate pinning failure (0x8a15005e). Resetting Winget sources to default..."
-            $null = & $wingetExe source reset --force 2>&1
-            Update-EnvironmentPath
-            Write-StyledMessage -Type Success -Text "Winget sources reset completed. Using 'winget' source only."
-        }
+        Write-StyledMessage -Type Warning -Text "Detected msstore certificate pinning failure (0x8a15005e). Resetting WinGet sources to default..."
+        Reset-WingetSources
+        Update-EnvironmentPath
+        Write-StyledMessage -Type Success -Text "WinGet sources reset completed. Using the 'winget' source only."
     }
     catch {
-        # Non critical: the caller keeps working with the remaining sources.
         Write-ToolkitLog -Level 'DEBUG' -Message "msstore source repair skipped: $($_.Exception.Message)"
     }
 }
@@ -244,31 +261,42 @@ function Repair-AppInstaller {
 
     if (-not $PSCmdlet.ShouldProcess('Microsoft.DesktopAppInstaller', 'Repair App Installer')) { return }
 
+    $tempFile = $null
     try {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'App Installer already exposes winget.' }
         }
+
         $changed = $false
-        $pkg = Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue
-        if ($pkg) {
-            $pkg | Reset-AppxPackageSilently
+        if (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue) {
+            Reset-AppInstallerPackage
             $changed = $true
         }
+
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            # Reinstall from the official App Installer bundle when the reset did
+            # not bring the winget alias back.
             $tempFile = Join-Path $env:TEMP 'WingetInstaller.msixbundle'
-            Invoke-WebRequest -Uri 'https://aka.ms/getwinget' -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
+            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempFile)) {
+                throw 'App Installer bundle download failed.'
+            }
             if (-not (Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller')) {
                 throw 'App Installer package installation failed.'
             }
-            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
             $changed = $true
         }
+
         if (-not (Register-WingetAppExecutionAlias)) { throw 'App Installer execution alias registration failed.' }
         return [pscustomobject]@{ Success = $true; Changed = $changed; Message = 'App Installer repaired and alias registered.' }
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "App Installer repair failed: $($_.Exception.Message)"
         return [pscustomobject]@{ Success = $false; Changed = $false; Message = $_.Exception.Message }
+    }
+    finally {
+        if ($tempFile -and (Test-Path -LiteralPath $tempFile)) {
+            Remove-Item -LiteralPath $tempFile -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -282,7 +310,7 @@ function Test-WingetCompatibility {
     $build = $osInfo.Version.Build
 
     if ($osInfo.Version.Major -lt 10) {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.wingetNotSupportedOnWindows0' -Args @($($osInfo.Version.Major)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.wingetNotSupportedOnWindows0' -Args @($osInfo.Version.Major))
         return $false
     }
     # WinGet requires Windows 10 1809 (build 17763) or newer.
@@ -301,7 +329,7 @@ function Test-WingetFunctionality {
     #>
     Write-StyledMessage -Type Info -Text ("🔍 " + (Get-SourceTextLoc 'uiText.checkWingetFunctionality'))
 
-    # Update PATH to detect recent installations
+    # Reload PATH first, so a WinGet installed moments ago is detected.
     Update-EnvironmentPath
 
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
@@ -310,17 +338,19 @@ function Test-WingetFunctionality {
     }
 
     try {
-        # Usa --version: locale, immediato, non richiede connessione internet
-        $versionOutput = (& winget --version 2>$null) | Out-String
-        if ($LASTEXITCODE -eq 0 -and $versionOutput -match 'v\d+\.\d+') {
-            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.operationalWingetVersion0' -Args @($($versionOutput.Trim()))))
+        # --version is local and immediate: no network round trip, so it isolates
+        # "WinGet runs" from "the repositories are reachable".
+        $result = Invoke-WingetCommand -Arguments '--version' -CaptureOutput
+        $versionOutput = $result.StdOut.Trim()
+        if ($result.ExitCode -eq 0 -and $versionOutput -match 'v\d+\.\d+') {
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.operationalWingetVersion0' -Args @($versionOutput))
             return $true
         }
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetPresentButNotRespondingCorrectlyExitcode0' -Args @($LASTEXITCODE))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetPresentButNotRespondingCorrectlyExitcode0' -Args @($result.ExitCode))
         return $false
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.errorDuringWingetTest0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.errorDuringWingetTest0' -Args @($_.Exception.Message))
         return $false
     }
 }
@@ -348,25 +378,27 @@ function Test-WingetAppInstaller {
     $present = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
 
     try {
+        # Microsoft.AppInstaller is the WinGet catalog ID; the AppX package is
+        # Microsoft.DesktopAppInstaller (checked above with Get-AppxPackage).
         if (-not $present) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerNotFoundInstalling')
-            $null = & $wingetExe install --id Microsoft.AppInstaller --source winget --accept-package-agreements --accept-source-agreements --force 2>&1
+            $null = Invoke-WingetCommand -Arguments 'install --id Microsoft.AppInstaller --source winget --accept-package-agreements --accept-source-agreements --force'
         }
         else {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerPresentForcingUpdate')
-            $null = & $wingetExe upgrade --id Microsoft.AppInstaller --source winget --accept-package-agreements --accept-source-agreements --force 2>&1
+            $null = Invoke-WingetCommand -Arguments 'upgrade --id Microsoft.AppInstaller --source winget --accept-package-agreements --accept-source-agreements --force'
         }
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdateError0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdateError0' -Args @($_.Exception.Message))
     }
 
     $ok = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
     if ($ok) {
-        Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdated'))
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerUpdated')
     }
     else {
-        Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.microsoftAppInstallerInstallationFailed'))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.microsoftAppInstallerInstallationFailed')
     }
     return $ok
 }
@@ -375,17 +407,18 @@ function Test-WingetAppInstaller {
 function Invoke-ForceCloseWinget {
     <#
     .SYNOPSIS
-    Closes the processes that actually block Appx installation.
-    Safe approach that avoids killing system-critical processes.
+    Closes the processes that block an AppX install, and nothing else.
+
+    .DESCRIPTION
+    Only the names listed in AppConfig.WingetProcesses are targeted, so
+    system-critical processes are never touched and the running toolkit process
+    is always spared.
     #>
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.closingInterferingProcesses')
 
-    # Targeted list of processes that actually block Appx installation
-    $interferingProcesses = $script:AppConfig.WingetProcesses
-
-    foreach ($procName in $interferingProcesses) {
+    foreach ($procName in $script:AppConfig.WingetProcesses) {
         Get-Process -Name $procName -ErrorAction SilentlyContinue |
-        Where-Object { $_.Id -ne $PID } |  # Don't kill ourselves
+        Where-Object { $_.Id -ne $PID } |  # Never kill the toolkit itself.
         Stop-Process -Force -ErrorAction SilentlyContinue
     }
     Start-Sleep 2
@@ -412,6 +445,36 @@ function Set-WingetPathPermissions {
 }
 
 
+function Invoke-WinGetPackageManagerRepair {
+    <#
+    .SYNOPSIS
+    Runs Repair-WinGetPackageManager (Microsoft.WinGet.Client) when it is available.
+
+    .DESCRIPTION
+    WinGet reports 0x80073D06 when a newer App Installer is already present, which
+    is a success for a repair attempt rather than a failure. Kept in one place so
+    the database restore and the reinstall path report it identically.
+    #>
+    if (-not (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue)) {
+        return $false
+    }
+
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.tentativoRiparazioneWingetRepairWingetpackagemanager')
+    try {
+        Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
+        return $true
+    }
+    catch {
+        if ($_.Exception.Message -match '0x80073D06') {
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerIgnoredHigherVersionAlreadyPresent')
+            return $true
+        }
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerFallito0' -Args @($_.Exception.Message))
+        return $false
+    }
+}
+
+
 function Repair-WingetDatabase {
     <#
     .SYNOPSIS
@@ -420,10 +483,10 @@ function Repair-WingetDatabase {
     Write-StyledMessage -Type Info -Text ("🔧 " + (Get-SourceTextLoc 'uiText.startWingetDatabaseRecovery'))
 
     try {
-        # 1. Ferma i processi interferenti
+        # 1. Stop the processes that lock the package files.
         Invoke-ForceCloseWinget
 
-        # 2. Pulizia cache locale di Winget
+        # 2. Drop the local WinGet cache, keeping the lock and tmp folders.
         $wingetCachePath = "$env:LOCALAPPDATA\WinGet"
         if (Test-Path $wingetCachePath) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.puliziaCacheWinget')
@@ -434,12 +497,12 @@ function Repair-WingetDatabase {
                     Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
                 }
                 catch {
-                    Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase 1: $($_.Exception.Message)"
+                    Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase cache: $($_.Exception.Message)"
                 }
             }
         }
 
-        # 3. Remove corrupted state files (JSON only)
+        # 3. Remove the corrupted JSON state files.
         $stateFiles = @(
             "$env:LOCALAPPDATA\WinGet\Data\USERTEMPLATE.json",
             "$env:LOCALAPPDATA\WinGet\Data\DEFAULTUSER.json"
@@ -452,71 +515,69 @@ function Repair-WingetDatabase {
             }
         }
 
-        # 4. Reset Winget sources
+        # 4. Reset the sources.
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetWingetSources')
-        try {
-            $null = & winget.exe source reset --force 2>&1
-        }
-        catch {
-            Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase 2: $($_.Exception.Message)"
-        }
+        Reset-WingetSources
 
-        # 5. Full reset of the AppInstaller package (Crucial for ACCESS_VIOLATION)
+        # 5. Reset the App Installer package: the decisive step for the
+        #    ACCESS_VIOLATION crash (0xC0000005).
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetPackageMicrosoftDesktopappinstaller')
         if (Get-Command Reset-AppxPackage -ErrorAction SilentlyContinue) {
-            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackageSilently
+            Reset-AppInstallerPackage
         }
 
-        # 6. Re-register AppInstaller manifest
+        # 6. Re-register the App Installer manifest.
         try {
             $manifest = (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue).InstallLocation
             if ($manifest) {
                 $manifestXml = Join-Path $manifest 'AppxManifest.xml'
                 if (Test-Path $manifestXml) {
                     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.reRegisterManifestAppxmanifestXml')
-                    Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown' | Out-Null
+                    $null = Start-AppxSilentProcess -AppxPath $manifestXml -Flags '-DisableDevelopmentMode -Register -ForceApplicationShutdown'
                 }
             }
         }
         catch {
-            Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase 3: $($_.Exception.Message)"
+            Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase manifest: $($_.Exception.Message)"
         }
 
-        # 7. Retry with WinGet module if available
-        try {
-            if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.esecuzioneRepairWingetpackagemanager')
-                Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
-            }
-        }
-        catch {
-            if ($_.Exception.Message -match '0x80073D06') {
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerCompletedHigherVersionAlreadyPresent')
-            }
-            else {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.repairModuleFailed0' -Args @($($_.Exception.Message)))
-            }
-        }
+        # 7. Let the WinGet module repair itself, when it is installed.
+        $null = Invoke-WinGetPackageManagerRepair
 
-        # 8. Applica permessi e refresh PATH
+        # 8. Re-apply permissions and refresh PATH.
         Set-WingetPathPermissions
         Update-EnvironmentPath
 
-        # 9. Verify winget responds
+        # 9. Verify that winget answers again.
         Start-Sleep 2
-        $testVersion = & winget --version 2>$null
-        if ($LASTEXITCODE -ne 0) {
-            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.restoreCompletedButWingetMayNotWork'))
+        $versionResult = Invoke-WingetCommand -Arguments '--version' -CaptureOutput
+        if ($versionResult.ExitCode -ne 0) {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.restoreCompletedButWingetMayNotWork')
         }
         else {
-            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.wingetDatabaseRestoredVersion0' -Args @($testVersion)))
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetDatabaseRestoredVersion0' -Args @($versionResult.StdOut.Trim()))
         }
         return $true
     }
     catch {
-        Write-StyledMessage -Type Error -Text ((Get-SourceTextLoc 'uiText.errorRestoringDatabase0' -Args @($($_.Exception.Message))))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.errorRestoringDatabase0' -Args @($_.Exception.Message))
         return $false
     }
+}
+
+
+function Test-WingetAccessViolation {
+    <#
+    .SYNOPSIS
+    Returns $true when an exit code is the 0xC0000005 access violation WinGet crash.
+
+    .DESCRIPTION
+    Typed as long because WinGet reports the crash both as the signed and as the
+    unsigned 32-bit value, and the unsigned one does not fit in an Int32.
+    #>
+    param([Parameter(Mandatory = $true)][long]$ExitCode)
+
+    return $ExitCode -eq $script:EXITCODE_ACCESS_VIOLATION_SIGNED -or $ExitCode -eq $script:EXITCODE_ACCESS_VIOLATION
 }
 
 
@@ -528,62 +589,55 @@ function Test-WingetDeepValidation {
     Write-StyledMessage -Type Info -Text ("🔍 " + (Get-SourceTextLoc 'uiText.deepTestExecutionOfWingetSearchForPacketsOnTheNetwork'))
 
     try {
-        $wingetExe = Get-WinGetExecutable
-        if (-not $wingetExe) {
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFoundInSystem')
-            return $false
-        }
+        # One search covers repository connectivity, local database integrity and
+        # the WinGet parser, and reports a crash through the exit code. A missing
+        # WinGet is reported by Invoke-WingetCommand itself.
+        $searchResult = Invoke-WingetCommand -Arguments 'search Git.Git --accept-source-agreements' -CaptureOutput
+        $exitCode = $searchResult.ExitCode
 
-        # Tests connectivity to repositories, local DB integrity and Winget parser
-        # Performs direct search to obtain correct ExitCode
-        $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
-        $exitCode = $LASTEXITCODE
+        if (Test-WingetAccessViolation -ExitCode $exitCode) {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.crashDetectedExitcode0AccessViolationAdvancedRecoveryAttempt' -Args @($exitCode))
 
-        # Check for access violation crash (0xC0000005)
-        if ($exitCode -eq $script:EXITCODE_ACCESS_VIOLATION_SIGNED -or $exitCode -eq $script:EXITCODE_ACCESS_VIOLATION) {
-            Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.crashDetectedExitcode0AccessViolationAdvancedRecoveryAttempt' -Args @($exitCode)))
+            # Escalating recovery: restore the database first, reinstall WinGet only
+            # if the crash survives the restore.
+            $recoverySteps = @(
+                @{ Level = 'FullDatabase'; WarningKey = $null; InfoKey = 'uiText.repeatTestAfterDatabaseRestore' },
+                @{ Level = 'FullReinstall'; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
+            )
+            foreach ($step in $recoverySteps) {
+                if ($step.WarningKey) {
+                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc $step.WarningKey)
+                }
+                $null = Repair-Winget -Level $step.Level
 
-            # 1. Try DB restore + Appx reset first
-            $null = Repair-Winget -Level FullDatabase
-
-            Write-StyledMessage -Type Info -Text ("🔄 " + (Get-SourceTextLoc 'uiText.repeatTestAfterDatabaseRestore'))
-            Start-Sleep 3
-            $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
-            $exitCode = $LASTEXITCODE
-
-            # 2. If it still crashes, try complete reinstall
-            if ($exitCode -eq $script:EXITCODE_ACCESS_VIOLATION_SIGNED -or $exitCode -eq $script:EXITCODE_ACCESS_VIOLATION) {
-                Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'))
-                $null = Repair-Winget -Level FullReinstall
-
-                Write-StyledMessage -Type Info -Text ("🔄 " + (Get-SourceTextLoc 'uiText.finalTestAfterReinstallation'))
+                Write-StyledMessage -Type Info -Text ("🔄 " + (Get-SourceTextLoc $step.InfoKey))
                 Start-Sleep 3
-                $searchResult = & $wingetExe search "Git.Git" --accept-source-agreements 2>&1
-                $exitCode = $LASTEXITCODE
+                $searchResult = Invoke-WingetCommand -Arguments 'search Git.Git --accept-source-agreements' -CaptureOutput
+                $exitCode = $searchResult.ExitCode
+                if (-not (Test-WingetAccessViolation -ExitCode $exitCode)) { break }
             }
         }
 
         if ($exitCode -eq 0) {
-            # Controllo freschezza sorgenti
-            try {
-                $null = & $wingetExe source update --accept-source-agreements 2>&1
+            # A successful search is also the moment to refresh the source metadata.
+            $sourceUpdate = Invoke-WingetCommand -Arguments 'source update --accept-source-agreements'
+            if ($sourceUpdate.ExitCode -ne 0) {
+                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'toolText.sourceUpdateError0' -Args @($sourceUpdate.ExitCode))
             }
-            catch {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'toolText.sourceUpdateError0' -Args @($($_.Exception.Message)))
-            }
-            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.deepTestPassedWingetCommunicatesCorrectlyWithRepositories'))
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.deepTestPassedWingetCommunicatesCorrectlyWithRepositories')
             return $true
         }
-        # Logga i dettagli per debug
-        $errorDetails = $searchResult | Out-String
+
+        # Keep only the head of the output: it is the part that names the failure.
+        $errorDetails = "$($searchResult.StdOut)$($searchResult.StdErr)"
         if ($errorDetails.Length -gt 200) {
             $errorDetails = $errorDetails.Substring(0, 200) + "."
         }
-        Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.deepTestFailedExitcode0Details1' -Args @($exitCode, $errorDetails)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.deepTestFailedExitcode0Details1' -Args @($exitCode, $errorDetails))
         return $false
     }
     catch {
-        Write-StyledMessage -Type Error -Text ((Get-SourceTextLoc 'uiText.errorDuringWingetDeepTest0' -Args @($($_.Exception.Message))))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.errorDuringWingetDeepTest0' -Args @($_.Exception.Message))
         return $false
     }
 }
@@ -592,11 +646,12 @@ function Test-WingetDeepValidation {
 function Get-WingetDownloadUrl {
     <#
     .SYNOPSIS
-    Recupera l'URL di download dell'ultimo asset di Winget CLI da GitHub.
+    Resolves the download URL of the newest WinGet CLI asset published on GitHub.
     #>
-    param([string]$Match)
+    param([Parameter(Mandatory = $true)][string]$Match)
+
     try {
-        $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -UseBasicParsing
+        $latest = Invoke-RestMethod -Uri $script:AppConfig.URLs.WingetCliRelease -UseBasicParsing
         $asset = $latest.assets | Where-Object { $_.name -match $Match } | Select-Object -First 1
         if ($asset) {
             return $asset.browser_download_url
@@ -604,7 +659,7 @@ function Get-WingetDownloadUrl {
         throw (Get-SourceTextLoc 'uiText.asset0NotFound' -Args @($Match))
     }
     catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.assetUrlRetrievalError0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.assetUrlRetrievalError0' -Args @($_.Exception.Message))
         return $null
     }
 }
@@ -626,68 +681,57 @@ function Install-WingetCore {
     }
 
     try {
-        # 1. Visual C++ Redistributable (usando test avanzato)
+        # 1. Visual C++ Redistributable: WinGet itself depends on it.
         if (-not (Test-VCRedistInstalled)) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.visualCRedistributableInstallation')
-            $arch = switch (Get-SystemArchitecture) {
-                'ARM64' { 'arm64' }
-                'X86' { 'x86' }
-                default { 'x64' }
-            }
-            $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$arch.exe"
+            $vcUrl = $script:AppConfig.URLs.VCRedistTemplate -f (Get-ArchitectureSpecificValue -X64 'x64' -X86 'x86' -ARM64 'arm64')
             $vcFile = Join-Path $tempDir "vc_redist.exe"
 
-            Invoke-WebRequest -Uri $vcUrl -OutFile $vcFile -UseBasicParsing
-            $procParams = @{
-                FilePath     = $vcFile
-                ArgumentList = @("/install", "/quiet", "/norestart")
-                Wait         = $true
-                NoNewWindow  = $true
+            if (-not (Invoke-DownloadFile -Uri $vcUrl -OutFile $vcFile)) {
+                throw 'Visual C++ Redistributable download failed.'
             }
-            Start-Process @procParams
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.visualCRedistributableInstalled')
+            # 0 = installed, 1638 = a newer version is already present, 3010 = reboot required.
+            $vcResult = Invoke-ExternalCommand -FilePath $vcFile -ArgumentList @('/install', '/quiet', '/norestart') -TimeoutSeconds 600 -AcceptedExitCodes @(0, 1638, 3010)
+            if ($vcResult.Accepted) {
+                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.visualCRedistributableInstalled')
+            }
+            else {
+                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.installationFailedCode0' -Args @($vcResult.ExitCode))
+            }
         }
         else {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.visualCRedistributableAlreadyPresent')
         }
 
-        # 2. Dependencies (UI.Xaml, VCLibs) — Extraction from the official package (Safe method)
+        # 2. Dependencies (UI.Xaml, VCLibs) extracted from the official bundle.
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependenciesFromTheOfficialRepository')
         $dependencies = @()
         $depUrl = Get-WingetDownloadUrl -Match 'DesktopAppInstaller_Dependencies.zip'
         if ($depUrl) {
             $depZip = Join-Path $tempDir "dependencies.zip"
             try {
-                $iwrDepParams = @{
-                    Uri             = $depUrl
-                    OutFile         = $depZip
-                    UseBasicParsing = $true
-                    ErrorAction     = 'Stop'
+                if (-not (Invoke-DownloadFile -Uri $depUrl -OutFile $depZip -Silent)) {
+                    throw 'WinGet dependency bundle download failed.'
                 }
-                Invoke-WebRequest @iwrDepParams
 
-                # Architecture-targeted extraction and installation
+                # Architecture-targeted extraction and installation.
                 $extractPath = Join-Path $tempDir "deps"
                 Expand-Archive -Path $depZip -DestinationPath $extractPath -Force
 
-                $archPattern = switch (Get-SystemArchitecture) {
-                    'ARM64' { 'arm64|neutral|ne' }
-                    'X86' { 'x86|neutral|ne' }
-                    default { 'x64|neutral|ne' }
-                }
+                $archPattern = Get-ArchitectureSpecificValue -X64 'x64|neutral|ne' -X86 'x86|neutral|ne' -ARM64 'arm64|neutral|ne'
                 $appxFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.appx" | Where-Object { $_.Name -match $archPattern }
 
                 foreach ($file in $appxFiles) {
-                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.dependencyFound0' -Args @($($file.Name)))
+                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.dependencyFound0' -Args @($file.Name))
                     $dependencies += $file.FullName
                 }
             }
             catch {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.unableToExtractOrInstallDependenciesFromTheOfficialZipError0' -Args @($($_.Exception.Message)))
+                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.unableToExtractOrInstallDependenciesFromTheOfficialZipError0' -Args @($_.Exception.Message))
             }
         }
 
-        # 3. Winget Bundle
+        # 3. WinGet bundle, installed with the dependencies extracted above.
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadAndInstallWingetBundleWithDependencies')
         $wingetUrl = Get-WingetDownloadUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
         if (-not $wingetUrl) {
@@ -696,7 +740,9 @@ function Install-WingetCore {
         }
 
         $wingetFile = Join-Path $tempDir "winget.msixbundle"
-        Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetFile -UseBasicParsing
+        if (-not (Invoke-DownloadFile -Uri $wingetUrl -OutFile $wingetFile -Silent)) {
+            throw (Get-SourceTextLoc 'uiText.wingetCoreInstallationFailed')
+        }
 
         if (Start-AppxSilentProcess -AppxPath $wingetFile -DependencyPaths $dependencies -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetCoreSuccessfullyInstalled')
@@ -707,7 +753,7 @@ function Install-WingetCore {
         return $true
     }
     catch {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.errorRestoringWinget0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.errorRestoringWinget0' -Args @($_.Exception.Message))
         return $false
     }
     finally {
@@ -732,27 +778,22 @@ function Install-WingetPackage {
         return $false
     }
 
-    # Use the advanced ForceClose function
     Invoke-ForceCloseWinget
 
+    $tempInstaller = $null
     $oldProgress = $ProgressPreference
     try {
         $ProgressPreference = 'SilentlyContinue'
 
-        # Pulizia temporanei
+        # Clean the WinGet temp folder left behind by earlier attempts.
         $tempPath = "$env:TEMP\WinGet"
         if (Test-Path $tempPath) {
             Remove-Item -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
         }
 
-        # Reset sorgenti se Winget esiste
+        # Refresh the sources when WinGet is already present.
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            try {
-                $null = & "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" source reset --force 2>$null
-            }
-            catch {
-                Write-Warning "start-modules\40-Module.Winget.ps1, Install-WingetPackage: $($_.Exception.Message)"
-            }
+            Reset-WingetSources
         }
 
         if (-not (Get-Module -ListAvailable Microsoft.WinGet.Client) -or $Force) {
@@ -765,7 +806,7 @@ function Install-WingetPackage {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetClientModuleInstalled')
             }
             catch {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.moduloWingetClient0' -Args @($($_.Exception.Message)))
+                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.moduloWingetClient0' -Args @($_.Exception.Message))
             }
         }
         # Loads the Microsoft.WinGet.Client module installed above from the
@@ -774,77 +815,60 @@ function Install-WingetPackage {
         # time and are never imported at runtime (irm|iex distribution).
         Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
 
-        # Repair via module
-        if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.tentativoRiparazioneWingetRepairWingetpackagemanager')
-            try {
-                Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
-                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerEseguito')
-            }
-            catch {
-                if ($_.Exception.Message -match '0x80073D06') {
-                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerIgnoredHigherVersionAlreadyPresent')
-                }
-                else {
-                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerFallito0' -Args @($($_.Exception.Message)))
-                }
-            }
-            Start-Sleep 3
+        # Repair through the WinGet module when it is available.
+        if (Invoke-WinGetPackageManagerRepair) {
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerEseguito')
         }
+        Start-Sleep 3
 
-        # Final fallback: installation via MSIXBundle
+        # Final fallback: install the official MSIX bundle.
         if (-not (Get-Command winget -ErrorAction SilentlyContinue) -or $Force) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadMsixbundleDaMicrosoft')
 
-            $msixTempDir = $script:AppConfig.Paths.Temp
-            if (-not (Test-Path $msixTempDir)) {
-                $null = New-Item -Path $msixTempDir -ItemType Directory -Force
-            }
+            $msixTempDir = Initialize-Directory -Path $script:AppConfig.Paths.Temp
             $tempInstaller = Join-Path $msixTempDir "WingetInstaller.msixbundle"
 
-            $iwrParams = @{
-                Uri             = $script:AppConfig.URLs.WingetMSIX
-                OutFile         = $tempInstaller
-                UseBasicParsing = $true
-                ErrorAction     = 'Stop'
+            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -Silent)) {
+                throw 'WinGet MSIX bundle download failed.'
             }
-            Invoke-WebRequest @iwrParams
             if (Start-AppxSilentProcess -AppxPath $tempInstaller -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationSuccessful')
             }
             else {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationFailed')
             }
-            Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue
             Start-Sleep 3
         }
 
-        # Reset App Installer
+        # Reset App Installer.
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetAppInstaller')
         try {
-            Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' | Reset-AppxPackageSilently
+            Reset-AppInstallerPackage
         }
         catch {
             Write-Warning "start-modules\40-Module.Winget.ps1, Install-WingetPackage: $($_.Exception.Message)"
         }
 
-        # Applica permessi PATH e registrazione (basato su asheroto)
+        # Re-apply the execution alias/permissions and refresh PATH.
         Set-WingetPathPermissions
         Start-Sleep 2
         Update-EnvironmentPath
 
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.wingetInstalledAndWorking'))
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetInstalledAndWorking')
             return $true
         }
-        Write-StyledMessage -Type Error -Text ((Get-SourceTextLoc 'uiText.unableToInstallWinget'))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.unableToInstallWinget')
         return $false
     }
     catch {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalError0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalError0' -Args @($_.Exception.Message))
         return $false
     }
     finally {
+        if ($tempInstaller -and (Test-Path -LiteralPath $tempInstaller)) {
+            Remove-Item -LiteralPath $tempInstaller -Force -ErrorAction SilentlyContinue
+        }
         $ProgressPreference = $oldProgress
     }
 }

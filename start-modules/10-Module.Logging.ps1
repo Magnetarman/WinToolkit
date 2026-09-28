@@ -5,7 +5,7 @@
 function Write-StyledMessage {
     <#
     .SYNOPSIS
-    Writes a formatted message with timestamp, icon and color, and saves it to the log.
+    Prints one timestamped, colored console message and mirrors it to the log file.
     #>
     param(
         [ValidateSet('Info', 'Warning', 'Error', 'Success', 'Progress')]
@@ -17,14 +17,33 @@ function Write-StyledMessage {
     $timestamp = Get-Date -Format "HH:mm:ss"
     Write-Host "[$timestamp] $($style.Icon) $Text" -ForegroundColor $style.Color
 
-    # Mirror to log file
-    $logLevel = switch ($Type) {
-        'Success' { 'SUCCESS' }
-        'Warning' { 'WARNING' }
-        'Error' { 'ERROR' }
-        default { 'INFO' }
-    }
+    # The log level is the type in upper case, except Progress, which is informational.
+    $logLevel = if ($Type -in @('Info', 'Progress')) { 'INFO' } else { $Type.ToUpperInvariant() }
     Write-ToolkitLog -Level $logLevel -Message $Text
+}
+
+
+function Stop-ToolkitTranscript {
+    <#
+    .SYNOPSIS
+        Stops an optional transcript and returns the host message when one was active.
+
+    .DESCRIPTION
+        A missing transcript is not an error: PowerShell reports it with a common
+        error ID and a localized message, so the inactive case is detected from the
+        error ID and the inner exception type instead of from localized text.
+    #>
+    try {
+        return (Stop-Transcript -ErrorAction Stop)
+    }
+    catch {
+        if ($_.FullyQualifiedErrorId -eq 'InvalidOperation,Microsoft.PowerShell.Commands.StopTranscriptCommand' -and
+            $_.Exception.InnerException -is [System.Management.Automation.PSInvalidOperationException]) {
+            return $null
+        }
+        Write-Warning "start-modules\10-Module.Logging.ps1, Stop-ToolkitTranscript: $($_.Exception.Message)"
+        return $null
+    }
 }
 
 
@@ -35,33 +54,21 @@ function Start-ToolkitLog {
     #>
     param([string]$ToolName)
 
-    # Stop-Transcript wraps failures with a common error ID. Check the inner
-    # exception as well to recognize an inactive transcript without relying on
-    # localized messages or hiding access and I/O failures.
-    try {
-        Stop-Transcript -ErrorAction Stop
-    }
-    catch {
-        if ($_.FullyQualifiedErrorId -eq 'InvalidOperation,Microsoft.PowerShell.Commands.StopTranscriptCommand' -and
-            $_.Exception.InnerException -is [System.Management.Automation.PSInvalidOperationException]) {
-            return
-        }
-
-        Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
-    }
+    # Close any transcript left open by an earlier run before starting a new one.
+    $null = Stop-ToolkitTranscript
 
     $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $logdir = $script:AppConfig.Paths.Logs
-    if (-not (Test-Path $logdir)) {
-        New-Item -Path $logdir -ItemType Directory -Force | Out-Null
-    }
+    $null = Initialize-Directory -Path $logdir
+
+    # Retention: drop log files older than 30 days.
     Get-ChildItem -Path $logdir -Filter '*.log' -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
     Remove-Item -Force -ErrorAction SilentlyContinue
     $script:CurrentLogFile = "$logdir\${ToolName}_${dateTime}_$PID.log"
     Start-Transcript -Path "$logdir\${ToolName}_${dateTime}_$PID.transcript.log" -Append -Force | Out-Null
 
-    # Raccolta metadati
+    # Header metadata, so a standalone log is self-describing.
     $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
     $psVer = $PSVersionTable.PSVersion.ToString()
 
@@ -71,7 +78,7 @@ Start time     : $dateTime
 ToolName       : $ToolName
 OS             : $($os.Caption) $($os.Version)
 PSVersion      : $psVer
-ToolkitVersion : $($script:AppConfig.Header.Version)
+ToolkitVersion : $script:AppConfig.Header.Version
 [END LOG HEADER]
 
 "@
@@ -84,7 +91,7 @@ ToolkitVersion : $($script:AppConfig.Header.Version)
 function Write-ToolkitLog {
     <#
     .SYNOPSIS
-        Scrive una riga di log strutturata SOLO su file.
+        Appends one structured line to the log file only (never to the console).
     #>
     param(
         [ValidateSet('DEBUG', 'INFO', 'WARNING', 'ERROR', 'SUCCESS')]

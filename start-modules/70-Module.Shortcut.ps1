@@ -15,28 +15,13 @@ function New-ToolkitDesktopShortcut {
         $iconDir = $script:AppConfig.Paths.WinToolkitDir
         $icon = Join-Path $iconDir "WinToolkit.ico"
 
-        if (-not (Test-Path $iconDir)) {
-            $niParams = @{
-                Path     = $iconDir
-                ItemType = 'Directory'
-                Force    = $true
-            }
-            $null = New-Item @niParams *>$null
-        }
+        $null = Initialize-Directory -Path $iconDir
 
-        if (-not (Test-Path $icon)) {
+        # Download the icon unless a previous run left a usable one: the size check
+        # rejects partial downloads and HTML error pages saved as .ico.
+        if (-not (Test-FileHasMinimumSize -Path $icon -MinimumBytes $script:MIN_ICON_FILE_BYTES)) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadIcona')
             $null = Invoke-DownloadFile -Uri $script:AppConfig.URLs.ToolkitIcon -OutFile $icon
-        }
-
-        # Re-download if the cached icon is missing, empty, or too small to be
-        # a valid .ico (guards against a partial/HTML-error file from a past run).
-        if (Test-Path $icon) {
-            $iconItem = Get-Item $icon -ErrorAction SilentlyContinue
-            if (-not $iconItem -or $iconItem.Length -lt $script:MIN_ICON_FILE_BYTES) {
-                Remove-Item $icon -Force -ErrorAction SilentlyContinue
-                $null = Invoke-DownloadFile -Uri $script:AppConfig.URLs.ToolkitIcon -OutFile $icon
-            }
         }
 
         $shell = New-Object -ComObject WScript.Shell
@@ -45,14 +30,7 @@ function New-ToolkitDesktopShortcut {
         $link.Arguments = 'pwsh -ExecutionPolicy Bypass -Command "irm ' + $script:AppConfig.URLs.WebInstaller + ' | iex"'
         $link.WorkingDirectory = $script:AppConfig.Paths.wtDir
 
-        $iconValid = $false
-        if (Test-Path -Path $icon) {
-            $iconFile = Get-Item -Path $icon -ErrorAction SilentlyContinue
-            if ($null -ne $iconFile -and $iconFile.Length -ge $script:MIN_ICON_FILE_BYTES) {
-                $iconValid = $true
-            }
-        }
-        if ($iconValid) {
+        if (Test-FileHasMinimumSize -Path $icon -MinimumBytes $script:MIN_ICON_FILE_BYTES) {
             $link.IconLocation = $icon
         }
         $link.Description = "Win Toolkit - Master Windows with Ease"
@@ -72,7 +50,7 @@ function New-ToolkitDesktopShortcut {
         return $true
     }
     catch {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.shortcutCreationError0' -Args @($($_.Exception.Message)))
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.shortcutCreationError0' -Args @($_.Exception.Message))
         return $false
     }
 }

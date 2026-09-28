@@ -103,18 +103,22 @@ run.error = Error while running {0}: {1}
 # BEGIN summary translations
 # -- Affirmative — positive outcomes (success, completion, confirmations)
 
+summary.changed = Changed
 summary.completed = Completed
+summary.succeeded = Succeeded
 
 # -- Informational — status, progress, notes
 
 summary.detail = Detail
 summary.operation = Operation
+summary.skipped = Skipped
 summary.status = Status
 summary.title = Execution Summary
 
 # -- Error — errors, failures, critical issues
 
 summary.error = Error
+summary.failed = Failed
 
 # END summary translations
 
@@ -988,6 +992,7 @@ uiText.completeOfficeRepairOnline = Complete Office Repair (Online)
 uiText.configurationComplete = Configuration complete.
 uiText.coreScriptDownloadedSuccessfully = Core Script downloaded successfully.
 uiText.countdownBypassed01Seconds = Bypass countdown: '{0}' ({1} seconds).
+uiText.defaultTerminalNotSupportedOnThisBuild = This Windows build does not support setting the default terminal: step skipped.
 uiText.deepTestPassedWingetCommunicatesCorrectlyWithRepositories = Deep test passed: Winget communicates correctly with repositories.
 uiText.deepValidationPassedWingetCommunicatesWithRepositories = Deep validation passed: Winget communicates with repositories.
 uiText.downloadCompleted0 = Complete download: {0}.

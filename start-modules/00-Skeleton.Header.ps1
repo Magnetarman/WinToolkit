@@ -64,11 +64,14 @@ $script:RepoBase = $GitHubRepoBase[$script:Branch]
 $script:AppConfig = @{
     Branch           = $script:Branch
     ToolkitVersion   = $ToolkitVersion
+    # One style entry per Write-StyledMessage -Type value: a missing key would
+    # make the icon lookup fail under Set-StrictMode.
     MsgStyles        = @{
-        Success = @{ Icon = '✅'; Color = 'Green' }
-        Warning = @{ Icon = '⚠️'; Color = 'Yellow' }
-        Error   = @{ Icon = '❌'; Color = 'Red' }
-        Info    = @{ Icon = '💎'; Color = 'Cyan' }
+        Success  = @{ Icon = '✅'; Color = 'Green' }
+        Warning  = @{ Icon = '⚠️'; Color = 'Yellow' }
+        Error    = @{ Icon = '❌'; Color = 'Red' }
+        Info     = @{ Icon = '💎'; Color = 'Cyan' }
+        Progress = @{ Icon = '⏳'; Color = 'DarkCyan' }
     }
     Header           = @{
         Title   = "Toolkit Starter By MagnetarMan"
@@ -78,6 +81,10 @@ $script:AppConfig = @{
         # --- Branch-dependent URLs are assigned from $script:Branch below ---
         # --- Branch-independent (aka.ms / third-party release APIs) ---
         WingetMSIX        = "https://aka.ms/getwinget"
+        # VCRedistTemplate is a composite format string: {0} is the architecture
+        # token (x64, x86 or arm64) resolved by Get-ArchitectureSpecificValue.
+        VCRedistTemplate  = "https://aka.ms/vs/17/release/vc_redist.{0}.exe"
+        WingetCliRelease  = "https://api.github.com/repos/microsoft/winget-cli/releases/latest"
         GitRelease        = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
         OhMyPoshTheme     = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
@@ -87,6 +94,7 @@ $script:AppConfig = @{
     Paths            = @{
         Logs          = "$env:LOCALAPPDATA\WinToolkit\logs"
         WinToolkitDir = "$env:LOCALAPPDATA\WinToolkit"
+        Languages     = "$env:LOCALAPPDATA\WinToolkit\languages"
         Temp          = "$env:TEMP\WinToolkitSetup"
         Packages      = "$env:LOCALAPPDATA\Packages"
         Desktop       = [Environment]::GetFolderPath('Desktop')
@@ -125,14 +133,14 @@ $script:AppConfig = @{
 # $script:Branch above retargets the entire script with no other edits.
 # ==============================================================================
 
-$script:AppConfig.URLs.StartScript = "$($script:RepoRawBase)/start.ps1"
-$script:AppConfig.URLs.PowerShellProfile = "$($script:RepoBase)/assets/Microsoft.PowerShell_profile.ps1"
-$script:AppConfig.URLs.WindowsTerminalSettings = "$($script:RepoBase)/assets/settings.json"
-$script:AppConfig.URLs.ToolkitIcon = "$($script:RepoRawBase)/images/WinToolkit.ico"
+$script:AppConfig.URLs.StartScript = "$script:RepoRawBase/start.ps1"
+$script:AppConfig.URLs.PowerShellProfile = "$script:RepoBase/assets/Microsoft.PowerShell_profile.ps1"
+$script:AppConfig.URLs.WindowsTerminalSettings = "$script:RepoBase/assets/settings.json"
+$script:AppConfig.URLs.ToolkitIcon = "$script:RepoRawBase/images/WinToolkit.ico"
 
 # Localization assets live under the same branch.
-$script:AppConfig.URLs.LanguagesRawUrl = "$($script:RepoBase)/languages"
-$script:AppConfig.URLs.LanguagesApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$($script:Branch)"
+$script:AppConfig.URLs.LanguagesRawUrl = "$script:RepoBase/languages"
+$script:AppConfig.URLs.LanguagesApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$script:Branch"
 
 # --- NAMED CONSTANTS (no magic numbers in the modules) ---
 
