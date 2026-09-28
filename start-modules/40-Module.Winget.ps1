@@ -1065,6 +1065,68 @@ function Install-WingetPackage {
 }
 
 
+function Reset-WingetSourcesOnce {
+    <#
+    .SYNOPSIS
+    Runs `winget source reset --force` at most once per execution.
+
+    .DESCRIPTION
+    The recovery ladder used to call it three times in a single run (after a
+    successful fast recovery, after a full reinstall, and from the database
+    repair). Each call is slow and they are mutually redundant.
+    #>
+    if ($script:State.SourcesReset) { return }
+    Reset-WingetSources
+    $script:State.SourcesReset = $true
+}
+
+
+function Initialize-Winget {
+    <#
+    .SYNOPSIS
+    Brings WinGet to a working state and returns a StepResult.
+
+    .DESCRIPTION
+    The recovery ladder (health -> msstore cert -> core install -> database
+    repair -> core install) used to live inline in the orchestrator, where it
+    mixed messaging, PATH refreshes and three separate health probes. It is one
+    function here, called once, so the flow is readable.
+    #>
+    Update-EnvironmentPath
+    $null = Repair-WingetMsStoreSource
+
+    $health = Get-WingetHealth
+    if ($health.Runs) {
+        return New-StepResult -Success $true -Message "WinGet operational (v$($health.Version))."
+    }
+
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetDoesnTRespondFastRecoveryAttemptCore')
+    $null = Install-WingetCore
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
+    $health = Get-WingetHealth
+    if ($health.Runs) {
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRestoredQuickly')
+        Reset-WingetSourcesOnce
+        return New-StepResult -Success $true -Changed $true -Message "WinGet restored (v$($health.Version))."
+    }
+
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptAdvancedSlowerMethod')
+    $null = Repair-WingetDatabase
+    $null = Install-WingetCore
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
+    $health = Get-WingetHealth
+    if (-not $health.Runs) {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts')
+        return New-StepResult -Success $false -Message 'WinGet remains unavailable after recovery.'
+    }
+
+    Reset-WingetSourcesOnce
+    return New-StepResult -Success $true -Changed $true -Message "WinGet reinstalled (v$($health.Version))."
+}
+
+
 function Install-WingetViaModule {
     <#
     .SYNOPSIS
