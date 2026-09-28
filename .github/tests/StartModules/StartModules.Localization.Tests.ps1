@@ -88,9 +88,18 @@ Describe 'Localization key sets stay aligned across languages (S-5)' {
         ($dupIt -join ', ') | Should -BeNullOrEmpty
     }
 
-    It 'loads as a valid ConvertFrom-StringData payload' {
-        { Import-PowerShellDataFile -Path $script:EnFile -ErrorAction Stop } | Should -Not -Throw
-        { Import-PowerShellDataFile -Path $script:ItFile -ErrorAction Stop } | Should -Not -Throw
+    It 'loads with the same mechanism the runtime uses (Import-LocalizedData)' {
+        # Not Import-PowerShellDataFile: the file is a ConvertFrom-StringData
+        # script, which that cmdlet cannot parse. Import-LocalizedData is what
+        # Import-SourceTextLanguageFile actually calls.
+        foreach ($culture in @('en-US', 'it-IT')) {
+            $data = $null
+            {
+                Import-LocalizedData -BindingVariable data `
+                    -BaseDirectory (Join-Path $PSScriptRoot '..\..\..\languages' $culture) `
+                    -FileName 'WinToolkit.psd1' -UICulture $culture -ErrorAction Stop
+            } | Should -Not -Throw
+        }
     }
 
     It 'no longer defines the Italian-named keys replaced during S-5' {
