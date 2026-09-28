@@ -105,65 +105,27 @@ function Install-GitPackage {
 function Install-PowerShellCore {
     <#
     .SYNOPSIS
-    Verifies and installs PowerShell 7 with direct download fallback.
+    Verifies that the PowerShell 7 host running this script is usable.
 
     .DESCRIPTION
-    This is the "application level" PowerShell 7 install: the start.ps1 stub only
-    guarantees that some working pwsh exists so that start-core.ps1 can run at all.
+    Reduced to a verification. The previous version also carried a WinGet install
+    and a direct MSI download from the GitHub releases API: both were dead code,
+    because this script only ever runs under PowerShell 7 (start.ps1 installs it
+    and relaunches elevated, and the orchestrator refuses to run otherwise), so
+    the "install" branch could never be entered. $PSHOME is the authoritative
+    location of the running host, which is a stronger check than probing a few
+    hardcoded Program Files paths.
     #>
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.verificaPowershell7')
 
-    $ps7Path64 = "$env:SystemDrive\Program Files\PowerShell\7"
-    $ps7Path32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7"
-
-    if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+    $pwshExe = Join-Path $PSHOME 'pwsh.exe'
+    if (($PSVersionTable.PSVersion.Major -ge 7) -and (Test-Path -LiteralPath $pwshExe)) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7AlreadyInstalled')
         return $true
     }
 
-    # 1. Preferred path: WinGet.
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingToInstallPowershell7ViaWinget')
-        $result = Invoke-WingetCommand -Arguments "install --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements --silent"
-
-        if ($result.ExitCode -eq 0) {
-            if (Wait-Until -Condition {
-                    (Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Test-CommandExists -Name pwsh)
-                } -TimeoutSeconds 15 -IntervalMs 1000) {
-                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7InstallatoViaWinget')
-                return $true
-            }
-        }
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstallationFailedOrFailedExitcode0FallbackToDirectDownload' -Args @($result.ExitCode))
-    }
-
-    # 2. Fallback: direct MSI download from GitHub
-    try {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.recuperoUltimaReleasePowershell')
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingPowershell7InProgress')
-        $assetPattern = Get-ArchitectureSpecificValue -X64 'win-x64\.msi$' -X86 'win-x86\.msi$' -ARM64 'win-arm64\.msi$'
-        $installerArguments = @('/i', '{INSTALLER}', '/norestart', '/passive',
-            'ADD_PATH=1', 'ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1', 'REGISTER_MANIFEST=1')
-        # PSRemoting reconfigures WinRM/firewall: opt-in only.
-        if ($script:AppConfig.EnablePSRemoting) {
-            $installerArguments += 'ENABLE_PSREMOTING=1'
-        }
-        $installResult = Install-FromGitHubRelease -ReleaseApiUrl $script:AppConfig.URLs.PowerShellRelease `
-            -AssetPattern $assetPattern -ExecutablePath 'msiexec.exe' `
-            -InstallerArguments $installerArguments `
-            -AcceptedExitCodes @(0, 1641, 3010)
-
-        if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Test-CommandExists -Name pwsh) -or $installResult.Success) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7InstalledSuccessfully')
-            return $true
-        }
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode02' -Args @($installResult.ExitCode))
-        return $false
-    }
-    catch {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.powershellInstallationError0' -Args @($_.Exception.Message))
-        return $false
-    }
+    Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.powershellInstallationError0' -Args @("pwsh.exe not found in '$PSHOME'."))
+    return $false
 }
 
 
