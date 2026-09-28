@@ -579,7 +579,7 @@ function Initialize-CoreScript {
         }
 
         if ($shouldDownload) {
-            Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.downloadCoreScriptDaGithub') -GuiColor "#00CED1"
+            Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.downloadCoreScriptFromGitHub') -GuiColor "#00CED1"
             Write-UnifiedLog -Type 'Info' -Message (Get-SourceTextLoc 'uiText.url0' -Args @($($Global:CoreConfig.RemoteUrl))) -GuiColor "#808080"
 
             try {
