@@ -43,22 +43,22 @@ Describe 'Localization key sets stay aligned across languages (S-5)' {
         # also flags English keys that merely contain them (unigetUiRequireVerifi
         # cation, packetVerificationError01, ...StatusInEsecuzionePercent1).
         $script:RenamedKeys = @(
-            'uiText.downloadIcona', 'uiText.puliziaCacheWinget',
-            'uiText.recuperoUltimaReleasePowershell', 'uiText.temaOhMyPoshScaricato',
-            'uiText.verificaPowershell7', 'uiText.esecuzioneRepairWingetpackagemanager',
-            'uiText.tentativoRepairWingetpackagemanager',
-            'uiText.tentativoRiparazioneWingetRepairWingetpackagemanager',
-            'uiText.startWingetInstallationVerificationProcedure',
-            'uiText.downloadMsixbundleDaMicrosoft', 'uiText.downloadCoreScriptDaGithub',
-            'uiText.downloadAndInstallWingetBundleWithDependencies',
-            'uiText.downloadWingetDependenciesFromTheOfficialRepository',
-            'uiText.fallbackDownloadGitDaGithub',
-            'uiText.fallbackDownloadMsixbundleDirectFromMicrosoft',
-            'uiText.iTryNativeAppxInstallationFromDownloadedBundle',
+            'uiText.downloadIcon', 'uiText.clearingWingetCache',
+            'uiText.retrievingLatestPowershellRelease', 'uiText.ohMyPoshThemeDownloaded',
+            'uiText.checkingPowershell7', 'uiText.runningPackageManagerRepair',
+            'uiText.attemptingPackageManagerRepair',
+            'uiText.attemptingWingetRepairViaPackageManager',
+            'uiText.startingWingetInstallVerification',
+            'uiText.downloadMsixBundleFromMicrosoft', 'uiText.downloadCoreScriptFromGitHub',
+            'uiText.downloadAndInstallWingetBundle',
+            'uiText.downloadWingetDependencies',
+            'uiText.fallbackDownloadGitFromGitHub',
+            'uiText.fallbackDownloadMsixBundleDirect',
+            'uiText.attemptingNativeAppxInstallFromBundle',
             'uiText.downloadCompleted0', 'uiText.downloaded0', 'uiText.downloadFailed0',
-            'uiText.download02', 'uiText.downloadCoreScriptDaGithub',
-            'uiText.startingDownload', 'uiText.startingWinToolkitConfiguration',
-            'uiText.resetCacheMicrosoftStoreWsreset', 'uiText.windowsTerminalConfiguration'
+            'uiText.download02', 'uiText.downloadCoreScriptFromGitHub',
+            'uiText.startingDownloadProcess', 'uiText.startingWinToolkitSetup',
+            'uiText.resettingMicrosoftStoreCache', 'uiText.windowsTerminalConfiguration'
         ) | Select-Object -Unique
     }
 
