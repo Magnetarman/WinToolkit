@@ -42,6 +42,13 @@ jobs:
       - name: Setup PowerShell CI modules
         uses: ./.github/actions/setup-powershell-modules
 
+      - name: Check pipeline version consistency
+        shell: pwsh
+        run: |
+          # PIPELINE_VERSION (CI-WinToolkit-Dev.yml) is the single source of truth:
+          # every workflow and action name must already carry that exact version.
+          & ./.github/scripts/Update-PipelineVersion.ps1 -Check
+
       - name: Normalize fragment spacing
         shell: pwsh
         run: |
