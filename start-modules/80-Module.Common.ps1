@@ -299,9 +299,12 @@ function Wait-Until {
     #>
     param(
         [Parameter(Mandatory = $true)][scriptblock]$Condition,
-        [int]$TimeoutSeconds = 30,
+        # Defaults come from AppConfig.Timeouts so the timeout of an installer is
+        # declared once, next to the other timeouts, instead of at every call site.
+        [int]$TimeoutSeconds = 0,
         [int]$IntervalMs = 1000
     )
+    if ($TimeoutSeconds -le 0) { $TimeoutSeconds = $script:AppConfig.Timeouts.Condition }
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     do {
         if (& $Condition) { return $true }
