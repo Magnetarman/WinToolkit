@@ -497,13 +497,15 @@ function New-SignatureValidator {
     $signers = @($script:AppConfig.DownloadSignatures[$ProfileKey])
     $block = $BlockOnInvalid.IsPresent
 
-    # GetNewClosure is required, not cosmetic: a plain scriptblock does NOT carry
-    # the variables of the scope it was created in, so the validator would fail at
-    # run time with "cannot retrieve the variable $signers" the first time
-    # Invoke-DownloadFile invoked it from another scope.
+    # The check is captured BY REFERENCE (${function:...}) and invoked with &.
+    # Calling it by name inside the closure does not work: GetNewClosure rebinds
+    # the scriptblock to a fresh module scope, where a function that was dot-sourced
+    # (as the test suites and the fragment loader do) is not visible, and the
+    # validator would fail at run time with "command not recognized".
+    $signatureCheck = ${function:Test-DownloadedSignature}
     $validator = {
         param($candidatePath)
-        $ok = Test-DownloadedSignature -Path $candidatePath -ExpectedSigners $signers
+        $ok = & $signatureCheck -Path $candidatePath -ExpectedSigners $signers
         if (-not $ok -and $block) {
             throw "Signature verification failed for '$candidatePath': the file will not be installed."
         }
