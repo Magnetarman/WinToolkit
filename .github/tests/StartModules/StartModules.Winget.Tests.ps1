@@ -3,9 +3,11 @@
 
 <#
 Tests for the WinGet/AppX module (40-Module.Winget.ps1).
-Repair-Winget is the §3.1 entry point: it must dispatch to exactly the implementation
-matching the requested level, with no side-effecting calls to unrequested repair functions.
-Those implementations touch the real system, so they are mocked here.
+The repair-level dispatcher (Repair-Winget + the WingetRepairLevel enum) is gone:
+the recovery ladder lives in Initialize-Winget and the concrete repairs are named
+directly. What is covered here is the behaviour that replaced it: the health
+probe, the recovery ladder, the cached version flag and the "already installed"
+exit codes. Every repair touches the real system, so it is mocked.
 #>
 
 BeforeAll {
@@ -16,7 +18,7 @@ BeforeAll {
         . $file.FullName
     }
 
-    $script:CurrentLogFile = $null
+    $script:State.LogFile = $null
     if (-not (Test-Path Variable:Global:MsgStyles)) {
         $Global:MsgStyles = @{
             Success = @{ Icon = '[OK]';   Color = 'Green' }
@@ -28,51 +30,104 @@ BeforeAll {
     Initialize-SourceTextLocalization -LanguageCode 'en-US'
 }
 
-Describe 'Repair-Winget — level orchestrator (§3.1)' {
+Describe 'Initialize-Winget — recovery ladder (§3.1)' {
 
-    It 'SourceReset invokes only Reset-WingetSources' {
-        Mock Reset-WingetSources {}
-        Mock Repair-WingetMsStoreSource {}
-        Mock Repair-AppInstaller { return [pscustomobject]@{ Success = $true } }
-        Mock Repair-WingetDatabase { return $true }
+    BeforeEach {
+        # A healthy WinGet: the ladder must stop at the first probe.
+        Mock Repair-WingetMsStoreSource { return $true }
         Mock Install-WingetCore { return $true }
-        Mock Install-WingetPackage { return $true }
+        Mock Repair-WingetDatabase { return $true }
+        Mock Reset-WingetSources {}
+    }
 
-        $result = Repair-Winget -Level SourceReset
-        $result | Should -BeTrue
-        Should -Invoke Reset-WingetSources -Times 1
+    It 'returns success without installing when the health probe already passes' {
+        Mock Get-WingetHealth { [pscustomobject]@{ Present = $true; Runs = $true; Version = '1.29'; Reachable = $true } }
+
+        $result = Initialize-Winget
+        $result.Success | Should -BeTrue
+        $result.Message | Should -Match '1\.29'
+        Should -Invoke Install-WingetCore -Times 0
         Should -Invoke Repair-WingetDatabase -Times 0
-        Should -Invoke Install-WingetPackage -Times 0
     }
 
-    It 'MsStoreCert invokes only Repair-WingetMsStoreSource' {
-        Mock Reset-WingetSources {}
-        Mock Repair-WingetMsStoreSource {}
-        Mock Repair-AppInstaller { return [pscustomobject]@{ Success = $true } }
-        Mock Repair-WingetDatabase { return $true }
-        Mock Install-WingetCore { return $true }
-        Mock Install-WingetPackage { return $true }
+    It 'falls back to a core install, then resets the sources once' {
+        # First probe fails, second succeeds.
+        $script:probe = 0
+        Mock Get-WingetHealth {
+            $script:probe++
+            if ($script:probe -eq 1) { return [pscustomobject]@{ Present = $true; Runs = $false; Version = $null; Reachable = $false } }
+            return [pscustomobject]@{ Present = $true; Runs = $true; Version = '1.29'; Reachable = $true }
+        }
 
-        Repair-Winget -Level MsStoreCert
-        Should -Invoke Repair-WingetMsStoreSource -Times 1
-        Should -Invoke Reset-WingetSources -Times 0
+        $result = Initialize-Winget
+        $result.Success | Should -BeTrue
+        $result.Changed | Should -BeTrue
+        Should -Invoke Install-WingetCore -Times 1
+        Should -Invoke Reset-WingetSources -Times 1
     }
 
-    It 'AppxReset delegates to Repair-AppInstaller' {
-        Mock Reset-WingetSources {}
-        Mock Repair-WingetMsStoreSource {}
-        Mock Repair-AppInstaller { return [pscustomobject]@{ Success = $true } }
-        Mock Repair-WingetDatabase { return $true }
-        Mock Install-WingetCore { return $true }
-        Mock Install-WingetPackage { return $true }
+    It 'returns failure when every recovery attempt leaves WinGet unusable' {
+        Mock Get-WingetHealth { [pscustomobject]@{ Present = $true; Runs = $false; Version = $null; Reachable = $false } }
 
-        Repair-Winget -Level AppxReset
-        Should -Invoke Repair-AppInstaller -Times 1
+        $result = Initialize-Winget
+        $result.Success | Should -BeFalse
+        Should -Invoke Repair-WingetDatabase -Times 1
+    }
+}
+
+Describe 'Reset-WingetSourcesOnce — one source reset per run' {
+
+    BeforeEach { $script:State.SourcesReset = $false }
+
+    It 'resets the sources on the first call' {
+        Mock Reset-WingetSources {}
+        Reset-WingetSourcesOnce
+        Should -Invoke Reset-WingetSources -Times 1
+        $script:State.SourcesReset | Should -BeTrue
     }
 
-    It 'throws when the level is not supported' {
+    It 'is a no-op on the following calls' {
         Mock Reset-WingetSources {}
-        { Repair-Winget -Level 'UnsupportedLevelXYZ' } | Should -Throw
+        Reset-WingetSourcesOnce
+        Reset-WingetSourcesOnce
+        Reset-WingetSourcesOnce
+        Should -Invoke Reset-WingetSources -Times 1
+    }
+}
+
+Describe 'Test-WingetModernVersion — --disable-interactivity support (B-01)' {
+
+    It 'accepts 1.4 and above' {
+        Test-WingetModernVersion -VersionOutput 'v1.4.0' | Should -BeTrue
+        Test-WingetModernVersion -VersionOutput 'v1.9.0' | Should -BeTrue
+    }
+
+    It 'rejects the builds older than 1.4' {
+        Test-WingetModernVersion -VersionOutput 'v1.3.2691' | Should -BeFalse
+        Test-WingetModernVersion -VersionOutput 'v1.0.0' | Should -BeFalse
+    }
+
+    It 'compares numerically, so a two-digit minor version is modern (the v1\.[4-9] regex bug)' {
+        Test-WingetModernVersion -VersionOutput 'v1.10.0' | Should -BeTrue
+        Test-WingetModernVersion -VersionOutput 'v1.11.0' | Should -BeTrue
+        Test-WingetModernVersion -VersionOutput 'v1.12.0' | Should -BeTrue
+    }
+
+    It 'assumes a modern build when the version cannot be parsed' {
+        Test-WingetModernVersion -VersionOutput 'unparsable' | Should -BeTrue
+    }
+}
+
+Describe 'Test-WingetRpcFailure — App Installer RPC error (B-03)' {
+
+    It 'detects 0x800706BA' {
+        Test-WingetRpcFailure -Result ([pscustomobject]@{ ExitCode = $script:AppConfig.Winget.RpcFailureExitCode }) |
+            Should -BeTrue
+    }
+
+    It 'ignores any other exit code' {
+        Test-WingetRpcFailure -Result ([pscustomobject]@{ ExitCode = 0 }) | Should -BeFalse
+        Test-WingetRpcFailure -Result ([pscustomobject]@{ ExitCode = -1978335135 }) | Should -BeFalse
     }
 }
 
