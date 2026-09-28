@@ -61,9 +61,9 @@ function Install-GitPackage {
 
     # 1. Preferred path: WinGet.
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        $result = Invoke-WingetCommand -Arguments "install Git.Git --source winget --accept-source-agreements --accept-package-agreements --silent"
+        $result = Invoke-WingetInstall -Id 'Git.Git'
 
-        if ($result.ExitCode -eq 0) {
+        if ($result.Accepted) {
             Update-EnvironmentPath
 
             if (Wait-Until -Condition { Test-CommandExists -Name git } -TimeoutSeconds 15 -IntervalMs 1000) {
@@ -204,8 +204,8 @@ function Install-WindowsTerminalApp {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingToInstallWindowsTerminalViaWinget')
             # Use the unambiguous package identifier, not the Store product id.
-            $result = Invoke-WingetCommand -Arguments "install --id Microsoft.WindowsTerminal --source winget --accept-source-agreements --accept-package-agreements --silent"
-            if ($result.ExitCode -eq 0 -and (Wait-Until -Condition { Test-WindowsTerminalInstalled } -TimeoutSeconds 15 -IntervalMs 1000)) {
+            $result = Invoke-WingetInstall -Id 'Microsoft.WindowsTerminal'
+            if ($result.Accepted -and (Wait-Until -Condition { Test-WindowsTerminalInstalled })) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalInstalledViaWinget')
                 return $true
             }
