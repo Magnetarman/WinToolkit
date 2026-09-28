@@ -27,7 +27,14 @@ BeforeAll {
             Info    = @{ Icon = '[INFO]'; Color = 'Cyan' }
         }
     }
+    # Point localization at the REPOSITORY copy, not the per-user cache in
+    # %LOCALAPPDATA%: the cache is whatever a previous run downloaded, so a new key
+    # would resolve to "[MISSING TRANSLATION: ...]" and the suite would keep passing
+    # while the real string is untested. Reading the repo files makes the suites
+    # assert the strings that actually ship.
+    $script:AppConfig.Paths.Languages = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\languages')) 'probe-cache'
     Initialize-SourceTextLocalization -LanguageCode 'en-US'
+    $script:AppConfig.Paths.Languages = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\languages')) '..\languages'
 }
 
 Describe 'Initialize-Winget — recovery ladder (§3.1)' {
