@@ -13,25 +13,18 @@ function Update-WindowsTerminalSettings {
     #>
     param([Parameter(Mandatory = $true)][string]$SettingsPath)
 
-    $downloadedPath = Join-Path $script:AppConfig.Paths.Temp "wt-settings-$([guid]::NewGuid()).json"
     try {
-        if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $downloadedPath -Silent)) {
+        # Install-RemoteFile owns the download, the atomic swap and the backup,
+        # and skips the rewrite when the file is already identical.
+        if (-not (Install-RemoteFile -Url $script:AppConfig.URLs.WindowsTerminalSettings `
+                    -Destination $SettingsPath -MinimumBytes 64 -Backup)) {
             return $false
-        }
-
-        # The backup path is only returned when a previous file was replaced.
-        $backupPath = Copy-FileAtomically -SourcePath $downloadedPath -DestinationPath $SettingsPath -Backup
-        if ($backupPath) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalSettingsOverwrittenBackup0' -Args @($backupPath))
         }
         return $true
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "Windows Terminal settings update skipped: $($_.Exception.Message)"
         return $false
-    }
-    finally {
-        if (Test-Path -LiteralPath $downloadedPath) { Remove-Item -LiteralPath $downloadedPath -Force -ErrorAction SilentlyContinue }
     }
 }
 
@@ -102,7 +95,6 @@ function Test-OhMyPoshThemeFile {
         return $false
     }
 }
-
 
 
 function Install-PspEnvironment {
@@ -211,20 +203,15 @@ function Install-PspEnvironment {
     $result.FontOk = Install-NerdFontsLocal
     if (-not $result.FontOk) { $result.Success = $false }
 
-    # 4. Profile configuration: the download is staged and swapped in, so the
-    #    current profile is never removed before its replacement is on disk.
+    # 4. Profile configuration: installed through Install-RemoteFile, which stages
+    #    the download, swaps it in atomically and only backs up a file that really
+    #    changed. The final artifact is then re-read from disk before it is
+    #    reported as configured.
     $targetProfile = $paths.ProfilePath
-    $stagedProfile = "$targetProfile.$([guid]::NewGuid()).tmp"
     try {
-        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $stagedProfile -MinimumBytes 256) {
-            $profileBackup = Copy-FileAtomically -SourcePath $stagedProfile -DestinationPath $targetProfile -Backup
-            if ($profileBackup) {
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.existingProfileSaved0' -Args @($profileBackup))
-            }
-            # Verify the final artifact instead of trusting the copy: this is the
-            # check that was missing when the log reported a profile that no shell
-            # could ever load.
-            if (Test-FileHasMinimumSize -Path $targetProfile -MinimumBytes 256) {
+        if (Install-RemoteFile -Url $script:AppConfig.URLs.PowerShellProfile `
+                -Destination $targetProfile -MinimumBytes $script:AppConfig.MinProfileBytes -Backup) {
+            if (Test-FileHasMinimumSize -Path $targetProfile -MinimumBytes $script:AppConfig.MinProfileBytes) {
                 $result.ProfileOk = $true
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7ProfileConfigured')
                 Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile installed: $targetProfile"
@@ -242,11 +229,6 @@ function Install-PspEnvironment {
     catch {
         $result.Success = $false
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.profileConfigurationError0' -Args @($_.Exception.Message))
-    }
-    finally {
-        if (Test-Path -LiteralPath $stagedProfile) {
-            Remove-Item -LiteralPath $stagedProfile -Force -ErrorAction SilentlyContinue
-        }
     }
 
     if (-not $result.ProfileOk -or -not $result.ThemeOk) {
