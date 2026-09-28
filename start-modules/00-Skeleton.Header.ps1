@@ -171,6 +171,9 @@ $script:AppConfig = @{
     )
     HostsFilePath     = "$env:SystemRoot\System32\drivers\etc\hosts"
     MinProfileBytes   = 256
+    # Captured process output is kept for diagnostics but truncated: a verbose
+    # installer can emit megabytes, and only the head explains a failure.
+    MaxCapturedOutputChars = 65536
     Layout           = @{
         Width = 65
     }
