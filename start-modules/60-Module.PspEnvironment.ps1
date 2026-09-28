@@ -194,8 +194,7 @@ function Install-PspEnvironment {
     $result.ThemePath = $paths.ThemePath
 
     # Theme: several candidate endpoints, and the payload must be real JSON.
-    $themeUris = @($script:AppConfig.URLs.OhMyPoshThemeFallback)
-    if ($themeUris.Count -eq 0) { $themeUris = @($script:AppConfig.URLs.OhMyPoshTheme) }
+    $themeUris = @($script:AppConfig.URLs.OhMyPoshThemeUrls)
     if (Invoke-DownloadFile -Uri $themeUris -OutFile $paths.ThemePath `
             -MinimumBytes $script:AppConfig.UserScope.MinThemeFileBytes `
             -ContentValidator { param($candidatePath) Test-OhMyPoshThemeFile -Path $candidatePath }) {
