@@ -1035,5 +1035,3 @@ function Initialize-Winget {
     Reset-WingetSourcesOnce
     return New-StepResult -Success $true -Changed $true -Message "WinGet reinstalled (v$($health.Version))."
 }
-
-
