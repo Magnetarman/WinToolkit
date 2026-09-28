@@ -40,6 +40,115 @@ Describe 'Format-CenteredText' {
     }
 }
 
+Describe 'Install-RemoteFile — profile/settings install policy (S-6)' {
+
+    BeforeEach {
+        $script:State.LogFile = $null
+        $script:probeDir = Join-Path $env:TEMP ('wt-remote-' + [guid]::NewGuid().ToString('N'))
+        $null = New-Item -ItemType Directory -Path $script:probeDir -Force
+        $script:probeUrl = 'https://example.invalid/probe.txt'
+    }
+
+    AfterEach {
+        Remove-Item $script:probeDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'returns $false and writes nothing when the download fails' {
+        Mock Invoke-DownloadFile { return $false }
+        $dest = Join-Path $script:probeDir 'file.txt'
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest | Should -BeFalse
+        Test-Path $dest | Should -BeFalse
+    }
+
+    It 'leaves the staged temp file behind never (cleanup always runs)' {
+        Mock Invoke-DownloadFile { return $false }
+        $before = @(Get-ChildItem $script:probeDir -File -ErrorAction SilentlyContinue).Count
+        $null = Install-RemoteFile -Url $script:probeUrl -Destination (Join-Path $script:probeDir 'f.txt')
+        @(Get-ChildItem $script:probeDir -File -ErrorAction SilentlyContinue).Count | Should -Be $before
+    }
+
+    It 'installs the payload and returns $true on a successful download' {
+        # The real download is stubbed by writing the staged file directly, so the
+        # copy/swap path is exercised without touching the network.
+        Mock Invoke-DownloadFile {
+            [IO.File]::WriteAllText($OutFile, 'new-content'); return $true
+        }
+        $dest = Join-Path $script:probeDir 'file.txt'
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest | Should -BeTrue
+        [IO.File]::ReadAllText($dest) | Should -Be 'new-content'
+    }
+
+    It 'does not rewrite, and creates no backup, when the content is already identical' {
+        # The previous code produced a .bak on EVERY run even when nothing changed.
+        Mock Invoke-DownloadFile {
+            [IO.File]::WriteAllText($OutFile, 'same-content'); return $true
+        }
+        $dest = Join-Path $script:probeDir 'file.txt'
+        [IO.File]::WriteAllText($dest, 'same-content')
+
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest -Backup | Should -BeTrue
+        @(Get-ChildItem $script:probeDir -Filter 'file.txt.bak.*' -ErrorAction SilentlyContinue).Count |
+            Should -Be 0 -Because 'an unchanged file must not produce a backup'
+    }
+
+    It 'keeps a backup of the previous content when the file actually changes' {
+        Mock Invoke-DownloadFile {
+            [IO.File]::WriteAllText($OutFile, 'v2'); return $true
+        }
+        $dest = Join-Path $script:probeDir 'file.txt'
+        [IO.File]::WriteAllText($dest, 'v1')
+
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest -Backup | Should -BeTrue
+        [IO.File]::ReadAllText($dest) | Should -Be 'v2'
+
+        $backups = @(Get-ChildItem $script:probeDir -Filter 'file.txt.bak.*' -ErrorAction SilentlyContinue)
+        $backups.Count | Should -Be 1
+        [IO.File]::ReadAllText($backups[0].FullName) | Should -Be 'v1'
+    }
+
+    It 'creates the destination directory when it does not exist yet' {
+        Mock Invoke-DownloadFile {
+            [IO.File]::WriteAllText($OutFile, 'x'); return $true
+        }
+        $dest = Join-Path (Join-Path $script:probeDir 'deep\nested') 'file.txt'
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest | Should -BeTrue
+        Test-Path $dest | Should -BeTrue
+    }
+
+    It 'rejects a payload smaller than -MinimumBytes' {
+        Mock Invoke-DownloadFile { return $true }   # downloads nothing
+        $dest = Join-Path $script:probeDir 'small.bin'
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest -MinimumBytes 1024 | Should -BeFalse
+    }
+}
+
+Describe 'Remove-ExpiredBackups — retention (S-6)' {
+
+    BeforeEach {
+        $script:probeDir = Join-Path $env:TEMP ('wt-bak-' + [guid]::NewGuid().ToString('N'))
+        $null = New-Item -ItemType Directory -Path $script:probeDir -Force
+    }
+    AfterEach { Remove-Item $script:probeDir -Recurse -Force -ErrorAction SilentlyContinue }
+
+    It 'keeps the newest N backups and removes the rest' {
+        $pattern = Join-Path $script:probeDir 'file.txt.bak.*'
+        1..5 | ForEach-Object {
+            $p = Join-Path $script:probeDir "file.txt.bak.2026090$_-000000"
+            [IO.File]::WriteAllText($p, "v$_")
+            (Get-Item $p).LastWriteTime = (Get-Date).AddMinutes($_)
+        }
+        Remove-ExpiredBackups -Path $pattern -Keep 3
+        @(Get-ChildItem $script:probeDir -Filter 'file.txt.bak.*').Count | Should -Be 3
+    }
+
+    It 'is a no-op when fewer backups than the retention exist' {
+        $pattern = Join-Path $script:probeDir 'file.txt.bak.*'
+        [IO.File]::WriteAllText((Join-Path $script:probeDir 'file.txt.bak.1'), 'a')
+        Remove-ExpiredBackups -Path $pattern -Keep 3
+        @(Get-ChildItem $script:probeDir -Filter 'file.txt.bak.*').Count | Should -Be 1
+    }
+}
+
 Describe 'Test-CommandExists' {
     It 'returns $true for an existing command (Get-Command itself)' {
         Test-CommandExists -Name 'Get-Command' | Should -BeTrue
