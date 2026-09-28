@@ -44,6 +44,12 @@ Describe 'Initialize-Winget — recovery ladder (§3.1)' {
         Mock Install-WingetCore { return $true }
         Mock Repair-WingetDatabase { return $true }
         Mock Reset-WingetSources {}
+        # The forced package reinstall is a REAL system operation (AppX reset, module
+        # install, process kill). It MUST be stubbed here: without it the unit test
+        # would reset the App Installer package and touch the PowerShell profile of
+        # the machine running the suite.
+        Mock Confirm-ToolkitInteractiveAction { return $false }
+        Mock Reinstall-WingetForced { return New-StepResult -Success $true -Message 'stubbed' }
     }
 
     It 'returns success without installing when the health probe already passes' {
@@ -78,6 +84,27 @@ Describe 'Initialize-Winget — recovery ladder (§3.1)' {
         $result = Initialize-Winget
         $result.Success | Should -BeFalse
         Should -Invoke Repair-WingetDatabase -Times 1
+    }
+
+    It 'falls back to the forced package reinstall when the core install did not help' {
+        # First two probes fail (health, then after the core install); the forced
+        # repair is what finally makes the third probe succeed.
+        $script:probe = 0
+        Mock Get-WingetHealth {
+            $script:probe++
+            if ($script:probe -le 2) { return [pscustomobject]@{ Present = $true; Runs = $false; Version = $null; Reachable = $false } }
+            return [pscustomobject]@{ Present = $true; Runs = $true; Version = '1.29'; Reachable = $true }
+        }
+
+        $result = Initialize-Winget
+        Should -Invoke Reinstall-WingetForced -Times 1
+        $result.Success | Should -BeTrue
+    }
+
+    It 'never reaches the forced reinstall once the health probe passes' {
+        Mock Get-WingetHealth { [pscustomobject]@{ Present = $true; Runs = $true; Version = '1.29'; Reachable = $true } }
+        $null = Initialize-Winget
+        Should -Invoke Reinstall-WingetForced -Times 0
     }
 }
 
