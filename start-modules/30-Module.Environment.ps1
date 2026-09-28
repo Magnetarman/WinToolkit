@@ -368,6 +368,98 @@ function Set-UpdateServicesError {
 }
 
 
+function Sync-UserScopeWithInstalledTools {
+    <#
+    .SYNOPSIS
+    Aligns the interactive user with the tools that were installed, after an
+    elevation that switched account, and returns a StepResult.
+
+    .DESCRIPTION
+    WinGet is a PER-USER application: its execution alias and its cache live under
+    the LOCALAPPDATA of the account that runs the process. When UAC elevation
+    switched to another administrator, every tool was therefore installed into
+    THAT account, and the interactive user would not find any of them.
+
+    The chosen policy is hybrid, and deliberately non-blocking in both directions:
+
+      - when it can be done, it is done: the original user's registry hive is
+        loaded (it is not loaded when another account is running), the WindowsApps
+        directory that received the tools is appended to that user's PATH, and the
+        hive is unloaded immediately afterwards;
+      - when the hive cannot be loaded, the setup does NOT fail: it falls back to
+        an explicit warning naming the account that holds the tools, because a
+        blocked PATH write must never abort an otherwise completed installation.
+
+    The PATH is written with Set-ItemProperty -Type ExpandString, never with
+    [Environment]::SetEnvironmentVariable: the latter rewrites the user PATH from
+    REG_EXPAND_SZ to REG_SZ and would permanently break every other %VAR% in it
+    (this is the same defect as B-09).
+    #>
+    [CmdletBinding()]
+    param()
+
+    $context = Get-ToolkitOriginalUserContext
+    if (-not $context.AccountSwitched) {
+        return New-StepResult -Success $true -Message 'No account switch: the user scope is already correct.'
+    }
+
+    $toolsRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps'
+    if (-not (Test-Path -LiteralPath $toolsRoot -PathType Container)) {
+        Write-ToolkitLog -Level 'WARNING' -Message "Tool directory not found, nothing to align: $toolsRoot"
+        return New-StepResult -Success $false -Message "No WindowsApps directory to align for '$($context.OriginalUser)'."
+    }
+
+    $hiveReg = 'HKU\WinToolkitUserScope'
+    $loaded = $false
+    try {
+        # reg.exe rather than the registry provider: mounting another user's hive
+        # is a native operation and this keeps the failure path explicit.
+        $null = & reg.exe load $hiveReg (Join-Path $context.UserProfile 'NTUSER.DAT') 2>&1
+        $loaded = ($LASTEXITCODE -eq 0)
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Could not load the user hive: $($_.Exception.Message)"
+        $loaded = $false
+    }
+
+    if (-not $loaded) {
+        # Degrade, never block.
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.userScopeNotAligned0' -Args @($context.OriginalUser, $toolsRoot))
+        return New-StepResult -Success $false -Message "Tools are in '$($context.CurrentUser)'; the PATH of '$($context.OriginalUser)' could not be updated."
+    }
+
+    try {
+        $envKey = "Registry::$hiveReg\Environment"
+        $current = (Get-ItemProperty -Path $envKey -Name 'Path' -ErrorAction SilentlyContinue).Path
+        if ([string]::IsNullOrWhiteSpace($current)) { $current = '' }
+
+        if (($current -split ';') -contains $toolsRoot) {
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.userScopeAlreadyAligned0' -Args @($context.OriginalUser))
+            return New-StepResult -Success $true -Message 'The user PATH already contains the tool directory.'
+        }
+
+        $newPath = if ($current.TrimEnd(';')) { $current.TrimEnd(';') + ';' + $toolsRoot } else { $toolsRoot }
+        # ExpandString preserves the %VAR% entries already in the user PATH.
+        Set-ItemProperty -Path $envKey -Name 'Path' -Value $newPath -Type ExpandString -Force
+
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.userScopeAligned0' -Args @($context.OriginalUser, $toolsRoot))
+        Write-ToolkitLog -Level 'INFO' -Message "User PATH aligned: added '$toolsRoot' to '$($context.OriginalUser)'."
+        return New-StepResult -Success $true -Changed $true -Message "Tool directory added to the PATH of '$($context.OriginalUser)'."
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Could not update the user PATH: $($_.Exception.Message)"
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.userScopeNotAligned0' -Args @($context.OriginalUser, $toolsRoot))
+        return New-StepResult -Success $false -Message "Failed to update the PATH of '$($context.OriginalUser)'."
+    }
+    finally {
+        if ($loaded) {
+            $null = & reg.exe unload $hiveReg 2>&1
+            Write-ToolkitLog -Level 'DEBUG' -Message "Unloaded the temporary user hive ($LASTEXITCODE)."
+        }
+    }
+}
+
+
 function Invoke-StopUpdateServices {
     <#
     .SYNOPSIS
