@@ -81,7 +81,7 @@ function Install-GitPackage {
 
     # 2. Fallback: direct download from GitHub
     try {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadGitDaGithub')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadGitFromGitHub')
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.runningGitInstaller')
         $assetPattern = Get-ArchitectureSpecificValue -X64 '64-bit\.exe$' -X86 '32-bit\.exe$' -ARM64 'arm64\.exe$'
         $installResult = Install-FromGitHubRelease -ReleaseApiUrl $script:AppConfig.URLs.GitRelease `
@@ -122,7 +122,7 @@ function Install-PowerShellCore {
     location of the running host, which is a stronger check than probing a few
     hardcoded Program Files paths.
     #>
-    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.verificaPowershell7')
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.checkingPowershell7')
 
     $pwshExe = Join-Path $PSHOME 'pwsh.exe'
     if (($PSVersionTable.PSVersion.Major -ge 7) -and (Test-Path -LiteralPath $pwshExe)) {
@@ -196,7 +196,7 @@ function Install-WindowsTerminalApp {
         }
         $downloadUrl = $asset.browser_download_url
 
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.iTryNativeAppxInstallationFromDownloadedBundle')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingNativeAppxInstallFromBundle')
         $tempFile = Join-Path $env:TEMP "WinTerminal.msixbundle"
         if (-not (Invoke-DownloadFile -Uri $downloadUrl -OutFile $tempFile `
                     -ContentValidator (New-SignatureValidator -ProfileKey 'terminalMsix'))) {
