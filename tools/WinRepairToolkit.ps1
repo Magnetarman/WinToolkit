@@ -176,6 +176,7 @@ function WinRepairToolkit {
         }
     }
 
+
     function Start-RepairCycle {
         param([int]$Attempt = 1)
 
@@ -200,6 +201,7 @@ function WinRepairToolkit {
         return @{ Success = ($totalErrors -eq 0); TotalErrors = $totalErrors; AttemptsUsed = $Attempt }
     }
 
+
     function Start-DeepDiskRepair {
         Write-StyledMessage -Type 'Info' -Text ("🔧 " + (Get-SourceTextLoc 'toolText.startDeepRepairOfDiskCOnNextReboot'))
         try {
@@ -223,6 +225,7 @@ function WinRepairToolkit {
             return $false
         }
     }
+
 
     function Test-PendingOperations {
         $pendingRebootKeys = @(

@@ -30,6 +30,7 @@ function Get-SourceTextLanguageDirectory {
     return $candidate
 }
 
+
 function Get-AvailableSourceTextLanguages {
     $languageDir = Get-SourceTextLanguageDirectory
     if (-not (Test-Path $languageDir)) { return @() }
@@ -53,6 +54,7 @@ function Get-AvailableSourceTextLanguages {
     } | Sort-Object Code
 }
 
+
 function Import-SourceTextLanguageFile {
     param([string]$LanguageCode)
 
@@ -66,6 +68,7 @@ function Import-SourceTextLanguageFile {
         return $null
     }
 }
+
 
 function Set-SourceTextLanguage {
     param([string]$LanguageCode = 'en-US')
@@ -84,6 +87,7 @@ function Set-SourceTextLanguage {
         $Global:SourceTextLanguageData = $languageData
     }
 }
+
 
 function Get-SourceTextLoc {
     param(
@@ -122,6 +126,7 @@ function Get-SourceTextLoc {
     return $value
 }
 
+
 function Format-SourceText {
     <#
     .SYNOPSIS
@@ -145,6 +150,7 @@ function Format-SourceText {
     if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($text, $Arguments) }
     return $text
 }
+
 
 function Get-SourceTextMenuText {
     param([object]$Item)
@@ -171,6 +177,7 @@ function Get-SourceTextMenuText {
     return [string]$Item
 }
 
+
 function Get-RemoteAvailableCultures {
     param([string]$GitHubApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$Branch")
     try {
@@ -181,6 +188,7 @@ function Get-RemoteAvailableCultures {
         return @()
     }
 }
+
 
 function Invoke-SourceTextLanguagePruning {
     <#
@@ -210,6 +218,7 @@ function Invoke-SourceTextLanguagePruning {
         }
     }
 }
+
 
 function Invoke-SourceTextLanguagePreparation {
     [CmdletBinding()]
@@ -258,6 +267,7 @@ function Invoke-SourceTextLanguagePreparation {
     }
     return $localDir
 }
+
 
 function Get-SourceTextAutoDetectedLanguage {
     param([string]$AvailableCultures = 'en-US', [string]$SystemUICulture = ($PSUICulture.ToString()))

@@ -27,6 +27,7 @@ function Write-BuildLog {
     Write-Host "[$timestamp] $Message" -ForegroundColor $colors[$Type]
 }
 
+
 function Get-FileStats {
     param([Parameter(Mandatory = $true)][string]$Path)
     $item = Get-Item -LiteralPath $Path
@@ -36,6 +37,7 @@ function Get-FileStats {
         Lines = ($content -split "`r?`n").Count
     }
 }
+
 
 function Write-GitHubOutput {
     param([Parameter(Mandatory = $true)][string]$Name, [Parameter(Mandatory = $true)][object]$Value)
@@ -90,6 +92,9 @@ try {
             Write-BuildLog -Message "Unexpected error during minification ($($_.Exception.Message)); keeping original source." -Type Warning
         }
     }
+
+    # Apply the same function spacing to both minified and unminified output.
+    $content = & (Join-Path $PSScriptRoot 'Format-FunctionSpacing.ps1') -Content $content
 
     $outputFullPath = [System.IO.Path]::GetFullPath($OutputPath)
     $outputDirectory = Split-Path -Parent $outputFullPath

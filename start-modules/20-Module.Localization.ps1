@@ -39,6 +39,7 @@ function Get-SourceTextLanguageDirectory {
     return $candidates[-1]
 }
 
+
 function Get-RemoteAvailableCultures {
     param([string]$GitHubApiUrl = $script:AppConfig.URLs.LanguagesApiUrl)
     try {
@@ -49,6 +50,7 @@ function Get-RemoteAvailableCultures {
         return @()
     }
 }
+
 
 function Invoke-SourceTextLanguagePruning {
     <#
@@ -78,6 +80,7 @@ function Invoke-SourceTextLanguagePruning {
         }
     }
 }
+
 
 function Invoke-SourceTextLanguagePreparation {
     [CmdletBinding()]
@@ -127,6 +130,7 @@ function Invoke-SourceTextLanguagePreparation {
     return $localDir
 }
 
+
 function Get-SourceTextAutoDetectedLanguage {
     param([string]$AvailableCultures = 'en-US', [string]$SystemUICulture = ($PSUICulture.ToString()))
     $normalizedSystem = $SystemUICulture.ToLowerInvariant()
@@ -138,6 +142,7 @@ function Get-SourceTextAutoDetectedLanguage {
     }
     return 'en-US'
 }
+
 
 function Import-SourceTextLanguageFile {
     param([string]$LanguageCode)
@@ -154,6 +159,7 @@ function Import-SourceTextLanguageFile {
     }
 }
 
+
 function Initialize-SourceTextLocalization {
     param([string]$LanguageCode)
 
@@ -166,6 +172,7 @@ function Initialize-SourceTextLocalization {
         $script:SourceTextLanguageData = $script:SourceTextDefaultLanguageData
     }
 }
+
 
 function Resolve-SourceTextLanguage {
     <#
@@ -194,6 +201,7 @@ function Resolve-SourceTextLanguage {
     Initialize-SourceTextLocalization -LanguageCode $resolved
     return $resolved
 }
+
 
 function Get-SourceTextLoc {
     param(
@@ -237,6 +245,7 @@ function Get-SourceTextLoc {
     if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
+
 
 function Format-SourceText {
     <#

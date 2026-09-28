@@ -11,6 +11,7 @@ function Test-CommandExists {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+
 function Wait-Until {
     <#
     .SYNOPSIS
@@ -34,6 +35,7 @@ function Wait-Until {
     return $false
 }
 
+
 function ConvertTo-ProcessArgumentList {
     <#
     .SYNOPSIS
@@ -48,6 +50,7 @@ function ConvertTo-ProcessArgumentList {
             else { $_.Groups[3].Value }
         })
 }
+
 
 function Invoke-DownloadFile {
     <#
@@ -89,6 +92,7 @@ function Invoke-DownloadFile {
         $ProgressPreference = $previousProgress
     }
 }
+
 
 function Invoke-ExternalCommand {
     <#
@@ -187,6 +191,7 @@ function Invoke-ExternalCommand {
     }
 }
 
+
 function Install-FromGitHubRelease {
     <#
     .SYNOPSIS
@@ -240,6 +245,7 @@ function Install-FromGitHubRelease {
     }
 }
 
+
 function Add-SetupResult {
     <#
     .SYNOPSIS
@@ -257,6 +263,7 @@ function Add-SetupResult {
         Name = $Name; Status = $status; Message = $Message; Blocking = $Blocking
     }
 }
+
 
 function Write-SetupSummary {
     <#

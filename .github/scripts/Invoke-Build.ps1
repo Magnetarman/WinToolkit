@@ -44,6 +44,7 @@ function Write-BuildLog {
     Write-Host "[$timestamp] $Message" -ForegroundColor $colors[$Type]
 }
 
+
 function Get-FileStats {
     param([string]$Path)
 

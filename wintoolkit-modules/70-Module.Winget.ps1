@@ -24,6 +24,7 @@ function Get-WingetExecutable {
     return "winget"
 }
 
+
 function Start-AppxSilentProcess {
     <#
     .SYNOPSIS
@@ -74,6 +75,7 @@ exit 0
     return [System.Diagnostics.Process]::Start($psi)
 }
 
+
 function Wait-WingetReady {
     <#
     .SYNOPSIS
@@ -107,6 +109,7 @@ function Wait-WingetReady {
     Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.wingetDidNotRespondWithin0SecondsIContinueAnyway' -Args @($MaxWaitSeconds)))
     return $false
 }
+
 
 function Reset-Winget {
     <#
@@ -143,6 +146,7 @@ function Reset-Winget {
         return (Test-Path $registryPath) -and ($major -ge 14) -and (Test-Path $dllPath)
     }
 
+
     function Register-AppxManifest {
         try {
             $manifest = (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue).InstallLocation
@@ -159,6 +163,7 @@ function Reset-Winget {
         }
     }
 
+
     function Get-LatestAssetUrl {
         param([string]$Match)
         try {
@@ -170,6 +175,7 @@ function Reset-Winget {
         catch { return $null }
     }
 
+
     function Test-WingetCompatibility {
         $os = [Environment]::OSVersion.Version
         if ($os.Major -lt 10 -or ($os.Major -eq 10 -and $os.Build -lt 16299)) {
@@ -178,6 +184,7 @@ function Reset-Winget {
         }
         return $true
     }
+
 
     function Test-WingetFunctionality {
         Update-EnvironmentPath
@@ -200,6 +207,7 @@ function Reset-Winget {
         }
     }
 
+
     function Test-PathInEnvironment {
         param([string]$PathToCheck, [string]$Scope = 'Both')
         $found = $false
@@ -210,6 +218,7 @@ function Reset-Winget {
         }
         return $found
     }
+
 
     function Add-ToEnvironmentPath {
         param([string]$PathToAdd, [ValidateSet('User', 'System')][string]$Scope)
@@ -226,6 +235,7 @@ function Reset-Winget {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.updatedPath0' -Args @($PathToAdd))
     }
 
+
     function Set-PathPermissions {
         param([string]$FolderPath)
         if (-not (Test-Path $FolderPath)) { return }
@@ -241,6 +251,7 @@ function Reset-Winget {
         }
         catch { Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.unableToSetPermissionsOn01' -Args @($FolderPath, $($_.Exception.Message))) }
     }
+
 
     function Set-WingetPathPermissions {
         $wingetFolderPath = $null
@@ -261,6 +272,7 @@ function Reset-Winget {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.pathAndWingetPermissionsUpdated')
         }
     }
+
 
     function _Repair-WingetDatabase {
         Write-StyledMessage -Type Info -Text ("🔧 " + (Get-SourceTextLoc 'uiText.ripristinoDatabaseWinget'))
@@ -330,6 +342,7 @@ function Reset-Winget {
         }
     }
 
+
     function _Install-WingetAdvanced {
         Write-StyledMessage -Type Info -Text ("🚀 " + (Get-SourceTextLoc 'uiText.advancedInstallationViaMicrosoftWingetClientModule'))
         try {
@@ -388,6 +401,7 @@ function Reset-Winget {
             return $false
         }
     }
+
 
     function Test-WingetDeepValidation {
         Write-StyledMessage -Type Info -Text ("🔍 " + (Get-SourceTextLoc 'uiText.wingetDeepValidationConnectivityDatabaseIntegrity'))

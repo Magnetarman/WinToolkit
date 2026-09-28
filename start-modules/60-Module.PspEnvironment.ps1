@@ -41,6 +41,7 @@ function Update-WindowsTerminalSettings {
     }
 }
 
+
 function Install-NerdFontsLocal {
     <#
     .SYNOPSIS
@@ -78,6 +79,7 @@ function Install-NerdFontsLocal {
         return $false
     }
 }
+
 
 function Install-PspEnvironment {
     <#

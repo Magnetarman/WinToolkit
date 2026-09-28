@@ -41,6 +41,7 @@ function Write-TestLog {
     Write-Host "[$timestamp] $Message" -ForegroundColor $colors[$Type]
 }
 
+
 function Initialize-OutputVariable {
     # Create empty output file
     "" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Force

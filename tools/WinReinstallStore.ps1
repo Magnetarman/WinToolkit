@@ -122,6 +122,7 @@ function WinReinstallStore {
         return $success
     }
 
+
     function Install-UniGetUI {
         Write-StyledMessage -Type 'Info' -Text ("🔄 " + (Get-SourceTextLoc 'toolText.unigetUiInstallation'))
 
@@ -182,6 +183,7 @@ function WinReinstallStore {
             return $false
         }
     }
+
 
     function Invoke-WithConsoleRedirection {
         <#

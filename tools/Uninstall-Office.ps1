@@ -32,6 +32,7 @@ function Uninstall-Office {
         }
     }
 
+
     function Remove-ItemsSilently {
         param([string[]]$Paths, [string]$ItemType = "folder")
         $removed = @()
@@ -44,6 +45,7 @@ function Uninstall-Office {
         }
         return @{ Removed = $removed; Failed = $failed; Count = $removed.Count }
     }
+
 
     # ============================================================================
     # METODI DI RIMOZIONE
@@ -197,6 +199,7 @@ function Uninstall-Office {
             return $false
         }
     }
+
 
     function Start-OfficeUninstallWithGetHelp {
         try {
