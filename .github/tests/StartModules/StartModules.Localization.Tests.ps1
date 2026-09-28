@@ -58,10 +58,23 @@ Describe 'Get-SourceTextLoc' {
 Describe 'Get-SourceTextAutoDetectedLanguage' {
 
     It 'returns en-US when the system culture is not among the available ones' {
-        Get-SourceTextAutoDetectedLanguage -AvailableCultures 'en-US' -SystemUICulture 'xx-XX' | Should -Be 'en-US'
+        Get-SourceTextAutoDetectedLanguage -AvailableCultures @('en-US') -SystemUICulture 'xx-XX' | Should -Be 'en-US'
     }
 
     It 'returns the available culture matching the neutral prefix' {
-        Get-SourceTextAutoDetectedLanguage -AvailableCultures 'en-US,it-IT' -SystemUICulture 'it-CH' | Should -Be 'it-IT'
+        Get-SourceTextAutoDetectedLanguage -AvailableCultures @('en-US', 'it-IT') -SystemUICulture 'it-CH' | Should -Be 'it-IT'
+    }
+
+    It 'matches case-insensitively but returns the FOLDER name, not the lowercased system culture (B-14)' {
+        # The previous implementation returned the lowercased system culture, so
+        # 'it-it' was returned for a folder actually named 'it-IT'.
+        Get-SourceTextAutoDetectedLanguage -AvailableCultures @('en-US', 'it-IT') -SystemUICulture 'it-it' | Should -Be 'it-IT'
+    }
+}
+
+Describe 'Get-SourceTextLanguageDirectory' {
+
+    It 'returns the configured cache, never a folder found in the working directory (B-10)' {
+        Get-SourceTextLanguageDirectory | Should -Be $script:AppConfig.Paths.Languages
     }
 }
