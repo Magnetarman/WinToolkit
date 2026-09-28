@@ -205,6 +205,24 @@ Describe 'Test-DownloadedSignature / New-SignatureValidator (S-1)' {
     }
 }
 
+Describe 'Every translation key used by the fragments exists' {
+
+    It 'resolves without the [MISSING TRANSLATION] fallback' {
+        # Reads the repository languages/ (see BeforeAll), so a key added to the
+        # code but forgotten in the .psd1 files fails HERE instead of showing an
+        # English placeholder to the user at run time.
+        $keys = [regex]::Matches(
+            (Get-ChildItem (Join-Path $moduleRoot '*.ps1') | Get-Content -Raw) -join "`n",
+            "Get-SourceTextLoc\s+(?:'([^']+)'|`"([^`"]+)`")") |
+            ForEach-Object { if ($_.Groups[1].Success) { $_.Groups[1].Value } else { $_.Groups[2].Value } } |
+            Sort-Object -Unique
+
+        $keys.Count | Should -BeGreaterThan 50
+        $missing = @($keys | Where-Object { (Get-SourceTextLoc $_) -match '\[MISSING TRANSLATION' })
+        ($missing -join ', ') | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'Reinstall-WingetForced — forced repair of the two WinGet packages' {
 
     BeforeEach {
