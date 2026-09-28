@@ -50,7 +50,7 @@ function Invoke-WinToolkitSetup {
         Initialize-UpdateServicesState
         Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.powershell0' -Args @($PSVersionTable.PSVersion))
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingWinToolkitConfiguration')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingWinToolkitSetup')
 
         # Non-blocking: real-time protection interferes with AppX installs, but the
         # setup must continue if the user keeps Defender enabled.
