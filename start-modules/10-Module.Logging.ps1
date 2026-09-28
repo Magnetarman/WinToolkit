@@ -78,7 +78,7 @@ Start time     : $dateTime
 ToolName       : $ToolName
 OS             : $($os.Caption) $($os.Version)
 PSVersion      : $psVer
-ToolkitVersion : $script:AppConfig.Header.Version
+ToolkitVersion : $($script:AppConfig.Header.Version)
 [END LOG HEADER]
 
 "@
