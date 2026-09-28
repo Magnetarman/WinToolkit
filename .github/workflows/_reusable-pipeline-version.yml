@@ -25,6 +25,11 @@ on:
         required: false
         type: string
         default: '🆙 Sync pipeline version'
+      skip-ci:
+        description: Append [skip ci] to the alignment commit. The alignment is cosmetic (version tokens only), so it must not start a new run that would cancel the one in progress.
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   sync:
@@ -65,10 +70,14 @@ jobs:
           label: workflows after pipeline version alignment
 
       - name: Commit pipeline version alignment
+        # The alignment is already applied in the workspace, so a refused push (branch
+        # protection, read-only token) must not turn the run red: the next push to Dev
+        # re-aligns and commits it.
         if: steps.align.outputs.changed == 'true'
+        continue-on-error: true
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
-        with:
-          commit_message: ${{ inputs.commit-message }}
+        with: |
+          commit_message: ${{ inputs.skip-ci && format('{0} [skip ci]', inputs.commit-message) || inputs.commit-message }}
           file_pattern: ${{ steps.align.outputs.files }}
           branch: ${{ inputs.branch }}
           push_options: --force-with-lease
