@@ -208,6 +208,77 @@ function Reset-HostsFile {
 }
 
 
+function Repair-HostsFileIfNeeded {
+    <#
+    .SYNOPSIS
+    Clears the WinGet/Store hosts overrides only when the package sources fail.
+
+    .DESCRIPTION
+    The hosts file was previously rewritten on EVERY run, which discarded the
+    privacy blocklist the user had configured (any 0.0.0.0 entry pointing at
+    microsoft.com). It is a repair, not a routine cleanup, so it now runs only
+    when the WinGet/Store health check actually reports a failure: if the sources
+    answer, the user entries stay exactly as they are.
+    #>
+    $health = Get-WingetHealth
+    if ($health.Runs -and $health.Reachable) {
+        return New-StepResult -Success $true -Message 'WinGet sources are reachable, hosts file left untouched.'
+    }
+
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.hostsFileResetOnlyOnSourceFailure0')
+    return Reset-HostsFile
+}
+
+
+function Request-DefenderPause {
+    <#
+    .SYNOPSIS
+    Warns that Defender is active and offers to wait for the user to disable it.
+
+    .DESCRIPTION
+    Active real-time protection interferes with AppX and WinGet installs. This is
+    NOT blocking: the setup continues either way. Pressing ENTER three times in a
+    row bypasses the check, so a user who keeps Defender enabled (by policy, or
+    by choice) is never trapped in a prompt loop. A non-interactive session skips
+    the prompt entirely instead of blocking on a key that will never arrive.
+    #>
+    try {
+        $defender = Get-MpComputerStatus -ErrorAction Stop
+        if (-not $defender.RealTimeProtectionEnabled) { return $false }
+    }
+    catch {
+        Write-ToolkitLog -Level 'DEBUG' -Message "Defender status unavailable: $($_.Exception.Message)"
+        return $false
+    }
+
+    if ([Console]::IsInputRedirected) {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.defenderActiveNonInteractive0')
+        return $false
+    }
+
+    $maxAttempts = $script:AppConfig.Defender.MaxConfirmations
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.defenderActiveDisablePrompt0' -Args @($attempt, $maxAttempts))
+        $null = Read-Host (Get-SourceTextLoc 'uiText.defenderPressEnterAfterDisabling0')
+
+        try {
+            $defender = Get-MpComputerStatus -ErrorAction Stop
+            if (-not $defender.RealTimeProtectionEnabled) {
+                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.defenderDisabledContinuing0')
+                return $true
+            }
+        }
+        catch {
+            Write-ToolkitLog -Level 'DEBUG' -Message "Defender status unavailable: $($_.Exception.Message)"
+            break
+        }
+    }
+
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.defenderStillActiveContinuing0')
+    return $false
+}
+
+
 # --- Windows Update services: persisted state, suspend and restore ---
 
 function Get-UpdateServicesStatusPath {
