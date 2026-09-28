@@ -426,7 +426,10 @@ function Invoke-StartUpdateServices {
         if ($dosvcErrors.Count -gt 0) {
             # dosvc refuses to start on some Windows builds: a known limitation, not a failure.
             Set-UpdateServicesState -Status $status -State 'Restored'
-            Write-ToolkitLog -Level 'WARNING' -Message "Windows Update service dosvc could not be restored (known Windows limitation): $dosvcErrors -join '; '"
+            # $dosvcErrors is an array: it must be joined INSIDE the subexpression,
+            # otherwise the literal "-join" text ends up in the log line.
+            $dosvcDetail = $dosvcErrors -join '; '
+            Write-ToolkitLog -Level 'WARNING' -Message "Windows Update service dosvc could not be restored (known Windows limitation): $dosvcDetail"
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.dosvcNotRestoredKnownLimitation')
         }
     }
