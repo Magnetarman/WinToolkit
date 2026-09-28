@@ -442,4 +442,3 @@ function Invoke-StartUpdateServices {
 # check are no longer performed here. They are now handled upstream in
 # start.ps1, which blocks dependency installation and start-core until
 # Windows updates are fully completed.
-

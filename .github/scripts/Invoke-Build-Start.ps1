@@ -93,8 +93,11 @@ try {
         }
     }
 
-    # Apply the same function spacing to both minified and unminified output.
-    $content = & (Join-Path $PSScriptRoot 'Format-FunctionSpacing.ps1') -Content $content
+    # NOTE: the compiled artefact stays machine-only and therefore compact:
+    # no reformatting, no blank-line injection, no comment restoration here.
+    # Source fragments are normalized separately with
+    # .github/scripts/Format-FunctionSpacing.ps1, which only accepts files inside
+    # start-modules\ and wintoolkit-modules\.
 
     $outputFullPath = [System.IO.Path]::GetFullPath($OutputPath)
     $outputDirectory = Split-Path -Parent $outputFullPath
