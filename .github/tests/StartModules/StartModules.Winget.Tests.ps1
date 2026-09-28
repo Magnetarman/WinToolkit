@@ -131,6 +131,74 @@ Describe 'Test-WingetRpcFailure — App Installer RPC error (B-03)' {
     }
 }
 
+Describe 'Test-DownloadedSignature / New-SignatureValidator (S-1)' {
+
+    BeforeEach { $script:State.LogFile = $null }
+
+    It 'accepts a Valid signature whose subject contains an expected signer' {
+        Mock Get-AuthenticodeSignature {
+            [pscustomobject]@{ Status = 'Valid'
+                SignerCertificate = [pscustomobject]@{ Subject = 'CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond' } }
+        }
+        Test-DownloadedSignature -Path 'C:\x\vc_redist.x64.exe' -ExpectedSigners @('Microsoft Corporation') |
+            Should -BeTrue
+    }
+
+    It 'rejects a Valid signature from an unexpected signer' {
+        Mock Get-AuthenticodeSignature {
+            [pscustomobject]@{ Status = 'Valid'
+                SignerCertificate = [pscustomobject]@{ Subject = 'CN=Contoso Ltd' } }
+        }
+        Test-DownloadedSignature -Path 'C:\x\setup.exe' -ExpectedSigners @('Microsoft Corporation') |
+            Should -BeFalse
+    }
+
+    It 'rejects a non-Valid status even for the expected signer' {
+        Mock Get-AuthenticodeSignature {
+            [pscustomobject]@{ Status = 'HashMismatch'
+                SignerCertificate = [pscustomobject]@{ Subject = 'CN=Microsoft Corporation' } }
+        }
+        Test-DownloadedSignature -Path 'C:\x\a.exe' -ExpectedSigners @('Microsoft Corporation') | Should -BeFalse
+    }
+
+    It 'rejects when the signature cannot be read at all' {
+        Mock Get-AuthenticodeSignature { throw 'no catalog' }
+        Test-DownloadedSignature -Path 'C:\x\a.exe' -ExpectedSigners @('Microsoft Corporation') | Should -BeFalse
+    }
+
+    It 'builds a validator from the configured profile' {
+        $validator = New-SignatureValidator -ProfileKey 'git'
+        $validator | Should -BeOfType [scriptblock]
+    }
+
+    It 'throws for an unknown signature profile (a typo must not disable the check)' {
+        { New-SignatureValidator -ProfileKey 'gitTypo' } | Should -Throw
+    }
+
+    It 'a blocking validator turns an invalid signature into a thrown error' {
+        Mock Get-AuthenticodeSignature {
+            [pscustomobject]@{ Status = 'NotSigned'; SignerCertificate = $null }
+        }
+        $validator = New-SignatureValidator -ProfileKey 'vcRedist' -BlockOnInvalid
+        { & $validator 'C:\x\vc_redist.exe' } | Should -Throw
+    }
+
+    It 'a non-blocking validator only returns false, leaving the OS to decide' {
+        Mock Get-AuthenticodeSignature {
+            [pscustomobject]@{ Status = 'NotSigned'; SignerCertificate = $null }
+        }
+        $validator = New-SignatureValidator -ProfileKey 'wingetMsix'
+        { & $validator 'C:\x\bundle.msixbundle' } | Should -Not -Throw
+        (& $validator 'C:\x\bundle.msixbundle') | Should -BeFalse
+    }
+
+    It 'every signed profile declares at least one signer' {
+        foreach ($key in @('vcRedist', 'git', 'wingetMsix', 'terminalMsix')) {
+            @($script:AppConfig.DownloadSignatures[$key]).Count | Should -BeGreaterThan 0 -Because "$key must have an allow-list"
+        }
+    }
+}
+
 Describe 'Test-WingetCompatibility — minimum build (§2.5)' {
 
     It 'enforces the minimum threshold 17763 (Windows 10 1809) in the source' {
