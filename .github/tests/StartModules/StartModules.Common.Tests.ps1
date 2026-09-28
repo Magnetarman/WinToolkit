@@ -53,6 +53,18 @@ Describe 'Install-RemoteFile — profile/settings install policy (S-6)' {
         Remove-Item $script:probeDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 
+    # Stands in for Invoke-DownloadFile: writes the staged payload AND creates its
+    # parent, because in the real flow the temp folder is created by the download
+    # itself, not by Install-RemoteFile.
+    function script:New-FakeDownload {
+        param([string]$Content)
+        Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
+            [IO.File]::WriteAllText($OutFile, $Content)
+            return $true
+        }
+    }
+
     It 'returns $false and writes nothing when the download fails' {
         Mock Invoke-DownloadFile { return $false }
         $dest = Join-Path $script:probeDir 'file.txt'
