@@ -129,6 +129,7 @@ function Invoke-WinToolkitSetup {
         }
         else {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.attentionGitHasNotBeenInstalledOrItMayNotWorkProperly')
+            Write-ToolkitLog -Level 'WARNING' -Message 'Git is not operational: the winget path and the GitHub release fallback both failed (see the entries above).'
         }
 
         # Check and install PowerShell 7 (application level, see 50-Module.Installers.ps1)
@@ -147,8 +148,8 @@ function Invoke-WinToolkitSetup {
         }
 
         # ALWAYS executed: PSP environment and profile installation
-        Install-PspEnvironment
-        Add-SetupResult -Name 'PowerShell environment' -Success $true -Message 'PowerShell environment configured.'
+        $pspResult = Install-PspEnvironment
+        Add-SetupResult -Name 'PowerShell environment' -Success ([bool]$pspResult.Success) -Message $pspResult.Message
 
         # The desktop shortcut targets wt.exe and runs pwsh: only create it when
         # both components are actually available, otherwise it would be broken.
