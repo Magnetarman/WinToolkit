@@ -53,11 +53,14 @@ jobs:
         run: |
           $params = @{ CanonicalWorkflow = '${{ inputs.canonical-workflow }}' }
           if ('${{ inputs.version }}') { $params['Version'] = '${{ inputs.version }}' }
+
+          # The script reports the files it actually aligned, one relative path per
+          # line: only those are validated and committed.
+          $list = Join-Path $env:RUNNER_TEMP 'pipeline-version-changed.txt'
+          $params['ChangedFileListPath'] = $list
           & .github/scripts/Update-PipelineVersion.ps1 @params
 
-          # Only the files the alignment actually touched are committed.
-          $changed = @(git status --porcelain -- .github |
-            ForEach-Object { $_.Substring(3).Trim() })
+          $changed = @(if (Test-Path -LiteralPath $list) { Get-Content -LiteralPath $list } else { @() })
           "changed=$($changed.Count -gt 0)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "files=$($changed -join ' ')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           if ($changed) { $changed | ForEach-Object { Write-Host "  aligned: $_" } }
