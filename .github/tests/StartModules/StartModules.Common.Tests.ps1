@@ -15,7 +15,7 @@ BeforeAll {
     }
 
     # Allow no-op logging when no log file is configured
-    $script:CurrentLogFile = $null
+    $script:State.LogFile = $null
     if (-not (Test-Path Variable:Global:MsgStyles)) {
         $Global:MsgStyles = @{
             Success = @{ Icon = '[OK]';   Color = 'Green' }
@@ -100,17 +100,17 @@ Describe 'Test-PathInEnvironment' {
 
 Describe 'Add-SetupResult / Write-SetupSummary (§2.8, §4.1)' {
     BeforeEach {
-        $script:SetupResults = @()
+        $script:State.Results.Clear()
     }
 
     It 'records a successful step with no changes as Succeeded' {
         Add-SetupResult -Name 'StepA' -Success $true -Changed $false
-        $script:SetupResults[0].Status | Should -Be 'Succeeded'
+        $script:State.Results[0].Status | Should -Be 'Succeeded'
     }
 
     It 'records a successful step with changes as Changed' {
         Add-SetupResult -Name 'StepB' -Success $true -Changed $true
-        $script:SetupResults[0].Status | Should -Be 'Changed'
+        $script:State.Results[0].Status | Should -Be 'Changed'
     }
 
     It 'Write-SetupSummary returns 0 when everything succeeds' {
@@ -129,5 +129,105 @@ Describe 'Add-SetupResult / Write-SetupSummary (§2.8, §4.1)' {
         Add-SetupResult -Name 'StepA' -Success $true
         Add-SetupResult -Name 'StepWarn' -Success $false -Blocking $false -Message 'warn'
         Write-SetupSummary | Should -Be 2
+    }
+}
+
+Describe 'New-StepResult — the single step contract (T-02)' {
+
+    It 'defaults to Succeeded with no change and no skip' {
+        $r = New-StepResult -Success $true
+        $r.Success | Should -BeTrue
+        $r.Changed | Should -BeFalse
+        $r.Skipped | Should -BeFalse
+        $r.Blocking | Should -BeFalse
+    }
+
+    It 'carries the message, Changed and Skipped' {
+        $r = New-StepResult -Success $false -Changed $true -Message 'm' -Skipped
+        $r.Success | Should -BeFalse
+        $r.Changed | Should -BeTrue
+        $r.Skipped | Should -BeTrue
+        $r.Message | Should -Be 'm'
+    }
+}
+
+Describe 'Add-SetupResult — Result and Skipped forms (B-12, T-02)' {
+
+    BeforeEach { $script:State.Results.Clear() }
+
+    It 'accepts a StepResult through -Result' {
+        Add-SetupResult -Name 'Step' -Result (New-StepResult -Success $true -Changed $true -Message 'from step')
+        $script:State.Results[0].Status | Should -Be 'Changed'
+        $script:State.Results[0].Message | Should -Be 'from step'
+    }
+
+    It 'records an explicitly skipped step as Skipped, not Failed' {
+        Add-SetupResult -Name 'Step' -Success $true -Skipped -Message 'n/a'
+        $script:State.Results[0].Status | Should -Be 'Skipped'
+    }
+
+    It 'propagates Skipped carried by the StepResult' {
+        Add-SetupResult -Name 'Step' -Result (New-StepResult -Success $true -Skipped)
+        $script:State.Results[0].Status | Should -Be 'Skipped'
+    }
+
+    It 'a skipped step does not make Write-SetupSummary report a failure' {
+        Add-SetupResult -Name 'StepA' -Success $true
+        Add-SetupResult -Name 'Shortcut' -Success $true -Skipped -Message 'not applicable'
+        Write-SetupSummary | Should -Be 0
+    }
+}
+
+Describe 'Test-LocalRootedPath — path shape guard (T-12)' {
+
+    It 'accepts a fully qualified local path and trims the trailing separator' {
+        Test-LocalRootedPath -Path 'C:\Users\Me\Documents\' | Should -Be 'C:\Users\Me\Documents'
+    }
+
+    It 'rejects an empty path' {
+        Test-LocalRootedPath -Path '' | Should -BeNullOrEmpty
+    }
+
+    It 'rejects a drive root' {
+        Test-LocalRootedPath -Path 'C:\' | Should -BeNullOrEmpty
+        Test-LocalRootedPath -Path 'C:' | Should -BeNullOrEmpty
+    }
+
+    It 'rejects a drive-relative path (the C:\PowerShell bug)' {
+        Test-LocalRootedPath -Path '\PowerShell' | Should -BeNullOrEmpty
+        Test-LocalRootedPath -Path '/PowerShell' | Should -BeNullOrEmpty
+    }
+
+    It 'rejects a relative path' {
+        Test-LocalRootedPath -Path 'PowerShell' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Initialize-Directory — creates and verifies (T-12)' {
+
+    It 'refuses a drive-relative path instead of creating C:\PowerShell' {
+        { Initialize-Directory -Path '\PowerShell' } | Should -Throw
+    }
+
+    It 'creates a missing directory and returns it' {
+        $probe = Join-Path $env:TEMP ('wt-initdir_' + [guid]::NewGuid().ToString('N'))
+        try {
+            $resolved = Initialize-Directory -Path $probe
+            $resolved | Should -Be $probe
+            Test-Path -LiteralPath $probe -PathType Container | Should -BeTrue
+        }
+        finally {
+            Remove-Item -LiteralPath $probe -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Describe 'Remove-PathQuietly — never throws (T-03)' {
+
+    It 'removes existing paths and ignores missing ones' {
+        $probe = Join-Path $env:TEMP ('wt-rmq_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $probe -Force | Out-Null
+        { Remove-PathQuietly -Path @($probe, (Join-Path $probe 'does-not-exist')) } | Should -Not -Throw
+        Test-Path -LiteralPath $probe | Should -BeFalse
     }
 }
