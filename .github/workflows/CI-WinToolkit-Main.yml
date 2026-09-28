@@ -26,7 +26,7 @@ jobs:
   # Official repo guard: blocks non-maintainer / non-official-repo.
   official_repo_guard:
     name: Official repo guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
     permissions:
       contents: read
@@ -46,7 +46,7 @@ jobs:
   # Main branch guard: hard-block PRs to main not from maintainer or not from release/v*.
   main_branch_guard:
     name: Main branch guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event.action != 'closed'
     permissions:
       pull-requests: write
@@ -119,7 +119,7 @@ jobs:
   # Differential change detection (WinToolkit / Start). Same patterns as Dev workflow.
   detect_changes:
     name: Detect changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event.action != 'closed'
     needs: main_branch_guard
     outputs:
@@ -129,7 +129,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -215,7 +215,7 @@ jobs:
 
     steps:
       - name: Checkout main
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
