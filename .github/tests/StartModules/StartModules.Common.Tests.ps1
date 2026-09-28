@@ -79,10 +79,14 @@ Describe 'Install-RemoteFile — profile/settings install policy (S-6)' {
         @(Get-ChildItem $script:probeDir -File -ErrorAction SilentlyContinue).Count | Should -Be $before
     }
 
+    # NOTE: each test declares its own Mock with the content inlined. A Mock created
+    # inside a helper function does not see the helper's parameters, and Pester mocks
+    # are invoked in a different scope, so $Content would be empty.
+    # The mock also creates the parent folder, because in the real flow the temp
+    # directory is created by the download itself.
     It 'installs the payload and returns $true on a successful download' {
-        # The real download is stubbed by writing the staged file directly, so the
-        # copy/swap path is exercised without touching the network.
         Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
             [IO.File]::WriteAllText($OutFile, 'new-content'); return $true
         }
         $dest = Join-Path $script:probeDir 'file.txt'
@@ -93,6 +97,7 @@ Describe 'Install-RemoteFile — profile/settings install policy (S-6)' {
     It 'does not rewrite, and creates no backup, when the content is already identical' {
         # The previous code produced a .bak on EVERY run even when nothing changed.
         Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
             [IO.File]::WriteAllText($OutFile, 'same-content'); return $true
         }
         $dest = Join-Path $script:probeDir 'file.txt'
@@ -105,6 +110,7 @@ Describe 'Install-RemoteFile — profile/settings install policy (S-6)' {
 
     It 'keeps a backup of the previous content when the file actually changes' {
         Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
             [IO.File]::WriteAllText($OutFile, 'v2'); return $true
         }
         $dest = Join-Path $script:probeDir 'file.txt'
@@ -120,6 +126,7 @@ Describe 'Install-RemoteFile — profile/settings install policy (S-6)' {
 
     It 'creates the destination directory when it does not exist yet' {
         Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
             [IO.File]::WriteAllText($OutFile, 'x'); return $true
         }
         $dest = Join-Path (Join-Path $script:probeDir 'deep\nested') 'file.txt'
@@ -127,8 +134,12 @@ Describe 'Install-RemoteFile — profile/settings install policy (S-6)' {
         Test-Path $dest | Should -BeTrue
     }
 
-    It 'rejects a payload smaller than -MinimumBytes' {
-        Mock Invoke-DownloadFile { return $true }   # downloads nothing
+    It 'rejects an installed file smaller than -MinimumBytes' {
+        # The staged payload downloads fine but is too small once installed.
+        Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
+            [IO.File]::WriteAllText($OutFile, 'tiny'); return $true
+        }
         $dest = Join-Path $script:probeDir 'small.bin'
         Install-RemoteFile -Url $script:probeUrl -Destination $dest -MinimumBytes 1024 | Should -BeFalse
     }
