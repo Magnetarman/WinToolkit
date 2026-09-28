@@ -65,8 +65,11 @@ wintoolkit-modules/  +  tools/*.ps1
 | Script                         | Responsibility                                                                                                                                                        |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Update-Version.ps1`           | Reads `$ToolkitVersion` from `wintoolkit-modules/`, increments the build number, aligns `start-modules/00-Skeleton.Header.ps1`, publishes outputs for downstream jobs |
+| `Update-PipelineVersion.ps1`   | Reads `PIPELINE_VERSION` (single source of truth) and aligns the version token in every workflow, action and pipeline script; `-Check` fails on drift         |
+| `Format-FunctionSpacing.ps1`   | Source-only blank-line normalizer for `start-modules/` and `wintoolkit-modules/`; refuses every other path, so compiled artifacts are never reformatted        |
+| `Minify-Source.ps1`            | Tokenizer-safe minifier (comments, whitespace, blank lines) with syntax verification and rollback                                                                      |
 | `Invoke-Build.ps1`             | CI orchestrator: validates prerequisites, invokes `compiler.ps1`, verifies output, publishes metrics                                                                  |
-| `Invoke-Build-Start.ps1`       | Concatenates the ordered `start-modules/*.ps1` fragments into `start-core.ps1` and publishes size metrics                                                             |
+| `Invoke-Build-Start.ps1`       | Concatenates the ordered `start-modules/*.ps1` fragments into `start-core.ps1` and publishes size metrics; the artifact is emitted compact and is never reformatted |
 | `Test-CompiledScript.ps1`      | Post-build validation suite: AST syntax, function availability, menu structure, file size, UTF-8 encoding                                                             |
 | `Test-CompiledStartScript.ps1` | Validates `start-core.ps1`: AST syntax, expected functions, no duplicate SOURCE markers, no `Import-Module`, minimum size                                             |
 
@@ -87,6 +90,58 @@ output so it is traceable in CI.
 
 There is no `version.json`: the separate JSON source was removed in V4.0 precisely
 because two sources of truth could drift apart.
+
+### `$PIPELINE_VERSION` — Single Source of Truth for the CI/CD Version
+
+The pipeline version is managed the same way, with its own single source of truth: the
+`PIPELINE_VERSION` variable in the `env:` block of `.github/workflows/CI-WinToolkit-Dev.yml`
+(near the top of the file).
+
+```yaml
+env:
+  # SINGLE SOURCE OF TRUTH for the CI/CD pipeline version.
+  PIPELINE_VERSION: "4.1.0"
+```
+
+**That variable is the only place to edit.** Every other version number is aligned to it,
+and hand-editing a version in a workflow, action or pipeline script header is always a
+mistake: the CI gate fails on it.
+
+**What it covers — and nothing else:**
+
+| Scope                 | Files                                                                 | Token            |
+| --------------------- | ---------------------------------------------------------------------- | ---------------- |
+| `.yml`                | `.github/workflows/*.yml` (12) and `.github/actions/*/action.yml` (3)   | `WinToolkit ... V4.1.0` |
+| `.ps1`                | `.github/scripts/*.ps1` and `.github/tests/**/*.ps1` (22, in total)     | `# WinToolkit CI/CD V4.1.0` |
+| Application sources   | `start-modules/`, `wintoolkit-modules/`, `tools/`, `WinToolkit.ps1`, `start-core.ps1` | untouched — they carry the product version, not the pipeline version |
+
+**How it propagates:**
+
+1. **On every push to `Dev`**, the `sync-pipeline-version` job (in `CI-WinToolkit-Dev.yml`)
+   delegates to `_reusable-pipeline-version.yml`, which checks out `Dev`, runs
+   `Update-PipelineVersion.ps1`, validates the YAML and commits **only the files it changed**.
+2. **On every CI run, including pull requests**, the `Check pipeline version consistency`
+   step in `_reusable-lint-test.yml` runs the same script with `-Check` and **fails the job**
+   if any file drifted, naming the offending files.
+3. **Locally**, the same script provides the manual path:
+
+```powershell
+# Preview the alignment without writing anything
+.\.github\scripts\Update-PipelineVersion.ps1 -WhatIf
+
+# Align everything to the canonical value (no-op when already aligned)
+.\.github\scripts\Update-PipelineVersion.ps1
+
+# Bump and align in one step (the canonical value is updated too)
+.\.github\scripts\Update-PipelineVersion.ps1 -Version 4.2.0
+
+# Gate only: fails when something drifted
+.\.github\scripts\Update-PipelineVersion.ps1 -Check
+```
+
+The rewrite is byte-level: only the version token changes, while encoding, BOM and line
+endings are preserved exactly. The script is idempotent, so an aligned repository produces
+no commit and no noise in the run summary.
 
 ---
 
@@ -134,11 +189,25 @@ push/PR → Dev
       ├─────────────────┐
       ▼                 ▼
  [linting]         [testing]     ← parallel
+   ├─ pipeline version gate
+   ├─ fragment spacing
+   ├─ PSScriptAnalyzer
+   └─ AST validation    │
       │                 │
       └─────┬───────────┘
             ▼
          [build]                 ← compiles and commits WinToolkit.ps1
+            │
+            ▼
+ [build-start]                 ← compiles and commits start-core.ps1
+
+push to Dev only:
+[sync-pipeline-version]        ← aligns PIPELINE_VERSION across .github and commits
 ```
+
+The `sync-pipeline-version` job runs in parallel with the quality gate and the builds: it
+touches only workflow/action/script version tokens, so it never competes with the compiled
+artifacts. It commits nothing when the repository is already aligned.
 
 The `pr_security_guard` job applies a 3-level check:
 
@@ -179,23 +248,49 @@ Trigger:
 
 The script `.github/scripts/Get-TopContributors.ps1` queries the GitHub APIs with pagination, calculates the ranking, and updates the README. Because `main` has active branch protection, direct push is blocked and a PR is mandatory to deliver changes.
 
-### V4.0 CI/CD modular architecture
+### V4.1 CI/CD modular architecture
 
-The V4.0 pipeline separates orchestration from reusable implementation:
+The V4.1 pipeline separates orchestration from reusable implementation. Its version is the
+one declared by `PIPELINE_VERSION` and is never written by hand in the files below:
 
-- `_reusable-lint-test.yml`: linting, AST validation and Pester quality gates.
+- `_reusable-lint-test.yml`: pipeline version gate, fragment spacing, linting, AST validation and Pester quality gates.
 - `_reusable-build-wintoolkit.yml`: cleanup, compilation, artifact tests and commit of `WinToolkit.ps1`.
 - `_reusable-build-start.yml`: cleanup, compilation, validation and commit of `start-core.ps1`.
 - `_reusable-versioning.yml`: version bump, template validation and commit on the target branch.
+- `_reusable-pipeline-version.yml`: reads `PIPELINE_VERSION`, aligns the version in every workflow, action and pipeline script, and commits only the changed files.
 - `.github/actions/setup-powershell-modules/`: idempotent Pester/PSScriptAnalyzer setup.
 - `.github/actions/validate-syntax/`: shared PowerShell AST validation.
 - `.github/actions/pre-build-cleanup/`: shared generated-artifact cleanup.
 
-The Dev orchestrator calls the quality gate plus both reusable build workflows. Main calls the quality gate with template validation disabled and delegates versioning to the reusable versioning workflow. The pre-release workflow delegates versioning and both artifact builds.
+The Dev orchestrator calls the quality gate plus both reusable build workflows, and — on
+pushes to `Dev` — the pipeline version sync. Main calls the quality gate with template
+validation disabled and delegates versioning to the reusable versioning workflow. The
+pre-release workflow delegates versioning and both artifact builds.
 
 ### `start.ps1` and `start-core.ps1`
 
 `start.ps1` is an ASCII-safe launcher. It locates/elevates PowerShell 7 and downloads or executes `start-core.ps1`. The core is generated from the ordered fragments in `start-modules/` by `.github/scripts/Invoke-Build-Start.ps1` and validated by `.github/scripts/Test-CompiledStartScript.ps1`.
+
+Compiled artifacts are **machine-only**: they are read by the PowerShell host, never by a
+human or an AI reviewer, so they must stay as compact as possible. The build therefore
+never reformats them — no blank-line injection, no comment restoration, no re-reading of
+the fragments. The same rule applies to `WinToolkit.ps1`.
+
+Readability is a property of the **sources**, handled by a separate tool:
+
+```powershell
+# Normalize blank-line spacing in the source fragments only
+.\.github\scripts\Format-FunctionSpacing.ps1 -Path start-modules -WhatIf
+.\.github\scripts\Format-FunctionSpacing.ps1 -Path start-modules,wintoolkit-modules
+```
+
+`Format-FunctionSpacing.ps1` caps consecutive blank lines, trims trailing whitespace and
+keeps a single final newline; it never adds blank lines, so compliant files are a no-op.
+Its scope is enforced by a hard guard: it accepts only files under `start-modules\` and
+`wintoolkit-modules\` and refuses `WinToolkit.ps1`, `start-core.ps1` and everything else.
+Here-string payloads and block comments are copied verbatim, and a file whose formatting
+would break its syntax is left untouched. The same normalization runs in CI through the
+`Normalize fragment spacing` step of `_reusable-lint-test.yml`.
 
 ---
 
@@ -238,6 +333,25 @@ Invoke-Pester .github/tests/Unit/ -Output Detailed
 # Start-module tests
 Invoke-Pester .github/tests/StartModules/ -Output Detailed
 Invoke-Pester .github/tests/Integration/BuildStart.Tests.ps1 -Output Detailed
+```
+
+### Maintaining the Pipeline
+
+```powershell
+# Preview: which files would be aligned to PIPELINE_VERSION
+.\.github\scripts\Update-PipelineVersion.ps1 -WhatIf
+
+# Align (no-op when already aligned)
+.\.github\scripts\Update-PipelineVersion.ps1
+
+# Bump the pipeline version everywhere, canonical value included
+.\.github\scripts\Update-PipelineVersion.ps1 -Version 4.2.0
+
+# Gate: fails if any workflow, action or pipeline script drifted
+.\.github\scripts\Update-PipelineVersion.ps1 -Check
+
+# Normalize blank-line spacing in the source fragments (never the artifacts)
+.\.github\scripts\Format-FunctionSpacing.ps1 -Path start-modules,wintoolkit-modules -WhatIf
 ```
 
 ### Running the Linter
