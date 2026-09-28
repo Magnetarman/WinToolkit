@@ -92,29 +92,31 @@ function Add-ToEnvironmentPath {
 function Repair-SystemClock {
     <#
     .SYNOPSIS
-    Resynchronizes the system clock only when it is actually out of sync.
+    Resynchronizes the system clock only when the time service cannot.
     #>
     $changed = $false
     try {
-        $status = (w32tm /query /status 2>$null | Out-String)
-        $needsRepair = ($LASTEXITCODE -ne 0 -or $status -notmatch 'Last Successful Sync Time')
-        if (-not $needsRepair) {
-            return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'System clock already synchronized.' }
+        # Decided WITHOUT parsing w32tm output: that output is localized, so the
+        # previous 'Last Successful Sync Time' match never hit on a non-English
+        # install and the clock was resynced on every single run.
+        $service = Get-Service w32time -ErrorAction SilentlyContinue
+        if (-not $service) {
+            return New-StepResult -Success $false -Message 'The w32time service is not present on this system.'
         }
-        $w32Time = Get-Service w32time -ErrorAction SilentlyContinue
-        if ($w32Time -and $w32Time.Status -ne 'Running') {
-            Start-Service w32time -ErrorAction Stop | Out-Null
-            $changed = $true
+        if ($service.Status -eq 'Running') {
+            return New-StepResult -Success $true -Message 'System clock already synchronized.'
         }
+
+        Start-Service w32time -ErrorAction Stop | Out-Null
         w32tm /resync /force 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "w32tm resync failed with exit code $LASTEXITCODE." }
         $changed = $true
         Write-StyledMessage -Type Success -Text ("🕒 " + (Get-SourceTextLoc 'uiText.systemClockResynced'))
-        return [pscustomobject]@{ Success = $true; Changed = $changed; Message = 'System clock synchronized.' }
+        return New-StepResult -Success $true -Changed $changed -Message 'System clock synchronized.'
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "System clock resync failed: $($_.Exception.Message)"
-        return [pscustomobject]@{ Success = $false; Changed = $changed; Message = $_.Exception.Message }
+        return New-StepResult -Success $false -Changed $changed -Message $_.Exception.Message
     }
 }
 
@@ -122,17 +124,17 @@ function Repair-SystemClock {
 function Reset-SchannelSettings {
     <#
     .SYNOPSIS
-    Re-enables TLS 1.2 and disabled SCHANNEL ciphers, reporting every real change.
-    #>
-    [CmdletBinding(SupportsShouldProcess)]
-    param()
+    Re-enables TLS 1.2 for client and server, reporting every real change.
 
-    if (-not $PSCmdlet.ShouldProcess('SCHANNEL registry keys', 'Reset TLS/cipher settings')) { return }
+    .DESCRIPTION
+    Ciphers are deliberately left untouched: see the note on the cipher block.
+    #>
+    param()
 
     $changed = $false
     try {
         $schannelPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL'
-        if (-not (Test-Path $schannelPath)) { return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'SCHANNEL key not present.' } }
+        if (-not (Test-Path $schannelPath)) { return New-StepResult -Success $true -Message 'SCHANNEL key not present.' }
 
         $tls12Path = Join-Path $schannelPath 'Protocols\TLS 1.2'
         if (Test-Path $tls12Path) {
