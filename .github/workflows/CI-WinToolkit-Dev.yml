@@ -1,10 +1,14 @@
-# WinToolkit CI Dev Pipeline V4.0.3
+# WinToolkit CI Dev Pipeline V4.1.0
 # Triggers: push to Dev/feature/fix/feat/hotfix/bug/enhancement/* -> lint+test+build; PR to Dev -> lint+test only.
 # Build regenerates WinToolkit.ps1 from pure sources (pre-existing file removed first). AST-validated before compile.
 
-name: WinToolkit — CI Dev Pipeline V4.0.3
+name: WinToolkit — CI Dev Pipeline V4.1.0
 
 env:
+  # SINGLE SOURCE OF TRUTH for the CI/CD pipeline version.
+  # Edit this value, then the sync-pipeline-version job rewrites the version
+  # token in every workflow and composite action (and commits the result).
+  PIPELINE_VERSION: "4.1.0"
   # Force Node 24 in Actions to avoid GitHub warnings about deprecated versions
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
@@ -47,7 +51,6 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 
 jobs:
   # PR Security Guard (PRs to Dev only): L1 tools/start-modules (silent), L2 sensitive (warning), L3 protected (block+close).
@@ -289,6 +292,17 @@ jobs:
       validate-start: ${{ needs.detect_changes.outputs.start_changed == 'true' }}
     permissions:
       contents: read
+
+  # Propagates PIPELINE_VERSION (the single source of truth) to every workflow and
+  # action name, then commits the alignment. Runs on every push to Dev.
+  sync-pipeline-version:
+    name: Sync pipeline version
+    if: github.event_name == 'push' && github.ref_name == 'Dev'
+    uses: ./.github/workflows/_reusable-pipeline-version.yml
+    with:
+      branch: Dev
+      commit-message: "🆙 Sync pipeline version"
+    secrets: inherit
 
   # Build WinToolkit.ps1 (reusable workflow) when sources changed and quality passed.
   build:
