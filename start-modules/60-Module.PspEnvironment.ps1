@@ -263,4 +263,10 @@ function Install-PspEnvironment {
     catch {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.terminalSettingsUpdateError0' -Args @($_.Exception.Message))
     }
+
+    if ($result.WingetRpcFailure) {
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.wingetRpcFailureDetected')
+        $result.Message += ' WinGet failed with 0x800706BA (App Installer deployment server unavailable): the CLI tools were NOT installed.'
+    }
+    return $result
 }
