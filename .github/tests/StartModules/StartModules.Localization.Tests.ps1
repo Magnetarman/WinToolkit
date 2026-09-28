@@ -42,24 +42,27 @@ Describe 'Localization key sets stay aligned across languages (S-5)' {
         # Explicit list, not a language detector: a substring match on Italian words
         # also flags English keys that merely contain them (unigetUiRequireVerifi
         # cation, packetVerificationError01, ...StatusInEsecuzionePercent1).
-        $script:RenamedKeys = @(
-            'uiText.downloadIcon', 'uiText.clearingWingetCache',
-            'uiText.retrievingLatestPowershellRelease', 'uiText.ohMyPoshThemeDownloaded',
-            'uiText.checkingPowershell7', 'uiText.runningPackageManagerRepair',
-            'uiText.attemptingPackageManagerRepair',
-            'uiText.attemptingWingetRepairViaPackageManager',
-            'uiText.startingWingetInstallVerification',
-            'uiText.downloadMsixBundleFromMicrosoft', 'uiText.downloadCoreScriptFromGitHub',
-            'uiText.downloadAndInstallWingetBundle',
-            'uiText.downloadWingetDependencies',
-            'uiText.fallbackDownloadGitFromGitHub',
-            'uiText.fallbackDownloadMsixBundleDirect',
-            'uiText.attemptingNativeAppxInstallFromBundle',
-            'uiText.downloadCompleted0', 'uiText.downloaded0', 'uiText.downloadFailed0',
-            'uiText.download02', 'uiText.downloadCoreScriptFromGitHub',
-            'uiText.startingDownloadProcess', 'uiText.startingWinToolkitSetup',
-            'uiText.resettingMicrosoftStoreCache', 'uiText.windowsTerminalConfiguration'
-        ) | Select-Object -Unique
+        $script:RenamedKeys = [ordered]@{
+            'uiText.downloadIcona' = 'uiText.downloadIcon'
+            'uiText.puliziaCacheWinget' = 'uiText.clearingWingetCache'
+            'uiText.recuperoUltimaReleasePowershell' = 'uiText.retrievingLatestPowershellRelease'
+            'uiText.temaOhMyPoshScaricato' = 'uiText.ohMyPoshThemeDownloaded'
+            'uiText.verificaPowershell7' = 'uiText.checkingPowershell7'
+            'uiText.esecuzioneRepairWingetpackagemanager' = 'uiText.runningPackageManagerRepair'
+            'uiText.tentativoRepairWingetpackagemanager' = 'uiText.attemptingPackageManagerRepair'
+            'uiText.tentativoRiparazioneWingetRepairWingetpackagemanager' = 'uiText.attemptingWingetRepairViaPackageManager'
+            'uiText.startWingetInstallationVerificationProcedure' = 'uiText.startingWingetInstallVerification'
+            'uiText.downloadMsixbundleDaMicrosoft' = 'uiText.downloadMsixBundleFromMicrosoft'
+            'uiText.downloadCoreScriptDaGithub' = 'uiText.downloadCoreScriptFromGitHub'
+            'uiText.downloadAndInstallWingetBundleWithDependencies' = 'uiText.downloadAndInstallWingetBundle'
+            'uiText.downloadWingetDependenciesFromTheOfficialRepository' = 'uiText.downloadWingetDependencies'
+            'uiText.fallbackDownloadGitDaGithub' = 'uiText.fallbackDownloadGitFromGitHub'
+            'uiText.fallbackDownloadMsixbundleDirectFromMicrosoft' = 'uiText.fallbackDownloadMsixBundleDirect'
+            'uiText.iTryNativeAppxInstallationFromDownloadedBundle' = 'uiText.attemptingNativeAppxInstallFromBundle'
+            'uiText.startingWinToolkitConfiguration' = 'uiText.startingWinToolkitSetup'
+            'uiText.startingDownload' = 'uiText.startingDownloadProcess'
+            'uiText.resetCacheMicrosoftStoreWsreset' = 'uiText.resettingMicrosoftStoreCache'
+        }
     }
 
     It 'both language files exist and expose keys' {
@@ -103,8 +106,13 @@ Describe 'Localization key sets stay aligned across languages (S-5)' {
     }
 
     It 'no longer defines the Italian-named keys replaced during S-5' {
-        $stillThere = @($script:EnKeys | Where-Object { $script:RenamedKeys -contains $_ })
+        $stillThere = @($script:RenamedKeys.Keys | Where-Object { $script:EnKeys -contains $_ })
         ($stillThere -join ', ') | Should -BeNullOrEmpty -Because 'these keys were renamed to English'
+    }
+
+    It 'defines every replacement key introduced by the S-5 renaming' {
+        $missing = @($script:RenamedKeys.Values | Where-Object { $script:EnKeys -notcontains $_ })
+        ($missing -join ', ') | Should -BeNullOrEmpty -Because 'a renamed key must exist under its new name in both languages'
     }
 
     It 'resolves a suffixed key through the numeric-suffix fallback' {
