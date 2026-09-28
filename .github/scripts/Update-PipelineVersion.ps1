@@ -87,6 +87,8 @@ $files = @(
 
 $updated = @()
 $drift = @()
+$missingHeader = @()
+$headerAdded = @()
 
 # With an explicit -Version the canonical value is the one being overridden, so it
 # is written too: the tree must never be left with files and canonical disagreeing.
@@ -114,26 +116,47 @@ foreach ($file in $files) {
         throw "Refusing to touch '$relative': pipeline .ps1 files must live inside .github\."
     }
 
+    $isScript = $file.Extension -eq '.ps1'
     $text = $latin1.GetString([System.IO.File]::ReadAllBytes($file.FullName))
-    if ($text -notmatch $versionPattern) { continue }
 
-    # Only the version token changes; the rest of the line is preserved.
-    $aligned = [regex]::Replace($text, $versionPattern, "V$target")
-    if ($aligned -eq $text) { continue }
+    # Only the version token changes; the rest of every line is preserved.
+    $aligned = $text
+    if ($text -match $versionPattern) {
+        $aligned = [regex]::Replace($text, $versionPattern, "V$target")
+    }
+
+    $changed = $aligned -ne $text
+    $needsHeader = $false
+
+    # A pipeline script without the canonical header is drift too: without this
+    # rule a brand new .ps1 would stay silently unversioned forever, and -Check
+    # would keep passing.
+    if ($isScript -and $aligned -notmatch $headerPattern) {
+        $aligned = Add-PipelineHeader -Text $aligned -Version $target
+        $changed = $true
+        $needsHeader = $true
+    }
+
+    if (-not $changed) { continue }
 
     if ($Check) {
         $drift += $relative
+        if ($needsHeader) { $missingHeader += $relative }
         continue
     }
     if ($PSCmdlet.ShouldProcess($relative, "Set pipeline version to V$target")) {
         [System.IO.File]::WriteAllBytes($file.FullName, $latin1.GetBytes($aligned))
         $updated += $relative
+        if ($needsHeader) { $headerAdded += $relative }
     }
 }
 
 if ($Check) {
     if ($drift.Count -gt 0) {
         Write-Host "::error::Pipeline version drift against V$target in: $($drift -join ', ')"
+        if ($missingHeader.Count -gt 0) {
+            Write-Host "::error::Missing '# WinToolkit CI/CD V$target' header in: $($missingHeader -join ', ')"
+        }
         throw "Pipeline version is not aligned with V$target. Run Update-PipelineVersion.ps1 locally and commit. Drifted files: $($drift -join ', ')"
     }
     Write-Host "Pipeline version aligned: V$target"
@@ -144,6 +167,9 @@ Write-Host "Pipeline version V$target"
 if ($updated.Count -gt 0) {
     Write-Host "Updated: $($updated -join ', ')"
 }
-else {
-    Write-Host 'Nothing to update: every workflow and action is already aligned.'
+if ($headerAdded.Count -gt 0) {
+    Write-Host "Header added to $($headerAdded.Count) script(s): $($headerAdded -join ', ')"
+}
+if ($updated.Count -eq 0) {
+    Write-Host 'Nothing to update: every workflow, action and pipeline script is already aligned.'
 }
