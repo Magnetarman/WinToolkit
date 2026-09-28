@@ -1,3 +1,4 @@
+# WinToolkit CI/CD V4.1.0
 # Aligns the pipeline version across every workflow and composite action.
 #
 # SINGLE SOURCE OF TRUTH: the PIPELINE_VERSION value in the canonical workflow
@@ -49,9 +50,17 @@ if ($target -notmatch '^\d+\.\d+\.\d+$') {
 
 # Byte-level rewrite: encoding, BOM and line endings are preserved exactly.
 $latin1 = [System.Text.Encoding]::GetEncoding(28591)
+# Target files, and nothing else:
+#   - .yml : workflow definitions (.github\workflows) and composite actions
+#            (.github\actions\*\action.yml);
+#   - .ps1 : pipeline scripts, only when they live inside .github\ (scripts and
+#            tests). Application sources (start-modules, wintoolkit-modules,
+#            tools) are never touched: they carry the product version, not the
+#            pipeline version.
 $files = @(
     Get-ChildItem -Path (Join-Path $repoRoot '.github\workflows') -Filter '*.yml' -File
     Get-ChildItem -Path (Join-Path $repoRoot '.github\actions') -Filter 'action.yml' -File -Recurse
+    Get-ChildItem -Path (Join-Path $repoRoot '.github') -Filter '*.ps1' -File -Recurse
 )
 
 $updated = @()
@@ -75,6 +84,14 @@ if ($Version) {
 }
 
 foreach ($file in $files) {
+    $relative = [System.IO.Path]::GetRelativePath($repoRoot, $file.FullName)
+
+    # Hard scope guard: a .ps1 is only ever touched inside .github\, and a .yml
+    # only inside .github\workflows or .github\actions.
+    if ($file.Extension -eq '.ps1' -and -not $relative.StartsWith(".github$([System.IO.Path]::DirectorySeparatorChar)")) {
+        throw "Refusing to touch '$relative': pipeline .ps1 files must live inside .github\."
+    }
+
     $text = $latin1.GetString([System.IO.File]::ReadAllBytes($file.FullName))
     if ($text -notmatch $versionPattern) { continue }
 
@@ -82,7 +99,6 @@ foreach ($file in $files) {
     $aligned = [regex]::Replace($text, $versionPattern, "V$target")
     if ($aligned -eq $text) { continue }
 
-    $relative = [System.IO.Path]::GetRelativePath($repoRoot, $file.FullName)
     if ($Check) {
         $drift += $relative
         continue
