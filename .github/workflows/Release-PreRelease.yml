@@ -1,7 +1,7 @@
 # Manual workflow for creating official pre-releases.
 # Trigger: workflow_dispatch. Security: Dev branch only, maintainer only.
 # Flow: validate → versioning → build → build-start → release.
-# Runtime: PowerShell 7+ (windows-latest); ubuntu-latest for fast checks.
+# Runtime: PowerShell 7+ (windows-latest); ubuntu-24.04 for fast checks.
 
 name: WinToolkit — Create Pre-Release V4.1.0
 
