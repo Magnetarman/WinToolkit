@@ -152,25 +152,16 @@ function Reset-SchannelSettings {
             }
         }
 
-        $cipherPath = Join-Path $schannelPath 'Ciphers'
-        if (Test-Path $cipherPath) {
-            Get-ChildItem $cipherPath -ErrorAction SilentlyContinue |
-            Where-Object { $_.PSIsContainer } |
-            ForEach-Object {
-                $prop = Get-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
-                if ($prop -and $prop.Enabled -eq 0) {
-                    Remove-ItemProperty -Path $_.FullName -Name 'Enabled' -ErrorAction SilentlyContinue
-                    $changed = $true
-                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.schannelCipherReenabled0' -Args @($_.PSChildName))
-                    Write-ToolkitLog -Level 'INFO' -Message "Removed disabled cipher: $($_.PSChildName)"
-                }
-            }
-        }
-        return [pscustomobject]@{ Success = $true; Changed = $changed; Message = if ($changed) { 'SCHANNEL settings repaired.' } else { 'SCHANNEL settings already valid.' } }
+        # Ciphers are intentionally NOT touched. The previous code deleted the
+        # "Enabled = 0" value from every cipher subkey, which re-enabled RC4,
+        # 3DES and NULL: ciphers the administrator had disabled on purpose. That
+        # is a security regression, not a repair.
+        $message = if ($changed) { 'SCHANNEL settings repaired.' } else { 'SCHANNEL settings already valid.' }
+        return New-StepResult -Success $true -Changed $changed -Message $message
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "SCHANNEL reset failed: $($_.Exception.Message)"
-        return [pscustomobject]@{ Success = $false; Changed = $changed; Message = $_.Exception.Message }
+        return New-StepResult -Success $false -Changed $changed -Message $_.Exception.Message
     }
 }
 
@@ -179,56 +170,41 @@ function Reset-HostsFile {
     <#
     .SYNOPSIS
     Removes Microsoft/Store/WinGet overrides from the hosts file, after a backup.
+
+    .DESCRIPTION
+    The filtered lines are written back AS THEY ARE. The previous version prepended
+    a hardcoded Microsoft copyright header to lines that already contained it (they
+    came from the file itself), so every run appended another copy of the header.
     #>
-    [CmdletBinding(SupportsShouldProcess)]
     param()
 
-    if (-not $PSCmdlet.ShouldProcess('C:\Windows\System32\drivers\etc\hosts', 'Reset hosts file')) { return }
-
     try {
-        $hostsPath = 'C:\Windows\System32\drivers\etc\hosts'
-        if (-not (Test-Path $hostsPath)) { return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'Hosts file not present.' } }
+        $hostsPath = $script:AppConfig.HostsFilePath
+        if (-not (Test-Path $hostsPath)) { return New-StepResult -Success $true -Message 'Hosts file not present.' }
 
         $lines = Get-Content $hostsPath -ErrorAction SilentlyContinue
-        if (-not $lines) { return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'Hosts file is empty.' } }
+        if (-not $lines) { return New-StepResult -Success $true -Message 'Hosts file is empty.' }
 
         # Drop only the entries that break WinGet and the Store; keep the rest.
         $blockedPattern = '(?i)microsoft\.com|storeedgefd|winget\.azureedge\.net'
-        $newLines = @($lines | Where-Object { $_ -notmatch $blockedPattern })
-        $hasOverrides = $newLines.Count -ne $lines.Count
+        $keptLines = @($lines | Where-Object { $_ -notmatch $blockedPattern })
+        $hasOverrides = $keptLines.Count -ne $lines.Count
 
-        if ($hasOverrides) {
-            $backupDir = Initialize-Directory -Path $script:AppConfig.Paths.WinToolkitDir
-            $backupPath = Join-Path $backupDir ("hosts.backup.{0}.txt" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
-            Copy-Item -LiteralPath $hostsPath -Destination $backupPath -Force -ErrorAction Stop
-            $hostsHeader = @(
-                '# Copyright (c) 1993-2009 Microsoft Corp.',
-                '# This is a sample HOSTS file used by Microsoft TCP/IP for Windows.',
-                '#',
-                '# This file contains the mappings of IP addresses to host names. Each',
-                '# entry should be kept on an individual line. The IP address should',
-                '# be placed in the first column followed by the corresponding host name.',
-                '# The IP address and the host name should be separated by at least one',
-                '# space.',
-                '#',
-                '# Additionally, comments (such as these) may be inserted on individual',
-                '# lines or following the machine name denoted by a ''#'' symbol.',
-                '#',
-                '# For example:',
-                '#      102.54.94.97     rhino.acme.com          # source server',
-                '#       38.25.63.10     x.acme.com              # x client host'
-            )
-            $finalContent = $hostsHeader + ($newLines | Where-Object { $_.Trim() -ne '' })
-            Set-Content -Path $hostsPath -Value $finalContent -Encoding ASCII -Force
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.hostsFileModifiedBackupSaved0' -Args @($backupPath))
-            Write-ToolkitLog -Level 'INFO' -Message "Hosts file reset: removed Microsoft/Store/Winget overrides"
-            return [pscustomobject]@{ Success = $true; Changed = $true; Message = "Hosts reset; backup: $backupPath" }
+        if (-not $hasOverrides) {
+            return New-StepResult -Success $true -Message 'No blocked hosts overrides found.'
         }
-        return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'No blocked hosts overrides found.' }
+
+        $backupDir = Initialize-Directory -Path $script:AppConfig.Paths.WinToolkitDir
+        $backupPath = Join-Path $backupDir ("hosts.backup.{0}.txt" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+        Copy-Item -LiteralPath $hostsPath -Destination $backupPath -Force -ErrorAction Stop
+        Set-Content -Path $hostsPath -Value $keptLines -Encoding ASCII -Force
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.hostsFileModifiedBackupSaved0' -Args @($backupPath))
+        Write-ToolkitLog -Level 'INFO' -Message 'Hosts file reset: removed Microsoft/Store/Winget overrides'
+        return New-StepResult -Success $true -Changed $true -Message "Hosts reset; backup: $backupPath"
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "Hosts file reset failed: $($_.Exception.Message)"
-        return [pscustomobject]@{ Success = $false; Changed = $false; Message = $_.Exception.Message }
+        return New-StepResult -Success $false -Message $_.Exception.Message
     }
 }
 
@@ -333,19 +309,19 @@ function Invoke-StopUpdateServices {
     if (-not $PSCmdlet.ShouldProcess('Windows Update services', 'Suspend services')) { return }
 
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.temporarilySuspendWindowsUpdateServicesToAvoidConflicts')
-    $savedServices = @()
-    foreach ($svc in $script:AppConfig.UpdateServices) {
-        $service = Get-Service -Name $svc -ErrorAction SilentlyContinue
-        if ($service) {
-            $cimService = Get-CimInstance -ClassName Win32_Service -Filter "Name='$svc'" -ErrorAction Stop
-            $savedServices += [pscustomobject]@{
-                Name      = $svc
-                Present   = $true
-                Status    = [string]$service.Status
-                StartType = [string]$cimService.StartMode
+    # PowerShell 7 exposes StartType on Get-Service, so the previous per-service
+    # Get-CimInstance Win32_Service round trip (and its Auto->Automatic mapping)
+    # is not needed: one call returns both the state to restore and its startup type.
+    $savedServices = @(
+        Get-Service -Name $script:AppConfig.UpdateServices -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name      = $_.Name
+                    Status    = [string]$_.Status
+                    StartType = [string]$_.StartType
+                }
             }
-        }
-    }
+    )
 
     $status = @{
         Version    = 1
@@ -366,7 +342,6 @@ function Invoke-StopUpdateServices {
             }
         }
         Set-UpdateServicesState -Status $status -State 'Suspended'
-        $script:UpdateServicesSuspended = $true
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesSuccessfullySuspended')
     }
     catch {
