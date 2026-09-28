@@ -20,7 +20,11 @@ param(
     [string]$CanonicalWorkflow = '.github\workflows\CI-WinToolkit-Dev.yml',
 
     # Report drift without writing anything; exits non-zero when inconsistent.
-    [switch]$Check
+    [switch]$Check,
+
+    # Receives one relative path per changed file, one per line. Callers use it to
+    # report or commit the alignment without having to parse git output.
+    [string]$ChangedFileListPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -172,4 +176,14 @@ if ($headerAdded.Count -gt 0) {
 }
 if ($updated.Count -eq 0) {
     Write-Host 'Nothing to update: every workflow, action and pipeline script is already aligned.'
+}
+
+# Machine-readable result for the workflow steps: one relative path per line.
+# Written last, and only in align mode, so a caller can never act on a stale list.
+if ($ChangedFileListPath) {
+    [System.IO.File]::WriteAllLines(
+        $ChangedFileListPath,
+        [string[]]@($updated),
+        [System.Text.UTF8Encoding]::new($false)
+    )
 }
