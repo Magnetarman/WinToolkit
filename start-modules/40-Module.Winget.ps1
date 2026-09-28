@@ -165,6 +165,55 @@ function Reset-AppInstallerPackage {
 }
 
 
+function Test-WingetRpcFailure {
+    <#
+    .SYNOPSIS
+    Returns $true when a WinGet result is the App Installer RPC failure.
+
+    .DESCRIPTION
+    0x800706BA (RPC_S_SERVER_UNAVAILABLE, surfaced as -2147012859) is what winget
+    returns when the per-user App Installer deployment server cannot serve the
+    session. Every install then fails identically while "winget --version" and
+    "winget search" keep working, which is why the old flow reported the tools as
+    handled. Recognising it lets the caller name the real cause and try the
+    documented recovery (re-register / reset the App Installer package).
+    #>
+    param(
+        [Parameter(Mandatory = $true)][object]$Result
+    )
+
+    # The module owns the numeric literal: no magic number in the call sites.
+    if ($Result.ExitCode -ne $script:WINGET_RPC_FAILURE_EXITCODE) { return $false }
+
+    $output = "$($Result.StdOut)$($Result.StdErr)"
+    if ($output -and ($output -match '0x800706BA|RPC_S_SERVER_UNAVAILABLE|server execution failed')) { return $true }
+    # CaptureOutput is optional: the exit code alone is conclusive.
+    return $true
+}
+
+
+function Invoke-WingetRpcRecovery {
+    <#
+    .SYNOPSIS
+    One recovery attempt for the App Installer RPC failure, used before retrying.
+    #>
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetRpcFailureDetected')
+    Invoke-ForceCloseWinget
+    $null = Register-WingetAppExecutionAlias
+    $null = Reset-AppInstallerPackage
+    Update-EnvironmentPath
+    Start-Sleep -Seconds 2
+
+    $probe = Invoke-WingetCommand -Arguments '--version'
+    if (Test-WingetRpcFailure -Result $probe) {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetRpcRecoveryFailed')
+        return $false
+    }
+    Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRpcRecovered')
+    return $true
+}
+
+
 function Invoke-WingetCommand {
     <#
     .SYNOPSIS
@@ -197,6 +246,12 @@ function Invoke-WingetCommand {
         $result = Invoke-ExternalCommand -FilePath $wingetExe -ArgumentList (ConvertTo-ProcessArgumentList -Arguments $finalArgs) -TimeoutSeconds $TimeoutSeconds -CaptureOutput:$CaptureOutput
         if ($result.TimedOut) {
             Write-ToolkitLog -Level 'ERROR' -Message "Winget timeout after $TimeoutSeconds seconds: $Arguments"
+        }
+        elseif (Test-WingetRpcFailure -Result $result) {
+            # Name the failure: a generic non-zero exit code here is what let four
+            # failed tool installs look like a normal "already installed" run.
+            Write-ToolkitLog -Level 'ERROR' -Message "Winget failed with 0x800706BA (App Installer deployment server unavailable) running: $Arguments"
+            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.wingetRpcFailureDetected')
         }
         return $result
     }
