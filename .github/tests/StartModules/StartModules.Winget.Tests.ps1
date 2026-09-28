@@ -199,7 +199,131 @@ Describe 'Test-DownloadedSignature / New-SignatureValidator (S-1)' {
     }
 }
 
+Describe 'Reinstall-WingetForced — forced repair of the two WinGet packages' {
+
+    BeforeEach {
+        $script:State.LogFile = $null
+        Mock Write-StyledMessage {}
+        # Every system-touching call is stubbed: this suite must never reset an
+        # AppX package, download anything, or install a module on the test machine.
+        Mock Test-WingetCompatibility { return $true }
+        Mock Invoke-ForceCloseWinget {}
+        Mock Reset-AppInstallerPackage {}
+        Mock Set-WingetPathPermissions {}
+        Mock Update-EnvironmentPath {}
+        Mock Invalidate-WingetVersionCache {}
+        Mock Initialize-Directory { param($Path) $Path }
+        Mock Install-PackageProvider {}
+        Mock Install-Module {}
+        Mock Import-Module {}
+        Mock Reset-WingetSources {}
+        Mock Get-WingetHealth { [pscustomobject]@{ Present = $true; Runs = $true; Version = '1.29'; Reachable = $true } }
+    }
+
+    It 'repairs the App Installer without touching the module when not confirmed' {
+        Mock Get-AppxPackage { return [pscustomobject]@{ Name = 'Microsoft.DesktopAppInstaller' } }
+        $result = Reinstall-WingetForced
+        $result.Success | Should -BeTrue
+        Should -Invoke Reset-AppInstallerPackage -Times 1
+        Should -Invoke Install-Module -Times 0 -Because 'a module install needs explicit confirmation'
+        $result.Message | Should -Match 'not confirmed'
+    }
+
+    It 'installs the module when the confirmation is given' {
+        Mock Get-AppxPackage { return [pscustomobject]@{ Name = 'Microsoft.DesktopAppInstaller' } }
+        $result = Reinstall-WingetForced -ConfirmModuleInstall
+        $result.Success | Should -BeTrue
+        Should -Invoke Install-PackageProvider -Times 1
+        Should -Invoke Install-Module -Times 1
+    }
+
+    It 'never installs the module when -SkipModule is used' {
+        Mock Get-AppxPackage { return [pscustomobject]@{ Name = 'Microsoft.DesktopAppInstaller' } }
+        $null = Reinstall-WingetForced -ConfirmModuleInstall -SkipModule
+        Should -Invoke Install-Module -Times 0
+    }
+
+    It 'redownloads the bundle when the App Installer package is missing' {
+        Mock Get-AppxPackage { return $null }
+        Mock Invoke-DownloadFile { return $true }
+        Mock Start-AppxSilentProcess { return $true }
+        $null = Reinstall-WingetForced
+        Should -Invoke Invoke-DownloadFile -Times 1
+        Should -Invoke Start-AppxSilentProcess -Times 1
+    }
+
+    It 'redownloads the bundle even when the package is present, with -Force' {
+        Mock Get-AppxPackage { return [pscustomobject]@{ Name = 'Microsoft.DesktopAppInstaller' } }
+        Mock Invoke-DownloadFile { return $true }
+        Mock Start-AppxSilentProcess { return $true }
+        $null = Reinstall-WingetForced -Force
+        Should -Invoke Start-AppxSilentProcess -Times 1
+    }
+
+    It 'does not throw when the App Installer repair fails' {
+        Mock Get-AppxPackage { return $null }
+        Mock Reset-AppInstallerPackage { throw 'Appx reset failed' }
+        Mock Get-WingetHealth { [pscustomobject]@{ Present = $false; Runs = $false; Version = $null; Reachable = $false } }
+        { Reinstall-WingetForced } | Should -Not -Throw
+    }
+
+    It 'reports failure when WinGet is still unusable and nothing was repaired' {
+        Mock Get-AppxPackage { return $null }
+        Mock Invoke-DownloadFile { return $false }
+        Mock Get-WingetHealth { [pscustomobject]@{ Present = $false; Runs = $false; Version = $null; Reachable = $false } }
+        (Reinstall-WingetForced).Success | Should -BeFalse
+    }
+
+    It 'refuses to run on an unsupported Windows build' {
+        Mock Test-WingetCompatibility { return $false }
+        $result = Reinstall-WingetForced
+        $result.Success | Should -BeFalse
+        Should -Invoke Invoke-ForceCloseWinget -Times 0
+    }
+}
+
+Describe 'Confirm-ToolkitInteractiveAction — gated confirmations' {
+
+    BeforeEach { $script:State.LogFile = $null }
+
+    It 'returns $false without prompting in a non-interactive session' {
+        # Pester runs redirected: Read-Host must never be reached.
+        Mock Read-Host { throw 'must not be called' }
+        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' | Should -BeFalse
+    }
+
+    It 'accepts an explicit yes' {
+        Mock Read-Host { 'Y' }
+        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' | Should -BeTrue
+    }
+
+    It 'accepts the Italian shorthand' {
+        Mock Read-Host { 'si' }
+        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' | Should -BeTrue
+    }
+
+    It 'treats an empty answer as a no' {
+        Mock Read-Host { '' }
+        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' | Should -BeFalse
+    }
+
+    It 'treats an unrecognized answer as a no' {
+        Mock Read-Host { 'maybe' }
+        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' | Should -BeFalse
+    }
+
+    It 'returns $false when the prompt itself fails' {
+        Mock Read-Host { throw 'no console' }
+        { Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' } | Should -Not -Throw
+    }
+}
+
 Describe 'Test-WingetCompatibility — minimum build (§2.5)' {
+
+    It 'enforces the minimum threshold 17763 (Windows 10 1809) in the source' {
+        $source = Get-Content -Raw (Join-Path $moduleRoot '40-Module.Winget.ps1')
+        $source | Should -Match '\$build -lt 17763'
+    }
 
     It 'enforces the minimum threshold 17763 (Windows 10 1809) in the source' {
         $source = Get-Content -Raw (Join-Path $moduleRoot '40-Module.Winget.ps1')
