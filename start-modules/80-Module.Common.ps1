@@ -351,7 +351,11 @@ function Invoke-DownloadFile {
         [Parameter(Mandatory = $true)][string]$OutFile,
         [switch]$Silent,
         [int]$MinimumBytes = 1,
-        [scriptblock]$ContentValidator
+        [scriptblock]$ContentValidator,
+        # A transient network error is common on a freshly installed machine; the
+        # previous version tried each URL exactly once and gave up.
+        [int]$RetryCount = 2,
+        [int]$RetryIntervalSeconds = 2
     )
 
     $previousProgress = $ProgressPreference
@@ -365,31 +369,33 @@ function Invoke-DownloadFile {
 
         foreach ($candidate in $Uri) {
             if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
-            try {
-                if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
+            for ($attempt = 0; $attempt -le $RetryCount; $attempt++) {
+                try {
+                    Remove-PathQuietly -Path $OutFile
+                    Invoke-WebRequest -Uri $candidate -OutFile $OutFile -ErrorAction Stop
 
-                Invoke-WebRequest -Uri $candidate -OutFile $OutFile -UseBasicParsing -ErrorAction Stop
+                    $downloaded = Get-Item -LiteralPath $OutFile -ErrorAction Stop
+                    if ($downloaded.PSIsContainer) { throw 'The response is not a file.' }
+                    if ($downloaded.Length -lt $MinimumBytes) {
+                        throw "Only $($downloaded.Length) bytes received (expected at least $MinimumBytes)."
+                    }
+                    if ($ContentValidator -and -not (& $ContentValidator $OutFile)) {
+                        throw 'The downloaded content did not pass validation.'
+                    }
 
-                $downloaded = Get-Item -LiteralPath $OutFile -ErrorAction Stop
-                if ($downloaded.PSIsContainer) { throw "The response is not a file." }
-                if ($downloaded.Length -lt $MinimumBytes) {
-                    throw "Only $($downloaded.Length) bytes received (expected at least $MinimumBytes)."
+                    Write-ToolkitLog -Level 'INFO' -Message "Downloaded '$candidate' -> $OutFile ($($downloaded.Length) bytes)."
+                    return $true
                 }
-                if ($ContentValidator -and -not (& $ContentValidator $OutFile)) {
-                    throw 'The downloaded content did not pass validation.'
+                catch {
+                    $failures += "${candidate}: $($_.Exception.Message)"
+                    Write-ToolkitLog -Level 'WARNING' -Message "Download attempt failed ($candidate, try $($attempt + 1)/$($RetryCount + 1)): $($_.Exception.Message)"
+                    Remove-PathQuietly -Path $OutFile
+                    if ($attempt -lt $RetryCount) { Start-Sleep -Seconds $RetryIntervalSeconds }
                 }
-
-                Write-ToolkitLog -Level 'INFO' -Message "Downloaded '$candidate' -> $OutFile ($($downloaded.Length) bytes)."
-                return $true
-            }
-            catch {
-                $failures += "${candidate}: $($_.Exception.Message)"
-                Write-ToolkitLog -Level 'WARNING' -Message "Download attempt failed ($candidate): $($_.Exception.Message)"
-                if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
             }
         }
 
-        $detail = if ($failures.Count -gt 0) { $failures -join ' | ' } else { 'no candidate URL provided' }
+        $detail = if ($failures.Count -gt 0) { ($failures | Select-Object -Unique) -join ' | ' } else { 'no candidate URL provided' }
         if (-not $Silent) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.downloadError0' -Args @($detail))
         }
@@ -406,6 +412,78 @@ function Invoke-DownloadFile {
     finally {
         $ProgressPreference = $previousProgress
     }
+}
+
+
+function Install-RemoteFile {
+    <#
+    .SYNOPSIS
+    Downloads a file and installs it atomically, keeping a backup only if it changed.
+
+    .DESCRIPTION
+    Single owner of the "download to temp, then swap in with a backup" sequence
+    that the Windows Terminal settings, the PowerShell profile and any other
+    distributed file used to repeat. Two behaviours are worth naming:
+
+    - the content is compared with the file already on disk, and an identical
+      download is a no-op: the previous code produced a new .bak file on every
+      single run, even when nothing had changed, so the backups were pure noise;
+    - the backup itself is a move of the previous content, and at most
+      -BackupRetention backups are kept per file, so the log folder cannot grow
+      without bound.
+
+    Returns $true when the destination now holds the downloaded content.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Url,
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [int]$MinimumBytes = 1,
+        [switch]$Backup,
+        [int]$BackupRetention = 3
+    )
+
+    $stagedPath = Join-Path $script:AppConfig.Paths.Temp ("wt-stage-{0}.tmp" -f [guid]::NewGuid())
+    try {
+        if (-not (Invoke-DownloadFile -Uri $Url -OutFile $stagedPath -Silent -MinimumBytes $MinimumBytes)) {
+            return $false
+        }
+
+        # Identical content: nothing to install, and no pointless backup.
+        if ((Test-Path -LiteralPath $Destination -PathType Leaf) -and
+            ((Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash -eq
+             (Get-FileHash -LiteralPath $stagedPath -Algorithm SHA256).Hash)) {
+            Write-ToolkitLog -Level 'INFO' -Message "Already up to date, not rewritten: $Destination"
+            return $true
+        }
+
+        $null = Initialize-Directory -Path (Split-Path -Path $Destination -Parent)
+        $backupPath = Copy-FileAtomically -SourcePath $stagedPath -Destination $Destination -Backup
+        if ($backupPath) {
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.existingProfileSaved0' -Args @($backupPath))
+            Remove-ExpiredBackups -Path "$Destination.bak.*" -Keep $BackupRetention
+        }
+        return $true
+    }
+    finally {
+        Remove-PathQuietly -Path $stagedPath
+    }
+}
+
+
+function Remove-ExpiredBackups {
+    <#
+    .SYNOPSIS
+    Keeps only the newest -Keep timestamped backups matching a path pattern.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [int]$Keep = 3
+    )
+
+    $backups = @(Get-ChildItem -Path $Path -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending)
+    if ($backups.Count -le $Keep) { return }
+    Remove-PathQuietly -Path @($backups[$Keep..($backups.Count - 1)].FullName)
 }
 
 
@@ -460,13 +538,10 @@ function Invoke-ExternalCommand {
         [Parameter(Mandatory = $true)][string]$FilePath,
         [string[]]$ArgumentList = @(),
         [int]$TimeoutSeconds = 120,
-        [int[]]$AcceptedExitCodes = @(0),
-        [switch]$CaptureOutput
+        [int[]]$AcceptedExitCodes = @(0)
     )
 
     $proc = $null
-    $outTask = $null
-    $errTask = $null
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $commandLine = "$FilePath $($ArgumentList -join ' ')"
     try {
@@ -491,7 +566,7 @@ function Invoke-ExternalCommand {
 
         if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
             try { $proc.Kill($true) } catch { try { $proc.Kill() } catch {
-                Write-Warning "start-modules\80-Module.Common.ps1, Invoke-ExternalCommand: $($_.Exception.Message)"
+                Write-ToolkitLog -Level 'WARNING' -Message "Invoke-ExternalCommand: $($_.Exception.Message)"
             } }
             $null = $proc.WaitForExit()
             Write-ToolkitLog -Level 'ERROR' -Message "External command timed out after $TimeoutSeconds s: $commandLine"
@@ -501,8 +576,14 @@ function Invoke-ExternalCommand {
         $capturedOut = try { $outTask.GetAwaiter().GetResult() } catch { '' }
         $capturedErr = try { $errTask.GetAwaiter().GetResult() } catch { '' }
 
-        $stdOut = if ($CaptureOutput) { $capturedOut } else { '' }
-        $stdErr = if ($CaptureOutput) { $capturedErr } else { '' }
+        # Both pipes are drained unconditionally (a synchronous read would make
+        # the timeout unreachable), so the switch only decided whether the text
+        # was kept. It is now kept always and truncated: a verbose installer can
+        # emit megabytes, and the head of the output is the part that explains a
+        # failure.
+        $limit = $script:AppConfig.MaxCapturedOutputChars
+        $stdOut = if ($capturedOut.Length -gt $limit) { $capturedOut.Substring(0, $limit) } else { $capturedOut }
+        $stdErr = if ($capturedErr.Length -gt $limit) { $capturedErr.Substring(0, $limit) } else { $capturedErr }
         return New-ExternalCommandResult -ExitCode $proc.ExitCode -FilePath $FilePath -ArgumentList $ArgumentList -AcceptedExitCodes $AcceptedExitCodes -StdOut $stdOut -StdErr $stdErr -DurationMs $stopwatch.ElapsedMilliseconds
     }
     catch {
