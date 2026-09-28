@@ -58,9 +58,11 @@ function Install-NerdFontsLocal {
         Write-StyledMessage -Type Info -Text ("⬇️ " + (Get-SourceTextLoc 'uiText.fontInstallationViaWingetQuickMethod'))
 
         # Use existing helper function for logical consistency
-        $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
+        # .Accepted, not `-eq 0`: a rerun on an already installed font returns
+        # 0x8A150061, which is a success for the setup, not a failure.
+        $result = Invoke-WingetInstall -Id 'DEVCOM.JetBrainsMonoNerdFont'
 
-        if ($result.ExitCode -ne 0) {
+        if (-not $result.Accepted) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetReturnedCode0TheFontMayRequireATerminalRestart' -Args @($result.ExitCode))
             return $false
         }
@@ -146,11 +148,17 @@ function Install-PspEnvironment {
         @{ Id = "Fastfetch-cli.Fastfetch"; Name = "fastfetch" }
     )
 
+    # The availability check is done ONCE, before the loop: inside it every tool
+    # used to print its "checking" message and then silently skip.
+    $wingetAvailable = [bool](Get-WinGetExecutable)
     foreach ($tool in $tools) {
+        if (-not $wingetAvailable) {
+            $result.Tools.Failed += "$($tool.Name) (WinGet not available)"
+            continue
+        }
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.check0' -Args @($tool.Name))
-        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { continue }
-        $toolResult = Invoke-WingetCommand -Arguments "install -e --id $($tool.Id) --source winget --accept-source-agreements --accept-package-agreements --silent"
-        if ($toolResult.ExitCode -eq 0) {
+        $toolResult = Invoke-WingetInstall -Id $tool.Id -Exact
+        if ($toolResult.Accepted) {
             $result.Tools.Installed += $tool.Name
         }
         else {
