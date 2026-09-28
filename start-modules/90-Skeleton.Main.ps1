@@ -70,6 +70,11 @@ function Invoke-WinToolkitSetup {
             @{ Name = 'Windows Terminal'; Run = { Install-WindowsTerminalApp } }
             @{ Name = 'Default terminal'; Run = { Set-WindowsTerminalAsDefault }; When = { Test-WindowsTerminalInstalled } }
             @{ Name = 'PowerShell environment'; Run = { Install-PspEnvironment } }
+            # Not a Blocking step: when elevation switched account, the tools went
+            # into the administrator profile. The alignment is best effort and a
+            # failure degrades to a warning (S-4).
+            @{ Name = 'User scope alignment'; Run = { Sync-UserScopeWithInstalledTools }
+                When = { (Get-ToolkitOriginalUserContext).AccountSwitched } }
             @{ Name = 'Desktop shortcut'; Run = { New-ToolkitDesktopShortcut }
                 When = { (Test-WindowsTerminalInstalled) -and (Test-CommandExists -Name 'pwsh') }
             }
