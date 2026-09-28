@@ -25,6 +25,11 @@ on:
         required: false
         type: string
         default: '🆙 Sync pipeline version'
+      skip-ci:
+        description: Append [skip ci] to the alignment commit. The alignment is cosmetic (version tokens only), so it must not start a new run that would cancel the one in progress.
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   sync:
@@ -48,11 +53,14 @@ jobs:
         run: |
           $params = @{ CanonicalWorkflow = '${{ inputs.canonical-workflow }}' }
           if ('${{ inputs.version }}') { $params['Version'] = '${{ inputs.version }}' }
+
+          # The script reports the files it actually aligned, one relative path per
+          # line: only those are validated and committed.
+          $list = Join-Path $env:RUNNER_TEMP 'pipeline-version-changed.txt'
+          $params['ChangedFileListPath'] = $list
           & .github/scripts/Update-PipelineVersion.ps1 @params
 
-          # Only the files the alignment actually touched are committed.
-          $changed = @(git status --porcelain -- .github |
-            ForEach-Object { $_.Substring(3).Trim() })
+          $changed = @(if (Test-Path -LiteralPath $list) { Get-Content -LiteralPath $list } else { @() })
           "changed=$($changed.Count -gt 0)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "files=$($changed -join ' ')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           if ($changed) { $changed | ForEach-Object { Write-Host "  aligned: $_" } }
@@ -65,10 +73,14 @@ jobs:
           label: workflows after pipeline version alignment
 
       - name: Commit pipeline version alignment
+        # The alignment is already applied in the workspace, so a refused push (branch
+        # protection, read-only token) must not turn the run red: the next push to Dev
+        # re-aligns and commits it.
         if: steps.align.outputs.changed == 'true'
+        continue-on-error: true
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
-        with:
-          commit_message: ${{ inputs.commit-message }}
+        with: |
+          commit_message: ${{ inputs.skip-ci && format('{0} [skip ci]', inputs.commit-message) || inputs.commit-message }}
           file_pattern: ${{ steps.align.outputs.files }}
           branch: ${{ inputs.branch }}
           push_options: --force-with-lease

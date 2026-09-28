@@ -1,5 +1,5 @@
 # Reusable start-core build
-name: WinToolkit V4.0.3 — Reusable start-core build
+name: WinToolkit V4.1.0 — Reusable start-core build
 
 on:
   workflow_call:
@@ -35,7 +35,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v6
         with:
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0

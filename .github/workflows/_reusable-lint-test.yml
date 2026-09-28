@@ -1,5 +1,5 @@
 # Reusable lint and test
-name: WinToolkit V4.0.3 — Reusable lint and test
+name: WinToolkit V4.1.0 — Reusable lint and test
 
 on:
   workflow_call:
@@ -35,19 +35,41 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v6
         with:
           fetch-depth: 0
 
       - name: Setup PowerShell CI modules
         uses: ./.github/actions/setup-powershell-modules
 
-      - name: Check pipeline version consistency
+      - name: Align pipeline version
+        id: pipelineVersion
         shell: pwsh
         run: |
-          # PIPELINE_VERSION (CI-WinToolkit-Dev.yml) is the single source of truth:
-          # every workflow and action name must already carry that exact version.
-          & ./.github/scripts/Update-PipelineVersion.ps1 -Check
+          # PIPELINE_VERSION (CI-WinToolkit-Dev.yml) is the single source of truth and
+          # the pipeline adapts to it: drift is corrected here, never blocked on. The
+          # alignment is byte-level, so the corrected files are already valid for every
+          # downstream step of this same run.
+          $list = Join-Path $env:RUNNER_TEMP 'pipeline-version-changed.txt'
+          & ./.github/scripts/Update-PipelineVersion.ps1 -ChangedFileListPath $list
+
+          $changed = @(if (Test-Path -LiteralPath $list) { Get-Content -LiteralPath $list } else { @() })
+          "changed=$($changed.Count -gt 0)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+          if ($changed) {
+            Write-Host "::warning title=Pipeline version::Drift auto-corrected to the canonical PIPELINE_VERSION in $($changed.Count) file(s). The Dev sync job commits the alignment; this run continues with the corrected files."
+            $changed | ForEach-Object { Write-Host "  aligned: $_" }
+          }
+
+          # Drift must never block the run, but a broken script must: this is the only
+          # case that fails here, and it would be a bug in the alignment itself.
+          $parseErrors = @()
+          Get-ChildItem .github -Recurse -Filter *.ps1 -File | ForEach-Object {
+              $errors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors)
+              if ($errors) { $parseErrors += "$($_.Name): $($errors[0].Message)" }
+          }
+          if ($parseErrors) { throw "Version alignment produced invalid PowerShell: $($parseErrors -join '; ')" }
 
       - name: Normalize fragment spacing
         shell: pwsh
@@ -145,7 +167,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v6
         with:
           fetch-depth: 0
 

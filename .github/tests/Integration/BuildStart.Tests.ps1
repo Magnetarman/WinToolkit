@@ -1,3 +1,4 @@
+# WinToolkit CI/CD V4.1.0
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 BeforeAll {
@@ -45,6 +46,7 @@ Describe 'Update-Version.ps1 source alignment' {
         $template = Join-Path $testRoot '00-Skeleton.Header.ps1'
         $header = Join-Path $testRoot '00-Skeleton.Header.ps1'
         $output = Join-Path $testRoot 'github-output.txt'
+        $previousOutput = $env:GITHUB_OUTPUT
         try {
             Copy-Item (Join-Path $script:RepoRoot 'wintoolkit-modules\00-Skeleton.Header.ps1') $template
             Copy-Item (Join-Path $script:RepoRoot 'start-modules\00-Skeleton.Header.ps1') $header
@@ -57,6 +59,10 @@ Describe 'Update-Version.ps1 source alignment' {
             $headerVersion | Should -Be $templateVersion
         }
         finally {
+            # The redirect must never leak: $testRoot is about to be deleted, and
+            # every later script would fail appending its CI outputs to a stale path.
+            if ($previousOutput) { $env:GITHUB_OUTPUT = $previousOutput }
+            else { Remove-Item Env:GITHUB_OUTPUT -ErrorAction SilentlyContinue }
             Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
         }
     }

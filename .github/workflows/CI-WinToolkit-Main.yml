@@ -1,7 +1,7 @@
-# WinToolkit CI Main Protection V4.0.3
+# WinToolkit CI Main Protection V4.1.0
 # Triggers: PR to main. opened/synced -> guard+lint+version bump on Dev; merged release/v* -> stable GitHub release (tag vX.Y.Z). Maintainer-only.
 
-name: WinToolkit — CI Main Protection V4.0.3
+name: WinToolkit — CI Main Protection V4.1.0
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -129,7 +129,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v6
         with:
           fetch-depth: 0
 
@@ -215,7 +215,7 @@ jobs:
 
     steps:
       - name: Checkout main
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v6
         with:
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
