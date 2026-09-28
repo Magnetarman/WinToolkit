@@ -49,8 +49,12 @@ jobs:
           $params = @{ CanonicalWorkflow = '${{ inputs.canonical-workflow }}' }
           if ('${{ inputs.version }}') { $params['Version'] = '${{ inputs.version }}' }
           & .github/scripts/Update-PipelineVersion.ps1 @params
-          $changed = @(git status --porcelain -- .github/workflows .github/actions)
+
+          # Only the files the alignment actually touched are committed.
+          $changed = @(git status --porcelain -- .github |
+            ForEach-Object { $_.Substring(3).Trim() })
           "changed=$($changed.Count -gt 0)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "files=$($changed -join ' ')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           if ($changed) { $changed | ForEach-Object { Write-Host "  aligned: $_" } }
 
       - name: Validate workflow and action syntax after alignment
@@ -65,7 +69,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
         with:
           commit_message: ${{ inputs.commit-message }}
-          file_pattern: '.github/workflows .github/actions'
+          file_pattern: ${{ steps.align.outputs.files }}
           branch: ${{ inputs.branch }}
           push_options: --force-with-lease
           skip_fetch: true
