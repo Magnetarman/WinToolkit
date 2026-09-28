@@ -87,12 +87,13 @@ Describe 'Initialize-Winget — recovery ladder (§3.1)' {
     }
 
     It 'falls back to the forced package reinstall when the core install did not help' {
-        # First two probes fail (health, then after the core install); the forced
-        # repair is what finally makes the third probe succeed.
+        # The ladder probes health THREE times before the forced reinstall (initial,
+        # after the core install, after the database repair), so probes 1..3 must fail
+        # and only the fourth one - taken after the forced repair - succeeds.
         $script:probe = 0
         Mock Get-WingetHealth {
             $script:probe++
-            if ($script:probe -le 2) { return [pscustomobject]@{ Present = $true; Runs = $false; Version = $null; Reachable = $false } }
+            if ($script:probe -le 3) { return [pscustomobject]@{ Present = $true; Runs = $false; Version = $null; Reachable = $false } }
             return [pscustomobject]@{ Present = $true; Runs = $true; Version = '1.29'; Reachable = $true }
         }
 
