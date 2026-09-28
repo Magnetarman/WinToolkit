@@ -28,6 +28,83 @@ BeforeAll {
     Initialize-SourceTextLocalization -LanguageCode 'en-US'
 }
 
+Describe 'Localization key sets stay aligned across languages (S-5)' {
+
+    BeforeAll {
+        $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
+        $script:EnFile = Join-Path $repoRoot 'languages\en-US\WinToolkit.psd1'
+        $script:ItFile = Join-Path $repoRoot 'languages\it-IT\WinToolkit.psd1'
+        $script:EnKeys = @((Get-Content $script:EnFile -Raw) -split "`r?`n" |
+            Where-Object { $_ -match '^([\w.\-]+)\s*=' } | ForEach-Object { $Matches[1] })
+        $script:ItKeys = @((Get-Content $script:ItFile -Raw) -split "`r?`n" |
+            Where-Object { $_ -match '^([\w.\-]+)\s*=' } | ForEach-Object { $Matches[1] })
+
+        # Explicit list, not a language detector: a substring match on Italian words
+        # also flags English keys that merely contain them (unigetUiRequireVerifi
+        # cation, packetVerificationError01, ...StatusInEsecuzionePercent1).
+        $script:RenamedKeys = @(
+            'uiText.downloadIcona', 'uiText.puliziaCacheWinget',
+            'uiText.recuperoUltimaReleasePowershell', 'uiText.temaOhMyPoshScaricato',
+            'uiText.verificaPowershell7', 'uiText.esecuzioneRepairWingetpackagemanager',
+            'uiText.tentativoRepairWingetpackagemanager',
+            'uiText.tentativoRiparazioneWingetRepairWingetpackagemanager',
+            'uiText.startWingetInstallationVerificationProcedure',
+            'uiText.downloadMsixbundleDaMicrosoft', 'uiText.downloadCoreScriptDaGithub',
+            'uiText.downloadAndInstallWingetBundleWithDependencies',
+            'uiText.downloadWingetDependenciesFromTheOfficialRepository',
+            'uiText.fallbackDownloadGitDaGithub',
+            'uiText.fallbackDownloadMsixbundleDirectFromMicrosoft',
+            'uiText.iTryNativeAppxInstallationFromDownloadedBundle',
+            'uiText.downloadCompleted0', 'uiText.downloaded0', 'uiText.downloadFailed0',
+            'uiText.download02', 'uiText.downloadCoreScriptDaGithub',
+            'uiText.startingDownload', 'uiText.startingWinToolkitConfiguration',
+            'uiText.resetCacheMicrosoftStoreWsreset', 'uiText.windowsTerminalConfiguration'
+        ) | Select-Object -Unique
+    }
+
+    It 'both language files exist and expose keys' {
+        Test-Path $script:EnFile | Should -BeTrue
+        Test-Path $script:ItFile | Should -BeTrue
+        $script:EnKeys.Count | Should -BeGreaterThan 100
+        $script:ItKeys.Count | Should -BeGreaterThan 100
+    }
+
+    It 'defines exactly the same key set in en-US and it-IT' {
+        # A missing key is not cosmetic: Get-SourceTextLoc falls back to the
+        # embedded English text, so an Italian user would silently read English.
+        $missingInIt = @(Compare-Object $script:EnKeys $script:ItKeys |
+                Where-Object SideIndicator -eq '<=' | ForEach-Object InputObject)
+        $missingInEn = @(Compare-Object $script:EnKeys $script:ItKeys |
+                Where-Object SideIndicator -eq '=>' | ForEach-Object InputObject)
+
+        ($missingInIt -join ', ') | Should -BeNullOrEmpty -Because 'every en-US key must exist in it-IT'
+        ($missingInEn -join ', ') | Should -BeNullOrEmpty -Because 'every it-IT key must exist in en-US'
+    }
+
+    It 'has no duplicate key inside a single file (ConvertFrom-StringData would fail)' {
+        $dupEn = @($script:EnKeys | Group-Object | Where-Object Count -gt 1 | ForEach-Object Name)
+        $dupIt = @($script:ItKeys | Group-Object | Where-Object Count -gt 1 | ForEach-Object Name)
+        ($dupEn -join ', ') | Should -BeNullOrEmpty
+        ($dupIt -join ', ') | Should -BeNullOrEmpty
+    }
+
+    It 'loads as a valid ConvertFrom-StringData payload' {
+        { Import-PowerShellDataFile -Path $script:EnFile -ErrorAction Stop } | Should -Not -Throw
+        { Import-PowerShellDataFile -Path $script:ItFile -ErrorAction Stop } | Should -Not -Throw
+    }
+
+    It 'no longer defines the Italian-named keys replaced during S-5' {
+        $stillThere = @($script:EnKeys | Where-Object { $script:RenamedKeys -contains $_ })
+        ($stillThere -join ', ') | Should -BeNullOrEmpty -Because 'these keys were renamed to English'
+    }
+
+    It 'resolves a suffixed key through the numeric-suffix fallback' {
+        # The convention is frozen by behaviour, not by renaming 350+ keys: a key
+        # named `<stem><n>` resolves to the stem when the suffixed one is absent.
+        Get-SourceTextLoc 'uiText.check0' | Should -Not -Match '\[MISSING TRANSLATION'
+    }
+}
+
 Describe 'Get-SourceTextLoc' {
 
     It 'resolves a known embedded key without network calls' {
