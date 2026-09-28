@@ -9,5 +9,3 @@ if (-not $ImportOnly) {
     WinOSCheck
     Test-WindowsUpdateStatus
 }
-
-
