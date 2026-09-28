@@ -175,20 +175,90 @@ function Test-WingetRpcFailure {
     returns when the per-user App Installer deployment server cannot serve the
     session. Every install then fails identically while "winget --version" and
     "winget search" keep working, which is why the old flow reported the tools as
-    handled. Recognising it lets the caller name the real cause and try the
-    documented recovery (re-register / reset the App Installer package).
+    handled. The exit code is conclusive on its own, so no output parsing is
+    involved: the previous text match could never change the answer.
     #>
     param(
         [Parameter(Mandatory = $true)][object]$Result
     )
 
-    # The module owns the numeric literal: no magic number in the call sites.
-    if ($Result.ExitCode -ne $script:WINGET_RPC_FAILURE_EXITCODE) { return $false }
+    return ($Result.ExitCode -eq $script:AppConfig.Winget.RpcFailureExitCode)
+}
 
-    $output = "$($Result.StdOut)$($Result.StdErr)"
-    if ($output -and ($output -match '0x800706BA|RPC_S_SERVER_UNAVAILABLE|server execution failed')) { return $true }
-    # CaptureOutput is optional: the exit code alone is conclusive.
+
+function Test-WingetModernVersion {
+    <#
+    .SYNOPSIS
+    Returns $true when the WinGet build accepts --disable-interactivity (1.4+).
+
+    .DESCRIPTION
+    The previous check was the regex 'v1\.[4-9]', which does not match 1.10, 1.11
+    or 1.12: on every current build the flag was therefore never added and winget
+    could block on an interactive prompt. The version is parsed as [version] and
+    compared numerically, and the result is cached because probing spawns a
+    process (see Get-WingetModernFlag).
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$VersionOutput
+    )
+
+    if ($VersionOutput -match '(\d+)\.(\d+)') {
+        try {
+            return ([version]("$($Matches[1]).$($Matches[2])") -ge [version]'1.4')
+        }
+        catch {
+            Write-ToolkitLog -Level 'DEBUG' -Message "Unparsable WinGet version '$VersionOutput': $($_.Exception.Message)"
+        }
+    }
+    # Unknown build: assume modern, since --disable-interactivity is only rejected
+    # by the very old builds that predate the 1.4 milestone.
     return $true
+}
+
+
+function Get-WingetModernFlag {
+    <#
+    .SYNOPSIS
+    Returns '--disable-interactivity' when the installed WinGet supports it.
+
+    .DESCRIPTION
+    The probe cost one extra winget process per command, so the answer is cached
+    on the executable path it was measured for. Invalidate-WingetVersionCache drops
+    it whenever PATH or the App Installer package may have changed.
+    #>
+    [CmdletBinding()]
+    param([string]$WingetExe)
+
+    if (-not $WingetExe) { return $null }
+    if ($script:State.Winget.Modern -and $script:State.Winget.ProbedExe -eq $WingetExe) {
+        if ($script:State.Winget.Modern) { return '--disable-interactivity' }
+        return $null
+    }
+
+    $result = Invoke-ExternalCommand -FilePath $WingetExe -ArgumentList @('--version') `
+        -TimeoutSeconds $script:AppConfig.Timeouts.WingetProbe
+    $modern = $false
+    if ($result.ExitCode -eq 0) {
+        $modern = Test-WingetModernVersion -VersionOutput "$($result.StdOut)$($result.StdErr)"
+    }
+    else {
+        Write-ToolkitLog -Level 'DEBUG' -Message "WinGet --version probe failed with exit code $($result.ExitCode); assuming a modern build."
+        $modern = $true
+    }
+
+    $script:State.Winget.ProbedExe = $WingetExe
+    $script:State.Winget.Modern = $modern
+    return $(if ($modern) { '--disable-interactivity' } else { $null })
+}
+
+
+function Invalidate-WingetVersionCache {
+    <#
+    .SYNOPSIS
+    Drops the cached WinGet version probe after PATH or App Installer changes.
+    #>
+    $script:State.Winget.Modern = $null
+    $script:State.Winget.ProbedExe = $null
 }
 
 
@@ -222,8 +292,9 @@ function Invoke-WingetCommand {
     .DESCRIPTION
     Single entry point for WinGet invocations: it resolves winget.exe once and
     appends --disable-interactivity only on the versions that support it (1.4+),
-    so one call site works on every WinGet build. Failure paths return the same
-    shape as success paths, with ExitCode -1.
+    so one call site works on every WinGet build. The version probe is cached
+    instead of spawning `winget --version` before every single command.
+    Failure paths return the same shape as success paths, with ExitCode -1.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Arguments,
@@ -239,9 +310,8 @@ function Invoke-WingetCommand {
         }
 
         # --disable-interactivity is accepted from WinGet 1.4 onwards.
-        $versionRaw = (& $wingetExe --version 2>$null) | Out-String
-        $isModern = $versionRaw -match 'v1\.[4-9]' -or $versionRaw -match 'v[2-9]'
-        $finalArgs = if ($isModern) { "$Arguments --disable-interactivity" } else { $Arguments }
+        $modernFlag = Get-WingetModernFlag -WingetExe $wingetExe
+        $finalArgs = if ($modernFlag) { "$Arguments $modernFlag" } else { $Arguments }
 
         $result = Invoke-ExternalCommand -FilePath $wingetExe -ArgumentList (ConvertTo-ProcessArgumentList -Arguments $finalArgs) -TimeoutSeconds $TimeoutSeconds -CaptureOutput:$CaptureOutput
         if ($result.TimedOut) {
@@ -259,6 +329,56 @@ function Invoke-WingetCommand {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetCommandError0' -Args @($_.Exception.Message))
         return New-ExternalCommandResult -ExitCode -1 -FilePath 'winget.exe' -ArgumentList @($Arguments) -Error $_.Exception.Message
     }
+}
+
+
+function Invoke-WingetInstall {
+    <#
+    .SYNOPSIS
+    Installs one package through WinGet and returns a structured result.
+
+    .DESCRIPTION
+    Single entry point for package installs, which removes the standard flag
+    string that was repeated at seven call sites. It also fixes the exit-code
+    contract: `winget install` on an already installed package returns
+    0x8A150061 (no applicable update is 0x8A15002B), so a rerun used to report
+    Failed and to make the font step return Success=$false. The caller must test
+    .Accepted, never `-eq 0`.
+
+    The App Installer RPC failure (0x800706BA) is recovered from once, with a
+    single retry, because it is the only non-idempotent error worth retrying here.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Id,
+        [switch]$Exact,
+        [switch]$Upgrade,
+        [string]$Source = 'winget'
+    )
+
+    if (-not (Get-WinGetExecutable)) {
+        return New-ExternalCommandResult -ExitCode -1 -FilePath 'winget.exe' -ArgumentList @($Id) -Error 'WinGet executable not found.'
+    }
+
+    $acceptedExitCodes = @(0) + $script:AppConfig.Winget.AlreadyInstalledExitCodes
+    $operation = if ($Upgrade) { 'upgrade' } else { 'install' }
+    $exactFlag = if ($Exact) { '-e ' } else { '' }
+    $command = "$operation $exactFlag--id $Id --source $Source --accept-source-agreements --accept-package-agreements --silent"
+
+    $result = Invoke-WingetCommand -Arguments $command
+    $result | Add-Member -NotePropertyName 'Accepted' -NotePropertyValue (
+        (-not $result.TimedOut) -and $acceptedExitCodes -contains $result.ExitCode
+    ) -Force
+
+    if ((-not $result.Accepted) -and (Test-WingetRpcFailure -Result $result)) {
+        if (Invoke-WingetRpcRecovery) {
+            $result = Invoke-WingetCommand -Arguments $command
+            $result | Add-Member -NotePropertyName 'Accepted' -NotePropertyValue (
+                (-not $result.TimedOut) -and $acceptedExitCodes -contains $result.ExitCode
+            ) -Force
+        }
+    }
+    return $result
 }
 
 
