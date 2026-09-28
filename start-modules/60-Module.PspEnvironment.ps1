@@ -191,7 +191,7 @@ function Install-PspEnvironment {
             -MinimumBytes $script:AppConfig.UserScope.MinThemeFileBytes `
             -ContentValidator { param($candidatePath) Test-OhMyPoshThemeFile -Path $candidatePath }) {
         $result.ThemeOk = $true
-        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.temaOhMyPoshScaricato')
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.ohMyPoshThemeDownloaded')
         Write-ToolkitLog -Level 'INFO' -Message "Oh My Posh theme installed: $($paths.ThemePath)"
     }
     else {
