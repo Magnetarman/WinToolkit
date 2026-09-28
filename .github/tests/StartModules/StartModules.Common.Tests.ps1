@@ -25,6 +25,11 @@ BeforeAll {
         }
     }
     $script:AppConfig = $script:AppConfig
+    # Repository translations, not the %LOCALAPPDATA% cache: the cache is whatever a
+    # previous run downloaded, so shipped strings would be untested and a new key
+    # would print "[MISSING TRANSLATION: ...]" without failing anything.
+    $script:AppConfig.Paths.Languages = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\languages')).Path
+    Initialize-SourceTextLocalization -LanguageCode 'en-US'
 }
 
 Describe 'Format-CenteredText' {
