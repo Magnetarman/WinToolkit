@@ -29,12 +29,11 @@ function Update-EnvironmentPath {
     # Reload PATH from Machine and User to detect installations in the current process
     $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $newPath = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
 
-    # Update the current PowerShell session
-    $env:Path = $newPath
-    # Force process-level refresh for .NET components started later
-    [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Process')
+    # Assigning $env:Path already updates the process environment block that child
+    # processes inherit, so the previous SetEnvironmentVariable(...,'Process') call
+    # was a duplicate of the line above it.
+    $env:Path = ($machinePath, $userPath | Where-Object { $_ }) -join ';'
 }
 
 
@@ -355,11 +354,15 @@ function Invoke-StartUpdateServices {
     <#
     .SYNOPSIS
     Restores Windows Update and related services.
-    #>
-    [CmdletBinding(SupportsShouldProcess)]
-    param()
 
-    if (-not $PSCmdlet.ShouldProcess('Windows Update services', 'Restore services')) { return }
+    .DESCRIPTION
+    The startup type is restored from what Get-Service reported (PS7 exposes
+    StartType directly), so the old Auto->Automatic translation table and the
+    dosvc special case are gone: dosvc is not suspended any more, and cryptsvc is
+    not touched at all, because stopping it breaks AppX signature validation and
+    that is precisely what the following winget installs do.
+    #>
+    param()
 
     $status = Read-UpdateServicesStatus
     if (-not $status -or $status.State -eq 'Restored') { return $true }
@@ -369,10 +372,11 @@ function Invoke-StartUpdateServices {
     foreach ($saved in @($status.Services)) {
         try {
             $service = Get-Service -Name $saved.Name -ErrorAction Stop
+            # Unknown/older payloads stored the CIM StartMode name instead.
             $startupType = switch ($saved.StartType) {
                 'Auto' { 'Automatic' }
                 'Disabled' { 'Disabled' }
-                default { 'Manual' }
+                default { $saved.StartType }
             }
             Set-Service -Name $saved.Name -StartupType $startupType -ErrorAction Stop
 
@@ -390,29 +394,13 @@ function Invoke-StartUpdateServices {
     }
 
     if ($restoreErrors.Count -gt 0) {
-        $dosvcErrors = @($restoreErrors | Where-Object { $_ -match '^dosvc:' })
-        $otherErrors = @($restoreErrors | Where-Object { $_ -notmatch '^dosvc:' })
-
-        if ($otherErrors.Count -gt 0) {
-            Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError ($otherErrors -join '; ')
-            Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
-            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.updateServicesRestoreIncomplete0' -Args @($status.LastError))
-            return $false
-        }
-
-        if ($dosvcErrors.Count -gt 0) {
-            # dosvc refuses to start on some Windows builds: a known limitation, not a failure.
-            Set-UpdateServicesState -Status $status -State 'Restored'
-            # $dosvcErrors is an array: it must be joined INSIDE the subexpression,
-            # otherwise the literal "-join" text ends up in the log line.
-            $dosvcDetail = $dosvcErrors -join '; '
-            Write-ToolkitLog -Level 'WARNING' -Message "Windows Update service dosvc could not be restored (known Windows limitation): $dosvcDetail"
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.dosvcNotRestoredKnownLimitation')
-        }
+        Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError ($restoreErrors -join '; ')
+        Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($restoreErrors -join '; ')"
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.updateServicesRestoreIncomplete0' -Args @($status.LastError))
+        return $false
     }
 
     Set-UpdateServicesState -Status $status -State 'Restored'
-    $script:UpdateServicesSuspended = $false
     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesRestored')
     return $true
 }
