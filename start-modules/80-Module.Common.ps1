@@ -12,6 +12,51 @@ function Test-CommandExists {
 }
 
 
+function Test-LocalRootedPath {
+    <#
+    .SYNOPSIS
+    Returns the normalized path when it is a fully qualified local path, else $null.
+
+    .DESCRIPTION
+    Single source of truth for "is this a usable local path". It rejects exactly
+    the three shapes that turn an unresolved known folder into files scattered
+    outside the user profile:
+      ''            -> not bindable, would fail later at an unrelated place
+      'C:'/'C:\'    -> the drive root
+      '\PowerShell' -> drive-relative: resolves to <current drive>:\PowerShell
+    The three conditions are collapsed into one anchored regex: anything that is
+    not "X:\..." fails it, which subsumes the previous separate tests.
+    #>
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $null }
+    $trimmed = $Path.Trim().TrimEnd('\')
+    if ($trimmed -notmatch '^[A-Za-z]:[\\/]') { return $null }
+    return $trimmed
+}
+
+
+function Remove-PathQuietly {
+    <#
+    .SYNOPSIS
+    Deletes one or more paths, ignoring every failure.
+
+    .DESCRIPTION
+    Replaces the 18 hand-written `finally { if (Test-Path ...) { Remove-Item } }`
+    blocks. Cleanup must never mask the outcome of the operation it belongs to,
+    so nothing here is allowed to throw.
+    #>
+    param(
+        [Parameter(Position = 0)][string[]]$Path
+    )
+
+    foreach ($item in $Path) {
+        if ([string]::IsNullOrWhiteSpace($item)) { continue }
+        Remove-Item -LiteralPath $item -Force -Recurse -ErrorAction SilentlyContinue
+    }
+}
+
+
 function Initialize-Directory {
     <#
     .SYNOPSIS
@@ -20,32 +65,21 @@ function Initialize-Directory {
     .DESCRIPTION
     The verification is the point of this helper: a silent New-Item failure used to
     let the caller carry on and report success for an artifact that was never
-    written. The path SHAPE is validated before anything is created, because these
-    three forms are what turn an unresolved known folder into files scattered
-    outside the user profile:
-      ''            -> not bindable, would fail later at an unrelated place
-      'C:'/'C:\'    -> the drive root
-      '\PowerShell' -> drive-relative: resolves to <current drive>:\PowerShell
+    written. The path shape is validated up front by Test-LocalRootedPath.
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
 
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        throw 'Initialize-Directory: the target path is empty.'
+    $resolved = Test-LocalRootedPath -Path $Path
+    if (-not $resolved) {
+        throw "Initialize-Directory: refusing to use '$Path' (empty, relative or drive-root path)."
     }
-    $trimmed = $Path.Trim().TrimEnd('\')
-    if (-not [IO.Path]::IsPathRooted($trimmed) -or
-        $trimmed -match '^[\\/]$' -or
-        $trimmed -match '^[\\/]' -or
-        $trimmed -notmatch '^[A-Za-z]:[\\/]') {
-        throw "Initialize-Directory: refusing to use '$Path' (empty, drive-relative or drive-root path)."
+    if (-not (Test-Path -LiteralPath $resolved)) {
+        $null = New-Item -Path $resolved -ItemType Directory -Force -ErrorAction Stop
     }
-    if (-not (Test-Path -LiteralPath $trimmed)) {
-        $null = New-Item -Path $trimmed -ItemType Directory -Force -ErrorAction Stop
+    if (-not (Test-Path -LiteralPath $resolved -PathType Container)) {
+        throw "Initialize-Directory: '$resolved' is not an accessible directory."
     }
-    if (-not (Test-Path -LiteralPath $trimmed -PathType Container)) {
-        throw "Initialize-Directory: '$trimmed' is not an accessible directory."
-    }
-    return $trimmed
+    return $resolved
 }
 
 
@@ -62,13 +96,13 @@ function Get-ToolkitOriginalUserContext {
     the original identity and paths through environment variables; this helper
     reads them once and reports whether the current identity differs.
     #>
-    if ($script:OriginalUserContext) { return $script:OriginalUserContext }
+    if ($script:State.UserContext) { return $script:State.UserContext }
 
     $scope = $script:AppConfig.UserScope
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     $originalUser = [Environment]::GetEnvironmentVariable($scope.EnvUser)
 
-    $script:OriginalUserContext = [pscustomobject]@{
+    $script:State.UserContext = [pscustomobject]@{
         CurrentUser     = $currentUser
         OriginalUser    = $originalUser
         AccountSwitched = [bool]($originalUser -and $currentUser -and ($originalUser -ne $currentUser))
@@ -76,7 +110,7 @@ function Get-ToolkitOriginalUserContext {
         Desktop         = [Environment]::GetEnvironmentVariable($scope.EnvDesktop)
         MyDocuments     = [Environment]::GetEnvironmentVariable($scope.EnvMyDocuments)
     }
-    return $script:OriginalUserContext
+    return $script:State.UserContext
 }
 
 
@@ -101,9 +135,7 @@ function Get-ToolkitUserFolderPath {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateSet('Desktop', 'MyDocuments')]
-        [string]$Kind,
-
-        [switch]$NoCreate
+        [string]$Kind
     )
 
     $context = Get-ToolkitOriginalUserContext
@@ -132,25 +164,14 @@ function Get-ToolkitUserFolderPath {
     if ($profileRoot) { $candidates += (Join-Path $profileRoot $Kind) }
 
     foreach ($candidate in $candidates) {
-        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
-        $path = $candidate.Trim().TrimEnd('\')
-        # Same shape rule as Initialize-Directory: reject anything that is not a
-        # fully qualified "X:\...\" path. This is what keeps an empty GetFolderPath
-        # from becoming "<current drive>:\PowerShell".
-        if (-not [IO.Path]::IsPathRooted($path) -or $path -notmatch '^[A-Za-z]:[\\/]') { continue }
-
-        if ($NoCreate) {
-            if (Test-Path -LiteralPath $path -PathType Container) {
-                $script:AppConfig.Paths[$Kind] = $path
-                return $path
-            }
-            continue
-        }
+        # Same rule as Initialize-Directory: reject anything that is not a fully
+        # qualified "X:\...\" path. This is what keeps an empty GetFolderPath from
+        # becoming "<current drive>:\PowerShell".
+        $path = Test-LocalRootedPath -Path $candidate
+        if (-not $path) { continue }
 
         try {
-            $resolved = Initialize-Directory -Path $path
-            $script:AppConfig.Paths[$Kind] = $resolved
-            return $resolved
+            return Initialize-Directory -Path $path
         }
         catch {
             Write-ToolkitLog -Level 'WARNING' -Message "Known folder candidate rejected for ${Kind}: $path ($($_.Exception.Message))"
