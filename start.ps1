@@ -69,7 +69,60 @@ function Install-Pwsh {
     return $installed
 }
 
+function Test-DefenderActive {
+    <#
+    .SYNOPSIS
+    Returns $true when real-time protection is currently enabled.
+    #>
+    try {
+        $status = Get-MpComputerStatus -ErrorAction Stop
+        return [bool]$status.RealTimeProtectionEnabled
+    }
+    catch {
+        # Defender is not installed or its service is unavailable: nothing to warn about.
+        return $false
+    }
+}
+
+function Request-DefenderPause {
+    <#
+    .SYNOPSIS
+    Warns that Windows Defender is active and waits for the user to disable it.
+
+    .DESCRIPTION
+    Active real-time protection interferes with the AppX and WinGet installs this
+    starter performs. The check is NOT blocking: the setup continues either way.
+    Pressing ENTER three times in a row bypasses it, so a user who keeps Defender
+    enabled (by policy, or by choice) is never trapped in a prompt loop. A
+    non-interactive session skips the prompt instead of blocking on a key that
+    will never arrive.
+
+    The same check is repeated inside start-core.ps1, because this stub can be
+    bypassed: the core is a published script that anyone can invoke directly.
+    #>
+    if (-not (Test-DefenderActive)) { return }
+
+    # Never prompt when input is redirected (piped, scheduled, or CI): the key
+    # would never come and the run would hang instead of continuing.
+    if ([Console]::IsInputRedirected) {
+        Write-Warning 'Windows Defender e attivo: la protezione in tempo reale potrebbe causare il fallimento di alcune installazioni.'
+        return
+    }
+
+    $maxAttempts = 3
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        Write-Host ("[Defender] Protezione in tempo reale attiva: si consiglia di disattivarla temporaneamente. Premi INVIO dopo averlo disattivato, oppure premilo di nuovo per continuare comunque ($attempt/$maxAttempts).") -ForegroundColor Yellow
+        $null = Read-Host 'Premi INVIO'
+        if (-not (Test-DefenderActive)) {
+            Write-Host '[Defender] Protezione in tempo reale disattivata: si prosegue.' -ForegroundColor Green
+            return
+        }
+    }
+    Write-Warning 'Windows Defender e ancora attivo: si prosegue comunque. Alcune installazioni potrebbero fallire.'
+}
+
 $env:WTOOLKIT_LANGUAGE = $Language
+Request-DefenderPause
 
 # Capture the INTERACTIVE user context BEFORE elevating. UAC may switch the process
 # to a different administrator account; without this, every user-scoped artifact
