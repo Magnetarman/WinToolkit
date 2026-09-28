@@ -1,5 +1,5 @@
 # Reusable lint and test
-name: WinToolkit V4.0.3 — Reusable lint and test
+name: WinToolkit V4.1.0 — Reusable lint and test
 
 on:
   workflow_call:
@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v6
         with:
           fetch-depth: 0
 
@@ -145,7 +145,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v6
         with:
           fetch-depth: 0
 
