@@ -1,3 +1,4 @@
+# WinToolkit CI/CD V4.1.0
 # Tokenizer-safe PowerShell minifier. Strips comment tokens, trims whitespace, drops blank lines.
 # Verifies syntax after minification and rolls back to original on error.
 
