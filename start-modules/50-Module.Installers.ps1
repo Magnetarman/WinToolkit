@@ -27,19 +27,25 @@ function Test-VCRedistInstalled {
 
     .DESCRIPTION
     The 32-bit runtime is enough on 32-bit systems; on x64/ARM64 systems BOTH the
-    32-bit and the native runtime must be present.
+    32-bit and the native runtime must be present. The requirement list is built
+    first and then checked as a whole, instead of incrementing a counter that had
+    to be compared against a separately computed total.
     #>
     $architecture = Get-SystemArchitecture
-    $checksPassed = 0
 
-    if (Test-VCRedistRuntime -RuntimeName 'x86' -DllPath "$env:windir\syswow64\concrt140.dll") { $checksPassed++ }
+    $required = @(
+        @{ Runtime = 'x86'; DllPath = "$env:windir\syswow64\concrt140.dll" }
+    )
     if ($architecture -ne 'X86') {
         $nativeRuntime = Get-ArchitectureSpecificValue -X64 'x64' -ARM64 'arm64'
-        if (Test-VCRedistRuntime -RuntimeName $nativeRuntime -DllPath "$env:windir\system32\concrt140.dll") { $checksPassed++ }
+        $required += @{ Runtime = $nativeRuntime; DllPath = "$env:windir\system32\concrt140.dll" }
     }
 
-    $requiredChecks = if ($architecture -eq 'X86') { 1 } else { 2 }
-    return $checksPassed -eq $requiredChecks
+    $results = foreach ($item in $required) {
+        Test-VCRedistRuntime -RuntimeName $item.Runtime -DllPath $item.DllPath
+    }
+    # -notcontains $false reads as "none of the required runtimes is missing".
+    return -not ($results -contains $false)
 }
 
 
