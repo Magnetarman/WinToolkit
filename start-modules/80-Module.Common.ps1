@@ -15,14 +15,142 @@ function Test-CommandExists {
 function Initialize-Directory {
     <#
     .SYNOPSIS
-    Creates a directory when it is missing and returns its path.
+    Creates a directory when it is missing, verifies the result, and returns its path.
+
+    .DESCRIPTION
+    The verification is the point of this helper: a silent New-Item failure used to
+    let the caller carry on and report success for an artifact that was never
+    written. A path that is empty, not absolute, or a bare drive root is rejected
+    before creating anything, because "\PowerShell" or "C:\" would scatter user
+    files outside of the user profile.
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
 
-    if (-not (Test-Path -LiteralPath $Path)) {
-        $null = New-Item -Path $Path -ItemType Directory -Force
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw 'Initialize-Directory: the target path is empty.'
     }
-    return $Path
+    if (-not (Test-Path -LiteralPath $Path)) {
+        $trimmed = $Path.Trim().TrimEnd('\')
+        if (-not [IO.Path]::IsPathRooted($trimmed) -or $trimmed -match '^[A-Za-z]:$') {
+            throw "Initialize-Directory: refusing to create a non-absolute or drive-root path ('$Path')."
+        }
+        $null = New-Item -Path $trimmed -ItemType Directory -Force -ErrorAction Stop
+    }
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
+        throw "Initialize-Directory: '$Path' is not an accessible directory."
+    }
+    return $Path.TrimEnd('\')
+}
+
+
+function Get-ToolkitOriginalUserContext {
+    <#
+    .SYNOPSIS
+    Returns the interactive user's context, captured by start.ps1 before elevation.
+
+    .DESCRIPTION
+    UAC elevation can switch the process to a *different* administrator account
+    (credentials are prompted for). Every user-scoped artifact (Documents profile,
+    theme, desktop shortcut) would then land in that other account and the user
+    would see nothing, even though each step reported success. start.ps1 exports
+    the original identity and paths through environment variables; this helper
+    reads them once and reports whether the current identity differs.
+    #>
+    if ($script:OriginalUserContext) { return $script:OriginalUserContext }
+
+    $scope = $script:AppConfig.UserScope
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $originalUser = [Environment]::GetEnvironmentVariable($scope.EnvUser)
+
+    $script:OriginalUserContext = [pscustomobject]@{
+        CurrentUser     = $currentUser
+        OriginalUser    = $originalUser
+        AccountSwitched = [bool]($originalUser -and $currentUser -and ($originalUser -ne $currentUser))
+        UserProfile     = [Environment]::GetEnvironmentVariable($scope.EnvUserProfile)
+        Desktop         = [Environment]::GetEnvironmentVariable($scope.EnvDesktop)
+        MyDocuments     = [Environment]::GetEnvironmentVariable($scope.EnvMyDocuments)
+    }
+    return $script:OriginalUserContext
+}
+
+
+function Get-ToolkitUserFolderPath {
+    <#
+    .SYNOPSIS
+    Resolves, creates and verifies a user known folder (Desktop / MyDocuments).
+
+    .DESCRIPTION
+    [Environment]::GetFolderPath returns an EMPTY STRING when a known folder cannot
+    be resolved (deleted folder, stale "User Shell Folders" value, brand new or
+    freshly cleaned profile). The old code concatenated that empty string with
+    "\PowerShell" and wrote the profile to <drive>:\PowerShell while reporting
+    success. Resolution is now layered, and every candidate is validated:
+      1. the interactive user's folder, when elevation switched account;
+      2. GetFolderPath with SpecialFolderOption.Create (creates when missing);
+      3. GetFolderPath;
+      4. the "User Shell Folders" registry value, environment-expanded;
+      5. %USERPROFILE% (or the original user's profile).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Desktop', 'MyDocuments')]
+        [string]$Kind,
+
+        [switch]$NoCreate
+    )
+
+    $context = Get-ToolkitOriginalUserContext
+    $candidates = @()
+
+    if ($context.AccountSwitched) {
+        $original = if ($Kind -eq 'Desktop') { $context.Desktop } else { $context.MyDocuments }
+        if ($original) { $candidates += $original }
+    }
+
+    try { $candidates += [Environment]::GetFolderPath($Kind, [Environment+SpecialFolderOption]::Create) }
+    catch { Write-ToolkitLog -Level 'DEBUG' -Message "GetFolderPath($Kind, Create) failed: $($_.Exception.Message)" }
+    try { $candidates += [Environment]::GetFolderPath($Kind) }
+    catch { Write-ToolkitLog -Level 'DEBUG' -Message "GetFolderPath($Kind) failed: $($_.Exception.Message)" }
+
+    $registryName = if ($Kind -eq 'Desktop') { 'Desktop' } else { 'Personal' }
+    try {
+        $shellKey = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' -Name $registryName -ErrorAction Stop
+        if ($shellKey.$registryName) {
+            $candidates += [Environment]::ExpandEnvironmentVariables([string]$shellKey.$registryName)
+        }
+    }
+    catch { Write-ToolkitLog -Level 'DEBUG' -Message "User Shell Folders\$registryName unreadable: $($_.Exception.Message)" }
+
+    $profileRoot = if ($context.AccountSwitched -and $context.UserProfile) { $context.UserProfile } else { $env:USERPROFILE }
+    if ($profileRoot) { $candidates += (Join-Path $profileRoot $Kind) }
+
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        $path = $candidate.Trim().TrimEnd('\')
+        # Reject anything that is not an absolute path below a real directory: this
+        # is what keeps an empty GetFolderPath from becoming "C:\PowerShell".
+        if (-not [IO.Path]::IsPathRooted($path) -or $path -match '^[A-Za-z]:$' -or $path -notmatch '[\\/]') { continue }
+
+        if ($NoCreate) {
+            if (Test-Path -LiteralPath $path -PathType Container) {
+                $script:AppConfig.Paths[$Kind] = $path
+                return $path
+            }
+            continue
+        }
+
+        try {
+            $resolved = Initialize-Directory -Path $path
+            $script:AppConfig.Paths[$Kind] = $resolved
+            return $resolved
+        }
+        catch {
+            Write-ToolkitLog -Level 'WARNING' -Message "Known folder candidate rejected for ${Kind}: $path ($($_.Exception.Message))"
+        }
+    }
+
+    throw "Unable to resolve a usable '$Kind' known folder for user '$($context.CurrentUser)'."
 }
 
 
@@ -42,6 +170,35 @@ function Test-FileHasMinimumSize {
 
     $file = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
     return [bool]($file -and -not $file.PSIsContainer -and $file.Length -ge $MinimumBytes)
+}
+
+
+function Resolve-ToolkitPowerShellProfileDirectory {
+    <#
+    .SYNOPSIS
+    Creates and returns the PowerShell 7 profile folder and its Themes subfolder.
+
+    .DESCRIPTION
+    Returns [pscustomobject]@{ ProfileDirectory; ThemesDirectory; ProfilePath;
+    ThemePath }. The folder is created even when the Documents known folder is
+    empty or missing (freshly reset or brand new profile), and the result is
+    verified instead of assumed, so the profile can no longer be reported as
+    installed while it was written outside of the user profile.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $scope = $script:AppConfig.UserScope
+    $documents = Get-ToolkitUserFolderPath -Kind 'MyDocuments'
+    $profileDirectory = Initialize-Directory -Path (Join-Path $documents $scope.PowerShellProfileFolder)
+    $themesDirectory = Initialize-Directory -Path (Join-Path $profileDirectory $scope.ThemesFolderName)
+
+    return [pscustomobject]@{
+        ProfileDirectory = $profileDirectory
+        ThemesDirectory  = $themesDirectory
+        ProfilePath      = (Join-Path $profileDirectory $scope.ProfileFileName)
+        ThemePath        = (Join-Path $themesDirectory $scope.ThemeFileName)
+    }
 }
 
 
@@ -146,37 +303,73 @@ function ConvertTo-ProcessArgumentList {
 function Invoke-DownloadFile {
     <#
     .SYNOPSIS
-    DRY helper for file download with centralized error handling.
+    Downloads a file with fallback URLs and payload validation.
+
+    .DESCRIPTION
+    -Uri accepts a LIST of candidate URLs: the first one that downloads AND passes
+    validation wins. This removes the single point of failure that made a 404 on a
+    single endpoint fatal (the raw.githubusercontent URL form, a renamed branch, a
+    CDN hiccup) and it is also the only way to keep a 404 from being reported as a
+    success.
+    The payload is validated before $true is returned: the file must exist, reach
+    -MinimumBytes, and satisfy -ContentValidator when provided. Partial or error
+    payloads are deleted, never left behind for the next step to trust.
     #>
     param(
-        [string]$Uri,
-        [string]$OutFile,
-        [switch]$Silent
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Uri,
+        [Parameter(Mandatory = $true)][string]$OutFile,
+        [switch]$Silent,
+        [int]$MinimumBytes = 1,
+        [scriptblock]$ContentValidator
     )
 
     $previousProgress = $ProgressPreference
+    $failures = @()
     try {
         $ProgressPreference = 'SilentlyContinue'
-        if ($OutFile) {
-            $parentDir = Split-Path -Path $OutFile -Parent
-            if ($parentDir -and -not (Test-Path -LiteralPath $parentDir)) {
-                $null = New-Item -Path $parentDir -ItemType Directory -Force -ErrorAction Stop
+        $parentDir = Split-Path -Path $OutFile -Parent
+        if ($parentDir -and -not (Test-Path -LiteralPath $parentDir)) {
+            $null = New-Item -Path $parentDir -ItemType Directory -Force -ErrorAction Stop
+        }
+
+        foreach ($candidate in $Uri) {
+            if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+            try {
+                if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
+
+                Invoke-WebRequest -Uri $candidate -OutFile $OutFile -UseBasicParsing -ErrorAction Stop
+
+                $downloaded = Get-Item -LiteralPath $OutFile -ErrorAction Stop
+                if ($downloaded.PSIsContainer) { throw "The response is not a file." }
+                if ($downloaded.Length -lt $MinimumBytes) {
+                    throw "Only $($downloaded.Length) bytes received (expected at least $MinimumBytes)."
+                }
+                if ($ContentValidator -and -not (& $ContentValidator $OutFile)) {
+                    throw 'The downloaded content did not pass validation.'
+                }
+
+                Write-ToolkitLog -Level 'INFO' -Message "Downloaded '$candidate' -> $OutFile ($($downloaded.Length) bytes)."
+                return $true
+            }
+            catch {
+                $failures += "${candidate}: $($_.Exception.Message)"
+                Write-ToolkitLog -Level 'WARNING' -Message "Download attempt failed ($candidate): $($_.Exception.Message)"
+                if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
             }
         }
-        $iwrParams = @{
-            Uri             = $Uri
-            OutFile         = $OutFile
-            UseBasicParsing = $true
-            ErrorAction     = 'Stop'
+
+        $detail = if ($failures.Count -gt 0) { $failures -join ' | ' } else { 'no candidate URL provided' }
+        if (-not $Silent) {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.downloadError0' -Args @($detail))
         }
-        Invoke-WebRequest @iwrParams
-        return $true
+        Write-ToolkitLog -Level 'ERROR' -Message "Download failed for $OutFile after $($Uri.Count) candidate(s): $detail"
+        return $false
     }
     catch {
         if (-not $Silent) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.downloadError0' -Args @($_.Exception.Message))
         }
-        Write-ToolkitLog -Level 'WARNING' -Message "Download failed ($Uri): $($_.Exception.Message)"
+        Write-ToolkitLog -Level 'WARNING' -Message "Download failed ($OutFile): $($_.Exception.Message)"
         return $false
     }
     finally {
