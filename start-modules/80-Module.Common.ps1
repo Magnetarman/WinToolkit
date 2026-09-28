@@ -568,22 +568,80 @@ function Install-FromGitHubRelease {
 }
 
 
+function New-StepResult {
+    <#
+    .SYNOPSIS
+    Builds the single result shape every setup step returns.
+
+    .DESCRIPTION
+    Replaces the 18 hand-written [pscustomobject]@{Success;Changed;Message}
+    literals, and gives the orchestrator one contract to consume: a step returns a
+    StepResult, never a bare boolean. Skipped is carried on the result itself, so
+    a step that was not applicable is no longer reported as a failure.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][bool]$Success,
+        [bool]$Changed = $false,
+        [string]$Message = '',
+        [switch]$Skipped
+    )
+
+    return [pscustomobject]@{
+        Success  = $Success
+        Changed  = $Changed
+        Message  = $Message
+        Skipped  = [bool]$Skipped
+        Blocking = $false
+    }
+}
+
+
 function Add-SetupResult {
     <#
     .SYNOPSIS
     Records a typed result for one setup step, consumed by Write-SetupSummary.
+
+    .DESCRIPTION
+    Accepts either a StepResult (the -Result form, the one every step now returns)
+    or the explicit fields, and normalizes both into the same record. A Skipped
+    step is no longer recorded as Failed: that is what used to turn "the shortcut
+    was not applicable" into a partial-failure exit code.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Name,
-        [Parameter(Mandatory = $true)][bool]$Success,
-        [bool]$Changed = $false,
-        [string]$Message = '',
-        [bool]$Blocking = $false
+        [Parameter(ParameterSetName = 'Result')][object]$Result,
+        [Parameter(ParameterSetName = 'Fields', Mandatory = $true)][bool]$Success,
+        [Parameter(ParameterSetName = 'Fields')][bool]$Changed = $false,
+        [Parameter(ParameterSetName = 'Fields')][string]$Message = '',
+        [bool]$Blocking = $false,
+        [switch]$Skipped
     )
-    $status = if ($Success) { if ($Changed) { 'Changed' } else { 'Succeeded' } } else { 'Failed' }
-    $script:SetupResults += [pscustomobject]@{
-        Name = $Name; Status = $status; Message = $Message; Blocking = $Blocking
+
+    $stepSkipped = $Skipped.IsPresent
+    $stepSuccess = $false
+    $stepChanged = $false
+    $stepMessage = ''
+
+    if ($PSCmdlet.ParameterSetName -eq 'Result') {
+        $stepSuccess = [bool]$Result.Success
+        $stepChanged = [bool]$Result.Changed
+        $stepMessage = [string]$Result.Message
+        $stepSkipped = $stepSkipped -or [bool]$Result.Skipped
+        $Blocking = $Blocking -or [bool]$Result.Blocking
     }
+    else {
+        $stepSuccess = $Success
+        $stepChanged = $Changed
+        $stepMessage = $Message
+    }
+
+    $status = if ($stepSkipped) { 'Skipped' }
+    elseif ($stepSuccess) { if ($stepChanged) { 'Changed' } else { 'Succeeded' } }
+    else { 'Failed' }
+
+    $script:State.Results.Add([pscustomobject]@{
+            Name = $Name; Status = $status; Message = $stepMessage; Blocking = $Blocking
+        })
 }
 
 
@@ -595,7 +653,7 @@ function Write-SetupSummary {
     #>
     $counts = @{}
     foreach ($status in @('Succeeded', 'Changed', 'Failed', 'Skipped')) {
-        $counts[$status] = @($script:SetupResults | Where-Object Status -eq $status).Count
+        $counts[$status] = @($script:State.Results | Where-Object Status -eq $status).Count
     }
 
     # Localized one-liner: "Execution Summary: Succeeded=N Changed=N Failed=N Skipped=N."
@@ -604,12 +662,12 @@ function Write-SetupSummary {
     }
     $summaryText = '{0}: {1}.' -f (Get-SourceTextLoc 'summary.title'), ($counters -join ' ')
     Write-StyledMessage -Type Info -Text $summaryText
-    foreach ($result in $script:SetupResults | Where-Object Status -eq 'Failed') {
+    foreach ($result in $script:State.Results | Where-Object Status -eq 'Failed') {
         $level = if ($result.Blocking) { 'Error' } else { 'Warning' }
         Write-StyledMessage -Type $level -Text "$($result.Name): $($result.Message)"
     }
-    $hasBlockingFailure = @($script:SetupResults | Where-Object { $_.Status -eq 'Failed' -and $_.Blocking }).Count -gt 0
-    $hasFailure = @($script:SetupResults | Where-Object Status -eq 'Failed').Count -gt 0
+    $hasBlockingFailure = @($script:State.Results | Where-Object { $_.Status -eq 'Failed' -and $_.Blocking }).Count -gt 0
+    $hasFailure = @($script:State.Results | Where-Object Status -eq 'Failed').Count -gt 0
     if ($hasBlockingFailure) { return 1 }
     if ($hasFailure) { return 2 }
     return 0
