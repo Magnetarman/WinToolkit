@@ -54,6 +54,11 @@ function Start-AppxSilentProcess {
         the host console, so the install runs in a child process to keep the toolkit
         output clean. The child falls back to Add-AppxProvisionedPackage for the
         error codes that require provisioning.
+
+        The bundle signature is checked by the caller through
+        -ContentValidator. It is a WARNING here, not a block: Add-AppxPackage
+        validates the package signature itself and fails safely, so the OS remains
+        the authority on that decision.
     #>
     param(
         [string]$AppxPath,
@@ -446,8 +451,9 @@ function Repair-AppInstaller {
             # Reinstall from the official App Installer bundle when the reset did
             # not bring the winget alias back.
             $tempFile = Join-Path $env:TEMP 'WingetInstaller.msixbundle'
-            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempFile)) {
-                throw 'App Installer bundle download failed.'
+            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempFile `
+                        -ContentValidator (New-SignatureValidator -ProfileKey 'wingetMsix'))) {
+                throw 'App Installer bundle download failed or its signature is not trusted.'
             }
             if (-not (Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller')) {
                 throw 'App Installer package installation failed.'
@@ -784,10 +790,12 @@ function Test-WingetDeepValidation {
 
             # Escalating recovery: restore the database first, reinstall WinGet only
             # if the crash survives the restore. The recovery level dispatcher is
-            # gone, so the concrete repairs are named directly.
+            # gone, so the concrete repairs are named directly. The last step is a
+            # plain MSIX reinstall (Install-WingetCore), NOT a module install: see
+            # the note above Reset-WingetSourcesOnce.
             $recoverySteps = @(
                 @{ Repair = { Repair-WingetDatabase }; WarningKey = $null; InfoKey = 'uiText.repeatTestAfterDatabaseRestore' },
-                @{ Repair = { Install-WingetViaModule }; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
+                @{ Repair = { Install-WingetCore }; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
             )
             foreach ($step in $recoverySteps) {
                 if ($step.WarningKey) {
@@ -872,8 +880,9 @@ function Install-WingetCore {
             $vcUrl = $script:AppConfig.URLs.VCRedistTemplate -f (Get-ArchitectureSpecificValue -X64 'x64' -X86 'x86' -ARM64 'arm64')
             $vcFile = Join-Path $tempDir "vc_redist.exe"
 
-            if (-not (Invoke-DownloadFile -Uri $vcUrl -OutFile $vcFile)) {
-                throw 'Visual C++ Redistributable download failed.'
+            if (-not (Invoke-DownloadFile -Uri $vcUrl -OutFile $vcFile `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'vcRedist' -BlockOnInvalid))) {
+                throw 'Visual C++ Redistributable download failed or its signature was not trusted.'
             }
             # 0 = installed, 1638 = a newer version is already present, 3010 = reboot required.
             $vcResult = Invoke-ExternalCommand -FilePath $vcFile -ArgumentList @('/install', '/quiet', '/norestart') -TimeoutSeconds 600 -AcceptedExitCodes @(0, 1638, 3010)
@@ -925,7 +934,8 @@ function Install-WingetCore {
         }
 
         $wingetFile = Join-Path $tempDir "winget.msixbundle"
-        if (-not (Invoke-DownloadFile -Uri $wingetUrl -OutFile $wingetFile -Silent)) {
+        if (-not (Invoke-DownloadFile -Uri $wingetUrl -OutFile $wingetFile -Silent `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'wingetMsix'))) {
             throw (Get-SourceTextLoc 'uiText.wingetCoreInstallationFailed')
         }
 
@@ -950,115 +960,21 @@ function Install-WingetCore {
 }
 
 
-function Install-WingetPackage {
-    <#
-    .SYNOPSIS
-    Complete Winget installation and restore procedure.
-    #>
-    param([switch]$Force)
-
-    Write-StyledMessage -Type Info -Text ("🚀 " + (Get-SourceTextLoc 'uiText.startWingetInstallationVerificationProcedure'))
-
-    if (-not (Test-WingetCompatibility)) {
-        return $false
-    }
-
-    Invoke-ForceCloseWinget
-
-    $tempInstaller = $null
-    $oldProgress = $ProgressPreference
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-
-        # Clean the WinGet temp folder left behind by earlier attempts.
-        $tempPath = "$env:TEMP\WinGet"
-        if (Test-Path $tempPath) {
-            Remove-Item -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
-        }
-
-        # Refresh the sources when WinGet is already present.
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Reset-WingetSources
-        }
-
-        if (-not (Get-Module -ListAvailable Microsoft.WinGet.Client) -or $Force) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingMicrosoftWingetClientModule')
-            # NuGet provider and Microsoft.WinGet.Client change the user's
-            # PowerShell environment permanently: keep this visible on screen.
-            try {
-                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
-                Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
-                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetClientModuleInstalled')
-            }
-            catch {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.moduloWingetClient0' -Args @($_.Exception.Message))
-            }
-        }
-        # Loads the Microsoft.WinGet.Client module installed above from the
-        # PowerShell Gallery. This is an external, installed module, not one of
-        # the start-modules source fragments: those are concatenated at build
-        # time and are never imported at runtime (irm|iex distribution).
-        Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
-
-        # Repair through the WinGet module when it is available.
-        if (Invoke-WinGetPackageManagerRepair) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerEseguito')
-        }
-        Start-Sleep 3
-
-        # Final fallback: install the official MSIX bundle.
-        if (-not (Get-Command winget -ErrorAction SilentlyContinue) -or $Force) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadMsixbundleDaMicrosoft')
-
-            $msixTempDir = Initialize-Directory -Path $script:AppConfig.Paths.Temp
-            $tempInstaller = Join-Path $msixTempDir "WingetInstaller.msixbundle"
-
-            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -Silent)) {
-                throw 'WinGet MSIX bundle download failed.'
-            }
-            if (Start-AppxSilentProcess -AppxPath $tempInstaller -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
-                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationSuccessful')
-            }
-            else {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationFailed')
-            }
-            Start-Sleep 3
-        }
-
-        # Reset App Installer.
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetAppInstaller')
-        try {
-            Reset-AppInstallerPackage
-        }
-        catch {
-            Write-ToolkitLog -Level 'WARNING' -Message "Install-WingetPackage: $($_.Exception.Message)"
-        }
-
-        # Re-apply the execution alias/permissions and refresh PATH.
-        Set-WingetPathPermissions
-        Start-Sleep 2
-        Update-EnvironmentPath
-
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetInstalledAndWorking')
-            return $true
-        }
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.unableToInstallWinget')
-        return $false
-    }
-    catch {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalError0' -Args @($_.Exception.Message))
-        return $false
-    }
-    finally {
-        if ($tempInstaller -and (Test-Path -LiteralPath $tempInstaller)) {
-            Remove-Item -LiteralPath $tempInstaller -Force -ErrorAction SilentlyContinue
-        }
-        $ProgressPreference = $oldProgress
-    }
-}
-
-
+# ==============================================================================
+# NOTE ON THE WinGet.Client MODULE
+# ------------------------------------------------------------------------------
+# The previous last-resort step installed Microsoft.WinGet.Client with
+# `Install-Module -Force -AllowClobber`. That permanently rewrites the USER's
+# PowerShell environment (module plus NuGet provider), can clobber an existing
+# user module, and is not reversible by the toolkit. It has been removed.
+#
+# The crash-recovery ladder in Test-WingetDeepValidation now ends with
+# Install-WingetCore, which reinstalls the signed MSIX bundle and leaves the user
+# profile untouched.
+#
+# If a module install is ever reintroduced, it MUST be behind an explicit user
+# confirmation, for the reason above.
+# ==============================================================================
 function Reset-WingetSourcesOnce {
     <#
     .SYNOPSIS
@@ -1121,23 +1037,3 @@ function Initialize-Winget {
 }
 
 
-function Install-WingetViaModule {
-    <#
-    .SYNOPSIS
-    Last-resort WinGet repair through the Microsoft.WinGet.Client PowerShell module.
-
-    .DESCRIPTION
-    Replaces the old `Install-Winget -Force` repair level. The name says what it
-    actually installs: the PowerShell module, which carries its own WinGet build.
-    It is destructive to the user profile (Install-Module -Force -AllowClobber),
-    so it runs only after every lighter recovery has failed.
-    #>
-    try {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startWingetInstallationVerificationProcedure')
-        return (Install-WingetPackage -Force)
-    }
-    catch {
-        Write-ToolkitLog -Level 'WARNING' -Message "WinGet module installation failed: $($_.Exception.Message)"
-        return $false
-    }
-}
