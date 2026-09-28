@@ -198,7 +198,8 @@ function Install-WindowsTerminalApp {
 
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.iTryNativeAppxInstallationFromDownloadedBundle')
         $tempFile = Join-Path $env:TEMP "WinTerminal.msixbundle"
-        if (-not (Invoke-DownloadFile -Uri $downloadUrl -OutFile $tempFile)) {
+        if (-not (Invoke-DownloadFile -Uri $downloadUrl -OutFile $tempFile `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'terminalMsix'))) {
             throw (Get-SourceTextLoc 'uiText.windowsTerminalAppxInstallationFailed')
         }
 
