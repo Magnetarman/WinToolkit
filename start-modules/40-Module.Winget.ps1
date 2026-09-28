@@ -63,7 +63,6 @@ function Start-AppxSilentProcess {
         [int]$TimeoutSeconds = 120
     )
 
-    $errFile = Join-Path $env:TEMP "AppxError_$([guid]::NewGuid()).txt"
     $dependencyPathString = ""
     $dependencyPackagePathString = ""
     if ($DependencyPaths.Count -gt 0) {
@@ -74,6 +73,9 @@ function Start-AppxSilentProcess {
         $dependencyPackagePathString = "-DependencyPackagePath $quotedDependencies"
     }
 
+    # The child reports failures on stderr, which the parent already drains: no
+    # temporary file, no cleanup branch, and the error text cannot be lost when
+    # the process is killed.
     $cmd = @"
 `$ProgressPreference = 'SilentlyContinue';
 `$ErrorActionPreference = 'SilentlyContinue';
@@ -90,10 +92,10 @@ catch {
             exit 0
         }
         catch {
-            `$_.Exception.Message | Out-File '$errFile' -Encoding UTF8; exit 1
+            [Console]::Error.WriteLine(`$_.Exception.Message); exit 1
         }
     }
-    `$_.Exception.Message | Out-File '$errFile' -Encoding UTF8; exit 1
+    [Console]::Error.WriteLine(`$_.Exception.Message); exit 1
 }
 exit 0
 "@
@@ -103,30 +105,23 @@ exit 0
     # streams, timeout and process-tree kill), so AppX installs get the same
     # timeout handling as every other installer.
     $result = Invoke-ExternalCommand -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-NonInteractive', '-EncodedCommand', $encodedCmd) -TimeoutSeconds $TimeoutSeconds
-    try {
-        if ($result.TimedOut) {
-            Write-ToolkitLog -Level 'ERROR' -Message "AppX installation timeout after $TimeoutSeconds seconds: $AppxPath"
-            return $false
-        }
 
-        if ($result.ExitCode -ne 0) {
-            $errMsg = if (Test-Path $errFile) { Get-Content $errFile -Raw } else { '' }
-            Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.appxInstallFailed01' -Args @($AppxPath, $errMsg))
-            return $false
-        }
+    if ($result.TimedOut) {
+        Write-ToolkitLog -Level 'ERROR' -Message "AppX installation timeout after $TimeoutSeconds seconds: $AppxPath"
+        return $false
+    }
 
-        if ($ExpectedPackageName -and
-            -not (Get-AppxPackage -Name $ExpectedPackageName -ErrorAction SilentlyContinue)) {
-            Write-ToolkitLog -Level 'ERROR' -Message "AppX command succeeded but package verification failed: $ExpectedPackageName"
-            return $false
-        }
-        return $true
+    if ($result.ExitCode -ne 0) {
+        Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.appxInstallFailed01' -Args @($AppxPath, $result.StdErr.Trim()))
+        return $false
     }
-    finally {
-        if (Test-Path $errFile) {
-            Remove-Item $errFile -Force -ErrorAction SilentlyContinue
-        }
+
+    if ($ExpectedPackageName -and
+        -not (Get-AppxPackage -Name $ExpectedPackageName -ErrorAction SilentlyContinue)) {
+        Write-ToolkitLog -Level 'ERROR' -Message "AppX command succeeded but package verification failed: $ExpectedPackageName"
+        return $false
     }
+    return $true
 }
 
 
@@ -298,8 +293,7 @@ function Invoke-WingetCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Arguments,
-        [int]$TimeoutSeconds = 120,
-        [switch]$CaptureOutput
+        [int]$TimeoutSeconds = 120
     )
 
     try {
@@ -313,7 +307,7 @@ function Invoke-WingetCommand {
         $modernFlag = Get-WingetModernFlag -WingetExe $wingetExe
         $finalArgs = if ($modernFlag) { "$Arguments $modernFlag" } else { $Arguments }
 
-        $result = Invoke-ExternalCommand -FilePath $wingetExe -ArgumentList (ConvertTo-ProcessArgumentList -Arguments $finalArgs) -TimeoutSeconds $TimeoutSeconds -CaptureOutput:$CaptureOutput
+        $result = Invoke-ExternalCommand -FilePath $wingetExe -ArgumentList (ConvertTo-ProcessArgumentList -Arguments $finalArgs) -TimeoutSeconds $TimeoutSeconds
         if ($result.TimedOut) {
             Write-ToolkitLog -Level 'ERROR' -Message "Winget timeout after $TimeoutSeconds seconds: $Arguments"
         }
@@ -411,7 +405,7 @@ function Repair-WingetMsStoreSource {
         $wingetExe = Get-WinGetExecutable
         if (-not $wingetExe) { return }
 
-        $result = Invoke-WingetCommand -Arguments 'source update --source msstore --accept-source-agreements' -CaptureOutput
+        $result = Invoke-WingetCommand -Arguments 'source update --source msstore --accept-source-agreements'
         $sourceOutput = "$($result.StdOut)$($result.StdErr)"
         if ($result.ExitCode -eq 0 -or $sourceOutput -notmatch '0x8a15005e') { return }
 
@@ -686,7 +680,7 @@ function Repair-WingetDatabase {
                     Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
                 }
                 catch {
-                    Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase cache: $($_.Exception.Message)"
+                    Write-ToolkitLog -Level 'WARNING' -Message "Repair-WingetDatabase cache: $($_.Exception.Message)"
                 }
             }
         }
@@ -727,7 +721,7 @@ function Repair-WingetDatabase {
             }
         }
         catch {
-            Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase manifest: $($_.Exception.Message)"
+            Write-ToolkitLog -Level 'WARNING' -Message "Repair-WingetDatabase manifest: $($_.Exception.Message)"
         }
 
         # 7. Let the WinGet module repair itself, when it is installed.
@@ -739,7 +733,7 @@ function Repair-WingetDatabase {
 
         # 9. Verify that winget answers again.
         Start-Sleep 2
-        $versionResult = Invoke-WingetCommand -Arguments '--version' -CaptureOutput
+        $versionResult = Invoke-WingetCommand -Arguments '--version'
         if ($versionResult.ExitCode -ne 0) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.restoreCompletedButWingetMayNotWork')
         }
@@ -782,7 +776,7 @@ function Test-WingetDeepValidation {
         # One search covers repository connectivity, local database integrity and
         # the WinGet parser, and reports a crash through the exit code. A missing
         # WinGet is reported by Invoke-WingetCommand itself.
-        $searchResult = Invoke-WingetCommand -Arguments 'search Git.Git --accept-source-agreements' -CaptureOutput
+        $searchResult = Invoke-WingetCommand -Arguments 'search Git.Git --accept-source-agreements'
         $exitCode = $searchResult.ExitCode
 
         if (Test-WingetAccessViolation -ExitCode $exitCode) {
@@ -803,7 +797,7 @@ function Test-WingetDeepValidation {
 
                 Write-StyledMessage -Type Info -Text ("🔄 " + (Get-SourceTextLoc $step.InfoKey))
                 Start-Sleep 3
-                $searchResult = Invoke-WingetCommand -Arguments 'search Git.Git --accept-source-agreements' -CaptureOutput
+                $searchResult = Invoke-WingetCommand -Arguments 'search Git.Git --accept-source-agreements'
                 $exitCode = $searchResult.ExitCode
                 if (-not (Test-WingetAccessViolation -ExitCode $exitCode)) { break }
             }
@@ -1037,7 +1031,7 @@ function Install-WingetPackage {
             Reset-AppInstallerPackage
         }
         catch {
-            Write-Warning "start-modules\40-Module.Winget.ps1, Install-WingetPackage: $($_.Exception.Message)"
+            Write-ToolkitLog -Level 'WARNING' -Message "Install-WingetPackage: $($_.Exception.Message)"
         }
 
         # Re-apply the execution alias/permissions and refresh PATH.
