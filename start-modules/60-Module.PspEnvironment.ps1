@@ -148,48 +148,102 @@ function Install-PspEnvironment {
 
     foreach ($tool in $tools) {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.check0' -Args @($tool.Name))
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            $toolResult = Invoke-WingetCommand -Arguments "install -e --id $($tool.Id) --source winget --accept-source-agreements --accept-package-agreements --silent"
-            if ($toolResult.ExitCode -ne 0) {
-                Write-ToolkitLog -Level 'WARNING' -Message "Tool $($tool.Id) install returned exit code $($toolResult.ExitCode)."
-            }
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { continue }
+        $toolResult = Invoke-WingetCommand -Arguments "install -e --id $($tool.Id) --source winget --accept-source-agreements --accept-package-agreements --silent"
+        if ($toolResult.ExitCode -eq 0) {
+            $result.Tools.Installed += $tool.Name
+        }
+        else {
+            # -2147012859 (0x800706BA) is not "the package is already installed": it is
+            # the App Installer deployment server refusing the session, and it makes
+            # every following install fail the same way. It must be named, not
+            # swallowed as a generic non-zero exit code.
+            if (Test-WingetRpcFailure -Result $toolResult) { $result.WingetRpcFailure = $true }
+            $result.Tools.Failed += "$($tool.Name) (exit $($toolResult.ExitCode))"
+            Write-ToolkitLog -Level 'WARNING' -Message "Tool $($tool.Id) install returned exit code $($toolResult.ExitCode)."
         }
     }
 
     # 2. Oh My Posh theme: always in the PowerShell 7 profile folder, because the
-    #    profile is specific to PS7 and Windows Terminal.
-    $ps7ProfileDir = [Environment]::GetFolderPath('MyDocuments') + '\PowerShell'
-    $themesFolder = Initialize-Directory -Path (Join-Path $ps7ProfileDir 'Themes')
-
-    $themePath = Join-Path $themesFolder 'atomic.omp.json'
-    if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.OhMyPoshTheme -OutFile $themePath) {
-        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.temaOhMyPoshScaricato')
+    #    profile is specific to PS7 and Windows Terminal. The folder is RESOLVED and
+    #    CREATED here: [Environment]::GetFolderPath('MyDocuments') returns '' when the
+    #    Documents known folder is empty or unresolved, and '' + '\PowerShell' silently
+    #    redirected the whole installation to <drive>:\PowerShell.
+    $paths = $null
+    try {
+        $paths = Resolve-ToolkitPowerShellProfileDirectory
+        Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile directory resolved: $($paths.ProfileDirectory)"
+    }
+    catch {
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.profileDirectoryUnavailable0' -Args @($_.Exception.Message))
+        $result.Success = $false
+        $result.Message = "Unable to prepare the PowerShell profile directory: $($_.Exception.Message)"
+        Write-ToolkitLog -Level 'ERROR' -Message $result.Message
+        return $result
     }
 
-    # 3. Font Installation
-    Install-NerdFontsLocal *>$null
+    $result.ProfilePath = $paths.ProfilePath
+    $result.ThemePath = $paths.ThemePath
+
+    # Theme: several candidate endpoints, and the payload must be real JSON.
+    $themeUris = @($script:AppConfig.URLs.OhMyPoshThemeFallback)
+    if ($themeUris.Count -eq 0) { $themeUris = @($script:AppConfig.URLs.OhMyPoshTheme) }
+    if (Invoke-DownloadFile -Uri $themeUris -OutFile $paths.ThemePath `
+            -MinimumBytes $script:AppConfig.UserScope.MinThemeFileBytes `
+            -ContentValidator { param($candidatePath) Test-OhMyPoshThemeFile -Path $candidatePath }) {
+        $result.ThemeOk = $true
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.temaOhMyPoshScaricato')
+        Write-ToolkitLog -Level 'INFO' -Message "Oh My Posh theme installed: $($paths.ThemePath)"
+    }
+    else {
+        $result.Success = $false
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.ohMyPoshThemeDownloadFailed0' -Args @($paths.ThemePath))
+    }
+
+    # 3. Font Installation (the result is captured: it used to be discarded by *>$null)
+    $result.FontOk = Install-NerdFontsLocal
+    if (-not $result.FontOk) { $result.Success = $false }
 
     # 4. Profile configuration: the download is staged and swapped in, so the
     #    current profile is never removed before its replacement is on disk.
-    $null = Initialize-Directory -Path $ps7ProfileDir
-    $targetProfile = Join-Path $ps7ProfileDir 'Microsoft.PowerShell_profile.ps1'
+    $targetProfile = $paths.ProfilePath
     $stagedProfile = "$targetProfile.$([guid]::NewGuid()).tmp"
     try {
-        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $stagedProfile) {
+        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $stagedProfile -MinimumBytes 256) {
             $profileBackup = Copy-FileAtomically -SourcePath $stagedProfile -DestinationPath $targetProfile -Backup
             if ($profileBackup) {
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.existingProfileSaved0' -Args @($profileBackup))
             }
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7ProfileConfigured')
+            # Verify the final artifact instead of trusting the copy: this is the
+            # check that was missing when the log reported a profile that no shell
+            # could ever load.
+            if (Test-FileHasMinimumSize -Path $targetProfile -MinimumBytes 256) {
+                $result.ProfileOk = $true
+                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7ProfileConfigured')
+                Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile installed: $targetProfile"
+            }
+            else {
+                $result.Success = $false
+                Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.profileNotInstalled0' -Args @($targetProfile))
+            }
+        }
+        else {
+            $result.Success = $false
+            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.profileNotInstalled0' -Args @($targetProfile))
         }
     }
     catch {
+        $result.Success = $false
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.profileConfigurationError0' -Args @($_.Exception.Message))
     }
     finally {
         if (Test-Path -LiteralPath $stagedProfile) {
             Remove-Item -LiteralPath $stagedProfile -Force -ErrorAction SilentlyContinue
         }
+    }
+
+    if (-not $result.ProfileOk -or -not $result.ThemeOk) {
+        $result.Message = "PowerShell environment incomplete (profile installed: $($result.ProfileOk), theme installed: $($result.ThemeOk))."
     }
 
     # 5. Windows Terminal Settings Configuration (stable and preview)
