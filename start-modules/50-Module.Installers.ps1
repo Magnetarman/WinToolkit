@@ -88,6 +88,11 @@ function Install-GitPackage {
         }
 
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode0' -Args @($installResult.ExitCode))
+        # -1 means "the helper never even reached the installer": without this the log
+        # only showed the code and the real reason (rate limit, DNS, 404) was lost.
+        if ($installResult.PSObject.Properties.Name -contains 'Error' -and $installResult.Error) {
+            Write-ToolkitLog -Level 'ERROR' -Message "Git installer fallback error: $($installResult.Error)"
+        }
         return $false
     }
     catch {
