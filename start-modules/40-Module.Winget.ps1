@@ -648,7 +648,7 @@ function Invoke-WinGetPackageManagerRepair {
         return $false
     }
 
-    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.tentativoRiparazioneWingetRepairWingetpackagemanager')
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingWingetRepairViaPackageManager')
     try {
         Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
         return $true
@@ -678,7 +678,7 @@ function Repair-WingetDatabase {
         # 2. Drop the local WinGet cache, keeping the lock and tmp folders.
         $wingetCachePath = "$env:LOCALAPPDATA\WinGet"
         if (Test-Path $wingetCachePath) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.puliziaCacheWinget')
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.clearingWingetCache')
             Get-ChildItem -Path $wingetCachePath -Recurse -Force -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
             ForEach-Object {
@@ -898,7 +898,7 @@ function Install-WingetCore {
         }
 
         # 2. Dependencies (UI.Xaml, VCLibs) extracted from the official bundle.
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependenciesFromTheOfficialRepository')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependencies')
         $dependencies = @()
         $depUrl = Get-WingetDownloadUrl -Match 'DesktopAppInstaller_Dependencies.zip'
         if ($depUrl) {
@@ -926,7 +926,7 @@ function Install-WingetCore {
         }
 
         # 3. WinGet bundle, installed with the dependencies extracted above.
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadAndInstallWingetBundleWithDependencies')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadAndInstallWingetBundle')
         $wingetUrl = Get-WingetDownloadUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
         if (-not $wingetUrl) {
             # No bundle URL means nothing was installed: never report success.
