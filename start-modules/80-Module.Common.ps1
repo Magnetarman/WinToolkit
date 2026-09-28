@@ -20,26 +20,32 @@ function Initialize-Directory {
     .DESCRIPTION
     The verification is the point of this helper: a silent New-Item failure used to
     let the caller carry on and report success for an artifact that was never
-    written. A path that is empty, not absolute, or a bare drive root is rejected
-    before creating anything, because "\PowerShell" or "C:\" would scatter user
-    files outside of the user profile.
+    written. The path SHAPE is validated before anything is created, because these
+    three forms are what turn an unresolved known folder into files scattered
+    outside the user profile:
+      ''            -> not bindable, would fail later at an unrelated place
+      'C:'/'C:\'    -> the drive root
+      '\PowerShell' -> drive-relative: resolves to <current drive>:\PowerShell
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
 
     if ([string]::IsNullOrWhiteSpace($Path)) {
         throw 'Initialize-Directory: the target path is empty.'
     }
-    if (-not (Test-Path -LiteralPath $Path)) {
-        $trimmed = $Path.Trim().TrimEnd('\')
-        if (-not [IO.Path]::IsPathRooted($trimmed) -or $trimmed -match '^[A-Za-z]:$') {
-            throw "Initialize-Directory: refusing to create a non-absolute or drive-root path ('$Path')."
-        }
+    $trimmed = $Path.Trim().TrimEnd('\')
+    if (-not [IO.Path]::IsPathRooted($trimmed) -or
+        $trimmed -match '^[\\/]$' -or
+        $trimmed -match '^[\\/]' -or
+        $trimmed -notmatch '^[A-Za-z]:[\\/]') {
+        throw "Initialize-Directory: refusing to use '$Path' (empty, drive-relative or drive-root path)."
+    }
+    if (-not (Test-Path -LiteralPath $trimmed)) {
         $null = New-Item -Path $trimmed -ItemType Directory -Force -ErrorAction Stop
     }
-    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
-        throw "Initialize-Directory: '$Path' is not an accessible directory."
+    if (-not (Test-Path -LiteralPath $trimmed -PathType Container)) {
+        throw "Initialize-Directory: '$trimmed' is not an accessible directory."
     }
-    return $Path.TrimEnd('\')
+    return $trimmed
 }
 
 
@@ -128,9 +134,10 @@ function Get-ToolkitUserFolderPath {
     foreach ($candidate in $candidates) {
         if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
         $path = $candidate.Trim().TrimEnd('\')
-        # Reject anything that is not an absolute path below a real directory: this
-        # is what keeps an empty GetFolderPath from becoming "C:\PowerShell".
-        if (-not [IO.Path]::IsPathRooted($path) -or $path -match '^[A-Za-z]:$' -or $path -notmatch '[\\/]') { continue }
+        # Same shape rule as Initialize-Directory: reject anything that is not a
+        # fully qualified "X:\...\" path. This is what keeps an empty GetFolderPath
+        # from becoming "<current drive>:\PowerShell".
+        if (-not [IO.Path]::IsPathRooted($path) -or $path -notmatch '^[A-Za-z]:[\\/]') { continue }
 
         if ($NoCreate) {
             if (Test-Path -LiteralPath $path -PathType Container) {
