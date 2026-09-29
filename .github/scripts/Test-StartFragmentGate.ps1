@@ -106,12 +106,9 @@ else {
         foreach ($loop in $function.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.ForEachStatementAst] }, $true)) {
             [void]$assigned.Add($loop.Variable.VariablePath.UserPath)
         }
-        # catch { ... } binds $_, and anything the handler reads counts as bound.
-        foreach ($clause in $function.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.CatchClauseAst] }, $true)) {
-            foreach ($bound in $clause.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.VariableExpressionAst] }, $true)) {
-                [void]$assigned.Add($bound.VariablePath.UserPath)
-            }
-        }
+        # catch { } binds $_ implicitly and is already excluded below; a typed
+        # catch (catch [type] $name) would bind a real variable, and this codebase
+        # has none, so nothing else has to be treated as initialised here.
 
         foreach ($read in $function.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.VariableExpressionAst] }, $true)) {
             $path = $read.VariablePath
