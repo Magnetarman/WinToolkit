@@ -222,6 +222,9 @@ function Show-Header {
     Write-Host ''
 }
 $script:EmbeddedEnglishText = @{
+    'uiText.criticalErrorDuringSetup0'         = 'Critical error during setup: {0}.'
+    'uiText.unhandledException01'               = 'UNHANDLED EXCEPTION: {0} | {1}'
+    'sourceText.pressAnyKeyToExit'              = 'Press any key to exit'
     'uiText.environmentReadyForInstallation'   = 'Environment ready for installation.'
     'uiText.configurationComplete'             = 'Configuration complete.'
     'uiText.wingetNotFoundInSystem'            = 'WinGet was not found on this system.'
