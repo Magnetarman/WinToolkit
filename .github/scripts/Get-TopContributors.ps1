@@ -1,3 +1,4 @@
+# WinToolkit CI/CD V4.1.1
 # Calculates Top 10 Contributors from Dev branch and updates README.
 # Dev (unprotected) -> direct commit; main (protected) -> Pull Request.
 # Scheduled runs enforce Europe/Rome 05:00-07:00 window.
@@ -91,6 +92,7 @@ function Invoke-GitHubApi {
     return $response
 }
 
+
 function Get-CommitsFromDev {
     param([string]$Token)
     
@@ -119,23 +121,28 @@ function Get-CommitsFromDev {
     return $allCommits
 }
 
+
 function Get-PrsFromDev {
     param([string]$Token)
     
-    Write-Host "Fetching PRs with base='$DevBranch'..."
+    # Use the Search API with is:merged: the PR list endpoint does NOT return the
+    # 'merged' field, so merged PRs cannot be distinguished from closed ones there.
+    # Search returns only merged PRs (base=$DevBranch) including the author.
+    Write-Host "Fetching merged PRs with base='$DevBranch'..."
     $allPrs = @()
     $page = 1
     $hasMore = $true
     
     while ($hasMore) {
-        $uri = "$ApiBase/repos/$Repo/pulls?base=$DevBranch&state=all&page=$page&per_page=100"
-        $prs = Invoke-GitHubApi -Uri $uri -Page $page -PerPage 100
+        $uri = "$ApiBase/search/issues?q=repo:$Repo+type:pr+base:$DevBranch+is:merged&page=$page&per_page=100"
+        $result = Invoke-GitHubApi -Uri $uri -Page $page -PerPage 100
+        $items = $result.items
         
-        if (-not $prs -or $prs.Count -eq 0) {
+        if (-not $items -or $items.Count -eq 0) {
             $hasMore = $false
         } else {
-            $allPrs += $prs
-            if ($prs.Count -lt 100) {
+            $allPrs += $items
+            if ($items.Count -lt 100) {
                 $hasMore = $false
             } else {
                 $page++
@@ -143,9 +150,10 @@ function Get-PrsFromDev {
         }
     }
     
-    Write-Host "Total PRs fetched: $($allPrs.Count)"
+    Write-Host "Total merged PRs fetched: $($allPrs.Count)"
     return $allPrs
 }
+
 
 function ConvertTo-ContributorStats {
     param(
@@ -192,12 +200,9 @@ function ConvertTo-ContributorStats {
             Write-Host "Excluding bot from PR: $login"
             continue
         }
-        
-    # Open/merged PRs only
-        if ($pr.state -ne 'open' -and $pr.merged -ne $true) {
-            continue
-        }
-        
+
+        # PRs are fetched pre-filtered to merged ones (is:merged), so count all.
+
         if (-not $stats.ContainsKey($login)) {
             $stats[$login] = @{
                 Login     = $login
@@ -213,6 +218,7 @@ function ConvertTo-ContributorStats {
     
     return $stats.Values | Sort-Object { $_.Prs }, { $_.Commits } -Descending | Select-Object -First $TopN
 }
+
 
 function New-ContributorsMarkdown {
     param(
@@ -241,6 +247,7 @@ function New-ContributorsMarkdown {
     $lines += ""
     return $lines -join "`n"
 }
+
 
 function Update-ReadmeSection {
     param(
@@ -283,6 +290,7 @@ function Update-ReadmeSection {
     return $true
 }
 
+
 function Get-ExistingPullRequest {
     param(
         [string]$Repo,
@@ -302,6 +310,7 @@ function Get-ExistingPullRequest {
     
     return @{ Exists = $false }
 }
+
 
 function New-PullRequest {
     param(
@@ -330,6 +339,7 @@ function New-PullRequest {
     Write-Host "PR #$($pr.number) created: $($pr.html_url)"
     return @{ Number = $pr.number; Branch = $BranchName; Exists = $false }
 }
+
 
 # ---------------------------------------------------------------------------
 # TIMEZONE CHECK (Europe/Rome)
