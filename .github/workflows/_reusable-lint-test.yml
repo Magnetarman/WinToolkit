@@ -89,7 +89,19 @@ jobs:
           # read from git (deterministic, and independent of the localized WhatIf
           # text); they are restored on the very next line, so the workspace ends up
           # exactly as checked out and no later step ever sees modified sources.
-          $roots = @('start-modules', 'wintoolkit-modules')
+          #
+          # Only the fragment folders actually present are handed to the formatter.
+          # On main the checkout holds the compiled artefacts alone (WinToolkit.ps1,
+          # start.ps1): the fragments belong to the development section and live on
+          # Dev only. The formatter refuses every other path, so a missing folder
+          # must skip the step instead of terminating the run.
+          $roots = @('start-modules', 'wintoolkit-modules') |
+            Where-Object { Test-Path -LiteralPath $_ }
+
+          if (-not $roots) {
+            Write-Host 'Fragment spacing: skipped — no source fragment folder in this checkout (compiled artefacts only).' -ForegroundColor Yellow
+            return
+          }
 
           # git status --porcelain: two status characters, a space, then the path.
           # "before" is captured first so only the formatter's own writes are undone.
@@ -129,15 +141,27 @@ jobs:
           VALIDATE_TEMPLATE: ${{ inputs.validate-template }}
           VALIDATE_START: ${{ inputs.validate-start }}
         run: |
+          # The sources are optional in a checkout: main carries the compiled artefacts
+          # alone and the module folders belong to the development section on Dev.
+          # GitHub prepends $ErrorActionPreference = 'stop' to every pwsh step, so
+          # enumerating an absent folder is a terminating error, not a silent one.
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $files = @(Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)
-          if ($env:VALIDATE_TEMPLATE -eq 'true') {
+          if ($env:VALIDATE_TEMPLATE -eq 'true' -and (Test-Path -LiteralPath "wintoolkit-modules")) {
             $files += @(Get-ChildItem -Path "wintoolkit-modules" -Filter "*.ps1" -File)
           }
-          if ($env:VALIDATE_START -eq 'true') {
+          if ($env:VALIDATE_START -eq 'true' -and (Test-Path -LiteralPath "start-modules")) {
             $files += @(Get-ChildItem -Path "start-modules" -Filter "*.ps1" -File)
+          }
+          if ($env:VALIDATE_START -eq 'true' -and (Test-Path -LiteralPath "start.ps1")) {
             $files += @(Get-Item -LiteralPath "start.ps1")
           }
+
+          if (-not $files) {
+            Write-Host 'PSScriptAnalyzer: skipped — no source folder in this checkout (compiled artefacts only).' -ForegroundColor Yellow
+            return
+          }
+
           $hasErrors = $false
 
           foreach ($file in $files) {
@@ -186,6 +210,18 @@ jobs:
         if: inputs.validate-start
         shell: pwsh
         run: |
+          # The contract is about the launcher stub: a thin, ASCII-only loader that
+          # locates PowerShell 7 and pulls start-core.ps1 (see .github/Docs/ARCHITECTURE.md).
+          # That stub only exists in a development tree. In an artifacts-only checkout
+          # start.ps1 is the published script of the previous release, which is a full
+          # localized installer by design, so the stub contract does not apply to it.
+          # The gate therefore runs where the stub is developed and is skipped elsewhere,
+          # instead of being applied to a file it was never written for.
+          if (-not (Test-Path -LiteralPath 'start-modules')) {
+            Write-Host 'Launcher stub ASCII purity: skipped — start.ps1 is the published artefact here, not the stub (no start-modules source tree).' -ForegroundColor Yellow
+            return
+          }
+
           $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path 'start.ps1'))
           if ($bytes | Where-Object { $_ -gt 127 }) {
             Write-Host '::error file=start.ps1::Launcher stub must remain ASCII-only.'
@@ -204,6 +240,17 @@ jobs:
           #
           # -SkipTests: the fragment suites already run in the "testing" job, so
           # they are not executed twice.
+          #
+          # The gate consumes the fragments and rebuilds start-core.ps1, so it has
+          # nothing to gate where they are absent: on main the checkout holds the
+          # compiled artefacts only and the fragments live on Dev. The script exits
+          # terminating on the missing folder (ErrorActionPreference = Stop), which
+          # would fail the whole job instead of skipping it.
+          if (-not (Test-Path -LiteralPath 'start-modules')) {
+            Write-Host 'Start fragment acceptance gate: skipped — start-modules is not part of this checkout (compiled artefacts only).' -ForegroundColor Yellow
+            return
+          }
+
           & pwsh -NoProfile -File ./.github/scripts/Test-StartFragmentGate.ps1 -SkipTests
           if ($LASTEXITCODE -ne 0) {
             Write-Host '::error::The start-modules acceptance gate failed; see the log for the failing section.'
@@ -235,24 +282,46 @@ jobs:
           RUN_INTEGRATION_TESTS: ${{ inputs.run-integration-tests }}
         run: |
           # PSScriptAnalyzer already ran in the 'linting' job; skip here.
-          $config = New-PesterConfiguration
-          $config.Run.Path                = @(
-            '.github/tests/CI-Smoke.Tests.ps1',
-            '.github/tests/Unit/Tools.Contract.Tests.ps1'
+          #
+          # Every suite loads the module sources through the repository root, so a
+          # suite is collected only when the folder it reads is part of the checkout.
+          # On main the compiled artefacts stand alone and those folders live on Dev:
+          # loading them there is not a missing test, it is a suite that cannot run.
+          $requiredFolders = @(
+            @{ Path = '.github/tests/CI-Smoke.Tests.ps1';                 Root = 'wintoolkit-modules' },
+            @{ Path = '.github/tests/Unit/Tools.Contract.Tests.ps1';       Root = 'tools' }
           )
-          $config.Run.PassThru            = $true
-          $config.Output.Verbosity        = 'Detailed'
-          $config.TestResult.Enabled      = $true
-          $config.TestResult.OutputPath   = 'TestResults.xml'
-          $config.TestResult.OutputFormat = 'NUnitXml'
-          $result = Invoke-Pester -Configuration $config
-
-          if ($result.FailedCount -gt 0) {
-            Write-Host "::error::$($result.FailedCount) Pester test(s) failed."
-            exit 1
+          $suitePaths = @(
+            $requiredFolders |
+              Where-Object { Test-Path -LiteralPath $_.Root } |
+              ForEach-Object { $_.Path }
+          )
+          $skippedSuites = @(
+            $requiredFolders |
+              Where-Object { -not (Test-Path -LiteralPath $_.Root) } |
+              ForEach-Object { "$($_.Path) (needs $($_.Root))" }
+          )
+          if ($skippedSuites) {
+            Write-Host "Pester suites skipped, source folder not in this checkout: $($skippedSuites -join '; ')" -ForegroundColor Yellow
           }
 
-          if ($env:VALIDATE_START -eq 'true') {
+          if ($suitePaths) {
+            $config = New-PesterConfiguration
+            $config.Run.Path                = $suitePaths
+            $config.Run.PassThru            = $true
+            $config.Output.Verbosity        = 'Detailed'
+            $config.TestResult.Enabled      = $true
+            $config.TestResult.OutputPath   = 'TestResults.xml'
+            $config.TestResult.OutputFormat = 'NUnitXml'
+            $result = Invoke-Pester -Configuration $config
+
+            if ($result.FailedCount -gt 0) {
+              Write-Host "::error::$($result.FailedCount) Pester test(s) failed."
+              exit 1
+            }
+          }
+
+          if ($env:VALIDATE_START -eq 'true' -and (Test-Path -LiteralPath 'start-modules')) {
             $startConfig = New-PesterConfiguration
             $startPaths = @(
               '.github/tests/StartModules/StartModules.Syntax.Tests.ps1',
