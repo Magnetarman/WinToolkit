@@ -1,5 +1,5 @@
 # WinToolkit CI Dev Pipeline V4.1.0
-# Triggers: push to Dev/feature/fix/feat/hotfix/bug/enhancement/* -> lint+test+build; PR to Dev -> lint+test only.
+# Triggers: push to Dev and to every tagged working branch -> lint+test+build; PR to Dev -> lint+test only.
 # Build regenerates WinToolkit.ps1 from pure sources (pre-existing file removed first). AST-validated before compile.
 
 name: WinToolkit — CI Dev Pipeline V4.1.0
@@ -12,38 +12,58 @@ env:
   # Force Node 24 in Actions to avoid GitHub warnings about deprecated versions
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
-# Triggers: Dev + feature/fix/feat/hotfix/bug/enhancement branches (push); PRs to Dev.
+# Triggers: Dev + every tagged working branch (push); PRs to Dev.
 on:
   push:
+    # ONE RULE, applied to every supported tag: <TAG>, then `-` or `/`, then any
+    # name at any nesting depth. Case-insensitive via the per-letter classes.
+    #
+    # `**` is what makes it general. The single `*` used before stopped at the
+    # first `/`, so `BUG-Pipeline-CI/CD-...` matched neither `BUG/*` (it wants the
+    # slash right after BUG) nor `BUG-*` (its `*` dies at `BUG-Pipeline-CI`) and
+    # the branch was invisible to the pipeline: no run at all, no error either.
+    #
+    # Tags: BUG, ENHANCEMENT, FEATURE(S), FEAT, FIX, HOTFIX + GUI and Changes,
+    # which PR_And_PullRequest.md documents as supported but the trigger missed.
     branches:
       - Dev
-      - "[Ff]eature/**"
-      - "[Ff]eatures/**"
-      - "[Ff]eature-*"
-      - "[Ff]eatures-*"
-      - "[Ff]ix/**"
-      - "[Ff]ix-*"
-      - "[Ff]eat/**"
-      - "[Ff]eat-*"
-      - "[Hh]otfix/**"
-      - "[Hh]otfix-*"
+      - "[Bb][Uu][Gg]-**"
       - "[Bb][Uu][Gg]/**"
-      - "[Bb][Uu][Gg]-*"
+      - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]-**"
       - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]/**"
-      - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]-*"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]-**"
       - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]/**"
-      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]-*"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee][Ss]-**"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee][Ss]/**"
+      - "[Ff][Ee][Aa][Tt]-**"
+      - "[Ff][Ee][Aa][Tt]/**"
+      - "[Ff][Ii][Xx]-**"
+      - "[Ff][Ii][Xx]/**"
+      - "[Hh][Oo][Tt][Ff][Ii][Xx]-**"
+      - "[Hh][Oo][Tt][Ff][Ii][Xx]/**"
+      - "[Gg][Uu][Ii]-**"
+      - "[Gg][Uu][Ii]/**"
+      - "[Cc][Hh][Aa][Nn][Gg][Ee][Ss]-**"
+      - "[Cc][Hh][Aa][Nn][Gg][Ee][Ss]/**"
+    # Same rule on the file side: `*` stops at `/`, so a fragment in a subdirectory
+    # would have started no run at all.
+    #
+    # `dir/**/*.yml` alone is NOT enough: `**` already consumes the separator, so a
+    # file sitting directly in `dir` does not match it. Both forms are listed, or
+    # editing a top-level workflow would silently stop triggering the pipeline.
     paths:
-      - "tools/*.ps1"
+      - "tools/**"
       - "wintoolkit-modules/**"
       - "WinToolkit_GUI.ps1"
       - "compiler.ps1"
       - "start.ps1"
-      - "start-modules/*.ps1"
+      - "start-modules/**"
       - ".github/workflows/*.yml"
+      - ".github/workflows/**/*.yml"
       - ".github/actions/**"
+      - ".github/tests/*.ps1"
       - ".github/tests/**/*.ps1"
-      - ".github/scripts/*.ps1"
+      - ".github/scripts/**"
   pull_request:
     branches: [Dev]
 
