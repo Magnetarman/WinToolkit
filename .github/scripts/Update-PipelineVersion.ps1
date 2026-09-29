@@ -88,10 +88,11 @@ $latin1 = [System.Text.Encoding]::GetEncoding(28591)
 #            tests). Application sources (start-modules, wintoolkit-modules,
 #            tools) are never touched: they carry the product version, not the
 #            pipeline version.
+$githubDir = Join-Path $repoRoot '.github'
 $files = @(
-    Get-ChildItem -Path (Join-Path $repoRoot '.github\workflows') -Filter '*.yml' -File
-    Get-ChildItem -Path (Join-Path $repoRoot '.github\actions') -Filter 'action.yml' -File -Recurse
-    Get-ChildItem -Path (Join-Path $repoRoot '.github') -Filter '*.ps1' -File -Recurse
+    Get-ChildItem -Path (Join-Path $githubDir 'workflows') -Filter '*.yml' -File
+    Get-ChildItem -Path (Join-Path $githubDir 'actions') -Filter 'action.yml' -File -Recurse
+    Get-ChildItem -Path $githubDir -Filter '*.ps1' -File -Recurse
 )
 
 $updated = @()
