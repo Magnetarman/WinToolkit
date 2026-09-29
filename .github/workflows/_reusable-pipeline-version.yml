@@ -86,13 +86,20 @@ jobs:
           & .github/scripts/Update-PipelineVersion.ps1 @params -Check
 
       - name: Commit pipeline version alignment
-        # The alignment is already applied in the workspace, so a refused push (branch
-        # protection, read-only token) must not turn the run red: the next push to Dev
-        # re-aligns and commits it.
+        # No continue-on-error here. It used to hide this step completely: a
+        # green job whose only real work never ran. A failed push (branch
+        # protection, read-only token) is worth surfacing anyway, because until
+        # the commit lands the whole .github tree stays one version behind.
         if: steps.align.outputs.changed == 'true'
-        continue-on-error: true
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
-        with: |
+        # A plain mapping, never a `with: |` block scalar. GitHub evaluates the
+        # ${{ }} expressions inside the block first, then hands the whole
+        # rendered block to the step as a single string where a mapping of inputs
+        # is expected, and rejects the template:
+        #   ##[error]The template is not valid. (Line: 95, Col: 15): Unexpected value
+        # It only surfaced when changed == 'true', so on every run before this one
+        # the step was skipped and its inputs were never validated.
+        with:
           commit_message: ${{ inputs.skip-ci && format('{0} [skip ci]', inputs.commit-message) || inputs.commit-message }}
           file_pattern: ${{ steps.align.outputs.files }}
           branch: ${{ inputs.branch }}
