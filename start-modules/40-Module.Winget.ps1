@@ -589,54 +589,6 @@ function Test-WingetAppInstaller {
 }
 
 
-function Confirm-ToolkitInteractiveAction {
-    <#
-    .SYNOPSIS
-        Asks the user to confirm an action that permanently changes their environment.
-
-    .DESCRIPTION
-        Returns $true only on an explicit yes. Anything else is a no:
-          - a non-interactive session (piped input, scheduled run, CI) is never
-            prompted, because Read-Host would either return immediately or hang the
-            run forever;
-          - an empty answer, an unrecognized answer, or a closed stdin is a no.
-        Used for the few operations that modify the user's own PowerShell profile
-        (for example installing Microsoft.WinGet.Client with -AllowClobber).
-
-        The optional -Answer parameter injects a canned response instead of calling
-        Read-Host. It is intended exclusively for deterministic unit testing: it
-        bypasses the non-interactive guard so the parsing logic can be exercised
-        without a real console.
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)][string]$Key,
-        [string]$Answer
-    )
-
-    if ($null -eq $Answer) {
-        if ([Console]::IsInputRedirected) {
-            Write-ToolkitLog -Level 'INFO' -Message "Confirmation '$Key' not requested: non-interactive session."
-            return $false
-        }
-
-        try {
-            $Answer = Read-Host (Get-SourceTextLoc $Key)
-        }
-        catch {
-            Write-ToolkitLog -Level 'WARNING' -Message "Confirmation '$Key' failed: $($_.Exception.Message)"
-            return $false
-        }
-    }
-
-    $isYes = $Answer.Trim().ToLowerInvariant() -match '^(s|si|yes|y|true|1)$'
-    if (-not $isYes) {
-        Write-ToolkitLog -Level 'INFO' -Message "Confirmation '$Key' declined or empty; treating as no."
-    }
-    return $isYes
-}
-
-
 function Invoke-ForceCloseWinget {
     <#
     .SYNOPSIS
