@@ -86,11 +86,11 @@ function New-ToolkitDesktopShortcut {
 
         Write-ToolkitLog -Level 'INFO' -Message "Desktop shortcut created: $shortcut"
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.shortcutCreatedSuccessfully')
-        return $true
+        return New-StepResult -Success $true -Changed $true -Message 'Desktop shortcut created.'
     }
     catch {
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.shortcutCreationError0' -Args @($_.Exception.Message))
         Write-ToolkitLog -Level 'ERROR' -Message "Desktop shortcut creation failed: $($_.Exception.Message)"
-        return $false
+        return New-StepResult -Success $false -Message $_.Exception.Message
     }
 }
