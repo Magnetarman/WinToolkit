@@ -376,7 +376,7 @@ Describe 'StrictMode step-contract regressions (90-Skeleton.Main.ps1)' {
     }
 
     It 'the orchestrator builds its step table with New-SetupStep, not literal hashtables' {
-        $main = Get-Content -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\start-modules\90-Skeleton.Main.ps1'))) -Raw
+        $main = Get-Content -LiteralPath (Join-Path $moduleRoot '90-Skeleton.Main.ps1') -Raw
         $main | Should -Not -Match '@\{\s*Name\s*=' -Because 'a literal entry may omit the optional When/Blocking keys, which is what aborted the run'
         ([regex]::Matches($main, 'New-SetupStep -Name ')).Count | Should -BeGreaterThan 0
     }
