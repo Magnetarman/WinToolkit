@@ -35,18 +35,19 @@ jobs:
   sync:
     name: Reusable pipeline version sync
     runs-on: windows-latest
+    # NOTE: there is deliberately no `workflows:` scope here. It does not exist for
+    # GITHUB_TOKEN. The documented scopes are actions, artifact-metadata,
+    # attestations, checks, code-quality, contents, deployments, discussions,
+    # id-token, issues, models, packages, pages, pull-requests,
+    # repository-projects, security-events, statuses, vulnerability-alerts.
+    # Declaring it does not even parse:
+    #   Invalid workflow file: (Line: 49, Col: 7): Unexpected value 'workflows'
+    # `workflows` only exists as a GitHub App / PAT permission, which is exactly
+    # why committing an alignment needs RELEASE_AUTOMATION_TOKEN (see the guard
+    # below). `contents: write` is still required: it is what lets the checkout and
+    # the align step write the files in the workspace before the push.
     permissions:
       contents: write
-      # This job rewrites the version token in .github/workflows/*.yml and
-      # .github/actions/*/action.yml. GITHUB_TOKEN is a GitHub App token, and the
-      # API refuses to let it touch a workflow file without this scope, no matter
-      # what `contents: write` allows:
-      #   [remote rejected] HEAD -> <branch> (refusing to allow a GitHub App to
-      #   create or update workflow `.github/workflows/...` without `workflows`
-      #   permission)
-      # The alignment is applied in the workspace before the push, so without this
-      # scope every run failed at the very last step and nothing was ever aligned.
-      workflows: write
       actions: read
 
     steps:
@@ -97,6 +98,34 @@ jobs:
           $params = @{ CanonicalWorkflow = '${{ inputs.canonical-workflow }}' }
           if ('${{ inputs.version }}') { $params['Version'] = '${{ inputs.version }}' }
           & .github/scripts/Update-PipelineVersion.ps1 @params -Check
+
+      - name: Verify the push credential can write workflow files
+        # Fail here, with instructions, instead of letting the push die on an
+        # opaque API rejection. GITHUB_TOKEN is a GitHub App token and the API
+        # refuses to let it update .github/workflows/*.yml:
+        #   [remote rejected] HEAD -> <branch> (refusing to allow a GitHub App to
+        #   create or update workflow `.github/workflows/...` without `workflows`
+        #   permission)
+        # and no permissions block can grant it, because `workflows` is not a
+        # GITHUB_TOKEN scope. Only a PAT carries it.
+        if: steps.align.outputs.changed == 'true'
+        shell: pwsh
+        env:
+          HAS_RELEASE_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN != '' }}
+        run: |
+          if ($env:HAS_RELEASE_TOKEN -eq 'true') { exit 0 }
+
+          Write-Host '::error::Cannot commit the pipeline version alignment: RELEASE_AUTOMATION_TOKEN is not set.'
+          Write-Host 'The alignment rewrites .github/workflows/*.yml and .github/actions/*/action.yml.'
+          Write-Host 'GITHUB_TOKEN is refused for workflow files and cannot be granted the scope:'
+          Write-Host '  [remote rejected] refusing to allow a GitHub App to create or update workflow ... without ''workflows'' permission'
+          Write-Host 'Create a fine-grained PAT (Settings > Developer settings > Personal access tokens > Fine-grained tokens):'
+          Write-Host '  Repository access : this repository'
+          Write-Host '  Contents          : Read and write'
+          Write-Host '  Workflows         : Read and write'
+          Write-Host 'then store it as the RELEASE_AUTOMATION_TOKEN repository secret.'
+          Write-Host 'Until then, run .\.github\scripts\Update-PipelineVersion.ps1 locally and commit the result.'
+          exit 1
 
       - name: Commit pipeline version alignment
         # No continue-on-error here. It used to hide this step completely: a
