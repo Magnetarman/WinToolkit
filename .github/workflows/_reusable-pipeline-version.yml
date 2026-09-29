@@ -35,20 +35,12 @@ jobs:
   sync:
     name: Reusable pipeline version sync
     runs-on: windows-latest
-    # NOTE: there is deliberately no `workflows:` scope here. It does not exist for
-    # GITHUB_TOKEN. The documented scopes are actions, artifact-metadata,
-    # attestations, checks, code-quality, contents, deployments, discussions,
-    # id-token, issues, models, packages, pages, pull-requests,
-    # repository-projects, security-events, statuses, vulnerability-alerts.
-    # Declaring it does not even parse:
-    #   Invalid workflow file: (Line: 49, Col: 7): Unexpected value 'workflows'
-    # `workflows` only exists as a GitHub App / PAT permission, which is exactly
-    # why committing an alignment needs RELEASE_AUTOMATION_TOKEN (see the guard
-    # below). `contents: write` is still required: it is what lets the checkout and
-    # the align step write the files in the workspace before the push.
+    # No `workflows:` scope: it is not a GITHUB_TOKEN permission, only a PAT one.
+    # The alignment is committed with RELEASE_AUTOMATION_TOKEN.
+    # No `actions:` scope either: a called workflow can only narrow what the
+    # caller grants, and the caller only grants contents.
     permissions:
       contents: write
-      actions: read
 
     steps:
       - name: Checkout target branch
