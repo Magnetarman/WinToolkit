@@ -20,26 +20,22 @@ operation each. Every tool lives in a single file under `tools/`, is compiled in
 | 4 | Driver Backup | `WinBackupDriver` | Exports third-party drivers to a ZIP on the Desktop |
 | 5 | Delete User Profiles | `WinDeleteUserProfiles` | Removes unused local profiles and residual folders |
 | 6 | Cleaner | `WinCleaner` | Deep cleanup through a rule engine (40+ rules) |
-| 7 | Debloat | `WinDebloat` | *Placeholder — no service is currently disabled* |
-| 8 | Video Driver Install | `AutoVideoDriverInstall` | Detects the GPU vendor and launches its installer |
-| 9 | Video Driver Reinstall | `VideoDriverReinstall` | Reinstalls drivers via DDU in Safe Mode |
-| 10 | Office Install | `Install-Office` | Installs Office Basic through the ODT |
-| 11 | Office Repair | `Repair-Office` | Click-to-Run quick repair, with online fallback |
-| 12 | Office Uninstall | `Uninstall-Office` | Removes Office via GetHelpCMD, or directly on older builds |
-| 13 | Gaming | `GamingToolkit` | Installs runtimes, game clients, and tunes the system |
-| 14 | BitLocker | `DisableBitlocker` | Decrypts the system drive and blocks re-encryption |
-| 15 | Diagnostic Logs | `WinExportLog` | Bundles session logs into a ZIP on the Desktop |
+| 7 | Video Driver Install | `AutoVideoDriverInstall` | Detects the GPU vendor and launches its installer |
+| 8 | Video Driver Reinstall | `VideoDriverReinstall` | Reinstalls drivers via DDU in Safe Mode |
+| 9 | Office Install | `Install-Office` | Installs Office Basic through the ODT |
+| 10 | Office Repair | `Repair-Office` | Click-to-Run quick repair, with online fallback |
+| 11 | Office Uninstall | `Uninstall-Office` | Removes Office via GetHelpCMD, or directly on earlier builds |
+| 12 | Gaming | `GamingToolkit` | Installs runtimes, game clients, and tunes the system |
+| 13 | BitLocker | `DisableBitlocker` | Decrypts the system drive and blocks re-encryption |
+| 14 | Diagnostic Logs | `WinExportLog` | Bundles session logs into a ZIP on the Desktop |
 
 > [!TIP]
 >
 > The names above are the internal function names. The user-facing entry points are the
 > menu options in the script and in the GUI.
-
-> [!WARNING]
 >
-> **WinDebloat is a placeholder.** The tool loads and runs, but its service list is empty and
-> the stop/disable logic is commented out, so it currently changes nothing. It is documented
-> here to match the menu entry, not because it performs work.
+> Two planned tools are not listed here because they are not functional yet: see
+> [In development](#in-development).
 
 
 ---
@@ -240,26 +236,6 @@ rule that produced a warning or an error.
 > remove restore points and empty the Recycle Bin. They are not individually reversible.
 > System restore points and browser data included.
 
-### WinDebloat
-
-`WinDebloat` · `tools/WinDebloat.ps1`
-
-> [!WARNING]
->
-> **Placeholder — currently performs no change.** The service list is empty and the
-> `Stop-Service` / `Set-Service -StartupType Disabled` logic is commented out as
-> `PLACEHOLDER` in the source. The tool opens its session, iterates over an empty list and
-> reports success without touching the system.
-
-The intended design, visible in the code, is a declarative list of services to disable:
-
-```powershell
-# @{ Name = 'DiagTrack'; Description = 'Telemetria'; Action = 'Stop' }
-```
-
-Populating that array is all that is needed to make the tool functional.
-
-
 ---
 
 ## Video Drivers
@@ -373,13 +349,56 @@ needed to diagnose it.
 
 ---
 
+## In development
+
+The following tools are part of the project but are **not functional yet**. They are listed
+here so their existence and purpose stay documented, but they are excluded from the quick
+reference because running them today changes nothing.
+
+| Tool | Function | State |
+|------|----------|-------|
+| Debloat | `WinDebloat` | Placeholder: empty service list, no change performed |
+| Driver Install | `WinDriverInstall` | Placeholder: empty function body, no change performed |
+
+### WinDebloat
+
+`WinDebloat` · `tools/WinDebloat.ps1`
+
+Intended to disable and optimise the services commonly used for telemetry, so that the system
+stops reporting usage data and spends fewer resources in the background.
+
+**Current state:** the tool opens its session, iterates over an empty list and reports success
+without touching the system. The service list `$DebloatServices` contains no entries, and the
+`Stop-Service` / `Set-Service -StartupType Disabled` logic is commented out as `PLACEHOLDER`
+in the source.
+
+The intended design, visible in the code, is a declarative list:
+
+```powershell
+@{ Name = 'DiagTrack'; Description = 'Telemetria'; Action = 'Stop' }
+```
+
+Populating that array is all that is needed to make the tool functional.
+
+### WinDriverInstall
+
+`WinDriverInstall` · declared in `wintoolkit-modules/87-Placeholder.Compiler.ps1`
+
+Intended to install video drivers.
+
+**Current state:** the function body is empty — `function WinDriverInstall {}` — so calling it
+is a no-op. It is declared in the placeholder compiler module and is **not offered in the
+menu**, unlike `WinDebloat`.
+
+---
+
 ## Repository layout
 
 The tools are compiled together with the framework modules into a single distributable file.
 
 | Path | Role |
 |------|------|
-| `tools/` | The 15 tools documented on this page, one function per file |
+| `tools/` | The 14 functional tools documented above, one function per file |
 | `start-modules/` | Setup modules for `start.ps1` (bootstrapping, winget, environment, localisation) |
 | `wintoolkit-modules/` | Runtime modules for the toolkit (UI, logging, processes, menu, office, winget) |
 | `start.ps1` | Installer / first-run entry point |
