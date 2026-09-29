@@ -150,6 +150,11 @@ $script:AppConfig = @{
         # `winget install` on an already installed package: 0x8A150061.
         # 0x8A15002B (no applicable update) covers the upgrade path.
         AlreadyInstalledExitCodes = @(-1978335135, -1978335189)
+        # 0x8A15005E APPINSTALLER_CLI_ERROR_PINNED_CERTIFICATE_MISMATCH, raised by
+        # `winget source update --name msstore` when the Store endpoint answers with
+        # a certificate outside the pinned set. Matched on the exit code: the winget
+        # message is localized, so a text match on the code could never be conclusive.
+        PinnedCertificateMismatchExitCode = -1978335138
     }
     # Authenticode signers accepted for each downloaded executable, matched as
     # substrings of the certificate subject. Data files (psd1, json, profile,
