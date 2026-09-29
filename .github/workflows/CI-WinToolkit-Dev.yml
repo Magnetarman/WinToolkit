@@ -386,12 +386,10 @@ jobs:
     with:
       branch: ${{ github.ref_name }}
       commit-message: "🆙 Sync pipeline version"
-    # The ceiling for the token the called workflow gets: a called workflow can
-    # only narrow what the caller grants, never widen it. No `workflows:` scope:
-    # it is not a GITHUB_TOKEN permission, and declaring it makes this workflow
-    # file invalid. The alignment commit runs on RELEASE_AUTOMATION_TOKEN.
+    # Ceiling for the token the called workflow gets: it can only narrow this.
     permissions:
       contents: write
+      actions: read
     secrets: inherit
 
   # Build WinToolkit.ps1 (reusable workflow) when sources changed and quality passed.
