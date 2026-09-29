@@ -89,6 +89,7 @@ jobs:
           # read from git (deterministic, and independent of the localized WhatIf
           # text); they are restored on the very next line, so the workspace ends up
           # exactly as checked out and no later step ever sees modified sources.
+          #
           # Only the fragment folders actually present are handed to the formatter.
           # On main the checkout holds the compiled artefacts alone (WinToolkit.ps1,
           # start.ps1): the fragments belong to the development section and live on
