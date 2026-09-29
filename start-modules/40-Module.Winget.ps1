@@ -397,22 +397,56 @@ function Reset-WingetSources {
 }
 
 
+function Update-WingetSources {
+    <#
+    .SYNOPSIS
+    Refreshes the WinGet source metadata, for one named source or for all of them.
+
+    .DESCRIPTION
+    Single place that builds the `winget source update` command line, for the same
+    reason Reset-WingetSources is the single place for the reset.
+
+    `source update` accepts ONLY --name plus the global options: it has neither
+    --source nor --accept-source-agreements. Passing either made WinGet reject the
+    whole command line with 0x8A150002 (APPINSTALLER_CLI_ERROR_INVALID_CL_ARGUMENTS,
+    -1978335230), so the deep test reported a source failure on every machine while
+    the repositories it had just reached successfully were fine.
+
+    Returns the structured result so callers can branch on .ExitCode.
+    #>
+    param(
+        [string]$Name
+    )
+
+    $arguments = if ($Name) { "source update --name $Name" } else { 'source update' }
+    $result = Invoke-WingetCommand -Arguments $arguments
+    if ($result.ExitCode -ne 0) {
+        Write-ToolkitLog -Level 'WARNING' -Message "Winget source update failed with exit code $($result.ExitCode)."
+    }
+    return $result
+}
+
+
 function Repair-WingetMsStoreSource {
     <#
     .SYNOPSIS
-    Detects and fixes the msstore certificate pinning failure (0x8a15005e).
+    Detects and fixes the msstore certificate pinning failure (0x8A15005E).
 
     .DESCRIPTION
     Best effort only: when the msstore source stays unusable the caller keeps
     working with the remaining sources, so every failure here stays a log line.
+
+    The failure is recognised on the exit code. The previous check matched the
+    literal text '0x8a15005e' in winget output, but the message is localized
+    (Italian systems print the translated sentence) and the command line itself
+    was invalid, so the repair could never fire.
     #>
     try {
         $wingetExe = Get-WinGetExecutable
         if (-not $wingetExe) { return }
 
-        $result = Invoke-WingetCommand -Arguments 'source update --source msstore --accept-source-agreements'
-        $sourceOutput = "$($result.StdOut)$($result.StdErr)"
-        if ($result.ExitCode -eq 0 -or $sourceOutput -notmatch '0x8a15005e') { return }
+        $result = Update-WingetSources -Name 'msstore'
+        if ($result.ExitCode -ne $script:AppConfig.Winget.PinnedCertificateMismatchExitCode) { return }
 
         Write-StyledMessage -Type Warning -Text "Detected msstore certificate pinning failure (0x8a15005e). Resetting WinGet sources to default..."
         Reset-WingetSources
@@ -813,7 +847,10 @@ function Test-WingetDeepValidation {
 
         if ($exitCode -eq 0) {
             # A successful search is also the moment to refresh the source metadata.
-            $sourceUpdate = Invoke-WingetCommand -Arguments 'source update --accept-source-agreements'
+            # Update-WingetSources owns the command line: `source update` takes no
+            # --accept-source-agreements, and the old inline call failed with
+            # 0x8A150002 on every run.
+            $sourceUpdate = Update-WingetSources
             if ($sourceUpdate.ExitCode -ne 0) {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'toolText.sourceUpdateError0' -Args @($sourceUpdate.ExitCode))
             }
