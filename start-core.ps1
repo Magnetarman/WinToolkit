@@ -121,6 +121,7 @@ $script:EXITCODE_ACCESS_VIOLATION_SIGNED = -1073741819
 $script:LNK_RUNAS_ADMIN_BYTE_OFFSET = 21
 $script:LNK_RUNAS_ADMIN_BIT = 32
 $script:MIN_ICON_FILE_BYTES = 1024
+$script:OriginalUserContext = $null
 $script:State = @{
     LogFile      = $null
     Results      = [System.Collections.Generic.List[object]]::new()
@@ -704,10 +705,20 @@ function Invoke-StartUpdateServices {
         }
     }
     if ($restoreErrors.Count -gt 0) {
-        Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError ($restoreErrors -join '; ')
-        Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($restoreErrors -join '; ')"
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.updateServicesRestoreIncomplete0' -Args @($status.LastError))
-        return $false
+        $dosvcErrors = @($restoreErrors | Where-Object { $_ -match '^dosvc:' })
+        $otherErrors = @($restoreErrors | Where-Object { $_ -notmatch '^dosvc:' })
+        if ($otherErrors.Count -gt 0) {
+            Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError ($otherErrors -join '; ')
+            Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
+            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.updateServicesRestoreIncomplete0' -Args @($status.LastError))
+            return $false
+        }
+        if ($dosvcErrors.Count -gt 0) {
+            Set-UpdateServicesState -Status $status -State 'Restored'
+            $dosvcDetail = $dosvcErrors -join '; '
+            Write-ToolkitLog -Level 'WARNING' -Message "Windows Update service dosvc could not be restored (known Windows limitation): $dosvcDetail"
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.dosvcNotRestoredKnownLimitation')
+        }
     }
     Set-UpdateServicesState -Status $status -State 'Restored'
     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesRestored')
@@ -1685,6 +1696,7 @@ function Install-PspEnvironment {
             continue
         }
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.check0' -Args @($tool.Name))
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { continue }
         $toolResult = Invoke-WingetInstall -Id $tool.Id -Exact
         if ($toolResult.Accepted) {
             $result.Tools.Installed += $tool.Name
@@ -1866,11 +1878,12 @@ function Initialize-Directory {
     return $resolved
 }
 function Get-ToolkitOriginalUserContext {
-    if ($script:State.UserContext) { return $script:State.UserContext }
+    if ($script:OriginalUserContext) { return $script:OriginalUserContext }
+    if ($script:State -and $script:State.UserContext) { return $script:State.UserContext }
     $scope = $script:AppConfig.UserScope
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     $originalUser = [Environment]::GetEnvironmentVariable($scope.EnvUser)
-    $script:State.UserContext = [pscustomobject]@{
+    $script:OriginalUserContext = [pscustomobject]@{
         CurrentUser     = $currentUser
         OriginalUser    = $originalUser
         AccountSwitched = [bool]($originalUser -and $currentUser -and ($originalUser -ne $currentUser))
@@ -1878,14 +1891,16 @@ function Get-ToolkitOriginalUserContext {
         Desktop         = [Environment]::GetEnvironmentVariable($scope.EnvDesktop)
         MyDocuments     = [Environment]::GetEnvironmentVariable($scope.EnvMyDocuments)
     }
-    return $script:State.UserContext
+    if ($script:State) { $script:State.UserContext = $script:OriginalUserContext }
+    return $script:OriginalUserContext
 }
 function Get-ToolkitUserFolderPath {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [ValidateSet('Desktop', 'MyDocuments')]
-        [string]$Kind
+        [string]$Kind,
+        [switch]$NoCreate
     )
     $context = Get-ToolkitOriginalUserContext
     $candidates = @()
@@ -1908,10 +1923,20 @@ function Get-ToolkitUserFolderPath {
     $profileRoot = if ($context.AccountSwitched -and $context.UserProfile) { $context.UserProfile } else { $env:USERPROFILE }
     if ($profileRoot) { $candidates += (Join-Path $profileRoot $Kind) }
     foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
         $path = Test-LocalRootedPath -Path $candidate
         if (-not $path) { continue }
+        if ($NoCreate) {
+            if (Test-Path -LiteralPath $path -PathType Container) {
+                $script:AppConfig.Paths[$Kind] = $path
+                return $path
+            }
+            continue
+        }
         try {
-            return Initialize-Directory -Path $path
+            $resolved = Initialize-Directory -Path $path
+            $script:AppConfig.Paths[$Kind] = $resolved
+            return $resolved
         }
         catch {
             Write-ToolkitLog -Level 'WARNING' -Message "Known folder candidate rejected for ${Kind}: $path ($($_.Exception.Message))"
@@ -2022,7 +2047,7 @@ function Invoke-DownloadFile {
             for ($attempt = 0; $attempt -le $RetryCount; $attempt++) {
                 try {
                     Remove-PathQuietly -Path $OutFile
-                    Invoke-WebRequest -Uri $candidate -OutFile $OutFile -ErrorAction Stop
+                    Invoke-WebRequest -Uri $candidate -OutFile $OutFile -UseBasicParsing -ErrorAction Stop
                     $downloaded = Get-Item -LiteralPath $OutFile -ErrorAction Stop
                     if ($downloaded.PSIsContainer) { throw 'The response is not a file.' }
                     if ($downloaded.Length -lt $MinimumBytes) {
