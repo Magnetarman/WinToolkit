@@ -65,7 +65,11 @@ function Initialize-Directory {
     .DESCRIPTION
     The verification is the point of this helper: a silent New-Item failure used to
     let the caller carry on and report success for an artifact that was never
-$resolved = Test-LocalRootedPath -Path $Path
+    written. The path shape is validated up front by Test-LocalRootedPath.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $resolved = Test-LocalRootedPath -Path $Path
     if (-not $resolved) {
         throw "Initialize-Directory: refusing to use '$Path' (empty, relative or drive-root path)."
     }
@@ -107,13 +111,6 @@ $script:OriginalUserContext = [pscustomobject]@{
         MyDocuments     = [Environment]::GetEnvironmentVariable($scope.EnvMyDocuments)
     }
     if ($script:State) { $script:State.UserContext = $script:OriginalUserContext }
-        CurrentUser     = $currentUser
-        OriginalUser    = $originalUser
-        AccountSwitched = [bool]($originalUser -and $currentUser -and ($originalUser -ne $currentUser))
-        UserProfile     = [Environment]::GetEnvironmentVariable($scope.EnvUserProfile)
-        Desktop         = [Environment]::GetEnvironmentVariable($scope.EnvDesktop)
-        MyDocuments     = [Environment]::GetEnvironmentVariable($scope.EnvMyDocuments)
-    }
     return $script:OriginalUserContext
 }
 
