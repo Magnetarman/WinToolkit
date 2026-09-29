@@ -46,9 +46,7 @@ jobs:
       - name: Checkout target branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # TOKEN CONTRACT: this exact expression is the credential for the whole
-          # job. It is repeated verbatim on every git-auto-commit-action step so the
-          # checkout and the push can never end up using different identities.
+          # The job's credential, repeated verbatim on the commit step below.
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ inputs.branch }}
@@ -93,55 +91,33 @@ jobs:
 
       - name: Verify the push credential can write workflow files
         # Fail here, with instructions, instead of letting the push die on an
-        # opaque API rejection. GITHUB_TOKEN is a GitHub App token and the API
-        # refuses to let it update .github/workflows/*.yml:
-        #   [remote rejected] HEAD -> <branch> (refusing to allow a GitHub App to
-        #   create or update workflow `.github/workflows/...` without `workflows`
-        #   permission)
-        # and no permissions block can grant it, because `workflows` is not a
-        # GITHUB_TOKEN scope. Only a PAT carries it.
+        # GITHUB_TOKEN can never update .github/workflows/*.yml and no
+        # permissions block can grant it: 'workflows' is not a GITHUB_TOKEN scope.
+        # Only RELEASE_AUTOMATION_TOKEN (a PAT) can.
         if: steps.align.outputs.changed == 'true'
         shell: pwsh
         env:
           HAS_RELEASE_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN != '' }}
         run: |
           if ($env:HAS_RELEASE_TOKEN -eq 'true') { exit 0 }
-
-          Write-Host '::error::Cannot commit the pipeline version alignment: RELEASE_AUTOMATION_TOKEN is not set.'
-          Write-Host 'The alignment rewrites .github/workflows/*.yml and .github/actions/*/action.yml.'
-          Write-Host 'GITHUB_TOKEN is refused for workflow files and cannot be granted the scope:'
-          Write-Host '  [remote rejected] refusing to allow a GitHub App to create or update workflow ... without ''workflows'' permission'
-          Write-Host 'Create a fine-grained PAT (Settings > Developer settings > Personal access tokens > Fine-grained tokens):'
-          Write-Host '  Repository access : this repository'
-          Write-Host '  Contents          : Read and write'
-          Write-Host '  Workflows         : Read and write'
-          Write-Host 'then store it as the RELEASE_AUTOMATION_TOKEN repository secret.'
-          Write-Host 'Until then, run .\.github\scripts\Update-PipelineVersion.ps1 locally and commit the result.'
+          Write-Host '::error::RELEASE_AUTOMATION_TOKEN is not set, so the alignment cannot be committed.'
+          Write-Host 'GITHUB_TOKEN is refused for workflow files. Create a fine-grained PAT with'
+          Write-Host 'Contents: Read and write + Workflows: Read and write, then store it as'
+          Write-Host 'the RELEASE_AUTOMATION_TOKEN repository secret. Interim workaround:'
+          Write-Host '  .\.github\scripts\Update-PipelineVersion.ps1'
           exit 1
 
       - name: Commit pipeline version alignment
-        # No continue-on-error here. It used to hide this step completely: a
-        # green job whose only real work never ran. A failed push (branch
-        # protection, read-only token) is worth surfacing anyway, because until
-        # the commit lands the whole .github tree stays one version behind.
+        # No continue-on-error: it used to hide a broken commit step behind a green job.
         if: steps.align.outputs.changed == 'true'
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
-        # A plain mapping, never a `with: |` block scalar. GitHub evaluates the
-        # ${{ }} expressions inside the block first, then hands the whole
-        # rendered block to the step as a single string where a mapping of inputs
-        # is expected, and rejects the template:
-        #   ##[error]The template is not valid. (Line: 95, Col: 15): Unexpected value
-        # It only surfaced when changed == 'true', so on every run before this one
-        # the step was skipped and its inputs were never validated.
+        # Never `with: |`: GitHub collapses the block into one string and rejects it.
         with:
           commit_message: ${{ inputs.skip-ci && format('{0} [skip ci]', inputs.commit-message) || inputs.commit-message }}
           file_pattern: ${{ steps.align.outputs.files }}
           branch: ${{ inputs.branch }}
-          # Same credential as the checkout above, always. The action would default
-          # to github.token, so without this line checkout and push would silently
-          # diverge as soon as RELEASE_AUTOMATION_TOKEN is set: the PAT would read
-          # the branch and GITHUB_TOKEN would be the one refused for lacking
-          # `workflows`. See TOKEN CONTRACT in the checkout step.
+          # Same credential as the checkout above; the action would default to
+          # github.token and the two would diverge once the secret is set.
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           push_options: --force-with-lease
           skip_fetch: true
