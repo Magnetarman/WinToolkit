@@ -1452,7 +1452,6 @@ uiText.userScopeAlreadyAligned0 = The PATH of {0} already contains the installed
 uiText.userScopeNotAligned0 = The tools were installed in the elevated account and could not be added to the PATH of {0} ({1}). Run start.ps1 again from your own session to install them for your user.
 uiText.forcedReinstallAppInstaller0 = Reinstalling the Microsoft.DesktopAppInstaller package (forced).
 uiText.quickRecoveryFailedAttemptForcedPackageReinstall = WinGet is still not working: attempting a forced reinstall of Microsoft.DesktopAppInstaller and Microsoft.WinGet.Client.
-uiText.confirmForcedModuleInstall0 = The Microsoft.WinGet.Client module will be installed with -Force -AllowClobber, which permanently modifies your PowerShell environment. Type Y to proceed:
 uiText.ram0Gb = RAM: {0} GB
 uiText.reduction01LinesRemoved = Reduce : {0} % ({1} line removed)
 uiText.reductionOffFlagMinifyNotDetected = Reduction : OFF (Flag -Minify not detected)
