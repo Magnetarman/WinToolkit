@@ -170,8 +170,8 @@ Thank you from the heart for your support!
 
 | Rank | Contributor | Commits | PRs |
 | :--- | :--- | :--- | :--- |
-| 1 | <img src="https://avatars.githubusercontent.com/u/40738529?v=4" width="24" height="24" alt="Magnetarman" style="border-radius:50%;vertical-align:middle;"> [Magnetarman](https://github.com/magnetarman) | 2461 | 55 |
-| 2 | <img src="https://avatars.githubusercontent.com/u/45762339?v=4" width="24" height="24" alt="pomodori92" style="border-radius:50%;vertical-align:middle;"> [pomodori92](https://github.com/pomodori92) | 23 | 23 |
+| 1 | <img src="https://avatars.githubusercontent.com/u/40738529?v=4" width="24" height="24" alt="Magnetarman" style="border-radius:50%;vertical-align:middle;"> [Magnetarman](https://github.com/magnetarman) | 2534 | 69 |
+| 2 | <img src="https://avatars.githubusercontent.com/u/45762339?v=4" width="24" height="24" alt="pomodori92" style="border-radius:50%;vertical-align:middle;"> [pomodori92](https://github.com/pomodori92) | 26 | 26 |
 
 <!-- TOP_CONTRIBUTORS_END -->
 
