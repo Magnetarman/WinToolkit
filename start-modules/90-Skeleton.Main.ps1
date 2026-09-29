@@ -112,7 +112,6 @@ function Invoke-WinToolkitSetup {
             $null = [Console]::ReadKey($true)
         }
         Write-SetupSummary | Out-Null
-        $null = $wingetReady
         return 1
     }
     finally {
