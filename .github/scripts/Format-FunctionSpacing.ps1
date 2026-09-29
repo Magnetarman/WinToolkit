@@ -113,7 +113,7 @@ function Format-FragmentContent {
     ) | Out-Null
 
     if ($verifyErrors.Count -gt 0) {
-        Write-Warning "Formatting would break the syntax; the file is left untouched."
+        Write-Host ("DEBUG-VERIFY line=" + $verifyErrors[0].Extent.StartLineNumber + " : " + $verifyErrors[0].Message + " || CONTEXT: [" + $verifyErrors[0].Extent.Text + "]")
         return $Content
     }
     return $result
