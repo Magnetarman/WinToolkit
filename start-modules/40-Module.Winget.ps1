@@ -1142,11 +1142,10 @@ function Initialize-Winget {
     # Last resort: force-repair the two packages WinGet actually depends on, the
     # App Installer AppX package and the WinGet.Client module. Most of the
     # "winget is broken" reports on real machines come from those two, not from the
-    # winget.exe alias. The module half modifies the user PowerShell environment
-    # permanently, so it is only attempted with an explicit confirmation.
+    # winget.exe alias. No confirmation is asked: a prompt here would leave the
+    # repair half-finished in any unattended session.
     Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptForcedPackageReinstall')
-    $confirmModule = Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0'
-    $null = Reinstall-WingetForced -ConfirmModuleInstall:$confirmModule
+    $null = Reinstall-WingetForced
     Update-EnvironmentPath
     Invalidate-WingetVersionCache
     $health = Get-WingetHealth
