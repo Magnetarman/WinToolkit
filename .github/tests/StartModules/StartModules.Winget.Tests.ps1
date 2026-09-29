@@ -128,6 +128,87 @@ Describe 'Reset-WingetSourcesOnce — one source reset per run' {
     }
 }
 
+Describe 'Update-WingetSources — `source update` command line (0x8A150002 regression)' {
+
+    BeforeEach { $script:State.LogFile = $null }
+
+    It 'never passes --accept-source-agreements: the subcommand rejects it as invalid arguments' {
+        Mock Invoke-WingetCommand { [pscustomobject]@{ ExitCode = 0; StdOut = ''; StdErr = '' } }
+        $null = Update-WingetSources
+        Should -Invoke Invoke-WingetCommand -Times 1 -ParameterFilter {
+            $Arguments -notmatch '--accept-source-agreements' -and $Arguments -notmatch '--source\b'
+        }
+    }
+
+    It 'updates every source when no name is given' {
+        Mock Invoke-WingetCommand { [pscustomobject]@{ ExitCode = 0; StdOut = ''; StdErr = '' } }
+        $null = Update-WingetSources
+        Should -Invoke Invoke-WingetCommand -Times 1 -ParameterFilter { $Arguments -eq 'source update' }
+    }
+
+    It 'selects a single source with --name, not with --source' {
+        Mock Invoke-WingetCommand { [pscustomobject]@{ ExitCode = 0; StdOut = ''; StdErr = '' } }
+        $null = Update-WingetSources -Name 'msstore'
+        Should -Invoke Invoke-WingetCommand -Times 1 -ParameterFilter { $Arguments -eq 'source update --name msstore' }
+    }
+
+    It 'returns the structured result so callers can branch on the exit code' {
+        Mock Invoke-WingetCommand { [pscustomobject]@{ ExitCode = -1978335138; StdOut = ''; StdErr = '' } }
+        (Update-WingetSources -Name 'msstore').ExitCode | Should -Be -1978335138
+    }
+}
+
+Describe 'Repair-WingetMsStoreSource — pinned certificate mismatch (0x8A15005E)' {
+
+    BeforeEach {
+        $script:State.LogFile = $null
+        Mock Get-WinGetExecutable { 'winget.exe' }
+        Mock Write-StyledMessage {}
+        Mock Reset-WingetSources {}
+        Mock Update-EnvironmentPath {}
+        Mock Update-WingetSources { [pscustomobject]@{ ExitCode = 0; StdOut = ''; StdErr = '' } }
+    }
+
+    It 'stays quiet when the source is healthy' {
+        $null = Repair-WingetMsStoreSource
+        Should -Invoke Reset-WingetSources -Times 0
+    }
+
+    It 'resets the sources on the 0x8A15005E exit code, without parsing the localized output' {
+        Mock Update-WingetSources {
+            [pscustomobject]@{ ExitCode = $script:AppConfig.Winget.PinnedCertificateMismatchExitCode; StdOut = ''; StdErr = 'Errore: certificato non corrispondente.' }
+        }
+        $null = Repair-WingetMsStoreSource
+        Should -Invoke Reset-WingetSources -Times 1
+    }
+
+    It 'ignores any other failure' {
+        Mock Update-WingetSources { [pscustomobject]@{ ExitCode = -1978335231; StdOut = ''; StdErr = '' } }
+        $null = Repair-WingetMsStoreSource
+        Should -Invoke Reset-WingetSources -Times 0
+    }
+}
+
+Describe 'Test-WingetDeepValidation — no phantom source failure after a passing search' {
+
+    BeforeEach {
+        $script:State.LogFile = $null
+        Mock Write-StyledMessage {}
+        Mock Invoke-WingetCommand { [pscustomobject]@{ ExitCode = 0; StdOut = 'Git.Git'; StdErr = '' } }
+    }
+
+    It 'reports success and refreshes the sources with a valid command line' {
+        $result = Test-WingetDeepValidation
+        $result | Should -BeTrue
+        Should -Invoke Invoke-WingetCommand -Times 1 -ParameterFilter { $Arguments -eq 'source update' }
+    }
+
+    It 'never issues the `source update` call that returned 0x8A150002' {
+        $null = Test-WingetDeepValidation
+        Should -Invoke Invoke-WingetCommand -Times 0 -ParameterFilter { $Arguments -match '^source update .*-' }
+    }
+}
+
 Describe 'Test-WingetModernVersion — --disable-interactivity support (B-01)' {
 
     It 'accepts 1.4 and above' {
