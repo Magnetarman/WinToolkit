@@ -60,7 +60,7 @@ function Install-GitPackage {
 
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitAlreadyInstalled')
-        return $true
+        return New-StepResult -Success $true -Message 'Git is already installed.'
     }
 
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.gitInstallation')
@@ -74,7 +74,7 @@ function Install-GitPackage {
 
             if (Wait-Until -Condition { Test-CommandExists -Name git } -TimeoutSeconds 15 -IntervalMs 1000) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitInstalledViaWinget')
-                return $true
+                return New-StepResult -Success $true -Changed $true -Message 'Git installed via WinGet.'
             }
         }
     }
@@ -90,7 +90,7 @@ function Install-GitPackage {
         if ($installResult.Success) {
             Update-EnvironmentPath
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitInstalledSuccessfully')
-            return $true
+            return New-StepResult -Success $true -Changed $true -Message 'Git installed from the official GitHub release.'
         }
 
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode0' -Args @($installResult.ExitCode))
@@ -99,11 +99,11 @@ function Install-GitPackage {
         if ($installResult.PSObject.Properties.Name -contains 'Error' -and $installResult.Error) {
             Write-ToolkitLog -Level 'ERROR' -Message "Git installer fallback error: $($installResult.Error)"
         }
-        return $false
+        return New-StepResult -Success $false -Message "The Git installer returned exit code $($installResult.ExitCode)."
     }
     catch {
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.gitInstallationError0' -Args @($_.Exception.Message))
-        return $false
+        return New-StepResult -Success $false -Message $_.Exception.Message
     }
 }
 
@@ -163,7 +163,7 @@ function Install-WindowsTerminalApp {
 
     if (Test-WindowsTerminalInstalled) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalIsAlreadyInstalled')
-        return $true
+        return New-StepResult -Success $true -Message 'Windows Terminal is already installed.'
     }
 
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalInstallationInProgress')
@@ -175,7 +175,7 @@ function Install-WindowsTerminalApp {
             $result = Invoke-WingetInstall -Id 'Microsoft.WindowsTerminal'
             if ($result.Accepted -and (Wait-Until -Condition { Test-WindowsTerminalInstalled })) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalInstalledViaWinget')
-                return $true
+                return New-StepResult -Success $true -Changed $true -Message 'Windows Terminal installed via WinGet.'
             }
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstallationForWindowsTerminalFailed')
         }
@@ -212,7 +212,7 @@ function Install-WindowsTerminalApp {
         if (-not (Wait-Until -Condition { Test-WindowsTerminalInstalled } -TimeoutSeconds 30 -IntervalMs 1000)) {
             throw 'Windows Terminal package installed but wt.exe was not detected.'
         }
-        return $true
+        return New-StepResult -Success $true -Changed $true -Message 'Windows Terminal installed from the signed MSIX bundle.'
     }
     catch {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.standardWindowsTerminalInstallationFailed0FallbackToTheMicrosoftStore' -Args @($_.Exception.Message))
@@ -224,7 +224,7 @@ function Install-WindowsTerminalApp {
     }
 
     if (Test-WindowsTerminalInstalled) {
-        return $true
+        return New-StepResult -Success $true -Changed $true -Message 'Windows Terminal installed by a fallback method.'
     }
 
     # Last resort: open the Store page. This is not an automatic installation,
@@ -232,7 +232,7 @@ function Install-WindowsTerminalApp {
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackAperturaMicrosoftStorePerWindowsTerminal')
     Start-Process "ms-windows-store://pdp/?ProductId=9N0DX20HK701"
     Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.unableToInstallWindowsTerminalViaAnyAutomaticMethod')
-    return $false
+    return New-StepResult -Success $false -Message 'Windows Terminal could not be installed automatically; the Microsoft Store page was opened instead.'
 }
 
 
@@ -247,11 +247,11 @@ function Set-WindowsTerminalAsDefault {
 
     if (-not (Test-WindowsTerminalDefaultSupported)) {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.defaultTerminalNotSupportedOnThisBuild')
-        return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'Default terminal not supported on this build.' }
+        return New-StepResult -Success $true -Skipped -Message 'Default terminal not supported on this build.'
     }
 
     if (-not $PSCmdlet.ShouldProcess('Windows Terminal', 'Set as default terminal application')) {
-        return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'WhatIf: default terminal not changed.' }
+        return New-StepResult -Success $true -Skipped -Message 'WhatIf: default terminal not changed.'
     }
 
     Write-StyledMessage -Type Info -Text ("⚙️ " + (Get-SourceTextLoc 'uiText.settingWindowsTerminalAsDefaultViaRegistry'))
@@ -262,10 +262,10 @@ function Set-WindowsTerminalAsDefault {
         Set-ItemProperty -Path $registryPath -Name 'DelegationTerminal' -Value $script:AppConfig.WindowsTerminal.DelegationTerminalClsid -Force
         Set-ItemProperty -Path $registryPath -Name 'DelegationConsole' -Value $script:AppConfig.WindowsTerminal.DelegationConsoleClsid -Force
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalSetAsDefault')
-        return [pscustomobject]@{ Success = $true; Changed = $true; Message = 'Windows Terminal set as default.' }
+        return New-StepResult -Success $true -Changed $true -Message 'Windows Terminal set as default.'
     }
     catch {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.failedToSetDefaultTerminal0' -Args @($_.Exception.Message))
-        return [pscustomobject]@{ Success = $false; Changed = $false; Message = $_.Exception.Message }
+        return New-StepResult -Success $false -Message $_.Exception.Message
     }
 }
