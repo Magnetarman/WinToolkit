@@ -272,26 +272,28 @@ Describe 'Reinstall-WingetForced — forced repair of the two WinGet packages' {
         Mock Get-WingetHealth { [pscustomobject]@{ Present = $true; Runs = $true; Version = '1.29'; Reachable = $true } }
     }
 
-    It 'repairs the App Installer without touching the module when not confirmed' {
+    It 'repairs the App Installer and installs the module without asking anything' {
         Mock Get-AppxPackage { return [pscustomobject]@{ Name = 'Microsoft.DesktopAppInstaller' } }
+        Mock Read-Host { throw 'no confirmation may be requested' }
         $result = Reinstall-WingetForced
         $result.Success | Should -BeTrue
         Should -Invoke Reset-AppInstallerPackage -Times 1
-        Should -Invoke Install-Module -Times 0 -Because 'a module install needs explicit confirmation'
-        $result.Message | Should -Match 'not confirmed'
-    }
-
-    It 'installs the module when the confirmation is given' {
-        Mock Get-AppxPackage { return [pscustomobject]@{ Name = 'Microsoft.DesktopAppInstaller' } }
-        $result = Reinstall-WingetForced -ConfirmModuleInstall
-        $result.Success | Should -BeTrue
         Should -Invoke Install-PackageProvider -Times 1
         Should -Invoke Install-Module -Times 1
     }
 
+    It 'never prompts, in any mode' {
+        Mock Get-AppxPackage { return [pscustomobject]@{ Name = 'Microsoft.DesktopAppInstaller' } }
+        Mock Read-Host { throw 'no confirmation may be requested' }
+        Mock Invoke-DownloadFile { return $true }
+        Mock Start-AppxSilentProcess { return $true }
+        $null = Reinstall-WingetForced -Force
+        Should -Invoke Read-Host -Times 0
+    }
+
     It 'never installs the module when -SkipModule is used' {
         Mock Get-AppxPackage { return [pscustomobject]@{ Name = 'Microsoft.DesktopAppInstaller' } }
-        $null = Reinstall-WingetForced -ConfirmModuleInstall -SkipModule
+        $null = Reinstall-WingetForced -SkipModule
         Should -Invoke Install-Module -Times 0
     }
 
@@ -331,38 +333,6 @@ Describe 'Reinstall-WingetForced — forced repair of the two WinGet packages' {
         $result = Reinstall-WingetForced
         $result.Success | Should -BeFalse
         Should -Invoke Invoke-ForceCloseWinget -Times 0
-    }
-}
-
-Describe 'Confirm-ToolkitInteractiveAction — gated confirmations' {
-
-    BeforeEach { $script:State.LogFile = $null }
-
-    It 'returns $false without prompting in a non-interactive session' {
-        # Pester runs redirected: Read-Host must never be reached.
-        Mock Read-Host { throw 'must not be called' }
-        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' | Should -BeFalse
-    }
-
-    It 'accepts an explicit yes' {
-        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' -Answer 'Y' | Should -BeTrue
-    }
-
-    It 'accepts the Italian shorthand' {
-        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' -Answer 'si' | Should -BeTrue
-    }
-
-    It 'treats an empty answer as a no' {
-        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' -Answer '' | Should -BeFalse
-    }
-
-    It 'treats an unrecognized answer as a no' {
-        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' -Answer 'maybe' | Should -BeFalse
-    }
-
-    It 'returns $false when the prompt itself fails' {
-        Mock Read-Host { throw 'no console' }
-        { Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' } | Should -Not -Throw
     }
 }
 
