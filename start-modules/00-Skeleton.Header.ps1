@@ -229,10 +229,6 @@ $script:LNK_RUNAS_ADMIN_BYTE_OFFSET = 21
 $script:LNK_RUNAS_ADMIN_BIT = 32
 # Smallest plausible size (bytes) for a real .ico file.
 $script:MIN_ICON_FILE_BYTES = 1024
-# WinGet exit code for RPC_S_SERVER_UNAVAILABLE (0x800706BA) as a signed 32-bit
-# value: the App Installer deployment server cannot serve the session, so every
-# install fails while read-only commands keep working.
-$script:WINGET_RPC_FAILURE_EXITCODE = -2147012859
 
 # ==============================================================================
 # RUNTIME STATE
@@ -245,10 +241,6 @@ $script:WINGET_RPC_FAILURE_EXITCODE = -2147012859
 # owning module needs them; nothing else declares $script: state.
 # ==============================================================================
 
-$script:UpdateServicesSuspended = $false
-$script:CurrentLogFile = $null
-$script:SetupResults = @()
-$script:SetupExitCode = 1
 # Cached interactive-user context, resolved on first use by
 # Get-ToolkitOriginalUserContext (see 80-Module.Common.ps1).
 $script:OriginalUserContext = $null
@@ -260,13 +252,4 @@ $script:State = @{
     Text         = @{ Active = $null; Default = $null }  # localization tables
     Winget       = @{ Modern = $null; ProbedExe = $null }  # cache: version probe
     SourcesReset = $false  # one `source reset --force` per run
-}
-
-enum WingetRepairLevel {
-    SourceReset
-    MsStoreCert
-    AppxReset
-    CoreInstall
-    FullDatabase
-    FullReinstall
 }
