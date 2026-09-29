@@ -210,6 +210,18 @@ jobs:
         if: inputs.validate-start
         shell: pwsh
         run: |
+          # The contract is about the launcher stub: a thin, ASCII-only loader that
+          # locates PowerShell 7 and pulls start-core.ps1 (see .github/Docs/ARCHITECTURE.md).
+          # That stub only exists in a development tree. In an artifacts-only checkout
+          # start.ps1 is the published script of the previous release, which is a full
+          # localized installer by design, so the stub contract does not apply to it.
+          # The gate therefore runs where the stub is developed and is skipped elsewhere,
+          # instead of being applied to a file it was never written for.
+          if (-not (Test-Path -LiteralPath 'start-modules')) {
+            Write-Host 'Launcher stub ASCII purity: skipped — start.ps1 is the published artefact here, not the stub (no start-modules source tree).' -ForegroundColor Yellow
+            return
+          }
+
           $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path 'start.ps1'))
           if ($bytes | Where-Object { $_ -gt 127 }) {
             Write-Host '::error file=start.ps1::Launcher stub must remain ASCII-only.'
