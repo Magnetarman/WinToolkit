@@ -219,8 +219,6 @@ function Test-WingetModernVersion {
     # by the very old builds that predate the 1.4 milestone.
     return $true
 }
-    return $true
-}
 
 
 function Get-WingetModernFlag {
