@@ -1,7 +1,7 @@
 # Reusable pipeline version sync
 # Reads PIPELINE_VERSION from the canonical workflow and aligns the version token
 # in every workflow and composite action, then commits the result.
-name: WinToolkit V4.1.1 — Reusable pipeline version sync
+name: WinToolkit V4.2.0 — Reusable pipeline version sync
 
 on:
   workflow_call:

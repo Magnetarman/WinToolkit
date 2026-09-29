@@ -1,4 +1,4 @@
-# WinToolkit CI/CD V4.1.1
+# WinToolkit CI/CD V4.2.0
 # Build start-core.ps1 from ordered start-modules fragments.
 [CmdletBinding()]
 param(

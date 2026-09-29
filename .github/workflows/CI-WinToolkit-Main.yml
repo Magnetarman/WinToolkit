@@ -1,7 +1,7 @@
-# WinToolkit CI Main Protection V4.1.1
+# WinToolkit CI Main Protection V4.2.0
 # Triggers: PR to main. opened/synced -> guard+lint+version bump on Dev; merged release/v* -> stable GitHub release (tag vX.Y.Z). Maintainer-only.
 
-name: WinToolkit — CI Main Protection V4.1.1
+name: WinToolkit — CI Main Protection V4.2.0
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"

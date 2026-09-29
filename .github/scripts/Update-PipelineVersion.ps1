@@ -1,4 +1,4 @@
-# WinToolkit CI/CD V4.1.1
+# WinToolkit CI/CD V4.2.0
 # Aligns the pipeline version across every workflow, composite action and
 # pipeline script.
 #

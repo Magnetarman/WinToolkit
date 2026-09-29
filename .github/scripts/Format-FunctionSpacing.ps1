@@ -1,4 +1,4 @@
-# WinToolkit CI/CD V4.1.1
+# WinToolkit CI/CD V4.2.0
 # Source-only blank-line normalizer. Caps consecutive blank lines at two, removes
 # trailing whitespace and trailing blank lines, and leaves a single final newline.
 # Here-string payloads and block comments are copied verbatim.

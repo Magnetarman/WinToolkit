@@ -1,8 +1,8 @@
-# WinToolkit CI Dev Pipeline V4.1.1
+# WinToolkit CI Dev Pipeline V4.2.0
 # Triggers: push to Dev and to every tagged working branch -> lint+test+build; PR to Dev -> lint+test only.
 # Build regenerates WinToolkit.ps1 from pure sources (pre-existing file removed first). AST-validated before compile.
 
-name: WinToolkit — CI Dev Pipeline V4.1.1
+name: WinToolkit — CI Dev Pipeline V4.2.0
 
 env:
   # SINGLE SOURCE OF TRUTH for the CI/CD pipeline version.

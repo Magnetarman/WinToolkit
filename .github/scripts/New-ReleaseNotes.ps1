@@ -1,4 +1,4 @@
-# WinToolkit CI/CD V4.1.1
+# WinToolkit CI/CD V4.2.0
 <#
 .SYNOPSIS
     Generates release notes from merged PRs and closed issues since the last stable release.

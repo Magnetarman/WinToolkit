@@ -3,7 +3,7 @@
 # Flow: validate → versioning → build → build-start → release.
 # Runtime: PowerShell 7+ (windows-latest); ubuntu-24.04 for fast checks.
 
-name: WinToolkit — Create Pre-Release V4.1.1
+name: WinToolkit — Create Pre-Release V4.2.0
 
 on:
   workflow_dispatch:

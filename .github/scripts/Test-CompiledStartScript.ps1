@@ -1,4 +1,4 @@
-# WinToolkit CI/CD V4.1.1
+# WinToolkit CI/CD V4.2.0
 <#
 .SYNOPSIS
     Validates compiled start-core.ps1: syntax, functions, size, markers.

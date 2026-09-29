@@ -3,7 +3,7 @@
 # Scheduled runs (Mon 04:00 UTC) target Dev only; manual dispatch can target Dev or main.
 # Runtime: PowerShell 7+.
 
-name: WinToolkit — Top Contributors V4.1.1
+name: WinToolkit — Top Contributors V4.2.0
 
 on:
   schedule:

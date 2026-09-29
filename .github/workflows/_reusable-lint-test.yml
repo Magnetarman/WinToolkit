@@ -1,5 +1,5 @@
 # Reusable lint and test
-name: WinToolkit V4.1.1 — Reusable lint and test
+name: WinToolkit V4.2.0 — Reusable lint and test
 
 on:
   workflow_call:

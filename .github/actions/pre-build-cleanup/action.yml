@@ -1,4 +1,4 @@
-name: WinToolkit V4.1.1 — Pre-build cleanup
+name: WinToolkit V4.2.0 — Pre-build cleanup
 description: Remove a previously compiled artifact before a build.
 
 inputs:
