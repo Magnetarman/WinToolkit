@@ -65,12 +65,25 @@ jobs:
           "files=$($changed -join ' ')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           if ($changed) { $changed | ForEach-Object { Write-Host "  aligned: $_" } }
 
-      - name: Validate workflow and action syntax after alignment
+      - name: Verify the alignment converged
         if: steps.align.outputs.changed == 'true'
-        uses: ./.github/actions/validate-syntax
-        with:
-          path: .github/workflows/*.yml
-          label: workflows after pipeline version alignment
+        shell: pwsh
+        run: |
+          # What can actually go wrong after an alignment: a version token that did
+          # not converge. That is exactly what -Check reports, so it is the only gate
+          # this step needs.
+          #
+          # The workflows are deliberately NOT re-parsed here. This step used to hand
+          # .github\workflows\*.yml to the validate-syntax action, which runs the
+          # PowerShell AST parser: the parser cannot read YAML and answered a valid
+          # workflow with a wall of meaningless "PowerShell syntax error" annotations
+          # (unexpected token 'name:', missing expression after unary operator '-',
+          # and so on). Re-parsing YAML with a PowerShell parser can only ever
+          # produce false errors, and GitHub has already parsed the YAML of the
+          # workflow that is running right now.
+          $params = @{ CanonicalWorkflow = '${{ inputs.canonical-workflow }}' }
+          if ('${{ inputs.version }}') { $params['Version'] = '${{ inputs.version }}' }
+          & .github/scripts/Update-PipelineVersion.ps1 @params -Check
 
       - name: Commit pipeline version alignment
         # The alignment is already applied in the workspace, so a refused push (branch
