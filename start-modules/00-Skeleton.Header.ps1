@@ -87,15 +87,6 @@ $script:AppConfig = @{
         WingetCliRelease  = "https://api.github.com/repos/microsoft/winget-cli/releases/latest"
         GitRelease        = "https://api.github.com/repos/git-for-windows/git/releases/latest"
         PowerShellRelease = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
-        OhMyPoshTheme     = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json"
-        # Same theme, alternate transports. Invoke-DownloadFile accepts a list of
-        # candidate URLs and only reports success once the payload is verified, so
-        # a 404 on one endpoint (or a transient GitHub hiccup) is not fatal.
-        OhMyPoshThemeFallback = @(
-            "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json",
-            "https://github.com/JanDeDobbeleer/oh-my-posh/raw/refs/heads/main/themes/atomic.omp.json",
-            "https://cdn.jsdelivr.net/gh/JanDeDobbeleer/oh-my-posh@main/themes/atomic.omp.json"
-        )
         TerminalRelease   = "https://api.github.com/repos/microsoft/terminal/releases/latest"
         WebInstaller      = "https://magnetarman.com/WinToolkit-Dev"
     }
