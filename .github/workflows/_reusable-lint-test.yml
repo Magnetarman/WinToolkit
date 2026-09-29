@@ -270,24 +270,46 @@ jobs:
           RUN_INTEGRATION_TESTS: ${{ inputs.run-integration-tests }}
         run: |
           # PSScriptAnalyzer already ran in the 'linting' job; skip here.
-          $config = New-PesterConfiguration
-          $config.Run.Path                = @(
-            '.github/tests/CI-Smoke.Tests.ps1',
-            '.github/tests/Unit/Tools.Contract.Tests.ps1'
+          #
+          # Every suite loads the module sources through the repository root, so a
+          # suite is collected only when the folder it reads is part of the checkout.
+          # On main the compiled artefacts stand alone and those folders live on Dev:
+          # loading them there is not a missing test, it is a suite that cannot run.
+          $requiredFolders = @(
+            @{ Path = '.github/tests/CI-Smoke.Tests.ps1';                 Root = 'wintoolkit-modules' },
+            @{ Path = '.github/tests/Unit/Tools.Contract.Tests.ps1';       Root = 'tools' }
           )
-          $config.Run.PassThru            = $true
-          $config.Output.Verbosity        = 'Detailed'
-          $config.TestResult.Enabled      = $true
-          $config.TestResult.OutputPath   = 'TestResults.xml'
-          $config.TestResult.OutputFormat = 'NUnitXml'
-          $result = Invoke-Pester -Configuration $config
-
-          if ($result.FailedCount -gt 0) {
-            Write-Host "::error::$($result.FailedCount) Pester test(s) failed."
-            exit 1
+          $suitePaths = @(
+            $requiredFolders |
+              Where-Object { Test-Path -LiteralPath $_.Root } |
+              ForEach-Object { $_.Path }
+          )
+          $skippedSuites = @(
+            $requiredFolders |
+              Where-Object { -not (Test-Path -LiteralPath $_.Root) } |
+              ForEach-Object { "$($_.Path) (needs $($_.Root))" }
+          )
+          if ($skippedSuites) {
+            Write-Host "Pester suites skipped, source folder not in this checkout: $($skippedSuites -join '; ')" -ForegroundColor Yellow
           }
 
-          if ($env:VALIDATE_START -eq 'true') {
+          if ($suitePaths) {
+            $config = New-PesterConfiguration
+            $config.Run.Path                = $suitePaths
+            $config.Run.PassThru            = $true
+            $config.Output.Verbosity        = 'Detailed'
+            $config.TestResult.Enabled      = $true
+            $config.TestResult.OutputPath   = 'TestResults.xml'
+            $config.TestResult.OutputFormat = 'NUnitXml'
+            $result = Invoke-Pester -Configuration $config
+
+            if ($result.FailedCount -gt 0) {
+              Write-Host "::error::$($result.FailedCount) Pester test(s) failed."
+              exit 1
+            }
+          }
+
+          if ($env:VALIDATE_START -eq 'true' -and (Test-Path -LiteralPath 'start-modules')) {
             $startConfig = New-PesterConfiguration
             $startPaths = @(
               '.github/tests/StartModules/StartModules.Syntax.Tests.ps1',
