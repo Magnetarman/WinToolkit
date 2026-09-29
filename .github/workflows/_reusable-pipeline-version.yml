@@ -37,6 +37,16 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      # This job rewrites the version token in .github/workflows/*.yml and
+      # .github/actions/*/action.yml. GITHUB_TOKEN is a GitHub App token, and the
+      # API refuses to let it touch a workflow file without this scope, no matter
+      # what `contents: write` allows:
+      #   [remote rejected] HEAD -> <branch> (refusing to allow a GitHub App to
+      #   create or update workflow `.github/workflows/...` without `workflows`
+      #   permission)
+      # The alignment is applied in the workspace before the push, so without this
+      # scope every run failed at the very last step and nothing was ever aligned.
+      workflows: write
       actions: read
 
     steps:
