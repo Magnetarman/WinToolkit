@@ -175,19 +175,20 @@ function Test-WingetRpcFailure {
     returns when the per-user App Installer deployment server cannot serve the
     session. Every install then fails identically while "winget --version" and
     "winget search" keep working, which is why the old flow reported the tools as
-    handled. Recognising it lets the caller name the real cause and try the documented recovery (re-register / reset the App Installer package), and the exit code is conclusive on its own, so no output parsing is involved: the previous text match could never change the answer.
+    handled. Recognising it lets the caller name the real cause and try the
+    documented recovery (re-register / reset the App Installer package).
+
+    The exit code alone is conclusive, so no output parsing is involved: the
+    previous text match could never change the answer, and it also broke on every
+    result object without StdOut/StdErr, since Set-StrictMode -Version Latest
+    throws when a property is missing.
     #>
     param(
         [Parameter(Mandatory = $true)][object]$Result
     )
 
     # The module owns the numeric literal: no magic number in the call sites.
-    if ($Result.ExitCode -ne $script:WINGET_RPC_FAILURE_EXITCODE) { return $false }
-
-    $output = "$($Result.StdOut)$($Result.StdErr)"
-    if ($output -and ($output -match '0x800706BA|RPC_S_SERVER_UNAVAILABLE|server execution failed')) { return $true }
-    # CaptureOutput is optional: the exit code alone is conclusive.
-    return $false
+    return ($Result.ExitCode -eq $script:WINGET_RPC_FAILURE_EXITCODE)
 }
 
 
