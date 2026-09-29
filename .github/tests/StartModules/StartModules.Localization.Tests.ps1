@@ -1,3 +1,4 @@
+# WinToolkit CI/CD V4.1.1
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 <#
@@ -25,6 +26,100 @@ BeforeAll {
 
     # Init directly from embedded English (offline fallback)
     Initialize-SourceTextLocalization -LanguageCode 'en-US'
+}
+
+Describe 'Localization key sets stay aligned across languages (S-5)' {
+
+    BeforeAll {
+        $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
+        $script:EnFile = Join-Path $repoRoot 'languages\en-US\WinToolkit.psd1'
+        $script:ItFile = Join-Path $repoRoot 'languages\it-IT\WinToolkit.psd1'
+        $script:EnKeys = @((Get-Content $script:EnFile -Raw) -split "`r?`n" |
+            Where-Object { $_ -match '^([\w.\-]+)\s*=' } | ForEach-Object { $Matches[1] })
+        $script:ItKeys = @((Get-Content $script:ItFile -Raw) -split "`r?`n" |
+            Where-Object { $_ -match '^([\w.\-]+)\s*=' } | ForEach-Object { $Matches[1] })
+
+        # Explicit list, not a language detector: a substring match on Italian words
+        # also flags English keys that merely contain them (unigetUiRequireVerifi
+        # cation, packetVerificationError01, ...StatusInEsecuzionePercent1).
+        $script:RenamedKeys = [ordered]@{
+            'uiText.downloadIcona' = 'uiText.downloadIcon'
+            'uiText.puliziaCacheWinget' = 'uiText.clearingWingetCache'
+            'uiText.recuperoUltimaReleasePowershell' = 'uiText.retrievingLatestPowershellRelease'
+            'uiText.temaOhMyPoshScaricato' = 'uiText.ohMyPoshThemeDownloaded'
+            'uiText.verificaPowershell7' = 'uiText.checkingPowershell7'
+            'uiText.esecuzioneRepairWingetpackagemanager' = 'uiText.runningPackageManagerRepair'
+            'uiText.tentativoRepairWingetpackagemanager' = 'uiText.attemptingPackageManagerRepair'
+            'uiText.tentativoRiparazioneWingetRepairWingetpackagemanager' = 'uiText.attemptingWingetRepairViaPackageManager'
+            'uiText.startWingetInstallationVerificationProcedure' = 'uiText.startingWingetInstallVerification'
+            'uiText.downloadMsixbundleDaMicrosoft' = 'uiText.downloadMsixBundleFromMicrosoft'
+            'uiText.downloadCoreScriptDaGithub' = 'uiText.downloadCoreScriptFromGitHub'
+            'uiText.downloadAndInstallWingetBundleWithDependencies' = 'uiText.downloadAndInstallWingetBundle'
+            'uiText.downloadWingetDependenciesFromTheOfficialRepository' = 'uiText.downloadWingetDependencies'
+            'uiText.fallbackDownloadGitDaGithub' = 'uiText.fallbackDownloadGitFromGitHub'
+            'uiText.fallbackDownloadMsixbundleDirectFromMicrosoft' = 'uiText.fallbackDownloadMsixBundleDirect'
+            'uiText.iTryNativeAppxInstallationFromDownloadedBundle' = 'uiText.attemptingNativeAppxInstallFromBundle'
+            'uiText.startingWinToolkitConfiguration' = 'uiText.startingWinToolkitSetup'
+            'uiText.startingDownload' = 'uiText.startingDownloadProcess'
+            'uiText.resetCacheMicrosoftStoreWsreset' = 'uiText.resettingMicrosoftStoreCache'
+        }
+    }
+
+    It 'both language files exist and expose keys' {
+        Test-Path $script:EnFile | Should -BeTrue
+        Test-Path $script:ItFile | Should -BeTrue
+        $script:EnKeys.Count | Should -BeGreaterThan 100
+        $script:ItKeys.Count | Should -BeGreaterThan 100
+    }
+
+    It 'defines exactly the same key set in en-US and it-IT' {
+        # A missing key is not cosmetic: Get-SourceTextLoc falls back to the
+        # embedded English text, so an Italian user would silently read English.
+        $missingInIt = @(Compare-Object $script:EnKeys $script:ItKeys |
+                Where-Object SideIndicator -eq '<=' | ForEach-Object InputObject)
+        $missingInEn = @(Compare-Object $script:EnKeys $script:ItKeys |
+                Where-Object SideIndicator -eq '=>' | ForEach-Object InputObject)
+
+        ($missingInIt -join ', ') | Should -BeNullOrEmpty -Because 'every en-US key must exist in it-IT'
+        ($missingInEn -join ', ') | Should -BeNullOrEmpty -Because 'every it-IT key must exist in en-US'
+    }
+
+    It 'has no duplicate key inside a single file (ConvertFrom-StringData would fail)' {
+        $dupEn = @($script:EnKeys | Group-Object | Where-Object Count -gt 1 | ForEach-Object Name)
+        $dupIt = @($script:ItKeys | Group-Object | Where-Object Count -gt 1 | ForEach-Object Name)
+        ($dupEn -join ', ') | Should -BeNullOrEmpty
+        ($dupIt -join ', ') | Should -BeNullOrEmpty
+    }
+
+    It 'loads with the same mechanism the runtime uses (Import-LocalizedData)' {
+        # Not Import-PowerShellDataFile: the file is a ConvertFrom-StringData
+        # script, which that cmdlet cannot parse. Import-LocalizedData is what
+        # Import-SourceTextLanguageFile actually calls.
+        foreach ($culture in @('en-US', 'it-IT')) {
+            $data = $null
+            {
+                Import-LocalizedData -BindingVariable data `
+                    -BaseDirectory (Join-Path $PSScriptRoot '..\..\..\languages' $culture) `
+                    -FileName 'WinToolkit.psd1' -UICulture $culture -ErrorAction Stop
+            } | Should -Not -Throw
+        }
+    }
+
+    It 'no longer defines the Italian-named keys replaced during S-5' {
+        $stillThere = @($script:RenamedKeys.Keys | Where-Object { $script:EnKeys -contains $_ })
+        ($stillThere -join ', ') | Should -BeNullOrEmpty -Because 'these keys were renamed to English'
+    }
+
+    It 'defines every replacement key introduced by the S-5 renaming' {
+        $missing = @($script:RenamedKeys.Values | Where-Object { $script:EnKeys -notcontains $_ })
+        ($missing -join ', ') | Should -BeNullOrEmpty -Because 'a renamed key must exist under its new name in both languages'
+    }
+
+    It 'resolves a suffixed key through the numeric-suffix fallback' {
+        # The convention is frozen by behaviour, not by renaming 350+ keys: a key
+        # named `<stem><n>` resolves to the stem when the suffixed one is absent.
+        Get-SourceTextLoc 'uiText.check0' | Should -Not -Match '\[MISSING TRANSLATION'
+    }
 }
 
 Describe 'Get-SourceTextLoc' {
@@ -57,10 +152,23 @@ Describe 'Get-SourceTextLoc' {
 Describe 'Get-SourceTextAutoDetectedLanguage' {
 
     It 'returns en-US when the system culture is not among the available ones' {
-        Get-SourceTextAutoDetectedLanguage -AvailableCultures 'en-US' -SystemUICulture 'xx-XX' | Should -Be 'en-US'
+        Get-SourceTextAutoDetectedLanguage -AvailableCultures @('en-US') -SystemUICulture 'xx-XX' | Should -Be 'en-US'
     }
 
     It 'returns the available culture matching the neutral prefix' {
-        Get-SourceTextAutoDetectedLanguage -AvailableCultures 'en-US,it-IT' -SystemUICulture 'it-CH' | Should -Be 'it-IT'
+        Get-SourceTextAutoDetectedLanguage -AvailableCultures @('en-US', 'it-IT') -SystemUICulture 'it-CH' | Should -Be 'it-IT'
+    }
+
+    It 'matches case-insensitively but returns the FOLDER name, not the lowercased system culture (B-14)' {
+        # The previous implementation returned the lowercased system culture, so
+        # 'it-it' was returned for a folder actually named 'it-IT'.
+        Get-SourceTextAutoDetectedLanguage -AvailableCultures @('en-US', 'it-IT') -SystemUICulture 'it-it' | Should -Be 'it-IT'
+    }
+}
+
+Describe 'Get-SourceTextLanguageDirectory' {
+
+    It 'returns the configured cache, never a folder found in the working directory (B-10)' {
+        Get-SourceTextLanguageDirectory | Should -Be $script:AppConfig.Paths.Languages
     }
 }
