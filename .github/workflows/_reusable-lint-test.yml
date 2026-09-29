@@ -71,20 +71,56 @@ jobs:
           }
           if ($parseErrors) { throw "Version alignment produced invalid PowerShell: $($parseErrors -join '; ')" }
 
-      - name: Normalize fragment spacing
+      - name: Check fragment spacing
         shell: pwsh
         run: |
           # Source fragments only. The formatter itself refuses every other path,
           # and the compiled artefacts (WinToolkit.ps1, start-core.ps1) are never
           # touched: they are machine-only and must stay compact.
-          # On already compliant sources this is a no-op; when a file deviates it
-          # is normalized here and reported as a warning.
-          & ./.github/scripts/Format-FunctionSpacing.ps1 -Path 'start-modules','wintoolkit-modules' -Verbose
+          #
+          # Format-FunctionSpacing.ps1 is a local tool — its own contract says it is
+          # never invoked by the build pipeline — and what it reports is cosmetic
+          # (a trailing blank space, a duplicated blank line). Linting therefore
+          # neither fails on it nor annotates it: a whitespace deviation must never
+          # show up as a pipeline error or warning. The findings go to the log and to
+          # the job summary, and the run stays clean.
+          #
+          # The formatter is allowed to rewrite the offending files so the list can be
+          # read from git (deterministic, and independent of the localized WhatIf
+          # text); they are restored on the very next line, so the workspace ends up
+          # exactly as checked out and no later step ever sees modified sources.
+          $roots = @('start-modules', 'wintoolkit-modules')
 
-          $changed = @(git status --porcelain -- start-modules wintoolkit-modules |
-            Where-Object { $_ -match '^\s*[MADRCU?]' })
-          foreach ($entry in $changed) {
-            Write-Host "::warning file=$($entry.Substring(3))::Fragment spacing normalized by Format-FunctionSpacing.ps1; run it locally and commit the result."
+          # git status --porcelain: two status characters, a space, then the path.
+          # "before" is captured first so only the formatter's own writes are undone.
+          $before = @(git status --porcelain -- $roots |
+            ForEach-Object { $_ -replace '^[\s?!MADRCU]{2}\s+', '' })
+
+          & ./.github/scripts/Format-FunctionSpacing.ps1 -Path $roots -Verbose
+
+          $deviating = @(git status --porcelain -- $roots |
+            ForEach-Object { $_ -replace '^[\s?!MADRCU]{2}\s+', '' } |
+            Where-Object { $_ -and $before -notcontains $_ })
+
+          if ($deviating) { git checkout -- $deviating }
+
+          if (-not $deviating) {
+            Write-Host 'Fragment spacing: every source fragment already complies.' -ForegroundColor Green
+            return
+          }
+
+          Write-Host "Fragment spacing: $($deviating.Count) fragment(s) would be normalized (informational, not a warning)."
+          Write-Host 'Run .\.github\scripts\Format-FunctionSpacing.ps1 locally and commit the result.'
+          $deviating | ForEach-Object { Write-Host "  spacing deviation: $_" }
+
+          if ($env:GITHUB_STEP_SUMMARY) {
+            @(
+              '### Fragment spacing'
+              ''
+              'Cosmetic deviations. Run `.github/scripts/Format-FunctionSpacing.ps1` locally and commit:'
+              ''
+            ) + ($deviating | ForEach-Object { "* ``$_``" }) |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
           }
 
       - name: Lint PowerShell sources
