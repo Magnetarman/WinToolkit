@@ -358,32 +358,32 @@ function Invoke-ToolkitDownload {
         [int]$MaxRetries = 3,
         [switch]$NoSpinner
     )
-    
+
     if ([string]::IsNullOrWhiteSpace($Description)) { $Description = Get-SourceTextLoc 'sourceText.file' }
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
         try {
             Write-StyledMessage -Type 'Info' -Text ("📥 " + (Get-SourceTextLoc 'uiText.download0' -Args @($Description)))
-            
+
             # Creare parent directory se non esiste
             $parentDir = Split-Path -Parent $OutputPath
             if (-not (Test-Path $parentDir)) {
                 New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
             }
-            
+
             # Create HttpClient with 5 minute timeout
             $handler = New-Object System.Net.Http.HttpClientHandler
             $handler.AllowAutoRedirect = $true
             $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
-            
+
             $httpClient = New-Object System.Net.Http.HttpClient($handler)
             $httpClient.Timeout = [TimeSpan]::FromSeconds(300)
-            
+
             # Add custom headers
             $httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
             if ($Uri -match 'drivers\.amd\.com|amd-software') {
                 $httpClient.DefaultRequestHeaders.Add("Referer", "https://www.amd.com")
             }
-            
+
             # Perform HEAD request to get the size
             $totalBytes = 0
             try {
@@ -397,15 +397,15 @@ function Invoke-ToolkitDownload {
             catch {
                 Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ToolkitDownload: $($_.Exception.Message)"
             }
-            
+
             # Perform the GET download
             $getRequest = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $Uri)
             $getResponse = $httpClient.SendAsync($getRequest, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
-            
+
             if (-not $getResponse.IsSuccessStatusCode) {
                 throw (Get-SourceTextLoc 'uiText.httpError01' -Args @($($getResponse.StatusCode), $($getResponse.ReasonPhrase)))
             }
-            
+
             # Try to get the size from the GET response if HEAD failed
             if ($totalBytes -eq 0 -and $getResponse.Content.Headers.ContentLength -gt 0) {
                 $totalBytes = $getResponse.Content.Headers.ContentLength
@@ -422,7 +422,7 @@ function Invoke-ToolkitDownload {
                     -Percent 8 -Icon '📥' -Color 'Cyan'
                 Start-Sleep -Milliseconds 120   # small visual delay to make the bar appear
             }
-            
+
             # Read the stream and write with progress tracking
             $contentStream = $getResponse.Content.ReadAsStreamAsync().Result
             $fileStream = [System.IO.File]::Create($OutputPath)
@@ -430,15 +430,15 @@ function Invoke-ToolkitDownload {
             $totalRead = 0
             $lastPercent = -1
             $lastProgressTime = Get-Date
-            
+
             try {
                 while ($true) {
                     $read = $contentStream.Read($buffer, 0, $buffer.Length)
                     if ($read -eq 0) { break }
-                    
+
                     $fileStream.Write($buffer, 0, $read)
                     $totalRead += $read
-                    
+
                     # Progress state calculation (DRY: logic here, rendering delegated)
                     if (-not $Global:GuiSessionActive) {
                         $currentDisplay = if ($totalRead -gt 1048576) {
@@ -447,7 +447,7 @@ function Invoke-ToolkitDownload {
                         else {
                             "$([Math]::Round($totalRead / 1024, 1)) KB"
                         }
-                        
+
                         if ($totalBytes -gt 0) {
                             $percent = [Math]::Round(($totalRead / $totalBytes) * 100)
                             $totalDisplay = if ($totalBytes -gt 1048576) {
@@ -476,7 +476,7 @@ function Invoke-ToolkitDownload {
                             $icon = '📥'
                             $col = 'Cyan'
                         }
-                        
+
                         $now = Get-Date
                         $timeSinceLast = ($now - $lastProgressTime).TotalMilliseconds
                         $shouldUpdate = $false
@@ -509,10 +509,10 @@ function Invoke-ToolkitDownload {
                 $fileStream.Dispose()
                 $contentStream.Dispose()
             }
-            
+
             $httpClient.Dispose()
             $handler.Dispose()
-            
+
             if (Test-Path $OutputPath) {
                 if ($totalBytes -gt 0) {
                     Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.download02' -Args @($Description)) -Status (Get-SourceTextLoc 'uiText.completed') -Percent 100 -Icon '✅' -Color 'Green'
@@ -530,7 +530,7 @@ function Invoke-ToolkitDownload {
             if (Test-Path $OutputPath) {
                 Remove-Item $OutputPath -Force -ErrorAction SilentlyContinue
             }
-            
+
             if ($attempt -lt $MaxRetries) {
                 Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'uiText.01AttemptFailed2ILlTryAgain' -Args @($attempt, $MaxRetries, $($_.Exception.Message))))
                 Start-Sleep -Seconds 2
@@ -560,4 +560,3 @@ function Restart-ServiceSafely {
         return $false
     }
 }
-
