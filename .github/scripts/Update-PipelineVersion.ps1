@@ -57,7 +57,7 @@ function Add-PipelineHeader {
 }
 
 # Reads the canonical value; falls back to -Version when supplied.
-    function Get-CanonicalVersion {
+function Get-CanonicalVersion {
     param([string]$Explicit)
 
     if ($Explicit) { return $Explicit.Trim() }
