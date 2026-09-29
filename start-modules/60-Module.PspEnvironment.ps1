@@ -111,8 +111,16 @@ function Install-PspEnvironment {
     #>
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingPowershellEnvironmentSetupPsp')
 
+    # The five StepResult members are mandatory: under Set-StrictMode a read of a
+    # missing property is a terminating error, and the orchestrator
+    # (Add-SetupResult) reads all five on every single result. The other members
+    # are the diagnostics this step reports in the summary.
     $result = [pscustomobject]@{
         Success          = $true
+        Changed          = $false
+        Message          = 'PowerShell environment configured.'
+        Skipped          = $false
+        Blocking         = $false
         Tools            = [pscustomobject]@{ Installed = @(); Failed = @() }
         FontOk           = $null
         ThemeOk          = $false
@@ -120,7 +128,6 @@ function Install-PspEnvironment {
         ProfilePath      = $null
         ThemePath        = $null
         WingetRpcFailure = $false
-        Message          = 'PowerShell environment configured.'
     }
 
     $context = Get-ToolkitOriginalUserContext
@@ -153,6 +160,7 @@ function Install-PspEnvironment {
         $toolResult = Invoke-WingetInstall -Id $tool.Id -Exact
         if ($toolResult.Accepted) {
             $result.Tools.Installed += $tool.Name
+            $result.Changed = $true
         }
         else {
             # -2147012859 (0x800706BA) is not "the package is already installed": it is
@@ -191,6 +199,7 @@ function Install-PspEnvironment {
             -MinimumBytes $script:AppConfig.UserScope.MinThemeFileBytes `
             -ContentValidator { param($candidatePath) Test-OhMyPoshThemeFile -Path $candidatePath }) {
         $result.ThemeOk = $true
+        $result.Changed = $true
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.ohMyPoshThemeDownloaded')
         Write-ToolkitLog -Level 'INFO' -Message "Oh My Posh theme installed: $($paths.ThemePath)"
     }
@@ -202,6 +211,7 @@ function Install-PspEnvironment {
     # 3. Font Installation (the result is captured: it used to be discarded by *>$null)
     $result.FontOk = Install-NerdFontsLocal
     if (-not $result.FontOk) { $result.Success = $false }
+    else { $result.Changed = $true }
 
     # 4. Profile configuration: installed through Install-RemoteFile, which stages
     #    the download, swaps it in atomically and only backs up a file that really
@@ -213,6 +223,7 @@ function Install-PspEnvironment {
                 -Destination $targetProfile -MinimumBytes $script:AppConfig.MinProfileBytes -Backup) {
             if (Test-FileHasMinimumSize -Path $targetProfile -MinimumBytes $script:AppConfig.MinProfileBytes) {
                 $result.ProfileOk = $true
+                $result.Changed = $true
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7ProfileConfigured')
                 Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile installed: $targetProfile"
             }
