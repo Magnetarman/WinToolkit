@@ -141,15 +141,27 @@ jobs:
           VALIDATE_TEMPLATE: ${{ inputs.validate-template }}
           VALIDATE_START: ${{ inputs.validate-start }}
         run: |
+          # The sources are optional in a checkout: main carries the compiled artefacts
+          # alone and the module folders belong to the development section on Dev.
+          # GitHub prepends $ErrorActionPreference = 'stop' to every pwsh step, so
+          # enumerating an absent folder is a terminating error, not a silent one.
           $settingsPath = ".github/linters/PSScriptAnalyzer-settings.psd1"
           $files = @(Get-ChildItem -Path "tools" -Filter "*.ps1" -ErrorAction SilentlyContinue)
-          if ($env:VALIDATE_TEMPLATE -eq 'true') {
+          if ($env:VALIDATE_TEMPLATE -eq 'true' -and (Test-Path -LiteralPath "wintoolkit-modules")) {
             $files += @(Get-ChildItem -Path "wintoolkit-modules" -Filter "*.ps1" -File)
           }
-          if ($env:VALIDATE_START -eq 'true') {
+          if ($env:VALIDATE_START -eq 'true' -and (Test-Path -LiteralPath "start-modules")) {
             $files += @(Get-ChildItem -Path "start-modules" -Filter "*.ps1" -File)
+          }
+          if ($env:VALIDATE_START -eq 'true' -and (Test-Path -LiteralPath "start.ps1")) {
             $files += @(Get-Item -LiteralPath "start.ps1")
           }
+
+          if (-not $files) {
+            Write-Host 'PSScriptAnalyzer: skipped — no source folder in this checkout (compiled artefacts only).' -ForegroundColor Yellow
+            return
+          }
+
           $hasErrors = $false
 
           foreach ($file in $files) {
