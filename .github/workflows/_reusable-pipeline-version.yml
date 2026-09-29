@@ -1,0 +1,123 @@
+# Reusable pipeline version sync
+# Reads PIPELINE_VERSION from the canonical workflow and aligns the version token
+# in every workflow and composite action, then commits the result.
+name: WinToolkit V4.1.1 — Reusable pipeline version sync
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Branch to align and receive the commit.
+        required: true
+        type: string
+      version:
+        description: Explicit version; empty means "read PIPELINE_VERSION from the canonical workflow".
+        required: false
+        type: string
+        default: ''
+      canonical-workflow:
+        description: Workflow holding the canonical PIPELINE_VERSION value.
+        required: false
+        type: string
+        default: '.github/workflows/CI-WinToolkit-Dev.yml'
+      commit-message:
+        description: Commit message for the alignment.
+        required: false
+        type: string
+        default: '🆙 Sync pipeline version'
+      skip-ci:
+        description: Append [skip ci] to the alignment commit. The alignment is cosmetic (version tokens only), so it must not start a new run that would cancel the one in progress.
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  sync:
+    name: Reusable pipeline version sync
+    runs-on: windows-latest
+    # No `workflows:` scope: it is not a GITHUB_TOKEN permission, only a PAT one.
+    # The alignment is committed with RELEASE_AUTOMATION_TOKEN.
+    # No `actions:` scope either: a called workflow can only narrow what the
+    # caller grants, and the caller only grants contents.
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The job's credential, repeated verbatim on the commit step below.
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ inputs.branch }}
+
+      - name: Align pipeline version
+        id: align
+        shell: pwsh
+        run: |
+          $params = @{ CanonicalWorkflow = '${{ inputs.canonical-workflow }}' }
+          if ('${{ inputs.version }}') { $params['Version'] = '${{ inputs.version }}' }
+
+          # The script reports the files it actually aligned, one relative path per
+          # line: only those are validated and committed.
+          $list = Join-Path $env:RUNNER_TEMP 'pipeline-version-changed.txt'
+          $params['ChangedFileListPath'] = $list
+          & .github/scripts/Update-PipelineVersion.ps1 @params
+
+          $changed = @(if (Test-Path -LiteralPath $list) { Get-Content -LiteralPath $list } else { @() })
+          "changed=$($changed.Count -gt 0)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "files=$($changed -join ' ')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          if ($changed) { $changed | ForEach-Object { Write-Host "  aligned: $_" } }
+
+      - name: Verify the alignment converged
+        if: steps.align.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          # What can actually go wrong after an alignment: a version token that did
+          # not converge. That is exactly what -Check reports, so it is the only gate
+          # this step needs.
+          #
+          # The workflows are deliberately NOT re-parsed here. This step used to hand
+          # .github\workflows\*.yml to the validate-syntax action, which runs the
+          # PowerShell AST parser: the parser cannot read YAML and answered a valid
+          # workflow with a wall of meaningless "PowerShell syntax error" annotations
+          # (unexpected token 'name:', missing expression after unary operator '-',
+          # and so on). Re-parsing YAML with a PowerShell parser can only ever
+          # produce false errors, and GitHub has already parsed the YAML of the
+          # workflow that is running right now.
+          $params = @{ CanonicalWorkflow = '${{ inputs.canonical-workflow }}' }
+          if ('${{ inputs.version }}') { $params['Version'] = '${{ inputs.version }}' }
+          & .github/scripts/Update-PipelineVersion.ps1 @params -Check
+
+      - name: Verify the push credential can write workflow files
+        # Fail here, with instructions, instead of letting the push die on an
+        # GITHUB_TOKEN can never update .github/workflows/*.yml and no
+        # permissions block can grant it: 'workflows' is not a GITHUB_TOKEN scope.
+        # Only RELEASE_AUTOMATION_TOKEN (a PAT) can.
+        if: steps.align.outputs.changed == 'true'
+        shell: pwsh
+        env:
+          HAS_RELEASE_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN != '' }}
+        run: |
+          if ($env:HAS_RELEASE_TOKEN -eq 'true') { exit 0 }
+          Write-Host '::error::RELEASE_AUTOMATION_TOKEN is not set, so the alignment cannot be committed.'
+          Write-Host 'GITHUB_TOKEN is refused for workflow files. Create a fine-grained PAT with'
+          Write-Host 'Contents: Read and write + Workflows: Read and write, then store it as'
+          Write-Host 'the RELEASE_AUTOMATION_TOKEN repository secret. Interim workaround:'
+          Write-Host '  .\.github\scripts\Update-PipelineVersion.ps1'
+          exit 1
+
+      - name: Commit pipeline version alignment
+        # No continue-on-error: it used to hide a broken commit step behind a green job.
+        if: steps.align.outputs.changed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
+        # Never `with: |`: GitHub collapses the block into one string and rejects it.
+        with:
+          commit_message: ${{ inputs.skip-ci && format('{0} [skip ci]', inputs.commit-message) || inputs.commit-message }}
+          file_pattern: ${{ steps.align.outputs.files }}
+          branch: ${{ inputs.branch }}
+          # Same credential as the checkout above; the action would default to
+          # github.token and the two would diverge once the secret is set.
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          push_options: --force-with-lease
+          skip_fetch: true
