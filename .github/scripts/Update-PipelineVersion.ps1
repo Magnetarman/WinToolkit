@@ -103,7 +103,8 @@ $headerAdded = @()
 # With an explicit -Version the canonical value is the one being overridden, so it
 # is written too: the tree must never be left with files and canonical disagreeing.
 if ($Version) {
-    $canonicalPath = Join-Path $repoRoot $CanonicalWorkflow
+    $canonicalRelative = $CanonicalWorkflow.Replace('\', '/')
+    $canonicalPath = Join-Path $repoRoot ($CanonicalWorkflow -replace '/', [System.IO.Path]::DirectorySeparatorChar)
     $canonicalBytes = [System.IO.File]::ReadAllBytes($canonicalPath)
     $canonicalText = $latin1.GetString($canonicalBytes)
     $canonicalNew = [regex]::Replace(
@@ -111,19 +112,19 @@ if ($Version) {
         '(?m)^(\s*PIPELINE_VERSION:\s*)["'']?[0-9]+\.[0-9]+\.[0-9]+["'']?\s*$',
         "`$1`"$target`""
     )
-    if ($canonicalNew -ne $canonicalText -and $PSCmdlet.ShouldProcess($CanonicalWorkflow, "Set PIPELINE_VERSION to $target")) {
+    if ($canonicalNew -ne $canonicalText -and $PSCmdlet.ShouldProcess($canonicalRelative, "Set PIPELINE_VERSION to $target")) {
         [System.IO.File]::WriteAllBytes($canonicalPath, $latin1.GetBytes($canonicalNew))
-        $updated += $CanonicalWorkflow
+        $updated += $canonicalRelative
     }
 }
 
 foreach ($file in $files) {
-    $relative = [System.IO.Path]::GetRelativePath($repoRoot, $file.FullName)
+    $relative = [System.IO.Path]::GetRelativePath($repoRoot, $file.FullName).Replace('\', '/')
 
-    # Hard scope guard: a .ps1 is only ever touched inside .github\, and a .yml
-    # only inside .github\workflows or .github\actions.
-    if ($file.Extension -eq '.ps1' -and -not $relative.StartsWith(".github$([System.IO.Path]::DirectorySeparatorChar)")) {
-        throw "Refusing to touch '$relative': pipeline .ps1 files must live inside .github\."
+    # Hard scope guard: a .ps1 is only ever touched inside .github/, and a .yml
+    # only inside .github/workflows or .github/actions.
+    if ($file.Extension -eq '.ps1' -and -not $relative.StartsWith($githubPrefix, [System.StringComparison]::Ordinal)) {
+        throw "Refusing to touch '$relative': pipeline .ps1 files must live inside .github/."
     }
 
     $isScript = $file.Extension -eq '.ps1'
