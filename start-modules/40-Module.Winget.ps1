@@ -1041,25 +1041,22 @@ function Reinstall-WingetForced {
     Forcibly repairs the two packages WinGet depends on: the App Installer AppX
     package and the Microsoft.WinGet.Client PowerShell module.
 
-    .DESCRIPTION
-    Returns a StepResult. The two halves are deliberately different in nature:
+    #DESCRIPTION
+    Returns a StepResult. Both halves are performed unconditionally, because this
+    step only runs once every lighter recovery has already failed:
 
-      - Microsoft.DesktopAppInstaller: reset, then reinstall the signed MSIX
-        bundle from Microsoft when the package is missing (or always, with -Force),
-        then verify it is registered. A system package repair, performed
-        unconditionally: it has no lasting effect on the user environment.
-      - Microsoft.WinGet.Client: installs the NuGet provider and the module with
-        -Force -AllowClobber. This permanently rewrites the USER's PowerShell
-        environment and can replace a module the user installed themselves, so it
-        runs ONLY behind an explicit confirmation (-ConfirmModuleInstall) and is
-        skipped outright in a non-interactive session, rather than prompting into
-        a hang. That is the policy agreed for S-7.
+      - Microsoft.DesktopAppInstaller: reset, then reinstall the signed MSIX bundle
+        from Microsoft when the package is missing (or always, with -Force);
+      - Microsoft.WinGet.Client: NuGet provider plus the module with
+        -Force -AllowClobber. This rewrites the user's PowerShell environment, so
+        it is reported on screen, but it is NOT gated behind a confirmation: a prompt
+        would leave the repair half-finished in any unattended session.
 
-    -SkipModule avoids the module half entirely.
+    -SkipModule avoids the module half; -Force re-applies the bundle even when the
+    App Installer package looks registered.
     #>
     [CmdletBinding()]
     param(
-        [switch]$ConfirmModuleInstall,
         [switch]$SkipModule,
         [switch]$Force
     )
