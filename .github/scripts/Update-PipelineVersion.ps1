@@ -1,4 +1,4 @@
-# WinToolkit CI/CD V4.1.0
+# WinToolkit CI/CD V4.1.1
 # Aligns the pipeline version across every workflow, composite action and
 # pipeline script.
 #
@@ -31,6 +31,11 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $versionPattern = 'V\d+\.\d+\.\d+'
 
+# Every path this script reports (and the scope guard below) is a git pathspec, so
+# it is always '/'-separated. GetRelativePath would emit '\' on the Windows runner
+# and the alignment commit would target paths git does not match.
+$githubPrefix = '.github/'
+
 # Canonical header every pipeline script must carry as its first line.
 $headerPattern = '(?m)^[ \t]*#[ \t]*WinToolkit[ \t]+CI/CD[ \t]+V\d+\.\d+\.\d+[ \t]*\r?$'
 $bomText = "$([char]0xEF)$([char]0xBB)$([char]0xBF)"
@@ -57,7 +62,7 @@ function Get-CanonicalVersion {
 
     if ($Explicit) { return $Explicit.Trim() }
 
-    $canonicalPath = Join-Path $repoRoot $CanonicalWorkflow
+    $canonicalPath = Join-Path $repoRoot ($CanonicalWorkflow -replace '/', [System.IO.Path]::DirectorySeparatorChar)
     if (-not (Test-Path -LiteralPath $canonicalPath)) {
         throw "Canonical workflow not found: $CanonicalWorkflow"
     }
@@ -83,10 +88,11 @@ $latin1 = [System.Text.Encoding]::GetEncoding(28591)
 #            tests). Application sources (start-modules, wintoolkit-modules,
 #            tools) are never touched: they carry the product version, not the
 #            pipeline version.
+$githubDir = Join-Path $repoRoot '.github'
 $files = @(
-    Get-ChildItem -Path (Join-Path $repoRoot '.github\workflows') -Filter '*.yml' -File
-    Get-ChildItem -Path (Join-Path $repoRoot '.github\actions') -Filter 'action.yml' -File -Recurse
-    Get-ChildItem -Path (Join-Path $repoRoot '.github') -Filter '*.ps1' -File -Recurse
+    Get-ChildItem -Path (Join-Path $githubDir 'workflows') -Filter '*.yml' -File
+    Get-ChildItem -Path (Join-Path $githubDir 'actions') -Filter 'action.yml' -File -Recurse
+    Get-ChildItem -Path $githubDir -Filter '*.ps1' -File -Recurse
 )
 
 $updated = @()
@@ -97,7 +103,8 @@ $headerAdded = @()
 # With an explicit -Version the canonical value is the one being overridden, so it
 # is written too: the tree must never be left with files and canonical disagreeing.
 if ($Version) {
-    $canonicalPath = Join-Path $repoRoot $CanonicalWorkflow
+    $canonicalRelative = $CanonicalWorkflow.Replace('\', '/')
+    $canonicalPath = Join-Path $repoRoot ($CanonicalWorkflow -replace '/', [System.IO.Path]::DirectorySeparatorChar)
     $canonicalBytes = [System.IO.File]::ReadAllBytes($canonicalPath)
     $canonicalText = $latin1.GetString($canonicalBytes)
     $canonicalNew = [regex]::Replace(
@@ -105,19 +112,19 @@ if ($Version) {
         '(?m)^(\s*PIPELINE_VERSION:\s*)["'']?[0-9]+\.[0-9]+\.[0-9]+["'']?\s*$',
         "`$1`"$target`""
     )
-    if ($canonicalNew -ne $canonicalText -and $PSCmdlet.ShouldProcess($CanonicalWorkflow, "Set PIPELINE_VERSION to $target")) {
+    if ($canonicalNew -ne $canonicalText -and $PSCmdlet.ShouldProcess($canonicalRelative, "Set PIPELINE_VERSION to $target")) {
         [System.IO.File]::WriteAllBytes($canonicalPath, $latin1.GetBytes($canonicalNew))
-        $updated += $CanonicalWorkflow
+        $updated += $canonicalRelative
     }
 }
 
 foreach ($file in $files) {
-    $relative = [System.IO.Path]::GetRelativePath($repoRoot, $file.FullName)
+    $relative = [System.IO.Path]::GetRelativePath($repoRoot, $file.FullName).Replace('\', '/')
 
-    # Hard scope guard: a .ps1 is only ever touched inside .github\, and a .yml
-    # only inside .github\workflows or .github\actions.
-    if ($file.Extension -eq '.ps1' -and -not $relative.StartsWith(".github$([System.IO.Path]::DirectorySeparatorChar)")) {
-        throw "Refusing to touch '$relative': pipeline .ps1 files must live inside .github\."
+    # Hard scope guard: a .ps1 is only ever touched inside .github/, and a .yml
+    # only inside .github/workflows or .github/actions.
+    if ($file.Extension -eq '.ps1' -and -not $relative.StartsWith($githubPrefix, [System.StringComparison]::Ordinal)) {
+        throw "Refusing to touch '$relative': pipeline .ps1 files must live inside .github/."
     }
 
     $isScript = $file.Extension -eq '.ps1'

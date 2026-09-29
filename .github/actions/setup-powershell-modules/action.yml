@@ -1,4 +1,4 @@
-name: WinToolkit V4.1.0 — Setup PowerShell CI modules
+name: WinToolkit V4.1.1 — Setup PowerShell CI modules
 description: Install the PowerShell modules required by WinToolkit CI jobs.
 
 inputs:

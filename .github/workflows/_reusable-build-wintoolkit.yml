@@ -1,5 +1,5 @@
 # Reusable WinToolkit build
-name: WinToolkit V4.1.0 — Reusable WinToolkit build
+name: WinToolkit V4.1.1 — Reusable WinToolkit build
 
 on:
   workflow_call:
@@ -144,6 +144,10 @@ jobs:
           commit_message: ${{ inputs.commit-message }}
           file_pattern: WinToolkit.ps1
           branch: ${{ inputs.branch }}
+          # Same credential as the checkout above, always. The action would default
+          # to github.token, so without this line checkout and push would silently
+          # diverge as soon as RELEASE_AUTOMATION_TOKEN is set.
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Build summary
         if: steps.test_compiled.outputs.tests_passed == 'true'
