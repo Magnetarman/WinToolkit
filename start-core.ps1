@@ -80,6 +80,12 @@ $script:AppConfig = @{
         RpcFailureExitCode = -2147012859
         AlreadyInstalledExitCodes = @(-1978335135, -1978335189)
     }
+    DownloadSignatures = @{
+        vcRedist    = @('Microsoft Corporation', 'Microsoft Windows')
+        git         = @('Git for Windows')
+        wingetMsix  = @('Microsoft Corporation', 'Microsoft Windows')
+        terminalMsix = @('Microsoft Corporation', 'Microsoft Windows')
+    }
     WindowsAppsPackageName = 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe'
     Defender          = @{
         MaxConfirmations = 3
@@ -577,6 +583,58 @@ function Set-UpdateServicesError {
     }
     Write-ToolkitLog -Level 'ERROR' -Message "Windows Update services recovery: $Message"
 }
+function Sync-UserScopeWithInstalledTools {
+    [CmdletBinding()]
+    param()
+    $context = Get-ToolkitOriginalUserContext
+    if (-not $context.AccountSwitched) {
+        return New-StepResult -Success $true -Message 'No account switch: the user scope is already correct.'
+    }
+    $toolsRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps'
+    if (-not (Test-Path -LiteralPath $toolsRoot -PathType Container)) {
+        Write-ToolkitLog -Level 'WARNING' -Message "Tool directory not found, nothing to align: $toolsRoot"
+        return New-StepResult -Success $false -Message "No WindowsApps directory to align for '$($context.OriginalUser)'."
+    }
+    $hiveReg = 'HKU\WinToolkitUserScope'
+    $loaded = $false
+    try {
+        $null = & reg.exe load $hiveReg (Join-Path $context.UserProfile 'NTUSER.DAT') 2>&1
+        $loaded = ($LASTEXITCODE -eq 0)
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Could not load the user hive: $($_.Exception.Message)"
+        $loaded = $false
+    }
+    if (-not $loaded) {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.userScopeNotAligned0' -Args @($context.OriginalUser, $toolsRoot))
+        return New-StepResult -Success $false -Message "Tools are in '$($context.CurrentUser)'; the PATH of '$($context.OriginalUser)' could not be updated."
+    }
+    try {
+        $envKey = "Registry::$hiveReg\Environment"
+        $current = (Get-ItemProperty -Path $envKey -Name 'Path' -ErrorAction SilentlyContinue).Path
+        if ([string]::IsNullOrWhiteSpace($current)) { $current = '' }
+        if (($current -split ';') -contains $toolsRoot) {
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.userScopeAlreadyAligned0' -Args @($context.OriginalUser))
+            return New-StepResult -Success $true -Message 'The user PATH already contains the tool directory.'
+        }
+        $newPath = if ($current.TrimEnd(';')) { $current.TrimEnd(';') + ';' + $toolsRoot } else { $toolsRoot }
+        Set-ItemProperty -Path $envKey -Name 'Path' -Value $newPath -Type ExpandString -Force
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.userScopeAligned0' -Args @($context.OriginalUser, $toolsRoot))
+        Write-ToolkitLog -Level 'INFO' -Message "User PATH aligned: added '$toolsRoot' to '$($context.OriginalUser)'."
+        return New-StepResult -Success $true -Changed $true -Message "Tool directory added to the PATH of '$($context.OriginalUser)'."
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Could not update the user PATH: $($_.Exception.Message)"
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.userScopeNotAligned0' -Args @($context.OriginalUser, $toolsRoot))
+        return New-StepResult -Success $false -Message "Failed to update the PATH of '$($context.OriginalUser)'."
+    }
+    finally {
+        if ($loaded) {
+            $null = & reg.exe unload $hiveReg 2>&1
+            Write-ToolkitLog -Level 'DEBUG' -Message "Unloaded the temporary user hive ($LASTEXITCODE)."
+        }
+    }
+}
 function Invoke-StopUpdateServices {
     [CmdletBinding(SupportsShouldProcess)]
     param()
@@ -907,8 +965,9 @@ function Repair-AppInstaller {
         }
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
             $tempFile = Join-Path $env:TEMP 'WingetInstaller.msixbundle'
-            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempFile)) {
-                throw 'App Installer bundle download failed.'
+            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempFile `
+                        -ContentValidator (New-SignatureValidator -ProfileKey 'wingetMsix'))) {
+                throw 'App Installer bundle download failed or its signature is not trusted.'
             }
             if (-not (Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller')) {
                 throw 'App Installer package installation failed.'
@@ -1020,7 +1079,7 @@ function Invoke-WinGetPackageManagerRepair {
     if (-not (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue)) {
         return $false
     }
-    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.tentativoRiparazioneWingetRepairWingetpackagemanager')
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingWingetRepairViaPackageManager')
     try {
         Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
         return $true
@@ -1040,7 +1099,7 @@ function Repair-WingetDatabase {
         Invoke-ForceCloseWinget
         $wingetCachePath = "$env:LOCALAPPDATA\WinGet"
         if (Test-Path $wingetCachePath) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.puliziaCacheWinget')
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.clearingWingetCache')
             Get-ChildItem -Path $wingetCachePath -Recurse -Force -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
             ForEach-Object {
@@ -1112,7 +1171,7 @@ function Test-WingetDeepValidation {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.crashDetectedExitcode0AccessViolationAdvancedRecoveryAttempt' -Args @($exitCode))
             $recoverySteps = @(
                 @{ Repair = { Repair-WingetDatabase }; WarningKey = $null; InfoKey = 'uiText.repeatTestAfterDatabaseRestore' },
-                @{ Repair = { Install-WingetViaModule }; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
+                @{ Repair = { Install-WingetCore }; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
             )
             foreach ($step in $recoverySteps) {
                 if ($step.WarningKey) {
@@ -1174,8 +1233,9 @@ function Install-WingetCore {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.visualCRedistributableInstallation')
             $vcUrl = $script:AppConfig.URLs.VCRedistTemplate -f (Get-ArchitectureSpecificValue -X64 'x64' -X86 'x86' -ARM64 'arm64')
             $vcFile = Join-Path $tempDir "vc_redist.exe"
-            if (-not (Invoke-DownloadFile -Uri $vcUrl -OutFile $vcFile)) {
-                throw 'Visual C++ Redistributable download failed.'
+            if (-not (Invoke-DownloadFile -Uri $vcUrl -OutFile $vcFile `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'vcRedist' -BlockOnInvalid))) {
+                throw 'Visual C++ Redistributable download failed or its signature was not trusted.'
             }
             $vcResult = Invoke-ExternalCommand -FilePath $vcFile -ArgumentList @('/install', '/quiet', '/norestart') -TimeoutSeconds 600 -AcceptedExitCodes @(0, 1638, 3010)
             if ($vcResult.Accepted) {
@@ -1188,7 +1248,7 @@ function Install-WingetCore {
         else {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.visualCRedistributableAlreadyPresent')
         }
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependenciesFromTheOfficialRepository')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependencies')
         $dependencies = @()
         $depUrl = Get-WingetDownloadUrl -Match 'DesktopAppInstaller_Dependencies.zip'
         if ($depUrl) {
@@ -1210,13 +1270,14 @@ function Install-WingetCore {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.unableToExtractOrInstallDependenciesFromTheOfficialZipError0' -Args @($_.Exception.Message))
             }
         }
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadAndInstallWingetBundleWithDependencies')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadAndInstallWingetBundle')
         $wingetUrl = Get-WingetDownloadUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
         if (-not $wingetUrl) {
             throw (Get-SourceTextLoc 'uiText.wingetCoreInstallationFailed')
         }
         $wingetFile = Join-Path $tempDir "winget.msixbundle"
-        if (-not (Invoke-DownloadFile -Uri $wingetUrl -OutFile $wingetFile -Silent)) {
+        if (-not (Invoke-DownloadFile -Uri $wingetUrl -OutFile $wingetFile -Silent `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'wingetMsix'))) {
             throw (Get-SourceTextLoc 'uiText.wingetCoreInstallationFailed')
         }
         if (Start-AppxSilentProcess -AppxPath $wingetFile -DependencyPaths $dependencies -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
@@ -1238,87 +1299,82 @@ function Install-WingetCore {
         $ProgressPreference = $oldProgress
     }
 }
-function Install-WingetPackage {
-    param([switch]$Force)
-    Write-StyledMessage -Type Info -Text ("🚀 " + (Get-SourceTextLoc 'uiText.startWingetInstallationVerificationProcedure'))
-    if (-not (Test-WingetCompatibility)) {
-        return $false
-    }
-    Invoke-ForceCloseWinget
-    $tempInstaller = $null
-    $oldProgress = $ProgressPreference
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        $tempPath = "$env:TEMP\WinGet"
-        if (Test-Path $tempPath) {
-            Remove-Item -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Reset-WingetSources
-        }
-        if (-not (Get-Module -ListAvailable Microsoft.WinGet.Client) -or $Force) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingMicrosoftWingetClientModule')
-            try {
-                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
-                Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
-                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetClientModuleInstalled')
-            }
-            catch {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.moduloWingetClient0' -Args @($_.Exception.Message))
-            }
-        }
-        Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
-        if (Invoke-WinGetPackageManagerRepair) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerEseguito')
-        }
-        Start-Sleep 3
-        if (-not (Get-Command winget -ErrorAction SilentlyContinue) -or $Force) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadMsixbundleDaMicrosoft')
-            $msixTempDir = Initialize-Directory -Path $script:AppConfig.Paths.Temp
-            $tempInstaller = Join-Path $msixTempDir "WingetInstaller.msixbundle"
-            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -Silent)) {
-                throw 'WinGet MSIX bundle download failed.'
-            }
-            if (Start-AppxSilentProcess -AppxPath $tempInstaller -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
-                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationSuccessful')
-            }
-            else {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationFailed')
-            }
-            Start-Sleep 3
-        }
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetAppInstaller')
-        try {
-            Reset-AppInstallerPackage
-        }
-        catch {
-            Write-ToolkitLog -Level 'WARNING' -Message "Install-WingetPackage: $($_.Exception.Message)"
-        }
-        Set-WingetPathPermissions
-        Start-Sleep 2
-        Update-EnvironmentPath
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetInstalledAndWorking')
-            return $true
-        }
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.unableToInstallWinget')
-        return $false
-    }
-    catch {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalError0' -Args @($_.Exception.Message))
-        return $false
-    }
-    finally {
-        if ($tempInstaller -and (Test-Path -LiteralPath $tempInstaller)) {
-            Remove-Item -LiteralPath $tempInstaller -Force -ErrorAction SilentlyContinue
-        }
-        $ProgressPreference = $oldProgress
-    }
-}
 function Reset-WingetSourcesOnce {
     if ($script:State.SourcesReset) { return }
     Reset-WingetSources
     $script:State.SourcesReset = $true
+}
+function Reinstall-WingetForced {
+    [CmdletBinding()]
+    param(
+        [switch]$SkipModule,
+        [switch]$Force
+    )
+    $appInstallerRepaired = $false
+    $moduleInstalled = $false
+    $notes = [System.Collections.Generic.List[string]]::new()
+    if (-not (Test-WingetCompatibility)) {
+        return New-StepResult -Success $false -Message 'This Windows build is not supported by WinGet.'
+    }
+    Invoke-ForceCloseWinget
+    try {
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.forcedReinstallAppInstaller0')
+        Reset-AppInstallerPackage
+        $present = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
+        if (-not ($Force -or -not $present)) {
+            $appInstallerRepaired = $true
+        }
+        else {
+            $tempInstaller = Join-Path (Initialize-Directory -Path $script:AppConfig.Paths.Temp) 'WingetInstaller.msixbundle'
+            try {
+                if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -Silent `
+                        -ContentValidator (New-SignatureValidator -ProfileKey 'wingetMsix')) {
+                    if (Start-AppxSilentProcess -AppxPath $tempInstaller -Flags '-ForceApplicationShutdown' `
+                            -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
+                        $appInstallerRepaired = $true
+                        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationSuccessful')
+                    }
+                    else { $notes.Add('The App Installer bundle was rejected by Windows.') }
+                }
+                else { $notes.Add('The App Installer bundle could not be downloaded or its signature was not trusted.') }
+            }
+            finally { Remove-PathQuietly -Path $tempInstaller }
+        }
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Forced App Installer repair failed: $($_.Exception.Message)"
+        $notes.Add("App Installer repair failed: $($_.Exception.Message)")
+    }
+    if ($SkipModule) {
+        $notes.Add('Module install skipped as requested.')
+        Write-ToolkitLog -Level 'INFO' -Message 'Skipped the WinGet.Client module install: -SkipModule set.'
+    }
+    else {
+        try {
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingMicrosoftWingetClientModule')
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
+            Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetClientModuleInstalled')
+            Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
+            $moduleInstalled = $true
+        }
+        catch {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.moduloWingetClient0' -Args @($_.Exception.Message))
+            Write-ToolkitLog -Level 'WARNING' -Message "WinGet.Client module install failed: $($_.Exception.Message)"
+            $notes.Add("Module install failed: $($_.Exception.Message)")
+        }
+    }
+    Set-WingetPathPermissions
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
+    $health = Get-WingetHealth
+    $detail = ($notes -join ' ')
+    if ($health.Runs) {
+        Reset-WingetSourcesOnce
+        return New-StepResult -Success $true -Changed $true -Message "WinGet operational (v$($health.Version)). $detail".Trim()
+    }
+    $repaired = [bool]($appInstallerRepaired -or $moduleInstalled)
+    return New-StepResult -Success $repaired -Changed $repaired -Message "WinGet still unavailable. $detail".Trim()
 }
 function Initialize-Winget {
     Update-EnvironmentPath
@@ -1343,22 +1399,22 @@ function Initialize-Winget {
     Update-EnvironmentPath
     Invalidate-WingetVersionCache
     $health = Get-WingetHealth
+    if ($health.Runs) {
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRestoredQuickly')
+        Reset-WingetSourcesOnce
+        return New-StepResult -Success $true -Changed $true -Message "WinGet restored (v$($health.Version))."
+    }
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptForcedPackageReinstall')
+    $null = Reinstall-WingetForced
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
+    $health = Get-WingetHealth
     if (-not $health.Runs) {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts')
         return New-StepResult -Success $false -Message 'WinGet remains unavailable after recovery.'
     }
     Reset-WingetSourcesOnce
     return New-StepResult -Success $true -Changed $true -Message "WinGet reinstalled (v$($health.Version))."
-}
-function Install-WingetViaModule {
-    try {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startWingetInstallationVerificationProcedure')
-        return (Install-WingetPackage -Force)
-    }
-    catch {
-        Write-ToolkitLog -Level 'WARNING' -Message "WinGet module installation failed: $($_.Exception.Message)"
-        return $false
-    }
 }
 function Test-VCRedistRuntime {
     param(
@@ -1403,7 +1459,7 @@ function Install-GitPackage {
         }
     }
     try {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadGitDaGithub')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadGitFromGitHub')
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.runningGitInstaller')
         $assetPattern = Get-ArchitectureSpecificValue -X64 '64-bit\.exe$' -X86 '32-bit\.exe$' -ARM64 'arm64\.exe$'
         $installResult = Install-FromGitHubRelease -ReleaseApiUrl $script:AppConfig.URLs.GitRelease `
@@ -1426,7 +1482,7 @@ function Install-GitPackage {
     }
 }
 function Install-PowerShellCore {
-    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.verificaPowershell7')
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.checkingPowershell7')
     $pwshExe = Join-Path $PSHOME 'pwsh.exe'
     if (($PSVersionTable.PSVersion.Major -ge 7) -and (Test-Path -LiteralPath $pwshExe)) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7AlreadyInstalled')
@@ -1477,9 +1533,10 @@ function Install-WindowsTerminalApp {
             throw (Get-SourceTextLoc 'uiText.windowsTerminalAssetMsixbundleNotFound')
         }
         $downloadUrl = $asset.browser_download_url
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.iTryNativeAppxInstallationFromDownloadedBundle')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingNativeAppxInstallFromBundle')
         $tempFile = Join-Path $env:TEMP "WinTerminal.msixbundle"
-        if (-not (Invoke-DownloadFile -Uri $downloadUrl -OutFile $tempFile)) {
+        if (-not (Invoke-DownloadFile -Uri $downloadUrl -OutFile $tempFile `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'terminalMsix'))) {
             throw (Get-SourceTextLoc 'uiText.windowsTerminalAppxInstallationFailed')
         }
         if (Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.WindowsTerminal') {
@@ -1646,7 +1703,7 @@ function Install-PspEnvironment {
             -MinimumBytes $script:AppConfig.UserScope.MinThemeFileBytes `
             -ContentValidator { param($candidatePath) Test-OhMyPoshThemeFile -Path $candidatePath }) {
         $result.ThemeOk = $true
-        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.temaOhMyPoshScaricato')
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.ohMyPoshThemeDownloaded')
         Write-ToolkitLog -Level 'INFO' -Message "Oh My Posh theme installed: $($paths.ThemePath)"
     }
     else {
@@ -1727,7 +1784,7 @@ function New-ToolkitDesktopShortcut {
         $icon = Join-Path $iconDir "WinToolkit.ico"
         $null = Initialize-Directory -Path $iconDir
         if (-not (Test-FileHasMinimumSize -Path $icon -MinimumBytes $script:MIN_ICON_FILE_BYTES)) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadIcona')
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadIcon')
             $null = Invoke-DownloadFile -Uri $script:AppConfig.URLs.ToolkitIcon -OutFile $icon -MinimumBytes $script:MIN_ICON_FILE_BYTES
         }
         $shell = New-Object -ComObject WScript.Shell
@@ -1992,6 +2049,55 @@ function Invoke-DownloadFile {
         $ProgressPreference = $previousProgress
     }
 }
+function Test-DownloadedSignature {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string[]]$ExpectedSigners
+    )
+    try {
+        $signature = Get-AuthenticodeSignature -LiteralPath $Path -ErrorAction Stop
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Signature could not be read for '$Path': $($_.Exception.Message)"
+        return $false
+    }
+    if ($signature.Status -ne 'Valid') {
+        Write-ToolkitLog -Level 'WARNING' -Message "Invalid or untrusted signature on '$Path': status=$($signature.Status)"
+        return $false
+    }
+    $subject = [string]$signature.SignerCertificate.Subject
+    foreach ($expected in $ExpectedSigners) {
+        if ($subject -like "*$expected*") {
+            Write-ToolkitLog -Level 'INFO' -Message "Signature verified on '$Path': $subject"
+            return $true
+        }
+    }
+    Write-ToolkitLog -Level 'WARNING' -Message "Unexpected signer on '$Path': '$subject' (expected one of: $($ExpectedSigners -join ', '))."
+    return $false
+}
+function New-SignatureValidator {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$ProfileKey,
+        [switch]$BlockOnInvalid
+    )
+    if (-not $script:AppConfig.DownloadSignatures.ContainsKey($ProfileKey)) {
+        throw "Unknown signature profile '$ProfileKey'. Known: $($script:AppConfig.DownloadSignatures.Keys -join ', ')"
+    }
+    $signers = @($script:AppConfig.DownloadSignatures[$ProfileKey])
+    $block = $BlockOnInvalid.IsPresent
+    $signatureCheck = ${function:Test-DownloadedSignature}
+    $validator = {
+        param($candidatePath)
+        $ok = & $signatureCheck -Path $candidatePath -ExpectedSigners $signers
+        if (-not $ok -and $block) {
+            throw "Signature verification failed for '$candidatePath': the file will not be installed."
+        }
+        return $ok
+    }
+    return $validator.GetNewClosure()
+}
 function Install-RemoteFile {
     param(
         [Parameter(Mandatory = $true)][string[]]$Url,
@@ -2013,6 +2119,10 @@ function Install-RemoteFile {
         }
         $null = Initialize-Directory -Path (Split-Path -Path $Destination -Parent)
         $backupPath = Copy-FileAtomically -SourcePath $stagedPath -Destination $Destination -Backup
+        if (-not (Test-FileHasMinimumSize -Path $Destination -MinimumBytes $MinimumBytes)) {
+            Write-ToolkitLog -Level 'ERROR' -Message "Installed file is smaller than expected: $Destination"
+            return $false
+        }
         if ($backupPath) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.existingProfileSaved0' -Args @($backupPath))
             Remove-ExpiredBackups -Path "$Destination.bak.*" -Keep $BackupRetention
@@ -2120,8 +2230,9 @@ function Install-FromGitHubRelease {
         $asset = $release.assets | Where-Object { $_.name -match $AssetPattern } | Select-Object -First 1
         if (-not $asset) { throw "No release asset matched '$AssetPattern'." }
         $downloadPath = Join-Path $script:AppConfig.Paths.Temp $asset.name
-        if (-not (Invoke-DownloadFile -Uri $asset.browser_download_url -OutFile $downloadPath)) {
-            throw "Unable to download the release asset $($asset.name)."
+        if (-not (Invoke-DownloadFile -Uri $asset.browser_download_url -OutFile $downloadPath `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'git' -BlockOnInvalid))) {
+            throw "Unable to download the release asset $($asset.name) or its signature is not trusted."
         }
         $installerArgs = @($InstallerArguments | ForEach-Object {
                 $_ -replace '\{INSTALLER\}', $downloadPath
@@ -2231,7 +2342,7 @@ function Invoke-WinToolkitSetup {
         Initialize-UpdateServicesState
         Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.powershell0' -Args @($PSVersionTable.PSVersion))
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingWinToolkitConfiguration')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingWinToolkitSetup')
         $null = Request-DefenderPause
         $steps = @(
             @{ Name = 'System clock'; Run = { Repair-SystemClock } }
@@ -2243,6 +2354,8 @@ function Invoke-WinToolkitSetup {
             @{ Name = 'Windows Terminal'; Run = { Install-WindowsTerminalApp } }
             @{ Name = 'Default terminal'; Run = { Set-WindowsTerminalAsDefault }; When = { Test-WindowsTerminalInstalled } }
             @{ Name = 'PowerShell environment'; Run = { Install-PspEnvironment } }
+            @{ Name = 'User scope alignment'; Run = { Sync-UserScopeWithInstalledTools }
+                When = { (Get-ToolkitOriginalUserContext).AccountSwitched } }
             @{ Name = 'Desktop shortcut'; Run = { New-ToolkitDesktopShortcut }
                 When = { (Test-WindowsTerminalInstalled) -and (Test-CommandExists -Name 'pwsh') }
             }
