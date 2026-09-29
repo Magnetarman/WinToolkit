@@ -386,6 +386,12 @@ jobs:
     with:
       branch: ${{ github.ref_name }}
       commit-message: "🆙 Sync pipeline version"
+    # The ceiling for the token the called workflow gets: a called workflow can
+    # only narrow what the caller grants, never widen it. The alignment rewrites
+    # .github/workflows/*.yml, which GITHUB_TOKEN may not touch without this scope.
+    permissions:
+      contents: write
+      workflows: write
     secrets: inherit
 
   # Build WinToolkit.ps1 (reusable workflow) when sources changed and quality passed.
