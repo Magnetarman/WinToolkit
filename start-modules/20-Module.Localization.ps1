@@ -2,13 +2,11 @@
 # LOCALIZATION
 # ============================================================================
 #
-# Resolution order: locally cached language files -> %LOCALAPPDATA% cache ->
-# network refresh. Any network failure falls back to the English strings that
-# are embedded below, so the user never sees a raw "[MISSING TRANSLATION: ...]"
-# placeholder for the messages that matter most.
+# Resolution order: the per-user cache filled by
+# Invoke-SourceTextLanguagePreparation, then the English strings embedded below,
+# so the user never sees a raw "[MISSING TRANSLATION: ...]" placeholder for the
+# messages that matter most. The active and default tables live on $script:State.
 
-$script:SourceTextLanguageData = $null
-$script:SourceTextDefaultLanguageData = $null
 $script:EmbeddedEnglishText = @{
     'uiText.environmentReadyForInstallation'   = 'Environment ready for installation.'
     'uiText.configurationComplete'             = 'Configuration complete.'
@@ -33,84 +31,49 @@ $script:SourceTextKeyAliases = @{
 function Get-SourceTextLanguageDirectory {
     <#
     .SYNOPSIS
-    Returns the first existing language directory, preferring the local sources.
+    Returns the per-user language cache directory.
+
+    .DESCRIPTION
+    The previous version searched $PSScriptRoot, its parent, the current
+    directory and finally the cache. Under `irm | iex` $PSScriptRoot is empty, so
+    the search effectively depended on the caller's working directory, and with
+    the working directory at C:\ the parent lookup produced an empty string that
+    made Join-Path throw. Loading translations from whatever happened to sit in the
+    working directory is not something a bootstrapper should do: there is exactly
+    one cache, and it is named in AppConfig.
     #>
-    $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
-    # Last resort: the per-user cache filled by Invoke-SourceTextLanguagePreparation.
-    $candidates = @(
-        (Join-Path $root 'languages'),
-        (Join-Path (Split-Path $root -Parent) 'languages'),
-        (Join-Path (Get-Location) 'languages'),
-        $script:AppConfig.Paths.Languages
-    )
-    foreach ($candidate in $candidates) {
-        if (Test-Path $candidate) { return $candidate }
-    }
-    return $candidates[-1]
-}
-
-
-function Get-RemoteAvailableCultures {
-    param([string]$GitHubApiUrl = $script:AppConfig.URLs.LanguagesApiUrl)
-    try {
-        $response = Invoke-RestMethod -Uri $GitHubApiUrl -UseBasicParsing -ErrorAction Stop
-        return @($response | Where-Object { $_.type -eq 'dir' } | ForEach-Object { $_.name })
-    }
-    catch {
-        return @()
-    }
-}
-
-
-function Invoke-SourceTextLanguagePruning {
-    <#
-    .SYNOPSIS
-    Removes cached language directories that are no longer present in the
-    authoritative source (the remote culture list), keeping the local cache
-    synchronized with the latest changes on every startup.
-    #>
-    [CmdletBinding()]
-    param(
-        [string]$LocalDir,
-        [string[]]$AllowedCultures
-    )
-    if (-not (Test-Path $LocalDir)) { return }
-    $allowed = @('en-US') + @($AllowedCultures | Where-Object { $_ -and $_.Trim() })
-    $allowed = @($allowed | Select-Object -Unique)
-    if ($allowed.Count -le 1) { return }
-    foreach ($dir in (Get-ChildItem -Path $LocalDir -Directory -ErrorAction SilentlyContinue)) {
-        if ($allowed -notcontains $dir.Name) {
-            try {
-                Remove-Item -LiteralPath $dir.FullName -Recurse -Force -ErrorAction Stop
-                Write-Verbose "Pruned obsolete language directory: $($dir.Name)"
-            }
-            catch {
-                Write-Verbose "Failed to prune language directory '$($dir.FullName)': $($_.Exception.Message)"
-            }
-        }
-    }
+    return $script:AppConfig.Paths.Languages
 }
 
 
 function Invoke-SourceTextLanguagePreparation {
+    <#
+    .SYNOPSIS
+    Fetches the language files actually needed: en-US plus the resolved culture.
+
+    .DESCRIPTION
+    The previous flow called the unauthenticated GitHub contents API (60 requests
+    per hour, shared by every user behind the same IP) on EVERY startup, then
+    downloaded the .psd1 of every culture in the repository, then pruned the cache
+    against that list. For a setup that displays one language, that is one
+    avoidable API call plus N-2 pointless downloads.
+
+    The language is resolved first (from the explicit request, then from the
+    system UI culture) and only those two files are fetched. A missing culture
+    simply falls back to en-US, which is the same outcome the old flow produced
+    when the download failed.
+    #>
     [CmdletBinding()]
     param(
-        [string]$ScriptRoot,
-        [string]$RemoteBaseUrl = $script:AppConfig.URLs.LanguagesRawUrl,
-        [string]$GitHubApiUrl = $script:AppConfig.URLs.LanguagesApiUrl
+        [string]$Culture = 'en-US',
+        [string]$RemoteBaseUrl = $script:AppConfig.URLs.LanguagesRawUrl
     )
-    $localDir = $script:AppConfig.Paths.Languages
-    $remoteCultures = Get-RemoteAvailableCultures -GitHubApiUrl $GitHubApiUrl
-    if ($remoteCultures.Count -le 0) { return $localDir }
 
-    $null = Initialize-Directory -Path $localDir
+    $localDir = Initialize-Directory -Path $script:AppConfig.Paths.Languages
+    $wanted = @('en-US')
+    if ($Culture -and $Culture -ne 'en-US') { $wanted += $Culture }
 
-    # Sync the language cache with the reference branch on every startup:
-    # remove cultures no longer present remotely, then download the latest
-    # WinToolkit.psd1 for each available culture (overwriting any cached copy).
-    Invoke-SourceTextLanguagePruning -LocalDir $localDir -AllowedCultures $remoteCultures
-
-    foreach ($culture in (@('en-US') + $remoteCultures | Select-Object -Unique)) {
+    foreach ($culture in ($wanted | Select-Object -Unique)) {
         $cultureDir = Initialize-Directory -Path (Join-Path $localDir $culture)
         $localFile = Join-Path $cultureDir 'WinToolkit.psd1'
         # Staged next to the target and swapped in: a half-written .psd1 must never
@@ -124,19 +87,11 @@ function Invoke-SourceTextLanguagePreparation {
             Move-Item -LiteralPath $stagedFile -Destination $localFile -Force -ErrorAction Stop
         }
         catch {
-            # Offline or unreachable branch: seed the cache from the local sources.
-            if (-not (Test-Path $localFile)) {
-                try {
-                    $localFileFallback = Join-Path $ScriptRoot 'languages' $culture 'WinToolkit.psd1'
-                    if (Test-Path $localFileFallback) { Copy-Item -LiteralPath $localFileFallback -Destination $localFile -Force }
-                }
-                catch {
-                    Write-Warning "start-modules\20-Module.Localization.ps1, Invoke-SourceTextLanguagePreparation: $($_.Exception.Message)"
-                }
-            }
+            # Offline or unknown culture: keep whatever the cache already holds.
+            Write-ToolkitLog -Level 'WARNING' -Message "Language file for '$culture' unavailable: $($_.Exception.Message)"
         }
         finally {
-            if (Test-Path -LiteralPath $stagedFile) { Remove-Item -LiteralPath $stagedFile -Force -ErrorAction SilentlyContinue }
+            Remove-PathQuietly -Path $stagedFile
         }
     }
     return $localDir
@@ -144,13 +99,29 @@ function Invoke-SourceTextLanguagePreparation {
 
 
 function Get-SourceTextAutoDetectedLanguage {
-    param([string]$AvailableCultures = 'en-US', [string]$SystemUICulture = ($PSUICulture.ToString()))
+    <#
+    .SYNOPSIS
+    Maps the system UI culture onto one of the available culture FOLDERS.
+
+    .DESCRIPTION
+    The previous signature took the cultures as a comma separated string and
+    re-split it, then returned the lowercased system culture instead of the
+    folder name that actually exists on disk: with a folder named 'it-IT' and a
+    system culture of 'it-it' the lookup missed every time. The list is now a
+    proper [string[]] and the original list element is returned.
+    #>
+    param(
+        [string[]]$AvailableCultures = @('en-US'),
+        [string]$SystemUICulture = ($PSUICulture.ToString())
+    )
+
     $normalizedSystem = $SystemUICulture.ToLowerInvariant()
-    $availableList = @($AvailableCultures -split '[\s,]+' | Where-Object { $_ })
-    if ($availableList -contains $normalizedSystem) { return $normalizedSystem }
+    foreach ($culture in $AvailableCultures) {
+        if ($culture -and $culture.ToLowerInvariant() -eq $normalizedSystem) { return $culture }
+    }
     $neutralSystem = $normalizedSystem.Split('-')[0]
-    foreach ($culture in $availableList) {
-        if ($culture.Split('-')[0] -eq $neutralSystem) { return $culture }
+    foreach ($culture in $AvailableCultures) {
+        if ($culture -and $culture.Split('-')[0].ToLowerInvariant() -eq $neutralSystem) { return $culture }
     }
     return 'en-US'
 }
@@ -175,43 +146,39 @@ function Import-SourceTextLanguageFile {
 function Initialize-SourceTextLocalization {
     param([string]$LanguageCode)
 
-    $script:SourceTextDefaultLanguageData = Import-SourceTextLanguageFile -LanguageCode 'en-US'
-    if (-not $script:SourceTextDefaultLanguageData) {
-        $script:SourceTextDefaultLanguageData = $script:EmbeddedEnglishText
-    }
-    $script:SourceTextLanguageData = Import-SourceTextLanguageFile -LanguageCode $LanguageCode
-    if (-not $script:SourceTextLanguageData) {
-        $script:SourceTextLanguageData = $script:SourceTextDefaultLanguageData
-    }
+    $default = Import-SourceTextLanguageFile -LanguageCode 'en-US'
+    if (-not $default) { $default = $script:EmbeddedEnglishText }
+    $script:State.Text.Default = $default
+
+    $active = Import-SourceTextLanguageFile -LanguageCode $LanguageCode
+    $script:State.Text.Active = if ($active) { $active } else { $default }
 }
 
 
 function Resolve-SourceTextLanguage {
     <#
     .SYNOPSIS
-    Prepares the language cache and resolves 'Auto' to a concrete culture.
+    Resolves 'Auto' to a concrete culture and loads its translation table.
 
     .DESCRIPTION
     Called once by the orchestrator (90-Skeleton.Main.ps1) instead of running as
     script-level code, so that the language cache is only touched after logging
     is available and after the elevation/PowerShell 7 checks have passed.
+
+    The culture is decided from the explicit request or from the system UI
+    culture, and only that language plus en-US are downloaded (see
+    Invoke-SourceTextLanguagePreparation).
     #>
     [CmdletBinding()]
     param([string]$RequestedLanguage = 'Auto')
 
-    $preparedDir = Invoke-SourceTextLanguagePreparation -ScriptRoot $PSScriptRoot
-    $resolved = $RequestedLanguage
-    if ($resolved -eq 'Auto') {
-        $availableCultures = @()
-        if ($preparedDir -and (Test-Path $preparedDir)) {
-            $availableCultures = @(Get-ChildItem -Path $preparedDir -Directory -ErrorAction SilentlyContinue |
-                Where-Object { Test-Path (Join-Path $_.FullName 'WinToolkit.psd1') } |
-                ForEach-Object { $_.Name })
-        }
-        $resolved = Get-SourceTextAutoDetectedLanguage -AvailableCultures ($availableCultures -join ',')
+    $culture = $RequestedLanguage
+    if ([string]::IsNullOrWhiteSpace($culture) -or $culture -eq 'Auto') {
+        $culture = Get-SourceTextAutoDetectedLanguage
     }
-    Initialize-SourceTextLocalization -LanguageCode $resolved
-    return $resolved
+    $null = Invoke-SourceTextLanguagePreparation -Culture $culture
+    Initialize-SourceTextLocalization -LanguageCode $culture
+    return $culture
 }
 
 
@@ -222,11 +189,11 @@ function Get-SourceTextValueFromData {
     #>
     param([Parameter(Mandatory = $true)][string]$Key)
 
-    if ($script:SourceTextLanguageData -and $script:SourceTextLanguageData.ContainsKey($Key)) {
-        return [string]$script:SourceTextLanguageData[$Key]
+    if ($script:State.Text.Active -and $script:State.Text.Active.ContainsKey($Key)) {
+        return [string]$script:State.Text.Active[$Key]
     }
-    if ($script:SourceTextDefaultLanguageData -and $script:SourceTextDefaultLanguageData.ContainsKey($Key)) {
-        return [string]$script:SourceTextDefaultLanguageData[$Key]
+    if ($script:State.Text.Default -and $script:State.Text.Default.ContainsKey($Key)) {
+        return [string]$script:State.Text.Default[$Key]
     }
     return $null
 }
@@ -265,29 +232,4 @@ function Get-SourceTextLoc {
 
     if ($Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
-}
-
-
-function Format-SourceText {
-    <#
-    .SYNOPSIS
-    Composes a localized message from canonical verb/noun tokens to keep
-    translation files small and generalized (infinitive verb + singular noun).
-
-    .EXAMPLE
-    Format-SourceText -Verb 'remove' -Noun 'folder'   # -> "Remove folder"
-    #>
-    [CmdletBinding()]
-    param(
-        [string]$Verb,
-        [string]$Noun,
-        [object[]]$Arguments = @()
-    )
-
-    $parts = @()
-    if ($Verb) { $parts += (Get-SourceTextLoc "verb.$Verb") }
-    if ($Noun) { $parts += (Get-SourceTextLoc "noun.$Noun") }
-    $text = ($parts -join ' ').Trim()
-    if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($text, $Arguments) }
-    return $text
 }

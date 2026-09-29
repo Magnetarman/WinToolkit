@@ -54,6 +54,11 @@ function Start-AppxSilentProcess {
         the host console, so the install runs in a child process to keep the toolkit
         output clean. The child falls back to Add-AppxProvisionedPackage for the
         error codes that require provisioning.
+
+        The bundle signature is checked by the caller through
+        -ContentValidator. It is a WARNING here, not a block: Add-AppxPackage
+        validates the package signature itself and fails safely, so the OS remains
+        the authority on that decision.
     #>
     param(
         [string]$AppxPath,
@@ -63,7 +68,6 @@ function Start-AppxSilentProcess {
         [int]$TimeoutSeconds = 120
     )
 
-    $errFile = Join-Path $env:TEMP "AppxError_$([guid]::NewGuid()).txt"
     $dependencyPathString = ""
     $dependencyPackagePathString = ""
     if ($DependencyPaths.Count -gt 0) {
@@ -74,6 +78,9 @@ function Start-AppxSilentProcess {
         $dependencyPackagePathString = "-DependencyPackagePath $quotedDependencies"
     }
 
+    # The child reports failures on stderr, which the parent already drains: no
+    # temporary file, no cleanup branch, and the error text cannot be lost when
+    # the process is killed.
     $cmd = @"
 `$ProgressPreference = 'SilentlyContinue';
 `$ErrorActionPreference = 'SilentlyContinue';
@@ -90,10 +97,10 @@ catch {
             exit 0
         }
         catch {
-            `$_.Exception.Message | Out-File '$errFile' -Encoding UTF8; exit 1
+            [Console]::Error.WriteLine(`$_.Exception.Message); exit 1
         }
     }
-    `$_.Exception.Message | Out-File '$errFile' -Encoding UTF8; exit 1
+    [Console]::Error.WriteLine(`$_.Exception.Message); exit 1
 }
 exit 0
 "@
@@ -103,30 +110,23 @@ exit 0
     # streams, timeout and process-tree kill), so AppX installs get the same
     # timeout handling as every other installer.
     $result = Invoke-ExternalCommand -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-NonInteractive', '-EncodedCommand', $encodedCmd) -TimeoutSeconds $TimeoutSeconds
-    try {
-        if ($result.TimedOut) {
-            Write-ToolkitLog -Level 'ERROR' -Message "AppX installation timeout after $TimeoutSeconds seconds: $AppxPath"
-            return $false
-        }
 
-        if ($result.ExitCode -ne 0) {
-            $errMsg = if (Test-Path $errFile) { Get-Content $errFile -Raw } else { '' }
-            Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.appxInstallFailed01' -Args @($AppxPath, $errMsg))
-            return $false
-        }
+    if ($result.TimedOut) {
+        Write-ToolkitLog -Level 'ERROR' -Message "AppX installation timeout after $TimeoutSeconds seconds: $AppxPath"
+        return $false
+    }
 
-        if ($ExpectedPackageName -and
-            -not (Get-AppxPackage -Name $ExpectedPackageName -ErrorAction SilentlyContinue)) {
-            Write-ToolkitLog -Level 'ERROR' -Message "AppX command succeeded but package verification failed: $ExpectedPackageName"
-            return $false
-        }
-        return $true
+    if ($result.ExitCode -ne 0) {
+        Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.appxInstallFailed01' -Args @($AppxPath, $result.StdErr.Trim()))
+        return $false
     }
-    finally {
-        if (Test-Path $errFile) {
-            Remove-Item $errFile -Force -ErrorAction SilentlyContinue
-        }
+
+    if ($ExpectedPackageName -and
+        -not (Get-AppxPackage -Name $ExpectedPackageName -ErrorAction SilentlyContinue)) {
+        Write-ToolkitLog -Level 'ERROR' -Message "AppX command succeeded but package verification failed: $ExpectedPackageName"
+        return $false
     }
+    return $true
 }
 
 
@@ -165,6 +165,125 @@ function Reset-AppInstallerPackage {
 }
 
 
+function Test-WingetRpcFailure {
+    <#
+    .SYNOPSIS
+    Returns $true when a WinGet result is the App Installer RPC failure.
+
+    .DESCRIPTION
+    0x800706BA (RPC_S_SERVER_UNAVAILABLE, surfaced as -2147012859) is what winget
+    returns when the per-user App Installer deployment server cannot serve the
+    session. Every install then fails identically while "winget --version" and
+    "winget search" keep working, which is why the old flow reported the tools as
+    handled. The exit code is conclusive on its own, so no output parsing is
+    involved: the previous text match could never change the answer.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][object]$Result
+    )
+
+    return ($Result.ExitCode -eq $script:AppConfig.Winget.RpcFailureExitCode)
+}
+
+
+function Test-WingetModernVersion {
+    <#
+    .SYNOPSIS
+    Returns $true when the WinGet build accepts --disable-interactivity (1.4+).
+
+    .DESCRIPTION
+    The previous check was the regex 'v1\.[4-9]', which does not match 1.10, 1.11
+    or 1.12: on every current build the flag was therefore never added and winget
+    could block on an interactive prompt. The version is parsed as [version] and
+    compared numerically, and the result is cached because probing spawns a
+    process (see Get-WingetModernFlag).
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$VersionOutput
+    )
+
+    if ($VersionOutput -match '(\d+)\.(\d+)') {
+        try {
+            return ([version]("$($Matches[1]).$($Matches[2])") -ge [version]'1.4')
+        }
+        catch {
+            Write-ToolkitLog -Level 'DEBUG' -Message "Unparsable WinGet version '$VersionOutput': $($_.Exception.Message)"
+        }
+    }
+    # Unknown build: assume modern, since --disable-interactivity is only rejected
+    # by the very old builds that predate the 1.4 milestone.
+    return $true
+}
+
+
+function Get-WingetModernFlag {
+    <#
+    .SYNOPSIS
+    Returns '--disable-interactivity' when the installed WinGet supports it.
+
+    .DESCRIPTION
+    The probe cost one extra winget process per command, so the answer is cached
+    on the executable path it was measured for. Invalidate-WingetVersionCache drops
+    it whenever PATH or the App Installer package may have changed.
+    #>
+    [CmdletBinding()]
+    param([string]$WingetExe)
+
+    if (-not $WingetExe) { return $null }
+    if ($script:State.Winget.Modern -and $script:State.Winget.ProbedExe -eq $WingetExe) {
+        if ($script:State.Winget.Modern) { return '--disable-interactivity' }
+        return $null
+    }
+
+    $result = Invoke-ExternalCommand -FilePath $WingetExe -ArgumentList @('--version') `
+        -TimeoutSeconds $script:AppConfig.Timeouts.WingetProbe
+    $modern = $false
+    if ($result.ExitCode -eq 0) {
+        $modern = Test-WingetModernVersion -VersionOutput "$($result.StdOut)$($result.StdErr)"
+    }
+    else {
+        Write-ToolkitLog -Level 'DEBUG' -Message "WinGet --version probe failed with exit code $($result.ExitCode); assuming a modern build."
+        $modern = $true
+    }
+
+    $script:State.Winget.ProbedExe = $WingetExe
+    $script:State.Winget.Modern = $modern
+    return $(if ($modern) { '--disable-interactivity' } else { $null })
+}
+
+
+function Invalidate-WingetVersionCache {
+    <#
+    .SYNOPSIS
+    Drops the cached WinGet version probe after PATH or App Installer changes.
+    #>
+    $script:State.Winget.Modern = $null
+    $script:State.Winget.ProbedExe = $null
+}
+
+
+function Invoke-WingetRpcRecovery {
+    <#
+    .SYNOPSIS
+    One recovery attempt for the App Installer RPC failure, used before retrying.
+    #>
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetRpcFailureDetected')
+    Invoke-ForceCloseWinget
+    $null = Register-WingetAppExecutionAlias
+    $null = Reset-AppInstallerPackage
+    Update-EnvironmentPath
+    Start-Sleep -Seconds 2
+
+    $probe = Invoke-WingetCommand -Arguments '--version'
+    if (Test-WingetRpcFailure -Result $probe) {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetRpcRecoveryFailed')
+        return $false
+    }
+    Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRpcRecovered')
+    return $true
+}
+
+
 function Invoke-WingetCommand {
     <#
     .SYNOPSIS
@@ -173,13 +292,13 @@ function Invoke-WingetCommand {
     .DESCRIPTION
     Single entry point for WinGet invocations: it resolves winget.exe once and
     appends --disable-interactivity only on the versions that support it (1.4+),
-    so one call site works on every WinGet build. Failure paths return the same
-    shape as success paths, with ExitCode -1.
+    so one call site works on every WinGet build. The version probe is cached
+    instead of spawning `winget --version` before every single command.
+    Failure paths return the same shape as success paths, with ExitCode -1.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Arguments,
-        [int]$TimeoutSeconds = 120,
-        [switch]$CaptureOutput
+        [int]$TimeoutSeconds = 120
     )
 
     try {
@@ -190,13 +309,18 @@ function Invoke-WingetCommand {
         }
 
         # --disable-interactivity is accepted from WinGet 1.4 onwards.
-        $versionRaw = (& $wingetExe --version 2>$null) | Out-String
-        $isModern = $versionRaw -match 'v1\.[4-9]' -or $versionRaw -match 'v[2-9]'
-        $finalArgs = if ($isModern) { "$Arguments --disable-interactivity" } else { $Arguments }
+        $modernFlag = Get-WingetModernFlag -WingetExe $wingetExe
+        $finalArgs = if ($modernFlag) { "$Arguments $modernFlag" } else { $Arguments }
 
-        $result = Invoke-ExternalCommand -FilePath $wingetExe -ArgumentList (ConvertTo-ProcessArgumentList -Arguments $finalArgs) -TimeoutSeconds $TimeoutSeconds -CaptureOutput:$CaptureOutput
+        $result = Invoke-ExternalCommand -FilePath $wingetExe -ArgumentList (ConvertTo-ProcessArgumentList -Arguments $finalArgs) -TimeoutSeconds $TimeoutSeconds
         if ($result.TimedOut) {
             Write-ToolkitLog -Level 'ERROR' -Message "Winget timeout after $TimeoutSeconds seconds: $Arguments"
+        }
+        elseif (Test-WingetRpcFailure -Result $result) {
+            # Name the failure: a generic non-zero exit code here is what let four
+            # failed tool installs look like a normal "already installed" run.
+            Write-ToolkitLog -Level 'ERROR' -Message "Winget failed with 0x800706BA (App Installer deployment server unavailable) running: $Arguments"
+            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.wingetRpcFailureDetected')
         }
         return $result
     }
@@ -204,6 +328,56 @@ function Invoke-WingetCommand {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetCommandError0' -Args @($_.Exception.Message))
         return New-ExternalCommandResult -ExitCode -1 -FilePath 'winget.exe' -ArgumentList @($Arguments) -Error $_.Exception.Message
     }
+}
+
+
+function Invoke-WingetInstall {
+    <#
+    .SYNOPSIS
+    Installs one package through WinGet and returns a structured result.
+
+    .DESCRIPTION
+    Single entry point for package installs, which removes the standard flag
+    string that was repeated at seven call sites. It also fixes the exit-code
+    contract: `winget install` on an already installed package returns
+    0x8A150061 (no applicable update is 0x8A15002B), so a rerun used to report
+    Failed and to make the font step return Success=$false. The caller must test
+    .Accepted, never `-eq 0`.
+
+    The App Installer RPC failure (0x800706BA) is recovered from once, with a
+    single retry, because it is the only non-idempotent error worth retrying here.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Id,
+        [switch]$Exact,
+        [switch]$Upgrade,
+        [string]$Source = 'winget'
+    )
+
+    if (-not (Get-WinGetExecutable)) {
+        return New-ExternalCommandResult -ExitCode -1 -FilePath 'winget.exe' -ArgumentList @($Id) -Error 'WinGet executable not found.'
+    }
+
+    $acceptedExitCodes = @(0) + $script:AppConfig.Winget.AlreadyInstalledExitCodes
+    $operation = if ($Upgrade) { 'upgrade' } else { 'install' }
+    $exactFlag = if ($Exact) { '-e ' } else { '' }
+    $command = "$operation $exactFlag--id $Id --source $Source --accept-source-agreements --accept-package-agreements --silent"
+
+    $result = Invoke-WingetCommand -Arguments $command
+    $result | Add-Member -NotePropertyName 'Accepted' -NotePropertyValue (
+        (-not $result.TimedOut) -and $acceptedExitCodes -contains $result.ExitCode
+    ) -Force
+
+    if ((-not $result.Accepted) -and (Test-WingetRpcFailure -Result $result)) {
+        if (Invoke-WingetRpcRecovery) {
+            $result = Invoke-WingetCommand -Arguments $command
+            $result | Add-Member -NotePropertyName 'Accepted' -NotePropertyValue (
+                (-not $result.TimedOut) -and $acceptedExitCodes -contains $result.ExitCode
+            ) -Force
+        }
+    }
+    return $result
 }
 
 
@@ -223,22 +397,56 @@ function Reset-WingetSources {
 }
 
 
+function Update-WingetSources {
+    <#
+    .SYNOPSIS
+    Refreshes the WinGet source metadata, for one named source or for all of them.
+
+    .DESCRIPTION
+    Single place that builds the `winget source update` command line, for the same
+    reason Reset-WingetSources is the single place for the reset.
+
+    `source update` accepts ONLY --name plus the global options: it has neither
+    --source nor --accept-source-agreements. Passing either made WinGet reject the
+    whole command line with 0x8A150002 (APPINSTALLER_CLI_ERROR_INVALID_CL_ARGUMENTS,
+    -1978335230), so the deep test reported a source failure on every machine while
+    the repositories it had just reached successfully were fine.
+
+    Returns the structured result so callers can branch on .ExitCode.
+    #>
+    param(
+        [string]$Name
+    )
+
+    $arguments = if ($Name) { "source update --name $Name" } else { 'source update' }
+    $result = Invoke-WingetCommand -Arguments $arguments
+    if ($result.ExitCode -ne 0) {
+        Write-ToolkitLog -Level 'WARNING' -Message "Winget source update failed with exit code $($result.ExitCode)."
+    }
+    return $result
+}
+
+
 function Repair-WingetMsStoreSource {
     <#
     .SYNOPSIS
-    Detects and fixes the msstore certificate pinning failure (0x8a15005e).
+    Detects and fixes the msstore certificate pinning failure (0x8A15005E).
 
     .DESCRIPTION
     Best effort only: when the msstore source stays unusable the caller keeps
     working with the remaining sources, so every failure here stays a log line.
+
+    The failure is recognised on the exit code. The previous check matched the
+    literal text '0x8a15005e' in winget output, but the message is localized
+    (Italian systems print the translated sentence) and the command line itself
+    was invalid, so the repair could never fire.
     #>
     try {
         $wingetExe = Get-WinGetExecutable
         if (-not $wingetExe) { return }
 
-        $result = Invoke-WingetCommand -Arguments 'source update --source msstore --accept-source-agreements' -CaptureOutput
-        $sourceOutput = "$($result.StdOut)$($result.StdErr)"
-        if ($result.ExitCode -eq 0 -or $sourceOutput -notmatch '0x8a15005e') { return }
+        $result = Update-WingetSources -Name 'msstore'
+        if ($result.ExitCode -ne $script:AppConfig.Winget.PinnedCertificateMismatchExitCode) { return }
 
         Write-StyledMessage -Type Warning -Text "Detected msstore certificate pinning failure (0x8a15005e). Resetting WinGet sources to default..."
         Reset-WingetSources
@@ -277,8 +485,9 @@ function Repair-AppInstaller {
             # Reinstall from the official App Installer bundle when the reset did
             # not bring the winget alias back.
             $tempFile = Join-Path $env:TEMP 'WingetInstaller.msixbundle'
-            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempFile)) {
-                throw 'App Installer bundle download failed.'
+            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempFile `
+                        -ContentValidator (New-SignatureValidator -ProfileKey 'wingetMsix'))) {
+                throw 'App Installer bundle download failed or its signature is not trusted.'
             }
             if (-not (Start-AppxSilentProcess -AppxPath $tempFile -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller')) {
                 throw 'App Installer package installation failed.'
@@ -322,37 +531,47 @@ function Test-WingetCompatibility {
 }
 
 
-function Test-WingetFunctionality {
+function Get-WingetHealth {
     <#
     .SYNOPSIS
-    Verifies that Winget is present in PATH and works correctly.
-    #>
-    Write-StyledMessage -Type Info -Text ("🔍 " + (Get-SourceTextLoc 'uiText.checkWingetFunctionality'))
+    Probes WinGet once and returns { Present; Runs; Version; Reachable }.
 
-    # Reload PATH first, so a WinGet installed moments ago is detected.
+    .DESCRIPTION
+    The previous flow had three separate health checks (Test-WingetFunctionality,
+    the inline --version probe, Test-WingetDeepValidation) and ran them more than
+    once per execution, each spawning its own process. `Runs` is local (it does
+    not touch the network) and `Reachable` is the remote `search`, so the two
+    failure modes stay distinguishable while the cost is paid once.
+    #>
     Update-EnvironmentPath
 
-    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    $health = [pscustomobject]@{
+        Present   = [bool](Get-WinGetExecutable)
+        Runs      = $false
+        Version   = $null
+        Reachable = $false
+    }
+    if (-not $health.Present) {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFoundInPath')
-        return $false
+        return $health
     }
 
-    try {
-        # --version is local and immediate: no network round trip, so it isolates
-        # "WinGet runs" from "the repositories are reachable".
-        $result = Invoke-WingetCommand -Arguments '--version' -CaptureOutput
-        $versionOutput = $result.StdOut.Trim()
-        if ($result.ExitCode -eq 0 -and $versionOutput -match 'v\d+\.\d+') {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.operationalWingetVersion0' -Args @($versionOutput))
-            return $true
-        }
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetPresentButNotRespondingCorrectlyExitcode0' -Args @($result.ExitCode))
-        return $false
+    $version = Invoke-WingetCommand -Arguments '--version'
+    if (($version.ExitCode -eq 0) -and ("$($version.StdOut)$($version.StdErr)" -match 'v(\d+\.\d+)')) {
+        $health.Runs = $true
+        $health.Version = $Matches[1]
     }
-    catch {
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.errorDuringWingetTest0' -Args @($_.Exception.Message))
-        return $false
+    else {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetPresentButNotRespondingCorrectlyExitcode0' -Args @($version.ExitCode))
+        return $health
     }
+
+    $search = Invoke-WingetCommand -Arguments 'search --id Microsoft.PowerShell --source winget' -TimeoutSeconds $script:AppConfig.Timeouts.Winget
+    $health.Reachable = ($search.ExitCode -eq 0)
+    if (-not $health.Reachable) {
+        Write-ToolkitLog -Level 'WARNING' -Message "WinGet sources not reachable (search exit code $($search.ExitCode))."
+    }
+    return $health
 }
 
 
@@ -429,16 +648,20 @@ function Invoke-ForceCloseWinget {
 function Set-WingetPathPermissions {
     <#
     .SYNOPSIS
-    Registers the App Installer alias and adds only the stable user alias path.
+    Registers the App Installer execution alias and refreshes the session PATH.
 
     .DESCRIPTION
-    The versioned WindowsApps directory is intentionally never added to the
-    machine PATH: it changes on every App Installer update and would silently
-    go stale. The stable per-user alias directory is used instead.
+    The previous version also called Add-ToEnvironmentPath with the literal
+    "%LOCALAPPDATA%\Microsoft\WindowsApps". Two problems: the literal was stored
+    unexpanded, and [Environment]::SetEnvironmentVariable rewrites the user PATH
+    from REG_EXPAND_SZ to REG_SZ, which permanently breaks every other %VAR%
+    entry in it. That folder is already part of the default user PATH on a
+    current Windows, so the write is not only unnecessary, it is destructive.
     #>
 
     $aliasRegistered = Register-WingetAppExecutionAlias
-    Add-ToEnvironmentPath -PathToAdd "%LOCALAPPDATA%\Microsoft\WindowsApps" -Scope 'User'
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
     if ($aliasRegistered) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.pathAndWingetPermissionsUpdated')
     }
@@ -459,7 +682,7 @@ function Invoke-WinGetPackageManagerRepair {
         return $false
     }
 
-    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.tentativoRiparazioneWingetRepairWingetpackagemanager')
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingWingetRepairViaPackageManager')
     try {
         Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
         return $true
@@ -489,7 +712,7 @@ function Repair-WingetDatabase {
         # 2. Drop the local WinGet cache, keeping the lock and tmp folders.
         $wingetCachePath = "$env:LOCALAPPDATA\WinGet"
         if (Test-Path $wingetCachePath) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.puliziaCacheWinget')
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.clearingWingetCache')
             Get-ChildItem -Path $wingetCachePath -Recurse -Force -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
             ForEach-Object {
@@ -497,7 +720,7 @@ function Repair-WingetDatabase {
                     Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
                 }
                 catch {
-                    Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase cache: $($_.Exception.Message)"
+                    Write-ToolkitLog -Level 'WARNING' -Message "Repair-WingetDatabase cache: $($_.Exception.Message)"
                 }
             }
         }
@@ -538,7 +761,7 @@ function Repair-WingetDatabase {
             }
         }
         catch {
-            Write-Warning "start-modules\40-Module.Winget.ps1, Repair-WingetDatabase manifest: $($_.Exception.Message)"
+            Write-ToolkitLog -Level 'WARNING' -Message "Repair-WingetDatabase manifest: $($_.Exception.Message)"
         }
 
         # 7. Let the WinGet module repair itself, when it is installed.
@@ -550,7 +773,7 @@ function Repair-WingetDatabase {
 
         # 9. Verify that winget answers again.
         Start-Sleep 2
-        $versionResult = Invoke-WingetCommand -Arguments '--version' -CaptureOutput
+        $versionResult = Invoke-WingetCommand -Arguments '--version'
         if ($versionResult.ExitCode -ne 0) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.restoreCompletedButWingetMayNotWork')
         }
@@ -572,12 +795,13 @@ function Test-WingetAccessViolation {
     Returns $true when an exit code is the 0xC0000005 access violation WinGet crash.
 
     .DESCRIPTION
-    Typed as long because WinGet reports the crash both as the signed and as the
-    unsigned 32-bit value, and the unsigned one does not fit in an Int32.
+    Typed as [int] on purpose: Process.ExitCode is an Int32, so the unsigned
+    spelling of 0xC0000005 (3221225477) could never be compared and the extra
+    check was dead code. The signed value is the only one a real process reports.
     #>
-    param([Parameter(Mandatory = $true)][long]$ExitCode)
+    param([Parameter(Mandatory = $true)][int]$ExitCode)
 
-    return $ExitCode -eq $script:EXITCODE_ACCESS_VIOLATION_SIGNED -or $ExitCode -eq $script:EXITCODE_ACCESS_VIOLATION
+    return $ExitCode -eq $script:EXITCODE_ACCESS_VIOLATION_SIGNED
 }
 
 
@@ -592,27 +816,30 @@ function Test-WingetDeepValidation {
         # One search covers repository connectivity, local database integrity and
         # the WinGet parser, and reports a crash through the exit code. A missing
         # WinGet is reported by Invoke-WingetCommand itself.
-        $searchResult = Invoke-WingetCommand -Arguments 'search Git.Git --accept-source-agreements' -CaptureOutput
+        $searchResult = Invoke-WingetCommand -Arguments 'search Git.Git --accept-source-agreements'
         $exitCode = $searchResult.ExitCode
 
         if (Test-WingetAccessViolation -ExitCode $exitCode) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.crashDetectedExitcode0AccessViolationAdvancedRecoveryAttempt' -Args @($exitCode))
 
             # Escalating recovery: restore the database first, reinstall WinGet only
-            # if the crash survives the restore.
+            # if the crash survives the restore. The recovery level dispatcher is
+            # gone, so the concrete repairs are named directly. The last step is a
+            # plain MSIX reinstall (Install-WingetCore), NOT a module install: see
+            # the note above Reset-WingetSourcesOnce.
             $recoverySteps = @(
-                @{ Level = 'FullDatabase'; WarningKey = $null; InfoKey = 'uiText.repeatTestAfterDatabaseRestore' },
-                @{ Level = 'FullReinstall'; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
+                @{ Repair = { Repair-WingetDatabase }; WarningKey = $null; InfoKey = 'uiText.repeatTestAfterDatabaseRestore' },
+                @{ Repair = { Install-WingetCore }; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
             )
             foreach ($step in $recoverySteps) {
                 if ($step.WarningKey) {
                     Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc $step.WarningKey)
                 }
-                $null = Repair-Winget -Level $step.Level
+                $null = & $step.Repair
 
                 Write-StyledMessage -Type Info -Text ("🔄 " + (Get-SourceTextLoc $step.InfoKey))
                 Start-Sleep 3
-                $searchResult = Invoke-WingetCommand -Arguments 'search Git.Git --accept-source-agreements' -CaptureOutput
+                $searchResult = Invoke-WingetCommand -Arguments 'search Git.Git --accept-source-agreements'
                 $exitCode = $searchResult.ExitCode
                 if (-not (Test-WingetAccessViolation -ExitCode $exitCode)) { break }
             }
@@ -620,7 +847,10 @@ function Test-WingetDeepValidation {
 
         if ($exitCode -eq 0) {
             # A successful search is also the moment to refresh the source metadata.
-            $sourceUpdate = Invoke-WingetCommand -Arguments 'source update --accept-source-agreements'
+            # Update-WingetSources owns the command line: `source update` takes no
+            # --accept-source-agreements, and the old inline call failed with
+            # 0x8A150002 on every run.
+            $sourceUpdate = Update-WingetSources
             if ($sourceUpdate.ExitCode -ne 0) {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'toolText.sourceUpdateError0' -Args @($sourceUpdate.ExitCode))
             }
@@ -687,8 +917,9 @@ function Install-WingetCore {
             $vcUrl = $script:AppConfig.URLs.VCRedistTemplate -f (Get-ArchitectureSpecificValue -X64 'x64' -X86 'x86' -ARM64 'arm64')
             $vcFile = Join-Path $tempDir "vc_redist.exe"
 
-            if (-not (Invoke-DownloadFile -Uri $vcUrl -OutFile $vcFile)) {
-                throw 'Visual C++ Redistributable download failed.'
+            if (-not (Invoke-DownloadFile -Uri $vcUrl -OutFile $vcFile `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'vcRedist' -BlockOnInvalid))) {
+                throw 'Visual C++ Redistributable download failed or its signature was not trusted.'
             }
             # 0 = installed, 1638 = a newer version is already present, 3010 = reboot required.
             $vcResult = Invoke-ExternalCommand -FilePath $vcFile -ArgumentList @('/install', '/quiet', '/norestart') -TimeoutSeconds 600 -AcceptedExitCodes @(0, 1638, 3010)
@@ -704,7 +935,7 @@ function Install-WingetCore {
         }
 
         # 2. Dependencies (UI.Xaml, VCLibs) extracted from the official bundle.
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependenciesFromTheOfficialRepository')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependencies')
         $dependencies = @()
         $depUrl = Get-WingetDownloadUrl -Match 'DesktopAppInstaller_Dependencies.zip'
         if ($depUrl) {
@@ -732,7 +963,7 @@ function Install-WingetCore {
         }
 
         # 3. WinGet bundle, installed with the dependencies extracted above.
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadAndInstallWingetBundleWithDependencies')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadAndInstallWingetBundle')
         $wingetUrl = Get-WingetDownloadUrl -Match 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
         if (-not $wingetUrl) {
             # No bundle URL means nothing was installed: never report success.
@@ -740,7 +971,8 @@ function Install-WingetCore {
         }
 
         $wingetFile = Join-Path $tempDir "winget.msixbundle"
-        if (-not (Invoke-DownloadFile -Uri $wingetUrl -OutFile $wingetFile -Silent)) {
+        if (-not (Invoke-DownloadFile -Uri $wingetUrl -OutFile $wingetFile -Silent `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'wingetMsix'))) {
             throw (Get-SourceTextLoc 'uiText.wingetCoreInstallationFailed')
         }
 
@@ -765,154 +997,201 @@ function Install-WingetCore {
 }
 
 
-function Install-WingetPackage {
+# ==============================================================================
+# FORCED REINSTALL OF THE TWO PACKAGES WinGet DEPENDS ON
+# ------------------------------------------------------------------------------
+# WinGet is a thin front end: the real work is done by the
+# Microsoft.DesktopAppInstaller AppX package and, for the PowerShell client, by the
+# Microsoft.WinGet.Client module. Both break on real machines (interrupted update,
+# partially removed AppX, corrupt NuGet cache), and repairing them resolves most
+# installation failures - far more often than reinstalling the winget.exe alias.
+#
+# See Reinstall-WingetForced below for the policy that separates the two.
+# ==============================================================================
+function Reset-WingetSourcesOnce {
     <#
     .SYNOPSIS
-    Complete Winget installation and restore procedure.
-    #>
-    param([switch]$Force)
+    Runs `winget source reset --force` at most once per execution.
 
-    Write-StyledMessage -Type Info -Text ("🚀 " + (Get-SourceTextLoc 'uiText.startWingetInstallationVerificationProcedure'))
+    .DESCRIPTION
+    The recovery ladder used to call it three times in a single run (after a
+    successful fast recovery, after a full reinstall, and from the database
+    repair). Each call is slow and they are mutually redundant.
+    #>
+    if ($script:State.SourcesReset) { return }
+    Reset-WingetSources
+    $script:State.SourcesReset = $true
+}
+
+
+function Reinstall-WingetForced {
+    <#
+    .SYNOPSIS
+    Forcibly repairs the two packages WinGet depends on: the App Installer AppX
+    package and the Microsoft.WinGet.Client PowerShell module.
+
+    #DESCRIPTION
+    Returns a StepResult. Both halves are performed unconditionally, because this
+    step only runs once every lighter recovery has already failed:
+
+      - Microsoft.DesktopAppInstaller: reset, then reinstall the signed MSIX bundle
+        from Microsoft when the package is missing (or always, with -Force);
+      - Microsoft.WinGet.Client: NuGet provider plus the module with
+        -Force -AllowClobber. This rewrites the user's PowerShell environment, so
+        it is reported on screen, but it is NOT gated behind a confirmation: a prompt
+        would leave the repair half-finished in any unattended session.
+
+    -SkipModule avoids the module half; -Force re-applies the bundle even when the
+    App Installer package looks registered.
+    #>
+    [CmdletBinding()]
+    param(
+        [switch]$SkipModule,
+        [switch]$Force
+    )
+
+    $appInstallerRepaired = $false
+    $moduleInstalled = $false
+    $notes = [System.Collections.Generic.List[string]]::new()
 
     if (-not (Test-WingetCompatibility)) {
-        return $false
+        return New-StepResult -Success $false -Message 'This Windows build is not supported by WinGet.'
     }
 
     Invoke-ForceCloseWinget
 
-    $tempInstaller = $null
-    $oldProgress = $ProgressPreference
+    # --- 1. Microsoft.DesktopAppInstaller: unconditional system repair --------
     try {
-        $ProgressPreference = 'SilentlyContinue'
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.forcedReinstallAppInstaller0')
+        Reset-AppInstallerPackage
 
-        # Clean the WinGet temp folder left behind by earlier attempts.
-        $tempPath = "$env:TEMP\WinGet"
-        if (Test-Path $tempPath) {
-            Remove-Item -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
+        $present = [bool](Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue)
+        if (-not ($Force -or -not $present)) {
+            # The reset alone was enough.
+            $appInstallerRepaired = $true
         }
-
-        # Refresh the sources when WinGet is already present.
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Reset-WingetSources
-        }
-
-        if (-not (Get-Module -ListAvailable Microsoft.WinGet.Client) -or $Force) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingMicrosoftWingetClientModule')
-            # NuGet provider and Microsoft.WinGet.Client change the user's
-            # PowerShell environment permanently: keep this visible on screen.
+        else {
+            $tempInstaller = Join-Path (Initialize-Directory -Path $script:AppConfig.Paths.Temp) 'WingetInstaller.msixbundle'
             try {
-                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
-                Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
-                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetClientModuleInstalled')
+                if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -Silent `
+                        -ContentValidator (New-SignatureValidator -ProfileKey 'wingetMsix')) {
+                    if (Start-AppxSilentProcess -AppxPath $tempInstaller -Flags '-ForceApplicationShutdown' `
+                            -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
+                        $appInstallerRepaired = $true
+                        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationSuccessful')
+                    }
+                    else { $notes.Add('The App Installer bundle was rejected by Windows.') }
+                }
+                else { $notes.Add('The App Installer bundle could not be downloaded or its signature was not trusted.') }
             }
-            catch {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.moduloWingetClient0' -Args @($_.Exception.Message))
-            }
+            finally { Remove-PathQuietly -Path $tempInstaller }
         }
-        # Loads the Microsoft.WinGet.Client module installed above from the
-        # PowerShell Gallery. This is an external, installed module, not one of
-        # the start-modules source fragments: those are concatenated at build
-        # time and are never imported at runtime (irm|iex distribution).
-        Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
-
-        # Repair through the WinGet module when it is available.
-        if (Invoke-WinGetPackageManagerRepair) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerEseguito')
-        }
-        Start-Sleep 3
-
-        # Final fallback: install the official MSIX bundle.
-        if (-not (Get-Command winget -ErrorAction SilentlyContinue) -or $Force) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadMsixbundleDaMicrosoft')
-
-            $msixTempDir = Initialize-Directory -Path $script:AppConfig.Paths.Temp
-            $tempInstaller = Join-Path $msixTempDir "WingetInstaller.msixbundle"
-
-            if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WingetMSIX -OutFile $tempInstaller -Silent)) {
-                throw 'WinGet MSIX bundle download failed.'
-            }
-            if (Start-AppxSilentProcess -AppxPath $tempInstaller -Flags '-ForceApplicationShutdown' -ExpectedPackageName 'Microsoft.DesktopAppInstaller') {
-                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationSuccessful')
-            }
-            else {
-                Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetMsixBundleInstallationFailed')
-            }
-            Start-Sleep 3
-        }
-
-        # Reset App Installer.
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resetAppInstaller')
-        try {
-            Reset-AppInstallerPackage
-        }
-        catch {
-            Write-Warning "start-modules\40-Module.Winget.ps1, Install-WingetPackage: $($_.Exception.Message)"
-        }
-
-        # Re-apply the execution alias/permissions and refresh PATH.
-        Set-WingetPathPermissions
-        Start-Sleep 2
-        Update-EnvironmentPath
-
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetInstalledAndWorking')
-            return $true
-        }
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.unableToInstallWinget')
-        return $false
     }
     catch {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.criticalError0' -Args @($_.Exception.Message))
-        return $false
+        Write-ToolkitLog -Level 'WARNING' -Message "Forced App Installer repair failed: $($_.Exception.Message)"
+        $notes.Add("App Installer repair failed: $($_.Exception.Message)")
     }
-    finally {
-        if ($tempInstaller -and (Test-Path -LiteralPath $tempInstaller)) {
-            Remove-Item -LiteralPath $tempInstaller -Force -ErrorAction SilentlyContinue
+
+    # --- 2. Microsoft.WinGet.Client: full, unattended reinstall ------------------
+    # No confirmation and no interactive gate: this step only runs when every
+    # lighter recovery has already failed, and a prompt here would leave the
+    # WinGet repair half-finished whenever the session is not attended.
+    if ($SkipModule) {
+        $notes.Add('Module install skipped as requested.')
+        Write-ToolkitLog -Level 'INFO' -Message 'Skipped the WinGet.Client module install: -SkipModule set.'
+    }
+    else {
+        try {
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingMicrosoftWingetClientModule')
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
+            Install-Module Microsoft.WinGet.Client -Force -AllowClobber -Confirm:$false -ErrorAction Stop *>$null
+            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetClientModuleInstalled')
+            # External installed module, NOT a start-modules fragment: those are
+            # concatenated at build time and never imported at runtime (irm|iex).
+            Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue
+            $moduleInstalled = $true
         }
-        $ProgressPreference = $oldProgress
+        catch {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.moduloWingetClient0' -Args @($_.Exception.Message))
+            Write-ToolkitLog -Level 'WARNING' -Message "WinGet.Client module install failed: $($_.Exception.Message)"
+            $notes.Add("Module install failed: $($_.Exception.Message)")
+        }
     }
+
+    # --- 3. Refresh and verify -------------------------------------------------
+    Set-WingetPathPermissions
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
+
+    $health = Get-WingetHealth
+    $detail = ($notes -join ' ')
+    if ($health.Runs) {
+        Reset-WingetSourcesOnce
+        return New-StepResult -Success $true -Changed $true -Message "WinGet operational (v$($health.Version)). $detail".Trim()
+    }
+    $repaired = [bool]($appInstallerRepaired -or $moduleInstalled)
+    return New-StepResult -Success $repaired -Changed $repaired -Message "WinGet still unavailable. $detail".Trim()
 }
 
 
-function Repair-Winget {
+function Initialize-Winget {
     <#
     .SYNOPSIS
-    Central entry point for WinGet recovery operations.
+    Brings WinGet to a working state and returns a StepResult.
 
-    The level describes the observed failure, while implementation details
-    remain behind this dispatcher.
+    .DESCRIPTION
+    The recovery ladder (health -> msstore cert -> core install -> database
+    repair -> core install) used to live inline in the orchestrator, where it
+    mixed messaging, PATH refreshes and three separate health probes. It is one
+    function here, called once, so the flow is readable.
     #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [WingetRepairLevel]$Level
-    )
+    Update-EnvironmentPath
+    $null = Repair-WingetMsStoreSource
 
-    Write-ToolkitLog -Level 'INFO' -Message "Starting WinGet repair level: $Level"
-    switch ($Level) {
-        'SourceReset' {
-            Reset-WingetSources
-            return $true
-        }
-        'MsStoreCert' {
-            Repair-WingetMsStoreSource
-            return $true
-        }
-        'AppxReset' {
-            $result = Repair-AppInstaller
-            return [bool]$result.Success
-        }
-        'CoreInstall' {
-            return [bool](Install-WingetCore)
-        }
-        'FullDatabase' {
-            return [bool](Repair-WingetDatabase)
-        }
-        'FullReinstall' {
-            return [bool](Install-WingetPackage -Force)
-        }
-        default {
-            throw "Unsupported WinGet repair level: $Level"
-        }
+    $health = Get-WingetHealth
+    if ($health.Runs) {
+        return New-StepResult -Success $true -Message "WinGet operational (v$($health.Version))."
     }
+
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetDoesnTRespondFastRecoveryAttemptCore')
+    $null = Install-WingetCore
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
+    $health = Get-WingetHealth
+    if ($health.Runs) {
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRestoredQuickly')
+        Reset-WingetSourcesOnce
+        return New-StepResult -Success $true -Changed $true -Message "WinGet restored (v$($health.Version))."
+    }
+
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptAdvancedSlowerMethod')
+    $null = Repair-WingetDatabase
+    $null = Install-WingetCore
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
+    $health = Get-WingetHealth
+    if ($health.Runs) {
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wingetRestoredQuickly')
+        Reset-WingetSourcesOnce
+        return New-StepResult -Success $true -Changed $true -Message "WinGet restored (v$($health.Version))."
+    }
+
+    # Last resort: force-repair the two packages WinGet actually depends on, the
+    # App Installer AppX package and the WinGet.Client module. Most of the
+    # "winget is broken" reports on real machines come from those two, not from the
+    # winget.exe alias. No confirmation is asked: a prompt here would leave the
+    # repair half-finished in any unattended session.
+    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.quickRecoveryFailedAttemptForcedPackageReinstall')
+    $null = Reinstall-WingetForced
+    Update-EnvironmentPath
+    Invalidate-WingetVersionCache
+    $health = Get-WingetHealth
+
+    if (-not $health.Runs) {
+        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetNotFunctionalAfterAllAttempts')
+        return New-StepResult -Success $false -Message 'WinGet remains unavailable after recovery.'
+    }
+
+    Reset-WingetSourcesOnce
+    return New-StepResult -Success $true -Changed $true -Message "WinGet reinstalled (v$($health.Version))."
 }

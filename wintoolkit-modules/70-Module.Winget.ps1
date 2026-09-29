@@ -281,7 +281,7 @@ function Reset-Winget {
 
             $cachePath = "$env:LOCALAPPDATA\WinGet"
             if (Test-Path $cachePath) {
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.puliziaCacheWinget')
+                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.clearingWingetCache')
                 Get-ChildItem -Path $cachePath -Recurse -Force -ErrorAction SilentlyContinue |
                 Where-Object { $_.FullName -notmatch '\\lock\\|\\tmp\\' } |
                 ForEach-Object { try { Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch {
@@ -321,7 +321,7 @@ function Reset-Winget {
 
             try {
                 if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.esecuzioneRepairWingetpackagemanager')
+                    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.runningPackageManagerRepair')
                     Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
                 }
             }
@@ -363,7 +363,7 @@ function Reset-Winget {
             catch { Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.failedToInstallWingetClientModule0' -Args @($($_.Exception.Message))) }
 
             if (Get-Command Repair-WinGetPackageManager -ErrorAction SilentlyContinue) {
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.tentativoRepairWingetpackagemanager')
+                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingPackageManagerRepair')
                 try {
                     Repair-WinGetPackageManager -Force -Latest 2>$null *>$null
                     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.repairWingetpackagemanagerCompletato')
@@ -379,7 +379,7 @@ function Reset-Winget {
 
             Update-EnvironmentPath
             if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadMsixbundleDirectFromMicrosoft')
+                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadMsixBundleDirect')
                 $tempDir = $AppConfig.Paths.Temp
                 if (-not (Test-Path $tempDir)) { $null = New-Item -Path $tempDir -ItemType Directory -Force }
                 $tempInstaller = Join-Path $tempDir "WingetInstaller.msixbundle"
@@ -463,7 +463,7 @@ function Reset-Winget {
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.vcRedistInstalled')
         }
 
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependenciesFromTheOfficialRepository')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.downloadWingetDependencies')
         $depUrl = Get-LatestAssetUrl -Match 'DesktopAppInstaller_Dependencies.zip'
         if ($depUrl) {
             $depZip = Join-Path $AppConfig.Paths.Temp "dependencies.zip"

@@ -41,7 +41,9 @@ function Stop-ToolkitTranscript {
             $_.Exception.InnerException -is [System.Management.Automation.PSInvalidOperationException]) {
             return $null
         }
-        Write-Warning "start-modules\10-Module.Logging.ps1, Stop-ToolkitTranscript: $($_.Exception.Message)"
+        # Reported through the toolkit log: a Write-Warning here would bypass the
+        # structured log and print with a hand-written, drifting file name.
+        Write-ToolkitLog -Level 'WARNING' -Message "Stop-ToolkitTranscript: $($_.Exception.Message)"
         return $null
     }
 }
@@ -65,7 +67,9 @@ function Start-ToolkitLog {
     Get-ChildItem -Path $logdir -Filter '*.log' -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
     Remove-Item -Force -ErrorAction SilentlyContinue
-    $script:CurrentLogFile = "$logdir\${ToolName}_${dateTime}_$PID.log"
+    # The file name is computed once, here: every later write goes to this exact
+    # path, so a second computation could never disagree with the first.
+    $script:State.LogFile = "$logdir\${ToolName}_${dateTime}_$PID.log"
     Start-Transcript -Path "$logdir\${ToolName}_${dateTime}_$PID.transcript.log" -Append -Force | Out-Null
 
     # Header metadata, so a standalone log is self-describing.
@@ -78,13 +82,13 @@ Start time     : $dateTime
 ToolName       : $ToolName
 OS             : $($os.Caption) $($os.Version)
 PSVersion      : $psVer
-ToolkitVersion : $script:AppConfig.Header.Version
+ToolkitVersion : $($script:AppConfig.Header.Version)
 [END LOG HEADER]
 
 "@
-    try { Add-Content -Path $script:CurrentLogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue } catch {
-        Write-Warning "start-modules\10-Module.Logging.ps1, Start-ToolkitLog: $($_.Exception.Message)"
-    }
+    # No try/catch: -ErrorAction SilentlyContinue already turns a write failure into
+    # a non-terminating one, so the catch block could never run.
+    Add-Content -Path $script:State.LogFile -Value $header -Encoding UTF8 -ErrorAction SilentlyContinue
 }
 
 
@@ -98,16 +102,17 @@ function Write-ToolkitLog {
         [string]$Level = 'INFO',
         [string]$Message
     )
-    if (-not $script:CurrentLogFile) { return }
+    if (-not $script:State.LogFile) { return }
 
     $ts = Get-Date -Format "HH:mm:ss"
     $clean = $Message -replace '^\s+', ''
     # Remove all ANSI/color characters before saving to file
     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
     $line = "[$ts] [$Level] $clean"
-    try { Add-Content -Path $script:CurrentLogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {
-        Write-Warning "start-modules\10-Module.Logging.ps1, Write-ToolkitLog: $($_.Exception.Message)"
-    }
+    # Logging must never be the reason a setup step fails, so a write error stays
+    # silent: the surrounding try/catch could not run (SilentlyContinue already
+    # handles it) and only added a misleading console warning.
+    Add-Content -Path $script:State.LogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
 }
 
 

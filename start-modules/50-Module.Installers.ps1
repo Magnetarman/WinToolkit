@@ -27,19 +27,25 @@ function Test-VCRedistInstalled {
 
     .DESCRIPTION
     The 32-bit runtime is enough on 32-bit systems; on x64/ARM64 systems BOTH the
-    32-bit and the native runtime must be present.
+    32-bit and the native runtime must be present. The requirement list is built
+    first and then checked as a whole, instead of incrementing a counter that had
+    to be compared against a separately computed total.
     #>
     $architecture = Get-SystemArchitecture
-    $checksPassed = 0
 
-    if (Test-VCRedistRuntime -RuntimeName 'x86' -DllPath "$env:windir\syswow64\concrt140.dll") { $checksPassed++ }
+    $required = @(
+        @{ Runtime = 'x86'; DllPath = "$env:windir\syswow64\concrt140.dll" }
+    )
     if ($architecture -ne 'X86') {
         $nativeRuntime = Get-ArchitectureSpecificValue -X64 'x64' -ARM64 'arm64'
-        if (Test-VCRedistRuntime -RuntimeName $nativeRuntime -DllPath "$env:windir\system32\concrt140.dll") { $checksPassed++ }
+        $required += @{ Runtime = $nativeRuntime; DllPath = "$env:windir\system32\concrt140.dll" }
     }
 
-    $requiredChecks = if ($architecture -eq 'X86') { 1 } else { 2 }
-    return $checksPassed -eq $requiredChecks
+    $results = foreach ($item in $required) {
+        Test-VCRedistRuntime -RuntimeName $item.Runtime -DllPath $item.DllPath
+    }
+    # -notcontains $false reads as "none of the required runtimes is missing".
+    return -not ($results -contains $false)
 }
 
 
@@ -61,9 +67,9 @@ function Install-GitPackage {
 
     # 1. Preferred path: WinGet.
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        $result = Invoke-WingetCommand -Arguments "install Git.Git --source winget --accept-source-agreements --accept-package-agreements --silent"
+        $result = Invoke-WingetInstall -Id 'Git.Git'
 
-        if ($result.ExitCode -eq 0) {
+        if ($result.Accepted) {
             Update-EnvironmentPath
 
             if (Wait-Until -Condition { Test-CommandExists -Name git } -TimeoutSeconds 15 -IntervalMs 1000) {
@@ -75,7 +81,7 @@ function Install-GitPackage {
 
     # 2. Fallback: direct download from GitHub
     try {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadGitDaGithub')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackDownloadGitFromGitHub')
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.runningGitInstaller')
         $assetPattern = Get-ArchitectureSpecificValue -X64 '64-bit\.exe$' -X86 '32-bit\.exe$' -ARM64 'arm64\.exe$'
         $installResult = Install-FromGitHubRelease -ReleaseApiUrl $script:AppConfig.URLs.GitRelease `
@@ -88,6 +94,11 @@ function Install-GitPackage {
         }
 
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode0' -Args @($installResult.ExitCode))
+        # -1 means "the helper never even reached the installer": without this the log
+        # only showed the code and the real reason (rate limit, DNS, 404) was lost.
+        if ($installResult.PSObject.Properties.Name -contains 'Error' -and $installResult.Error) {
+            Write-ToolkitLog -Level 'ERROR' -Message "Git installer fallback error: $($installResult.Error)"
+        }
         return $false
     }
     catch {
@@ -100,65 +111,27 @@ function Install-GitPackage {
 function Install-PowerShellCore {
     <#
     .SYNOPSIS
-    Verifies and installs PowerShell 7 with direct download fallback.
+    Verifies that the PowerShell 7 host running this script is usable.
 
     .DESCRIPTION
-    This is the "application level" PowerShell 7 install: the start.ps1 stub only
-    guarantees that some working pwsh exists so that start-core.ps1 can run at all.
+    Reduced to a verification. The previous version also carried a WinGet install
+    and a direct MSI download from the GitHub releases API: both were dead code,
+    because this script only ever runs under PowerShell 7 (start.ps1 installs it
+    and relaunches elevated, and the orchestrator refuses to run otherwise), so
+    the "install" branch could never be entered. $PSHOME is the authoritative
+    location of the running host, which is a stronger check than probing a few
+    hardcoded Program Files paths.
     #>
-    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.verificaPowershell7')
+    Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.checkingPowershell7')
 
-    $ps7Path64 = "$env:SystemDrive\Program Files\PowerShell\7"
-    $ps7Path32 = "$env:SystemDrive\Program Files (x86)\PowerShell\7"
-
-    if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+    $pwshExe = Join-Path $PSHOME 'pwsh.exe'
+    if (($PSVersionTable.PSVersion.Major -ge 7) -and (Test-Path -LiteralPath $pwshExe)) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7AlreadyInstalled')
         return $true
     }
 
-    # 1. Preferred path: WinGet.
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingToInstallPowershell7ViaWinget')
-        $result = Invoke-WingetCommand -Arguments "install --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements --silent"
-
-        if ($result.ExitCode -eq 0) {
-            if (Wait-Until -Condition {
-                    (Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Test-CommandExists -Name pwsh)
-                } -TimeoutSeconds 15 -IntervalMs 1000) {
-                Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7InstallatoViaWinget')
-                return $true
-            }
-        }
-        Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstallationFailedOrFailedExitcode0FallbackToDirectDownload' -Args @($result.ExitCode))
-    }
-
-    # 2. Fallback: direct MSI download from GitHub
-    try {
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.recuperoUltimaReleasePowershell')
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingPowershell7InProgress')
-        $assetPattern = Get-ArchitectureSpecificValue -X64 'win-x64\.msi$' -X86 'win-x86\.msi$' -ARM64 'win-arm64\.msi$'
-        $installerArguments = @('/i', '{INSTALLER}', '/norestart', '/passive',
-            'ADD_PATH=1', 'ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1', 'REGISTER_MANIFEST=1')
-        # PSRemoting reconfigures WinRM/firewall: opt-in only.
-        if ($script:AppConfig.EnablePSRemoting) {
-            $installerArguments += 'ENABLE_PSREMOTING=1'
-        }
-        $installResult = Install-FromGitHubRelease -ReleaseApiUrl $script:AppConfig.URLs.PowerShellRelease `
-            -AssetPattern $assetPattern -ExecutablePath 'msiexec.exe' `
-            -InstallerArguments $installerArguments `
-            -AcceptedExitCodes @(0, 1641, 3010)
-
-        if ((Test-Path $ps7Path64) -or (Test-Path $ps7Path32) -or (Test-CommandExists -Name pwsh) -or $installResult.Success) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7InstalledSuccessfully')
-            return $true
-        }
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode02' -Args @($installResult.ExitCode))
-        return $false
-    }
-    catch {
-        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.powershellInstallationError0' -Args @($_.Exception.Message))
-        return $false
-    }
+    Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.powershellInstallationError0' -Args @("pwsh.exe not found in '$PSHOME'."))
+    return $false
 }
 
 
@@ -199,8 +172,8 @@ function Install-WindowsTerminalApp {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingToInstallWindowsTerminalViaWinget')
             # Use the unambiguous package identifier, not the Store product id.
-            $result = Invoke-WingetCommand -Arguments "install --id Microsoft.WindowsTerminal --source winget --accept-source-agreements --accept-package-agreements --silent"
-            if ($result.ExitCode -eq 0 -and (Wait-Until -Condition { Test-WindowsTerminalInstalled } -TimeoutSeconds 15 -IntervalMs 1000)) {
+            $result = Invoke-WingetInstall -Id 'Microsoft.WindowsTerminal'
+            if ($result.Accepted -and (Wait-Until -Condition { Test-WindowsTerminalInstalled })) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalInstalledViaWinget')
                 return $true
             }
@@ -223,9 +196,10 @@ function Install-WindowsTerminalApp {
         }
         $downloadUrl = $asset.browser_download_url
 
-        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.iTryNativeAppxInstallationFromDownloadedBundle')
+        Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.attemptingNativeAppxInstallFromBundle')
         $tempFile = Join-Path $env:TEMP "WinTerminal.msixbundle"
-        if (-not (Invoke-DownloadFile -Uri $downloadUrl -OutFile $tempFile)) {
+        if (-not (Invoke-DownloadFile -Uri $downloadUrl -OutFile $tempFile `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'terminalMsix'))) {
             throw (Get-SourceTextLoc 'uiText.windowsTerminalAppxInstallationFailed')
         }
 
