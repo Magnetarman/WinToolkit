@@ -789,7 +789,8 @@ function New-StepResult {
         [Parameter(Mandatory = $true)][bool]$Success,
         [bool]$Changed = $false,
         [string]$Message = '',
-        [switch]$Skipped
+        [switch]$Skipped,
+        [bool]$Blocking = $false
     )
 
     return [pscustomobject]@{
@@ -797,7 +798,124 @@ function New-StepResult {
         Changed  = $Changed
         Message  = $Message
         Skipped  = [bool]$Skipped
-        Blocking = $false
+        Blocking = $Blocking
+    }
+}
+
+
+function Get-OptionalMember {
+    <#
+    .SYNOPSIS
+    Reads a member the object may not expose, returning $null instead of throwing.
+
+    .DESCRIPTION
+    Set-StrictMode -Version Latest (00-Skeleton.Header.ps1) turns a read of a
+    property an object does not have into a TERMINATING error. Hashtable keys are
+    therefore read with the indexer and object properties through PSObject.
+    Properties, both of which answer $null for a missing member instead of
+    throwing, while `$object.Member` would abort the whole setup.
+    #>
+    param(
+        [AllowNull()][object]$InputObject,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    if ($null -eq $InputObject) { return $null }
+    if ($InputObject -is [System.Collections.IDictionary]) { return $InputObject[$Name] }
+
+    $property = $InputObject.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $null }
+    return $property.Value
+}
+
+
+function ConvertTo-StepResult {
+    <#
+    .SYNOPSIS
+    Normalizes whatever a step returned into the full StepResult contract.
+
+    .DESCRIPTION
+    Every step is supposed to return New-StepResult, but the contract was only
+    honoured by some modules: the others returned a bare $true/$false, nothing at
+    all (the -WhatIf early return of a SupportsShouldProcess function) or a
+    partial pscustomobject, and Add-SetupResult reads all five members on every
+    single result. This is the one place that absorbs those shapes, so a module
+    that forgets the contract degrades to a recorded failure instead of aborting
+    the run, and a step that leaks output into the pipeline is still read.
+
+    Anything the normalizer had to repair is reported, because a silently
+    mis-shaped result is exactly what used to kill the setup with an
+    unreadable "Cannot find property 'Success' on this object".
+    #>
+    param(
+        [Parameter(Position = 0)][AllowNull()][object]$Result,
+        [string]$Name = 'Step'
+    )
+
+    $items = @($Result)
+    if ($items.Count -gt 1) {
+        # A step that leaks output (a cmdlet called without $null =, a stray
+        # Write-Output) makes the invocation return an ARRAY, and the members of
+        # an array are not the members of a StepResult. The last real result
+        # wins: it is always the `return` that closes the step.
+        $candidates = @($items | Where-Object { $null -ne (Get-OptionalMember -InputObject $_ -Name 'Success') })
+        $Result = if ($candidates.Count -gt 0) { $candidates[-1] } else { $items[-1] }
+        Write-ToolkitLog -Level 'DEBUG' -Message "ConvertTo-StepResult: '$Name' returned $($items.Count) objects; kept the last StepResult."
+    }
+    else {
+        $Result = $items[0]
+    }
+
+    if ($null -eq $Result) {
+        return New-StepResult -Success $false -Message "'$Name' returned no result (a step that exits through -WhatIf does)."
+    }
+    if ($Result -is [bool]) {
+        $outcome = if ([bool]$Result) { 'succeeded' } else { 'failed' }
+        return New-StepResult -Success ([bool]$Result) -Message "'$Name' returned a bare boolean ($outcome) instead of a StepResult."
+    }
+    if ($Result -is [string] -or $Result -is [System.ValueType]) {
+        return New-StepResult -Success $false -Message "'$Name' returned '$Result' instead of a StepResult."
+    }
+
+    $resultSkipped = [bool](Get-OptionalMember -InputObject $Result -Name 'Skipped')
+    return New-StepResult `
+        -Success ([bool](Get-OptionalMember -InputObject $Result -Name 'Success')) `
+        -Changed ([bool](Get-OptionalMember -InputObject $Result -Name 'Changed')) `
+        -Message ([string](Get-OptionalMember -InputObject $Result -Name 'Message')) `
+        -Skipped:$resultSkipped `
+        -Blocking ([bool](Get-OptionalMember -InputObject $Result -Name 'Blocking'))
+}
+
+
+function New-SetupStep {
+    <#
+    .SYNOPSIS
+    Builds one entry of the orchestrator step table.
+
+    .DESCRIPTION
+    `When` (this step does not apply on this system) and `Blocking` (the flow
+    cannot continue without it) are optional per step, but the orchestrator reads
+    them as `$step.When` / `$step.Blocking`, and under Set-StrictMode -Version
+    Latest a read of a member the object does not expose aborts the whole run.
+    Building every entry through this factory guarantees all four members always
+    exist, so the loop needs no guard and a step can never be half-defined.
+
+    The literal hashtables this replaced were missing `When` on 7 of the 10
+    steps, and the very first loop iteration died with "Cannot find property
+    'When' on this object" before a single step had run.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$Run,
+        [scriptblock]$When,
+        [switch]$Blocking
+    )
+
+    return [pscustomobject]@{
+        Name     = $Name
+        Run      = $Run
+        When     = $When
+        Blocking = [bool]$Blocking
     }
 }
 
@@ -829,11 +947,15 @@ function Add-SetupResult {
     $stepMessage = ''
 
     if ($PSCmdlet.ParameterSetName -eq 'Result') {
-        $stepSuccess = [bool]$Result.Success
-        $stepChanged = [bool]$Result.Changed
-        $stepMessage = [string]$Result.Message
-        $stepSkipped = $stepSkipped -or [bool]$Result.Skipped
-        $Blocking = $Blocking -or [bool]$Result.Blocking
+        # Normalized first: a step result that does not expose the five contract
+        # members would otherwise throw HERE under StrictMode, turning one badly
+        # shaped step into a blocking failure of the whole installation.
+        $normalized = ConvertTo-StepResult -Result $Result -Name $Name
+        $stepSuccess = $normalized.Success
+        $stepChanged = $normalized.Changed
+        $stepMessage = $normalized.Message
+        $stepSkipped = $stepSkipped -or $normalized.Skipped
+        $Blocking = $Blocking -or $normalized.Blocking
     }
     else {
         $stepSuccess = $Success

@@ -470,17 +470,21 @@ function Repair-AppInstaller {
     [CmdletBinding(SupportsShouldProcess)]
     param()
 
-    if (-not $PSCmdlet.ShouldProcess('Microsoft.DesktopAppInstaller', 'Repair App Installer')) { return }
+    if (-not $PSCmdlet.ShouldProcess('Microsoft.DesktopAppInstaller', 'Repair App Installer')) {
+        return New-StepResult -Success $true -Skipped -Message 'WhatIf: App Installer repair not performed.'
+    }
 
     $tempFile = $null
     try {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'App Installer already exposes winget.' }
+            return New-StepResult -Success $true -Message 'App Installer already exposes winget.'
         }
 
         $changed = $false
         if (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue) {
-            Reset-AppInstallerPackage
+            # $null = : the reset writes the appx package to stdout, and a leaked
+            # value would turn this step's return into a collection.
+            $null = Reset-AppInstallerPackage
             $changed = $true
         }
 
@@ -499,11 +503,11 @@ function Repair-AppInstaller {
         }
 
         if (-not (Register-WingetAppExecutionAlias)) { throw 'App Installer execution alias registration failed.' }
-        return [pscustomobject]@{ Success = $true; Changed = $changed; Message = 'App Installer repaired and alias registered.' }
+        return New-StepResult -Success $true -Changed $changed -Message 'App Installer repaired and alias registered.'
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "App Installer repair failed: $($_.Exception.Message)"
-        return [pscustomobject]@{ Success = $false; Changed = $false; Message = $_.Exception.Message }
+        return New-StepResult -Success $false -Message $_.Exception.Message
     }
     finally {
         if ($tempFile -and (Test-Path -LiteralPath $tempFile)) {
@@ -835,8 +839,12 @@ function Test-WingetDeepValidation {
                 @{ Repair = { Install-WingetCore }; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
             )
             foreach ($step in $recoverySteps) {
-                if ($step.WarningKey) {
-                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc $step.WarningKey)
+                # Get-OptionalMember, not $step.WarningKey: a future entry that
+                # omits the key would otherwise abort the whole recovery under
+                # Set-StrictMode, the same class of defect as the step table.
+                $warningKey = Get-OptionalMember -InputObject $step -Name 'WarningKey'
+                if ($warningKey) {
+                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc $warningKey)
                 }
                 $null = & $step.Repair
 

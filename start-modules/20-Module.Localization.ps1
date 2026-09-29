@@ -8,6 +8,15 @@
 # messages that matter most. The active and default tables live on $script:State.
 
 $script:EmbeddedEnglishText = @{
+    # The three messages the catch block in 90-Skeleton.Main.ps1 needs. They are
+    # here because the block can run BEFORE Resolve-SourceTextLanguage: the two
+    # preconditions (PowerShell 7, elevation) are checked first and both throw.
+    # Without these three the one message the user most needs to see came out as
+    # "[MISSING TRANSLATION: uiText.criticalErrorDuringSetup0]".
+    'uiText.criticalErrorDuringSetup0'         = 'Critical error during setup: {0}.'
+    'uiText.unhandledException01'               = 'UNHANDLED EXCEPTION: {0} | {1}'
+    'sourceText.pressAnyKeyToExit'              = 'Press any key to exit'
+
     'uiText.environmentReadyForInstallation'   = 'Environment ready for installation.'
     'uiText.configurationComplete'             = 'Configuration complete.'
     'uiText.wingetNotFoundInSystem'            = 'WinGet was not found on this system.'

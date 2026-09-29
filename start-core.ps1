@@ -4,7 +4,7 @@ param(
 )
 Set-StrictMode -Version Latest
 $script:Branch = 'Dev'
-$ToolkitVersion = "2.6.0 (Build 5)"
+$ToolkitVersion = "Work In Progress"
 $GitHubRepoRawBase = @{
     Dev  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev"
     main = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main"
@@ -222,6 +222,9 @@ function Show-Header {
     Write-Host ''
 }
 $script:EmbeddedEnglishText = @{
+    'uiText.criticalErrorDuringSetup0'         = 'Critical error during setup: {0}.'
+    'uiText.unhandledException01'               = 'UNHANDLED EXCEPTION: {0} | {1}'
+    'sourceText.pressAnyKeyToExit'              = 'Press any key to exit'
     'uiText.environmentReadyForInstallation'   = 'Environment ready for installation.'
     'uiText.configurationComplete'             = 'Configuration complete.'
     'uiText.wingetNotFoundInSystem'            = 'WinGet was not found on this system.'
@@ -974,15 +977,17 @@ function Repair-WingetMsStoreSource {
 function Repair-AppInstaller {
     [CmdletBinding(SupportsShouldProcess)]
     param()
-    if (-not $PSCmdlet.ShouldProcess('Microsoft.DesktopAppInstaller', 'Repair App Installer')) { return }
+    if (-not $PSCmdlet.ShouldProcess('Microsoft.DesktopAppInstaller', 'Repair App Installer')) {
+        return New-StepResult -Success $true -Skipped -Message 'WhatIf: App Installer repair not performed.'
+    }
     $tempFile = $null
     try {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'App Installer already exposes winget.' }
+            return New-StepResult -Success $true -Message 'App Installer already exposes winget.'
         }
         $changed = $false
         if (Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue) {
-            Reset-AppInstallerPackage
+            $null = Reset-AppInstallerPackage
             $changed = $true
         }
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
@@ -997,11 +1002,11 @@ function Repair-AppInstaller {
             $changed = $true
         }
         if (-not (Register-WingetAppExecutionAlias)) { throw 'App Installer execution alias registration failed.' }
-        return [pscustomobject]@{ Success = $true; Changed = $changed; Message = 'App Installer repaired and alias registered.' }
+        return New-StepResult -Success $true -Changed $changed -Message 'App Installer repaired and alias registered.'
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "App Installer repair failed: $($_.Exception.Message)"
-        return [pscustomobject]@{ Success = $false; Changed = $false; Message = $_.Exception.Message }
+        return New-StepResult -Success $false -Message $_.Exception.Message
     }
     finally {
         if ($tempFile -and (Test-Path -LiteralPath $tempFile)) {
@@ -1196,8 +1201,9 @@ function Test-WingetDeepValidation {
                 @{ Repair = { Install-WingetCore }; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
             )
             foreach ($step in $recoverySteps) {
-                if ($step.WarningKey) {
-                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc $step.WarningKey)
+                $warningKey = Get-OptionalMember -InputObject $step -Name 'WarningKey'
+                if ($warningKey) {
+                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc $warningKey)
                 }
                 $null = & $step.Repair
                 Write-StyledMessage -Type Info -Text ("🔄 " + (Get-SourceTextLoc $step.InfoKey))
@@ -1467,7 +1473,7 @@ function Install-GitPackage {
     Update-EnvironmentPath
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitAlreadyInstalled')
-        return $true
+        return New-StepResult -Success $true -Message 'Git is already installed.'
     }
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.gitInstallation')
     if (Get-Command winget -ErrorAction SilentlyContinue) {
@@ -1476,7 +1482,7 @@ function Install-GitPackage {
             Update-EnvironmentPath
             if (Wait-Until -Condition { Test-CommandExists -Name git } -TimeoutSeconds 15 -IntervalMs 1000) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitInstalledViaWinget')
-                return $true
+                return New-StepResult -Success $true -Changed $true -Message 'Git installed via WinGet.'
             }
         }
     }
@@ -1490,17 +1496,17 @@ function Install-GitPackage {
         if ($installResult.Success) {
             Update-EnvironmentPath
             Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitInstalledSuccessfully')
-            return $true
+            return New-StepResult -Success $true -Changed $true -Message 'Git installed from the official GitHub release.'
         }
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.installationFailedCode0' -Args @($installResult.ExitCode))
         if ($installResult.PSObject.Properties.Name -contains 'Error' -and $installResult.Error) {
             Write-ToolkitLog -Level 'ERROR' -Message "Git installer fallback error: $($installResult.Error)"
         }
-        return $false
+        return New-StepResult -Success $false -Message "The Git installer returned exit code $($installResult.ExitCode)."
     }
     catch {
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.gitInstallationError0' -Args @($_.Exception.Message))
-        return $false
+        return New-StepResult -Success $false -Message $_.Exception.Message
     }
 }
 function Install-PowerShellCore {
@@ -1527,7 +1533,7 @@ function Install-WindowsTerminalApp {
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalConfiguration')
     if (Test-WindowsTerminalInstalled) {
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalIsAlreadyInstalled')
-        return $true
+        return New-StepResult -Success $true -Message 'Windows Terminal is already installed.'
     }
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalInstallationInProgress')
     $tempFile = $null
@@ -1537,7 +1543,7 @@ function Install-WindowsTerminalApp {
             $result = Invoke-WingetInstall -Id 'Microsoft.WindowsTerminal'
             if ($result.Accepted -and (Wait-Until -Condition { Test-WindowsTerminalInstalled })) {
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalInstalledViaWinget')
-                return $true
+                return New-StepResult -Success $true -Changed $true -Message 'Windows Terminal installed via WinGet.'
             }
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetInstallationForWindowsTerminalFailed')
         }
@@ -1570,7 +1576,7 @@ function Install-WindowsTerminalApp {
         if (-not (Wait-Until -Condition { Test-WindowsTerminalInstalled } -TimeoutSeconds 30 -IntervalMs 1000)) {
             throw 'Windows Terminal package installed but wt.exe was not detected.'
         }
-        return $true
+        return New-StepResult -Success $true -Changed $true -Message 'Windows Terminal installed from the signed MSIX bundle.'
     }
     catch {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.standardWindowsTerminalInstallationFailed0FallbackToTheMicrosoftStore' -Args @($_.Exception.Message))
@@ -1581,22 +1587,22 @@ function Install-WindowsTerminalApp {
         }
     }
     if (Test-WindowsTerminalInstalled) {
-        return $true
+        return New-StepResult -Success $true -Changed $true -Message 'Windows Terminal installed by a fallback method.'
     }
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.fallbackAperturaMicrosoftStorePerWindowsTerminal')
     Start-Process "ms-windows-store://pdp/?ProductId=9N0DX20HK701"
     Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.unableToInstallWindowsTerminalViaAnyAutomaticMethod')
-    return $false
+    return New-StepResult -Success $false -Message 'Windows Terminal could not be installed automatically; the Microsoft Store page was opened instead.'
 }
 function Set-WindowsTerminalAsDefault {
     [CmdletBinding(SupportsShouldProcess)]
     param()
     if (-not (Test-WindowsTerminalDefaultSupported)) {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.defaultTerminalNotSupportedOnThisBuild')
-        return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'Default terminal not supported on this build.' }
+        return New-StepResult -Success $true -Skipped -Message 'Default terminal not supported on this build.'
     }
     if (-not $PSCmdlet.ShouldProcess('Windows Terminal', 'Set as default terminal application')) {
-        return [pscustomobject]@{ Success = $true; Changed = $false; Message = 'WhatIf: default terminal not changed.' }
+        return New-StepResult -Success $true -Skipped -Message 'WhatIf: default terminal not changed.'
     }
     Write-StyledMessage -Type Info -Text ("⚙️ " + (Get-SourceTextLoc 'uiText.settingWindowsTerminalAsDefaultViaRegistry'))
     try {
@@ -1605,11 +1611,11 @@ function Set-WindowsTerminalAsDefault {
         Set-ItemProperty -Path $registryPath -Name 'DelegationTerminal' -Value $script:AppConfig.WindowsTerminal.DelegationTerminalClsid -Force
         Set-ItemProperty -Path $registryPath -Name 'DelegationConsole' -Value $script:AppConfig.WindowsTerminal.DelegationConsoleClsid -Force
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.windowsTerminalSetAsDefault')
-        return [pscustomobject]@{ Success = $true; Changed = $true; Message = 'Windows Terminal set as default.' }
+        return New-StepResult -Success $true -Changed $true -Message 'Windows Terminal set as default.'
     }
     catch {
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.failedToSetDefaultTerminal0' -Args @($_.Exception.Message))
-        return [pscustomobject]@{ Success = $false; Changed = $false; Message = $_.Exception.Message }
+        return New-StepResult -Success $false -Message $_.Exception.Message
     }
 }
 function Update-WindowsTerminalSettings {
@@ -1670,6 +1676,10 @@ function Install-PspEnvironment {
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingPowershellEnvironmentSetupPsp')
     $result = [pscustomobject]@{
         Success          = $true
+        Changed          = $false
+        Message          = 'PowerShell environment configured.'
+        Skipped          = $false
+        Blocking         = $false
         Tools            = [pscustomobject]@{ Installed = @(); Failed = @() }
         FontOk           = $null
         ThemeOk          = $false
@@ -1677,7 +1687,6 @@ function Install-PspEnvironment {
         ProfilePath      = $null
         ThemePath        = $null
         WingetRpcFailure = $false
-        Message          = 'PowerShell environment configured.'
     }
     $context = Get-ToolkitOriginalUserContext
     if ($context.AccountSwitched) {
@@ -1700,6 +1709,7 @@ function Install-PspEnvironment {
         $toolResult = Invoke-WingetInstall -Id $tool.Id -Exact
         if ($toolResult.Accepted) {
             $result.Tools.Installed += $tool.Name
+            $result.Changed = $true
         }
         else {
             if (Test-WingetRpcFailure -Result $toolResult) { $result.WingetRpcFailure = $true }
@@ -1726,6 +1736,7 @@ function Install-PspEnvironment {
             -MinimumBytes $script:AppConfig.UserScope.MinThemeFileBytes `
             -ContentValidator { param($candidatePath) Test-OhMyPoshThemeFile -Path $candidatePath }) {
         $result.ThemeOk = $true
+        $result.Changed = $true
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.ohMyPoshThemeDownloaded')
         Write-ToolkitLog -Level 'INFO' -Message "Oh My Posh theme installed: $($paths.ThemePath)"
     }
@@ -1735,12 +1746,14 @@ function Install-PspEnvironment {
     }
     $result.FontOk = Install-NerdFontsLocal
     if (-not $result.FontOk) { $result.Success = $false }
+    else { $result.Changed = $true }
     $targetProfile = $paths.ProfilePath
     try {
         if (Install-RemoteFile -Url $script:AppConfig.URLs.PowerShellProfile `
                 -Destination $targetProfile -MinimumBytes $script:AppConfig.MinProfileBytes -Backup) {
             if (Test-FileHasMinimumSize -Path $targetProfile -MinimumBytes $script:AppConfig.MinProfileBytes) {
                 $result.ProfileOk = $true
+                $result.Changed = $true
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7ProfileConfigured')
                 Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile installed: $targetProfile"
             }
@@ -1835,12 +1848,12 @@ function New-ToolkitDesktopShortcut {
         $null = Update-ShellDesktopCache
         Write-ToolkitLog -Level 'INFO' -Message "Desktop shortcut created: $shortcut"
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.shortcutCreatedSuccessfully')
-        return $true
+        return New-StepResult -Success $true -Changed $true -Message 'Desktop shortcut created.'
     }
     catch {
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.shortcutCreationError0' -Args @($_.Exception.Message))
         Write-ToolkitLog -Level 'ERROR' -Message "Desktop shortcut creation failed: $($_.Exception.Message)"
-        return $false
+        return New-StepResult -Success $false -Message $_.Exception.Message
     }
 }
 function Test-CommandExists {
@@ -2297,14 +2310,72 @@ function New-StepResult {
         [Parameter(Mandatory = $true)][bool]$Success,
         [bool]$Changed = $false,
         [string]$Message = '',
-        [switch]$Skipped
+        [switch]$Skipped,
+        [bool]$Blocking = $false
     )
     return [pscustomobject]@{
         Success  = $Success
         Changed  = $Changed
         Message  = $Message
         Skipped  = [bool]$Skipped
-        Blocking = $false
+        Blocking = $Blocking
+    }
+}
+function Get-OptionalMember {
+    param(
+        [AllowNull()][object]$InputObject,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+    if ($null -eq $InputObject) { return $null }
+    if ($InputObject -is [System.Collections.IDictionary]) { return $InputObject[$Name] }
+    $property = $InputObject.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $null }
+    return $property.Value
+}
+function ConvertTo-StepResult {
+    param(
+        [Parameter(Position = 0)][AllowNull()][object]$Result,
+        [string]$Name = 'Step'
+    )
+    $items = @($Result)
+    if ($items.Count -gt 1) {
+        $candidates = @($items | Where-Object { $null -ne (Get-OptionalMember -InputObject $_ -Name 'Success') })
+        $Result = if ($candidates.Count -gt 0) { $candidates[-1] } else { $items[-1] }
+        Write-ToolkitLog -Level 'DEBUG' -Message "ConvertTo-StepResult: '$Name' returned $($items.Count) objects; kept the last StepResult."
+    }
+    else {
+        $Result = $items[0]
+    }
+    if ($null -eq $Result) {
+        return New-StepResult -Success $false -Message "'$Name' returned no result (a step that exits through -WhatIf does)."
+    }
+    if ($Result -is [bool]) {
+        $outcome = if ([bool]$Result) { 'succeeded' } else { 'failed' }
+        return New-StepResult -Success ([bool]$Result) -Message "'$Name' returned a bare boolean ($outcome) instead of a StepResult."
+    }
+    if ($Result -is [string] -or $Result -is [System.ValueType]) {
+        return New-StepResult -Success $false -Message "'$Name' returned '$Result' instead of a StepResult."
+    }
+    $resultSkipped = [bool](Get-OptionalMember -InputObject $Result -Name 'Skipped')
+    return New-StepResult `
+        -Success ([bool](Get-OptionalMember -InputObject $Result -Name 'Success')) `
+        -Changed ([bool](Get-OptionalMember -InputObject $Result -Name 'Changed')) `
+        -Message ([string](Get-OptionalMember -InputObject $Result -Name 'Message')) `
+        -Skipped:$resultSkipped `
+        -Blocking ([bool](Get-OptionalMember -InputObject $Result -Name 'Blocking'))
+}
+function New-SetupStep {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$Run,
+        [scriptblock]$When,
+        [switch]$Blocking
+    )
+    return [pscustomobject]@{
+        Name     = $Name
+        Run      = $Run
+        When     = $When
+        Blocking = [bool]$Blocking
     }
 }
 function Add-SetupResult {
@@ -2322,11 +2393,12 @@ function Add-SetupResult {
     $stepChanged = $false
     $stepMessage = ''
     if ($PSCmdlet.ParameterSetName -eq 'Result') {
-        $stepSuccess = [bool]$Result.Success
-        $stepChanged = [bool]$Result.Changed
-        $stepMessage = [string]$Result.Message
-        $stepSkipped = $stepSkipped -or [bool]$Result.Skipped
-        $Blocking = $Blocking -or [bool]$Result.Blocking
+        $normalized = ConvertTo-StepResult -Result $Result -Name $Name
+        $stepSuccess = $normalized.Success
+        $stepChanged = $normalized.Changed
+        $stepMessage = $normalized.Message
+        $stepSkipped = $stepSkipped -or $normalized.Skipped
+        $Blocking = $Blocking -or $normalized.Blocking
     }
     else {
         $stepSuccess = $Success
@@ -2381,20 +2453,20 @@ function Invoke-WinToolkitSetup {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingWinToolkitSetup')
         $null = Request-DefenderPause
         $steps = @(
-            @{ Name = 'System clock'; Run = { Repair-SystemClock } }
-            @{ Name = 'SCHANNEL'; Run = { Reset-SchannelSettings } }
-            @{ Name = 'Hosts file'; Run = { Repair-HostsFileIfNeeded } }
-            @{ Name = 'App Installer'; Run = { Repair-AppInstaller } }
-            @{ Name = 'WinGet'; Run = { Initialize-Winget }; Blocking = $true }
-            @{ Name = 'Git'; Run = { Install-GitPackage } }
-            @{ Name = 'Windows Terminal'; Run = { Install-WindowsTerminalApp } }
-            @{ Name = 'Default terminal'; Run = { Set-WindowsTerminalAsDefault }; When = { Test-WindowsTerminalInstalled } }
-            @{ Name = 'PowerShell environment'; Run = { Install-PspEnvironment } }
-            @{ Name = 'User scope alignment'; Run = { Sync-UserScopeWithInstalledTools }
-                When = { (Get-ToolkitOriginalUserContext).AccountSwitched } }
-            @{ Name = 'Desktop shortcut'; Run = { New-ToolkitDesktopShortcut }
-                When = { (Test-WindowsTerminalInstalled) -and (Test-CommandExists -Name 'pwsh') }
-            }
+            New-SetupStep -Name 'System clock' -Run { Repair-SystemClock }
+            New-SetupStep -Name 'SCHANNEL' -Run { Reset-SchannelSettings }
+            New-SetupStep -Name 'Hosts file' -Run { Repair-HostsFileIfNeeded }
+            New-SetupStep -Name 'App Installer' -Run { Repair-AppInstaller }
+            New-SetupStep -Name 'WinGet' -Run { Initialize-Winget } -Blocking
+            New-SetupStep -Name 'Git' -Run { Install-GitPackage }
+            New-SetupStep -Name 'Windows Terminal' -Run { Install-WindowsTerminalApp }
+            New-SetupStep -Name 'Default terminal' -Run { Set-WindowsTerminalAsDefault } `
+                -When { Test-WindowsTerminalInstalled }
+            New-SetupStep -Name 'PowerShell environment' -Run { Install-PspEnvironment }
+            New-SetupStep -Name 'User scope alignment' -Run { Sync-UserScopeWithInstalledTools } `
+                -When { (Get-ToolkitOriginalUserContext).AccountSwitched }
+            New-SetupStep -Name 'Desktop shortcut' -Run { New-ToolkitDesktopShortcut } `
+                -When { (Test-WindowsTerminalInstalled) -and (Test-CommandExists -Name 'pwsh') }
         )
         Invoke-StopUpdateServices
         foreach ($step in $steps) {
@@ -2402,7 +2474,7 @@ function Invoke-WinToolkitSetup {
                 Add-SetupResult -Name $step.Name -Success $true -Skipped -Message 'Step not applicable on this system.'
                 continue
             }
-            $result = & $step.Run
+            $result = ConvertTo-StepResult -Result (& $step.Run) -Name $step.Name
             Add-SetupResult -Name $step.Name -Result $result -Blocking:([bool]$step.Blocking)
             if ($step.Blocking -and -not $result.Success) {
                 throw "Required step '$($step.Name)' failed: $($result.Message)"
