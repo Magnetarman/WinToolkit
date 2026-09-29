@@ -48,7 +48,6 @@ Describe 'Initialize-Winget — recovery ladder (§3.1)' {
         # install, process kill). It MUST be stubbed here: without it the unit test
         # would reset the App Installer package and touch the PowerShell profile of
         # the machine running the suite.
-        Mock Confirm-ToolkitInteractiveAction { return $false }
         Mock Reinstall-WingetForced { return New-StepResult -Success $true -Message 'stubbed' }
     }
 
