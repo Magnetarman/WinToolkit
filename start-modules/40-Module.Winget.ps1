@@ -1106,26 +1106,15 @@ function Reinstall-WingetForced {
         $notes.Add("App Installer repair failed: $($_.Exception.Message)")
     }
 
-    # --- 2. Microsoft.WinGet.Client: gated, permanent user environment change --
-    $moduleConfirmed = $false
-
+    # --- 2. Microsoft.WinGet.Client: full, unattended reinstall ------------------
+    # No confirmation and no interactive gate: this step only runs when every
+    # lighter recovery has already failed, and a prompt here would leave the
+    # WinGet repair half-finished whenever the session is not attended.
     if ($SkipModule) {
         $notes.Add('Module install skipped as requested.')
         Write-ToolkitLog -Level 'INFO' -Message 'Skipped the WinGet.Client module install: -SkipModule set.'
     }
-    elseif ($ConfirmModuleInstall) {
-        # The caller has explicitly confirmed the operation.
-        $moduleConfirmed = $true
-    }
-    elseif (-not [Console]::IsInputRedirected) {
-        $moduleConfirmed = Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0'
-    }
     else {
-        $notes.Add('Module install skipped: not confirmed.')
-        Write-ToolkitLog -Level 'INFO' -Message 'Skipped the WinGet.Client module install: non-interactive session and no explicit confirmation.'
-    }
-
-    if ($moduleConfirmed) {
         try {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingMicrosoftWingetClientModule')
             Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
@@ -1141,12 +1130,6 @@ function Reinstall-WingetForced {
             Write-ToolkitLog -Level 'WARNING' -Message "WinGet.Client module install failed: $($_.Exception.Message)"
             $notes.Add("Module install failed: $($_.Exception.Message)")
         }
-    }
-    elseif (-not $SkipModule) {
-        # Only add the "not confirmed" note when the user didn't explicitly
-        # skip; when -SkipModule is used the "skipped as requested" note
-        # already covers the path.
-        $notes.Add('Module install skipped: not confirmed.')
     }
 
     # --- 3. Refresh and verify -------------------------------------------------
