@@ -1,45 +1,69 @@
-# WinToolkit CI Dev Pipeline V4.0.2
-# Triggers: push to Dev/feature/fix/feat/hotfix/bug/enhancement/* -> lint+test+build; PR to Dev -> lint+test only.
+# WinToolkit CI Dev Pipeline V4.1.1
+# Triggers: push to Dev and to every tagged working branch -> lint+test+build; PR to Dev -> lint+test only.
 # Build regenerates WinToolkit.ps1 from pure sources (pre-existing file removed first). AST-validated before compile.
 
-name: WinToolkit — CI Dev Pipeline V4.0.2
+name: WinToolkit — CI Dev Pipeline V4.1.1
 
 env:
+  # SINGLE SOURCE OF TRUTH for the CI/CD pipeline version.
+  # Edit this value, then the sync-pipeline-version job rewrites the version
+  # token in every workflow and composite action (and commits the result).
+  PIPELINE_VERSION: "4.1.1"
   # Force Node 24 in Actions to avoid GitHub warnings about deprecated versions
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
-# Triggers: Dev + feature/fix/feat/hotfix/bug/enhancement branches (push); PRs to Dev.
+# Triggers: Dev + every tagged working branch (push); PRs to Dev.
 on:
   push:
+    # ONE RULE, applied to every supported tag: <TAG>, then `-` or `/`, then any
+    # name at any nesting depth. Case-insensitive via the per-letter classes.
+    #
+    # `**` is what makes it general. The single `*` used before stopped at the
+    # first `/`, so `BUG-Pipeline-CI/CD-...` matched neither `BUG/*` (it wants the
+    # slash right after BUG) nor `BUG-*` (its `*` dies at `BUG-Pipeline-CI`) and
+    # the branch was invisible to the pipeline: no run at all, no error either.
+    #
+    # Tags: BUG, ENHANCEMENT, FEATURE(S), FEAT, FIX, HOTFIX + GUI and Changes,
+    # which PR_And_PullRequest.md documents as supported but the trigger missed.
     branches:
       - Dev
-      - "[Ff]eature/**"
-      - "[Ff]eatures/**"
-      - "[Ff]eature-*"
-      - "[Ff]eatures-*"
-      - "[Ff]ix/**"
-      - "[Ff]ix-*"
-      - "[Ff]eat/**"
-      - "[Ff]eat-*"
-      - "[Hh]otfix/**"
-      - "[Hh]otfix-*"
+      - "[Bb][Uu][Gg]-**"
       - "[Bb][Uu][Gg]/**"
-      - "[Bb][Uu][Gg]-*"
+      - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]-**"
       - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]/**"
-      - "[Ee][Nn][Hh][Aa][Nn][Cc][Ee][Mm][Ee][Nn][Tt]-*"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]-**"
       - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]/**"
-      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee]-*"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee][Ss]-**"
+      - "[Ff][Ee][Aa][Tt][Uu][Rr][Ee][Ss]/**"
+      - "[Ff][Ee][Aa][Tt]-**"
+      - "[Ff][Ee][Aa][Tt]/**"
+      - "[Ff][Ii][Xx]-**"
+      - "[Ff][Ii][Xx]/**"
+      - "[Hh][Oo][Tt][Ff][Ii][Xx]-**"
+      - "[Hh][Oo][Tt][Ff][Ii][Xx]/**"
+      - "[Gg][Uu][Ii]-**"
+      - "[Gg][Uu][Ii]/**"
+      - "[Cc][Hh][Aa][Nn][Gg][Ee][Ss]-**"
+      - "[Cc][Hh][Aa][Nn][Gg][Ee][Ss]/**"
+    # Same rule on the file side: `*` stops at `/`, so a fragment in a subdirectory
+    # would have started no run at all.
+    #
+    # `dir/**/*.yml` alone is NOT enough: `**` already consumes the separator, so a
+    # file sitting directly in `dir` does not match it. Both forms are listed, or
+    # editing a top-level workflow would silently stop triggering the pipeline.
     paths:
-      - "tools/*.ps1"
+      - "tools/**"
       - "wintoolkit-modules/**"
       - "WinToolkit_GUI.ps1"
       - "compiler.ps1"
       - "start.ps1"
-      - "start-modules/*.ps1"
+      - "start-modules/**"
       - ".github/workflows/*.yml"
+      - ".github/workflows/**/*.yml"
       - ".github/actions/**"
+      - ".github/tests/*.ps1"
       - ".github/tests/**/*.ps1"
-      - ".github/scripts/*.ps1"
+      - ".github/scripts/**"
   pull_request:
     branches: [Dev]
 
@@ -48,12 +72,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-
 jobs:
   # PR Security Guard (PRs to Dev only): L1 tools/start-modules (silent), L2 sensitive (warning), L3 protected (block+close).
   pr_security_guard:
     name: PR Security
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name == 'pull_request'
     permissions:
       pull-requests: write
@@ -61,7 +84,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -210,10 +233,12 @@ jobs:
               );
             }
 
-  # Differential change detection per source family (WinToolkit / Start). Shared CI files activate both.
+  # Differential change detection per source family (WinToolkit / Start). Each
+  # changed file is classified by the artifact it can influence, so a start-modules
+  # edit builds start-core.ps1 and never WinToolkit.ps1.
   detect_changes:
     name: Detect changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       run_checks: ${{ steps.filter.outputs.run_checks }}
       wintoolkit_changed: ${{ steps.filter.outputs.wintoolkit_changed }}
@@ -222,7 +247,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -243,25 +268,74 @@ jobs:
           echo "Changed files:"
           echo "$CHANGED"
 
-          # Per-family patterns
-          WT_PATTERN='^(tools/[^/]+\.ps1|wintoolkit-modules/[^/]+\.ps1|WinToolkit_GUI\.ps1|compiler\.ps1)$'
-          ST_PATTERN='^(start\.ps1|start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1|\.github/scripts/(Invoke-Build-Start|Test-CompiledStartScript)\.ps1)$'
-          ST_BUILD_PATTERN='^start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1$'
-          SHARED_PATTERN='^\.github/(tests/.*\.ps1|scripts/[^/]+\.ps1|actions/.+)$'
+          # Differential detection, one family at a time.
+          #
+          # Each changed file is classified on its own, and the FIRST matching case
+          # wins, so a file can never be counted for both families by accident. There
+          # is no blanket "shared files activate everything" rule any more: it
+          # switched on the WinToolkit build for a StartModules test and left
+          # start_build_changed false, so a start-modules edit rebuilt WinToolkit.ps1
+          # and shipped a stale start-core.ps1.
+          #
+          #   wintoolkit_changed  -> lint PSScriptAnalyzer/template + build WinToolkit.ps1
+          #   start_changed       -> lint/validate/Pester on start-modules
+          #   start_build_changed -> build start-core.ps1
+          #
+          # Compiled artifacts (WinToolkit.ps1, start-core.ps1) match no case: they
+          # are the OUTPUT of a build, and the commit that produces them must never
+          # schedule another one.
 
           WT_CHANGED=false
           ST_CHANGED=false
           ST_BUILD_CHANGED=false
 
-          if echo "$CHANGED" | grep -qE "$WT_PATTERN"; then WT_CHANGED=true; fi
-          if echo "$CHANGED" | grep -qE "$ST_PATTERN"; then ST_CHANGED=true; fi
-          if echo "$CHANGED" | grep -qE "$ST_BUILD_PATTERN"; then ST_BUILD_CHANGED=true; fi
+          classify() {
+            case "$1" in
+              # --- WinToolkit sources, compiled into WinToolkit.ps1 ---
+              tools/*.ps1|wintoolkit-modules/*.ps1|WinToolkit_GUI.ps1|compiler.ps1)
+                WT_CHANGED=true ;;
 
-          # Shared CI files activate both families
-          if echo "$CHANGED" | grep -qE "$SHARED_PATTERN"; then
-            WT_CHANGED=true
-            ST_CHANGED=true
-          fi
+              # --- Start sources ---
+              # start.ps1 is only the launcher stub: it points at start-core.ps1,
+              # it does not become part of it, so it is verified but not compiled.
+              start.ps1) ST_CHANGED=true ;;
+              start-modules/*.ps1) ST_CHANGED=true; ST_BUILD_CHANGED=true ;;
+
+              # --- CI files that change what the WinToolkit build produces ---
+              .github/scripts/Invoke-Build.ps1| \
+              .github/scripts/Minify-Source.ps1| \
+              .github/scripts/New-WinToolkitCoreScript.ps1| \
+              .github/scripts/Test-CompiledScript.ps1)
+                WT_CHANGED=true ;;
+
+              # --- CI files that change what the start-core build produces ---
+              .github/scripts/Invoke-Build-Start.ps1| \
+              .github/scripts/Test-CompiledStartScript.ps1| \
+              .github/scripts/Test-StartFragmentGate.ps1)
+                ST_CHANGED=true; ST_BUILD_CHANGED=true ;;
+
+              # --- Suites owned by a family: they change what is verified ---
+              .github/tests/StartModules/*.ps1|.github/tests/Integration/BuildStart.Tests.ps1)
+                ST_CHANGED=true ;;
+              .github/tests/Unit/*.ps1| \
+              .github/tests/CI-Smoke.Tests.ps1| \
+              .github/tests/WinToolkit.Tests.ps1| \
+              .github/tests/Integration/Build.Tests.ps1)
+                WT_CHANGED=true ;;
+
+              # --- CI infrastructure shared by both families ---
+              # Composite actions and any other pipeline script gate the run but are
+              # not inputs of either artifact: both families are verified, neither
+              # is rebuilt. A script added later lands here by default instead of
+              # silently activating nothing.
+              .github/actions/*|.github/scripts/*)
+                WT_CHANGED=true; ST_CHANGED=true ;;
+            esac
+          }
+
+          while IFS= read -r changed_file; do
+            if [ -n "$changed_file" ]; then classify "$changed_file"; fi
+          done <<< "$CHANGED"
 
           if [ "$WT_CHANGED" = "true" ] || [ "$ST_CHANGED" = "true" ]; then
             RUN_CHECKS=true
@@ -289,6 +363,34 @@ jobs:
       validate-start: ${{ needs.detect_changes.outputs.start_changed == 'true' }}
     permissions:
       contents: read
+
+  # Propagates PIPELINE_VERSION (the single source of truth) to every workflow and
+  # action name, then commits the alignment.
+  #
+  # It runs on EVERY CI branch, not only on Dev: the version is bumped on the
+  # working branch, so a Dev-only job left the whole .github tree one version
+  # behind and the drift was never committed anywhere.
+  #
+  # It also runs AFTER both builds. They all push to the same branch, and the
+  # alignment commit is a force-with-lease push from a checkout taken before the
+  # builds ran: starting in parallel, it raced them, lost, and dropped the
+  # alignment silently. always() keeps it running when a build is skipped.
+  sync-pipeline-version:
+    name: Sync pipeline version
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      needs.detect_changes.result == 'success'
+    needs: [detect_changes, quality, build, build-start]
+    uses: ./.github/workflows/_reusable-pipeline-version.yml
+    with:
+      branch: ${{ github.ref_name }}
+      commit-message: "🆙 Sync pipeline version"
+    # Ceiling for the token the called workflow gets: it can only narrow this.
+    permissions:
+      contents: write
+      actions: read
+    secrets: inherit
 
   # Build WinToolkit.ps1 (reusable workflow) when sources changed and quality passed.
   build:
