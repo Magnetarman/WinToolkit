@@ -187,8 +187,7 @@ function Test-WingetRpcFailure {
         [Parameter(Mandatory = $true)][object]$Result
     )
 
-    # The module owns the numeric literal: no magic number in the call sites.
-    return ($Result.ExitCode -eq $script:WINGET_RPC_FAILURE_EXITCODE)
+    return ($Result.ExitCode -eq $script:AppConfig.Winget.RpcFailureExitCode)
 }
 
 
