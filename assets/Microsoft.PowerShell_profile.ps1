@@ -1803,7 +1803,11 @@ Set-Alias -Name help -Value Show-Help
 
 
 # ============================================================================
-# PROFILE BOOTSTRAP (runtime initialization - must run last)
+# 13. PROFILE BOOTSTRAP
+# ============================================================================
+# Runtime initialization. Must stay last: everything above must already be
+# defined, and each third-party tool is guarded so a missing one degrades
+# gracefully instead of breaking the shell.
 # ============================================================================
 
 # Oh My Posh (guarded: the prompt must survive a machine without it)
