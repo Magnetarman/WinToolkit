@@ -1730,73 +1730,137 @@ function PS-Reset {
 
 
 function Show-Help {
-    $helpText = @"
-$($PSStyle.Foreground.Cyan)PowerShell Profile Guide$($PSStyle.Reset) $($PSStyle.Foreground.Red)========================================================$($PSStyle.Reset)
+    <#
+    .SYNOPSIS
+        Prints the command guide shown by 'help'.
+    .DESCRIPTION
+        The guide is rendered from the data table below, so the description column
+        stays aligned no matter how long a command name is, and adding a command is
+        a one-line change. Entries are coloured by risk: Green (safe), Yellow
+        (warning), Red (alert), Magenta (WinToolkit GUI), Blue (personal helper).
+    #>
+    [CmdletBinding()]
+    param()
 
-$($PSStyle.Foreground.Green)Green (Safe):$($PSStyle.Reset) Usage does not pose risks or issues.
-$($PSStyle.Foreground.Yellow)Yellow (Warning):$($PSStyle.Reset) Warning! Read the description because these commands can make risky system changes.
-$($PSStyle.Foreground.Red)Red (ALERT!):$($PSStyle.Reset) STOP! These functions are designed to perform deep and destructive changes. Be careful!
+    # Entry: [pscustomobject]@{ Name; Color; Description }. Using objects (not
+    # bare arrays) keeps single-entry groups from being flattened into strings.
+    $guide = @(
+        [pscustomobject]@{
+            Section = '03. ENVIRONMENT AND SHELL'
+            Items   = @(
+                [pscustomobject]@{ Name = 'ReloadProfile'; Color = 'Green'; Description = 'Reloads the current PowerShell profile.' },
+                [pscustomobject]@{ Name = 'back'; Color = 'Green'; Description = 'Returns to a previous directory (cd history-aware).' },
+                [pscustomobject]@{ Name = 'up'; Color = 'Green'; Description = 'Goes up one level in the directory tree (e.g. C:\Users\Name -> C:\Users).' }
+            )
+        },
+        [pscustomobject]@{
+            Section = '04. FILE AND DIRECTORY MANAGEMENT'
+            Items   = @(
+                [pscustomobject]@{ Name = 'New-Mkcd'; Color = 'Green'; Description = 'Creates a directory and moves into it.' },
+                [pscustomobject]@{ Name = 'Find-File'; Color = 'Green'; Description = 'Searches files recursively by partial name.' },
+                [pscustomobject]@{ Name = 'Expand-ZipFile'; Color = 'Green'; Description = 'Extracts a ZIP file into the current directory.' },
+                [pscustomobject]@{ Name = 'Set-LocationToDesktop'; Color = 'Green'; Description = 'Navigates to the Desktop directory.' }
+            )
+        },
+        [pscustomobject]@{
+            Section = '05. SYSTEM INFORMATION'
+            Items   = @(
+                [pscustomobject]@{ Name = 'Get-SystemInfo'; Color = 'Green'; Description = 'Displays detailed system information.' },
+                [pscustomobject]@{ Name = 'Get-MainboardInfo'; Color = 'Green'; Description = 'Motherboard information.' },
+                [pscustomobject]@{ Name = 'Get-RAMInfo'; Color = 'Green'; Description = 'Information about installed RAM modules.' },
+                [pscustomobject]@{ Name = 'Get-PublicIP'; Color = 'Green'; Description = 'Retrieves the public IP address.' }
+            )
+        },
+        [pscustomobject]@{
+            Section = '06. NETWORK UTILITIES'
+            Items   = @(
+                [pscustomobject]@{ Name = 'Speedtest'; Color = 'Green'; Description = 'Runs a network speed test (human-readable).' },
+                [pscustomobject]@{ Name = 'Speedtest-Advance'; Color = 'Yellow'; Description = 'Advanced speed test (JSON) with full latency stats.' },
+                [pscustomobject]@{ Name = 'FlushDns'; Color = 'Green'; Description = 'Flushes the DNS cache.' },
+                [pscustomobject]@{ Name = 'Reset-IP'; Color = 'Yellow'; Description = 'Releases and renews the network adapter IP address.' },
+                [pscustomobject]@{ Name = 'Reset-Network'; Color = 'Yellow'; Description = 'Restores network settings to default.' }
+            )
+        },
+        [pscustomobject]@{
+            Section = '07. SYSTEM COMMANDS'
+            Items   = @(
+                [pscustomobject]@{ Name = 'doReboot'; Color = 'Green'; Description = 'Reboots the system immediately.' },
+                [pscustomobject]@{ Name = 'Shutdownfast'; Color = 'Green'; Description = 'Hybrid shutdown (enables Fast Startup on next boot).' },
+                [pscustomobject]@{ Name = 'ShutdownComplete'; Color = 'Green'; Description = 'Full shutdown (bypasses Fast Startup).' },
+                [pscustomobject]@{ Name = 'btop'; Color = 'Green'; Description = 'System resource monitor for the terminal.' }
+            )
+        },
+        [pscustomobject]@{
+            Section = '08. EDITOR INTEGRATION'
+            Items   = @(
+                [pscustomobject]@{ Name = 'EditPSProfile'; Color = 'Yellow'; Description = 'Opens the PowerShell profile in the editor.' }
+            )
+        },
+        [pscustomobject]@{
+            Section = '09. PROGRAM UPDATES'
+            Items   = @(
+                [pscustomobject]@{ Name = 'Update-Pwsh'; Color = 'Green'; Description = 'Updates PowerShell to the latest version.' },
+                [pscustomobject]@{ Name = 'Winget-Update'; Color = 'Yellow'; Description = 'Upgrades pasted WinGet package IDs and reinstalls incompatible ones.' },
+                [pscustomobject]@{ Name = 'Pip-Update'; Color = 'Yellow'; Description = 'Upgrades all outdated pip packages (excludes python/pip).' },
+                [pscustomobject]@{ Name = 'PSProfileUpdate'; Color = 'Green'; Description = 'Updates the PowerShell profile to the latest version.' }
+            )
+        },
+        [pscustomobject]@{
+            Section = '10. WINTOOLKIT'
+            Items   = @(
+                [pscustomobject]@{ Name = 'WinToolkit-Stable'; Color = 'Green'; Description = 'Launches WinToolkit (stable).' },
+                [pscustomobject]@{ Name = 'WinToolkit-Dev'; Color = 'Yellow'; Description = 'Launches WinToolkit (Dev).' },
+                [pscustomobject]@{ Name = 'WinToolkit-GUI'; Color = 'Magenta'; Description = 'Launches WinToolkit (GUI version).' },
+                [pscustomobject]@{ Name = 'SetBranch-Main'; Color = 'Yellow'; Description = 'Switches the environment (Icon and Profile) to main branch.' },
+                [pscustomobject]@{ Name = 'SetBranch-Dev'; Color = 'Yellow'; Description = 'Switches the environment (Icon and Profile) to dev branch.' },
+                [pscustomobject]@{ Name = 'WinReg'; Color = 'Red'; Description = 'Activates Windows/Office (MAS).' },
+                [pscustomobject]@{ Name = 'SetRustDesk'; Color = 'Red'; Description = 'Configures RustDesk for remote control.' }
+            )
+        },
+        [pscustomobject]@{
+            Section = '11. MAINTENANCE AND RESET'
+            Items   = @(
+                [pscustomobject]@{ Name = 'ReadyToGo'; Color = 'Red'; Description = 'Prepares the PC for final use (PC Delivery).' },
+                [pscustomobject]@{ Name = 'PS-Reset'; Color = 'Yellow'; Description = 'Resets Windows Terminal and removes this profile.' },
+                [pscustomobject]@{ Name = 'Nuke'; Color = 'Blue'; Description = 'Pre-format full backup. (Personal: loads nuke.ps1 from Private Directory; will not work for other users.)' }
+            )
+        }
+    )
 
-$($PSStyle.Foreground.Green)====================================================================================$($PSStyle.Reset)
+    $reset = $PSStyle.Reset
+    $divider = $PSStyle.Foreground.Green + ('=' * 84) + $reset
 
-$($PSStyle.Foreground.Cyan)Environment and Base Configuration$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)ReloadProfile$($PSStyle.Reset)             - Reloads the current PowerShell profile.
+    # One shared width for every row keeps the description column aligned.
+    # The padding is applied to the plain name first: the -f operator counts the
+    # ANSI escape codes, so colouring before padding would break the column.
+    $nameWidth = ($guide | ForEach-Object { $_.Items } | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum
+    $row = '{0,-' + $nameWidth + '} - {1}'
 
-$($PSStyle.Foreground.Cyan)File and Directory Management$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)New-Mkcd$($PSStyle.Reset)                  - Creates a directory and moves into it.
-$($PSStyle.Foreground.Green)Find-File$($PSStyle.Reset)                 - Searches files recursively by partial name.
-$($PSStyle.Foreground.Green)Expand-ZipFile$($PSStyle.Reset)            - Extracts a ZIP file into the current directory.
-$($PSStyle.Foreground.Green)Set-LocationToDesktop$($PSStyle.Reset)     - Navigates to the Desktop directory.
-$($PSStyle.Foreground.Green)back$($PSStyle.Reset)                      - Returns to a previous directory (cd history-aware).
-$($PSStyle.Foreground.Green)up$($PSStyle.Reset)                        - Goes up one level in the directory tree (e.g. C:\Users\Name -> C:\Users).
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add("$($PSStyle.Foreground.Cyan)PowerShell Profile Guide$($PSStyle.Reset) $($PSStyle.Foreground.Red)$('=' * 58)$($PSStyle.Reset)")
+    $lines.Add('')
+    $lines.Add("$($PSStyle.Foreground.Green)Green (Safe):$($PSStyle.Reset) Usage does not pose risks or issues.")
+    $lines.Add("$($PSStyle.Foreground.Yellow)Yellow (Warning):$($PSStyle.Reset) Warning! Read the description because these commands can make risky system changes.")
+    $lines.Add("$($PSStyle.Foreground.Red)Red (ALERT!):$($PSStyle.Reset) STOP! These functions are designed to perform deep and destructive changes. Be careful!")
+    $lines.Add('')
+    $lines.Add($divider)
 
-$($PSStyle.Foreground.Cyan)System Information$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Get-SystemInfo$($PSStyle.Reset)            - Displays detailed system information.
-$($PSStyle.Foreground.Green)Get-MainboardInfo$($PSStyle.Reset)         - Motherboard information.
-$($PSStyle.Foreground.Green)Get-RAMInfo$($PSStyle.Reset)               - Information about installed RAM modules.
-$($PSStyle.Foreground.Green)Get-PublicIP$($PSStyle.Reset)              - Retrieves the public IP address.
+    foreach ($group in $guide) {
+        $lines.Add('')
+        $lines.Add("$($PSStyle.Foreground.Cyan)$($group.Section)$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)$('-' * 66)$($PSStyle.Reset)")
+        foreach ($item in $group.Items) {
+            $lines.Add(($row -f "$($PSStyle.Foreground.$($item.Color))$($item.Name)$reset", $item.Description))
+        }
+    }
 
-$($PSStyle.Foreground.Cyan)Network Utilities$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Speedtest$($PSStyle.Reset)                 - Runs a network speed test (human-readable).
-$($PSStyle.Foreground.Yellow)Speedtest-Advance$($PSStyle.Reset)         - Advanced speed test (JSON) with full latency stats.
-$($PSStyle.Foreground.Green)FlushDns$($PSStyle.Reset)                  - Flushes the DNS cache.
-$($PSStyle.Foreground.Yellow)Reset-IP$($PSStyle.Reset)                  - Releases and renews the network adapter IP address.
-$($PSStyle.Foreground.Yellow)Reset-Network$($PSStyle.Reset)             - Restores network settings to default.
+    $lines.Add('')
+    $lines.Add("$($PSStyle.Foreground.Cyan)Configured Editor$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)$('-' * 66)$($PSStyle.Reset)")
+    $lines.Add("Editor: $($PSStyle.Foreground.Magenta)$($EDITOR_INFO.Name)$($PSStyle.Reset)")
+    $lines.Add('')
+    $lines.Add($divider)
+    $lines.Add("Type '$($PSStyle.Foreground.Magenta)help$($PSStyle.Reset)' to display this message.")
 
-$($PSStyle.Foreground.Cyan)Programs Update$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)------------------------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)Update-Pwsh$($PSStyle.Reset)               - Updates PowerShell to the latest version.
-$($PSStyle.Foreground.Yellow)Winget-Update$($PSStyle.Reset)             - Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
-$($PSStyle.Foreground.Yellow)Pip-Update$($PSStyle.Reset)                - Upgrades all outdated pip packages (excludes python/pip).
-$($PSStyle.Foreground.Green)PSProfileUpdate$($PSStyle.Reset)           - Updates the PowerShell profile to the latest version.
-
-$($PSStyle.Foreground.Cyan)System$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)--------------------------------------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)doReboot$($PSStyle.Reset)                  - Reboots the system immediately.
-$($PSStyle.Foreground.Green)Shutdownfast$($PSStyle.Reset)              - Hybrid shutdown (enables Fast Startup on next boot).
-$($PSStyle.Foreground.Green)ShutdownComplete$($PSStyle.Reset)          - Full shutdown (bypasses Fast Startup).
-$($PSStyle.Foreground.Red)WinReg$($PSStyle.Reset)                    - Activates Windows/Office (MAS).
-$($PSStyle.Foreground.Red)SetRustDesk$($PSStyle.Reset)               - Configures RustDesk for remote control.
-$($PSStyle.Foreground.Yellow)PS-Reset$($PSStyle.Reset)                  - Resets Windows Terminal and removes this profile.
-$($PSStyle.Foreground.Red)ReadyToGo$($PSStyle.Reset)                 - Prepares the PC for final use (PC Delivery).
-$($PSStyle.Foreground.Green)btop$($PSStyle.Reset)                      - System resource monitor for the terminal.
-$($PSStyle.Foreground.Blue)Nuke$($PSStyle.Reset)                      - Pre-format full backup. (Personal: loads nuke.ps1 from Private Directory; will not work for other users.)
-
-$($PSStyle.Foreground.Cyan)WinToolkit$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)---------------------------------------------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Green)WinToolkit-Stable$($PSStyle.Reset)         - Launches WinToolkit (stable).
-$($PSStyle.Foreground.Yellow)WinToolkit-Dev$($PSStyle.Reset)            - Launches WinToolkit (Dev).
-$($PSStyle.Foreground.Magenta)WinToolkit-GUI$($PSStyle.Reset)            - Launches WinToolkit (GUI version).
-$($PSStyle.Foreground.Yellow)SetBranch-Main$($PSStyle.Reset)            - Switches the environment (Icon and Profile) to main branch.
-$($PSStyle.Foreground.Yellow)SetBranch-Dev$($PSStyle.Reset)             - Switches the environment (Icon and Profile) to dev branch.
-
-$($PSStyle.Foreground.Cyan)Editor Configuration$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)----------------------------------------$($PSStyle.Reset)
-$($PSStyle.Foreground.Yellow)EditPSProfile$($PSStyle.Reset)             - Opens the PowerShell profile in the editor.
-
-$($PSStyle.Foreground.Cyan)Configured Editor$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)-----------------------------------------------------------------$($PSStyle.Reset)
-Editor: $($PSStyle.Foreground.Magenta)$($EDITOR_INFO.Name)$($PSStyle.Reset)
-
-$($PSStyle.Foreground.Green)====================================================================================$($PSStyle.Reset)
-Type '$($PSStyle.Foreground.Magenta)help$($PSStyle.Reset)' to display this message.
-"@
-    Write-Host $helpText
+    Write-Host ($lines -join [Environment]::NewLine)
 }
 
 Set-Alias -Name help -Value Show-Help
