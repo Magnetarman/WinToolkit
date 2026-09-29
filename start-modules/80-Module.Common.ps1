@@ -12,6 +12,51 @@ function Test-CommandExists {
 }
 
 
+function Test-LocalRootedPath {
+    <#
+    .SYNOPSIS
+    Returns the normalized path when it is a fully qualified local path, else $null.
+
+    .DESCRIPTION
+    Single source of truth for "is this a usable local path". It rejects exactly
+    the three shapes that turn an unresolved known folder into files scattered
+    outside the user profile:
+      ''            -> not bindable, would fail later at an unrelated place
+      'C:'/'C:\'    -> the drive root
+      '\PowerShell' -> drive-relative: resolves to <current drive>:\PowerShell
+    The three conditions are collapsed into one anchored regex: anything that is
+    not "X:\..." fails it, which subsumes the previous separate tests.
+    #>
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $null }
+    $trimmed = $Path.Trim().TrimEnd('\')
+    if ($trimmed -notmatch '^[A-Za-z]:[\\/]') { return $null }
+    return $trimmed
+}
+
+
+function Remove-PathQuietly {
+    <#
+    .SYNOPSIS
+    Deletes one or more paths, ignoring every failure.
+
+    .DESCRIPTION
+    Replaces the 18 hand-written `finally { if (Test-Path ...) { Remove-Item } }`
+    blocks. Cleanup must never mask the outcome of the operation it belongs to,
+    so nothing here is allowed to throw.
+    #>
+    param(
+        [Parameter(Position = 0)][string[]]$Path
+    )
+
+    foreach ($item in $Path) {
+        if ([string]::IsNullOrWhiteSpace($item)) { continue }
+        Remove-Item -LiteralPath $item -Force -Recurse -ErrorAction SilentlyContinue
+    }
+}
+
+
 function Initialize-Directory {
     <#
     .SYNOPSIS
@@ -20,32 +65,17 @@ function Initialize-Directory {
     .DESCRIPTION
     The verification is the point of this helper: a silent New-Item failure used to
     let the caller carry on and report success for an artifact that was never
-    written. The path SHAPE is validated before anything is created, because these
-    three forms are what turn an unresolved known folder into files scattered
-    outside the user profile:
-      ''            -> not bindable, would fail later at an unrelated place
-      'C:'/'C:\'    -> the drive root
-      '\PowerShell' -> drive-relative: resolves to <current drive>:\PowerShell
-    #>
-    param([Parameter(Mandatory = $true)][string]$Path)
-
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        throw 'Initialize-Directory: the target path is empty.'
+$resolved = Test-LocalRootedPath -Path $Path
+    if (-not $resolved) {
+        throw "Initialize-Directory: refusing to use '$Path' (empty, relative or drive-root path)."
     }
-    $trimmed = $Path.Trim().TrimEnd('\')
-    if (-not [IO.Path]::IsPathRooted($trimmed) -or
-        $trimmed -match '^[\\/]$' -or
-        $trimmed -match '^[\\/]' -or
-        $trimmed -notmatch '^[A-Za-z]:[\\/]') {
-        throw "Initialize-Directory: refusing to use '$Path' (empty, drive-relative or drive-root path)."
+    if (-not (Test-Path -LiteralPath $resolved)) {
+        $null = New-Item -Path $resolved -ItemType Directory -Force -ErrorAction Stop
     }
-    if (-not (Test-Path -LiteralPath $trimmed)) {
-        $null = New-Item -Path $trimmed -ItemType Directory -Force -ErrorAction Stop
+    if (-not (Test-Path -LiteralPath $resolved -PathType Container)) {
+        throw "Initialize-Directory: '$resolved' is not an accessible directory."
     }
-    if (-not (Test-Path -LiteralPath $trimmed -PathType Container)) {
-        throw "Initialize-Directory: '$trimmed' is not an accessible directory."
-    }
-    return $trimmed
+    return $resolved
 }
 
 
@@ -63,12 +93,20 @@ function Get-ToolkitOriginalUserContext {
     reads them once and reports whether the current identity differs.
     #>
     if ($script:OriginalUserContext) { return $script:OriginalUserContext }
+    if ($script:State -and $script:State.UserContext) { return $script:State.UserContext }
 
     $scope = $script:AppConfig.UserScope
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     $originalUser = [Environment]::GetEnvironmentVariable($scope.EnvUser)
 
-    $script:OriginalUserContext = [pscustomobject]@{
+$script:OriginalUserContext = [pscustomobject]@{
+        CurrentUser     = $currentUser
+        OriginalUser    = $originalUser
+        AccountSwitched = [bool]($originalUser -and $currentUser -and ($originalUser -ne $currentUser))
+        Desktop         = [Environment]::GetEnvironmentVariable($scope.EnvDesktop)
+        MyDocuments     = [Environment]::GetEnvironmentVariable($scope.EnvMyDocuments)
+    }
+    if ($script:State) { $script:State.UserContext = $script:OriginalUserContext }
         CurrentUser     = $currentUser
         OriginalUser    = $originalUser
         AccountSwitched = [bool]($originalUser -and $currentUser -and ($originalUser -ne $currentUser))
@@ -133,11 +171,8 @@ function Get-ToolkitUserFolderPath {
 
     foreach ($candidate in $candidates) {
         if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
-        $path = $candidate.Trim().TrimEnd('\')
-        # Same shape rule as Initialize-Directory: reject anything that is not a
-        # fully qualified "X:\...\" path. This is what keeps an empty GetFolderPath
-        # from becoming "<current drive>:\PowerShell".
-        if (-not [IO.Path]::IsPathRooted($path) -or $path -notmatch '^[A-Za-z]:[\\/]') { continue }
+        $path = Test-LocalRootedPath -Path $candidate
+        if (-not $path) { continue }
 
         if ($NoCreate) {
             if (Test-Path -LiteralPath $path -PathType Container) {
@@ -278,9 +313,12 @@ function Wait-Until {
     #>
     param(
         [Parameter(Mandatory = $true)][scriptblock]$Condition,
-        [int]$TimeoutSeconds = 30,
+        # Defaults come from AppConfig.Timeouts so the timeout of an installer is
+        # declared once, next to the other timeouts, instead of at every call site.
+        [int]$TimeoutSeconds = 0,
         [int]$IntervalMs = 1000
     )
+    if ($TimeoutSeconds -le 0) { $TimeoutSeconds = $script:AppConfig.Timeouts.Condition }
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     do {
         if (& $Condition) { return $true }
@@ -327,7 +365,11 @@ function Invoke-DownloadFile {
         [Parameter(Mandatory = $true)][string]$OutFile,
         [switch]$Silent,
         [int]$MinimumBytes = 1,
-        [scriptblock]$ContentValidator
+        [scriptblock]$ContentValidator,
+        # A transient network error is common on a freshly installed machine; the
+        # previous version tried each URL exactly once and gave up.
+        [int]$RetryCount = 2,
+        [int]$RetryIntervalSeconds = 2
     )
 
     $previousProgress = $ProgressPreference
@@ -341,31 +383,33 @@ function Invoke-DownloadFile {
 
         foreach ($candidate in $Uri) {
             if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
-            try {
-                if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
+            for ($attempt = 0; $attempt -le $RetryCount; $attempt++) {
+                try {
+                    Remove-PathQuietly -Path $OutFile
+                    Invoke-WebRequest -Uri $candidate -OutFile $OutFile -UseBasicParsing -ErrorAction Stop
 
-                Invoke-WebRequest -Uri $candidate -OutFile $OutFile -UseBasicParsing -ErrorAction Stop
+                    $downloaded = Get-Item -LiteralPath $OutFile -ErrorAction Stop
+                    if ($downloaded.PSIsContainer) { throw 'The response is not a file.' }
+                    if ($downloaded.Length -lt $MinimumBytes) {
+                        throw "Only $($downloaded.Length) bytes received (expected at least $MinimumBytes)."
+                    }
+                    if ($ContentValidator -and -not (& $ContentValidator $OutFile)) {
+                        throw 'The downloaded content did not pass validation.'
+                    }
 
-                $downloaded = Get-Item -LiteralPath $OutFile -ErrorAction Stop
-                if ($downloaded.PSIsContainer) { throw "The response is not a file." }
-                if ($downloaded.Length -lt $MinimumBytes) {
-                    throw "Only $($downloaded.Length) bytes received (expected at least $MinimumBytes)."
+                    Write-ToolkitLog -Level 'INFO' -Message "Downloaded '$candidate' -> $OutFile ($($downloaded.Length) bytes)."
+                    return $true
                 }
-                if ($ContentValidator -and -not (& $ContentValidator $OutFile)) {
-                    throw 'The downloaded content did not pass validation.'
+                catch {
+                    $failures += "${candidate}: $($_.Exception.Message)"
+                    Write-ToolkitLog -Level 'WARNING' -Message "Download attempt failed ($candidate, try $($attempt + 1)/$($RetryCount + 1)): $($_.Exception.Message)"
+                    Remove-PathQuietly -Path $OutFile
+                    if ($attempt -lt $RetryCount) { Start-Sleep -Seconds $RetryIntervalSeconds }
                 }
-
-                Write-ToolkitLog -Level 'INFO' -Message "Downloaded '$candidate' -> $OutFile ($($downloaded.Length) bytes)."
-                return $true
-            }
-            catch {
-                $failures += "${candidate}: $($_.Exception.Message)"
-                Write-ToolkitLog -Level 'WARNING' -Message "Download attempt failed ($candidate): $($_.Exception.Message)"
-                if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
             }
         }
 
-        $detail = if ($failures.Count -gt 0) { $failures -join ' | ' } else { 'no candidate URL provided' }
+        $detail = if ($failures.Count -gt 0) { ($failures | Select-Object -Unique) -join ' | ' } else { 'no candidate URL provided' }
         if (-not $Silent) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.downloadError0' -Args @($detail))
         }
@@ -382,6 +426,185 @@ function Invoke-DownloadFile {
     finally {
         $ProgressPreference = $previousProgress
     }
+}
+
+
+function Test-DownloadedSignature {
+    <#
+    .SYNOPSIS
+    Verifies the Authenticode signature of a downloaded file against an allow-list.
+
+    .DESCRIPTION
+    Closes the gap where a download was trusted purely because the transfer
+    succeeded. Each executable declares the signer it expects
+    (AppConfig.DownloadSignatures) and the file is only accepted when
+    Get-AuthenticodeSignature reports a Valid status for one of those subjects.
+
+    Matching is by SUBSTRING on the certificate subject, because the exact string
+    differs between signer versions ("Microsoft Corporation" vs "Microsoft Windows
+    Publisher"), and a prefix match would break on a legitimate re-signing.
+
+    Revocation is deliberately NOT requested: the check would add a network round
+    trip per file and would fail on a machine that is offline, turning a valid
+    signature into a hard failure.
+
+    Intended for the -ContentValidator of Invoke-DownloadFile: it returns $false,
+    so the caller decides whether that is fatal (see New-SignatureValidator).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string[]]$ExpectedSigners
+    )
+
+    try {
+        $signature = Get-AuthenticodeSignature -LiteralPath $Path -ErrorAction Stop
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Signature could not be read for '$Path': $($_.Exception.Message)"
+        return $false
+    }
+
+    if ($signature.Status -ne 'Valid') {
+        Write-ToolkitLog -Level 'WARNING' -Message "Invalid or untrusted signature on '$Path': status=$($signature.Status)"
+        return $false
+    }
+
+    $subject = [string]$signature.SignerCertificate.Subject
+    foreach ($expected in $ExpectedSigners) {
+        if ($subject -like "*$expected*") {
+            Write-ToolkitLog -Level 'INFO' -Message "Signature verified on '$Path': $subject"
+            return $true
+        }
+    }
+
+    Write-ToolkitLog -Level 'WARNING' -Message "Unexpected signer on '$Path': '$subject' (expected one of: $($ExpectedSigners -join ', '))."
+    return $false
+}
+
+
+function New-SignatureValidator {
+    <#
+    .SYNOPSIS
+    Builds the -ContentValidator scriptblock for a signed download.
+
+    .DESCRIPTION
+    Returns a validator that checks the signature and, when -BlockOnInvalid is
+    set, treats a failure as fatal. The block/warn distinction is deliberate:
+      - vc_redist.exe and the Git installer are EXECUTED by the toolkit, so an
+        unverifiable file must not run;
+      - the .msixbundles are handed to Add-AppxPackage, which validates the
+        package signature itself and fails safely, so a bad signature there is
+        reported as a warning and the OS takes the decision.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$ProfileKey,
+        [switch]$BlockOnInvalid
+    )
+
+    # ContainsKey, not a truthiness test: @($null).Count is 1, so a missing key
+    # would look like a valid single-entry list and silently disable the check.
+    if (-not $script:AppConfig.DownloadSignatures.ContainsKey($ProfileKey)) {
+        throw "Unknown signature profile '$ProfileKey'. Known: $($script:AppConfig.DownloadSignatures.Keys -join ', ')"
+    }
+    $signers = @($script:AppConfig.DownloadSignatures[$ProfileKey])
+    $block = $BlockOnInvalid.IsPresent
+
+    # The check is captured BY REFERENCE (${function:...}) and invoked with &.
+    # Calling it by name inside the closure does not work: GetNewClosure rebinds
+    # the scriptblock to a fresh module scope, where a function that was dot-sourced
+    # (as the test suites and the fragment loader do) is not visible, and the
+    # validator would fail at run time with "command not recognized".
+    $signatureCheck = ${function:Test-DownloadedSignature}
+    $validator = {
+        param($candidatePath)
+        $ok = & $signatureCheck -Path $candidatePath -ExpectedSigners $signers
+        if (-not $ok -and $block) {
+            throw "Signature verification failed for '$candidatePath': the file will not be installed."
+        }
+        return $ok
+    }
+    return $validator.GetNewClosure()
+}
+
+
+function Install-RemoteFile {
+    <#
+    .SYNOPSIS
+    Downloads a file and installs it atomically, keeping a backup only if it changed.
+
+    .DESCRIPTION
+    Single owner of the "download to temp, then swap in with a backup" sequence
+    that the Windows Terminal settings, the PowerShell profile and any other
+    distributed file used to repeat. Two behaviours are worth naming:
+
+    - the content is compared with the file already on disk, and an identical
+      download is a no-op: the previous code produced a new .bak file on every
+      single run, even when nothing had changed, so the backups were pure noise;
+    - the backup itself is a move of the previous content, and at most
+      -BackupRetention backups are kept per file, so the log folder cannot grow
+      without bound.
+
+    Returns $true when the destination now holds the downloaded content.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Url,
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [int]$MinimumBytes = 1,
+        [switch]$Backup,
+        [int]$BackupRetention = 3
+    )
+
+    $stagedPath = Join-Path $script:AppConfig.Paths.Temp ("wt-stage-{0}.tmp" -f [guid]::NewGuid())
+    try {
+        if (-not (Invoke-DownloadFile -Uri $Url -OutFile $stagedPath -Silent -MinimumBytes $MinimumBytes)) {
+            return $false
+        }
+
+        # Identical content: nothing to install, and no pointless backup.
+        if ((Test-Path -LiteralPath $Destination -PathType Leaf) -and
+            ((Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash -eq
+             (Get-FileHash -LiteralPath $stagedPath -Algorithm SHA256).Hash)) {
+            Write-ToolkitLog -Level 'INFO' -Message "Already up to date, not rewritten: $Destination"
+            return $true
+        }
+
+        $null = Initialize-Directory -Path (Split-Path -Path $Destination -Parent)
+        $backupPath = Copy-FileAtomically -SourcePath $stagedPath -Destination $Destination -Backup
+
+        # Re-read the INSTALLED file rather than trusting the staged one: a
+        # truncated swap would otherwise be reported as a successful installation.
+        if (-not (Test-FileHasMinimumSize -Path $Destination -MinimumBytes $MinimumBytes)) {
+            Write-ToolkitLog -Level 'ERROR' -Message "Installed file is smaller than expected: $Destination"
+            return $false
+        }
+        if ($backupPath) {
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.existingProfileSaved0' -Args @($backupPath))
+            Remove-ExpiredBackups -Path "$Destination.bak.*" -Keep $BackupRetention
+        }
+        return $true
+    }
+    finally {
+        Remove-PathQuietly -Path $stagedPath
+    }
+}
+
+
+function Remove-ExpiredBackups {
+    <#
+    .SYNOPSIS
+    Keeps only the newest -Keep timestamped backups matching a path pattern.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [int]$Keep = 3
+    )
+
+    $backups = @(Get-ChildItem -Path $Path -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending)
+    if ($backups.Count -le $Keep) { return }
+    Remove-PathQuietly -Path @($backups[$Keep..($backups.Count - 1)].FullName)
 }
 
 
@@ -436,13 +659,10 @@ function Invoke-ExternalCommand {
         [Parameter(Mandatory = $true)][string]$FilePath,
         [string[]]$ArgumentList = @(),
         [int]$TimeoutSeconds = 120,
-        [int[]]$AcceptedExitCodes = @(0),
-        [switch]$CaptureOutput
+        [int[]]$AcceptedExitCodes = @(0)
     )
 
     $proc = $null
-    $outTask = $null
-    $errTask = $null
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $commandLine = "$FilePath $($ArgumentList -join ' ')"
     try {
@@ -467,7 +687,7 @@ function Invoke-ExternalCommand {
 
         if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
             try { $proc.Kill($true) } catch { try { $proc.Kill() } catch {
-                Write-Warning "start-modules\80-Module.Common.ps1, Invoke-ExternalCommand: $($_.Exception.Message)"
+                Write-ToolkitLog -Level 'WARNING' -Message "Invoke-ExternalCommand: $($_.Exception.Message)"
             } }
             $null = $proc.WaitForExit()
             Write-ToolkitLog -Level 'ERROR' -Message "External command timed out after $TimeoutSeconds s: $commandLine"
@@ -477,8 +697,14 @@ function Invoke-ExternalCommand {
         $capturedOut = try { $outTask.GetAwaiter().GetResult() } catch { '' }
         $capturedErr = try { $errTask.GetAwaiter().GetResult() } catch { '' }
 
-        $stdOut = if ($CaptureOutput) { $capturedOut } else { '' }
-        $stdErr = if ($CaptureOutput) { $capturedErr } else { '' }
+        # Both pipes are drained unconditionally (a synchronous read would make
+        # the timeout unreachable), so the switch only decided whether the text
+        # was kept. It is now kept always and truncated: a verbose installer can
+        # emit megabytes, and the head of the output is the part that explains a
+        # failure.
+        $limit = $script:AppConfig.MaxCapturedOutputChars
+        $stdOut = if ($capturedOut.Length -gt $limit) { $capturedOut.Substring(0, $limit) } else { $capturedOut }
+        $stdErr = if ($capturedErr.Length -gt $limit) { $capturedErr.Substring(0, $limit) } else { $capturedErr }
         return New-ExternalCommandResult -ExitCode $proc.ExitCode -FilePath $FilePath -ArgumentList $ArgumentList -AcceptedExitCodes $AcceptedExitCodes -StdOut $stdOut -StdErr $stdErr -DurationMs $stopwatch.ElapsedMilliseconds
     }
     catch {
@@ -519,8 +745,11 @@ function Install-FromGitHubRelease {
 
         # Invoke-DownloadFile also creates the temp folder, so no pre-flight here.
         $downloadPath = Join-Path $script:AppConfig.Paths.Temp $asset.name
-        if (-not (Invoke-DownloadFile -Uri $asset.browser_download_url -OutFile $downloadPath)) {
-            throw "Unable to download the release asset $($asset.name)."
+        # The installer is EXECUTED by this script, so an unverifiable signature
+        # is fatal: the file is deleted and the install never starts.
+        if (-not (Invoke-DownloadFile -Uri $asset.browser_download_url -OutFile $downloadPath `
+                    -ContentValidator (New-SignatureValidator -ProfileKey 'git' -BlockOnInvalid))) {
+            throw "Unable to download the release asset $($asset.name) or its signature is not trusted."
         }
 
         $installerArgs = @($InstallerArguments | ForEach-Object {
@@ -547,22 +776,80 @@ function Install-FromGitHubRelease {
 }
 
 
+function New-StepResult {
+    <#
+    .SYNOPSIS
+    Builds the single result shape every setup step returns.
+
+    .DESCRIPTION
+    Replaces the 18 hand-written [pscustomobject]@{Success;Changed;Message}
+    literals, and gives the orchestrator one contract to consume: a step returns a
+    StepResult, never a bare boolean. Skipped is carried on the result itself, so
+    a step that was not applicable is no longer reported as a failure.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][bool]$Success,
+        [bool]$Changed = $false,
+        [string]$Message = '',
+        [switch]$Skipped
+    )
+
+    return [pscustomobject]@{
+        Success  = $Success
+        Changed  = $Changed
+        Message  = $Message
+        Skipped  = [bool]$Skipped
+        Blocking = $false
+    }
+}
+
+
 function Add-SetupResult {
     <#
     .SYNOPSIS
     Records a typed result for one setup step, consumed by Write-SetupSummary.
+
+    .DESCRIPTION
+    Accepts either a StepResult (the -Result form, the one every step now returns)
+    or the explicit fields, and normalizes both into the same record. A Skipped
+    step is no longer recorded as Failed: that is what used to turn "the shortcut
+    was not applicable" into a partial-failure exit code.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Name,
-        [Parameter(Mandatory = $true)][bool]$Success,
-        [bool]$Changed = $false,
-        [string]$Message = '',
-        [bool]$Blocking = $false
+        [Parameter(ParameterSetName = 'Result')][object]$Result,
+        [Parameter(ParameterSetName = 'Fields', Mandatory = $true)][bool]$Success,
+        [Parameter(ParameterSetName = 'Fields')][bool]$Changed = $false,
+        [Parameter(ParameterSetName = 'Fields')][string]$Message = '',
+        [bool]$Blocking = $false,
+        [switch]$Skipped
     )
-    $status = if ($Success) { if ($Changed) { 'Changed' } else { 'Succeeded' } } else { 'Failed' }
-    $script:SetupResults += [pscustomobject]@{
-        Name = $Name; Status = $status; Message = $Message; Blocking = $Blocking
+
+    $stepSkipped = $Skipped.IsPresent
+    $stepSuccess = $false
+    $stepChanged = $false
+    $stepMessage = ''
+
+    if ($PSCmdlet.ParameterSetName -eq 'Result') {
+        $stepSuccess = [bool]$Result.Success
+        $stepChanged = [bool]$Result.Changed
+        $stepMessage = [string]$Result.Message
+        $stepSkipped = $stepSkipped -or [bool]$Result.Skipped
+        $Blocking = $Blocking -or [bool]$Result.Blocking
     }
+    else {
+        $stepSuccess = $Success
+        $stepChanged = $Changed
+        $stepMessage = $Message
+    }
+
+    $status = if ($stepSkipped) { 'Skipped' }
+    elseif ($stepSuccess) { if ($stepChanged) { 'Changed' } else { 'Succeeded' } }
+    else { 'Failed' }
+
+    $script:State.Results.Add([pscustomobject]@{
+            Name = $Name; Status = $status; Message = $stepMessage; Blocking = $Blocking
+        })
 }
 
 
@@ -574,7 +861,7 @@ function Write-SetupSummary {
     #>
     $counts = @{}
     foreach ($status in @('Succeeded', 'Changed', 'Failed', 'Skipped')) {
-        $counts[$status] = @($script:SetupResults | Where-Object Status -eq $status).Count
+        $counts[$status] = @($script:State.Results | Where-Object Status -eq $status).Count
     }
 
     # Localized one-liner: "Execution Summary: Succeeded=N Changed=N Failed=N Skipped=N."
@@ -583,12 +870,12 @@ function Write-SetupSummary {
     }
     $summaryText = '{0}: {1}.' -f (Get-SourceTextLoc 'summary.title'), ($counters -join ' ')
     Write-StyledMessage -Type Info -Text $summaryText
-    foreach ($result in $script:SetupResults | Where-Object Status -eq 'Failed') {
+    foreach ($result in $script:State.Results | Where-Object Status -eq 'Failed') {
         $level = if ($result.Blocking) { 'Error' } else { 'Warning' }
         Write-StyledMessage -Type $level -Text "$($result.Name): $($result.Message)"
     }
-    $hasBlockingFailure = @($script:SetupResults | Where-Object { $_.Status -eq 'Failed' -and $_.Blocking }).Count -gt 0
-    $hasFailure = @($script:SetupResults | Where-Object Status -eq 'Failed').Count -gt 0
+    $hasBlockingFailure = @($script:State.Results | Where-Object { $_.Status -eq 'Failed' -and $_.Blocking }).Count -gt 0
+    $hasFailure = @($script:State.Results | Where-Object Status -eq 'Failed').Count -gt 0
     if ($hasBlockingFailure) { return 1 }
     if ($hasFailure) { return 2 }
     return 0

@@ -13,25 +13,18 @@ function Update-WindowsTerminalSettings {
     #>
     param([Parameter(Mandatory = $true)][string]$SettingsPath)
 
-    $downloadedPath = Join-Path $script:AppConfig.Paths.Temp "wt-settings-$([guid]::NewGuid()).json"
     try {
-        if (-not (Invoke-DownloadFile -Uri $script:AppConfig.URLs.WindowsTerminalSettings -OutFile $downloadedPath -Silent)) {
+        # Install-RemoteFile owns the download, the atomic swap and the backup,
+        # and skips the rewrite when the file is already identical.
+        if (-not (Install-RemoteFile -Url $script:AppConfig.URLs.WindowsTerminalSettings `
+                    -Destination $SettingsPath -MinimumBytes 64 -Backup)) {
             return $false
-        }
-
-        # The backup path is only returned when a previous file was replaced.
-        $backupPath = Copy-FileAtomically -SourcePath $downloadedPath -DestinationPath $SettingsPath -Backup
-        if ($backupPath) {
-            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.windowsTerminalSettingsOverwrittenBackup0' -Args @($backupPath))
         }
         return $true
     }
     catch {
         Write-ToolkitLog -Level 'WARNING' -Message "Windows Terminal settings update skipped: $($_.Exception.Message)"
         return $false
-    }
-    finally {
-        if (Test-Path -LiteralPath $downloadedPath) { Remove-Item -LiteralPath $downloadedPath -Force -ErrorAction SilentlyContinue }
     }
 }
 
@@ -58,9 +51,11 @@ function Install-NerdFontsLocal {
         Write-StyledMessage -Type Info -Text ("⬇️ " + (Get-SourceTextLoc 'uiText.fontInstallationViaWingetQuickMethod'))
 
         # Use existing helper function for logical consistency
-        $result = Invoke-WingetCommand -Arguments "install --id DEVCOM.JetBrainsMonoNerdFont --source winget --accept-source-agreements --accept-package-agreements --silent"
+        # .Accepted, not `-eq 0`: a rerun on an already installed font returns
+        # 0x8A150061, which is a success for the setup, not a failure.
+        $result = Invoke-WingetInstall -Id 'DEVCOM.JetBrainsMonoNerdFont'
 
-        if ($result.ExitCode -ne 0) {
+        if (-not $result.Accepted) {
             Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.wingetReturnedCode0TheFontMayRequireATerminalRestart' -Args @($result.ExitCode))
             return $false
         }
@@ -100,7 +95,6 @@ function Test-OhMyPoshThemeFile {
         return $false
     }
 }
-
 
 
 function Install-PspEnvironment {
@@ -146,11 +140,18 @@ function Install-PspEnvironment {
         @{ Id = "Fastfetch-cli.Fastfetch"; Name = "fastfetch" }
     )
 
+    # The availability check is done ONCE, before the loop: inside it every tool
+    # used to print its "checking" message and then silently skip.
+    $wingetAvailable = [bool](Get-WinGetExecutable)
     foreach ($tool in $tools) {
+        if (-not $wingetAvailable) {
+            $result.Tools.Failed += "$($tool.Name) (WinGet not available)"
+            continue
+        }
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.check0' -Args @($tool.Name))
         if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { continue }
-        $toolResult = Invoke-WingetCommand -Arguments "install -e --id $($tool.Id) --source winget --accept-source-agreements --accept-package-agreements --silent"
-        if ($toolResult.ExitCode -eq 0) {
+        $toolResult = Invoke-WingetInstall -Id $tool.Id -Exact
+        if ($toolResult.Accepted) {
             $result.Tools.Installed += $tool.Name
         }
         else {
@@ -184,15 +185,15 @@ function Install-PspEnvironment {
 
     $result.ProfilePath = $paths.ProfilePath
     $result.ThemePath = $paths.ThemePath
-
     # Theme: several candidate endpoints, and the payload must be real JSON.
     $themeUris = @($script:AppConfig.URLs.OhMyPoshThemeFallback)
+    if ($themeUris.Count -eq 0) { $themeUris = @($script:AppConfig.URLs.OhMyPoshThemeUrls) }
     if ($themeUris.Count -eq 0) { $themeUris = @($script:AppConfig.URLs.OhMyPoshTheme) }
     if (Invoke-DownloadFile -Uri $themeUris -OutFile $paths.ThemePath `
             -MinimumBytes $script:AppConfig.UserScope.MinThemeFileBytes `
             -ContentValidator { param($candidatePath) Test-OhMyPoshThemeFile -Path $candidatePath }) {
         $result.ThemeOk = $true
-        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.temaOhMyPoshScaricato')
+        Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.ohMyPoshThemeDownloaded')
         Write-ToolkitLog -Level 'INFO' -Message "Oh My Posh theme installed: $($paths.ThemePath)"
     }
     else {
@@ -204,20 +205,15 @@ function Install-PspEnvironment {
     $result.FontOk = Install-NerdFontsLocal
     if (-not $result.FontOk) { $result.Success = $false }
 
-    # 4. Profile configuration: the download is staged and swapped in, so the
-    #    current profile is never removed before its replacement is on disk.
+    # 4. Profile configuration: installed through Install-RemoteFile, which stages
+    #    the download, swaps it in atomically and only backs up a file that really
+    #    changed. The final artifact is then re-read from disk before it is
+    #    reported as configured.
     $targetProfile = $paths.ProfilePath
-    $stagedProfile = "$targetProfile.$([guid]::NewGuid()).tmp"
     try {
-        if (Invoke-DownloadFile -Uri $script:AppConfig.URLs.PowerShellProfile -OutFile $stagedProfile -MinimumBytes 256) {
-            $profileBackup = Copy-FileAtomically -SourcePath $stagedProfile -DestinationPath $targetProfile -Backup
-            if ($profileBackup) {
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.existingProfileSaved0' -Args @($profileBackup))
-            }
-            # Verify the final artifact instead of trusting the copy: this is the
-            # check that was missing when the log reported a profile that no shell
-            # could ever load.
-            if (Test-FileHasMinimumSize -Path $targetProfile -MinimumBytes 256) {
+        if (Install-RemoteFile -Url $script:AppConfig.URLs.PowerShellProfile `
+                -Destination $targetProfile -MinimumBytes $script:AppConfig.MinProfileBytes -Backup) {
+            if (Test-FileHasMinimumSize -Path $targetProfile -MinimumBytes $script:AppConfig.MinProfileBytes) {
                 $result.ProfileOk = $true
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7ProfileConfigured')
                 Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile installed: $targetProfile"
@@ -236,10 +232,9 @@ function Install-PspEnvironment {
         $result.Success = $false
         Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.profileConfigurationError0' -Args @($_.Exception.Message))
     }
-    finally {
-        if (Test-Path -LiteralPath $stagedProfile) {
-            Remove-Item -LiteralPath $stagedProfile -Force -ErrorAction SilentlyContinue
-        }
+
+    if (-not $result.ProfileOk -or -not $result.ThemeOk) {
+        $result.Message = "PowerShell environment incomplete (profile installed: $($result.ProfileOk), theme installed: $($result.ThemeOk))."
     }
 
     if (-not $result.ProfileOk -or -not $result.ThemeOk) {
