@@ -142,24 +142,6 @@ function Get-InteractiveUserContext {
     }
 }
 
-# Capture the INTERACTIVE user context BEFORE elevating. UAC may switch the process
-# to a different administrator account; without this, every user-scoped artifact
-# (Documents\PowerShell profile, Oh My Posh theme, desktop shortcut) would be
-# written to that other account and the user would see nothing on their own desktop
-# even though the log reported every step as successful.
-function Get-InteractiveUserContext {
-    $desktop = ''
-    $documents = ''
-    try { $desktop = [Environment]::GetFolderPath('Desktop', [Environment+SpecialFolderOption]::Create) } catch { }
-    try { $documents = [Environment]::GetFolderPath('MyDocuments', [Environment+SpecialFolderOption]::Create) } catch { }
-    return @{
-        User        = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-        UserProfile = $env:USERPROFILE
-        Desktop     = $desktop
-        MyDocuments = $documents
-    }
-}
-
 if (-not (Test-IsAdministrator)) {
     # Always relaunch the elevated process on PowerShell 7 (installing it first
     # if needed). This avoids running the (UTF-8 + emoji) core under Windows
