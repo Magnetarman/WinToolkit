@@ -279,4 +279,3 @@ enum WingetRepairLevel {
     FullDatabase
     FullReinstall
 }
-}
