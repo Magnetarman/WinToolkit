@@ -31,6 +31,11 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $versionPattern = 'V\d+\.\d+\.\d+'
 
+# Every path this script reports (and the scope guard below) is a git pathspec, so
+# it is always '/'-separated. GetRelativePath would emit '\' on the Windows runner
+# and the alignment commit would target paths git does not match.
+$githubPrefix = '.github/'
+
 # Canonical header every pipeline script must carry as its first line.
 $headerPattern = '(?m)^[ \t]*#[ \t]*WinToolkit[ \t]+CI/CD[ \t]+V\d+\.\d+\.\d+[ \t]*\r?$'
 $bomText = "$([char]0xEF)$([char]0xBB)$([char]0xBF)"
@@ -52,12 +57,12 @@ function Add-PipelineHeader {
 }
 
 # Reads the canonical value; falls back to -Version when supplied.
-function Get-CanonicalVersion {
+    function Get-CanonicalVersion {
     param([string]$Explicit)
 
     if ($Explicit) { return $Explicit.Trim() }
 
-    $canonicalPath = Join-Path $repoRoot $CanonicalWorkflow
+    $canonicalPath = Join-Path $repoRoot ($CanonicalWorkflow -replace '/', [System.IO.Path]::DirectorySeparatorChar)
     if (-not (Test-Path -LiteralPath $canonicalPath)) {
         throw "Canonical workflow not found: $CanonicalWorkflow"
     }
