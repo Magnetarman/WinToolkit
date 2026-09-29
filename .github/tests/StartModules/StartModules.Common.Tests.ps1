@@ -327,6 +327,117 @@ Describe 'New-StepResult — the single step contract (T-02)' {
         $r.Skipped | Should -BeTrue
         $r.Message | Should -Be 'm'
     }
+
+    It 'carries Blocking, so a step can mark itself non-blocking' {
+        (New-StepResult -Success $true -Blocking $true).Blocking | Should -BeTrue
+    }
+}
+
+Describe 'StrictMode step-contract regressions (90-Skeleton.Main.ps1)' {
+
+    # The reported crash: "Non è possibile trovare la proprietà 'When' in questo
+    # oggetto". Set-StrictMode -Version Latest (00-Skeleton.Header.ps1) makes the
+    # read of a member an object does not expose a terminating error, and the step
+    # table was a list of literal hashtables where only 3 of 10 entries carried the
+    # optional `When` key. The very first loop iteration therefore died before any
+    # step had run. These tests pin the two guarantees that prevent a recurrence:
+    # a step entry always exposes every member the loop reads, and a step result
+    # is normalized before anything reads it.
+
+    BeforeAll {
+        $script:StrictProbe = {
+            param([scriptblock]$Body)
+            # A dedicated scope, so StrictMode never leaks into the other suites.
+            & {
+                Set-StrictMode -Version Latest
+                & $Body
+            }
+        }
+    }
+
+    It 'New-SetupStep always exposes the members the loop reads (When/Blocking included)' {
+        foreach ($step in @(
+                New-SetupStep -Name 'Plain' -Run { 'x' }
+                New-SetupStep -Name 'Gated' -Run { 'x' } -When { $true } -Blocking
+            )) {
+            $members = @($step.PSObject.Properties.Name)
+            foreach ($required in @('Name', 'Run', 'When', 'Blocking')) {
+                $members | Should -Contain $required -Because "the orchestrator reads `$step.$required"
+            }
+        }
+    }
+
+    It 'reading When and Blocking on a step without them does not throw under StrictMode' {
+        $step = New-SetupStep -Name 'Plain' -Run { 'x' }
+        $null = & $script:StrictProbe {
+            $step.When
+            $step.Blocking
+        }
+    }
+
+    It 'the orchestrator builds its step table with New-SetupStep, not literal hashtables' {
+        $main = Get-Content -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\start-modules\90-Skeleton.Main.ps1'))) -Raw
+        $main | Should -Not -Match '@\{\s*Name\s*=' -Because 'a literal entry may omit the optional When/Blocking keys, which is what aborted the run'
+        ([regex]::Matches($main, 'New-SetupStep -Name ')).Count | Should -BeGreaterThan 0
+    }
+
+    It 'Get-OptionalMember returns $null instead of throwing on a missing member' {
+        $null = & $script:StrictProbe {
+            $result = Get-OptionalMember -InputObject @{ Name = 'x' } -Name 'When'
+            if ($null -ne $result) { throw 'a missing hashtable key must read as $null' }
+
+            $result = Get-OptionalMember -InputObject ([pscustomobject]@{ Name = 'x' }) -Name 'When'
+            if ($null -ne $result) { throw 'a missing property must read as $null' }
+
+            $result = Get-OptionalMember -InputObject $null -Name 'When'
+            if ($null -ne $result) { throw 'a null object must read as $null' }
+        }
+    }
+
+    It 'ConvertTo-StepResult normalizes a bare boolean (the pre-fix step returns)' {
+        $ok = ConvertTo-StepResult -Result $true -Name 'Git'
+        $ok.Success | Should -BeTrue
+        $ok.Changed | Should -BeFalse
+
+        $ko = ConvertTo-StepResult -Result $false -Name 'Git'
+        $ko.Success | Should -BeFalse
+    }
+
+    It 'ConvertTo-StepResult normalizes a partial result (no Changed/Skipped/Blocking)' {
+        $r = ConvertTo-StepResult -Result ([pscustomobject]@{ Success = $true; Message = 'm' }) -Name 'X'
+        $r.Success | Should -BeTrue
+        $r.Changed | Should -BeFalse
+        $r.Skipped | Should -BeFalse
+        $r.Blocking | Should -BeFalse
+        $r.Message | Should -Be 'm'
+    }
+
+    It 'ConvertTo-StepResult records a failure when a step returned nothing (-WhatIf)' {
+        $r = ConvertTo-StepResult -Result $null -Name 'App Installer'
+        $r.Success | Should -BeFalse
+        $r.Message | Should -Not -BeNullOrEmpty
+    }
+
+    It 'ConvertTo-StepResult keeps the last real result when a step leaks output' {
+        $r = ConvertTo-StepResult -Result @('stray output', (New-StepResult -Success $true -Message 'real')) -Name 'X'
+        $r.Success | Should -BeTrue
+        $r.Message | Should -Be 'real'
+    }
+
+    It 'Add-SetupResult does not throw on a malformed step result (StrictMode)' {
+        $script:State.Results.Clear()
+        $null = & $script:StrictProbe {
+            Add-SetupResult -Name 'Git' -Result $true
+        }
+        $script:State.Results[0].Status | Should -Be 'Succeeded'
+    }
+
+    It 'Add-SetupResult still honours a Blocking flag carried by the result' {
+        $script:State.Results.Clear()
+        Add-SetupResult -Name 'WinGet' -Result (New-StepResult -Success $false -Blocking $true -Message 'boom')
+        $script:State.Results[0].Status | Should -Be 'Failed'
+        $script:State.Results[0].Blocking | Should -BeTrue
+    }
 }
 
 Describe 'Add-SetupResult — Result and Skipped forms (B-12, T-02)' {
