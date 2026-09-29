@@ -28,7 +28,7 @@ Write-GateSection '1. Ordered concatenation parses (PS7 parser)'
 $files = @(Get-ChildItem -LiteralPath $moduleRoot -Filter '*.ps1' -File | Sort-Object Name)
 $joined = ($files | Get-Content -Raw) -join "`n"
 $parseErrors = $null
-$null = [System.Management.Automation.Language.Parser]::ParseInput($joined, [ref]$null, [ref]$parseErrors)
+$joinedAst = [System.Management.Automation.Language.Parser]::ParseInput($joined, [ref]$null, [ref]$parseErrors)
 if ($parseErrors) {
     $parseErrors | ForEach-Object { Write-Host "   PARSE ERROR: $($_.Message)" -ForegroundColor Red; $failures.Add($_.Message) }
 }
@@ -59,7 +59,83 @@ if ($dead) {
 }
 else { Write-Host '   OK - every function is referenced' -ForegroundColor Green }
 
-Write-GateSection '4. PSScriptAnalyzer (Warning/Error)'
+Write-GateSection '4. No local variable read before assignment (AST)'
+# Set-StrictMode -Version Latest (00-Skeleton.Header.ps1) turns a read of an
+# unassigned local into a terminating error, so an orchestrator that reads a
+# variable nobody ever sets does not degrade: the whole run aborts. That is
+# invisible to the tests, which never execute the orchestrator, so the check
+# lives here. The parse tree is the one built in section 1.
+#
+# Only unqualified locals are audited: $script:/$global:/$env: state is declared
+# in the header and is someone else's business, and parameters are initialised by
+# definition (including the ones of nested script blocks, e.g. -ContentValidator).
+$automatic = @(
+    'args', 'null', 'true', 'false', 'input', 'PSItem', 'LASTEXITCODE', 'Matches',
+    'Error', 'Host', 'PID', 'PSScriptRoot', 'PSCommandPath', 'MyInvocation', 'PSCmdlet',
+    'PSBoundParameters', 'PSVersionTable', 'PSUICulture', 'PSHOME', 'ErrorActionPreference',
+    'PWD', 'OFS', 'StackTrace', 'ExecutionContext', 'Sender', 'Event', 'EventArgs',
+    'EventSubscriber', 'IsWindows', 'IsLinux', 'IsMacOS', 'IsCoreCLR', 'ShellId',
+    'ConsoleFileName', 'foreach', 'switch', 'HOME', 'EnabledExperimentalFeatures',
+    'MaximumHistoryCount'
+)
+$uninitialised = [System.Collections.Generic.List[string]]::new()
+
+if ($parseErrors) {
+    Write-Host '   SKIPPED - the concatenation does not parse, fix section 1 first' -ForegroundColor Yellow
+}
+else {
+    foreach ($function in $joinedAst.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
+        if (-not $function.Body) { continue }
+
+        $scoped = [System.Collections.Generic.HashSet[string]]::new()
+        foreach ($parameter in $function.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.ParameterAst] }, $true)) {
+            [void]$scoped.Add($parameter.Name.VariablePath.UserPath)
+        }
+
+        $assigned = [System.Collections.Generic.HashSet[string]]::new()
+        foreach ($assignment in $function.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true)) {
+            if ($assignment.Left -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                [void]$assigned.Add($assignment.Left.VariablePath.UserPath)
+            }
+        }
+        foreach ($increment in $function.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.UnaryExpressionAst] -and $args[0].TokenKind -eq 'PlusPlus' }, $true)) {
+            if ($increment.Child -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                [void]$assigned.Add($increment.Child.VariablePath.UserPath)
+            }
+        }
+        foreach ($loop in $function.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.ForEachStatementAst] }, $true)) {
+            [void]$assigned.Add($loop.Variable.VariablePath.UserPath)
+        }
+        # catch { ... } binds $_, and anything the handler reads counts as bound.
+        foreach ($clause in $function.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.CatchClauseAst] }, $true)) {
+            foreach ($bound in $clause.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.VariableExpressionAst] }, $true)) {
+                [void]$assigned.Add($bound.VariablePath.UserPath)
+            }
+        }
+
+        foreach ($read in $function.Body.FindAll({ $args[0] -is [System.Management.Automation.Language.VariableExpressionAst] }, $true)) {
+            $path = $read.VariablePath
+            if (-not $path.IsUnscopedVariable) { continue }
+            $name = $path.UserPath
+            if ($name -eq '_' -or $automatic -contains $name) { continue }
+            if ($scoped.Contains($name) -or $assigned.Contains($name)) { continue }
+            $uninitialised.Add("$($function.Name) reads `$$name (line $($read.Extent.StartLineNumber))")
+        }
+    }
+
+    if ($uninitialised.Count -gt 0) {
+        $uninitialised | Sort-Object -Unique | ForEach-Object {
+            Write-Host "   UNINITIALISED: $_" -ForegroundColor Red
+            $failures.Add("uninitialised local: $_")
+        }
+    }
+    else {
+        $functionCount = @($joinedAst.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)).Count
+        Write-Host "   OK - $functionCount functions, every local is assigned before use" -ForegroundColor Green
+    }
+}
+
+Write-GateSection '5. PSScriptAnalyzer (Warning/Error)'
 $settings = Join-Path $repoRoot '.github\linters\PSScriptAnalyzer-settings.psd1'
 $findings = @()
 foreach ($folder in @('start-modules', 'wintoolkit-modules')) {
@@ -77,7 +153,7 @@ if ($findings) {
 }
 else { Write-Host '   OK - no findings' -ForegroundColor Green }
 
-Write-GateSection '5. Compiled artefact'
+Write-GateSection '6. Compiled artefact'
 $version = ([regex]::Match($joined, '(?m)^\$ToolkitVersion\s*=\s*"([^"]*)"')).Groups[1].Value
 $buildScript = Join-Path $repoRoot '.github\scripts\Invoke-Build-Start.ps1'
 & pwsh -NoProfile -File $buildScript -Version $version | ForEach-Object { Write-Host "   $_" }
@@ -87,7 +163,7 @@ $testCompiled = Join-Path $repoRoot '.github\scripts\Test-CompiledStartScript.ps
 if ($LASTEXITCODE -ne 0) { $failures.Add('compiled artefact validation failed') }
 
 if (-not $SkipTests) {
-    Write-GateSection '6. Fragment test suites'
+    Write-GateSection '7. Fragment test suites'
     # Pester runs in a CHILD process on purpose: this script sets StrictMode and
     # ErrorActionPreference = Stop for its own checks, and inheriting that state
     # would make the suites fail for reasons unrelated to the fragments.
