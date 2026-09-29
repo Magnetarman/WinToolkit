@@ -79,6 +79,7 @@ $script:AppConfig = @{
     Winget          = @{
         RpcFailureExitCode = -2147012859
         AlreadyInstalledExitCodes = @(-1978335135, -1978335189)
+        PinnedCertificateMismatchExitCode = -1978335138
     }
     DownloadSignatures = @{
         vcRedist    = @('Microsoft Corporation', 'Microsoft Windows')
@@ -933,13 +934,23 @@ function Reset-WingetSources {
         Write-ToolkitLog -Level 'WARNING' -Message "Winget source reset failed with exit code $($result.ExitCode)."
     }
 }
+function Update-WingetSources {
+    param(
+        [string]$Name
+    )
+    $arguments = if ($Name) { "source update --name $Name" } else { 'source update' }
+    $result = Invoke-WingetCommand -Arguments $arguments
+    if ($result.ExitCode -ne 0) {
+        Write-ToolkitLog -Level 'WARNING' -Message "Winget source update failed with exit code $($result.ExitCode)."
+    }
+    return $result
+}
 function Repair-WingetMsStoreSource {
     try {
         $wingetExe = Get-WinGetExecutable
         if (-not $wingetExe) { return }
-        $result = Invoke-WingetCommand -Arguments 'source update --source msstore --accept-source-agreements'
-        $sourceOutput = "$($result.StdOut)$($result.StdErr)"
-        if ($result.ExitCode -eq 0 -or $sourceOutput -notmatch '0x8a15005e') { return }
+        $result = Update-WingetSources -Name 'msstore'
+        if ($result.ExitCode -ne $script:AppConfig.Winget.PinnedCertificateMismatchExitCode) { return }
         Write-StyledMessage -Type Warning -Text "Detected msstore certificate pinning failure (0x8a15005e). Resetting WinGet sources to default..."
         Reset-WingetSources
         Update-EnvironmentPath
@@ -1186,7 +1197,7 @@ function Test-WingetDeepValidation {
             }
         }
         if ($exitCode -eq 0) {
-            $sourceUpdate = Invoke-WingetCommand -Arguments 'source update --accept-source-agreements'
+            $sourceUpdate = Update-WingetSources
             if ($sourceUpdate.ExitCode -ne 0) {
                 Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'toolText.sourceUpdateError0' -Args @($sourceUpdate.ExitCode))
             }
