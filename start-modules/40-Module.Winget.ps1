@@ -839,8 +839,12 @@ function Test-WingetDeepValidation {
                 @{ Repair = { Install-WingetCore }; WarningKey = 'uiText.persistentCrashStartingCompleteReinstallationOfWinget'; InfoKey = 'uiText.finalTestAfterReinstallation' }
             )
             foreach ($step in $recoverySteps) {
-                if ($step.WarningKey) {
-                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc $step.WarningKey)
+                # Get-OptionalMember, not $step.WarningKey: a future entry that
+                # omits the key would otherwise abort the whole recovery under
+                # Set-StrictMode, the same class of defect as the step table.
+                $warningKey = Get-OptionalMember -InputObject $step -Name 'WarningKey'
+                if ($warningKey) {
+                    Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc $warningKey)
                 }
                 $null = & $step.Repair
 
