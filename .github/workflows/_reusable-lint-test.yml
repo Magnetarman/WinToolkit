@@ -89,7 +89,18 @@ jobs:
           # read from git (deterministic, and independent of the localized WhatIf
           # text); they are restored on the very next line, so the workspace ends up
           # exactly as checked out and no later step ever sees modified sources.
-          $roots = @('start-modules', 'wintoolkit-modules')
+          # Only the fragment folders actually present are handed to the formatter.
+          # On main the checkout holds the compiled artefacts alone (WinToolkit.ps1,
+          # start.ps1): the fragments belong to the development section and live on
+          # Dev only. The formatter refuses every other path, so a missing folder
+          # must skip the step instead of terminating the run.
+          $roots = @('start-modules', 'wintoolkit-modules') |
+            Where-Object { Test-Path -LiteralPath $_ }
+
+          if (-not $roots) {
+            Write-Host 'Fragment spacing: skipped — no source fragment folder in this checkout (compiled artefacts only).' -ForegroundColor Yellow
+            return
+          }
 
           # git status --porcelain: two status characters, a space, then the path.
           # "before" is captured first so only the formatter's own writes are undone.
@@ -204,6 +215,17 @@ jobs:
           #
           # -SkipTests: the fragment suites already run in the "testing" job, so
           # they are not executed twice.
+          #
+          # The gate consumes the fragments and rebuilds start-core.ps1, so it has
+          # nothing to gate where they are absent: on main the checkout holds the
+          # compiled artefacts only and the fragments live on Dev. The script exits
+          # terminating on the missing folder (ErrorActionPreference = Stop), which
+          # would fail the whole job instead of skipping it.
+          if (-not (Test-Path -LiteralPath 'start-modules')) {
+            Write-Host 'Start fragment acceptance gate: skipped — start-modules is not part of this checkout (compiled artefacts only).' -ForegroundColor Yellow
+            return
+          }
+
           & pwsh -NoProfile -File ./.github/scripts/Test-StartFragmentGate.ps1 -SkipTests
           if ($LASTEXITCODE -ne 0) {
             Write-Host '::error::The start-modules acceptance gate failed; see the log for the failing section.'
