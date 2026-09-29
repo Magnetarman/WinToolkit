@@ -35,6 +35,18 @@ runs:
           return
         }
 
+        # This action parses PowerShell, so a non-PowerShell path is a caller bug:
+        # the AST parser cannot read YAML and reports a wall of meaningless syntax
+        # errors on well-formed workflows. Refuse it here, where the cause is still
+        # obvious, instead of failing later on a false positive.
+        $notPowerShell = @($files | Where-Object { $_.Extension -notin @('.ps1', '.psm1', '.psd1') })
+        if ($notPowerShell) {
+          foreach ($file in $notPowerShell) {
+            Write-Host "::error file=$($file.FullName)::validate-syntax parses PowerShell only. '$($file.Name)' is not a PowerShell file; a workflow or action must be validated as YAML, not by the PowerShell AST parser."
+          }
+          exit 1
+        }
+
         $hasErrors = $false
         foreach ($file in $files) {
           $errors = $null
