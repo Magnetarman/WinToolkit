@@ -1,3 +1,4 @@
+# WinToolkit CI/CD V4.1.1
 # Compiles WinToolkit.ps1 from wintoolkit-modules and /tools, with optional tokenizer-safe minification.
 
 [CmdletBinding()]
@@ -43,6 +44,7 @@ function Write-BuildLog {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Write-Host "[$timestamp] $Message" -ForegroundColor $colors[$Type]
 }
+
 
 function Get-FileStats {
     param([string]$Path)
