@@ -1831,10 +1831,9 @@ function Show-Help {
     $divider = $PSStyle.Foreground.Green + ('=' * 84) + $reset
 
     # One shared width for every row keeps the description column aligned.
-    # The padding is applied to the plain name first: the -f operator counts the
+    # The name is padded while still plain text, then coloured: -f counts the
     # ANSI escape codes, so colouring before padding would break the column.
     $nameWidth = ($guide | ForEach-Object { $_.Items } | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum
-    $row = '{0,-' + $nameWidth + '} - {1}'
 
     $lines = [System.Collections.Generic.List[string]]::new()
     $lines.Add("$($PSStyle.Foreground.Cyan)PowerShell Profile Guide$($PSStyle.Reset) $($PSStyle.Foreground.Red)$('=' * 58)$($PSStyle.Reset)")
@@ -1849,7 +1848,9 @@ function Show-Help {
         $lines.Add('')
         $lines.Add("$($PSStyle.Foreground.Cyan)$($group.Section)$($PSStyle.Reset) $($PSStyle.Foreground.Yellow)$('-' * 66)$($PSStyle.Reset)")
         foreach ($item in $group.Items) {
-            $lines.Add(($row -f "$($PSStyle.Foreground.$($item.Color))$($item.Name)$reset", $item.Description))
+            # Colour only the padded name, so the ANSI codes do not eat the padding.
+            $padded = $item.Name.PadRight($nameWidth)
+            $lines.Add("$($PSStyle.Foreground.$($item.Color))$padded$reset - $($item.Description)")
         }
     }
 
