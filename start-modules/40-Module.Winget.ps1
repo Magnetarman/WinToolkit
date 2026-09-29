@@ -592,36 +592,44 @@ function Test-WingetAppInstaller {
 function Confirm-ToolkitInteractiveAction {
     <#
     .SYNOPSIS
-    Asks the user to confirm an action that permanently changes their environment.
+        Asks the user to confirm an action that permanently changes their environment.
 
     .DESCRIPTION
-    Returns $true only on an explicit yes. Anything else is a no:
-      - a non-interactive session (piped input, scheduled run, CI) is never
-        prompted, because Read-Host would either return immediately or hang the
-        run forever;
-      - an empty answer, an unrecognized answer, or a closed stdin is a no.
-    Used for the few operations that modify the user's own PowerShell profile
-    (for example installing Microsoft.WinGet.Client with -AllowClobber).
+        Returns $true only on an explicit yes. Anything else is a no:
+          - a non-interactive session (piped input, scheduled run, CI) is never
+            prompted, because Read-Host would either return immediately or hang the
+            run forever;
+          - an empty answer, an unrecognized answer, or a closed stdin is a no.
+        Used for the few operations that modify the user's own PowerShell profile
+        (for example installing Microsoft.WinGet.Client with -AllowClobber).
+
+        The optional -Answer parameter injects a canned response instead of calling
+        Read-Host. It is intended exclusively for deterministic unit testing: it
+        bypasses the non-interactive guard so the parsing logic can be exercised
+        without a real console.
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)][string]$Key
+        [Parameter(Mandatory = $true)][string]$Key,
+        [string]$Answer
     )
 
-    if ([Console]::IsInputRedirected) {
-        Write-ToolkitLog -Level 'INFO' -Message "Confirmation '$Key' not requested: non-interactive session."
-        return $false
+    if ($null -eq $Answer) {
+        if ([Console]::IsInputRedirected) {
+            Write-ToolkitLog -Level 'INFO' -Message "Confirmation '$Key' not requested: non-interactive session."
+            return $false
+        }
+
+        try {
+            $Answer = Read-Host (Get-SourceTextLoc $Key)
+        }
+        catch {
+            Write-ToolkitLog -Level 'WARNING' -Message "Confirmation '$Key' failed: $($_.Exception.Message)"
+            return $false
+        }
     }
 
-    try {
-        $answer = Read-Host (Get-SourceTextLoc $Key)
-    }
-    catch {
-        Write-ToolkitLog -Level 'WARNING' -Message "Confirmation '$Key' failed: $($_.Exception.Message)"
-        return $false
-    }
-
-    $isYes = $answer.Trim() -match '^(s|si|yes|y|true|1)$'
+    $isYes = $Answer.Trim().ToLowerInvariant() -match '^(s|si|yes|y|true|1)$'
     if (-not $isYes) {
         Write-ToolkitLog -Level 'INFO' -Message "Confirmation '$Key' declined or empty; treating as no."
     }
@@ -1099,18 +1107,25 @@ function Reinstall-WingetForced {
     }
 
     # --- 2. Microsoft.WinGet.Client: gated, permanent user environment change --
+    $moduleConfirmed = $false
+
     if ($SkipModule) {
         $notes.Add('Module install skipped as requested.')
+        Write-ToolkitLog -Level 'INFO' -Message 'Skipped the WinGet.Client module install: -SkipModule set.'
     }
-    elseif ([Console]::IsInputRedirected) {
-        $notes.Add('Module install skipped: no interactive session to confirm it.')
-        Write-ToolkitLog -Level 'INFO' -Message 'Skipped the WinGet.Client module install: non-interactive session.'
+    elseif ($ConfirmModuleInstall) {
+        # The caller has explicitly confirmed the operation.
+        $moduleConfirmed = $true
     }
-    elseif (-not $ConfirmModuleInstall) {
-        $notes.Add('Module install skipped: not confirmed.')
-        Write-ToolkitLog -Level 'INFO' -Message 'Skipped the WinGet.Client module install: explicit confirmation not given.'
+    elseif (-not [Console]::IsInputRedirected) {
+        $moduleConfirmed = Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0'
     }
     else {
+        $notes.Add('Module install skipped: not confirmed.')
+        Write-ToolkitLog -Level 'INFO' -Message 'Skipped the WinGet.Client module install: non-interactive session and no explicit confirmation.'
+    }
+
+    if ($moduleConfirmed) {
         try {
             Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.installingMicrosoftWingetClientModule')
             Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop *>$null
@@ -1126,6 +1141,12 @@ function Reinstall-WingetForced {
             Write-ToolkitLog -Level 'WARNING' -Message "WinGet.Client module install failed: $($_.Exception.Message)"
             $notes.Add("Module install failed: $($_.Exception.Message)")
         }
+    }
+    elseif (-not $SkipModule) {
+        # Only add the "not confirmed" note when the user didn't explicitly
+        # skip; when -SkipModule is used the "skipped as requested" note
+        # already covers the path.
+        $notes.Add('Module install skipped: not confirmed.')
     }
 
     # --- 3. Refresh and verify -------------------------------------------------
