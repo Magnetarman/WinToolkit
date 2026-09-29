@@ -98,57 +98,6 @@ function Invoke-WinToolkitSetup {
             }
         }
 
-        Add-SetupResult -Name 'WinGet' -Success ([bool]$wingetReady) -Message 'WinGet operational.' -Blocking $true
-
-        # Ensure App Installer is present and updated (a fully functional WinGet
-        # requires a current App Installer package).
-        $null = Test-WingetAppInstaller
-        Update-EnvironmentPath
-
-        # Thoroughly verify that WinGet works correctly.
-        if (-not (Test-WingetDeepValidation)) {
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.warningInstallingSubsequentPackagesViaWingetMayFail')
-        }
-
-        # Git is needed to clone private repositories and for some package installs.
-        $gitSuccess = Install-GitPackage
-        Add-SetupResult -Name 'Git' -Success ([bool]$gitSuccess) -Message 'Git verification/installation completed.'
-        if ($gitSuccess) {
-            Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.gitIsAlreadyOperational')
-        }
-        else {
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.attentionGitHasNotBeenInstalledOrItMayNotWorkProperly')
-            Write-ToolkitLog -Level 'WARNING' -Message 'Git is not operational: the winget path and the GitHub release fallback both failed (see the entries above).'
-        }
-
-        # Check and install PowerShell 7 (application level, see 50-Module.Installers.ps1)
-        $ps7Success = Install-PowerShellCore
-        Add-SetupResult -Name 'PowerShell 7' -Success ([bool]$ps7Success) -Message 'PowerShell 7 verification/installation completed.'
-
-        # Windows Terminal is a core requirement: the shortcut and the default
-        # terminal both depend on it.
-        $wtInstalled = Install-WindowsTerminalApp
-        Add-SetupResult -Name 'Windows Terminal' -Success ([bool]$wtInstalled) -Message 'Windows Terminal verification/installation completed.'
-
-        # Make Windows Terminal the default terminal application.
-        if ($wtInstalled) {
-            $defaultTerminal = Set-WindowsTerminalAsDefault
-            Add-SetupResult -Name 'Default terminal' -Success ([bool]$defaultTerminal.Success) -Changed ([bool]$defaultTerminal.Changed) -Message $defaultTerminal.Message
-        }
-
-        # ALWAYS executed: PSP environment and profile installation
-        $pspResult = Install-PspEnvironment
-        Add-SetupResult -Name 'PowerShell environment' -Success ([bool]$pspResult.Success) -Message $pspResult.Message
-
-        # The desktop shortcut targets wt.exe and runs pwsh: only create it when
-        # both components are actually available, otherwise it would be broken.
-        if ((Test-WindowsTerminalInstalled) -and (Test-CommandExists -Name 'pwsh')) {
-            $shortcutCreated = New-ToolkitDesktopShortcut
-            Add-SetupResult -Name 'Desktop shortcut' -Success ([bool]$shortcutCreated) -Message 'Desktop shortcut creation completed.'
-        }
-        else {
-            Add-SetupResult -Name 'Desktop shortcut' -Success $false -Message 'Skipped: Windows Terminal or PowerShell 7 is not available, the shortcut would not work.'
-        }
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.configurationComplete')
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.wintoolkitIsReadyOnTheDesktop')
         return (Write-SetupSummary)
