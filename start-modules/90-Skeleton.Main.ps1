@@ -60,24 +60,30 @@ function Invoke-WinToolkitSetup {
         # only records it. `When` marks a step that does not apply to this system
         # (Skipped, not Failed), `Blocking` marks one the flow cannot continue
         # without.
+        #
+        # Entries are built with New-SetupStep, never as literal hashtables: the
+        # literals had no `When` key on 7 of the 10 steps, and reading a member an
+        # object does not expose is a terminating error under Set-StrictMode, so
+        # the loop died on its FIRST iteration ("Cannot find property 'When' on
+        # this object") before any step had run.
         $steps = @(
-            @{ Name = 'System clock'; Run = { Repair-SystemClock } }
-            @{ Name = 'SCHANNEL'; Run = { Reset-SchannelSettings } }
-            @{ Name = 'Hosts file'; Run = { Repair-HostsFileIfNeeded } }
-            @{ Name = 'App Installer'; Run = { Repair-AppInstaller } }
-            @{ Name = 'WinGet'; Run = { Initialize-Winget }; Blocking = $true }
-            @{ Name = 'Git'; Run = { Install-GitPackage } }
-            @{ Name = 'Windows Terminal'; Run = { Install-WindowsTerminalApp } }
-            @{ Name = 'Default terminal'; Run = { Set-WindowsTerminalAsDefault }; When = { Test-WindowsTerminalInstalled } }
-            @{ Name = 'PowerShell environment'; Run = { Install-PspEnvironment } }
+            New-SetupStep -Name 'System clock' -Run { Repair-SystemClock }
+            New-SetupStep -Name 'SCHANNEL' -Run { Reset-SchannelSettings }
+            New-SetupStep -Name 'Hosts file' -Run { Repair-HostsFileIfNeeded }
+            New-SetupStep -Name 'App Installer' -Run { Repair-AppInstaller }
+            New-SetupStep -Name 'WinGet' -Run { Initialize-Winget } -Blocking
+            New-SetupStep -Name 'Git' -Run { Install-GitPackage }
+            New-SetupStep -Name 'Windows Terminal' -Run { Install-WindowsTerminalApp }
+            New-SetupStep -Name 'Default terminal' -Run { Set-WindowsTerminalAsDefault } `
+                -When { Test-WindowsTerminalInstalled }
+            New-SetupStep -Name 'PowerShell environment' -Run { Install-PspEnvironment }
             # Not a Blocking step: when elevation switched account, the tools went
             # into the administrator profile. The alignment is best effort and a
             # failure degrades to a warning (S-4).
-            @{ Name = 'User scope alignment'; Run = { Sync-UserScopeWithInstalledTools }
-                When = { (Get-ToolkitOriginalUserContext).AccountSwitched } }
-            @{ Name = 'Desktop shortcut'; Run = { New-ToolkitDesktopShortcut }
-                When = { (Test-WindowsTerminalInstalled) -and (Test-CommandExists -Name 'pwsh') }
-            }
+            New-SetupStep -Name 'User scope alignment' -Run { Sync-UserScopeWithInstalledTools } `
+                -When { (Get-ToolkitOriginalUserContext).AccountSwitched }
+            New-SetupStep -Name 'Desktop shortcut' -Run { New-ToolkitDesktopShortcut } `
+                -When { (Test-WindowsTerminalInstalled) -and (Test-CommandExists -Name 'pwsh') }
         )
 
         # Windows Update services are suspended for the installer phase and always
@@ -90,7 +96,11 @@ function Invoke-WinToolkitSetup {
                 continue
             }
 
-            $result = & $step.Run
+            # ConvertTo-StepResult is the safety net: a step that returns a bare
+            # boolean, nothing at all or a partial object is recorded as a failed
+            # step instead of aborting the whole installation with an unreadable
+            # PropertyNotFoundStrict error.
+            $result = ConvertTo-StepResult -Result (& $step.Run) -Name $step.Name
             Add-SetupResult -Name $step.Name -Result $result -Blocking:([bool]$step.Blocking)
 
             if ($step.Blocking -and -not $result.Success) {
