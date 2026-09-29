@@ -1,5 +1,5 @@
 # PowerShell security analysis via PSScriptAnalyzer
-name: WinToolkit — Security Scan V4.0.2
+name: WinToolkit — Security Scan V4.1.1
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install PSScriptAnalyzer
         shell: pwsh

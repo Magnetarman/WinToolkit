@@ -1,3 +1,4 @@
+# WinToolkit CI/CD V4.1.1
 <#
 .SYNOPSIS
     Validates compiled WinToolkit.ps1: syntax, functions, size, encoding, menu structure.
@@ -40,6 +41,7 @@ function Write-TestLog {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Write-Host "[$timestamp] $Message" -ForegroundColor $colors[$Type]
 }
+
 
 function Initialize-OutputVariable {
     # Create empty output file

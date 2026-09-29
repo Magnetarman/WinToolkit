@@ -1,3 +1,4 @@
+# WinToolkit CI/CD V4.1.1
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 <#
@@ -14,7 +15,7 @@ BeforeAll {
     }
 
     # Allow no-op logging when no log file is configured
-    $script:CurrentLogFile = $null
+    $script:State.LogFile = $null
     if (-not (Test-Path Variable:Global:MsgStyles)) {
         $Global:MsgStyles = @{
             Success = @{ Icon = '[OK]';   Color = 'Green' }
@@ -24,6 +25,11 @@ BeforeAll {
         }
     }
     $script:AppConfig = $script:AppConfig
+    # Repository translations, not the %LOCALAPPDATA% cache: the cache is whatever a
+    # previous run downloaded, so shipped strings would be untested and a new key
+    # would print "[MISSING TRANSLATION: ...]" without failing anything.
+    $script:AppConfig.Paths.Languages = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\languages')).Path
+    Initialize-SourceTextLocalization -LanguageCode 'en-US'
 }
 
 Describe 'Format-CenteredText' {
@@ -36,6 +42,179 @@ Describe 'Format-CenteredText' {
 
     It 'adds no padding when the text fills the width' {
         Format-CenteredText -Text '1234567890' -Width 10 | Should -Be '1234567890'
+    }
+}
+
+Describe 'Install-RemoteFile — profile/settings install policy (S-6)' {
+
+    BeforeEach {
+        $script:State.LogFile = $null
+        $script:probeDir = Join-Path $env:TEMP ('wt-remote-' + [guid]::NewGuid().ToString('N'))
+        $null = New-Item -ItemType Directory -Path $script:probeDir -Force
+        $script:probeUrl = 'https://example.invalid/probe.txt'
+    }
+
+    AfterEach {
+        Remove-Item $script:probeDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    # Each test below declares its own Mock with the content inlined: a Mock built
+    # inside a helper function does not see that helper's parameters, because Pester
+    # invokes mocks in a different scope.
+
+    It 'returns $false and writes nothing when the download fails' {
+        Mock Invoke-DownloadFile { return $false }
+        $dest = Join-Path $script:probeDir 'file.txt'
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest | Should -BeFalse
+        Test-Path $dest | Should -BeFalse
+    }
+
+    It 'leaves the staged temp file behind never (cleanup always runs)' {
+        Mock Invoke-DownloadFile { return $false }
+        $before = @(Get-ChildItem $script:probeDir -File -ErrorAction SilentlyContinue).Count
+        $null = Install-RemoteFile -Url $script:probeUrl -Destination (Join-Path $script:probeDir 'f.txt')
+        @(Get-ChildItem $script:probeDir -File -ErrorAction SilentlyContinue).Count | Should -Be $before
+    }
+
+    # NOTE: each test declares its own Mock with the content inlined. A Mock created
+    # inside a helper function does not see the helper's parameters, and Pester mocks
+    # are invoked in a different scope, so $Content would be empty.
+    # The mock also creates the parent folder, because in the real flow the temp
+    # directory is created by the download itself.
+    It 'installs the payload and returns $true on a successful download' {
+        Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
+            [IO.File]::WriteAllText($OutFile, 'new-content'); return $true
+        }
+        $dest = Join-Path $script:probeDir 'file.txt'
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest | Should -BeTrue
+        [IO.File]::ReadAllText($dest) | Should -Be 'new-content'
+    }
+
+    It 'does not rewrite, and creates no backup, when the content is already identical' {
+        # The previous code produced a .bak on EVERY run even when nothing changed.
+        Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
+            [IO.File]::WriteAllText($OutFile, 'same-content'); return $true
+        }
+        $dest = Join-Path $script:probeDir 'file.txt'
+        [IO.File]::WriteAllText($dest, 'same-content')
+
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest -Backup | Should -BeTrue
+        @(Get-ChildItem $script:probeDir -Filter 'file.txt.bak.*' -ErrorAction SilentlyContinue).Count |
+            Should -Be 0 -Because 'an unchanged file must not produce a backup'
+    }
+
+    It 'keeps a backup of the previous content when the file actually changes' {
+        Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
+            [IO.File]::WriteAllText($OutFile, 'v2'); return $true
+        }
+        $dest = Join-Path $script:probeDir 'file.txt'
+        [IO.File]::WriteAllText($dest, 'v1')
+
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest -Backup | Should -BeTrue
+        [IO.File]::ReadAllText($dest) | Should -Be 'v2'
+
+        $backups = @(Get-ChildItem $script:probeDir -Filter 'file.txt.bak.*' -ErrorAction SilentlyContinue)
+        $backups.Count | Should -Be 1
+        [IO.File]::ReadAllText($backups[0].FullName) | Should -Be 'v1'
+    }
+
+    It 'creates the destination directory when it does not exist yet' {
+        Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
+            [IO.File]::WriteAllText($OutFile, 'x'); return $true
+        }
+        $dest = Join-Path (Join-Path $script:probeDir 'deep\nested') 'file.txt'
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest | Should -BeTrue
+        Test-Path $dest | Should -BeTrue
+    }
+
+    It 'rejects an installed file smaller than -MinimumBytes' {
+        # The staged payload downloads fine but is too small once installed.
+        Mock Invoke-DownloadFile {
+            $null = New-Item -Path (Split-Path $OutFile -Parent) -ItemType Directory -Force
+            [IO.File]::WriteAllText($OutFile, 'tiny'); return $true
+        }
+        $dest = Join-Path $script:probeDir 'small.bin'
+        Install-RemoteFile -Url $script:probeUrl -Destination $dest -MinimumBytes 1024 | Should -BeFalse
+    }
+}
+
+Describe 'Remove-ExpiredBackups — retention (S-6)' {
+
+    BeforeEach {
+        $script:probeDir = Join-Path $env:TEMP ('wt-bak-' + [guid]::NewGuid().ToString('N'))
+        $null = New-Item -ItemType Directory -Path $script:probeDir -Force
+    }
+    AfterEach { Remove-Item $script:probeDir -Recurse -Force -ErrorAction SilentlyContinue }
+
+    It 'keeps the newest N backups and removes the rest' {
+        $pattern = Join-Path $script:probeDir 'file.txt.bak.*'
+        1..5 | ForEach-Object {
+            $p = Join-Path $script:probeDir "file.txt.bak.2026090$_-000000"
+            [IO.File]::WriteAllText($p, "v$_")
+            (Get-Item $p).LastWriteTime = (Get-Date).AddMinutes($_)
+        }
+        Remove-ExpiredBackups -Path $pattern -Keep 3
+        @(Get-ChildItem $script:probeDir -Filter 'file.txt.bak.*').Count | Should -Be 3
+    }
+
+    It 'is a no-op when fewer backups than the retention exist' {
+        $pattern = Join-Path $script:probeDir 'file.txt.bak.*'
+        [IO.File]::WriteAllText((Join-Path $script:probeDir 'file.txt.bak.1'), 'a')
+        Remove-ExpiredBackups -Path $pattern -Keep 3
+        @(Get-ChildItem $script:probeDir -Filter 'file.txt.bak.*').Count | Should -Be 1
+    }
+}
+
+Describe 'Sync-UserScopeWithInstalledTools — hybrid user scope (S-4)' {
+
+    BeforeEach {
+        $script:State.LogFile = $null
+        Mock Write-StyledMessage {}
+        $script:realContext = $script:State.UserContext
+    }
+    AfterEach { $script:State.UserContext = $script:realContext }
+
+    It 'is a no-op when elevation did not switch account' {
+        $script:State.UserContext = [pscustomobject]@{
+            CurrentUser = 'HOST\User'; OriginalUser = 'HOST\User'
+            AccountSwitched = $false; UserProfile = 'C:\Users\User'
+            Desktop = 'C:\Users\User\Desktop'; MyDocuments = 'C:\Users\User\Documents'
+        }
+        $result = Sync-UserScopeWithInstalledTools
+        $result.Success | Should -BeTrue
+        $result.Changed | Should -BeFalse
+    }
+
+    It 'degrades to a warning, without throwing, when the tool directory is missing' {
+        $script:State.UserContext = [pscustomobject]@{
+            CurrentUser = 'HOST\Admin'; OriginalUser = 'HOST\User'
+            AccountSwitched = $true; UserProfile = 'C:\Users\User'
+            Desktop = 'C:\Users\User\Desktop'; MyDocuments = 'C:\Users\User\Documents'
+        }
+        Mock Test-Path { return $false }
+        # Must not throw: an unblockable PATH write never fails the setup.
+        { Sync-UserScopeWithInstalledTools } | Should -Not -Throw
+    }
+
+    It 'degrades to a warning when the user hive cannot be loaded' {
+        $script:State.UserContext = [pscustomobject]@{
+            CurrentUser = 'HOST\Admin'; OriginalUser = 'HOST\User'
+            AccountSwitched = $true; UserProfile = 'C:\Users\User'
+            Desktop = 'C:\Users\User\Desktop'; MyDocuments = 'C:\Users\User\Documents'
+        }
+        Mock Test-Path { return $true }
+        # reg.exe is stubbed through a function so no real hive is ever mounted.
+        function script:reg { $global:LASTEXITCODE = 1; 'ERROR: Access is denied.' }
+        try {
+            $result = Sync-UserScopeWithInstalledTools
+            $result.Success | Should -BeFalse
+            $result.Message | Should -Not -BeNullOrEmpty
+        }
+        finally { Remove-Item Function:\reg -ErrorAction SilentlyContinue }
     }
 }
 
@@ -99,17 +278,17 @@ Describe 'Test-PathInEnvironment' {
 
 Describe 'Add-SetupResult / Write-SetupSummary (§2.8, §4.1)' {
     BeforeEach {
-        $script:SetupResults = @()
+        $script:State.Results.Clear()
     }
 
     It 'records a successful step with no changes as Succeeded' {
         Add-SetupResult -Name 'StepA' -Success $true -Changed $false
-        $script:SetupResults[0].Status | Should -Be 'Succeeded'
+        $script:State.Results[0].Status | Should -Be 'Succeeded'
     }
 
     It 'records a successful step with changes as Changed' {
         Add-SetupResult -Name 'StepB' -Success $true -Changed $true
-        $script:SetupResults[0].Status | Should -Be 'Changed'
+        $script:State.Results[0].Status | Should -Be 'Changed'
     }
 
     It 'Write-SetupSummary returns 0 when everything succeeds' {
@@ -128,5 +307,216 @@ Describe 'Add-SetupResult / Write-SetupSummary (§2.8, §4.1)' {
         Add-SetupResult -Name 'StepA' -Success $true
         Add-SetupResult -Name 'StepWarn' -Success $false -Blocking $false -Message 'warn'
         Write-SetupSummary | Should -Be 2
+    }
+}
+
+Describe 'New-StepResult — the single step contract (T-02)' {
+
+    It 'defaults to Succeeded with no change and no skip' {
+        $r = New-StepResult -Success $true
+        $r.Success | Should -BeTrue
+        $r.Changed | Should -BeFalse
+        $r.Skipped | Should -BeFalse
+        $r.Blocking | Should -BeFalse
+    }
+
+    It 'carries the message, Changed and Skipped' {
+        $r = New-StepResult -Success $false -Changed $true -Message 'm' -Skipped
+        $r.Success | Should -BeFalse
+        $r.Changed | Should -BeTrue
+        $r.Skipped | Should -BeTrue
+        $r.Message | Should -Be 'm'
+    }
+
+    It 'carries Blocking, so a step can mark itself non-blocking' {
+        (New-StepResult -Success $true -Blocking $true).Blocking | Should -BeTrue
+    }
+}
+
+Describe 'StrictMode step-contract regressions (90-Skeleton.Main.ps1)' {
+
+    # The reported crash: "Non è possibile trovare la proprietà 'When' in questo
+    # oggetto". Set-StrictMode -Version Latest (00-Skeleton.Header.ps1) makes the
+    # read of a member an object does not expose a terminating error, and the step
+    # table was a list of literal hashtables where only 3 of 10 entries carried the
+    # optional `When` key. The very first loop iteration therefore died before any
+    # step had run. These tests pin the two guarantees that prevent a recurrence:
+    # a step entry always exposes every member the loop reads, and a step result
+    # is normalized before anything reads it.
+
+    BeforeAll {
+        $script:StrictProbe = {
+            param([scriptblock]$Body)
+            # A dedicated scope, so StrictMode never leaks into the other suites.
+            & {
+                Set-StrictMode -Version Latest
+                & $Body
+            }
+        }
+    }
+
+    It 'New-SetupStep always exposes the members the loop reads (When/Blocking included)' {
+        foreach ($step in @(
+                New-SetupStep -Name 'Plain' -Run { 'x' }
+                New-SetupStep -Name 'Gated' -Run { 'x' } -When { $true } -Blocking
+            )) {
+            $members = @($step.PSObject.Properties.Name)
+            foreach ($required in @('Name', 'Run', 'When', 'Blocking')) {
+                $members | Should -Contain $required -Because "the orchestrator reads `$step.$required"
+            }
+        }
+    }
+
+    It 'reading When and Blocking on a step without them does not throw under StrictMode' {
+        $step = New-SetupStep -Name 'Plain' -Run { 'x' }
+        $null = & $script:StrictProbe {
+            $step.When
+            $step.Blocking
+        }
+    }
+
+    It 'the orchestrator builds its step table with New-SetupStep, not literal hashtables' {
+        $main = Get-Content -LiteralPath (Join-Path $moduleRoot '90-Skeleton.Main.ps1') -Raw
+        $main | Should -Not -Match '@\{\s*Name\s*=' -Because 'a literal entry may omit the optional When/Blocking keys, which is what aborted the run'
+        ([regex]::Matches($main, 'New-SetupStep -Name ')).Count | Should -BeGreaterThan 0
+    }
+
+    It 'Get-OptionalMember returns $null instead of throwing on a missing member' {
+        $null = & $script:StrictProbe {
+            $result = Get-OptionalMember -InputObject @{ Name = 'x' } -Name 'When'
+            if ($null -ne $result) { throw 'a missing hashtable key must read as $null' }
+
+            $result = Get-OptionalMember -InputObject ([pscustomobject]@{ Name = 'x' }) -Name 'When'
+            if ($null -ne $result) { throw 'a missing property must read as $null' }
+
+            $result = Get-OptionalMember -InputObject $null -Name 'When'
+            if ($null -ne $result) { throw 'a null object must read as $null' }
+        }
+    }
+
+    It 'ConvertTo-StepResult normalizes a bare boolean (the pre-fix step returns)' {
+        $ok = ConvertTo-StepResult -Result $true -Name 'Git'
+        $ok.Success | Should -BeTrue
+        $ok.Changed | Should -BeFalse
+
+        $ko = ConvertTo-StepResult -Result $false -Name 'Git'
+        $ko.Success | Should -BeFalse
+    }
+
+    It 'ConvertTo-StepResult normalizes a partial result (no Changed/Skipped/Blocking)' {
+        $r = ConvertTo-StepResult -Result ([pscustomobject]@{ Success = $true; Message = 'm' }) -Name 'X'
+        $r.Success | Should -BeTrue
+        $r.Changed | Should -BeFalse
+        $r.Skipped | Should -BeFalse
+        $r.Blocking | Should -BeFalse
+        $r.Message | Should -Be 'm'
+    }
+
+    It 'ConvertTo-StepResult records a failure when a step returned nothing (-WhatIf)' {
+        $r = ConvertTo-StepResult -Result $null -Name 'App Installer'
+        $r.Success | Should -BeFalse
+        $r.Message | Should -Not -BeNullOrEmpty
+    }
+
+    It 'ConvertTo-StepResult keeps the last real result when a step leaks output' {
+        $r = ConvertTo-StepResult -Result @('stray output', (New-StepResult -Success $true -Message 'real')) -Name 'X'
+        $r.Success | Should -BeTrue
+        $r.Message | Should -Be 'real'
+    }
+
+    It 'Add-SetupResult does not throw on a malformed step result (StrictMode)' {
+        $script:State.Results.Clear()
+        $null = & $script:StrictProbe {
+            Add-SetupResult -Name 'Git' -Result $true
+        }
+        $script:State.Results[0].Status | Should -Be 'Succeeded'
+    }
+
+    It 'Add-SetupResult still honours a Blocking flag carried by the result' {
+        $script:State.Results.Clear()
+        Add-SetupResult -Name 'WinGet' -Result (New-StepResult -Success $false -Blocking $true -Message 'boom')
+        $script:State.Results[0].Status | Should -Be 'Failed'
+        $script:State.Results[0].Blocking | Should -BeTrue
+    }
+}
+
+Describe 'Add-SetupResult — Result and Skipped forms (B-12, T-02)' {
+
+    BeforeEach { $script:State.Results.Clear() }
+
+    It 'accepts a StepResult through -Result' {
+        Add-SetupResult -Name 'Step' -Result (New-StepResult -Success $true -Changed $true -Message 'from step')
+        $script:State.Results[0].Status | Should -Be 'Changed'
+        $script:State.Results[0].Message | Should -Be 'from step'
+    }
+
+    It 'records an explicitly skipped step as Skipped, not Failed' {
+        Add-SetupResult -Name 'Step' -Success $true -Skipped -Message 'n/a'
+        $script:State.Results[0].Status | Should -Be 'Skipped'
+    }
+
+    It 'propagates Skipped carried by the StepResult' {
+        Add-SetupResult -Name 'Step' -Result (New-StepResult -Success $true -Skipped)
+        $script:State.Results[0].Status | Should -Be 'Skipped'
+    }
+
+    It 'a skipped step does not make Write-SetupSummary report a failure' {
+        Add-SetupResult -Name 'StepA' -Success $true
+        Add-SetupResult -Name 'Shortcut' -Success $true -Skipped -Message 'not applicable'
+        Write-SetupSummary | Should -Be 0
+    }
+}
+
+Describe 'Test-LocalRootedPath — path shape guard (T-12)' {
+
+    It 'accepts a fully qualified local path and trims the trailing separator' {
+        Test-LocalRootedPath -Path 'C:\Users\Me\Documents\' | Should -Be 'C:\Users\Me\Documents'
+    }
+
+    It 'rejects an empty path' {
+        Test-LocalRootedPath -Path '' | Should -BeNullOrEmpty
+    }
+
+    It 'rejects a drive root' {
+        Test-LocalRootedPath -Path 'C:\' | Should -BeNullOrEmpty
+        Test-LocalRootedPath -Path 'C:' | Should -BeNullOrEmpty
+    }
+
+    It 'rejects a drive-relative path (the C:\PowerShell bug)' {
+        Test-LocalRootedPath -Path '\PowerShell' | Should -BeNullOrEmpty
+        Test-LocalRootedPath -Path '/PowerShell' | Should -BeNullOrEmpty
+    }
+
+    It 'rejects a relative path' {
+        Test-LocalRootedPath -Path 'PowerShell' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Initialize-Directory — creates and verifies (T-12)' {
+
+    It 'refuses a drive-relative path instead of creating C:\PowerShell' {
+        { Initialize-Directory -Path '\PowerShell' } | Should -Throw
+    }
+
+    It 'creates a missing directory and returns it' {
+        $probe = Join-Path $env:TEMP ('wt-initdir_' + [guid]::NewGuid().ToString('N'))
+        try {
+            $resolved = Initialize-Directory -Path $probe
+            $resolved | Should -Be $probe
+            Test-Path -LiteralPath $probe -PathType Container | Should -BeTrue
+        }
+        finally {
+            Remove-Item -LiteralPath $probe -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Describe 'Remove-PathQuietly — never throws (T-03)' {
+
+    It 'removes existing paths and ignores missing ones' {
+        $probe = Join-Path $env:TEMP ('wt-rmq_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $probe -Force | Out-Null
+        { Remove-PathQuietly -Path @($probe, (Join-Path $probe 'does-not-exist')) } | Should -Not -Throw
+        Test-Path -LiteralPath $probe | Should -BeFalse
     }
 }

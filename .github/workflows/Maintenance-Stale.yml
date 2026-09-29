@@ -1,5 +1,5 @@
 # Close stale issues/PRs; Backlog milestone items are marked but never closed.
-name: WinToolkit — Stale Maintenance V4.0.2
+name: WinToolkit — Stale Maintenance V4.1.1
 
 on:
   schedule:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   stale:
     name: Stale
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # Step 1: Mark and close stale issues/PRs (Backlog excluded).
       - name: Stale standard (Backlog issues excluded)
