@@ -250,59 +250,72 @@ jobs:
 
           # Differential detection, one family at a time.
           #
-          # Every family is activated by a UNION OF POSITIVE patterns. There is no
-          # blanket "shared files activate everything" rule any more: it switched on
-          # the WinToolkit build for a StartModules test and left start_build_changed
-          # false, so a start-modules edit rebuilt WinToolkit.ps1 and shipped a stale
-          # start-core.ps1.
+          # Each changed file is classified on its own, and the FIRST matching case
+          # wins, so a file can never be counted for both families by accident. There
+          # is no blanket "shared files activate everything" rule any more: it
+          # switched on the WinToolkit build for a StartModules test and left
+          # start_build_changed false, so a start-modules edit rebuilt WinToolkit.ps1
+          # and shipped a stale start-core.ps1.
           #
-          #   wintoolkit_changed   -> lint PSScriptAnalyzer/template + build WinToolkit.ps1
-          #   start_changed        -> lint/validate/Pester on start-modules
-          #   start_build_changed  -> build start-core.ps1
-
-          # Sources compiled into WinToolkit.ps1.
-          WT_PATTERN='^(tools/[^/]+\.ps1|wintoolkit-modules/[^/]+\.ps1|WinToolkit_GUI\.ps1|compiler\.ps1)$'
-
-          # Sources of the start family. start.ps1 is only the launcher stub: it
-          # points at start-core.ps1, it does not become part of it.
-          ST_PATTERN='^(start\.ps1|start-modules/[^/]+\.ps1)$'
-
-          # The only inputs that change the bytes of start-core.ps1.
-          ST_BUILD_PATTERN='^start-modules/[^/]+\.ps1$'
-
-          # CI files that change what a build produces.
-          WT_BUILD_CI_PATTERN='^\.github/scripts/(Invoke-Build|Minify-Source|New-WinToolkitCoreScript|Test-CompiledScript)\.ps1$'
-          ST_BUILD_CI_PATTERN='^\.github/scripts/(Invoke-Build-Start|Test-CompiledStartScript|Test-StartFragmentGate)\.ps1$'
-
-          # CI files that only change what a build is verified against.
-          WT_CHECK_CI_PATTERN='^\.github/tests/(CI-Smoke|WinToolkit)\.Tests\.ps1$|^\.github/tests/(Unit/[^/]+|Integration/Build)\.Tests\.ps1$'
-          ST_CHECK_CI_PATTERN='^\.github/tests/(StartModules/[^/]+|Integration/BuildStart)\.Tests\.ps1$'
-
-          # CI infrastructure shared by both families: the composite actions and the
-          # pipeline scripts neither build owns (spacing, version bump, release
-          # notes, contributors). They gate the run, they are not build inputs, so
-          # they verify both families without rebuilding either artifact.
-          SHARED_CI_PATTERN='^\.github/actions/.+$|^\.github/scripts/[^/]+\.ps1$'
-
-          matches() { echo "$CHANGED" | grep -qE "$1"; }
+          #   wintoolkit_changed  -> lint PSScriptAnalyzer/template + build WinToolkit.ps1
+          #   start_changed       -> lint/validate/Pester on start-modules
+          #   start_build_changed -> build start-core.ps1
+          #
+          # Compiled artifacts (WinToolkit.ps1, start-core.ps1) match no case: they
+          # are the OUTPUT of a build, and the commit that produces them must never
+          # schedule another one.
 
           WT_CHANGED=false
           ST_CHANGED=false
           ST_BUILD_CHANGED=false
 
-          if matches "$WT_PATTERN" || matches "$WT_BUILD_CI_PATTERN" || \
-             matches "$WT_CHECK_CI_PATTERN" || matches "$SHARED_CI_PATTERN"; then
-            WT_CHANGED=true
-          fi
+          classify() {
+            case "$1" in
+              # --- WinToolkit sources, compiled into WinToolkit.ps1 ---
+              tools/*.ps1|wintoolkit-modules/*.ps1|WinToolkit_GUI.ps1|compiler.ps1)
+                WT_CHANGED=true ;;
 
-          if matches "$ST_PATTERN" || matches "$ST_BUILD_CI_PATTERN" || \
-             matches "$ST_CHECK_CI_PATTERN" || matches "$SHARED_CI_PATTERN"; then
-            ST_CHANGED=true
-          fi
+              # --- Start sources ---
+              # start.ps1 is only the launcher stub: it points at start-core.ps1,
+              # it does not become part of it, so it is verified but not compiled.
+              start.ps1) ST_CHANGED=true ;;
+              start-modules/*.ps1) ST_CHANGED=true; ST_BUILD_CHANGED=true ;;
 
-          if matches "$ST_BUILD_PATTERN" || matches "$ST_BUILD_CI_PATTERN"; then
-            ST_BUILD_CHANGED=true
-          fi
+              # --- CI files that change what the WinToolkit build produces ---
+              .github/scripts/Invoke-Build.ps1| \
+              .github/scripts/Minify-Source.ps1| \
+              .github/scripts/New-WinToolkitCoreScript.ps1| \
+              .github/scripts/Test-CompiledScript.ps1)
+                WT_CHANGED=true ;;
+
+              # --- CI files that change what the start-core build produces ---
+              .github/scripts/Invoke-Build-Start.ps1| \
+              .github/scripts/Test-CompiledStartScript.ps1| \
+              .github/scripts/Test-StartFragmentGate.ps1)
+                ST_CHANGED=true; ST_BUILD_CHANGED=true ;;
+
+              # --- Suites owned by a family: they change what is verified ---
+              .github/tests/StartModules/*.ps1|.github/tests/Integration/BuildStart.Tests.ps1)
+                ST_CHANGED=true ;;
+              .github/tests/Unit/*.ps1| \
+              .github/tests/CI-Smoke.Tests.ps1| \
+              .github/tests/WinToolkit.Tests.ps1| \
+              .github/tests/Integration/Build.Tests.ps1)
+                WT_CHANGED=true ;;
+
+              # --- CI infrastructure shared by both families ---
+              # Composite actions and any other pipeline script gate the run but are
+              # not inputs of either artifact: both families are verified, neither
+              # is rebuilt. A script added later lands here by default instead of
+              # silently activating nothing.
+              .github/actions/*|.github/scripts/*)
+                WT_CHANGED=true; ST_CHANGED=true ;;
+            esac
+          }
+
+          while IFS= read -r changed_file; do
+            if [ -n "$changed_file" ]; then classify "$changed_file"; fi
+          done <<< "$CHANGED"
 
           if [ "$WT_CHANGED" = "true" ] || [ "$ST_CHANGED" = "true" ]; then
             RUN_CHECKS=true
