@@ -1,7 +1,7 @@
-# WinToolkit CI Main Protection V4.0.2
+# WinToolkit CI Main Protection V4.1.1
 # Triggers: PR to main. opened/synced -> guard+lint+version bump on Dev; merged release/v* -> stable GitHub release (tag vX.Y.Z). Maintainer-only.
 
-name: WinToolkit — CI Main Protection V4.0.2
+name: WinToolkit — CI Main Protection V4.1.1
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -26,7 +26,7 @@ jobs:
   # Official repo guard: blocks non-maintainer / non-official-repo.
   official_repo_guard:
     name: Official repo guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
     permissions:
       contents: read
@@ -46,7 +46,7 @@ jobs:
   # Main branch guard: hard-block PRs to main not from maintainer or not from release/v*.
   main_branch_guard:
     name: Main branch guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event.action != 'closed'
     permissions:
       pull-requests: write
@@ -116,10 +116,11 @@ jobs:
               core.info(`PR #${prNumber} authorized: maintainer (@${author}), release/v* branch compliant ✓`);
             }
 
-  # Differential change detection (WinToolkit / Start). Same patterns as Dev workflow.
+  # Differential change detection (WinToolkit / Start). Same family patterns as the
+  # Dev workflow; main only verifies, it never rebuilds an artifact.
   detect_changes:
     name: Detect changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event.action != 'closed'
     needs: main_branch_guard
     outputs:
@@ -129,7 +130,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -140,22 +141,44 @@ jobs:
           echo "Files changed in the PR:"
           echo "$CHANGED"
 
-          # Per-family patterns
-          WT_PATTERN='^(tools/[^/]+\.ps1|wintoolkit-modules/[^/]+\.ps1|WinToolkit_GUI\.ps1|compiler\.ps1)$'
-          ST_PATTERN='^(start\.ps1|start-modules/[0-9]{2}-(Skeleton|Module)\.[A-Za-z]+\.ps1|\.github/scripts/(Invoke-Build-Start|Test-CompiledStartScript)\.ps1)$'
-          SHARED_PATTERN='^\.github/(tests/.*\.ps1|scripts/[^/]+\.ps1|actions/.+)$'
-
+          # Differential detection, one family at a time (same classification as the
+          # Dev workflow). Each file is classified on its own and the FIRST matching
+          # case wins, so no file is ever counted for both families by accident; main
+          # only verifies, it never rebuilds an artifact.
           WT_CHANGED=false
           ST_CHANGED=false
 
-          if echo "$CHANGED" | grep -qE "$WT_PATTERN"; then WT_CHANGED=true; fi
-          if echo "$CHANGED" | grep -qE "$ST_PATTERN"; then ST_CHANGED=true; fi
+          classify() {
+            case "$1" in
+              tools/*.ps1|wintoolkit-modules/*.ps1|WinToolkit_GUI.ps1|compiler.ps1)
+                WT_CHANGED=true ;;
+              start.ps1|start-modules/*.ps1) ST_CHANGED=true ;;
+              .github/scripts/Invoke-Build.ps1| \
+              .github/scripts/Minify-Source.ps1| \
+              .github/scripts/New-WinToolkitCoreScript.ps1| \
+              .github/scripts/Test-CompiledScript.ps1)
+                WT_CHANGED=true ;;
+              .github/scripts/Invoke-Build-Start.ps1| \
+              .github/scripts/Test-CompiledStartScript.ps1| \
+              .github/scripts/Test-StartFragmentGate.ps1)
+                ST_CHANGED=true ;;
+              .github/tests/StartModules/*.ps1|.github/tests/Integration/BuildStart.Tests.ps1)
+                ST_CHANGED=true ;;
+              .github/tests/Unit/*.ps1| \
+              .github/tests/CI-Smoke.Tests.ps1| \
+              .github/tests/WinToolkit.Tests.ps1| \
+              .github/tests/Integration/Build.Tests.ps1)
+                WT_CHANGED=true ;;
+              # CI infrastructure shared by both families: composite actions and any
+              # other pipeline script gate the run but are not build inputs.
+              .github/actions/*|.github/scripts/*)
+                WT_CHANGED=true; ST_CHANGED=true ;;
+            esac
+          }
 
-          # Shared CI files activate both families
-          if echo "$CHANGED" | grep -qE "$SHARED_PATTERN"; then
-            WT_CHANGED=true
-            ST_CHANGED=true
-          fi
+          while IFS= read -r changed_file; do
+            if [ -n "$changed_file" ]; then classify "$changed_file"; fi
+          done <<< "$CHANGED"
 
           if [ "$WT_CHANGED" = "true" ] || [ "$ST_CHANGED" = "true" ]; then
             RUN_CHECKS=true
@@ -215,7 +238,7 @@ jobs:
 
     steps:
       - name: Checkout main
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
