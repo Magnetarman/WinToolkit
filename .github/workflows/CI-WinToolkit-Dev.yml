@@ -8,7 +8,7 @@ env:
   # SINGLE SOURCE OF TRUTH for the CI/CD pipeline version.
   # Edit this value, then the sync-pipeline-version job rewrites the version
   # token in every workflow and composite action (and commits the result).
-  PIPELINE_VERSION: "4.1.1"
+  PIPELINE_VERSION: "4.2.0"
   # Force Node 24 in Actions to avoid GitHub warnings about deprecated versions
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
