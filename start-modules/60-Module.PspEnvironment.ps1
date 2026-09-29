@@ -237,10 +237,6 @@ function Install-PspEnvironment {
         $result.Message = "PowerShell environment incomplete (profile installed: $($result.ProfileOk), theme installed: $($result.ThemeOk))."
     }
 
-    if (-not $result.ProfileOk -or -not $result.ThemeOk) {
-        $result.Message = "PowerShell environment incomplete (profile installed: $($result.ProfileOk), theme installed: $($result.ThemeOk))."
-    }
-
     # 5. Windows Terminal Settings Configuration (stable and preview)
     try {
         $wtPackages = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Directory `
