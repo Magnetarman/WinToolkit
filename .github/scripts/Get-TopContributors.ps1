@@ -1,4 +1,4 @@
-# WinToolkit CI/CD V4.1.0
+# WinToolkit CI/CD V4.1.1
 # Calculates Top 10 Contributors from Dev branch and updates README.
 # Dev (unprotected) -> direct commit; main (protected) -> Pull Request.
 # Scheduled runs enforce Europe/Rome 05:00-07:00 window.

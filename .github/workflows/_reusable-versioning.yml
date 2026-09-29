@@ -1,5 +1,5 @@
 # Reusable versioning
-name: WinToolkit V4.1.0 — Reusable versioning
+name: WinToolkit V4.1.1 — Reusable versioning
 
 on:
   workflow_call:

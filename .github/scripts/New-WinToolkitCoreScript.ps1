@@ -1,4 +1,4 @@
-# WinToolkit CI/CD V4.1.0
+# WinToolkit CI/CD V4.1.1
 # Build WinToolkit framework core by concatenating ordered wintoolkit-modules/*.ps1 fragments.
 [CmdletBinding()]
 param(

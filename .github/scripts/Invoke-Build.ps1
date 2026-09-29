@@ -1,4 +1,4 @@
-# WinToolkit CI/CD V4.1.0
+# WinToolkit CI/CD V4.1.1
 # Compiles WinToolkit.ps1 from wintoolkit-modules and /tools, with optional tokenizer-safe minification.
 
 [CmdletBinding()]

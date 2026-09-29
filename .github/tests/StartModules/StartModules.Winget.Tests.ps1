@@ -1,4 +1,4 @@
-# WinToolkit CI/CD V4.1.0
+# WinToolkit CI/CD V4.1.1
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 <#
