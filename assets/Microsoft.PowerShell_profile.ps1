@@ -509,8 +509,9 @@ function Assert-AdminConfirm {
         Combines the Administrator guard with a Y/N confirmation prompt.
     .DESCRIPTION
         Returns $true when the caller may continue, $false when the user cancelled or
-        lacks privileges. Each warning is displayed on its own line, in order, after the
-        admin check passes. Cancelling prints the standard "Operation cancelled" notice.
+        lacks privileges. Messages are displayed on their own line, in this order and
+        only after the admin check passes: -Warning (yellow), -Alert (red), -Info (cyan),
+        then the -Prompt. Cancelling prints the "Operation cancelled" notice.
     #>
     [CmdletBinding()]
     param(
@@ -518,6 +519,10 @@ function Assert-AdminConfirm {
         [string]$FeatureName,
 
         [string[]]$Warning = @(),
+
+        # Alert lines are printed in red, after the warnings: they state the
+        # irreversible consequence the user is about to accept.
+        [string[]]$Alert = @(),
 
         [Parameter(Mandatory = $true)]
         [string]$Prompt,
@@ -532,6 +537,7 @@ function Assert-AdminConfirm {
     }
 
     foreach ($line in $Warning) { Write-Warn $line }
+    foreach ($line in $Alert) { Write-Host $line -ForegroundColor Red }
     foreach ($line in $Info) { Write-Info $line }
 
     $confirmation = Read-Host $Prompt
@@ -1626,12 +1632,11 @@ function PS-Reset {
             '  - It will delete WinToolkit folders, logs, and temporary files.',
             '  - It will reset Windows Terminal and the PowerShell profile to factory settings.'
         ) `
+            -Alert @('  - It will automatically RESTART the system when finished.') `
             -Prompt "`n❓ Do you want to proceed irreversibly? (Y/N)" `
             -CancelledMessage 'Operation cancelled.')) {
         return
     }
-
-    Write-Host "  - It will automatically RESTART the system when finished." -ForegroundColor Red
 
     Write-Host "`n🔄 Starting deep reset procedure..." -ForegroundColor Cyan
 
@@ -1801,37 +1806,42 @@ Set-Alias -Name help -Value Show-Help
 # PROFILE BOOTSTRAP (runtime initialization - must run last)
 # ============================================================================
 
-# Oh My Posh
-$profileDir = Get-ProfileDir
-$themeName = "atomic"
-$localThemePath = Join-Path $profileDir "Themes\$themeName.omp.json"
+# Oh My Posh (guarded: the prompt must survive a machine without it)
+if (Test-CommandExists -Name "oh-my-posh") {
+    $profileDir = Get-ProfileDir
+    $themeName = "atomic"
+    $localThemePath = Join-Path $profileDir "Themes\$themeName.omp.json"
 
-if (-not (Test-Path $localThemePath)) {
-    $themeUrl = $URL_OHMYPOSH_THEME
-    try {
-        Write-Host "⬇️ Downloading Oh My Posh theme..." -ForegroundColor Cyan
-        $themesDir = Join-Path $profileDir "Themes"
-        if (-not (Test-Path $themesDir)) {
-            New-Item -ItemType Directory -Path $themesDir -Force | Out-Null
+    if (-not (Test-Path $localThemePath)) {
+        try {
+            Write-Host "⬇️ Downloading Oh My Posh theme..." -ForegroundColor Cyan
+            $themesDir = Join-Path $profileDir "Themes"
+            if (-not (Test-Path $themesDir)) {
+                New-Item -ItemType Directory -Path $themesDir -Force | Out-Null
+            }
+            Invoke-WebRequest -Uri $URL_OHMYPOSH_THEME -OutFile $localThemePath -UseBasicParsing -ErrorAction Stop
+            Write-Success "Theme '$themeName' downloaded to: $localThemePath"
         }
-        Invoke-WebRequest -Uri $themeUrl -OutFile $localThemePath -UseBasicParsing -ErrorAction Stop
-        Write-Success "Theme '$themeName' downloaded to: $localThemePath"
+        catch {
+            Write-Warning "Unable to download $themeName.omp.json theme: $($_.Exception.Message)"
+            $localThemePath = $null
+        }
     }
-    catch {
-        Write-Warning "Unable to download atomic.omp.json theme: $($_.Exception.Message)"
-        $localThemePath = $null
-    }
-}
 
-if (Test-Path $localThemePath) {
-    $ompScript = oh-my-posh init pwsh --config $localThemePath | Out-String
-    . ([ScriptBlock]::Create($ompScript))
-}
-else {
-    $fallbackUrl = $URL_OHMYPOSH_THEME
-    Write-Warning "Local theme not available. Using remote fallback."
-    $ompScript = oh-my-posh init pwsh --config $fallbackUrl | Out-String
-    . ([ScriptBlock]::Create($ompScript))
+    # Local theme only: falling back to the remote URL would block the prompt at
+    # every start when offline.
+    if (Test-Path $localThemePath) {
+        try {
+            $ompScript = oh-my-posh init pwsh --config $localThemePath | Out-String
+            . ([ScriptBlock]::Create($ompScript))
+        }
+        catch {
+            Write-Warning "Unable to initialise oh-my-posh: $($_.Exception.Message)"
+        }
+    }
+    else {
+        Write-Warning "Local theme not available. Skipping the prompt theme."
+    }
 }
 
 # zoxide
