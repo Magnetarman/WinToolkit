@@ -346,23 +346,19 @@ Describe 'Confirm-ToolkitInteractiveAction — gated confirmations' {
     }
 
     It 'accepts an explicit yes' {
-        Mock Read-Host { 'Y' }
-        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' | Should -BeTrue
+        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' -Answer 'Y' | Should -BeTrue
     }
 
     It 'accepts the Italian shorthand' {
-        Mock Read-Host { 'si' }
-        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' | Should -BeTrue
+        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' -Answer 'si' | Should -BeTrue
     }
 
     It 'treats an empty answer as a no' {
-        Mock Read-Host { '' }
-        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' | Should -BeFalse
+        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' -Answer '' | Should -BeFalse
     }
 
     It 'treats an unrecognized answer as a no' {
-        Mock Read-Host { 'maybe' }
-        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' | Should -BeFalse
+        Confirm-ToolkitInteractiveAction -Key 'uiText.confirmForcedModuleInstall0' -Answer 'maybe' | Should -BeFalse
     }
 
     It 'returns $false when the prompt itself fails' {
