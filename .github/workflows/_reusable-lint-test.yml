@@ -192,6 +192,24 @@ jobs:
             exit 1
           }
 
+      - name: Start fragment acceptance gate
+        shell: pwsh
+        run: |
+          # The acceptance gate of the start fragments: ordered-concatenation parse,
+          # no duplicate definitions, no local variable read before assignment,
+          # PSScriptAnalyzer and the compiled artefact. It used to be a local-only
+          # tool, which is how a $wingetReady-style defect reached the compiled
+          # script unnoticed: the tests never execute the orchestrator. Here it is
+          # enforced on every run.
+          #
+          # -SkipTests: the fragment suites already run in the "testing" job, so
+          # they are not executed twice.
+          & pwsh -NoProfile -File ./.github/scripts/Test-StartFragmentGate.ps1 -SkipTests
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host '::error::The start-modules acceptance gate failed; see the log for the failing section.'
+            exit $LASTEXITCODE
+          }
+
   testing:
     name: Reusable Pester tests
     if: inputs.run-checks
