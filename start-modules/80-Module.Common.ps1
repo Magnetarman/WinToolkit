@@ -103,10 +103,11 @@ function Get-ToolkitOriginalUserContext {
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     $originalUser = [Environment]::GetEnvironmentVariable($scope.EnvUser)
 
-$script:OriginalUserContext = [pscustomobject]@{
+    $script:OriginalUserContext = [pscustomobject]@{
         CurrentUser     = $currentUser
         OriginalUser    = $originalUser
         AccountSwitched = [bool]($originalUser -and $currentUser -and ($originalUser -ne $currentUser))
+        UserProfile     = [Environment]::GetEnvironmentVariable($scope.EnvUserProfile)
         Desktop         = [Environment]::GetEnvironmentVariable($scope.EnvDesktop)
         MyDocuments     = [Environment]::GetEnvironmentVariable($scope.EnvMyDocuments)
     }
