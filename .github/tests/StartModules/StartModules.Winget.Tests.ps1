@@ -323,9 +323,26 @@ Describe 'Reinstall-WingetForced — forced repair of the two WinGet packages' {
 
     It 'reports failure when WinGet is still unusable and nothing was repaired' {
         Mock Get-AppxPackage { return $null }
+        Mock Invoke-DownloadFile { return $false }        # bundle unavailable
+        Mock Install-PackageProvider { throw 'no provider' }   # module half fails too
+        Mock Install-Module { throw 'no module' }
+        Mock Get-WingetHealth { [pscustomobject]@{ Present = $false; Runs = $false; Version = $null; Reachable = $false } }
+
+        $result = Reinstall-WingetForced
+        $result.Success | Should -BeFalse
+        $result.Message | Should -Not -BeNullOrEmpty
+    }
+
+    It 'reports success on repair alone, even while WinGet still does not run' {
+        # The module install succeeded even though the health probe still fails:
+        # the two packages were reinstalled, which is what this step promises.
+        Mock Get-AppxPackage { return $null }
         Mock Invoke-DownloadFile { return $false }
         Mock Get-WingetHealth { [pscustomobject]@{ Present = $false; Runs = $false; Version = $null; Reachable = $false } }
-        (Reinstall-WingetForced).Success | Should -BeFalse
+
+        $result = Reinstall-WingetForced
+        $result.Success | Should -BeTrue
+        $result.Changed | Should -BeTrue
     }
 
     It 'refuses to run on an unsupported Windows build' {
