@@ -182,6 +182,11 @@ function Install-PspEnvironment {
     try {
         $paths = Resolve-ToolkitPowerShellProfileDirectory
         Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile directory resolved: $($paths.ProfileDirectory)"
+        # Verified BEFORE anything is written: a profile installed into another
+        # account looks successful in the log and is missing after the reboot.
+        if (-not (Test-ToolkitPathBelongsToInteractiveUser -Path $paths.ProfileDirectory)) {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.elevationSwitchedAccount0' -Args @($context.OriginalUser, $context.CurrentUser))
+        }
     }
     catch {
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.profileDirectoryUnavailable0' -Args @($_.Exception.Message))
