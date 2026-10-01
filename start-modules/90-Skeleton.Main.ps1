@@ -52,6 +52,14 @@ function Invoke-WinToolkitSetup {
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.powershell0' -Args @($PSVersionTable.PSVersion))
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingWinToolkitSetup')
 
+        # The identity context is logged explicitly and FIRST. Every user-scoped
+        # artifact (profile, theme, terminal settings, shortcut) is written under
+        # the account running the process, so a log full of successes can still
+        # describe a machine that looks untouched after the reboot. This line is
+        # what makes the difference visible instead of silent.
+        $identityContext = Get-ToolkitOriginalUserContext
+        Write-ToolkitLog -Level 'INFO' -Message "Identity: signed-in '$($identityContext.OriginalUser)' | running as '$($identityContext.CurrentUser)' | account switched: $($identityContext.AccountSwitched)."
+
         # Non-blocking: real-time protection interferes with AppX installs, but the
         # setup must continue if the user keeps Defender enabled.
         $null = Request-DefenderPause
