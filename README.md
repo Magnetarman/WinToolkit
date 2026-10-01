@@ -21,7 +21,8 @@ WinToolkit is a powerful and compact suite of PowerShell scripts, inspired by th
 >
 > - **Internet connection**;
 > - **free disk space**: >= 50 GB [(see the FAQ section)](.github/Docs/FAQ.md);
-> - **Windows >= 10 (1809)**.
+> - **Windows >= 10 (1809)**;
+> - **Local administrator account**: `start.ps1` personalizes the account that runs it, so it must be started from the account signed in to Windows. If the signed-in account is a standard one, the script stops before installing anything instead of writing every setting into the administrator profile.
 
 | Windows Versions      | Supported    |
 | :-------------------- | :----------- |
@@ -166,12 +167,13 @@ Thank you from the heart for your support!
 ---
 
 <!-- TOP_CONTRIBUTORS_START -->
+
 ## 👥 Top 10 Contributors
 
-| Rank | Contributor | Commits | PRs |
-| :--- | :--- | :--- | :--- |
-| 1 | <img src="https://avatars.githubusercontent.com/u/40738529?v=4" width="24" height="24" alt="Magnetarman" style="border-radius:50%;vertical-align:middle;"> [Magnetarman](https://github.com/magnetarman) | 2534 | 69 |
-| 2 | <img src="https://avatars.githubusercontent.com/u/45762339?v=4" width="24" height="24" alt="pomodori92" style="border-radius:50%;vertical-align:middle;"> [pomodori92](https://github.com/pomodori92) | 26 | 26 |
+| Rank | Contributor                                                                                                                                                                                              | Commits | PRs |
+| :--- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------ | :-- |
+| 1    | <img src="https://avatars.githubusercontent.com/u/40738529?v=4" width="24" height="24" alt="Magnetarman" style="border-radius:50%;vertical-align:middle;"> [Magnetarman](https://github.com/magnetarman) | 2534    | 69  |
+| 2    | <img src="https://avatars.githubusercontent.com/u/45762339?v=4" width="24" height="24" alt="pomodori92" style="border-radius:50%;vertical-align:middle;"> [pomodori92](https://github.com/pomodori92)    | 26      | 26  |
 
 <!-- TOP_CONTRIBUTORS_END -->
 
