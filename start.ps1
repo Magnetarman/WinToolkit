@@ -373,8 +373,22 @@ function Write-InteractiveUserSupport {
     .SYNOPSIS
     Reports the detected identity context and stops the run on an unsupported
     machine, before anything is installed or changed.
+
+    .DESCRIPTION
+    A refused run used to leave the user with nothing on screen to read (the
+    window closed with the console) and, before this log existed, with nothing on
+    disk either. The reason and the identity context are therefore appended to the
+    launcher log before exiting, and on an interactive console the exit waits for
+    a keypress so the explanation is still readable.
+
+    The wait is skipped when the input is redirected (CI, scheduled task,
+    irm|iex): there is no console to hold open there, and a missing keypress
+    would hang the run forever.
     #>
-    param([object]$Support)
+    param(
+        [Parameter(Mandatory = $true)][object]$Support,
+        [AllowNull()][string]$LogPath
+    )
 
     Write-Host ("[WinToolkit] Signed-in user : {0} (local administrator: {1})" -f
         $Support.InteractiveUser, $(if ($Support.InteractiveIsAdmin) { 'yes' } else { 'no' }))
@@ -400,6 +414,25 @@ function Write-InteractiveUserSupport {
     Write-Host 'again. Do not use "Run as administrator" with a different user.'
     Write-Host ''
     Write-Host ("[WinToolkit] result={0} reason={1}" -f $script:LauncherResultCodes.UnsupportedInteractiveUser, $Support.Reason)
+
+    # The refusal is the one event that leaves no other trace behind, so it is
+    # written to the log explicitly: reason and result code close the file.
+    Write-LauncherLog -Path $LogPath -Line @(
+        '[GATE] Refused: unsupported configuration. Nothing has been installed.'
+        ("[GATE] Reason        : {0}" -f $Support.Reason)
+        ("[GATE] result        : {0}" -f $script:LauncherResultCodes.UnsupportedInteractiveUser)
+        '[END WINTOOLKIT LAUNCHER]'
+    )
+
+    if ($LogPath) {
+        Write-Host ("[WinToolkit] Log          : {0}" -f $LogPath)
+    }
+
+    # Hold an interactive console open: the window would otherwise close on exit
+    # and the explanation above would disappear with it.
+    if (-not [Console]::IsInputRedirected) {
+        $null = Read-Host -Prompt 'Premi INVIO per chiudere'
+    }
 
     exit 0
 }
@@ -615,6 +648,16 @@ function Request-DefenderPause {
 }
 
 # ---------------------------------------------------------------------------
+# Launcher diagnostic log.
+#
+# Created BEFORE the gate, so a refused run leaves a file behind too: that is
+# exactly the case that used to leave the user with an empty screen and no
+# evidence at all. Best-effort throughout: a machine where the folder cannot be
+# created must still run the launcher.
+# ---------------------------------------------------------------------------
+$launcherLogPath = Get-LauncherLogPath
+
+# ---------------------------------------------------------------------------
 # Supported configuration gate.
 #
 # It runs BEFORE anything is installed or changed, Defender included, because
@@ -623,6 +666,10 @@ function Request-DefenderPause {
 # the wrong profile and the run would still report success.
 # ---------------------------------------------------------------------------
 $support = Get-InteractiveUserSupport
+
+# The header is written here, after the context is known, and on every run:
+# refused or successful alike.
+Write-LauncherLogHeader -Support $support -Path $launcherLogPath
 
 if ($PrintContext) {
     # Diagnostics only: the context is printed and the launcher exits without
@@ -634,10 +681,13 @@ if ($PrintContext) {
     Write-Host ("[WinToolkit] Supported       : {0}" -f $support.Supported)
     Write-Host ("[WinToolkit] Reason          : {0}" -f $(if ($support.Reason) { $support.Reason } else { 'none' }))
     Write-Host ("[WinToolkit] result={0}" -f $(if ($support.Supported) { $script:LauncherResultCodes.Ready } else { $script:LauncherResultCodes.UnsupportedInteractiveUser }))
+    if ($launcherLogPath) {
+        Write-Host ("[WinToolkit] Log          : {0}" -f $launcherLogPath)
+    }
     exit 0
 }
 
-Write-InteractiveUserSupport -Support $support
+Write-InteractiveUserSupport -Support $support -LogPath $launcherLogPath
 
 $env:WTOOLKIT_LANGUAGE = $Language
 Request-DefenderPause
