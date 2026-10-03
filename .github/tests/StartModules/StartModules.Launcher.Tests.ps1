@@ -81,6 +81,13 @@ Describe 'Get-InteractiveUserSupport' {
     It 'names the reason when the configuration is not supported' {
         $support = Get-InteractiveUserSupport
         if ($support.Supported) {
+            $support.Reason | Should -BeNullOrEmpty
+        }
+        else {
+            $support.Reason | Should -BeIn @('NotLocalAdministrator', 'AccountMismatch')
+        }
+    }
+}
 
 Describe 'start.ps1 contract' {
     It 'parses and stays compatible with Windows PowerShell 5.1 (ASCII only)' {
@@ -131,13 +138,5 @@ Describe 'start.ps1 contract' {
         $text | Should -Match '\[WinToolkit\] Running as\s*:'
         $text | Should -Match '\[WinToolkit\] Supported\s*:'
         $text | Should -Match '\[WinToolkit\] result=\d+'
-    }
-}
-
-            $support.Reason | Should -BeNullOrEmpty
-        }
-        else {
-            $support.Reason | Should -BeIn @('NotLocalAdministrator', 'AccountMismatch')
-        }
     }
 }
