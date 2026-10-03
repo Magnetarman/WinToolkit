@@ -136,6 +136,7 @@ $AppConfig.URLs.DriverOverridesJson   = "$RepoRawBase/assets/DriverOverrides.jso
 $AppConfig.URLs.DirectXWebSetup       = "$RepoRawBase/assets/dxwebsetup.exe"
 $AppConfig.URLs.LanguagesRawUrl = "$RepoBase/languages"
 $AppConfig.URLs.LanguagesApiUrl = "https://api.github.com/repos/Magnetarman/WinToolkit/contents/languages?ref=$Branch"
+$Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
 $Global:MsgStyles = @{
     Success  = @{ Icon = '✅'; Color = 'Green' }
     Warning  = @{ Icon = '⚠️'; Color = 'Yellow' }
@@ -477,6 +478,13 @@ function Write-ProgressUpdate {
     Clear-ProgressLine
     Show-ProgressBar -Activity $Activity -Status $Status -Percent $Percent -Icon $Icon -Spinner $Spinner -Color $Color
 }
+function Get-SpinnerChar {
+    param([ref]$Index)
+    if (-not $Global:Spinners -or $Global:Spinners.Length -eq 0) { return '' }
+    $position = $Index.Value % $Global:Spinners.Length
+    $Index.Value++
+    return $Global:Spinners[$position]
+}
 function Show-Header {
     param([string]$SubTitle)
     if ($Global:GuiSessionActive) { return }
@@ -776,7 +784,7 @@ function Invoke-ExternalCommandWithLog {
         if ($Activity) {
             $spinnerIndex = 0; $percent = 0
             while (-not $proc.HasExited -and ($TimeoutSeconds -eq 0 -or ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds)) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                $spinner = Get-SpinnerChar -Index ([ref]$spinnerIndex)
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
                 if ($percent -lt 90) { $percent += Get-Random -Minimum 1 -Maximum 3 }
                 Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
@@ -814,6 +822,11 @@ function Invoke-ExternalCommandWithLog {
     catch {
         $exitCode = if ($null -ne $exitCode) { $exitCode } else { -1 }
         if ($_.Exception.Message -match 'Timeout') { $timedOut = $true }
+        if ($proc -and -not $proc.HasExited) {
+            try { $proc.Kill() } catch {
+                Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ExternalCommandWithLog 4: $($_.Exception.Message)"
+            }
+        }
         Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.exceptionWhileRunningExternalCommand') -Context @{
             Command = $Command; Arguments = $Arguments; WorkingDir = $WorkingDirectory
             TimeoutSec = $TimeoutSeconds; ContextKey = $LogContextKey
@@ -870,7 +883,7 @@ function Invoke-WithSpinner {
         if ($Timer) {
             $totalSeconds = $TimeoutSeconds
             for ($i = $totalSeconds; $i -gt 0; $i--) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                $spinner = Get-SpinnerChar -Index ([ref]$spinnerIndex)
                 $percent = if ($PercentUpdate) { & $PercentUpdate } else { [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100) }
                 Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.01Seconds' -Args @($Activity, $i)) -Status '' -Percent $percent -Icon '⏳' -Spinner $spinner -Color 'Yellow'
                 Start-Sleep -Seconds 1
@@ -880,7 +893,7 @@ function Invoke-WithSpinner {
         }
         elseif ($Process -and $result -and $result.GetType().Name -eq 'Process') {
             while (-not $result.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                $spinner = Get-SpinnerChar -Index ([ref]$spinnerIndex)
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
                 $percent = if ($PercentUpdate) { & $PercentUpdate } elseif ($percent -lt 90) { $percent + (Get-Random -Minimum 1 -Maximum 3) } else { $percent }
                 Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
@@ -901,7 +914,7 @@ function Invoke-WithSpinner {
         elseif ($Job -and $result -is [System.Management.Automation.Job]) {
             try {
                 while ($result.State -eq 'Running' -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
-                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                    $spinner = Get-SpinnerChar -Index ([ref]$spinnerIndex)
                     $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
                     $percent = if ($PercentUpdate) { & $PercentUpdate } elseif ($percent -lt 90) { $percent + (Get-Random -Minimum 1 -Maximum 3) } else { $percent }
                     Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
@@ -2945,7 +2958,7 @@ function WinBackupDriver {
             -Job -TimeoutSeconds 800 -Action $compressionAction
         if ($compressionSucceeded -eq $true -and (Test-Path $archivePath -PathType Leaf)) {
             $compressedSizeMB  = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
-            $compressionRatio  = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
+            $compressionRatio  = if ($totalSizeMB -gt 0) { [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1) } else { 0 }
             Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.compressionCompleted0MbReduction1' -Args @($compressedSizeMB, $compressionRatio))
             return $archivePath
         }
@@ -4678,7 +4691,7 @@ function Uninstall-Office {
                         $spinnerIndex = 0
                         while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalSeconds -lt 2700) {
                             $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
-                            $spinner = if ($Global:Spinners) { $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length] } else { '' }
+                            $spinner = Get-SpinnerChar -Index ([ref]$spinnerIndex)
                             Write-ProgressUpdate -Activity (Get-SourceTextLoc 'toolText.removingOffice') -Status (Get-SourceTextLoc 'toolText.inProgress0Seconds' -Args @($elapsed)) -Percent 90 -Icon '⏳' -Spinner $spinner
                             Start-Sleep -Milliseconds 500
                         }
