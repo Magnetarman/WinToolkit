@@ -314,6 +314,60 @@ function Write-LauncherLog {
 }
 
 
+function Write-LauncherLogHeader {
+    <#
+    .SYNOPSIS
+    Writes the launcher log header: the context needed to triage a failed run.
+
+    .DESCRIPTION
+    Written on EVERY launcher start, on a refused run as well as on a successful
+    one, so the file alone answers "what ran, as whom, against which artifact".
+
+    CoreUrl is recorded on purpose: the launcher always downloads start-core.ps1
+    from the branch hardcoded at the top of this file, so a user reporting a
+    problem is very often running an artifact that does not match the sources
+    they are editing. That single line is what makes the mismatch visible.
+
+    ASCII only: this file runs under Windows PowerShell 5.1 before elevation.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][object]$Support,
+        [AllowNull()][string]$Path
+    )
+
+    $osVersion = $null
+    $osBuild = $null
+    try {
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+        $osVersion = $os.Version
+        $osBuild = $os.BuildNumber
+    }
+    catch {
+        Write-Verbose "OS information unavailable: $($_.Exception.Message)"
+    }
+
+    Write-LauncherLog -Path $Path -Line @(
+        '================================================================'
+        '[START WINTOOLKIT LAUNCHER]'
+        ("StartTime      : {0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
+        ("Launcher       : {0}" -f $PSCommandPath)
+        ("CoreUrl        : {0}" -f $CoreScriptUrl)
+        ("PSVersion      : {0} ({1})" -f $PSVersionTable.PSVersion, $PSVersionTable.PSEdition)
+        ("OS             : {0} (build {1})" -f $(if ($osVersion) { $osVersion } else { 'unknown' }),
+            $(if ($osBuild) { $osBuild } else { 'unknown' }))
+        ("SignedInUser   : {0}" -f $Support.InteractiveUser)
+        ("RunningAs      : {0}" -f $Support.CurrentUser)
+        ("Elevated       : {0}" -f (Test-IsAdministrator))
+        ("SameAccount    : {0}" -f $Support.SameAccount)
+        ("LocalAdmin     : {0}" -f $Support.InteractiveIsAdmin)
+        ("Supported      : {0}" -f $Support.Supported)
+        ("Reason         : {0}" -f $(if ($Support.Reason) { $Support.Reason } else { 'none' }))
+        ("LogFile        : {0}" -f $(if ($Path) { $Path } else { 'unavailable' }))
+        '================================================================'
+    )
+}
+
+
 function Write-InteractiveUserSupport {
     <#
     .SYNOPSIS
